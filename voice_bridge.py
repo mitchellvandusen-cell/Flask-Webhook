@@ -2545,7 +2545,6 @@ def _fetch_all_ghl_contacts(location_id, access_token, ghl_query=None):
         params["query"] = ghl_query
     token_refreshed = False
     fetch_complete = True  # assume complete unless we hit max_pages cap
-    prev_cursor = None  # track previous startAfterId to detect stuck pagination
 
     logger.info(f"[Contacts] {location_id} starting paginated fetch (page_limit={page_limit}, max_pages={max_pages}, query={ghl_query!r})")
 
@@ -2599,30 +2598,25 @@ def _fetch_all_ghl_contacts(location_id, access_token, ghl_query=None):
             logger.info(f"[Contacts] Page {page_num+1} returned {len(contacts)} < {page_limit} — last page reached naturally")
             break
 
-        # GHL pagination: try cursor ID → numeric offset → full URL → total-based
+        # GHL pagination: requires BOTH startAfterId AND startAfter from response meta
+        # See: https://marketplace.gohighlevel.com/docs/ghl/contacts/get-contacts/index.html
         start_after_id = meta.get("startAfterId") or meta.get("nextPageStartAfterId")
-        start_after_offset = meta.get("startAfter")
+        start_after_val = meta.get("startAfter")
         next_page_url = meta.get("nextPageUrl") or meta.get("nextPage")
 
-        if start_after_id:
-            # Guard: detect stuck cursor (GHL returning same startAfterId repeatedly)
-            if start_after_id == prev_cursor:
-                logger.warning(f"[Contacts] Stuck cursor detected — startAfterId {start_after_id!r} unchanged from previous page. "
-                               f"Stopping at {len(all_contacts)} contacts (meta.total={meta_total})")
-                break
-            prev_cursor = start_after_id
-            # Cursor-based pagination (most reliable)
-            params["startAfterId"] = start_after_id
-            params.pop("startAfter", None)
+        if start_after_id or start_after_val:
+            # GHL requires both cursors together for proper pagination
+            if start_after_id:
+                params["startAfterId"] = start_after_id
+            else:
+                params.pop("startAfterId", None)
+            if start_after_val is not None:
+                params["startAfter"] = start_after_val
+            else:
+                params.pop("startAfter", None)
             # Reset URL in case a previous iteration used nextPageUrl
             url = base_url
-            logger.info(f"[Contacts] Next page via startAfterId cursor: {start_after_id}")
-        elif isinstance(start_after_offset, (int, float)) and start_after_offset > 0:
-            # Numeric offset pagination (startAfter != startAfterId)
-            params["startAfter"] = int(start_after_offset)
-            params.pop("startAfterId", None)
-            url = base_url
-            logger.info(f"[Contacts] Next page via startAfter offset: {int(start_after_offset)}")
+            logger.info(f"[Contacts] Next page via cursor: startAfterId={start_after_id}, startAfter={start_after_val}")
         elif isinstance(next_page_url, str) and next_page_url.startswith("http"):
             # Full URL provided by GHL — use it but keep auth headers
             url = next_page_url
