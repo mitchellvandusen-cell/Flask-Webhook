@@ -484,7 +484,7 @@ def select_outbound_number(location_id, voice_config, dest_phone=None):
 
         candidates.append({
             "phone": phone,
-            "health_score": h.get("health_score", 50.0),
+            "health_score": float(h.get("health_score", 50.0)),
             "daily_calls": daily_calls,
             "daily_cap": daily_cap,
             "status": status,
