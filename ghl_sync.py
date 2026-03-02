@@ -1192,19 +1192,36 @@ def _deep_list_all_conversations(location_id, headers):
         auth_retries = 0  # Reset on success
         logger.info(f"[DEEP_SYNC] {location_id} | Listed {len(all_convos)} conversations (page {page+1})")
 
-        # Pagination: GHL uses startAfterDate or nextPage for conversation listing
+        # Pagination: GHL uses startAfterId + startAfter cursors (same as contacts API)
         meta = data.get("meta", {})
-        start_after = meta.get("startAfterDate") or meta.get("startAfterId") or meta.get("nextPageStartAfterId")
+        start_after_id = meta.get("startAfterId") or meta.get("nextPageStartAfterId")
+        start_after_val = meta.get("startAfter") or meta.get("startAfterDate")
         next_page_url = meta.get("nextPageUrl") or meta.get("nextPage")
 
-        if start_after:
-            params["startAfterDate"] = start_after
+        if start_after_id or start_after_val:
+            # GHL requires both cursors together for proper pagination
+            if start_after_id:
+                params["startAfterId"] = start_after_id
+            else:
+                params.pop("startAfterId", None)
+            if start_after_val is not None:
+                params["startAfter"] = start_after_val
+            else:
+                params.pop("startAfter", None)
+            # Reset URL in case a previous iteration used nextPageUrl
+            url = f"{GHL_BASE}/conversations/search"
+            logger.info(f"[DEEP_SYNC] {location_id} | Next page via cursor: "
+                        f"startAfterId={start_after_id}, startAfter={start_after_val}")
         elif isinstance(next_page_url, str) and next_page_url.startswith("http"):
             url = next_page_url
             params = {}
+            logger.info(f"[DEEP_SYNC] {location_id} | Next page via full URL")
         elif len(convos) < 100:
-            break  # Last page
+            break  # Last page (got fewer than limit)
         else:
+            # Got full page but no cursor — try offset fallback
+            logger.warning(f"[DEEP_SYNC] {location_id} | No pagination cursor after page {page+1} "
+                           f"(meta={list(meta.keys())}) — stopping listing")
             break
 
         _time.sleep(_DEEP_SYNC_PACE)
