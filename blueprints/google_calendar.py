@@ -26,7 +26,7 @@ google_calendar_bp = Blueprint('google_calendar', __name__)
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_CALENDAR_API = "https://www.googleapis.com/calendar/v3"
-SCOPES = "https://www.googleapis.com/auth/calendar.readonly"
+SCOPES = "https://www.googleapis.com/auth/calendar.events.readonly"
 
 
 # ── Private helpers ───────────────────────────────────────────────────────────
