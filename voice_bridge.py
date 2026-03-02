@@ -2538,12 +2538,15 @@ def _fetch_all_ghl_contacts(location_id, access_token, ghl_query=None):
     all_contacts = []
     page_limit = 100
     max_pages = 100  # 10,000 contacts max
-    url = f"{GHL_API_BASE}/contacts/"
+    base_url = f"{GHL_API_BASE}/contacts/"
+    url = base_url
     params = {"locationId": location_id, "limit": page_limit}
     if ghl_query:
         params["query"] = ghl_query
     token_refreshed = False
     fetch_complete = True  # assume complete unless we hit max_pages cap
+
+    logger.info(f"[Contacts] {location_id} starting paginated fetch (page_limit={page_limit}, max_pages={max_pages}, query={ghl_query!r})")
 
     for page_num in range(max_pages):
         try:
@@ -2576,43 +2579,62 @@ def _fetch_all_ghl_contacts(location_id, access_token, ghl_query=None):
 
         data = resp.json()
         contacts = data.get("contacts", [])
+        meta = data.get("meta", {})
+        meta_total = meta.get("total")
+
         if not contacts:
+            logger.info(f"[Contacts] Page {page_num+1} returned 0 contacts — pagination complete (total so far: {len(all_contacts)}, meta.total={meta_total})")
             break
         all_contacts.extend(contacts)
 
-        if page_num > 0 and page_num % 10 == 0:
-            logger.info(f"[Contacts] {location_id} fetched {len(all_contacts)} contacts so far (page {page_num+1})")
+        logger.info(f"[Contacts] Page {page_num+1}: got {len(contacts)} contacts (running total: {len(all_contacts)}, meta.total={meta_total}, meta keys: {list(meta.keys())})")
 
         if len(contacts) < page_limit:
+            logger.info(f"[Contacts] Page {page_num+1} returned {len(contacts)} < {page_limit} — last page reached naturally")
             break
 
         # GHL pagination: try cursor ID → numeric offset → full URL → total-based
-        meta = data.get("meta", {})
         start_after_id = meta.get("startAfterId") or meta.get("nextPageStartAfterId")
         start_after_offset = meta.get("startAfter")
         next_page_url = meta.get("nextPageUrl") or meta.get("nextPage")
-        meta_total = meta.get("total")
 
         if start_after_id:
             # Cursor-based pagination (most reliable)
             params["startAfterId"] = start_after_id
             params.pop("startAfter", None)
+            # Reset URL in case a previous iteration used nextPageUrl
+            url = base_url
+            logger.info(f"[Contacts] Next page via startAfterId cursor: {start_after_id}")
         elif isinstance(start_after_offset, (int, float)) and start_after_offset > 0:
             # Numeric offset pagination (startAfter != startAfterId)
             params["startAfter"] = int(start_after_offset)
             params.pop("startAfterId", None)
+            url = base_url
+            logger.info(f"[Contacts] Next page via startAfter offset: {int(start_after_offset)}")
         elif isinstance(next_page_url, str) and next_page_url.startswith("http"):
-            # Full URL provided by GHL
+            # Full URL provided by GHL — use it but keep auth headers
             url = next_page_url
             params = {}
+            logger.info(f"[Contacts] Next page via full URL: {next_page_url[:120]}")
         elif meta_total and len(all_contacts) < meta_total:
             # We know there are more contacts (meta.total tells us) but no cursor —
             # fall back to offset-based pagination using contact count so far
             params["startAfter"] = len(all_contacts)
             params.pop("startAfterId", None)
+            url = base_url
+            logger.info(f"[Contacts] No cursor but meta.total={meta_total} > {len(all_contacts)} — using offset fallback startAfter={len(all_contacts)}")
         else:
-            logger.warning(f"[Contacts] No pagination cursor after page {page_num+1} (meta={meta}) — stopping at {len(all_contacts)} contacts")
-            break
+            # Last resort: if we got a full page (100) it's likely there are more contacts.
+            # GHL sometimes returns no cursor and no meta.total — try offset-based anyway.
+            if len(contacts) == page_limit:
+                params["startAfter"] = len(all_contacts)
+                params.pop("startAfterId", None)
+                url = base_url
+                logger.warning(f"[Contacts] No pagination cursor AND no meta.total after page {page_num+1} (meta={meta}) — "
+                               f"got full page of {page_limit}, trying offset fallback startAfter={len(all_contacts)}")
+            else:
+                logger.warning(f"[Contacts] No pagination cursor after page {page_num+1} (meta={meta}) — stopping at {len(all_contacts)} contacts")
+                break
 
         # Brief pause to be kind to GHL API
         time.sleep(0.3)
@@ -2645,7 +2667,7 @@ def _fetch_all_ghl_contacts(location_id, access_token, ghl_query=None):
 
     if skipped_no_phone:
         logger.info(f"[Contacts] {location_id} skipped {skipped_no_phone} contacts without phone numbers")
-    logger.info(f"[Contacts] {location_id} returning {len(result)} contacts with phone numbers")
+    logger.info(f"[Contacts] {location_id} returning {len(result)} contacts with phone numbers (raw={len(all_contacts)}, no_phone={skipped_no_phone})")
     return result, fetch_complete
 
 
@@ -2719,22 +2741,28 @@ def _background_contact_sync(location_id):
     Thread-safe: only one sync per location at a time."""
     with _contact_sync_lock:
         if location_id in _contact_sync_active:
+            logger.info(f"[BgSync] {location_id} already syncing — skipping duplicate request")
             return
         _contact_sync_active.add(location_id)
+
+    logger.info(f"[BgSync] {location_id} starting background contact cache sync")
 
     def _do_sync():
         try:
             access_token = get_valid_token(location_id)
             if not access_token:
-                logger.warning(f"Background contact sync: no token for {location_id}")
+                logger.warning(f"[BgSync] {location_id} no valid token — cannot sync contacts")
                 return
+            logger.info(f"[BgSync] {location_id} fetching all contacts from GHL...")
             contacts, fetch_complete = _fetch_all_ghl_contacts(location_id, access_token)
             if contacts:
                 from db import upsert_contact_cache
                 upsert_contact_cache(location_id, contacts, prune_stale=fetch_complete)
-                logger.info(f"Background contact sync complete: {len(contacts)} contacts for {location_id} (complete={fetch_complete})")
+                logger.info(f"[BgSync] {location_id} DONE — cached {len(contacts)} contacts (fetch_complete={fetch_complete})")
+            else:
+                logger.warning(f"[BgSync] {location_id} GHL returned 0 contacts — cache NOT updated")
         except Exception as e:
-            logger.error(f"Background contact sync failed for {location_id}: {e}")
+            logger.error(f"[BgSync] {location_id} FAILED: {e}", exc_info=True)
         finally:
             with _contact_sync_lock:
                 _contact_sync_active.discard(location_id)
