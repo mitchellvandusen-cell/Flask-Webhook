@@ -24,11 +24,12 @@ spacy
 en_core_web_md @ https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.8.0/en_core_web_md-3.8.0-py3-none-any.whl
 dateparser
 
-# Google Sheets & OAuth
+# Google Sheets, Calendar & OAuth
 gspread
 google-auth
 google-auth-oauthlib
 google-auth-httplib2
+google-api-python-client  # Google Calendar API
 oauth2client==4.1.3  # Legacy but still needed for some GHL flows
 
 # Stripe payments

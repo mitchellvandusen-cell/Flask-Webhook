@@ -301,6 +301,7 @@ from blueprints.admin import admin_bp
 from blueprints.agency import agency_bp
 from blueprints.dashboard import dashboard_bp
 from blueprints.oauth import oauth_bp
+from blueprints.google_calendar import google_calendar_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(public_bp)
@@ -313,6 +314,7 @@ app.register_blueprint(admin_bp)
 app.register_blueprint(agency_bp)
 app.register_blueprint(dashboard_bp)
 app.register_blueprint(oauth_bp)
+app.register_blueprint(google_calendar_bp)
 
 logger.info("All modular blueprints registered successfully.")
 

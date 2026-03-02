@@ -1501,6 +1501,22 @@ def init_db() -> bool:
             conn.rollback()
             logger.debug(f"carrier_blocked migration note: {e}")
 
+        # Phase 6: Google Calendar integration config
+        try:
+            cur.execute("""
+                ALTER TABLE subscribers
+                ADD COLUMN IF NOT EXISTS google_calendar_config JSONB DEFAULT '{}'::jsonb
+            """)
+            cur.execute("""
+                ALTER TABLE agency_billing
+                ADD COLUMN IF NOT EXISTS google_calendar_config JSONB DEFAULT '{}'::jsonb
+            """)
+            conn.commit()
+            logger.info("✅ Migration: Added google_calendar_config column")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"google_calendar_config migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)
@@ -1581,6 +1597,9 @@ class User(UserMixin):
 
         # SMS channel selection: 'ghl' (default) or '+1234567890' (Twilio number)
         self.sms_send_via = data.get('sms_send_via', 'ghl')
+
+        # Google Calendar integration
+        self.google_calendar_config = data.get('google_calendar_config') or {}
 
         # Timestamps
         self.created_at = data.get('created_at')
@@ -3320,6 +3339,72 @@ def delete_discord_webhook_channel(email: str, channel_id: str) -> bool:
         return False
     finally:
         return_db_connection(conn)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  GOOGLE CALENDAR — OAuth token persistence via JSONB column
+# ═══════════════════════════════════════════════════════════════
+
+def save_google_calendar_config(location_id: str, config: dict) -> bool:
+    """Save Google Calendar OAuth config to subscribers.google_calendar_config JSONB."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        import json as _json
+        cur.execute("""
+            UPDATE subscribers
+            SET google_calendar_config = %s::jsonb,
+                updated_at = NOW()
+            WHERE location_id = %s
+        """, (_json.dumps(config), location_id))
+        if cur.rowcount == 0:
+            cur.execute("""
+                UPDATE agency_billing
+                SET google_calendar_config = %s::jsonb,
+                    updated_at = NOW()
+                WHERE location_id = %s
+            """, (_json.dumps(config), location_id))
+        conn.commit()
+        cur.close()
+        return True
+    except Exception as e:
+        logger.error(f"save_google_calendar_config failed for {location_id}: {e}")
+        conn.rollback()
+        return False
+    finally:
+        return_db_connection(conn)
+
+
+def get_google_calendar_config(location_id: str) -> dict:
+    """Get Google Calendar config from subscribers.google_calendar_config JSONB."""
+    conn = get_db_connection()
+    if not conn:
+        return {}
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""
+            SELECT google_calendar_config FROM subscribers WHERE location_id = %s
+        """, (location_id,))
+        row = cur.fetchone()
+        if not row:
+            cur.execute("""
+                SELECT google_calendar_config FROM agency_billing WHERE location_id = %s
+            """, (location_id,))
+            row = cur.fetchone()
+        cur.close()
+        return dict(row['google_calendar_config']) if row and row.get('google_calendar_config') else {}
+    except Exception as e:
+        logger.error(f"get_google_calendar_config failed for {location_id}: {e}")
+        return {}
+    finally:
+        return_db_connection(conn)
+
+
+def delete_google_calendar_config(location_id: str) -> bool:
+    """Clear Google Calendar config (disconnect)."""
+    return save_google_calendar_config(location_id, {})
 
 
 # ═══════════════════════════════════════════════════════════════
