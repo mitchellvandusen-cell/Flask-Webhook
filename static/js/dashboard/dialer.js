@@ -616,6 +616,7 @@
             const sel = document.getElementById('dialerPipelineFilter');
             const manualWrap = document.getElementById('dialerPipelineManual');
             const stageSel = document.getElementById('dialerStageFilter');
+            if (!sel || !stageSel) return;
             try {
                 console.log('[Dialer] Fetching pipelines...');
                 const r = await fetch('/voice/pipelines');
@@ -934,7 +935,7 @@
             // fall back to temperature + timestamp check
             if (intel.temperature !== 'hot' && intel.temperature !== 'warm') return false;
             const eng = _igbEngagementCache[contactId];
-            if (!eng) return false;
+            if (!eng || !eng.messages) return false;
             const lastLead = eng.messages.last_lead_at;
             const lastBot = eng.messages.last_assistant_at;
             if (lastLead && (!lastBot || lastLead > lastBot)) return true;
@@ -1824,11 +1825,11 @@
                         const hasTx = c.transcript && c.transcript.length > 0;
                         return '<div style="display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.78rem;">' +
                             '<div style="width:6px;height:6px;border-radius:50%;background:' + statusColor + ';flex-shrink:0;"></div>' +
-                            '<div style="flex:1;min-width:0;"><div style="font-weight:600;">' + (c.direction || 'outbound') + '</div><div style="font-size:.68rem;color:#555;">' + dt + '</div></div>' +
-                            '<div style="color:' + statusColor + ';font-size:.7rem;font-weight:600;">' + (c.status || '').replace('-',' ') + '</div>' +
+                            '<div style="flex:1;min-width:0;"><div style="font-weight:600;">' + dialerEsc(c.direction || 'outbound') + '</div><div style="font-size:.68rem;color:#555;">' + dt + '</div></div>' +
+                            '<div style="color:' + statusColor + ';font-size:.7rem;font-weight:600;">' + dialerEsc((c.status || '').replace('-',' ')) + '</div>' +
                             '<div style="color:#888;font-size:.7rem;">' + durMin + '</div>' +
                             (hasRec ? '<button onclick="playRecording(\'' + dialerEsc(c.recording_url) + '\')" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:4px;padding:2px 6px;font-size:.65rem;cursor:pointer;" title="Play"><i class="fa-solid fa-play"></i></button>' : '') +
-                            (hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.65rem;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
+                            (hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/</g, '\\x3c') + ')\' style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.65rem;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
                         '</div>';
                     }).join('');
                 }
