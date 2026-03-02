@@ -4292,6 +4292,12 @@
                     // Refresh badges with new data
                     dialerFetchCallCounts().then(() => dialerFetchMergedCounts());
                 }
+                // Reload contacts to pick up refreshed contact cache (backend refreshes alongside deep sync)
+                dialerLoadContacts(
+                    document.getElementById('dialerPipelineFilter').value,
+                    document.getElementById('dialerStageFilter').value,
+                    true  // forceRefresh
+                );
                 // Hide after 12 seconds (longer to give time to click re-sync if needed)
                 setTimeout(() => {
                     const banner = document.getElementById('deepSyncBanner');
@@ -4344,7 +4350,9 @@
                     // Show the banner with initial state
                     _deepSyncShowBanner({ contacts_processed: 0, messages_synced: 0, status: 'running' });
                     _deepSyncPoll();
-                    if (typeof _showDashToast === 'function') _showDashToast(true, 'Deep sync reset — re-pulling all history');
+                    // Also trigger contact cache sync (backend does this too, but belt-and-suspenders)
+                    fetch('/voice/contacts/sync', { method: 'POST' }).catch(() => {});
+                    if (typeof _showDashToast === 'function') _showDashToast(true, 'Re-syncing history + refreshing contacts from CRM');
                 }
             } catch(e) {
                 console.error('[DeepSync] Reset failed:', e);

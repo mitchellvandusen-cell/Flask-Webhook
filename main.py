@@ -3476,6 +3476,14 @@ def api_sync_deep_pull():
             result_ttl=86400,
             job_id=f"deep-sync-{location_id}",
         )
+
+        # Also trigger a contact cache refresh so the dialer contact count updates
+        try:
+            from voice_bridge import _background_contact_sync
+            _background_contact_sync(location_id)
+        except Exception as ce:
+            logger.warning(f"Contact cache refresh trigger failed (non-fatal): {ce}")
+
         return safe_jsonify({"status": "started", "job_id": job.id})
 
     except Exception as e:
@@ -3547,6 +3555,15 @@ def api_sync_deep_pull_reset():
             job_id=job_id,
         )
         logger.info(f"Deep sync reset and re-queued for {location_id}")
+
+        # Also trigger a contact cache refresh so the dialer contact count updates
+        try:
+            from voice_bridge import _background_contact_sync
+            _background_contact_sync(location_id)
+            logger.info(f"Contact cache refresh triggered alongside deep sync for {location_id}")
+        except Exception as ce:
+            logger.warning(f"Contact cache refresh trigger failed (non-fatal): {ce}")
+
         return safe_jsonify({"status": "reset_and_started", "job_id": job.id})
 
     except Exception as e:
