@@ -873,12 +873,20 @@
                                                 <span class="ios-app-label">Call History</span>
                                                 <span class="ios-badge" id="iosBadgeCalls" style="display:none;">0</span>
                                             </button>
+                                            <!-- Voicemail App -->
+                                            <button class="ios-app-icon" onclick="iosOpenApp('voicemail')">
+                                                <div class="ios-icon" style="background:linear-gradient(180deg,#FF9500 0%,#FF6B00 100%);">
+                                                    <i class="fa-solid fa-voicemail"></i>
+                                                </div>
+                                                <span class="ios-app-label">Voicemail</span>
+                                                <span class="ios-badge" id="iosBadgeVoicemail" style="display:none;">0</span>
+                                            </button>
                                             <!-- Recording History App -->
                                             <button class="ios-app-icon" onclick="iosOpenApp('recordings')">
                                                 <div class="ios-icon ios-icon-voicemail">
-                                                    <i class="fa-solid fa-voicemail"></i>
+                                                    <i class="fa-solid fa-record-vinyl"></i>
                                                 </div>
-                                                <span class="ios-app-label">Recording History</span>
+                                                <span class="ios-app-label">Recordings</span>
                                                 <span class="ios-badge" id="iosBadgeRecs" style="display:none;">0</span>
                                             </button>
                                             <!-- Inbox App (iMessage-style Conversations) -->
@@ -1038,6 +1046,40 @@
                                                     <div class="ios-empty-sub">Recorded calls will appear here</div>
                                                 </div>
                                             </div>
+                                        </div>
+                                        <div class="ios-home-indicator-bar"><div class="ios-home-indicator ios-home-indicator-dark"></div></div>
+                                    </div>
+
+                                    <!-- ═══ VOICEMAIL APP (iPhone-style) ═══ -->
+                                    <div class="ios-app-view" id="iosAppVoicemail" style="display:none;">
+                                        <div class="ios-nav-bar" style="background:rgba(255,149,0,0.04);border-bottom:1px solid rgba(255,149,0,0.1);">
+                                            <button class="ios-back-btn" onclick="iosGoHome()">
+                                                <i class="fa-solid fa-chevron-left"></i>
+                                            </button>
+                                            <div class="ios-nav-title">
+                                                <div style="font-weight:700;font-size:0.95rem;">Voicemail</div>
+                                            </div>
+                                            <div style="display:flex;gap:4px;">
+                                                <button onclick="vmRefresh()" class="ios-nav-action" title="Refresh">
+                                                    <i class="fa-solid fa-arrows-rotate" id="vmRefreshIcon"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+                                            <div id="vmList" style="padding:0;">
+                                                <div class="ios-empty-state" style="padding-top:60px;">
+                                                    <div class="ios-empty-icon" style="background:rgba(255,149,0,0.08);border-color:rgba(255,149,0,0.15);">
+                                                        <i class="fa-solid fa-voicemail" style="color:#FF9500;"></i>
+                                                    </div>
+                                                    <div class="ios-empty-title">No Voicemail</div>
+                                                    <div class="ios-empty-sub">Missed calls with messages will appear here</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- Audio player bar (hidden by default) -->
+                                        <div id="vmPlayerBar" style="display:none;padding:10px 14px;background:rgba(255,149,0,0.06);border-top:1px solid rgba(255,149,0,0.1);flex-shrink:0;">
+                                            <div id="vmPlayerContent"></div>
+                                            <audio id="vmAudioPlayer" style="display:none;"></audio>
                                         </div>
                                         <div class="ios-home-indicator-bar"><div class="ios-home-indicator ios-home-indicator-dark"></div></div>
                                     </div>

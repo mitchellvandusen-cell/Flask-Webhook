@@ -29,7 +29,7 @@
         function iosOpenApp(app) {
             _iosCurrentApp = app;
             const home = document.getElementById('iosHome');
-            const apps = { messages: 'iosAppMessages', calls: 'iosAppCalls', recordings: 'iosAppRecordings', inbox: 'iosAppInbox', calendar: 'iosAppCalendar' };
+            const apps = { messages: 'iosAppMessages', calls: 'iosAppCalls', recordings: 'iosAppRecordings', voicemail: 'iosAppVoicemail', inbox: 'iosAppInbox', calendar: 'iosAppCalendar' };
             if (home) home.style.display = 'none';
             Object.keys(apps).forEach(k => {
                 const el = document.getElementById(apps[k]);
@@ -39,13 +39,14 @@
             if (app === 'messages') dlrRefreshMessages();
             if (app === 'calls') dialerLoadAllCallHistory();
             if (app === 'recordings') dialerLoadRecordings();
+            if (app === 'voicemail') vmLoad();
             if (app === 'inbox') inboxRefresh();
             if (app === 'calendar') calendarInit();
         }
 
         function iosGoHome() {
             const home = document.getElementById('iosHome');
-            const apps = ['iosAppMessages', 'iosAppCalls', 'iosAppRecordings', 'iosAppInbox', 'iosAppCalendar'];
+            const apps = ['iosAppMessages', 'iosAppCalls', 'iosAppRecordings', 'iosAppVoicemail', 'iosAppInbox', 'iosAppCalendar'];
             apps.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
             if (home) home.style.display = 'flex';
             _iosCurrentApp = null;
@@ -85,25 +86,46 @@
         let _calInitialized = false;
 
         async function calendarInit() {
-            if (!_calInitialized) {
-                // Load calendar list
-                try {
-                    const r = await fetch('/api/fetch-calendars');
-                    if (r.ok) {
-                        const d = await r.json();
-                        _calCalendars = d.calendars || [];
-                        const picker = document.getElementById('iosCalendarPicker');
-                        if (picker && _calCalendars.length) {
-                            picker.innerHTML = _calCalendars.map(c =>
-                                `<option value="${c.id}">${c.name}</option>`
-                            ).join('');
-                            _calActiveCalId = _calCalendars[0].id;
-                        } else if (picker) {
-                            picker.innerHTML = '<option value="">No calendars</option>';
+            const picker = document.getElementById('iosCalendarPicker');
+            if (!_calInitialized || !_calCalendars.length) {
+                // Show loading state in picker
+                if (picker) picker.innerHTML = '<option value="">Loading calendars...</option>';
+                let loaded = false;
+                // Retry up to 2 times with backoff
+                for (let attempt = 0; attempt < 3 && !loaded; attempt++) {
+                    try {
+                        if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 2000));
+                        const r = await fetch('/api/fetch-calendars', { signal: AbortSignal.timeout(12000) });
+                        if (r.ok) {
+                            const d = await r.json();
+                            _calCalendars = d.calendars || [];
+                            if (picker && _calCalendars.length) {
+                                picker.innerHTML = _calCalendars.map(c =>
+                                    `<option value="${c.id}">${c.name}</option>`
+                                ).join('');
+                                _calActiveCalId = _calCalendars[0].id;
+                            } else if (picker) {
+                                picker.innerHTML = '<option value="">No calendars found</option>';
+                            }
+                            loaded = true;
+                        } else {
+                            const errData = await r.json().catch(() => ({}));
+                            console.warn(`[Calendar] Fetch calendars HTTP ${r.status} (attempt ${attempt + 1}):`, errData.error || '');
+                            if (r.status === 401 || r.status === 403) {
+                                // Token expired — show actionable message, don't retry
+                                if (picker) picker.innerHTML = '<option value="">Reconnect CRM to load calendars</option>';
+                                break;
+                            }
                         }
+                    } catch(e) {
+                        console.warn(`[Calendar] Fetch calendars failed (attempt ${attempt + 1}):`, e.message || e);
                     }
-                } catch(e) { console.warn('[Calendar] Failed to load calendars:', e); }
-                _calInitialized = true;
+                }
+                if (!loaded && picker && !picker.innerHTML.includes('Reconnect')) {
+                    picker.innerHTML = '<option value="">Failed to load — tap refresh</option>';
+                }
+                // Only mark initialized if we actually loaded calendars
+                _calInitialized = loaded;
             }
             const now = new Date();
             _calViewYear = now.getFullYear();
@@ -336,6 +358,214 @@
             if (!dialerActiveContact) return;
             iosOpenApp('calendar');
         }
+
+        // ═══════════════════════════════════════════════
+        //  VOICEMAIL APP — iPhone-style voicemail inbox
+        // ═══════════════════════════════════════════════
+        let _vmData = [];
+        let _vmPlaying = null;
+
+        function vmRefresh() {
+            const icon = document.getElementById('vmRefreshIcon');
+            if (icon) icon.classList.add('fa-spin');
+            vmLoad().finally(() => {
+                if (icon) icon.classList.remove('fa-spin');
+            });
+        }
+
+        async function vmLoad() {
+            const list = document.getElementById('vmList');
+            if (!list) return;
+            list.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fa-solid fa-spinner fa-spin" style="color:#FF9500;font-size:1.2rem;"></i></div>';
+            try {
+                const r = await fetch('/voice/voicemails?limit=100');
+                if (!r.ok) {
+                    list.innerHTML = '<div style="text-align:center;padding:40px;color:#888;font-size:.88rem;">Failed to load voicemails</div>';
+                    return;
+                }
+                const d = await r.json();
+                _vmData = d.voicemails || [];
+
+                // Update badge
+                const badge = document.getElementById('iosBadgeVoicemail');
+                if (badge) {
+                    const unread = d.unread || 0;
+                    if (unread > 0) { badge.textContent = unread; badge.style.display = 'flex'; }
+                    else { badge.style.display = 'none'; }
+                }
+
+                if (!_vmData.length) {
+                    list.innerHTML = '<div class="ios-empty-state" style="padding-top:60px;">' +
+                        '<div class="ios-empty-icon" style="background:rgba(255,149,0,0.08);border-color:rgba(255,149,0,0.15);">' +
+                        '<i class="fa-solid fa-voicemail" style="color:#FF9500;"></i></div>' +
+                        '<div class="ios-empty-title">No Voicemail</div>' +
+                        '<div class="ios-empty-sub">Missed calls with messages will appear here</div></div>';
+                    return;
+                }
+
+                list.innerHTML = _vmData.map((vm, idx) => _vmRow(vm, idx)).join('');
+            } catch(e) {
+                console.error('[Voicemail] Load error:', e);
+                list.innerHTML = '<div style="text-align:center;padding:40px;color:#ef4444;font-size:.88rem;">Error loading voicemails</div>';
+            }
+        }
+
+        function _vmRow(vm, idx) {
+            const name = vm.contact_name || vm.phone || 'Unknown';
+            const dt = vm.created_at ? new Date(vm.created_at).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '';
+            const dur = vm.duration ? Math.floor(vm.duration / 60) + ':' + String(vm.duration % 60).padStart(2, '0') : '0:00';
+            const isNew = vm.is_new;
+            const preview = vm.transcript_preview || '';
+            const nameColor = isNew ? '#fff' : '#aaa';
+            const newDot = isNew ? '<div style="width:8px;height:8px;border-radius:50%;background:#FF9500;flex-shrink:0;"></div>' : '<div style="width:8px;flex-shrink:0;"></div>';
+
+            let html = '<div style="padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;" onclick="vmToggleExpand(' + idx + ')">';
+            html += '<div style="display:flex;align-items:center;gap:10px;">';
+            html += newDot;
+            // Contact info
+            html += '<div style="flex:1;min-width:0;">';
+            html += '<div style="display:flex;align-items:baseline;justify-content:space-between;">';
+            html += '<span style="font-weight:' + (isNew ? '700' : '500') + ';font-size:.92rem;color:' + nameColor + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(name) + '</span>';
+            html += '<span style="color:#666;font-size:.72rem;white-space:nowrap;margin-left:8px;">' + dt + '</span>';
+            html += '</div>';
+            // Transcript preview or "Tap to transcribe"
+            if (preview) {
+                html += '<div style="color:#888;font-size:.78rem;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(preview) + '</div>';
+            } else {
+                html += '<div style="color:#666;font-size:.75rem;margin-top:2px;font-style:italic;">Tap to transcribe</div>';
+            }
+            html += '</div>';
+            // Duration
+            html += '<span style="color:#888;font-size:.78rem;font-family:monospace;flex-shrink:0;">' + dur + '</span>';
+            html += '</div>';
+
+            // Expanded area (hidden by default)
+            html += '<div id="vmExpand' + idx + '" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.04);">';
+            // Full transcript
+            html += '<div id="vmTranscript' + idx + '" style="margin-bottom:10px;">';
+            if (preview) {
+                html += '<div style="color:#ccc;font-size:.82rem;line-height:1.5;background:rgba(255,255,255,0.02);padding:8px 10px;border-radius:8px;">' + dialerEsc(vm.transcript_preview || '') + '</div>';
+            } else {
+                html += '<div style="text-align:center;"><button onclick="event.stopPropagation();vmTranscribe(' + idx + ')" style="background:rgba(255,180,0,0.08);border:1px solid rgba(255,180,0,0.15);color:#ffb400;border-radius:8px;padding:6px 16px;font-size:.82rem;cursor:pointer;"><i class="fa-solid fa-wand-magic-sparkles me-1"></i>Transcribe</button></div>';
+            }
+            html += '</div>';
+            // Action buttons
+            html += '<div style="display:flex;gap:8px;">';
+            if (vm.recording_url) {
+                html += '<button onclick="event.stopPropagation();vmPlay(' + idx + ')" id="vmPlayBtn' + idx + '" style="flex:1;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.15);color:#00d9ff;border-radius:8px;padding:6px;font-size:.82rem;cursor:pointer;"><i class="fa-solid fa-play me-1"></i>Play</button>';
+            }
+            if (vm.phone) {
+                html += '<button onclick="event.stopPropagation();vmCallback(' + idx + ')" style="flex:1;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.15);color:var(--accent);border-radius:8px;padding:6px;font-size:.82rem;cursor:pointer;"><i class="fa-solid fa-phone me-1"></i>Call Back</button>';
+            }
+            html += '</div>';
+            html += '</div>';
+
+            html += '</div>';
+            return html;
+        }
+
+        function vmToggleExpand(idx) {
+            const el = document.getElementById('vmExpand' + idx);
+            if (!el) return;
+            el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function vmPlay(idx) {
+            const vm = _vmData[idx];
+            if (!vm || !vm.recording_url) return;
+            const audio = document.getElementById('vmAudioPlayer');
+            const bar = document.getElementById('vmPlayerBar');
+            const content = document.getElementById('vmPlayerContent');
+            if (!audio || !bar) return;
+
+            // If same voicemail playing, toggle pause/play
+            if (_vmPlaying === idx && !audio.paused) {
+                audio.pause();
+                const btn = document.getElementById('vmPlayBtn' + idx);
+                if (btn) btn.innerHTML = '<i class="fa-solid fa-play me-1"></i>Play';
+                return;
+            }
+
+            audio.src = vm.recording_url;
+            audio.play().catch(e => console.warn('[VM] Play error:', e));
+            _vmPlaying = idx;
+
+            const name = vm.contact_name || vm.phone || 'Unknown';
+            content.innerHTML = '<div style="display:flex;align-items:center;gap:10px;">' +
+                '<button onclick="vmStopPlay()" style="background:none;border:none;color:#FF9500;cursor:pointer;font-size:1rem;"><i class="fa-solid fa-stop"></i></button>' +
+                '<div style="flex:1;min-width:0;">' +
+                '<div style="font-weight:600;font-size:.82rem;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(name) + '</div>' +
+                '<div id="vmPlayerTime" style="font-size:.72rem;color:#888;">Playing...</div>' +
+                '</div></div>';
+            bar.style.display = 'block';
+
+            const btn = document.getElementById('vmPlayBtn' + idx);
+            if (btn) btn.innerHTML = '<i class="fa-solid fa-pause me-1"></i>Pause';
+
+            audio.onended = function() {
+                bar.style.display = 'none';
+                _vmPlaying = null;
+                if (btn) btn.innerHTML = '<i class="fa-solid fa-play me-1"></i>Play';
+            };
+            audio.ontimeupdate = function() {
+                const el = document.getElementById('vmPlayerTime');
+                if (el) {
+                    const cur = Math.floor(audio.currentTime);
+                    const total = Math.floor(audio.duration || 0);
+                    el.textContent = Math.floor(cur/60) + ':' + String(cur%60).padStart(2,'0') + ' / ' + Math.floor(total/60) + ':' + String(total%60).padStart(2,'0');
+                }
+            };
+        }
+
+        function vmStopPlay() {
+            const audio = document.getElementById('vmAudioPlayer');
+            const bar = document.getElementById('vmPlayerBar');
+            if (audio) { audio.pause(); audio.src = ''; }
+            if (bar) bar.style.display = 'none';
+            if (_vmPlaying !== null) {
+                const btn = document.getElementById('vmPlayBtn' + _vmPlaying);
+                if (btn) btn.innerHTML = '<i class="fa-solid fa-play me-1"></i>Play';
+            }
+            _vmPlaying = null;
+        }
+
+        async function vmTranscribe(idx) {
+            const vm = _vmData[idx];
+            if (!vm || !vm.call_sid || !vm.recording_url) return;
+            const txEl = document.getElementById('vmTranscript' + idx);
+            if (txEl) txEl.innerHTML = '<div style="text-align:center;padding:8px;"><i class="fa-solid fa-spinner fa-spin" style="color:#ffb400;"></i> Transcribing...</div>';
+            try {
+                const r = await fetch('/voice/transcribe-recording', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ call_sid: vm.call_sid, recording_url: vm.recording_url })
+                });
+                const d = await r.json();
+                if (r.ok && d.transcript && d.transcript.length) {
+                    const text = d.transcript[0].text || '';
+                    vm.transcript_preview = text.substring(0, 120);
+                    vm.is_new = false;
+                    if (txEl) txEl.innerHTML = '<div style="color:#ccc;font-size:.82rem;line-height:1.5;background:rgba(255,255,255,0.02);padding:8px 10px;border-radius:8px;">' + dialerEsc(text) + '</div>';
+                } else {
+                    if (txEl) txEl.innerHTML = '<div style="color:#ef4444;font-size:.82rem;">Transcription failed: ' + dialerEsc(d.error || 'Unknown error') + '</div>';
+                }
+            } catch(e) {
+                console.error('[VM] Transcribe error:', e);
+                if (txEl) txEl.innerHTML = '<div style="color:#ef4444;font-size:.82rem;">Network error</div>';
+            }
+        }
+
+        function vmCallback(idx) {
+            const vm = _vmData[idx];
+            if (!vm || !vm.phone) return;
+            iosGoHome();
+            // Select the contact and initiate call
+            if (vm.contact_id) {
+                dialerSelectContact(vm.contact_id);
+            }
+            dialerStartCall(vm.phone, vm.contact_name || vm.phone, vm.contact_id || '', vm.contact_name || vm.phone);
+        }
+
 
         // ── Production-grade fetch wrapper with retry + timeout ──
         async function _fetchRetry(url, opts = {}, { retries = 2, timeout = 15000, label = '' } = {}) {

@@ -333,16 +333,19 @@ def demo_reset():
 def fetch_calendars():
     """
     Fetch all calendars from Lead Connector for the current user's location.
+    Uses get_valid_token() for automatic token refresh on expiry.
     Returns a list of calendars with id and name.
     """
-    location_id = current_user.location_id
-    access_token = current_user.access_token
+    from ghl_api import get_valid_token
 
-    if not location_id or not access_token:
-        return flask_jsonify({"error": "Missing location_id or access_token"}), 400
+    location_id = current_user.location_id
+    if not location_id:
+        return flask_jsonify({"error": "No location configured"}), 400
+
+    raw_token = getattr(current_user, 'access_token', '')
 
     # Handle demo mode
-    if access_token == 'DEMO':
+    if raw_token == 'DEMO':
         return flask_jsonify({
             "calendars": [
                 {"id": "demo_cal_1", "name": "Demo Calendar 1"},
@@ -350,7 +353,12 @@ def fetch_calendars():
             ]
         })
 
-    # Unified endpoint works for both OAuth and PIT tokens
+    # Get a valid (possibly refreshed) token
+    access_token = get_valid_token(location_id)
+    if not access_token:
+        logger.warning(f"Calendar: No valid token for {location_id}")
+        return flask_jsonify({"error": "CRM connection expired. Please reconnect in Bot Config."}), 401
+
     url = f"https://services.leadconnectorhq.com/calendars/?locationId={location_id}"
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -360,10 +368,15 @@ def fetch_calendars():
 
     try:
         resp = requests.get(url, headers=headers, timeout=15)
+
+        # If token was stale despite refresh, surface clear error
+        if resp.status_code in (401, 403):
+            logger.warning(f"Calendar: GHL returned {resp.status_code} for {location_id} — token may be invalid")
+            return flask_jsonify({"error": "CRM token expired. Please reconnect in Bot Config."}), 401
+
         resp.raise_for_status()
         data = resp.json()
 
-        # Extract calendar id and name from response
         calendars = []
         if 'calendars' in data:
             for cal in data['calendars']:
@@ -372,10 +385,15 @@ def fetch_calendars():
                     "name": cal.get('name', 'Unnamed Calendar')
                 })
 
+        logger.info(f"Calendar: Fetched {len(calendars)} calendars for {location_id}")
         return flask_jsonify({"calendars": calendars})
 
+    except requests.exceptions.Timeout:
+        logger.error(f"Calendar: GHL API timeout for {location_id}")
+        return flask_jsonify({"error": "Calendar service timed out. Please try again."}), 504
+
     except requests.exceptions.RequestException as e:
-        logger.error(f"Failed to fetch calendars for location {location_id}: {e}")
+        logger.error(f"Calendar: Failed to fetch for {location_id}: {e}")
         return flask_jsonify({"error": "Failed to fetch calendars from Lead Connector"}), 500
 
 

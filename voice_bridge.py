@@ -3540,6 +3540,92 @@ def get_call_history():
         return_db_connection(conn)
 
 
+@voice_bp.route('/voice/voicemails', methods=['GET'])
+@login_required
+def get_voicemails():
+    """
+    Fetch inbound voicemails — calls that came IN and have recordings.
+    These are calls where the caller left a message because the agent
+    didn't answer. Sorted newest first.
+    """
+    limit = min(int(request.args.get('limit', 50)), 200)
+    offset = int(request.args.get('offset', 0))
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        if not row or not row['location_id']:
+            return jsonify({"error": "No location configured"}), 400
+        location_id = row['location_id']
+
+        cur.execute("""
+            SELECT id, contact_id, contact_name, phone, direction, call_sid,
+                   status, duration, recording_url, recording_sid, transcript,
+                   started_at, ended_at, created_at,
+                   COALESCE(disposition, '') as disposition
+            FROM call_history
+            WHERE location_id = %s
+              AND recording_url IS NOT NULL
+              AND recording_url != ''
+              AND (
+                  direction = 'inbound'
+                  OR disposition = 'left_voicemail'
+                  OR status IN ('no-answer', 'busy')
+              )
+            ORDER BY created_at DESC
+            LIMIT %s OFFSET %s
+        """, (location_id, limit, offset))
+        rows = cur.fetchall()
+
+        # Count unread (no transcript yet = not listened to)
+        cur.execute("""
+            SELECT COUNT(*) as cnt FROM call_history
+            WHERE location_id = %s
+              AND recording_url IS NOT NULL AND recording_url != ''
+              AND (direction = 'inbound' OR disposition = 'left_voicemail'
+                   OR status IN ('no-answer', 'busy'))
+              AND (transcript IS NULL OR transcript = '[]' OR transcript = '')
+        """, (location_id,))
+        unread_row = cur.fetchone()
+        unread_count = unread_row['cnt'] if unread_row else 0
+
+        cur.close()
+
+        voicemails = []
+        for r in rows:
+            vm = dict(r)
+            for ts_field in ('started_at', 'ended_at', 'created_at'):
+                if vm.get(ts_field):
+                    vm[ts_field] = vm[ts_field].isoformat()
+            # Extract transcript preview text
+            tx = vm.get('transcript')
+            if tx:
+                try:
+                    parsed = json.loads(tx) if isinstance(tx, str) else tx
+                    if isinstance(parsed, list) and parsed:
+                        vm['transcript_preview'] = parsed[0].get('text', '')[:120]
+                    else:
+                        vm['transcript_preview'] = ''
+                except Exception:
+                    vm['transcript_preview'] = ''
+            else:
+                vm['transcript_preview'] = ''
+            vm['is_new'] = not bool(tx)
+            voicemails.append(vm)
+
+        logger.info(f"Voicemails: Returned {len(voicemails)} for {location_id} ({unread_count} unread)")
+        return jsonify({"voicemails": voicemails, "total": len(voicemails), "unread": unread_count})
+    except Exception as e:
+        logger.error(f"Failed to fetch voicemails: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        return_db_connection(conn)
+
+
 # ──────────────────────────────────────────────────────────────
 # ROUTE: On-demand recording transcription
 # ──────────────────────────────────────────────────────────────
