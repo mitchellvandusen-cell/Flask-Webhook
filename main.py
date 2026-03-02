@@ -106,6 +106,7 @@ redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
 redis_conn = None
 q_production = None
 q_demo = None
+q_background = None
 
 def get_redis_connection():
     """Create a Redis connection with proper timeouts so it fails fast instead of hanging."""
@@ -119,7 +120,7 @@ def get_redis_connection():
 
 def ensure_redis():
     """Reconnect to Redis if the connection is dead. Returns True if healthy."""
-    global redis_conn, q_production, q_demo
+    global redis_conn, q_production, q_demo, q_background
     try:
         if redis_conn:
             redis_conn.ping()
@@ -133,6 +134,7 @@ def ensure_redis():
         redis_conn.ping()  # Real connectivity check
         q_production = Queue('production', connection=redis_conn)
         q_demo       = Queue('demo',       connection=redis_conn)
+        q_background = Queue('background', connection=redis_conn)
         logger.info("✅ Redis connection established")
         return True
     except (redis.ConnectionError, redis.TimeoutError, OSError) as e:
@@ -140,6 +142,7 @@ def ensure_redis():
         redis_conn = None
         q_production = None
         q_demo = None
+        q_background = None
         return False
 
 # Initial connection at startup
@@ -3203,7 +3206,7 @@ def api_cron_backfill_failed_webhooks():
         if not ensure_redis():
             return safe_jsonify({"success": False, "error": "Redis unavailable"}), 503
 
-        job = q_production.enqueue(
+        job = q_background.enqueue(
             backfill_failed_webhooks,
             max_age_hours=max_age_hours,
             job_timeout=600,
@@ -3238,7 +3241,7 @@ def api_cron_sync_ghl_data():
             return safe_jsonify({"success": False, "error": "Redis unavailable"}), 503
 
         from ghl_sync import run_incremental_sync_all
-        job = q_production.enqueue(
+        job = q_background.enqueue(
             run_incremental_sync_all,
             job_timeout=1800,  # 30 min max
             result_ttl=86400,
@@ -3679,7 +3682,7 @@ def api_sync_deep_pull():
 
         # Queue background job (long-running, up to 2 hours)
         ensure_redis()
-        job = q_production.enqueue(
+        job = q_background.enqueue(
             deep_sync_conversations,
             location_id,
             job_timeout=7200,  # 2 hour max
@@ -3757,7 +3760,7 @@ def api_sync_deep_pull_reset():
         except Exception:
             pass
 
-        job = q_production.enqueue(
+        job = q_background.enqueue(
             deep_sync_conversations,
             location_id,
             job_timeout=7200,

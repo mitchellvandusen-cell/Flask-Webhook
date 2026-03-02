@@ -112,6 +112,7 @@ _redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
 redis_conn = None
 q_production = None
 q_demo = None
+q_background = None
 
 
 def get_redis_connection():
@@ -127,7 +128,7 @@ def get_redis_connection():
 
 def ensure_redis() -> bool:
     """Reconnect to Redis if the connection is dead. Returns True if healthy."""
-    global redis_conn, q_production, q_demo
+    global redis_conn, q_production, q_demo, q_background
     try:
         if redis_conn:
             redis_conn.ping()
@@ -141,6 +142,7 @@ def ensure_redis() -> bool:
         redis_conn.ping()
         q_production = Queue('production', connection=redis_conn)
         q_demo       = Queue('demo',       connection=redis_conn)
+        q_background = Queue('background', connection=redis_conn)
         logger.info("✅ Redis connection established")
         return True
     except (redis.ConnectionError, redis.TimeoutError, OSError) as e:
@@ -148,4 +150,5 @@ def ensure_redis() -> bool:
         redis_conn = None
         q_production = None
         q_demo = None
+        q_background = None
         return False

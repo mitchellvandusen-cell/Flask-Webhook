@@ -171,7 +171,7 @@ def api_cron_backfill_failed_webhooks():
 
         # Run in background via RQ — backfill sleeps 0.5s per entry
         # Access via module reference so we pick up the live queue after ensure_redis()
-        job = extensions.q_production.enqueue(
+        job = extensions.q_background.enqueue(
             backfill_failed_webhooks,
             max_age_hours=max_age_hours,
             job_timeout=600,

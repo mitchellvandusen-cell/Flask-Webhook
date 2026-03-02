@@ -6328,9 +6328,9 @@ def post_contact_intelligence_analyze():
     finally:
         return_db_connection(conn)
 
-    # Enqueue batch analysis jobs to RQ workers
-    from extensions import ensure_redis, q_production
-    if not ensure_redis() or not q_production:
+    # Enqueue batch analysis jobs to RQ background workers
+    from extensions import ensure_redis, q_background
+    if not ensure_redis() or not q_background:
         return jsonify({"queued": 0, "error": "queue_unavailable"}), 503
 
     from tasks import analyze_contacts_batch_task
@@ -6339,7 +6339,7 @@ def post_contact_intelligence_analyze():
     for i in range(0, len(contact_ids), BATCH):
         batch = contact_ids[i:i + BATCH]
         try:
-            q_production.enqueue(
+            q_background.enqueue(
                 analyze_contacts_batch_task,
                 location_id,
                 batch,
