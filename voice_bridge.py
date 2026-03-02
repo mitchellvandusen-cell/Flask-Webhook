@@ -4286,6 +4286,11 @@ def get_number_health():
             "state_name": nh.STATE_NAMES.get(state, '') if state else '',
         })
 
+    # A2P / STIR-SHAKEN spam protection status
+    a2p_info = vc.get('a2p', {})
+    a2p_registered = (a2p_info.get('brand_status', '').upper() == 'APPROVED' and
+                      a2p_info.get('campaign_status', '').upper() in ('VERIFIED', 'APPROVED'))
+
     # Summary stats
     summary = nh.get_number_health_summary(location_id)
 
@@ -4312,6 +4317,7 @@ def get_number_health():
         "summary": summary,
         "rotation_enabled": rotation_config.get('enabled', False),
         "rotation_strategy": rotation_config.get('strategy', 'weighted_health'),
+        "spam_protected": a2p_registered,
         "licensed_states": licensed_states,
         "licensed_coverage": licensed_coverage,
         "state_coverage": {state: len(phones) for state, phones in state_coverage.items()},

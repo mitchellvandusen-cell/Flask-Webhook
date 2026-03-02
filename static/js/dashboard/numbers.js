@@ -434,6 +434,7 @@
             if (n.state) html += '<span style="background:rgba(0,217,255,0.08);color:#00d9ff;padding:1px 5px;border-radius:3px;font-size:.5rem;font-weight:700;letter-spacing:.3px;">' + _esc(n.state) + '</span>';
             if (n.is_primary) html += '<span style="background:rgba(0,217,255,0.15);color:#00d9ff;padding:1px 5px;border-radius:3px;font-size:.55rem;font-weight:700;">PRIMARY</span>';
             if (n.nickname) html += '<span style="color:#666;font-size:.65rem;">(' + _esc(n.nickname) + ')</span>';
+            if (_nhData && _nhData.spam_protected) html += '<span title="A2P Registered — STIR/SHAKEN verified" style="background:rgba(0,255,136,0.08);color:#00ff88;padding:1px 5px;border-radius:3px;font-size:.55rem;font-weight:700;cursor:help;"><i class="fa-solid fa-shield-halved" style="font-size:.5rem;margin-right:2px;"></i>Protected</span>';
             html += '</div>';
 
             // Health score badge
