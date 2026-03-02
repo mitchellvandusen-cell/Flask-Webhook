@@ -3688,7 +3688,7 @@ def api_sync_deep_pull():
 @app.route("/api/sync/deep-pull/status", methods=["GET"])
 @login_required
 def api_sync_deep_pull_status():
-    """Poll deep sync progress for frontend progress bar."""
+    """Poll deep sync progress."""
     location_id = current_user.location_id
     if not location_id:
         return safe_jsonify({"status": "not_started"})
