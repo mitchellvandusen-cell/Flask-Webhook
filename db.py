@@ -1483,6 +1483,22 @@ def init_db() -> bool:
             conn.rollback()
             logger.debug(f"crm_email migration note: {e}")
 
+        # Phase 5: Carrier blocked tracking for number health
+        try:
+            cur.execute("""
+                ALTER TABLE number_health
+                ADD COLUMN IF NOT EXISTS daily_carrier_blocked INTEGER DEFAULT 0
+            """)
+            cur.execute("""
+                ALTER TABLE number_health
+                ADD COLUMN IF NOT EXISTS total_carrier_blocked INTEGER DEFAULT 0
+            """)
+            conn.commit()
+            logger.info("✅ Migration: Added carrier_blocked columns to number_health")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"carrier_blocked migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)

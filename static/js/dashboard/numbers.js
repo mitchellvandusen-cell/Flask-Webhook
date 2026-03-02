@@ -451,6 +451,8 @@
             html += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">';
             html += _nhPill('fa-phone', n.daily_calls + '/' + n.daily_cap + ' today', dailyPct >= 80 ? '#ffa500' : '#888');
             html += _nhPill('fa-link', connectRate.toFixed(0) + '% connect', connectRate >= 30 ? '#4ade80' : (connectRate >= 15 ? '#ffa500' : '#ef4444'));
+            var blocked = n.total_carrier_blocked || 0;
+            if (blocked > 0) html += _nhPill('fa-shield-halved', blocked + ' blocked', blocked >= 10 ? '#ef4444' : '#ffa500');
             html += _nhPill('fa-chart-line', totalCalls + ' lifetime', '#888');
             var warmupColors = { 0: '#ef4444', 1: '#ffa500', 2: '#fbbf24', 3: '#00d9ff', 4: '#4ade80' };
             html += _nhPill('fa-seedling', n.warmup_label || 'Stage ' + n.warmup_stage, warmupColors[n.warmup_stage] || '#00d9ff');

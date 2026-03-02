@@ -1215,10 +1215,11 @@ def voice_dial_status():
     dial_call_status = request.values.get('DialCallStatus', '')
     dial_call_sid = request.values.get('DialCallSid', '')
     dial_call_duration = request.values.get('DialCallDuration', '0')
+    dial_sip_code = request.values.get('SipResponseCode', '')
 
     logger.info(f"Browser VoIP dial result: CallSid={call_sid[:16] if call_sid else 'none'} "
                 f"DialStatus={dial_call_status} DialDuration={dial_call_duration}s "
-                f"DialCallSid={dial_call_sid[:16] if dial_call_sid else 'none'}")
+                f"DialCallSid={dial_call_sid[:16] if dial_call_sid else 'none'} sip={dial_sip_code}")
 
     # Update number health for browser VoIP calls
     if call_sid and dial_call_status:
@@ -1231,7 +1232,7 @@ def voice_dial_status():
                           'failed': 'failed', 'canceled': 'canceled'}
             effective_status = status_map.get(dial_call_status, dial_call_status)
             try:
-                update_number_health(nh_location, nh_from, effective_status, int(dial_call_duration or 0))
+                update_number_health(nh_location, nh_from, effective_status, int(dial_call_duration or 0), sip_code=dial_sip_code)
             except Exception as e:
                 logger.warning(f"Number health update (VoIP dial) failed for {nh_from}: {e}")
 
@@ -1589,8 +1590,9 @@ def voice_status():
     call_sid    = request.values.get('CallSid', '')
     call_status = request.values.get('CallStatus', '')
     duration    = request.values.get('CallDuration', '0')
+    sip_code    = request.values.get('SipResponseCode', '')
 
-    logger.info(f"📞 Call status: SID={call_sid} status={call_status} duration={duration}s")
+    logger.info(f"📞 Call status: SID={call_sid} status={call_status} duration={duration}s sip={sip_code}")
 
     # Track status in memory for dialer queue polling
     # Twilio can deliver callbacks out of order (e.g. 'ringing' after 'in-progress'),
@@ -1634,7 +1636,7 @@ def voice_status():
         nh_effective = call_info.get('_amd_result', call_status)  # Use AMD result if available
         if nh_location and nh_from:
             try:
-                update_number_health(nh_location, nh_from, nh_effective, int(duration or 0))
+                update_number_health(nh_location, nh_from, nh_effective, int(duration or 0), sip_code=sip_code)
             except Exception as e:
                 logger.warning(f"Number health update failed for {nh_from}: {e}")
 
@@ -4273,6 +4275,8 @@ def get_number_health():
             "total_failed": h.get('total_failed', 0),
             "total_busy": h.get('total_busy', 0),
             "total_duration_secs": h.get('total_duration_secs', 0),
+            "daily_carrier_blocked": h.get('daily_carrier_blocked', 0),
+            "total_carrier_blocked": h.get('total_carrier_blocked', 0),
             "connect_rate": round(h['total_connected'] / h['total_calls'] * 100, 1) if h.get('total_calls') else 0,
             "daily_connect_rate": round(h['daily_connected'] / h['daily_calls_today'] * 100, 1) if h.get('daily_calls_today') else 0,
             "rest_until": str(h.get('rest_until', '')) if h.get('rest_until') else '',

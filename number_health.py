@@ -555,12 +555,22 @@ def select_outbound_number(location_id, voice_config, dest_phone=None):
 
 # ── Health Update (called after every call) ─────────────────────────────────
 
-def update_number_health(location_id, phone, call_status, duration=0):
+
+# SIP response codes that indicate carrier-level blocking.
+# 403 = Forbidden (carrier block), 603 = Decline (carrier reject),
+# 607 = Unwanted (robocall/spam filter), 608 = Rejected (explicit block).
+CARRIER_BLOCK_SIP_CODES = {403, 603, 607, 608}
+
+
+def update_number_health(location_id, phone, call_status, duration=0, sip_code=None):
     """
     Update health metrics for a phone number after a call completes.
 
     Called from /voice/status callback for terminal statuses:
     completed, busy, no-answer, failed, canceled.
+
+    sip_code: Twilio's SipResponseCode (int or None). Codes 403/603/607/608
+    indicate the carrier blocked the call vs a normal no-answer.
     """
     if not phone or not location_id:
         return
@@ -587,6 +597,14 @@ def update_number_health(location_id, phone, call_status, duration=0):
             ON CONFLICT (location_id, phone) DO NOTHING
         """, (location_id, phone, now, now, now))
 
+        # Check if this call was carrier-blocked via SIP response code
+        is_carrier_blocked = False
+        if sip_code:
+            try:
+                is_carrier_blocked = int(sip_code) in CARRIER_BLOCK_SIP_CODES
+            except (ValueError, TypeError):
+                pass
+
         # Determine which counters to increment
         # Twilio "completed" means the call was answered, even if duration=0
         is_connected = call_status == "completed"
@@ -601,7 +619,14 @@ def update_number_health(location_id, phone, call_status, duration=0):
                 "updated_at = %s"]
         params = [now, now]
 
-        if is_connected:
+        if is_carrier_blocked:
+            sets.append("daily_carrier_blocked = daily_carrier_blocked + 1")
+            sets.append("total_carrier_blocked = total_carrier_blocked + 1")
+            # Also count as failed for health score purposes
+            sets.append("daily_failed = daily_failed + 1")
+            sets.append("total_failed = total_failed + 1")
+            logger.warning(f"Carrier-blocked call detected: {phone} SIP={sip_code}")
+        elif is_connected:
             sets.append("daily_connected = daily_connected + 1")
             sets.append("total_connected = total_connected + 1")
             sets.append("daily_duration_secs = daily_duration_secs + %s")
@@ -746,6 +771,7 @@ def reset_daily_metrics():
                 daily_no_answer = 0,
                 daily_failed = 0,
                 daily_busy = 0,
+                daily_carrier_blocked = 0,
                 daily_duration_secs = 0,
                 updated_at = NOW()
         """)
