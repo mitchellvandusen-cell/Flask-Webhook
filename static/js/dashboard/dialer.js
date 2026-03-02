@@ -22,6 +22,13 @@
         let dialerActiveContact = null; // currently selected contact in middle panel
         let dialerPipelines = [];
         let dialerMaxAttempts = (window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.dialMaxAttempts) || 2;
+        // Enterprise dialer settings (loaded from voice_config via DASHBOARD_BOOT)
+        let _dialerRingTimeout = ((window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.ringTimeout) || 45) * 1000; // ms
+        let _dialerPauseBetween = ((window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.pauseBetween) ?? 1) * 1000; // ms
+        let _dialerRetryDelay = ((window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.retryDelay) || 2) * 1000; // ms
+        let _dialerMaxCallDuration = ((window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.maxCallDuration) || 0) * 60 * 1000; // ms (0=no limit)
+        let _dialerAutoCallback = (window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.autoCallback) || false;
+        let _dialerCallDurationTimer = null; // Timer for max call duration enforcement
 
         // ── iPhone 15 Pro UI bridge ──
         let _iosCurrentApp = null;
@@ -851,17 +858,23 @@
             return -1; // Not analyzed yet — show neutral/pending dots
         }
 
-        // ── InsuranceGrokBot Smart Filter: group contacts by AI intelligence ──
-        // Uses AI-powered temperature from xAI Grok that reads full conversation history.
-        // Falls back to "Unanalyzed" group for contacts pending AI analysis.
+        // ── InsuranceGrokBot Smart Filter: group contacts by AI intelligence + dispositions ──
+        // Priority: Should Respond > Callback > Hot > Warm > Interested > Cool > Cold > Not Interested > DnC > Analyzing
+        // Dispositions override AI temperature grouping when set (agent's manual classification takes priority).
         function _igbGroupContacts(contacts) {
-            const respond = [], hot = [], warm = [], cool = [], cold = [], dnc = [], unanalyzed = [];
+            const respond = [], callbacks = [], hot = [], warm = [], interested = [], cool = [], cold = [], notInterested = [], dnc = [], unanalyzed = [];
             const hasAI = Object.keys(_igbIntelCache).length > 0;
 
             contacts.forEach(c => {
                 const eng = _igbEngagementCache[c.id];
                 // DnD / opt-out contacts always go to DnC group
                 if (_igbIsOptedOut(eng, c)) { dnc.push(c); return; }
+
+                // ── Disposition override: agent's manual classification takes priority ──
+                const disp = eng && eng.disposition;
+                if (disp === 'callback') { callbacks.push(c); return; }
+                if (disp === 'not_interested') { notInterested.push(c); return; }
+                if (disp === 'interested') { interested.push(c); return; }
 
                 const intel = _igbIntelCache[c.id];
 
@@ -889,10 +902,13 @@
 
             const groups = [
                 { key: 'respond', label: 'Should Respond', icon: 'fa-reply', color: '#ff3b30', contacts: respond },
+                { key: 'callback', label: 'Callback', icon: 'fa-phone-volume', color: '#007AFF', contacts: callbacks },
                 { key: 'hot', label: 'Hot Leads', icon: 'fa-fire', color: '#4ade80', contacts: hot },
                 { key: 'warm', label: 'Warm Leads', icon: 'fa-temperature-half', color: '#ffa500', contacts: warm },
+                { key: 'interested', label: 'Interested', icon: 'fa-thumbs-up', color: '#4ade80', contacts: interested },
                 { key: 'cool', label: 'Cool', icon: 'fa-snowflake', color: '#5B7FFF', contacts: cool },
                 { key: 'cold', label: 'Cold', icon: 'fa-icicles', color: '#888', contacts: cold },
+                { key: 'not_interested', label: 'Not Interested', icon: 'fa-thumbs-down', color: '#ef4444', contacts: notInterested },
                 { key: 'dnc', label: 'Do Not Contact', icon: 'fa-ban', color: '#ef4444', contacts: dnc },
             ];
             if (unanalyzed.length > 0) {
@@ -925,6 +941,13 @@
             dialerRenderContacts();
         }
 
+        // ── Disposition color map for contact row highlighting ──
+        const _dispColors = {
+            not_interested: { border: '#ef4444', bg: 'rgba(239,68,68,0.05)', icon: 'fa-thumbs-down', label: 'Not Interested' },
+            callback:       { border: '#007AFF', bg: 'rgba(0,122,255,0.05)', icon: 'fa-phone-arrow-down-left', label: 'Callback' },
+            interested:     { border: '#4ade80', bg: 'rgba(74,222,128,0.05)', icon: 'fa-thumbs-up', label: 'Interested' },
+        };
+
         // ── Render single contact row (shared by grouped + ungrouped) ──
         function _igbRenderContactRow(c) {
             const init = (c.firstName || c.name || '?')[0].toUpperCase();
@@ -948,7 +971,33 @@
                 '<span class="igb-dot' + (!isPendingLevel && level >= 3 ? ' ' + dotClass : '') + '"></span>' +
             '</span>';
 
-            return '<div class="dlr-contact-row' + (isActive ? ' active' : '') + '" onclick="dialerSelectContact(\'' + c.id + '\')" style="' + (sel ? 'background:rgba(0,217,255,0.04);' : '') + '">' +
+            // ── Disposition color-coding ──
+            // Red = not_interested, Blue = callback, Green = interested
+            const eng = _igbEngagementCache[c.id];
+            const disp = eng && eng.disposition;
+            const dc = _dispColors[disp];
+            let rowStyle = sel ? 'background:rgba(0,217,255,0.04);' : '';
+            if (dc && !isActive) {
+                rowStyle += 'border-left:3px solid ' + dc.border + ';background:' + dc.bg + ';';
+            }
+            // Disposition mini-badge (shows inline next to phone number)
+            let dispLabel = dc ? dc.label : '';
+            // Show callback time if scheduled
+            if (disp === 'callback' && eng && eng.callback_at) {
+                try {
+                    const cbDate = new Date(eng.callback_at);
+                    const now = new Date();
+                    const isPast = cbDate < now;
+                    const timeStr = cbDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                    const dayStr = cbDate.toLocaleDateString() === now.toLocaleDateString() ? 'Today' :
+                                   cbDate.toLocaleDateString() === new Date(now.getTime() + 86400000).toLocaleDateString() ? 'Tomorrow' :
+                                   cbDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                    dispLabel = (isPast ? 'Due: ' : '') + dayStr + ' ' + timeStr;
+                } catch(e) {}
+            }
+            const dispBadge = dc ? '<span style="display:inline-flex;align-items:center;gap:2px;font-size:.65rem;color:' + dc.border + ';margin-left:6px;opacity:.85;"><i class="fa-solid ' + dc.icon + '" style="font-size:.55rem;"></i>' + dispLabel + '</span>' : '';
+
+            return '<div class="dlr-contact-row' + (isActive ? ' active' : '') + '" onclick="dialerSelectContact(\'' + c.id + '\')" style="' + rowStyle + '">' +
                 '<input type="checkbox" ' + (sel ? 'checked' : '') + ' onclick="event.stopPropagation()" onchange="dialerToggleSelect(\'' + c.id + '\')" style="accent-color:#00d9ff;width:14px;height:14px;cursor:pointer;flex-shrink:0;">' +
                 '<div style="width:30px;height:30px;border-radius:50%;background:' + (isActive ? 'rgba(0,217,255,0.15)' : 'rgba(0,217,255,0.06)') + ';border:1px solid ' + (isActive ? '#00d9ff' : 'rgba(0,217,255,0.1)') + ';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.75rem;color:#00d9ff;flex-shrink:0;position:relative;">' + init +
                     '<span class="' + liveDotCls + '"></span>' +
@@ -961,7 +1010,7 @@
                             '<span class="dlr-call-badge" data-call-badge="' + c.id + '" style="font-size:.78rem;padding:1px 6px;">Dials: ' + callCount + '</span>' +
                         '</div>' +
                     '</div>' +
-                    '<div style="font-size:.78rem;color:#555;">' + dialerEsc(c.phone) + '</div>' +
+                    '<div style="font-size:.78rem;color:#555;">' + dialerEsc(c.phone) + dispBadge + '</div>' +
                 '</div>' +
                 (inQ ? '<i class="fa-solid fa-list-ol" style="color:#00d9ff;font-size:.72rem;" title="In queue"></i>' : '') +
             '</div>';
@@ -2187,9 +2236,11 @@
         function dialerStartPoll() {
             if (dialerPollTimer) clearInterval(dialerPollTimer);
             let pollCount = 0, errorCount = 0;
-            const MAX_POLLS_RINGING = 120, MAX_ERRORS = 10;
+            const POLL_INTERVAL = 1500; // ms between status checks
+            const MAX_POLLS_RINGING = Math.ceil(_dialerRingTimeout / POLL_INTERVAL); // configurable ring timeout
+            const MAX_ERRORS = 10;
             dialerPollTimer = setInterval(async () => {
-                if (!dialerCallSid) { clearInterval(dialerPollTimer); dialerHideBanner(); dialerStopAiTimer(); return; }
+                if (!dialerCallSid) { clearInterval(dialerPollTimer); dialerHideBanner(); dialerStopAiTimer(); _dialerClearCallDurationTimer(); return; }
                 ++pollCount;
                 // Only enforce poll limit while ringing/initiated — once connected, poll indefinitely
                 if (pollCount > MAX_POLLS_RINGING && !_dialerCallConnected) {
@@ -2212,6 +2263,13 @@
                         document.getElementById('dialerBannerTimer').style.display = 'block';
                         // Enable all call controls
                         _dialerEnableControls(true);
+                        // ── Max call duration enforcement ──
+                        if (_dialerMaxCallDuration > 0 && !_dialerCallDurationTimer) {
+                            _dialerCallDurationTimer = setTimeout(() => {
+                                console.log('[Dialer] Max call duration reached (' + (_dialerMaxCallDuration / 60000) + ' min), ending call');
+                                dialerHangup();
+                            }, _dialerMaxCallDuration);
+                        }
                         // Pre-warm VoIP device in background so Intercept is instant
                         if (voipSetupDone && !voipReady && !_voipInitializing) {
                             console.log('[VoIP] Pre-warming: initializing device in background for instant intercept');
@@ -2239,6 +2297,7 @@
                     } else if (['completed','busy','no-answer','failed','canceled'].includes(d.status)) {
                         clearInterval(dialerPollTimer);
                         dialerStopAiTimer();
+                        _dialerClearCallDurationTimer();
                         _dialerLastCallSid = dialerCallSid;
                         if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) dialerQueue[dialerCallIdx].status = d.status;
                         dialerCallSid = null;
@@ -2763,6 +2822,21 @@
                 clicked.style.color = 'var(--accent)';
             }
             setTimeout(dialerDismissDisposition, 1200);
+
+            // Update local engagement cache immediately for instant color-coding
+            if (dialerActiveContact && dialerActiveContact.id) {
+                const cid = dialerActiveContact.id;
+                if (!_igbEngagementCache[cid]) {
+                    _igbEngagementCache[cid] = {
+                        messages: { lead: 0, assistant: 0, last_message_at: null, last_lead_at: null, last_assistant_at: null },
+                        calls: { total_calls: 0, connected: 0, total_duration: 0, last_call_at: null, recordings: 0 }
+                    };
+                }
+                _igbEngagementCache[cid].disposition = disp;
+                dialerRenderContacts(); // Re-render for instant color update
+                console.log('[Dialer] Disposition set locally:', disp, 'for', cid);
+            }
+
             // Save to backend with retry (disposition is important data)
             if (_dialerLastCallSid) {
                 _fetchRetry('/voice/call-disposition', {
@@ -2947,6 +3021,9 @@
             _dialerQueueTimers.forEach(id => clearTimeout(id));
             _dialerQueueTimers = [];
         }
+        function _dialerClearCallDurationTimer() {
+            if (_dialerCallDurationTimer) { clearTimeout(_dialerCallDurationTimer); _dialerCallDurationTimer = null; }
+        }
 
         function dialerStopQueue() {
             dialerQueueRunning = false;
@@ -2958,6 +3035,7 @@
             dialerUpdateBtn();
             // Cancel ALL pending advance/retry/next timers to prevent ghost callbacks
             _dialerCancelQueueTimers();
+            _dialerClearCallDurationTimer();
             // Hang up any active VoIP call immediately
             if (voipConnection) voipHangup();
 
@@ -3098,11 +3176,12 @@
                 const current = dialerQueue[dialerCallIdx];
                 const retryStatuses = ['no-answer', 'busy', 'failed', 'canceled'];
                 if (retryStatuses.includes(current.status) && (current.attempts || 0) < dialerMaxAttempts) {
-                    console.log(`[Dialer] Retrying ${current.name} — attempt ${(current.attempts || 0) + 1}/${dialerMaxAttempts} in 2s`);
+                    const retryMs = _dialerRetryDelay || 2000;
+                    console.log(`[Dialer] Retrying ${current.name} — attempt ${(current.attempts || 0) + 1}/${dialerMaxAttempts} in ${retryMs}ms`);
                     current.status = 'pending';
                     dialerRenderQueue();
-                    // 2-second delay before retry; use queue timer so it's cancelable
-                    _dialerQueueTimeout(() => { _advanceLocked = false; if (dialerQueueRunning) dialerDialNext(); }, 2000);
+                    // Configurable retry delay; use queue timer so it's cancelable
+                    _dialerQueueTimeout(() => { _advanceLocked = false; if (dialerQueueRunning) dialerDialNext(); }, retryMs);
                     return;
                 }
                 // Max attempts exhausted — mark as final status
@@ -3114,8 +3193,9 @@
             // Move to next pending contact
             dialerCallIdx = dialerQueue.findIndex((q, i) => i > dialerCallIdx && q.status === 'pending');
             if (dialerCallIdx < 0) { _advanceLocked = false; dialerQueueRunning = false; _jtcDialingContactId = null; dialerUpdateBtn(); dialerHideBanner(); dialerRenderQueue(); _jtcUpdatePill(); return; }
-            // Brief 1s pause before next contact; use queue timer so it's cancelable
-            _dialerQueueTimeout(() => { _advanceLocked = false; if (dialerQueueRunning) dialerDialNext(); }, 1000);
+            // Configurable pause before next contact; use queue timer so it's cancelable
+            const pauseMs = _dialerPauseBetween ?? 1000;
+            _dialerQueueTimeout(() => { _advanceLocked = false; if (dialerQueueRunning) dialerDialNext(); }, pauseMs);
         }
 
         // ── Recording + Transcript ──
