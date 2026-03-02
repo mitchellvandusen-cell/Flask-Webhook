@@ -31,11 +31,18 @@ def generate_strategic_directive(
     age: str | None,
     address: str | None = None,
     bot_settings: dict = None,
+    lead_type: str = "default",
 ) -> Dict[str, Any]:
     """
     Returns lean context + tactical situation for the texting agent.
     Understands three message contexts (cold outbound, follow-up, inbound reply)
     and classifies objections for appropriate handling guidance.
+
+    lead_type controls how the bot approaches the lead:
+      "fresh"     — speed-to-lead, they just requested info
+      "re-engage" — cold/dormant 30+ day lead, circling back
+      "aged"      — purchased aged lead, 30+ days minimum
+      "default"   — legacy behavior (aged internet lead assumption)
     """
     logger.info(f"Director | {contact_id} | msg='{message[:60]}'")
 
@@ -113,7 +120,7 @@ def generate_strategic_directive(
         stage_value = ConversationStage.BOOKED.value
 
     # ─── 7. GENERATE TACTICAL DIRECTIVE ───
-    tactical = _build_tactical_guidance(logic, stage_value, first_name, full_lower, bot_settings or {})
+    tactical = _build_tactical_guidance(logic, stage_value, first_name, full_lower, bot_settings or {}, lead_type=lead_type)
 
     # ─── 7b. INJECT AGE-BASED PRODUCT DIRECTIVE ───
     # Hardcoded — not a soft hint. This overrides any generic product assumptions.
@@ -199,33 +206,17 @@ def _build_age_directive(age_int: int) -> str:
 # TACTICAL GUIDANCE BUILDER
 # ═══════════════════════════════════════════════════
 
-def _build_tactical_guidance(logic: LogicSignal, stage_value: str, first_name: str, full_lower: str, bot_settings: dict = None) -> str:
+def _build_tactical_guidance(logic: LogicSignal, stage_value: str, first_name: str, full_lower: str, bot_settings: dict = None, lead_type: str = "default") -> str:
     """
     Build the tactical narrative that tells the LLM what to do right now.
-    Uses message context, stage, and objection signals.
+    Uses message context, stage, objection signals, and lead type.
     """
 
     # ═══════════════════════════════════════════════════
     # CONTEXT 1: COLD OUTBOUND — First ever contact
     # ═══════════════════════════════════════════════════
     if logic.message_context == MessageContext.COLD_OUTBOUND:
-        return (
-            "SITUATION: COLD OUTBOUND. This is your first ever message to this person.\n"
-            "They have never heard from you before. There is zero conversation history.\n\n"
-            "This person went online at some point and entered their information looking for "
-            "life insurance quotes. Could have been last week, could have been months ago. "
-            "You purchased that lead.\n\n"
-            "Your opening needs to be a natural, casual status check. You are checking in "
-            "to see if they ever got that handled. You are not pitching. You are not selling. "
-            "You are a real person sending a quick text to see where things stand.\n\n"
-            "CRITICAL: Every single lead must get a UNIQUE opening message. "
-            "Never use the same phrasing twice. Vary your structure, word choice, and angle "
-            "every single time. Mix up how you reference the topic. Mix up your question. "
-            "No two leads should ever receive the same cold outreach.\n\n"
-            f"Use their name '{first_name}' if known. Reference life insurance naturally. "
-            "One question only. Keep it brief. Sound like a human, not a bot.\n\n"
-            "Goal: get them to reply. That is it. Nothing else matters on the first message."
-        )
+        return _build_cold_outbound_guidance(first_name, lead_type)
 
     # ═══════════════════════════════════════════════════
     # CONTEXT 2: FOLLOW-UP — No reply from lead
@@ -289,6 +280,92 @@ def _build_tactical_guidance(logic: LogicSignal, stage_value: str, first_name: s
 
     # --- QUALIFYING / DISCOVERY ---
     return _build_qualifying_guidance(logic, first_name, full_lower)
+
+
+# ═══════════════════════════════════════════════════
+# COLD OUTBOUND — Lead type aware
+# ═══════════════════════════════════════════════════
+
+def _build_cold_outbound_guidance(first_name: str, lead_type: str = "default") -> str:
+    """
+    Build cold outbound guidance based on lead type.
+    The lead_type is determined from GHL tags set by the agent's workflow.
+    """
+    name_line = f"Use their name '{first_name}' if known. " if first_name else ""
+
+    common_rules = (
+        "CRITICAL: Every single lead must get a UNIQUE opening message. "
+        "Never use the same phrasing twice. Vary your structure, word choice, and angle "
+        "every single time. Mix up how you reference the topic. Mix up your question. "
+        "No two leads should ever receive the same cold outreach.\n\n"
+        f"{name_line}Reference life insurance naturally. "
+        "One question only. Keep it brief. Sound like a human, not a bot.\n\n"
+        "Goal: get them to reply. That is it. Nothing else matters on the first message."
+    )
+
+    if lead_type == "fresh":
+        return (
+            "SITUATION: SPEED-TO-LEAD. This is a FRESH lead who JUST requested information.\n"
+            "They actively filled out a form or requested a quote recently. They are expecting "
+            "to hear from someone. This is not a surprise text from a stranger.\n\n"
+            "Your timing advantage is everything. They are still thinking about this RIGHT NOW. "
+            "Be the first person to actually have a real conversation with them, not a generic "
+            "auto-reply or a sales pitch.\n\n"
+            "Your opening should acknowledge that they just looked into this. Be warm, direct, "
+            "and helpful. You are the person who can actually answer their questions and help "
+            "them figure out the right fit. Do not be overly casual or vague. They know why "
+            "you are texting. Get to the point while still being human.\n\n"
+            "Do NOT say 'I saw you were looking at...' or 'I noticed you filled out a form.' "
+            "That is creepy. Instead, frame it as you being available to help with whatever "
+            "they were looking into. Keep it natural.\n\n"
+            + common_rules
+        )
+
+    if lead_type == "re-engage":
+        return (
+            "SITUATION: RE-ENGAGEMENT. This is a DORMANT lead you are circling back to.\n"
+            "They showed interest at some point in the past (30+ days ago, possibly months). "
+            "Life got in the way, they got busy, or they just never followed through. "
+            "They may or may not remember the original interaction.\n\n"
+            "Your approach is a genuine check-in. You are not pretending this is the first time. "
+            "Acknowledge that time has passed without making it awkward. Frame it as 'circling "
+            "back' or 'checking in' because the topic came to mind, not because you are "
+            "running through a call list.\n\n"
+            "Do NOT rehash what happened before. Do NOT say 'we spoke X months ago.' Just "
+            "be natural about it. Lead with something relevant, maybe a change in the market, "
+            "a new option that was not available before, or just genuine curiosity about whether "
+            "their situation has changed. Give them a reason to re-engage that feels current, "
+            "not like you are dusting off an old file.\n\n"
+            + common_rules
+        )
+
+    if lead_type == "aged":
+        return (
+            "SITUATION: AGED LEAD. This person entered their information looking for life "
+            "insurance quotes at some point, but it was at least 30 days ago, possibly months. "
+            "You purchased that lead. They may not remember filling out any form.\n\n"
+            "Your opening needs to be a natural, casual status check. You are checking in "
+            "to see if they ever got that handled. You are not pitching. You are not selling. "
+            "You are a real person sending a quick text to see where things stand.\n\n"
+            "They will likely not recognize your name or number. That is expected. Do not "
+            "over-explain who you are or how you got their info. Just be direct and human "
+            "about it. If they ask how you got their number, be honest that they filled out "
+            "a form online at some point.\n\n"
+            + common_rules
+        )
+
+    # Default — legacy behavior (backward compatible)
+    return (
+        "SITUATION: COLD OUTBOUND. This is your first ever message to this person.\n"
+        "They have never heard from you before. There is zero conversation history.\n\n"
+        "This person went online at some point and entered their information looking for "
+        "life insurance quotes. Could have been last week, could have been months ago. "
+        "You purchased that lead.\n\n"
+        "Your opening needs to be a natural, casual status check. You are checking in "
+        "to see if they ever got that handled. You are not pitching. You are not selling. "
+        "You are a real person sending a quick text to see where things stand.\n\n"
+        + common_rules
+    )
 
 
 # ═══════════════════════════════════════════════════
@@ -412,8 +489,9 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None) -> 
         return header + (
             "OBJECTION: Not interested / No.\n"
             "They said some version of no. This almost always masks something deeper. "
-            "Nobody goes online, enters their personal information looking for life insurance quotes, "
-            "and then genuinely has zero interest. Something prompted that original search.\n\n"
+            "They are in a conversation about life insurance right now, which means something "
+            "put this topic on their radar. People do not end up here by accident. "
+            "Something prompted the original interest.\n\n"
 
             "YOU MUST PICK A FRESH ANGLE EVERY TIME. Read the conversation history carefully. "
             "Do NOT repeat an angle you already used. Say it in YOUR words every time. "
@@ -423,8 +501,8 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None) -> 
             "=== ANGLE PLAYBOOK (pick ONE you have NOT used yet) ===\n\n"
 
             "ANGLE 1 — ORIGINAL TRIGGER:\n"
-            "They searched for life insurance at some point. Something was on their mind. "
-            "Get curious about whether that thing ever got resolved, or if life just got in the way. "
+            "Something put life insurance on their mind at some point. Get curious about whether "
+            "that thing ever got resolved, or if life just got in the way. "
             "The psychology: people act on triggers. The trigger does not vanish just because they "
             "are saying no right now.\n\n"
 

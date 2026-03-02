@@ -904,6 +904,22 @@ def normalize_payload_universal(payload):
         if value is not None:
             normalized[field] = value
 
+    # Extract tags (array field — not handled by extract_field_flexible)
+    tags = None
+    for tags_key in ("tags", "Tags", "TAGS"):
+        if isinstance(payload.get(tags_key), list):
+            tags = payload[tags_key]
+            break
+    if tags is None:
+        # Search nested structures for tags
+        for nested_key in ("contact", "data", "extras"):
+            nested = payload.get(nested_key)
+            if isinstance(nested, dict) and isinstance(nested.get("tags"), list):
+                tags = nested["tags"]
+                break
+    if tags is not None:
+        normalized["tags"] = tags
+
     # Preserve original payload for reference
     normalized["_original_payload"] = payload
     normalized["_is_marketplace"] = payload.get("isMarketplaceAction", False)
@@ -4642,7 +4658,7 @@ def demo_chat_api():
             message=message,
             calendar_slots=calendar_slots,
             context_nudge="",
-            lead_vendor=""
+            lead_type="default"
         )
 
         # Demo: replace any unsubstituted {bot_first_name} literals and set identity

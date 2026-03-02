@@ -5764,7 +5764,7 @@ def ai_suggest_sms(contact_id):
             message="",
             calendar_slots="",
             context_nudge=extra_context,
-            lead_vendor="",
+            lead_type="default",
             personal_website=personal_website,
             contracted_carriers=contracted_carriers,
             bot_settings=bot_settings,

@@ -303,7 +303,7 @@ def demo_chat_api():
             message=message,
             calendar_slots=calendar_slots,
             context_nudge="",
-            lead_vendor=""
+            lead_type="default"
         )
 
         system_prompt = system_prompt.replace("{bot_first_name}", "GrokBot")
