@@ -4490,182 +4490,70 @@
             }
         }
 
-        // ── Deep Sync (One-Time Historical GHL Pull) ─────────────────────────────
+        // ── Deep Sync (One-Time Historical GHL Pull — silent, no UI) ────────────
 
         let _deepSyncTriggered = false;
         let _deepSyncPollTimer = null;
 
-        // Auto-trigger deep sync on first dialer load
+        // Auto-trigger deep sync on first dialer load (runs silently in background)
         async function _deepSyncCheck() {
             if (_deepSyncTriggered) return;
             _deepSyncTriggered = true;
 
             try {
-                // Check status first — maybe already done
                 const sr = await fetch('/api/sync/deep-pull/status');
                 if (!sr.ok) return;
                 const status = await sr.json();
 
-                if (status.status === 'completed') {
-                    // Show completion banner briefly (with re-sync button visible)
-                    _deepSyncShowBanner(status);
-                    return;
-                }
+                if (status.status === 'completed') return;
 
                 if (status.status === 'running') {
-                    // Already in progress — show banner and poll
-                    _deepSyncShowBanner(status);
-                    _deepSyncPoll();
+                    _deepSyncPollSilent();
                     return;
                 }
 
-                if (status.status === 'stale') {
-                    // Job died — show banner with re-sync button (don't auto-retry)
-                    _deepSyncShowBanner(status);
-                    return;
-                }
-
-                // Not started or failed — trigger it
+                // Not started, failed, or stale — trigger it silently
                 const tr = await fetch('/api/sync/deep-pull', { method: 'POST' });
                 if (!tr.ok) return;
                 const result = await tr.json();
 
                 if (result.status === 'started' || result.status === 'already_running') {
-                    _deepSyncShowBanner({ contacts_processed: 0, messages_synced: 0 });
-                    _deepSyncPoll();
+                    _deepSyncPollSilent();
                 }
             } catch(e) {
                 console.error('[DeepSync] Check failed:', e);
             }
         }
 
-        function _deepSyncShowBanner(status) {
-            const banner = document.getElementById('deepSyncBanner');
-            if (!banner) return;
-            banner.style.display = 'block';
-            _deepSyncUpdateBanner(status);
-        }
-
-        function _deepSyncUpdateBanner(status) {
-            const label = document.getElementById('deepSyncLabel');
-            const bar = document.getElementById('deepSyncBar');
-            const detail = document.getElementById('deepSyncDetail');
-            const pct = document.getElementById('deepSyncPct');
-            const resyncBtn = document.getElementById('deepSyncResyncBtn');
-            if (!label) return;
-
-            const convos = status.contacts_processed || 0;
-            const msgs = status.messages_synced || 0;
-
-            // Hide re-sync button by default (shown on completed/failed)
-            if (resyncBtn) resyncBtn.style.display = 'none';
-
-            if (status.status === 'completed') {
-                bar.style.width = '100%';
-                if (resyncBtn) resyncBtn.style.display = 'inline-block';
-                if (msgs === 0) {
-                    label.innerHTML = '<span style="color:#8899aa;">Scan complete</span> — no LeadConnector history found';
-                    bar.style.background = 'linear-gradient(90deg,#334,#445)';
-                    detail.textContent = convos + ' conversations checked · no messages in CRM';
-                    pct.textContent = '';
-                } else {
-                    label.innerHTML = '<span style="color:#00ff88;">Import complete</span> — ' + msgs.toLocaleString() + ' records saved locally';
-                    bar.style.background = 'linear-gradient(90deg,#00ff88,#00d9ff)';
-                    detail.textContent = convos + ' conversations · ' + msgs.toLocaleString() + ' records';
-                    pct.textContent = '100%';
-                    // Refresh badges with new data
-                    dialerFetchCallCounts().then(() => dialerFetchMergedCounts());
-                }
-                // Reload contacts to pick up refreshed contact cache (backend refreshes alongside deep sync)
-                dialerLoadContacts(
-                    document.getElementById('dialerPipelineFilter').value,
-                    document.getElementById('dialerStageFilter').value,
-                    true  // forceRefresh
-                );
-                // Hide after 12 seconds (longer to give time to click re-sync if needed)
-                setTimeout(() => {
-                    const banner = document.getElementById('deepSyncBanner');
-                    if (banner) banner.style.display = 'none';
-                }, 12000);
-                return;
-            }
-
-            if (status.status === 'failed' || status.status === 'stale') {
-                label.innerHTML = '<span style="color:#ef4444;">Import stopped</span> — click Re-sync to retry';
-                detail.textContent = convos + ' conversations processed · ' + msgs.toLocaleString() + ' records';
-                pct.textContent = '';
-                if (resyncBtn) resyncBtn.style.display = 'inline-block';
-                return;
-            }
-
-            // Running
-            label.textContent = 'Pulling all history from LeadConnector...';
-            detail.textContent = convos + ' conversations · ' + msgs.toLocaleString() + ' records';
-
-            // Estimate progress: typical agency is 500-3000 contacts
-            // Use a log curve so progress feels natural even if we're wrong about total
-            if (convos > 0) {
-                // Asymptotic progress: never shows 100% until actually done
-                const estimated = Math.min(95, Math.round((convos / (convos + 50)) * 100));
-                bar.style.width = estimated + '%';
-                pct.textContent = estimated + '%';
-            } else {
-                bar.style.width = '2%';
-                pct.textContent = 'Starting...';
-            }
-        }
-
-        async function dialerResetDeepSync() {
-            const btn = document.getElementById('deepSyncResyncBtn');
-            if (btn) {
-                btn.disabled = true;
-                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Resetting...';
-            }
-            try {
-                const r = await fetch('/api/sync/deep-pull/reset', { method: 'POST' });
-                if (!r.ok) {
-                    const err = await r.json().catch(() => ({}));
-                    throw new Error(err.error || 'Reset failed');
-                }
-                const result = await r.json();
-                if (result.status === 'reset_and_started') {
-                    // Reset the triggered flag so polling restarts
-                    _deepSyncTriggered = false;
-                    // Show the banner with initial state
-                    _deepSyncShowBanner({ contacts_processed: 0, messages_synced: 0, status: 'running' });
-                    _deepSyncPoll();
-                    // Also trigger contact cache sync (backend does this too, but belt-and-suspenders)
-                    fetch('/voice/contacts/sync', { method: 'POST' }).catch(() => {});
-                    if (typeof _showDashToast === 'function') _showDashToast(true, 'Re-syncing history + refreshing contacts from CRM');
-                }
-            } catch(e) {
-                console.error('[DeepSync] Reset failed:', e);
-                if (typeof _showDashToast === 'function') _showDashToast(false, 'Reset failed: ' + e.message);
-            } finally {
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Re-sync';
-                }
-            }
-        }
-
-        function _deepSyncPoll() {
+        // Poll silently until complete, then refresh contacts + call counts
+        function _deepSyncPollSilent() {
             if (_deepSyncPollTimer) clearInterval(_deepSyncPollTimer);
             _deepSyncPollTimer = setInterval(async () => {
                 try {
                     const r = await fetch('/api/sync/deep-pull/status');
                     if (!r.ok) return;
                     const status = await r.json();
-                    _deepSyncUpdateBanner(status);
 
-                    if (status.status === 'completed' || status.status === 'not_started' || status.status === 'failed' || status.status === 'stale') {
+                    if (status.status === 'completed') {
+                        clearInterval(_deepSyncPollTimer);
+                        _deepSyncPollTimer = null;
+                        // Refresh contacts + call counts with new data
+                        if (status.messages_synced > 0) {
+                            dialerFetchCallCounts().then(() => dialerFetchMergedCounts());
+                            dialerLoadContacts(
+                                document.getElementById('dialerPipelineFilter').value,
+                                document.getElementById('dialerStageFilter').value,
+                                true
+                            );
+                        }
+                    } else if (status.status === 'failed' || status.status === 'stale' || status.status === 'not_started') {
                         clearInterval(_deepSyncPollTimer);
                         _deepSyncPollTimer = null;
                     }
                 } catch(e) {
                     // Keep polling — transient error
                 }
-            }, 5000); // Poll every 5 seconds
+            }, 8000); // Poll every 8 seconds (no UI to update, so less frequent)
         }
 
 
