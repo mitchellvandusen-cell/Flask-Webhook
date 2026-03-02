@@ -294,6 +294,7 @@ from blueprints.auth import auth_bp
 from blueprints.public import public_bp
 from blueprints.webhooks import webhooks_bp
 from blueprints.discord import discord_bp
+from blueprints.slack import slack_bp
 from blueprints.cron import cron_bp
 from blueprints.billing import billing_bp
 from blueprints.demo import demo_bp
@@ -307,6 +308,7 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(public_bp)
 app.register_blueprint(webhooks_bp)
 app.register_blueprint(discord_bp)
+app.register_blueprint(slack_bp)
 app.register_blueprint(cron_bp)
 app.register_blueprint(billing_bp)
 app.register_blueprint(demo_bp)

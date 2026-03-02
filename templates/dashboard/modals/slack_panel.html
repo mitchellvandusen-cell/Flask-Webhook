@@ -1,0 +1,38 @@
+
+    <!-- ════════════════════════════════════════════════
+         SLACK MESSAGE PANEL
+         ════════════════════════════════════════════════ -->
+    <div id="slackPanel" style="position:relative;">
+        <div class="slack-panel-header">
+            <i class="fa-solid fa-hashtag" style="color:#36c5f0;font-size:1rem;"></i>
+            <div>
+                <div class="ch-title" id="slackPanelChannelName">general</div>
+                <div class="ch-server-name" id="slackPanelWorkspaceName">Workspace</div>
+            </div>
+            <button class="slack-panel-close" onclick="closeSlackPanel()" title="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div id="slackMessages" onscroll="onSlackScroll()">
+            <div class="slack-state-msg" id="slackMsgPlaceholder">
+                <div class="state-icon"><i class="fa-brands fa-slack"></i></div>
+                <span class="state-title">No channel selected</span>
+                <span class="state-sub">Pick a channel from the sidebar to start reading and replying to team messages.</span>
+            </div>
+        </div>
+        <!-- Scroll-to-bottom button -->
+        <button id="slackScrollBtn" onclick="scrollSlackToBottom()" title="Jump to latest">
+            <i class="fa-solid fa-chevron-down"></i>
+        </button>
+        <div class="slack-composer">
+            <div class="slack-composer-inner">
+                <textarea id="slackReplyText" rows="1" placeholder="Message #general…"
+                    onkeydown="slackReplyKeydown(event)"
+                    oninput="autoResizeSlackReply(this)"></textarea>
+                <button class="slack-send-btn" id="slackSendBtn" onclick="sendSlackMessage()" title="Send (Ctrl+Enter)">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
+            <div class="slack-composer-hint">Ctrl+Enter to send &nbsp;·&nbsp; Shift+Enter for new line</div>
+        </div>
+    </div>

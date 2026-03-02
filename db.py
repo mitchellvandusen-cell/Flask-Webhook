@@ -1517,6 +1517,44 @@ def init_db() -> bool:
             conn.rollback()
             logger.debug(f"google_calendar_config migration note: {e}")
 
+        # ── Slack Integration tables ──────────────────────────────────────
+        try:
+            cur_slack = conn.cursor()
+            cur_slack.execute("""
+                CREATE TABLE IF NOT EXISTS slack_connections (
+                    id SERIAL PRIMARY KEY,
+                    email TEXT NOT NULL UNIQUE,
+                    slack_team_id TEXT NOT NULL,
+                    slack_team_name TEXT,
+                    slack_user_id TEXT,
+                    bot_token TEXT NOT NULL,
+                    user_token TEXT,
+                    authed_user_name TEXT,
+                    bot_user_id TEXT,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            cur_slack.execute("""
+                CREATE TABLE IF NOT EXISTS slack_workspaces (
+                    id SERIAL PRIMARY KEY,
+                    email TEXT NOT NULL,
+                    team_id TEXT NOT NULL,
+                    team_name TEXT NOT NULL,
+                    team_icon TEXT,
+                    position INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    UNIQUE(email, team_id)
+                )
+            """)
+            cur_slack.execute("CREATE INDEX IF NOT EXISTS idx_slack_conn_email ON slack_connections(email)")
+            cur_slack.execute("CREATE INDEX IF NOT EXISTS idx_slack_ws_email ON slack_workspaces(email)")
+            conn.commit()
+            cur_slack.close()
+            logger.info("✅ Migration: Slack integration tables ready")
+        except Exception as e:
+            logger.debug(f"Slack migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)
@@ -3337,6 +3375,132 @@ def delete_discord_webhook_channel(email: str, channel_id: str) -> bool:
     except Exception as e:
         logger.error(f"delete_discord_webhook_channel failed: {e}")
         return False
+    finally:
+        return_db_connection(conn)
+
+
+# ════════════════════════════════════════════════════════════════
+# SLACK INTEGRATION HELPERS
+# ════════════════════════════════════════════════════════════════
+
+def save_slack_connection(email: str, slack_team_id: str, slack_team_name: str,
+                           slack_user_id: str, bot_token: str, user_token: str,
+                           authed_user_name: str, bot_user_id: str) -> bool:
+    """Upsert a Slack OAuth connection for a user."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO slack_connections
+                (email, slack_team_id, slack_team_name, slack_user_id, bot_token,
+                 user_token, authed_user_name, bot_user_id, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+            ON CONFLICT (email) DO UPDATE SET
+                slack_team_id    = EXCLUDED.slack_team_id,
+                slack_team_name  = EXCLUDED.slack_team_name,
+                slack_user_id    = EXCLUDED.slack_user_id,
+                bot_token        = EXCLUDED.bot_token,
+                user_token       = EXCLUDED.user_token,
+                authed_user_name = EXCLUDED.authed_user_name,
+                bot_user_id      = EXCLUDED.bot_user_id,
+                updated_at       = NOW()
+        """, (email, slack_team_id, slack_team_name, slack_user_id, bot_token,
+              user_token, authed_user_name, bot_user_id))
+        conn.commit()
+        cur.close()
+        return True
+    except Exception as e:
+        logger.error(f"save_slack_connection failed: {e}")
+        return False
+    finally:
+        return_db_connection(conn)
+
+
+def get_slack_connection(email: str) -> Optional[dict]:
+    """Return the Slack connection row for a user, or None."""
+    conn = get_db_connection()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""
+            SELECT * FROM slack_connections WHERE email = %s LIMIT 1
+        """, (email,))
+        row = cur.fetchone()
+        cur.close()
+        return dict(row) if row else None
+    except Exception as e:
+        logger.error(f"get_slack_connection failed: {e}")
+        return None
+    finally:
+        return_db_connection(conn)
+
+
+def delete_slack_connection(email: str) -> bool:
+    """Remove Slack connection (disconnect)."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM slack_connections WHERE email = %s", (email,))
+        cur.execute("DELETE FROM slack_workspaces WHERE email = %s", (email,))
+        conn.commit()
+        cur.close()
+        return True
+    except Exception as e:
+        logger.error(f"delete_slack_connection failed: {e}")
+        return False
+    finally:
+        return_db_connection(conn)
+
+
+def save_slack_workspaces(email: str, workspaces: list) -> bool:
+    """Replace the user's saved Slack workspaces (max 3)."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM slack_workspaces WHERE email = %s", (email,))
+        for i, ws in enumerate(workspaces[:3]):
+            cur.execute("""
+                INSERT INTO slack_workspaces (email, team_id, team_name, team_icon, position)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (email, team_id) DO UPDATE SET
+                    team_name = EXCLUDED.team_name,
+                    team_icon = EXCLUDED.team_icon,
+                    position  = EXCLUDED.position
+            """, (email, ws['team_id'], ws['name'], ws.get('icon'), i))
+        conn.commit()
+        cur.close()
+        return True
+    except Exception as e:
+        logger.error(f"save_slack_workspaces failed: {e}")
+        return False
+    finally:
+        return_db_connection(conn)
+
+
+def get_slack_workspaces(email: str) -> list:
+    """Return a user's saved Slack workspaces."""
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""
+            SELECT team_id, team_name AS name, team_icon AS icon
+            FROM slack_workspaces WHERE email = %s ORDER BY position
+        """, (email,))
+        rows = cur.fetchall()
+        cur.close()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"get_slack_workspaces failed: {e}")
+        return []
     finally:
         return_db_connection(conn)
 

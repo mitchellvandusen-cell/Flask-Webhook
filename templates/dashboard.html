@@ -58,6 +58,7 @@
     {% include "dashboard/modals/save_overlay.html" %}
     {% include "dashboard/modals/discord_panel.html" %}
     {% include "dashboard/modals/discord_modal.html" %}
+    {% include "dashboard/modals/slack_panel.html" %}
 
     <!-- ── Vendor JS ── -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -128,6 +129,7 @@
     <script src="{{ url_for('static', filename='js/dashboard/advanced.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard/api_keys.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard/discord.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard/slack.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard/tutorial.js') }}"></script>
 
 </body>
