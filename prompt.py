@@ -308,6 +308,16 @@ def _build_lead_context(lead_type: str) -> str:
             "online at some point looking for life insurance information."
         )
 
+    if lead_type == "very-old":
+        return (
+            "This person's information has been in the system for a very long time, likely "
+            "months. They almost certainly do not remember filling out any form. They have "
+            "probably been contacted by multiple agents already. Do not reference any form "
+            "or prior request they made. If they ask how you got their number, keep it vague "
+            "and honest. Something like their info came across your desk through a referral "
+            "network. Do not make it sound like they are on a call list."
+        )
+
     # Default — legacy behavior
     return (
         "Every person you text went online at some point and entered their personal information "

@@ -923,6 +923,53 @@ def normalize_payload_universal(payload):
     if tags is not None:
         normalized["tags"] = tags
 
+    # Extract date fields (GHL sends dateAdded, dateCreated, etc.)
+    for date_field in ("date_added", "date_created", "date_imported"):
+        val = extract_field_flexible(payload, date_field, search_nested=True)
+        if val:
+            normalized[date_field] = val
+            break
+    # Also check camelCase variants GHL commonly uses
+    if "date_added" not in normalized:
+        for camel_key in ("dateAdded", "dateCreated", "dateImported", "createdAt"):
+            val = payload.get(camel_key)
+            if not val:
+                # Search nested
+                for nk in ("contact", "data", "extras"):
+                    nested = payload.get(nk)
+                    if isinstance(nested, dict) and nested.get(camel_key):
+                        val = nested[camel_key]
+                        break
+            if val:
+                normalized["date_added"] = val
+                break
+
+    # Extract custom fields (array — GHL sends as customFields or customField)
+    custom_fields = None
+    for cf_key in ("customFields", "customField", "custom_fields"):
+        val = payload.get(cf_key)
+        if isinstance(val, list):
+            custom_fields = val
+            break
+    if custom_fields is None:
+        for nk in ("contact", "data", "extras"):
+            nested = payload.get(nk)
+            if isinstance(nested, dict):
+                for cf_key in ("customFields", "customField", "custom_fields"):
+                    val = nested.get(cf_key)
+                    if isinstance(val, list):
+                        custom_fields = val
+                        break
+                if custom_fields:
+                    break
+    if custom_fields:
+        normalized["custom_fields"] = custom_fields
+
+    # Extract source (lead origin)
+    source = extract_field_flexible(payload, "source", search_nested=True)
+    if source:
+        normalized["source"] = source
+
     # Preserve original payload for reference
     normalized["_original_payload"] = payload
     normalized["_is_marketplace"] = payload.get("isMarketplaceAction", False)

@@ -354,6 +354,23 @@ def _build_cold_outbound_guidance(first_name: str, lead_type: str = "default") -
             + common_rules
         )
 
+    if lead_type == "very-old":
+        return (
+            "SITUATION: VERY OLD LEAD. This person's information has been in the system for "
+            "a very long time, likely 3+ months. They almost certainly do not remember any "
+            "form they filled out. They have probably been contacted by multiple agents already. "
+            "They may be annoyed by yet another outreach.\n\n"
+            "Your approach needs to be completely different from a normal cold outreach. Do not "
+            "reference them looking into life insurance. Do not say you are following up. "
+            "They do not remember and will immediately dismiss you as spam.\n\n"
+            "Instead, lead with pure value. Share something genuinely interesting or surprising "
+            "about life insurance that most people do not know. Make it feel like you are reaching "
+            "out because you had a thought worth sharing, not because their name is on a list. "
+            "Be ultra-casual, ultra-brief, and give them zero reason to feel sold to. Your only "
+            "goal is to spark enough curiosity that they reply with anything other than 'stop.'\n\n"
+            + common_rules
+        )
+
     # Default — legacy behavior (backward compatible)
     return (
         "SITUATION: COLD OUTBOUND. This is your first ever message to this person.\n"
