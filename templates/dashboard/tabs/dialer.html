@@ -1273,13 +1273,13 @@
                                                     <i class="fa-solid fa-calendar-day" style="color:#FF3B30;"></i>
                                                 </div>
                                                 <div class="ios-empty-title">Select a Date</div>
-                                                <div class="ios-empty-sub">Tap a highlighted date to see available times</div>
+                                                <div class="ios-empty-sub">Tap any date to see events and available times<br><span style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;font-size:0.68rem;"><span style="width:6px;height:6px;border-radius:50%;background:#34C759;display:inline-block;"></span> Events <span style="width:6px;height:6px;border-radius:50%;background:#FF3B30;display:inline-block;margin-left:6px;"></span> Open slots</span></div>
                                             </div>
                                         </div>
 
-                                        <!-- Booking confirmation overlay -->
+                                        <!-- Calendar overlay (booking confirm + event detail + success/error) -->
                                         <div id="iosCalConfirm" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.92);z-index:10;flex-direction:column;align-items:center;justify-content:center;padding:24px;">
-                                            <!-- Confirm state -->
+                                            <!-- Booking confirm state -->
                                             <div id="iosCalConfirmContent">
                                                 <div style="text-align:center;margin-bottom:20px;">
                                                     <div style="width:56px;height:56px;border-radius:50%;background:rgba(255,59,48,0.12);border:1px solid rgba(255,59,48,0.2);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
@@ -1305,6 +1305,50 @@
                                                     <i class="fa-solid fa-check me-1"></i> Book Appointment
                                                 </button>
                                                 <button onclick="calendarDismissConfirm()" style="width:100%;padding:10px;border:none;background:none;color:#888;font-size:0.78rem;cursor:pointer;margin-top:8px;">Cancel</button>
+                                            </div>
+                                            <!-- Event detail/edit state -->
+                                            <div id="iosCalEventDetail" style="display:none;width:100%;max-width:320px;">
+                                                <div style="text-align:center;margin-bottom:16px;">
+                                                    <div style="width:56px;height:56px;border-radius:50%;background:rgba(52,199,89,0.12);border:1px solid rgba(52,199,89,0.2);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+                                                        <i class="fa-solid fa-calendar-day" style="color:#34C759;font-size:1.3rem;"></i>
+                                                    </div>
+                                                    <div id="iosCalEvTitle" style="font-size:0.95rem;font-weight:700;color:#fff;"></div>
+                                                </div>
+                                                <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px;margin-bottom:16px;">
+                                                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                                                        <i class="fa-solid fa-calendar" style="color:#888;font-size:0.7rem;width:14px;text-align:center;"></i>
+                                                        <span id="iosCalEvDate" style="font-size:0.82rem;color:#ccc;"></span>
+                                                    </div>
+                                                    <div style="display:flex;align-items:center;gap:8px;">
+                                                        <i class="fa-solid fa-clock" style="color:#888;font-size:0.7rem;width:14px;text-align:center;"></i>
+                                                        <span id="iosCalEvTime" style="font-size:0.82rem;color:#ccc;"></span>
+                                                    </div>
+                                                </div>
+                                                <!-- Editable fields -->
+                                                <div style="margin-bottom:12px;">
+                                                    <label style="font-size:0.68rem;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:4px;">Status</label>
+                                                    <select id="iosCalEvStatus" style="width:100%;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;font-size:0.82rem;outline:none;">
+                                                        <option value="new">New</option>
+                                                        <option value="confirmed">Confirmed</option>
+                                                        <option value="showed">Showed</option>
+                                                        <option value="noshow">No Show</option>
+                                                        <option value="cancelled">Cancelled</option>
+                                                    </select>
+                                                </div>
+                                                <div style="margin-bottom:16px;">
+                                                    <label style="font-size:0.68rem;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:4px;">Notes</label>
+                                                    <textarea id="iosCalEvNotes" rows="3" placeholder="Add notes..." style="width:100%;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;font-size:0.82rem;resize:none;outline:none;font-family:inherit;box-sizing:border-box;"></textarea>
+                                                </div>
+                                                <!-- Action buttons -->
+                                                <div style="display:flex;gap:8px;">
+                                                    <button id="iosCalEvSaveBtn" onclick="calendarSaveEvent()" style="flex:1;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#34C759,#30B350);color:#fff;font-weight:700;font-size:0.84rem;cursor:pointer;">
+                                                        <i class="fa-solid fa-check me-1"></i> Save Changes
+                                                    </button>
+                                                    <button id="iosCalEvDeleteBtn" onclick="calendarDeleteEvent()" style="padding:12px 14px;border:none;border-radius:10px;background:rgba(255,59,48,0.12);border:1px solid rgba(255,59,48,0.2);color:#FF3B30;font-weight:700;font-size:0.84rem;cursor:pointer;">
+                                                        <i class="fa-solid fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                                <button onclick="calendarDismissConfirm()" style="width:100%;padding:10px;border:none;background:none;color:#888;font-size:0.78rem;cursor:pointer;margin-top:8px;">Close</button>
                                             </div>
                                             <!-- Success state -->
                                             <div id="iosCalSuccessContent" style="display:none;text-align:center;">

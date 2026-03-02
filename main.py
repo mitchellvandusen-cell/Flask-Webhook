@@ -445,12 +445,15 @@ def api_calendar_slots():
     local_tz_str = subscriber_data["timezone"]
     local_tz = ZoneInfo(local_tz_str)
     now_utc = datetime.now(timezone.utc)
+    # Support optional date range via query params (for full month view)
+    days_ahead = int(request.args.get('days', 30))
+    days_ahead = min(days_ahead, 90)  # cap at 90 days
     start_ts = int(now_utc.timestamp() * 1000)
-    end_ts = int((now_utc + timedelta(days=3)).timestamp() * 1000)
+    end_ts = int((now_utc + timedelta(days=days_ahead)).timestamp() * 1000)
 
     headers = {
         "Authorization": f"Bearer {access_token}",
-        "Version": "2021-04-15",
+        "Version": "2021-07-28",
         "Content-Type": "application/json",
     }
     params = {"startDate": start_ts, "endDate": end_ts, "timezone": local_tz_str}
@@ -581,6 +584,193 @@ def api_calendar_book():
         return flask_jsonify({"success": True, "message": f"Booked {selected_time}"})
     else:
         return flask_jsonify({"error": "Booking failed. The slot may no longer be available."}), 422
+
+
+@app.route('/api/calendar/events', methods=['GET'])
+@login_required
+def api_calendar_events():
+    """
+    Fetch calendar events (appointments) from GHL for a date range.
+    Query params: calendar_id, start (ISO date), end (ISO date)
+    Returns events with id, title, startTime, endTime, contactId, status, notes.
+    """
+    from ghl_api import get_valid_token
+
+    location_id = current_user.location_id
+    if not location_id:
+        return flask_jsonify({"error": "No location configured"}), 400
+
+    cal_id = request.args.get('calendar_id') or getattr(current_user, 'calendar_id', '')
+    start_date = request.args.get('start')  # ISO date string e.g. 2026-03-01
+    end_date = request.args.get('end')      # ISO date string e.g. 2026-03-31
+
+    if not cal_id:
+        return flask_jsonify({"error": "No calendar selected"}), 400
+
+    raw_token = getattr(current_user, 'access_token', '')
+    if raw_token == 'DEMO':
+        return flask_jsonify({"events": []})
+
+    access_token = get_valid_token(location_id)
+    if not access_token:
+        return flask_jsonify({"error": "CRM connection expired. Please reconnect in Bot Config."}), 401
+
+    # Build date range — default to current month if not provided
+    from zoneinfo import ZoneInfo
+    tz_str = getattr(current_user, 'timezone', None) or "America/Chicago"
+    local_tz = ZoneInfo(tz_str)
+    now = datetime.now(local_tz)
+
+    if start_date:
+        start_dt = datetime.fromisoformat(start_date + "T00:00:00").replace(tzinfo=local_tz)
+    else:
+        start_dt = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    if end_date:
+        end_dt = datetime.fromisoformat(end_date + "T23:59:59").replace(tzinfo=local_tz)
+    else:
+        # End of month
+        next_month = start_dt.replace(day=28) + timedelta(days=4)
+        end_dt = next_month.replace(day=1, hour=0, minute=0, second=0, microsecond=0) - timedelta(seconds=1)
+
+    GHL_BASE = "https://services.leadconnectorhq.com"
+    url = f"{GHL_BASE}/calendars/events"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Version": "2021-07-28",
+        "Content-Type": "application/json",
+    }
+    params = {
+        "locationId": location_id,
+        "calendarId": cal_id,
+        "startTime": start_dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+        "endTime": end_dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+    }
+
+    try:
+        resp = requests.get(url, headers=headers, params=params, timeout=20)
+        if resp.status_code in (401, 403):
+            return flask_jsonify({"error": "CRM token expired. Please reconnect in Bot Config."}), 401
+        resp.raise_for_status()
+        data = resp.json()
+
+        events = []
+        raw_events = data.get("events", [])
+        if not raw_events and isinstance(data, list):
+            raw_events = data
+
+        for ev in raw_events:
+            start_time = ev.get("startTime") or ev.get("start")
+            end_time = ev.get("endTime") or ev.get("end")
+            events.append({
+                "id": ev.get("id"),
+                "title": ev.get("title") or "Appointment",
+                "startTime": start_time,
+                "endTime": end_time,
+                "contactId": ev.get("contactId", ""),
+                "status": ev.get("appointmentStatus") or ev.get("status", ""),
+                "notes": ev.get("notes", ""),
+                "calendarId": ev.get("calendarId", cal_id),
+                "assignedUserId": ev.get("assignedUserId", ""),
+            })
+
+        logger.info(f"Calendar events: Fetched {len(events)} events for {location_id} ({start_date} to {end_date})")
+        return flask_jsonify({"events": events, "timezone": tz_str})
+
+    except requests.exceptions.Timeout:
+        return flask_jsonify({"error": "Calendar service timed out"}), 504
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Calendar events fetch failed for {location_id}: {e}")
+        return flask_jsonify({"error": "Failed to fetch calendar events"}), 500
+
+
+@app.route('/api/calendar/events/<event_id>', methods=['PUT'])
+@login_required
+def api_calendar_event_update(event_id):
+    """
+    Update an existing calendar event/appointment in GHL.
+    Body: { startTime, endTime, title, notes, appointmentStatus }
+    """
+    from ghl_api import get_valid_token
+
+    location_id = current_user.location_id
+    if not location_id:
+        return flask_jsonify({"error": "No location configured"}), 400
+
+    access_token = get_valid_token(location_id)
+    if not access_token:
+        return flask_jsonify({"error": "CRM connection expired"}), 401
+
+    body = request.get_json(silent=True) or {}
+
+    # Build update payload — only include fields that were provided
+    payload = {}
+    for field in ("startTime", "endTime", "title", "notes", "appointmentStatus"):
+        if field in body:
+            payload[field] = body[field]
+    if "calendarId" in body:
+        payload["calendarId"] = body["calendarId"]
+    if "selectedTimezone" not in payload:
+        payload["selectedTimezone"] = getattr(current_user, 'timezone', None) or "America/Chicago"
+
+    if not payload:
+        return flask_jsonify({"error": "No fields to update"}), 400
+
+    GHL_BASE = "https://services.leadconnectorhq.com"
+    url = f"{GHL_BASE}/calendars/events/appointments/{event_id}"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Version": "2021-07-28",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        resp = requests.put(url, headers=headers, json=payload, timeout=20)
+        if resp.status_code in (401, 403):
+            return flask_jsonify({"error": "CRM token expired"}), 401
+        if resp.status_code == 404:
+            return flask_jsonify({"error": "Event not found"}), 404
+        resp.raise_for_status()
+        logger.info(f"Calendar event updated: {event_id} for {location_id}")
+        return flask_jsonify({"success": True})
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Calendar event update failed for {event_id}: {e}")
+        return flask_jsonify({"error": "Failed to update event"}), 500
+
+
+@app.route('/api/calendar/events/<event_id>', methods=['DELETE'])
+@login_required
+def api_calendar_event_delete(event_id):
+    """Delete a calendar event/appointment from GHL."""
+    from ghl_api import get_valid_token
+
+    location_id = current_user.location_id
+    if not location_id:
+        return flask_jsonify({"error": "No location configured"}), 400
+
+    access_token = get_valid_token(location_id)
+    if not access_token:
+        return flask_jsonify({"error": "CRM connection expired"}), 401
+
+    GHL_BASE = "https://services.leadconnectorhq.com"
+    url = f"{GHL_BASE}/calendars/events/{event_id}"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Version": "2021-07-28",
+    }
+
+    try:
+        resp = requests.delete(url, headers=headers, timeout=20)
+        if resp.status_code in (401, 403):
+            return flask_jsonify({"error": "CRM token expired"}), 401
+        if resp.status_code == 404:
+            return flask_jsonify({"error": "Event not found"}), 404
+        resp.raise_for_status()
+        logger.info(f"Calendar event deleted: {event_id} for {location_id}")
+        return flask_jsonify({"success": True})
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Calendar event delete failed for {event_id}: {e}")
+        return flask_jsonify({"error": "Failed to delete event"}), 500
 
 
 def generate_demo_opener():
