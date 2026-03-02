@@ -239,17 +239,26 @@ def _get_contact_ids_for_sync(conn, location_id, headers):
 
         # Check for next page
         meta = data.get("meta", {})
-        next_page_url = meta.get("nextPageUrl") or meta.get("nextPage")
-        if not next_page_url or not contacts:
+        if not contacts:
             break
 
-        # GHL returns full URL for next page or uses startAfterId
-        start_after = meta.get("startAfterId") or meta.get("nextPageStartAfterId")
-        if start_after:
-            params["startAfterId"] = start_after
+        start_after_id = meta.get("startAfterId") or meta.get("nextPageStartAfterId")
+        start_after_offset = meta.get("startAfter")
+        next_page_url = meta.get("nextPageUrl") or meta.get("nextPage")
+        meta_total = meta.get("total")
+
+        if start_after_id:
+            params["startAfterId"] = start_after_id
+            params.pop("startAfter", None)
+        elif isinstance(start_after_offset, (int, float)) and start_after_offset > 0:
+            params["startAfter"] = int(start_after_offset)
+            params.pop("startAfterId", None)
         elif isinstance(next_page_url, str) and next_page_url.startswith("http"):
             url = next_page_url
             params = {}
+        elif meta_total and len(contact_ids) < meta_total:
+            params["startAfter"] = len(contact_ids)
+            params.pop("startAfterId", None)
         else:
             break
 

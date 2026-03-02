@@ -282,6 +282,33 @@
                     </div>
                 </div>
             </div>
+            <!-- Live Call Monitoring -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
+                <div style="border-radius: 12px; overflow: hidden; border: 1px solid rgba(0,217,255,0.12); background: rgba(0,217,255,0.02); transition: transform 0.3s, border-color 0.3s;" onmouseover="this.style.transform='translateY(-3px)';this.style.borderColor='rgba(0,217,255,0.3)';" onmouseout="this.style.transform='';this.style.borderColor='rgba(0,217,255,0.12)';">
+                    <img src="{{ url_for('static', filename='images/call-ringing.png') }}" alt="Live AI call ringing with real-time controls" style="width: 100%; display: block;" loading="lazy">
+                    <div style="padding: 12px 16px;">
+                        <div style="font-size: 0.82rem; font-weight: 700; color: #00d9ff;">Live Call — Ringing</div>
+                        <div style="font-size: 0.72rem; color: #777;">Listen, mute AI, intercept, or transfer in real time</div>
+                    </div>
+                </div>
+                <div style="border-radius: 12px; overflow: hidden; border: 1px solid rgba(0,217,255,0.12); background: rgba(0,217,255,0.02); transition: transform 0.3s, border-color 0.3s;" onmouseover="this.style.transform='translateY(-3px)';this.style.borderColor='rgba(0,217,255,0.3)';" onmouseout="this.style.transform='';this.style.borderColor='rgba(0,217,255,0.12)';">
+                    <img src="{{ url_for('static', filename='images/call-connected.png') }}" alt="Live AI call connected with active timer and intercept" style="width: 100%; display: block;" loading="lazy">
+                    <div style="padding: 12px 16px;">
+                        <div style="font-size: 0.82rem; font-weight: 700; color: #00d9ff;">Live Call — Connected</div>
+                        <div style="font-size: 0.72rem; color: #777;">One-click intercept — the lead never knows you took over</div>
+                    </div>
+                </div>
+            </div>
+            <!-- Number Health -->
+            <div style="margin-top: 16px;">
+                <div style="border-radius: 12px; overflow: hidden; border: 1px solid rgba(0,217,255,0.12); background: rgba(0,217,255,0.02); transition: transform 0.3s, border-color 0.3s;" onmouseover="this.style.transform='translateY(-3px)';this.style.borderColor='rgba(0,217,255,0.3)';" onmouseout="this.style.transform='';this.style.borderColor='rgba(0,217,255,0.12)';">
+                    <img src="{{ url_for('static', filename='images/number-health.png') }}" alt="Number Health & Smart Rotation dashboard" style="width: 100%; display: block;" loading="lazy">
+                    <div style="padding: 12px 16px;">
+                        <div style="font-size: 0.82rem; font-weight: 700; color: #00d9ff;">Number Health & Smart Rotation</div>
+                        <div style="font-size: 0.72rem; color: #777;">Weighted health scoring, connect rate tracking & state-level number coverage</div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Technical Stats -->

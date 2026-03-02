@@ -3411,9 +3411,11 @@ def get_contact_cache_count(location_id: str) -> int:
         return_db_connection(conn)
 
 
-def upsert_contact_cache(location_id: str, contacts: list) -> int:
+def upsert_contact_cache(location_id: str, contacts: list, prune_stale: bool = False) -> int:
     """Bulk upsert contacts into cache. Returns number of rows affected.
-    Also removes contacts that no longer exist in the source (full sync)."""
+    prune_stale=True removes contacts not in the incoming list (safe only when
+    the fetch was complete — i.e. pagination exhausted naturally, not truncated
+    by max-page cap or API errors)."""
     if not location_id or not contacts:
         return 0
     conn = get_db_connection()
@@ -3468,8 +3470,10 @@ def upsert_contact_cache(location_id: str, contacts: list) -> int:
 
         total_upserted = len(values)  # cur.rowcount only reflects last execute_values batch
 
-        # Remove stale contacts that are no longer in GHL
-        if incoming_ids:
+        # Only remove stale contacts when fetch was complete (all pages fetched
+        # without error or truncation). Otherwise we'd delete contacts that
+        # simply weren't returned because the fetch was cut short.
+        if prune_stale and incoming_ids:
             cur.execute(
                 "DELETE FROM contact_cache WHERE location_id = %s AND contact_id != ALL(%s)",
                 (location_id, list(incoming_ids))
@@ -3480,7 +3484,7 @@ def upsert_contact_cache(location_id: str, contacts: list) -> int:
 
         conn.commit()
         cur.close()
-        logger.info(f"Contact cache upserted: {total_upserted} contacts for {location_id}")
+        logger.info(f"Contact cache upserted: {total_upserted} contacts for {location_id} (pruned={prune_stale})")
         return total_upserted
     except Exception as e:
         logger.error(f"upsert_contact_cache failed for {location_id}: {e}")
