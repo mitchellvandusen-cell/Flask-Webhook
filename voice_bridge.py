@@ -3843,7 +3843,7 @@ def get_voicemails():
               AND recording_url IS NOT NULL AND recording_url != ''
               AND (direction = 'inbound' OR disposition = 'left_voicemail'
                    OR status IN ('no-answer', 'busy'))
-              AND (transcript IS NULL OR transcript = '[]' OR transcript = '')
+              AND (transcript IS NULL OR transcript = '[]'::jsonb)
         """, (location_id,))
         unread_row = cur.fetchone()
         unread_count = unread_row['cnt'] if unread_row else 0
