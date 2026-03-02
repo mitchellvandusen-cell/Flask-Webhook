@@ -1215,10 +1215,11 @@ def voice_dial_status():
     dial_call_status = request.values.get('DialCallStatus', '')
     dial_call_sid = request.values.get('DialCallSid', '')
     dial_call_duration = request.values.get('DialCallDuration', '0')
+    dial_sip_code = request.values.get('SipResponseCode', '')
 
     logger.info(f"Browser VoIP dial result: CallSid={call_sid[:16] if call_sid else 'none'} "
                 f"DialStatus={dial_call_status} DialDuration={dial_call_duration}s "
-                f"DialCallSid={dial_call_sid[:16] if dial_call_sid else 'none'}")
+                f"DialCallSid={dial_call_sid[:16] if dial_call_sid else 'none'} sip={dial_sip_code}")
 
     # Update number health for browser VoIP calls
     if call_sid and dial_call_status:
@@ -1231,7 +1232,7 @@ def voice_dial_status():
                           'failed': 'failed', 'canceled': 'canceled'}
             effective_status = status_map.get(dial_call_status, dial_call_status)
             try:
-                update_number_health(nh_location, nh_from, effective_status, int(dial_call_duration or 0))
+                update_number_health(nh_location, nh_from, effective_status, int(dial_call_duration or 0), sip_code=dial_sip_code)
             except Exception as e:
                 logger.warning(f"Number health update (VoIP dial) failed for {nh_from}: {e}")
 
@@ -1589,8 +1590,9 @@ def voice_status():
     call_sid    = request.values.get('CallSid', '')
     call_status = request.values.get('CallStatus', '')
     duration    = request.values.get('CallDuration', '0')
+    sip_code    = request.values.get('SipResponseCode', '')
 
-    logger.info(f"📞 Call status: SID={call_sid} status={call_status} duration={duration}s")
+    logger.info(f"📞 Call status: SID={call_sid} status={call_status} duration={duration}s sip={sip_code}")
 
     # Track status in memory for dialer queue polling
     # Twilio can deliver callbacks out of order (e.g. 'ringing' after 'in-progress'),
@@ -1634,7 +1636,7 @@ def voice_status():
         nh_effective = call_info.get('_amd_result', call_status)  # Use AMD result if available
         if nh_location and nh_from:
             try:
-                update_number_health(nh_location, nh_from, nh_effective, int(duration or 0))
+                update_number_health(nh_location, nh_from, nh_effective, int(duration or 0), sip_code=sip_code)
             except Exception as e:
                 logger.warning(f"Number health update failed for {nh_from}: {e}")
 
@@ -2238,6 +2240,24 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                 logger.info(f"🎙️ Saved transcript ({len(call_transcript)} turns) for call {call_sid}")
             except Exception as e:
                 logger.error(f"Failed to save transcript: {e}")
+
+            # ── AI Auto-Callback Detection ──
+            # If enabled, analyze transcript for callback requests in background
+            if subscriber and subscriber.get('voice_config', {}).get('auto_callback', False):
+                try:
+                    location_id_cb = subscriber.get('location_id', '')
+                    tz_str = subscriber.get('voice_config', {}).get('timezone', 'America/New_York')
+                    import threading
+                    threading.Thread(
+                        target=_analyze_callback_from_transcript,
+                        args=(call_sid, call_transcript, location_id_cb, contact_id, tz_str),
+                        daemon=True,
+                        name=f"auto-callback-{call_sid[:12]}"
+                    ).start()
+                    logger.info(f"Auto-callback analysis queued for {call_sid}")
+                except Exception as e:
+                    logger.error(f"Failed to queue auto-callback analysis: {e}")
+
         # Mark call as completed if still showing in-progress
         # (Twilio status callback may arrive later, but this prevents
         #  stale in-progress entries that allow intercept on ended calls)
@@ -2963,7 +2983,8 @@ def dial_contact():
     if not sub_sid or not from_number:
         return jsonify({"error": "Voice service not fully provisioned"}), 400
 
-    use_amd = dial_mode == 'ai'
+    # AMD: always on for AI mode (needs to detect voicemail); for human mode, respect user setting
+    use_amd = True if dial_mode == 'ai' else voice_config.get('use_amd', False)
 
     # Idempotency guard: prevent double-dial to the same phone number.
     # If a non-terminal call to this phone already exists for this location, return it.
@@ -2988,6 +3009,7 @@ def dial_contact():
             'dial_mode':    dial_mode,
         }
 
+        ring_timeout = voice_config.get('ring_timeout', 45)
         result = twilio_provisioning.create_outbound_call(
             sub_account_sid=sub_sid,
             to=phone,
@@ -2995,6 +3017,7 @@ def dial_contact():
             webhook_base_url=webhook_base_url,
             machine_detection='DetectMessageEnd' if use_amd else None,
             custom_params=custom_params,
+            ring_timeout=ring_timeout,
         )
         call_sid = result.get('call_sid', '')
 
@@ -3487,6 +3510,183 @@ def set_call_disposition():
 
 
 # ──────────────────────────────────────────────────────────────
+# AI Auto-Callback Detection
+# ──────────────────────────────────────────────────────────────
+
+def _analyze_callback_from_transcript(call_sid, transcript, location_id, contact_id, timezone_str='America/New_York'):
+    """
+    Analyze a call transcript for callback requests using xAI Grok.
+    Detects phrases like "call me back at 5", "try me tomorrow morning", etc.
+    If detected, sets disposition to 'callback' and stores callback_at timestamp.
+    """
+    if not transcript:
+        return None
+
+    # Build transcript text
+    text_parts = []
+    for turn in transcript:
+        role = turn.get('role', 'unknown')
+        text = turn.get('text', '')
+        if text:
+            if role == 'call_recording':
+                text_parts.append(f"Recording: {text}")
+            else:
+                label = 'Lead' if role == 'lead' else 'Agent'
+                text_parts.append(f"{label}: {text}")
+    transcript_text = '\n'.join(text_parts)
+
+    if len(transcript_text) < 10:
+        return None
+
+    xai_key = os.getenv("XAI_API_KEY")
+    if not xai_key:
+        logger.warning("Auto-callback: XAI_API_KEY not configured")
+        return None
+
+    # Quick AI analysis — single micro-prompt
+    try:
+        from datetime import datetime
+        import pytz
+        try:
+            tz = pytz.timezone(timezone_str)
+        except Exception:
+            tz = pytz.timezone('America/New_York')
+        now = datetime.now(tz)
+        now_str = now.strftime('%Y-%m-%d %H:%M %Z (%A)')
+
+        prompt = f"""Analyze this phone call transcript for callback requests.
+Current time: {now_str}
+
+TRANSCRIPT:
+{transcript_text[:3000]}
+
+Does the lead request a callback? Look for phrases like:
+- "call me back at 5" / "try me at 3pm" / "call me later"
+- "tomorrow morning" / "next week" / "after lunch"
+- "I'm busy right now, can you call later?"
+- Any specific time/day mentioned for a return call
+
+Respond with JSON only (no markdown):
+{{"callback_requested": true/false, "callback_time": "YYYY-MM-DD HH:MM" or null, "confidence": "high"/"medium"/"low", "quote": "exact words from transcript" or null}}
+
+If no specific time is given but they want a callback (e.g., "call me later"), estimate a reasonable time.
+If callback_requested is false, set callback_time to null."""
+
+        client = OpenAI(api_key=xai_key, base_url="https://api.x.ai/v1")
+        resp = client.chat.completions.create(
+            model="grok-4-1-fast-non-reasoning",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=150,
+            temperature=0,
+        )
+        raw = (resp.choices[0].message.content or '').strip()
+
+        # Parse JSON response
+        import re
+        json_match = re.search(r'\{[^{}]+\}', raw, re.DOTALL)
+        if not json_match:
+            logger.debug(f"Auto-callback: no JSON in response for {call_sid}")
+            return None
+
+        result = json.loads(json_match.group())
+
+        if not result.get('callback_requested'):
+            logger.debug(f"Auto-callback: no callback detected for {call_sid}")
+            return None
+
+        callback_time_str = result.get('callback_time')
+        confidence = result.get('confidence', 'low')
+        quote = result.get('quote', '')
+
+        if confidence == 'low':
+            logger.debug(f"Auto-callback: low confidence for {call_sid}, skipping")
+            return None
+
+        # Parse callback time
+        callback_at = None
+        if callback_time_str:
+            try:
+                naive = datetime.strptime(callback_time_str, '%Y-%m-%d %H:%M')
+                callback_at = tz.localize(naive)
+            except ValueError:
+                logger.warning(f"Auto-callback: could not parse time '{callback_time_str}' for {call_sid}")
+
+        # Save to DB
+        conn = get_db_connection()
+        if conn:
+            try:
+                cur = conn.cursor()
+                cur.execute("""
+                    UPDATE call_history
+                    SET disposition = 'callback',
+                        callback_at = %s
+                    WHERE call_sid = %s
+                """, (callback_at, call_sid))
+                conn.commit()
+                cur.close()
+                logger.info(f"Auto-callback scheduled for {call_sid}: {callback_at} (confidence={confidence}, quote='{quote}')")
+            except Exception as e:
+                logger.error(f"Auto-callback DB save failed for {call_sid}: {e}")
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+            finally:
+                return_db_connection(conn)
+
+        return {
+            "callback_at": callback_at.isoformat() if callback_at else None,
+            "confidence": confidence,
+            "quote": quote,
+        }
+
+    except Exception as e:
+        logger.error(f"Auto-callback AI analysis failed for {call_sid}: {e}")
+        return None
+
+
+@voice_bp.route('/voice/scheduled-callbacks', methods=['GET'])
+@login_required
+def get_scheduled_callbacks():
+    """Return upcoming scheduled callbacks for the current user's contacts."""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify([])
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        if not row:
+            return jsonify([])
+        location_id = row['location_id']
+
+        cur.execute("""
+            SELECT call_sid, contact_id, contact_name, phone, callback_at, disposition
+            FROM call_history
+            WHERE location_id = %s AND callback_at IS NOT NULL AND callback_at > NOW() - INTERVAL '1 day'
+            ORDER BY callback_at ASC
+            LIMIT 50
+        """, (location_id,))
+        callbacks = []
+        for r in cur.fetchall():
+            callbacks.append({
+                "call_sid": r['call_sid'],
+                "contact_id": r['contact_id'],
+                "contact_name": r['contact_name'],
+                "phone": r['phone'],
+                "callback_at": r['callback_at'].isoformat() if r['callback_at'] else None,
+                "is_past": r['callback_at'] < __import__('datetime').datetime.now(r['callback_at'].tzinfo or __import__('datetime').timezone.utc) if r['callback_at'] else False,
+            })
+        cur.close()
+        return jsonify(callbacks)
+    except Exception as e:
+        logger.error(f"Failed to fetch scheduled callbacks: {e}")
+        return jsonify([])
+    finally:
+        return_db_connection(conn)
+
+
+# ──────────────────────────────────────────────────────────────
 # ROUTE: Call history API
 # ──────────────────────────────────────────────────────────────
 
@@ -3533,6 +3733,92 @@ def get_call_history():
         return jsonify({"calls": calls, "total": len(calls)})
     except Exception as e:
         logger.error(f"Failed to fetch call history: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        return_db_connection(conn)
+
+
+@voice_bp.route('/voice/voicemails', methods=['GET'])
+@login_required
+def get_voicemails():
+    """
+    Fetch inbound voicemails — calls that came IN and have recordings.
+    These are calls where the caller left a message because the agent
+    didn't answer. Sorted newest first.
+    """
+    limit = min(int(request.args.get('limit', 50)), 200)
+    offset = int(request.args.get('offset', 0))
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        if not row or not row['location_id']:
+            return jsonify({"error": "No location configured"}), 400
+        location_id = row['location_id']
+
+        cur.execute("""
+            SELECT id, contact_id, contact_name, phone, direction, call_sid,
+                   status, duration, recording_url, recording_sid, transcript,
+                   started_at, ended_at, created_at,
+                   COALESCE(disposition, '') as disposition
+            FROM call_history
+            WHERE location_id = %s
+              AND recording_url IS NOT NULL
+              AND recording_url != ''
+              AND (
+                  direction = 'inbound'
+                  OR disposition = 'left_voicemail'
+                  OR status IN ('no-answer', 'busy')
+              )
+            ORDER BY created_at DESC
+            LIMIT %s OFFSET %s
+        """, (location_id, limit, offset))
+        rows = cur.fetchall()
+
+        # Count unread (no transcript yet = not listened to)
+        cur.execute("""
+            SELECT COUNT(*) as cnt FROM call_history
+            WHERE location_id = %s
+              AND recording_url IS NOT NULL AND recording_url != ''
+              AND (direction = 'inbound' OR disposition = 'left_voicemail'
+                   OR status IN ('no-answer', 'busy'))
+              AND (transcript IS NULL OR transcript = '[]' OR transcript = '')
+        """, (location_id,))
+        unread_row = cur.fetchone()
+        unread_count = unread_row['cnt'] if unread_row else 0
+
+        cur.close()
+
+        voicemails = []
+        for r in rows:
+            vm = dict(r)
+            for ts_field in ('started_at', 'ended_at', 'created_at'):
+                if vm.get(ts_field):
+                    vm[ts_field] = vm[ts_field].isoformat()
+            # Extract transcript preview text
+            tx = vm.get('transcript')
+            if tx:
+                try:
+                    parsed = json.loads(tx) if isinstance(tx, str) else tx
+                    if isinstance(parsed, list) and parsed:
+                        vm['transcript_preview'] = parsed[0].get('text', '')[:120]
+                    else:
+                        vm['transcript_preview'] = ''
+                except Exception:
+                    vm['transcript_preview'] = ''
+            else:
+                vm['transcript_preview'] = ''
+            vm['is_new'] = not bool(tx)
+            voicemails.append(vm)
+
+        logger.info(f"Voicemails: Returned {len(voicemails)} for {location_id} ({unread_count} unread)")
+        return jsonify({"voicemails": voicemails, "total": len(voicemails), "unread": unread_count})
+    except Exception as e:
+        logger.error(f"Failed to fetch voicemails: {e}")
         return jsonify({"error": str(e)}), 500
     finally:
         return_db_connection(conn)
@@ -4273,6 +4559,8 @@ def get_number_health():
             "total_failed": h.get('total_failed', 0),
             "total_busy": h.get('total_busy', 0),
             "total_duration_secs": h.get('total_duration_secs', 0),
+            "daily_carrier_blocked": h.get('daily_carrier_blocked', 0),
+            "total_carrier_blocked": h.get('total_carrier_blocked', 0),
             "connect_rate": round(h['total_connected'] / h['total_calls'] * 100, 1) if h.get('total_calls') else 0,
             "daily_connect_rate": round(h['daily_connected'] / h['daily_calls_today'] * 100, 1) if h.get('daily_calls_today') else 0,
             "rest_until": str(h.get('rest_until', '')) if h.get('rest_until') else '',
@@ -4281,6 +4569,11 @@ def get_number_health():
             "state": state or '',
             "state_name": nh.STATE_NAMES.get(state, '') if state else '',
         })
+
+    # A2P / STIR-SHAKEN spam protection status
+    a2p_info = vc.get('a2p', {})
+    a2p_registered = (a2p_info.get('brand_status', '').upper() == 'APPROVED' and
+                      a2p_info.get('campaign_status', '').upper() in ('VERIFIED', 'APPROVED'))
 
     # Summary stats
     summary = nh.get_number_health_summary(location_id)
@@ -4308,6 +4601,7 @@ def get_number_health():
         "summary": summary,
         "rotation_enabled": rotation_config.get('enabled', False),
         "rotation_strategy": rotation_config.get('strategy', 'weighted_health'),
+        "spam_protected": a2p_registered,
         "licensed_states": licensed_states,
         "licensed_coverage": licensed_coverage,
         "state_coverage": {state: len(phones) for state, phones in state_coverage.items()},
@@ -5869,6 +6163,24 @@ def get_contact_engagement_bulk():
                                             "last_lead_at": None, "last_assistant_at": None},
                                "calls": {"total_calls": 0, "connected": 0, "total_duration": 0, "last_call_at": None, "recordings": 0}}
             result[cid]["opted_out"] = True
+
+        # ── Last disposition + callback_at per contact (from most recent call with a disposition) ──
+        cur.execute("""
+            SELECT DISTINCT ON (contact_id) contact_id, disposition, callback_at
+            FROM call_history
+            WHERE location_id = %s AND contact_id = ANY(%s)
+              AND disposition IS NOT NULL AND disposition != '' AND disposition != 'none'
+            ORDER BY contact_id, created_at DESC
+        """, (location_id, contact_ids))
+        for r in cur.fetchall():
+            cid = r['contact_id']
+            if cid not in result:
+                result[cid] = {"messages": {"lead": 0, "assistant": 0, "last_message_at": None,
+                                            "last_lead_at": None, "last_assistant_at": None},
+                               "calls": {"total_calls": 0, "connected": 0, "total_duration": 0, "last_call_at": None, "recordings": 0}}
+            result[cid]["disposition"] = r['disposition']
+            if r['callback_at']:
+                result[cid]["callback_at"] = r['callback_at'].isoformat()
 
         # ── Opt-out detection: check last message from each lead for stop keywords ──
         import re as _re

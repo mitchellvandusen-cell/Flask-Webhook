@@ -112,6 +112,13 @@
                 local_presence: document.getElementById('voiceLocalPresence')?.checked ?? false,
                 transfer_number: document.getElementById('voiceTransferNumber')?.value?.trim() || '',
                 voicemail_drop: document.getElementById('voiceVoicemailDrop')?.checked ?? false,
+                // Enterprise dialer tuning
+                ring_timeout: parseInt(document.getElementById('voiceRingTimeout')?.value || '45'),
+                pause_between_calls: parseInt(document.getElementById('voicePauseBetween')?.value || '1'),
+                use_amd: document.getElementById('voiceAMD')?.checked ?? false,
+                max_call_duration: parseInt(document.getElementById('voiceMaxCallDuration')?.value || '0'),
+                retry_delay: parseInt(document.getElementById('voiceRetryDelay')?.value || '2'),
+                auto_callback: document.getElementById('voiceAutoCallback')?.checked ?? false,
                 // Dossier display settings
                 show_ai_summary: document.getElementById('voiceShowAiSummary')?.checked ?? true,
                 show_known_facts: document.getElementById('voiceShowKnownFacts')?.checked ?? true,
@@ -125,8 +132,13 @@
                 if (d.status === 'success') {
                     resultDiv.innerHTML = '<span style="color:var(--accent);"><i class="fa-solid fa-check-circle me-1"></i> Voice settings saved successfully!</span>';
                     _showDashToast(true, 'Voice settings saved!');
-                    // Live-update dialer max attempts so queue uses new value immediately
+                    // Live-update dialer settings so queue uses new values immediately
                     dialerMaxAttempts = config.dial_attempts || 2;
+                    if (typeof _dialerRingTimeout !== 'undefined') _dialerRingTimeout = (config.ring_timeout || 45) * 1000;
+                    if (typeof _dialerPauseBetween !== 'undefined') _dialerPauseBetween = (config.pause_between_calls ?? 1) * 1000;
+                    if (typeof _dialerRetryDelay !== 'undefined') _dialerRetryDelay = (config.retry_delay || 2) * 1000;
+                    if (typeof _dialerMaxCallDuration !== 'undefined') _dialerMaxCallDuration = (config.max_call_duration || 0) * 60 * 1000;
+                    if (typeof _dialerAutoCallback !== 'undefined') _dialerAutoCallback = config.auto_callback || false;
                     // Live-update dossier toggles
                     if (window.DASHBOARD_BOOT) {
                         window.DASHBOARD_BOOT.showAiSummary = config.show_ai_summary;

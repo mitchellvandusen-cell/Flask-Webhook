@@ -1121,6 +1121,8 @@ def init_db() -> bool:
             cur_calls.execute("CREATE INDEX IF NOT EXISTS idx_call_history_location_contact ON call_history(location_id, contact_id)")
             # Add disposition column (migration for existing tables)
             cur_calls.execute("ALTER TABLE call_history ADD COLUMN IF NOT EXISTS disposition TEXT DEFAULT NULL")
+            # Add callback_at for AI auto-callback scheduling
+            cur_calls.execute("ALTER TABLE call_history ADD COLUMN IF NOT EXISTS callback_at TIMESTAMP DEFAULT NULL")
             conn.commit()
             cur_calls.close()
             logger.info("✅ Migration: Created call_history table")
@@ -1482,6 +1484,22 @@ def init_db() -> bool:
         except Exception as e:
             conn.rollback()
             logger.debug(f"crm_email migration note: {e}")
+
+        # Phase 5: Carrier blocked tracking for number health
+        try:
+            cur.execute("""
+                ALTER TABLE number_health
+                ADD COLUMN IF NOT EXISTS daily_carrier_blocked INTEGER DEFAULT 0
+            """)
+            cur.execute("""
+                ALTER TABLE number_health
+                ADD COLUMN IF NOT EXISTS total_carrier_blocked INTEGER DEFAULT 0
+            """)
+            conn.commit()
+            logger.info("✅ Migration: Added carrier_blocked columns to number_health")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"carrier_blocked migration note: {e}")
 
         return True
     except psycopg2.Error as e:

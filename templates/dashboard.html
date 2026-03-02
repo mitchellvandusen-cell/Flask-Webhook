@@ -74,6 +74,11 @@
         crmConfigFields: {{ crm_config_fields|tojson|safe if crm_config_fields is defined and crm_config_fields else '{}' }},
         showAiSummary:   {{ 'false' if voice_config is defined and voice_config.get('show_ai_summary') == False else 'true' }},
         showKnownFacts:  {{ 'false' if voice_config is defined and voice_config.get('show_known_facts') == False else 'true' }},
+        ringTimeout:     {{ (voice_config.get('ring_timeout', 45)|int) if voice_config is defined else 45 }},
+        pauseBetween:    {{ (voice_config.get('pause_between_calls', 1)|int) if voice_config is defined else 1 }},
+        retryDelay:      {{ (voice_config.get('retry_delay', 2)|int) if voice_config is defined else 2 }},
+        maxCallDuration: {{ (voice_config.get('max_call_duration', 0)|int) if voice_config is defined else 0 }},
+        autoCallback:    {{ 'true' if voice_config is defined and voice_config.get('auto_callback') else 'false' }},
     };
     </script>
 

@@ -389,7 +389,8 @@ def generate_voice_token(identity: str, twiml_app_sid: str,
 def create_outbound_call(sub_account_sid: str, to: str, from_number: str,
                           webhook_base_url: str, status_callback_events: list = None,
                           machine_detection: str = None,
-                          custom_params: dict = None) -> dict:
+                          custom_params: dict = None,
+                          ring_timeout: int = None) -> dict:
     """
     Create an outbound call via Twilio REST API.
     Returns call details including call_sid.
@@ -408,6 +409,10 @@ def create_outbound_call(sub_account_sid: str, to: str, from_number: str,
             ],
             "record": False,  # We handle recording separately
         }
+
+        # Configurable ring timeout (Twilio enforces server-side)
+        if ring_timeout and ring_timeout > 0:
+            kwargs["timeout"] = min(max(ring_timeout, 15), 120)  # Twilio range: 15-600, sane max 120
 
         if machine_detection:
             kwargs["machine_detection"] = machine_detection

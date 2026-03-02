@@ -434,6 +434,7 @@
             if (n.state) html += '<span style="background:rgba(0,217,255,0.08);color:#00d9ff;padding:1px 5px;border-radius:3px;font-size:.5rem;font-weight:700;letter-spacing:.3px;">' + _esc(n.state) + '</span>';
             if (n.is_primary) html += '<span style="background:rgba(0,217,255,0.15);color:#00d9ff;padding:1px 5px;border-radius:3px;font-size:.55rem;font-weight:700;">PRIMARY</span>';
             if (n.nickname) html += '<span style="color:#666;font-size:.65rem;">(' + _esc(n.nickname) + ')</span>';
+            if (_nhData && _nhData.spam_protected) html += '<span title="A2P Registered — STIR/SHAKEN verified" style="background:rgba(0,255,136,0.08);color:#00ff88;padding:1px 5px;border-radius:3px;font-size:.55rem;font-weight:700;cursor:help;"><i class="fa-solid fa-shield-halved" style="font-size:.5rem;margin-right:2px;"></i>Protected</span>';
             html += '</div>';
 
             // Health score badge
@@ -451,6 +452,8 @@
             html += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">';
             html += _nhPill('fa-phone', n.daily_calls + '/' + n.daily_cap + ' today', dailyPct >= 80 ? '#ffa500' : '#888');
             html += _nhPill('fa-link', connectRate.toFixed(0) + '% connect', connectRate >= 30 ? '#4ade80' : (connectRate >= 15 ? '#ffa500' : '#ef4444'));
+            var blocked = n.total_carrier_blocked || 0;
+            if (blocked > 0) html += _nhPill('fa-shield-halved', blocked + ' blocked', blocked >= 10 ? '#ef4444' : '#ffa500');
             html += _nhPill('fa-chart-line', totalCalls + ' lifetime', '#888');
             var warmupColors = { 0: '#ef4444', 1: '#ffa500', 2: '#fbbf24', 3: '#00d9ff', 4: '#4ade80' };
             html += _nhPill('fa-seedling', n.warmup_label || 'Stage ' + n.warmup_stage, warmupColors[n.warmup_stage] || '#00d9ff');
