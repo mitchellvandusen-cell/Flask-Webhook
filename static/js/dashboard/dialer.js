@@ -94,44 +94,65 @@
         let _calActiveCalId = '';
         let _calInitialized = false;
         let _calEditingEvent = null;  // event being edited
+        let _calGoogleConnected = false;  // Google Calendar connection state
+        let _calGoogleEmail = '';         // Connected Google email
 
         async function calendarInit() {
             const picker = document.getElementById('iosCalendarPicker');
             if (!_calInitialized || !_calCalendars.length) {
                 if (picker) picker.innerHTML = '<option value="">Loading calendars...</option>';
                 let loaded = false;
-                for (let attempt = 0; attempt < 3 && !loaded; attempt++) {
-                    try {
-                        if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 2000));
-                        const r = await fetch('/api/fetch-calendars', { signal: AbortSignal.timeout(12000) });
-                        if (r.ok) {
-                            const d = await r.json();
-                            _calCalendars = d.calendars || [];
-                            if (picker && _calCalendars.length) {
-                                picker.innerHTML = _calCalendars.map(c =>
-                                    `<option value="${dialerEsc(c.id)}">${dialerEsc(c.name)}</option>`
-                                ).join('');
-                                _calActiveCalId = _calCalendars[0].id;
-                            } else if (picker) {
-                                picker.innerHTML = '<option value="">No calendars found</option>';
-                            }
-                            loaded = true;
-                        } else {
-                            const errData = await r.json().catch(() => ({}));
-                            console.warn(`[Calendar] Fetch calendars HTTP ${r.status} (attempt ${attempt + 1}):`, errData.error || '');
-                            if (r.status === 401 || r.status === 403) {
-                                if (picker) picker.innerHTML = '<option value="">Reconnect CRM to load calendars</option>';
-                                break;
+
+                // Fetch GHL calendars and Google Calendar status in parallel
+                const [ghlResult, googleResult] = await Promise.allSettled([
+                    (async () => {
+                        for (let attempt = 0; attempt < 3; attempt++) {
+                            try {
+                                if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 2000));
+                                const r = await fetch('/api/fetch-calendars', { signal: AbortSignal.timeout(12000) });
+                                if (r.ok) {
+                                    const d = await r.json();
+                                    return d.calendars || [];
+                                }
+                                const errData = await r.json().catch(() => ({}));
+                                console.warn(`[Calendar] Fetch calendars HTTP ${r.status} (attempt ${attempt + 1}):`, errData.error || '');
+                                if (r.status === 401 || r.status === 403) {
+                                    if (picker) picker.innerHTML = '<option value="">Reconnect CRM to load calendars</option>';
+                                    return null;
+                                }
+                            } catch(e) {
+                                console.warn(`[Calendar] Fetch calendars failed (attempt ${attempt + 1}):`, e.message || e);
                             }
                         }
-                    } catch(e) {
-                        console.warn(`[Calendar] Fetch calendars failed (attempt ${attempt + 1}):`, e.message || e);
+                        return null;
+                    })(),
+                    fetch('/api/google-calendar/status').then(r => r.ok ? r.json() : null).catch(() => null),
+                ]);
+
+                // Process GHL calendars
+                if (ghlResult.status === 'fulfilled' && ghlResult.value) {
+                    _calCalendars = ghlResult.value;
+                    if (picker && _calCalendars.length) {
+                        picker.innerHTML = _calCalendars.map(c =>
+                            `<option value="${dialerEsc(c.id)}">${dialerEsc(c.name)}</option>`
+                        ).join('');
+                        _calActiveCalId = _calCalendars[0].id;
+                    } else if (picker && !picker.innerHTML.includes('Reconnect')) {
+                        picker.innerHTML = '<option value="">No calendars found</option>';
                     }
+                    loaded = true;
                 }
                 if (!loaded && picker && !picker.innerHTML.includes('Reconnect')) {
                     picker.innerHTML = '<option value="">Failed to load — tap refresh</option>';
                 }
                 _calInitialized = loaded;
+
+                // Process Google Calendar status
+                if (googleResult.status === 'fulfilled' && googleResult.value) {
+                    _calGoogleConnected = googleResult.value.connected || false;
+                    _calGoogleEmail = googleResult.value.email || '';
+                }
+                _calUpdateGoogleBtn();
             }
             const now = new Date();
             _calViewYear = now.getFullYear();
@@ -141,6 +162,40 @@
             _calEventData = {};
             calendarRenderMonth();
             calendarFetchMonthData();
+        }
+
+        function _calUpdateGoogleBtn() {
+            const btn = document.getElementById('iosCalGoogleBtn');
+            if (!btn) return;
+            if (_calGoogleConnected) {
+                btn.innerHTML = '<i class="fa-brands fa-google" style="color:#34C759;"></i>';
+                btn.title = 'Google Calendar connected' + (_calGoogleEmail ? ' (' + _calGoogleEmail + ')' : '');
+                btn.onclick = function() { _calShowGoogleMenu(); };
+            } else {
+                btn.innerHTML = '<i class="fa-brands fa-google" style="color:#666;"></i>';
+                btn.title = 'Connect Google Calendar';
+                btn.onclick = function() { window.location.href = '/google-calendar/connect'; };
+            }
+        }
+
+        function _calShowGoogleMenu() {
+            const existing = document.getElementById('iosCalGoogleMenu');
+            if (existing) { existing.remove(); return; }
+            const btn = document.getElementById('iosCalGoogleBtn');
+            const menu = document.createElement('div');
+            menu.id = 'iosCalGoogleMenu';
+            menu.style.cssText = 'position:absolute;top:100%;right:0;background:rgba(30,30,30,0.95);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:8px 0;min-width:180px;z-index:100;backdrop-filter:blur(12px);box-shadow:0 8px 24px rgba(0,0,0,0.4);';
+            menu.innerHTML = `
+                <div style="padding:6px 14px;font-size:0.68rem;color:#34C759;font-weight:600;"><i class="fa-brands fa-google" style="margin-right:4px;"></i> Connected${_calGoogleEmail ? ' — ' + dialerEsc(_calGoogleEmail) : ''}</div>
+                <div style="height:1px;background:rgba(255,255,255,0.06);margin:4px 0;"></div>
+                <div onclick="window.location.href='/google-calendar/disconnect'" style="padding:8px 14px;font-size:0.75rem;color:#FF3B30;cursor:pointer;" onmouseover="this.style.background='rgba(255,59,48,0.1)'" onmouseout="this.style.background='none'"><i class="fa-solid fa-unlink" style="margin-right:6px;"></i>Disconnect</div>
+            `;
+            btn.parentElement.style.position = 'relative';
+            btn.parentElement.appendChild(menu);
+            setTimeout(() => {
+                const close = (e) => { if (!menu.contains(e.target) && e.target !== btn) { menu.remove(); document.removeEventListener('click', close); } };
+                document.addEventListener('click', close);
+            }, 10);
         }
 
         function calendarSwitchCalendar() {
@@ -155,27 +210,51 @@
 
         async function calendarFetchMonthData() {
             const calId = _calActiveCalId;
-            if (!calId) return;
-            // Fetch both events and slots in parallel
+            // Fetch events, slots, and Google Calendar events in parallel
             const startDate = `${_calViewYear}-${String(_calViewMonth+1).padStart(2,'0')}-01`;
             const daysInMonth = new Date(_calViewYear, _calViewMonth + 1, 0).getDate();
             const endDate = `${_calViewYear}-${String(_calViewMonth+1).padStart(2,'0')}-${String(daysInMonth).padStart(2,'0')}`;
 
-            const [eventsRes, slotsRes] = await Promise.allSettled([
-                fetch(`/api/calendar/events?calendar_id=${encodeURIComponent(calId)}&start=${startDate}&end=${endDate}`).then(r => r.ok ? r.json() : null),
-                fetch(`/api/calendar/slots?calendar_id=${encodeURIComponent(calId)}&days=45`).then(r => r.ok ? r.json() : null),
-            ]);
+            // Build parallel fetch array
+            const fetches = [
+                calId ? fetch(`/api/calendar/events?calendar_id=${encodeURIComponent(calId)}&start=${startDate}&end=${endDate}`).then(r => r.ok ? r.json() : null) : Promise.resolve(null),
+                calId ? fetch(`/api/calendar/slots?calendar_id=${encodeURIComponent(calId)}&days=45`).then(r => r.ok ? r.json() : null) : Promise.resolve(null),
+                _calGoogleConnected ? fetch(`/api/google-calendar/events?start=${startDate}&end=${endDate}`).then(r => r.ok ? r.json() : null) : Promise.resolve(null),
+            ];
 
-            // Process events
+            const [eventsRes, slotsRes, googleRes] = await Promise.allSettled(fetches);
+
+            // Process GHL events
             _calEventData = {};
             _calAllEvents = [];
             if (eventsRes.status === 'fulfilled' && eventsRes.value) {
                 const events = eventsRes.value.events || [];
-                _calAllEvents = events;
                 events.forEach(ev => {
+                    ev.source = ev.source || 'ghl';
+                    _calAllEvents.push(ev);
                     const st = ev.startTime || ev.start;
                     if (!st) return;
                     const dateKey = new Date(st).toLocaleDateString('en-CA'); // YYYY-MM-DD
+                    if (!_calEventData[dateKey]) _calEventData[dateKey] = [];
+                    _calEventData[dateKey].push(ev);
+                });
+            }
+
+            // Merge Google Calendar events
+            if (googleRes.status === 'fulfilled' && googleRes.value) {
+                const gEvents = googleRes.value.events || [];
+                gEvents.forEach(ev => {
+                    ev.source = 'google';
+                    _calAllEvents.push(ev);
+                    const st = ev.startTime || ev.start;
+                    if (!st) return;
+                    // For all-day events, the date is just YYYY-MM-DD
+                    let dateKey;
+                    if (ev.allDay && st.length === 10) {
+                        dateKey = st;
+                    } else {
+                        dateKey = new Date(st).toLocaleDateString('en-CA');
+                    }
                     if (!_calEventData[dateKey]) _calEventData[dateKey] = [];
                     _calEventData[dateKey].push(ev);
                 });
@@ -246,11 +325,14 @@
                 if (isSelected) { bg = '#FF3B30'; color = '#fff'; border = '#FF3B30'; }
                 else if (isToday) { bg = 'rgba(255,59,48,0.15)'; border = 'rgba(255,59,48,0.4)'; color = '#FF3B30'; }
 
-                // Dots: green for events, red for available slots
+                // Dots: green for GHL events, blue for Google events, red for available slots
+                const hasGhlEvents = hasEvents && _calEventData[dateStr].some(e => e.source !== 'google');
+                const hasGoogleEvents = hasEvents && _calEventData[dateStr].some(e => e.source === 'google');
                 let dots = '';
-                if (hasEvents || (hasSlots && !isPast)) {
+                if (hasGhlEvents || hasGoogleEvents || (hasSlots && !isPast)) {
                     dots = '<div style="display:flex;gap:2px;justify-content:center;margin-top:1px;">';
-                    if (hasEvents) dots += `<div style="width:4px;height:4px;border-radius:50%;background:${isSelected?'#fff':'#34C759'};"></div>`;
+                    if (hasGhlEvents) dots += `<div style="width:4px;height:4px;border-radius:50%;background:${isSelected?'#fff':'#34C759'};"></div>`;
+                    if (hasGoogleEvents) dots += `<div style="width:4px;height:4px;border-radius:50%;background:${isSelected?'rgba(200,220,255,0.8)':'#4285F4'};"></div>`;
                     if (hasSlots && !isPast) dots += `<div style="width:4px;height:4px;border-radius:50%;background:${isSelected?'rgba(255,255,255,0.5)':'#FF3B30'};"></div>`;
                     dots += '</div>';
                 }
@@ -305,11 +387,15 @@
             if (!container) return;
             let html = '';
 
-            // ── Existing Events ──
-            if (events.length) {
-                html += '<div style="font-size:0.65rem;color:#34C759;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;padding:6px 0 4px;"><i class="fa-solid fa-calendar-check" style="margin-right:4px;"></i>Scheduled</div>';
-                events.sort((a,b) => new Date(a.startTime || a.start) - new Date(b.startTime || b.start));
-                events.forEach(ev => {
+            // Split events by source
+            const ghlEvents = events.filter(e => e.source !== 'google');
+            const googleEvents = events.filter(e => e.source === 'google');
+
+            // ── GHL Appointments ──
+            if (ghlEvents.length) {
+                html += '<div style="font-size:0.65rem;color:#34C759;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;padding:6px 0 4px;"><i class="fa-solid fa-calendar-check" style="margin-right:4px;"></i>Appointments</div>';
+                ghlEvents.sort((a,b) => new Date(a.startTime || a.start) - new Date(b.startTime || b.start));
+                ghlEvents.forEach(ev => {
                     const startDt = new Date(ev.startTime || ev.start);
                     const endDt = ev.endTime ? new Date(ev.endTime) : null;
                     const timeStr = _calFormatTime(startDt) + (endDt ? ' – ' + _calFormatTime(endDt) : '');
@@ -329,6 +415,37 @@
                     html += '</div>';
                     html += `<div style="font-size:0.72rem;color:#aaa;"><i class="fa-regular fa-clock" style="margin-right:3px;"></i>${timeStr}</div>`;
                     if (ev.notes) html += `<div style="font-size:0.68rem;color:#777;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><i class="fa-regular fa-note-sticky" style="margin-right:3px;"></i>${dialerEsc(ev.notes).substring(0, 60)}</div>`;
+                    html += '</div>';
+                });
+            }
+
+            // ── Google Calendar Events ──
+            if (googleEvents.length) {
+                html += '<div style="font-size:0.65rem;color:#4285F4;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;padding:8px 0 4px;"><i class="fa-brands fa-google" style="margin-right:4px;"></i>Google Calendar</div>';
+                googleEvents.sort((a,b) => {
+                    if (a.allDay && !b.allDay) return -1;
+                    if (!a.allDay && b.allDay) return 1;
+                    return new Date(a.startTime || a.start || 0) - new Date(b.startTime || b.start || 0);
+                });
+                googleEvents.forEach(ev => {
+                    const title = ev.title || 'No Title';
+                    let timeStr = '';
+                    if (ev.allDay) {
+                        timeStr = 'All day';
+                    } else {
+                        const startDt = new Date(ev.startTime || ev.start);
+                        const endDt = ev.endTime ? new Date(ev.endTime) : null;
+                        timeStr = _calFormatTime(startDt) + (endDt ? ' – ' + _calFormatTime(endDt) : '');
+                    }
+
+                    html += `<div style="background:rgba(66,133,244,0.06);border:1px solid rgba(66,133,244,0.15);border-left:3px solid #4285F4;border-radius:10px;padding:10px 12px;margin-bottom:6px;transition:all 0.15s;">`;
+                    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">`;
+                    html += `<span style="font-size:0.82rem;font-weight:700;color:#fff;">${dialerEsc(title)}</span>`;
+                    html += `<span style="font-size:0.55rem;color:#4285F4;font-weight:600;background:rgba(66,133,244,0.12);padding:2px 6px;border-radius:4px;"><i class="fa-brands fa-google" style="margin-right:2px;"></i>Google</span>`;
+                    html += '</div>';
+                    html += `<div style="font-size:0.72rem;color:#aaa;"><i class="fa-regular fa-clock" style="margin-right:3px;"></i>${timeStr}</div>`;
+                    if (ev.location) html += `<div style="font-size:0.68rem;color:#777;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><i class="fa-solid fa-location-dot" style="margin-right:3px;"></i>${dialerEsc(ev.location).substring(0, 60)}</div>`;
+                    if (ev.description) html += `<div style="font-size:0.68rem;color:#777;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><i class="fa-regular fa-note-sticky" style="margin-right:3px;"></i>${dialerEsc(ev.description).substring(0, 60)}</div>`;
                     html += '</div>';
                 });
             }
@@ -368,6 +485,10 @@
         function calendarOpenEvent(eventId) {
             const ev = _calAllEvents.find(e => e.id === eventId);
             if (!ev) return;
+
+            // Google Calendar events are read-only — don't show edit overlay
+            if (ev.source === 'google') return;
+
             _calEditingEvent = ev;
 
             const startDt = new Date(ev.startTime || ev.start);
