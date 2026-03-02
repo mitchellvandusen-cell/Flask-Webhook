@@ -2525,8 +2525,10 @@ def _ghl_request_with_retry(url, headers, params, timeout=15):
 
 
 # ── Helper: fetch all contacts from GHL API (paginated, with token refresh) ──
-def _fetch_all_ghl_contacts(location_id, access_token):
-    """Paginate through GHL contacts API. Returns list of simplified contact dicts.
+def _fetch_all_ghl_contacts(location_id, access_token, ghl_query=None):
+    """Paginate through GHL contacts API. Returns (contacts_list, fetch_complete).
+    fetch_complete=True means we got ALL contacts (pagination exhausted naturally).
+    fetch_complete=False means we hit the max page cap (truncated — unsafe to prune stale).
     Handles 401 mid-pagination by refreshing the token and retrying."""
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -2538,13 +2540,17 @@ def _fetch_all_ghl_contacts(location_id, access_token):
     max_pages = 100  # 10,000 contacts max
     url = f"{GHL_API_BASE}/contacts/"
     params = {"locationId": location_id, "limit": page_limit}
+    if ghl_query:
+        params["query"] = ghl_query
     token_refreshed = False
+    fetch_complete = True  # assume complete unless we hit max_pages cap
 
     for page_num in range(max_pages):
         try:
             resp = _ghl_request_with_retry(url, headers=headers, params=params, timeout=20)
         except Exception as e:
             logger.error(f"[Contacts] Page {page_num+1} network error for {location_id}: {e}")
+            fetch_complete = False
             break
 
         # Handle 401 — refresh token once and retry
@@ -2560,10 +2566,12 @@ def _fetch_all_ghl_contacts(location_id, access_token):
                     resp = _ghl_request_with_retry(url, headers=headers, params=params, timeout=20)
                 except Exception as e:
                     logger.error(f"[Contacts] Retry after token refresh failed: {e}")
+                    fetch_complete = False
                     break
 
         if resp.status_code != 200:
             logger.error(f"[Contacts] Page {page_num+1} returned {resp.status_code} for {location_id}: {resp.text[:200]}")
+            fetch_complete = False
             break
 
         data = resp.json()
@@ -2572,7 +2580,7 @@ def _fetch_all_ghl_contacts(location_id, access_token):
             break
         all_contacts.extend(contacts)
 
-        if page_num > 0 and page_num % 5 == 0:
+        if page_num > 0 and page_num % 10 == 0:
             logger.info(f"[Contacts] {location_id} fetched {len(all_contacts)} contacts so far (page {page_num+1})")
 
         if len(contacts) < page_limit:
@@ -2594,8 +2602,12 @@ def _fetch_all_ghl_contacts(location_id, access_token):
 
         # Brief pause to be kind to GHL API
         time.sleep(0.3)
+    else:
+        # for-loop exhausted without break → hit max_pages cap (truncated)
+        fetch_complete = False
+        logger.warning(f"[Contacts] {location_id} hit max page cap ({max_pages}) — fetch truncated at {len(all_contacts)} contacts")
 
-    logger.info(f"[Contacts] {location_id} total raw contacts fetched: {len(all_contacts)}")
+    logger.info(f"[Contacts] {location_id} total raw contacts fetched: {len(all_contacts)} (complete={fetch_complete})")
 
     # Build simplified list (phone required for dialer)
     result = []
@@ -2620,7 +2632,7 @@ def _fetch_all_ghl_contacts(location_id, access_token):
     if skipped_no_phone:
         logger.info(f"[Contacts] {location_id} skipped {skipped_no_phone} contacts without phone numbers")
     logger.info(f"[Contacts] {location_id} returning {len(result)} contacts with phone numbers")
-    return result
+    return result, fetch_complete
 
 
 # ── Helper: fetch pipeline/stage contacts from GHL opportunities API ──
@@ -2684,17 +2696,17 @@ def _fetch_pipeline_ghl_contacts(location_id, access_token, pipeline_id, stage_i
 
 
 # ── Background contact cache sync (runs in thread) ──
-_contact_sync_locks = {}
+import threading as _threading
+_contact_sync_lock = _threading.Lock()
+_contact_sync_active = set()
 
 def _background_contact_sync(location_id):
-    """Sync contacts from GHL to DB cache in background thread."""
-    import threading
-    lock_key = f"contact_sync:{location_id}"
-
-    # Prevent concurrent syncs for the same location
-    if lock_key in _contact_sync_locks:
-        return
-    _contact_sync_locks[lock_key] = True
+    """Sync contacts from GHL to DB cache in background thread.
+    Thread-safe: only one sync per location at a time."""
+    with _contact_sync_lock:
+        if location_id in _contact_sync_active:
+            return
+        _contact_sync_active.add(location_id)
 
     def _do_sync():
         try:
@@ -2702,23 +2714,23 @@ def _background_contact_sync(location_id):
             if not access_token:
                 logger.warning(f"Background contact sync: no token for {location_id}")
                 return
-            contacts = _fetch_all_ghl_contacts(location_id, access_token)
+            contacts, fetch_complete = _fetch_all_ghl_contacts(location_id, access_token)
             if contacts:
                 from db import upsert_contact_cache
-                upsert_contact_cache(location_id, contacts)
-                logger.info(f"Background contact sync complete: {len(contacts)} contacts for {location_id}")
+                upsert_contact_cache(location_id, contacts, prune_stale=fetch_complete)
+                logger.info(f"Background contact sync complete: {len(contacts)} contacts for {location_id} (complete={fetch_complete})")
         except Exception as e:
             logger.error(f"Background contact sync failed for {location_id}: {e}")
         finally:
-            _contact_sync_locks.pop(lock_key, None)
+            with _contact_sync_lock:
+                _contact_sync_active.discard(location_id)
 
-    t = threading.Thread(target=_do_sync, daemon=True)
+    t = _threading.Thread(target=_do_sync, daemon=True)
     t.start()
 
 
-_CACHE_FRESH_SECS = 900     # 15 minutes — serve without background refresh
-_CACHE_STALE_SECS = 21600   # 6 hours — serve + trigger background refresh
-                              # Beyond 6 hours — synchronous GHL fetch
+_CACHE_FRESH_SECS = 3600    # 1 hour — serve without background refresh
+                              # Beyond 1 hour — serve + trigger background refresh
 
 
 @voice_bp.route('/voice/contacts', methods=['GET'])
@@ -2813,7 +2825,7 @@ def fetch_contacts():
             "cached_at": cache_age.isoformat(),
         }
 
-        # Trigger background refresh if stale (>15 min)
+        # Trigger background refresh if stale (>1 hour)
         if age_secs > _CACHE_FRESH_SECS:
             resp_data["refreshing"] = True
             _background_contact_sync(location_id)
@@ -2838,20 +2850,12 @@ def fetch_contacts():
         return jsonify({"error": "No valid auth token. Reconnect your CRM."}), 401
 
     try:
-        result = _fetch_all_ghl_contacts(location_id, access_token)
-        logger.info(f"Fetched {len(result)} contacts from GHL for {location_id}")
+        result, fetch_complete = _fetch_all_ghl_contacts(location_id, access_token)
+        logger.info(f"Fetched {len(result)} contacts from GHL for {location_id} (complete={fetch_complete})")
 
-        # Persist to DB cache
+        # Persist to DB cache — only prune stale contacts if fetch was complete
         if result:
-            upsert_contact_cache(location_id, result)
-
-        # Also cache in Redis for pipeline sub-queries
-        try:
-            from main import redis_conn
-            if redis_conn and result:
-                redis_conn.setex(f"contacts:{location_id}:_:_", 300, json.dumps(result))
-        except Exception:
-            pass
+            upsert_contact_cache(location_id, result, prune_stale=fetch_complete)
 
         # Apply search filter
         if query:
