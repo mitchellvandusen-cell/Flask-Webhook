@@ -362,7 +362,7 @@ def fetch_calendars():
     url = f"https://services.leadconnectorhq.com/calendars/?locationId={location_id}"
     headers = {
         "Authorization": f"Bearer {access_token}",
-        "Version": "2021-04-15",
+        "Version": "2021-07-28",
         "Content-Type": "application/json"
     }
 
