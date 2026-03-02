@@ -2586,18 +2586,32 @@ def _fetch_all_ghl_contacts(location_id, access_token, ghl_query=None):
         if len(contacts) < page_limit:
             break
 
-        # GHL pagination: prefer startAfterId, fall back to nextPageUrl
+        # GHL pagination: try cursor ID → numeric offset → full URL → total-based
         meta = data.get("meta", {})
-        start_after = meta.get("startAfterId") or meta.get("nextPageStartAfterId") or meta.get("startAfter")
+        start_after_id = meta.get("startAfterId") or meta.get("nextPageStartAfterId")
+        start_after_offset = meta.get("startAfter")
         next_page_url = meta.get("nextPageUrl") or meta.get("nextPage")
+        meta_total = meta.get("total")
 
-        if start_after:
-            params["startAfterId"] = start_after
+        if start_after_id:
+            # Cursor-based pagination (most reliable)
+            params["startAfterId"] = start_after_id
+            params.pop("startAfter", None)
+        elif isinstance(start_after_offset, (int, float)) and start_after_offset > 0:
+            # Numeric offset pagination (startAfter != startAfterId)
+            params["startAfter"] = int(start_after_offset)
+            params.pop("startAfterId", None)
         elif isinstance(next_page_url, str) and next_page_url.startswith("http"):
+            # Full URL provided by GHL
             url = next_page_url
             params = {}
+        elif meta_total and len(all_contacts) < meta_total:
+            # We know there are more contacts (meta.total tells us) but no cursor —
+            # fall back to offset-based pagination using contact count so far
+            params["startAfter"] = len(all_contacts)
+            params.pop("startAfterId", None)
         else:
-            logger.warning(f"[Contacts] No pagination cursor after page {page_num+1} — stopping at {len(all_contacts)} contacts")
+            logger.warning(f"[Contacts] No pagination cursor after page {page_num+1} (meta={meta}) — stopping at {len(all_contacts)} contacts")
             break
 
         # Brief pause to be kind to GHL API
