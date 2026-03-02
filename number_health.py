@@ -264,7 +264,8 @@ def get_state_coverage_recommendations(phones, contact_states=None):
     # If we have contact data, prioritize states with more contacts
     states_to_check = set()
     if contact_states:
-        states_to_check = set(contact_states.keys())
+        # Only consider states with meaningful call volume (5+ contacts)
+        states_to_check = {s for s, c in contact_states.items() if c >= 5}
     # Also include states we already have numbers in
     states_to_check |= set(coverage.keys())
 
@@ -272,17 +273,19 @@ def get_state_coverage_recommendations(phones, contact_states=None):
         owned = len(coverage.get(state, []))
         contacts = contact_states.get(state, 0) if contact_states else 0
 
-        # Determine priority
-        if owned == 0 and contacts > 0:
-            priority = "critical"  # Calling this state with out-of-state numbers
-        elif owned < RECOMMENDED_NUMBERS_PER_STATE and contacts > 10:
+        # Determine priority based on contact volume
+        if owned == 0 and contacts >= 20:
+            priority = "critical"  # Heavy volume with no local number
+        elif owned == 0 and contacts >= 10:
             priority = "high"
-        elif owned < RECOMMENDED_NUMBERS_PER_STATE and contacts > 0:
+        elif owned < RECOMMENDED_NUMBERS_PER_STATE and contacts >= 10:
             priority = "medium"
-        elif owned < RECOMMENDED_NUMBERS_PER_STATE:
+        elif owned < RECOMMENDED_NUMBERS_PER_STATE and contacts >= 5:
             priority = "low"
-        else:
+        elif owned >= RECOMMENDED_NUMBERS_PER_STATE:
             priority = "good"  # Adequate coverage
+        else:
+            continue  # Skip states with too few contacts to recommend
 
         recommendations.append({
             "state": state,
