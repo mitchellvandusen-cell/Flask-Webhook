@@ -348,7 +348,10 @@ def get_voice_config():
         return flask_jsonify({"error": "Database error"}), 500
     try:
         cur = conn.cursor()
-        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
+        if current_user.role == 'agency_owner':
+            cur.execute("SELECT voice_config FROM agency_billing WHERE agency_email = %s", (current_user.email,))
+        else:
+            cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
         row    = cur.fetchone()
         cur.close()
         config = (row['voice_config'] if row else {}) or {}
@@ -370,10 +373,14 @@ def save_voice_config():
     if not conn:
         return flask_jsonify({"error": "Database error"}), 500
 
+    is_agency = current_user.role == 'agency_owner'
     existing_vc = {}
     try:
         cur = conn.cursor()
-        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
+        if is_agency:
+            cur.execute("SELECT voice_config FROM agency_billing WHERE agency_email = %s", (current_user.email,))
+        else:
+            cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
         row = cur.fetchone()
         cur.close()
         if row and row['voice_config']:
@@ -414,11 +421,18 @@ def save_voice_config():
         return flask_jsonify({"error": "Database error"}), 500
     try:
         cur = conn.cursor()
-        cur.execute("""
-            UPDATE subscribers
-            SET voice_config = %s::jsonb, updated_at = NOW()
-            WHERE email = %s
-        """, (json.dumps(voice_config), current_user.email))
+        if is_agency:
+            cur.execute("""
+                UPDATE agency_billing
+                SET voice_config = %s::jsonb, updated_at = NOW()
+                WHERE agency_email = %s
+            """, (json.dumps(voice_config), current_user.email))
+        else:
+            cur.execute("""
+                UPDATE subscribers
+                SET voice_config = %s::jsonb, updated_at = NOW()
+                WHERE email = %s
+            """, (json.dumps(voice_config), current_user.email))
         rows_updated = cur.rowcount
         conn.commit()
         cur.close()
