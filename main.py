@@ -2944,6 +2944,54 @@ def test_integration():
         return safe_jsonify({"valid": False, "message": str(e)}), 500
 
 
+@app.route("/api/integrations/detect", methods=["POST"])
+@login_required
+def detect_crm_from_key():
+    """Auto-detect CRM type from an API key by probing known endpoints."""
+    data = request.get_json()
+    if not data or not data.get("api_key"):
+        return safe_jsonify({"detected": False, "error": "No API key provided"}), 400
+
+    api_key = data["api_key"].strip()
+
+    # Try HubSpot (Private App tokens start with "pat-")
+    if api_key.startswith("pat-") or api_key.startswith("eu1-"):
+        try:
+            r = requests.get("https://api.hubapi.com/crm/v3/objects/contacts",
+                             headers={"Authorization": f"Bearer {api_key}"},
+                             params={"limit": 1}, timeout=10)
+            if r.status_code == 200:
+                return safe_jsonify({"detected": True, "crm_type": "hubspot",
+                                     "label": "HubSpot", "field": "access_token"})
+        except Exception:
+            pass
+
+    # Try Pipedrive (40-char hex tokens)
+    try:
+        r = requests.get("https://api.pipedrive.com/api/v1/users/me",
+                         params={"api_token": api_key}, timeout=10)
+        if r.status_code == 200 and r.json().get("success"):
+            company = r.json().get("data", {}).get("company_domain", "")
+            return safe_jsonify({"detected": True, "crm_type": "pipedrive",
+                                 "label": "Pipedrive", "field": "api_token",
+                                 "extra": {"company_domain": company}})
+    except Exception:
+        pass
+
+    # Try HubSpot (non-pat tokens — OAuth or legacy)
+    try:
+        r = requests.get("https://api.hubapi.com/crm/v3/objects/contacts",
+                         headers={"Authorization": f"Bearer {api_key}"},
+                         params={"limit": 1}, timeout=10)
+        if r.status_code == 200:
+            return safe_jsonify({"detected": True, "crm_type": "hubspot",
+                                 "label": "HubSpot", "field": "access_token"})
+    except Exception:
+        pass
+
+    return safe_jsonify({"detected": False, "message": "Could not auto-detect CRM. Please select manually."})
+
+
 @app.route("/api/logs", methods=["GET"])
 @login_required
 def get_webhook_logs_api():

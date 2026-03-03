@@ -39,6 +39,51 @@
             });
         }
 
+        function detectCRM() {
+            const input = document.getElementById('quickConnectKey');
+            const resultDiv = document.getElementById('quickConnectResult');
+            const key = (input && input.value || '').trim();
+
+            if (!key) {
+                resultDiv.innerHTML = '<span style="color:#ef4444;">Please paste an API key first</span>';
+                setTimeout(() => resultDiv.innerHTML = '', 3000);
+                return;
+            }
+
+            resultDiv.innerHTML = '<span style="color:#3b82f6;"><i class="fa-solid fa-spinner fa-spin me-1"></i> Detecting CRM...</span>';
+
+            fetch('/api/integrations/detect', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ api_key: key })
+            }).then(r => r.json()).then(d => {
+                if (d.detected) {
+                    resultDiv.innerHTML = `<span style="color:var(--accent);"><i class="fa-solid fa-check-circle me-1"></i> Detected: <strong>${d.label}</strong></span>`;
+                    // Auto-select the CRM
+                    selectCRM(d.crm_type);
+                    // Auto-fill the API key into the correct field
+                    setTimeout(() => {
+                        const inp = document.querySelector(`#configFields input[data-key="${d.field}"]`);
+                        if (inp) inp.value = key;
+                        // Fill extra fields (e.g. company_domain for Pipedrive)
+                        if (d.extra) {
+                            Object.entries(d.extra).forEach(([k, v]) => {
+                                const f = document.querySelector(`#configFields input[data-key="${k}"]`);
+                                if (f && v) f.value = v;
+                            });
+                        }
+                    }, 100);
+                    if (typeof _showDashToast === 'function') _showDashToast(true, `Detected ${d.label}! Fields auto-filled.`);
+                } else {
+                    resultDiv.innerHTML = `<span style="color:#f59e0b;"><i class="fa-solid fa-triangle-exclamation me-1"></i> ${d.message || 'Could not auto-detect. Select your CRM manually below.'}</span>`;
+                }
+                setTimeout(() => resultDiv.innerHTML = '', 6000);
+            }).catch(e => {
+                resultDiv.innerHTML = '<span style="color:#ef4444;">Network error — try again</span>';
+                setTimeout(() => resultDiv.innerHTML = '', 4000);
+            });
+        }
+
         function saveIntegration() {
             const config = {};
             document.querySelectorAll('#configFields input').forEach(inp => {
@@ -55,8 +100,10 @@
             }).then(r => r.json()).then(d => {
                 if (d.success) {
                     resultDiv.innerHTML = '<span style="color:var(--accent);"><i class="fa-solid fa-check me-1"></i> Configuration saved!</span>';
+                    if (typeof _showDashToast === 'function') _showDashToast(true, 'CRM integration saved!');
                 } else {
                     resultDiv.innerHTML = `<span style="color:#ef4444;"><i class="fa-solid fa-times me-1"></i> ${d.error || 'Save failed'}</span>`;
+                    if (typeof _showDashToast === 'function') _showDashToast(false, d.error || 'Save failed');
                 }
                 setTimeout(() => resultDiv.innerHTML = '', 4000);
             }).catch(e => {
@@ -80,12 +127,13 @@
             }).then(r => r.json()).then(d => {
                 if (d.valid) {
                     resultDiv.innerHTML = `<span style="color:var(--accent);"><i class="fa-solid fa-check-circle me-1"></i> ${d.message}</span>`;
+                    if (typeof _showDashToast === 'function') _showDashToast(true, d.message);
                 } else {
                     resultDiv.innerHTML = `<span style="color:#ef4444;"><i class="fa-solid fa-times-circle me-1"></i> ${d.message}</span>`;
+                    if (typeof _showDashToast === 'function') _showDashToast(false, d.message);
                 }
                 setTimeout(() => resultDiv.innerHTML = '', 6000);
             }).catch(e => {
                 resultDiv.innerHTML = '<span style="color:#ef4444;">Network error</span>';
             });
         }
-

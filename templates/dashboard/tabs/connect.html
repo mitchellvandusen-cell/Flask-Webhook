@@ -89,6 +89,22 @@
                             <!-- ── Panel: Other CRMs ── -->
                             <div id="cntab-panel-other-crms" style="display:none;">
 
+                                <!-- Quick Connect: auto-detect CRM from API key -->
+                                <div style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.12);border-radius:12px;padding:16px;margin-bottom:20px;">
+                                    <label style="color:var(--accent);font-weight:700;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;display:block;">
+                                        <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Quick Connect
+                                    </label>
+                                    <div class="d-flex gap-2">
+                                        <input type="password" id="quickConnectKey" class="form-control form-control-sm" placeholder="Paste your CRM API key here — we'll detect which CRM it belongs to"
+                                               style="background:rgba(255,255,255,0.05);border-color:rgba(0,255,136,0.15);color:#fff;flex:1;">
+                                        <button class="btn btn-sm" onclick="detectCRM()" style="background:rgba(0,255,136,0.1);color:var(--accent);border:1px solid rgba(0,255,136,0.2);border-radius:8px;white-space:nowrap;font-weight:600;">
+                                            <i class="fa-solid fa-magnifying-glass me-1"></i> Detect
+                                        </button>
+                                    </div>
+                                    <div id="quickConnectResult" style="margin-top:8px;font-size:0.82rem;min-height:20px;"></div>
+                                    <small style="color:#666;display:block;margin-top:4px;">Works with HubSpot and Pipedrive API keys. For OAuth CRMs (Salesforce, Zoho), select manually below.</small>
+                                </div>
+
                                 <!-- CRM selection buttons (6 non-GHL CRMs) -->
                                 <div class="d-flex flex-wrap gap-2 mb-4">
                                     <button class="btn btn-sm crm-select-btn {% if sub and sub.crm_type == 'salesforce' %}active{% endif %}" data-crm="salesforce" onclick="selectCRM('salesforce')">
