@@ -1,7 +1,10 @@
 # crm_adapters/twilio_messaging.py - Universal SMS via Twilio
-# Provides SMS sending for any CRM that doesn't have native messaging.
-# Configured via crm_config keys: twilio_account_sid, twilio_auth_token, twilio_from_number
-# OR via environment variables: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER
+# Provides SMS sending for any CRM adapter using the subscriber's
+# IGB Twilio sub-account (provisioned automatically).
+#
+# Primary: Uses voice_config credentials (IGB sub-account)
+# Fallback: Uses crm_config Twilio keys (user-provided, legacy)
+# Last resort: Environment variables
 
 import logging
 import os
@@ -79,16 +82,46 @@ def send_sms_via_twilio(
     return False
 
 
-def get_twilio_config(crm_config: dict) -> dict:
-    """Extract Twilio config from CRM config, falling back to env vars."""
+def get_twilio_config(crm_config: dict, voice_config: dict = None) -> dict:
+    """
+    Extract Twilio config, preferring IGB sub-account (voice_config) over
+    user-provided CRM config keys. Falls back to env vars.
+    """
+    vc = voice_config or {}
+
+    # Priority 1: IGB sub-account from voice_config
+    igb_sid = vc.get("twilio_sub_account_sid", "")
+    igb_token = vc.get("twilio_auth_token", "")
+    igb_number = vc.get("twilio_phone_number", "")
+
+    if igb_sid and igb_token and igb_number:
+        return {
+            "account_sid": igb_sid,
+            "auth_token": igb_token,
+            "from_number": igb_number,
+        }
+
+    # Priority 2: User-provided Twilio keys in crm_config (legacy)
+    crm_sid = crm_config.get("twilio_account_sid", "")
+    crm_token = crm_config.get("twilio_auth_token", "")
+    crm_number = crm_config.get("twilio_from_number", "")
+
+    if crm_sid and crm_token and crm_number:
+        return {
+            "account_sid": crm_sid,
+            "auth_token": crm_token,
+            "from_number": crm_number,
+        }
+
+    # Priority 3: Environment variables
     return {
-        "account_sid": crm_config.get("twilio_account_sid", "") or os.environ.get("TWILIO_ACCOUNT_SID", ""),
-        "auth_token": crm_config.get("twilio_auth_token", "") or os.environ.get("TWILIO_AUTH_TOKEN", ""),
-        "from_number": crm_config.get("twilio_from_number", "") or os.environ.get("TWILIO_FROM_NUMBER", ""),
+        "account_sid": os.environ.get("TWILIO_ACCOUNT_SID", ""),
+        "auth_token": os.environ.get("TWILIO_AUTH_TOKEN", ""),
+        "from_number": os.environ.get("TWILIO_FROM_NUMBER", ""),
     }
 
 
-def has_twilio_config(crm_config: dict) -> bool:
-    """Check if Twilio credentials are available (config or env vars)."""
-    cfg = get_twilio_config(crm_config)
+def has_twilio_config(crm_config: dict, voice_config: dict = None) -> bool:
+    """Check if Twilio credentials are available (IGB sub-account, config, or env vars)."""
+    cfg = get_twilio_config(crm_config, voice_config)
     return bool(cfg["account_sid"] and cfg["auth_token"] and cfg["from_number"])

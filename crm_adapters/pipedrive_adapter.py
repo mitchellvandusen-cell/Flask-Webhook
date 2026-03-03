@@ -12,9 +12,7 @@
 #   pipeline_id: (optional) Pipeline ID for deal tracking
 #   stage_id: (optional) Stage ID for new deals
 #
-# Optional for SMS:
-#   twilio_account_sid, twilio_auth_token, twilio_from_number
-#   OR messaging_webhook_url
+# SMS: Uses IGB Twilio sub-account (auto-provisioned) — no user Twilio config needed
 #
 # Contacts (Persons): POST https://{domain}.pipedrive.com/api/v1/persons
 # Activities: POST https://{domain}.pipedrive.com/api/v1/activities
@@ -165,14 +163,14 @@ class PipedriveAdapter(CRMAdapter):
         phone = kwargs.get("phone", "")
         sent = False
 
-        # Try Twilio first
+        # Try Twilio (IGB sub-account first, then crm_config, then env vars)
         from crm_adapters.twilio_messaging import has_twilio_config, send_sms_via_twilio, get_twilio_config
-        if has_twilio_config(self.crm_config):
+        if has_twilio_config(self.crm_config, self.voice_config):
             if not phone:
                 contact = self.get_contact(contact_id)
                 phone = contact.get("phone", "")
             if phone:
-                cfg = get_twilio_config(self.crm_config)
+                cfg = get_twilio_config(self.crm_config, self.voice_config)
                 sent = send_sms_via_twilio(phone, message, **cfg)
 
         # Fallback: webhook relay
