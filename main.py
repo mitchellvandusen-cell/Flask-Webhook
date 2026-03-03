@@ -2511,6 +2511,16 @@ def save_voice_config():
         "local_presence":        bool(data.get("local_presence", False)),
         "transfer_number":       (data.get("transfer_number") or "").strip(),
         "voicemail_drop":        bool(data.get("voicemail_drop", False)),
+        # Enterprise dialer tuning
+        "ring_timeout":          max(15, min(120, int(data.get("ring_timeout") or 45))),
+        "pause_between_calls":   max(0, min(30, int(data.get("pause_between_calls") or 1))),
+        "use_amd":               bool(data.get("use_amd", False)),
+        "max_call_duration":     max(0, min(120, int(data.get("max_call_duration") or 0))),
+        "retry_delay":           max(1, min(30, int(data.get("retry_delay") or 2))),
+        "auto_callback":         bool(data.get("auto_callback", False)),
+        # Dossier display settings
+        "show_ai_summary":       bool(data.get("show_ai_summary", True)),
+        "show_known_facts":      bool(data.get("show_known_facts", True)),
     })
     # Twilio sub-account fields are set by auto-provisioning only — never
     # overwritten by the user saving voice settings from the dashboard.
@@ -2932,6 +2942,54 @@ def test_integration():
     except Exception as e:
         logger.error(f"Integration test failed: {e}")
         return safe_jsonify({"valid": False, "message": str(e)}), 500
+
+
+@app.route("/api/integrations/detect", methods=["POST"])
+@login_required
+def detect_crm_from_key():
+    """Auto-detect CRM type from an API key by probing known endpoints."""
+    data = request.get_json()
+    if not data or not data.get("api_key"):
+        return safe_jsonify({"detected": False, "error": "No API key provided"}), 400
+
+    api_key = data["api_key"].strip()
+
+    # Try HubSpot (Private App tokens start with "pat-")
+    if api_key.startswith("pat-") or api_key.startswith("eu1-"):
+        try:
+            r = requests.get("https://api.hubapi.com/crm/v3/objects/contacts",
+                             headers={"Authorization": f"Bearer {api_key}"},
+                             params={"limit": 1}, timeout=10)
+            if r.status_code == 200:
+                return safe_jsonify({"detected": True, "crm_type": "hubspot",
+                                     "label": "HubSpot", "field": "access_token"})
+        except Exception:
+            pass
+
+    # Try Pipedrive (40-char hex tokens)
+    try:
+        r = requests.get("https://api.pipedrive.com/api/v1/users/me",
+                         params={"api_token": api_key}, timeout=10)
+        if r.status_code == 200 and r.json().get("success"):
+            company = r.json().get("data", {}).get("company_domain", "")
+            return safe_jsonify({"detected": True, "crm_type": "pipedrive",
+                                 "label": "Pipedrive", "field": "api_token",
+                                 "extra": {"company_domain": company}})
+    except Exception:
+        pass
+
+    # Try HubSpot (non-pat tokens — OAuth or legacy)
+    try:
+        r = requests.get("https://api.hubapi.com/crm/v3/objects/contacts",
+                         headers={"Authorization": f"Bearer {api_key}"},
+                         params={"limit": 1}, timeout=10)
+        if r.status_code == 200:
+            return safe_jsonify({"detected": True, "crm_type": "hubspot",
+                                 "label": "HubSpot", "field": "access_token"})
+    except Exception:
+        pass
+
+    return safe_jsonify({"detected": False, "message": "Could not auto-detect CRM. Please select manually."})
 
 
 @app.route("/api/logs", methods=["GET"])

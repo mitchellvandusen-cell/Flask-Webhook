@@ -57,10 +57,6 @@ CRM_CONFIG_FIELDS = {
             {"key": "refresh_token", "label": "Refresh Token", "type": "password", "required": False, "help": "For automatic token renewal"},
             {"key": "client_id", "label": "Client ID", "type": "text", "required": False, "help": "Connected App Client ID"},
             {"key": "client_secret", "label": "Client Secret", "type": "password", "required": False, "help": "Connected App Client Secret"},
-            {"key": "twilio_account_sid", "label": "Twilio Account SID", "type": "password", "required": False, "help": "For SMS messaging via Twilio"},
-            {"key": "twilio_auth_token", "label": "Twilio Auth Token", "type": "password", "required": False, "help": "For SMS messaging via Twilio"},
-            {"key": "twilio_from_number", "label": "Twilio Phone Number", "type": "text", "required": False, "help": "e.g., +15551234567"},
-            {"key": "messaging_webhook_url", "label": "Messaging Webhook URL", "type": "url", "required": False, "help": "Alternative: webhook relay for outbound SMS"},
         ]
     },
     "hubspot": {
@@ -71,10 +67,6 @@ CRM_CONFIG_FIELDS = {
             {"key": "refresh_token", "label": "Refresh Token (OAuth only)", "type": "password", "required": False, "help": "Only needed for OAuth apps"},
             {"key": "client_id", "label": "Client ID (OAuth only)", "type": "text", "required": False, "help": "Only needed for OAuth apps"},
             {"key": "client_secret", "label": "Client Secret (OAuth only)", "type": "password", "required": False, "help": "Only needed for OAuth apps"},
-            {"key": "twilio_account_sid", "label": "Twilio Account SID", "type": "password", "required": False, "help": "For SMS messaging via Twilio"},
-            {"key": "twilio_auth_token", "label": "Twilio Auth Token", "type": "password", "required": False, "help": "For SMS messaging via Twilio"},
-            {"key": "twilio_from_number", "label": "Twilio Phone Number", "type": "text", "required": False, "help": "e.g., +15551234567"},
-            {"key": "messaging_webhook_url", "label": "Messaging Webhook URL", "type": "url", "required": False, "help": "Alternative: webhook relay for outbound SMS"},
         ]
     },
     "pipedrive": {
@@ -85,10 +77,6 @@ CRM_CONFIG_FIELDS = {
             {"key": "owner_id", "label": "User ID (optional)", "type": "text", "required": False, "help": "Pipedrive user ID for assigning activities"},
             {"key": "pipeline_id", "label": "Pipeline ID (optional)", "type": "text", "required": False, "help": "Pipeline for auto-created deals"},
             {"key": "stage_id", "label": "Stage ID (optional)", "type": "text", "required": False, "help": "Starting stage for new deals"},
-            {"key": "twilio_account_sid", "label": "Twilio Account SID", "type": "password", "required": False, "help": "For SMS messaging via Twilio"},
-            {"key": "twilio_auth_token", "label": "Twilio Auth Token", "type": "password", "required": False, "help": "For SMS messaging via Twilio"},
-            {"key": "twilio_from_number", "label": "Twilio Phone Number", "type": "text", "required": False, "help": "e.g., +15551234567"},
-            {"key": "messaging_webhook_url", "label": "Messaging Webhook URL", "type": "url", "required": False, "help": "Alternative: webhook relay for outbound SMS"},
         ]
     },
     "zoho": {
@@ -100,10 +88,6 @@ CRM_CONFIG_FIELDS = {
             {"key": "client_secret", "label": "Client Secret", "type": "password", "required": True, "help": "From Zoho API Console"},
             {"key": "data_center", "label": "Data Center", "type": "select", "required": False, "help": "Your Zoho data center region",
              "options": ["com", "eu", "in", "com.au", "jp", "zohocloud.ca"]},
-            {"key": "twilio_account_sid", "label": "Twilio Account SID", "type": "password", "required": False, "help": "For SMS messaging via Twilio"},
-            {"key": "twilio_auth_token", "label": "Twilio Auth Token", "type": "password", "required": False, "help": "For SMS messaging via Twilio"},
-            {"key": "twilio_from_number", "label": "Twilio Phone Number", "type": "text", "required": False, "help": "e.g., +15551234567"},
-            {"key": "messaging_webhook_url", "label": "Messaging Webhook URL", "type": "url", "required": False, "help": "Alternative: webhook relay for outbound SMS"},
         ]
     },
     "insureio": {
@@ -113,10 +97,6 @@ CRM_CONFIG_FIELDS = {
             {"key": "brand_id", "label": "Brand/Profile ID", "type": "text", "required": True, "help": "Required for lead creation"},
             {"key": "subdomain", "label": "Subdomain", "type": "text", "required": False, "help": "Your organization subdomain (e.g., 'myagency')"},
             {"key": "booking_webhook_url", "label": "Booking Webhook URL (optional)", "type": "url", "required": False, "help": "External URL for booking notifications (e.g., Calendly webhook)"},
-            {"key": "twilio_account_sid", "label": "Twilio Account SID", "type": "password", "required": False, "help": "For SMS messaging via Twilio"},
-            {"key": "twilio_auth_token", "label": "Twilio Auth Token", "type": "password", "required": False, "help": "For SMS messaging via Twilio"},
-            {"key": "twilio_from_number", "label": "Twilio Phone Number", "type": "text", "required": False, "help": "e.g., +15551234567"},
-            {"key": "messaging_webhook_url", "label": "Messaging Webhook URL", "type": "url", "required": False, "help": "Alternative: webhook relay for outbound SMS"},
         ]
     },
 }

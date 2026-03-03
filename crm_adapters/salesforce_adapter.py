@@ -8,9 +8,7 @@
 #   client_id: (optional) Connected App client ID
 #   client_secret: (optional) Connected App client secret
 #
-# Optional for SMS:
-#   twilio_account_sid, twilio_auth_token, twilio_from_number
-#   OR messaging_webhook_url (fires booking/message data to external service)
+# SMS: Uses IGB Twilio sub-account (auto-provisioned) — no user Twilio config needed
 #
 # Authentication: OAuth 2.0 Bearer token
 # Contacts: /services/data/v66.0/sobjects/Contact
@@ -135,14 +133,14 @@ class SalesforceAdapter(CRMAdapter):
         phone = kwargs.get("phone", "")
         sent = False
 
-        # Try Twilio first
+        # Try Twilio (IGB sub-account first, then crm_config, then env vars)
         from crm_adapters.twilio_messaging import has_twilio_config, send_sms_via_twilio, get_twilio_config
-        if has_twilio_config(self.crm_config):
+        if has_twilio_config(self.crm_config, self.voice_config):
             if not phone:
                 contact = self.get_contact(contact_id)
                 phone = contact.get("phone", "")
             if phone:
-                cfg = get_twilio_config(self.crm_config)
+                cfg = get_twilio_config(self.crm_config, self.voice_config)
                 sent = send_sms_via_twilio(phone, message, **cfg)
 
         # Fallback: webhook relay

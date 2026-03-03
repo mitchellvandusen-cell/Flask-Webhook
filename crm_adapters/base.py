@@ -51,6 +51,8 @@ class CRMAdapter(ABC):
         self.timezone = subscriber_data.get("timezone", "America/Chicago")
         self.crm_user_id = subscriber_data.get("crm_user_id", "")
         self.crm_config = subscriber_data.get("crm_config") or {}
+        self.voice_config = subscriber_data.get("voice_config") or {}
+        self.sms_send_via = subscriber_data.get("sms_send_via", "")
 
     @abstractmethod
     def send_message(self, contact_id: str, message: str, **kwargs) -> bool:
