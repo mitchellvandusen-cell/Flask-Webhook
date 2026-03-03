@@ -59,7 +59,7 @@ DEFAULT_REST_HOURS = 24
 DEFAULT_FREEZE_HOURS = 72
 
 # Connection rate floor — below this, number health drops fast
-MIN_CONNECT_RATE = 0.15  # 15%
+MIN_CONNECT_RATE = 0.05  # 5% (10% is normal for cold outbound)
 
 # Max calls per day before auto-rest (safety valve, even for veteran numbers)
 ABSOLUTE_DAILY_CAP = 500
@@ -356,55 +356,63 @@ def calculate_health_score(total_calls, connected_calls, no_answers, failed_call
     """
     Calculate a 0-100 health score for a phone number based on call metrics.
 
-    Scoring breakdown:
-      - Connection rate:  40 points (most important signal)
-      - Call quality:     25 points (avg duration of connected calls)
-      - Failure rate:     20 points (failed/busy ratio)
-      - Maturity bonus:   15 points (warm-up stage + days active)
-    """
-    score = 0.0
+    Calibrated for cold outbound insurance dialing where 10% pickup rate is
+    normal and expected. Numbers should NOT be penalized for low connection
+    rates — only for truly anomalous signals like high hard-failure rates
+    (network errors, carrier blocks) vs normal no-answers.
 
-    # 1. Connection rate (40 points)
+    Scoring breakdown:
+      - Baseline:            50 points (every active number starts healthy)
+      - Hard failure penalty: -20 points max (carrier blocks, network errors — NOT no-answers)
+      - Call quality bonus:   20 points (avg duration when connected)
+      - Connection bonus:     15 points (rewards above-average connect rates)
+      - Maturity bonus:       15 points (warm-up stage + days active)
+    """
+    score = 50.0  # Baseline — numbers are healthy until proven otherwise
+
+    # 1. Hard failure penalty (up to -20 points)
+    # Only penalize actual failures (busy, network error, carrier block).
+    # No-answers are NORMAL for cold outbound — they are NOT failures.
+    if total_calls > 0:
+        hard_fail_rate = failed_calls / total_calls
+        if hard_fail_rate <= 0.05:
+            pass  # No penalty — under 5% hard failure is fine
+        elif hard_fail_rate <= 0.15:
+            score -= (hard_fail_rate - 0.05) / 0.10 * 10.0  # Up to -10
+        elif hard_fail_rate <= 0.30:
+            score -= 10.0 + (hard_fail_rate - 0.15) / 0.15 * 10.0  # Up to -20
+        else:
+            score -= 20.0  # Max penalty
+
+    # 2. Call quality bonus (up to +20 points)
+    # Rewards numbers that produce real conversations when connected
+    if avg_duration >= 120:   # 2+ min avg = excellent
+        score += 20.0
+    elif avg_duration >= 60:  # 1+ min = good
+        score += 12.0 + (avg_duration - 60) / 60.0 * 8.0
+    elif avg_duration >= 20:  # 20s+ = decent
+        score += 5.0 + (avg_duration - 20) / 40.0 * 7.0
+    elif avg_duration > 0:
+        score += avg_duration / 20.0 * 5.0
+    elif total_calls == 0:
+        score += 10.0  # Neutral
+
+    # 3. Connection rate bonus (up to +15 points)
+    # This is a BONUS for above-average rates, not a penalty for normal ones.
+    # 10% connect rate is the industry norm for cold outbound — no penalty.
     if total_calls > 0:
         connect_rate = connected_calls / total_calls
-        if connect_rate >= 0.40:
-            score += 40.0
-        elif connect_rate >= 0.25:
-            score += 30.0 + (connect_rate - 0.25) / 0.15 * 10.0
-        elif connect_rate >= MIN_CONNECT_RATE:
-            score += 15.0 + (connect_rate - MIN_CONNECT_RATE) / 0.10 * 15.0
-        else:
-            score += max(0, connect_rate / MIN_CONNECT_RATE * 15.0)
+        if connect_rate >= 0.25:
+            score += 15.0   # Exceptional
+        elif connect_rate >= 0.15:
+            score += 8.0 + (connect_rate - 0.15) / 0.10 * 7.0
+        elif connect_rate >= 0.08:
+            score += (connect_rate - 0.08) / 0.07 * 8.0
+        # Below 8% = no bonus (but no penalty either)
     else:
-        # No calls yet — neutral score for this component
-        score += 25.0
+        score += 8.0  # Neutral
 
-    # 2. Call quality — avg duration of connected calls (25 points)
-    if avg_duration >= 120:   # 2+ min avg = excellent
-        score += 25.0
-    elif avg_duration >= 60:  # 1+ min = good
-        score += 18.0 + (avg_duration - 60) / 60.0 * 7.0
-    elif avg_duration >= 20:  # 20s+ = decent
-        score += 8.0 + (avg_duration - 20) / 40.0 * 10.0
-    elif avg_duration > 0:
-        score += avg_duration / 20.0 * 8.0
-    elif total_calls == 0:
-        score += 15.0  # Neutral
-
-    # 3. Failure rate (20 points) — lower is better
-    if total_calls > 0:
-        fail_rate = (failed_calls + no_answers) / total_calls
-        if fail_rate <= 0.20:
-            score += 20.0
-        elif fail_rate <= 0.50:
-            score += 20.0 - (fail_rate - 0.20) / 0.30 * 12.0
-        elif fail_rate <= 0.80:
-            score += 8.0 - (fail_rate - 0.50) / 0.30 * 8.0
-        # else: 0 points (80%+ failure rate)
-    else:
-        score += 12.0  # Neutral
-
-    # 4. Maturity bonus (15 points)
+    # 4. Maturity bonus (up to +15 points)
     stage_bonus = min(warmup_stage, 4) * 2.5  # 0-10 points
     age_bonus = min(days_active / 30.0, 1.0) * 5.0  # 0-5 points over 30 days
     score += stage_bonus + age_bonus
