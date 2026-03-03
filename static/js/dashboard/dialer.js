@@ -159,7 +159,7 @@
             const now = new Date();
             _calViewYear = now.getFullYear();
             _calViewMonth = now.getMonth();
-            _calSelectedDate = null;
+            _calSelectedDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
             _calSlotData = {};
             _calEventData = {};
             calendarRenderMonth();
@@ -644,6 +644,107 @@
             const overlay = document.getElementById('iosCalConfirm');
             if (overlay) overlay.style.display = 'none';
             _calEditingEvent = null;
+        }
+
+        function calendarShowCreateForm() {
+            const overlay = document.getElementById('iosCalConfirm');
+            // Hide all other states
+            document.getElementById('iosCalConfirmContent').style.display = 'none';
+            document.getElementById('iosCalSuccessContent').style.display = 'none';
+            document.getElementById('iosCalErrorContent').style.display = 'none';
+            document.getElementById('iosCalEventDetail').style.display = 'none';
+            document.getElementById('iosCalCreateForm').style.display = 'block';
+
+            // Pre-fill date
+            const dateInput = document.getElementById('iosCalCreateDate');
+            if (dateInput) {
+                dateInput.value = _calSelectedDate || new Date().toLocaleDateString('en-CA');
+            }
+
+            // Pre-fill time to next hour
+            const now = new Date();
+            const nextHour = new Date(now);
+            nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
+            const endHour = new Date(nextHour);
+            endHour.setMinutes(endHour.getMinutes() + 30);
+
+            const startInput = document.getElementById('iosCalCreateStart');
+            const endInput = document.getElementById('iosCalCreateEnd');
+            if (startInput) startInput.value = `${String(nextHour.getHours()).padStart(2,'0')}:${String(nextHour.getMinutes()).padStart(2,'0')}`;
+            if (endInput) endInput.value = `${String(endHour.getHours()).padStart(2,'0')}:${String(endHour.getMinutes()).padStart(2,'0')}`;
+
+            // Pre-fill contact
+            const contactDiv = document.getElementById('iosCalCreateContact');
+            if (contactDiv) {
+                if (dialerActiveContact) {
+                    const name = dialerActiveContact.name || `${dialerActiveContact.firstName || ''} ${dialerActiveContact.lastName || ''}`.trim() || 'Contact';
+                    contactDiv.innerHTML = `<i class="fa-solid fa-user" style="margin-right:6px;color:#FF3B30;"></i>${dialerEsc(name)}`;
+                } else {
+                    contactDiv.innerHTML = '<span style="color:#666;">No contact selected</span>';
+                }
+            }
+
+            // Default title based on contact
+            const titleInput = document.getElementById('iosCalCreateTitle');
+            if (titleInput) {
+                if (dialerActiveContact) {
+                    const firstName = dialerActiveContact.firstName || dialerActiveContact.name || 'Lead';
+                    titleInput.value = `Appointment with ${firstName}`;
+                } else {
+                    titleInput.value = '';
+                }
+            }
+            const notesInput = document.getElementById('iosCalCreateNotes');
+            if (notesInput) notesInput.value = '';
+
+            overlay.style.display = 'flex';
+            overlay.style.animation = 'iosAppOpen 0.25s cubic-bezier(0.2,0.9,0.3,1)';
+        }
+
+        async function calendarCreateEvent() {
+            const title = (document.getElementById('iosCalCreateTitle').value || '').trim();
+            const date = document.getElementById('iosCalCreateDate').value;
+            const startTime = document.getElementById('iosCalCreateStart').value;
+            const endTime = document.getElementById('iosCalCreateEnd').value;
+            const notes = (document.getElementById('iosCalCreateNotes').value || '').trim();
+
+            if (!title) { if (typeof _showDashToast === 'function') _showDashToast(false, 'Title is required'); return; }
+            if (!date || !startTime || !endTime) { if (typeof _showDashToast === 'function') _showDashToast(false, 'Date and times are required'); return; }
+
+            const btn = document.getElementById('iosCalCreateBtn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Creating...'; }
+
+            const payload = {
+                title: title,
+                date: date,
+                start_time: startTime,
+                end_time: endTime,
+                calendar_id: _calActiveCalId,
+                notes: notes,
+            };
+            if (dialerActiveContact) {
+                payload.contact_id = dialerActiveContact.id;
+            }
+
+            try {
+                const r = await fetch('/api/calendar/create-event', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                const d = await r.json();
+                if (r.ok && d.success) {
+                    document.getElementById('iosCalCreateForm').style.display = 'none';
+                    document.getElementById('iosCalSuccessContent').style.display = 'block';
+                    document.getElementById('iosCalSuccessMsg').textContent = d.message || 'Event created in your CRM';
+                    calendarFetchMonthData();
+                } else {
+                    if (typeof _showDashToast === 'function') _showDashToast(false, d.error || 'Failed to create event');
+                }
+            } catch(e) {
+                if (typeof _showDashToast === 'function') _showDashToast(false, 'Network error');
+            }
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-plus me-1"></i> Create Event'; }
         }
 
         // Schedule button handler — opens calendar app with current contact

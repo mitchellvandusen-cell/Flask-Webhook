@@ -593,6 +593,114 @@ def api_calendar_book():
         return flask_jsonify({"error": "Booking failed. The slot may no longer be available."}), 422
 
 
+@app.route('/api/calendar/create-event', methods=['POST'])
+@login_required
+def api_calendar_create_event():
+    """
+    Create a new calendar event/appointment in GHL CRM.
+    Body: { title, date (YYYY-MM-DD), start_time (HH:MM), end_time (HH:MM),
+            calendar_id, contact_id (optional), notes (optional) }
+    """
+    from ghl_api import get_valid_token
+    from zoneinfo import ZoneInfo
+
+    location_id = current_user.location_id
+    if not location_id:
+        return flask_jsonify({"error": "No location configured"}), 400
+
+    raw_token = getattr(current_user, 'access_token', '')
+    if raw_token == 'DEMO':
+        return flask_jsonify({"success": True, "message": "Demo event created", "event_id": "demo_event"})
+
+    access_token = get_valid_token(location_id)
+    if not access_token:
+        return flask_jsonify({"error": "CRM connection expired. Please reconnect in Bot Config."}), 401
+
+    data = request.get_json(silent=True) or {}
+    title = (data.get("title") or "").strip()
+    date_str = data.get("date")
+    start_time = data.get("start_time")
+    end_time = data.get("end_time")
+    cal_id = data.get("calendar_id") or getattr(current_user, 'calendar_id', '')
+    contact_id = data.get("contact_id")
+    notes = (data.get("notes") or "").strip()
+
+    if not title:
+        return flask_jsonify({"error": "Title is required"}), 400
+    if not date_str or not start_time or not end_time:
+        return flask_jsonify({"error": "Date and times are required"}), 400
+    if not cal_id:
+        return flask_jsonify({"error": "No calendar selected"}), 400
+
+    tz_str = getattr(current_user, 'timezone', None) or "America/Chicago"
+    local_tz = ZoneInfo(tz_str)
+
+    try:
+        start_dt = datetime.fromisoformat(f"{date_str}T{start_time}:00").replace(tzinfo=local_tz)
+        end_dt = datetime.fromisoformat(f"{date_str}T{end_time}:00").replace(tzinfo=local_tz)
+    except Exception as e:
+        logger.error(f"Failed to parse event times: {e}")
+        return flask_jsonify({"error": "Invalid date or time format"}), 400
+
+    GHL_BASE = "https://services.leadconnectorhq.com"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Version": "2021-07-28",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "calendarId": cal_id,
+        "locationId": location_id,
+        "title": title,
+        "startTime": start_dt.isoformat(),
+        "endTime": end_dt.isoformat(),
+        "selectedTimezone": tz_str,
+        "appointmentStatus": "confirmed",
+    }
+    if contact_id:
+        payload["contactId"] = contact_id
+    if notes:
+        payload["notes"] = notes
+    crm_user_id = getattr(current_user, 'crm_user_id', None)
+    if crm_user_id:
+        payload["assignedUserId"] = crm_user_id
+
+    url = f"{GHL_BASE}/calendars/events/appointments"
+
+    try:
+        resp = requests.post(url, headers=headers, json=payload, timeout=20)
+
+        if resp.status_code in (401, 403):
+            return flask_jsonify({"error": "CRM token expired. Please reconnect."}), 401
+
+        if resp.status_code in (200, 201):
+            result = resp.json()
+            event_id = result.get("id") or result.get("event", {}).get("id", "")
+            logger.info(f"Calendar event created: {event_id} for {location_id} ({title})")
+            return flask_jsonify({"success": True, "message": f"{title} created", "event_id": event_id})
+
+        # If 422 with assignedUserId issue, retry without it
+        if resp.status_code == 422 and crm_user_id and "assignedUserId" in payload:
+            del payload["assignedUserId"]
+            retry_resp = requests.post(url, headers=headers, json=payload, timeout=20)
+            if retry_resp.status_code in (200, 201):
+                result = retry_resp.json()
+                event_id = result.get("id") or result.get("event", {}).get("id", "")
+                logger.info(f"Calendar event created (retry): {event_id} for {location_id} ({title})")
+                return flask_jsonify({"success": True, "message": f"{title} created", "event_id": event_id})
+
+        error_text = resp.text[:300]
+        logger.error(f"GHL create event failed ({resp.status_code}): {error_text}")
+        return flask_jsonify({"error": "Failed to create event in CRM"}), 422
+
+    except requests.exceptions.Timeout:
+        return flask_jsonify({"error": "CRM service timed out"}), 504
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Calendar create event failed for {location_id}: {e}")
+        return flask_jsonify({"error": "Failed to create event"}), 500
+
+
 @app.route('/api/calendar/events', methods=['GET'])
 @login_required
 def api_calendar_events():
