@@ -2640,6 +2640,32 @@
                 _dialerCallConnected = false;
                 dialerShowBanner(displayName, 'Ringing...');
                 dialerStartPoll();
+
+                // ── Auto-speaker: play ring tone + prepare listen stream in AI mode ──
+                if (dialerMode === 'ai') {
+                    _autoListenActive = true;
+                    _dialerListening = true;
+                    _startRingTone();
+                    // Pre-create listen AudioContext inside this user gesture chain
+                    // to avoid autoplay policy blocks when the call connects
+                    if (!_listenAudioCtx || _listenAudioCtx.state === 'closed') {
+                        try {
+                            _listenAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 8000 });
+                            if (_listenAudioCtx.state === 'suspended') _listenAudioCtx.resume();
+                        } catch(e) { /* non-fatal, _startListenStream will retry */ }
+                    }
+                    // Update Listen button to show active state
+                    const lBtn = document.getElementById('dialerListenBtn');
+                    if (lBtn) {
+                        lBtn.style.background = 'rgba(0,217,255,0.15)';
+                        lBtn.style.color = '#00d9ff';
+                        const lIcon = lBtn.querySelector('i');
+                        const lSpan = lBtn.querySelector('span');
+                        if (lIcon) lIcon.className = 'fa-solid fa-ear-listen';
+                        if (lSpan) lSpan.textContent = 'Listening...';
+                    }
+                    console.log('[Dialer] Auto-speaker: ring tone started');
+                }
             } catch(e) {
                 _isDialing = false;
                 console.error('[Dialer] startCall network error:', e);
@@ -2680,12 +2706,13 @@
             const MAX_POLLS_RINGING = Math.ceil(_dialerRingTimeout / POLL_INTERVAL); // configurable ring timeout
             const MAX_ERRORS = 10;
             dialerPollTimer = setInterval(async () => {
-                if (!dialerCallSid) { clearInterval(dialerPollTimer); dialerHideBanner(); dialerStopAiTimer(); _dialerClearCallDurationTimer(); return; }
+                if (!dialerCallSid) { clearInterval(dialerPollTimer); dialerHideBanner(); dialerStopAiTimer(); _dialerClearCallDurationTimer(); _stopRingTone(); if (_autoListenActive) { _stopListenStream(); _resetListenBtn(); _autoListenActive = false; } return; }
                 ++pollCount;
                 // Only enforce poll limit while ringing/initiated — once connected, poll indefinitely
                 if (pollCount > MAX_POLLS_RINGING && !_dialerCallConnected) {
                     clearInterval(dialerPollTimer); dialerCallSid = null;
                     dialerHideBanner(); dialerStopAiTimer(); _dialerClearCallDurationTimer();
+                    _stopRingTone(); if (_autoListenActive) { _stopListenStream(); _resetListenBtn(); _autoListenActive = false; }
                     if (dialerQueueRunning) dialerAdvance();
                     return;
                 }
@@ -2703,6 +2730,13 @@
                         document.getElementById('dialerBannerTimer').style.display = 'block';
                         // Enable all call controls
                         _dialerEnableControls(true);
+                        // ── Auto-speaker: stop ring tone, start real listen stream ──
+                        _stopRingTone();
+                        if (_autoListenActive && _dialerListening && !_listenConnected) {
+                            _listenReconnects = 0;
+                            _startListenStream();
+                            console.log('[Dialer] Auto-speaker: ring tone stopped, live listen started');
+                        }
                         // ── Max call duration enforcement ──
                         if (_dialerMaxCallDuration > 0 && !_dialerCallDurationTimer) {
                             _dialerCallDurationTimer = setTimeout(() => {
@@ -2727,6 +2761,9 @@
                         _dialerBannerState('connected');
                         // Keep banner visible briefly, then clean up and advance
                         _dialerClearCallDurationTimer();
+                        // ── Auto-speaker cleanup ──
+                        _stopRingTone();
+                        if (_autoListenActive) { _stopListenStream(); _resetListenBtn(); _autoListenActive = false; }
                         _dialerQueueTimeout(() => {
                             dialerStopAiTimer();
                             _dialerLastCallSid = dialerCallSid;
@@ -2740,6 +2777,9 @@
                         clearInterval(dialerPollTimer);
                         dialerStopAiTimer();
                         _dialerClearCallDurationTimer();
+                        // ── Auto-speaker cleanup ──
+                        _stopRingTone();
+                        if (_autoListenActive) { _stopListenStream(); _resetListenBtn(); _autoListenActive = false; }
                         _dialerLastCallSid = dialerCallSid;
                         if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) dialerQueue[dialerCallIdx].status = d.status;
                         dialerCallSid = null;
@@ -2836,6 +2876,55 @@
         // ── In-call toggle state — declared before _dialerEnableControls so it can reset them ──
         let _dialerListening = false;   // live listen WebSocket active
         let _dialerMuted     = false;   // AI audio muted (listen speaker)
+        let _autoListenActive = false;  // auto-speaker mode: listen starts automatically in AI mode
+
+        // ── Ringback tone generator (US standard: 440+480 Hz, 2s on / 4s off) ──
+        let _ringAudioCtx = null;
+        let _ringOsc1 = null;
+        let _ringOsc2 = null;
+        let _ringGain = null;
+        let _ringTimer = null;
+
+        function _startRingTone() {
+            _stopRingTone();
+            try {
+                _ringAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                _ringGain = _ringAudioCtx.createGain();
+                _ringGain.connect(_ringAudioCtx.destination);
+                _ringOsc1 = _ringAudioCtx.createOscillator();
+                _ringOsc2 = _ringAudioCtx.createOscillator();
+                _ringOsc1.frequency.value = 440;
+                _ringOsc2.frequency.value = 480;
+                const mix1 = _ringAudioCtx.createGain();
+                const mix2 = _ringAudioCtx.createGain();
+                mix1.gain.value = 0.15;             // moderate volume
+                mix2.gain.value = 0.15;
+                _ringOsc1.connect(mix1); mix1.connect(_ringGain);
+                _ringOsc2.connect(mix2); mix2.connect(_ringGain);
+                _ringOsc1.start(); _ringOsc2.start();
+                // US ringback cadence: 2s on, 4s off, repeating
+                let phase = 0; // 0=on, 1=off
+                function tick() {
+                    if (!_ringGain) return;
+                    if (phase === 0) {
+                        _ringGain.gain.value = 1;
+                        _ringTimer = setTimeout(() => { phase = 1; tick(); }, 2000);
+                    } else {
+                        _ringGain.gain.value = 0;
+                        _ringTimer = setTimeout(() => { phase = 0; tick(); }, 4000);
+                    }
+                }
+                tick();
+            } catch(e) { console.warn('[Ring] Failed to start ring tone:', e); }
+        }
+
+        function _stopRingTone() {
+            if (_ringTimer) { clearTimeout(_ringTimer); _ringTimer = null; }
+            if (_ringOsc1)     { try { _ringOsc1.stop(); } catch(e) {} _ringOsc1 = null; }
+            if (_ringOsc2)     { try { _ringOsc2.stop(); } catch(e) {} _ringOsc2 = null; }
+            _ringGain = null;
+            if (_ringAudioCtx) { try { _ringAudioCtx.close(); } catch(e) {} _ringAudioCtx = null; }
+        }
         let _dialerMicMuted  = false;   // agent mic muted (post-intercept VoIP)
 
         // ── Enable / disable all in-call control buttons ──
@@ -2853,7 +2942,13 @@
                 const muteMic = document.getElementById('dialerMuteMicBtn');
                 const takeover = document.getElementById('dialerTakeoverBtn');
                 const transfer = document.getElementById('dialerTransferBtn');
-                listen.style.color = '#ccc'; listen.style.background = 'rgba(255,255,255,0.04)'; listen.style.borderColor = 'rgba(255,255,255,0.1)';
+                if (_autoListenActive) {
+                    listen.style.color = '#00d9ff'; listen.style.background = 'rgba(0,217,255,0.15)'; listen.style.borderColor = 'rgba(0,217,255,0.3)';
+                    const li = listen.querySelector('i'); const ls = listen.querySelector('span');
+                    if (li) li.className = 'fa-solid fa-ear-listen'; if (ls) ls.textContent = 'Listening...';
+                } else {
+                    listen.style.color = '#ccc'; listen.style.background = 'rgba(255,255,255,0.04)'; listen.style.borderColor = 'rgba(255,255,255,0.1)';
+                }
                 mute.style.color = '#ccc'; mute.style.background = 'rgba(255,255,255,0.04)'; mute.style.borderColor = 'rgba(255,255,255,0.1)';
                 if (muteMic) { muteMic.style.color = '#ccc'; muteMic.style.background = 'rgba(255,255,255,0.04)'; muteMic.style.borderColor = 'rgba(255,255,255,0.1)'; }
                 takeover.style.color = '#ffa500'; takeover.style.background = 'rgba(255,165,0,0.12)'; takeover.style.borderColor = 'rgba(255,165,0,0.3)';
@@ -2867,8 +2962,8 @@
                     btn.style.color = '#444'; btn.style.background = 'rgba(255,255,255,0.03)'; btn.style.borderColor = 'rgba(255,255,255,0.06)';
                 });
             }
-            // Reset toggle states
-            _dialerListening = false;
+            // Reset toggle states (preserve auto-listen if active)
+            if (!_autoListenActive) _dialerListening = false;
             _dialerMuted = false;
             _dialerMicMuted = false;
         }
@@ -2892,7 +2987,9 @@
                 _listenReconnects = 0;
                 await _startListenStream();
             } else {
+                _stopRingTone();    // stop ring tone if still playing
                 _stopListenStream();
+                _autoListenActive = false;
                 btn.style.background = 'rgba(255,255,255,0.04)';
                 btn.style.color = '#ccc';
                 btn.querySelector('i').className = 'fa-solid fa-volume-high';
@@ -2910,23 +3007,25 @@
             // can't clear dialerCallSid underneath us during AudioContext.resume()
             const listenCallSid = dialerCallSid;
 
-            // Clean up any previous connection
+            // Clean up any previous WebSocket connection
             if (_listenWs) { try { _listenWs.close(); } catch(e) {} _listenWs = null; }
-            if (_listenAudioCtx) { try { _listenAudioCtx.close(); } catch(e) {} _listenAudioCtx = null; }
             _listenConnected = false;
 
-            // Create AudioContext FIRST — must happen inside user gesture context
+            // Reuse existing AudioContext if available (e.g. pre-created during auto-speaker),
+            // otherwise create a new one — must happen inside user gesture context
             // to bypass browser autoplay policy (Chrome/Safari block otherwise)
-            try {
-                _listenAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 8000 });
-                if (_listenAudioCtx.state === 'suspended') {
-                    await _listenAudioCtx.resume();
-                    console.log('[Listen] AudioContext resumed');
+            if (!_listenAudioCtx || _listenAudioCtx.state === 'closed') {
+                if (_listenAudioCtx) { try { _listenAudioCtx.close(); } catch(e) {} }
+                try {
+                    _listenAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 8000 });
+                } catch(e) {
+                    console.error('[Listen] AudioContext creation failed:', e);
+                    _resetListenBtn();
+                    return;
                 }
-            } catch(e) {
-                console.error('[Listen] AudioContext creation failed:', e);
-                _resetListenBtn();
-                return;
+            }
+            if (_listenAudioCtx.state === 'suspended') {
+                try { await _listenAudioCtx.resume(); console.log('[Listen] AudioContext resumed'); } catch(e) {}
             }
             _listenNextTime = 0;
 
@@ -3126,8 +3225,10 @@
 
             // Immediately stop listen stream to prevent echo/feedback during handover
             if (_dialerListening) {
+                _stopRingTone();
                 _stopListenStream();
                 _resetListenBtn();
+                _autoListenActive = false;
             }
 
             try {
@@ -3494,8 +3595,10 @@
                 // Kill the poll immediately — same reason.
                 if (dialerPollTimer) { clearInterval(dialerPollTimer); dialerPollTimer = null; }
 
-                // Stop listen stream now while we still have accurate state.
+                // Stop ring tone + listen stream now while we still have accurate state.
+                _stopRingTone();
                 _stopListenStream();
+                _autoListenActive = false;
 
                 // Show "Hanging up..." — update DOM directly to avoid dialerShowBanner's
                 // ringing-blue side-effect; just keep the existing contact name in place.
