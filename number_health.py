@@ -717,25 +717,29 @@ def update_number_health(location_id, phone, call_status, duration=0, sip_code=N
                 (new_score, location_id, phone)
             )
 
-            # Auto-rest if health drops below critical
-            if new_score < HEALTH_CRITICAL and tc >= 10:
+            # Auto-rest only when a number is clearly blocked by carriers:
+            # 300+ dials AND under 2% connection rate. Normal cold outbound
+            # is ~10% pickup — only flag genuinely burned numbers.
+            cc = row["total_connected"] or 0
+            connect_pct = (cc / tc * 100) if tc > 0 else 100
+            if tc >= 300 and connect_pct < 2.0:
                 rest_until = now + timedelta(hours=DEFAULT_REST_HOURS)
                 cur.execute("""
                     UPDATE number_health
                     SET status = %s, rest_until = %s
                     WHERE location_id = %s AND phone = %s AND status != %s
                 """, (STATUS_RESTING, rest_until, location_id, phone, STATUS_FROZEN))
-                logger.warning(f"Number {phone} auto-rested (health={new_score}) until {rest_until}")
+                logger.warning(f"Number {phone} auto-rested (health={new_score}, connect={connect_pct:.1f}%, dials={tc}) until {rest_until}")
 
-            # Auto-freeze if health hits zero with enough data
-            if new_score < 5 and tc >= 25:
+            # Auto-freeze: same criteria but even worse — 500+ dials, under 1%
+            if tc >= 500 and connect_pct < 1.0:
                 freeze_until = now + timedelta(hours=DEFAULT_FREEZE_HOURS)
                 cur.execute("""
                     UPDATE number_health
                     SET status = %s, rest_until = %s
                     WHERE location_id = %s AND phone = %s
                 """, (STATUS_FROZEN, freeze_until, location_id, phone))
-                logger.warning(f"Number {phone} auto-FROZEN (health={new_score}) until {freeze_until}")
+                logger.warning(f"Number {phone} auto-FROZEN (health={new_score}, connect={connect_pct:.1f}%, dials={tc}) until {freeze_until}")
 
         conn.commit()
         cur.close()
