@@ -397,6 +397,16 @@ def save_voice_config():
         "local_presence":     bool(data.get("local_presence", False)),
         "transfer_number":    (data.get("transfer_number") or "").strip(),
         "voicemail_drop":     bool(data.get("voicemail_drop", False)),
+        # Enterprise dialer tuning
+        "ring_timeout":          max(15, min(120, int(data.get("ring_timeout") or 45))),
+        "pause_between_calls":   max(0, min(30, int(data.get("pause_between_calls") or 1))),
+        "use_amd":               bool(data.get("use_amd", False)),
+        "max_call_duration":     max(0, min(120, int(data.get("max_call_duration") or 0))),
+        "retry_delay":           max(1, min(30, int(data.get("retry_delay") or 2))),
+        "auto_callback":         bool(data.get("auto_callback", False)),
+        # Dossier display settings
+        "show_ai_summary":       bool(data.get("show_ai_summary", True)),
+        "show_known_facts":      bool(data.get("show_known_facts", True)),
     })
 
     conn = get_db_connection()
