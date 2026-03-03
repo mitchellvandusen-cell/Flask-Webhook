@@ -4534,6 +4534,10 @@ def buy_voice_number():
         )
         logger.info(f"Purchased number: {result.get('phone')} (SID: {result.get('sid')})")
 
+        # Invalidate live numbers cache so smart rotation picks up the new number
+        from number_health import invalidate_live_numbers_cache
+        invalidate_live_numbers_cache(sub_sid)
+
         return jsonify({
             "status": "purchased",
             "phone": result.get("phone", phone_number),
@@ -4563,6 +4567,9 @@ def release_voice_number():
         success = twilio_provisioning.release_phone_number(sub_sid, phone_sid)
         if success:
             logger.info(f"Released number: {phone_sid}")
+            # Invalidate live numbers cache so smart rotation stops using this number
+            from number_health import invalidate_live_numbers_cache
+            invalidate_live_numbers_cache(sub_sid)
             return jsonify({"status": "released"})
         return jsonify({"error": "Release failed"}), 400
 
