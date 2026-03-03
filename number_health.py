@@ -13,10 +13,21 @@
 
 import logging
 import random
+import time
 from datetime import datetime, timedelta
 from db import get_db_connection, return_db_connection
 
 logger = logging.getLogger("number_health")
+
+# Short-lived cache for live Twilio numbers (avoids API call on every dial in queue)
+_live_numbers_cache = {}
+
+def invalidate_live_numbers_cache(sub_account_sid=None):
+    """Clear cached live numbers (call after buy/release)."""
+    if sub_account_sid:
+        _live_numbers_cache.pop(f"_live_nums_{sub_account_sid}", None)
+    else:
+        _live_numbers_cache.clear()
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
@@ -424,8 +435,32 @@ def select_outbound_number(location_id, voice_config, dest_phone=None):
         return None
 
     primary = voice_config.get("twilio_phone_number", "")
-    local_pool = voice_config.get("local_presence_numbers", [])
-    all_numbers = list(set([primary] + local_pool)) if primary else list(set(local_pool))
+
+    # Fetch live numbers from Twilio sub-account (not stale voice_config list)
+    # Cache for 60s to avoid Twilio API calls on every dial in a queue run
+    sub_sid = voice_config.get("twilio_sub_account_sid", "")
+    all_numbers = []
+    if sub_sid:
+        try:
+            import twilio_provisioning
+            cache_key = f"_live_nums_{sub_sid}"
+            cached = _live_numbers_cache.get(cache_key)
+            if cached and (time.time() - cached["ts"]) < 60:
+                all_numbers = cached["numbers"]
+            else:
+                live = twilio_provisioning.list_phone_numbers(sub_sid)
+                all_numbers = [n.get("phone", "") for n in live if n.get("phone")]
+                _live_numbers_cache[cache_key] = {"numbers": all_numbers, "ts": time.time()}
+        except Exception as e:
+            logger.warning(f"Smart rotation: could not fetch live numbers, falling back to voice_config: {e}")
+    if not all_numbers:
+        # Fallback to voice_config if Twilio fetch fails or no sub-account
+        local_pool = voice_config.get("local_presence_numbers", [])
+        all_numbers = list(set([primary] + local_pool)) if primary else list(set(local_pool))
+    else:
+        # Ensure primary is in the pool
+        if primary and primary not in all_numbers:
+            all_numbers.append(primary)
     all_numbers = [p for p in all_numbers if p]  # Filter empty strings
 
     if not all_numbers:
