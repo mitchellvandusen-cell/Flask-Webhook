@@ -2596,6 +2596,7 @@
                 const d = await r.json();
                 if (!r.ok) {
                     _isDialing = false;
+                    _hangupPending = false;  // Clear stale hangup flag on dial failure
                     // Mark queue item as failed so advance() handles it correctly (retry or skip)
                     if (dialerQueueRunning && dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
                         dialerQueue[dialerCallIdx].status = 'failed';
@@ -2668,6 +2669,7 @@
                 }
             } catch(e) {
                 _isDialing = false;
+                _hangupPending = false;  // Clear stale hangup flag on network failure
                 console.error('[Dialer] startCall network error:', e);
                 // Mark queue item as failed so advance() handles it correctly (retry or skip)
                 if (dialerQueueRunning && dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
@@ -3971,6 +3973,11 @@
 
                 // Destroy previous device if any
                 if (voipDevice) {
+                    // Clear dangling connection ref before destroying device
+                    if (voipConnection) {
+                        try { voipConnection.disconnect(); } catch(e) {}
+                        voipConnection = null;
+                    }
                     try { voipDevice.destroy(); } catch(e) {}
                     voipDevice = null;
                 }
@@ -4071,7 +4078,7 @@
                             const kp = document.getElementById('voipKeypad');
                             if (kp) kp.style.display = 'none';
                             dialerHideBanner();
-                            if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
+                            if (dialerQueueRunning) _dialerQueueTimeout(dialerAdvance, 2000);
                         });
                         call.on('cancel', () => {
                             console.log('[VoIP] Incoming call cancelled');
@@ -4081,7 +4088,7 @@
                             if (cp) cp.style.display = 'none';
                             const kp = document.getElementById('voipKeypad');
                             if (kp) kp.style.display = 'none';
-                            if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
+                            if (dialerQueueRunning) _dialerQueueTimeout(dialerAdvance, 2000);
                         });
                         call.on('error', (err) => {
                             console.error('[VoIP] Incoming call error:', err);
@@ -4089,6 +4096,8 @@
                             voipStopTimer();
                             const cp = document.getElementById('voipCallPanel');
                             if (cp) cp.style.display = 'none';
+                            dialerHideBanner();
+                            if (dialerQueueRunning) _dialerQueueTimeout(dialerAdvance, 2000);
                         });
                     } else {
                         console.log('[VoIP] Rejecting incoming call (not in intercept/human mode)');
@@ -4283,11 +4292,12 @@
                 _showVoipStatus('VoIP not ready. Click Setup VoIP first.');
                 return;
             }
-            // Block double-connect — reject if a VoIP call is already active
-            if (voipConnection) {
-                console.warn('[VoIP] Blocked double-dial: VoIP call already active');
+            // Block double-connect — reject if a VoIP call is already active or in-flight
+            if (voipConnection || _isDialing) {
+                console.warn('[VoIP] Blocked double-dial: VoIP call already active or in-flight');
                 return;
             }
+            _isDialing = true;  // Guard against double-dial during connect()
             voipCurrentContact = { phone, firstName, contactId, displayName };
             document.getElementById('voipCallName').textContent = displayName || firstName;
             document.getElementById('voipCallPhone').textContent = phone;
@@ -4316,7 +4326,17 @@
 
                 const call = await voipDevice.connect(connectParams);
                 voipConnection = call;
+                _isDialing = false;  // Connect resolved — guard released
                 console.log('[VoIP] Call initiated, waiting for connection...');
+
+                // Handle hang-up-while-dialing: if dialerStopQueue() fired during connect()
+                if (_hangupPending) {
+                    _hangupPending = false;
+                    console.warn('[VoIP] Hang up was pending — disconnecting immediately');
+                    voipConnection.disconnect();
+                    voipConnection = null;
+                    return;
+                }
 
                 // Show call panel immediately with connecting status
                 document.getElementById('voipCallPanel').style.display = 'flex';
@@ -4340,7 +4360,11 @@
                     document.getElementById('voipCallPanel').style.display = 'none';
                     document.getElementById('voipKeypad').style.display = 'none';
                     dialerHideBanner();
-                    if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
+                    if (!dialerQueueRunning) {
+                        dialerShowDisposition();
+                    } else {
+                        _dialerQueueTimeout(dialerAdvance, 2000);
+                    }
                 });
 
                 call.on('cancel', () => {
@@ -4349,7 +4373,7 @@
                     voipStopTimer();
                     document.getElementById('voipCallPanel').style.display = 'none';
                     document.getElementById('voipKeypad').style.display = 'none';
-                    if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
+                    if (dialerQueueRunning) _dialerQueueTimeout(dialerAdvance, 2000);
                 });
 
                 call.on('error', (err) => {
@@ -4359,6 +4383,13 @@
                     voipConnection = null;
                     voipStopTimer();
                     document.getElementById('voipCallPanel').style.display = 'none';
+                    // Mark queue item as failed so retry logic can kick in
+                    if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
+                        dialerQueue[dialerCallIdx].status = 'failed';
+                        dialerRenderQueue();
+                    }
+                    dialerHideBanner();
+                    if (dialerQueueRunning) _dialerQueueTimeout(dialerAdvance, 2000);
                 });
 
                 call.on('warning', (name, data) => {
@@ -4370,6 +4401,8 @@
                     dialerRenderQueue();
                 }
             } catch(e) {
+                _isDialing = false;  // Release guard on failure
+                _hangupPending = false;
                 console.error('[VoIP] Connect failed:', e);
                 _showVoipStatus('Call failed: ' + e.message);
             }
