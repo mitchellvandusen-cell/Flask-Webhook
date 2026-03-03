@@ -693,39 +693,77 @@
             if (d.is_sub_user && !d.a2p_fee_paid && !d.registered) {
                 if (payGate) payGate.style.display = 'block';
                 if (registerPanel) registerPanel.style.display = 'none';
+                if (banner) banner.style.display = 'none';
+                if (statusPanel) statusPanel.style.display = 'none';
                 return;
             } else {
                 if (payGate) payGate.style.display = 'none';
             }
 
-            // Fully registered: show success banner
-            if (d.registered && d.campaign_sid) {
+            // Has both brand AND campaign (registered or pending)
+            if (d.brand_sid && d.campaign_sid) {
+                if (registerPanel) registerPanel.style.display = 'none';
+                if (statusPanel) statusPanel.style.display = 'none';
                 if (banner) {
                     banner.style.display = 'block';
-                    const statusColor = d.campaign_status === 'VERIFIED' ? '#00ff88' : '#fbbf24';
-                    const statusLabel = d.campaign_status === 'VERIFIED' ? 'Approved' : (d.campaign_status || 'Pending');
+                    var brandSt = (d.brand_status || 'PENDING').toUpperCase();
+                    var campSt = (d.campaign_status || 'PENDING').toUpperCase();
+                    var brandColor = brandSt === 'APPROVED' ? '#00ff88' : brandSt === 'FAILED' ? '#ef4444' : '#fbbf24';
+                    var campColor = campSt === 'VERIFIED' ? '#00ff88' : campSt === 'FAILED' ? '#ef4444' : '#fbbf24';
+                    var brandLabel = brandSt === 'APPROVED' ? 'Approved' : brandSt;
+                    var campLabel = campSt === 'VERIFIED' ? 'Approved' : campSt;
+                    var allGood = brandSt === 'APPROVED' && (campSt === 'VERIFIED' || campSt === 'APPROVED');
+                    var headerColor = allGood ? '#00ff88' : '#fbbf24';
+                    var headerIcon = allGood ? 'fa-certificate' : 'fa-hourglass-half';
+                    var headerText = allGood ? 'A2P 10DLC Registered' : 'A2P 10DLC Registration In Progress';
+                    var headerBg = allGood ? 'rgba(0,255,136,0.06)' : 'rgba(251,191,36,0.06)';
+                    var headerBorder = allGood ? 'rgba(0,255,136,0.2)' : 'rgba(251,191,36,0.2)';
+
                     banner.innerHTML =
-                        '<div class="mb-3 p-3" style="background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.2);border-radius:10px;">' +
-                            '<div class="d-flex align-items-center gap-3">' +
-                                '<div style="width:36px;height:36px;border-radius:50%;background:rgba(0,255,136,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-                                    '<i class="fa-solid fa-certificate" style="color:#00ff88;"></i>' +
+                        '<div class="p-3" style="background:' + headerBg + ';border:1px solid ' + headerBorder + ';border-radius:12px;">' +
+                            '<div class="d-flex align-items-center gap-3 mb-3">' +
+                                '<div style="width:36px;height:36px;border-radius:50%;background:' + (allGood ? 'rgba(0,255,136,0.15)' : 'rgba(251,191,36,0.15)') + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+                                    '<i class="fa-solid ' + headerIcon + '" style="color:' + headerColor + ';"></i>' +
                                 '</div>' +
                                 '<div style="flex:1;">' +
-                                    '<div style="font-weight:700;color:#00ff88;font-size:0.9rem;">A2P 10DLC Registered</div>' +
-                                    '<div style="font-size:0.75rem;color:#aaa;">' +
-                                        'Brand: <span style="color:#ccc;font-family:\'JetBrains Mono\',monospace;font-size:0.7rem;">' + _esc(d.brand_sid) + '</span>' +
-                                        ' &bull; Campaign: <span style="color:' + statusColor + ';font-weight:600;">' + _esc(statusLabel) + '</span>' +
-                                        (d.registered_at ? ' &bull; ' + new Date(d.registered_at).toLocaleDateString() : '') +
-                                    '</div>' +
+                                    '<div style="font-weight:700;color:' + headerColor + ';font-size:0.9rem;">' + headerText + '</div>' +
+                                    (d.registered_at ? '<div style="font-size:0.7rem;color:#666;">Registered ' + new Date(d.registered_at).toLocaleDateString() + '</div>' : '') +
                                 '</div>' +
                                 '<button onclick="a2pRefreshStatus()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:5px 12px;font-size:0.72rem;cursor:pointer;white-space:nowrap;">' +
                                     '<i class="fa-solid fa-arrows-rotate me-1"></i>Refresh' +
                                 '</button>' +
                             '</div>' +
+                            // Brand row
+                            '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:8px;margin-bottom:6px;">' +
+                                '<i class="fa-solid fa-building" style="color:#a78bfa;width:16px;text-align:center;"></i>' +
+                                '<span style="font-weight:600;color:#ccc;font-size:0.78rem;width:70px;">Brand</span>' +
+                                '<span style="background:' + brandColor + '20;color:' + brandColor + ';padding:2px 8px;border-radius:4px;font-size:0.68rem;font-weight:700;">' + _esc(brandLabel) + '</span>' +
+                                '<span style="color:#555;font-family:\'JetBrains Mono\',monospace;font-size:0.65rem;margin-left:auto;">' + _esc(d.brand_sid) + '</span>' +
+                            '</div>' +
+                            // Campaign row
+                            '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:8px;margin-bottom:6px;">' +
+                                '<i class="fa-solid fa-bullhorn" style="color:#00d9ff;width:16px;text-align:center;"></i>' +
+                                '<span style="font-weight:600;color:#ccc;font-size:0.78rem;width:70px;">Campaign</span>' +
+                                '<span style="background:' + campColor + '20;color:' + campColor + ';padding:2px 8px;border-radius:4px;font-size:0.68rem;font-weight:700;">' + _esc(campLabel) + '</span>' +
+                                '<span style="color:#555;font-family:\'JetBrains Mono\',monospace;font-size:0.65rem;margin-left:auto;">' + _esc(d.campaign_sid) + '</span>' +
+                            '</div>' +
+                            // Messaging service row (if present)
+                            (d.messaging_service_sid ?
+                                '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:8px;">' +
+                                    '<i class="fa-solid fa-envelope" style="color:#ffa500;width:16px;text-align:center;"></i>' +
+                                    '<span style="font-weight:600;color:#ccc;font-size:0.78rem;width:70px;">Msg Svc</span>' +
+                                    '<span style="background:rgba(0,255,136,0.12);color:#00ff88;padding:2px 8px;border-radius:4px;font-size:0.68rem;font-weight:700;">Active</span>' +
+                                    '<span style="color:#555;font-family:\'JetBrains Mono\',monospace;font-size:0.65rem;margin-left:auto;">' + _esc(d.messaging_service_sid) + '</span>' +
+                                '</div>' : ''
+                            ) +
+                            // Pending note
+                            (!allGood ?
+                                '<div style="margin-top:10px;padding:8px 12px;background:rgba(251,191,36,0.05);border:1px solid rgba(251,191,36,0.1);border-radius:8px;font-size:0.72rem;color:#fbbf24;">' +
+                                    '<i class="fa-solid fa-clock me-1"></i>Registration is pending carrier approval. Click Refresh to check for updates.' +
+                                '</div>' : ''
+                            ) +
                         '</div>';
                 }
-                if (registerPanel) registerPanel.style.display = 'none';
-                if (statusPanel) statusPanel.style.display = 'none';
                 return;
             }
 
@@ -744,6 +782,8 @@
                     if (campaignForm) campaignForm.style.display = 'block';
                     a2pUpdateStepPills(2);
                     a2pLoadNumbersForCampaign('a2pCampaignNumbersList');
+                } else if (registerPanel) {
+                    registerPanel.style.display = 'none';
                 }
                 return;
             }
