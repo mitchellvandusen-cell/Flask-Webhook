@@ -5031,6 +5031,53 @@ def spam_protection_status():
     protection_active = trust_hub.get('protection_active', False)
     business_name = trust_hub.get('business_name', '')
 
+    # Auto-discover Trust Hub profiles from master if not locally configured
+    if not protection_active and not business_name:
+        try:
+            profiles = twilio_provisioning.discover_trust_hub_profiles()
+            # Find a compliant/approved profile
+            approved = [p for p in profiles if p.get('status', '').lower() in ('twilio-approved', 'compliant', 'approved')]
+            if approved:
+                best = approved[0]
+                trust_hub['protection_active'] = True
+                trust_hub['profile_sid'] = best['profile_sid']
+                trust_hub['business_name'] = best.get('friendly_name', 'Verified Business')
+                trust_hub['registered_at'] = best.get('date_created', '')
+                protection_active = True
+                business_name = trust_hub['business_name']
+                # Persist (handles both agency owners and regular subscribers)
+                import json as _json
+                conn = None
+                try:
+                    conn = get_db_connection()
+                    if conn:
+                        cur = conn.cursor()
+                        vc_save = vc or {}
+                        vc_save['trust_hub'] = trust_hub
+                        email = (subscriber or {}).get('email', '')
+                        is_agency = getattr(current_user, 'role', '') == 'agency_owner'
+                        if is_agency:
+                            cur.execute(
+                                "UPDATE agency_billing SET voice_config = %s::jsonb, updated_at = NOW() WHERE agency_email = %s",
+                                (_json.dumps(vc_save), email)
+                            )
+                        else:
+                            cur.execute(
+                                "UPDATE subscribers SET voice_config = %s::jsonb, updated_at = NOW() WHERE email = %s",
+                                (_json.dumps(vc_save), email)
+                            )
+                        conn.commit()
+                        cur.close()
+                except Exception:
+                    if conn:
+                        try: conn.rollback()
+                        except Exception: pass
+                finally:
+                    if conn: return_db_connection(conn)
+                logger.info(f"Auto-discovered Trust Hub profile: {best['profile_sid']}")
+        except Exception as e:
+            logger.debug(f"Trust Hub auto-discovery failed (non-fatal): {e}")
+
     # Get number details from Twilio
     status = twilio_provisioning.get_spam_protection_status(sub_sid)
     numbers_detail = [
@@ -5070,13 +5117,37 @@ def spam_protection_status():
 @voice_bp.route('/voice/a2p/status', methods=['GET'])
 @login_required
 def a2p_status():
-    """Return current A2P 10DLC registration status from voice_config."""
+    """Return current A2P 10DLC registration status from voice_config.
+    Auto-discovers from Twilio if local data is empty."""
     subscriber, vc, sub_sid = _get_current_subscriber_voice()
     if not sub_sid:
         return jsonify({"error": "Voice service not provisioned"}), 400
 
     a2p = (vc or {}).get('a2p', {})
     is_sub_user = bool((subscriber or {}).get('parent_agency_email'))
+
+    # Auto-discover from Twilio if no brand is stored locally
+    if not a2p.get('brand_sid'):
+        try:
+            discovered = twilio_provisioning.discover_full_a2p_status(sub_sid)
+            if discovered.get('best_brand'):
+                brand = discovered['best_brand']
+                a2p['brand_sid'] = brand['brand_sid']
+                a2p['brand_status'] = brand['status']
+
+                if discovered.get('best_campaign'):
+                    campaign = discovered['best_campaign']
+                    a2p['campaign_sid'] = campaign['campaign_sid']
+                    a2p['campaign_status'] = campaign['campaign_status']
+                    a2p['messaging_service_sid'] = campaign.get('messaging_service_sid', '')
+                    a2p['use_case'] = campaign.get('use_case', '')
+                    a2p['registered'] = campaign.get('campaign_status', '').upper() in ('VERIFIED', 'APPROVED')
+
+                # Persist discovered data to voice_config
+                _save_a2p_to_voice_config(subscriber, vc, a2p)
+                logger.info(f"Auto-discovered A2P: brand={a2p.get('brand_sid')}, campaign={a2p.get('campaign_sid')}")
+        except Exception as e:
+            logger.warning(f"A2P auto-discovery failed (non-fatal): {e}")
 
     return jsonify({
         "registered": a2p.get('registered', False),
@@ -5090,6 +5161,96 @@ def a2p_status():
         "is_sub_user": is_sub_user,
         "a2p_fee_paid": a2p.get('a2p_fee_paid', False),
     })
+
+
+@voice_bp.route('/voice/a2p/sync', methods=['POST'])
+@login_required
+def a2p_sync():
+    """
+    Force-sync A2P status from Twilio. Discovers existing brands,
+    messaging services, and campaigns on both master and sub-account.
+    Persists results to voice_config['a2p'].
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    try:
+        discovered = twilio_provisioning.discover_full_a2p_status(sub_sid)
+
+        a2p = (vc or {}).get('a2p', {})
+        synced = False
+
+        if discovered.get('best_brand'):
+            brand = discovered['best_brand']
+            a2p['brand_sid'] = brand['brand_sid']
+            a2p['brand_status'] = brand['status']
+            synced = True
+
+        if discovered.get('best_campaign'):
+            campaign = discovered['best_campaign']
+            a2p['campaign_sid'] = campaign['campaign_sid']
+            a2p['campaign_status'] = campaign['campaign_status']
+            a2p['messaging_service_sid'] = campaign.get('messaging_service_sid', '')
+            a2p['use_case'] = campaign.get('use_case', '')
+            a2p['registered'] = campaign.get('campaign_status', '').upper() in ('VERIFIED', 'APPROVED')
+            synced = True
+
+        if synced:
+            _save_a2p_to_voice_config(subscriber, vc, a2p)
+            logger.info(f"A2P sync complete: brand={a2p.get('brand_sid')}, campaign={a2p.get('campaign_sid')}")
+
+        return jsonify({
+            "synced": synced,
+            "brands_found": len(discovered.get('brands', [])),
+            "campaigns_found": len(discovered.get('campaigns', [])),
+            "messaging_services_found": len(discovered.get('messaging_services', [])),
+            "brand_sid": a2p.get('brand_sid', ''),
+            "brand_status": a2p.get('brand_status', ''),
+            "campaign_sid": a2p.get('campaign_sid', ''),
+            "campaign_status": a2p.get('campaign_status', ''),
+        })
+
+    except Exception as e:
+        logger.error(f"A2P sync failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+def _save_a2p_to_voice_config(subscriber, vc, a2p):
+    """Persist a2p dict to voice_config JSONB."""
+    import json as _json
+    conn = None
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return
+        cur = conn.cursor()
+        vc = vc or {}
+        vc['a2p'] = a2p
+        email = (subscriber or {}).get('email', '')
+        is_agency = getattr(current_user, 'role', '') == 'agency_owner'
+        if is_agency:
+            cur.execute(
+                "UPDATE agency_billing SET voice_config = %s::jsonb, updated_at = NOW() WHERE agency_email = %s",
+                (_json.dumps(vc), email)
+            )
+        else:
+            cur.execute(
+                "UPDATE subscribers SET voice_config = %s::jsonb, updated_at = NOW() WHERE email = %s",
+                (_json.dumps(vc), email)
+            )
+        conn.commit()
+        cur.close()
+    except Exception as e:
+        logger.error(f"Failed to save A2P to voice_config: {e}")
+        if conn:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+    finally:
+        if conn:
+            return_db_connection(conn)
 
 
 @voice_bp.route('/voice/a2p/register-brand', methods=['POST'])

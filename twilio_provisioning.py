@@ -870,6 +870,151 @@ def list_messaging_services(sub_account_sid: str) -> list:
 
 
 # ──────────────────────────────────────────────────────────────
+# A2P DISCOVERY — Sync existing registrations from Twilio
+# ──────────────────────────────────────────────────────────────
+
+def discover_a2p_brands() -> list:
+    """
+    Discover all existing A2P Brand Registrations on the master account.
+    Returns list of {brand_sid, status, brand_score, ...} dicts.
+    """
+    client = get_master_client()
+    try:
+        brands = client.messaging.v1.brand_registrations.list(limit=100)
+        results = []
+        for b in brands:
+            results.append({
+                "brand_sid": b.sid,
+                "status": b.status,
+                "brand_score": getattr(b, "brand_score", None),
+                "brand_feedback": getattr(b, "brand_feedback", None),
+                "a2p_profile_bundle_sid": getattr(b, "a2p_profile_bundle_sid", ""),
+                "customer_profile_bundle_sid": getattr(b, "customer_profile_bundle_sid", ""),
+                "date_created": b.date_created.isoformat() if b.date_created else "",
+                "date_updated": b.date_updated.isoformat() if b.date_updated else "",
+            })
+        logger.info(f"Discovered {len(results)} A2P brands on master account")
+        return results
+    except TwilioRestException as e:
+        logger.error(f"Failed to discover A2P brands: {e}")
+        return []
+
+
+def discover_a2p_campaigns(messaging_service_sid: str) -> list:
+    """
+    Discover all existing A2P campaigns on a Messaging Service.
+    Returns list of {campaign_sid, campaign_status, description, use_case} dicts.
+    """
+    client = get_master_client()
+    try:
+        campaigns = client.messaging.v1.services(
+            messaging_service_sid
+        ).us_app_to_person.list(limit=50)
+        results = []
+        for c in campaigns:
+            results.append({
+                "campaign_sid": c.sid,
+                "campaign_status": c.campaign_status,
+                "description": getattr(c, "description", ""),
+                "use_case": getattr(c, "us_app_to_person_usecase", ""),
+                "brand_registration_sid": getattr(c, "brand_registration_sid", ""),
+                "date_created": c.date_created.isoformat() if c.date_created else "",
+            })
+        logger.info(f"Discovered {len(results)} A2P campaigns on MS {messaging_service_sid}")
+        return results
+    except TwilioRestException as e:
+        logger.error(f"Failed to discover campaigns on {messaging_service_sid}: {e}")
+        return []
+
+
+def discover_trust_hub_profiles() -> list:
+    """
+    Discover all Trust Hub Customer Profiles on the master account.
+    Returns list of {profile_sid, status, friendly_name} dicts.
+    """
+    client = get_master_client()
+    try:
+        profiles = client.trusthub.v1.customer_profiles.list(limit=100)
+        results = []
+        for p in profiles:
+            results.append({
+                "profile_sid": p.sid,
+                "status": p.status,
+                "friendly_name": getattr(p, "friendly_name", ""),
+                "date_created": p.date_created.isoformat() if p.date_created else "",
+            })
+        logger.info(f"Discovered {len(results)} Trust Hub profiles")
+        return results
+    except TwilioRestException as e:
+        logger.error(f"Failed to discover Trust Hub profiles: {e}")
+        return []
+
+
+def discover_full_a2p_status(sub_account_sid: str) -> dict:
+    """
+    Comprehensive A2P discovery: finds brands, messaging services, and campaigns.
+    Works for both master account and sub-accounts.
+    Returns dict ready to merge into voice_config['a2p'].
+    """
+    result = {
+        "brands": [],
+        "messaging_services": [],
+        "campaigns": [],
+        "best_brand": None,
+        "best_campaign": None,
+    }
+
+    # 1. Discover brands on master account
+    brands = discover_a2p_brands()
+    result["brands"] = brands
+
+    # Find the best brand (prefer APPROVED, then most recent)
+    approved_brands = [b for b in brands if b.get("status", "").upper() == "APPROVED"]
+    if approved_brands:
+        result["best_brand"] = approved_brands[0]
+    elif brands:
+        result["best_brand"] = brands[0]
+
+    # 2. Discover messaging services on the account
+    # Try sub-account first, then master if sub has none
+    ms_list = list_messaging_services(sub_account_sid) if sub_account_sid else []
+    if not ms_list:
+        # Also check master account for messaging services
+        try:
+            client = get_master_client()
+            services = client.messaging.v1.services.list(limit=50)
+            ms_list = [
+                {
+                    "sid": s.sid,
+                    "friendly_name": s.friendly_name,
+                    "date_created": s.date_created.isoformat() if s.date_created else "",
+                }
+                for s in services
+            ]
+        except Exception as e:
+            logger.debug(f"No messaging services on master: {e}")
+    result["messaging_services"] = ms_list
+
+    # 3. Discover campaigns on each messaging service
+    for ms in ms_list:
+        campaigns = discover_a2p_campaigns(ms["sid"])
+        for c in campaigns:
+            c["messaging_service_sid"] = ms["sid"]
+        result["campaigns"].extend(campaigns)
+
+    # Find the best campaign (prefer VERIFIED/APPROVED)
+    good_statuses = ("VERIFIED", "APPROVED", "IN_PROGRESS")
+    good_campaigns = [c for c in result["campaigns"]
+                      if c.get("campaign_status", "").upper() in good_statuses]
+    if good_campaigns:
+        result["best_campaign"] = good_campaigns[0]
+    elif result["campaigns"]:
+        result["best_campaign"] = result["campaigns"][0]
+
+    return result
+
+
+# ──────────────────────────────────────────────────────────────
 # FULL PROVISIONING
 # ──────────────────────────────────────────────────────────────
 
