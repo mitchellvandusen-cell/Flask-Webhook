@@ -1001,8 +1001,8 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
             )
 
         if not reply:
-            logger.error(f"LLM produced no usable reply after retry. Using fallback. contact={contact_id}")
-            reply = "Hey, just checking in. Anything new on your end with coverage?"
+            logger.error(f"LLM produced no usable reply after retry. Skipping send. contact={contact_id}")
+            return
 
         # Layer 2: Strip markdown (SMS is plain text)
         reply = re.sub(r'\*\*([^*]+)\*\*', r'\1', reply)  # **bold** -> bold
@@ -1024,8 +1024,8 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
             reply_lower in FORBIDDEN_EXACT
         )
         if is_forbidden:
-            logger.error(f"BLOCKED VARIABLE/PLACEHOLDER: '{reply}' — using fallback")
-            reply = "Hey, just checking in. Anything new on your end with coverage?"
+            logger.error(f"BLOCKED VARIABLE/PLACEHOLDER: '{reply}' — skipping send. contact={contact_id}")
+            return
 
         # Trust the LLM - no length restrictions on replies
         # Sometimes "Got it" or "Ok!" is the perfect response

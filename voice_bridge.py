@@ -928,7 +928,7 @@ def get_voice_tools():
         {
             "type": "function",
             "name": "transfer_to_agent",
-            "description": "Transfer this call to a live human agent right now. Use this when the lead is highly interested and ready to take action immediately — for example, they have their policy info ready, are asking detailed pricing questions, or explicitly want to speak with someone who can finalize things. Say something like 'Let me grab my senior advisor to help you right now' before calling this.",
+            "description": "Transfer this call to a live human agent right now. Use this when the lead is highly interested and ready to take action immediately — for example, they have their policy info ready, are asking detailed pricing questions, or explicitly want to speak with someone who can finalize things. Naturally let the caller know you are connecting them with a senior advisor before calling this.",
             "parameters": {
                 "type": "object",
                 "properties": {
