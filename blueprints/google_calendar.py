@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
 from flask import (Blueprint, flash, redirect, url_for, session, request,
-                   jsonify as flask_jsonify)
+                   jsonify as flask_jsonify, render_template)
 from flask_login import login_required, current_user
 
 from db import (save_google_calendar_config, get_google_calendar_config,
@@ -102,12 +102,13 @@ def _get_valid_google_token(location_id: str):
 @google_calendar_bp.route("/google-calendar/connect")
 @login_required
 def google_calendar_connect():
-    """Redirect to Google OAuth — calendar.readonly scope."""
+    """Show scope permission screen before Google OAuth redirect."""
     client_id, _, redirect_uri = _google_creds()
     if not client_id:
         flash("Google Calendar integration is not configured. Contact support.", "error")
         return redirect(url_for("dashboard"))
 
+    # Build the Google OAuth URL for the consent page's "Continue" button
     state = secrets.token_urlsafe(16)
     session["google_calendar_oauth_state"] = state
     params = urlencode({
@@ -119,7 +120,9 @@ def google_calendar_connect():
         "access_type": "offline",
         "prompt": "consent",
     })
-    return redirect(f"{GOOGLE_AUTH_URL}?{params}")
+    authorize_url = f"{GOOGLE_AUTH_URL}?{params}"
+
+    return render_template("google_calendar_consent.html", authorize_url=authorize_url)
 
 
 @google_calendar_bp.route("/google-calendar/callback")
