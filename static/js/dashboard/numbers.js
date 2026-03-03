@@ -748,7 +748,7 @@
                 return;
             }
 
-            // Fresh state: show registration form directly
+            // Fresh state: show registration form directly + sync button
             if (banner) banner.style.display = 'none';
             if (statusPanel) statusPanel.style.display = 'none';
             if (registerPanel) {
@@ -756,6 +756,20 @@
                 if (brandForm) brandForm.style.display = 'block';
                 if (campaignForm) campaignForm.style.display = 'none';
                 a2pUpdateStepPills(1);
+            }
+            // Inject "Sync from Twilio" hint above the form for users who already registered via Twilio directly
+            var syncHint = document.getElementById('a2pSyncHint');
+            if (!syncHint && registerPanel) {
+                syncHint = document.createElement('div');
+                syncHint.id = 'a2pSyncHint';
+                syncHint.style.cssText = 'margin-bottom:12px;padding:10px 14px;background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.15);border-radius:8px;display:flex;align-items:center;gap:10px;';
+                syncHint.innerHTML =
+                    '<i class="fa-solid fa-cloud-arrow-down" style="color:#00d9ff;font-size:1rem;"></i>' +
+                    '<span style="color:#aaa;font-size:0.76rem;flex:1;">Already registered A2P on Twilio? Sync your existing brand &amp; campaign instead of re-registering.</span>' +
+                    '<button id="a2pSyncBtn" onclick="a2pSyncFromTwilio()" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.25);color:#00d9ff;border-radius:6px;padding:5px 14px;font-size:0.72rem;cursor:pointer;white-space:nowrap;font-weight:600;">' +
+                        '<i class="fa-solid fa-arrows-rotate me-1"></i>Sync from Twilio' +
+                    '</button>';
+                registerPanel.insertBefore(syncHint, registerPanel.firstChild);
             }
         }
 
@@ -936,8 +950,13 @@
         // ── Refresh Status ──
         async function a2pRefreshStatus() {
             try {
+                if (!_a2pStatus || !_a2pStatus.brand_sid) {
+                    // No brand known — try syncing from Twilio first
+                    await a2pSyncFromTwilio();
+                    return; // a2pSyncFromTwilio already calls a2pLoadStatus
+                }
                 // Refresh brand status if exists
-                if (_a2pStatus && _a2pStatus.brand_sid) {
+                if (_a2pStatus.brand_sid) {
                     var r = await fetch('/voice/a2p/brand-status');
                     if (r.ok) {
                         var d = await r.json();
@@ -954,6 +973,30 @@
                 }
             } catch(e) { console.error('[A2P] Refresh error:', e); }
             a2pLoadStatus();
+        }
+
+        // ── Sync from Twilio (discover existing registrations) ──
+        async function a2pSyncFromTwilio() {
+            var btn = document.getElementById('a2pSyncBtn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Syncing...'; }
+            try {
+                var r = await fetch('/voice/a2p/sync', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}' });
+                var d = await r.json();
+                if (r.ok) {
+                    if (d.synced) {
+                        if (typeof _showDashToast === 'function') _showDashToast(true, 'Found ' + d.brands_found + ' brand(s), ' + d.campaigns_found + ' campaign(s)');
+                    } else {
+                        if (typeof _showDashToast === 'function') _showDashToast(false, 'No A2P registrations found on Twilio');
+                    }
+                    a2pLoadStatus();
+                } else {
+                    if (typeof _showDashToast === 'function') _showDashToast(false, d.error || 'Sync failed');
+                }
+            } catch(e) {
+                console.error('[A2P] Sync error:', e);
+                if (typeof _showDashToast === 'function') _showDashToast(false, 'Network error');
+            }
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-arrows-rotate me-1"></i>Sync from Twilio'; }
         }
 
         // ── A2P Fee Schedule (matches backend A2P_FEE_SCHEDULE) ──
