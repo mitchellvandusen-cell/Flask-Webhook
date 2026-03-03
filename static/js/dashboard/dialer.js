@@ -4429,12 +4429,16 @@
         // After contacts are loaded, batch-fetch local counts and re-render badges
         async function dialerFetchCallCounts() {
             if (!dialerContacts.length) return;
-            const ids = dialerContacts.map(c => c.id).join(',');
+            const CHUNK = 100;
             try {
-                const r = await fetch('/voice/contact-call-counts?ids=' + encodeURIComponent(ids));
-                if (!r.ok) return;
-                const counts = await r.json();
-                Object.assign(_dialerCallCounts, counts);
+                for (let i = 0; i < dialerContacts.length; i += CHUNK) {
+                    const chunk = dialerContacts.slice(i, i + CHUNK);
+                    const ids = chunk.map(c => c.id).join(',');
+                    const r = await fetch('/voice/contact-call-counts?ids=' + encodeURIComponent(ids));
+                    if (!r.ok) continue;
+                    const counts = await r.json();
+                    Object.assign(_dialerCallCounts, counts);
+                }
                 dialerRenderContactBadges();
             } catch(e) {
                 // Non-critical; badges just stay empty
@@ -4544,26 +4548,29 @@
                 }
 
                 try {
-                    const ids = pendingIds.join(',');
-                    const r = await fetch('/voice/contact-intelligence-bulk?ids=' + encodeURIComponent(ids));
-                    if (!r.ok) return;
-                    const data = await r.json();
-
-                    if (data.cached) {
-                        let newResults = 0;
-                        Object.entries(data.cached).forEach(function([cid, intel]) {
-                            if (!_igbIntelCache[cid]) newResults++;
-                            _igbIntelCache[cid] = intel;
-                        });
-                        // Remove newly cached from pending
-                        pendingIds = pendingIds.filter(function(id) { return !data.cached[id]; });
-                        // Also remove from global uncached list
-                        _igbUncachedIds = _igbUncachedIds.filter(function(id) { return !data.cached[id]; });
-
-                        if (newResults > 0) {
-                            console.log('[IGB] Poll: +' + newResults + ' analyzed, ' + pendingIds.length + ' remaining');
-                            dialerRenderContacts();
+                    // Chunk polling requests to avoid exceeding URL length limits
+                    const POLL_CHUNK = 100;
+                    let totalNewResults = 0;
+                    for (let ci = 0; ci < pendingIds.length; ci += POLL_CHUNK) {
+                        const chunkIds = pendingIds.slice(ci, ci + POLL_CHUNK).join(',');
+                        const r = await fetch('/voice/contact-intelligence-bulk?ids=' + encodeURIComponent(chunkIds));
+                        if (!r.ok) continue;
+                        const data = await r.json();
+                        if (data.cached) {
+                            Object.entries(data.cached).forEach(function([cid, intel]) {
+                                if (!_igbIntelCache[cid]) totalNewResults++;
+                                _igbIntelCache[cid] = intel;
+                            });
                         }
+                    }
+                    // Remove newly cached from pending
+                    pendingIds = pendingIds.filter(function(id) { return !_igbIntelCache[id]; });
+                    // Also remove from global uncached list
+                    _igbUncachedIds = _igbUncachedIds.filter(function(id) { return !_igbIntelCache[id]; });
+
+                    if (totalNewResults > 0) {
+                        console.log('[IGB] Poll: +' + totalNewResults + ' analyzed, ' + pendingIds.length + ' remaining');
+                        dialerRenderContacts();
                     }
 
                     // All done
