@@ -19,10 +19,13 @@
                         <button class="workflow-tab-btn" onclick="switchWorkflow('smsreply')">
                             <i class="fa-solid fa-comment-sms me-2"></i>SMS Reply Workflow
                         </button>
+                        <button class="workflow-tab-btn" onclick="switchWorkflow('smarttags')">
+                            <i class="fa-solid fa-brain me-2"></i>Smart Tags
+                        </button>
                     </div>
 
                     <!-- Video Walkthrough -->
-                    <div style="margin-bottom: 24px;">
+                    <div id="wf-video-wrapper" style="margin-bottom: 24px;">
                         <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; border: 1px solid var(--glass-border);">
                             <iframe src="https://www.youtube.com/embed/jqto80NvJGI" title="Workflow Setup Walkthrough" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe>
                         </div>
@@ -83,5 +86,155 @@
                             <div class="wf-step-text">Select the <strong>"+"</strong> button, go to <strong>"Apps"</strong>, and add the <strong>InsuranceGrokBot</strong> action.</div>
                         </div>
                     </div>
+
+                    <!-- Smart Tags Guide -->
+                    <div class="workflow-content" id="wf-smarttags">
+                        <div style="margin-bottom: 16px;">
+                            <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); font-weight: 700;">Smart Tag Intelligence</span>
+                        </div>
+
+                        <p style="color: #999; font-size: 0.88rem; line-height: 1.6; margin-bottom: 20px;">
+                            Tags tell the AI what kind of lead it's talking to. The AI cross-references your tags with the contact's import date to verify accuracy. A "fresh" tag on a 90-day-old contact gets overridden automatically.
+                        </p>
+
+                        <!-- Tag Cards -->
+                        <div class="wf-tag-grid">
+
+                            <div class="wf-tag-card wf-tag-fresh">
+                                <div class="wf-tag-header">
+                                    <i class="fa-solid fa-bolt"></i>
+                                    <span class="wf-tag-name">fresh</span>
+                                </div>
+                                <div class="wf-tag-desc">
+                                    Speed-to-lead. They just requested info. The AI knows they're expecting a response and adjusts its tone accordingly.
+                                </div>
+                                <div class="wf-tag-detail">
+                                    <div class="wf-tag-detail-row">
+                                        <span class="wf-tag-detail-label">Verified by date?</span>
+                                        <span class="wf-tag-detail-val wf-tag-yes">Yes</span>
+                                    </div>
+                                    <div class="wf-tag-detail-row">
+                                        <span class="wf-tag-detail-label">If tag + import &le; 3 days</span>
+                                        <span class="wf-tag-detail-val">Confirmed fresh</span>
+                                    </div>
+                                    <div class="wf-tag-detail-row">
+                                        <span class="wf-tag-detail-label">If tag + import 31-90 days</span>
+                                        <span class="wf-tag-detail-val wf-tag-warn">Overridden to aged</span>
+                                    </div>
+                                    <div class="wf-tag-detail-row">
+                                        <span class="wf-tag-detail-label">If tag + import 90+ days</span>
+                                        <span class="wf-tag-detail-val wf-tag-warn">Overridden to very old</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="wf-tag-card wf-tag-aged">
+                                <div class="wf-tag-header">
+                                    <i class="fa-solid fa-clock-rotate-left"></i>
+                                    <span class="wf-tag-name">aged</span>
+                                </div>
+                                <div class="wf-tag-desc">
+                                    Purchased aged lead, 30+ days old. The AI knows they may not remember filling out any form and adjusts expectations.
+                                </div>
+                                <div class="wf-tag-detail">
+                                    <div class="wf-tag-detail-row">
+                                        <span class="wf-tag-detail-label">Verified by date?</span>
+                                        <span class="wf-tag-detail-val wf-tag-yes">Yes</span>
+                                    </div>
+                                    <div class="wf-tag-detail-row">
+                                        <span class="wf-tag-detail-label">If tag + import &le; 7 days</span>
+                                        <span class="wf-tag-detail-val">Recently purchased aged</span>
+                                    </div>
+                                    <div class="wf-tag-detail-row">
+                                        <span class="wf-tag-detail-label">If tag + import 90+ days</span>
+                                        <span class="wf-tag-detail-val wf-tag-warn">Upgraded to very old</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="wf-tag-card wf-tag-reengage">
+                                <div class="wf-tag-header">
+                                    <i class="fa-solid fa-rotate"></i>
+                                    <span class="wf-tag-name">re-engage</span>
+                                </div>
+                                <div class="wf-tag-desc">
+                                    Dormant lead you're circling back to. Always trusted regardless of date because this is an explicit agent action.
+                                </div>
+                                <div class="wf-tag-detail">
+                                    <div class="wf-tag-detail-row">
+                                        <span class="wf-tag-detail-label">Verified by date?</span>
+                                        <span class="wf-tag-detail-val">No (always trusted)</span>
+                                    </div>
+                                    <div class="wf-tag-detail-row">
+                                        <span class="wf-tag-detail-label">Priority</span>
+                                        <span class="wf-tag-detail-val">Highest (overrides other tags)</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- Date Intelligence -->
+                        <div style="margin-top: 28px; padding: 20px; background: rgba(0, 180, 255, 0.04); border: 1px solid rgba(0, 180, 255, 0.12); border-radius: 14px;">
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                                <i class="fa-solid fa-calendar-check" style="color: #00b4ff; font-size: 1rem;"></i>
+                                <span style="font-weight: 700; font-size: 0.95rem;">Date Intelligence</span>
+                            </div>
+                            <p style="color: #999; font-size: 0.85rem; line-height: 1.6; margin: 0 0 12px;">
+                                The AI automatically reads the contact's <strong style="color:#ccc;">Date Added</strong> or <strong style="color:#ccc;">Date Created</strong> from your CRM. Even without tags, it can infer lead freshness:
+                            </p>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
+                                <div class="wf-date-pill">
+                                    <span class="wf-date-range">0-3 days</span>
+                                    <span class="wf-date-type" style="color: #00ff88;">Inferred fresh</span>
+                                </div>
+                                <div class="wf-date-pill">
+                                    <span class="wf-date-range">4-30 days</span>
+                                    <span class="wf-date-type" style="color: #aaa;">Ambiguous</span>
+                                </div>
+                                <div class="wf-date-pill">
+                                    <span class="wf-date-range">31-90 days</span>
+                                    <span class="wf-date-type" style="color: #ffa726;">Inferred aged</span>
+                                </div>
+                                <div class="wf-date-pill">
+                                    <span class="wf-date-range">90+ days</span>
+                                    <span class="wf-date-type" style="color: #ef5350;">Very old</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Lead Vendor Custom Field -->
+                        <div style="margin-top: 20px; padding: 20px; background: rgba(156, 39, 176, 0.04); border: 1px solid rgba(156, 39, 176, 0.12); border-radius: 14px;">
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                                <i class="fa-solid fa-store" style="color: #ce93d8; font-size: 1rem;"></i>
+                                <span style="font-weight: 700; font-size: 0.95rem;">Lead Vendor (Custom Field)</span>
+                            </div>
+                            <p style="color: #999; font-size: 0.85rem; line-height: 1.6; margin: 0 0 12px;">
+                                If you have a custom field in your CRM named any of the following, the AI will automatically extract the lead vendor and include it in the contact's profile:
+                            </p>
+                            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                <code class="wf-cf-chip">lead_vendor</code>
+                                <code class="wf-cf-chip">lead_source</code>
+                                <code class="wf-cf-chip">lead_provider</code>
+                                <code class="wf-cf-chip">vendor</code>
+                            </div>
+                            <p style="color: #666; font-size: 0.78rem; margin: 10px 0 0; line-height: 1.5;">
+                                This helps the AI understand where the lead came from (QuoteWizard, MediaAlpha, etc.) and adjust its approach.
+                            </p>
+                        </div>
+
+                        <!-- Multiple Tags Warning -->
+                        <div style="margin-top: 20px; padding: 20px; background: rgba(255, 167, 38, 0.04); border: 1px solid rgba(255, 167, 38, 0.12); border-radius: 14px;">
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                                <i class="fa-solid fa-tags" style="color: #ffa726; font-size: 1rem;"></i>
+                                <span style="font-weight: 700; font-size: 0.95rem;">Multiple Tags</span>
+                            </div>
+                            <p style="color: #999; font-size: 0.85rem; line-height: 1.6; margin: 0;">
+                                If a contact has conflicting tags (e.g. both "fresh" and "aged"), the AI uses this priority: <strong style="color:#ccc;">re-engage</strong> wins over <strong style="color:#ccc;">fresh</strong>, which wins over <strong style="color:#ccc;">aged</strong>. The import date is then used to verify whichever tag won. Stale tags get overridden automatically.
+                            </p>
+                        </div>
+
+                    </div>
+
                 </div>
             </div>

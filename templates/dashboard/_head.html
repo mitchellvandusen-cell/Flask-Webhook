@@ -204,6 +204,81 @@
         }
         .wf-step-text strong { color: #fff; }
 
+        /* Smart Tags guide */
+        .wf-tag-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 14px;
+        }
+        .wf-tag-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 14px;
+            padding: 18px;
+        }
+        .wf-tag-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+        .wf-tag-header i { font-size: 0.95rem; }
+        .wf-tag-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+        .wf-tag-fresh .wf-tag-header { color: #00ff88; }
+        .wf-tag-fresh { border-color: rgba(0,255,136,0.12); }
+        .wf-tag-aged .wf-tag-header { color: #ffa726; }
+        .wf-tag-aged { border-color: rgba(255,167,38,0.12); }
+        .wf-tag-reengage .wf-tag-header { color: #42a5f5; }
+        .wf-tag-reengage { border-color: rgba(66,165,245,0.12); }
+        .wf-tag-desc {
+            color: #999;
+            font-size: 0.82rem;
+            line-height: 1.55;
+            margin-bottom: 14px;
+        }
+        .wf-tag-detail {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .wf-tag-detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 10px;
+            background: rgba(0,0,0,0.15);
+            border-radius: 8px;
+            font-size: 0.78rem;
+        }
+        .wf-tag-detail-label { color: #666; }
+        .wf-tag-detail-val { color: #bbb; font-weight: 600; }
+        .wf-tag-detail-val.wf-tag-yes { color: #00ff88; }
+        .wf-tag-detail-val.wf-tag-warn { color: #ffa726; }
+        .wf-date-pill {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.15);
+            border-radius: 8px;
+        }
+        .wf-date-range { color: #888; font-size: 0.8rem; font-weight: 600; }
+        .wf-date-type { font-size: 0.8rem; font-weight: 700; }
+        .wf-cf-chip {
+            background: rgba(156,39,176,0.08);
+            border: 1px solid rgba(156,39,176,0.2);
+            color: #ce93d8;
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
         /* Logs tab */
         .log-row {
             display: flex;
