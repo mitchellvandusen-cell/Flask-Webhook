@@ -246,7 +246,7 @@
                     @keyframes iosAppClose{0%{opacity:1;transform:scale(1);}100%{opacity:0;transform:scale(0.88);}}
 
                     /* Nav Bar */
-                    .ios-nav-bar{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:54px 14px 10px;background:rgba(18,18,18,0.94);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,0.06);}
+                    .ios-nav-bar{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:58px 14px 10px;background:rgba(18,18,18,0.94);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,0.06);}
                     .ios-back-btn{background:none;border:none;color:#007AFF;font-size:0.9rem;cursor:pointer;padding:4px 6px;display:flex;align-items:center;gap:2px;flex-shrink:0;}
                     .ios-nav-title{flex:1;display:flex;align-items:center;gap:8px;min-width:0;}
                     .ios-nav-name{font-weight:700;font-size:0.88rem;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -924,9 +924,9 @@
                                             <!-- Message History App -->
                                             <button class="ios-app-icon" onclick="iosOpenApp('messages')">
                                                 <div class="ios-icon ios-icon-messages">
-                                                    <i class="fa-solid fa-message"></i>
+                                                    <i class="fa-solid fa-comment-dots"></i>
                                                 </div>
-                                                <span class="ios-app-label">Message History</span>
+                                                <span class="ios-app-label">Messages</span>
                                                 <span class="ios-badge" id="iosBadgeMsgs" style="display:none;">0</span>
                                             </button>
                                             <!-- Call History App -->
@@ -955,10 +955,10 @@
                                             </button>
                                             <!-- Inbox App (iMessage-style Conversations) -->
                                             <button class="ios-app-icon" onclick="iosOpenApp('inbox')">
-                                                <div class="ios-icon" style="background:linear-gradient(180deg,#34C759 0%,#30B350 100%);">
-                                                    <i class="fa-solid fa-message"></i>
+                                                <div class="ios-icon" style="background:linear-gradient(180deg,#5856D6 0%,#AF52DE 100%);">
+                                                    <i class="fa-solid fa-inbox"></i>
                                                 </div>
-                                                <span class="ios-app-label">Messages</span>
+                                                <span class="ios-app-label">Conversations</span>
                                                 <span class="ios-badge" id="iosBadgeInbox" style="display:none;">0</span>
                                             </button>
                                             <!-- Calendar App (LeadConnector Appointments) -->
@@ -983,12 +983,12 @@
                                         <!-- Nav bar -->
                                         <div class="ios-nav-bar">
                                             <button class="ios-back-btn" onclick="iosGoHome()">
-                                                <i class="fa-solid fa-chevron-left"></i>
+                                                <i class="fa-solid fa-chevron-left"></i> <span style="font-size:0.78rem;">Back</span>
                                             </button>
                                             <div class="ios-nav-title">
                                                 <div id="iosMsgAvatar" class="ios-contact-avatar-sm">?</div>
                                                 <div>
-                                                    <div id="iosMsgContactName" class="ios-nav-name">Messages</div>
+                                                    <div id="iosMsgContactName" class="ios-nav-name">Contact</div>
                                                     <div id="iosMsgContactPhone" class="ios-nav-subtitle"></div>
                                                 </div>
                                             </div>
@@ -1151,12 +1151,12 @@
                                     <!-- ═══ INBOX APP (Unified Conversations) ═══ -->
                                     <div class="ios-app-view" id="iosAppInbox" style="display:none;">
                                         <!-- iMessage-style header -->
-                                        <div style="padding:12px 16px 0;background:#000;flex-shrink:0;">
+                                        <div style="padding:52px 16px 0;background:#000;flex-shrink:0;">
                                             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
                                                 <button class="ios-back-btn" onclick="iosGoHome()" style="margin:0;">
                                                     <i class="fa-solid fa-chevron-left"></i>
                                                 </button>
-                                                <div style="font-weight:800;font-size:1.15rem;color:#fff;letter-spacing:-0.3px;">Messages</div>
+                                                <div style="font-weight:800;font-size:1.15rem;color:#fff;letter-spacing:-0.3px;">Conversations</div>
                                                 <button onclick="inboxRefresh()" class="ios-nav-action" title="Refresh" style="margin:0;">
                                                     <i class="fa-solid fa-arrows-rotate" id="inboxRefreshIcon"></i>
                                                 </button>
@@ -1178,10 +1178,10 @@
                                         <!-- Conversation list -->
                                         <div id="inboxConversationList" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#000;padding:0;">
                                             <div class="ios-empty-state" style="padding-top:50px;">
-                                                <div class="ios-empty-icon" style="background:rgba(91,127,255,0.08);border-color:rgba(91,127,255,0.15);">
-                                                    <i class="fa-solid fa-message" style="color:#5B7FFF;"></i>
+                                                <div class="ios-empty-icon" style="background:rgba(88,86,214,0.08);border-color:rgba(88,86,214,0.15);">
+                                                    <i class="fa-solid fa-inbox" style="color:#5856D6;"></i>
                                                 </div>
-                                                <div class="ios-empty-title">No Messages</div>
+                                                <div class="ios-empty-title">No Conversations</div>
                                                 <div class="ios-empty-sub">Conversations will appear here</div>
                                             </div>
                                         </div>
