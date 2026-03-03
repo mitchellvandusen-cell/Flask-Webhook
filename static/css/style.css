@@ -651,6 +651,14 @@ body.light-theme .workflow-tab-btn.active { background: var(--lt-accent-bg) !imp
 body.light-theme .wf-step { background: rgba(0,0,0,0.01) !important; border-color: var(--lt-border) !important; }
 body.light-theme .wf-step-text { color: var(--lt-text-secondary) !important; }
 body.light-theme .wf-step-text strong { color: var(--lt-text-primary) !important; }
+body.light-theme .wf-tag-card { background: rgba(0,0,0,0.015) !important; border-color: var(--lt-border) !important; }
+body.light-theme .wf-tag-desc { color: var(--lt-text-muted) !important; }
+body.light-theme .wf-tag-detail-row { background: rgba(0,0,0,0.03) !important; }
+body.light-theme .wf-tag-detail-label { color: var(--lt-text-muted) !important; }
+body.light-theme .wf-tag-detail-val { color: var(--lt-text-secondary) !important; }
+body.light-theme .wf-date-pill { background: rgba(0,0,0,0.03) !important; }
+body.light-theme .wf-date-range { color: var(--lt-text-muted) !important; }
+body.light-theme .wf-cf-chip { background: rgba(156,39,176,0.06) !important; border-color: rgba(156,39,176,0.15) !important; }
 
 /* ── Log rows ── */
 body.light-theme .log-row { border-bottom-color: var(--lt-border) !important; }

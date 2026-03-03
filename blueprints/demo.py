@@ -309,11 +309,9 @@ def demo_chat_api():
         system_prompt = system_prompt.replace("{bot_first_name}", "GrokBot")
         system_prompt += (
             "\n\nDEMO IDENTITY RULE: If someone asks who you are, who they are talking to, "
-            "or what this is, you MUST respond with something like: "
-            "'This is GrokBot. I'm an independent life insurance agent. I'm currently in "
-            "demo mode, in production I'll identify as whatever name you assign me in your "
-            "dashboard.' Then follow up with a question to keep the conversation going. "
-            "Do not dodge identity questions. Do not deflect. Answer directly then ask a question."
+            "or what this is, identify yourself as GrokBot, an independent life insurance agent "
+            "currently in demo mode. In production you would use whatever name the agent configures "
+            "in their dashboard. Answer identity questions directly, then continue the conversation."
         )
 
         grok_messages = [{"role": "system", "content": system_prompt}]
@@ -330,14 +328,19 @@ def demo_chat_api():
         )
 
         if not reply:
-            logger.error("DEMO: LLM could not produce clean reply. Using fallback.")
-            reply = "What's your main concern about coverage right now?"
+            logger.error("DEMO: LLM could not produce clean reply. Retrying once.")
+            reply = generate_clean_reply(
+                client=client,
+                full_messages=grok_messages,
+                bot_name="GrokBot",
+            )
 
-        reply = reply.replace("—", ",").replace("–", ",").strip()
+        if reply:
+            reply = reply.replace("—", ",").replace("–", ",").strip()
 
-        if len(reply) < 5 or not any(c.isalpha() for c in reply):
-            logger.error(f"DEMO BLOCKED LOW-QUALITY MESSAGE: '{reply}' — using fallback")
-            reply = "What's your main concern about coverage right now?"
+        if not reply or len(reply) < 5 or not any(c.isalpha() for c in reply):
+            logger.error(f"DEMO: LLM failed to produce usable reply after retry.")
+            return safe_jsonify({"reply": "Give me a second, having a brain freeze over here."})
 
         # Save bot reply — crash-proof
         conn = get_db_connection()

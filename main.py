@@ -923,6 +923,53 @@ def normalize_payload_universal(payload):
     if tags is not None:
         normalized["tags"] = tags
 
+    # Extract date fields (GHL sends dateAdded, dateCreated, etc.)
+    for date_field in ("date_added", "date_created", "date_imported"):
+        val = extract_field_flexible(payload, date_field, search_nested=True)
+        if val:
+            normalized[date_field] = val
+            break
+    # Also check camelCase variants GHL commonly uses
+    if "date_added" not in normalized:
+        for camel_key in ("dateAdded", "dateCreated", "dateImported", "createdAt"):
+            val = payload.get(camel_key)
+            if not val:
+                # Search nested
+                for nk in ("contact", "data", "extras"):
+                    nested = payload.get(nk)
+                    if isinstance(nested, dict) and nested.get(camel_key):
+                        val = nested[camel_key]
+                        break
+            if val:
+                normalized["date_added"] = val
+                break
+
+    # Extract custom fields (array — GHL sends as customFields or customField)
+    custom_fields = None
+    for cf_key in ("customFields", "customField", "custom_fields"):
+        val = payload.get(cf_key)
+        if isinstance(val, list):
+            custom_fields = val
+            break
+    if custom_fields is None:
+        for nk in ("contact", "data", "extras"):
+            nested = payload.get(nk)
+            if isinstance(nested, dict):
+                for cf_key in ("customFields", "customField", "custom_fields"):
+                    val = nested.get(cf_key)
+                    if isinstance(val, list):
+                        custom_fields = val
+                        break
+                if custom_fields:
+                    break
+    if custom_fields:
+        normalized["custom_fields"] = custom_fields
+
+    # Extract source (lead origin)
+    source = extract_field_flexible(payload, "source", search_nested=True)
+    if source:
+        normalized["source"] = source
+
     # Preserve original payload for reference
     normalized["_original_payload"] = payload
     normalized["_is_marketplace"] = payload.get("isMarketplaceAction", False)
@@ -4668,11 +4715,9 @@ def demo_chat_api():
         system_prompt = system_prompt.replace("{bot_first_name}", "GrokBot")
         system_prompt += (
             "\n\nDEMO IDENTITY RULE: If someone asks who you are, who they are talking to, "
-            "or what this is, you MUST respond with something like: "
-            "'This is GrokBot. I'm an independent life insurance agent. I'm currently in "
-            "demo mode, in production I'll identify as whatever name you assign me in your "
-            "dashboard.' Then follow up with a question to keep the conversation going. "
-            "Do not dodge identity questions. Do not deflect. Answer directly then ask a question."
+            "or what this is, identify yourself as GrokBot, an independent life insurance agent "
+            "currently in demo mode. In production you would use whatever name the agent configures "
+            "in their dashboard. Answer identity questions directly, then continue the conversation."
         )
 
         grok_messages = [{"role": "system", "content": system_prompt}]
@@ -4689,15 +4734,20 @@ def demo_chat_api():
         )
 
         if not reply:
-            logger.error(f"DEMO: LLM could not produce clean reply. Using fallback.")
-            reply = "What's your main concern about coverage right now?"
+            logger.error(f"DEMO: LLM could not produce clean reply. Retrying once.")
+            reply = generate_clean_reply(
+                client=client,
+                full_messages=grok_messages,
+                bot_name="GrokBot",
+            )
 
-        reply = reply.replace("—", ",").replace("–", ",").strip()
+        if reply:
+            reply = reply.replace("—", ",").replace("–", ",").strip()
 
-        # Ensure minimum quality
-        if len(reply) < 5 or not any(c.isalpha() for c in reply):
-            logger.error(f"🚨 DEMO BLOCKED LOW-QUALITY MESSAGE: '{reply}' - Using fallback")
-            reply = "What's your main concern about coverage right now?"
+        # Ensure minimum quality — retry if garbage
+        if not reply or len(reply) < 5 or not any(c.isalpha() for c in reply):
+            logger.error(f"DEMO: LLM failed to produce usable reply after retry.")
+            return safe_jsonify({"reply": "Give me a second, having a brain freeze over here."})
 
         # 5. Save bot response - ALSO CRASH PROOF
         conn = get_db_connection()

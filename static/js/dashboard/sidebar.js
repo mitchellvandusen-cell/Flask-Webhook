@@ -228,6 +228,9 @@
             document.querySelectorAll('.workflow-content').forEach(c => c.classList.remove('active'));
             event.target.closest('.workflow-tab-btn').classList.add('active');
             document.getElementById('wf-' + id).classList.add('active');
+            // Hide video walkthrough on Smart Tags tab (not relevant)
+            var videoWrap = document.getElementById('wf-video-wrapper');
+            if (videoWrap) videoWrap.style.display = (id === 'smarttags') ? 'none' : '';
         }
 
         // Update calendar_name when selection changes

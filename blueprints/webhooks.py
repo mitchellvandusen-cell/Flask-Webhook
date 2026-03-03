@@ -82,6 +82,66 @@ def normalize_payload_universal(payload: dict) -> dict:
         if value is not None:
             normalized[field] = value
 
+    # Extract tags (array field)
+    tags = None
+    for tags_key in ("tags", "Tags", "TAGS"):
+        if isinstance(payload.get(tags_key), list):
+            tags = payload[tags_key]
+            break
+    if tags is None:
+        for nested_key in ("contact", "data", "extras"):
+            nested = payload.get(nested_key)
+            if isinstance(nested, dict) and isinstance(nested.get("tags"), list):
+                tags = nested["tags"]
+                break
+    if tags is not None:
+        normalized["tags"] = tags
+
+    # Extract date fields (GHL sends dateAdded, dateCreated, etc.)
+    for date_field in ("date_added", "date_created", "date_imported"):
+        val = extract_field_flexible(payload, date_field, search_nested=True)
+        if val:
+            normalized[date_field] = val
+            break
+    if "date_added" not in normalized:
+        for camel_key in ("dateAdded", "dateCreated", "dateImported", "createdAt"):
+            val = payload.get(camel_key)
+            if not val:
+                for nk in ("contact", "data", "extras"):
+                    nested = payload.get(nk)
+                    if isinstance(nested, dict) and nested.get(camel_key):
+                        val = nested[camel_key]
+                        break
+            if val:
+                normalized["date_added"] = val
+                break
+
+    # Extract custom fields (array)
+    custom_fields = None
+    for cf_key in ("customFields", "customField", "custom_fields"):
+        val = payload.get(cf_key)
+        if isinstance(val, list):
+            custom_fields = val
+            break
+    if custom_fields is None:
+        for nk in ("contact", "data", "extras"):
+            nested = payload.get(nk)
+            if isinstance(nested, dict):
+                for cf_key in ("customFields", "customField", "custom_fields"):
+                    val = nested.get(cf_key)
+                    if isinstance(val, list):
+                        custom_fields = val
+                        break
+                if custom_fields:
+                    break
+    if custom_fields:
+        normalized["custom_fields"] = custom_fields
+
+    # Extract source (lead origin)
+    source = extract_field_flexible(payload, "source", search_nested=True)
+    if source:
+        normalized["source"] = source
+
     normalized["_original_payload"] = payload
     normalized["_is_marketplace"]   = payload.get("isMarketplaceAction", False)
     return normalized

@@ -657,24 +657,24 @@ def process_webhook_task(payload: dict):
         intent = payload.get("intent") or ""
         age = calculate_age_from_dob(date_of_birth=dob_str) if dob_str else None
 
-        # === LEAD TYPE DETECTION (from GHL tags) ===
-        # Tags set by agent via GHL workflow determine how the bot approaches the lead:
-        #   "fresh" anywhere in tag → speed-to-lead (they just requested info)
-        #   "re-engage" anywhere in tag → cold/dormant 30+ day re-engagement
-        #   "aged" anywhere in tag → purchased aged lead, 30+ days old minimum
-        #   no matching tag → default behavior (aged internet lead assumption)
-        lead_type = "default"
-        contact_tags = payload.get("tags") or []
-        if isinstance(contact_tags, list):
-            tags_lower = " ".join(str(t).lower() for t in contact_tags)
-            if "fresh" in tags_lower:
-                lead_type = "fresh"
-            elif "re-engage" in tags_lower or "reengage" in tags_lower:
-                lead_type = "re-engage"
-            elif "aged" in tags_lower:
-                lead_type = "aged"
+        # === SMART LEAD TYPE DETECTION ===
+        # Cross-references GHL tags + date imported + custom fields to determine
+        # true lead freshness. Tags alone are unreliable (stale tags happen).
+        from lead_resolver import resolve_lead_type
+        lead_info = resolve_lead_type(
+            tags=payload.get("tags"),
+            date_added=payload.get("date_added"),
+            custom_fields=payload.get("custom_fields"),
+            source=payload.get("source"),
+        )
+        lead_type = lead_info["lead_type"]
+        lead_vendor = lead_info["lead_vendor"]
 
-        logger.info(f"✅ USING PAYLOAD DATA | contact_id={contact_id} | first_name={first_name} | lead_type={lead_type} | tags={contact_tags}")
+        logger.info(
+            f"✅ USING PAYLOAD DATA | contact_id={contact_id} | first_name={first_name} | "
+            f"lead_type={lead_type} ({lead_info['confidence']}) | vendor={lead_vendor or 'none'} | "
+            f"days={lead_info['days_since_import']} | reason={lead_info['reason']}"
+        )
 
         initial_facts = []
         if first_name: initial_facts.append(f"First name: {first_name}")
@@ -682,6 +682,8 @@ def process_webhook_task(payload: dict):
         # PRIVACY: Do NOT save address as a fact - only for backend context
         # if address: initial_facts.append(f"Address: {address}")
         if intent: initial_facts.append(f"Intent: {intent}")
+        if lead_vendor: initial_facts.append(f"Lead vendor: {lead_vendor}")
+        if lead_vendor: initial_facts.append(f"Lead vendor: {lead_vendor}")
 
         if initial_facts and contact_id != "unknown":
             save_new_facts(contact_id, initial_facts)
@@ -999,8 +1001,8 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
             )
 
         if not reply:
-            logger.error(f"LLM produced no usable reply after retry. Using fallback. contact={contact_id}")
-            reply = "Hey, just checking in. Anything new on your end with coverage?"
+            logger.error(f"LLM produced no usable reply after retry. Skipping send. contact={contact_id}")
+            return
 
         # Layer 2: Strip markdown (SMS is plain text)
         reply = re.sub(r'\*\*([^*]+)\*\*', r'\1', reply)  # **bold** -> bold
@@ -1022,8 +1024,8 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
             reply_lower in FORBIDDEN_EXACT
         )
         if is_forbidden:
-            logger.error(f"BLOCKED VARIABLE/PLACEHOLDER: '{reply}' — using fallback")
-            reply = "Hey, just checking in. Anything new on your end with coverage?"
+            logger.error(f"BLOCKED VARIABLE/PLACEHOLDER: '{reply}' — skipping send. contact={contact_id}")
+            return
 
         # Trust the LLM - no length restrictions on replies
         # Sometimes "Got it" or "Ok!" is the perfect response
