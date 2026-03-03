@@ -201,6 +201,7 @@
                 alert('Purchased: ' + d.phone);
                 const buyPanel = document.getElementById('vstabBuyPanel'); if (buyPanel) buyPanel.style.display = 'none';
                 loadNumbersTab();
+                loadNumberHealth();
             } catch(e) { alert('Network error'); }
         }
         async function releaseNumber(sid, phone) {
@@ -208,7 +209,7 @@
             try {
                 const r = await fetch('/voice/numbers/release', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ sid: sid }) });
                 const d = await r.json();
-                if (!d.error) loadNumbersTab();
+                if (!d.error) { loadNumbersTab(); loadNumberHealth(); }
                 else alert(d.error);
             } catch(e) { alert('Network error'); }
         }
