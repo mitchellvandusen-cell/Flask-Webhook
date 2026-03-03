@@ -12,7 +12,7 @@
         // Whether batch AI analysis is currently running
         let _igbAnalyzing = false;
         // InsuranceGrokBot Smart Filter collapsed state
-        let _igbFilterCollapsed = {};
+        let _igbFilterCollapsed = { not_showing: true };
         let dialerCallSid = null;
         let dialerCallIdx = -1;
         let dialerPollTimer = null;
@@ -1049,6 +1049,8 @@
                 else { dialerRenderContacts(); dialerUpdateSelectionUI(); }
                 // Show local (dialer) counts immediately, then upgrade with GHL+WAVV in background
                 dialerFetchCallCounts().then(() => dialerFetchMergedCounts());
+                // InsuranceGrokBot: always load engagement + intelligence for Smart Filters
+                igbFetchBulkEngagement();
                 // One-time deep historical pull (auto-triggers on first use, then done forever)
                 _deepSyncCheck();
 
@@ -1189,11 +1191,26 @@
         // ── InsuranceGrokBot Smart Filter: group contacts by AI intelligence + dispositions ──
         // Priority: Should Respond > Callback > Hot > Warm > Interested > Cool > Cold > Not Interested > DnC > Analyzing
         // Dispositions override AI temperature grouping when set (agent's manual classification takes priority).
+        // Check if a contact has a bad/missing name (e.g. "None None", empty, null)
+        function _igbIsBadName(c) {
+            const name = (c.name || '').trim().toLowerCase();
+            if (!name) return true;
+            if (name === 'none none' || name === 'none' || name === 'null null' || name === 'null') return true;
+            // Both first+last are empty/none
+            const fn = (c.firstName || '').trim().toLowerCase();
+            const ln = (c.lastName || '').trim().toLowerCase();
+            if ((!fn || fn === 'none' || fn === 'null') && (!ln || ln === 'none' || ln === 'null')) return true;
+            return false;
+        }
+
         function _igbGroupContacts(contacts) {
-            const respond = [], callbacks = [], hot = [], warm = [], interested = [], cool = [], cold = [], notInterested = [], dnc = [], unanalyzed = [];
+            const respond = [], callbacks = [], hot = [], warm = [], interested = [], cool = [], cold = [], notInterested = [], dnc = [], unanalyzed = [], notShowing = [];
             const hasAI = Object.keys(_igbIntelCache).length > 0;
 
             contacts.forEach(c => {
+                // Hide contacts with bad/missing names in "Not Showing" group
+                if (_igbIsBadName(c)) { notShowing.push(c); return; }
+
                 const eng = _igbEngagementCache[c.id];
                 // DnD / opt-out contacts always go to DnC group
                 if (_igbIsOptedOut(eng, c)) { dnc.push(c); return; }
@@ -1219,11 +1236,8 @@
                         case 'cold': cold.push(c); break;
                         default:     cool.push(c); break;
                     }
-                } else if (hasAI) {
-                    // AI data loaded but this contact wasn't analyzed yet
-                    unanalyzed.push(c);
                 } else {
-                    // No AI data at all — still loading
+                    // No AI data yet — still loading or pending analysis
                     unanalyzed.push(c);
                 }
             });
@@ -1241,6 +1255,9 @@
             ];
             if (unanalyzed.length > 0) {
                 groups.push({ key: 'unanalyzed', label: 'Analyzing...', icon: 'fa-spinner fa-spin', color: '#555', contacts: unanalyzed });
+            }
+            if (notShowing.length > 0) {
+                groups.push({ key: 'not_showing', label: 'Not Showing', icon: 'fa-eye-slash', color: '#444', contacts: notShowing });
             }
             return groups;
         }
@@ -1382,31 +1399,25 @@
                 return;
             }
 
-            // If we have engagement or AI data, show grouped view with Smart Filters
-            const hasEngData = Object.keys(_igbEngagementCache).length > 0 || Object.keys(_igbIntelCache).length > 0;
-            if (hasEngData) {
-                const groups = _igbGroupContacts(dialerContacts);
-                const aiReady = Object.keys(_igbIntelCache).length > 0;
-                const filterLabel = aiReady ? 'AI-Powered Smart Filters' : 'Smart Filters (loading AI...)';
-                let html = '<div style="padding:4px 10px 2px;display:flex;align-items:center;gap:5px;"><i class="fa-solid ' + (aiReady ? 'fa-brain' : 'fa-robot') + '" style="color:' + (aiReady ? '#5B7FFF' : '#00d9ff') + ';font-size:.6rem;"></i><span style="font-size:.6rem;color:#444;letter-spacing:.3px;text-transform:uppercase;font-weight:700;">' + filterLabel + '</span></div>';
-                groups.forEach(g => {
-                    if (!g.contacts.length) return;
-                    const collapsed = _igbFilterCollapsed[g.key] || false;
-                    html += '<div class="igb-filter-hdr" onclick="igbToggleFilter(\'' + g.key + '\')">' +
-                        '<i class="fa-solid fa-chevron-down igb-filter-icon' + (collapsed ? ' collapsed' : '') + '" style="color:' + g.color + ';"></i>' +
-                        '<i class="fa-solid ' + g.icon + '" style="color:' + g.color + ';font-size:.7rem;"></i>' +
-                        '<span class="igb-filter-label" style="color:' + g.color + ';">' + g.label + '</span>' +
-                        '<span class="igb-filter-count">' + g.contacts.length + '</span>' +
-                    '</div>';
-                    if (!collapsed) {
-                        html += g.contacts.map(c => _igbRenderContactRow(c)).join('');
-                    }
-                });
-                list.innerHTML = html;
-            } else {
-                // No engagement data yet — render flat list
-                list.innerHTML = dialerContacts.map(c => _igbRenderContactRow(c)).join('');
-            }
+            // Always show Smart Filters when contacts exist
+            const groups = _igbGroupContacts(dialerContacts);
+            const aiReady = Object.keys(_igbIntelCache).length > 0;
+            const filterLabel = aiReady ? 'AI-Powered Smart Filters' : 'Smart Filters (loading AI...)';
+            let html = '<div style="padding:4px 10px 2px;display:flex;align-items:center;gap:5px;"><i class="fa-solid ' + (aiReady ? 'fa-brain' : 'fa-robot') + '" style="color:' + (aiReady ? '#5B7FFF' : '#00d9ff') + ';font-size:.6rem;"></i><span style="font-size:.6rem;color:#444;letter-spacing:.3px;text-transform:uppercase;font-weight:700;">' + filterLabel + '</span></div>';
+            groups.forEach(g => {
+                if (!g.contacts.length) return;
+                const isCollapsed = _igbFilterCollapsed[g.key] || false;
+                html += '<div class="igb-filter-hdr" onclick="igbToggleFilter(\'' + g.key + '\')">' +
+                    '<i class="fa-solid fa-chevron-down igb-filter-icon' + (isCollapsed ? ' collapsed' : '') + '" style="color:' + g.color + ';"></i>' +
+                    '<i class="fa-solid ' + g.icon + '" style="color:' + g.color + ';font-size:.7rem;"></i>' +
+                    '<span class="igb-filter-label" style="color:' + g.color + ';">' + g.label + '</span>' +
+                    '<span class="igb-filter-count">' + g.contacts.length + '</span>' +
+                '</div>';
+                if (!isCollapsed) {
+                    html += g.contacts.map(c => _igbRenderContactRow(c)).join('');
+                }
+            });
+            list.innerHTML = html;
         }
 
         // ── Select contact → load detail + messages + contact-specific calls/recordings ──
@@ -4327,8 +4338,6 @@
             } catch(e) {
                 // Non-critical; badges just stay empty
             }
-            // InsuranceGrokBot: fetch bulk engagement data for Smart Filters
-            igbFetchBulkEngagement();
         }
 
         // ── InsuranceGrokBot: Bulk Engagement Fetch ──
@@ -4360,8 +4369,10 @@
             const CHUNK = 300;
             _igbUncachedIds = [];
 
-            for (let i = 0; i < dialerContacts.length; i += CHUNK) {
-                const chunk = dialerContacts.slice(i, i + CHUNK);
+            // Skip contacts with bad names — no point analyzing "None None" contacts
+            const validContacts = dialerContacts.filter(c => !_igbIsBadName(c));
+            for (let i = 0; i < validContacts.length; i += CHUNK) {
+                const chunk = validContacts.slice(i, i + CHUNK);
                 const ids = chunk.map(c => c.id).join(',');
                 try {
                     const r = await fetch('/voice/contact-intelligence-bulk?ids=' + encodeURIComponent(ids));
