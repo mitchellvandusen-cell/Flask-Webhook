@@ -56,12 +56,20 @@ _call_listeners: dict = {}  # { call_sid: set(queue.Queue, ...) }
 # Populated on first contact detail fetch per location; GHL field definitions rarely change.
 _custom_field_defs: dict = {}
 
+# ── Concurrent voice stream limit (backpressure for gunicorn's 40 threads) ──
+# Reserve ~10 threads for HTTP traffic; allow max 30 concurrent voice streams.
+_MAX_VOICE_STREAMS = int(os.getenv("MAX_VOICE_STREAMS", "30"))
+_voice_stream_semaphore = threading.Semaphore(_MAX_VOICE_STREAMS)
+
 # ── Periodic reaper for stale _active_calls / _transfer_requests / _call_listeners ──
 _REAPER_INTERVAL = 300   # seconds (5 minutes)
 _TERMINAL_STATUSES = frozenset({"completed", "busy", "no-answer", "failed", "canceled", "transferred"})
 
+_NON_TERMINAL_MAX_AGE = 3600  # 1 hour — reap non-terminal entries stuck this long
+
 def _reap_stale_calls():
-    """Remove entries stuck in a terminal state for more than 5 minutes."""
+    """Remove entries stuck in a terminal state for more than 5 minutes,
+    and entries stuck in non-terminal states for more than 1 hour."""
     while True:
         time.sleep(_REAPER_INTERVAL)
         try:
@@ -73,6 +81,13 @@ def _reap_stale_calls():
                     if "_terminal_since" not in info:
                         info["_terminal_since"] = now
                     elif now - info["_terminal_since"] > _REAPER_INTERVAL:
+                        stale.append(sid)
+                else:
+                    # Non-terminal entries (initiated/ringing/in-progress) stuck too long
+                    if "_created_at" not in info:
+                        info["_created_at"] = now
+                    elif now - info["_created_at"] > _NON_TERMINAL_MAX_AGE:
+                        logger.warning(f"Reaping non-terminal call {sid[:16]} stuck in '{info.get('status')}' for >1hr")
                         stale.append(sid)
             for sid in stale:
                 _active_calls.pop(sid, None)
@@ -1943,9 +1958,15 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                                 call_active = False
                                 break
 
-                        message = await asyncio.get_running_loop().run_in_executor(
-                            None, ws.receive
-                        )
+                        try:
+                            message = await asyncio.wait_for(
+                                asyncio.get_running_loop().run_in_executor(None, ws.receive),
+                                timeout=35  # slightly longer than xAI ping cycle (20+10)
+                            )
+                        except asyncio.TimeoutError:
+                            logger.warning(f"Twilio ws.receive() timed out after 35s — ending stream {stream_sid}")
+                            call_active = False
+                            break
                         if message is None:
                             logger.info("Twilio stream ended (None received)")
                             call_active = False
@@ -2221,13 +2242,28 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                     logger.error(f"🎙️ XAI receive error: {e}")
                     call_active = False
 
-            # Run Twilio↔xAI audio bridge + background context enrichment concurrently
-            await asyncio.gather(
-                receive_from_twilio(),   # Twilio → xAI (mulaw→PCM16)
-                receive_from_xai(),      # xAI → Twilio (PCM16→mulaw)
-                enrich_session(),
-                return_exceptions=True
-            )
+            # Run Twilio↔xAI audio bridge + background context enrichment concurrently.
+            # Use asyncio.wait with FIRST_EXCEPTION so that when one loop ends,
+            # we force-cancel the sibling tasks instead of leaving them blocked.
+            twilio_task = asyncio.create_task(receive_from_twilio())
+            xai_task    = asyncio.create_task(receive_from_xai())
+            enrich_task = asyncio.create_task(enrich_session())
+            try:
+                done, pending = await asyncio.wait(
+                    [twilio_task, xai_task, enrich_task],
+                    return_when=asyncio.FIRST_EXCEPTION,
+                )
+                # Log any exceptions from completed tasks
+                for t in done:
+                    if t.exception() is not None:
+                        logger.warning(f"Voice bridge task {t.get_name()} raised: {t.exception()}")
+            finally:
+                # Force-cancel any remaining tasks so threads aren't leaked
+                for t in [twilio_task, xai_task, enrich_task]:
+                    if not t.done():
+                        t.cancel()
+                # Await cancellation to ensure clean shutdown
+                await asyncio.gather(twilio_task, xai_task, enrich_task, return_exceptions=True)
 
     except websockets.exceptions.InvalidStatusCode as e:
         logger.error(f"🚨 XAI connection rejected (status {e.status_code}): {e}")
@@ -2266,9 +2302,10 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
             cur_status = _active_calls[call_sid].get('status', '')
             if cur_status in ('ringing', 'queued', 'initiated', 'in-progress'):
                 _active_calls[call_sid]['status'] = 'completed'
-        # Clean up any leftover transfer request
+        # Clean up any leftover transfer request and listener queues
         if call_sid:
             _transfer_requests.pop(call_sid, None)
+            _call_listeners.pop(call_sid, None)
         # Log call end
         try:
             log_webhook_event(
@@ -2288,13 +2325,24 @@ def run_voice_stream(ws):
     """
     Entry point called by flask-sock. Runs the async bridge in a new event loop.
     flask-sock provides a synchronous WebSocket; we run our async bridge inside it.
+    Uses a semaphore to enforce max concurrent voice streams (backpressure).
     """
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    if not _voice_stream_semaphore.acquire(blocking=False):
+        logger.error(f"Voice stream rejected: {_MAX_VOICE_STREAMS} concurrent streams already active")
+        try:
+            ws.send(json.dumps({"error": "Server at voice capacity, please try again shortly"}))
+        except Exception:
+            pass
+        return
     try:
-        loop.run_until_complete(handle_voice_stream(ws))
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(handle_voice_stream(ws))
+        finally:
+            loop.close()
     finally:
-        loop.close()
+        _voice_stream_semaphore.release()
 
 
 def run_listen_stream(ws):
