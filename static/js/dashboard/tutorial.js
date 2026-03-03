@@ -7,7 +7,7 @@
 
     // ── Constants ───────────────────────────────────────────────
     var STORAGE_PREFIX = 'igb_tutorial_v1_';
-    var TOTAL_CHAPTERS = 11;
+    var TOTAL_CHAPTERS = 12;
 
     // ── CSS Injection ──────────────────────────────────────────
     function injectStyles() {
@@ -396,7 +396,7 @@
             popover: { title: 'Voice Config', description: 'Configure your <strong>Voice AI agent</strong> — choose the AI voice, write the call script, set behavior rules, and activate voice calling.', side: 'right' }
         });
         steps.push({ element: '#sbnWorkflows',
-            popover: { title: 'Workflows', description: 'Step-by-step guides for setting up <strong>automation workflows</strong> in your CRM — re-engagement loops and SMS auto-reply triggers.', side: 'right' }
+            popover: { title: 'Workflows', description: 'Step-by-step guides for setting up <strong>automation workflows</strong> in your CRM — re-engagement loops, SMS auto-reply triggers, and <strong>Smart Tags</strong> for AI-powered lead classification.', side: 'right' }
         });
         steps.push({ element: 'a[href*="training"]',
             popover: { title: 'Training', description: 'Opens the <strong>InsuranceGrokBot Training app</strong> in a new tab. Interactive courses on selling insurance, using the dialer effectively, and getting the most from your AI agent.', side: 'right' }
@@ -528,7 +528,22 @@
             popover: { title: 'Microphone Selection', description: 'Choose which microphone to use when you <strong>take over a call</strong> (intercept) or make a Human-mode call. If you\'re on a headset, select it here.', side: 'left', align: 'start' }
         });
         steps.push({ element: '#audioOutputDevice',
-            popover: { title: 'Speaker Selection', description: 'Choose where call audio plays when you <strong>listen in</strong> or intercept. Use headphones for privacy and better audio quality.', side: 'left', align: 'start' },
+            popover: { title: 'Speaker Selection', description: 'Choose where call audio plays when you <strong>listen in</strong> or intercept. Use headphones for privacy and better audio quality.', side: 'left', align: 'start' }
+        });
+        steps.push({ element: '#voiceRingTimeout',
+            popover: { title: 'Ring Timeout', description: 'How many seconds to let the phone ring before the auto-dialer considers it a <strong>no-answer</strong> and moves on. Default is 30 seconds — increase if your leads tend to pick up slowly.', side: 'left', align: 'start' }
+        });
+        steps.push({ element: '#voicePauseBetween',
+            popover: { title: 'Pause Between Calls', description: 'Seconds to wait between ending one call and starting the next in auto-dial mode. A short pause (1–2s) gives you time to catch your breath. Set to 0 for maximum speed.', side: 'left', align: 'start' }
+        });
+        steps.push({ element: '#voiceMaxCallDuration',
+            popover: { title: 'Max Call Duration', description: 'Safety limit on call length. Automatically ends calls that exceed this duration — prevents runaway AI calls or accidental open lines.', side: 'left', align: 'start' }
+        });
+        steps.push({ element: '#voiceRetryDelay',
+            popover: { title: 'Retry Delay', description: 'How long to wait before <strong>retrying a no-answer</strong> contact. Spacing retries out (5–15s) avoids calling the same person back-to-back.', side: 'left', align: 'start' }
+        });
+        steps.push({ element: '#voiceAutoCallback',
+            popover: { title: 'AI Auto-Callback', description: 'When enabled, the AI automatically <strong>detects callback times</strong> mentioned in conversations (e.g., "Call me back at 3pm") and schedules them. Works with auto-transcribe to parse call transcripts.', side: 'left', align: 'start' },
             onDeselected: function() {
                 // close settings panel when done
                 var panel = document.getElementById('dialerSettingsPanel');
@@ -549,13 +564,16 @@
 
         // Contacts column
         steps.push({ element: '#dialerGetContactsBtn',
-            popover: { title: 'Get Contacts', description: 'Pull contacts from your connected CRM. They\'ll load into the list below, complete with names, phone numbers, and call count badges.', side: 'right' }
+            popover: { title: 'Get Contacts', description: 'Pull contacts from your connected CRM. They\'ll load into the list below grouped by <strong>AI-Powered Smart Filters</strong> — automatically sorted into Should Respond, Hot, Warm, Cool, Cold, and more.', side: 'right' }
         });
         steps.push({ element: '#dialerSearch',
             popover: { title: 'Search Contacts', description: 'Instantly filter loaded contacts by <strong>name or phone number</strong>. Typing starts filtering immediately.', side: 'right' }
         });
         steps.push({ element: '#dialerPipelineFilter',
-            popover: { title: 'Pipeline Filter', description: 'Filter contacts by CRM <strong>pipeline and stage</strong>. Perfect for targeting specific lead groups — e.g., "New Leads" or "Follow Up Required".', side: 'right' }
+            popover: { title: 'Pipeline Filter', description: 'Filter contacts by CRM <strong>pipeline and stage</strong>. When a pipeline filter is active, Smart Filters are replaced by a flat list for that pipeline. Clear the filter to return to Smart Filter view.', side: 'right' }
+        });
+        steps.push({ element: '#dialerContactList',
+            popover: { title: 'AI-Powered Smart Filters', description: 'Contacts are automatically grouped by AI intelligence into priority categories:<br><strong style="color:#ff3b30;">Should Respond</strong> — lead waiting for your reply<br><strong style="color:#4ade80;">Hot Leads</strong> — actively buying<br><strong style="color:#ffa500;">Warm Leads</strong> — engaged and interested<br><strong style="color:#5B7FFF;">Cool</strong> — went quiet<br><strong style="color:#888;">Cold</strong> — said no or ghosting<br><strong style="color:#444;">Not Showing</strong> — contacts with missing names (collapsed by default)<br>Click any group header to collapse/expand it.', side: 'right' }
         });
         steps.push({ element: '#dialerAddSelectedBtn',
             popover: { title: 'Queue Button', description: 'Add selected contacts to the <strong>call queue</strong>. Select contacts using the checkboxes, then click this to queue them up for auto-dialing.', side: 'right' }
@@ -604,30 +622,45 @@
         steps.push({ element: '#dialerTransferBtn',
             popover: { title: 'Transfer Call', description: 'Transfer the active call to <strong>another phone number</strong> — a closer, a manager, or your cell. Enter the target number in the prompt that appears.', side: 'bottom' }
         });
+        steps.push({ element: '#jtcPill',
+            popover: { title: 'Jump to Contact', description: 'During an active call, this floating pill appears at the bottom of the screen showing the <strong>contact name and call status</strong>. Click it to instantly jump to that contact\'s detail panel — even if you\'ve navigated away.', side: 'top' },
+            onHighlightStarted: function() {
+                var pill = document.getElementById('jtcPill');
+                if (pill) { pill.style.display = 'flex'; pill.dataset.tutorialShown = '1'; }
+            },
+            onDeselected: function() {
+                var pill = document.getElementById('jtcPill');
+                if (pill && pill.dataset.tutorialShown) { pill.style.display = 'none'; delete pill.dataset.tutorialShown; }
+            }
+        });
 
-        // Disposition
+        // Disposition (order matches UI: Interested, Callback, Not Interested, No Answer, Left VM, Hung Up)
         steps.push({ element: '#dialerDisposition',
-            popover: { title: 'Call Disposition Panel', description: 'After each call ends, this row appears so you can <strong>tag the outcome</strong>. Selecting a disposition logs the result and helps the AI adapt its approach on future calls with that lead.', side: 'bottom' },
+            popover: { title: 'Call Disposition Panel', description: 'After each call ends, this row appears so you can <strong>tag the outcome</strong>. Selecting a disposition logs the result, color-codes the contact row, and places them into the matching Smart Filter group.', side: 'bottom' },
             onHighlightStarted: function() { showEl('dialerDisposition', 'flex'); }
         });
-        steps.push({ element: '[onclick*="not_answered"]',
-            popover: { title: 'Not Answered', description: '<strong>Nobody picked up.</strong> The auto-dialer logs this as a missed attempt and will retry based on your Dial Attempts setting. AI may follow up via SMS automatically.', side: 'bottom' },
+        steps.push({ element: '[onclick*="interested\')"]',
+            popover: { title: 'Interested', description: '<strong style="color:#4ade80;">Lead showed interest.</strong> Tags this contact as actively interested. Their row gets a green border, and they move to the <strong>Interested</strong> Smart Filter group for easy follow-up.', side: 'bottom' },
             onHighlightStarted: function() { showEl('dialerDisposition', 'flex'); }
         });
-        steps.push({ element: '[onclick*="hung_up"]',
-            popover: { title: 'Hung Up', description: '<strong>Lead answered but disconnected.</strong> Common with cold leads. The AI notes this in the contact\'s history and may adapt its opener on the next attempt.', side: 'bottom' },
+        steps.push({ element: '[onclick*="callback"]',
+            popover: { title: 'Callback', description: '<strong style="color:#007AFF;">Schedule a callback.</strong> Tags this contact for a follow-up call. They move to the <strong>Callback</strong> Smart Filter group. If auto-transcribe is on, the AI can auto-detect callback times from the conversation.', side: 'bottom' },
             onHighlightStarted: function() { showEl('dialerDisposition', 'flex'); }
         });
         steps.push({ element: '[onclick*="not_interested"]',
-            popover: { title: 'Not Interested', description: '<strong>Lead declined.</strong> Tags this contact as opted-out of active outreach. The AI will back off and not aggressively re-engage unless the lead initiates contact again.', side: 'bottom' },
+            popover: { title: 'Not Interested', description: '<strong style="color:#ef4444;">Lead declined.</strong> Tags this contact as not interested. They move to the <strong>Not Interested</strong> Smart Filter group. The AI will respect this classification unless the lead initiates contact again.', side: 'bottom' },
+            onHighlightStarted: function() { showEl('dialerDisposition', 'flex'); }
+        });
+        steps.push({ element: '[onclick*="not_answered"]',
+            popover: { title: 'No Answer', description: '<strong>Nobody picked up.</strong> The auto-dialer logs this as a missed attempt and will retry based on your Dial Attempts setting.', side: 'bottom' },
             onHighlightStarted: function() { showEl('dialerDisposition', 'flex'); }
         });
         steps.push({ element: '[onclick*="left_voicemail"]',
-            popover: { title: 'Left Voicemail', description: '<strong>Voicemail was left.</strong> Logs the attempt so the AI knows a message was sent. Prevents immediate re-voicemail on the next dial attempt — respects the lead\'s inbox.', side: 'bottom' },
+            popover: { title: 'Left Voicemail', description: '<strong>Voicemail was left.</strong> Logs the attempt so the AI knows a message was sent. Prevents immediate re-voicemail on the next dial attempt.', side: 'bottom' },
             onHighlightStarted: function() { showEl('dialerDisposition', 'flex'); }
         });
-        steps.push({ element: '[onclick="dialerSetDisposition(\'none\')"]',
-            popover: { title: 'No Disposition', description: '<strong>Skip tagging</strong> and move on without logging an outcome. Useful for test calls, system checks, or when no label accurately describes what happened.', side: 'bottom' },
+        steps.push({ element: '[onclick*="hung_up"]',
+            popover: { title: 'Hung Up', description: '<strong>Lead answered but disconnected.</strong> Common with cold leads. The AI notes this in the contact\'s history and adapts its approach on future attempts.', side: 'bottom' },
             onHighlightStarted: function() { showEl('dialerDisposition', 'flex'); },
             onDeselected: function() {
                 hideEl('dialerDisposition');
@@ -640,7 +673,7 @@
         // CHAPTER 5 — Power Dialer: Contact Detail, iPhone Apps & AI Intelligence
         // ============================================================
         chapterStarts.push(steps.length);
-        steps.push(chapterStep(5, 'Contact Detail, Apps &amp; AI Intelligence', 'When you select a contact, you get a full CRM profile with <strong>AI-powered intelligence</strong>, plus an iPhone-style app screen for messages, calls, recordings, and a unified inbox.'));
+        steps.push(chapterStep(5, 'Contact Detail, Apps &amp; AI Intelligence', 'When you select a contact, you get a full CRM profile with <strong>AI-powered intelligence</strong>, plus an iPhone-style app screen with six apps: Messages, Call History, Voicemail, Recordings, Conversations, and Calendar.'));
 
         // Center column — Contact Detail
         steps.push({ element: '#dlrDetailContent',
@@ -662,12 +695,12 @@
 
         // iPhone home screen
         steps.push({ element: '#iosHome',
-            popover: { title: 'iPhone App Screen', description: 'The right column uses an <strong>iPhone-style interface</strong> with four apps. Tap any app icon to open it; tap the back arrow to return home. Each app gives you a different view of the contact\'s history.', side: 'left' }
+            popover: { title: 'iPhone App Screen', description: 'The right column uses an <strong>iPhone-style interface</strong> with six apps: Messages, Call History, Voicemail, Recordings, Conversations, and Calendar. Tap any app icon to open it; tap the back arrow to return home.', side: 'left' }
         });
 
-        // Messages app
+        // Messages app (single contact SMS history)
         steps.push({ element: '[onclick="iosOpenApp(\'messages\')"]',
-            popover: { title: 'Messages App', description: 'View the full <strong>SMS conversation</strong> with the selected contact. Messages appear as iMessage-style bubbles — blue for outbound, grey for inbound. Includes an AI draft button and quick-reply templates.', side: 'left' }
+            popover: { title: 'Messages', description: 'View the full <strong>SMS conversation</strong> with the selected contact. Messages appear as iMessage-style bubbles — blue for outbound, grey for inbound. Includes an AI draft button for generating contextual replies.', side: 'left' }
         });
         steps.push({ element: '#dlrAiDraftBtn',
             popover: { title: 'AI Draft Reply', description: 'Click to have the AI <strong>generate a contextual reply</strong> based on the full conversation. It drafts the message — you review, edit if needed, and send. Click again for a fresh draft if the first isn\'t right.', side: 'bottom' },
@@ -699,17 +732,27 @@
 
         // Calls app
         steps.push({ element: '[onclick="iosOpenApp(\'calls\')"]',
-            popover: { title: 'Calls App', description: 'View <strong>call history</strong> for the selected contact. Each entry shows status, duration, direction, and disposition. Includes both dialer calls and CRM-native calls.', side: 'left' }
+            popover: { title: 'Call History', description: 'View <strong>call history</strong> for the selected contact. Each entry shows status, duration, direction, and disposition. Includes both dialer calls and CRM-native calls (GHL + WAVV).', side: 'left' }
+        });
+
+        // Voicemail app
+        steps.push({ element: '[onclick="iosOpenApp(\'voicemail\')"]',
+            popover: { title: 'Voicemail', description: 'Browse <strong>voicemails</strong> left by leads. Unread voicemail count shows as a badge on the app icon. Play voicemails in-browser and mark them as read.', side: 'left' }
         });
 
         // Recordings app
         steps.push({ element: '[onclick="iosOpenApp(\'recordings\')"]',
-            popover: { title: 'Voicemail / Recordings App', description: 'Browse <strong>call recordings</strong>. Play recordings in-browser, download audio files, or view AI-generated transcripts. Use the <strong>"Transcribe"</strong> button to generate a word-for-word transcript on demand.', side: 'left' }
+            popover: { title: 'Recordings', description: 'Browse <strong>call recordings</strong>. Play recordings in-browser, download audio files, or view AI-generated transcripts. Use the <strong>"Transcribe"</strong> button to generate a word-for-word transcript on demand.', side: 'left' }
         });
 
-        // Inbox app
+        // Conversations app (unified inbox for all contacts)
         steps.push({ element: '[onclick="iosOpenApp(\'inbox\')"]',
-            popover: { title: 'Inbox App', description: 'A <strong>unified conversation inbox</strong> pulling all messages from your synced CRM data. See every contact conversation in one scrollable list — tap any conversation to open the full thread with iMessage-style bubbles and pipeline badges.', side: 'left' }
+            popover: { title: 'Conversations', description: 'A <strong>unified conversation inbox</strong> for ALL contacts — pulling messages from your synced CRM data. See every contact conversation in one scrollable list with search and filters. Tap any conversation to open the full thread with iMessage-style bubbles and pipeline badges.', side: 'left' }
+        });
+
+        // Calendar app
+        steps.push({ element: '[onclick="iosOpenApp(\'calendar\')"]',
+            popover: { title: 'Calendar', description: 'View your <strong>upcoming appointments</strong> booked through LeadConnector and Google Calendar. Shows today\'s events with time, title, and contact name. Synced with your connected CRM calendar — the same one your AI bot books into.', side: 'left' }
         });
 
         // ============================================================
@@ -732,7 +775,7 @@
             popover: { title: 'Initial Outreach Message', description: 'The <strong>first SMS</strong> the bot sends to new leads. Make it warm, personal, and action-oriented. The bot sends this when a new lead webhook fires.', side: 'left', align: 'start' }
         });
         steps.push({ element: '#sms-channel-picker',
-            popover: { title: 'SMS Channel Selection', description: 'Choose <strong>how outbound SMS is delivered</strong>. Two options:<br><strong>Via GoHighLevel</strong> — Default. Sends through your CRM\'s built-in messaging (LeadConnector logo).<br><strong>Via a Twilio number</strong> — Send directly through one of your IGB phone numbers (robot icon). Useful for higher deliverability or when using numbers you bought through InsuranceGrokBot.', side: 'left', align: 'start' }
+            popover: { title: 'SMS Channel Selection', description: 'Choose <strong>how outbound SMS is delivered</strong>. Two options:<br><strong>Via LeadConnector</strong> — Default. Sends through your CRM\'s built-in messaging.<br><strong>Via your phone number</strong> — Send directly through one of your provisioned phone numbers. Click <strong>"Look Up My Numbers"</strong> to find available numbers. Useful for higher deliverability or dedicated sender identity.', side: 'left', align: 'start' }
         });
         steps.push({ element: '#save-config-btn',
             popover: { title: 'Save Configuration', description: 'Always click <strong>Save</strong> after making changes. Your config is stored securely and takes effect immediately for all new conversations.', side: 'top' }
@@ -772,7 +815,7 @@
             popover: { title: 'Activate Voice', description: 'This panel provisions your <strong>voice sub-account, phone number, and voice app</strong>. Click "Activate Voice" once to set everything up. After activation, your dialer is ready to make calls.', side: 'bottom' }
         });
         steps.push({ element: '#vmenu-numbers',
-            popover: { title: 'Phone Numbers', description: 'Manage your voice phone numbers. <strong>Buy additional numbers</strong> (local, toll-free, or mobile), view your active numbers, enable CNAM caller ID, and release numbers you no longer need.', side: 'bottom' }
+            popover: { title: 'Phone Numbers & Number Health', description: 'Manage your voice phone numbers and monitor their health. <strong>Buy additional numbers</strong> (local, toll-free, or mobile), view <strong>health scores</strong> (0–100) per number, set rotation strategies (weighted health, round robin), enable <strong>state geo-routing</strong> to match caller ID to lead\'s area code, and select your <strong>States Licensed In</strong> for coverage recommendations.', side: 'bottom' }
         });
         steps.push({ element: '#vmenu-trusthub',
             popover: { title: 'Spam Protection', description: 'Register your business with the Trust Hub to <strong>reduce spam flagging</strong>. Enter your business name, EIN, and address. Protected numbers show your real business name on caller ID.', side: 'bottom' }
@@ -790,6 +833,13 @@
         steps.push({ element: '#wf-reengage',
             popover: { title: 'Re-Engage Workflow', description: 'A step-by-step guide for creating a <strong>re-engagement loop</strong> in your CRM. Tags trigger the bot, which follows up automatically until the lead books or opts out.', side: 'top' },
             onHighlightStarted: function() { goTab('workflows'); }
+        });
+        steps.push({ element: '#wf-smarttags',
+            popover: { title: 'Smart Tags Guide', description: 'Learn how to set up <strong>smart CRM tags</strong> for maximum AI personalization. Covers three tag types:<br><strong style="color:#4ade80;">fresh</strong> — brand new leads (0–3 days)<br><strong style="color:#ffa500;">aged</strong> — older leads purchased in bulk<br><strong style="color:#5B7FFF;">re-engage</strong> — win-back cold leads<br>The AI cross-references tags with import dates to verify accuracy — a "fresh" tag on a 90-day-old contact gets overridden. Also shows how to set up the <strong>lead_vendor</strong> custom field.', side: 'top' },
+            onHighlightStarted: function() {
+                goTab('workflows');
+                if (typeof switchWorkflow === 'function') switchWorkflow('smarttags');
+            }
         });
 
         // CRM connection
@@ -830,7 +880,7 @@
             popover: { title: 'Response Length', description: 'Control how verbose the AI\'s replies are:<br><strong>Short</strong> — 1–2 sentences, crisp and punchy.<br><strong>Balanced</strong> — 2–4 sentences, recommended for most agents.<br><strong>Detailed</strong> — Full explanations, great for complex coverage questions where leads need education.', side: 'bottom', align: 'start' }
         });
         steps.push({ element: '#humor_enabled',
-            popover: { title: 'Humor Mode', description: 'After 5+ unanswered messages, the AI sends a <strong>light, tasteful joke</strong> to re-engage cold leads. It sounds natural and disarming — and it works. Leads who ghosted often respond to the joke and re-enter the conversation.', side: 'left', align: 'start' }
+            popover: { title: 'Humor Mode', description: 'Allows the AI to use <strong>light, tasteful humor</strong> when engaging cold leads. The AI decides naturally when humor fits the conversation — no scripted jokes. Leads who ghosted often respond to a well-timed quip and re-enter the conversation.', side: 'left', align: 'start' }
         });
         steps.push({ element: '#lead_reengagement',
             popover: { title: 'Lead Re-engagement', description: 'Automatically <strong>follows up with silent leads</strong> on a spaced schedule. The AI sends varied nudge messages so it never feels repetitive. Runs until the lead responds, books, or asks to stop.', side: 'left', align: 'start' }
@@ -939,13 +989,53 @@
         });
 
         // ============================================================
+        // CHAPTER 12 — Slack Integration
+        // ============================================================
+        chapterStarts.push(steps.length);
+        steps.push(chapterStep(12, 'Slack Team Chat', 'Connect your Slack workspace and message your team without leaving the dashboard — just like Discord, but for Slack users.'));
+
+        steps.push({ element: '#sbSectionSlack',
+            popover: { title: 'Slack Section', description: 'Connect your Slack workspace, browse channels, and chat — all from the sidebar. Click <strong>"Connect to Slack"</strong> to link your workspace via OAuth.', side: 'right' },
+            onHighlightStarted: function() {
+                goTab('voicedialer');
+                ensureOpen('sbSectionSlack');
+            }
+        });
+        steps.push({ element: '#slackChatToggleBtn',
+            popover: { title: 'Slack Chat Toggle', description: 'Opens the <strong>Slack chat panel</strong> that slides out from the sidebar. View messages, reply, and send new messages — all without switching to the Slack app. The badge shows unread message count.', side: 'right' }
+        });
+        steps.push({ element: '#slackMessages',
+            popover: { title: 'Slack Message Feed', description: 'Live messages from your selected Slack channel appear here. The panel <strong>polls for new messages</strong> while open, keeping you connected without refreshing.', side: 'left' },
+            onHighlightStarted: function() {
+                if (typeof openSlackPanel === 'function') openSlackPanel();
+            }
+        });
+        steps.push({ element: '#slackReplyText',
+            popover: { title: 'Slack Reply Box', description: 'Type a message to your team. Press <strong>Ctrl+Enter</strong> to send, or <strong>Shift+Enter</strong> for a new line. Perfect for real-time handoffs during live calls.', side: 'top' }
+        });
+        steps.push({ element: '#slackSendBtn',
+            popover: { title: 'Send to Slack', description: 'Sends your message to the Slack channel. Your team sees it instantly in Slack (on any device) as well as here in the panel.', side: 'top' }
+        });
+        steps.push({ element: '#slackScrollBtn',
+            popover: { title: 'Jump to Latest', description: 'Appears when you\'ve <strong>scrolled up</strong> in message history. Click to jump back to the most recent messages.', side: 'left' },
+            onHighlightStarted: function() {
+                var btn = document.getElementById('slackScrollBtn');
+                if (btn) { btn.style.display = 'flex'; btn.dataset.tutorialShown = '1'; }
+            },
+            onDeselected: function() {
+                var btn = document.getElementById('slackScrollBtn');
+                if (btn && btn.dataset.tutorialShown) { btn.style.display = 'none'; delete btn.dataset.tutorialShown; }
+            }
+        });
+
+        // ============================================================
         // FINISH
         // ============================================================
         chapterStarts.push(steps.length); // virtual "end" chapter
         steps.push({
             popover: {
                 title: '<span class="igb-ch-badge">Tutorial Complete</span><br>You\'re All Set!',
-                description: 'You\'ve seen every feature in your dashboard. Here\'s the recommended <strong>setup order</strong>:<br><br><strong>1.</strong> Connect CRM &rarr; <strong>2.</strong> Set Carriers &rarr; <strong>3.</strong> Configure SMS Bot &rarr; <strong>4.</strong> Configure Voice AI &rarr; <strong>5.</strong> Activate Voice &rarr; <strong>6.</strong> Start Dialing!<br><br>To replay this tutorial anytime, click <strong>"Tutorial"</strong> in the sidebar footer.<br><br>Welcome to InsuranceGrokBot.',
+                description: 'You\'ve seen every feature in your dashboard. Here\'s the recommended <strong>setup order</strong>:<br><br><strong>1.</strong> Connect CRM &rarr; <strong>2.</strong> Set Carriers &rarr; <strong>3.</strong> Configure SMS Bot &rarr; <strong>4.</strong> Set Up Smart Tags &rarr; <strong>5.</strong> Configure Voice AI &rarr; <strong>6.</strong> Activate Voice &rarr; <strong>7.</strong> Start Dialing!<br><br>To replay this tutorial anytime, click <strong>"Tutorial"</strong> in the sidebar footer.<br><br>Welcome to InsuranceGrokBot.',
                 popoverClass: 'igb-tut-finish'
             }
         });
