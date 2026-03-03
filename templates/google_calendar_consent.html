@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+
+{% block title %}Connect Google Calendar — InsuranceGrokBot{% endblock %}
+
+{% block content %}
+<style>
+    .gc-consent-wrap {
+        min-height: calc(100vh - 200px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 60px 16px;
+    }
+    .gc-consent-card {
+        max-width: 520px;
+        width: 100%;
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 20px;
+        padding: 40px 36px;
+        position: relative;
+    }
+    .gc-logo-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        margin-bottom: 28px;
+    }
+    .gc-logo-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+    }
+    .gc-arrow {
+        color: #444;
+        font-size: 1rem;
+    }
+    .gc-consent-title {
+        font-size: 1.4rem;
+        font-weight: 800;
+        color: #fff;
+        text-align: center;
+        margin-bottom: 6px;
+    }
+    .gc-consent-sub {
+        font-size: 0.88rem;
+        color: #888;
+        text-align: center;
+        margin-bottom: 28px;
+        line-height: 1.5;
+    }
+    .gc-scope-section {
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 14px;
+        padding: 20px;
+        margin-bottom: 24px;
+    }
+    .gc-scope-header {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 14px;
+    }
+    .gc-scope-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .gc-scope-item:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+    .gc-scope-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+    .gc-scope-name {
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 2px;
+    }
+    .gc-scope-desc {
+        font-size: 0.78rem;
+        color: #888;
+        line-height: 1.5;
+    }
+    .gc-scope-badge {
+        display: inline-block;
+        font-size: 0.65rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 4px;
+        margin-left: 8px;
+    }
+    .gc-privacy-note {
+        font-size: 0.75rem;
+        color: #666;
+        line-height: 1.6;
+        margin-bottom: 24px;
+        padding: 12px 14px;
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.04);
+        border-radius: 10px;
+    }
+    .gc-privacy-note i {
+        color: #4285F4;
+        margin-right: 6px;
+    }
+    .gc-btn-row {
+        display: flex;
+        gap: 12px;
+    }
+    .gc-btn-connect {
+        flex: 1;
+        padding: 14px;
+        border: none;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #4285F4, #1a73e8);
+        color: #fff;
+        font-weight: 700;
+        font-size: 0.92rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+    .gc-btn-connect:hover {
+        background: linear-gradient(135deg, #5a9cf5, #2979e8);
+        color: #fff;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 20px rgba(66,133,244,0.3);
+    }
+    .gc-btn-cancel {
+        padding: 14px 24px;
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 12px;
+        background: rgba(255,255,255,0.04);
+        color: #aaa;
+        font-weight: 600;
+        font-size: 0.88rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        text-align: center;
+    }
+    .gc-btn-cancel:hover {
+        background: rgba(255,255,255,0.08);
+        color: #fff;
+    }
+    .gc-not-shared {
+        margin-top: 20px;
+        padding-top: 16px;
+        border-top: 1px solid rgba(255,255,255,0.04);
+    }
+    .gc-not-shared-title {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #555;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 10px;
+    }
+    .gc-not-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 0;
+        font-size: 0.78rem;
+        color: #666;
+    }
+    .gc-not-item i {
+        color: #FF3B30;
+        font-size: 0.7rem;
+        width: 14px;
+        text-align: center;
+    }
+</style>
+
+<section class="gc-consent-wrap">
+    <div class="gc-consent-card" data-aos="fade-up">
+        <!-- App logos -->
+        <div class="gc-logo-row">
+            <div class="gc-logo-icon" style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.2);">
+                <i class="fa-solid fa-robot" style="color:#00ff88;"></i>
+            </div>
+            <i class="fa-solid fa-arrows-left-right gc-arrow"></i>
+            <div class="gc-logo-icon" style="background:rgba(66,133,244,0.1);border:1px solid rgba(66,133,244,0.2);">
+                <i class="fa-brands fa-google" style="color:#4285F4;"></i>
+            </div>
+        </div>
+
+        <div class="gc-consent-title">Connect Google Calendar</div>
+        <div class="gc-consent-sub">
+            InsuranceGrokBot is requesting access to your Google Calendar.
+            Review the permissions below before continuing.
+        </div>
+
+        <!-- Scopes section -->
+        <div class="gc-scope-section">
+            <div class="gc-scope-header">
+                <i class="fa-solid fa-shield-halved" style="margin-right:4px;"></i>
+                Permissions Requested <span style="color:#888;font-weight:500;">(1 service)</span>
+            </div>
+
+            <div class="gc-scope-item">
+                <div class="gc-scope-icon" style="background:rgba(66,133,244,0.1);border:1px solid rgba(66,133,244,0.15);">
+                    <i class="fa-solid fa-calendar" style="color:#4285F4;"></i>
+                </div>
+                <div>
+                    <div class="gc-scope-name">
+                        Google Calendar
+                        <span class="gc-scope-badge" style="background:rgba(52,199,89,0.12);color:#34C759;">Read-only</span>
+                    </div>
+                    <div class="gc-scope-desc">
+                        View events on all your calendars. This includes event titles, times, descriptions, locations, and attendees.
+                    </div>
+                </div>
+            </div>
+
+            <div class="gc-scope-item">
+                <div class="gc-scope-icon" style="background:rgba(66,133,244,0.1);border:1px solid rgba(66,133,244,0.15);">
+                    <i class="fa-solid fa-envelope" style="color:#4285F4;"></i>
+                </div>
+                <div>
+                    <div class="gc-scope-name">
+                        Email Address
+                        <span class="gc-scope-badge" style="background:rgba(52,199,89,0.12);color:#34C759;">Read-only</span>
+                    </div>
+                    <div class="gc-scope-desc">
+                        View your email address to identify your connected account.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- What we do with the data -->
+        <div class="gc-privacy-note">
+            <i class="fa-solid fa-lock"></i>
+            <strong>How your data is used:</strong> InsuranceGrokBot displays your Google Calendar events alongside your GHL appointments in the dialer Calendar app. Your calendar data is never shared with third parties, used for training, or stored beyond your active session. You can disconnect at any time.
+        </div>
+
+        <!-- What we DON'T do -->
+        <div class="gc-not-shared">
+            <div class="gc-not-shared-title">InsuranceGrokBot will never:</div>
+            <div class="gc-not-item"><i class="fa-solid fa-xmark"></i> Create, edit, or delete your Google Calendar events</div>
+            <div class="gc-not-item"><i class="fa-solid fa-xmark"></i> Access your Gmail, Drive, Contacts, or other Google services</div>
+            <div class="gc-not-item"><i class="fa-solid fa-xmark"></i> Share your calendar data with any third party</div>
+            <div class="gc-not-item"><i class="fa-solid fa-xmark"></i> Store event data beyond your active dashboard session</div>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="gc-btn-row" style="margin-top:24px;">
+            <a href="{{ url_for('dashboard') }}" class="gc-btn-cancel">Cancel</a>
+            <a href="{{ authorize_url }}" class="gc-btn-connect">
+                <i class="fa-brands fa-google"></i>
+                Continue with Google
+            </a>
+        </div>
+
+        <div style="text-align:center;margin-top:16px;">
+            <a href="/privacy" style="font-size:0.72rem;color:#555;text-decoration:none;">Privacy Policy</a>
+            <span style="color:#333;margin:0 8px;">|</span>
+            <a href="/terms" style="font-size:0.72rem;color:#555;text-decoration:none;">Terms of Service</a>
+        </div>
+    </div>
+</section>
+{% endblock %}
