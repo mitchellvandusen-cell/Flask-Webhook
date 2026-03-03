@@ -422,7 +422,7 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
     custom_voice_instructions = voice_config.get("voice_instructions", "")
     call_script = voice_config.get("call_script", "").strip()
 
-    # ── Gather all context data (same as before) ──
+    # ── Gather all context data ──
     profile_str = ""
     tactical_narrative = ""
     stage = "QUALIFYING"
@@ -430,36 +430,19 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
     story_narrative = ""
     recent_exchanges = []
     calendar_slots = ""
+    contact_age = None
+    contact_address = None
+    contact_tags = []
+    contact_email = ""
+    lead_type = "default"
+    pipeline_str = ""
+    previous_transcripts_str = ""
+    underwriting_ctx = ""
+    company_ctx = ""
+    tags_str = ""
 
-    if contact_id:
-        try:
-            directive = generate_strategic_directive(
-                contact_id=contact_id,
-                message="[Voice call initiated]",
-                first_name=contact_name,
-                age=None,
-                bot_settings=bot_settings,
-            )
-            profile_str = directive.get("profile_str", "")
-            tactical_narrative = directive.get("tactical_narrative", "")
-            stage = directive.get("stage", "QUALIFYING")
-            known_facts = directive.get("known_facts", [])
-            story_narrative = directive.get("story_narrative", "")
-            recent_exchanges = directive.get("recent_exchanges", [])
-        except Exception as e:
-            logger.warning(f"Voice: Could not load sales director context: {e}")
-
-    # Calendar slots
-    if stage in ("BOOKING", "QUALIFYING"):
-        try:
-            calendar_slots = consolidated_calendar_op(
-                operation="fetch_slots",
-                subscriber_data=subscriber,
-            )
-        except Exception as e:
-            logger.warning(f"Voice: Could not fetch calendar slots: {e}")
-
-    # Fetch GHL contact custom fields
+    # ── Fetch GHL contact data FIRST (needed for age, tags, address, lead type) ──
+    contact_data = {}
     contact_fields_str = ""
     if contact_id:
         try:
@@ -473,6 +456,35 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
                 )
                 if cf_resp.status_code == 200:
                     contact_data = cf_resp.json().get("contact", {})
+
+                    # Extract age from dateOfBirth
+                    dob_str = contact_data.get("dateOfBirth", "")
+                    if dob_str:
+                        try:
+                            from age import calculate_age_from_dob
+                            contact_age = calculate_age_from_dob(date_of_birth=dob_str)
+                        except Exception:
+                            pass
+
+                    # Extract address, email, tags
+                    contact_address = contact_data.get("address1", "") or contact_data.get("city", "")
+                    contact_email = contact_data.get("email", "")
+                    contact_tags = contact_data.get("tags", []) or []
+
+                    # Lead type detection
+                    try:
+                        from lead_resolver import resolve_lead_type
+                        lead_info = resolve_lead_type(
+                            tags=contact_tags,
+                            date_added=contact_data.get("dateAdded"),
+                            custom_fields=contact_data.get("customFields"),
+                            source=contact_data.get("source"),
+                        )
+                        lead_type = lead_info["lead_type"]
+                    except Exception as e:
+                        logger.debug(f"Voice: Could not resolve lead type: {e}")
+
+                    # Custom fields
                     custom_fields = contact_data.get("customFields", [])
                     field_lines = []
                     for cf in custom_fields:
@@ -483,7 +495,90 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
                     if field_lines:
                         contact_fields_str = "\n=== CONTACT CUSTOM FIELDS (from CRM) ===\nUse these naturally in conversation when relevant:\n" + "\n".join(field_lines)
         except Exception as e:
-            logger.debug(f"Voice: Could not fetch contact custom fields: {e}")
+            logger.debug(f"Voice: Could not fetch contact data: {e}")
+
+    # ── Build tags string ──
+    if contact_tags:
+        tags_str = "\n=== CONTACT TAGS ===\n" + ", ".join(contact_tags)
+
+    if contact_id:
+        try:
+            directive = generate_strategic_directive(
+                contact_id=contact_id,
+                message="[Voice call initiated]",
+                first_name=contact_name,
+                age=contact_age,
+                address=contact_address,
+                bot_settings=bot_settings,
+                lead_type=lead_type,
+            )
+            profile_str = directive.get("profile_str", "")
+            tactical_narrative = directive.get("tactical_narrative", "")
+            stage = directive.get("stage", "QUALIFYING")
+            known_facts = directive.get("known_facts", [])
+            story_narrative = directive.get("story_narrative", "")
+            recent_exchanges = directive.get("recent_exchanges", [])
+            underwriting_ctx = directive.get("underwriting_context", "")
+            company_ctx = directive.get("company_context", "")
+        except Exception as e:
+            logger.warning(f"Voice: Could not load sales director context: {e}")
+
+    # ── Pipeline stage from synced GHL data ──
+    if contact_id:
+        try:
+            from ghl_sync import get_contact_pipeline_stage
+            location_id = subscriber.get('location_id', '')
+            pipeline_info = get_contact_pipeline_stage(location_id, contact_id)
+            if pipeline_info:
+                pipeline_str = f"\n=== CRM PIPELINE STATUS ===\nPipeline: {pipeline_info.get('pipeline_name', 'Unknown')}\nStage: {pipeline_info.get('stage_name', 'Unknown')}\nStatus: {pipeline_info.get('status', 'open')}"
+                if pipeline_info.get('monetary_value'):
+                    pipeline_str += f"\nValue: ${pipeline_info['monetary_value']:,.0f}"
+        except Exception as e:
+            logger.debug(f"Voice: Could not fetch pipeline stage: {e}")
+
+    # ── Previous call transcripts (so the AI knows what was said before) ──
+    if contact_id:
+        conn = None
+        try:
+            conn = get_db_connection()
+            if conn:
+                cur = conn.cursor()
+                cur.execute(
+                    """SELECT direction, duration, transcript, created_at
+                       FROM call_history
+                       WHERE contact_id = %s AND transcript IS NOT NULL AND transcript != ''
+                       ORDER BY created_at DESC LIMIT 3""",
+                    (contact_id,)
+                )
+                prev_calls = cur.fetchall()
+                cur.close()
+                if prev_calls:
+                    transcript_lines = []
+                    for pc in reversed(prev_calls):  # chronological order
+                        dur = pc.get('duration', 0) or 0
+                        d = pc.get('direction', 'outbound')
+                        ts = pc.get('created_at', '')
+                        t = pc.get('transcript', '')
+                        # Truncate long transcripts to keep prompt manageable
+                        if len(t) > 800:
+                            t = t[:800] + "... [truncated]"
+                        transcript_lines.append(f"[{d} call, {dur}s, {str(ts)[:16]}]\n{t}")
+                    previous_transcripts_str = "\n=== PREVIOUS CALL TRANSCRIPTS ===\nThese are transcripts from prior phone calls with this contact. Use them to understand what was already discussed — do NOT repeat the same pitch or questions.\n\n" + "\n\n".join(transcript_lines)
+        except Exception as e:
+            logger.debug(f"Voice: Could not fetch call transcripts: {e}")
+        finally:
+            if conn:
+                return_db_connection(conn)
+
+    # Calendar slots
+    if stage in ("BOOKING", "QUALIFYING"):
+        try:
+            calendar_slots = consolidated_calendar_op(
+                operation="fetch_slots",
+                subscriber_data=subscriber,
+            )
+        except Exception as e:
+            logger.warning(f"Voice: Could not fetch calendar slots: {e}")
 
     # ── Detect fresh outbound vs follow-up vs inbound ──
     if direction == "inbound":
@@ -875,6 +970,16 @@ CURRENT STAGE: {stage}
 {calendar_str}
 
 {contact_fields_str}
+
+{tags_str}
+
+{pipeline_str}
+
+{previous_transcripts_str}
+
+{f"=== UNDERWRITING CONTEXT ===" + chr(10) + underwriting_ctx if underwriting_ctx else ""}
+
+{f"=== CARRIER INTELLIGENCE ===" + chr(10) + company_ctx if company_ctx else ""}
 
 {carriers_str}
 
