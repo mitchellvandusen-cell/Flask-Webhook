@@ -4789,9 +4789,20 @@ def get_number_health():
     summary = nh.get_number_health_summary(location_id)
 
     # Licensed states + state coverage analysis
+    # Use live Twilio numbers for accurate state coverage (not stale voice_config)
     licensed_states = vc.get('licensed_states', [])
-    all_vc_numbers = list(set([primary] + (vc.get('local_presence_numbers', []))))
-    all_vc_numbers = [p for p in all_vc_numbers if p]
+    sub_sid = vc.get('twilio_sub_account_sid', '')
+    if sub_sid:
+        try:
+            live_numbers = twilio_provisioning.list_phone_numbers(sub_sid)
+            all_vc_numbers = [n.get('phone', '') for n in live_numbers if n.get('phone')]
+        except Exception as e:
+            logger.warning(f"Number health: Could not fetch live numbers, falling back to voice_config: {e}")
+            all_vc_numbers = list(set([primary] + (vc.get('local_presence_numbers', []))))
+            all_vc_numbers = [p for p in all_vc_numbers if p]
+    else:
+        all_vc_numbers = list(set([primary] + (vc.get('local_presence_numbers', []))))
+        all_vc_numbers = [p for p in all_vc_numbers if p]
     state_coverage = nh.get_state_coverage(all_vc_numbers)
 
     # Build per-licensed-state coverage info
