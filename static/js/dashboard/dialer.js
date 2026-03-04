@@ -4578,6 +4578,11 @@
         // contactId → local call count (loaded in batch after fetchContacts)
         let _dialerCallCounts = {};
 
+        // POST bulk IDs as JSON body to avoid Gunicorn URL length limits (4094 default)
+        function _bulkPost(url, ids) {
+            return fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ids: ids})});
+        }
+
         // After contacts are loaded, batch-fetch local counts and re-render badges
         async function dialerFetchCallCounts() {
             if (!dialerContacts.length) return;
@@ -4586,7 +4591,7 @@
                 for (let i = 0; i < dialerContacts.length; i += CHUNK) {
                     const chunk = dialerContacts.slice(i, i + CHUNK);
                     const ids = chunk.map(c => c.id).join(',');
-                    const r = await fetch('/voice/contact-call-counts?ids=' + encodeURIComponent(ids));
+                    const r = await _bulkPost('/voice/contact-call-counts', ids);
                     if (!r.ok) continue;
                     const counts = await r.json();
                     Object.assign(_dialerCallCounts, counts);
@@ -4605,7 +4610,7 @@
                 const chunk = dialerContacts.slice(i, i + CHUNK);
                 const ids = chunk.map(c => c.id).join(',');
                 try {
-                    const r = await fetch('/voice/contact-engagement?ids=' + encodeURIComponent(ids));
+                    const r = await _bulkPost('/voice/contact-engagement', ids);
                     if (!r.ok) continue;
                     const data = await r.json();
                     Object.assign(_igbEngagementCache, data);
@@ -4632,7 +4637,7 @@
                 const chunk = validContacts.slice(i, i + CHUNK);
                 const ids = chunk.map(c => c.id).join(',');
                 try {
-                    const r = await fetch('/voice/contact-intelligence-bulk?ids=' + encodeURIComponent(ids));
+                    const r = await _bulkPost('/voice/contact-intelligence-bulk', ids);
                     if (!r.ok) continue;
                     const data = await r.json();
                     // Merge cached AI data
@@ -4700,12 +4705,12 @@
                 }
 
                 try {
-                    // Chunk polling requests to avoid exceeding URL length limits
+                    // Chunk polling requests for manageable batch sizes
                     const POLL_CHUNK = 100;
                     let totalNewResults = 0;
                     for (let ci = 0; ci < pendingIds.length; ci += POLL_CHUNK) {
                         const chunkIds = pendingIds.slice(ci, ci + POLL_CHUNK).join(',');
-                        const r = await fetch('/voice/contact-intelligence-bulk?ids=' + encodeURIComponent(chunkIds));
+                        const r = await _bulkPost('/voice/contact-intelligence-bulk', chunkIds);
                         if (!r.ok) continue;
                         const data = await r.json();
                         if (data.cached) {
@@ -4747,7 +4752,7 @@
                 const chunk = dialerContacts.slice(i, i + CHUNK_SIZE);
                 const ids = chunk.map(c => c.id).join(',');
                 try {
-                    const r = await fetch('/voice/contact-call-counts/merged?ids=' + encodeURIComponent(ids));
+                    const r = await _bulkPost('/voice/contact-call-counts/merged', ids);
                     if (!r.ok) continue;
                     const merged = await r.json();
                     // Only update badges where merged count is higher (additive; never regress)
