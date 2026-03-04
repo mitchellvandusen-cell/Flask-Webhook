@@ -1343,30 +1343,25 @@ def analyze_contact_intelligence_task(location_id: str, contact_id: str) -> dict
 
 
 def analyze_contacts_batch_task(location_id: str, contact_ids: list) -> dict:
-    """RQ task: Analyze a batch of contacts that don't have cached intelligence.
+    """RQ task: Analyze a batch of contacts via bulk AI prompt (up to 100 per job).
+    Uses a single LLM call per ~25 contacts instead of 1 call per contact.
     Called by the dialer when it discovers uncached contacts.
-    Processes contacts serially (~2-3s each for AI call).
     """
     if not contact_ids:
         return {"status": "empty", "analyzed": 0}
 
-    from lead_intelligence import get_contact_intelligence, get_bulk_cached_intelligence
+    from lead_intelligence import bulk_analyze_and_cache, get_bulk_cached_intelligence
 
     # Filter to only contacts that actually need analysis
     already_cached = get_bulk_cached_intelligence(location_id, contact_ids)
     need_analysis = [cid for cid in contact_ids if cid not in already_cached]
 
-    analyzed = 0
-    for cid in need_analysis:
-        try:
-            result = get_contact_intelligence(location_id, cid)
-            if result and result.get("temperature") != "unknown":
-                analyzed += 1
-                logger.debug(f"🧠 Batch: {cid} → {result.get('temperature')}")
-        except Exception as e:
-            logger.error(f"Batch analysis failed for {cid}: {e}")
+    if not need_analysis:
+        return {"status": "success", "analyzed": 0, "total": 0}
 
-    logger.info(f"🧠 Batch analysis complete: {analyzed}/{len(need_analysis)} contacts for {location_id}")
+    analyzed = bulk_analyze_and_cache(location_id, need_analysis)
+
+    logger.info(f"🧠 Bulk batch complete: {analyzed}/{len(need_analysis)} contacts for {location_id}")
     return {"status": "success", "analyzed": analyzed, "total": len(need_analysis)}
 
 
