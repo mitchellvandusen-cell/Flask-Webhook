@@ -292,6 +292,359 @@ CRITICAL CLASSIFICATION RULES — READ THESE CAREFULLY:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# ═══ BULK AI ANALYSIS — Analyze many contacts in a single LLM call ═════════
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _gather_bulk_contexts(location_id, contact_ids):
+    """
+    Gather context for many contacts in batched DB queries (not 1 query per contact).
+    Returns {contact_id: ctx_dict}.
+    """
+    if not contact_ids:
+        return {}
+
+    results = {cid: {
+        "messages": [], "facts": [], "pipeline": None,
+        "calls": {"total": 0, "connected": 0, "long_calls": 0, "last_call": None},
+        "tags": [], "narrative": None, "last_message_at": None,
+    } for cid in contact_ids}
+
+    conn = get_db_connection()
+    if not conn:
+        return results
+
+    try:
+        cur = conn.cursor()
+
+        # ── Messages (last 30 per contact) ──
+        try:
+            cur.execute("""
+                SELECT contact_id, message_type, message_text, created_at,
+                       ROW_NUMBER() OVER (PARTITION BY contact_id ORDER BY created_at DESC) AS rn
+                FROM contact_messages
+                WHERE contact_id = ANY(%s)
+            """, (contact_ids,))
+            rows = cur.fetchall()
+            # Group and filter to last 30 per contact
+            for r in rows:
+                cid = r['contact_id']
+                if cid in results and r['rn'] <= 30:
+                    if r['rn'] == 1:
+                        results[cid]['last_message_at'] = r['created_at']
+                    role = "Lead" if r['message_type'] == 'lead' else "Bot"
+                    results[cid]['messages'].append((r['created_at'], f"{role}: {r['message_text']}"))
+            # Sort messages chronologically
+            for cid in results:
+                results[cid]['messages'] = [m[1] for m in sorted(results[cid]['messages'], key=lambda x: x[0])]
+        except Exception:
+            pass
+
+        # ── Facts ──
+        try:
+            cur.execute("""
+                SELECT contact_id, fact_text FROM contact_facts
+                WHERE contact_id = ANY(%s)
+                ORDER BY created_at ASC
+            """, (contact_ids,))
+            for r in cur.fetchall():
+                cid = r['contact_id']
+                if cid in results:
+                    results[cid]['facts'].append(r['fact_text'])
+        except Exception:
+            pass
+
+        # ── Pipeline / opportunities (latest per contact) ──
+        try:
+            cur.execute("""
+                SELECT DISTINCT ON (contact_id)
+                       contact_id, pipeline_name, stage_name, status, monetary_value
+                FROM ghl_opportunities
+                WHERE location_id = %s AND contact_id = ANY(%s)
+                ORDER BY contact_id, updated_at_ghl DESC NULLS LAST
+            """, (location_id, contact_ids))
+            for r in cur.fetchall():
+                cid = r['contact_id']
+                if cid in results:
+                    results[cid]['pipeline'] = dict(r)
+        except Exception:
+            pass
+
+        # ── Call history stats ──
+        try:
+            cur.execute("""
+                SELECT contact_id,
+                       COUNT(*) as total,
+                       COUNT(*) FILTER (WHERE status = 'completed' AND duration > 120) as long_calls,
+                       COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) as connected,
+                       MAX(created_at) as last_call
+                FROM call_history
+                WHERE location_id = %s AND contact_id = ANY(%s)
+                GROUP BY contact_id
+            """, (location_id, contact_ids))
+            for r in cur.fetchall():
+                cid = r['contact_id']
+                if cid in results:
+                    results[cid]['calls'] = {
+                        "total": r.get('total', 0) or 0,
+                        "connected": r.get('connected', 0) or 0,
+                        "long_calls": r.get('long_calls', 0) or 0,
+                        "last_call": str(r['last_call']) if r.get('last_call') else None,
+                    }
+        except Exception:
+            pass
+
+        # ── Tags ──
+        try:
+            cur.execute("""
+                SELECT contact_id, tags FROM contact_cache
+                WHERE location_id = %s AND contact_id = ANY(%s)
+            """, (location_id, contact_ids))
+            for r in cur.fetchall():
+                cid = r['contact_id']
+                if cid in results and r.get('tags'):
+                    tags = r['tags']
+                    if isinstance(tags, str):
+                        tags = json.loads(tags)
+                    results[cid]['tags'] = [
+                        t if isinstance(t, str) else (t.get('name', '') if isinstance(t, dict) else '')
+                        for t in tags
+                    ]
+        except Exception:
+            pass
+
+        # ── Narratives ──
+        try:
+            cur.execute("""
+                SELECT contact_id, story_narrative FROM contact_narratives
+                WHERE contact_id = ANY(%s)
+            """, (contact_ids,))
+            for r in cur.fetchall():
+                cid = r['contact_id']
+                if cid in results:
+                    results[cid]['narrative'] = r.get('story_narrative')
+        except Exception:
+            pass
+
+        cur.close()
+    except Exception as e:
+        logger.error(f"Bulk context gather failed: {e}")
+    finally:
+        return_db_connection(conn)
+
+    return results
+
+
+def _build_contact_block(contact_id, ctx):
+    """Build a compact text block summarizing one contact's context for the bulk prompt."""
+    convo = "\n".join(ctx["messages"][-15:]) if ctx["messages"] else "No conversation."
+    facts = ", ".join(ctx["facts"][:8]) if ctx["facts"] else "None."
+    tags = ", ".join(ctx["tags"][:6]) if ctx["tags"] else "None."
+
+    pipeline_str = "None."
+    if ctx["pipeline"]:
+        p = ctx["pipeline"]
+        pipeline_str = f"{p.get('pipeline_name', '?')} / {p.get('stage_name', '?')} / {p.get('status', '?')}"
+        if p.get('monetary_value'):
+            pipeline_str += f" ${p['monetary_value']:,.0f}"
+
+    calls = ctx['calls']
+    calls_str = f"{calls['total']}t/{calls['connected']}c/{calls['long_calls']}>2m"
+    if calls.get('last_call'):
+        calls_str += f" last:{calls['last_call'][:10]}"
+
+    return f"""[{contact_id}]
+CONVO:
+{convo}
+FACTS: {facts}
+TAGS: {tags}
+PIPELINE: {pipeline_str}
+CALLS: {calls_str}"""
+
+
+def _run_bulk_ai_analysis(location_id, contact_blocks):
+    """
+    Analyze multiple contacts in a single LLM call.
+    contact_blocks: list of (contact_id, text_block) tuples.
+    Returns: {contact_id: analysis_dict} for successfully parsed contacts.
+    """
+    if not _client or not contact_blocks:
+        return {}
+
+    contacts_text = "\n\n---\n\n".join(block for _, block in contact_blocks)
+    id_list = ", ".join(cid for cid, _ in contact_blocks)
+
+    prompt = f"""You are an AI sales coach bulk-analyzing insurance leads. Below are {len(contact_blocks)} contacts separated by "---". For EACH contact, produce a JSON analysis object.
+
+{contacts_text}
+
+---
+
+CURRENT DATE: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}
+
+Respond with ONLY a valid JSON array (no markdown, no code fences). Each element MUST include the contact's ID from the [brackets] above. Use this exact structure:
+
+[
+  {{
+    "contact_id": "<id from brackets>",
+    "summary": "2-sentence snapshot. Be specific — reference actual conversation details.",
+    "temperature": "hot | warm | cool | cold",
+    "temperature_reason": "One sentence why.",
+    "score": 0-100,
+    "should_respond": true or false,
+    "should_respond_reason": "Why the agent should or should not respond now.",
+    "engagement_level": 0-3,
+    "actions": [
+      {{
+        "action": "Short imperative action",
+        "reason": "Why this matters",
+        "priority": "high | medium | low",
+        "icon": "fa-solid fa-<icon>"
+      }}
+    ]
+  }}
+]
+
+CLASSIFICATION RULES:
+- temperature: hot=actively buying/quoting/ready. warm=engaged/sharing info/positive. cool=went quiet/short replies/soft objections. cold=said no/stop/not interested/ghosted 3+ attempts. "no thanks"=COLD not hot.
+- score: 0-100 conversion likelihood. "not interested"=5-15, NOT 50+.
+- should_respond: true only if the lead is WAITING for a reply (unanswered question, unaddressed interest). false if bot already replied, lead said stop, or nothing to respond to.
+- engagement_level: 0=no contact, 1=surface (one-word replies), 2=real conversation, 3=deep (specifics, calls, near decision).
+- actions: 2-4 per contact. Icons: fa-phone, fa-paper-plane, fa-file-invoice-dollar, fa-calendar, fa-fire, fa-clock, fa-reply, fa-bolt.
+
+You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact IDs: {id_list}"""
+
+    # Scale max tokens: ~150 tokens per contact (compact output) + buffer
+    max_tokens = min(16000, len(contact_blocks) * 200 + 200)
+    # Scale timeout: ~0.5s per contact + base
+    timeout = min(120.0, len(contact_blocks) * 0.8 + 10)
+
+    try:
+        response = _client.chat.completions.create(
+            model=INTELLIGENCE_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=max_tokens,
+            timeout=timeout,
+        )
+        raw = (response.choices[0].message.content or "").strip()
+
+        # Strip markdown code fences if present
+        raw = re.sub(r'^```(?:json)?\s*', '', raw)
+        raw = re.sub(r'\s*```$', '', raw)
+
+        parsed = json.loads(raw)
+        if not isinstance(parsed, list):
+            logger.error("Bulk AI response was not a JSON array")
+            return {}
+
+        results = {}
+        for item in parsed:
+            cid = item.get("contact_id", "")
+            if not cid:
+                continue
+
+            # Validate fields (same as single analysis)
+            if not isinstance(item.get('actions'), list):
+                item['actions'] = []
+            if item.get('temperature') not in ('hot', 'warm', 'cool', 'cold'):
+                item['temperature'] = 'warm'
+            if not isinstance(item.get('score'), (int, float)):
+                item['score'] = 50
+            item['score'] = max(0, min(100, int(item['score'])))
+            if not isinstance(item.get('should_respond'), bool):
+                item['should_respond'] = False
+            if not isinstance(item.get('should_respond_reason'), str):
+                item['should_respond_reason'] = ''
+            if not isinstance(item.get('engagement_level'), (int, float)):
+                item['engagement_level'] = 0
+            item['engagement_level'] = max(0, min(3, int(item['engagement_level'])))
+
+            results[cid] = item
+
+        logger.info(f"Bulk AI analysis returned {len(results)}/{len(contact_blocks)} contacts")
+        return results
+
+    except json.JSONDecodeError as e:
+        logger.error(f"Bulk AI JSON parse failed: {e}")
+        return {}
+    except Exception as e:
+        logger.error(f"Bulk AI call failed: {e}")
+        return {}
+
+
+def bulk_analyze_and_cache(location_id, contact_ids):
+    """
+    Analyze many contacts via bulk AI prompt and cache all results.
+    Splits into sub-batches of 25 per LLM call to stay within token limits.
+    Returns count of successfully analyzed contacts.
+    """
+    if not contact_ids or not _client:
+        return 0
+
+    # Gather context for all contacts in batched DB queries
+    all_contexts = _gather_bulk_contexts(location_id, contact_ids)
+
+    # Build compact text blocks for each contact
+    contact_blocks = []
+    for cid in contact_ids:
+        ctx = all_contexts.get(cid)
+        if ctx:
+            block = _build_contact_block(cid, ctx)
+            contact_blocks.append((cid, block))
+
+    if not contact_blocks:
+        return 0
+
+    # Process in sub-batches of 25 per LLM call
+    SUB_BATCH = 25
+    total_analyzed = 0
+
+    for i in range(0, len(contact_blocks), SUB_BATCH):
+        chunk = contact_blocks[i:i + SUB_BATCH]
+
+        ai_results = _run_bulk_ai_analysis(location_id, chunk)
+
+        # Cache each result and fall back to single analysis for misses
+        for cid, _ in chunk:
+            result = ai_results.get(cid)
+            if result:
+                _save_analysis_cache(cid, location_id, {
+                    "summary": result.get("summary"),
+                    "score": result.get("score", 50),
+                    "temperature": result.get("temperature", "warm"),
+                    "temperature_reason": result.get("temperature_reason", ""),
+                    "actions": result.get("actions", []),
+                    "should_respond": result.get("should_respond", False),
+                    "should_respond_reason": result.get("should_respond_reason", ""),
+                    "engagement_level": result.get("engagement_level", 0),
+                })
+                total_analyzed += 1
+            else:
+                # Fallback: analyze individually if bulk missed this contact
+                try:
+                    ctx = all_contexts.get(cid)
+                    if ctx:
+                        single = _run_ai_analysis(location_id, cid, ctx)
+                        if single:
+                            _save_analysis_cache(cid, location_id, {
+                                "summary": single.get("summary"),
+                                "score": single.get("score", 50),
+                                "temperature": single.get("temperature", "warm"),
+                                "temperature_reason": single.get("temperature_reason", ""),
+                                "actions": single.get("actions", []),
+                                "should_respond": single.get("should_respond", False),
+                                "should_respond_reason": single.get("should_respond_reason", ""),
+                                "engagement_level": single.get("engagement_level", 0),
+                            })
+                            total_analyzed += 1
+                except Exception as e:
+                    logger.error(f"Fallback single analysis failed for {cid}: {e}")
+
+    logger.info(f"Bulk analysis complete: {total_analyzed}/{len(contact_ids)} contacts for {location_id}")
+    return total_analyzed
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # ═══ CACHE LAYER — Store + retrieve AI analysis results ═════════════════════
 # ═══════════════════════════════════════════════════════════════════════════════
 

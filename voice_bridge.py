@@ -6654,10 +6654,10 @@ def get_contact_intelligence_bulk():
 @voice_bp.route('/voice/contact-intelligence-analyze', methods=['POST'])
 @login_required
 def post_contact_intelligence_analyze():
-    """Queue batch AI analysis for contacts without cached intelligence.
-    Enqueues RQ jobs (batches of 10) so workers handle the AI calls
-    instead of blocking the web server. Frontend polls the bulk endpoint
-    for results as they become available.
+    """Queue bulk AI analysis for contacts without cached intelligence.
+    Enqueues RQ jobs (batches of 100) using bulk AI prompts (~25 contacts
+    per LLM call) so workers handle analysis much faster than 1-at-a-time.
+    Frontend polls the bulk endpoint for results as they become available.
     """
     data = request.get_json(silent=True) or {}
     contact_ids = data.get('contact_ids', [])
@@ -6686,7 +6686,7 @@ def post_contact_intelligence_analyze():
         return jsonify({"queued": 0, "error": "queue_unavailable"}), 503
 
     from tasks import analyze_contacts_batch_task
-    BATCH = 10
+    BATCH = 100
     queued = 0
     for i in range(0, len(contact_ids), BATCH):
         batch = contact_ids[i:i + BATCH]
@@ -6695,7 +6695,7 @@ def post_contact_intelligence_analyze():
                 analyze_contacts_batch_task,
                 location_id,
                 batch,
-                job_timeout=60,
+                job_timeout=300,
                 result_ttl=300,
             )
             queued += len(batch)
