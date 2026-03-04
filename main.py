@@ -2414,7 +2414,8 @@ def dashboard():
             "bg": "rgba(0,200,83,0.08)", "border": "rgba(0,200,83,0.2)",
             "title": "Connect Your Calendar",
             "msg": "Your bot can't book appointments until a calendar is linked.",
-            "url": "#", "btn": "Set Up Now",
+            "url": "javascript:void(0)", "btn": "Set Up Now",
+            "onclick": "sidebarNavigate('config', document.getElementById('sbnSmsConfig'))",
         })
     if not selected_carriers:
         setup_alerts.append({
@@ -2422,7 +2423,8 @@ def dashboard():
             "bg": "rgba(0,217,255,0.08)", "border": "rgba(0,217,255,0.2)",
             "title": "Select Your Carriers",
             "msg": "Tell the bot which insurance carriers you're contracted with.",
-            "url": "#", "btn": "Pick Carriers",
+            "url": "javascript:void(0)", "btn": "Pick Carriers",
+            "onclick": "sidebarNavigate('carriers', document.getElementById('sbnCarriers'))",
         })
 
     return render_template('dashboard.html',
@@ -2834,6 +2836,7 @@ def api_set_language():
     conn = get_db_connection()
     if not conn:
         return flask_jsonify({"ok": False}), 500
+    result = None
     try:
         cur = conn.cursor()
         table = "agency_billing" if current_user.role == 'agency_owner' else "subscribers"
@@ -2842,12 +2845,13 @@ def api_set_language():
                     (lang, current_user.email))
         conn.commit()
         cur.close()
-        return flask_jsonify({"ok": True, "language": lang})
-    except Exception as e:
+        result = flask_jsonify({"ok": True, "language": lang})
+    except Exception:
         conn.rollback()
-        return flask_jsonify({"ok": False, "error": str(e)}), 500
+        result = flask_jsonify({"ok": False}), 500
     finally:
         return_db_connection(conn)
+    return result
 
 
 @app.route("/api/save-config", methods=["POST"])
