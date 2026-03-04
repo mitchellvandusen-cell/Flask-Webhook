@@ -2506,6 +2506,8 @@
         function dialerAddActiveToQueue() {
             if (!dialerActiveContact) return;
             const c = dialerActiveContact;
+            // Skip DnD / opted-out contacts — they must never enter the queue
+            if (_igbIsOptedOut(_igbEngagementCache[c.id], c)) return;
             if (!dialerQueue.some(q => q.id === c.id)) {
                 dialerQueue.push({ id: c.id, name: c.name, firstName: c.firstName, phone: c.phone, status: 'pending' });
                 dialerRenderContacts();
@@ -2536,16 +2538,21 @@
         }
 
         function dialerAddSelectedToQueue() {
+            let skippedDnc = 0;
             dialerSelected.forEach(id => {
                 if (!dialerQueue.some(q => q.id === id)) {
                     const c = dialerContacts.find(x => x.id === id);
-                    if (c) dialerQueue.push({ id: c.id, name: c.name, firstName: c.firstName, phone: c.phone, status: 'pending' });
+                    if (!c) return;
+                    // Skip DnD / opted-out contacts — they never enter the queue
+                    if (_igbIsOptedOut(_igbEngagementCache[c.id], c)) { skippedDnc++; return; }
+                    dialerQueue.push({ id: c.id, name: c.name, firstName: c.firstName, phone: c.phone, status: 'pending' });
                 }
             });
             dialerSelected.clear();
             dialerRenderContacts();
             dialerRenderQueue();
             dialerUpdateSelectionUI();
+            if (skippedDnc > 0) _showDashToast(true, skippedDnc + ' Do Not Contact lead' + (skippedDnc > 1 ? 's' : '') + ' skipped');
         }
 
         function dialerCallSelected() {
@@ -3664,7 +3671,7 @@
             cnt.textContent = dialerQueue.length;
             btn.disabled = !dialerQueue.length;
             if (!dialerQueue.length) { list.innerHTML = '<div style="text-align:center;padding:10px;color:#555;font-size:.75rem;">Empty queue</div>'; return; }
-            const icons = { pending:'<span style="color:#555;">Wait</span>', initiated:'<i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i>', ringing:'<span style="color:#00d9ff;">Ring</span>', 'in-progress':'<span style="color:var(--accent);">Live</span>', completed:'<i class="fa-solid fa-check" style="color:var(--accent);"></i>', 'no-answer':'<span style="color:#ffa500;">N/A</span>', busy:'<span style="color:#ffa500;">Busy</span>', failed:'<i class="fa-solid fa-xmark" style="color:#ef4444;"></i>' };
+            const icons = { pending:'<span style="color:#555;">Wait</span>', initiated:'<i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i>', ringing:'<span style="color:#00d9ff;">Ring</span>', 'in-progress':'<span style="color:var(--accent);">Live</span>', completed:'<i class="fa-solid fa-check" style="color:var(--accent);"></i>', 'no-answer':'<span style="color:#ffa500;">N/A</span>', busy:'<span style="color:#ffa500;">Busy</span>', failed:'<i class="fa-solid fa-xmark" style="color:#ef4444;"></i>', skipped:'<i class="fa-solid fa-ban" style="color:#ef4444;" title="DnD — skipped"></i>' };
             list.innerHTML = dialerQueue.map((q, i) => {
                 const active = dialerQueueRunning && i === dialerCallIdx;
                 return '<div class="dlr-queue-row-clickable" onclick="dialerJumpToContact(\'' + q.id + '\')" style="display:flex;align-items:center;gap:6px;padding:3px 4px;border-radius:4px;font-size:.72rem;' + (active ? 'background:rgba(74,222,128,0.05);' : '') + '">' +
@@ -3686,7 +3693,7 @@
         function dialerToggleQueue() {
             if (dialerQueueRunning) { dialerQueueRunning = false; _advanceLocked = false; _jtcDialingContactId = null; _dialerCancelQueueTimers(); _dialerClearCallDurationTimer(); dialerUpdateBtn(); _jtcUpdatePill(); return; }
             dialerCallIdx = dialerQueue.findIndex(q => q.status === 'pending');
-            if (dialerCallIdx < 0) { dialerQueue.forEach(q => { if (q.status !== 'completed') q.status = 'pending'; }); dialerCallIdx = dialerQueue.findIndex(q => q.status === 'pending'); if (dialerCallIdx < 0) return; }
+            if (dialerCallIdx < 0) { dialerQueue.forEach(q => { if (q.status !== 'completed' && q.status !== 'skipped') q.status = 'pending'; }); dialerCallIdx = dialerQueue.findIndex(q => q.status === 'pending'); if (dialerCallIdx < 0) return; }
             dialerQueueRunning = true;
             // Auto-expand queue body so user can see progression
             const qBody = document.getElementById('dialerQueueBody');
@@ -3697,6 +3704,15 @@
         function dialerDialNext() {
             if (!dialerQueueRunning || dialerCallIdx < 0 || dialerCallIdx >= dialerQueue.length) { dialerQueueRunning = false; _jtcDialingContactId = null; dialerUpdateBtn(); dialerHideBanner(); dialerRenderQueue(); _jtcUpdatePill(); return; }
             const item = dialerQueue[dialerCallIdx];
+            // Safety net: skip DnD contacts even if they got into the queue
+            const contactObj = dialerContacts.find(x => x.id === item.id) || _dialerAllContacts.find(x => x.id === item.id);
+            if (contactObj && _igbIsOptedOut(_igbEngagementCache[item.id], contactObj)) {
+                item.status = 'skipped';
+                console.log('[Dialer] Skipped DnD contact:', item.name);
+                dialerRenderQueue();
+                dialerAdvance();
+                return;
+            }
             if (!item.attempts) item.attempts = 0;
             item.attempts++;
             item.status = 'initiated';

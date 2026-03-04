@@ -3163,6 +3163,26 @@ def dial_contact():
         logger.warning(f"Blocked dial attempt {dial_attempt} > max {max_attempts} for {current_user.email}")
         return jsonify({"error": f"Max dial attempts ({max_attempts}) exceeded"}), 400
 
+    # ── DnD / opt-out guard: never dial contacts flagged Do Not Contact ──
+    if contact_id and location_id:
+        _dnd_conn = get_db_connection()
+        if _dnd_conn:
+            try:
+                _dnd_cur = _dnd_conn.cursor()
+                _dnd_cur.execute(
+                    "SELECT dnd FROM contact_cache WHERE location_id = %s AND contact_id = %s",
+                    (location_id, contact_id)
+                )
+                _dnd_row = _dnd_cur.fetchone()
+                _dnd_cur.close()
+                if _dnd_row and _dnd_row.get("dnd"):
+                    logger.warning(f"Blocked dial to DnD contact {contact_id} ({phone}) for {current_user.email}")
+                    return jsonify({"error": "Contact is marked Do Not Contact"}), 403
+            except Exception as _dnd_e:
+                logger.debug(f"DnD check failed (non-fatal): {_dnd_e}")
+            finally:
+                return_db_connection(_dnd_conn)
+
     if dial_mode == 'ai' and not voice_config.get('enabled'):
         return jsonify({"error": "Voice AI is not enabled. Enable it in the Voice tab."}), 400
 
