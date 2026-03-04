@@ -48,4 +48,15 @@
         </div>
         {% endif %}
 
+        {% if setup_alerts is defined and setup_alerts %}
+        {% for sa in setup_alerts %}
+        <div class="alert mb-3 alert-dismissible fade show" role="alert"
+             style="border-radius:12px; background:{{ sa.bg }}; border:1px solid {{ sa.border }}; color:#fff;">
+            <i class="{{ sa.icon }} me-2" style="color:{{ sa.accent }};"></i>
+            <strong>{{ sa.title }}</strong> &mdash; {{ sa.msg }}
+            <a href="{{ sa.url }}" class="btn btn-sm ms-3" style="background:{{ sa.accent }}; color:#000; font-weight:700; border-radius:8px;">{{ sa.btn }}</a>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="filter:invert(1);opacity:0.6;"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
 

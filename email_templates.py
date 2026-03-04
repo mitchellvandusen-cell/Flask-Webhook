@@ -112,7 +112,7 @@ def _build_setup_checklist_html(missing: list, domain_url: str, user_type: str) 
 
 
 def _build_install_welcome_email(name: str, domain_url: str) -> str:
-    """Build premium welcome email for marketplace install — guides them through OAuth setup."""
+    """Build premium welcome email for marketplace install — guides them through full setup flow."""
     inner = f'''
 <tr>
 <td style="padding: 0 40px 30px;">
@@ -120,24 +120,28 @@ def _build_install_welcome_email(name: str, domain_url: str) -> str:
         Welcome aboard, {name}!
     </h1>
     <p style="margin: 0; font-size: 16px; color: #aaa; line-height: 1.5;">
-        You just installed <strong style="color: #00c853;">InsuranceGrokBot</strong> &mdash; your AI-powered
-        insurance sales assistant that works your leads 24/7.
+        You just installed <strong style="color: #00c853;">InsuranceGrokBot</strong> &mdash; the all-in-one AI sales
+        platform built for insurance agents. AI texting, voice AI, smart dialer, and lead intelligence &mdash; all in one place.
     </p>
 </td>
 </tr>
 
-<!-- Setup Required Notice -->
+<!-- Setup Flow Notice -->
 <tr>
 <td style="padding: 0 40px 25px;">
     <table cellpadding="0" cellspacing="0" width="100%" style="background: rgba(255,107,53,0.08); border: 1px solid rgba(255,107,53,0.2); border-radius: 12px;">
     <tr>
     <td style="padding: 20px 24px;">
         <p style="margin: 0 0 4px; font-size: 15px; font-weight: 700; color: #ff6b35;">
-            One Step Left to Activate Your Bot
+            3 Quick Steps to Go Live
         </p>
-        <p style="margin: 0; font-size: 14px; color: #ccc; line-height: 1.5;">
-            Click the button below to connect your Lead Connector CRM. This authorizes InsuranceGrokBot
-            to respond to your leads, book appointments, and manage conversations automatically.
+        <p style="margin: 0; font-size: 14px; color: #ccc; line-height: 1.6;">
+            <strong style="color: #fff;">1.</strong> Connect your CRM (click below)<br>
+            <strong style="color: #fff;">2.</strong> Subscribe ($149.99/mo &mdash; cancel anytime)<br>
+            <strong style="color: #fff;">3.</strong> Set your password &amp; configure your dashboard
+        </p>
+        <p style="margin: 8px 0 0; font-size: 13px; color: #999;">
+            The whole process takes about 2 minutes. Let's start with step 1:
         </p>
     </td>
     </tr>
@@ -152,7 +156,7 @@ def _build_install_welcome_email(name: str, domain_url: str) -> str:
     <tr>
     <td style="background: linear-gradient(135deg, #00c853 0%, #00e676 100%); border-radius: 12px; padding: 16px 48px;">
         <a href="{domain_url}/oauth/initiate" style="color: #000; font-size: 17px; font-weight: 800; text-decoration: none; letter-spacing: 0.5px;">
-            Connect Your CRM Now &rarr;
+            Step 1: Connect Your CRM &rarr;
         </a>
     </td>
     </tr>
@@ -160,19 +164,19 @@ def _build_install_welcome_email(name: str, domain_url: str) -> str:
 </td>
 </tr>
 
-<!-- What Happens Next -->
+<!-- What You Get -->
 <tr>
 <td style="padding: 0 40px 25px;">
-    <h2 style="margin: 0 0 16px; font-size: 18px; font-weight: 700; color: #fff;">What Happens After You Connect:</h2>
+    <h2 style="margin: 0 0 16px; font-size: 18px; font-weight: 700; color: #fff;">What's Included:</h2>
     <table cellpadding="0" cellspacing="0" width="100%">
     <tr>
         <td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
             <table cellpadding="0" cellspacing="0"><tr>
                 <td style="width: 36px; vertical-align: top;">
-                    <div style="width: 28px; height: 28px; background: rgba(0,200,83,0.15); border-radius: 8px; text-align: center; line-height: 28px; font-size: 14px;">1</div>
+                    <div style="width: 28px; height: 28px; background: rgba(0,200,83,0.15); border-radius: 8px; text-align: center; line-height: 28px; font-size: 14px;">&#9889;</div>
                 </td>
                 <td style="padding-left: 12px;">
-                    <p style="margin: 0; font-size: 14px; color: #ddd;"><strong style="color: #fff;">Instant Lead Response</strong> &mdash; Bot replies within 5 seconds, 24/7</p>
+                    <p style="margin: 0; font-size: 14px; color: #ddd;"><strong style="color: #fff;">AI Text Messaging</strong> &mdash; 5-second replies, insurance-trained, 24/7 lead engagement</p>
                 </td>
             </tr></table>
         </td>
@@ -181,10 +185,22 @@ def _build_install_welcome_email(name: str, domain_url: str) -> str:
         <td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
             <table cellpadding="0" cellspacing="0"><tr>
                 <td style="width: 36px; vertical-align: top;">
-                    <div style="width: 28px; height: 28px; background: rgba(0,200,83,0.15); border-radius: 8px; text-align: center; line-height: 28px; font-size: 14px;">2</div>
+                    <div style="width: 28px; height: 28px; background: rgba(0,217,255,0.15); border-radius: 8px; text-align: center; line-height: 28px; font-size: 14px;">&#128222;</div>
                 </td>
                 <td style="padding-left: 12px;">
-                    <p style="margin: 0; font-size: 14px; color: #ddd;"><strong style="color: #fff;">Smart Qualification</strong> &mdash; Asks the right insurance questions automatically</p>
+                    <p style="margin: 0; font-size: 14px; color: #ddd;"><strong style="color: #fff;">AI Voice Agent</strong> &mdash; Real-time voice calls powered by AI, handles inbound &amp; outbound</p>
+                </td>
+            </tr></table>
+        </td>
+    </tr>
+    <tr>
+        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+            <table cellpadding="0" cellspacing="0"><tr>
+                <td style="width: 36px; vertical-align: top;">
+                    <div style="width: 28px; height: 28px; background: rgba(233,30,99,0.15); border-radius: 8px; text-align: center; line-height: 28px; font-size: 14px;">&#128241;</div>
+                </td>
+                <td style="padding-left: 12px;">
+                    <p style="margin: 0; font-size: 14px; color: #ddd;"><strong style="color: #fff;">Smart Dialer</strong> &mdash; Power dial leads, AI-ranked Smart Filters, call recording &amp; transcription</p>
                 </td>
             </tr></table>
         </td>
@@ -193,10 +209,10 @@ def _build_install_welcome_email(name: str, domain_url: str) -> str:
         <td style="padding: 10px 0;">
             <table cellpadding="0" cellspacing="0"><tr>
                 <td style="width: 36px; vertical-align: top;">
-                    <div style="width: 28px; height: 28px; background: rgba(0,200,83,0.15); border-radius: 8px; text-align: center; line-height: 28px; font-size: 14px;">3</div>
+                    <div style="width: 28px; height: 28px; background: rgba(255,193,7,0.15); border-radius: 8px; text-align: center; line-height: 28px; font-size: 14px;">&#129504;</div>
                 </td>
                 <td style="padding-left: 12px;">
-                    <p style="margin: 0; font-size: 14px; color: #ddd;"><strong style="color: #fff;">Auto Book Appointments</strong> &mdash; Checks your calendar and books meetings</p>
+                    <p style="margin: 0; font-size: 14px; color: #ddd;"><strong style="color: #fff;">Lead Intelligence</strong> &mdash; AI scores every lead hot/warm/cool/cold with next-best-actions</p>
                 </td>
             </tr></table>
         </td>
@@ -210,17 +226,21 @@ def _build_install_welcome_email(name: str, domain_url: str) -> str:
 <td style="padding: 0 40px 30px;">
     <table cellpadding="0" cellspacing="0" width="100%" style="background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
     <tr>
-        <td align="center" style="padding: 20px; width: 33%; border-right: 1px solid rgba(255,255,255,0.06);">
-            <div style="font-size: 28px; font-weight: 800; color: #00c853;">5s</div>
-            <div style="font-size: 12px; color: #888; margin-top: 4px;">Response Time</div>
+        <td align="center" style="padding: 20px; width: 25%; border-right: 1px solid rgba(255,255,255,0.06);">
+            <div style="font-size: 24px; font-weight: 800; color: #00c853;">5s</div>
+            <div style="font-size: 11px; color: #888; margin-top: 4px;">Response</div>
         </td>
-        <td align="center" style="padding: 20px; width: 34%; border-right: 1px solid rgba(255,255,255,0.06);">
-            <div style="font-size: 28px; font-weight: 800; color: #00c853;">24/7</div>
-            <div style="font-size: 12px; color: #888; margin-top: 4px;">Always On</div>
+        <td align="center" style="padding: 20px; width: 25%; border-right: 1px solid rgba(255,255,255,0.06);">
+            <div style="font-size: 24px; font-weight: 800; color: #00d9ff;">63+</div>
+            <div style="font-size: 11px; color: #888; margin-top: 4px;">Carriers</div>
         </td>
-        <td align="center" style="padding: 20px; width: 33%;">
-            <div style="font-size: 28px; font-weight: 800; color: #00c853;">Auto</div>
-            <div style="font-size: 12px; color: #888; margin-top: 4px;">Booking</div>
+        <td align="center" style="padding: 20px; width: 25%; border-right: 1px solid rgba(255,255,255,0.06);">
+            <div style="font-size: 24px; font-weight: 800; color: #e91e63;">AI</div>
+            <div style="font-size: 11px; color: #888; margin-top: 4px;">Voice &amp; Text</div>
+        </td>
+        <td align="center" style="padding: 20px; width: 25%;">
+            <div style="font-size: 24px; font-weight: 800; color: #ffc107;">24/7</div>
+            <div style="font-size: 11px; color: #888; margin-top: 4px;">Always On</div>
         </td>
     </tr>
     </table>
@@ -252,8 +272,8 @@ def _build_reminder_24h_email(name: str, domain_url: str, user_type: str, missin
         action_url = f"{domain_url}/oauth/initiate"
     elif "subscription" in missing:
         hero_subtitle = "Subscribe to activate your AI sales machine"
-        action_text = "Activate My Bot"
-        action_url = dashboard
+        action_text = "Subscribe Now &mdash; $149.99/mo"
+        action_url = f"{domain_url}/checkout"
     else:
         hero_subtitle = "Complete your setup to start closing leads"
         action_text = "Finish Setup"
@@ -276,7 +296,8 @@ def _build_reminder_24h_email(name: str, domain_url: str, user_type: str, missin
         Hi {name},
     </p>
     <p style="margin: 12px 0 0; font-size: 15px; color: #bbb; line-height: 1.7;">
-        You signed up for InsuranceGrokBot 24 hours ago. You're almost there — your AI-powered sales assistant is configured and ready to start responding to leads, qualifying prospects, and booking appointments on your calendar.
+        You installed InsuranceGrokBot 24 hours ago. You're almost there &mdash; your AI-powered sales platform is
+        ready to start working leads with AI texting, voice AI, smart dialer, and lead intelligence.
     </p>
 </td>
 </tr>
@@ -291,25 +312,44 @@ def _build_reminder_24h_email(name: str, domain_url: str, user_type: str, missin
 </td>
 </tr>
 
-<!-- Stats Row -->
+<!-- What You're Missing -->
 <tr>
 <td style="padding: 0 40px 25px;">
-    <table cellpadding="0" cellspacing="0" width="100%">
-    <tr>
-        <td width="33%" align="center" style="padding: 16px 8px; background: rgba(0,200,83,0.06); border-radius: 12px 0 0 12px; border: 1px solid rgba(0,200,83,0.1);">
-            <div style="font-size: 28px; font-weight: 800; color: #00c853; line-height: 1;">5s</div>
-            <div style="font-size: 11px; color: #888; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Response Time</div>
-        </td>
-        <td width="34%" align="center" style="padding: 16px 8px; background: rgba(0,200,83,0.06); border-left: 1px solid rgba(0,200,83,0.1); border-right: 1px solid rgba(0,200,83,0.1); border-top: 1px solid rgba(0,200,83,0.1); border-bottom: 1px solid rgba(0,200,83,0.1);">
-            <div style="font-size: 28px; font-weight: 800; color: #00c853; line-height: 1;">24/7</div>
-            <div style="font-size: 11px; color: #888; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Availability</div>
-        </td>
-        <td width="33%" align="center" style="padding: 16px 8px; background: rgba(0,200,83,0.06); border-radius: 0 12px 12px 0; border: 1px solid rgba(0,200,83,0.1);">
-            <div style="font-size: 28px; font-weight: 800; color: #00c853; line-height: 1;">Auto</div>
-            <div style="font-size: 11px; color: #888; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Booking</div>
-        </td>
-    </tr>
-    </table>
+    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 24px;">
+        <p style="margin: 0 0 16px; font-size: 13px; font-weight: 700; color: #00c853; text-transform: uppercase; letter-spacing: 1.5px;">What You're Missing</p>
+        <table cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+                <td width="50%" style="padding: 8px 8px 8px 0; vertical-align: top;">
+                    <div style="font-size: 14px; color: #fff; font-weight: 600;">&#9889; AI Text Messaging</div>
+                    <div style="font-size: 12px; color: #888;">5-second replies to every lead, 24/7</div>
+                </td>
+                <td width="50%" style="padding: 8px 0 8px 8px; vertical-align: top;">
+                    <div style="font-size: 14px; color: #fff; font-weight: 600;">&#128222; AI Voice Agent</div>
+                    <div style="font-size: 12px; color: #888;">Handles calls with real-time AI conversation</div>
+                </td>
+            </tr>
+            <tr>
+                <td width="50%" style="padding: 8px 8px 8px 0; vertical-align: top;">
+                    <div style="font-size: 14px; color: #fff; font-weight: 600;">&#128241; Smart Dialer</div>
+                    <div style="font-size: 12px; color: #888;">Power dial with AI-ranked lead scoring</div>
+                </td>
+                <td width="50%" style="padding: 8px 0 8px 8px; vertical-align: top;">
+                    <div style="font-size: 14px; color: #fff; font-weight: 600;">&#129504; Lead Intelligence</div>
+                    <div style="font-size: 12px; color: #888;">AI classifies every lead hot/warm/cool/cold</div>
+                </td>
+            </tr>
+            <tr>
+                <td width="50%" style="padding: 8px 8px 0 0; vertical-align: top;">
+                    <div style="font-size: 14px; color: #fff; font-weight: 600;">&#128197; Auto Booking</div>
+                    <div style="font-size: 12px; color: #888;">Checks your calendar, books meetings</div>
+                </td>
+                <td width="50%" style="padding: 8px 0 0 8px; vertical-align: top;">
+                    <div style="font-size: 14px; color: #fff; font-weight: 600;">&#127981; 63+ Carriers</div>
+                    <div style="font-size: 12px; color: #888;">Carrier-aware conversations</div>
+                </td>
+            </tr>
+        </table>
+    </div>
 </td>
 </tr>
 
@@ -323,7 +363,7 @@ def _build_reminder_24h_email(name: str, domain_url: str, user_type: str, missin
             </a>
         </td>
     </tr></table>
-    <p style="margin: 14px 0 0; font-size: 13px; color: #666;">Takes less than 2 minutes to complete</p>
+    <p style="margin: 14px 0 0; font-size: 13px; color: #666;">Cancel anytime &bull; No contracts &bull; Takes 2 minutes</p>
 </td>
 </tr>
 
@@ -332,7 +372,7 @@ def _build_reminder_24h_email(name: str, domain_url: str, user_type: str, missin
 <td style="padding: 0 40px 25px;">
     <div style="background: rgba(255,255,255,0.02); border-left: 3px solid #00c853; padding: 16px 20px; border-radius: 0 12px 12px 0;">
         <p style="margin: 0 0 8px; font-size: 14px; color: #ccc; font-style: italic; line-height: 1.6;">
-            "I had 3 appointments booked by the end of my first week without lifting a finger. GrokBot qualifies leads better than most humans."
+            "The AI dialer alone changed my workflow. Smart Filters sort my leads so I always call the hottest ones first. I closed 4 policies my first week."
         </p>
         <p style="margin: 0; font-size: 12px; color: #00c853; font-weight: 600;">
             &mdash; Independent Agent, Texas
@@ -344,7 +384,7 @@ def _build_reminder_24h_email(name: str, domain_url: str, user_type: str, missin
 <tr>
 <td style="padding: 0 40px 10px;">
     <p style="margin: 0; font-size: 14px; color: #888; line-height: 1.6; text-align: center;">
-        Need help setting up? <a href="{domain_url}/support" style="color: #00c853; text-decoration: none; font-weight: 600;">Visit our support page</a> or just reply to this email.
+        Need help? <a href="{domain_url}/support" style="color: #00c853; text-decoration: none; font-weight: 600;">Visit support</a> or just reply to this email.
     </p>
 </td>
 </tr>
@@ -362,8 +402,8 @@ def _build_reminder_72h_email(name: str, domain_url: str, user_type: str, missin
         action_text = "Connect CRM & Go Live"
         action_url = f"{domain_url}/oauth/initiate"
     elif "subscription" in missing:
-        action_text = "Subscribe & Activate Now"
-        action_url = dashboard
+        action_text = "Subscribe Now &mdash; $149.99/mo"
+        action_url = f"{domain_url}/checkout"
     else:
         action_text = "Complete Setup Now"
         action_url = dashboard
@@ -385,7 +425,7 @@ def _build_reminder_72h_email(name: str, domain_url: str, user_type: str, missin
         Hi {name},
     </p>
     <p style="margin: 12px 0 0; font-size: 15px; color: #bbb; line-height: 1.7;">
-        It's been 3 days since you created your InsuranceGrokBot account. Every hour your bot isn't active, new leads are going unworked, follow-ups are being missed, and potential clients are moving on to the next agent who responds first.
+        It's been 3 days since you installed InsuranceGrokBot. Every hour your AI sales platform isn't active, leads are going unworked, calls are going unmade, and potential clients are moving to the agent who responds first.
     </p>
 </td>
 </tr>
@@ -401,8 +441,8 @@ def _build_reminder_72h_email(name: str, domain_url: str, user_type: str, missin
                     <table cellpadding="0" cellspacing="0" width="100%"><tr>
                         <td width="40" style="vertical-align: top;"><span style="font-size: 20px;">&#128168;</span></td>
                         <td style="vertical-align: top;">
-                            <span style="color: #fff; font-weight: 600; font-size: 14px;">Leads go cold in 5 minutes</span><br>
-                            <span style="color: #999; font-size: 13px;">78% of buyers choose the agent who responds first. Your bot responds in seconds.</span>
+                            <span style="color: #fff; font-weight: 600; font-size: 14px;">AI texting responds in 5 seconds</span><br>
+                            <span style="color: #999; font-size: 13px;">78% of buyers choose the first agent to respond. Your bot texts back instantly, 24/7.</span>
                         </td>
                     </tr></table>
                 </td>
@@ -410,10 +450,21 @@ def _build_reminder_72h_email(name: str, domain_url: str, user_type: str, missin
             <tr>
                 <td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
                     <table cellpadding="0" cellspacing="0" width="100%"><tr>
-                        <td width="40" style="vertical-align: top;"><span style="font-size: 20px;">&#128197;</span></td>
+                        <td width="40" style="vertical-align: top;"><span style="font-size: 20px;">&#128222;</span></td>
                         <td style="vertical-align: top;">
-                            <span style="color: #fff; font-weight: 600; font-size: 14px;">Missed appointments = missed commission</span><br>
-                            <span style="color: #999; font-size: 13px;">GrokBot qualifies and books automatically — no back-and-forth texting.</span>
+                            <span style="color: #fff; font-weight: 600; font-size: 14px;">Voice AI handles calls you can't take</span><br>
+                            <span style="color: #999; font-size: 13px;">Inbound and outbound AI calls that qualify leads and book appointments for you.</span>
+                        </td>
+                    </tr></table>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <table cellpadding="0" cellspacing="0" width="100%"><tr>
+                        <td width="40" style="vertical-align: top;"><span style="font-size: 20px;">&#128241;</span></td>
+                        <td style="vertical-align: top;">
+                            <span style="color: #fff; font-weight: 600; font-size: 14px;">Smart Dialer prioritizes your hottest leads</span><br>
+                            <span style="color: #999; font-size: 13px;">AI-ranked Smart Filters so you always call the leads most likely to buy first.</span>
                         </td>
                     </tr></table>
                 </td>
@@ -421,10 +472,10 @@ def _build_reminder_72h_email(name: str, domain_url: str, user_type: str, missin
             <tr>
                 <td style="padding: 10px 0;">
                     <table cellpadding="0" cellspacing="0" width="100%"><tr>
-                        <td width="40" style="vertical-align: top;"><span style="font-size: 20px;">&#127769;</span></td>
+                        <td width="40" style="vertical-align: top;"><span style="font-size: 20px;">&#129504;</span></td>
                         <td style="vertical-align: top;">
-                            <span style="color: #fff; font-weight: 600; font-size: 14px;">Nights and weekends covered</span><br>
-                            <span style="color: #999; font-size: 13px;">Leads come in at 11 PM. Your bot is there. Without it, they text your competitor.</span>
+                            <span style="color: #fff; font-weight: 600; font-size: 14px;">Lead Intelligence scores every contact</span><br>
+                            <span style="color: #999; font-size: 13px;">AI reads conversations and classifies leads hot/warm/cool/cold with next-best-actions.</span>
                         </td>
                     </tr></table>
                 </td>
@@ -454,7 +505,7 @@ def _build_reminder_72h_email(name: str, domain_url: str, user_type: str, missin
             </a>
         </td>
     </tr></table>
-    <p style="margin: 14px 0 0; font-size: 13px; color: #666;">Your competitors are already using AI. Don't fall behind.</p>
+    <p style="margin: 14px 0 0; font-size: 13px; color: #666;">Cancel anytime &bull; No contracts &bull; Your competitors are already using AI.</p>
 </td>
 </tr>
 
@@ -467,19 +518,19 @@ def _build_reminder_72h_email(name: str, domain_url: str, user_type: str, missin
             <p style="margin: 0 0 10px; font-size: 12px; font-weight: 700; color: #ef4444; text-transform: uppercase; letter-spacing: 1px;">Without GrokBot</p>
             <p style="margin: 0; font-size: 13px; color: #999; line-height: 1.7;">
                 &#10060; Leads wait hours for a reply<br>
-                &#10060; Manual follow-up texting<br>
-                &#10060; Missed after-hours leads<br>
-                &#10060; No qualifying before calls
+                &#10060; Manual dialing, no prioritization<br>
+                &#10060; Missed after-hours calls &amp; texts<br>
+                &#10060; No idea which leads are hot
             </p>
         </td>
         <td width="4%">&nbsp;</td>
         <td width="48%" style="background: rgba(0,200,83,0.06); border: 1px solid rgba(0,200,83,0.15); border-radius: 12px; padding: 20px; vertical-align: top;">
             <p style="margin: 0 0 10px; font-size: 12px; font-weight: 700; color: #00c853; text-transform: uppercase; letter-spacing: 1px;">With GrokBot</p>
             <p style="margin: 0; font-size: 13px; color: #999; line-height: 1.7;">
-                &#10004; 5-second response time<br>
-                &#10004; Automated smart follow-ups<br>
-                &#10004; 24/7 lead coverage<br>
-                &#10004; Pre-qualified appointments
+                &#10004; 5-second AI text responses<br>
+                &#10004; Smart Dialer + AI voice calls<br>
+                &#10004; 24/7 coverage, every channel<br>
+                &#10004; AI lead scoring &amp; Smart Filters
             </p>
         </td>
     </tr>
@@ -499,15 +550,17 @@ def _build_reminder_72h_email(name: str, domain_url: str, user_type: str, missin
 
 
 def _build_welcome_email(user_name: str, dashboard_link: str, domain_url: str) -> str:
-    """Build the post-OAuth welcome email — sent after CRM connection is complete."""
+    """Build the post-OAuth welcome email — CRM connected, now subscribe + set password."""
+    checkout_url = f"{domain_url}/checkout"
+    set_pw_url = f"{domain_url}/set-password?type=individual"
     inner = f'''
 <tr>
 <td align="center" style="padding: 0 40px 10px;">
     <div style="width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, rgba(0,200,83,0.15) 0%, rgba(0,200,83,0.05) 100%); border: 2px solid rgba(0,200,83,0.25); margin: 0 auto 20px; line-height: 80px; text-align: center;">
-        <span style="font-size: 36px;">&#127881;</span>
+        <span style="font-size: 36px;">&#10003;</span>
     </div>
-    <h1 style="margin: 0 0 8px; font-size: 28px; font-weight: 800; color: #ffffff; line-height: 1.2;">Welcome to InsuranceGrokBot</h1>
-    <p style="margin: 0; font-size: 16px; color: #aaa; line-height: 1.5;">Your AI-powered insurance sales assistant is ready</p>
+    <h1 style="margin: 0 0 8px; font-size: 28px; font-weight: 800; color: #ffffff; line-height: 1.2;">CRM Connected &mdash; You're Almost Live</h1>
+    <p style="margin: 0; font-size: 16px; color: #aaa; line-height: 1.5;">Two quick steps left to activate your AI sales machine</p>
 </td>
 </tr>
 
@@ -515,46 +568,53 @@ def _build_welcome_email(user_name: str, dashboard_link: str, domain_url: str) -
 <td style="padding: 25px 40px 15px;">
     <p style="margin: 0; font-size: 16px; color: #ddd; line-height: 1.7;">Hi {user_name},</p>
     <p style="margin: 12px 0 0; font-size: 15px; color: #bbb; line-height: 1.7;">
-        Your Lead Connector account has been successfully connected. GrokBot is configured and standing by to handle your leads, qualify prospects with real insurance knowledge, and book appointments directly on your calendar.
+        Your Lead Connector account is connected. Your AI assistant is configured and standing by.
+        Complete these two steps to go live:
     </p>
 </td>
 </tr>
 
-<!-- Quick Links -->
+<!-- Numbered Next Steps -->
 <tr>
 <td style="padding: 10px 40px 20px;">
     <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 24px;">
-        <p style="margin: 0 0 16px; font-size: 13px; font-weight: 700; color: #00c853; text-transform: uppercase; letter-spacing: 1.5px;">Get Started</p>
+        <p style="margin: 0 0 16px; font-size: 13px; font-weight: 700; color: #00c853; text-transform: uppercase; letter-spacing: 1.5px;">Next Steps</p>
         <table cellpadding="0" cellspacing="0" width="100%">
             <tr>
-                <td style="padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                <td style="padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
                     <table cellpadding="0" cellspacing="0" width="100%"><tr>
-                        <td width="36" style="vertical-align: middle;"><span style="font-size: 18px;">&#128640;</span></td>
+                        <td width="44" style="vertical-align: top;">
+                            <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #00c853, #00e676); border-radius: 50%; text-align: center; line-height: 32px; color: #000; font-weight: 900; font-size: 15px;">1</div>
+                        </td>
                         <td style="vertical-align: middle;">
-                            <a href="{dashboard_link}" style="color: #00c853; font-weight: 600; text-decoration: none; font-size: 15px;">Your Dashboard</a>
-                            <span style="color: #888; font-size: 13px;"> &mdash; Configure your bot, set your calendar, customize settings</span>
+                            <a href="{checkout_url}" style="color: #00c853; font-weight: 700; text-decoration: none; font-size: 16px;">Subscribe &mdash; $149.99/mo</a>
+                            <div style="color: #888; font-size: 13px; margin-top: 2px;">Unlocks all features. Cancel anytime, no contracts.</div>
                         </td>
                     </tr></table>
                 </td>
             </tr>
             <tr>
-                <td style="padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                <td style="padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
                     <table cellpadding="0" cellspacing="0" width="100%"><tr>
-                        <td width="36" style="vertical-align: middle;"><span style="font-size: 18px;">&#128172;</span></td>
+                        <td width="44" style="vertical-align: top;">
+                            <div style="width: 32px; height: 32px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 50%; text-align: center; line-height: 32px; color: #fff; font-weight: 900; font-size: 15px;">2</div>
+                        </td>
                         <td style="vertical-align: middle;">
-                            <a href="{domain_url}/support" style="color: #00c853; font-weight: 600; text-decoration: none; font-size: 15px;">Support & FAQ</a>
-                            <span style="color: #888; font-size: 13px;"> &mdash; Questions about setup, integration, or billing</span>
+                            <a href="{set_pw_url}" style="color: #ddd; font-weight: 700; text-decoration: none; font-size: 16px;">Set Your Password</a>
+                            <div style="color: #888; font-size: 13px; margin-top: 2px;">So you can log back in anytime at {domain_url}/login</div>
                         </td>
                     </tr></table>
                 </td>
             </tr>
             <tr>
-                <td style="padding: 12px 0;">
+                <td style="padding: 14px 0;">
                     <table cellpadding="0" cellspacing="0" width="100%"><tr>
-                        <td width="36" style="vertical-align: middle;"><span style="font-size: 18px;">&#128203;</span></td>
+                        <td width="44" style="vertical-align: top;">
+                            <div style="width: 32px; height: 32px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 50%; text-align: center; line-height: 32px; color: #fff; font-weight: 900; font-size: 15px;">3</div>
+                        </td>
                         <td style="vertical-align: middle;">
-                            <a href="{domain_url}/onboarding-status" style="color: #00c853; font-weight: 600; text-decoration: none; font-size: 15px;">Onboarding Status</a>
-                            <span style="color: #888; font-size: 13px;"> &mdash; Track your setup progress in real time</span>
+                            <a href="{dashboard_link}" style="color: #ddd; font-weight: 700; text-decoration: none; font-size: 16px;">Configure Your Dashboard</a>
+                            <div style="color: #888; font-size: 13px; margin-top: 2px;">Pick carriers, connect calendar, set your bot's tone &amp; personality</div>
                         </td>
                     </tr></table>
                 </td>
@@ -564,48 +624,53 @@ def _build_welcome_email(user_name: str, dashboard_link: str, domain_url: str) -
 </td>
 </tr>
 
-<!-- What GrokBot Does -->
+<!-- Primary CTA -->
+<tr>
+<td align="center" style="padding: 5px 40px 25px;">
+    <table cellpadding="0" cellspacing="0"><tr>
+        <td style="background: linear-gradient(135deg, #00c853 0%, #00e676 100%); border-radius: 14px; box-shadow: 0 4px 20px rgba(0,200,83,0.3);">
+            <a href="{checkout_url}" style="display: inline-block; padding: 18px 48px; color: #000000; font-size: 17px; font-weight: 800; text-decoration: none; letter-spacing: -0.3px;">
+                Subscribe &amp; Activate &rarr;
+            </a>
+        </td>
+    </tr></table>
+    <p style="margin: 10px 0 0; font-size: 12px; color: #666;">$149.99/mo &bull; Cancel anytime &bull; No contracts</p>
+</td>
+</tr>
+
+<!-- What's Included -->
 <tr>
 <td style="padding: 5px 40px 20px;">
     <table cellpadding="0" cellspacing="0" width="100%">
     <tr>
-        <td width="33%" align="center" style="padding: 16px 8px; background: rgba(0,200,83,0.06); border-radius: 12px 0 0 12px; border: 1px solid rgba(0,200,83,0.1);">
-            <div style="font-size: 24px; margin-bottom: 6px;">&#9889;</div>
-            <div style="font-size: 13px; color: #ccc; font-weight: 600;">Instant Replies</div>
-            <div style="font-size: 11px; color: #888; margin-top: 2px;">5-second response</div>
+        <td width="25%" align="center" style="padding: 16px 4px; background: rgba(0,200,83,0.06); border-radius: 12px 0 0 12px; border: 1px solid rgba(0,200,83,0.1);">
+            <div style="font-size: 20px; margin-bottom: 4px;">&#9889;</div>
+            <div style="font-size: 12px; color: #ccc; font-weight: 600;">AI Texting</div>
         </td>
-        <td width="34%" align="center" style="padding: 16px 8px; background: rgba(0,200,83,0.06); border: 1px solid rgba(0,200,83,0.1);">
-            <div style="font-size: 24px; margin-bottom: 6px;">&#128218;</div>
-            <div style="font-size: 13px; color: #ccc; font-weight: 600;">Expert Knowledge</div>
-            <div style="font-size: 11px; color: #888; margin-top: 2px;">Real insurance IQ</div>
+        <td width="25%" align="center" style="padding: 16px 4px; background: rgba(0,217,255,0.06); border: 1px solid rgba(0,217,255,0.1);">
+            <div style="font-size: 20px; margin-bottom: 4px;">&#128222;</div>
+            <div style="font-size: 12px; color: #ccc; font-weight: 600;">Voice AI</div>
         </td>
-        <td width="33%" align="center" style="padding: 16px 8px; background: rgba(0,200,83,0.06); border-radius: 0 12px 12px 0; border: 1px solid rgba(0,200,83,0.1);">
-            <div style="font-size: 24px; margin-bottom: 6px;">&#128197;</div>
-            <div style="font-size: 13px; color: #ccc; font-weight: 600;">Auto Booking</div>
-            <div style="font-size: 11px; color: #888; margin-top: 2px;">Straight to calendar</div>
+        <td width="25%" align="center" style="padding: 16px 4px; background: rgba(233,30,99,0.06); border: 1px solid rgba(233,30,99,0.1);">
+            <div style="font-size: 20px; margin-bottom: 4px;">&#128241;</div>
+            <div style="font-size: 12px; color: #ccc; font-weight: 600;">Smart Dialer</div>
+        </td>
+        <td width="25%" align="center" style="padding: 16px 4px; background: rgba(255,193,7,0.06); border-radius: 0 12px 12px 0; border: 1px solid rgba(255,193,7,0.1);">
+            <div style="font-size: 20px; margin-bottom: 4px;">&#129504;</div>
+            <div style="font-size: 12px; color: #ccc; font-weight: 600;">Lead Intel</div>
         </td>
     </tr>
     </table>
 </td>
 </tr>
 
-<!-- CTA -->
-<tr>
-<td align="center" style="padding: 10px 40px 25px;">
-    <table cellpadding="0" cellspacing="0"><tr>
-        <td style="background: linear-gradient(135deg, #00c853 0%, #00e676 100%); border-radius: 14px; box-shadow: 0 4px 20px rgba(0,200,83,0.3);">
-            <a href="{dashboard_link}" style="display: inline-block; padding: 18px 48px; color: #000000; font-size: 17px; font-weight: 800; text-decoration: none; letter-spacing: -0.3px;">
-                Open My Dashboard &rarr;
-            </a>
-        </td>
-    </tr></table>
-</td>
-</tr>
-
+<!-- Onboarding tracker link -->
 <tr>
 <td style="padding: 0 40px 10px;">
     <p style="margin: 0; font-size: 14px; color: #888; line-height: 1.6; text-align: center;">
-        Questions? <a href="{domain_url}/support" style="color: #00c853; text-decoration: none; font-weight: 600;">Visit support</a> or just reply to this email.
+        Track your progress: <a href="{domain_url}/onboarding-status" style="color: #00c853; text-decoration: none; font-weight: 600;">Onboarding Status</a>
+        &nbsp;|&nbsp;
+        <a href="{domain_url}/support" style="color: #00c853; text-decoration: none; font-weight: 600;">Support</a>
     </p>
 </td>
 </tr>
