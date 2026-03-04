@@ -361,6 +361,11 @@ def calculate_health_score(total_calls, connected_calls, no_answers, failed_call
     rates — only for truly anomalous signals like high hard-failure rates
     (network errors, carrier blocks) vs normal no-answers.
 
+    Key principle: numbers with insufficient data (under 100 lifetime calls
+    OR under 3 days active) always score 75+ ("healthy"). We refuse to
+    downgrade numbers that simply haven't been used enough yet — there's no
+    statistical signal in 0/50 dials showing 0% connect.
+
     Scoring breakdown:
       - Baseline:            50 points (every active number starts healthy)
       - Hard failure penalty: -20 points max (carrier blocks, network errors — NOT no-answers)
@@ -368,6 +373,27 @@ def calculate_health_score(total_calls, connected_calls, no_answers, failed_call
       - Connection bonus:     15 points (rewards above-average connect rates)
       - Maturity bonus:       15 points (warm-up stage + days active)
     """
+    # ── Insufficient data: return a confident healthy score ──
+    # Under 100 lifetime calls or under 3 days of data — there is no
+    # meaningful signal yet. Don't scare users with red scores on day 1.
+    MIN_CALLS_FOR_SCORING = 100
+    MIN_DAYS_FOR_SCORING = 3
+
+    if total_calls < MIN_CALLS_FOR_SCORING or days_active < MIN_DAYS_FOR_SCORING:
+        # Start at 80 (solid green), give small bonuses for early good signals
+        score = 80.0
+        if connected_calls > 0 and avg_duration >= 30:
+            score += 5.0  # Some calls connected and had real conversations
+        if connected_calls > 5:
+            score += 5.0  # Multiple connections — great early sign
+        # Only penalize if there's an extremely high hard-fail rate even in early data
+        if total_calls >= 20:
+            hard_fail_rate = failed_calls / total_calls
+            if hard_fail_rate > 0.50:
+                score -= 15.0  # More than half failing = something is clearly wrong
+        return round(min(100, max(50, score)), 1)
+
+    # ── Full scoring: only applied with 100+ calls AND 3+ days of data ──
     score = 50.0  # Baseline — numbers are healthy until proven otherwise
 
     # 1. Hard failure penalty (up to -20 points)
@@ -394,8 +420,8 @@ def calculate_health_score(total_calls, connected_calls, no_answers, failed_call
         score += 5.0 + (avg_duration - 20) / 40.0 * 7.0
     elif avg_duration > 0:
         score += avg_duration / 20.0 * 5.0
-    elif total_calls == 0:
-        score += 10.0  # Neutral
+    else:
+        score += 10.0  # Neutral — no duration data yet
 
     # 3. Connection rate bonus (up to +15 points)
     # This is a BONUS for above-average rates, not a penalty for normal ones.

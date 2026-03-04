@@ -309,7 +309,9 @@
                 html += _nhKpiCard('Avg Health', Math.round(sum.avg_health), avgHealthColor, 'fa-heart-pulse');
                 html += _nhKpiCard('Active', sum.active_count + '/' + sum.total_numbers, '#4ade80', 'fa-circle-check');
                 html += _nhKpiCard('Today', sum.daily_calls + ' calls', '#00d9ff', 'fa-phone');
-                html += _nhKpiCard('Connect', (sum.daily_connect_rate || 0) + '%', sum.daily_connect_rate >= 30 ? '#00ff88' : '#ffa500', 'fa-link');
+                var dailyCR = sum.daily_connect_rate || 0;
+                var dailyCRColor = sum.daily_calls < 50 ? '#888' : (dailyCR >= 30 ? '#00ff88' : '#ffa500');
+                html += _nhKpiCard('Connect', sum.daily_calls < 50 ? '—' : dailyCR + '%', dailyCRColor, 'fa-link');
 
                 html += '</div>';
             }
@@ -452,11 +454,15 @@
             // Row 2: Metric pills
             html += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">';
             html += _nhPill('fa-phone', n.daily_calls + '/' + n.daily_cap + ' today', dailyPct >= 80 ? '#ffa500' : '#888');
-            html += _nhPill('fa-link', connectRate.toFixed(0) + '% connect', connectRate >= 30 ? '#4ade80' : (connectRate >= 15 ? '#ffa500' : '#ef4444'));
+            // Connect rate: show neutral gray when insufficient data (under 100 calls),
+            // only color-code when there's enough signal to be meaningful
+            var crColor = totalCalls < 100 ? '#888' : (connectRate >= 30 ? '#4ade80' : (connectRate >= 15 ? '#ffa500' : '#ef4444'));
+            var crLabel = totalCalls < 100 ? (totalCalls === 0 ? 'No data' : connectRate.toFixed(0) + '%') : connectRate.toFixed(0) + '% connect';
+            html += _nhPill('fa-link', crLabel, crColor);
             var blocked = n.total_carrier_blocked || 0;
             if (blocked > 0) html += _nhPill('fa-shield-halved', blocked + ' blocked', blocked >= 10 ? '#ef4444' : '#ffa500');
             html += _nhPill('fa-chart-line', totalCalls + ' lifetime', '#888');
-            var warmupColors = { 0: '#ef4444', 1: '#ffa500', 2: '#fbbf24', 3: '#00d9ff', 4: '#4ade80' };
+            var warmupColors = { 0: '#888', 1: '#ffa500', 2: '#fbbf24', 3: '#00d9ff', 4: '#4ade80' };
             html += _nhPill('fa-seedling', n.warmup_label || 'Stage ' + n.warmup_stage, warmupColors[n.warmup_stage] || '#00d9ff');
             html += '</div>';
 
