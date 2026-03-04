@@ -57,12 +57,6 @@
             </a>
         </div>
         <div class="col-md-3 col-6">
-            <a href="#error-codes" class="card glass-card text-center p-3 text-decoration-none h-100" style="transition: transform 0.2s;">
-                <i class="fa-solid fa-triangle-exclamation text-accent mb-2" style="font-size: 1.8rem;"></i>
-                <div style="font-weight: 600; font-size: 0.9rem; color: #fff;">Error Codes</div>
-            </a>
-        </div>
-        <div class="col-md-3 col-6">
             <a href="#voice-ai" class="card glass-card text-center p-3 text-decoration-none h-100" style="transition: transform 0.2s;">
                 <i class="fa-solid fa-phone text-accent mb-2" style="font-size: 1.8rem;"></i>
                 <div style="font-weight: 600; font-size: 0.9rem; color: #fff;">Voice AI</div>
@@ -842,9 +836,9 @@
                                 <li>Click <strong>Save Integration</strong>, then <strong>Test Connection</strong>.</li>
                             </ol>
                             <div class="alert alert-info mt-3" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
-                                <i class="fa-solid fa-info-circle me-1"></i> For SMS, add your <strong>Twilio credentials</strong> (Account SID, Auth Token, Phone Number) in the integration settings. Messages are logged as Tasks in Salesforce.
+                                <i class="fa-solid fa-info-circle me-1"></i> For SMS, add your <strong>SMS credentials</strong> in the integration settings. Messages are logged as Tasks in Salesforce.
                             </div>
-                            <p class="mt-2"><strong>Features:</strong> Contact search (SOQL), event booking, SMS via Twilio, activity timeline logging, auto token refresh.</p>
+                            <p class="mt-2"><strong>Features:</strong> Contact search (SOQL), event booking, SMS delivery, activity timeline logging, auto token refresh.</p>
                         </div>
                     </div>
                 </div>
@@ -871,9 +865,9 @@
                                 <li>Click <strong>Save Integration</strong>, then <strong>Test Connection</strong>.</li>
                             </ol>
                             <div class="alert alert-info mt-3" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
-                                <i class="fa-solid fa-info-circle me-1"></i> SMS requires <strong>Twilio credentials</strong>. Messages are logged as Communications in HubSpot on the contact timeline.
+                                <i class="fa-solid fa-info-circle me-1"></i> SMS requires your <strong>messaging credentials</strong> to be configured. Messages are logged as Communications in HubSpot on the contact timeline.
                             </div>
-                            <p class="mt-2"><strong>Features:</strong> Contact search &amp; dedup, meeting booking, SMS via Twilio, communication timeline logging.</p>
+                            <p class="mt-2"><strong>Features:</strong> Contact search &amp; dedup, meeting booking, SMS delivery, communication timeline logging.</p>
                         </div>
                     </div>
                 </div>
@@ -899,9 +893,9 @@
                                 <li>Click <strong>Save Integration</strong>, then <strong>Test Connection</strong>.</li>
                             </ol>
                             <div class="alert alert-info mt-3" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
-                                <i class="fa-solid fa-info-circle me-1"></i> New contacts automatically get a deal created. SMS requires <strong>Twilio credentials</strong>. Messages are logged as Notes.
+                                <i class="fa-solid fa-info-circle me-1"></i> New contacts automatically get a deal created. SMS credentials must be configured. Messages are logged as Notes.
                             </div>
-                            <p class="mt-2"><strong>Features:</strong> Contact search, auto deal creation, activity scheduling, SMS via Twilio, note logging.</p>
+                            <p class="mt-2"><strong>Features:</strong> Contact search, auto deal creation, activity scheduling, SMS delivery, note logging.</p>
                         </div>
                     </div>
                 </div>
@@ -929,7 +923,7 @@
                             <div class="alert alert-warning mt-3" style="background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); border-radius: 8px; font-size: 0.9rem;">
                                 <i class="fa-solid fa-exclamation-triangle me-1"></i> The <strong>Refresh Token is required</strong> &mdash; Zoho access tokens expire every hour. The system auto-refreshes them using your refresh token.
                             </div>
-                            <p class="mt-2"><strong>Features:</strong> Contact search, event booking, native email sending, SMS via Twilio, note logging, auto token refresh.</p>
+                            <p class="mt-2"><strong>Features:</strong> Contact search, event booking, native email sending, SMS delivery, note logging, auto token refresh.</p>
                         </div>
                     </div>
                 </div>
@@ -982,40 +976,9 @@
                                 <li>Click <strong>Save Integration</strong>, then <strong>Test Connection</strong>.</li>
                             </ol>
                             <div class="alert alert-info mt-3" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
-                                <i class="fa-solid fa-info-circle me-1"></i> Insureio does not have a native calendar API. For appointment booking, add a <strong>Booking Webhook URL</strong> (e.g., Calendly) in your settings. SMS requires <strong>Twilio credentials</strong>.
+                                <i class="fa-solid fa-info-circle me-1"></i> Insureio does not have a native calendar API. For appointment booking, add a <strong>Booking Webhook URL</strong> (e.g., Calendly) in your settings. SMS credentials must be configured.
                             </div>
-                            <p class="mt-2"><strong>Features:</strong> Lead creation, consumer lookup, insurance-specific fields, SMS via Twilio, webhook booking relay.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Twilio SMS Setup -->
-                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
-                    <h2 class="accordion-header">
-                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#crm8"
-                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
-                            <i class="fa-solid fa-comment-sms me-2 text-accent"></i>Setting Up Twilio SMS (for non-LeadConnector CRMs)
-                        </button>
-                    </h2>
-                    <div id="crm8" class="accordion-collapse collapse" data-bs-parent="#crmAccordion">
-                        <div class="accordion-body" style="color: #ccc;">
-                            <p>If you're using Salesforce, HubSpot, Pipedrive, Zoho, or Insureio, the bot sends SMS via <strong>Twilio</strong>. LeadConnector users don't need this &mdash; SMS works natively.</p>
-                            <ol>
-                                <li>Sign up at <a href="https://www.twilio.com" style="color: var(--accent);" target="_blank">twilio.com</a> and verify your account.</li>
-                                <li>Go to <strong>Console Dashboard</strong> and copy your <strong>Account SID</strong> and <strong>Auth Token</strong>.</li>
-                                <li>Under <strong>Phone Numbers</strong>, buy a number with SMS capability (or use an existing one).</li>
-                                <li>In your InsuranceGrokBot <strong>Connect</strong> tab, enter the three Twilio fields:
-                                    <ul>
-                                        <li><strong>Twilio Account SID</strong></li>
-                                        <li><strong>Twilio Auth Token</strong></li>
-                                        <li><strong>Twilio Phone Number</strong> (in +1XXXXXXXXXX format)</li>
-                                    </ul>
-                                </li>
-                                <li>Click <strong>Save Integration</strong>. The bot will now send SMS through Twilio.</li>
-                            </ol>
-                            <div class="alert alert-warning mt-3" style="background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); border-radius: 8px; font-size: 0.9rem;">
-                                <i class="fa-solid fa-exclamation-triangle me-1"></i> Twilio charges per SMS (typically ~$0.0079/message). Make sure your Twilio account has a billing method set up.
-                            </div>
+                            <p class="mt-2"><strong>Features:</strong> Lead creation, consumer lookup, insurance-specific fields, SMS delivery, webhook booking relay.</p>
                         </div>
                     </div>
                 </div>
@@ -1262,7 +1225,7 @@
                     </h2>
                     <div id="voice1" class="accordion-collapse collapse" data-bs-parent="#voiceAiAccordion">
                         <div class="accordion-body" style="color: #ccc;">
-                            <p>Voice AI uses <strong>Twilio Media Streams</strong> to capture the raw audio from an inbound or outbound phone call and forward it in real-time to our server. Our server sends the audio directly to the <strong>XAI Grok speech-to-speech</strong> model, which generates a spoken response without any intermediate transcription step.</p>
+                            <p>Voice AI captures the raw audio from an inbound or outbound phone call and forwards it in real-time to our AI engine. The audio is sent directly to the <strong>speech-to-speech AI model</strong>, which generates a spoken response without any intermediate transcription step.</p>
                             <p>Because there is no speech-to-text or text-to-speech conversion in between, the result is a natural, low-latency conversation with <strong>no transcription delay</strong>. The AI speaks back to the caller as fluidly as a human agent would.</p>
                         </div>
                     </div>
@@ -1279,11 +1242,11 @@
                         <div class="accordion-body" style="color: #ccc;">
                             <p>You need two things to get started:</p>
                             <ol>
-                                <li><strong>A Twilio account with a phone number</strong> &mdash; This is the number that will receive and place Voice AI calls. You can purchase a number directly from your Twilio console.</li>
-                                <li><strong>Enable Voice AI in your dashboard</strong> &mdash; Go to <strong>Dashboard &gt; Voice</strong> tab and toggle Voice AI on. Enter your Twilio credentials and select the phone number you want to use.</li>
+                                <li><strong>A phone number with voice capability</strong> &mdash; This is the number that will receive and place Voice AI calls. You can purchase a number directly from the <strong>Voice &gt; Numbers</strong> tab in your dashboard.</li>
+                                <li><strong>Enable Voice AI in your dashboard</strong> &mdash; Go to <strong>Dashboard &gt; Voice</strong> tab and toggle Voice AI on. Select the phone number you want to use.</li>
                             </ol>
                             <div class="alert alert-info mt-3" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
-                                <i class="fa-solid fa-info-circle me-1"></i> Your Twilio phone number must have voice capabilities enabled. Most standard local and toll-free numbers include this by default.
+                                <i class="fa-solid fa-info-circle me-1"></i> Your phone number must have voice capabilities enabled. Most standard local and toll-free numbers include this by default.
                             </div>
                         </div>
                     </div>
@@ -1298,12 +1261,12 @@
                     </h2>
                     <div id="voice3" class="accordion-collapse collapse" data-bs-parent="#voiceAiAccordion">
                         <div class="accordion-body" style="color: #ccc;">
-                            <p>Voice AI usage is billed based on two components:</p>
+                            <p>Voice AI usage is billed through <strong>AI Minutes</strong>, a simple usage-based system:</p>
                             <ul>
-                                <li><strong>XAI Grok speech-to-speech:</strong> $0.07 per minute of conversation.</li>
-                                <li><strong>Twilio voice transport:</strong> ~$0.014 per minute (varies slightly by number type and destination).</li>
+                                <li>Purchase AI Minutes packages from the <strong>AI Minutes</strong> tab on your dashboard.</li>
+                                <li>Minutes are deducted as you make and receive calls.</li>
                             </ul>
-                            <p>A typical <strong>5-minute call costs approximately $0.32</strong>. This makes Voice AI significantly cheaper than hiring live agents while delivering instant, 24/7 availability.</p>
+                            <p>Voice AI is significantly cheaper than hiring live agents while delivering instant, 24/7 availability.</p>
                         </div>
                     </div>
                 </div>
@@ -1375,190 +1338,6 @@
                 </div>
 
             </div>
-        </div>
-    </div>
-
-    <!-- ════════════════════════════════════════════════ -->
-    <!-- ERROR CODES & LOG MESSAGES -->
-    <!-- ════════════════════════════════════════════════ -->
-    <div id="error-codes" style="margin-bottom: 60px;">
-        <h2 style="font-weight: 800; font-size: 1.8rem; margin-bottom: 8px;">
-            <i class="fa-solid fa-triangle-exclamation me-2" style="color: var(--accent);"></i>Error Codes &amp; Log Messages
-        </h2>
-        <p class="text-secondary mb-4" style="font-size: 1rem;">
-            Reference guide for error messages you may see in your Activity Logs or browser console.
-            Each code is explained with the cause and recommended fix.
-        </p>
-
-        <div class="accordion" id="errorCodesAccordion">
-
-            <!-- OAuth / Token Errors -->
-            <div class="accordion-item glass-card mb-3" style="border-radius: 12px; overflow: hidden;">
-                <h2 class="accordion-header">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#err-oauth"
-                        style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
-                        <i class="fa-solid fa-key me-2" style="color: var(--accent);"></i>OAuth &amp; Token Errors
-                    </button>
-                </h2>
-                <div id="err-oauth" class="accordion-collapse collapse" data-bs-parent="#errorCodesAccordion">
-                    <div class="accordion-body" style="color: #ccc;">
-                        <table class="table table-dark table-bordered" style="font-size: 0.88rem;">
-                            <thead><tr style="color: var(--accent);"><th>Log Message / Code</th><th>Cause</th><th>Fix</th></tr></thead>
-                            <tbody>
-                                <tr><td><code>Auth failure (HTTP 401)</code></td><td>GHL OAuth token expired or revoked</td><td>Go to dashboard → Connect tab → click Reauthorize. The bot auto-retries with a refreshed token once per message.</td></tr>
-                                <tr><td><code>Auth failure (HTTP 403)</code></td><td>Access denied — insufficient scopes or account suspended</td><td>Reauthorize via OAuth, ensuring you grant all requested permissions. Check if your GHL account has marketplace access enabled.</td></tr>
-                                <tr><td><code>Token refresh failed</code></td><td>GHL refresh token expired (tokens expire after 90 days of inactivity)</td><td>Reauthorize via <strong>Sidebar → Connect LeadConnector</strong> or visit <code>/oauth/initiate</code>.</td></tr>
-                                <tr><td><code>No valid token available</code></td><td>OAuth refresh returned empty or the refresh token itself is expired</td><td>Full reauthorization required. Visit <code>/oauth/initiate</code> and complete the OAuth flow.</td></tr>
-                                <tr><td><code>missing token or location_id</code></td><td>SMS send attempted before OAuth was completed</td><td>Complete the OAuth connection for your GHL location. Check Bot Config tab to confirm Location ID is set.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Webhook Errors -->
-            <div class="accordion-item glass-card mb-3" style="border-radius: 12px; overflow: hidden;">
-                <h2 class="accordion-header">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#err-webhook"
-                        style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
-                        <i class="fa-solid fa-webhook me-2" style="color: var(--accent);"></i>Webhook Processing Errors
-                    </button>
-                </h2>
-                <div id="err-webhook" class="accordion-collapse collapse" data-bs-parent="#errorCodesAccordion">
-                    <div class="accordion-body" style="color: #ccc;">
-                        <table class="table table-dark table-bordered" style="font-size: 0.88rem;">
-                            <thead><tr style="color: var(--accent);"><th>Log Message / Code</th><th>Cause</th><th>Fix</th></tr></thead>
-                            <tbody>
-                                <tr><td><code>DUPLICATE webhook ignored</code></td><td>GHL sent the same webhook twice (common with retries)</td><td>No action needed — this is normal deduplication behavior. The message was already processed.</td></tr>
-                                <tr><td><code>Invalid signature</code></td><td>Webhook signature verification failed</td><td>Verify your <code>MARKETPLACE_WEBHOOK_SECRET</code> env var matches what's configured in the GHL marketplace app settings.</td></tr>
-                                <tr><td><code>contact_id unknown or missing</code></td><td>Webhook payload missing the GHL contact ID</td><td>Check your GHL workflow trigger. Ensure "Customer Replied" trigger is used, not a form submission trigger, and that contact data is included.</td></tr>
-                                <tr><td><code>Job queue full</code></td><td>RQ worker queue is saturated (>500 jobs pending)</td><td>Check Redis health. Restart workers with <code>python worker.py production</code>. May indicate a surge of webhooks.</td></tr>
-                                <tr><td><code>Worker timeout</code></td><td>AI processing took too long (&gt;120s)</td><td>Usually a transient xAI API slowdown. The lead's next message will be processed normally. Monitor frequency — if frequent, check <code>XAI_API_KEY</code> rate limits.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- SMS / Dialer Errors -->
-            <div class="accordion-item glass-card mb-3" style="border-radius: 12px; overflow: hidden;">
-                <h2 class="accordion-header">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#err-sms"
-                        style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
-                        <i class="fa-solid fa-comment-sms me-2" style="color: var(--accent);"></i>SMS / Dialer Errors
-                    </button>
-                </h2>
-                <div id="err-sms" class="accordion-collapse collapse" data-bs-parent="#errorCodesAccordion">
-                    <div class="accordion-body" style="color: #ccc;">
-                        <table class="table table-dark table-bordered" style="font-size: 0.88rem;">
-                            <thead><tr style="color: var(--accent);"><th>Log Message / Code</th><th>Cause</th><th>Fix</th></tr></thead>
-                            <tbody>
-                                <tr><td><code>MESSAGE BLOCKED BY SAFETY NET</code></td><td>The LLM reply contained system prompt artifacts or reasoning tags (&lt;thinking&gt;)</td><td>This is a protective filter. Check your prompt configuration for syntax errors. The next message attempt will be clean.</td></tr>
-                                <tr><td><code>SKIP DUPLICATE SMS</code></td><td>Identical message was already sent to this contact in the last 5 minutes</td><td>No action needed — this prevents double-sending if a webhook fires twice.</td></tr>
-                                <tr><td><code>SMS failed: rate_limit (HTTP 429)</code></td><td>SMS provider or GHL rate limit hit</td><td>The system retries automatically with backoff. If persistent, check if you're using a shared short code vs. a dedicated long code. Upgrade to A2P 10DLC for higher throughput.</td></tr>
-                                <tr><td><code>SMS failed: network</code></td><td>Network timeout reaching SMS delivery API</td><td>Transient issue — the system retries 3 times. If persistent, check your server's outbound connectivity.</td></tr>
-                                <tr><td><code>Cannot send SMS: invalid contact_id</code></td><td>Contact ID was "unknown" or empty</td><td>Ensure GHL contact is properly created before the bot fires. Check your GHL workflow trigger to confirm it includes contactId.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- AI / LLM Errors -->
-            <div class="accordion-item glass-card mb-3" style="border-radius: 12px; overflow: hidden;">
-                <h2 class="accordion-header">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#err-ai"
-                        style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
-                        <i class="fa-solid fa-brain me-2" style="color: var(--accent);"></i>AI / LLM Errors
-                    </button>
-                </h2>
-                <div id="err-ai" class="accordion-collapse collapse" data-bs-parent="#errorCodesAccordion">
-                    <div class="accordion-body" style="color: #ccc;">
-                        <table class="table table-dark table-bordered" style="font-size: 0.88rem;">
-                            <thead><tr style="color: var(--accent);"><th>Log Message / Code</th><th>Cause</th><th>Fix</th></tr></thead>
-                            <tbody>
-                                <tr><td><code>XAI_API_KEY not configured</code></td><td>Missing environment variable</td><td>Set <code>XAI_API_KEY</code> in your <code>.env</code> file. Obtain from <a href="https://x.ai" target="_blank" style="color: var(--accent);">x.ai</a> console.</td></tr>
-                                <tr><td><code>Grok API error: 429</code></td><td>xAI rate limit reached</td><td>Your account has hit the tokens-per-minute limit. Upgrade your xAI plan or stagger message processing. The system retries automatically.</td></tr>
-                                <tr><td><code>LLM returned empty response</code></td><td>xAI returned an empty completion (rare model issue)</td><td>The system sends a fallback message to the lead. If frequent, check xAI status page.</td></tr>
-                                <tr><td><code>Narrative observer failed</code></td><td>Error in the conversation summary pipeline</td><td>Non-critical — the bot continues without an updated narrative. Usually a transient API timeout. Check xAI status.</td></tr>
-                                <tr><td><code>AI minutes balance: 0</code></td><td>Voice AI minute credits exhausted</td><td>Purchase additional AI Minutes from the AI Minutes tab in your dashboard.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Voice / WebSocket Errors -->
-            <div class="accordion-item glass-card mb-3" style="border-radius: 12px; overflow: hidden;">
-                <h2 class="accordion-header">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#err-voice"
-                        style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
-                        <i class="fa-solid fa-phone me-2" style="color: var(--accent);"></i>Voice &amp; Dialer Errors
-                    </button>
-                </h2>
-                <div id="err-voice" class="accordion-collapse collapse" data-bs-parent="#errorCodesAccordion">
-                    <div class="accordion-body" style="color: #ccc;">
-                        <table class="table table-dark table-bordered" style="font-size: 0.88rem;">
-                            <thead><tr style="color: var(--accent);"><th>Log Message / Code</th><th>Cause</th><th>Fix</th></tr></thead>
-                            <tbody>
-                                <tr><td><code>Voice not activated</code></td><td>Twilio sub-account not provisioned</td><td>Go to Voice tab → Click <strong>Activate Voice Service</strong>. This creates a Twilio sub-account and provisions the dialer.</td></tr>
-                                <tr><td><code>No phone number configured</code></td><td>Voice is activated but no number purchased</td><td>Go to Voice tab → Numbers → Buy a Number. Numbers cost ~$1.15/month from Twilio.</td></tr>
-                                <tr><td><code>WebSocket disconnected</code></td><td>Real-time voice WebSocket dropped during a call</td><td>Transient network issue. The call will end gracefully. Check your server's WebSocket timeout settings if persistent.</td></tr>
-                                <tr><td><code>xAI Realtime API connection failed</code></td><td>xAI Realtime API unreachable</td><td>Check xAI status page. Verify <code>XAI_API_KEY</code> has Realtime API access. Retry in a few minutes.</td></tr>
-                                <tr><td><code>Transcription failed: Download failed</code></td><td>Recording URL inaccessible or Twilio auth failed</td><td>Ensure <code>TWILIO_MASTER_ACCOUNT_SID</code> and <code>TWILIO_MASTER_AUTH_TOKEN</code> are correct. The recording must be at least 60 seconds old.</td></tr>
-                                <tr><td><code>Voicemail detected — hanging up</code></td><td>AI detected voicemail greeting patterns in real-time transcript</td><td>Normal behavior — the dialer automatically retries based on your dial attempt settings. Adjust in Voice tab → Dialer Settings.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Stripe / Billing Errors -->
-            <div class="accordion-item glass-card mb-3" style="border-radius: 12px; overflow: hidden;">
-                <h2 class="accordion-header">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#err-billing"
-                        style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
-                        <i class="fa-solid fa-credit-card me-2" style="color: var(--accent);"></i>Billing &amp; Stripe Errors
-                    </button>
-                </h2>
-                <div id="err-billing" class="accordion-collapse collapse" data-bs-parent="#errorCodesAccordion">
-                    <div class="accordion-body" style="color: #ccc;">
-                        <table class="table table-dark table-bordered" style="font-size: 0.88rem;">
-                            <thead><tr style="color: var(--accent);"><th>Log Message / Code</th><th>Cause</th><th>Fix</th></tr></thead>
-                            <tbody>
-                                <tr><td><code>Subscription inactive — paywall shown</code></td><td>Stripe subscription cancelled, past_due, or unpaid</td><td>Go to <a href="/dashboard#billing" style="color:var(--accent);">Billing tab</a> → Update payment method. Or resubscribe at <a href="/checkout" style="color:var(--accent);">/checkout</a>.</td></tr>
-                                <tr><td><code>Stripe webhook signature invalid</code></td><td><code>STRIPE_WEBHOOK_SECRET</code> mismatch</td><td>Verify the webhook secret in your Stripe dashboard matches your <code>STRIPE_WEBHOOK_SECRET</code> env var.</td></tr>
-                                <tr><td><code>customer.subscription.deleted</code></td><td>Stripe subscription was deleted (not just cancelled)</td><td>The dashboard will show a paywall. Subscribe again at <code>/checkout</code>.</td></tr>
-                                <tr><td><code>invoice.payment_failed</code></td><td>Card declined on renewal</td><td>Update your payment method in Stripe billing portal. Stripe will retry payment 3 times over 7 days before cancelling.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Database Errors -->
-            <div class="accordion-item glass-card mb-3" style="border-radius: 12px; overflow: hidden;">
-                <h2 class="accordion-header">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#err-db"
-                        style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
-                        <i class="fa-solid fa-database me-2" style="color: var(--accent);"></i>Database &amp; Server Errors
-                    </button>
-                </h2>
-                <div id="err-db" class="accordion-collapse collapse" data-bs-parent="#errorCodesAccordion">
-                    <div class="accordion-body" style="color: #ccc;">
-                        <table class="table table-dark table-bordered" style="font-size: 0.88rem;">
-                            <thead><tr style="color: var(--accent);"><th>Log Message / Code</th><th>Cause</th><th>Fix</th></tr></thead>
-                            <tbody>
-                                <tr><td><code>DB connection pool exhausted</code></td><td>All 20 DB connections in use — high traffic spike</td><td>The system queues up to 500 waiters (10s timeout). Transient during high traffic. Consider scaling workers or increasing <code>DB_POOL_MAX</code>.</td></tr>
-                                <tr><td><code>DB connection failed</code></td><td>PostgreSQL server unreachable</td><td>Check <code>DATABASE_URL</code> env var. Verify PostgreSQL server is running and accessible from your server's network.</td></tr>
-                                <tr><td><code>Redis connection failed</code></td><td>Redis server unreachable — job queuing unavailable</td><td>Check <code>REDIS_URL</code> env var. Restart Redis: <code>redis-server</code> or <code>systemctl restart redis</code>. The system auto-reconnects.</td></tr>
-                                <tr><td><code>save_message failed</code></td><td>Error saving message to contact_messages table</td><td>Check PostgreSQL logs. Usually a constraint violation or connection issue. The message processing continues even if storage fails.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
         </div>
     </div>
 
