@@ -245,7 +245,7 @@ def checkout():
         customer_email = current_user.email if current_user.is_authenticated else None
         logger.info(f"Creating Individual checkout with price_id: {price_id}")
 
-        session = stripe.checkout.Session.create(
+        checkout_params = dict(
             payment_method_types=["card"],
             mode="subscription",
             line_items=[{"price": price_id, "quantity": 1}],
@@ -268,6 +268,13 @@ def checkout():
             success_url=f"{YOUR_DOMAIN}/success?session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{YOUR_DOMAIN}/cancel",
         )
+
+        # Rewardful affiliate tracking — pass referral ID so Rewardful can attribute the conversion
+        referral = request.args.get("referral", "").strip()
+        if referral:
+            checkout_params["client_reference_id"] = referral
+
+        session = stripe.checkout.Session.create(**checkout_params)
         return redirect(session.url, code=303)
 
     except stripe.error.InvalidRequestError as e:
