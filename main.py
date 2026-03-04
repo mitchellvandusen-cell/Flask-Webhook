@@ -1424,6 +1424,10 @@ def getting_started():
 def about():
     return render_template('about.html')
 
+@app.route("/affiliate")
+def affiliate():
+    return render_template('affiliate.html')
+
 @app.route("/stripe-webhook", methods=["POST"])
 def stripe_webhook():
     payload = request.data
