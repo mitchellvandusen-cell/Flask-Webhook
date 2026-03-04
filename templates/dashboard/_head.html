@@ -12,6 +12,20 @@
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 
+    <!-- Rewardful affiliate tracking -->
+    <script>(function(w,r){w._rwq=r;w[r]=w[r]||function(){(w[r].q=w[r].q||[]).push(arguments)}})(window,'rewardful');</script>
+    <script async src='https://r.wdfl.co/rw.js' data-rewardful='5497f4'></script>
+    <script>
+    document.addEventListener('click', function(e) {
+        var a = e.target.closest('a[href*="/checkout"]');
+        if (!a || !window.Rewardful || !window.Rewardful.referral) return;
+        e.preventDefault();
+        var url = new URL(a.href, window.location.origin);
+        url.searchParams.set('referral', window.Rewardful.referral);
+        window.location.href = url.toString();
+    });
+    </script>
+
     <!-- Driver.js — interactive tutorial engine -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.css">
 
