@@ -18,6 +18,25 @@
                     <span class="slack-bell-badge" id="slackBellBadge">0</span>
                 </button>
 
+                <!-- Language Picker -->
+                <div class="dropdown" style="display:inline-block;">
+                    <button class="theme-toggle-btn" data-bs-toggle="dropdown" aria-expanded="false" title="Language">
+                        <i class="fa-solid fa-globe"></i>
+                        <span style="font-size:0.7rem;margin-left:2px;font-weight:700;">{{ lang|upper }}</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.1);min-width:140px;">
+                        {% for code, name in SUPPORTED_LANGUAGES.items() %}
+                        <li>
+                            <a class="dropdown-item{% if code == lang %} active{% endif %}" href="#"
+                               style="color:#ccc;font-size:0.85rem;{% if code == lang %}background:rgba(0,255,136,0.15);color:#00ff88;{% endif %}"
+                               onclick="setLanguage('{{ code }}');return false;">
+                                {{ name }}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+
                 <!-- Light / Dark Theme Toggle -->
                 <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Switch to light mode">
                     <i class="fa-solid fa-sun"></i>

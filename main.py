@@ -255,6 +255,18 @@ login_manager.login_view = "auth.login"  # Blueprint-qualified endpoint name
 def load_user(user_id):
     return User.get(user_id)
 
+# ── i18n: auto-detect language from browser, expose _t() and lang to all templates ──
+from translations import _t, detect_language, SUPPORTED_LANGUAGES
+
+@app.context_processor
+def inject_i18n():
+    """Make _t() helper, current lang code, and language list available in every template."""
+    if hasattr(current_user, 'preferred_language') and current_user.preferred_language:
+        lang = current_user.preferred_language
+    else:
+        lang = detect_language(request.headers.get('Accept-Language', ''))
+    return {"_t": _t, "lang": lang, "SUPPORTED_LANGUAGES": SUPPORTED_LANGUAGES}
+
 # Forms
 class RegisterForm(FlaskForm):
     email = StringField("Email", validators=[DataRequired(), Email()])
@@ -2251,6 +2263,14 @@ def dashboard():
             }
         )
 
+    # --- PASSWORD GATE ---
+    # Subscribed users without a password get redirected to set-password first.
+    # Without a password they can never log back in after their session expires.
+    if not current_user.password_hash and request.method == 'GET' and not request.args.get('skip_pw'):
+        flash("Please create a password so you can log in anytime.", "info")
+        user_type = 'agency' if current_user.role == 'agency_owner' else 'individual'
+        return redirect(f'/set-password?type={user_type}')
+
     form = ConfigForm()
 
     # --- 1. HANDLE SAVING CONFIG (POST) ---
@@ -2385,6 +2405,26 @@ def dashboard():
     # --- 9. VOICE CONFIG ---
     voice_config = current_user.voice_config or {}
 
+    # --- 10. SETUP STEP ALERTS ---
+    # Show non-dismissable reminders for critical missing setup items
+    setup_alerts = []
+    if not current_user.calendar_id:
+        setup_alerts.append({
+            "icon": "fa-solid fa-calendar-xmark", "accent": "#00c853",
+            "bg": "rgba(0,200,83,0.08)", "border": "rgba(0,200,83,0.2)",
+            "title": "Connect Your Calendar",
+            "msg": "Your bot can't book appointments until a calendar is linked.",
+            "url": "#", "btn": "Set Up Now",
+        })
+    if not selected_carriers:
+        setup_alerts.append({
+            "icon": "fa-solid fa-building-columns", "accent": "#00d9ff",
+            "bg": "rgba(0,217,255,0.08)", "border": "rgba(0,217,255,0.2)",
+            "title": "Select Your Carriers",
+            "msg": "Tell the bot which insurance carriers you're contracted with.",
+            "url": "#", "btn": "Pick Carriers",
+        })
+
     return render_template('dashboard.html',
         form=form,
         access_token_display=access_token_display,
@@ -2403,7 +2443,8 @@ def dashboard():
         bot_settings=bot_settings,
         crm_config_fields=CRM_CONFIG_FIELDS,
         crm_display_names=CRM_DISPLAY_NAMES,
-        voice_config=voice_config
+        voice_config=voice_config,
+        setup_alerts=setup_alerts,
     )
 @app.route("/save-profile", methods=["POST"])
 @login_required
@@ -2780,6 +2821,33 @@ def integrations_page():
 
     crms = list_available_crms()
     return render_template('integrations.html', crms=crms, crm_names=CRM_DISPLAY_NAMES)
+
+
+@app.route("/api/set-language", methods=["POST"])
+@login_required
+def api_set_language():
+    """Save the user's preferred language. Called from the topbar language picker."""
+    data = request.get_json(silent=True) or {}
+    lang = data.get("language", "en")
+    if lang not in SUPPORTED_LANGUAGES:
+        lang = "en"
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"ok": False}), 500
+    try:
+        cur = conn.cursor()
+        table = "agency_billing" if current_user.role == 'agency_owner' else "subscribers"
+        id_col = "agency_email" if current_user.role == 'agency_owner' else "email"
+        cur.execute(f"UPDATE {table} SET preferred_language = %s WHERE {id_col} = %s",
+                    (lang, current_user.email))
+        conn.commit()
+        cur.close()
+        return flask_jsonify({"ok": True, "language": lang})
+    except Exception as e:
+        conn.rollback()
+        return flask_jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        return_db_connection(conn)
 
 
 @app.route("/api/save-config", methods=["POST"])
@@ -6907,6 +6975,27 @@ def oauth_callback():
         if user:
             login_user(user)
             logger.info(f"Step 9 complete: Logged in {user_email}")
+
+            # Auto-detect language from browser on first OAuth
+            try:
+                detected_lang = detect_language(request.headers.get('Accept-Language', ''))
+                if detected_lang != 'en':
+                    conn_lang = get_db_connection()
+                    if conn_lang:
+                        try:
+                            cur_lang = conn_lang.cursor()
+                            cur_lang.execute(
+                                "UPDATE subscribers SET preferred_language = %s WHERE email = %s",
+                                (detected_lang, user_email))
+                            conn_lang.commit()
+                            cur_lang.close()
+                            logger.info(f"Auto-detected language '{detected_lang}' for {user_email}")
+                        except Exception:
+                            conn_lang.rollback()
+                        finally:
+                            return_db_connection(conn_lang)
+            except Exception:
+                pass
         else:
             logger.error(f"User.get({user_email}) returned None after successful DB commit — login failed")
             # Still continue for marketplace installs — they don't need to be logged in
@@ -6924,13 +7013,11 @@ def oauth_callback():
             except Exception:
                 pass
             if user:
-                flash("App installed successfully! Complete your dashboard setup to activate your bot.", "success")
-                if use_agency_flow:
-                    return redirect(url_for('agency_dashboard'))
-                return redirect(url_for('dashboard'))
+                flash("App installed successfully! Follow the steps below to activate your bot.", "success")
+                return redirect(url_for('onboarding_status'))
             else:
                 # User couldn't be logged in — send to login page
-                flash("App installed! Please log in or create a password to access your dashboard.", "success")
+                flash("App installed! Please log in to complete your setup.", "success")
                 return redirect(url_for('login'))
 
         # PRIVATE APP FLOW: Route through OAuth loading screen

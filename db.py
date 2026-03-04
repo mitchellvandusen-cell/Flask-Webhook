@@ -1555,6 +1555,22 @@ def init_db() -> bool:
         except Exception as e:
             logger.debug(f"Slack migration note: {e}")
 
+        # 25. MIGRATION: Add preferred_language column for auto-detect i18n
+        try:
+            cur.execute("""
+                ALTER TABLE subscribers
+                ADD COLUMN IF NOT EXISTS preferred_language TEXT DEFAULT 'en'
+            """)
+            cur.execute("""
+                ALTER TABLE agency_billing
+                ADD COLUMN IF NOT EXISTS preferred_language TEXT DEFAULT 'en'
+            """)
+            conn.commit()
+            logger.info("✅ Migration: Added preferred_language column")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"preferred_language migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)
@@ -1638,6 +1654,9 @@ class User(UserMixin):
 
         # Google Calendar integration
         self.google_calendar_config = data.get('google_calendar_config') or {}
+
+        # i18n — auto-detected from browser Accept-Language or manually overridden
+        self.preferred_language = data.get('preferred_language', 'en')
 
         # Timestamps
         self.created_at = data.get('created_at')
