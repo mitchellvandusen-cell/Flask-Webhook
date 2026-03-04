@@ -6452,11 +6452,24 @@ def get_dialer_stats():
         return_db_connection(conn)
 
 
-@voice_bp.route('/voice/contact-call-counts')
+def _get_ids_param():
+    """Extract 'ids' from GET query string or POST JSON body.
+    Allows bulk endpoints to accept POST with JSON body to avoid URL length limits.
+    """
+    if request.method == 'POST':
+        data = request.get_json(silent=True) or {}
+        ids = data.get('ids', '')
+        if isinstance(ids, list):
+            return ','.join(ids)
+        return ids
+    return request.args.get('ids', '')
+
+
+@voice_bp.route('/voice/contact-call-counts', methods=['GET', 'POST'])
 @login_required
 def get_contact_call_counts():
     """Batch local call counts for a list of contact IDs."""
-    ids_param = request.args.get('ids', '')
+    ids_param = _get_ids_param()
     if not ids_param:
         return jsonify({})
     contact_ids = [x.strip() for x in ids_param.split(',') if x.strip()][:300]
@@ -6486,13 +6499,13 @@ def get_contact_call_counts():
         return_db_connection(conn)
 
 
-@voice_bp.route('/voice/contact-engagement')
+@voice_bp.route('/voice/contact-engagement', methods=['GET', 'POST'])
 @login_required
 def get_contact_engagement_bulk():
     """Batch InsuranceGrokBot engagement data for contact list Smart Filters.
     Returns lightweight stats: message counts, call counts, last activity timestamps.
     """
-    ids_param = request.args.get('ids', '')
+    ids_param = _get_ids_param()
     if not ids_param:
         return jsonify({})
     contact_ids = [x.strip() for x in ids_param.split(',') if x.strip()][:300]
@@ -6617,14 +6630,14 @@ def get_contact_engagement_bulk():
         return_db_connection(conn)
 
 
-@voice_bp.route('/voice/contact-intelligence-bulk')
+@voice_bp.route('/voice/contact-intelligence-bulk', methods=['GET', 'POST'])
 @login_required
 def get_contact_intelligence_bulk():
     """Bulk fetch cached AI intelligence for Smart Filters.
     Returns cached AI temperature/score for contacts that have fresh analysis.
     Zero AI cost — reads from contact_intelligence cache table only.
     """
-    ids_param = request.args.get('ids', '')
+    ids_param = _get_ids_param()
     if not ids_param:
         return jsonify({"cached": {}, "uncached": []})
     contact_ids = [x.strip() for x in ids_param.split(',') if x.strip()][:300]
@@ -6705,13 +6718,13 @@ def post_contact_intelligence_analyze():
     return jsonify({"queued": queued})
 
 
-@voice_bp.route('/voice/contact-call-counts/merged')
+@voice_bp.route('/voice/contact-call-counts/merged', methods=['GET', 'POST'])
 @login_required
 def get_contact_call_counts_merged():
     """Batch merged (local DB + synced GHL) call counts for up to 300 contact IDs.
     Uses local ghl_conversations table instead of live API — instant, no rate limits."""
 
-    ids_param = request.args.get('ids', '')
+    ids_param = _get_ids_param()
     if not ids_param:
         return jsonify({})
     contact_ids = [x.strip() for x in ids_param.split(',') if x.strip()][:300]
