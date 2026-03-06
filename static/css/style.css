@@ -3,7 +3,8 @@
    ========================================= */
 
 html {
-    font-size: 12px; /* 75% scale: reduces all rem-based sizing by 25% */
+    /* Responsive base: ~12px on 1920p, scales to ~16px on 4K/large monitors */
+    font-size: clamp(12px, calc(0.208vw + 8px), 16px);
 }
 
 :root {
@@ -465,7 +466,7 @@ footer a:hover { color: var(--accent); }
 /* Tab nav in main area — removed, now in sidebar */
 .dash-tabs-top { display: none; }
 
-/* Responsive */
+/* Responsive — small screens */
 @media (max-width: 992px) {
     .sidebar { position: fixed; width: var(--sidebar-collapsed-width); }
     .main-wrapper { margin-left: var(--sidebar-collapsed-width); padding: 12px; }
@@ -474,6 +475,19 @@ footer a:hover { color: var(--accent); }
 @media (max-width: 600px) {
     .main-wrapper { padding: 9px; }
     .dash-user-email { display: none; }
+}
+
+/* Large & ultra-wide / 4K displays */
+@media (min-width: 2560px) {
+    :root {
+        --sidebar-width: 230px;
+        --sidebar-collapsed-width: 54px;
+        --topbar-height: 46px;
+    }
+    .main-wrapper { padding: 20px 32px 40px; }
+    .dash-topbar h1 { font-size: 1.8rem; }
+    .sb-brand { padding: 18px 20px; min-height: 64px; }
+    .sb-nav-item { padding: 11px 18px; }
 }
 
 .tech-readout { background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
@@ -911,6 +925,123 @@ body.light-theme .skel {
 .theme-toggle-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
 body.light-theme .theme-toggle-btn { background: rgba(0,0,0,0.04); border-color: var(--lt-border); color: var(--lt-text-muted); }
 body.light-theme .theme-toggle-btn:hover { background: rgba(0,0,0,0.08); color: var(--lt-text-primary); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   LIGHT THEME — Extended legibility fixes
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Topbar dropdown (outside .tab-pane scope) ── */
+body.light-theme .dropdown-menu {
+    background: var(--lt-surface) !important;
+    border-color: var(--lt-border) !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08) !important;
+}
+body.light-theme .dropdown-item {
+    color: var(--lt-text-secondary) !important;
+}
+body.light-theme .dropdown-item:hover,
+body.light-theme .dropdown-item:focus {
+    background: rgba(0,0,0,0.04) !important;
+    color: var(--lt-text-primary) !important;
+}
+body.light-theme .dropdown-item.active {
+    background: var(--lt-accent-bg) !important;
+    color: var(--lt-accent) !important;
+}
+
+/* ── Catch dark rgba(8,8,16) backgrounds anywhere on the page ── */
+body.light-theme [style*="background:rgba(8,8,16"],
+body.light-theme [style*="background: rgba(8,8,16"] {
+    background: var(--lt-surface) !important;
+    border-color: var(--lt-border) !important;
+}
+
+/* ── Dark solid backgrounds used outside .tab-pane ── */
+body.light-theme [style*="background:#1a1a2e"],
+body.light-theme [style*="background: #1a1a2e"],
+body.light-theme [style*="background:#0d0d1a"],
+body.light-theme [style*="background: #0d0d1a"],
+body.light-theme [style*="background:#0a0a0a"],
+body.light-theme [style*="background: #0a0a0a"],
+body.light-theme [style*="background:#2a2a35"],
+body.light-theme [style*="background: #2a2a35"] {
+    background: var(--lt-input-bg) !important;
+}
+
+/* ── White / light text on dark backgrounds (outside .tab-pane) ── */
+body.light-theme [style*="color:#fff"],
+body.light-theme [style*="color: #fff"],
+body.light-theme [style*="color:#ffffff"],
+body.light-theme [style*="color: #ffffff"] {
+    color: var(--lt-text-primary) !important;
+}
+body.light-theme [style*="color:#ccc"],
+body.light-theme [style*="color: #ccc"] {
+    color: var(--lt-text-secondary) !important;
+}
+body.light-theme [style*="color:#aaa"],
+body.light-theme [style*="color: #aaa"] {
+    color: var(--lt-text-muted) !important;
+}
+body.light-theme [style*="color:#888"],
+body.light-theme [style*="color: #888"] {
+    color: var(--lt-text-muted) !important;
+}
+body.light-theme [style*="color:#666"],
+body.light-theme [style*="color: #666"] {
+    color: var(--lt-text-faint) !important;
+}
+body.light-theme [style*="color:#555"],
+body.light-theme [style*="color: #555"] {
+    color: var(--lt-text-faint) !important;
+}
+
+/* ── Dark border colors ── */
+body.light-theme [style*="border:1px solid rgba(255,255,255"],
+body.light-theme [style*="border: 1px solid rgba(255,255,255"],
+body.light-theme [style*="border-color:rgba(255,255,255"],
+body.light-theme [style*="border-color: rgba(255,255,255"] {
+    border-color: var(--lt-border) !important;
+}
+
+/* ── Onboarding banner text legibility ── */
+body.light-theme .onboarding-banner { background: rgba(255,152,0,0.06) !important; border-color: rgba(255,152,0,0.25) !important; }
+body.light-theme .onboarding-banner .banner-body h4 { color: #b45309 !important; }
+body.light-theme .onboarding-banner .banner-body p { color: var(--lt-text-secondary) !important; }
+body.light-theme .onboarding-banner .banner-dismiss { color: var(--lt-text-faint) !important; }
+body.light-theme .onboarding-banner .banner-dismiss:hover { color: var(--lt-text-primary) !important; }
+
+/* ── Number rotation banner (dialer) ── */
+body.light-theme #numberRotationBanner {
+    background: linear-gradient(135deg, rgba(0,217,255,0.06), rgba(0,255,136,0.04)) !important;
+    border-color: rgba(0,150,180,0.2) !important;
+}
+
+/* ── Filter header label colors: keep the group color for readability ── */
+body.light-theme .igb-filter-label { font-weight: 700 !important; }
+body.light-theme .igb-filter-count {
+    background: rgba(0,0,0,0.07) !important;
+    color: var(--lt-text-secondary) !important;
+}
+
+/* ── Notes / GHL HTML content area ── */
+body.light-theme #dlrContactNotes,
+body.light-theme [id*="Notes"],
+body.light-theme [id*="notes"] {
+    color: var(--lt-text-secondary) !important;
+    background: var(--lt-surface-hover) !important;
+}
+
+/* ── Inline style dark backgrounds on stats/settings panels ── */
+body.light-theme [style*="background:rgba(5,5,5"],
+body.light-theme [style*="background: rgba(5,5,5"],
+body.light-theme [style*="background:rgba(10,10,10"],
+body.light-theme [style*="background: rgba(10,10,10"],
+body.light-theme [style*="background:rgba(20,20,20"],
+body.light-theme [style*="background: rgba(20,20,20"] {
+    background: var(--lt-surface) !important;
+    border-color: var(--lt-border) !important;
+}
 
 /* =========================================
    8. CHAT WIDGET (Global)
