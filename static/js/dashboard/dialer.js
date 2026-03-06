@@ -2308,41 +2308,46 @@
             dlrUpdateCharCount(text);
         }
 
-        // ── Quick Options popup menu (smart positioning) ──
+        // ── Quick Options popup menu (fixed positioning to escape overflow:hidden) ──
         function dlrToggleQuickOptions(e) {
             e.stopPropagation();
             const menu = document.getElementById('dlrQuickOptionsMenu');
             if (!menu) return;
             const wasOpen = menu.classList.contains('open');
-            menu.classList.remove('open', 'pos-up', 'pos-down');
+            menu.classList.remove('open');
+            menu.style.top = ''; menu.style.bottom = ''; menu.style.left = ''; menu.style.right = '';
             if (wasOpen) return;
-            // Determine position: check space above vs below the button
-            const wrap = menu.closest('.ios-quick-options-wrap');
-            if (wrap) {
-                const rect = wrap.getBoundingClientRect();
-                const spaceAbove = rect.top;
-                const spaceBelow = window.innerHeight - rect.bottom;
-                const menuHeight = 220; // approximate menu height
-                if (spaceAbove > menuHeight || spaceAbove > spaceBelow) {
-                    menu.classList.add('pos-up');
-                } else {
-                    menu.classList.add('pos-down');
-                }
+            // Position using fixed coords relative to the button
+            const btn = e.currentTarget;
+            const rect = btn.getBoundingClientRect();
+            const menuHeight = 220;
+            const menuWidth = 220;
+            const spaceAbove = rect.top;
+            const spaceBelow = window.innerHeight - rect.bottom;
+            // Horizontal: align right edge with button right edge
+            let left = rect.right - menuWidth;
+            if (left < 8) left = 8;
+            if (spaceAbove > menuHeight || spaceAbove > spaceBelow) {
+                // Open upward
+                menu.style.bottom = (window.innerHeight - rect.top + 6) + 'px';
+                menu.style.left = left + 'px';
             } else {
-                menu.classList.add('pos-up');
+                // Open downward
+                menu.style.top = (rect.bottom + 6) + 'px';
+                menu.style.left = left + 'px';
             }
             menu.classList.add('open');
         }
         function dlrQuickOption(text) {
             dlrSetQuickReply(text);
             const menu = document.getElementById('dlrQuickOptionsMenu');
-            if (menu) menu.classList.remove('open', 'pos-up', 'pos-down');
+            if (menu) { menu.classList.remove('open'); menu.style.top = ''; menu.style.bottom = ''; menu.style.left = ''; menu.style.right = ''; }
         }
         // Close menu when clicking outside
         document.addEventListener('click', function(e) {
             const menu = document.getElementById('dlrQuickOptionsMenu');
             if (menu && menu.classList.contains('open') && !e.target.closest('.ios-quick-options-wrap')) {
-                menu.classList.remove('open', 'pos-up', 'pos-down');
+                menu.classList.remove('open'); menu.style.top = ''; menu.style.bottom = ''; menu.style.left = ''; menu.style.right = '';
             }
         });
 

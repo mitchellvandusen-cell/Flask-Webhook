@@ -281,10 +281,8 @@
                     .ios-brand-label{color:#007AFF;font-size:0.82rem;font-weight:700;white-space:nowrap;letter-spacing:0.02em;}
                     .ios-quick-options-btn{display:flex;align-items:center;gap:5px;flex-shrink:0;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);color:#8E8E93;border-radius:14px;padding:8px 14px;font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s;}
                     .ios-quick-options-btn:hover{background:rgba(0,122,255,0.12);color:#007AFF;border-color:rgba(0,122,255,0.25);}
-                    .ios-quick-options-menu{display:none;position:absolute;right:0;min-width:200px;background:rgba(30,30,30,0.96);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:6px;z-index:100;box-shadow:0 4px 20px rgba(0,0,0,0.4);}
+                    .ios-quick-options-menu{display:none;position:fixed;min-width:200px;background:rgba(30,30,30,0.96);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:6px;z-index:10000;box-shadow:0 4px 20px rgba(0,0,0,0.4);}
                     .ios-quick-options-menu.open{display:flex;flex-direction:column;gap:2px;}
-                    .ios-quick-options-menu.pos-up{bottom:calc(100% + 6px);top:auto;animation:qoSlideUp .15s ease-out;}
-                    .ios-quick-options-menu.pos-down{top:calc(100% + 6px);bottom:auto;animation:qoSlideDown .15s ease-out;}
                     .ios-quick-options-menu button{display:flex;align-items:center;gap:8px;width:100%;background:transparent;border:none;color:#e0e0e0;padding:10px 12px;font-size:0.82rem;border-radius:10px;cursor:pointer;text-align:left;transition:background .12s;}
                     .ios-quick-options-menu button:hover{background:rgba(0,122,255,0.15);color:#fff;}
                     .ios-quick-options-menu button i{color:#007AFF;width:16px;text-align:center;font-size:0.8rem;}
@@ -323,7 +321,7 @@
                         .dlr-contact-row { padding:12px !important; min-height:52px; }
 
                         /* Quick options on mobile — full-width bottom */
-                        .ios-quick-options-menu { min-width:calc(100vw - 40px); right:-10px; }
+                        .ios-quick-options-menu { min-width:calc(100vw - 40px); }
                         .ios-quick-options-menu button { padding:14px 16px; font-size:0.92rem; min-height:48px; }
 
                         /* Send button bigger for touch */
