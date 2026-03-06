@@ -2308,23 +2308,41 @@
             dlrUpdateCharCount(text);
         }
 
-        // ── Quick Options popup menu ──
+        // ── Quick Options popup menu (smart positioning) ──
         function dlrToggleQuickOptions(e) {
             e.stopPropagation();
             const menu = document.getElementById('dlrQuickOptionsMenu');
             if (!menu) return;
-            menu.classList.toggle('open');
+            const wasOpen = menu.classList.contains('open');
+            menu.classList.remove('open', 'pos-up', 'pos-down');
+            if (wasOpen) return;
+            // Determine position: check space above vs below the button
+            const wrap = menu.closest('.ios-quick-options-wrap');
+            if (wrap) {
+                const rect = wrap.getBoundingClientRect();
+                const spaceAbove = rect.top;
+                const spaceBelow = window.innerHeight - rect.bottom;
+                const menuHeight = 220; // approximate menu height
+                if (spaceAbove > menuHeight || spaceAbove > spaceBelow) {
+                    menu.classList.add('pos-up');
+                } else {
+                    menu.classList.add('pos-down');
+                }
+            } else {
+                menu.classList.add('pos-up');
+            }
+            menu.classList.add('open');
         }
         function dlrQuickOption(text) {
             dlrSetQuickReply(text);
             const menu = document.getElementById('dlrQuickOptionsMenu');
-            if (menu) menu.classList.remove('open');
+            if (menu) menu.classList.remove('open', 'pos-up', 'pos-down');
         }
         // Close menu when clicking outside
         document.addEventListener('click', function(e) {
             const menu = document.getElementById('dlrQuickOptionsMenu');
             if (menu && menu.classList.contains('open') && !e.target.closest('.ios-quick-options-wrap')) {
-                menu.classList.remove('open');
+                menu.classList.remove('open', 'pos-up', 'pos-down');
             }
         });
 

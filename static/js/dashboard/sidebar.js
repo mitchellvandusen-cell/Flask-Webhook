@@ -233,6 +233,97 @@
             if (videoWrap) videoWrap.style.display = (id === 'smarttags') ? 'none' : '';
         }
 
+        // ═══════════════════════════════════════════════
+        // MOBILE APP-LIKE NAVIGATION
+        // ═══════════════════════════════════════════════
+
+        // ── Bottom nav — switches dashboard tabs ──
+        function mobileNav(tabId, btnEl) {
+            // Update bottom nav active state
+            document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
+            if (btnEl) btnEl.classList.add('active');
+            // Reuse existing sidebar navigate
+            var sidebarBtnId = _tabToBtn[tabId];
+            var sidebarBtn = sidebarBtnId ? document.getElementById(sidebarBtnId) : null;
+            sidebarNavigate(tabId, sidebarBtn);
+            // Close more sheet if open
+            mobileCloseMoreSheet();
+        }
+
+        // ── More sheet ──
+        function mobileOpenMoreSheet() {
+            var sheet = document.getElementById('mobileMoreSheet');
+            var backdrop = document.getElementById('mobileMoreBackdrop');
+            if (sheet) { sheet.style.display = 'block'; requestAnimationFrame(function() { sheet.classList.add('open'); }); }
+            if (backdrop) backdrop.classList.add('open');
+        }
+        function mobileCloseMoreSheet() {
+            var sheet = document.getElementById('mobileMoreSheet');
+            var backdrop = document.getElementById('mobileMoreBackdrop');
+            if (sheet) { sheet.classList.remove('open'); setTimeout(function() { if (!sheet.classList.contains('open')) sheet.style.display = 'none'; }, 300); }
+            if (backdrop) backdrop.classList.remove('open');
+        }
+
+        // ── Sidebar drawer (full sidebar, slide from left) ──
+        function mobileOpenSidebar() {
+            var sb = document.getElementById('mainSidebar');
+            var backdrop = document.getElementById('mobileSidebarBackdrop');
+            if (sb) sb.classList.add('mobile-open');
+            if (backdrop) backdrop.classList.add('open');
+        }
+        function mobileCloseSidebar() {
+            var sb = document.getElementById('mainSidebar');
+            var backdrop = document.getElementById('mobileSidebarBackdrop');
+            if (sb) sb.classList.remove('mobile-open');
+            if (backdrop) backdrop.classList.remove('open');
+        }
+
+        // ── Dialer mobile tab switching ──
+        function dlrMobileSwitch(panel, btnEl) {
+            // Update tab buttons
+            document.querySelectorAll('.dlr-mobile-tab').forEach(b => b.classList.remove('active'));
+            if (btnEl) btnEl.classList.add('active');
+            // Hide all columns
+            var cols = document.querySelectorAll('#dlr3colLayout > .dlr-col, #dlr3colLayout > div');
+            cols.forEach(function(c) { c.classList.remove('dlr-mobile-active'); });
+            // Show the target
+            var map = { contacts: 'dlrColContacts', intel: 'dlrColIntel', phone: 'dlrColPhone', calls: 'dlrColPhone' };
+            var target = document.getElementById(map[panel]);
+            if (target) target.classList.add('dlr-mobile-active');
+            // If switching to messages/calls, auto-open the right app in the phone
+            if (panel === 'phone' && typeof iosOpenApp === 'function') {
+                iosOpenApp('messages');
+            }
+            if (panel === 'calls' && typeof iosOpenApp === 'function') {
+                iosOpenApp('calls');
+            }
+        }
+
+        // ── Auto-detect mobile and show/hide elements ──
+        function _setupMobileLayout() {
+            var isMobile = window.innerWidth <= 768;
+            var mobileTabs = document.getElementById('dlrMobileTabs');
+            var bottomNav = document.getElementById('mobileBottomNav');
+            if (mobileTabs) mobileTabs.style.display = isMobile ? 'flex' : 'none';
+            // On mobile, make sure the active column is shown
+            if (isMobile) {
+                var contactsCol = document.getElementById('dlrColContacts');
+                if (contactsCol && !document.querySelector('.dlr-col.dlr-mobile-active')) {
+                    contactsCol.classList.add('dlr-mobile-active');
+                }
+            } else {
+                // On desktop, show all columns
+                document.querySelectorAll('#dlr3colLayout > .dlr-col, #dlr3colLayout > div').forEach(function(c) {
+                    c.style.display = '';
+                    c.classList.remove('dlr-mobile-active');
+                });
+                // Close mobile sidebar if resizing to desktop
+                mobileCloseSidebar();
+                mobileCloseMoreSheet();
+            }
+        }
+        window.addEventListener('resize', _setupMobileLayout);
+
         // Update calendar_name when selection changes
         document.addEventListener('DOMContentLoaded', function() {
             const calendarSelect = document.getElementById('calendar_select');
@@ -254,5 +345,8 @@
             if (logsTab) {
                 logsTab.addEventListener('shown.bs.tab', () => loadLogs());
             }
+
+            // Init mobile layout
+            _setupMobileLayout();
         });
 

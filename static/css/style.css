@@ -466,13 +466,13 @@ footer a:hover { color: var(--accent); }
 /* Tab nav in main area — removed, now in sidebar */
 .dash-tabs-top { display: none; }
 
-/* Responsive — small screens */
-@media (max-width: 992px) {
+/* Responsive — tablet (sidebar collapses but stays visible) */
+@media (max-width: 992px) and (min-width: 769px) {
     .sidebar { position: fixed; width: var(--sidebar-collapsed-width); }
     .main-wrapper { margin-left: var(--sidebar-collapsed-width); padding: 12px; }
     .dash-topbar h1 { font-size: 1.1rem; }
 }
-@media (max-width: 600px) {
+@media (max-width: 600px) and (min-width: 769px) {
     .main-wrapper { padding: 9px; }
     .dash-user-email { display: none; }
 }
@@ -2098,4 +2098,289 @@ body { padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(sa
     .btn { min-height: 44px; }
     a[class*="cmp-strip"] { min-height: 48px; }
     .crm-chip { min-height: 44px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   19. MOBILE APP-LIKE OVERHAUL
+   Complete mobile-first redesign for phones & small tablets
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Mobile Bottom Tab Bar (replaces sidebar on phones) ── */
+.mobile-bottom-nav {
+    display: none;
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: rgba(8, 8, 14, 0.96);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    z-index: 300;
+    padding: 4px 0 env(safe-area-inset-bottom, 8px);
+    height: auto;
+}
+.mobile-bottom-nav-inner {
+    display: flex; justify-content: space-around; align-items: stretch;
+    max-width: 600px; margin: 0 auto; padding: 0 4px;
+}
+.mobile-nav-btn {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; padding: 6px 4px 4px;
+    background: none; border: none; color: #666;
+    font-size: 0.62rem; font-weight: 600; cursor: pointer;
+    flex: 1; min-width: 0; min-height: 48px;
+    transition: color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+.mobile-nav-btn i { font-size: 1.1rem; line-height: 1; }
+.mobile-nav-btn.active { color: var(--accent); }
+.mobile-nav-btn.active i { color: var(--accent); }
+.mobile-nav-btn:active { transform: scale(0.92); }
+
+/* ── Mobile "More" sheet (slides up from bottom) ── */
+.mobile-more-sheet {
+    display: none; position: fixed; bottom: 0; left: 0; right: 0;
+    z-index: 350; max-height: 70vh;
+    background: rgba(12, 12, 18, 0.98);
+    backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    border-top-left-radius: 20px; border-top-right-radius: 20px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding: 12px 16px calc(env(safe-area-inset-bottom, 8px) + 60px);
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+}
+.mobile-more-sheet.open { transform: translateY(0); }
+.mobile-more-sheet-handle {
+    width: 36px; height: 4px; background: rgba(255,255,255,0.2);
+    border-radius: 2px; margin: 0 auto 16px;
+}
+.mobile-more-sheet .mobile-sheet-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 16px; border-radius: 12px; margin-bottom: 2px;
+    color: #aaa; font-size: 0.95rem; font-weight: 500;
+    cursor: pointer; transition: background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    background: none; border: none; width: 100%; text-align: left;
+}
+.mobile-more-sheet .mobile-sheet-item:hover,
+.mobile-more-sheet .mobile-sheet-item:active { background: rgba(255,255,255,0.06); color: #fff; }
+.mobile-more-sheet .mobile-sheet-item i { width: 20px; text-align: center; font-size: 1rem; color: #888; }
+.mobile-more-sheet .mobile-sheet-divider {
+    height: 1px; background: rgba(255,255,255,0.06); margin: 8px 0;
+}
+.mobile-more-backdrop {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    z-index: 340; backdrop-filter: blur(4px);
+}
+.mobile-more-backdrop.open { display: block; }
+
+/* ── Mobile hamburger for sidebar drawer ── */
+.mobile-menu-btn {
+    display: none; background: none; border: none;
+    color: #888; font-size: 1.2rem; cursor: pointer;
+    width: 40px; height: 40px; border-radius: 10px;
+    align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+.mobile-menu-btn:active { background: rgba(255,255,255,0.08); color: #fff; }
+
+/* ── Mobile sidebar overlay (drawer) ── */
+.mobile-sidebar-backdrop {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6); z-index: 199;
+    backdrop-filter: blur(4px);
+}
+.mobile-sidebar-backdrop.open { display: block; }
+
+/* ── Phone screens (≤768px) — DASHBOARD ── */
+@media (max-width: 768px) {
+    /* Show bottom nav, hide sidebar completely */
+    .mobile-bottom-nav { display: block; }
+    .sidebar { transform: translateX(-100%); width: 280px !important; z-index: 200; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    .sidebar.mobile-open { transform: translateX(0); }
+    .sidebar.collapsed { width: 280px !important; }
+    .sidebar.collapsed .sb-nav-label { opacity: 1; pointer-events: auto; width: auto; }
+    .sidebar.collapsed .sb-brand-logo { display: flex; }
+    .sidebar.collapsed .sb-brand-text { max-width: 200px; opacity: 1; pointer-events: auto; }
+    .sidebar.collapsed .sb-footer-item span { display: inline; }
+    .sidebar.collapsed .sb-nav-item { justify-content: flex-start; padding: 9px 16px; }
+    .sidebar.collapsed .sb-footer-item { justify-content: flex-start; }
+    .sidebar.collapsed .sb-section-header span,
+    .sidebar.collapsed .sb-section-chevron { display: inline; }
+    .sidebar.collapsed .sb-params { display: block; }
+
+    /* Main wrapper — full width, no left margin, bottom padding for nav */
+    .main-wrapper {
+        margin-left: 0 !important;
+        padding: 8px 12px calc(env(safe-area-inset-bottom, 8px) + 66px) !important;
+        min-height: 100vh;
+    }
+    .sidebar.collapsed ~ .main-wrapper { margin-left: 0 !important; }
+
+    /* Compact topbar */
+    .dash-topbar {
+        padding: 8px 0 10px; gap: 8px;
+        position: sticky; top: 0; z-index: 100;
+        background: rgba(5,5,5,0.92); backdrop-filter: blur(12px);
+        margin: -8px -12px 8px; padding: 8px 12px 10px;
+    }
+    .dash-topbar h1 { font-size: 1.15rem; }
+    .dash-topbar .dash-subtitle { display: none; }
+    .dash-topbar-right { gap: 6px; }
+    .dash-user-pill { padding: 3px 8px 3px 4px; }
+    .dash-avatar { width: 22px; height: 22px; font-size: 0.6rem; }
+    .dash-user-email { display: none; }
+    .theme-toggle-btn { width: 30px; height: 30px; font-size: 0.8rem; }
+    .status-badge { display: none; }
+
+    /* Mobile hamburger in topbar */
+    .mobile-menu-btn { display: flex; }
+
+    /* Tab pane panels — full width, no side columns */
+    .tab-pane { padding: 0 !important; }
+
+    /* Config/Voice/Connect two-column → single column */
+    .tab-pane .row { margin: 0; }
+    .tab-pane .col-lg-3, .tab-pane .col-lg-9,
+    .tab-pane .col-md-3, .tab-pane .col-md-9 { width: 100%; padding: 0; }
+
+    /* Hide side menus on mobile (replaced by top pills) */
+    #voiceSettingsMenu, #configSettingsMenu, #connectSettingsMenu {
+        display: flex !important; flex-direction: row !important;
+        overflow-x: auto; gap: 6px; padding: 8px 0 12px;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    #voiceSettingsMenu::-webkit-scrollbar,
+    #configSettingsMenu::-webkit-scrollbar,
+    #connectSettingsMenu::-webkit-scrollbar { display: none; }
+    .voice-menu-item, .cfg-menu-item, .conn-menu-item {
+        white-space: nowrap; flex-shrink: 0;
+        padding: 8px 16px !important; font-size: 0.82rem !important;
+        border-radius: 20px !important; min-height: 36px;
+    }
+
+    /* Dialer — on mobile show iPhone content without the phone frame */
+    .iphone-frame { max-width: 100% !important; width: 100% !important; }
+    .iphone-bezel { border-radius: 0 !important; padding: 0 !important; background: none !important; box-shadow: none !important; }
+    .iphone-btn-right, .iphone-btn-left1, .iphone-btn-left2 { display: none !important; }
+    .iphone-screen { border-radius: 12px !important; }
+    .ios-dynamic-island { display: none !important; }
+    .ios-status-bar { height: 8px !important; padding: 0 !important; }
+    .ios-status-bar * { display: none; }
+    .ios-home-indicator-bar { display: none !important; }
+    .ios-nav-bar { padding-top: 10px !important; }
+    #dlrColPhone.dlr-mobile-active { display: flex !important; flex-direction: column; height: calc(100vh - 220px); min-height: 400px; }
+    #dlrColPhone.dlr-mobile-active .iphone-frame { flex: 1; display: flex; }
+    #dlrColPhone.dlr-mobile-active .iphone-bezel { flex: 1; display: flex; }
+    #dlrColPhone.dlr-mobile-active .iphone-screen { flex: 1; }
+    .dlr-col { border-radius: 12px !important; min-height: auto !important; }
+
+    /* Glass panels spacing */
+    [style*="border-radius:24px"], [style*="border-radius: 24px"] {
+        border-radius: 16px !important;
+    }
+    [style*="padding:40px"], [style*="padding: 40px"] {
+        padding: 20px !important;
+    }
+
+    /* Hide toggle sidebar button on mobile */
+    .sb-toggle { display: none; }
+
+    /* Quick options menu — smart positioning handled by JS, but ensure mobile sizing */
+    .ios-quick-options-menu { min-width: 180px; max-width: calc(100vw - 32px); }
+    .ios-quick-options-menu button { padding: 12px 14px; font-size: 0.88rem; min-height: 44px; }
+
+    /* Composer/input areas — mobile friendly */
+    .ios-compose-input-wrap textarea { font-size: 16px !important; } /* Prevents iOS zoom */
+    input[type="text"], input[type="email"], input[type="tel"],
+    input[type="url"], input[type="number"], input[type="password"],
+    textarea, select { font-size: 16px !important; } /* Prevents iOS zoom on focus */
+
+    /* Persistent alerts compact */
+    .persistent-alert { padding: 10px 12px !important; }
+}
+
+/* ── Phone screens (≤768px) — PUBLIC WEBSITE ── */
+@media (max-width: 768px) {
+    /* Navbar fixes */
+    .navbar { padding: 0.6rem 0; }
+    .navbar-brand { font-size: 1.2rem; }
+    .navbar-toggler { padding: 6px 8px; }
+
+    /* Full-screen mobile nav — override the 991px rule too */
+    .navbar-collapse {
+        position: fixed !important; top: 0; left: 0; right: 0; bottom: 0;
+        width: 100% !important; height: 100vh !important; height: 100dvh !important;
+        background: #050505 !important;
+        z-index: 9998; padding: 90px 20px 40px;
+        display: none; flex-direction: column;
+        overflow-y: auto;
+    }
+    .navbar-collapse.show { display: flex !important; }
+    .navbar-collapse.collapse { display: none; }
+    .navbar-collapse.collapse.show { display: flex !important; }
+
+    /* Hero */
+    .hero { min-height: auto; padding: 100px 0 60px; }
+    .hero h1 { font-size: 2rem; }
+    .hero .lead { font-size: 1rem; }
+
+    /* Legal pages */
+    .legal-container { margin: 80px auto 30px; padding: 30px 20px; }
+    .legal-container h1 { font-size: 1.8rem; }
+    .legal-container h2 { font-size: 1.3rem; }
+
+    /* Auth pages */
+    .auth-card { padding: 28px 20px; margin: 0 8px; }
+    .agency-card { padding: 30px 24px; }
+
+    /* Pricing */
+    .pricing-section { min-height: auto; }
+    .carousel-container { height: auto; }
+
+    /* Glass banner */
+    .glass-banner { padding: 30px 20px; border-radius: 16px; }
+
+    /* FAQ */
+    .faq-accordion-button { padding: 18px 16px; font-size: 1rem; }
+    .faq-accordion-body { padding: 0 16px 20px; font-size: 0.95rem; }
+
+    /* Reviews */
+    .review-grid { grid-template-columns: 1fr; gap: 16px; }
+    .glass-review { padding: 24px; }
+
+    /* Footer compact */
+    footer { padding: 32px 0; }
+    footer a { display: inline-block; margin: 4px 8px; font-size: 0.82rem; }
+
+    /* Chat widget repositioned */
+    .chat-widget-container { right: 12px !important; bottom: 12px !important; }
+    .chat-toggle-btn { width: 50px; height: 50px; font-size: 1.2rem; }
+    .chat-window { width: calc(100vw - 24px) !important; height: 75vh !important; }
+    .chat-callout { display: none; }
+}
+
+/* ── Light theme mobile overrides ── */
+@media (max-width: 768px) {
+    body.light-theme .mobile-bottom-nav {
+        background: rgba(255,255,255,0.96);
+        border-top-color: var(--lt-border);
+    }
+    body.light-theme .mobile-nav-btn { color: var(--lt-text-faint); }
+    body.light-theme .mobile-nav-btn.active { color: var(--lt-accent); }
+    body.light-theme .mobile-more-sheet {
+        background: rgba(255,255,255,0.98);
+        border-top-color: var(--lt-border);
+    }
+    body.light-theme .mobile-more-sheet .mobile-sheet-item { color: var(--lt-text-secondary); }
+    body.light-theme .mobile-more-sheet .mobile-sheet-item:hover { background: rgba(0,0,0,0.03); color: var(--lt-text-primary); }
+    body.light-theme .mobile-more-sheet .mobile-sheet-divider { background: var(--lt-border); }
+    body.light-theme .mobile-more-sheet-handle { background: rgba(0,0,0,0.15); }
+    body.light-theme .dash-topbar {
+        background: rgba(255,255,255,0.92) !important;
+    }
+    body.light-theme .sidebar.mobile-open {
+        background: var(--lt-surface);
+    }
 }
