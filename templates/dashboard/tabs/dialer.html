@@ -224,15 +224,15 @@
                         radial-gradient(ellipse at 20% 70%, rgba(175,82,222,0.5) 0%, transparent 45%),
                         linear-gradient(160deg, #1c1c3a 0%, #0d1b2a 50%, #0a0e1a 100%);
                     z-index:0;}
-                    .ios-app-grid{flex:1;display:flex;align-items:center;justify-content:center;gap:16px;padding:18px 12px;position:relative;z-index:1;flex-wrap:wrap;align-content:center;}
+                    .ios-app-grid{flex:1;display:grid;grid-template-columns:repeat(3,1fr);align-items:start;justify-items:center;gap:20px 12px;padding:24px 16px;position:relative;z-index:1;align-content:center;}
                     .ios-app-icon{display:flex;flex-direction:column;align-items:center;gap:5px;background:none;border:none;cursor:pointer;position:relative;transition:transform 0.15s;-webkit-tap-highlight-color:transparent;}
                     .ios-app-icon:hover{transform:scale(1.08);}
                     .ios-app-icon:active{transform:scale(0.95);}
-                    .ios-icon{width:54px;height:54px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.3);}
+                    .ios-icon{width:64px;height:64px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:2.1rem;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.3);}
                     .ios-icon-messages{background:linear-gradient(180deg,#65D66A 0%,#34C759 100%);}
                     .ios-icon-phone{background:linear-gradient(180deg,#65D66A 0%,#34C759 100%);}
                     .ios-icon-voicemail{background:linear-gradient(180deg,#FF9F0A 0%,#FF9500 100%);}
-                    .ios-app-label{font-size:0.62rem;color:#fff;font-weight:500;text-shadow:0 1px 3px rgba(0,0,0,0.6);letter-spacing:-0.1px;}
+                    .ios-app-label{font-size:0.775rem;color:#fff;font-weight:500;text-shadow:0 1px 3px rgba(0,0,0,0.6);letter-spacing:-0.1px;}
                     .ios-badge{position:absolute;top:-4px;right:-4px;background:#FF3B30;color:#fff;font-size:0.65rem;font-weight:800;min-width:20px;height:20px;border-radius:10px;display:flex;align-items:center;justify-content:center;padding:0 5px;border:2px solid #000;z-index:2;}
 
                     /* Home Indicator */
@@ -278,6 +278,15 @@
                     .ios-ai-btn{display:flex;align-items:center;gap:5px;flex-shrink:0;background:linear-gradient(135deg,rgba(0,122,255,0.2),rgba(88,86,214,0.15));border:1px solid rgba(0,122,255,0.35);color:#007AFF;border-radius:14px;padding:8px 14px;font-size:0.884rem;font-weight:700;cursor:pointer;white-space:nowrap;}
                     .ios-qr-chip{flex-shrink:0;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#8E8E93;border-radius:14px;padding:8px 13px;font-size:0.845rem;cursor:pointer;white-space:nowrap;transition:all .15s;}
                     .ios-qr-chip:hover{background:rgba(0,122,255,0.12);color:#007AFF;border-color:rgba(0,122,255,0.2);}
+                    .ios-brand-label{color:#007AFF;font-size:0.82rem;font-weight:700;white-space:nowrap;letter-spacing:0.02em;}
+                    .ios-quick-options-btn{display:flex;align-items:center;gap:5px;flex-shrink:0;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);color:#8E8E93;border-radius:14px;padding:8px 14px;font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s;}
+                    .ios-quick-options-btn:hover{background:rgba(0,122,255,0.12);color:#007AFF;border-color:rgba(0,122,255,0.25);}
+                    .ios-quick-options-menu{display:none;position:absolute;bottom:calc(100% + 6px);right:0;min-width:200px;background:rgba(30,30,30,0.96);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:6px;z-index:100;box-shadow:0 -4px 20px rgba(0,0,0,0.4);}
+                    .ios-quick-options-menu.open{display:flex;flex-direction:column;gap:2px;animation:qoSlideUp .15s ease-out;}
+                    .ios-quick-options-menu button{display:flex;align-items:center;gap:8px;width:100%;background:transparent;border:none;color:#e0e0e0;padding:10px 12px;font-size:0.82rem;border-radius:10px;cursor:pointer;text-align:left;transition:background .12s;}
+                    .ios-quick-options-menu button:hover{background:rgba(0,122,255,0.15);color:#fff;}
+                    .ios-quick-options-menu button i{color:#007AFF;width:16px;text-align:center;font-size:0.8rem;}
+                    @keyframes qoSlideUp{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
                     .ios-channel-row{display:flex;align-items:center;gap:5px;padding:2px 9px 0;}
                     .ios-channel-label{font-size:0.62rem;color:#8E8E93;font-weight:600;white-space:nowrap;}
                     .ios-channel-select{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#ccc;padding:3px 7px;border-radius:6px;font-size:0.65rem;outline:none;cursor:pointer;}
@@ -1011,14 +1020,22 @@
                                         <div id="dlrSmsComposer" style="display:none;" class="ios-composer">
                                             <!-- Quick Replies -->
                                             <div class="ios-quick-replies">
-                                                <button id="dlrAiDraftBtn" onclick="dlrAiSuggest()" class="ios-ai-btn" title="Generate InsuranceGrokBot reply">
+                                                <button id="dlrAiDraftBtn" onclick="dlrAiSuggest()" class="ios-ai-btn" title="Generate AI reply">
                                                     <i class="fa-solid fa-robot"></i>
                                                     <span id="dlrAiDraftLabel">AI Reply</span>
                                                 </button>
-                                                <button class="ios-qr-chip" onclick="dlrSetQuickReply('Following up — did you have a chance to review the options I sent over?')">Follow-up</button>
-                                                <button class="ios-qr-chip" onclick="dlrSetQuickReply('Hi! I wanted to make sure you got everything you needed. Any questions?')">Check-in</button>
-                                                <button class="ios-qr-chip" onclick="dlrSetQuickReply('Ready to go over your coverage options when you are — just reply here to get started.')">Coverage</button>
-                                                <button class="ios-qr-chip" onclick="dlrSetQuickReply('Are you available for a quick 10-minute call today or tomorrow?')">Schedule</button>
+
+                                                <div class="ios-quick-options-wrap" style="margin-left:auto;position:relative;">
+                                                    <button class="ios-quick-options-btn" onclick="dlrToggleQuickOptions(event)">
+                                                        <i class="fa-solid fa-ellipsis"></i> Quick Options
+                                                    </button>
+                                                    <div id="dlrQuickOptionsMenu" class="ios-quick-options-menu">
+                                                        <button onclick="dlrQuickOption('Following up — did you have a chance to review the options I sent over?')"><i class="fa-solid fa-reply"></i> Follow-up</button>
+                                                        <button onclick="dlrQuickOption('Hi! I wanted to make sure you got everything you needed. Any questions?')"><i class="fa-solid fa-circle-check"></i> Check-in</button>
+                                                        <button onclick="dlrQuickOption('Ready to go over your coverage options when you are — just reply here to get started.')"><i class="fa-solid fa-shield-halved"></i> Coverage</button>
+                                                        <button onclick="dlrQuickOption('Are you available for a quick 10-minute call today or tomorrow?')"><i class="fa-solid fa-calendar"></i> Schedule</button>
+                                                    </div>
+                                                </div>
                                             </div>
                                             <!-- Channel selector -->
                                             <div id="dlrChannelRow" style="display:none;" class="ios-channel-row">
