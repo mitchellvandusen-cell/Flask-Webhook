@@ -1555,7 +1555,31 @@ def init_db() -> bool:
         except Exception as e:
             logger.debug(f"Slack migration note: {e}")
 
-        # 25. MIGRATION: Add preferred_language column for auto-detect i18n
+        # 25. MIGRATION: Create uninstall_feedback table for app uninstall feedback tracking
+        try:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS uninstall_feedback (
+                    id SERIAL PRIMARY KEY,
+                    location_id TEXT,
+                    company_id TEXT,
+                    user_email TEXT,
+                    user_name TEXT,
+                    reason TEXT,
+                    other_text TEXT,
+                    raw_webhook_payload JSONB DEFAULT '{}'::jsonb,
+                    feedback_submitted_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_uninstall_fb_location ON uninstall_feedback(location_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_uninstall_fb_created ON uninstall_feedback(created_at DESC)")
+            conn.commit()
+            logger.info("✅ Migration: Created uninstall_feedback table")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"uninstall_feedback migration note: {e}")
+
+        # 26. MIGRATION: Add preferred_language column for auto-detect i18n
         try:
             cur.execute("""
                 ALTER TABLE subscribers
@@ -2458,6 +2482,76 @@ def find_marketplace_email(location_id: str = None, company_id: str = None) -> O
         return None
     except psycopg2.Error as e:
         logger.error(f"find_marketplace_email failed: {e}")
+        return None
+    finally:
+        return_db_connection(conn)
+
+
+def save_uninstall_record(payload: dict, location_id: str, company_id: str,
+                          user_email: str = "", user_name: str = "") -> Optional[int]:
+    """Save an uninstall event from the GHL webhook. Returns the record ID."""
+    conn = get_db_connection()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO uninstall_feedback
+                (location_id, company_id, user_email, user_name, raw_webhook_payload)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id
+        """, (location_id, company_id, user_email, user_name, json.dumps(payload)))
+        row = cur.fetchone()
+        conn.commit()
+        record_id = row["id"] if row else None
+        cur.close()
+        return record_id
+    except psycopg2.Error as e:
+        logger.error(f"save_uninstall_record failed: {e}")
+        if conn:
+            conn.rollback()
+        return None
+    finally:
+        return_db_connection(conn)
+
+
+def save_uninstall_feedback(record_id: int, reason: str, other_text: str = "") -> bool:
+    """Save user-submitted feedback for an uninstall record."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE uninstall_feedback
+            SET reason = %s, other_text = %s, feedback_submitted_at = NOW()
+            WHERE id = %s
+        """, (reason, other_text, record_id))
+        conn.commit()
+        cur.close()
+        return True
+    except psycopg2.Error as e:
+        logger.error(f"save_uninstall_feedback failed: {e}")
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        return_db_connection(conn)
+
+
+def get_uninstall_feedback(record_id: int) -> Optional[dict]:
+    """Retrieve an uninstall feedback record by ID."""
+    conn = get_db_connection()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM uninstall_feedback WHERE id = %s", (record_id,))
+        row = cur.fetchone()
+        cur.close()
+        return dict(row) if row else None
+    except psycopg2.Error as e:
+        logger.error(f"get_uninstall_feedback failed: {e}")
         return None
     finally:
         return_db_connection(conn)
