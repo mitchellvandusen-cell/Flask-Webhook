@@ -2362,7 +2362,7 @@
                 }
             } finally {
                 if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
-                if (label) label.textContent = 'InsuranceGrokBot Reply';
+                if (label) label.textContent = 'AI Reply';
             }
         }
 
