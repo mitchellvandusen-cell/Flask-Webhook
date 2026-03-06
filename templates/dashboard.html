@@ -53,6 +53,73 @@
 
     </div><!-- /main-wrapper -->
 
+    <!-- ── Mobile Bottom Navigation ── -->
+    <nav class="mobile-bottom-nav" id="mobileBottomNav">
+        <div class="mobile-bottom-nav-inner">
+            <button class="mobile-nav-btn active" onclick="mobileNav('voicedialer', this)" id="mnDialer">
+                <i class="fa-solid fa-phone-volume"></i>
+                <span>Dialer</span>
+            </button>
+            <button class="mobile-nav-btn" onclick="mobileNav('config', this)" id="mnConfig">
+                <i class="fa-solid fa-comment-sms"></i>
+                <span>SMS</span>
+            </button>
+            <button class="mobile-nav-btn" onclick="mobileNav('voice', this)" id="mnVoice">
+                <i class="fa-solid fa-phone"></i>
+                <span>Voice</span>
+            </button>
+            <button class="mobile-nav-btn" onclick="mobileNav('workflows', this)" id="mnWorkflows">
+                <i class="fa-solid fa-diagram-project"></i>
+                <span>Workflows</span>
+            </button>
+            <button class="mobile-nav-btn" onclick="mobileOpenMoreSheet()" id="mnMore">
+                <i class="fa-solid fa-ellipsis"></i>
+                <span>More</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- ── Mobile "More" Bottom Sheet ── -->
+    <div class="mobile-more-backdrop" id="mobileMoreBackdrop" onclick="mobileCloseMoreSheet()"></div>
+    <div class="mobile-more-sheet" id="mobileMoreSheet">
+        <div class="mobile-more-sheet-handle"></div>
+        <button class="mobile-sheet-item" onclick="mobileNav('connect', null); mobileCloseMoreSheet();">
+            <i class="fa-solid fa-plug"></i> <span>Connect CRM</span>
+        </button>
+        <button class="mobile-sheet-item" onclick="mobileNav('carriers', null); mobileCloseMoreSheet();">
+            <i class="fa-solid fa-building-columns"></i> <span>Carriers</span>
+        </button>
+        <div class="mobile-sheet-divider"></div>
+        <button class="mobile-sheet-item" onclick="mobileNav('advanced', null); mobileCloseMoreSheet();">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> <span>Advanced Settings</span>
+        </button>
+        <button class="mobile-sheet-item" onclick="mobileNav('aiminutes', null); mobileCloseMoreSheet(); if(typeof loadAiMinutes==='function')loadAiMinutes();">
+            <i class="fa-solid fa-clock"></i> <span>AI Minutes</span>
+        </button>
+        <button class="mobile-sheet-item" onclick="mobileNav('billing', null); mobileCloseMoreSheet();">
+            <i class="fa-solid fa-credit-card"></i> <span>Billing</span>
+        </button>
+        <button class="mobile-sheet-item" onclick="mobileNav('logs', null); mobileCloseMoreSheet();">
+            <i class="fa-solid fa-list-check"></i> <span>Activity Logs</span>
+        </button>
+        <div class="mobile-sheet-divider"></div>
+        <a href="/onboarding-status" class="mobile-sheet-item" style="text-decoration:none;">
+            <i class="fa-solid fa-circle-check"></i> <span>Setup Progress</span>
+        </a>
+        <a href="/support" class="mobile-sheet-item" style="text-decoration:none;">
+            <i class="fa-solid fa-circle-question"></i> <span>Support</span>
+        </a>
+        <a href="/" class="mobile-sheet-item" style="text-decoration:none;">
+            <i class="fa-solid fa-house"></i> <span>Homepage</span>
+        </a>
+        <a href="/logout" class="mobile-sheet-item" style="text-decoration:none;color:#ef4444;">
+            <i class="fa-solid fa-right-from-bracket" style="color:#ef4444;"></i> <span>Sign Out</span>
+        </a>
+    </div>
+
+    <!-- ── Mobile Sidebar Backdrop ── -->
+    <div class="mobile-sidebar-backdrop" id="mobileSidebarBackdrop" onclick="mobileCloseSidebar()"></div>
+
     <!-- ── Modals & overlays ── -->
     {% include "dashboard/modals/congrats.html" %}
     {% include "dashboard/modals/save_overlay.html" %}

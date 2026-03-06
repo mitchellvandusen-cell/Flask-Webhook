@@ -281,12 +281,67 @@
                     .ios-brand-label{color:#007AFF;font-size:0.82rem;font-weight:700;white-space:nowrap;letter-spacing:0.02em;}
                     .ios-quick-options-btn{display:flex;align-items:center;gap:5px;flex-shrink:0;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);color:#8E8E93;border-radius:14px;padding:8px 14px;font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s;}
                     .ios-quick-options-btn:hover{background:rgba(0,122,255,0.12);color:#007AFF;border-color:rgba(0,122,255,0.25);}
-                    .ios-quick-options-menu{display:none;position:absolute;bottom:calc(100% + 6px);right:0;min-width:200px;background:rgba(30,30,30,0.96);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:6px;z-index:100;box-shadow:0 -4px 20px rgba(0,0,0,0.4);}
-                    .ios-quick-options-menu.open{display:flex;flex-direction:column;gap:2px;animation:qoSlideUp .15s ease-out;}
+                    .ios-quick-options-menu{display:none;position:absolute;right:0;min-width:200px;background:rgba(30,30,30,0.96);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:6px;z-index:100;box-shadow:0 4px 20px rgba(0,0,0,0.4);}
+                    .ios-quick-options-menu.open{display:flex;flex-direction:column;gap:2px;}
+                    .ios-quick-options-menu.pos-up{bottom:calc(100% + 6px);top:auto;animation:qoSlideUp .15s ease-out;}
+                    .ios-quick-options-menu.pos-down{top:calc(100% + 6px);bottom:auto;animation:qoSlideDown .15s ease-out;}
                     .ios-quick-options-menu button{display:flex;align-items:center;gap:8px;width:100%;background:transparent;border:none;color:#e0e0e0;padding:10px 12px;font-size:0.82rem;border-radius:10px;cursor:pointer;text-align:left;transition:background .12s;}
                     .ios-quick-options-menu button:hover{background:rgba(0,122,255,0.15);color:#fff;}
                     .ios-quick-options-menu button i{color:#007AFF;width:16px;text-align:center;font-size:0.8rem;}
                     @keyframes qoSlideUp{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+                    @keyframes qoSlideDown{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
+
+                    /* ═══════════════════════════════════════════════
+                       Mobile Dialer Layout — App-Like Experience
+                       ═══════════════════════════════════════════════ */
+                    @media (max-width: 768px) {
+                        /* Top bar compact */
+                        .dlr-top-bar { flex-wrap:wrap !important; padding:8px 10px !important; gap:8px !important; border-radius:10px !important; }
+                        .dlr-top-bar h5 { font-size:1rem !important; }
+                        .dlr-top-bar .quick-dial-group { max-width:100% !important; order:10; width:100%; }
+
+                        /* 3-col layout → stacked mobile tabs */
+                        .dlr-3col-layout { flex-direction:column !important; height:auto !important; min-height:auto !important; gap:0 !important; }
+
+                        /* Mobile dialer tab switcher */
+                        .dlr-mobile-tabs { display:flex !important; gap:2px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:3px; margin-bottom:8px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+                        .dlr-mobile-tab { flex:1; padding:8px 4px; border-radius:8px; border:none; background:transparent; color:#666; font-size:0.78rem; font-weight:600; cursor:pointer; text-align:center; white-space:nowrap; min-height:40px; transition:all .15s; }
+                        .dlr-mobile-tab.active { background:rgba(0,217,255,0.15); color:#00d9ff; }
+                        .dlr-mobile-tab i { display:block; font-size:1rem; margin-bottom:2px; }
+
+                        /* Each column becomes a full-width panel */
+                        .dlr-3col-layout > .dlr-col,
+                        .dlr-3col-layout > div { width:100% !important; border-radius:10px !important; }
+                        .dlr-3col-layout > .dlr-col { display:none; }
+                        .dlr-3col-layout > .dlr-col.dlr-mobile-active { display:flex; height:calc(100vh - 220px); min-height:400px; }
+
+                        /* Right column (iPhone frame parent) */
+                        .dlr-3col-layout > div:last-child { display:none; }
+                        .dlr-3col-layout > div:last-child.dlr-mobile-active { display:flex; flex-direction:column; }
+
+                        /* Contact rows — larger touch targets */
+                        .dlr-contact-row { padding:12px !important; min-height:52px; }
+
+                        /* Quick options on mobile — full-width bottom */
+                        .ios-quick-options-menu { min-width:calc(100vw - 40px); right:-10px; }
+                        .ios-quick-options-menu button { padding:14px 16px; font-size:0.92rem; min-height:48px; }
+
+                        /* Send button bigger for touch */
+                        .ios-send-btn { width:36px !important; height:36px !important; font-size:0.85rem !important; }
+
+                        /* Compose input */
+                        .ios-compose-input { font-size:16px !important; }
+
+                        /* Stats/settings panels */
+                        #dialerStatsPanel, #dialerSettingsPanel { position:fixed !important; bottom:0; left:0; right:0; top:auto !important; max-height:70vh; border-radius:20px 20px 0 0 !important; z-index:250; overflow-y:auto; }
+
+                        /* Mode toggle compact */
+                        .dlr-top-bar > div:last-child { font-size:0.78rem; }
+                        .dlr-top-bar > div:last-child button { padding:5px 10px !important; font-size:0.78rem !important; }
+
+                        /* Number rotation banner */
+                        #numberRotationBanner { font-size:0.78rem !important; padding:8px 10px !important; }
+                    }
                     .ios-channel-row{display:flex;align-items:center;gap:5px;padding:2px 9px 0;}
                     .ios-channel-label{font-size:0.62rem;color:#8E8E93;font-weight:600;white-space:nowrap;}
                     .ios-channel-select{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#ccc;padding:3px 7px;border-radius:6px;font-size:0.65rem;outline:none;cursor:pointer;}
@@ -785,11 +840,27 @@
                     </div>
                 </div>
 
+                <!-- ═══ Mobile Dialer Tab Switcher (hidden on desktop) ═══ -->
+                <div class="dlr-mobile-tabs" id="dlrMobileTabs" style="display:none;">
+                    <button class="dlr-mobile-tab active" onclick="dlrMobileSwitch('contacts', this)">
+                        <i class="fa-solid fa-address-book"></i> Contacts
+                    </button>
+                    <button class="dlr-mobile-tab" onclick="dlrMobileSwitch('intel', this)">
+                        <i class="fa-solid fa-crosshairs"></i> Intel
+                    </button>
+                    <button class="dlr-mobile-tab" onclick="dlrMobileSwitch('phone', this)">
+                        <i class="fa-solid fa-comment-dots"></i> Messages
+                    </button>
+                    <button class="dlr-mobile-tab" onclick="dlrMobileSwitch('calls', this)">
+                        <i class="fa-solid fa-phone"></i> Calls
+                    </button>
+                </div>
+
                 <!-- ═══ 3-Column Layout ═══ -->
-                <div class="dlr-3col-layout" style="display:flex;gap:8px;height:calc(100vh - 260px);min-height:500px;">
+                <div class="dlr-3col-layout" id="dlr3colLayout" style="display:flex;gap:8px;height:calc(100vh - 260px);min-height:500px;">
 
                     <!-- ── LEFT: Contacts ── -->
-                    <div class="dlr-col" style="width:30%;border-radius:12px;">
+                    <div class="dlr-col dlr-mobile-active" id="dlrColContacts" style="width:30%;border-radius:12px;">
                         <div class="dlr-col-hdr">
                             <h6><i class="fa-solid fa-address-book me-1"></i>Contacts</h6>
                             <div style="display:flex;align-items:center;gap:4px;">
@@ -883,7 +954,7 @@
                     </div>
 
                     <!-- ── MIDDLE: Lead Intelligence ── -->
-                    <div class="dlr-col" style="width:35%;border-radius:12px;">
+                    <div class="dlr-col" id="dlrColIntel" style="width:35%;border-radius:12px;">
                         <div class="dlr-col-hdr">
                             <h6><i class="fa-solid fa-crosshairs me-1"></i>Lead Intelligence</h6>
                             <div id="dlrDetailActions" style="display:none;">
@@ -905,7 +976,7 @@
                     </div>
 
                     <!-- ── RIGHT: iPhone 15 Pro ── -->
-                    <div style="width:35%;display:flex;align-items:center;justify-content:center;min-height:0;">
+                    <div id="dlrColPhone" style="width:35%;display:flex;align-items:center;justify-content:center;min-height:0;">
                         <!-- iPhone 15 Pro Frame -->
                         <div class="iphone-frame">
                             <!-- Titanium outer bezel -->
