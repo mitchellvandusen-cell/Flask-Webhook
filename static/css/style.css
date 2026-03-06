@@ -325,7 +325,7 @@ footer a:hover { color: var(--accent); }
 }
 .sb-brand-logo {
     width: 32px; height: 32px; border-radius: 8px;
-    background: linear-gradient(135deg,#00ff88,#00d9ff);
+    background: #111;
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0; overflow: hidden;
 }
@@ -534,7 +534,7 @@ body.light-theme .sidebar {
 }
 body.light-theme .sb-brand { border-bottom-color: var(--lt-border); }
 body.light-theme .sb-brand-text { color: var(--lt-text-primary); }
-body.light-theme .sb-brand-logo { background: linear-gradient(135deg,#059669,#2563eb); }
+body.light-theme .sb-brand-logo { background: #1a1a2e; }
 body.light-theme .sb-toggle { color: var(--lt-text-faint); }
 body.light-theme .sb-toggle:hover { background: rgba(0,0,0,0.04); color: var(--lt-text-secondary); }
 body.light-theme .sidebar.collapsed .sb-toggle { background: var(--lt-accent-bg); border-color: var(--lt-accent-border); color: var(--lt-accent); }
