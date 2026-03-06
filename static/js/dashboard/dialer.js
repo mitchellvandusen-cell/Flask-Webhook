@@ -1441,24 +1441,24 @@
                     dispLabel = (isPast ? 'Due: ' : '') + dayStr + ' ' + timeStr;
                 } catch(e) {}
             }
-            const dispBadge = dc ? '<span style="display:inline-flex;align-items:center;gap:2px;font-size:.91rem;color:' + dc.border + ';margin-left:6px;opacity:.85;"><i class="fa-solid ' + dc.icon + '" style="font-size:.77rem;"></i>' + dispLabel + '</span>' : '';
+            const dispBadge = dc ? '<span style="display:inline-flex;align-items:center;gap:2px;font-size:.65rem;color:' + dc.border + ';margin-left:6px;opacity:.85;"><i class="fa-solid ' + dc.icon + '" style="font-size:.58rem;"></i>' + dispLabel + '</span>' : '';
 
             return '<div class="dlr-contact-row' + (isActive ? ' active' : '') + '" onclick="dialerSelectContact(\'' + c.id + '\')" style="' + rowStyle + '">' +
                 '<input type="checkbox" ' + (sel ? 'checked' : '') + ' onclick="event.stopPropagation()" onchange="dialerToggleSelect(\'' + c.id + '\')" style="accent-color:#00d9ff;width:14px;height:14px;cursor:pointer;flex-shrink:0;">' +
-                '<div style="width:30px;height:30px;border-radius:50%;background:' + (isActive ? 'rgba(0,217,255,0.15)' : 'rgba(0,217,255,0.06)') + ';border:1px solid ' + (isActive ? '#00d9ff' : 'rgba(0,217,255,0.1)') + ';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.05rem;color:#00d9ff;flex-shrink:0;position:relative;">' + init +
+                '<div style="width:30px;height:30px;border-radius:50%;background:' + (isActive ? 'rgba(0,217,255,0.15)' : 'rgba(0,217,255,0.06)') + ';border:1px solid ' + (isActive ? '#00d9ff' : 'rgba(0,217,255,0.1)') + ';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.75rem;color:#00d9ff;flex-shrink:0;position:relative;">' + init +
                     '<span class="' + liveDotCls + '"></span>' +
                 '</div>' +
                 '<div style="flex:1;min-width:0;">' +
                     '<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">' +
-                        '<span style="font-weight:600;font-size:1.23rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + dialerEsc(c.name) + '</span>' +
+                        '<span style="font-weight:600;font-size:0.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + dialerEsc(c.name) + '</span>' +
                         '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">' +
                             dots +
-                            '<span class="dlr-call-badge" data-call-badge="' + c.id + '" style="font-size:1.09rem;padding:1px 6px;">Dials: ' + callCount + '</span>' +
+                            '<span class="dlr-call-badge" data-call-badge="' + c.id + '" style="font-size:0.72rem;padding:1px 6px;">Dials: ' + callCount + '</span>' +
                         '</div>' +
                     '</div>' +
-                    '<div style="font-size:1.09rem;color:#555;">' + dialerEsc(c.phone) + dispBadge + '</div>' +
+                    '<div style="font-size:0.78rem;color:#555;">' + dialerEsc(c.phone) + dispBadge + '</div>' +
                 '</div>' +
-                (inQ ? '<i class="fa-solid fa-list-ol" style="color:#00d9ff;font-size:1.01rem;" title="In queue"></i>' : '') +
+                (inQ ? '<i class="fa-solid fa-list-ol" style="color:#00d9ff;font-size:0.72rem;" title="In queue"></i>' : '') +
             '</div>';
         }
 
@@ -1764,17 +1764,17 @@
                 html += '</div>';
                 // Name + phone
                 html += '<div style="flex:1;min-width:0;">';
-                html += '<div style="font-weight:700;font-size:2.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dialerEsc(c.name || 'Unknown') + '</div>';
-                html += '<div style="font-size:1.64rem;color:#888;">' + dialerEsc(formatPhone(c.phone)) + '</div>';
-                if (c.email) html += '<div style="font-size:1.01rem;color:#666;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dialerEsc(c.email) + '</div>';
+                html += '<div style="font-weight:700;font-size:1.25rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dialerEsc(c.name || 'Unknown') + '</div>';
+                html += '<div style="font-size:0.95rem;color:#888;">' + dialerEsc(formatPhone(c.phone)) + '</div>';
+                if (c.email) html += '<div style="font-size:0.78rem;color:#666;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dialerEsc(c.email) + '</div>';
                 html += '</div></div>';
 
                 // ── DnD / Opted Out Warning ──
                 if (optedOut) {
                     html += '<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:6px;padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px;">';
-                    html += '<i class="fa-solid fa-ban" style="color:#ef4444;font-size:1.19rem;"></i>';
-                    html += '<span style="color:#ef4444;font-size:1.09rem;font-weight:600;">Do Not Contact</span>';
-                    html += '<span style="color:#888;font-size:.98rem;margin-left:auto;">' + (c.dnd ? 'CRM DnD enabled' : 'Lead sent "Stop"') + '</span>';
+                    html += '<i class="fa-solid fa-ban" style="color:#ef4444;font-size:0.85rem;"></i>';
+                    html += '<span style="color:#ef4444;font-size:0.82rem;font-weight:600;">Do Not Contact</span>';
+                    html += '<span style="color:#888;font-size:0.72rem;margin-left:auto;">' + (c.dnd ? 'CRM DnD enabled' : 'Lead sent "Stop"') + '</span>';
                     html += '</div>';
                 }
 
@@ -1833,11 +1833,11 @@
                 const hasFields = fields.some(f => f.value);
                 if (hasFields) {
                     html += '<div style="margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04);">';
-                    html += '<div style="font-size:.95rem;font-weight:700;color:#888;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;">Contact Info</div>';
+                    html += '<div style="font-size:.72rem;font-weight:700;color:#888;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;">Contact Info</div>';
                     fields.forEach(f => {
                         if (f.value) {
                             html += '<div class="dlr-field-label"><i class="fa-solid ' + f.icon + ' me-1" style="width:12px;"></i>' + f.label + '</div>';
-                            html += '<div class="dlr-field-value" style="font-size:1.19rem;">' + dialerEsc(f.value) + '</div>';
+                            html += '<div class="dlr-field-value">' + dialerEsc(f.value) + '</div>';
                         }
                     });
                     html += '</div>';
@@ -1846,7 +1846,7 @@
                 // Tags
                 if (c.tags && c.tags.length) {
                     html += '<div style="margin-top:6px;"><div class="dlr-field-label">Tags</div>';
-                    html += '<div style="margin-bottom:8px;">' + c.tags.map(t => '<span style="display:inline-block;background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;padding:2px 8px;border-radius:4px;font-size:1.01rem;margin:0 4px 4px 0;">' + dialerEsc(t) + '</span>').join('') + '</div></div>';
+                    html += '<div style="margin-bottom:8px;">' + c.tags.map(t => '<span style="display:inline-block;background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;padding:2px 8px;border-radius:4px;font-size:0.75rem;margin:0 4px 4px 0;">' + dialerEsc(t) + '</span>').join('') + '</div></div>';
                 }
 
                 // Custom Fields
@@ -1854,11 +1854,11 @@
                     const filled = c.customFields.filter(cf => cf.value);
                     if (filled.length) {
                         html += '<div style="margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04);">';
-                        html += '<div style="font-size:.95rem;font-weight:700;color:#00d9ff;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">CRM Custom Fields</div>';
+                        html += '<div style="font-size:.72rem;font-weight:700;color:#00d9ff;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">CRM Custom Fields</div>';
                         filled.forEach(cf => {
                             const name = cf.name || cf.fieldKey || 'Field';
                             html += '<div class="dlr-field-label">' + dialerEsc(name) + '</div>';
-                            html += '<div class="dlr-field-value" style="font-size:1.19rem;">' + dialerEsc(String(cf.value)) + '</div>';
+                            html += '<div class="dlr-field-value">' + dialerEsc(String(cf.value)) + '</div>';
                         });
                         html += '</div>';
                     }
@@ -1887,7 +1887,7 @@
                         if (words.length > 30) narrText = words.slice(0, 30).join(' ') + '...';
                         html += '<div class="igb-summary-card" style="margin-top:8px;">';
                         html += '<div class="igb-summary-hdr"><i class="fa-solid fa-robot"></i><span>AI Summary</span>';
-                        if (eng.narrative.updated_at) html += '<span style="margin-left:auto;font-size:.84rem;color:#444;">' + _igbTimeAgo(eng.narrative.updated_at) + '</span>';
+                        if (eng.narrative.updated_at) html += '<span style="margin-left:auto;font-size:.65rem;color:#444;">' + _igbTimeAgo(eng.narrative.updated_at) + '</span>';
                         html += '</div>';
                         html += '<div class="igb-summary-body">' + dialerEsc(narrText) + '</div>';
                         html += '</div>';
@@ -1898,7 +1898,7 @@
                 const _showFacts = window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.showKnownFacts !== false;
                 if (_showFacts && eng && eng.facts && eng.facts.length) {
                     html += '<div style="margin-top:8px;margin-bottom:10px;">';
-                    html += '<div style="font-size:.95rem;font-weight:700;color:#4ade80;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;"><i class="fa-solid fa-brain me-1"></i>Known Facts</div>';
+                    html += '<div style="font-size:.72rem;font-weight:700;color:#4ade80;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;"><i class="fa-solid fa-brain me-1"></i>Known Facts</div>';
                     html += '<ul class="igb-facts-list">';
                     eng.facts.forEach(function(f) {
                         // Frontend 10-word hard cap
@@ -1918,9 +1918,9 @@
                 // Notes
                 if (c.notes && c.notes.length) {
                     html += '<div style="margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04);">';
-                    html += '<div style="font-size:.95rem;font-weight:700;color:#aaa;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;">Notes</div>';
+                    html += '<div style="font-size:.72rem;font-weight:700;color:#aaa;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;">Notes</div>';
                     c.notes.forEach(n => {
-                        html += '<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:6px;padding:8px 10px;margin-bottom:6px;font-size:1.09rem;color:#bbb;">' + dialerEsc(n.body) + '<div style="font-size:.91rem;color:#555;margin-top:3px;">' + (n.dateAdded ? new Date(n.dateAdded).toLocaleDateString() : '') + '</div></div>';
+                        html += '<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:6px;padding:8px 10px;margin-bottom:6px;font-size:0.82rem;color:#bbb;">' + dialerEsc(n.body) + '<div style="font-size:.68rem;color:#555;margin-top:3px;">' + (n.dateAdded ? new Date(n.dateAdded).toLocaleDateString() : '') + '</div></div>';
                     });
                     html += '</div>';
                 }
