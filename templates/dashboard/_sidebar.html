@@ -31,6 +31,10 @@
                         <i class="fa-solid fa-phone"></i>
                         <span class="sb-nav-label">Voice Config</span>
                     </button>
+                    <button class="sb-nav-item" id="sbnAiMinutes" onclick="sidebarNavigate('aiminutes', this); loadAiMinutes();">
+                        <i class="fa-solid fa-clock"></i>
+                        <span class="sb-nav-label">AI Minutes</span>
+                    </button>
                     <button class="sb-nav-item" id="sbnWorkflows" onclick="sidebarNavigate('workflows', this)">
                         <i class="fa-solid fa-diagram-project"></i>
                         <span class="sb-nav-label">Workflows</span>
@@ -38,6 +42,10 @@
                     <a class="sb-nav-item" href="https://ai-lifeinsurance-training-production.up.railway.app/" target="_blank" rel="noopener" style="text-decoration:none;">
                         <i class="fa-solid fa-graduation-cap"></i>
                         <span class="sb-nav-label">Training</span>
+                    </a>
+                    <a href="/onboarding-status" class="sb-nav-item">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <span class="sb-nav-label">Setup Progress</span>
                     </a>
                     <a href="/affiliate" class="sb-nav-item" target="_blank" rel="noopener">
                         <i class="fa-solid fa-handshake"></i>
@@ -79,10 +87,6 @@
                         <i class="fa-solid fa-wand-magic-sparkles"></i>
                         <span class="sb-nav-label">Advanced Settings</span>
                     </button>
-                    <button class="sb-nav-item" id="sbnAiMinutes" onclick="sidebarNavigate('aiminutes', this); loadAiMinutes();">
-                        <i class="fa-solid fa-clock"></i>
-                        <span class="sb-nav-label">AI Minutes</span>
-                    </button>
                     <button class="sb-nav-item" id="sbnBilling" onclick="sidebarNavigate('billing', this)">
                         <i class="fa-solid fa-credit-card"></i>
                         <span class="sb-nav-label">Billing</span>
@@ -91,10 +95,6 @@
                         <i class="fa-solid fa-list-check"></i>
                         <span class="sb-nav-label">Activity Logs</span>
                     </button>
-                    <a href="/onboarding-status" class="sb-nav-item">
-                        <i class="fa-solid fa-circle-check"></i>
-                        <span class="sb-nav-label">Setup Progress</span>
-                    </a>
                 </div>
             </div>
 

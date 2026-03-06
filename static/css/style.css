@@ -1963,26 +1963,32 @@ body { padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(sa
 
 /* ── Tablet (≤991px) ── */
 @media (max-width: 991px) {
-    /* Full-screen mobile nav overlay — bypasses Bootstrap collapse entirely */
+    /* Full-screen mobile nav overlay — higher specificity to override Bootstrap */
+    .navbar-expand-lg .navbar-collapse,
+    .navbar .navbar-collapse,
     .navbar-collapse {
-        position: fixed !important; top: 0; left: 0; right: 0; bottom: 0;
+        position: fixed !important; inset: 0 !important;
         width: 100% !important; height: 100vh !important; height: 100dvh !important;
         background: #050505 !important;
-        z-index: 9998; padding: 100px 24px 40px;
-        display: none; flex-direction: column;
-        overflow-y: auto;
+        z-index: 9998 !important; padding: 100px 24px 40px;
+        display: none !important; flex-direction: column;
+        overflow-y: auto; -webkit-overflow-scrolling: touch;
     }
+    /* Show when toggled — must beat all hide rules */
+    .navbar-expand-lg .navbar-collapse.show,
+    .navbar .navbar-collapse.show,
     .navbar-collapse.show {
         display: flex !important;
+        flex-direction: column !important;
     }
     /* Kill any Bootstrap collapse/collapsing transition interference */
     .navbar-collapse.collapse,
     .navbar-collapse.collapsing {
-        display: none;
+        display: none !important;
     }
-    .navbar-collapse.collapse.show,
-    .navbar-collapse.show {
+    .navbar-collapse.collapse.show {
         display: flex !important;
+        flex-direction: column !important;
     }
     .navbar-collapse .navbar-nav {
         flex-direction: column; gap: 4px; width: 100%;
@@ -2008,7 +2014,13 @@ body { padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(sa
         text-align: center; justify-content: center;
         padding: 14px 24px !important; font-size: 1rem !important;
     }
-    .navbar-toggler { z-index: 9999; border: none !important; box-shadow: none !important; }
+    /* Ensure toggler is always visible on mobile — override Bootstrap's potential hide */
+    .navbar-expand-lg .navbar-toggler,
+    .navbar .navbar-toggler,
+    .navbar-toggler {
+        display: block !important;
+        z-index: 9999; border: none !important; box-shadow: none !important;
+    }
     .navbar-toggler:focus { box-shadow: none !important; }
 
     .container { overflow-x: hidden; max-width: 100%; padding-left: 16px; padding-right: 16px; }
@@ -2303,23 +2315,24 @@ body { padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(sa
 
 /* ── Phone screens (≤768px) — PUBLIC WEBSITE ── */
 @media (max-width: 768px) {
-    /* Navbar fixes */
+    /* Navbar compact for phones */
     .navbar { padding: 0.6rem 0; }
     .navbar-brand { font-size: 1.2rem; }
-    .navbar-toggler { padding: 6px 8px; }
+    .navbar-expand-lg .navbar-toggler,
+    .navbar-toggler { display: block !important; padding: 6px 8px; }
 
-    /* Full-screen mobile nav — override the 991px rule too */
+    /* Tighter padding on phone-width nav overlay (inherits fixed/inset from 991px rule) */
+    .navbar-expand-lg .navbar-collapse,
+    .navbar .navbar-collapse,
     .navbar-collapse {
-        position: fixed !important; top: 0; left: 0; right: 0; bottom: 0;
-        width: 100% !important; height: 100vh !important; height: 100dvh !important;
-        background: #050505 !important;
-        z-index: 9998; padding: 90px 20px 40px;
-        display: none; flex-direction: column;
-        overflow-y: auto;
+        padding: 90px 20px 40px;
     }
-    .navbar-collapse.show { display: flex !important; }
-    .navbar-collapse.collapse { display: none; }
-    .navbar-collapse.collapse.show { display: flex !important; }
+    .navbar-expand-lg .navbar-collapse.show,
+    .navbar .navbar-collapse.show,
+    .navbar-collapse.show {
+        display: flex !important;
+        flex-direction: column !important;
+    }
 
     /* Hero */
     .hero { min-height: auto; padding: 100px 0 60px; }
