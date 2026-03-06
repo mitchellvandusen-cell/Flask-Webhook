@@ -14,10 +14,13 @@ from flask import Blueprint, request, jsonify as flask_jsonify
 
 import extensions
 from extensions import ADMIN_EMAILS, safe_jsonify
-from email_templates import _build_install_welcome_email
+from email_templates import (_build_install_welcome_email,
+                             _build_uninstall_feedback_email,
+                             _build_uninstall_admin_notification)
 from send_email_api import send_email_via_api
 from db import (get_db_connection, return_db_connection, log_webhook_event,
-                save_marketplace_install, save_persistent_alert, mark_setup_email_sent)
+                save_marketplace_install, save_persistent_alert, mark_setup_email_sent,
+                save_uninstall_record, get_subscriber_info_sql, find_marketplace_email)
 from tasks import process_webhook_task
 
 logger = logging.getLogger(__name__)
@@ -228,8 +231,9 @@ def webhook():
 @webhooks_bp.route("/webhook/app-installed", methods=["POST"])
 def app_installed_webhook():
     """
-    GHL Marketplace 'app.installed' webhook.
+    GHL Marketplace 'app.installed' + 'UNINSTALL' webhook.
     Captures install events before or if OAuth redirect never fires.
+    Also handles uninstall events — sends farewell feedback email.
     Configure in GHL Developer Portal > Webhooks > app.installed.
     """
     try:
@@ -237,7 +241,13 @@ def app_installed_webhook():
     except Exception:
         payload = {}
 
-    logger.info(f"=== APP.INSTALLED WEBHOOK === payload keys: {list(payload.keys())}")
+    logger.info(f"=== APP WEBHOOK === payload keys: {list(payload.keys())}")
+
+    # ── Handle UNINSTALL events ──────────────────────────────────────────────
+    event_type = (payload.get("type") or payload.get("event") or "").upper()
+    if event_type == "UNINSTALL":
+        return _handle_uninstall(payload)
+
     log_webhook_event("marketplace", "app_installed", "info",
                       "App install webhook received",
                       details={"payload": payload})
@@ -293,6 +303,93 @@ def app_installed_webhook():
             pass
 
     return safe_jsonify({"status": "received", "install_id": install_id}), 200
+
+
+def _handle_uninstall(payload: dict):
+    """Handle GHL UNINSTALL webhook — save record, send feedback email + admin notification."""
+    data        = payload.get("data", payload)
+    company_id  = data.get("companyId") or payload.get("companyId") or ""
+    location_id = data.get("locationId") or payload.get("locationId") or ""
+
+    log_webhook_event("marketplace", "app_uninstalled", "info",
+                      f"App uninstalled: location={location_id}, company={company_id}",
+                      details={"payload": payload})
+
+    # Try to find the user's email from subscribers or marketplace_installs
+    user_email = ""
+    user_name  = ""
+    if location_id:
+        sub = get_subscriber_info_sql(location_id)
+        if sub:
+            user_email = sub.get("email") or ""
+            user_name  = sub.get("full_name") or ""
+    if not user_email and (location_id or company_id):
+        mkt = find_marketplace_email(location_id=location_id, company_id=company_id)
+        if mkt:
+            user_email = mkt.get("user_email") or ""
+            user_name  = user_name or mkt.get("user_name") or ""
+
+    # Save uninstall record
+    record_id = save_uninstall_record(payload, location_id, company_id, user_email, user_name)
+    if not record_id:
+        logger.error("Failed to save uninstall record")
+        return safe_jsonify({"status": "error", "detail": "db_save_failed"}), 500
+
+    domain_url   = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+    display_name = user_name or "there"
+    admin_email  = "mitch@insurancegrokbot.com"
+
+    # Send farewell feedback email to the user (if we have their email)
+    if user_email:
+        try:
+            html_body = _build_uninstall_feedback_email(display_name, domain_url, record_id)
+            text_body = (
+                f"Hi {display_name}, we're sorry to see you go. "
+                f"We'd love your feedback: {domain_url}/uninstall-feedback?id={record_id}"
+            )
+            sent = send_email_via_api(
+                to_email=user_email,
+                subject="We're sorry to see you go — quick feedback?",
+                html_body=html_body,
+                text_body=text_body,
+            )
+            if sent:
+                log_webhook_event("marketplace", "uninstall_feedback_email", "success",
+                                  f"Farewell email sent to {user_email} (record #{record_id})")
+            else:
+                log_webhook_event("marketplace", "uninstall_feedback_email", "error",
+                                  f"Failed to send farewell email to {user_email}")
+        except Exception as email_err:
+            logger.error(f"Uninstall farewell email error: {email_err}")
+
+    # Send admin notification to mitch@insurancegrokbot.com
+    try:
+        admin_html = _build_uninstall_admin_notification(
+            location_id, company_id, user_email, user_name, record_id
+        )
+        send_email_via_api(
+            to_email=admin_email,
+            subject=f"App Uninstalled — {user_name or 'Unknown'} ({location_id or 'N/A'})",
+            html_body=admin_html,
+            text_body=f"App uninstalled: {user_name} ({user_email}), location={location_id}, company={company_id}",
+        )
+    except Exception as admin_err:
+        logger.error(f"Uninstall admin notification error: {admin_err}")
+
+    # Persistent alert for admin dashboard
+    try:
+        for ae in ADMIN_EMAILS[:1]:
+            save_persistent_alert(
+                ae, location_id or "marketplace",
+                "app_uninstalled", "warning",
+                "App Uninstalled",
+                f"Uninstall: {user_name or 'Unknown'} ({user_email or 'no email'}) "
+                f"— Location: {location_id or 'N/A'}"
+            )
+    except Exception:
+        pass
+
+    return safe_jsonify({"status": "received", "uninstall_id": record_id}), 200
 
 
 # ── Website chat bot ──────────────────────────────────────────────────────────

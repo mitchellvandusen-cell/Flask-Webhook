@@ -2,10 +2,17 @@
 #
 # All routes here are unauthenticated, read-only marketing and informational pages.
 # No database writes; no login_required.
+# Exception: /uninstall-feedback accepts POST for feedback submission.
+
+import logging
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from crm_adapters.factory import list_available_crms, CRM_DISPLAY_NAMES
 from forms import ReviewForm
+from db import get_uninstall_feedback, save_uninstall_feedback
+from send_email_api import send_email_via_api
+
+logger = logging.getLogger(__name__)
 
 public_bp = Blueprint('public', __name__)
 
@@ -104,3 +111,71 @@ def reviews():
 
     visible_reviews = [r for r in all_reviews if r['stars'] == 5]
     return render_template('reviews.html', reviews=visible_reviews, form=form)
+
+
+# ── Uninstall feedback ────────────────────────────────────────────────────────
+
+UNINSTALL_REASONS = [
+    ("didnt_know_subscription", "Didn't know it was subscription based"),
+    ("too_complicated", "Too complicated"),
+    ("too_expensive", "Too expensive"),
+    ("not_my_industry", "Not my industry"),
+    ("didnt_know_next", "Didn't know what to do next"),
+    ("other", "Other"),
+]
+
+
+@public_bp.route("/uninstall-feedback", methods=["GET", "POST"])
+def uninstall_feedback():
+    """Public feedback page for users who uninstalled the app."""
+    feedback_id = request.args.get("id") or request.form.get("id")
+    if not feedback_id:
+        return render_template("uninstall-feedback.html", valid=False)
+
+    try:
+        feedback_id = int(feedback_id)
+    except (ValueError, TypeError):
+        return render_template("uninstall-feedback.html", valid=False)
+
+    record = get_uninstall_feedback(feedback_id)
+    if not record:
+        return render_template("uninstall-feedback.html", valid=False)
+
+    # Already submitted
+    if record.get("feedback_submitted_at"):
+        return render_template("uninstall-feedback.html", valid=True, already_submitted=True)
+
+    if request.method == "POST":
+        reason = request.form.get("reason", "").strip()
+        other_text = request.form.get("other_text", "").strip()[:1000]
+
+        if reason:
+            save_uninstall_feedback(feedback_id, reason, other_text)
+
+            # Send notification to mitch with the feedback
+            reason_label = dict(UNINSTALL_REASONS).get(reason, reason)
+            try:
+                notify_html = f'''<html><body style="font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px;">
+<div style="max-width: 500px; margin: 0 auto; background: #fff; border-radius: 8px; padding: 24px; border-left: 4px solid #00c853;">
+    <h2 style="margin: 0 0 12px; color: #333;">Uninstall Feedback Received</h2>
+    <table style="width: 100%; font-size: 14px; color: #555;">
+        <tr><td style="padding: 4px 0; font-weight: bold;">User:</td><td>{record.get("user_name") or "Unknown"} ({record.get("user_email") or "no email"})</td></tr>
+        <tr><td style="padding: 4px 0; font-weight: bold;">Location:</td><td>{record.get("location_id") or "N/A"}</td></tr>
+        <tr><td style="padding: 4px 0; font-weight: bold;">Reason:</td><td style="color: #ff6b35; font-weight: bold;">{reason_label}</td></tr>
+        {"<tr><td style='padding: 4px 0; font-weight: bold;'>Details:</td><td>" + other_text + "</td></tr>" if other_text else ""}
+    </table>
+</div>
+</body></html>'''
+                send_email_via_api(
+                    to_email="mitch@insurancegrokbot.com",
+                    subject=f"Uninstall Feedback: {reason_label} — {record.get('user_name') or 'Unknown'}",
+                    html_body=notify_html,
+                    text_body=f"Reason: {reason_label}. Details: {other_text or 'N/A'}. User: {record.get('user_name')} ({record.get('user_email')})",
+                )
+            except Exception as e:
+                logger.error(f"Failed to send feedback notification: {e}")
+
+            return render_template("uninstall-feedback.html", valid=True, submitted=True)
+
+    return render_template("uninstall-feedback.html", valid=True,
+                           feedback_id=feedback_id, reasons=UNINSTALL_REASONS)

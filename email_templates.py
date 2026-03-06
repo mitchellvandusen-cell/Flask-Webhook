@@ -111,6 +111,79 @@ def _build_setup_checklist_html(missing: list, domain_url: str, user_type: str) 
     return f'<table cellpadding="0" cellspacing="0" style="width: 100%;">{rows}</table>'
 
 
+def _build_uninstall_feedback_email(name: str, domain_url: str, feedback_id: int) -> str:
+    """Build farewell email asking for uninstall feedback with link to feedback page."""
+    feedback_url = f"{domain_url}/uninstall-feedback?id={feedback_id}"
+    inner = f'''
+<tr>
+<td style="padding: 0 40px 10px;">
+    <h1 style="margin: 0 0 8px; font-size: 26px; font-weight: 800; color: #ffffff; line-height: 1.2;">
+        We're sorry to see you go, {name}.
+    </h1>
+    <p style="margin: 0; font-size: 15px; color: #aaa; line-height: 1.6;">
+        Your InsuranceGrokBot app has been uninstalled. We hope we served you well &mdash; and we'd love to know how we can improve.
+    </p>
+</td>
+</tr>
+
+<!-- Feedback CTA -->
+<tr>
+<td style="padding: 20px 40px 10px;">
+    <div style="background: rgba(255,107,53,0.08); border: 1px solid rgba(255,107,53,0.2); border-radius: 14px; padding: 28px 24px; text-align: center;">
+        <p style="margin: 0 0 6px; font-size: 18px; font-weight: 700; color: #ff6b35;">
+            &#128172; Quick Feedback (30 seconds)
+        </p>
+        <p style="margin: 0 0 20px; font-size: 14px; color: #bbb; line-height: 1.5;">
+            Your feedback helps us build a better product for insurance agents like you. Just pick a reason &mdash; it means a lot.
+        </p>
+        <a href="{feedback_url}" style="display: inline-block; padding: 14px 36px; background: linear-gradient(135deg, #ff6b35, #ff8f00); color: #ffffff; font-weight: 700; font-size: 16px; text-decoration: none; border-radius: 12px; letter-spacing: 0.3px;">
+            Share Your Feedback
+        </a>
+    </div>
+</td>
+</tr>
+
+<!-- Come back message -->
+<tr>
+<td style="padding: 20px 40px 10px;">
+    <p style="margin: 0; font-size: 14px; color: #888; line-height: 1.7; text-align: center;">
+        Changed your mind? You can always reinstall from the
+        <a href="https://marketplace.gohighlevel.com/" style="color: #00c853; text-decoration: none; font-weight: 600;">GHL Marketplace</a>
+        &mdash; your settings will be waiting.
+    </p>
+</td>
+</tr>
+
+<!-- Support -->
+<tr>
+<td style="padding: 10px 40px 10px;">
+    <p style="margin: 0; font-size: 13px; color: #666; line-height: 1.6; text-align: center;">
+        Questions? Reach us at <a href="mailto:support@insurancegrokbot.com" style="color: #00c853; text-decoration: none;">support@insurancegrokbot.com</a>
+    </p>
+</td>
+</tr>
+'''
+    return _email_wrapper(inner, domain_url)
+
+
+def _build_uninstall_admin_notification(location_id: str, company_id: str,
+                                         user_email: str, user_name: str,
+                                         feedback_id: int) -> str:
+    """Build admin notification email about an uninstall event."""
+    return f'''<html><body style="font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px;">
+<div style="max-width: 500px; margin: 0 auto; background: #fff; border-radius: 8px; padding: 24px; border-left: 4px solid #ff6b35;">
+    <h2 style="margin: 0 0 12px; color: #333;">App Uninstalled</h2>
+    <table style="width: 100%; font-size: 14px; color: #555;">
+        <tr><td style="padding: 4px 0; font-weight: bold;">User:</td><td>{user_name or "Unknown"} ({user_email or "no email"})</td></tr>
+        <tr><td style="padding: 4px 0; font-weight: bold;">Location ID:</td><td>{location_id or "N/A"}</td></tr>
+        <tr><td style="padding: 4px 0; font-weight: bold;">Company ID:</td><td>{company_id or "N/A"}</td></tr>
+        <tr><td style="padding: 4px 0; font-weight: bold;">Feedback ID:</td><td>#{feedback_id}</td></tr>
+    </table>
+    <p style="margin: 16px 0 0; font-size: 13px; color: #888;">Feedback email has been sent to the user (if email was available). You'll receive a follow-up when they submit their reason.</p>
+</div>
+</body></html>'''
+
+
 def _build_install_welcome_email(name: str, domain_url: str) -> str:
     """Build premium welcome email for marketplace install — guides them through full setup flow."""
     inner = f'''
