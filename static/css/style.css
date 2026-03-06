@@ -327,7 +327,7 @@ footer a:hover { color: var(--accent); }
     width: 32px; height: 32px; border-radius: 8px;
     background: linear-gradient(135deg,#00ff88,#00d9ff);
     display: flex; align-items: center; justify-content: center;
-    font-weight: 900; font-size: 0.9rem; color: #000; flex-shrink: 0;
+    flex-shrink: 0; overflow: hidden;
 }
 .sb-brand-text { font-weight: 800; font-size: 1rem; white-space: nowrap; overflow: hidden; transition: opacity 0.2s, max-width 0.25s; max-width: 200px; }
 .sb-toggle {
