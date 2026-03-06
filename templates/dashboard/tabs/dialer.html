@@ -224,15 +224,15 @@
                         radial-gradient(ellipse at 20% 70%, rgba(175,82,222,0.5) 0%, transparent 45%),
                         linear-gradient(160deg, #1c1c3a 0%, #0d1b2a 50%, #0a0e1a 100%);
                     z-index:0;}
-                    .ios-app-grid{flex:1;display:flex;align-items:center;justify-content:center;gap:16px;padding:18px 12px;position:relative;z-index:1;flex-wrap:wrap;align-content:center;}
+                    .ios-app-grid{flex:1;display:grid;grid-template-columns:repeat(3,1fr);align-items:start;justify-items:center;gap:20px 12px;padding:24px 16px;position:relative;z-index:1;align-content:center;}
                     .ios-app-icon{display:flex;flex-direction:column;align-items:center;gap:5px;background:none;border:none;cursor:pointer;position:relative;transition:transform 0.15s;-webkit-tap-highlight-color:transparent;}
                     .ios-app-icon:hover{transform:scale(1.08);}
                     .ios-app-icon:active{transform:scale(0.95);}
-                    .ios-icon{width:54px;height:54px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.3);}
+                    .ios-icon{width:64px;height:64px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:2.1rem;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.3);}
                     .ios-icon-messages{background:linear-gradient(180deg,#65D66A 0%,#34C759 100%);}
                     .ios-icon-phone{background:linear-gradient(180deg,#65D66A 0%,#34C759 100%);}
                     .ios-icon-voicemail{background:linear-gradient(180deg,#FF9F0A 0%,#FF9500 100%);}
-                    .ios-app-label{font-size:0.62rem;color:#fff;font-weight:500;text-shadow:0 1px 3px rgba(0,0,0,0.6);letter-spacing:-0.1px;}
+                    .ios-app-label{font-size:0.775rem;color:#fff;font-weight:500;text-shadow:0 1px 3px rgba(0,0,0,0.6);letter-spacing:-0.1px;}
                     .ios-badge{position:absolute;top:-4px;right:-4px;background:#FF3B30;color:#fff;font-size:0.65rem;font-weight:800;min-width:20px;height:20px;border-radius:10px;display:flex;align-items:center;justify-content:center;padding:0 5px;border:2px solid #000;z-index:2;}
 
                     /* Home Indicator */

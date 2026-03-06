@@ -1764,8 +1764,8 @@
                 html += '</div>';
                 // Name + phone
                 html += '<div style="flex:1;min-width:0;">';
-                html += '<div style="font-weight:700;font-size:1.05rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dialerEsc(c.name || 'Unknown') + '</div>';
-                html += '<div style="font-size:.78rem;color:#888;">' + dialerEsc(formatPhone(c.phone)) + '</div>';
+                html += '<div style="font-weight:700;font-size:1.575rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dialerEsc(c.name || 'Unknown') + '</div>';
+                html += '<div style="font-size:1.17rem;color:#888;">' + dialerEsc(formatPhone(c.phone)) + '</div>';
                 if (c.email) html += '<div style="font-size:.72rem;color:#666;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dialerEsc(c.email) + '</div>';
                 html += '</div></div>';
 
