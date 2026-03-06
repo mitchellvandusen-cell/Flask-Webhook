@@ -2308,6 +2308,26 @@
             dlrUpdateCharCount(text);
         }
 
+        // ── Quick Options popup menu ──
+        function dlrToggleQuickOptions(e) {
+            e.stopPropagation();
+            const menu = document.getElementById('dlrQuickOptionsMenu');
+            if (!menu) return;
+            menu.classList.toggle('open');
+        }
+        function dlrQuickOption(text) {
+            dlrSetQuickReply(text);
+            const menu = document.getElementById('dlrQuickOptionsMenu');
+            if (menu) menu.classList.remove('open');
+        }
+        // Close menu when clicking outside
+        document.addEventListener('click', function(e) {
+            const menu = document.getElementById('dlrQuickOptionsMenu');
+            if (menu && menu.classList.contains('open') && !e.target.closest('.ios-quick-options-wrap')) {
+                menu.classList.remove('open');
+            }
+        });
+
         // ── SMS: AI draft (InsuranceGrokBot suggest) ──
         async function dlrAiSuggest() {
             const btn = document.getElementById('dlrAiDraftBtn');
