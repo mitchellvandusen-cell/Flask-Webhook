@@ -3,8 +3,8 @@
    ========================================= */
 
 html {
-    /* Responsive base: ~12px on 1920p, scales smoothly to ~20px on 4K/ultra-wide monitors */
-    font-size: clamp(12px, calc(0.417vw + 4px), 20px);
+    /* Responsive base: 12px at 1080p, scales proportionally to 24px at 4K (true 2× scaling) */
+    font-size: clamp(12px, 0.625vw, 24px);
 }
 
 :root {
