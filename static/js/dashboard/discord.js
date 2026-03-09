@@ -81,7 +81,7 @@ function renderDiscordServers(servers) {
                 <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(s.name)}</span>
                 ${statusDot}
                 <span class="discord-notif-count" id="srvNotif_${s.guild_id}" style="display:none;"></span>
-                <i class="fa-solid fa-chevron-right discord-server-chevron" style="font-size:0.5rem;color:#444;transition:transform 0.2s;margin-left:4px;"></i>
+                <i class="fa-solid fa-chevron-right discord-server-chevron" style="font-size:0.75rem;color:#444;transition:transform 0.2s;margin-left:4px;"></i>
             </button>
             <div class="discord-channel-list" id="chList_${s.guild_id}"></div>
         </div>`;
@@ -759,7 +759,7 @@ function renderGuildModal() {
             ${iconHtml}
             <div style="flex:1;min-width:0;">
                 <div class="discord-guild-name">${escapeHtml(g.name)}</div>
-                <div style="font-size:0.72rem;color:#555;">Bot not in server</div>
+                <div style="font-size:0.75rem;color:#555;">Bot not in server</div>
             </div>
             <button onclick="inviteBotFromModal('${g.id}','${escapeJs(g.name)}','${g.icon || ''}')"
                 style="flex-shrink:0;background:#5865f2;border:none;color:#fff;border-radius:6px;
@@ -811,7 +811,7 @@ function inviteBotFromModal(guildId, guildName, guildIcon) {
                     <div class="discord-guild-icon">${(guildName || 'S')[0].toUpperCase()}</div>
                     <div style="flex:1;min-width:0;">
                         <div class="discord-guild-name">${escapeHtml(guildName)}</div>
-                        <div style="font-size:0.72rem;color:#555;"><i class="fa-solid fa-spinner fa-spin me-1"></i>Waiting for bot to join…</div>
+                        <div style="font-size:0.75rem;color:#555;"><i class="fa-solid fa-spinner fa-spin me-1"></i>Waiting for bot to join…</div>
                     </div>`;
             }
 

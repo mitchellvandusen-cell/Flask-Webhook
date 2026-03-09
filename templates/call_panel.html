@@ -38,7 +38,7 @@
         .panel-header .badge-active {
             background: rgba(0,255,136,0.12); color: var(--accent);
             border: 1px solid rgba(0,255,136,0.25); padding: 3px 10px;
-            border-radius: 12px; font-size: 0.7rem; font-weight: 600;
+            border-radius: 12px; font-size: 0.75rem; font-weight: 600;
         }
 
         /* Search bar */
@@ -126,7 +126,7 @@
         .queue-header h6 { margin: 0; font-weight: 700; font-size: 0.88rem; }
         .queue-count {
             background: rgba(0,217,255,0.1); color: var(--cyan);
-            padding: 2px 10px; border-radius: 10px; font-size: 0.72rem; font-weight: 600;
+            padding: 2px 10px; border-radius: 10px; font-size: 0.75rem; font-weight: 600;
         }
         .queue-list { max-height: 150px; overflow-y: auto; margin-bottom: 10px; }
         .queue-item {
@@ -139,17 +139,17 @@
         .queue-item .queue-num {
             width: 20px; height: 20px; border-radius: 50%;
             background: rgba(255,255,255,0.06); display: flex; align-items: center;
-            justify-content: center; font-size: 0.65rem; font-weight: 700;
+            justify-content: center; font-size: 0.75rem; font-weight: 700;
             color: var(--text-dim); flex-shrink: 0;
         }
         .queue-item.active-call .queue-num {
             background: rgba(0,255,136,0.15); color: var(--accent);
         }
         .queue-item .qi-name { flex: 1; }
-        .queue-item .qi-status { font-size: 0.7rem; color: var(--text-dim); }
+        .queue-item .qi-status { font-size: 0.75rem; color: var(--text-dim); }
         .queue-item .qi-remove {
             background: none; border: none; color: #555; cursor: pointer;
-            font-size: 0.7rem; padding: 2px 4px;
+            font-size: 0.75rem; padding: 2px 4px;
         }
         .queue-item .qi-remove:hover { color: var(--danger); }
 
@@ -237,7 +237,7 @@
     <div class="panel-header">
         <i class="fa-solid fa-phone-volume" style="color: var(--cyan); font-size: 1.1rem;"></i>
         <h5>AI Dialer</h5>
-        <span class="badge-active"><i class="fa-solid fa-circle" style="font-size: 0.4rem; vertical-align: middle; margin-right: 4px;"></i>Voice AI</span>
+        <span class="badge-active"><i class="fa-solid fa-circle" style="font-size: 0.65rem; vertical-align: middle; margin-right: 4px;"></i>Voice AI</span>
     </div>
 
     <!-- Active Call Banner -->
@@ -657,7 +657,7 @@
     }
 
     function getStatusIcon(status, attempts) {
-        const attemptStr = attempts > 0 ? ` <span style="opacity:0.5;font-size:0.65rem;">${attempts}/${MAX_DIAL_ATTEMPTS}</span>` : '';
+        const attemptStr = attempts > 0 ? ` <span style="opacity:0.5;font-size:0.75rem;">${attempts}/${MAX_DIAL_ATTEMPTS}</span>` : '';
         const map = {
             'pending': '<span style="color:#555;">Waiting</span>' + attemptStr,
             'initiated': '<i class="fa-solid fa-spinner fa-spin" style="color:var(--cyan);"></i>' + attemptStr,

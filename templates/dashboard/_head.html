@@ -180,7 +180,7 @@
             border-radius: 12px;
             color: #888;
             font-weight: 600;
-            font-size: 0.85rem;
+            font-size: var(--fs-base);
             cursor: pointer;
             transition: all 0.3s;
             text-align: center;
@@ -210,14 +210,14 @@
             border: 1px solid rgba(0, 255, 136, 0.15);
             color: var(--accent);
             font-weight: 800;
-            font-size: 0.8rem;
+            font-size: var(--fs-sm);
             display: flex; align-items: center; justify-content: center;
             flex-shrink: 0;
         }
         .wf-step-text {
             color: #ccc;
-            font-size: 0.9rem;
-            line-height: 1.5;
+            font-size: var(--fs-base);
+            line-height: var(--lh-normal);
         }
         .wf-step-text strong { color: #fff; }
 
@@ -254,8 +254,8 @@
         .wf-tag-reengage { border-color: rgba(66,165,245,0.12); }
         .wf-tag-desc {
             color: #999;
-            font-size: 0.82rem;
-            line-height: 1.55;
+            font-size: var(--fs-base);
+            line-height: var(--lh-normal);
             margin-bottom: 14px;
         }
         .wf-tag-detail {
@@ -270,7 +270,7 @@
             padding: 5px 10px;
             background: rgba(0,0,0,0.15);
             border-radius: 8px;
-            font-size: 0.78rem;
+            font-size: var(--fs-sm);
         }
         .wf-tag-detail-label { color: #666; }
         .wf-tag-detail-val { color: #bbb; font-weight: 600; }
@@ -284,15 +284,15 @@
             background: rgba(0,0,0,0.15);
             border-radius: 8px;
         }
-        .wf-date-range { color: #888; font-size: 0.8rem; font-weight: 600; }
-        .wf-date-type { font-size: 0.8rem; font-weight: 700; }
+        .wf-date-range { color: #888; font-size: var(--fs-sm); font-weight: 600; }
+        .wf-date-type { font-size: var(--fs-sm); font-weight: 700; }
         .wf-cf-chip {
             background: rgba(156,39,176,0.08);
             border: 1px solid rgba(156,39,176,0.2);
             color: #ce93d8;
             padding: 3px 10px;
             border-radius: 6px;
-            font-size: 0.78rem;
+            font-size: var(--fs-sm);
             font-family: 'JetBrains Mono', monospace;
         }
 
@@ -303,7 +303,7 @@
             gap: 12px;
             padding: 10px 12px;
             border-bottom: 1px solid rgba(255,255,255,0.05);
-            font-size: 0.85rem;
+            font-size: var(--fs-base);
             transition: background 0.2s;
         }
         .log-row:hover { background: rgba(255,255,255,0.03); }
@@ -311,7 +311,7 @@
             display: inline-block;
             padding: 2px 8px;
             border-radius: 6px;
-            font-size: 0.75rem;
+            font-size: var(--fs-xs);
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -323,10 +323,10 @@
         .log-badge.error { background: rgba(239,68,68,0.15); color: #ef4444; }
         .log-badge.warning { background: rgba(255,193,7,0.15); color: #ffc107; }
         .log-badge.info { background: rgba(59,130,246,0.15); color: #3b82f6; }
-        .log-time { color: #666; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; min-width: 140px; flex-shrink: 0; }
-        .log-event { color: #888; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; min-width: 130px; flex-shrink: 0; }
+        .log-time { color: #666; font-family: 'JetBrains Mono', monospace; font-size: var(--fs-sm); min-width: 140px; flex-shrink: 0; }
+        .log-event { color: #888; font-family: 'JetBrains Mono', monospace; font-size: var(--fs-sm); min-width: 130px; flex-shrink: 0; }
         .log-summary { color: #ccc; flex: 1; }
-        .log-contact { color: #666; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; }
+        .log-contact { color: #666; font-family: 'JetBrains Mono', monospace; font-size: var(--fs-xs); }
 
         /* Connect tab */
         .crm-select-btn {
@@ -336,7 +336,7 @@
             font-weight: 600;
             border-radius: 12px;
             padding: 12px 8px;
-            font-size: 0.85rem;
+            font-size: var(--fs-base);
             transition: all 0.3s;
         }
         .crm-select-btn:hover { border-color: var(--accent); color: #fff; background: rgba(0,255,136,0.05); }
@@ -670,7 +670,7 @@
             border-radius: 6px;
             border: 1.5px solid rgba(255, 255, 255, 0.15);
             display: flex; align-items: center; justify-content: center;
-            font-size: 0.65rem;
+            font-size: 0.75rem;
             color: transparent;
             transition: all 0.2s;
             flex-shrink: 0;
@@ -748,11 +748,11 @@
             width: 26px; height: 26px; border-radius: 7px; object-fit: cover; flex-shrink: 0;
             background: rgba(88, 101, 242, 0.2);
             display: flex; align-items: center; justify-content: center;
-            font-size: 0.65rem; font-weight: 800; color: #7289da;
+            font-size: 0.75rem; font-weight: 800; color: #7289da;
             overflow: hidden;
         }
         .discord-server-chevron {
-            margin-left: auto; font-size: 0.55rem;
+            margin-left: auto; font-size: 0.7rem;
             transition: transform 0.2s; flex-shrink: 0; color: #444;
         }
         .discord-server-item.open .discord-server-chevron { transform: rotate(180deg); }
@@ -761,7 +761,7 @@
         /* Unread notification badges */
         .discord-notif-count {
             background: #ed4245; color: #fff;
-            font-size: 0.6rem; font-weight: 800;
+            font-size: 0.7rem; font-weight: 800;
             border-radius: 8px; padding: 1px 5px;
             min-width: 16px; text-align: center; flex-shrink: 0;
             animation: notifPop 0.2s cubic-bezier(0.34,1.56,0.64,1);
@@ -781,7 +781,7 @@
         .discord-bell-badge {
             position: absolute; top: -4px; right: -4px;
             background: #ed4245; color: #fff;
-            font-size: 0.55rem; font-weight: 900;
+            font-size: 0.7rem; font-weight: 900;
             border-radius: 8px; padding: 1px 4px;
             min-width: 14px; text-align: center;
             border: 1.5px solid #050505;
@@ -902,7 +902,7 @@
         .discord-msg-hover-time {
             display: none; position: absolute;
             left: 20px; top: 50%; transform: translateY(-50%);
-            font-size: 0.65rem; color: #444;
+            font-size: 0.75rem; color: #444;
             white-space: nowrap;
         }
         .discord-msg.continued:hover .discord-msg-hover-time { display: block; }
@@ -986,7 +986,7 @@
         .discord-send-btn:hover { background: #4752c4; }
         .discord-send-btn:disabled { background: rgba(88,101,242,0.28); cursor: not-allowed; }
         .discord-composer-hint {
-            font-size: 0.68rem; color: #3a3d4a; margin-top: 5px; padding: 0 4px;
+            font-size: 0.75rem; color: #3a3d4a; margin-top: 5px; padding: 0 4px;
         }
 
         /* Empty / loading states */
@@ -1084,7 +1084,7 @@
         /* Slack notification badges */
         .slack-notif-count {
             background: #e01e5a; color: #fff;
-            font-size: 0.6rem; font-weight: 800;
+            font-size: 0.7rem; font-weight: 800;
             border-radius: 8px; padding: 1px 5px;
             min-width: 16px; text-align: center; flex-shrink: 0;
             animation: notifPop 0.2s cubic-bezier(0.34,1.56,0.64,1);
@@ -1103,7 +1103,7 @@
         .slack-bell-badge {
             position: absolute; top: -4px; right: -4px;
             background: #e01e5a; color: #fff;
-            font-size: 0.55rem; font-weight: 900;
+            font-size: 0.7rem; font-weight: 900;
             border-radius: 8px; padding: 1px 4px;
             min-width: 14px; text-align: center;
             border: 1.5px solid #050505;
@@ -1218,7 +1218,7 @@
         .slack-msg-hover-time {
             display: none; position: absolute;
             left: 20px; top: 50%; transform: translateY(-50%);
-            font-size: 0.65rem; color: #444;
+            font-size: 0.75rem; color: #444;
             white-space: nowrap;
         }
         .slack-msg.continued:hover .slack-msg-hover-time { display: block; }
@@ -1283,7 +1283,7 @@
         .slack-send-btn:hover { background: #2eb0d7; }
         .slack-send-btn:disabled { background: rgba(54,197,240,0.28); cursor: not-allowed; }
         .slack-composer-hint {
-            font-size: 0.68rem; color: #3a3d4a; margin-top: 5px; padding: 0 4px;
+            font-size: 0.75rem; color: #3a3d4a; margin-top: 5px; padding: 0 4px;
         }
 
         /* Slack empty / loading states */
@@ -1399,11 +1399,11 @@
             align-items: center;
             gap: 5px;
             margin-bottom: 3px;
-            font-size: 0.73rem;
+            font-size: 0.75rem;
             color: #72767d;
             overflow: hidden;
         }
-        .dc-reply-ref i { color: #7289da; flex-shrink: 0; font-size: 0.6rem; }
+        .dc-reply-ref i { color: #7289da; flex-shrink: 0; font-size: 0.75rem; }
         .dc-reply-ref strong { color: #b9bbbe; white-space: nowrap; }
         .dc-reply-ref span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -1486,7 +1486,7 @@
             background: #5865f2;
             color: #fff !important;
             border-radius: 6px;
-            font-size: 0.74rem;
+            font-size: 0.75rem;
             font-weight: 600;
             text-decoration: none !important;
             transition: background 0.15s;
@@ -1494,7 +1494,7 @@
         }
         .dc-reconnect-btn:hover { background: #4752c4; }
         .dc-bot-hint {
-            font-size: 0.72rem;
+            font-size: 0.75rem;
             color: #666;
             line-height: 1.5;
         }

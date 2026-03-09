@@ -121,9 +121,9 @@
                     <!-- Shown when connected -->
                     <div id="discordConnected" style="display:none;">
                         <div style="display:flex;align-items:center;gap:8px;padding:6px 12px 4px;">
-                            <div id="discordUserAvatar" class="discord-avatar-sm" style="width:22px;height:22px;border-radius:50%;background:rgba(88,101,242,0.2);display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:800;color:#7289da;flex-shrink:0;"></div>
+                            <div id="discordUserAvatar" class="discord-avatar-sm" style="width:22px;height:22px;border-radius:50%;background:rgba(88,101,242,0.2);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;color:#7289da;flex-shrink:0;"></div>
                             <span id="discordUsername" style="font-size:0.82rem;color:#aaa;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;"></span>
-                            <a href="/discord/disconnect" style="font-size:0.7rem;color:#555;text-decoration:none;" title="Disconnect">
+                            <a href="/discord/disconnect" style="font-size:0.75rem;color:#555;text-decoration:none;" title="Disconnect">
                                 <i class="fa-solid fa-xmark"></i>
                             </a>
                         </div>
@@ -139,7 +139,7 @@
                         <!-- Server count pill + add button -->
                         <div style="display:flex;align-items:center;gap:6px;padding:4px 12px 6px;">
                             <span style="font-size:0.75rem;color:#555;" id="discordServerCount">0/3 servers</span>
-                            <button onclick="openServerModal()" style="margin-left:auto;background:rgba(88,101,242,0.1);border:1px solid rgba(88,101,242,0.25);color:#7289da;border-radius:6px;padding:3px 8px;font-size:0.72rem;cursor:pointer;font-weight:600;">
+                            <button onclick="openServerModal()" style="margin-left:auto;background:rgba(88,101,242,0.1);border:1px solid rgba(88,101,242,0.25);color:#7289da;border-radius:6px;padding:3px 8px;font-size:0.75rem;cursor:pointer;font-weight:600;">
                                 <i class="fa-solid fa-plus me-1"></i>Add Server
                             </button>
                         </div>
@@ -173,12 +173,12 @@
                     <!-- Shown when connected -->
                     <div id="slackConnected" style="display:none;">
                         <div style="display:flex;align-items:center;gap:8px;padding:6px 12px 4px;">
-                            <div id="slackUserAvatar" style="width:22px;height:22px;border-radius:5px;background:rgba(54,197,240,0.2);display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:800;color:#36c5f0;flex-shrink:0;"></div>
+                            <div id="slackUserAvatar" style="width:22px;height:22px;border-radius:5px;background:rgba(54,197,240,0.2);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;color:#36c5f0;flex-shrink:0;"></div>
                             <div style="flex:1;overflow:hidden;">
                                 <span id="slackUsername" style="font-size:0.82rem;color:#aaa;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;"></span>
-                                <span id="slackTeamName" style="font-size:0.68rem;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;"></span>
+                                <span id="slackTeamName" style="font-size:0.75rem;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;"></span>
                             </div>
-                            <a href="/slack/disconnect" style="font-size:0.7rem;color:#555;text-decoration:none;" title="Disconnect">
+                            <a href="/slack/disconnect" style="font-size:0.75rem;color:#555;text-decoration:none;" title="Disconnect">
                                 <i class="fa-solid fa-xmark"></i>
                             </a>
                         </div>
@@ -194,34 +194,34 @@
             <!-- ── SYSTEM PARAMS (collapsible) ── -->
             <div class="sb-params">
                 <div class="sb-params-header" onclick="toggleSbParams()">
-                    <i class="fa-solid fa-microchip" style="font-size:0.7rem;"></i>
+                    <i class="fa-solid fa-microchip" style="font-size:0.75rem;"></i>
                     <span>System Params</span>
-                    <i class="fa-solid fa-chevron-down" id="sbParamsChevron" style="margin-left:auto;font-size:0.55rem;transition:transform 0.2s;"></i>
+                    <i class="fa-solid fa-chevron-down" id="sbParamsChevron" style="margin-left:auto;font-size:0.75rem;transition:transform 0.2s;"></i>
                 </div>
                 <div class="sb-params-body" id="sbParamsBody">
                     <div style="padding:0 4px 8px;">
                         <div class="tech-readout {% if missing_fields is defined and 'location_id' in missing_fields %}field-needs-attention{% endif %}">
-                            <span class="tech-label" style="font-size:0.65rem;color:#555;display:block;margin-bottom:3px;">LOCATION ID</span>
+                            <span class="tech-label" style="font-size:0.75rem;color:#555;display:block;margin-bottom:3px;">LOCATION ID</span>
                             <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
                                 <span class="tech-value" style="font-size:0.75rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ form.location_id.data or 'Not set' }}</span>
                                 <button onclick="copyToClipboard('{{ form.location_id.data }}')" title="Copy" style="background:none;border:none;color:#555;cursor:pointer;flex-shrink:0;padding:2px;">
-                                    <i class="fa-solid fa-copy" style="font-size:0.7rem;"></i>
+                                    <i class="fa-solid fa-copy" style="font-size:0.75rem;"></i>
                                 </button>
                             </div>
                         </div>
                         <div class="tech-readout no-select">
-                            <span class="tech-label" style="font-size:0.65rem;color:#555;display:block;margin-bottom:3px;">ACCESS TOKEN</span>
+                            <span class="tech-label" style="font-size:0.75rem;color:#555;display:block;margin-bottom:3px;">ACCESS TOKEN</span>
                             <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
-                                <input type="text" name="manual_access_token" value="{{ access_token_display }}" placeholder="Paste Token..." form="main-config-form" class="tech-value token-locked" style="background:transparent;border:none;width:100%;color:inherit;font-size:0.72rem;font-family:'JetBrains Mono',monospace;" {{ token_readonly }}>
-                                {% if token_readonly == 'readonly' %}<i class="fa-solid fa-lock" style="color:#555;font-size:0.65rem;flex-shrink:0;"></i>{% else %}<i class="fa-solid fa-pen" style="color:#555;font-size:0.65rem;flex-shrink:0;"></i>{% endif %}
+                                <input type="text" name="manual_access_token" value="{{ access_token_display }}" placeholder="Paste Token..." form="main-config-form" class="tech-value token-locked" style="background:transparent;border:none;width:100%;color:inherit;font-size:0.75rem;font-family:'JetBrains Mono',monospace;" {{ token_readonly }}>
+                                {% if token_readonly == 'readonly' %}<i class="fa-solid fa-lock" style="color:#555;font-size:0.75rem;flex-shrink:0;"></i>{% else %}<i class="fa-solid fa-pen" style="color:#555;font-size:0.75rem;flex-shrink:0;"></i>{% endif %}
                             </div>
-                            <div style="font-size:0.6rem;color:#444;margin-top:3px;">{{ expires_in_str }}</div>
+                            <div style="font-size:0.75rem;color:#444;margin-top:3px;">{{ expires_in_str }}</div>
                         </div>
                         <div class="tech-readout no-select">
-                            <span class="tech-label" style="font-size:0.65rem;color:#555;display:block;margin-bottom:3px;">REFRESH TOKEN</span>
+                            <span class="tech-label" style="font-size:0.75rem;color:#555;display:block;margin-bottom:3px;">REFRESH TOKEN</span>
                             <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
-                                <input type="text" name="manual_refresh_token" value="{{ refresh_token_display }}" placeholder="Paste Token..." form="main-config-form" class="tech-value token-locked" style="background:transparent;border:none;width:100%;color:inherit;font-size:0.72rem;font-family:'JetBrains Mono',monospace;" {{ token_readonly }}>
-                                {% if token_readonly == 'readonly' %}<i class="fa-solid fa-lock" style="color:#555;font-size:0.65rem;flex-shrink:0;"></i>{% else %}<i class="fa-solid fa-pen" style="color:#555;font-size:0.65rem;flex-shrink:0;"></i>{% endif %}
+                                <input type="text" name="manual_refresh_token" value="{{ refresh_token_display }}" placeholder="Paste Token..." form="main-config-form" class="tech-value token-locked" style="background:transparent;border:none;width:100%;color:inherit;font-size:0.75rem;font-family:'JetBrains Mono',monospace;" {{ token_readonly }}>
+                                {% if token_readonly == 'readonly' %}<i class="fa-solid fa-lock" style="color:#555;font-size:0.75rem;flex-shrink:0;"></i>{% else %}<i class="fa-solid fa-pen" style="color:#555;font-size:0.75rem;flex-shrink:0;"></i>{% endif %}
                             </div>
                         </div>
                         {% if needs_oauth is defined and needs_oauth %}
@@ -240,7 +240,7 @@
 
                         <!-- Operator Profile (hidden in collapsed sidebar) -->
                         <div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.05);">
-                            <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;color:#444;margin-bottom:8px;font-weight:700;">Profile</div>
+                            <div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:#444;margin-bottom:8px;font-weight:700;">Profile</div>
                             <input type="text" id="user_name" placeholder="Full Name" value="{{ profile.full_name }}" style="background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,0.06);color:#ccc;width:100%;padding:5px 0;margin-bottom:8px;font-size:0.82rem;outline:none;">
                             <input type="hidden" id="phone" value="{{ profile.phone or '' }}">
                             <textarea id="bio" rows="2" placeholder="Agent notes..." style="background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,0.06);color:#ccc;width:100%;padding:5px 0;margin-bottom:8px;font-size:0.82rem;outline:none;resize:none;">{{ profile.bio }}</textarea>
@@ -259,12 +259,12 @@
             <button class="sb-footer-item" id="discordChatToggleBtn" onclick="toggleDiscordPanel()" title="Toggle Discord Chat" style="border:none;cursor:pointer;background:none;width:100%;text-align:left;display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:0.9rem;color:#7289da;transition:background 0.15s,color 0.15s;position:relative;">
                 <i class="fa-brands fa-discord" style="width:18px;text-align:center;flex-shrink:0;font-size:0.9rem;"></i>
                 <span class="sb-nav-label">Discord Chat</span>
-                <span id="discordFooterBadge" style="display:none;background:#ed4245;color:#fff;font-size:0.6rem;font-weight:800;border-radius:8px;padding:1px 5px;min-width:16px;text-align:center;margin-left:auto;"></span>
+                <span id="discordFooterBadge" style="display:none;background:#ed4245;color:#fff;font-size:0.75rem;font-weight:800;border-radius:8px;padding:1px 5px;min-width:16px;text-align:center;margin-left:auto;"></span>
             </button>
             <button class="sb-footer-item" id="slackChatToggleBtn" onclick="toggleSlackPanel()" title="Toggle Slack Chat" style="border:none;cursor:pointer;background:none;width:100%;text-align:left;display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:0.9rem;color:#36c5f0;transition:background 0.15s,color 0.15s;position:relative;">
                 <i class="fa-brands fa-slack" style="width:18px;text-align:center;flex-shrink:0;font-size:0.9rem;"></i>
                 <span class="sb-nav-label">Slack Chat</span>
-                <span id="slackFooterBadge" style="display:none;background:#e01e5a;color:#fff;font-size:0.6rem;font-weight:800;border-radius:8px;padding:1px 5px;min-width:16px;text-align:center;margin-left:auto;"></span>
+                <span id="slackFooterBadge" style="display:none;background:#e01e5a;color:#fff;font-size:0.75rem;font-weight:800;border-radius:8px;padding:1px 5px;min-width:16px;text-align:center;margin-left:auto;"></span>
             </button>
             <button class="sb-footer-item" id="sbnTutorial" onclick="startDashboardTutorial()" title="Replay interactive tutorial" style="border:none;cursor:pointer;background:none;width:100%;text-align:left;display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:0.9rem;color:#00d9ff;transition:background 0.15s,color 0.15s;">
                 <i class="fa-solid fa-graduation-cap" style="width:18px;text-align:center;flex-shrink:0;font-size:0.9rem;"></i>
