@@ -14,7 +14,7 @@ html {
     --dark-bg: #050505;
     --text-primary: #ffffff;
     --text-secondary: #a0a0a0;
-    --text-muted: #8892b0;
+    --text-muted: #95a0be;
 
     /* Typography scale — readable minimums enforced */
     --fs-xs: 0.75rem;    /* 12px — smallest allowed (captions, timestamps) */
@@ -1050,6 +1050,63 @@ body.light-theme [style*="color: #999"] {
 body.light-theme [style*="color:#777"],
 body.light-theme [style*="color: #777"] {
     color: var(--lt-text-muted) !important;
+}
+
+/* ══════════════════════════════════════════════════════════
+   DARK MODE TEXT LEGIBILITY
+   Inline hex colors (#444–#777) are invisible on --dark-bg.
+   Override them to readable brightness (≥ 4.5:1 contrast).
+   ══════════════════════════════════════════════════════════ */
+
+/* Helper / description text under inputs — globally */
+body:not(.light-theme) [style*="color:#444"],
+body:not(.light-theme) [style*="color: #444"],
+body:not(.light-theme) [style*="color:#555"],
+body:not(.light-theme) [style*="color: #555"],
+body:not(.light-theme) [style*="color:#666"],
+body:not(.light-theme) [style*="color: #666"] {
+    color: #9ca3af !important;          /* gray-400 — soft but legible */
+}
+body:not(.light-theme) [style*="color:#777"],
+body:not(.light-theme) [style*="color: #777"] {
+    color: #a1a1aa !important;          /* zinc-400 */
+}
+body:not(.light-theme) [style*="color:#888"],
+body:not(.light-theme) [style*="color: #888"] {
+    color: #a8b2c1 !important;          /* slate-400 */
+}
+body:not(.light-theme) [style*="color:#999"],
+body:not(.light-theme) [style*="color: #999"] {
+    color: #b0b8c8 !important;          /* lifted for readability */
+}
+
+/* Same overrides scoped inside tab panes for specificity */
+body:not(.light-theme) .tab-pane [style*="color:#444"],
+body:not(.light-theme) .tab-pane [style*="color: #444"],
+body:not(.light-theme) .tab-pane [style*="color:#555"],
+body:not(.light-theme) .tab-pane [style*="color: #555"],
+body:not(.light-theme) .tab-pane [style*="color:#666"],
+body:not(.light-theme) .tab-pane [style*="color: #666"] {
+    color: #9ca3af !important;
+}
+body:not(.light-theme) .tab-pane [style*="color:#777"],
+body:not(.light-theme) .tab-pane [style*="color: #777"] {
+    color: #a1a1aa !important;
+}
+body:not(.light-theme) .tab-pane [style*="color:#888"],
+body:not(.light-theme) .tab-pane [style*="color: #888"] {
+    color: #a8b2c1 !important;
+}
+body:not(.light-theme) .tab-pane [style*="color:#999"],
+body:not(.light-theme) .tab-pane [style*="color: #999"] {
+    color: #b0b8c8 !important;
+}
+
+/* .text-muted / small helper text — boost for dark mode */
+body:not(.light-theme) .text-muted,
+body:not(.light-theme) small.text-muted,
+body:not(.light-theme) .form-text {
+    color: #9ca3af !important;
 }
 
 /* ── Dark border colors ── */
