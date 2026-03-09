@@ -1798,6 +1798,49 @@ def voice_status():
         except Exception as e:
             logger.warning(f"AI minute deduction failed for {call_sid}: {e}")
 
+    # Log completed/terminal calls to GHL so they appear in CRM conversation history
+    if call_status in terminal_statuses and call_sid and call_sid in _active_calls:
+        call_info = _active_calls[call_sid]
+        ghl_contact_id = call_info.get('contact_id')
+        ghl_location_id = call_info.get('_location_id', '')
+        ghl_phone = call_info.get('phone', '')
+        ghl_from = call_info.get('_from_number', '')
+        if ghl_contact_id and ghl_location_id:
+            try:
+                from ghl_logger import log_call_to_ghl
+                from ghl_api import get_valid_token
+                ghl_token = get_valid_token(ghl_location_id)
+                if ghl_token:
+                    # Determine direction from call_history DB (more reliable)
+                    call_direction = 'outbound'
+                    try:
+                        conn_dir = get_db_connection()
+                        if conn_dir:
+                            try:
+                                cur_dir = conn_dir.cursor()
+                                cur_dir.execute(
+                                    "SELECT direction FROM call_history WHERE call_sid = %s",
+                                    (call_sid,))
+                                dir_row = cur_dir.fetchone()
+                                if dir_row:
+                                    call_direction = dir_row['direction'] or 'outbound'
+                                cur_dir.close()
+                            finally:
+                                return_db_connection(conn_dir)
+                    except Exception:
+                        pass
+                    log_call_to_ghl(
+                        contact_id=ghl_contact_id,
+                        access_token=ghl_token,
+                        direction=call_direction,
+                        phone=ghl_phone,
+                        status=call_status,
+                        duration=int(duration or 0),
+                        from_number=ghl_from,
+                    )
+            except Exception as ghl_call_err:
+                logger.debug(f"GHL call log skipped for {call_sid}: {ghl_call_err}")
+
     return '', 204
 
 
@@ -5962,6 +6005,20 @@ def send_contact_sms(contact_id):
                 body=message,
             )
             logger.info(f"Twilio SMS sent: {tw_msg.sid} to {contact_id} by {current_user.email} (A2P)")
+            # Log to GHL so the message appears in CRM conversation history
+            try:
+                from ghl_logger import log_outbound_sms_to_ghl
+                ghl_token = get_valid_token(location_id)
+                if ghl_token:
+                    log_outbound_sms_to_ghl(
+                        contact_id=contact_id,
+                        message=message,
+                        access_token=ghl_token,
+                        location_id=location_id,
+                        from_number=from_number,
+                    )
+            except Exception as ghl_log_err:
+                logger.debug(f"GHL conversation log skipped for manual SMS: {ghl_log_err}")
             return jsonify({"status": "sent", "channel": "twilio", "sid": tw_msg.sid})
         except Exception as e:
             logger.error(f"Twilio SMS send error for {contact_id}: {e}")
