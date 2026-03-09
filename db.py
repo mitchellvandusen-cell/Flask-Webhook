@@ -2515,6 +2515,56 @@ def save_uninstall_record(payload: dict, location_id: str, company_id: str,
         return_db_connection(conn)
 
 
+def delete_subscriber_data(location_id: str) -> bool:
+    """Delete the subscriber row and all related data for a location_id on app uninstall."""
+    if not location_id:
+        logger.warning("delete_subscriber_data called with empty location_id")
+        return False
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        # Delete from child/related tables first, then the subscriber row.
+        # Tables that reference location_id directly:
+        related_tables = [
+            "webhook_logs",
+            "persistent_alerts",
+            "call_history",
+            "ai_minute_balances",
+            "ai_minute_purchases",
+            "ai_minute_usage_logs",
+            "discord_connections",
+            "discord_servers",
+            "discord_webhook_channels",
+            "failed_webhook_payloads",
+            "ghl_conversations",
+            "ghl_opportunities",
+            "ghl_sync_state",
+            "number_health",
+            "contact_cache",
+        ]
+        for table in related_tables:
+            cur.execute(f"DELETE FROM {table} WHERE location_id = %s", (location_id,))
+
+        # Delete the subscriber row itself
+        cur.execute("DELETE FROM subscribers WHERE location_id = %s", (location_id,))
+        deleted = cur.rowcount
+
+        conn.commit()
+        cur.close()
+        logger.info(f"delete_subscriber_data: removed location_id={location_id} "
+                     f"(subscriber row deleted: {deleted > 0})")
+        return deleted > 0
+    except psycopg2.Error as e:
+        logger.error(f"delete_subscriber_data failed for {location_id}: {e}")
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        return_db_connection(conn)
+
+
 def save_uninstall_feedback(record_id: int, reason: str, other_text: str = "") -> bool:
     """Save user-submitted feedback for an uninstall record."""
     conn = get_db_connection()

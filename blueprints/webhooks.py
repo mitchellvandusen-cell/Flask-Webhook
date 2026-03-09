@@ -20,7 +20,8 @@ from email_templates import (_build_install_welcome_email,
 from send_email_api import send_email_via_api
 from db import (get_db_connection, return_db_connection, log_webhook_event,
                 save_marketplace_install, save_persistent_alert, mark_setup_email_sent,
-                save_uninstall_record, get_subscriber_info_sql, find_marketplace_email)
+                save_uninstall_record, get_subscriber_info_sql, find_marketplace_email,
+                delete_subscriber_data)
 from tasks import process_webhook_task
 
 logger = logging.getLogger(__name__)
@@ -419,6 +420,16 @@ def _handle_uninstall(payload: dict):
     if not record_id:
         logger.error("Failed to save uninstall record")
         return safe_jsonify({"status": "error", "detail": "db_save_failed"}), 500
+
+    # Delete the subscriber row and all related data for this location
+    if location_id:
+        deleted = delete_subscriber_data(location_id)
+        if deleted:
+            log_webhook_event("marketplace", "subscriber_deleted", "info",
+                              f"Subscriber data deleted for location={location_id}")
+        else:
+            log_webhook_event("marketplace", "subscriber_deleted", "warning",
+                              f"No subscriber row found to delete for location={location_id}")
 
     domain_url   = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
     display_name = user_name or "there"
