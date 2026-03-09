@@ -1075,8 +1075,39 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
                 fail_reason = None
                 http_detail = None
 
-                # Determine SMS channel: GHL (default) or direct Twilio number
+                # Determine SMS channel: GHL (default), last_used, or direct Twilio number
                 sms_send_via = subscriber.get('sms_send_via', 'ghl')
+
+                # Resolve "last_used" to actual number from call/SMS history
+                if sms_send_via == 'last_used':
+                    resolved_number = None
+                    try:
+                        conn = get_db_connection()
+                        try:
+                            cur = conn.cursor()
+                            # Find the most recent outbound call to this contact's phone
+                            contact_phone_raw = payload.get('phone') or payload.get('contact_phone', '')
+                            cur.execute("""
+                                SELECT phone FROM call_history
+                                WHERE location_id = %s AND contact_id = %s AND direction LIKE 'outbound%%'
+                                ORDER BY created_at DESC LIMIT 1
+                            """, (location_id, contact_id))
+                            row = cur.fetchone()
+                            if row and row[0]:
+                                resolved_number = row[0]
+                                logger.info(f"[last_used] Resolved to {resolved_number} from call history for {contact_id}")
+                        finally:
+                            return_db_connection(conn)
+                    except Exception as lu_err:
+                        logger.warning(f"[last_used] DB lookup failed: {lu_err}")
+
+                    if resolved_number and resolved_number.startswith('+'):
+                        sms_send_via = resolved_number
+                    else:
+                        # No call history found — fall back to GHL
+                        logger.info(f"[last_used] No call history for {contact_id}, falling back to GHL")
+                        sms_send_via = 'ghl'
+
                 use_twilio_direct = (sms_send_via and sms_send_via.startswith('+'))
 
                 if use_twilio_direct:

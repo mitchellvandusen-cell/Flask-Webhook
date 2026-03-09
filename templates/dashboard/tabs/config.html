@@ -28,6 +28,10 @@
                                     style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
                                     <i class="fa-solid fa-calendar-check" style="width:16px;text-align:center;"></i> Calendar & CRM
                                 </button>
+                                <button type="button" class="cfg-menu-item" onclick="switchConfigPanel('smsnumbers')" id="cmenu-smsnumbers"
+                                    style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                                    <i class="fa-solid fa-phone-volume" style="width:16px;text-align:center;"></i> Numbers & A2P
+                                </button>
                                 <button type="button" class="cfg-menu-item" onclick="switchConfigPanel('a2p')" id="cmenu-a2p"
                                     style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
                                     <i class="fa-solid fa-certificate" style="width:16px;text-align:center;"></i> A2P 10DLC
@@ -81,6 +85,18 @@
                                                         <div style="font-size:0.72rem;color:#888;">Default — sends through your GHL/LeadConnector account</div>
                                                     </div>
                                                     <span style="font-size:0.65rem;background:rgba(0,255,136,0.12);color:var(--accent);padding:2px 8px;border-radius:6px;font-weight:600;flex-shrink:0;">DEFAULT</span>
+                                                </label>
+
+                                                <!-- Last Number Used Option -->
+                                                <label class="sms-channel-option" style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;cursor:pointer;transition:all .15s;">
+                                                    <input type="radio" name="sms_send_via" value="last_used"
+                                                        {% if current_user.sms_send_via == 'last_used' %}checked{% endif %}
+                                                        style="accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;">
+                                                    <i class="fa-solid fa-arrow-rotate-left" style="color:#a78bfa;font-size:1rem;flex-shrink:0;width:22px;text-align:center;"></i>
+                                                    <div style="flex:1;min-width:0;">
+                                                        <div style="font-size:0.85rem;font-weight:600;color:#fff;">Last Number Used</div>
+                                                        <div style="font-size:0.72rem;color:#888;">Reply from the same number that last contacted this lead (via call or SMS)</div>
+                                                    </div>
                                                 </label>
 
                                                 <!-- Phone Number Options (populated by Look Up) -->
@@ -173,6 +189,72 @@
                                     </div>
                                 </div>
                                 {% endif %}
+
+                                <!-- ══ Numbers & A2P Status panel ══ -->
+                                <div id="cfgtab-panel-smsnumbers" style="display:none;">
+                                    <div class="d-flex align-items-center justify-content-between mb-3">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                                <i class="fa-solid fa-phone-volume" style="color:#00d9ff;"></i>
+                                            </div>
+                                            <div>
+                                                <div style="font-weight:700;font-size:1rem;color:#fff;">Your SMS Numbers</div>
+                                                <div style="font-size:0.78rem;color:#888;">Manage numbers and A2P 10DLC compliance for SMS messaging.</div>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <button onclick="smsLoadNumbers()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:5px 12px;font-size:0.78rem;cursor:pointer;">
+                                                <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
+                                            </button>
+                                            <button onclick="document.getElementById('smsBuyPanel').style.display=document.getElementById('smsBuyPanel').style.display==='none'?'block':'none'"
+                                                style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:6px;padding:5px 14px;font-size:0.78rem;font-weight:700;cursor:pointer;">
+                                                <i class="fa-solid fa-plus me-1"></i>Buy Number
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Buy panel -->
+                                    <div id="smsBuyPanel" style="display:none;margin-bottom:16px;padding:16px;background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.12);border-radius:10px;">
+                                        <h6 style="color:#00d9ff;font-weight:700;margin-bottom:4px;font-size:0.88rem;"><i class="fa-solid fa-magnifying-glass me-1"></i>Search Available Numbers</h6>
+                                        <div style="margin-bottom:10px;font-size:.72rem;color:#888;">Pricing: <span style="color:#00ff88;">Local $1.15/mo</span> &bull; <span style="color:#00ff88;">Toll-Free $2.15/mo</span> &bull; <span style="color:#00ff88;">Mobile $1.15/mo</span></div>
+                                        <div class="d-flex gap-2 mb-2 flex-wrap">
+                                            <select id="smsBuyNumberType"
+                                                style="width:120px;background:#2a2a35;border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
+                                                <option value="local" style="background:#2a2a35;color:#fff;">Local</option>
+                                                <option value="toll_free" style="background:#2a2a35;color:#fff;">Toll-Free</option>
+                                                <option value="mobile" style="background:#2a2a35;color:#fff;">Mobile</option>
+                                            </select>
+                                            <input type="text" id="smsBuyAreaCode" placeholder="Area code (e.g. 512)"
+                                                style="width:140px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
+                                            <input type="text" id="smsBuyState" placeholder="State (e.g. TX)"
+                                                style="width:110px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
+                                            <input type="text" id="smsBuyCity" placeholder="City"
+                                                style="width:120px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
+                                        </div>
+                                        <div class="d-flex gap-2 mb-3 flex-wrap">
+                                            <input type="text" id="smsBuyZip" placeholder="Zip code"
+                                                style="width:110px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
+                                            <input type="text" id="smsBuyContains" placeholder="Contains (e.g. 555)"
+                                                style="width:160px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
+                                            <button onclick="smsSearchNumbers()"
+                                                style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:8px;padding:7px 18px;font-size:0.82rem;font-weight:700;cursor:pointer;">
+                                                <i class="fa-solid fa-magnifying-glass me-1"></i>Search
+                                            </button>
+                                        </div>
+                                        <div id="smsAvailableNumbersList" style="max-height:280px;overflow-y:auto;font-size:0.82rem;"></div>
+                                    </div>
+
+                                    <!-- Numbers list with A2P status -->
+                                    <div id="smsNumbersListContainer" style="font-size:0.82rem;">
+                                        <div style="text-align:center;padding:30px 20px;color:#555;">
+                                            <i class="fa-solid fa-spinner fa-spin" style="font-size:1.2rem;color:#00d9ff;display:block;margin-bottom:8px;"></i>
+                                            Loading numbers...
+                                        </div>
+                                    </div>
+
+                                    <!-- A2P compliance summary -->
+                                    <div id="smsA2pSummary" style="display:none;margin-top:16px;"></div>
+                                </div>
 
                                 <!-- ══ A2P 10DLC Registration panel ══ -->
                                 <div id="cfgtab-panel-a2p" style="display:none;">
@@ -457,5 +539,7 @@ Thanks for your interest! I have a few options that might work for you. When is 
                 }
                 // Load A2P status when switching to A2P panel
                 if (name === 'a2p' && typeof a2pLoadStatus === 'function') a2pLoadStatus();
+                // Load numbers + A2P status when switching to SMS Numbers panel
+                if (name === 'smsnumbers' && typeof smsLoadNumbers === 'function') smsLoadNumbers();
             }
             </script>

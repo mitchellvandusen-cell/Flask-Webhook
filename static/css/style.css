@@ -1028,6 +1028,14 @@ body.light-theme [style*="color:#555"],
 body.light-theme [style*="color: #555"] {
     color: var(--lt-text-faint) !important;
 }
+body.light-theme [style*="color:#999"],
+body.light-theme [style*="color: #999"] {
+    color: var(--lt-text-muted) !important;
+}
+body.light-theme [style*="color:#777"],
+body.light-theme [style*="color: #777"] {
+    color: var(--lt-text-muted) !important;
+}
 
 /* ── Dark border colors ── */
 body.light-theme [style*="border:1px solid rgba(255,255,255"],
@@ -1036,6 +1044,11 @@ body.light-theme [style*="border-color:rgba(255,255,255"],
 body.light-theme [style*="border-color: rgba(255,255,255"] {
     border-color: var(--lt-border) !important;
 }
+
+/* ── Form labels & helper text ── */
+body.light-theme .form-label { color: var(--lt-text-secondary) !important; }
+body.light-theme .text-muted, body.light-theme small.text-muted { color: var(--lt-text-muted) !important; }
+body.light-theme .form-control { color: var(--lt-input-text) !important; }
 
 /* ── Onboarding banner text legibility ── */
 body.light-theme .onboarding-banner { background: rgba(255,152,0,0.06) !important; border-color: rgba(255,152,0,0.25) !important; }
