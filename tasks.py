@@ -502,6 +502,7 @@ def process_webhook_task(payload: dict):
     # Payload is already normalized - just read the clean fields
     contact_id_raw = payload.get("contact_id")
     location_id = payload.get("location_id")
+    conversation_id = payload.get("conversation_id")
 
     # 🚨 LOG: Chef (worker) received the order ticket from kitchen (Redis)
     logger.info(f"🔍 TASK STARTED | contact_id={contact_id_raw} | first_name={payload.get('first_name')} | location_id={location_id}")
@@ -1130,10 +1131,10 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
                         else:
                             # Fallback to GHL if Twilio creds missing
                             logger.warning(f"Twilio direct SMS fallback: missing creds for {location_id}, using GHL")
-                            sent, fail_reason, http_detail = send_sms_via_ghl(contact_id, reply, auth_token, location_id)
+                            sent, fail_reason, http_detail = send_sms_via_ghl(contact_id, reply, auth_token, location_id, conversation_id=conversation_id)
                     except Exception as twilio_err:
                         logger.error(f"Twilio direct SMS error: {twilio_err}, falling back to GHL")
-                        sent, fail_reason, http_detail = send_sms_via_ghl(contact_id, reply, auth_token, location_id)
+                        sent, fail_reason, http_detail = send_sms_via_ghl(contact_id, reply, auth_token, location_id, conversation_id=conversation_id)
 
                 elif use_crm_adapter:
                     # Non-GHL CRM: Use adapter for messaging
@@ -1146,14 +1147,14 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
                         else:
                             # CRM doesn't support messaging - use GHL as messaging fallback
                             # (some users use Zapier for booking but GHL for SMS)
-                            sent, fail_reason, http_detail = send_sms_via_ghl(contact_id, reply, auth_token, location_id)
+                            sent, fail_reason, http_detail = send_sms_via_ghl(contact_id, reply, auth_token, location_id, conversation_id=conversation_id)
                     except Exception as adapter_err:
                         logger.error(f"CRM adapter send_message error: {adapter_err}")
                         sent = False
                         fail_reason = 'adapter'
                 else:
                     # GHL (default): Use existing direct code path
-                    sent, fail_reason, http_detail = send_sms_via_ghl(contact_id, reply, auth_token, location_id)
+                    sent, fail_reason, http_detail = send_sms_via_ghl(contact_id, reply, auth_token, location_id, conversation_id=conversation_id)
 
                 # === TOKEN RECOVERY ===
                 # If SMS failed due to 401/403 auth, force-refresh the token and retry.
@@ -1170,7 +1171,8 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
                         auth_token = recovered_token
                         subscriber['access_token'] = recovered_token
                         sent, fail_reason, http_detail = send_sms_via_ghl(
-                            contact_id, reply, recovered_token, location_id)
+                            contact_id, reply, recovered_token, location_id,
+                            conversation_id=conversation_id)
 
                         if sent:
                             logger.info(f"✅ TOKEN RECOVERY SUCCESS: SMS sent for {contact_id} "

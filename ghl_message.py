@@ -12,13 +12,41 @@ logger = logging.getLogger(__name__)
 GHL_MESSAGES_URL = "https://services.leadconnectorhq.com/conversations/messages"
 
 
+def _lookup_conversation_id(contact_id: str, location_id: str, access_token: str) -> str:
+    """
+    Look up the GHL conversation ID for a contact via the Conversations Search API.
+    Returns conversation_id string or None.
+    """
+    try:
+        resp = requests.get(
+            "https://services.leadconnectorhq.com/conversations/search",
+            params={"locationId": location_id, "contactId": contact_id},
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Version": "2021-04-15",
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        convos = resp.json().get("conversations", [])
+        if convos:
+            cid = convos[0].get("id")
+            if cid:
+                logger.info(f"Resolved conversationId={cid} for contact={contact_id}")
+                return cid
+    except Exception as e:
+        logger.warning(f"Failed to look up conversationId for {contact_id}: {e}")
+    return None
+
+
 def send_sms_via_ghl(
     contact_id: str,
     message: str,
     access_token: str,
     location_id: str,
     max_retries: int = 3,
-    retry_delay: int = 5
+    retry_delay: int = 5,
+    conversation_id: str = None,
 ) -> tuple:
     """
     Sends an SMS via GoHighLevel Conversations API.
@@ -84,12 +112,20 @@ def send_sms_via_ghl(
         "Content-Type": "application/json"
     }
 
+    # Resolve conversationId so the message threads correctly in GHL (green bar)
+    if not conversation_id:
+        conversation_id = _lookup_conversation_id(contact_id, location_id, access_token)
+
     payload = {
         "type": "SMS",
         "contactId": contact_id,
         "message": message.strip(),
-        "locationId": location_id
     }
+    if conversation_id:
+        payload["conversationId"] = conversation_id
+    else:
+        # Fallback: include locationId when conversationId not available
+        payload["locationId"] = location_id
 
     last_failure = 'error'
     last_status = 0
