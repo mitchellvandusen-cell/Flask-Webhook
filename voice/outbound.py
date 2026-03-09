@@ -1,0 +1,318 @@
+"""
+Outbound call initiation and call status webhook routes.
+
+Extracted from voice_bridge.py — trigger_outbound_call() and voice_status().
+"""
+
+import logging
+import threading
+import time
+import os
+import json
+
+from flask import Blueprint, request, jsonify
+from flask_login import current_user
+
+import twilio_provisioning
+from db import get_db_connection, return_db_connection, log_webhook_event, deduct_ai_minutes
+from number_health import select_outbound_number, update_number_health
+from voice.call_state import active_calls, transfer_requests
+from voice.helpers import _get_subscriber_by_location
+from voice.call_history_helpers import save_call_to_history, update_call_history_status
+
+logger = logging.getLogger("voice_bridge.outbound")
+
+outbound_bp = Blueprint('voice_outbound', __name__)
+
+
+# ──────────────────────────────────────────────────────────────
+# ROUTE: Trigger outbound call
+# ──────────────────────────────────────────────────────────────
+
+@outbound_bp.route('/voice/outbound-call', methods=['POST'])
+def trigger_outbound_call():
+    """
+    API endpoint to initiate an outbound AI voice call via Twilio.
+    Called by CRM automations (webhook) or the dashboard.
+
+    Authentication: requires either a valid session (@login_required) OR
+    a Bearer token matching the subscriber's API key.
+    """
+    # Auth gate: accept logged-in session OR Bearer API key
+    import secrets as _secrets
+    authenticated = False
+    if current_user and getattr(current_user, 'is_authenticated', False):
+        authenticated = True
+    else:
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            provided_key = auth_header[7:].strip()
+            if provided_key:
+                # Will validate against subscriber's api_key below after we resolve location_id
+                pass  # deferred validation
+            else:
+                return jsonify({"error": "Missing API key"}), 401
+        else:
+            return jsonify({"error": "Authentication required. Provide a valid session or Bearer token."}), 401
+
+    data = request.json or {}
+    # Accept both GHL camelCase (locationId) and our snake_case (location_id)
+    location_id = data.get('location_id') or data.get('locationId', '')
+    lead_phone  = data.get('phone') or data.get('toNumber', '')
+    lead_name   = data.get('first_name') or data.get('firstName', 'there')
+    contact_id  = data.get('contact_id') or data.get('contactId', '')
+
+    if not location_id or not lead_phone:
+        return jsonify({"error": "location_id and phone are required"}), 400
+
+    subscriber = _get_subscriber_by_location(location_id)
+    if not subscriber:
+        return jsonify({"error": "Subscriber not found"}), 404
+
+    # Deferred Bearer token validation (now that we have the subscriber)
+    if not authenticated:
+        auth_header = request.headers.get('Authorization', '')
+        provided_key = auth_header[7:].strip() if auth_header.startswith('Bearer ') else ''
+        stored_key = subscriber.get("api_key", "")
+        if not stored_key or not _secrets.compare_digest(provided_key, stored_key):
+            return jsonify({"error": "Invalid API key"}), 403
+
+    voice_config = subscriber.get("voice_config") or {}
+    if not voice_config.get("enabled"):
+        return jsonify({"error": "Voice is not enabled for this account"}), 400
+
+    sub_sid       = voice_config.get("twilio_sub_account_sid", "")
+    from_number   = voice_config.get("twilio_phone_number", "")
+
+    # Smart number rotation for API-triggered calls
+    rotation_result = select_outbound_number(location_id, voice_config, dest_phone=lead_phone)
+    if rotation_result:
+        from_number = rotation_result["phone"]
+        logger.info(f"Smart rotation (outbound-call API) selected {from_number} (reason={rotation_result['reason']})")
+
+    if not sub_sid or not from_number:
+        return jsonify({"error": "Voice service not fully provisioned"}), 400
+
+    try:
+        host = request.host
+        webhook_base_url = f"https://{host}"
+
+        # Custom params passed via URL to the outbound-twiml endpoint
+        custom_params = {
+            'location_id':  location_id,
+            'caller':       from_number,
+            'called':       lead_phone,
+            'direction':    'outbound',
+            'contact_id':   contact_id,
+            'contact_name': lead_name,
+            'dial_mode':    'ai',
+        }
+
+        # Create outbound call via Twilio REST API
+        # AI mode always needs AMD to detect voicemail greetings
+        ring_timeout = voice_config.get('ring_timeout', 45)
+        result = twilio_provisioning.create_outbound_call(
+            sub_account_sid=sub_sid,
+            to=lead_phone,
+            from_number=from_number,
+            webhook_base_url=webhook_base_url,
+            machine_detection='DetectMessageEnd',
+            custom_params=custom_params,
+            ring_timeout=ring_timeout,
+        )
+        call_sid = result.get('call_sid', '')
+
+        logger.info(f"Outbound call initiated: {from_number} -> {lead_phone} (sid={call_sid})")
+
+        # Track in active calls
+        active_calls[call_sid] = {
+            "status": "initiated",
+            "duration": 0,
+            "contact_id": contact_id,
+            "phone": lead_phone,
+            "name": lead_name,
+            "_location_id": location_id,
+            "_sub_sid": sub_sid,
+            "_host": host,
+            "_from_number": from_number,
+        }
+
+        # Persist to call_history DB
+        save_call_to_history(
+            location_id=location_id,
+            call_sid=call_sid,
+            phone=lead_phone,
+            contact_id=contact_id,
+            contact_name=lead_name,
+            direction='outbound',
+            status='initiated'
+        )
+
+        try:
+            log_webhook_event(
+                location_id=location_id,
+                contact_id=contact_id,
+                event_type="voice_outbound_initiated",
+                status="success",
+                summary=f"Outbound call to {lead_name} ({lead_phone})",
+                details={"call_sid": call_sid, "to": lead_phone, "from": from_number}
+            )
+        except Exception:
+            pass
+
+        return jsonify({"status": "calling", "call_sid": call_sid})
+
+    except Exception as e:
+        logger.error(f"Failed to initiate outbound call: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ──────────────────────────────────────────────────────────────
+# ROUTE: Call status webhook
+# ──────────────────────────────────────────────────────────────
+
+@outbound_bp.route('/voice/status', methods=['POST'])
+def voice_status():
+    """
+    Twilio posts call status events here as form data.
+    Status values: initiated, ringing, in-progress, completed, busy, no-answer, canceled, failed.
+    """
+    call_sid    = request.values.get('CallSid', '')
+    call_status = request.values.get('CallStatus', '')
+    duration    = request.values.get('CallDuration', '0')
+    sip_code    = request.values.get('SipResponseCode', '')
+
+    logger.info(f"📞 Call status: SID={call_sid} status={call_status} duration={duration}s sip={sip_code}")
+
+    # Track status in memory for dialer queue polling
+    # Twilio can deliver callbacks out of order (e.g. 'ringing' after 'in-progress'),
+    # so only allow forward transitions to prevent status regression.
+    _STATUS_ORDER = {
+        'queued': 0, 'initiated': 1, 'ringing': 2,
+        'in-progress': 3,
+        'completed': 4, 'busy': 4, 'no-answer': 4, 'failed': 4, 'canceled': 4, 'transferred': 4,
+    }
+    if call_sid in active_calls:
+        # If AMD hung up the call, Twilio still fires 'completed'. Preserve the
+        # AMD-set status ('no-answer') so the frontend retry logic can trigger.
+        effective_status = call_status
+        amd_result = active_calls[call_sid].get('_amd_result')
+        if call_status == 'completed' and amd_result:
+            effective_status = amd_result
+            logger.info(f"📞 AMD call {call_sid[:16]} ended — reporting as '{amd_result}' for retry")
+
+        current_status = active_calls[call_sid].get("status", "")
+        new_order = _STATUS_ORDER.get(effective_status, 99)
+        cur_order = _STATUS_ORDER.get(current_status, 99)
+        if new_order >= cur_order:
+            active_calls[call_sid]["status"] = effective_status
+        else:
+            logger.info(f"📞 Ignoring out-of-order status '{effective_status}' for {call_sid[:16]} (current='{current_status}')")
+        active_calls[call_sid]["duration"] = int(duration or 0)
+
+    # Persist to call_history DB
+    if call_sid:
+        try:
+            update_call_history_status(call_sid, call_status, duration)
+        except Exception as e:
+            logger.warning(f"call_history update failed for {call_sid}: {e}")
+
+    # Update number health metrics on terminal statuses
+    terminal_statuses = {'completed', 'busy', 'no-answer', 'failed', 'canceled'}
+    if call_status in terminal_statuses and call_sid:
+        call_info = active_calls.get(call_sid, {})
+        nh_location = call_info.get('_location_id', '')
+        nh_from = call_info.get('_from_number', '')
+        nh_effective = call_info.get('_amd_result', call_status)  # Use AMD result if available
+        if nh_location and nh_from:
+            try:
+                update_number_health(nh_location, nh_from, nh_effective, int(duration or 0), sip_code=sip_code)
+            except Exception as e:
+                logger.warning(f"Number health update failed for {nh_from}: {e}")
+
+    # Deduct AI minutes for completed calls with duration > 0
+    dur_s = int(duration or 0)
+    if dur_s > 0 and call_status == 'completed' and call_sid:
+        conn_m = None
+        try:
+            conn_m = get_db_connection()
+            if conn_m:
+                cur_m = conn_m.cursor()
+                cur_m.execute("""
+                    SELECT ch.location_id, ch.phone, ch.direction, s.email
+                    FROM call_history ch
+                    JOIN subscribers s ON s.location_id = ch.location_id
+                    WHERE ch.call_sid = %s
+                """, (call_sid,))
+                row_m = cur_m.fetchone()
+                cur_m.close()
+        except Exception as e:
+            logger.warning(f"AI minute deduction DB lookup failed for {call_sid}: {e}")
+            row_m = None
+        finally:
+            if conn_m:
+                return_db_connection(conn_m)
+        try:
+            if row_m and row_m['email']:
+                result = deduct_ai_minutes(
+                    email=row_m['email'],
+                    duration_seconds=dur_s,
+                    call_sid=call_sid,
+                    phone=row_m.get('phone', ''),
+                    direction=row_m.get('direction', 'outbound'),
+                )
+                if result.get('success'):
+                    logger.info(f"AI Minutes: Deducted {result['minutes_deducted']}min from {row_m['email']}, balance={result['balance_after']}")
+        except Exception as e:
+            logger.warning(f"AI minute deduction failed for {call_sid}: {e}")
+
+    # Log completed/terminal calls to GHL so they appear in CRM conversation history
+    if call_status in terminal_statuses and call_sid and call_sid in active_calls:
+        call_info = active_calls[call_sid]
+        ghl_contact_id = call_info.get('contact_id', '')
+        ghl_location_id = call_info.get('_location_id', '')
+        ghl_phone = call_info.get('phone', '')
+        ghl_from = call_info.get('_from_number', '')
+
+        # For inbound calls, contact_id may be empty in active_calls.
+        # Resolve from call_history DB (populated during WebSocket bridge).
+        call_direction = 'outbound'
+        if ghl_location_id:
+            try:
+                conn_dir = get_db_connection()
+                if conn_dir:
+                    try:
+                        cur_dir = conn_dir.cursor()
+                        cur_dir.execute(
+                            "SELECT direction, contact_id FROM call_history WHERE call_sid = %s",
+                            (call_sid,))
+                        dir_row = cur_dir.fetchone()
+                        if dir_row:
+                            call_direction = dir_row['direction'] or 'outbound'
+                            if not ghl_contact_id and dir_row.get('contact_id'):
+                                ghl_contact_id = dir_row['contact_id']
+                        cur_dir.close()
+                    finally:
+                        return_db_connection(conn_dir)
+            except Exception:
+                pass
+
+        if ghl_contact_id and ghl_location_id:
+            try:
+                from ghl_logger import log_call_to_ghl
+                from ghl_api import get_valid_token
+                ghl_token = get_valid_token(ghl_location_id)
+                if ghl_token:
+                    log_call_to_ghl(
+                        contact_id=ghl_contact_id,
+                        access_token=ghl_token,
+                        direction=call_direction,
+                        phone=ghl_phone,
+                        status=call_status,
+                        duration=int(duration or 0),
+                        from_number=ghl_from,
+                    )
+            except Exception as ghl_call_err:
+                logger.debug(f"GHL call log skipped for {call_sid}: {ghl_call_err}")
+
+    return '', 204
