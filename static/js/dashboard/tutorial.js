@@ -114,7 +114,7 @@
             /* ── Progress text (hidden, but styled if ever shown) ──── */
             '.driver-popover-progress-text {',
             '  color: rgba(255,255,255,0.22) !important;',
-            '  font-size: 0.68rem !important;',
+            '  font-size: 0.75rem !important;',
             '  font-family: "JetBrains Mono", monospace !important;',
             '  letter-spacing: 0.04em !important;',
             '  flex: 1 !important;',
@@ -255,7 +255,7 @@
             /* ── Chapter badge pill ───────────────────────────────────── */
             '.igb-ch-badge {',
             '  display: inline-block;',
-            '  font-size: 0.56rem;',
+            '  font-size: 0.75rem;',
             '  font-weight: 700;',
             '  text-transform: uppercase;',
             '  letter-spacing: 3px;',
@@ -274,7 +274,7 @@
             '  background: rgba(255,255,255,0.03);',
             '  border: 1px solid rgba(255,255,255,0.08);',
             '  color: rgba(255,255,255,0.35);',
-            '  font-size: 0.71rem;',
+            '  font-size: 0.75rem;',
             '  padding: 6px 18px;',
             '  border-radius: 50px;',
             '  cursor: pointer;',
@@ -290,11 +290,11 @@
             '}',
 
             /* ── Keyboard hint ───────────────────────────────────────── */
-            '.igb-key-hint { display: block; margin-top: 10px; font-size: 0.67rem; color: rgba(255,255,255,0.25); }',
+            '.igb-key-hint { display: block; margin-top: 10px; font-size: 0.75rem; color: rgba(255,255,255,0.25); }',
             '.igb-key-hint kbd {',
             '  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10);',
             '  border-radius: 4px; padding: 1px 6px;',
-            '  font-family: "JetBrains Mono", monospace; font-size: 0.63rem;',
+            '  font-family: "JetBrains Mono", monospace; font-size: 0.75rem;',
             '  color: rgba(255,255,255,0.45);',
             '}'
 

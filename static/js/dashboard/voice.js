@@ -150,7 +150,7 @@
                         badge.style.background = 'rgba(0,255,136,0.15)';
                         badge.style.color = '#00ff88';
                         badge.style.border = '1px solid rgba(0,255,136,0.3)';
-                        badge.innerHTML = '<i class="fa-solid fa-circle me-1" style="font-size:0.5rem; vertical-align:middle;"></i> Active';
+                        badge.innerHTML = '<i class="fa-solid fa-circle me-1" style="font-size:0.75rem; vertical-align:middle;"></i> Active';
                     } else {
                         badge.style.background = 'rgba(255,255,255,0.06)';
                         badge.style.color = '#666';

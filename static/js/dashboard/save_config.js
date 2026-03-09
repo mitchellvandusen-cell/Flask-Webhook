@@ -143,7 +143,7 @@
                     <i class="fa-solid fa-phone" style="color:var(--accent);font-size:1rem;flex-shrink:0;width:22px;text-align:center;"></i>
                     <div style="flex:1;min-width:0;">
                         <div style="font-size:0.85rem;font-weight:600;color:#fff;">${_formatPhone(num.number)}</div>
-                        <div style="font-size:0.72rem;color:#888;">${desc}${isDisabled ? ' (no SMS capability)' : ''}</div>
+                        <div style="font-size:0.75rem;color:#888;">${desc}${isDisabled ? ' (no SMS capability)' : ''}</div>
                     </div>
                 `;
 
@@ -249,7 +249,7 @@
         const brandStatus = (a2p.brand_status || '').toUpperCase();
         const msgServiceSid = a2p.messaging_service_sid || '';
 
-        const hdrStyle = 'padding:8px 10px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;';
+        const hdrStyle = 'padding:8px 10px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px;';
         const cellStyle = 'padding:8px 10px;border-top:1px solid rgba(255,255,255,0.04);';
 
         let html = '<div style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;overflow:visible;">';
@@ -271,30 +271,30 @@
             // A2P status per number
             let a2pBadge;
             if (!hasSms) {
-                a2pBadge = '<span style="color:#555;font-size:.7rem;">N/A</span>';
+                a2pBadge = '<span style="color:#555;font-size:.75rem;">N/A</span>';
             } else if (isRegistered && (campaignStatus === 'VERIFIED' || campaignStatus === 'APPROVED')) {
-                a2pBadge = '<span style="background:rgba(74,222,128,0.12);color:#4ade80;padding:2px 8px;border-radius:4px;font-size:.68rem;font-weight:600;"><i class="fa-solid fa-shield-halved me-1"></i>Registered</span>';
+                a2pBadge = '<span style="background:rgba(74,222,128,0.12);color:#4ade80;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;"><i class="fa-solid fa-shield-halved me-1"></i>Registered</span>';
             } else if (brandStatus === 'APPROVED' && !a2p.campaign_sid) {
-                a2pBadge = '<span style="background:rgba(255,165,0,0.12);color:#ffa500;padding:2px 8px;border-radius:4px;font-size:.68rem;font-weight:600;">Campaign Needed</span>';
+                a2pBadge = '<span style="background:rgba(255,165,0,0.12);color:#ffa500;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;">Campaign Needed</span>';
             } else if (brandStatus === 'PENDING' || brandStatus === 'IN_REVIEW') {
-                a2pBadge = '<span style="background:rgba(255,165,0,0.12);color:#ffa500;padding:2px 8px;border-radius:4px;font-size:.68rem;font-weight:600;">Pending</span>';
+                a2pBadge = '<span style="background:rgba(255,165,0,0.12);color:#ffa500;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;">Pending</span>';
             } else {
-                a2pBadge = '<span style="background:rgba(239,68,68,0.12);color:#ef4444;padding:2px 8px;border-radius:4px;font-size:.68rem;font-weight:600;">Not Registered</span>';
+                a2pBadge = '<span style="background:rgba(239,68,68,0.12);color:#ef4444;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;">Not Registered</span>';
             }
 
             // Actions
             let actions = '';
             if (hasSms && !isRegistered) {
-                actions = '<button onclick="switchConfigPanel(\'a2p\')" style="background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.25);color:#a78bfa;border-radius:5px;padding:3px 10px;font-size:.7rem;font-weight:600;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-certificate me-1"></i>Register A2P</button>';
+                actions = '<button onclick="switchConfigPanel(\'a2p\')" style="background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.25);color:#a78bfa;border-radius:5px;padding:3px 10px;font-size:.75rem;font-weight:600;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-certificate me-1"></i>Register A2P</button>';
             } else if (hasSms && isRegistered) {
-                actions = '<span style="color:#4ade80;font-size:.7rem;"><i class="fa-solid fa-circle-check me-1"></i>Compliant</span>';
+                actions = '<span style="color:#4ade80;font-size:.75rem;"><i class="fa-solid fa-circle-check me-1"></i>Compliant</span>';
             }
 
-            const nickname = n.nickname ? '<span style="color:#888;font-size:.7rem;margin-left:4px;">(' + (typeof _esc === 'function' ? _esc(n.nickname) : n.nickname) + ')</span>' : '';
-            const primaryBadge = n.is_primary ? '<span style="background:rgba(0,217,255,0.15);color:#00d9ff;padding:1px 6px;border-radius:3px;font-size:.6rem;font-weight:700;margin-left:6px;">PRIMARY</span>' : '';
+            const nickname = n.nickname ? '<span style="color:#888;font-size:.75rem;margin-left:4px;">(' + (typeof _esc === 'function' ? _esc(n.nickname) : n.nickname) + ')</span>' : '';
+            const primaryBadge = n.is_primary ? '<span style="background:rgba(0,217,255,0.15);color:#00d9ff;padding:1px 6px;border-radius:3px;font-size:.75rem;font-weight:700;margin-left:6px;">PRIMARY</span>' : '';
 
             html += '<div style="display:grid;grid-template-columns:1fr 80px 100px 120px;gap:0;align-items:center;">';
-            html += '<div style="' + cellStyle + 'color:#fff;font-size:.8rem;">' + _formatPhone(n.phone) + primaryBadge + nickname + '<br><span style="color:#555;font-size:.65rem;">' + (n.number_type || 'local') + '</span></div>';
+            html += '<div style="' + cellStyle + 'color:#fff;font-size:.8rem;">' + _formatPhone(n.phone) + primaryBadge + nickname + '<br><span style="color:#555;font-size:.75rem;">' + (n.number_type || 'local') + '</span></div>';
             html += '<div style="' + cellStyle + 'text-align:center;">' + smsIcon + '</div>';
             html += '<div style="' + cellStyle + 'text-align:center;">' + a2pBadge + '</div>';
             html += '<div style="' + cellStyle + 'text-align:center;">' + actions + '</div>';
@@ -382,12 +382,12 @@
                 return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 4px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.78rem;">' +
                     '<div style="flex:1;min-width:0;">' +
                         '<span style="color:#fff;font-weight:600;">' + _formatPhone(n.phone) + '</span>' +
-                        (loc ? '<span style="color:#666;font-size:.68rem;margin-left:6px;">' + loc + '</span>' : '') +
-                        '<div style="margin-top:2px;">' + caps.map(c => '<span style="background:rgba(0,217,255,0.08);color:#00d9ff;padding:1px 6px;border-radius:4px;font-size:.65rem;margin-right:3px;">' + c + '</span>').join('') + '</div>' +
+                        (loc ? '<span style="color:#666;font-size:.75rem;margin-left:6px;">' + loc + '</span>' : '') +
+                        '<div style="margin-top:2px;">' + caps.map(c => '<span style="background:rgba(0,217,255,0.08);color:#00d9ff;padding:1px 6px;border-radius:4px;font-size:.75rem;margin-right:3px;">' + c + '</span>').join('') + '</div>' +
                     '</div>' +
                     '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">' +
-                        '<span style="color:#00ff88;font-size:.72rem;font-weight:600;">' + monthlyPrice + '/mo</span>' +
-                        '<button onclick="smsBuyNumber(\'' + n.phone + '\')" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:4px;padding:3px 10px;font-size:.72rem;font-weight:700;cursor:pointer;">Buy</button>' +
+                        '<span style="color:#00ff88;font-size:.75rem;font-weight:600;">' + monthlyPrice + '/mo</span>' +
+                        '<button onclick="smsBuyNumber(\'' + n.phone + '\')" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:4px;padding:3px 10px;font-size:.75rem;font-weight:700;cursor:pointer;">Buy</button>' +
                     '</div>' +
                 '</div>';
             }).join('');

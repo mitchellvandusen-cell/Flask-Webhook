@@ -42,7 +42,7 @@
                                     </div>
                                     <div>
                                         <div style="font-size:1.3rem; font-weight:700; color:#fff; margin-bottom:4px;">${priceStr}</div>
-                                        ${perMin ? `<div style="font-size:0.7rem; color:#888; margin-bottom:12px;">${perMin}</div>` : '<div style="margin-bottom:12px;"></div>'}
+                                        ${perMin ? `<div style="font-size:0.75rem; color:#888; margin-bottom:12px;">${perMin}</div>` : '<div style="margin-bottom:12px;"></div>'}
                                         <button class="btn btn-sm w-100" style="background:${c.accent}; color:#000; font-weight:700; border-radius:10px; padding:8px 0;"
                                             onclick="buyAiMinutes(${pkg.minutes})" ${!pkg.available ? 'disabled' : ''}>
                                             Buy Now

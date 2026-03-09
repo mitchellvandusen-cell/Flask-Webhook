@@ -44,7 +44,7 @@
     .gm-table { width: 100%; border-collapse: collapse; }
     .gm-table thead th {
         background: rgba(255,255,255,0.04);
-        color: #666; font-size: 0.72rem; text-transform: uppercase;
+        color: #666; font-size: 0.75rem; text-transform: uppercase;
         letter-spacing: 0.06em; padding: 12px 16px; text-align: left;
         border-bottom: 1px solid rgba(255,255,255,0.06);
         white-space: nowrap;
@@ -60,7 +60,7 @@
     /* Role badges */
     .role-badge {
         display: inline-block; padding: 3px 10px; border-radius: 20px;
-        font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em;
+        font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em;
         text-transform: uppercase;
     }
     .role-super_admin  { background: rgba(255,215,0,0.15); color: #ffd700; border: 1px solid rgba(255,215,0,0.3); }
@@ -198,7 +198,7 @@
                 <td>
                     <span style="color:#fff; font-weight:600;">{{ u.email or '—' }}</span>
                     {% if u.source == 'agency_billing' %}
-                        <span style="font-size:0.65rem; color:#00d9ff; margin-left:4px;">agency</span>
+                        <span style="font-size:0.75rem; color:#00d9ff; margin-left:4px;">agency</span>
                     {% endif %}
                 </td>
                 <td>{{ u.full_name or '—' }}</td>
@@ -209,11 +209,11 @@
                 </td>
                 <td style="font-size:0.75rem;">
                     {% if u.oauth_app_type == 'private' %}
-                        <span class="app-private"><i class="fa-solid fa-lock me-1" style="font-size:0.6rem;"></i>private</span>
+                        <span class="app-private"><i class="fa-solid fa-lock me-1" style="font-size:0.75rem;"></i>private</span>
                     {% elif u.oauth_app_type == 'website' %}
-                        <span class="app-website"><i class="fa-solid fa-globe me-1" style="font-size:0.6rem;"></i>website</span>
+                        <span class="app-website"><i class="fa-solid fa-globe me-1" style="font-size:0.75rem;"></i>website</span>
                     {% elif u.oauth_app_type == 'marketplace' %}
-                        <span class="app-marketplace"><i class="fa-solid fa-store me-1" style="font-size:0.6rem;"></i>marketplace</span>
+                        <span class="app-marketplace"><i class="fa-solid fa-store me-1" style="font-size:0.75rem;"></i>marketplace</span>
                     {% else %}
                         <span style="color:#555;">{{ u.oauth_app_type or '—' }}</span>
                     {% endif %}
@@ -221,11 +221,11 @@
                 <td style="color:#aaa;">{{ u.subscription_tier or '—' }}</td>
                 <td>
                     {% if u.stripe_status == 'active' %}
-                        <span class="stripe-active"><i class="fa-solid fa-circle-check me-1" style="font-size:0.7rem;"></i>Active</span>
+                        <span class="stripe-active"><i class="fa-solid fa-circle-check me-1" style="font-size:0.75rem;"></i>Active</span>
                     {% elif u.stripe_status == 'trialing' %}
-                        <span class="stripe-trialing"><i class="fa-solid fa-clock me-1" style="font-size:0.7rem;"></i>Trial</span>
+                        <span class="stripe-trialing"><i class="fa-solid fa-clock me-1" style="font-size:0.75rem;"></i>Trial</span>
                     {% elif u.stripe_status == 'past_due' %}
-                        <span class="stripe-past_due"><i class="fa-solid fa-triangle-exclamation me-1" style="font-size:0.7rem;"></i>Past Due</span>
+                        <span class="stripe-past_due"><i class="fa-solid fa-triangle-exclamation me-1" style="font-size:0.75rem;"></i>Past Due</span>
                     {% else %}
                         <span class="stripe-none">—</span>
                     {% endif %}
@@ -345,14 +345,14 @@
             body.innerHTML = logs.map(function(log) {
                 const statusClass = 'gm-log-status-' + (log.status || 'info');
                 const time = log.created_at ? new Date(log.created_at).toLocaleString() : '';
-                const details = log.details ? '<pre style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:8px;margin-top:6px;color:#999;font-size:0.72rem;overflow-x:auto;max-height:120px;">' + escHtml(typeof log.details === 'string' ? log.details : JSON.stringify(log.details, null, 2)) + '</pre>' : '';
+                const details = log.details ? '<pre style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:8px;margin-top:6px;color:#999;font-size:0.75rem;overflow-x:auto;max-height:120px;">' + escHtml(typeof log.details === 'string' ? log.details : JSON.stringify(log.details, null, 2)) + '</pre>' : '';
                 return '<div class="gm-log-entry">' +
                     '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
                         '<div>' +
                             '<span class="' + statusClass + '" style="font-weight:700;font-size:0.75rem;text-transform:uppercase;">' + escHtml(log.status || 'info') + '</span>' +
                             '<span style="color:#00d9ff;font-size:0.75rem;margin-left:8px;font-weight:600;">' + escHtml(log.event_type || '') + '</span>' +
                         '</div>' +
-                        '<span style="color:#555;font-size:0.7rem;white-space:nowrap;">' + time + '</span>' +
+                        '<span style="color:#555;font-size:0.75rem;white-space:nowrap;">' + time + '</span>' +
                     '</div>' +
                     '<div style="color:#ccc;font-size:0.8rem;margin-top:4px;">' + escHtml(log.message || '') + '</div>' +
                     details +

@@ -42,7 +42,7 @@
                                         ' &bull; STIR/SHAKEN A &bull; Registered ' + (d.registered_at ? new Date(d.registered_at).toLocaleDateString() : '') +
                                     '</div>' +
                                 '</div>' +
-                                '<button onclick="document.getElementById(\'spamProtectionForm\').style.display=document.getElementById(\'spamProtectionForm\').style.display===\'none\'?\'block\':\'none\'" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:5px 12px;font-size:0.72rem;cursor:pointer;white-space:nowrap;">' +
+                                '<button onclick="document.getElementById(\'spamProtectionForm\').style.display=document.getElementById(\'spamProtectionForm\').style.display===\'none\'?\'block\':\'none\'" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:5px 12px;font-size:0.75rem;cursor:pointer;white-space:nowrap;">' +
                                     '<i class="fa-solid fa-pen me-1"></i>Edit' +
                                 '</button>' +
                             '</div>' +
@@ -71,7 +71,7 @@
                                 '</div>' +
                                 '<div style="display:flex;align-items:center;gap:8px;">' +
                                     label +
-                                    (!n.cnam_enabled ? '<button onclick="enableCnamSingle(\'' + n.id + '\')" style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.15);color:#00ff88;border-radius:5px;padding:3px 10px;font-size:.7rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-shield-halved me-1"></i>Enable</button>' : '') +
+                                    (!n.cnam_enabled ? '<button onclick="enableCnamSingle(\'' + n.id + '\')" style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.15);color:#00ff88;border-radius:5px;padding:3px 10px;font-size:.75rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-shield-halved me-1"></i>Enable</button>' : '') +
                                 '</div>' +
                             '</div>';
                         });
@@ -180,12 +180,12 @@
                     return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 4px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.78rem;">' +
                         '<div style="flex:1;min-width:0;">' +
                             '<span style="color:#fff;font-weight:600;">' + _esc(_fmtPhone(n.phone)) + '</span>' +
-                            (loc ? '<span style="color:#666;font-size:.68rem;margin-left:6px;">' + _esc(loc) + '</span>' : '') +
-                            '<div style="margin-top:2px;">' + caps.map(c => '<span style="background:rgba(0,217,255,0.08);color:#00d9ff;padding:1px 6px;border-radius:4px;font-size:.65rem;margin-right:3px;">' + c + '</span>').join('') + '</div>' +
+                            (loc ? '<span style="color:#666;font-size:.75rem;margin-left:6px;">' + _esc(loc) + '</span>' : '') +
+                            '<div style="margin-top:2px;">' + caps.map(c => '<span style="background:rgba(0,217,255,0.08);color:#00d9ff;padding:1px 6px;border-radius:4px;font-size:.75rem;margin-right:3px;">' + c + '</span>').join('') + '</div>' +
                         '</div>' +
                         '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">' +
-                            '<span style="color:#00ff88;font-size:.72rem;font-weight:600;">' + monthlyPrice + '/mo</span>' +
-                            '<button onclick="buyNumber(\'' + n.phone + '\')" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:4px;padding:3px 10px;font-size:.72rem;font-weight:700;cursor:pointer;">Buy</button>' +
+                            '<span style="color:#00ff88;font-size:.75rem;font-weight:600;">' + monthlyPrice + '/mo</span>' +
+                            '<button onclick="buyNumber(\'' + n.phone + '\')" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:4px;padding:3px 10px;font-size:.75rem;font-weight:700;cursor:pointer;">Buy</button>' +
                         '</div>' +
                     '</div>';
                 }).join('');
@@ -244,7 +244,7 @@
             const el = document.getElementById('numberHealthContent');
             if (!el) return;
             // Show loading spinner
-            el.innerHTML = '<div style="text-align:center;padding:20px;color:#555;"><i class="fa-solid fa-spinner fa-spin" style="font-size:1rem;color:#ff6b9d;display:block;margin-bottom:6px;"></i><span style="font-size:.72rem;">Loading number health...</span></div>';
+            el.innerHTML = '<div style="text-align:center;padding:20px;color:#555;"><i class="fa-solid fa-spinner fa-spin" style="font-size:1rem;color:#ff6b9d;display:block;margin-bottom:6px;"></i><span style="font-size:.75rem;">Loading number health...</span></div>';
             try {
                 const r = await fetch('/voice/number-health');
                 if (!r.ok) {
@@ -295,7 +295,7 @@
             ];
             strategies.forEach(function(s) {
                 var active = strategy === s.key;
-                html += '<button onclick="nhSetStrategy(\'' + s.key + '\')" title="' + _esc(s.desc) + '" style="flex:1;padding:6px 8px;border-radius:6px;font-size:.68rem;font-weight:600;cursor:pointer;border:1px solid ' + (active ? 'rgba(0,217,255,0.3)' : 'rgba(255,255,255,0.06)') + ';background:' + (active ? 'rgba(0,217,255,0.08)' : 'rgba(255,255,255,0.02)') + ';color:' + (active ? '#00d9ff' : '#888') + ';">';
+                html += '<button onclick="nhSetStrategy(\'' + s.key + '\')" title="' + _esc(s.desc) + '" style="flex:1;padding:6px 8px;border-radius:6px;font-size:.75rem;font-weight:600;cursor:pointer;border:1px solid ' + (active ? 'rgba(0,217,255,0.3)' : 'rgba(255,255,255,0.06)') + ';background:' + (active ? 'rgba(0,217,255,0.08)' : 'rgba(255,255,255,0.02)') + ';color:' + (active ? '#00d9ff' : '#888') + ';">';
                 html += '<i class="fa-solid ' + s.icon + ' me-1"></i>' + s.label;
                 html += '</button>';
             });
@@ -329,7 +329,7 @@
             html += '<div style="margin-top:16px;">';
             html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
             html += '<h6 style="margin:0;font-weight:700;color:#fff;font-size:.82rem;"><i class="fa-solid fa-id-card me-2" style="color:#a78bfa;"></i>States Licensed In</h6>';
-            html += '<button onclick="nhOpenStatePicker()" style="background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);color:#a78bfa;border-radius:6px;padding:4px 12px;font-size:.72rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-pen me-1"></i>Edit States</button>';
+            html += '<button onclick="nhOpenStatePicker()" style="background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);color:#a78bfa;border-radius:6px;padding:4px 12px;font-size:.75rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-pen me-1"></i>Edit States</button>';
             html += '</div>';
 
             var licensedStates = d.licensed_states || [];
@@ -355,13 +355,13 @@
 
                     html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:' + bgColor + ';border:1px solid ' + borderColor + ';border-radius:6px;">';
                     html += '<div style="display:flex;align-items:center;gap:8px;">';
-                    html += '<i class="fa-solid ' + statusIcon + '" style="color:' + statusColor + ';font-size:.7rem;"></i>';
+                    html += '<i class="fa-solid ' + statusIcon + '" style="color:' + statusColor + ';font-size:.75rem;"></i>';
                     html += '<span style="color:#ccc;font-size:.78rem;font-weight:600;">' + _esc(s.state_name) + '</span>';
-                    html += '<span style="color:' + statusColor + ';font-size:.65rem;">' + statusText + '</span>';
+                    html += '<span style="color:' + statusColor + ';font-size:.75rem;">' + statusText + '</span>';
                     html += '</div>';
 
                     if (!covered) {
-                        html += '<button onclick="nhBuyForState(\'' + _esc(s.state) + '\')" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:5px;padding:3px 10px;font-size:.68rem;font-weight:700;cursor:pointer;white-space:nowrap;">';
+                        html += '<button onclick="nhBuyForState(\'' + _esc(s.state) + '\')" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:5px;padding:3px 10px;font-size:.75rem;font-weight:700;cursor:pointer;white-space:nowrap;">';
                         html += '<i class="fa-solid fa-plus me-1"></i>Buy Number';
                         html += '</button>';
                     }
@@ -382,9 +382,9 @@
         function _nhKpiCard(label, value, color, icon) {
             return '<div style="padding:10px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px;text-align:center;">' +
                 '<div style="font-size:1.1rem;font-weight:800;color:' + color + ';">' +
-                '<i class="fa-solid ' + icon + '" style="font-size:.65rem;opacity:.6;margin-right:3px;"></i>' + value +
+                '<i class="fa-solid ' + icon + '" style="font-size:.75rem;opacity:.6;margin-right:3px;"></i>' + value +
                 '</div>' +
-                '<div style="font-size:.62rem;color:#666;text-transform:uppercase;letter-spacing:.5px;margin-top:2px;">' + label + '</div>' +
+                '<div style="font-size:.75rem;color:#666;text-transform:uppercase;letter-spacing:.5px;margin-top:2px;">' + label + '</div>' +
                 '</div>';
         }
 
@@ -434,21 +434,21 @@
             html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">';
             html += '<div style="display:flex;align-items:center;gap:6px;">';
             html += '<span style="color:#fff;font-weight:600;font-size:.8rem;">' + _esc(_fmtPhone(n.phone)) + '</span>';
-            if (n.state) html += '<span style="background:rgba(0,217,255,0.08);color:#00d9ff;padding:1px 5px;border-radius:3px;font-size:.5rem;font-weight:700;letter-spacing:.3px;">' + _esc(n.state) + '</span>';
-            if (n.is_primary) html += '<span style="background:rgba(0,217,255,0.15);color:#00d9ff;padding:1px 5px;border-radius:3px;font-size:.55rem;font-weight:700;">PRIMARY</span>';
-            if (n.nickname) html += '<span style="color:#666;font-size:.65rem;">(' + _esc(n.nickname) + ')</span>';
-            if (_nhData && _nhData.spam_protected) html += '<span title="A2P Registered — STIR/SHAKEN verified" style="background:rgba(0,255,136,0.08);color:#00ff88;padding:1px 5px;border-radius:3px;font-size:.55rem;font-weight:700;cursor:help;"><i class="fa-solid fa-shield-halved" style="font-size:.5rem;margin-right:2px;"></i>Protected</span>';
+            if (n.state) html += '<span style="background:rgba(0,217,255,0.08);color:#00d9ff;padding:1px 5px;border-radius:3px;font-size:.75rem;font-weight:700;letter-spacing:.3px;">' + _esc(n.state) + '</span>';
+            if (n.is_primary) html += '<span style="background:rgba(0,217,255,0.15);color:#00d9ff;padding:1px 5px;border-radius:3px;font-size:.75rem;font-weight:700;">PRIMARY</span>';
+            if (n.nickname) html += '<span style="color:#666;font-size:.75rem;">(' + _esc(n.nickname) + ')</span>';
+            if (_nhData && _nhData.spam_protected) html += '<span title="A2P Registered — STIR/SHAKEN verified" style="background:rgba(0,255,136,0.08);color:#00ff88;padding:1px 5px;border-radius:3px;font-size:.75rem;font-weight:700;cursor:help;"><i class="fa-solid fa-shield-halved" style="font-size:.75rem;margin-right:2px;"></i>Protected</span>';
             html += '</div>';
 
             // Health score badge
             html += '<div style="display:flex;align-items:center;gap:6px;">';
             if (n.status === 'frozen' || n.status === 'resting') {
-                html += '<span style="background:' + statusBg + ';color:' + statusColor + ';padding:2px 8px;border-radius:4px;font-size:.65rem;font-weight:700;text-transform:uppercase;">';
+                html += '<span style="background:' + statusBg + ';color:' + statusColor + ';padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:700;text-transform:uppercase;">';
                 html += '<i class="fa-solid ' + statusIcon + ' me-1"></i>' + n.status;
                 html += '</span>';
             }
             html += '<div style="width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,0.3);border:2px solid ' + barColor + ';display:flex;align-items:center;justify-content:center;">';
-            html += '<span style="font-size:.65rem;font-weight:800;color:' + barColor + ';">' + Math.round(score) + '</span>';
+            html += '<span style="font-size:.75rem;font-weight:800;color:' + barColor + ';">' + Math.round(score) + '</span>';
             html += '</div></div></div>';
 
             // Row 2: Metric pills
@@ -474,12 +474,12 @@
             // Row 4: Actions
             if (n.status === 'frozen' || n.status === 'resting') {
                 html += '<div style="margin-top:6px;text-align:right;">';
-                html += '<button onclick="nhSetNumberStatus(\'' + _esc(n.phone) + '\',\'active\')" style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.15);color:#00ff88;border-radius:4px;padding:3px 10px;font-size:.65rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-play me-1"></i>Reactivate</button>';
+                html += '<button onclick="nhSetNumberStatus(\'' + _esc(n.phone) + '\',\'active\')" style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.15);color:#00ff88;border-radius:4px;padding:3px 10px;font-size:.75rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-play me-1"></i>Reactivate</button>';
                 html += '</div>';
             } else if (score < 40 && totalCalls >= 5) {
                 html += '<div style="margin-top:6px;display:flex;justify-content:flex-end;gap:6px;">';
-                html += '<button onclick="nhSetNumberStatus(\'' + _esc(n.phone) + '\',\'resting\',24)" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.15);color:#fbbf24;border-radius:4px;padding:3px 10px;font-size:.65rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-moon me-1"></i>Rest 24h</button>';
-                html += '<button onclick="nhSetNumberStatus(\'' + _esc(n.phone) + '\',\'frozen\')" style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.15);color:#8b5cf6;border-radius:4px;padding:3px 10px;font-size:.65rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-snowflake me-1"></i>Freeze</button>';
+                html += '<button onclick="nhSetNumberStatus(\'' + _esc(n.phone) + '\',\'resting\',24)" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.15);color:#fbbf24;border-radius:4px;padding:3px 10px;font-size:.75rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-moon me-1"></i>Rest 24h</button>';
+                html += '<button onclick="nhSetNumberStatus(\'' + _esc(n.phone) + '\',\'frozen\')" style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.15);color:#8b5cf6;border-radius:4px;padding:3px 10px;font-size:.75rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-snowflake me-1"></i>Freeze</button>';
                 html += '</div>';
             }
 
@@ -488,8 +488,8 @@
         }
 
         function _nhPill(icon, text, color) {
-            return '<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);border-radius:4px;padding:2px 6px;font-size:.6rem;color:' + (color || '#888') + ';">' +
-                '<i class="fa-solid ' + icon + '" style="font-size:.5rem;opacity:.7;"></i>' + text +
+            return '<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);border-radius:4px;padding:2px 6px;font-size:.75rem;color:' + (color || '#888') + ';">' +
+                '<i class="fa-solid ' + icon + '" style="font-size:.75rem;opacity:.7;"></i>' + text +
                 '</span>';
         }
 
@@ -586,8 +586,8 @@
 
             // Select all / clear
             html += '<div style="display:flex;gap:8px;margin-bottom:12px;">';
-            html += '<button onclick="document.querySelectorAll(\'#nhStateGrid input\').forEach(function(c){c.checked=true})" style="background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:5px;padding:3px 10px;font-size:.7rem;cursor:pointer;">Select All</button>';
-            html += '<button onclick="document.querySelectorAll(\'#nhStateGrid input\').forEach(function(c){c.checked=false})" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:#888;border-radius:5px;padding:3px 10px;font-size:.7rem;cursor:pointer;">Clear All</button>';
+            html += '<button onclick="document.querySelectorAll(\'#nhStateGrid input\').forEach(function(c){c.checked=true})" style="background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:5px;padding:3px 10px;font-size:.75rem;cursor:pointer;">Select All</button>';
+            html += '<button onclick="document.querySelectorAll(\'#nhStateGrid input\').forEach(function(c){c.checked=false})" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:#888;border-radius:5px;padding:3px 10px;font-size:.75rem;cursor:pointer;">Clear All</button>';
             html += '</div>';
 
             // State grid
@@ -733,9 +733,9 @@
                                 '</div>' +
                                 '<div style="flex:1;">' +
                                     '<div style="font-weight:700;color:' + headerColor + ';font-size:0.9rem;">' + headerText + '</div>' +
-                                    (d.registered_at ? '<div style="font-size:0.7rem;color:#666;">Registered ' + new Date(d.registered_at).toLocaleDateString() + '</div>' : '') +
+                                    (d.registered_at ? '<div style="font-size:0.75rem;color:#666;">Registered ' + new Date(d.registered_at).toLocaleDateString() + '</div>' : '') +
                                 '</div>' +
-                                '<button onclick="a2pRefreshStatus()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:5px 12px;font-size:0.72rem;cursor:pointer;white-space:nowrap;">' +
+                                '<button onclick="a2pRefreshStatus()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:5px 12px;font-size:0.75rem;cursor:pointer;white-space:nowrap;">' +
                                     '<i class="fa-solid fa-arrows-rotate me-1"></i>Refresh' +
                                 '</button>' +
                             '</div>' +
@@ -743,28 +743,28 @@
                             '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:8px;margin-bottom:6px;">' +
                                 '<i class="fa-solid fa-building" style="color:#a78bfa;width:16px;text-align:center;"></i>' +
                                 '<span style="font-weight:600;color:#ccc;font-size:0.78rem;width:70px;">Brand</span>' +
-                                '<span style="background:' + brandColor + '20;color:' + brandColor + ';padding:2px 8px;border-radius:4px;font-size:0.68rem;font-weight:700;">' + _esc(brandLabel) + '</span>' +
-                                '<span style="color:#555;font-family:\'JetBrains Mono\',monospace;font-size:0.65rem;margin-left:auto;">' + _esc(d.brand_sid) + '</span>' +
+                                '<span style="background:' + brandColor + '20;color:' + brandColor + ';padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:700;">' + _esc(brandLabel) + '</span>' +
+                                '<span style="color:#555;font-family:\'JetBrains Mono\',monospace;font-size:0.75rem;margin-left:auto;">' + _esc(d.brand_sid) + '</span>' +
                             '</div>' +
                             // Campaign row
                             '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:8px;margin-bottom:6px;">' +
                                 '<i class="fa-solid fa-bullhorn" style="color:#00d9ff;width:16px;text-align:center;"></i>' +
                                 '<span style="font-weight:600;color:#ccc;font-size:0.78rem;width:70px;">Campaign</span>' +
-                                '<span style="background:' + campColor + '20;color:' + campColor + ';padding:2px 8px;border-radius:4px;font-size:0.68rem;font-weight:700;">' + _esc(campLabel) + '</span>' +
-                                '<span style="color:#555;font-family:\'JetBrains Mono\',monospace;font-size:0.65rem;margin-left:auto;">' + _esc(d.campaign_sid) + '</span>' +
+                                '<span style="background:' + campColor + '20;color:' + campColor + ';padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:700;">' + _esc(campLabel) + '</span>' +
+                                '<span style="color:#555;font-family:\'JetBrains Mono\',monospace;font-size:0.75rem;margin-left:auto;">' + _esc(d.campaign_sid) + '</span>' +
                             '</div>' +
                             // Messaging service row (if present)
                             (d.messaging_service_sid ?
                                 '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:8px;">' +
                                     '<i class="fa-solid fa-envelope" style="color:#ffa500;width:16px;text-align:center;"></i>' +
                                     '<span style="font-weight:600;color:#ccc;font-size:0.78rem;width:70px;">Msg Svc</span>' +
-                                    '<span style="background:rgba(0,255,136,0.12);color:#00ff88;padding:2px 8px;border-radius:4px;font-size:0.68rem;font-weight:700;">Active</span>' +
-                                    '<span style="color:#555;font-family:\'JetBrains Mono\',monospace;font-size:0.65rem;margin-left:auto;">' + _esc(d.messaging_service_sid) + '</span>' +
+                                    '<span style="background:rgba(0,255,136,0.12);color:#00ff88;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:700;">Active</span>' +
+                                    '<span style="color:#555;font-family:\'JetBrains Mono\',monospace;font-size:0.75rem;margin-left:auto;">' + _esc(d.messaging_service_sid) + '</span>' +
                                 '</div>' : ''
                             ) +
                             // Pending note
                             (!allGood ?
-                                '<div style="margin-top:10px;padding:8px 12px;background:rgba(251,191,36,0.05);border:1px solid rgba(251,191,36,0.1);border-radius:8px;font-size:0.72rem;color:#fbbf24;">' +
+                                '<div style="margin-top:10px;padding:8px 12px;background:rgba(251,191,36,0.05);border:1px solid rgba(251,191,36,0.1);border-radius:8px;font-size:0.75rem;color:#fbbf24;">' +
                                     '<i class="fa-solid fa-clock me-1"></i>Registration is pending carrier approval. Click Refresh to check for updates.' +
                                 '</div>' : ''
                             ) +
@@ -812,7 +812,7 @@
                 syncHint.innerHTML =
                     '<i class="fa-solid fa-cloud-arrow-down" style="color:#00d9ff;font-size:1rem;"></i>' +
                     '<span style="color:#aaa;font-size:0.76rem;flex:1;">Already registered A2P on Twilio? Sync your existing brand &amp; campaign instead of re-registering.</span>' +
-                    '<button id="a2pSyncBtn" onclick="a2pSyncFromTwilio()" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.25);color:#00d9ff;border-radius:6px;padding:5px 14px;font-size:0.72rem;cursor:pointer;white-space:nowrap;font-weight:600;">' +
+                    '<button id="a2pSyncBtn" onclick="a2pSyncFromTwilio()" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.25);color:#00d9ff;border-radius:6px;padding:5px 14px;font-size:0.75rem;cursor:pointer;white-space:nowrap;font-weight:600;">' +
                         '<i class="fa-solid fa-arrows-rotate me-1"></i>Sync from Twilio' +
                     '</button>';
                 registerPanel.insertBefore(syncHint, registerPanel.firstChild);
@@ -830,18 +830,18 @@
                     '<div style="display:flex;align-items:center;gap:6px;">' +
                         '<span style="font-weight:700;color:#ccc;">Brand:</span>' +
                         '<span style="color:' + color + ';font-weight:600;">' + _esc(s) + '</span>' +
-                        '<span style="color:#555;font-family:\'JetBrains Mono\',monospace;font-size:0.68rem;">' + _esc(d.brand_sid || '') + '</span>' +
+                        '<span style="color:#555;font-family:\'JetBrains Mono\',monospace;font-size:0.75rem;">' + _esc(d.brand_sid || '') + '</span>' +
                     '</div>' +
                 '</div>' +
                 (d.campaign_sid ?
                     '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;">' +
                         '<span style="font-weight:700;color:#ccc;">Campaign:</span>' +
                         '<span style="color:#00d9ff;font-weight:600;">' + _esc(d.campaign_status || 'PENDING') + '</span>' +
-                        '<span style="color:#555;font-family:\'JetBrains Mono\',monospace;font-size:0.68rem;">' + _esc(d.campaign_sid) + '</span>' +
+                        '<span style="color:#555;font-family:\'JetBrains Mono\',monospace;font-size:0.75rem;">' + _esc(d.campaign_sid) + '</span>' +
                     '</div>' : ''
                 ) +
                 (s !== 'APPROVED' && s !== 'FAILED' ?
-                    '<div style="margin-top:6px;font-size:0.72rem;color:#888;"><i class="fa-solid fa-clock me-1" style="color:#fbbf24;"></i>Brand vetting typically takes 1-7 business days. Click Refresh to check.</div>' : ''
+                    '<div style="margin-top:6px;font-size:0.75rem;color:#888;"><i class="fa-solid fa-clock me-1" style="color:#fbbf24;"></i>Brand vetting typically takes 1-7 business days. Click Refresh to check.</div>' : ''
                 );
         }
 
@@ -883,8 +883,8 @@
                 return '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.03);cursor:pointer;">' +
                     '<input type="checkbox" class="a2p-number-cb" value="' + _esc(n.sid) + '" checked style="accent-color:#00d9ff;">' +
                     '<span style="color:#ccc;">' + _esc(_fmtPhone(n.phone)) + '</span>' +
-                    (n.nickname ? '<span style="color:#555;font-size:0.7rem;">(' + _esc(n.nickname) + ')</span>' : '') +
-                    '<span style="margin-left:auto;font-size:0.65rem;color:#00d9ff;">' +
+                    (n.nickname ? '<span style="color:#555;font-size:0.75rem;">(' + _esc(n.nickname) + ')</span>' : '') +
+                    '<span style="margin-left:auto;font-size:0.75rem;color:#00d9ff;">' +
                         (n.capabilities && n.capabilities.sms ? 'SMS ' : '') +
                         (n.capabilities && n.capabilities.voice ? 'Voice' : '') +
                     '</span>' +

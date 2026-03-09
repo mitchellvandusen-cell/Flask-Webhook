@@ -12,7 +12,7 @@
                         </div>
                         <div class="ms-auto">
                             <span id="voiceStatusBadge" class="badge" style="background: {% if voice_config.get('enabled') %}rgba(0,255,136,0.15); color: #00ff88; border: 1px solid rgba(0,255,136,0.3){% else %}rgba(255,255,255,0.06); color: #666; border: 1px solid rgba(255,255,255,0.08){% endif %}; padding: 6px 14px; border-radius: 20px; font-size: 0.8rem;">
-                                {% if voice_config.get('enabled') %}<i class="fa-solid fa-circle me-1" style="font-size:0.5rem; vertical-align:middle;"></i> Active{% else %}Inactive{% endif %}
+                                {% if voice_config.get('enabled') %}<i class="fa-solid fa-circle me-1" style="font-size:0.75rem; vertical-align:middle;"></i> Active{% else %}Inactive{% endif %}
                             </span>
                         </div>
                     </div>
@@ -150,7 +150,7 @@
                             <div style="margin-top:8px; padding:10px 12px; background:rgba(0,217,255,0.04); border:1px solid rgba(0,217,255,0.1); border-radius:8px;">
                                 <div style="color:#00d9ff; font-size:0.75rem; font-weight:600; margin-bottom:4px;"><i class="fa-solid fa-circle-info me-1"></i> Contact Fields Available to AI</div>
                                 <p style="color:#999; font-size:0.75rem; margin-bottom:4px;">The AI automatically has access to <strong style="color:#ccc;">all CRM custom fields</strong> for the contact being called (beneficiary, coverage amount, etc.). Just tell it what to do with them in your instructions.</p>
-                                <div style="color:#777; font-size:0.72rem; line-height:1.5;">
+                                <div style="color:#777; font-size:0.75rem; line-height:1.5;">
                                     <strong style="color:#aaa;">Examples:</strong><br>
                                     "Confirm the beneficiary name with the lead"<br>
                                     "Reference their requested coverage amount"<br>
@@ -167,7 +167,7 @@
                                     placeholder="Paste your call script here. The AI will treat this as a reference guide — it will pull talking points, objection responses, and flow from the script naturally rather than reading it word for word."
                                     style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px; font-size: 0.85rem; line-height:1.6; resize:vertical;">{{ voice_config.get('call_script', '') }}</textarea>
                                 <button type="button" onclick="clearCallScript()"
-                                    style="position:absolute; top:8px; right:10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#888; border-radius:6px; padding:2px 8px; font-size:0.72rem; cursor:pointer;"
+                                    style="position:absolute; top:8px; right:10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#888; border-radius:6px; padding:2px 8px; font-size:0.75rem; cursor:pointer;"
                                     title="Clear script">clear</button>
                             </div>
                             <div style="margin-top:8px; padding:10px 12px; background:rgba(167,139,250,0.05); border:1px solid rgba(167,139,250,0.15); border-radius:8px;">
@@ -220,7 +220,7 @@
                         <!-- Buy panel -->
                         <div id="vstabBuyPanel" style="display:none;margin-bottom:16px;padding:16px;background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.12);border-radius:10px;">
                             <h6 style="color:#00d9ff;font-weight:700;margin-bottom:4px;font-size:0.88rem;"><i class="fa-solid fa-magnifying-glass me-1"></i>Search Available Numbers</h6>
-                            <div style="margin-bottom:10px;font-size:.72rem;color:#888;">Pricing: <span style="color:#00ff88;">Local $1.15/mo</span> &bull; <span style="color:#00ff88;">Toll-Free $2.15/mo</span> &bull; <span style="color:#00ff88;">Mobile $1.15/mo</span></div>
+                            <div style="margin-bottom:10px;font-size:.75rem;color:#888;">Pricing: <span style="color:#00ff88;">Local $1.15/mo</span> &bull; <span style="color:#00ff88;">Toll-Free $2.15/mo</span> &bull; <span style="color:#00ff88;">Mobile $1.15/mo</span></div>
                             <div class="d-flex gap-2 mb-2 flex-wrap">
                                 <select id="buyNumberType"
                                     style="width:120px;background:#2a2a35;border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
@@ -295,13 +295,13 @@
                                 <div style="font-weight:600;font-size:0.82rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-building me-1" style="color:#a78bfa;"></i> Business Details</div>
                                 <div class="row g-2 mb-3">
                                     <div class="col-md-8">
-                                        <label style="color:#aaa;font-size:0.72rem;font-weight:600;display:block;margin-bottom:3px;">Business Name (must match IRS docs)</label>
+                                        <label style="color:#aaa;font-size:0.75rem;font-weight:600;display:block;margin-bottom:3px;">Business Name (must match IRS docs)</label>
                                         <input type="text" id="spBizName" placeholder="ACME Insurance LLC"
                                             value="{{ (voice_config.get('trust_hub') or {}).get('business_name', '') }}"
                                             style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
                                     </div>
                                     <div class="col-md-4">
-                                        <label style="color:#aaa;font-size:0.72rem;font-weight:600;display:block;margin-bottom:3px;">EIN (Tax ID)</label>
+                                        <label style="color:#aaa;font-size:0.75rem;font-weight:600;display:block;margin-bottom:3px;">EIN (Tax ID)</label>
                                         <input type="text" id="spEIN" placeholder="XX-XXXXXXX"
                                             value="{{ (voice_config.get('trust_hub') or {}).get('ein', '') }}"
                                             style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
@@ -364,7 +364,7 @@
                         <div id="spNumbersList" class="mt-3 p-3" style="background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:10px;">
                             <div class="d-flex align-items-center justify-content-between mb-2">
                                 <div style="font-weight:700;font-size:0.9rem;color:#fff;"><i class="fa-solid fa-phone-volume me-2" style="color:#00d9ff;"></i>Number Protection Status</div>
-                                <button onclick="loadSpamProtectionStatus()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:4px 10px;font-size:0.72rem;cursor:pointer;">
+                                <button onclick="loadSpamProtectionStatus()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer;">
                                     <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
                                 </button>
                             </div>
@@ -428,7 +428,7 @@
                                             </button>
                                         </div>
                                     </div>
-                                    <div id="trainingTokenCreated" style="font-size:0.72rem;color:#666;margin-bottom:16px;"></div>
+                                    <div id="trainingTokenCreated" style="font-size:0.75rem;color:#666;margin-bottom:16px;"></div>
 
                                     <!-- Actions -->
                                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -450,19 +450,19 @@
                                 <div style="font-weight:700;font-size:0.85rem;color:#ccc;margin-bottom:12px;"><i class="fa-solid fa-list-check me-2" style="color:#a78bfa;"></i>How It Works</div>
                                 <div style="display:flex;flex-direction:column;gap:10px;">
                                     <div style="display:flex;align-items:flex-start;gap:10px;">
-                                        <div style="width:24px;height:24px;border-radius:50%;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.7rem;font-weight:700;color:#a78bfa;">1</div>
+                                        <div style="width:24px;height:24px;border-radius:50%;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.75rem;font-weight:700;color:#a78bfa;">1</div>
                                         <div style="font-size:0.8rem;color:#999;line-height:1.5;">Click <strong style="color:#ccc;">Generate Training Code</strong> above to create your unique code.</div>
                                     </div>
                                     <div style="display:flex;align-items:flex-start;gap:10px;">
-                                        <div style="width:24px;height:24px;border-radius:50%;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.7rem;font-weight:700;color:#a78bfa;">2</div>
+                                        <div style="width:24px;height:24px;border-radius:50%;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.75rem;font-weight:700;color:#a78bfa;">2</div>
                                         <div style="font-size:0.8rem;color:#999;line-height:1.5;">Copy the code and open <strong style="color:#ccc;">InsuranceGrokBot Training</strong>.</div>
                                     </div>
                                     <div style="display:flex;align-items:flex-start;gap:10px;">
-                                        <div style="width:24px;height:24px;border-radius:50%;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.7rem;font-weight:700;color:#a78bfa;">3</div>
+                                        <div style="width:24px;height:24px;border-radius:50%;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.75rem;font-weight:700;color:#a78bfa;">3</div>
                                         <div style="font-size:0.8rem;color:#999;line-height:1.5;">Paste your code into the <strong style="color:#ccc;">Import</strong> section to link your accounts.</div>
                                     </div>
                                     <div style="display:flex;align-items:flex-start;gap:10px;">
-                                        <div style="width:24px;height:24px;border-radius:50%;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.7rem;font-weight:700;color:#a78bfa;">4</div>
+                                        <div style="width:24px;height:24px;border-radius:50%;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.75rem;font-weight:700;color:#a78bfa;">4</div>
                                         <div style="font-size:0.8rem;color:#999;line-height:1.5;">Your call recordings, transcripts, and metadata will be available for analysis, grading, and coaching.</div>
                                     </div>
                                 </div>

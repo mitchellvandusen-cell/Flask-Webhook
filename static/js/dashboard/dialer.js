@@ -188,7 +188,7 @@
             menu.id = 'iosCalGoogleMenu';
             menu.style.cssText = 'position:absolute;top:100%;right:0;background:rgba(30,30,30,0.95);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:8px 0;min-width:180px;z-index:100;backdrop-filter:blur(12px);box-shadow:0 8px 24px rgba(0,0,0,0.4);';
             menu.innerHTML = `
-                <div style="padding:6px 14px;font-size:0.68rem;color:#34C759;font-weight:600;"><i class="fa-brands fa-google" style="margin-right:4px;"></i> Connected${_calGoogleEmail ? ' — ' + dialerEsc(_calGoogleEmail) : ''}</div>
+                <div style="padding:6px 14px;font-size:0.75rem;color:#34C759;font-weight:600;"><i class="fa-brands fa-google" style="margin-right:4px;"></i> Connected${_calGoogleEmail ? ' — ' + dialerEsc(_calGoogleEmail) : ''}</div>
                 <div style="height:1px;background:rgba(255,255,255,0.06);margin:4px 0;"></div>
                 <div onclick="window.location.href='/google-calendar/disconnect'" style="padding:8px 14px;font-size:0.75rem;color:#FF3B30;cursor:pointer;" onmouseover="this.style.background='rgba(255,59,48,0.1)'" onmouseout="this.style.background='none'"><i class="fa-solid fa-unlink" style="margin-right:6px;"></i>Disconnect</div>
             `;
@@ -395,7 +395,7 @@
 
             // ── GHL Appointments ──
             if (ghlEvents.length) {
-                html += '<div style="font-size:0.65rem;color:#34C759;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;padding:6px 0 4px;"><i class="fa-solid fa-calendar-check" style="margin-right:4px;"></i>Appointments</div>';
+                html += '<div style="font-size:0.75rem;color:#34C759;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;padding:6px 0 4px;"><i class="fa-solid fa-calendar-check" style="margin-right:4px;"></i>Appointments</div>';
                 ghlEvents.sort((a,b) => new Date(a.startTime || a.start) - new Date(b.startTime || b.start));
                 ghlEvents.forEach(ev => {
                     const startDt = new Date(ev.startTime || ev.start);
@@ -413,17 +413,17 @@
                     html += `<div onclick="calendarOpenEvent('${dialerEsc(ev.id)}')" style="background:rgba(52,199,89,0.06);border:1px solid rgba(52,199,89,0.12);border-radius:10px;padding:10px 12px;margin-bottom:6px;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.background='rgba(52,199,89,0.12)'" onmouseout="this.style.background='rgba(52,199,89,0.06)'">`;
                     html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">`;
                     html += `<span style="font-size:0.82rem;font-weight:700;color:#fff;">${dialerEsc(title)}</span>`;
-                    if (statusLabel) html += `<span style="font-size:0.6rem;color:${statusColor};font-weight:600;background:${statusColor}18;padding:2px 6px;border-radius:4px;">${statusLabel}</span>`;
+                    if (statusLabel) html += `<span style="font-size:0.75rem;color:${statusColor};font-weight:600;background:${statusColor}18;padding:2px 6px;border-radius:4px;">${statusLabel}</span>`;
                     html += '</div>';
-                    html += `<div style="font-size:0.72rem;color:#aaa;"><i class="fa-regular fa-clock" style="margin-right:3px;"></i>${timeStr}</div>`;
-                    if (ev.notes) html += `<div style="font-size:0.68rem;color:#777;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><i class="fa-regular fa-note-sticky" style="margin-right:3px;"></i>${dialerEsc(ev.notes).substring(0, 60)}</div>`;
+                    html += `<div style="font-size:0.75rem;color:#aaa;"><i class="fa-regular fa-clock" style="margin-right:3px;"></i>${timeStr}</div>`;
+                    if (ev.notes) html += `<div style="font-size:0.75rem;color:#777;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><i class="fa-regular fa-note-sticky" style="margin-right:3px;"></i>${dialerEsc(ev.notes).substring(0, 60)}</div>`;
                     html += '</div>';
                 });
             }
 
             // ── Google Calendar Events ──
             if (googleEvents.length) {
-                html += '<div style="font-size:0.65rem;color:#4285F4;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;padding:8px 0 4px;"><i class="fa-brands fa-google" style="margin-right:4px;"></i>Google Calendar</div>';
+                html += '<div style="font-size:0.75rem;color:#4285F4;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;padding:8px 0 4px;"><i class="fa-brands fa-google" style="margin-right:4px;"></i>Google Calendar</div>';
                 googleEvents.sort((a,b) => {
                     if (a.allDay && !b.allDay) return -1;
                     if (!a.allDay && b.allDay) return 1;
@@ -443,18 +443,18 @@
                     html += `<div style="background:rgba(66,133,244,0.06);border:1px solid rgba(66,133,244,0.15);border-left:3px solid #4285F4;border-radius:10px;padding:10px 12px;margin-bottom:6px;transition:all 0.15s;">`;
                     html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">`;
                     html += `<span style="font-size:0.82rem;font-weight:700;color:#fff;">${dialerEsc(title)}</span>`;
-                    html += `<span style="font-size:0.55rem;color:#4285F4;font-weight:600;background:rgba(66,133,244,0.12);padding:2px 6px;border-radius:4px;"><i class="fa-brands fa-google" style="margin-right:2px;"></i>Google</span>`;
+                    html += `<span style="font-size:0.75rem;color:#4285F4;font-weight:600;background:rgba(66,133,244,0.12);padding:2px 6px;border-radius:4px;"><i class="fa-brands fa-google" style="margin-right:2px;"></i>Google</span>`;
                     html += '</div>';
-                    html += `<div style="font-size:0.72rem;color:#aaa;"><i class="fa-regular fa-clock" style="margin-right:3px;"></i>${timeStr}</div>`;
-                    if (ev.location) html += `<div style="font-size:0.68rem;color:#777;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><i class="fa-solid fa-location-dot" style="margin-right:3px;"></i>${dialerEsc(ev.location).substring(0, 60)}</div>`;
-                    if (ev.description) html += `<div style="font-size:0.68rem;color:#777;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><i class="fa-regular fa-note-sticky" style="margin-right:3px;"></i>${dialerEsc(ev.description).substring(0, 60)}</div>`;
+                    html += `<div style="font-size:0.75rem;color:#aaa;"><i class="fa-regular fa-clock" style="margin-right:3px;"></i>${timeStr}</div>`;
+                    if (ev.location) html += `<div style="font-size:0.75rem;color:#777;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><i class="fa-solid fa-location-dot" style="margin-right:3px;"></i>${dialerEsc(ev.location).substring(0, 60)}</div>`;
+                    if (ev.description) html += `<div style="font-size:0.75rem;color:#777;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><i class="fa-regular fa-note-sticky" style="margin-right:3px;"></i>${dialerEsc(ev.description).substring(0, 60)}</div>`;
                     html += '</div>';
                 });
             }
 
             // ── Available Slots for booking ──
             if (slots.length) {
-                html += '<div style="font-size:0.65rem;color:#FF3B30;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;padding:8px 0 4px;"><i class="fa-regular fa-clock" style="margin-right:4px;"></i>Available Times</div>';
+                html += '<div style="font-size:0.75rem;color:#FF3B30;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;padding:8px 0 4px;"><i class="fa-regular fa-clock" style="margin-right:4px;"></i>Available Times</div>';
                 const parsed = slots.map(iso => {
                     const dt = new Date(iso);
                     return { iso, dt, hour: dt.getHours(), min: dt.getMinutes() };
@@ -466,7 +466,7 @@
 
                 function renderSlotGroup(label, items) {
                     if (!items.length) return '';
-                    let h = `<div style="font-size:0.6rem;color:#555;font-weight:600;text-transform:uppercase;padding:4px 0 3px;">${label}</div>`;
+                    let h = `<div style="font-size:0.75rem;color:#555;font-weight:600;text-transform:uppercase;padding:4px 0 3px;">${label}</div>`;
                     h += '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px;">';
                     items.forEach(s => {
                         const timeStr = _calFormatTime(s.dt);
@@ -820,7 +820,7 @@
             html += '<div style="flex:1;min-width:0;">';
             html += '<div style="display:flex;align-items:baseline;justify-content:space-between;">';
             html += '<span style="font-weight:' + (isNew ? '700' : '500') + ';font-size:.92rem;color:' + nameColor + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(name) + '</span>';
-            html += '<span style="color:#666;font-size:.72rem;white-space:nowrap;margin-left:8px;">' + dt + '</span>';
+            html += '<span style="color:#666;font-size:.75rem;white-space:nowrap;margin-left:8px;">' + dt + '</span>';
             html += '</div>';
             // Transcript preview or "Tap to transcribe"
             if (preview) {
@@ -894,7 +894,7 @@
                 '<button onclick="vmStopPlay()" style="background:none;border:none;color:#FF9500;cursor:pointer;font-size:1rem;"><i class="fa-solid fa-stop"></i></button>' +
                 '<div style="flex:1;min-width:0;">' +
                 '<div style="font-weight:600;font-size:.82rem;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(name) + '</div>' +
-                '<div id="vmPlayerTime" style="font-size:.72rem;color:#888;">Playing...</div>' +
+                '<div id="vmPlayerTime" style="font-size:.75rem;color:#888;">Playing...</div>' +
                 '</div></div>';
             bar.style.display = 'block';
 
@@ -1441,7 +1441,7 @@
                     dispLabel = (isPast ? 'Due: ' : '') + dayStr + ' ' + timeStr;
                 } catch(e) {}
             }
-            const dispBadge = dc ? '<span style="display:inline-flex;align-items:center;gap:2px;font-size:.65rem;color:' + dc.border + ';margin-left:6px;opacity:.85;"><i class="fa-solid ' + dc.icon + '" style="font-size:.58rem;"></i>' + dispLabel + '</span>' : '';
+            const dispBadge = dc ? '<span style="display:inline-flex;align-items:center;gap:2px;font-size:.75rem;color:' + dc.border + ';margin-left:6px;opacity:.85;"><i class="fa-solid ' + dc.icon + '" style="font-size:.75rem;"></i>' + dispLabel + '</span>' : '';
 
             return '<div class="dlr-contact-row' + (isActive ? ' active' : '') + '" onclick="dialerSelectContact(\'' + c.id + '\')" style="' + rowStyle + '">' +
                 '<input type="checkbox" ' + (sel ? 'checked' : '') + ' onclick="event.stopPropagation()" onchange="dialerToggleSelect(\'' + c.id + '\')" style="accent-color:#00d9ff;width:14px;height:14px;cursor:pointer;flex-shrink:0;">' +
@@ -1453,12 +1453,12 @@
                         '<span style="font-weight:600;font-size:0.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + dialerEsc(c.name) + '</span>' +
                         '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">' +
                             dots +
-                            '<span class="dlr-call-badge" data-call-badge="' + c.id + '" style="font-size:0.72rem;padding:1px 6px;">Dials: ' + callCount + '</span>' +
+                            '<span class="dlr-call-badge" data-call-badge="' + c.id + '" style="font-size:0.75rem;padding:1px 6px;">Dials: ' + callCount + '</span>' +
                         '</div>' +
                     '</div>' +
                     '<div style="font-size:0.78rem;color:#555;">' + dialerEsc(c.phone) + dispBadge + '</div>' +
                 '</div>' +
-                (inQ ? '<i class="fa-solid fa-list-ol" style="color:#00d9ff;font-size:0.72rem;" title="In queue"></i>' : '') +
+                (inQ ? '<i class="fa-solid fa-list-ol" style="color:#00d9ff;font-size:0.75rem;" title="In queue"></i>' : '') +
             '</div>';
         }
 
@@ -1491,9 +1491,9 @@
                 const sLabel = stageName ? (stageName.options[stageName.selectedIndex] || {}).text || '' : '';
                 const filterDesc = sLabel && sLabel !== 'All Stages' ? pLabel + ' — ' + sLabel : pLabel;
                 let html = '<div style="padding:4px 10px 2px;display:flex;align-items:center;gap:5px;">' +
-                    '<i class="fa-solid fa-filter" style="color:#00d9ff;font-size:.6rem;"></i>' +
-                    '<span style="font-size:.6rem;color:#444;letter-spacing:.3px;text-transform:uppercase;font-weight:700;">Pipeline: ' + filterDesc + '</span>' +
-                    '<span style="font-size:.6rem;color:#555;margin-left:auto;">' + dialerContacts.length + ' contacts</span>' +
+                    '<i class="fa-solid fa-filter" style="color:#00d9ff;font-size:.75rem;"></i>' +
+                    '<span style="font-size:.75rem;color:#444;letter-spacing:.3px;text-transform:uppercase;font-weight:700;">Pipeline: ' + filterDesc + '</span>' +
+                    '<span style="font-size:.75rem;color:#555;margin-left:auto;">' + dialerContacts.length + ' contacts</span>' +
                 '</div>';
                 html += dialerContacts.map(c => _igbRenderContactRow(c)).join('');
                 list.innerHTML = html;
@@ -1504,13 +1504,13 @@
             const groups = _igbGroupContacts(dialerContacts);
             const aiReady = Object.keys(_igbIntelCache).length > 0;
             const filterLabel = aiReady ? 'AI-Powered Smart Filters' : 'Smart Filters (loading AI...)';
-            let html = '<div style="padding:4px 10px 2px;display:flex;align-items:center;gap:5px;"><i class="fa-solid ' + (aiReady ? 'fa-brain' : 'fa-robot') + '" style="color:' + (aiReady ? '#5B7FFF' : '#00d9ff') + ';font-size:.6rem;"></i><span style="font-size:.6rem;color:#444;letter-spacing:.3px;text-transform:uppercase;font-weight:700;">' + filterLabel + '</span></div>';
+            let html = '<div style="padding:4px 10px 2px;display:flex;align-items:center;gap:5px;"><i class="fa-solid ' + (aiReady ? 'fa-brain' : 'fa-robot') + '" style="color:' + (aiReady ? '#5B7FFF' : '#00d9ff') + ';font-size:.75rem;"></i><span style="font-size:.75rem;color:#444;letter-spacing:.3px;text-transform:uppercase;font-weight:700;">' + filterLabel + '</span></div>';
             groups.forEach(g => {
                 if (!g.contacts.length) return;
                 const isCollapsed = _igbFilterCollapsed[g.key] || false;
                 html += '<div class="igb-filter-hdr" onclick="igbToggleFilter(\'' + g.key + '\')">' +
                     '<i class="fa-solid fa-chevron-down igb-filter-icon' + (isCollapsed ? ' collapsed' : '') + '" style="color:' + g.color + ';"></i>' +
-                    '<i class="fa-solid ' + g.icon + '" style="color:' + g.color + ';font-size:.7rem;"></i>' +
+                    '<i class="fa-solid ' + g.icon + '" style="color:' + g.color + ';font-size:.75rem;"></i>' +
                     '<span class="igb-filter-label" style="color:' + g.color + ';">' + g.label + '</span>' +
                     '<span class="igb-filter-count">' + g.contacts.length + '</span>' +
                 '</div>';
@@ -1774,7 +1774,7 @@
                     html += '<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:6px;padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px;">';
                     html += '<i class="fa-solid fa-ban" style="color:#ef4444;font-size:0.85rem;"></i>';
                     html += '<span style="color:#ef4444;font-size:0.82rem;font-weight:600;">Do Not Contact</span>';
-                    html += '<span style="color:#888;font-size:0.72rem;margin-left:auto;">' + (c.dnd ? 'CRM DnD enabled' : 'Lead sent "Stop"') + '</span>';
+                    html += '<span style="color:#888;font-size:0.75rem;margin-left:auto;">' + (c.dnd ? 'CRM DnD enabled' : 'Lead sent "Stop"') + '</span>';
                     html += '</div>';
                 }
 
@@ -1833,7 +1833,7 @@
                 const hasFields = fields.some(f => f.value);
                 if (hasFields) {
                     html += '<div style="margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04);">';
-                    html += '<div style="font-size:.72rem;font-weight:700;color:#888;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;">Contact Info</div>';
+                    html += '<div style="font-size:.75rem;font-weight:700;color:#888;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;">Contact Info</div>';
                     fields.forEach(f => {
                         if (f.value) {
                             html += '<div class="dlr-field-label"><i class="fa-solid ' + f.icon + ' me-1" style="width:12px;"></i>' + f.label + '</div>';
@@ -1854,7 +1854,7 @@
                     const filled = c.customFields.filter(cf => cf.value);
                     if (filled.length) {
                         html += '<div style="margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04);">';
-                        html += '<div style="font-size:.72rem;font-weight:700;color:#00d9ff;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">CRM Custom Fields</div>';
+                        html += '<div style="font-size:.75rem;font-weight:700;color:#00d9ff;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">CRM Custom Fields</div>';
                         filled.forEach(cf => {
                             const name = cf.name || cf.fieldKey || 'Field';
                             html += '<div class="dlr-field-label">' + dialerEsc(name) + '</div>';
@@ -1887,7 +1887,7 @@
                         if (words.length > 30) narrText = words.slice(0, 30).join(' ') + '...';
                         html += '<div class="igb-summary-card" style="margin-top:8px;">';
                         html += '<div class="igb-summary-hdr"><i class="fa-solid fa-robot"></i><span>AI Summary</span>';
-                        if (eng.narrative.updated_at) html += '<span style="margin-left:auto;font-size:.65rem;color:#444;">' + _igbTimeAgo(eng.narrative.updated_at) + '</span>';
+                        if (eng.narrative.updated_at) html += '<span style="margin-left:auto;font-size:.75rem;color:#444;">' + _igbTimeAgo(eng.narrative.updated_at) + '</span>';
                         html += '</div>';
                         html += '<div class="igb-summary-body">' + dialerEsc(narrText) + '</div>';
                         html += '</div>';
@@ -1898,7 +1898,7 @@
                 const _showFacts = window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.showKnownFacts !== false;
                 if (_showFacts && eng && eng.facts && eng.facts.length) {
                     html += '<div style="margin-top:8px;margin-bottom:10px;">';
-                    html += '<div style="font-size:.72rem;font-weight:700;color:#4ade80;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;"><i class="fa-solid fa-brain me-1"></i>Known Facts</div>';
+                    html += '<div style="font-size:.75rem;font-weight:700;color:#4ade80;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;"><i class="fa-solid fa-brain me-1"></i>Known Facts</div>';
                     html += '<ul class="igb-facts-list">';
                     eng.facts.forEach(function(f) {
                         // Frontend 10-word hard cap
@@ -1918,15 +1918,15 @@
                 // Notes
                 if (c.notes && c.notes.length) {
                     html += '<div style="margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04);">';
-                    html += '<div style="font-size:.72rem;font-weight:700;color:#aaa;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;">Notes</div>';
+                    html += '<div style="font-size:.75rem;font-weight:700;color:#aaa;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;">Notes</div>';
                     c.notes.forEach(n => {
-                        html += '<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:6px;padding:8px 10px;margin-bottom:6px;font-size:0.82rem;color:#bbb;">' + dialerEsc(n.body) + '<div style="font-size:.68rem;color:#555;margin-top:3px;">' + (n.dateAdded ? new Date(n.dateAdded).toLocaleDateString() : '') + '</div></div>';
+                        html += '<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:6px;padding:8px 10px;margin-bottom:6px;font-size:0.82rem;color:#bbb;">' + dialerEsc(n.body) + '<div style="font-size:.75rem;color:#555;margin-top:3px;">' + (n.dateAdded ? new Date(n.dateAdded).toLocaleDateString() : '') + '</div></div>';
                     });
                     html += '</div>';
                 }
 
                 // Powered by footer
-                html += '<div style="text-align:center;margin-top:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.03);"><span style="font-size:.58rem;color:#333;letter-spacing:.3px;">Powered by InsuranceGrokBot</span></div>';
+                html += '<div style="text-align:center;margin-top:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.03);"><span style="font-size:.75rem;color:#333;letter-spacing:.3px;">Powered by InsuranceGrokBot</span></div>';
 
                 panel.innerHTML = html;
                 document.getElementById('dlrDetailActions').style.display = 'none';
@@ -1946,8 +1946,8 @@
                 summaryEl.innerHTML = '<div style="padding:10px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:8px;">'
                     + '<div style="display:flex;align-items:center;gap:8px;">'
                     + '<i class="fa-solid fa-brain" style="color:#5B7FFF;font-size:.75rem;"></i>'
-                    + '<span style="font-size:.72rem;color:#666;">AI is analyzing this lead...</span>'
-                    + '<i class="fa-solid fa-spinner fa-spin" style="color:#444;font-size:.6rem;margin-left:auto;"></i>'
+                    + '<span style="font-size:.75rem;color:#666;">AI is analyzing this lead...</span>'
+                    + '<i class="fa-solid fa-spinner fa-spin" style="color:#444;font-size:.75rem;margin-left:auto;"></i>'
                     + '</div></div>';
             }
 
@@ -1984,11 +1984,11 @@
                     // Temperature + Score row
                     sHtml += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">';
                     sHtml += '<div style="display:flex;align-items:center;gap:5px;padding:3px 10px;background:' + tBg + ';border:1px solid ' + tColor + '33;border-radius:20px;">';
-                    sHtml += '<i class="fa-solid ' + tIcon + '" style="color:' + tColor + ';font-size:.65rem;"></i>';
-                    sHtml += '<span style="font-size:.7rem;font-weight:700;color:' + tColor + ';text-transform:uppercase;">' + temp + '</span>';
+                    sHtml += '<i class="fa-solid ' + tIcon + '" style="color:' + tColor + ';font-size:.75rem;"></i>';
+                    sHtml += '<span style="font-size:.75rem;font-weight:700;color:' + tColor + ';text-transform:uppercase;">' + temp + '</span>';
                     sHtml += '</div>';
                     sHtml += '<div style="display:flex;align-items:center;gap:4px;margin-left:auto;">';
-                    sHtml += '<span style="font-size:.6rem;color:#666;">Score</span>';
+                    sHtml += '<span style="font-size:.75rem;color:#666;">Score</span>';
                     sHtml += '<span style="font-size:.8rem;font-weight:800;color:' + tColor + ';">' + score + '</span>';
                     sHtml += '</div>';
                     sHtml += '</div>';
@@ -1996,14 +1996,14 @@
                     // AI Summary text
                     if (intel.summary) {
                         sHtml += '<div style="font-size:.76rem;color:#ccc;line-height:1.4;">';
-                        sHtml += '<i class="fa-solid fa-brain" style="color:#5B7FFF;font-size:.6rem;margin-right:4px;"></i>';
+                        sHtml += '<i class="fa-solid fa-brain" style="color:#5B7FFF;font-size:.75rem;margin-right:4px;"></i>';
                         sHtml += dialerEsc(intel.summary);
                         sHtml += '</div>';
                     }
 
                     // Temperature reason
                     if (intel.temperature_reason) {
-                        sHtml += '<div style="font-size:.65rem;color:#777;margin-top:4px;font-style:italic;">' + dialerEsc(intel.temperature_reason) + '</div>';
+                        sHtml += '<div style="font-size:.75rem;color:#777;margin-top:4px;font-style:italic;">' + dialerEsc(intel.temperature_reason) + '</div>';
                     }
 
                     sHtml += '</div>';
@@ -2016,15 +2016,15 @@
                 const nbaSection = document.getElementById('igb-nba-section');
                 if (nbaSection && intel.actions && intel.actions.length) {
                     let nbaHtml = '<div style="padding-top:6px;border-top:1px solid rgba(255,255,255,0.04);">';
-                    nbaHtml += '<div style="font-size:.68rem;font-weight:700;color:#ff9500;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;"><i class="fa-solid fa-lightbulb me-1"></i>Recommended Actions</div>';
+                    nbaHtml += '<div style="font-size:.75rem;font-weight:700;color:#ff9500;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;"><i class="fa-solid fa-lightbulb me-1"></i>Recommended Actions</div>';
                     intel.actions.forEach(function(a) {
                         const priColor = a.priority === 'high' ? '#ff3b30' : a.priority === 'medium' ? '#ff9500' : '#888';
                         const priBg = a.priority === 'high' ? 'rgba(255,59,48,0.08)' : a.priority === 'medium' ? 'rgba(255,149,0,0.08)' : 'rgba(255,255,255,0.02)';
                         nbaHtml += '<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 8px;margin-bottom:4px;background:' + priBg + ';border:1px solid ' + priColor + '22;border-radius:6px;">';
-                        nbaHtml += '<i class="' + (a.icon || 'fa-solid fa-circle') + '" style="color:' + priColor + ';font-size:.7rem;margin-top:2px;flex-shrink:0;"></i>';
+                        nbaHtml += '<i class="' + (a.icon || 'fa-solid fa-circle') + '" style="color:' + priColor + ';font-size:.75rem;margin-top:2px;flex-shrink:0;"></i>';
                         nbaHtml += '<div style="flex:1;min-width:0;">';
                         nbaHtml += '<div style="font-size:.75rem;font-weight:600;color:#ddd;">' + dialerEsc(a.action) + '</div>';
-                        if (a.reason) nbaHtml += '<div style="font-size:.65rem;color:#888;margin-top:1px;">' + dialerEsc(a.reason) + '</div>';
+                        if (a.reason) nbaHtml += '<div style="font-size:.75rem;color:#888;margin-top:1px;">' + dialerEsc(a.reason) + '</div>';
                         nbaHtml += '</div></div>';
                     });
                     nbaHtml += '</div>';
@@ -2038,10 +2038,10 @@
                     const statusColor = p.status === 'won' ? '#34C759' : p.status === 'lost' ? '#ff3b30' : '#5B7FFF';
                     const statusBg = p.status === 'won' ? 'rgba(52,199,89,0.08)' : p.status === 'lost' ? 'rgba(255,59,48,0.08)' : 'rgba(91,127,255,0.08)';
                     let pHtml = '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:' + statusBg + ';border:1px solid ' + statusColor + '22;border-radius:6px;margin-bottom:4px;">';
-                    pHtml += '<i class="fa-solid fa-chart-line" style="color:' + statusColor + ';font-size:.7rem;"></i>';
-                    pHtml += '<span style="font-size:.72rem;color:#ccc;">' + dialerEsc(p.pipeline_name || 'Pipeline') + '</span>';
-                    pHtml += '<span style="font-size:.72rem;font-weight:700;color:' + statusColor + ';margin-left:auto;">' + dialerEsc(p.stage_name || 'Unknown') + '</span>';
-                    if (p.monetary_value) pHtml += '<span style="font-size:.65rem;color:#888;margin-left:4px;">$' + Number(p.monetary_value).toLocaleString() + '</span>';
+                    pHtml += '<i class="fa-solid fa-chart-line" style="color:' + statusColor + ';font-size:.75rem;"></i>';
+                    pHtml += '<span style="font-size:.75rem;color:#ccc;">' + dialerEsc(p.pipeline_name || 'Pipeline') + '</span>';
+                    pHtml += '<span style="font-size:.75rem;font-weight:700;color:' + statusColor + ';margin-left:auto;">' + dialerEsc(p.stage_name || 'Unknown') + '</span>';
+                    if (p.monetary_value) pHtml += '<span style="font-size:.75rem;color:#888;margin-left:4px;">$' + Number(p.monetary_value).toLocaleString() + '</span>';
                     pHtml += '</div>';
                     pipelineBadge.innerHTML = pHtml;
                 }
@@ -2175,7 +2175,7 @@
                     '<div style="width:44px;height:44px;border-radius:50%;background:rgba(0,217,255,0.05);border:1px solid rgba(0,217,255,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">' +
                     '<i class="fa-solid fa-comment-slash" style="font-size:1.1rem;color:#2a3a4a;"></i></div>' +
                     '<div style="color:#555;font-size:0.8rem;font-weight:600;">No messages yet</div>' +
-                    '<div style="color:#3a3a4a;font-size:0.7rem;margin-top:3px;">Send the first one below</div></div>';
+                    '<div style="color:#3a3a4a;font-size:0.75rem;margin-top:3px;">Send the first one below</div></div>';
             }
             let html = '';
             let lastDay = null;
@@ -2259,11 +2259,11 @@
                         const hasTx = c.transcript && c.transcript.length > 0;
                         return '<div style="display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.78rem;">' +
                             '<div style="width:6px;height:6px;border-radius:50%;background:' + statusColor + ';flex-shrink:0;"></div>' +
-                            '<div style="flex:1;min-width:0;"><div style="font-weight:600;">' + dialerEsc(c.direction || 'outbound') + '</div><div style="font-size:.68rem;color:#555;">' + dt + '</div></div>' +
-                            '<div style="color:' + statusColor + ';font-size:.7rem;font-weight:600;">' + dialerEsc((c.status || '').replace('-',' ')) + '</div>' +
-                            '<div style="color:#888;font-size:.7rem;">' + durMin + '</div>' +
-                            (hasRec ? '<button onclick="playRecording(\'' + dialerEsc(c.recording_url) + '\')" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:4px;padding:2px 6px;font-size:.65rem;cursor:pointer;" title="Play"><i class="fa-solid fa-play"></i></button>' : '') +
-                            (hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/</g, '\\x3c') + ')\' style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.65rem;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
+                            '<div style="flex:1;min-width:0;"><div style="font-weight:600;">' + dialerEsc(c.direction || 'outbound') + '</div><div style="font-size:.75rem;color:#555;">' + dt + '</div></div>' +
+                            '<div style="color:' + statusColor + ';font-size:.75rem;font-weight:600;">' + dialerEsc((c.status || '').replace('-',' ')) + '</div>' +
+                            '<div style="color:#888;font-size:.75rem;">' + durMin + '</div>' +
+                            (hasRec ? '<button onclick="playRecording(\'' + dialerEsc(c.recording_url) + '\')" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:4px;padding:2px 6px;font-size:.75rem;cursor:pointer;" title="Play"><i class="fa-solid fa-play"></i></button>' : '') +
+                            (hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/</g, '\\x3c') + ')\' style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.75rem;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
                         '</div>';
                     }).join('');
                 }
@@ -3532,7 +3532,7 @@
                     const dt = c.created_at ? new Date(c.created_at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
                     const hasRec = !!c.recording_url;
                     const hasTx = c.transcript && c.transcript.length > 0;
-                    const disp = c.disposition ? ' <span style="color:#888;font-size:.72rem;">(' + c.disposition.replace(/_/g,' ') + ')</span>' : '';
+                    const disp = c.disposition ? ' <span style="color:#888;font-size:.75rem;">(' + c.disposition.replace(/_/g,' ') + ')</span>' : '';
                     return '<div style="display:flex;align-items:center;gap:6px;padding:7px 8px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.88rem;cursor:pointer;" onclick="dialerHistoryClickContact(\'' + (c.contact_id||'') + '\')">' +
                         '<div style="width:6px;height:6px;border-radius:50%;background:' + sc + ';flex-shrink:0;"></div>' +
                         '<div style="flex:1;min-width:0;">' +
@@ -3541,10 +3541,10 @@
                         '</div>' +
                         '<div style="color:' + sc + ';font-size:.78rem;font-weight:600;white-space:nowrap;">' + (c.status||'').replace(/-/g,' ') + '</div>' +
                         '<div style="color:#888;font-size:.82rem;font-family:monospace;">' + dur + '</div>' +
-                        (hasRec ? '<button onclick="event.stopPropagation();playRecording(\'' + dialerEsc(c.recording_url) + '\')" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:4px;padding:2px 6px;font-size:.72rem;cursor:pointer;" title="Play"><i class="fa-solid fa-play"></i></button>' : '') +
-                        (hasRec ? '<a href="' + dialerEsc(c.recording_url) + '?dl=1" download style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.72rem;text-decoration:none;cursor:pointer;" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-download"></i></a>' : '') +
-                        (hasTx ? '<button onclick=\'event.stopPropagation();showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.72rem;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
-                        (!hasTx && hasRec && c.call_sid ? '<button onclick="event.stopPropagation();transcribeNow(\'' + dialerEsc(c.call_sid) + '\',\'' + dialerEsc(c.recording_url) + '\',this)" style="background:rgba(255,180,0,0.07);border:1px solid rgba(255,180,0,0.14);color:#ffb400;border-radius:4px;padding:2px 6px;font-size:.72rem;cursor:pointer;" title="Generate Transcript"><i class="fa-solid fa-wand-magic-sparkles"></i></button>' : '') +
+                        (hasRec ? '<button onclick="event.stopPropagation();playRecording(\'' + dialerEsc(c.recording_url) + '\')" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:4px;padding:2px 6px;font-size:.75rem;cursor:pointer;" title="Play"><i class="fa-solid fa-play"></i></button>' : '') +
+                        (hasRec ? '<a href="' + dialerEsc(c.recording_url) + '?dl=1" download style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.75rem;text-decoration:none;cursor:pointer;" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-download"></i></a>' : '') +
+                        (hasTx ? '<button onclick=\'event.stopPropagation();showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.75rem;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
+                        (!hasTx && hasRec && c.call_sid ? '<button onclick="event.stopPropagation();transcribeNow(\'' + dialerEsc(c.call_sid) + '\',\'' + dialerEsc(c.recording_url) + '\',this)" style="background:rgba(255,180,0,0.07);border:1px solid rgba(255,180,0,0.14);color:#ffb400;border-radius:4px;padding:2px 6px;font-size:.75rem;cursor:pointer;" title="Generate Transcript"><i class="fa-solid fa-wand-magic-sparkles"></i></button>' : '') +
                     '</div>';
                 }).join('');
             } catch(e) { panel.innerHTML = '<div style="color:#ef4444;padding:12px;text-align:center;font-size:.88rem;">Error loading history</div>'; }
@@ -3717,12 +3717,12 @@
             const icons = { pending:'<span style="color:#555;">Wait</span>', initiated:'<i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i>', ringing:'<span style="color:#00d9ff;">Ring</span>', 'in-progress':'<span style="color:var(--accent);">Live</span>', completed:'<i class="fa-solid fa-check" style="color:var(--accent);"></i>', 'no-answer':'<span style="color:#ffa500;">N/A</span>', busy:'<span style="color:#ffa500;">Busy</span>', failed:'<i class="fa-solid fa-xmark" style="color:#ef4444;"></i>', skipped:'<i class="fa-solid fa-ban" style="color:#ef4444;" title="DnD — skipped"></i>' };
             list.innerHTML = dialerQueue.map((q, i) => {
                 const active = dialerQueueRunning && i === dialerCallIdx;
-                return '<div class="dlr-queue-row-clickable" onclick="dialerJumpToContact(\'' + q.id + '\')" style="display:flex;align-items:center;gap:6px;padding:3px 4px;border-radius:4px;font-size:.72rem;' + (active ? 'background:rgba(74,222,128,0.05);' : '') + '">' +
+                return '<div class="dlr-queue-row-clickable" onclick="dialerJumpToContact(\'' + q.id + '\')" style="display:flex;align-items:center;gap:6px;padding:3px 4px;border-radius:4px;font-size:.75rem;' + (active ? 'background:rgba(74,222,128,0.05);' : '') + '">' +
                     '<span style="color:' + (active ? 'var(--accent)' : '#555') + ';font-weight:700;width:16px;text-align:center;">' + (i+1) + '</span>' +
                     '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(q.name) + '</span>' +
-                    ((q.attempts && q.attempts > 1) ? '<span style="color:#888;font-size:.6rem;">' + q.attempts + '/' + dialerMaxAttempts + '</span>' : '') +
+                    ((q.attempts && q.attempts > 1) ? '<span style="color:#888;font-size:.75rem;">' + q.attempts + '/' + dialerMaxAttempts + '</span>' : '') +
                     '<span>' + (icons[q.status] || q.status) + '</span>' +
-                    (!dialerQueueRunning ? '<button onclick="event.stopPropagation();dialerQueue.splice('+i+',1);dialerRenderContacts();dialerRenderQueue();" style="background:none;border:none;color:#444;cursor:pointer;font-size:.6rem;padding:0 2px;"><i class="fa-solid fa-xmark"></i></button>' : '') +
+                    (!dialerQueueRunning ? '<button onclick="event.stopPropagation();dialerQueue.splice('+i+',1);dialerRenderContacts();dialerRenderQueue();" style="background:none;border:none;color:#444;cursor:pointer;font-size:.75rem;padding:0 2px;"><i class="fa-solid fa-xmark"></i></button>' : '') +
                 '</div>';
             }).join('');
         }
@@ -3823,11 +3823,11 @@
                     const isRec = t.role === 'call_recording';
                     if (isRec) {
                         return '<div style="margin-bottom:10px;padding:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;font-size:.88rem;color:#ccc;line-height:1.6;">' +
-                            '<div style="font-size:.68rem;color:#888;margin-bottom:6px;"><i class="fa-solid fa-microphone me-1"></i>Recording Transcript</div>' +
+                            '<div style="font-size:.75rem;color:#888;margin-bottom:6px;"><i class="fa-solid fa-microphone me-1"></i>Recording Transcript</div>' +
                             dialerEsc(t.text) + '</div>';
                     }
                     return '<div style="margin-bottom:10px;display:flex;flex-direction:column;align-items:' + (isLead ? 'flex-start' : 'flex-end') + ';">' +
-                        '<div style="font-size:.68rem;color:#888;margin-bottom:2px;">' + (isLead ? 'Lead' : 'AI Agent') + '</div>' +
+                        '<div style="font-size:.75rem;color:#888;margin-bottom:2px;">' + (isLead ? 'Lead' : 'AI Agent') + '</div>' +
                         '<div class="dlr-msg-bubble ' + (isLead ? 'dlr-msg-lead' : 'dlr-msg-bot') + '">' + dialerEsc(t.text) + '</div></div>';
                 }).join('');
             }
@@ -4526,7 +4526,7 @@
         }
 
         function _renderNumbersTable(numbers, container) {
-            const hdrStyle = 'padding:8px 10px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;';
+            const hdrStyle = 'padding:8px 10px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px;';
             const cellStyle = 'padding:8px 10px;border-top:1px solid rgba(255,255,255,0.04);';
             let html = '<div style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;overflow:visible;">';
             // Header
@@ -4542,14 +4542,14 @@
             numbers.forEach(n => {
                 const statusColor = n.status === 'active' ? '#4ade80' : (n.status === 'pending' ? '#ffa500' : '#888');
                 const statusBg = n.status === 'active' ? 'rgba(74,222,128,0.1)' : (n.status === 'pending' ? 'rgba(255,165,0,0.1)' : 'rgba(255,255,255,0.04)');
-                const primaryBadge = n.is_primary ? '<span style="background:rgba(0,217,255,0.15);color:#00d9ff;padding:1px 6px;border-radius:3px;font-size:.6rem;font-weight:700;margin-left:6px;">PRIMARY</span>' : '';
-                const nickname = n.nickname ? '<span style="color:#888;font-size:.7rem;margin-left:4px;">(' + _esc(n.nickname) + ')</span>' : '';
+                const primaryBadge = n.is_primary ? '<span style="background:rgba(0,217,255,0.15);color:#00d9ff;padding:1px 6px;border-radius:3px;font-size:.75rem;font-weight:700;margin-left:6px;">PRIMARY</span>' : '';
+                const nickname = n.nickname ? '<span style="color:#888;font-size:.75rem;margin-left:4px;">(' + _esc(n.nickname) + ')</span>' : '';
                 const voiceIcon = n.capabilities?.voice ? '<i class="fa-solid fa-circle-check" style="color:#4ade80;"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:#444;"></i>';
                 const smsIcon = n.capabilities?.sms ? '<i class="fa-solid fa-circle-check" style="color:#4ade80;"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:#444;"></i>';
                 const cnamIcon = n.cnam_listed ? '<i class="fa-solid fa-circle-check" style="color:#4ade80;cursor:pointer;" title="CNAM enabled — click to disable" onclick="toggleCNAM(\'' + n.sid + '\',false)"></i>' : '<i class="fa-regular fa-circle" style="color:#444;cursor:pointer;" title="CNAM disabled — click to enable" onclick="toggleCNAM(\'' + n.sid + '\',true)"></i>';
                 html += '<div class="numbers-grid-row" style="display:grid;grid-template-columns:1fr 100px 60px 60px 60px 50px;gap:0;align-items:center;">';
-                html += '<div style="' + cellStyle + 'color:#fff;font-size:.8rem;">' + _esc(_fmtPhone(n.phone)) + primaryBadge + nickname + '<br><span style="color:#555;font-size:.65rem;">' + _esc(n.number_type || 'local') + '</span></div>';
-                html += '<div style="' + cellStyle + 'text-align:center;"><span style="background:' + statusBg + ';color:' + statusColor + ';padding:2px 8px;border-radius:4px;font-size:.68rem;font-weight:600;">' + (n.status || 'active') + '</span></div>';
+                html += '<div style="' + cellStyle + 'color:#fff;font-size:.8rem;">' + _esc(_fmtPhone(n.phone)) + primaryBadge + nickname + '<br><span style="color:#555;font-size:.75rem;">' + _esc(n.number_type || 'local') + '</span></div>';
+                html += '<div style="' + cellStyle + 'text-align:center;"><span style="background:' + statusBg + ';color:' + statusColor + ';padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;">' + (n.status || 'active') + '</span></div>';
                 html += '<div class="numbers-col-voice" style="' + cellStyle + 'text-align:center;">' + voiceIcon + '</div>';
                 html += '<div class="numbers-col-sms" style="' + cellStyle + 'text-align:center;">' + smsIcon + '</div>';
                 html += '<div class="numbers-col-cnam" style="' + cellStyle + 'text-align:center;">' + cnamIcon + '</div>';
@@ -4564,7 +4564,7 @@
             });
             html += '</div>';
             // Summary info
-            html += '<div style="margin-top:8px;padding:8px 10px;background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:6px;font-size:.72rem;color:#666;">' +
+            html += '<div style="margin-top:8px;padding:8px 10px;background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:6px;font-size:.75rem;color:#666;">' +
                 '<strong style="color:#aaa;">' + numbers.length + ' number' + (numbers.length !== 1 ? 's' : '') + '</strong> on your account. ' +
                 'STIR/SHAKEN is auto-managed. Register with carriers in the <strong style="color:#00d9ff;cursor:pointer;" onclick="switchVoiceSubtab(\'trusthub\')">Trust Hub</strong> tab to reduce spam flags.' +
                 '</div>';
@@ -5074,12 +5074,12 @@
                     const label  = d.day ? d.day.substr(5) : '';
                     const talkLbl = d.total_secs ? Math.round(d.total_secs / 60) + 'm talk' : '';
                     html += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;min-width:26px;" title="' + d.day + ': ' + d.calls + ' dials, ' + d.connected + ' connected' + (talkLbl ? ', ' + talkLbl : '') + '">' +
-                        '<div style="font-size:0.72rem;color:#aaa;font-weight:600;">' + (d.calls > 0 ? d.calls : '') + '</div>' +
+                        '<div style="font-size:0.75rem;color:#aaa;font-weight:600;">' + (d.calls > 0 ? d.calls : '') + '</div>' +
                         '<div style="width:100%;position:relative;height:' + hTotal + 'px;">' +
                             '<div style="position:absolute;bottom:0;left:0;right:0;height:' + hTotal + 'px;background:rgba(0,217,255,0.25);border-radius:3px 3px 0 0;"></div>' +
                             (hConn > 0 ? '<div style="position:absolute;bottom:0;left:0;right:0;height:' + hConn + 'px;background:rgba(74,222,128,0.65);border-radius:2px 2px 0 0;"></div>' : '') +
                         '</div>' +
-                        '<div style="font-size:0.72rem;color:#aaa;white-space:nowrap;">' + label + '</div>' +
+                        '<div style="font-size:0.75rem;color:#aaa;white-space:nowrap;">' + label + '</div>' +
                     '</div>';
                 });
                 html += '</div></div>';
@@ -5176,7 +5176,7 @@
                 }
             } catch(e) {
                 if (!append) {
-                    list.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="color:#8E8E93;font-size:0.85rem;">Waiting for sync...</div><div style="font-size:0.72rem;color:#555;margin-top:6px;">Conversations appear after LeadConnector data syncs</div></div>';
+                    list.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="color:#8E8E93;font-size:0.85rem;">Waiting for sync...</div><div style="font-size:0.75rem;color:#555;margin-top:6px;">Conversations appear after LeadConnector data syncs</div></div>';
                 }
             } finally {
                 _inboxLoading = false;
@@ -5220,7 +5220,7 @@
                 if (search.trim()) {
                     list.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="font-size:2rem;margin-bottom:8px;">🔍</div><div style="color:#8E8E93;font-size:0.82rem;">No results for "' + search.trim().replace(/</g,'&lt;') + '"</div></div>';
                 } else {
-                    list.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="width:50px;height:50px;border-radius:50%;background:rgba(0,122,255,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;"><i class="fa-solid fa-message" style="color:#007AFF;font-size:1.1rem;"></i></div><div style="color:#fff;font-size:0.88rem;font-weight:600;">No Messages</div><div style="color:#8E8E93;font-size:0.72rem;margin-top:4px;">Conversations will appear here</div></div>';
+                    list.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="width:50px;height:50px;border-radius:50%;background:rgba(0,122,255,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;"><i class="fa-solid fa-message" style="color:#007AFF;font-size:1.1rem;"></i></div><div style="color:#fff;font-size:0.88rem;font-weight:600;">No Messages</div><div style="color:#8E8E93;font-size:0.75rem;margin-top:4px;">Conversations will appear here</div></div>';
                 }
                 return;
             }
@@ -5232,7 +5232,7 @@
             _inboxData.forEach(c => {
                 const section = _inboxDateSection(c.date);
                 if (section !== lastSection) {
-                    html += '<div style="padding:6px 16px 2px;font-size:0.65rem;font-weight:700;color:#8E8E93;text-transform:uppercase;letter-spacing:0.5px;">' + section + '</div>';
+                    html += '<div style="padding:6px 16px 2px;font-size:0.75rem;font-weight:700;color:#8E8E93;text-transform:uppercase;letter-spacing:0.5px;">' + section + '</div>';
                     lastSection = section;
                 }
 
@@ -5351,7 +5351,7 @@
                         if (isCall) {
                             const callIcon = m.type === 'voicemail' ? 'fa-voicemail' : 'fa-phone';
                             const callLabel = m.type === 'voicemail' ? 'Voicemail' : (isOutbound ? 'Outgoing Call' : 'Incoming Call');
-                            html += '<div class="imsg-call-pill"><span><i class="fa-solid ' + callIcon + '" style="font-size:0.55rem;"></i>' + callLabel + ' · ' + _inboxFormatTimeShort(m.date) + '</span></div>';
+                            html += '<div class="imsg-call-pill"><span><i class="fa-solid ' + callIcon + '" style="font-size:0.75rem;"></i>' + callLabel + ' · ' + _inboxFormatTimeShort(m.date) + '</span></div>';
                         } else {
                             const body = (m.body || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                             html += '<div class="imsg-bubble ' + (isOutbound ? 'outbound' : 'inbound') + '">' +
