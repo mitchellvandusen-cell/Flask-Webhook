@@ -715,15 +715,19 @@
                     var brandSt = (d.brand_status || 'PENDING').toUpperCase();
                     var campSt = (d.campaign_status || 'PENDING').toUpperCase();
                     var brandColor = brandSt === 'APPROVED' ? '#00ff88' : brandSt === 'FAILED' ? '#ef4444' : '#fbbf24';
-                    var campColor = campSt === 'VERIFIED' ? '#00ff88' : campSt === 'FAILED' ? '#ef4444' : '#fbbf24';
+                    var campColor = (campSt === 'VERIFIED' || campSt === 'APPROVED') ? '#00ff88' : campSt === 'FAILED' ? '#ef4444' : '#fbbf24';
                     var brandLabel = brandSt === 'APPROVED' ? 'Approved' : brandSt;
-                    var campLabel = campSt === 'VERIFIED' ? 'Approved' : campSt;
+                    var campLabel = (campSt === 'VERIFIED' || campSt === 'APPROVED') ? 'Approved' : campSt;
                     var allGood = brandSt === 'APPROVED' && (campSt === 'VERIFIED' || campSt === 'APPROVED');
+                    var registeredSids = d.registered_number_sids || [];
                     var headerColor = allGood ? '#00ff88' : '#fbbf24';
                     var headerIcon = allGood ? 'fa-certificate' : 'fa-hourglass-half';
                     var headerText = allGood ? 'A2P 10DLC Registered' : 'A2P 10DLC Registration In Progress';
                     var headerBg = allGood ? 'rgba(0,255,136,0.06)' : 'rgba(251,191,36,0.06)';
                     var headerBorder = allGood ? 'rgba(0,255,136,0.2)' : 'rgba(251,191,36,0.2)';
+                    var numCountHtml = allGood && registeredSids.length > 0
+                        ? '<div style="font-size:0.75rem;color:#888;">' + registeredSids.length + ' number' + (registeredSids.length !== 1 ? 's' : '') + ' in messaging service</div>'
+                        : '';
 
                     banner.innerHTML =
                         '<div class="p-3" style="background:' + headerBg + ';border:1px solid ' + headerBorder + ';border-radius:12px;">' +
@@ -734,6 +738,7 @@
                                 '<div style="flex:1;">' +
                                     '<div style="font-weight:700;color:' + headerColor + ';font-size:0.9rem;">' + headerText + '</div>' +
                                     (d.registered_at ? '<div style="font-size:0.75rem;color:#666;">Registered ' + new Date(d.registered_at).toLocaleDateString() + '</div>' : '') +
+                                    numCountHtml +
                                 '</div>' +
                                 '<button onclick="a2pRefreshStatus()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:5px 12px;font-size:0.75rem;cursor:pointer;white-space:nowrap;">' +
                                     '<i class="fa-solid fa-arrows-rotate me-1"></i>Refresh' +

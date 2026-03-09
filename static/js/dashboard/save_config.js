@@ -248,13 +248,16 @@
         const campaignStatus = (a2p.campaign_status || '').toUpperCase();
         const brandStatus = (a2p.brand_status || '').toUpperCase();
         const msgServiceSid = a2p.messaging_service_sid || '';
+        // Per-number A2P status: list of PN... SIDs actually in the messaging service
+        const registeredSids = a2p.registered_number_sids || [];
+        const registeredSet = new Set(registeredSids);
 
         const hdrStyle = 'padding:8px 10px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px;';
         const cellStyle = 'padding:8px 10px;border-top:1px solid rgba(255,255,255,0.04);';
 
         let html = '<div style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;overflow:visible;">';
         // Header
-        html += '<div style="display:grid;grid-template-columns:1fr 80px 100px 120px;gap:0;">';
+        html += '<div style="display:grid;grid-template-columns:1fr 80px 100px 140px;gap:0;">';
         html += '<div style="' + hdrStyle + '">Number</div>';
         html += '<div style="' + hdrStyle + 'text-align:center;">SMS</div>';
         html += '<div style="' + hdrStyle + 'text-align:center;">A2P Status</div>';
@@ -268,12 +271,15 @@
                 ? '<i class="fa-solid fa-circle-check" style="color:#4ade80;"></i>'
                 : '<i class="fa-solid fa-circle-xmark" style="color:#444;"></i>';
 
-            // A2P status per number
+            // Per-number A2P status — check if this number's SID is in the messaging service
+            const numberInMs = registeredSet.has(n.sid);
             let a2pBadge;
             if (!hasSms) {
                 a2pBadge = '<span style="color:#555;font-size:.75rem;">N/A</span>';
-            } else if (isRegistered && (campaignStatus === 'VERIFIED' || campaignStatus === 'APPROVED')) {
+            } else if (isRegistered && numberInMs) {
                 a2pBadge = '<span style="background:rgba(74,222,128,0.12);color:#4ade80;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;"><i class="fa-solid fa-shield-halved me-1"></i>Registered</span>';
+            } else if (isRegistered && !numberInMs) {
+                a2pBadge = '<span style="background:rgba(239,68,68,0.12);color:#ef4444;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;">Not Registered</span>';
             } else if (brandStatus === 'APPROVED' && !a2p.campaign_sid) {
                 a2pBadge = '<span style="background:rgba(255,165,0,0.12);color:#ffa500;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;">Campaign Needed</span>';
             } else if (brandStatus === 'PENDING' || brandStatus === 'IN_REVIEW') {
@@ -282,18 +288,21 @@
                 a2pBadge = '<span style="background:rgba(239,68,68,0.12);color:#ef4444;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;">Not Registered</span>';
             }
 
-            // Actions
+            // Actions — per-number
             let actions = '';
-            if (hasSms && !isRegistered) {
-                actions = '<button onclick="switchConfigPanel(\'a2p\')" style="background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.25);color:#a78bfa;border-radius:5px;padding:3px 10px;font-size:.75rem;font-weight:600;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-certificate me-1"></i>Register A2P</button>';
-            } else if (hasSms && isRegistered) {
+            if (hasSms && isRegistered && numberInMs) {
                 actions = '<span style="color:#4ade80;font-size:.75rem;"><i class="fa-solid fa-circle-check me-1"></i>Compliant</span>';
+            } else if (hasSms && isRegistered && !numberInMs && msgServiceSid) {
+                // A2P is set up but this number isn't in the messaging service — offer to add it
+                actions = '<button onclick="smsAddNumberToA2p(\'' + (n.sid || '') + '\')" style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.25);color:#00ff88;border-radius:5px;padding:3px 10px;font-size:.75rem;font-weight:600;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-plus me-1"></i>Add to A2P</button>';
+            } else if (hasSms && !isRegistered) {
+                actions = '<button onclick="switchConfigPanel(\'a2p\')" style="background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.25);color:#a78bfa;border-radius:5px;padding:3px 10px;font-size:.75rem;font-weight:600;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-certificate me-1"></i>Register A2P</button>';
             }
 
             const nickname = n.nickname ? '<span style="color:#888;font-size:.75rem;margin-left:4px;">(' + (typeof _esc === 'function' ? _esc(n.nickname) : n.nickname) + ')</span>' : '';
             const primaryBadge = n.is_primary ? '<span style="background:rgba(0,217,255,0.15);color:#00d9ff;padding:1px 6px;border-radius:3px;font-size:.75rem;font-weight:700;margin-left:6px;">PRIMARY</span>' : '';
 
-            html += '<div style="display:grid;grid-template-columns:1fr 80px 100px 120px;gap:0;align-items:center;">';
+            html += '<div style="display:grid;grid-template-columns:1fr 80px 100px 140px;gap:0;align-items:center;">';
             html += '<div style="' + cellStyle + 'color:#fff;font-size:.8rem;">' + _formatPhone(n.phone) + primaryBadge + nickname + '<br><span style="color:#555;font-size:.75rem;">' + (n.number_type || 'local') + '</span></div>';
             html += '<div style="' + cellStyle + 'text-align:center;">' + smsIcon + '</div>';
             html += '<div style="' + cellStyle + 'text-align:center;">' + a2pBadge + '</div>';
@@ -312,18 +321,37 @@
         const isRegistered = a2p.registered || false;
         const brandStatus = (a2p.brand_status || '').toUpperCase();
         const campaignStatus = (a2p.campaign_status || '').toUpperCase();
+        const registeredSids = a2p.registered_number_sids || [];
+        const totalSms = (_smsNumbersCache || []).filter(n => n.capabilities?.sms).length;
+        const registeredCount = registeredSids.length;
+        const allRegistered = totalSms > 0 && registeredCount >= totalSms;
 
         if (isRegistered && (campaignStatus === 'VERIFIED' || campaignStatus === 'APPROVED')) {
             el.style.display = 'block';
-            el.innerHTML = '<div style="padding:14px;background:rgba(74,222,128,0.06);border:1px solid rgba(74,222,128,0.2);border-radius:10px;">' +
-                '<div class="d-flex align-items-center gap-2 mb-1">' +
-                    '<i class="fa-solid fa-shield-halved" style="color:#4ade80;"></i>' +
-                    '<span style="font-weight:700;color:#4ade80;font-size:.88rem;">A2P 10DLC Registered</span>' +
-                '</div>' +
-                '<div style="font-size:.75rem;color:#aaa;line-height:1.6;">' +
-                    'Your SMS numbers are registered for A2P 10DLC compliance. Messages are delivered at full throughput without carrier filtering.' +
-                    (a2p.messaging_service_sid ? '<br><span style="color:#555;">Messaging Service: ' + a2p.messaging_service_sid + '</span>' : '') +
-                '</div></div>';
+            if (allRegistered) {
+                // All numbers are in the messaging service
+                el.innerHTML = '<div style="padding:14px;background:rgba(74,222,128,0.06);border:1px solid rgba(74,222,128,0.2);border-radius:10px;">' +
+                    '<div class="d-flex align-items-center gap-2 mb-1">' +
+                        '<i class="fa-solid fa-shield-halved" style="color:#4ade80;"></i>' +
+                        '<span style="font-weight:700;color:#4ade80;font-size:.88rem;">A2P 10DLC Registered</span>' +
+                        '<span style="font-size:.75rem;color:#aaa;margin-left:4px;">' + registeredCount + '/' + totalSms + ' numbers</span>' +
+                    '</div>' +
+                    '<div style="font-size:.75rem;color:#aaa;line-height:1.6;">' +
+                        'All SMS numbers are registered for A2P 10DLC compliance. Messages are delivered at full throughput without carrier filtering.' +
+                    '</div></div>';
+            } else {
+                // A2P approved but some numbers not in the messaging service
+                const unregisteredCount = totalSms - registeredCount;
+                el.innerHTML = '<div style="padding:14px;background:rgba(255,165,0,0.06);border:1px solid rgba(255,165,0,0.2);border-radius:10px;">' +
+                    '<div class="d-flex align-items-center gap-2 mb-1">' +
+                        '<i class="fa-solid fa-triangle-exclamation" style="color:#ffa500;"></i>' +
+                        '<span style="font-weight:700;color:#ffa500;font-size:.88rem;">' + unregisteredCount + ' Number' + (unregisteredCount !== 1 ? 's' : '') + ' Not A2P Registered</span>' +
+                    '</div>' +
+                    '<div style="font-size:.75rem;color:#aaa;line-height:1.6;">' +
+                        'Your A2P brand and campaign are approved, but <strong style="color:#ffa500;">' + unregisteredCount + ' of ' + totalSms + '</strong> SMS numbers are not yet added to the messaging service. ' +
+                        'Click <strong style="color:#00ff88;">Add to A2P</strong> next to each unregistered number to register it. Unregistered numbers may have messages filtered by carriers.' +
+                    '</div></div>';
+            }
         } else if (brandStatus && brandStatus !== 'FAILED') {
             el.style.display = 'block';
             el.innerHTML = '<div style="padding:14px;background:rgba(255,165,0,0.06);border:1px solid rgba(255,165,0,0.2);border-radius:10px;">' +
@@ -405,4 +433,29 @@
             const buyPanel = document.getElementById('smsBuyPanel'); if (buyPanel) buyPanel.style.display = 'none';
             smsLoadNumbers();
         } catch(e) { alert('Network error'); }
+    }
+
+    async function smsAddNumberToA2p(phoneSid) {
+        if (!phoneSid) return;
+        const btn = event?.target?.closest('button');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Adding...'; }
+        try {
+            const r = await fetch('/voice/a2p/add-number', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone_number_sid: phoneSid })
+            });
+            const d = await r.json();
+            if (!r.ok) {
+                if (typeof _showDashToast === 'function') _showDashToast(false, d.error || 'Failed to add number');
+                else alert(d.error || 'Failed');
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-plus me-1"></i>Add to A2P'; }
+                return;
+            }
+            if (typeof _showDashToast === 'function') _showDashToast(true, 'Number added to A2P messaging service');
+            smsLoadNumbers();
+        } catch(e) {
+            if (typeof _showDashToast === 'function') _showDashToast(false, 'Network error');
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-plus me-1"></i>Add to A2P'; }
+        }
     }

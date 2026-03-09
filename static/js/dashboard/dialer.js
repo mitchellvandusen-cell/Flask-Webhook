@@ -5298,7 +5298,16 @@
             return Math.abs(h) % 360;
         }
 
+        let _inboxThreadContactId = null;
+        let _inboxThreadContactName = '';
+        let _inboxThreadContactPhone = '';
+        let _inboxSending = false;
+
         function inboxOpenThread(contactId, contactName, contactPhone) {
+            _inboxThreadContactId = contactId;
+            _inboxThreadContactName = contactName || '';
+            _inboxThreadContactPhone = contactPhone || '';
+
             const threadView = document.getElementById('inboxThreadView');
             const threadName = document.getElementById('inboxThreadName');
             const threadPhone = document.getElementById('inboxThreadPhone');
@@ -5307,6 +5316,26 @@
 
             const initials = (contactName || '?').split(' ').map(w => (w||'')[0]).join('').slice(0, 2).toUpperCase();
             const hue = _inboxNameHue(contactName || '');
+
+            // Populate channel selector from main dialer's loaded channels
+            const inboxChSel = document.getElementById('inboxChannelSelect');
+            const mainChSel = document.getElementById('dlrChannelSelect');
+            if (inboxChSel && mainChSel) {
+                inboxChSel.innerHTML = mainChSel.innerHTML;
+                inboxChSel.value = mainChSel.value;
+            }
+            const inboxChRow = document.getElementById('inboxChannelRow');
+            if (inboxChRow && _dlrAvailableChannels && _dlrAvailableChannels.length > 1) {
+                inboxChRow.style.display = 'flex';
+            }
+
+            // Reset composer
+            const inboxText = document.getElementById('inboxSmsText');
+            if (inboxText) { inboxText.value = ''; inboxText.style.height = ''; }
+            const inboxStatus = document.getElementById('inboxSmsStatus');
+            if (inboxStatus) inboxStatus.textContent = '';
+            const inboxCount = document.getElementById('inboxCharCount');
+            if (inboxCount) inboxCount.textContent = '0 / 160';
 
             if (threadName) threadName.textContent = contactName || 'Contact';
             if (threadPhone) threadPhone.textContent = contactPhone || '';
@@ -5380,6 +5409,161 @@
             if (threadView) threadView.style.display = 'none';
             const badge = document.getElementById('inboxThreadBadge');
             if (badge) badge.style.display = 'none';
+            _inboxThreadContactId = null;
+        }
+
+        // ── Inbox Thread Composer Functions ──
+
+        function inboxAutoGrow(el) {
+            el.style.height = '';
+            el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+        }
+
+        function inboxUpdateCharCount(val) {
+            const el = document.getElementById('inboxCharCount');
+            if (el) el.textContent = (val || '').length + ' / 160';
+        }
+
+        function inboxGetChannel() {
+            const sel = document.getElementById('inboxChannelSelect');
+            return (sel && sel.value) || 'ghl';
+        }
+
+        async function inboxSendSms() {
+            if (_inboxSending || !_inboxThreadContactId) return;
+            const textEl = document.getElementById('inboxSmsText');
+            const statusEl = document.getElementById('inboxSmsStatus');
+            const sendBtn = document.getElementById('inboxSmsSendBtn');
+            const msgContainer = document.getElementById('inboxThreadMessages');
+            if (!textEl) return;
+            const msg = textEl.value.trim();
+            if (!msg) return;
+            if (msg.length > 1600) {
+                if (statusEl) { statusEl.textContent = 'Message too long (max 1600 chars)'; statusEl.style.color = '#ef4444'; }
+                return;
+            }
+
+            const channel = inboxGetChannel();
+            const channelLabel = channel === 'twilio' ? 'InsuranceGrokBot' : 'LeadConnector';
+
+            // Optimistic UI — append bubble
+            const pendingId = 'inbox_sms_' + Date.now();
+            if (msgContainer) {
+                const bubble = document.createElement('div');
+                bubble.className = 'imsg-bubble outbound';
+                bubble.id = pendingId;
+                bubble.style.opacity = '0.6';
+                const body = msg.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const now = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                bubble.innerHTML = body + '<div class="imsg-bubble-time">' + now + ' · Sending…</div>';
+                msgContainer.appendChild(bubble);
+                msgContainer.scrollTop = msgContainer.scrollHeight;
+            }
+
+            textEl.value = '';
+            textEl.style.height = '';
+            inboxUpdateCharCount('');
+
+            _inboxSending = true;
+            if (sendBtn) { sendBtn.disabled = true; sendBtn.style.opacity = '0.5'; }
+            if (statusEl) { statusEl.textContent = 'Sending via ' + channelLabel + '…'; statusEl.style.color = '#888'; }
+
+            try {
+                const payload = { message: msg, channel: channel };
+                if (channel === 'twilio' && _inboxThreadContactPhone) {
+                    payload.contact_phone = _inboxThreadContactPhone;
+                }
+                const r = await fetch('/voice/contact/' + _inboxThreadContactId + '/send-sms', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const d = await r.json();
+                const bubble = document.getElementById(pendingId);
+                if (r.ok) {
+                    if (bubble) { bubble.style.opacity = '1'; bubble.querySelector('.imsg-bubble-time').textContent = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }); }
+                    if (statusEl) { statusEl.textContent = '\u2713 Sent via ' + channelLabel; statusEl.style.color = '#007AFF'; }
+                    setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
+                } else {
+                    if (bubble) { bubble.style.opacity = '0.4'; bubble.style.borderLeft = '2px solid #ef4444'; }
+                    const err = d.error || 'Send failed';
+                    if (statusEl) { statusEl.textContent = err; statusEl.style.color = '#ef4444'; }
+                    textEl.value = msg;
+                    inboxAutoGrow(textEl);
+                    inboxUpdateCharCount(msg);
+                }
+            } catch(e) {
+                const bubble = document.getElementById(pendingId);
+                if (bubble) { bubble.style.opacity = '0.4'; bubble.style.borderLeft = '2px solid #ef4444'; }
+                if (statusEl) { statusEl.textContent = 'Network error'; statusEl.style.color = '#ef4444'; }
+            } finally {
+                _inboxSending = false;
+                if (sendBtn) { sendBtn.disabled = false; sendBtn.style.opacity = '1'; }
+            }
+        }
+
+        function inboxAiReply() {
+            if (!_inboxThreadContactId) return;
+            const btn = document.getElementById('inboxAiDraftBtn');
+            const label = document.getElementById('inboxAiDraftLabel');
+            if (btn) btn.disabled = true;
+            if (label) label.textContent = 'Thinking…';
+
+            fetch('/voice/contact/' + _inboxThreadContactId + '/ai-draft')
+                .then(r => r.json())
+                .then(d => {
+                    if (d.draft) {
+                        const textEl = document.getElementById('inboxSmsText');
+                        if (textEl) {
+                            textEl.value = d.draft;
+                            inboxAutoGrow(textEl);
+                            inboxUpdateCharCount(d.draft);
+                            textEl.focus();
+                        }
+                    }
+                })
+                .catch(() => {})
+                .finally(() => {
+                    if (btn) btn.disabled = false;
+                    if (label) label.textContent = 'AI Reply';
+                });
+        }
+
+        function inboxToggleQuickOptions(event) {
+            event.stopPropagation();
+            const menu = document.getElementById('inboxQuickOptionsMenu');
+            if (!menu) return;
+            const isOpen = menu.classList.contains('open');
+            // Close all quick option menus first
+            document.querySelectorAll('.ios-quick-options-menu.open').forEach(m => m.classList.remove('open'));
+            if (!isOpen) {
+                menu.classList.add('open');
+                // Position above button
+                const btn = event.currentTarget;
+                const rect = btn.getBoundingClientRect();
+                menu.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+                menu.style.right = (window.innerWidth - rect.right) + 'px';
+                menu.style.animation = 'qoSlideUp 0.15s ease-out';
+                // Close on next click
+                setTimeout(() => {
+                    document.addEventListener('click', function _closeInboxQO() {
+                        menu.classList.remove('open');
+                        document.removeEventListener('click', _closeInboxQO);
+                    }, { once: true });
+                }, 10);
+            }
+        }
+
+        function inboxQuickOption(text) {
+            const textEl = document.getElementById('inboxSmsText');
+            if (textEl) {
+                textEl.value = text;
+                inboxAutoGrow(textEl);
+                inboxUpdateCharCount(text);
+                textEl.focus();
+            }
+            const menu = document.getElementById('inboxQuickOptionsMenu');
+            if (menu) menu.classList.remove('open');
         }
 
         function _inboxFormatTime(dateStr) {

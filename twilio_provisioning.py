@@ -869,6 +869,30 @@ def list_messaging_services(sub_account_sid: str) -> list:
         return []
 
 
+def list_messaging_service_phone_numbers(messaging_service_sid: str) -> list:
+    """
+    List all phone numbers associated with a Messaging Service.
+    Returns list of {sid, phone_number} dicts — these are the numbers
+    actually registered for A2P via this messaging service.
+    The `sid` is the PN... IncomingPhoneNumber SID.
+    """
+    client = get_master_client()
+    try:
+        numbers = client.messaging.v1.services(
+            messaging_service_sid
+        ).phone_numbers.list(limit=400)
+        return [
+            {
+                "sid": n.sid,
+                "phone_number": getattr(n, "phone_number", ""),
+            }
+            for n in numbers
+        ]
+    except TwilioRestException as e:
+        logger.error(f"Failed to list phone numbers on MS {messaging_service_sid}: {e}")
+        return []
+
+
 # ──────────────────────────────────────────────────────────────
 # A2P DISCOVERY — Sync existing registrations from Twilio
 # ──────────────────────────────────────────────────────────────
