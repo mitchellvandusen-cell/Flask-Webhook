@@ -3062,7 +3062,8 @@ def fetch_contacts():
                             result = [c for c in result if
                                       q_lower in c.get("name", "").lower() or
                                       q_lower in c.get("phone", "").lower() or
-                                      q_lower in c.get("email", "").lower()]
+                                      q_lower in c.get("email", "").lower() or
+                                      any(q_lower in t.lower() for t in (c.get("tags") or []))]
                         return jsonify({"contacts": result, "total": len(result), "cached": True})
             except Exception:
                 pass
@@ -3084,7 +3085,8 @@ def fetch_contacts():
                 result = [c for c in result if
                           q_lower in c.get("name", "").lower() or
                           q_lower in c.get("phone", "").lower() or
-                          q_lower in c.get("email", "").lower()]
+                          q_lower in c.get("email", "").lower() or
+                          any(q_lower in t.lower() for t in (c.get("tags") or []))]
             return jsonify({"contacts": result, "total": len(result), "cached": False})
         except Exception as e:
             logger.error(f"Failed to fetch pipeline contacts: {e}")
@@ -3146,7 +3148,8 @@ def fetch_contacts():
             result = [c for c in result if
                       q_lower in c.get("name", "").lower() or
                       q_lower in c.get("phone", "").lower() or
-                      q_lower in c.get("email", "").lower()]
+                      q_lower in c.get("email", "").lower() or
+                      any(q_lower in t.lower() for t in (c.get("tags") or []))]
 
         return jsonify({"contacts": result, "total": len(result), "cached": False})
 

@@ -3752,10 +3752,11 @@ def get_cached_contacts(location_id: str, query: str = None, limit: int = 5000) 
                 SELECT contact_id, name, first_name, last_name, phone, email, tags, date_added, dnd
                 FROM contact_cache
                 WHERE location_id = %s
-                  AND (lower(name) LIKE %s OR phone LIKE %s OR lower(email) LIKE %s)
+                  AND (lower(name) LIKE %s OR phone LIKE %s OR lower(email) LIKE %s
+                       OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(COALESCE(tags, '[]'::jsonb)) AS t WHERE lower(t) LIKE %s))
                 ORDER BY name
                 LIMIT %s
-            """, (location_id, q, q, q, limit))
+            """, (location_id, q, q, q, q, limit))
         else:
             cur.execute("""
                 SELECT contact_id, name, first_name, last_name, phone, email, tags, date_added, dnd
