@@ -200,18 +200,18 @@
                     /* ═══════════════════════════════════════════════
                        iPhone 15 Pro — CSS (scaled 25% down)
                        ═══════════════════════════════════════════════ */
-                    .iphone-frame{width:100%;max-width:294px;aspect-ratio:393/852;position:relative;display:flex;align-items:center;justify-content:center;}
-                    .iphone-bezel{width:100%;height:100%;border-radius:39px;background:linear-gradient(145deg,#78797e 0%,#48494d 20%,#36373b 50%,#48494d 80%,#78797e 100%);padding:2px;position:relative;box-shadow:0 0 0 1px rgba(255,255,255,0.06),0 25px 60px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.15);}
-                    /* Side buttons (cosmetic) */
-                    .iphone-btn-right{position:absolute;right:-3px;top:135px;width:3px;height:48px;background:linear-gradient(to right,#48494d,#5a5b5f);border-radius:0 2px 2px 0;}
-                    .iphone-btn-left1{position:absolute;left:-3px;top:105px;width:3px;height:21px;background:linear-gradient(to left,#48494d,#5a5b5f);border-radius:2px 0 0 2px;}
-                    .iphone-btn-left2{position:absolute;left:-3px;top:135px;width:3px;height:37px;background:linear-gradient(to left,#48494d,#5a5b5f);border-radius:2px 0 0 2px;}
-                    .iphone-screen{width:100%;height:100%;border-radius:37px;background:#000;overflow:hidden;position:relative;display:flex;flex-direction:column;}
+                    .iphone-frame{width:100%;max-width:clamp(294px, 15.31vw, 560px);aspect-ratio:393/852;position:relative;display:flex;align-items:center;justify-content:center;}
+                    .iphone-bezel{width:100%;height:100%;border-radius:clamp(39px, 2.03vw, 74px);background:linear-gradient(145deg,#78797e 0%,#48494d 20%,#36373b 50%,#48494d 80%,#78797e 100%);padding:2px;position:relative;box-shadow:0 0 0 1px rgba(255,255,255,0.06),0 25px 60px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.15);}
+                    /* Side buttons (cosmetic) — use percentage positions for scaling */
+                    .iphone-btn-right{position:absolute;right:-3px;top:21.2%;width:3px;height:7.5%;background:linear-gradient(to right,#48494d,#5a5b5f);border-radius:0 2px 2px 0;}
+                    .iphone-btn-left1{position:absolute;left:-3px;top:16.5%;width:3px;height:3.3%;background:linear-gradient(to left,#48494d,#5a5b5f);border-radius:2px 0 0 2px;}
+                    .iphone-btn-left2{position:absolute;left:-3px;top:21.2%;width:3px;height:5.8%;background:linear-gradient(to left,#48494d,#5a5b5f);border-radius:2px 0 0 2px;}
+                    .iphone-screen{width:100%;height:100%;border-radius:clamp(37px, 1.93vw, 70px);background:#000;overflow:hidden;position:relative;display:flex;flex-direction:column;}
 
                     /* Status Bar */
-                    .ios-status-bar{height:40px;flex-shrink:0;display:flex;align-items:flex-end;justify-content:space-between;padding:0 21px 6px;position:relative;z-index:10;color:#fff;font-size:0.85rem;font-weight:600;}
-                    .ios-time{font-weight:700;font-size:0.95rem;letter-spacing:-0.3px;}
-                    .ios-dynamic-island{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:90px;height:27px;background:#000;border-radius:20px;z-index:20;}
+                    .ios-status-bar{height:clamp(40px, 2.08vw, 76px);flex-shrink:0;display:flex;align-items:flex-end;justify-content:space-between;padding:0 clamp(21px, 1.09vw, 40px) clamp(6px, 0.31vw, 11px);position:relative;z-index:10;color:#fff;font-size:clamp(0.85rem, 0.7vw, 1.3rem);font-weight:600;}
+                    .ios-time{font-weight:700;font-size:clamp(0.95rem, 0.78vw, 1.4rem);letter-spacing:-0.3px;}
+                    .ios-dynamic-island{position:absolute;top:clamp(9px, 0.47vw, 17px);left:50%;transform:translateX(-50%);width:clamp(90px, 4.69vw, 171px);height:clamp(27px, 1.41vw, 51px);background:#000;border-radius:clamp(20px, 1.04vw, 38px);z-index:20;}
                     .ios-status-icons{display:flex;align-items:center;gap:5px;}
 
                     /* Home Screen */
@@ -224,20 +224,20 @@
                         radial-gradient(ellipse at 20% 70%, rgba(175,82,222,0.5) 0%, transparent 45%),
                         linear-gradient(160deg, #1c1c3a 0%, #0d1b2a 50%, #0a0e1a 100%);
                     z-index:0;}
-                    .ios-app-grid{flex:1;display:grid;grid-template-columns:repeat(3,1fr);align-items:start;justify-items:center;gap:20px 12px;padding:24px 16px;position:relative;z-index:1;align-content:center;}
+                    .ios-app-grid{flex:1;display:grid;grid-template-columns:repeat(3,1fr);align-items:start;justify-items:center;gap:clamp(20px, 1.04vw, 38px) clamp(12px, 0.63vw, 23px);padding:clamp(24px, 1.25vw, 46px) clamp(16px, 0.83vw, 30px);position:relative;z-index:1;align-content:center;}
                     .ios-app-icon{display:flex;flex-direction:column;align-items:center;gap:5px;background:none;border:none;cursor:pointer;position:relative;transition:transform 0.15s;-webkit-tap-highlight-color:transparent;}
                     .ios-app-icon:hover{transform:scale(1.08);}
                     .ios-app-icon:active{transform:scale(0.95);}
-                    .ios-icon{width:64px;height:64px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:2.1rem;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.3);}
+                    .ios-icon{width:clamp(64px, 3.33vw, 122px);height:clamp(64px, 3.33vw, 122px);border-radius:clamp(14px, 0.73vw, 27px);display:flex;align-items:center;justify-content:center;font-size:clamp(2.1rem, 1.75vw, 3.2rem);color:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.3);}
                     .ios-icon-messages{background:linear-gradient(180deg,#65D66A 0%,#34C759 100%);}
                     .ios-icon-phone{background:linear-gradient(180deg,#65D66A 0%,#34C759 100%);}
                     .ios-icon-voicemail{background:linear-gradient(180deg,#FF9F0A 0%,#FF9500 100%);}
-                    .ios-app-label{font-size:0.775rem;color:#fff;font-weight:500;text-shadow:0 1px 3px rgba(0,0,0,0.6);letter-spacing:-0.1px;}
-                    .ios-badge{position:absolute;top:-4px;right:-4px;background:#FF3B30;color:#fff;font-size:0.65rem;font-weight:800;min-width:20px;height:20px;border-radius:10px;display:flex;align-items:center;justify-content:center;padding:0 5px;border:2px solid #000;z-index:2;}
+                    .ios-app-label{font-size:clamp(0.775rem, 0.65vw, 1.2rem);color:#fff;font-weight:500;text-shadow:0 1px 3px rgba(0,0,0,0.6);letter-spacing:-0.1px;}
+                    .ios-badge{position:absolute;top:-4px;right:-4px;background:#FF3B30;color:#fff;font-size:clamp(0.65rem, 0.52vw, 1rem);font-weight:800;min-width:clamp(20px, 1.04vw, 38px);height:clamp(20px, 1.04vw, 38px);border-radius:clamp(10px, 0.52vw, 19px);display:flex;align-items:center;justify-content:center;padding:0 5px;border:2px solid #000;z-index:2;}
 
                     /* Home Indicator */
                     .ios-home-indicator-bar{flex-shrink:0;display:flex;justify-content:center;padding:6px 0 4px;position:relative;z-index:1;}
-                    .ios-home-indicator{width:100px;height:3px;border-radius:2px;background:rgba(255,255,255,0.25);}
+                    .ios-home-indicator{width:clamp(100px, 5.21vw, 190px);height:clamp(3px, 0.16vw, 6px);border-radius:2px;background:rgba(255,255,255,0.25);}
                     .ios-home-indicator-dark{background:rgba(255,255,255,0.15);}
 
                     /* App Views (common) */
@@ -246,37 +246,37 @@
                     @keyframes iosAppClose{0%{opacity:1;transform:scale(1);}100%{opacity:0;transform:scale(0.88);}}
 
                     /* Nav Bar */
-                    .ios-nav-bar{flex-shrink:0;display:flex;align-items:center;gap:6px;padding:50px 10px 8px;background:rgba(18,18,18,0.94);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,0.06);}
-                    .ios-back-btn{background:none;border:none;color:#007AFF;font-size:1rem;cursor:pointer;padding:3px 5px;display:flex;align-items:center;gap:2px;flex-shrink:0;}
-                    .ios-nav-title{flex:1;display:flex;align-items:center;gap:6px;min-width:0;}
-                    .ios-nav-name{font-weight:700;font-size:0.88rem;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-                    .ios-nav-subtitle{font-size:0.72rem;color:#8E8E93;margin-top:1px;}
-                    .ios-nav-action{background:none;border:none;color:#007AFF;font-size:0.9rem;cursor:pointer;padding:3px;flex-shrink:0;}
-                    .ios-contact-avatar-sm{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#5856D6,#AF52DE);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.68rem;color:#fff;flex-shrink:0;}
+                    .ios-nav-bar{flex-shrink:0;display:flex;align-items:center;gap:clamp(6px, 0.31vw, 11px);padding:clamp(50px, 2.60vw, 95px) clamp(10px, 0.52vw, 19px) clamp(8px, 0.42vw, 15px);background:rgba(18,18,18,0.94);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,0.06);}
+                    .ios-back-btn{background:none;border:none;color:#007AFF;font-size:clamp(1rem, 0.83vw, 1.5rem);cursor:pointer;padding:3px 5px;display:flex;align-items:center;gap:2px;flex-shrink:0;}
+                    .ios-nav-title{flex:1;display:flex;align-items:center;gap:clamp(6px, 0.31vw, 11px);min-width:0;}
+                    .ios-nav-name{font-weight:700;font-size:clamp(0.88rem, 0.73vw, 1.3rem);color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+                    .ios-nav-subtitle{font-size:clamp(0.72rem, 0.6vw, 1.1rem);color:#8E8E93;margin-top:1px;}
+                    .ios-nav-action{background:none;border:none;color:#007AFF;font-size:clamp(0.9rem, 0.75vw, 1.4rem);cursor:pointer;padding:3px;flex-shrink:0;}
+                    .ios-contact-avatar-sm{width:clamp(28px, 1.46vw, 53px);height:clamp(28px, 1.46vw, 53px);border-radius:50%;background:linear-gradient(135deg,#5856D6,#AF52DE);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:clamp(0.68rem, 0.56vw, 1rem);color:#fff;flex-shrink:0;}
 
                     /* Empty State */
-                    .ios-empty-state{text-align:center;padding:60px 18px;}
-                    .ios-empty-icon{width:42px;height:42px;border-radius:50%;background:rgba(0,122,255,0.08);border:1px solid rgba(0,122,255,0.15);display:flex;align-items:center;justify-content:center;margin:0 auto 9px;font-size:1.3rem;color:#007AFF;}
-                    .ios-empty-title{color:#fff;font-size:0.82rem;font-weight:600;margin-bottom:3px;}
-                    .ios-empty-sub{color:#8E8E93;font-size:0.68rem;}
+                    .ios-empty-state{text-align:center;padding:clamp(60px, 3.13vw, 114px) clamp(18px, 0.94vw, 34px);}
+                    .ios-empty-icon{width:clamp(42px, 2.19vw, 80px);height:clamp(42px, 2.19vw, 80px);border-radius:50%;background:rgba(0,122,255,0.08);border:1px solid rgba(0,122,255,0.15);display:flex;align-items:center;justify-content:center;margin:0 auto clamp(9px, 0.47vw, 17px);font-size:clamp(1.3rem, 1.08vw, 2rem);color:#007AFF;}
+                    .ios-empty-title{color:#fff;font-size:clamp(0.82rem, 0.68vw, 1.25rem);font-weight:600;margin-bottom:3px;}
+                    .ios-empty-sub{color:#8E8E93;font-size:clamp(0.68rem, 0.56vw, 1rem);}
 
                     /* Messages Thread */
                     .ios-thread-scroll{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;background:#000;}
                     .ios-thread-scroll::-webkit-scrollbar{width:0;}
                     /* Override bubble styles for iMessage look */
-                    .ios-thread-scroll .dlr-bubble.outbound{background:#007AFF!important;border:none!important;color:#fff!important;border-radius:18px!important;border-bottom-right-radius:4px!important;}
-                    .ios-thread-scroll .dlr-bubble.inbound{background:#1C1C1E!important;border:1px solid rgba(255,255,255,0.08)!important;color:#fff!important;border-radius:18px!important;border-bottom-left-radius:4px!important;}
-                    .ios-thread-scroll .dlr-date-sep span{background:rgba(255,255,255,0.06)!important;border:none!important;color:#8E8E93!important;font-size:0.82rem!important;}
-                    .ios-thread-scroll .dlr-msg-meta{color:#8E8E93!important;font-size:0.78rem!important;}
-                    .ios-thread-scroll .dlr-type-badge{background:rgba(255,255,255,0.06)!important;border-color:rgba(255,255,255,0.1)!important;color:#8E8E93!important;font-size:0.75rem!important;}
-                    .ios-thread-scroll .dlr-bubble{font-size:0.88rem!important;padding:10px 14px!important;}
+                    .ios-thread-scroll .dlr-bubble.outbound{background:#007AFF!important;border:none!important;color:#fff!important;border-radius:clamp(18px, 0.94vw, 34px)!important;border-bottom-right-radius:clamp(4px, 0.21vw, 8px)!important;}
+                    .ios-thread-scroll .dlr-bubble.inbound{background:#1C1C1E!important;border:1px solid rgba(255,255,255,0.08)!important;color:#fff!important;border-radius:clamp(18px, 0.94vw, 34px)!important;border-bottom-left-radius:clamp(4px, 0.21vw, 8px)!important;}
+                    .ios-thread-scroll .dlr-date-sep span{background:rgba(255,255,255,0.06)!important;border:none!important;color:#8E8E93!important;font-size:clamp(0.82rem, 0.68vw, 1.25rem)!important;}
+                    .ios-thread-scroll .dlr-msg-meta{color:#8E8E93!important;font-size:clamp(0.78rem, 0.65vw, 1.2rem)!important;}
+                    .ios-thread-scroll .dlr-type-badge{background:rgba(255,255,255,0.06)!important;border-color:rgba(255,255,255,0.1)!important;color:#8E8E93!important;font-size:clamp(0.75rem, 0.63vw, 1.15rem)!important;}
+                    .ios-thread-scroll .dlr-bubble{font-size:clamp(0.88rem, 0.73vw, 1.3rem)!important;padding:clamp(10px, 0.52vw, 19px) clamp(14px, 0.73vw, 27px)!important;}
 
                     /* iMessage Composer */
                     .ios-composer{flex-shrink:0;background:rgba(18,18,18,0.94);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,0.06);}
                     .ios-quick-replies{display:flex;align-items:center;gap:5px;padding:5px 8px 2px;overflow-x:auto;scrollbar-width:none;}
                     .ios-quick-replies::-webkit-scrollbar{display:none;}
-                    .ios-ai-btn{display:flex;align-items:center;gap:5px;flex-shrink:0;background:linear-gradient(135deg,rgba(0,122,255,0.2),rgba(88,86,214,0.15));border:1px solid rgba(0,122,255,0.35);color:#007AFF;border-radius:14px;padding:8px 14px;font-size:0.884rem;font-weight:700;cursor:pointer;white-space:nowrap;}
-                    .ios-qr-chip{flex-shrink:0;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#8E8E93;border-radius:14px;padding:8px 13px;font-size:0.845rem;cursor:pointer;white-space:nowrap;transition:all .15s;}
+                    .ios-ai-btn{display:flex;align-items:center;gap:5px;flex-shrink:0;background:linear-gradient(135deg,rgba(0,122,255,0.2),rgba(88,86,214,0.15));border:1px solid rgba(0,122,255,0.35);color:#007AFF;border-radius:clamp(14px, 0.73vw, 27px);padding:clamp(8px, 0.42vw, 15px) clamp(14px, 0.73vw, 27px);font-size:clamp(0.884rem, 0.73vw, 1.3rem);font-weight:700;cursor:pointer;white-space:nowrap;}
+                    .ios-qr-chip{flex-shrink:0;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#8E8E93;border-radius:clamp(14px, 0.73vw, 27px);padding:clamp(8px, 0.42vw, 15px) clamp(13px, 0.68vw, 25px);font-size:clamp(0.845rem, 0.7vw, 1.25rem);cursor:pointer;white-space:nowrap;transition:all .15s;}
                     .ios-qr-chip:hover{background:rgba(0,122,255,0.12);color:#007AFF;border-color:rgba(0,122,255,0.2);}
                     .ios-brand-label{color:#007AFF;font-size:0.82rem;font-weight:700;white-space:nowrap;letter-spacing:0.02em;}
                     .ios-quick-options-btn{display:flex;align-items:center;gap:5px;flex-shrink:0;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);color:#8E8E93;border-radius:14px;padding:8px 14px;font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s;}
@@ -341,20 +341,20 @@
                         #numberRotationBanner { font-size:0.78rem !important; padding:8px 10px !important; }
                     }
                     .ios-channel-row{display:flex;align-items:center;gap:5px;padding:2px 9px 0;}
-                    .ios-channel-label{font-size:0.62rem;color:#8E8E93;font-weight:600;white-space:nowrap;}
-                    .ios-channel-select{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#ccc;padding:3px 7px;border-radius:6px;font-size:0.65rem;outline:none;cursor:pointer;}
-                    .ios-channel-note{font-size:0.56rem;color:#8E8E93;}
+                    .ios-channel-label{font-size:clamp(0.62rem, 0.52vw, 0.95rem);color:#8E8E93;font-weight:600;white-space:nowrap;}
+                    .ios-channel-select{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#ccc;padding:clamp(3px, 0.16vw, 6px) clamp(7px, 0.36vw, 13px);border-radius:6px;font-size:clamp(0.65rem, 0.54vw, 1rem);outline:none;cursor:pointer;}
+                    .ios-channel-note{font-size:clamp(0.56rem, 0.47vw, 0.85rem);color:#8E8E93;}
                     .ios-compose-row{display:flex;gap:5px;align-items:flex-end;padding:5px 8px 2px;}
                     .ios-compose-input-wrap{flex:1;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:2px 4px;transition:border-color 0.15s;}
                     .ios-compose-input-wrap:focus-within{border-color:rgba(0,122,255,0.4);}
-                    .ios-compose-input{width:100%;background:transparent;border:none;color:#fff;padding:6px 10px;font-size:0.78rem;resize:none;outline:none;line-height:1.4;max-height:72px;overflow-y:auto;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;}
+                    .ios-compose-input{width:100%;background:transparent;border:none;color:#fff;padding:clamp(6px, 0.31vw, 11px) clamp(10px, 0.52vw, 19px);font-size:clamp(0.78rem, 0.65vw, 1.2rem);resize:none;outline:none;line-height:1.4;max-height:clamp(72px, 3.75vw, 137px);overflow-y:auto;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;}
                     .ios-compose-input::placeholder{color:#636366;}
-                    .ios-send-btn{width:28px;height:28px;border-radius:50%;background:#007AFF;border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.75rem;transition:background 0.15s,transform 0.1s;margin-bottom:1px;}
+                    .ios-send-btn{width:clamp(28px, 1.46vw, 53px);height:clamp(28px, 1.46vw, 53px);border-radius:50%;background:#007AFF;border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:clamp(0.75rem, 0.63vw, 1.15rem);transition:background 0.15s,transform 0.1s;margin-bottom:1px;}
                     .ios-send-btn:hover{background:#0A84FF;}
                     .ios-send-btn:active{transform:scale(0.9);}
                     .ios-compose-footer{display:flex;align-items:center;justify-content:space-between;padding:0 10px 3px;}
-                    .ios-sms-status{font-size:0.62rem;color:#636366;min-height:12px;}
-                    .ios-char-count{font-size:0.62rem;color:#636366;font-family:'SF Mono','JetBrains Mono',monospace;white-space:nowrap;}
+                    .ios-sms-status{font-size:clamp(0.62rem, 0.52vw, 0.95rem);color:#636366;min-height:clamp(12px, 0.63vw, 23px);}
+                    .ios-char-count{font-size:clamp(0.62rem, 0.52vw, 0.95rem);color:#636366;font-family:'SF Mono','JetBrains Mono',monospace;white-space:nowrap;}
 
                     /* Call Log */
                     .ios-call-log-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#000;}
@@ -373,7 +373,7 @@
                     .imsg-convo-row:active{background:rgba(255,255,255,0.06);}
                     .imsg-convo-row::after{content:'';position:absolute;bottom:0;left:68px;right:0;height:1px;background:rgba(255,255,255,0.06);}
                     .imsg-convo-row:last-child::after{display:none;}
-                    .imsg-avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#5856D6,#AF52DE);display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;color:#fff;flex-shrink:0;letter-spacing:-0.3px;}
+                    .imsg-avatar{width:clamp(44px, 2.29vw, 84px);height:clamp(44px, 2.29vw, 84px);border-radius:50%;background:linear-gradient(135deg,#5856D6,#AF52DE);display:flex;align-items:center;justify-content:center;font-size:clamp(0.8rem, 0.67vw, 1.2rem);font-weight:700;color:#fff;flex-shrink:0;letter-spacing:-0.3px;}
                     .imsg-unread-dot{width:10px;height:10px;border-radius:50%;background:#007AFF;flex-shrink:0;}
                     .imsg-time{font-size:0.65rem;color:#8E8E93;white-space:nowrap;flex-shrink:0;}
                     .imsg-name{font-size:0.85rem;font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -387,6 +387,122 @@
                     .imsg-date-sep{text-align:center;padding:12px 0 6px;font-size:0.65rem;color:#8E8E93;font-weight:600;}
                     .imsg-call-pill{text-align:center;padding:4px 0;}
                     .imsg-call-pill span{font-size:0.65rem;color:#8E8E93;background:rgba(255,255,255,0.04);padding:4px 12px;border-radius:10px;display:inline-flex;align-items:center;gap:4px;}
+
+                    /* ═══════════════════════════════════════════════
+                       4K / Ultra-High-DPI Scaling (2200px+)
+                       Ensures all dialer elements scale proportionally
+                       on large/high-resolution displays.
+                       ═══════════════════════════════════════════════ */
+                    @media (min-width: 2200px) {
+                        /* Column headers */
+                        .dlr-col-hdr { padding: clamp(10px, 0.6vw, 18px) clamp(14px, 0.8vw, 24px); }
+                        .dlr-col-hdr h6 { font-size: clamp(0.95rem, 0.7vw, 1.4rem); }
+
+                        /* Contact rows */
+                        .dlr-contact-row { padding: clamp(8px, 0.5vw, 15px) clamp(12px, 0.7vw, 20px); gap: clamp(8px, 0.5vw, 15px); }
+
+                        /* Message bubbles (outside phone) */
+                        .dlr-msg-bubble { font-size: clamp(0.95rem, 0.7vw, 1.4rem); padding: clamp(8px, 0.5vw, 15px) clamp(12px, 0.7vw, 20px); }
+                        .dlr-bubble { font-size: clamp(0.95rem, 0.7vw, 1.4rem); padding: clamp(10px, 0.6vw, 18px) clamp(14px, 0.8vw, 24px); }
+
+                        /* Field labels and values */
+                        .dlr-field-label { font-size: clamp(0.78rem, 0.55vw, 1.1rem); }
+                        .dlr-field-value { font-size: clamp(0.92rem, 0.65vw, 1.35rem); margin-bottom: clamp(8px, 0.5vw, 15px); }
+
+                        /* Tab buttons */
+                        .dlr-tab-btn { font-size: clamp(0.95rem, 0.7vw, 1.4rem); padding: clamp(9px, 0.55vw, 16px) clamp(16px, 0.9vw, 28px); }
+
+                        /* Date separators */
+                        .dlr-date-sep span { font-size: clamp(0.78rem, 0.55vw, 1.1rem); padding: clamp(4px, 0.25vw, 8px) clamp(14px, 0.8vw, 24px); }
+
+                        /* Message meta */
+                        .dlr-msg-meta { font-size: clamp(0.72rem, 0.5vw, 1.05rem); }
+                        .dlr-type-badge { font-size: clamp(0.68rem, 0.48vw, 1rem); }
+
+                        /* Quick reply buttons */
+                        .dlr-qr-btn { font-size: clamp(0.82rem, 0.58vw, 1.2rem); padding: clamp(6px, 0.38vw, 11px) clamp(14px, 0.8vw, 24px); }
+
+                        /* Stats panel */
+                        .dlr-kpi-val { font-size: clamp(1.6rem, 1.1vw, 2.4rem); }
+                        .dlr-kpi-label { font-size: clamp(0.72rem, 0.5vw, 1.05rem); }
+                        .dlr-kpi-sub { font-size: clamp(0.82rem, 0.58vw, 1.2rem); }
+                        .dlr-kpi-card { padding: clamp(12px, 0.7vw, 20px) clamp(16px, 0.9vw, 28px); }
+                        .dlr-bar-label { font-size: clamp(0.88rem, 0.62vw, 1.3rem); }
+                        .dlr-bar-count { font-size: clamp(0.88rem, 0.62vw, 1.3rem); }
+                        .dlr-bar-track { height: clamp(10px, 0.6vw, 18px); }
+
+                        /* Smart filter headers */
+                        .igb-filter-hdr { padding: clamp(6px, 0.38vw, 11px) clamp(12px, 0.7vw, 20px); }
+                        .igb-filter-hdr .igb-filter-icon { font-size: clamp(0.68rem, 0.48vw, 1rem); }
+                        .igb-filter-hdr .igb-filter-label { font-size: clamp(0.72rem, 0.5vw, 1.05rem); }
+                        .igb-filter-hdr .igb-filter-count { font-size: clamp(0.65rem, 0.46vw, 0.95rem); }
+
+                        /* Lead score ring */
+                        .igb-score-ring { width: clamp(80px, 4.6vw, 140px); height: clamp(80px, 4.6vw, 140px); }
+                        .igb-score-num { font-size: clamp(1.1rem, 0.8vw, 1.7rem); }
+                        .igb-score-sub { font-size: clamp(0.77rem, 0.55vw, 1.15rem); }
+
+                        /* Intel pills */
+                        .igb-intel-pill { font-size: clamp(0.78rem, 0.55vw, 1.15rem); padding: clamp(4px, 0.25vw, 8px) clamp(10px, 0.6vw, 18px); }
+                        .igb-intel-pill i { font-size: clamp(0.72rem, 0.5vw, 1.05rem); }
+
+                        /* AI summary card */
+                        .igb-summary-card { padding: clamp(12px, 0.7vw, 20px) clamp(14px, 0.8vw, 24px); margin-bottom: clamp(12px, 0.7vw, 20px); }
+                        .igb-summary-hdr i { font-size: clamp(0.72rem, 0.5vw, 1.05rem); }
+                        .igb-summary-hdr span { font-size: clamp(0.72rem, 0.5vw, 1.05rem); }
+                        .igb-summary-body { font-size: clamp(0.82rem, 0.58vw, 1.2rem); }
+
+                        /* Facts list */
+                        .igb-facts-list li { font-size: clamp(0.8rem, 0.57vw, 1.18rem); padding: clamp(4px, 0.25vw, 8px) 0; }
+
+                        /* Action strip */
+                        .igb-action-btn { font-size: clamp(0.78rem, 0.55vw, 1.15rem); padding: clamp(7px, 0.42vw, 13px) clamp(4px, 0.25vw, 8px); }
+
+                        /* Engagement timeline */
+                        .igb-tl-dot { width: clamp(12px, 0.7vw, 20px); height: clamp(12px, 0.7vw, 20px); }
+                        .igb-tl-label { font-size: clamp(0.68rem, 0.48vw, 1rem); max-width: clamp(70px, 4vw, 120px); }
+
+                        /* Call badge */
+                        .dlr-call-badge { font-size: clamp(0.72rem, 0.5vw, 1.05rem); padding: clamp(1px, 0.08vw, 3px) clamp(6px, 0.38vw, 11px); }
+
+                        /* Engagement dots */
+                        .igb-engage-dots .igb-dot { width: clamp(6px, 0.38vw, 11px); height: clamp(6px, 0.38vw, 11px); }
+
+                        /* iMessage inbox elements */
+                        .imsg-convo-row { padding: clamp(10px, 0.6vw, 18px) clamp(16px, 0.9vw, 28px); gap: clamp(12px, 0.7vw, 20px); }
+                        .imsg-name { font-size: clamp(0.85rem, 0.6vw, 1.25rem); }
+                        .imsg-preview { font-size: clamp(0.75rem, 0.53vw, 1.1rem); }
+                        .imsg-time { font-size: clamp(0.65rem, 0.46vw, 0.95rem); }
+                        .imsg-filter-pill { font-size: clamp(0.7rem, 0.5vw, 1.05rem); padding: clamp(5px, 0.32vw, 9px) clamp(14px, 0.8vw, 24px); }
+                        .imsg-bubble { font-size: clamp(0.8rem, 0.57vw, 1.18rem); padding: clamp(9px, 0.55vw, 16px) clamp(14px, 0.8vw, 24px); }
+
+                        /* Radar empty state */
+                        .igb-radar-wrap { width: clamp(120px, 6.8vw, 200px); height: clamp(120px, 6.8vw, 200px); }
+
+                        /* Dialer search & pipeline filter */
+                        #dialerSearch { font-size: clamp(0.92rem, 0.65vw, 1.35rem) !important; padding: clamp(6px, 0.38vw, 11px) clamp(8px, 0.5vw, 15px) clamp(6px, 0.38vw, 11px) clamp(28px, 1.6vw, 48px) !important; }
+                        #dialerPipelineFilter { font-size: clamp(0.85rem, 0.6vw, 1.25rem) !important; padding: clamp(5px, 0.32vw, 9px) clamp(8px, 0.5vw, 15px) !important; }
+
+                        /* 3-col layout spacing */
+                        .dlr-3col-layout { gap: clamp(8px, 0.5vw, 15px) !important; min-height: clamp(500px, 28vw, 900px) !important; }
+
+                        /* Phone keypad */
+                        .dlr-kbd-key { padding: clamp(8px, 0.5vw, 15px) clamp(4px, 0.25vw, 8px); }
+                        .dlr-kbd-key span { font-size: clamp(1rem, 0.73vw, 1.5rem); }
+                        .dlr-kbd-key sub { font-size: clamp(0.42rem, 0.3vw, 0.65rem); }
+                        .dtmf-key { padding: clamp(10px, 0.6vw, 18px); font-size: clamp(1rem, 0.73vw, 1.5rem); }
+
+                        /* Quick options menu */
+                        .ios-quick-options-menu button { padding: clamp(10px, 0.6vw, 18px) clamp(12px, 0.7vw, 20px); font-size: clamp(0.82rem, 0.58vw, 1.2rem); }
+                        .ios-quick-options-menu button i { font-size: clamp(0.8rem, 0.57vw, 1.18rem); }
+                        .ios-brand-label { font-size: clamp(0.82rem, 0.58vw, 1.2rem); }
+                        .ios-quick-options-btn { font-size: clamp(0.82rem, 0.58vw, 1.2rem); padding: clamp(8px, 0.5vw, 15px) clamp(14px, 0.8vw, 24px); }
+
+                        /* Compose input wrap */
+                        .ios-compose-input-wrap { border-radius: clamp(16px, 0.9vw, 28px); }
+                        .ios-compose-footer { padding: 0 clamp(10px, 0.6vw, 18px) clamp(3px, 0.2vw, 6px); }
+                        .ios-quick-replies { padding: clamp(5px, 0.32vw, 9px) clamp(8px, 0.5vw, 15px) clamp(2px, 0.13vw, 4px); gap: clamp(5px, 0.32vw, 9px); }
+                    }
                 </style>
 
                 <!-- Top Bar -->

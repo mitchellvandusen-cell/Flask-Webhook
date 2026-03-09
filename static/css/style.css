@@ -3,8 +3,8 @@
    ========================================= */
 
 html {
-    /* Responsive base: ~12px on 1920p, scales to ~16px on 4K/large monitors */
-    font-size: clamp(12px, calc(0.208vw + 8px), 16px);
+    /* Responsive base: ~12px on 1920p, scales smoothly to ~20px on 4K/ultra-wide monitors */
+    font-size: clamp(12px, calc(0.417vw + 4px), 20px);
 }
 
 :root {
@@ -488,6 +488,9 @@ footer a:hover { color: var(--accent); }
     .dash-topbar h1 { font-size: 1.8rem; }
     .sb-brand { padding: 18px 20px; min-height: 64px; }
     .sb-nav-item { padding: 11px 18px; }
+
+    /* Dialer: ensure phone column centers properly at scale */
+    #dlrColPhone { align-items: center; justify-content: center; }
 }
 
 .tech-readout { background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
