@@ -1801,34 +1801,40 @@ def voice_status():
     # Log completed/terminal calls to GHL so they appear in CRM conversation history
     if call_status in terminal_statuses and call_sid and call_sid in _active_calls:
         call_info = _active_calls[call_sid]
-        ghl_contact_id = call_info.get('contact_id')
+        ghl_contact_id = call_info.get('contact_id', '')
         ghl_location_id = call_info.get('_location_id', '')
         ghl_phone = call_info.get('phone', '')
         ghl_from = call_info.get('_from_number', '')
+
+        # For inbound calls, contact_id may be empty in _active_calls.
+        # Resolve from call_history DB (populated during WebSocket bridge).
+        call_direction = 'outbound'
+        if ghl_location_id:
+            try:
+                conn_dir = get_db_connection()
+                if conn_dir:
+                    try:
+                        cur_dir = conn_dir.cursor()
+                        cur_dir.execute(
+                            "SELECT direction, contact_id FROM call_history WHERE call_sid = %s",
+                            (call_sid,))
+                        dir_row = cur_dir.fetchone()
+                        if dir_row:
+                            call_direction = dir_row['direction'] or 'outbound'
+                            if not ghl_contact_id and dir_row.get('contact_id'):
+                                ghl_contact_id = dir_row['contact_id']
+                        cur_dir.close()
+                    finally:
+                        return_db_connection(conn_dir)
+            except Exception:
+                pass
+
         if ghl_contact_id and ghl_location_id:
             try:
                 from ghl_logger import log_call_to_ghl
                 from ghl_api import get_valid_token
                 ghl_token = get_valid_token(ghl_location_id)
                 if ghl_token:
-                    # Determine direction from call_history DB (more reliable)
-                    call_direction = 'outbound'
-                    try:
-                        conn_dir = get_db_connection()
-                        if conn_dir:
-                            try:
-                                cur_dir = conn_dir.cursor()
-                                cur_dir.execute(
-                                    "SELECT direction FROM call_history WHERE call_sid = %s",
-                                    (call_sid,))
-                                dir_row = cur_dir.fetchone()
-                                if dir_row:
-                                    call_direction = dir_row['direction'] or 'outbound'
-                                cur_dir.close()
-                            finally:
-                                return_db_connection(conn_dir)
-                    except Exception:
-                        pass
                     log_call_to_ghl(
                         contact_id=ghl_contact_id,
                         access_token=ghl_token,
