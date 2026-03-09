@@ -355,6 +355,13 @@
                     .ios-compose-footer{display:flex;align-items:center;justify-content:space-between;padding:0 10px 3px;}
                     .ios-sms-status{font-size:clamp(0.62rem, 0.52vw, 0.95rem);color:#636366;min-height:clamp(12px, 0.63vw, 23px);}
                     .ios-char-count{font-size:clamp(0.62rem, 0.52vw, 0.95rem);color:#636366;font-family:'SF Mono','JetBrains Mono',monospace;white-space:nowrap;}
+                    /* Compact composer toolbar */
+                    .ios-composer-toolbar{display:flex;align-items:center;gap:4px;padding:2px 8px 0;overflow-x:auto;scrollbar-width:none;}
+                    .ios-composer-toolbar::-webkit-scrollbar{display:none;}
+                    .ios-toolbar-btn{display:inline-flex;align-items:center;gap:3px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#8E8E93;border-radius:10px;padding:4px 8px;font-size:clamp(0.62rem, 0.52vw, 0.95rem);font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s;}
+                    .ios-toolbar-btn:hover{background:rgba(0,122,255,0.12);color:#007AFF;border-color:rgba(0,122,255,0.25);}
+                    .ios-toolbar-ai{background:rgba(0,122,255,0.1);border-color:rgba(0,122,255,0.25);color:#007AFF;}
+                    .ios-toolbar-ai:hover{background:rgba(0,122,255,0.2);}
 
                     /* Call Log */
                     .ios-call-log-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#000;}
@@ -365,7 +372,7 @@
                     .ios-voicemail-scroll::-webkit-scrollbar{width:0;}
 
                     /* iMessage Inbox */
-                    .imsg-filter-pill{background:rgba(255,255,255,0.06);border:none;border-radius:16px;padding:5px 14px;font-size:0.75rem;font-weight:600;color:#8E8E93;cursor:pointer;white-space:nowrap;transition:all 0.2s;}
+                    .imsg-filter-pill{background:rgba(255,255,255,0.06);border:none;border-radius:14px;padding:4px 10px;font-size:0.7rem;font-weight:600;color:#8E8E93;cursor:pointer;white-space:nowrap;transition:all 0.2s;flex:1;text-align:center;min-width:0;}
                     .imsg-filter-pill.active{background:#007AFF;color:#fff;}
                     .imsg-filter-pill:hover:not(.active){background:rgba(255,255,255,0.1);}
                     .imsg-convo-row{display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;transition:background 0.15s;position:relative;}
@@ -387,6 +394,29 @@
                     .imsg-date-sep{text-align:center;padding:12px 0 6px;font-size:0.75rem;color:#8E8E93;font-weight:600;}
                     .imsg-call-pill{text-align:center;padding:4px 0;}
                     .imsg-call-pill span{font-size:0.75rem;color:#8E8E93;background:rgba(255,255,255,0.04);padding:4px 12px;border-radius:10px;display:inline-flex;align-items:center;gap:4px;}
+
+                    /* ═══ Modern Scrollbar Styling ═══ */
+                    /* iPhone app scrollbars — thin, translucent, rounded */
+                    #inboxConversationList::-webkit-scrollbar,
+                    #inboxThreadMessages::-webkit-scrollbar{width:3px;}
+                    #inboxConversationList::-webkit-scrollbar-track,
+                    #inboxThreadMessages::-webkit-scrollbar-track{background:transparent;}
+                    #inboxConversationList::-webkit-scrollbar-thumb,
+                    #inboxThreadMessages::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.12);border-radius:3px;}
+                    #inboxConversationList::-webkit-scrollbar-thumb:hover,
+                    #inboxThreadMessages::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.25);}
+                    #inboxConversationList,#inboxThreadMessages{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.12) transparent;}
+                    /* Contact list column scrollbar */
+                    .dlr-col-body::-webkit-scrollbar{width:4px;}
+                    .dlr-col-body::-webkit-scrollbar-track{background:transparent;margin:4px 0;}
+                    .dlr-col-body::-webkit-scrollbar-thumb{background:rgba(0,217,255,0.15);border-radius:4px;transition:background 0.2s;}
+                    .dlr-col-body::-webkit-scrollbar-thumb:hover{background:rgba(0,217,255,0.3);}
+                    .dlr-col-body{scrollbar-width:thin;scrollbar-color:rgba(0,217,255,0.15) transparent;}
+                    /* Lead Intelligence column scrollbar */
+                    #dlrDetailContent::-webkit-scrollbar{width:4px;}
+                    #dlrDetailContent::-webkit-scrollbar-track{background:transparent;}
+                    #dlrDetailContent::-webkit-scrollbar-thumb{background:rgba(91,127,255,0.15);border-radius:4px;}
+                    #dlrDetailContent::-webkit-scrollbar-thumb:hover{background:rgba(91,127,255,0.3);}
 
                     /* ═══════════════════════════════════════════════
                        4K / Ultra-High-DPI Scaling (2200px+)
@@ -1203,35 +1233,8 @@
                                         </div>
                                         <!-- iMessage Composer -->
                                         <div id="dlrSmsComposer" style="display:none;" class="ios-composer">
-                                            <!-- Quick Replies -->
-                                            <div class="ios-quick-replies">
-                                                <button id="dlrAiDraftBtn" onclick="dlrAiSuggest()" class="ios-ai-btn" title="Generate AI reply">
-                                                    <i class="fa-solid fa-robot"></i>
-                                                    <span id="dlrAiDraftLabel">AI Reply</span>
-                                                </button>
-
-                                                <div class="ios-quick-options-wrap" style="margin-left:auto;position:relative;">
-                                                    <button class="ios-quick-options-btn" onclick="dlrToggleQuickOptions(event)">
-                                                        <i class="fa-solid fa-ellipsis"></i> Quick Options
-                                                    </button>
-                                                    <div id="dlrQuickOptionsMenu" class="ios-quick-options-menu">
-                                                        <button onclick="dlrQuickOption('Following up — did you have a chance to review the options I sent over?')"><i class="fa-solid fa-reply"></i> Follow-up</button>
-                                                        <button onclick="dlrQuickOption('Hi! I wanted to make sure you got everything you needed. Any questions?')"><i class="fa-solid fa-circle-check"></i> Check-in</button>
-                                                        <button onclick="dlrQuickOption('Ready to go over your coverage options when you are — just reply here to get started.')"><i class="fa-solid fa-shield-halved"></i> Coverage</button>
-                                                        <button onclick="dlrQuickOption('Are you available for a quick 10-minute call today or tomorrow?')"><i class="fa-solid fa-calendar"></i> Schedule</button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <!-- Channel selector -->
-                                            <div id="dlrChannelRow" style="display:none;" class="ios-channel-row">
-                                                <span class="ios-channel-label">Send from:</span>
-                                                <select id="dlrChannelSelect" onchange="dlrOnChannelChange()" class="ios-channel-select">
-                                                    <option value="ghl">LeadConnector</option>
-                                                </select>
-                                                <span id="dlrChannelNote" class="ios-channel-note"></span>
-                                            </div>
                                             <!-- Input row -->
-                                            <div class="ios-compose-row">
+                                            <div class="ios-compose-row" style="padding-top:6px;">
                                                 <div class="ios-compose-input-wrap">
                                                     <textarea id="dlrSmsText"
                                                         placeholder="iMessage"
@@ -1244,6 +1247,30 @@
                                                 <button onclick="dialerSendSms()" id="dlrSmsSendBtn" class="ios-send-btn" title="Send">
                                                     <i class="fa-solid fa-arrow-up"></i>
                                                 </button>
+                                            </div>
+                                            <!-- Toolbar: AI Reply, Quick Options, Send from — compact single row -->
+                                            <div class="ios-composer-toolbar">
+                                                <button id="dlrAiDraftBtn" onclick="dlrAiSuggest()" class="ios-toolbar-btn ios-toolbar-ai" title="Generate AI reply">
+                                                    <i class="fa-solid fa-robot"></i> <span id="dlrAiDraftLabel">AI Reply</span>
+                                                </button>
+                                                <div class="ios-quick-options-wrap" style="position:relative;">
+                                                    <button class="ios-toolbar-btn" onclick="dlrToggleQuickOptions(event)">
+                                                        <i class="fa-solid fa-ellipsis"></i> Quick Options
+                                                    </button>
+                                                    <div id="dlrQuickOptionsMenu" class="ios-quick-options-menu">
+                                                        <button onclick="dlrQuickOption('Following up — did you have a chance to review the options I sent over?')"><i class="fa-solid fa-reply"></i> Follow-up</button>
+                                                        <button onclick="dlrQuickOption('Hi! I wanted to make sure you got everything you needed. Any questions?')"><i class="fa-solid fa-circle-check"></i> Check-in</button>
+                                                        <button onclick="dlrQuickOption('Ready to go over your coverage options when you are — just reply here to get started.')"><i class="fa-solid fa-shield-halved"></i> Coverage</button>
+                                                        <button onclick="dlrQuickOption('Are you available for a quick 10-minute call today or tomorrow?')"><i class="fa-solid fa-calendar"></i> Schedule</button>
+                                                    </div>
+                                                </div>
+                                                <div id="dlrChannelRow" style="display:none;margin-left:auto;align-items:center;gap:4px;">
+                                                    <span class="ios-channel-label" style="font-size:0.6rem;">via</span>
+                                                    <select id="dlrChannelSelect" onchange="dlrOnChannelChange()" class="ios-channel-select" style="font-size:0.6rem;padding:2px 5px;">
+                                                        <option value="ghl">LeadConnector</option>
+                                                    </select>
+                                                    <span id="dlrChannelNote" class="ios-channel-note"></span>
+                                                </div>
                                             </div>
                                             <div class="ios-compose-footer">
                                                 <div id="dlrSmsStatus" class="ios-sms-status"></div>
@@ -1371,7 +1398,7 @@
                                                     style="width:100%;box-sizing:border-box;padding:8px 10px 8px 30px;background:rgba(255,255,255,0.07);border:none;border-radius:10px;color:#fff;font-size:0.8rem;outline:none;">
                                             </div>
                                             <!-- Filter pills -->
-                                            <div style="display:flex;gap:6px;padding-bottom:8px;overflow-x:auto;" id="inboxFilterRow">
+                                            <div style="display:flex;gap:4px;padding-bottom:8px;" id="inboxFilterRow">
                                                 <button class="imsg-filter-pill active" onclick="inboxSetFilter('all')" data-filter="all">All</button>
                                                 <button class="imsg-filter-pill" onclick="inboxSetFilter('unread')" data-filter="unread">Unread</button>
                                                 <button class="imsg-filter-pill" onclick="inboxSetFilter('inbound')" data-filter="inbound">Received</button>
@@ -1405,6 +1432,46 @@
                                                 <span id="inboxThreadBadge" style="display:none;font-size:0.7rem;padding:2px 6px;border-radius:6px;font-weight:600;"></span>
                                             </div>
                                             <div id="inboxThreadMessages" class="ios-thread-scroll" style="flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:4px;"></div>
+                                            <!-- Inbox Thread Composer -->
+                                            <div id="inboxThreadComposer" class="ios-composer">
+                                                <div class="ios-quick-replies" style="gap:4px;">
+                                                    <button onclick="inboxAiReply()" class="ios-ai-btn" style="padding:6px 10px;font-size:0.75rem;" id="inboxAiDraftBtn">
+                                                        <i class="fa-solid fa-robot" style="font-size:0.7rem;"></i>
+                                                        <span id="inboxAiDraftLabel">AI Reply</span>
+                                                    </button>
+                                                    <div style="margin-left:auto;position:relative;">
+                                                        <button class="ios-quick-options-btn" style="padding:6px 10px;font-size:0.75rem;" onclick="inboxToggleQuickOptions(event)">
+                                                            <i class="fa-solid fa-ellipsis"></i> Quick Options
+                                                        </button>
+                                                        <div id="inboxQuickOptionsMenu" class="ios-quick-options-menu">
+                                                            <button onclick="inboxQuickOption('Following up — did you have a chance to review the options I sent over?')"><i class="fa-solid fa-reply"></i> Follow-up</button>
+                                                            <button onclick="inboxQuickOption('Hi! I wanted to make sure you got everything you needed. Any questions?')"><i class="fa-solid fa-circle-check"></i> Check-in</button>
+                                                            <button onclick="inboxQuickOption('Ready to go over your coverage options when you are — just reply here to get started.')"><i class="fa-solid fa-shield-halved"></i> Coverage</button>
+                                                            <button onclick="inboxQuickOption('Are you available for a quick 10-minute call today or tomorrow?')"><i class="fa-solid fa-calendar"></i> Schedule</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div id="inboxChannelRow" style="display:none;" class="ios-channel-row">
+                                                    <span class="ios-channel-label">Send from:</span>
+                                                    <select id="inboxChannelSelect" class="ios-channel-select">
+                                                        <option value="ghl">LeadConnector</option>
+                                                    </select>
+                                                </div>
+                                                <div class="ios-compose-row">
+                                                    <div class="ios-compose-input-wrap">
+                                                        <textarea id="inboxSmsText" placeholder="iMessage" rows="1" class="ios-compose-input"
+                                                            oninput="inboxAutoGrow(this);inboxUpdateCharCount(this.value)"
+                                                            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();inboxSendSms();}"></textarea>
+                                                    </div>
+                                                    <button onclick="inboxSendSms()" id="inboxSmsSendBtn" class="ios-send-btn" title="Send">
+                                                        <i class="fa-solid fa-arrow-up"></i>
+                                                    </button>
+                                                </div>
+                                                <div class="ios-compose-footer">
+                                                    <div id="inboxSmsStatus" class="ios-sms-status"></div>
+                                                    <div id="inboxCharCount" class="ios-char-count">0 / 160</div>
+                                                </div>
+                                            </div>
                                             <div class="ios-home-indicator-bar"><div class="ios-home-indicator ios-home-indicator-dark"></div></div>
                                         </div>
                                         <div class="ios-home-indicator-bar"><div class="ios-home-indicator ios-home-indicator-dark"></div></div>
