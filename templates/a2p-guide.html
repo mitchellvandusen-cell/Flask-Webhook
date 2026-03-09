@@ -1,0 +1,660 @@
+{% extends "base.html" %}
+
+{% block title %}A2P 10DLC Approval Guide | InsuranceGrokBot{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 120px; padding-bottom: 80px; max-width: 860px;">
+
+    <!-- Header -->
+    <div class="text-center mb-5" data-aos="fade-down">
+        <div style="width:56px;height:56px;border-radius:14px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.25);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+            <i class="fa-solid fa-certificate" style="color:#a78bfa;font-size:1.5rem;"></i>
+        </div>
+        <h1 style="font-weight: 900; font-size: 2.4rem; margin-bottom: 10px;">
+            A2P 10DLC <span class="text-accent">Approval Guide</span>
+        </h1>
+        <p style="color: #aaa; font-size: 1.05rem; max-width: 620px; margin: 0 auto;">
+            Everything you need to maximize your chances of getting approved on the first try. Follow these steps carefully before submitting your registration.
+        </p>
+    </div>
+
+    <!-- Table of Contents -->
+    <div class="glass-card p-4 mb-4" data-aos="fade-up" style="border:1px solid rgba(167,139,250,0.15);">
+        <div style="font-weight:700;font-size:0.95rem;color:#a78bfa;margin-bottom:12px;"><i class="fa-solid fa-list me-2"></i>What's Covered</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;font-size:0.85rem;">
+            <a href="#website" style="color:#ccc;text-decoration:none;padding:4px 0;"><i class="fa-solid fa-globe me-2" style="color:#00ff88;width:16px;"></i>Website Requirements</a>
+            <a href="#branded-email" style="color:#ccc;text-decoration:none;padding:4px 0;"><i class="fa-solid fa-envelope me-2" style="color:#00d9ff;width:16px;"></i>Branded Email Setup</a>
+            <a href="#google-workspace" style="color:#ccc;text-decoration:none;padding:4px 0;"><i class="fa-brands fa-google me-2" style="color:#ffa500;width:16px;"></i>Google Workspace Email</a>
+            <a href="#microsoft-365" style="color:#ccc;text-decoration:none;padding:4px 0;"><i class="fa-brands fa-microsoft me-2" style="color:#00a4ef;width:16px;"></i>Microsoft 365 Email</a>
+            <a href="#business-info" style="color:#ccc;text-decoration:none;padding:4px 0;"><i class="fa-solid fa-building me-2" style="color:#a78bfa;width:16px;"></i>Business Information</a>
+            <a href="#campaign-use" style="color:#ccc;text-decoration:none;padding:4px 0;"><i class="fa-solid fa-bullhorn me-2" style="color:#ff6b6b;width:16px;"></i>Campaign Use Case</a>
+            <a href="#sample-messages" style="color:#ccc;text-decoration:none;padding:4px 0;"><i class="fa-solid fa-message me-2" style="color:#00ff88;width:16px;"></i>Sample Messages</a>
+            <a href="#opt-in" style="color:#ccc;text-decoration:none;padding:4px 0;"><i class="fa-solid fa-user-check me-2" style="color:#ffd700;width:16px;"></i>Opt-In &amp; Consent</a>
+            <a href="#checkboxes" style="color:#ccc;text-decoration:none;padding:4px 0;"><i class="fa-solid fa-square-check me-2" style="color:#ff69b4;width:16px;"></i>Optional Checkboxes</a>
+            <a href="#common-mistakes" style="color:#ccc;text-decoration:none;padding:4px 0;"><i class="fa-solid fa-triangle-exclamation me-2" style="color:#ff4444;width:16px;"></i>Common Mistakes</a>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- SECTION 1: Website -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="website" class="glass-card p-4 mb-4" data-aos="fade-up">
+        <div class="d-flex align-items-center gap-3 mb-3">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,255,136,0.12);border:1px solid rgba(0,255,136,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fa-solid fa-globe" style="color:#00ff88;"></i>
+            </div>
+            <div>
+                <div style="font-weight:700;font-size:1.05rem;color:#fff;">1. Have a Working Website</div>
+                <div style="font-size:0.78rem;color:#888;">While technically "optional," a website dramatically increases approval odds.</div>
+            </div>
+        </div>
+
+        <div style="background:rgba(255,165,0,0.06);border:1px solid rgba(255,165,0,0.15);border-radius:10px;padding:14px;margin-bottom:16px;">
+            <div style="font-size:0.78rem;color:#ffa500;font-weight:700;margin-bottom:6px;"><i class="fa-solid fa-exclamation-triangle me-1"></i> Important</div>
+            <div style="font-size:0.82rem;color:#ccc;line-height:1.7;">
+                The website field is marked as optional on the registration form, but carriers use your website to verify your business is real. Without a website, your brand may receive a lower trust score or be rejected entirely.
+            </div>
+        </div>
+
+        <div style="font-size:0.85rem;color:#ccc;line-height:1.8;">
+            <div style="font-weight:600;color:#fff;margin-bottom:8px;">Your website should include:</div>
+            <ul style="margin:0;padding-left:20px;">
+                <li><strong style="color:#00ff88;">Business name</strong> &mdash; must match exactly what you enter on your A2P registration (and your IRS/EIN documents)</li>
+                <li><strong style="color:#00ff88;">Contact information</strong> &mdash; phone number and email visible on the site</li>
+                <li><strong style="color:#00ff88;">Privacy policy</strong> &mdash; a dedicated privacy policy page (carriers check for this)</li>
+                <li><strong style="color:#00ff88;">Terms of service</strong> &mdash; especially relevant if you collect leads via web forms</li>
+                <li><strong style="color:#00ff88;">SMS/texting disclosure</strong> &mdash; a statement that your business sends SMS messages and how users can opt out (e.g., "Reply STOP to unsubscribe")</li>
+                <li><strong style="color:#00ff88;">Physical address</strong> &mdash; should match the address on your registration</li>
+            </ul>
+        </div>
+
+        <div style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.12);border-radius:8px;padding:12px;margin-top:14px;">
+            <div style="font-size:0.75rem;color:#00ff88;font-weight:600;margin-bottom:4px;"><i class="fa-solid fa-circle-check me-1"></i> Pro Tip</div>
+            <div style="font-size:0.8rem;color:#aaa;line-height:1.6;">
+                If you don't have a website yet, services like <strong style="color:#ccc;">Squarespace</strong>, <strong style="color:#ccc;">Wix</strong>, or <strong style="color:#ccc;">GoDaddy</strong> offer quick website builders. Even a simple one-page site with your business info, a contact form, and a privacy policy is enough. Many insurance agents use their agency's main website or a simple landing page.
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- SECTION 2: Branded Email -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="branded-email" class="glass-card p-4 mb-4" data-aos="fade-up">
+        <div class="d-flex align-items-center gap-3 mb-3">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fa-solid fa-envelope" style="color:#00d9ff;"></i>
+            </div>
+            <div>
+                <div style="font-weight:700;font-size:1.05rem;color:#fff;">2. Use a Branded Email Address</div>
+                <div style="font-size:0.78rem;color:#888;">Your email domain should match your website domain.</div>
+            </div>
+        </div>
+
+        <div style="font-size:0.85rem;color:#ccc;line-height:1.8;margin-bottom:14px;">
+            Carriers and The Campaign Registry (TCR) verify that your contact email matches your business. Using a free email like <code style="color:#ff6b6b;">agent123@gmail.com</code> or <code style="color:#ff6b6b;">myagency@yahoo.com</code> is one of the most common reasons for low trust scores or rejection.
+        </div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <div style="background:rgba(255,68,68,0.06);border:1px solid rgba(255,68,68,0.15);border-radius:10px;padding:14px;">
+                    <div style="font-size:0.78rem;color:#ff4444;font-weight:700;margin-bottom:8px;"><i class="fa-solid fa-xmark me-1"></i> Bad Examples</div>
+                    <div style="font-size:0.82rem;color:#aaa;line-height:1.8;">
+                        <code style="color:#ff6b6b;">john.doe@gmail.com</code><br>
+                        <code style="color:#ff6b6b;">bestinsurance@yahoo.com</code><br>
+                        <code style="color:#ff6b6b;">agent@hotmail.com</code><br>
+                        <code style="color:#ff6b6b;">myagency@outlook.com</code>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.12);border-radius:10px;padding:14px;">
+                    <div style="font-size:0.78rem;color:#00ff88;font-weight:700;margin-bottom:8px;"><i class="fa-solid fa-check me-1"></i> Good Examples</div>
+                    <div style="font-size:0.82rem;color:#aaa;line-height:1.8;">
+                        <code style="color:#00ff88;">john@smithinsurance.com</code><br>
+                        <code style="color:#00ff88;">info@acmeinsurancellc.com</code><br>
+                        <code style="color:#00ff88;">support@jdoeagency.com</code><br>
+                        <code style="color:#00ff88;">admin@premierinsurance.com</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="font-size:0.85rem;color:#ccc;line-height:1.7;">
+            <strong style="color:#fff;">The key rule:</strong> If your website is <code style="color:#00d9ff;">www.smithinsurance.com</code>, your email should end in <code style="color:#00d9ff;">@smithinsurance.com</code>. This proves you own and control both the domain and the business.
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- SECTION 3: Google Workspace -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="google-workspace" class="glass-card p-4 mb-4" data-aos="fade-up">
+        <div class="d-flex align-items-center gap-3 mb-3">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(255,165,0,0.12);border:1px solid rgba(255,165,0,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fa-brands fa-google" style="color:#ffa500;"></i>
+            </div>
+            <div>
+                <div style="font-weight:700;font-size:1.05rem;color:#fff;">3a. Set Up Branded Email with Google Workspace</div>
+                <div style="font-size:0.78rem;color:#888;">Get professional email using Gmail's interface with your own domain.</div>
+            </div>
+        </div>
+
+        <div style="font-size:0.82rem;color:#aaa;margin-bottom:16px;line-height:1.6;">
+            Google Workspace (formerly G Suite) lets you use Gmail with your own domain &mdash; so you get <code style="color:#00d9ff;">you@yourdomain.com</code> but with Gmail's familiar interface, spam filtering, and calendar. Plans start at $7/month per user.
+        </div>
+
+        <div style="font-size:0.85rem;color:#ccc;line-height:1.8;">
+            <div style="font-weight:700;color:#fff;margin-bottom:10px;">Step-by-Step Setup:</div>
+
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="width:28px;height:28px;background:rgba(255,165,0,0.12);border:1px solid rgba(255,165,0,0.25);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#ffa500;font-size:0.75rem;flex-shrink:0;">1</div>
+                <div>
+                    <strong style="color:#fff;">Go to Google Workspace</strong><br>
+                    <span style="color:#aaa;">Visit <code>workspace.google.com</code> and click "Get Started." Choose the Business Starter plan ($7/user/month) &mdash; that's all you need for branded email.</span>
+                </div>
+            </div>
+
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="width:28px;height:28px;background:rgba(255,165,0,0.12);border:1px solid rgba(255,165,0,0.25);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#ffa500;font-size:0.75rem;flex-shrink:0;">2</div>
+                <div>
+                    <strong style="color:#fff;">Enter Your Business Info</strong><br>
+                    <span style="color:#aaa;">Business name, number of employees (just 1 is fine), and your country.</span>
+                </div>
+            </div>
+
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="width:28px;height:28px;background:rgba(255,165,0,0.12);border:1px solid rgba(255,165,0,0.25);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#ffa500;font-size:0.75rem;flex-shrink:0;">3</div>
+                <div>
+                    <strong style="color:#fff;">Connect Your Domain</strong><br>
+                    <span style="color:#aaa;">Select "I have a domain I can use" and enter your website domain (e.g., <code>smithinsurance.com</code>). If you bought your domain from GoDaddy, Namecheap, etc., Google will walk you through verifying ownership.</span>
+                </div>
+            </div>
+
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="width:28px;height:28px;background:rgba(255,165,0,0.12);border:1px solid rgba(255,165,0,0.25);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#ffa500;font-size:0.75rem;flex-shrink:0;">4</div>
+                <div>
+                    <strong style="color:#fff;">Create Your Email Address</strong><br>
+                    <span style="color:#aaa;">Choose your email username (e.g., <code>john@smithinsurance.com</code>, <code>info@smithinsurance.com</code>). Pick something professional.</span>
+                </div>
+            </div>
+
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="width:28px;height:28px;background:rgba(255,165,0,0.12);border:1px solid rgba(255,165,0,0.25);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#ffa500;font-size:0.75rem;flex-shrink:0;">5</div>
+                <div>
+                    <strong style="color:#fff;">Update DNS Records (MX Records)</strong><br>
+                    <span style="color:#aaa;">Google will provide MX records. Log into your domain registrar (GoDaddy, Namecheap, Cloudflare, etc.) and add these records to your DNS settings. This tells the internet to route email for your domain through Google.</span>
+                </div>
+            </div>
+
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;">
+                <div style="width:28px;height:28px;background:rgba(255,165,0,0.12);border:1px solid rgba(255,165,0,0.25);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#ffa500;font-size:0.75rem;flex-shrink:0;">6</div>
+                <div>
+                    <strong style="color:#fff;">Verify &amp; Start Using</strong><br>
+                    <span style="color:#aaa;">Once DNS propagates (usually 1-48 hours), go to <code>mail.google.com</code> and sign in with your new branded email. It works just like regular Gmail.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- SECTION 4: Microsoft 365 -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="microsoft-365" class="glass-card p-4 mb-4" data-aos="fade-up">
+        <div class="d-flex align-items-center gap-3 mb-3">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,164,239,0.12);border:1px solid rgba(0,164,239,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fa-brands fa-microsoft" style="color:#00a4ef;"></i>
+            </div>
+            <div>
+                <div style="font-weight:700;font-size:1.05rem;color:#fff;">3b. Set Up Branded Email with Microsoft 365</div>
+                <div style="font-size:0.78rem;color:#888;">Use Outlook with your own domain for professional email.</div>
+            </div>
+        </div>
+
+        <div style="font-size:0.82rem;color:#aaa;margin-bottom:16px;line-height:1.6;">
+            Microsoft 365 Business Basic ($6/user/month) gives you Outlook email with your custom domain plus Word, Excel, and Teams. If you already use Outlook, this is the easiest path.
+        </div>
+
+        <div style="font-size:0.85rem;color:#ccc;line-height:1.8;">
+            <div style="font-weight:700;color:#fff;margin-bottom:10px;">Step-by-Step Setup:</div>
+
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="width:28px;height:28px;background:rgba(0,164,239,0.12);border:1px solid rgba(0,164,239,0.25);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#00a4ef;font-size:0.75rem;flex-shrink:0;">1</div>
+                <div>
+                    <strong style="color:#fff;">Sign Up for Microsoft 365</strong><br>
+                    <span style="color:#aaa;">Go to <code>microsoft.com/microsoft-365/business</code> and choose Business Basic ($6/user/month). Sign up with your existing email first &mdash; you'll add your custom domain in the next step.</span>
+                </div>
+            </div>
+
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="width:28px;height:28px;background:rgba(0,164,239,0.12);border:1px solid rgba(0,164,239,0.25);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#00a4ef;font-size:0.75rem;flex-shrink:0;">2</div>
+                <div>
+                    <strong style="color:#fff;">Add Your Domain</strong><br>
+                    <span style="color:#aaa;">In the Microsoft 365 Admin Center, go to <strong>Settings &rarr; Domains &rarr; Add Domain</strong>. Enter your domain (e.g., <code>smithinsurance.com</code>).</span>
+                </div>
+            </div>
+
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="width:28px;height:28px;background:rgba(0,164,239,0.12);border:1px solid rgba(0,164,239,0.25);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#00a4ef;font-size:0.75rem;flex-shrink:0;">3</div>
+                <div>
+                    <strong style="color:#fff;">Verify Domain Ownership</strong><br>
+                    <span style="color:#aaa;">Microsoft will give you a TXT record to add to your domain's DNS. Log into your domain registrar and add it. Verification usually takes 15-60 minutes.</span>
+                </div>
+            </div>
+
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="width:28px;height:28px;background:rgba(0,164,239,0.12);border:1px solid rgba(0,164,239,0.25);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#00a4ef;font-size:0.75rem;flex-shrink:0;">4</div>
+                <div>
+                    <strong style="color:#fff;">Update MX Records</strong><br>
+                    <span style="color:#aaa;">After verification, Microsoft provides MX records. Add them to your DNS settings at your domain registrar. This routes your email through Outlook.</span>
+                </div>
+            </div>
+
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;">
+                <div style="width:28px;height:28px;background:rgba(0,164,239,0.12);border:1px solid rgba(0,164,239,0.25);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#00a4ef;font-size:0.75rem;flex-shrink:0;">5</div>
+                <div>
+                    <strong style="color:#fff;">Create Users &amp; Start Using</strong><br>
+                    <span style="color:#aaa;">Create your email address (e.g., <code>john@smithinsurance.com</code>) in the Admin Center. Access it at <code>outlook.office.com</code> or in the Outlook desktop/mobile app.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- SECTION 5: Business Information -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="business-info" class="glass-card p-4 mb-4" data-aos="fade-up">
+        <div class="d-flex align-items-center gap-3 mb-3">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fa-solid fa-building" style="color:#a78bfa;"></i>
+            </div>
+            <div>
+                <div style="font-weight:700;font-size:1.05rem;color:#fff;">4. Business Information &amp; EIN</div>
+                <div style="font-size:0.78rem;color:#888;">Your business details must match official IRS records exactly.</div>
+            </div>
+        </div>
+
+        <div style="font-size:0.85rem;color:#ccc;line-height:1.8;">
+            <ul style="margin:0;padding-left:20px;">
+                <li><strong style="color:#fff;">Business Name</strong> &mdash; Must match your IRS CP 575 letter or EIN confirmation <em>exactly</em>. If your IRS document says "Smith Insurance Services LLC", don't enter "Smith Insurance" or "Smith Insurance Services." Include the LLC, Inc., etc.</li>
+                <li><strong style="color:#fff;">EIN (Tax ID)</strong> &mdash; Your 9-digit Employer Identification Number in XX-XXXXXXX format. This is cross-referenced against IRS records. If you're a sole proprietor without an EIN, select the "Sole Proprietor" brand type (SSN required instead).</li>
+                <li><strong style="color:#fff;">Business Address</strong> &mdash; Use the address associated with your EIN. It should match your website and any other public business listings. P.O. boxes may cause issues &mdash; use a physical address.</li>
+                <li><strong style="color:#fff;">Contact Phone</strong> &mdash; A real phone number that can receive calls. This may be used for verification. Use a business line, not a personal cell if possible.</li>
+                <li><strong style="color:#fff;">Contact Email</strong> &mdash; Use your branded email address here (see Section 2 above). This is one of the most important fields.</li>
+            </ul>
+        </div>
+
+        <div style="background:rgba(255,68,68,0.06);border:1px solid rgba(255,68,68,0.12);border-radius:8px;padding:12px;margin-top:14px;">
+            <div style="font-size:0.75rem;color:#ff4444;font-weight:600;margin-bottom:4px;"><i class="fa-solid fa-triangle-exclamation me-1"></i> Common Rejection Reason</div>
+            <div style="font-size:0.8rem;color:#aaa;line-height:1.6;">
+                Mismatched business names are the #1 reason brands fail vetting. If your EIN says "ABC Insurance Group LLC" but you enter "ABC Insurance" &mdash; it will fail. Double-check your IRS documents before submitting.
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- SECTION 6: Campaign Use Case -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="campaign-use" class="glass-card p-4 mb-4" data-aos="fade-up">
+        <div class="d-flex align-items-center gap-3 mb-3">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(255,107,107,0.12);border:1px solid rgba(255,107,107,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fa-solid fa-bullhorn" style="color:#ff6b6b;"></i>
+            </div>
+            <div>
+                <div style="font-weight:700;font-size:1.05rem;color:#fff;">5. Campaign Use Case &amp; Description</div>
+                <div style="font-size:0.78rem;color:#888;">Be specific and honest about how you'll use SMS.</div>
+            </div>
+        </div>
+
+        <div style="font-size:0.85rem;color:#ccc;line-height:1.8;margin-bottom:16px;">
+            <div style="font-weight:700;color:#fff;margin-bottom:8px;">Choosing the Right Use Case:</div>
+            <ul style="margin:0;padding-left:20px;">
+                <li><strong style="color:#00d9ff;">Low Volume Mixed</strong> &mdash; Best for most insurance agents. Covers both informational and conversational messages. Lowest cost ($1.50/month) with up to 2,000 messages/day to T-Mobile. Choose this if you're unsure.</li>
+                <li><strong style="color:#00d9ff;">Mixed</strong> &mdash; For agents sending both transactional and promotional messages at higher volumes. $10/month but higher throughput.</li>
+                <li><strong style="color:#00d9ff;">Customer Care</strong> &mdash; Only if your messages are purely responding to customer inquiries (no proactive outreach). $2/month.</li>
+                <li><strong style="color:#00d9ff;">Marketing</strong> &mdash; If your primary use is promotional campaigns. $10/month. You must be very clear about consent.</li>
+            </ul>
+        </div>
+
+        <div style="font-weight:700;color:#fff;margin-bottom:8px;font-size:0.85rem;">Writing the Campaign Description (minimum 40 characters):</div>
+        <div style="font-size:0.82rem;color:#aaa;line-height:1.7;margin-bottom:12px;">
+            Your description should clearly explain <strong style="color:#ccc;">what</strong> you're sending, <strong style="color:#ccc;">who</strong> receives it, and <strong style="color:#ccc;">why</strong>. Be specific to insurance.
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div style="background:rgba(255,68,68,0.06);border:1px solid rgba(255,68,68,0.15);border-radius:10px;padding:14px;">
+                    <div style="font-size:0.78rem;color:#ff4444;font-weight:700;margin-bottom:8px;"><i class="fa-solid fa-xmark me-1"></i> Bad Description</div>
+                    <div style="font-size:0.8rem;color:#aaa;line-height:1.6;font-style:italic;">
+                        "We send text messages to people about insurance."
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.12);border-radius:10px;padding:14px;">
+                    <div style="font-size:0.78rem;color:#00ff88;font-weight:700;margin-bottom:8px;"><i class="fa-solid fa-check me-1"></i> Good Description</div>
+                    <div style="font-size:0.8rem;color:#aaa;line-height:1.6;font-style:italic;">
+                        "Licensed insurance agency providing follow-up SMS to consumers who submitted quote requests through our website or lead forms. Messages include policy information, appointment scheduling, and coverage recommendations."
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.12);border-radius:8px;padding:12px;margin-top:14px;">
+            <div style="font-size:0.75rem;color:#00d9ff;font-weight:600;margin-bottom:4px;"><i class="fa-solid fa-circle-info me-1"></i> Promotional vs. Informational</div>
+            <div style="font-size:0.8rem;color:#aaa;line-height:1.6;">
+                Be honest about whether your messages are promotional. If you <strong style="color:#ccc;">ever</strong> send messages like "Limited time offer!" or "Open enrollment ends Friday!" &mdash; select <strong style="color:#ccc;">Mixed</strong> or <strong style="color:#ccc;">Marketing</strong>, not Customer Care. Misrepresenting your use case is a top reason for campaign rejection and can result in your campaign being suspended after approval.
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- SECTION 7: Sample Messages -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="sample-messages" class="glass-card p-4 mb-4" data-aos="fade-up">
+        <div class="d-flex align-items-center gap-3 mb-3">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,255,136,0.12);border:1px solid rgba(0,255,136,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fa-solid fa-message" style="color:#00ff88;"></i>
+            </div>
+            <div>
+                <div style="font-weight:700;font-size:1.05rem;color:#fff;">6. Sample Messages</div>
+                <div style="font-size:0.78rem;color:#888;">Provide realistic examples of the texts you'll actually send.</div>
+            </div>
+        </div>
+
+        <div style="font-size:0.85rem;color:#ccc;line-height:1.8;margin-bottom:14px;">
+            You must provide at least <strong style="color:#fff;">2 sample messages</strong> (minimum 20 characters each). These should represent the actual types of messages your business will send. Carriers review these carefully.
+        </div>
+
+        <div style="font-weight:700;color:#fff;margin-bottom:10px;font-size:0.85rem;">Rules for Sample Messages:</div>
+        <ul style="font-size:0.82rem;color:#ccc;line-height:1.8;padding-left:20px;margin-bottom:16px;">
+            <li><strong style="color:#00ff88;">Be specific to your business</strong> &mdash; mention insurance, coverage, quotes, policies, or appointments</li>
+            <li><strong style="color:#00ff88;">Include opt-out language</strong> in at least one sample &mdash; e.g., "Reply STOP to unsubscribe" or "Text STOP to opt out"</li>
+            <li><strong style="color:#00ff88;">Use placeholders</strong> where appropriate &mdash; <code>{name}</code>, <code>{agent}</code>, <code>{agency}</code> are fine</li>
+            <li><strong style="color:#00ff88;">Match your use case</strong> &mdash; if you selected "Customer Care," don't include promotional samples</li>
+            <li><strong style="color:#ff6b6b;">Don't use ALL CAPS</strong> or excessive exclamation marks</li>
+            <li><strong style="color:#ff6b6b;">Don't include URL shorteners</strong> (like bit.ly) &mdash; use your full domain</li>
+        </ul>
+
+        <div style="font-weight:700;color:#fff;margin-bottom:10px;font-size:0.85rem;">Example Sample Messages for Insurance Agents:</div>
+
+        <div style="background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.08);border-radius:10px;padding:14px;margin-bottom:10px;">
+            <div style="font-size:0.72rem;color:#00ff88;font-weight:600;margin-bottom:6px;">SAMPLE 1 &mdash; Initial Follow-Up</div>
+            <div style="font-size:0.82rem;color:#ccc;line-height:1.6;font-family:monospace;background:rgba(0,0,0,0.3);padding:10px;border-radius:6px;">
+                Hi {name}, this is {agent} with {agency}. I received your request for an insurance quote and would love to help you find the right coverage. When is a good time to chat? Reply STOP to opt out.
+            </div>
+        </div>
+
+        <div style="background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.08);border-radius:10px;padding:14px;margin-bottom:10px;">
+            <div style="font-size:0.72rem;color:#00ff88;font-weight:600;margin-bottom:6px;">SAMPLE 2 &mdash; Appointment Reminder</div>
+            <div style="font-size:0.82rem;color:#ccc;line-height:1.6;font-family:monospace;background:rgba(0,0,0,0.3);padding:10px;border-radius:6px;">
+                Hi {name}, just a reminder about your insurance consultation scheduled for tomorrow at 2 PM. Let me know if you need to reschedule. - {agent}, {agency}
+            </div>
+        </div>
+
+        <div style="background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.08);border-radius:10px;padding:14px;">
+            <div style="font-size:0.72rem;color:#00ff88;font-weight:600;margin-bottom:6px;">SAMPLE 3 &mdash; Coverage Information</div>
+            <div style="font-size:0.82rem;color:#ccc;line-height:1.6;font-family:monospace;background:rgba(0,0,0,0.3);padding:10px;border-radius:6px;">
+                {name}, I put together a few options based on what we discussed. I found plans starting at $45/month that fit your coverage needs. Would you like me to walk through them? Text STOP to unsubscribe.
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- SECTION 8: Opt-In & Consent -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="opt-in" class="glass-card p-4 mb-4" data-aos="fade-up">
+        <div class="d-flex align-items-center gap-3 mb-3">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(255,215,0,0.12);border:1px solid rgba(255,215,0,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fa-solid fa-user-check" style="color:#ffd700;"></i>
+            </div>
+            <div>
+                <div style="font-weight:700;font-size:1.05rem;color:#fff;">7. Opt-In &amp; Consent Description</div>
+                <div style="font-size:0.78rem;color:#888;">Explain how end users consent to receiving your messages.</div>
+            </div>
+        </div>
+
+        <div style="font-size:0.85rem;color:#ccc;line-height:1.8;margin-bottom:14px;">
+            The "Message Flow" or "Opt-in Method" field is where you explain <strong style="color:#fff;">how consumers give you permission</strong> to text them. This is critical &mdash; carriers want proof that you aren't sending unsolicited messages.
+        </div>
+
+        <div style="font-weight:700;color:#fff;margin-bottom:10px;font-size:0.85rem;">What to Include:</div>
+        <ul style="font-size:0.82rem;color:#ccc;line-height:1.8;padding-left:20px;margin-bottom:16px;">
+            <li><strong style="color:#ffd700;">How consumers opt in</strong> &mdash; web form, phone call, in-person meeting, etc.</li>
+            <li><strong style="color:#ffd700;">What they're consenting to</strong> &mdash; receiving SMS about insurance quotes, appointment reminders, etc.</li>
+            <li><strong style="color:#ffd700;">How they opt out</strong> &mdash; Reply STOP, text STOP, etc.</li>
+            <li><strong style="color:#ffd700;">Where consent is collected</strong> &mdash; your website URL, landing page, CRM form, etc.</li>
+        </ul>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div style="background:rgba(255,68,68,0.06);border:1px solid rgba(255,68,68,0.15);border-radius:10px;padding:14px;">
+                    <div style="font-size:0.78rem;color:#ff4444;font-weight:700;margin-bottom:8px;"><i class="fa-solid fa-xmark me-1"></i> Bad Opt-In Description</div>
+                    <div style="font-size:0.8rem;color:#aaa;line-height:1.6;font-style:italic;">
+                        "People sign up on our website."
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.12);border-radius:10px;padding:14px;">
+                    <div style="font-size:0.78rem;color:#00ff88;font-weight:700;margin-bottom:8px;"><i class="fa-solid fa-check me-1"></i> Good Opt-In Description</div>
+                    <div style="font-size:0.8rem;color:#aaa;line-height:1.6;font-style:italic;">
+                        "Consumers opt in by submitting an insurance quote request form on our website (smithinsurance.com/quote). The form includes a checkbox with disclosure: 'By submitting, you consent to receive SMS from Smith Insurance regarding your quote. Msg &amp; data rates may apply. Reply STOP to opt out.' Consumers can also opt in verbally during phone consultations, which is documented in our CRM."
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="background:rgba(255,215,0,0.04);border:1px solid rgba(255,215,0,0.12);border-radius:8px;padding:12px;margin-top:14px;">
+            <div style="font-size:0.75rem;color:#ffd700;font-weight:600;margin-bottom:4px;"><i class="fa-solid fa-lightbulb me-1"></i> Best Practice</div>
+            <div style="font-size:0.8rem;color:#aaa;line-height:1.6;">
+                If you mention a website form, make sure that form actually exists on your website with an SMS consent checkbox. Carriers may verify this. The checkbox should not be pre-checked &mdash; the consumer must actively select it.
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- SECTION 9: Optional Checkboxes -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="checkboxes" class="glass-card p-4 mb-4" data-aos="fade-up">
+        <div class="d-flex align-items-center gap-3 mb-3">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(255,105,180,0.12);border:1px solid rgba(255,105,180,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fa-solid fa-square-check" style="color:#ff69b4;"></i>
+            </div>
+            <div>
+                <div style="font-weight:700;font-size:1.05rem;color:#fff;">8. Understanding the Optional Checkboxes</div>
+                <div style="font-size:0.78rem;color:#888;">These are not required but affect how your campaign is evaluated.</div>
+            </div>
+        </div>
+
+        <div style="font-size:0.85rem;color:#ccc;line-height:1.8;margin-bottom:14px;">
+            On the campaign registration form, there are two optional checkboxes. Here's what they mean and when to check them:
+        </div>
+
+        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:16px;margin-bottom:12px;">
+            <div class="d-flex align-items-start gap-3">
+                <div style="flex-shrink:0;margin-top:2px;">
+                    <i class="fa-solid fa-link" style="color:#00d9ff;font-size:1rem;"></i>
+                </div>
+                <div>
+                    <div style="font-weight:700;color:#fff;margin-bottom:4px;">"Messages contain URLs"</div>
+                    <div style="font-size:0.82rem;color:#aaa;line-height:1.7;">
+                        Check this if <strong style="color:#ccc;">any</strong> of your messages will include web links &mdash; like a link to a quote page, a scheduling link, or your website. If you check this, make sure your sample messages also include a URL example. <strong style="color:#ccc;">Don't use URL shorteners</strong> (bit.ly, tinyurl) &mdash; always use your full domain.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:16px;">
+            <div class="d-flex align-items-start gap-3">
+                <div style="flex-shrink:0;margin-top:2px;">
+                    <i class="fa-solid fa-phone" style="color:#00d9ff;font-size:1rem;"></i>
+                </div>
+                <div>
+                    <div style="font-weight:700;color:#fff;margin-bottom:4px;">"Messages contain phone numbers"</div>
+                    <div style="font-size:0.82rem;color:#aaa;line-height:1.7;">
+                        Check this if your messages will include phone numbers for consumers to call &mdash; like "Call us at (555) 123-4567." If your messages are purely text-based conversations and don't include phone numbers in the message body, leave this unchecked.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.12);border-radius:8px;padding:12px;margin-top:14px;">
+            <div style="font-size:0.75rem;color:#00ff88;font-weight:600;margin-bottom:4px;"><i class="fa-solid fa-circle-check me-1"></i> Important</div>
+            <div style="font-size:0.8rem;color:#aaa;line-height:1.6;">
+                These checkboxes are <strong style="color:#ccc;">not required</strong> to be checked for approval. Only check them if they accurately describe your messaging. Checking them when you don't actually send URLs or phone numbers in your messages won't help &mdash; it just adds unnecessary scrutiny to your campaign review.
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- SECTION 10: Common Mistakes -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="common-mistakes" class="glass-card p-4 mb-4" data-aos="fade-up">
+        <div class="d-flex align-items-center gap-3 mb-3">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(255,68,68,0.12);border:1px solid rgba(255,68,68,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fa-solid fa-triangle-exclamation" style="color:#ff4444;"></i>
+            </div>
+            <div>
+                <div style="font-weight:700;font-size:1.05rem;color:#fff;">9. Common Mistakes That Cause Rejection</div>
+                <div style="font-size:0.78rem;color:#888;">Avoid these pitfalls to get approved on the first try.</div>
+            </div>
+        </div>
+
+        <div style="font-size:0.85rem;color:#ccc;line-height:1.8;">
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="flex-shrink:0;"><i class="fa-solid fa-circle-xmark" style="color:#ff4444;"></i></div>
+                <div>
+                    <strong style="color:#fff;">Business name doesn't match EIN records</strong><br>
+                    <span style="color:#aaa;">Your name must be an exact match to your IRS records &mdash; same spelling, capitalization, and entity type (LLC, Inc., etc.).</span>
+                </div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="flex-shrink:0;"><i class="fa-solid fa-circle-xmark" style="color:#ff4444;"></i></div>
+                <div>
+                    <strong style="color:#fff;">Using a free email address (Gmail, Yahoo, Hotmail)</strong><br>
+                    <span style="color:#aaa;">This signals that the business may not be legitimate. Always use a domain-branded email.</span>
+                </div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="flex-shrink:0;"><i class="fa-solid fa-circle-xmark" style="color:#ff4444;"></i></div>
+                <div>
+                    <strong style="color:#fff;">No website or website is down</strong><br>
+                    <span style="color:#aaa;">Even though the field is "optional," not having a website significantly reduces your trust score. If you provide one, make sure it's live and accessible.</span>
+                </div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="flex-shrink:0;"><i class="fa-solid fa-circle-xmark" style="color:#ff4444;"></i></div>
+                <div>
+                    <strong style="color:#fff;">Vague campaign description</strong><br>
+                    <span style="color:#aaa;">Descriptions like "We text customers" get rejected. Be specific about your industry, who you message, and why.</span>
+                </div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="flex-shrink:0;"><i class="fa-solid fa-circle-xmark" style="color:#ff4444;"></i></div>
+                <div>
+                    <strong style="color:#fff;">Sample messages don't include opt-out language</strong><br>
+                    <span style="color:#aaa;">At least one sample message must include "Reply STOP to opt out" or similar opt-out instructions.</span>
+                </div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="flex-shrink:0;"><i class="fa-solid fa-circle-xmark" style="color:#ff4444;"></i></div>
+                <div>
+                    <strong style="color:#fff;">Mismatched use case and content</strong><br>
+                    <span style="color:#aaa;">If you select "Customer Care" but your samples show promotional content, you'll be rejected. Be honest about your message types.</span>
+                </div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="flex-shrink:0;"><i class="fa-solid fa-circle-xmark" style="color:#ff4444;"></i></div>
+                <div>
+                    <strong style="color:#fff;">Using URL shorteners in sample messages</strong><br>
+                    <span style="color:#aaa;">Bit.ly, tinyurl, and other shorteners are flagged as spam indicators. Always use your full domain URL.</span>
+                </div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;">
+                <div style="flex-shrink:0;"><i class="fa-solid fa-circle-xmark" style="color:#ff4444;"></i></div>
+                <div>
+                    <strong style="color:#fff;">Poor opt-in description</strong><br>
+                    <span style="color:#aaa;">Just saying "people sign up" isn't enough. Describe the specific mechanism (web form, verbal consent during call, etc.) and mention the consent language used.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- Approval Checklist -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="glass-card p-4 mb-4" data-aos="fade-up" style="border:1px solid rgba(0,255,136,0.2);">
+        <div class="d-flex align-items-center gap-3 mb-3">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,255,136,0.12);border:1px solid rgba(0,255,136,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fa-solid fa-clipboard-check" style="color:#00ff88;"></i>
+            </div>
+            <div>
+                <div style="font-weight:700;font-size:1.05rem;color:#fff;">Pre-Submission Checklist</div>
+                <div style="font-size:0.78rem;color:#888;">Make sure you can check off every item before submitting.</div>
+            </div>
+        </div>
+
+        <div style="font-size:0.85rem;color:#ccc;line-height:2.2;">
+            <div><i class="fa-regular fa-square-check me-2" style="color:#00ff88;"></i>Website is live and accessible with business name, contact info, and privacy policy</div>
+            <div><i class="fa-regular fa-square-check me-2" style="color:#00ff88;"></i>Email address ends in your website domain (not Gmail, Yahoo, etc.)</div>
+            <div><i class="fa-regular fa-square-check me-2" style="color:#00ff88;"></i>Business name matches IRS/EIN records exactly (including LLC, Inc., etc.)</div>
+            <div><i class="fa-regular fa-square-check me-2" style="color:#00ff88;"></i>EIN is correct and in XX-XXXXXXX format</div>
+            <div><i class="fa-regular fa-square-check me-2" style="color:#00ff88;"></i>Business address is a physical address (not P.O. Box) matching your records</div>
+            <div><i class="fa-regular fa-square-check me-2" style="color:#00ff88;"></i>Campaign use case accurately reflects your messaging (no mismatch)</div>
+            <div><i class="fa-regular fa-square-check me-2" style="color:#00ff88;"></i>Campaign description is 40+ characters and specific to insurance</div>
+            <div><i class="fa-regular fa-square-check me-2" style="color:#00ff88;"></i>At least 2 sample messages provided (20+ characters each)</div>
+            <div><i class="fa-regular fa-square-check me-2" style="color:#00ff88;"></i>At least one sample message includes opt-out language (Reply STOP)</div>
+            <div><i class="fa-regular fa-square-check me-2" style="color:#00ff88;"></i>Opt-in description explains how consumers consent to SMS</div>
+            <div><i class="fa-regular fa-square-check me-2" style="color:#00ff88;"></i>No URL shorteners used in sample messages</div>
+            <div><i class="fa-regular fa-square-check me-2" style="color:#00ff88;"></i>Optional checkboxes only checked if they apply to your messages</div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- Timeline -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="glass-card p-4 mb-4" data-aos="fade-up">
+        <div class="d-flex align-items-center gap-3 mb-3">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fa-solid fa-clock" style="color:#a78bfa;"></i>
+            </div>
+            <div>
+                <div style="font-weight:700;font-size:1.05rem;color:#fff;">Expected Timeline</div>
+                <div style="font-size:0.78rem;color:#888;">What to expect after submitting.</div>
+            </div>
+        </div>
+
+        <div style="font-size:0.85rem;color:#ccc;line-height:1.8;">
+            <div class="d-flex gap-3 align-items-start" style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.25);border-radius:8px;padding:6px 12px;font-size:0.75rem;font-weight:700;color:#a78bfa;white-space:nowrap;flex-shrink:0;">Step 1</div>
+                <div>
+                    <strong style="color:#fff;">Brand Vetting</strong> &mdash; 1-7 business days. Your business identity is verified against public records, EIN databases, and your website. Standard brands include secondary vetting which can take longer.
+                </div>
+            </div>
+            <div class="d-flex gap-3 align-items-start" style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.25);border-radius:8px;padding:6px 12px;font-size:0.75rem;font-weight:700;color:#00d9ff;white-space:nowrap;flex-shrink:0;">Step 2</div>
+                <div>
+                    <strong style="color:#fff;">Campaign Review</strong> &mdash; typically 24-48 hours after brand approval. Your use case, sample messages, and opt-in method are evaluated.
+                </div>
+            </div>
+            <div class="d-flex gap-3 align-items-start" style="padding:10px 0;">
+                <div style="background:rgba(0,255,136,0.12);border:1px solid rgba(0,255,136,0.25);border-radius:8px;padding:6px 12px;font-size:0.75rem;font-weight:700;color:#00ff88;white-space:nowrap;flex-shrink:0;">Done</div>
+                <div>
+                    <strong style="color:#fff;">Registration Complete</strong> &mdash; your phone numbers are linked to the campaign and your messages are delivered at full throughput without carrier filtering.
+                </div>
+            </div>
+        </div>
+
+        <div style="font-size:0.8rem;color:#888;margin-top:12px;text-align:center;">
+            Use the <strong style="color:#aaa;">Refresh</strong> button on the A2P registration page to check your status at any time.
+        </div>
+    </div>
+
+    <!-- Back to Dashboard -->
+    <div class="text-center mt-5" data-aos="fade-up">
+        <a href="/dashboard" style="color:#a78bfa;text-decoration:none;font-weight:600;font-size:0.9rem;">
+            <i class="fa-solid fa-arrow-left me-2"></i>Back to Dashboard
+        </a>
+    </div>
+
+</div>
+{% endblock %}
