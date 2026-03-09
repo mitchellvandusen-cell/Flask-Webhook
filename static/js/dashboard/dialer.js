@@ -1068,12 +1068,17 @@
         }
 
         // ── Search: filter locally when contacts are loaded, else fetch ──
+        let _dialerActiveTagFilter = null; // When set, filter by exact tag match
+
         function dialerDebounceSearch() {
             clearTimeout(dialerSearchTimer);
             dialerSearchTimer = setTimeout(() => {
+                _dialerActiveTagFilter = null; // Clear tag filter on new typing
                 if (_dialerAllContacts.length > 0) {
                     dialerFilterLocal();
+                    dialerShowTagSuggestions();
                 } else {
+                    dialerHideTagSuggestions();
                     dialerFetchContacts();
                 }
             }, 250);
@@ -1081,18 +1086,78 @@
 
         function dialerFilterLocal() {
             const q = (document.getElementById('dialerSearch').value || '').trim().toLowerCase();
-            if (!q) {
+            if (_dialerActiveTagFilter) {
+                // Exact tag filter mode
+                const tag = _dialerActiveTagFilter.toLowerCase();
+                dialerContacts = _dialerAllContacts.filter(c =>
+                    (c.tags || []).some(t => t.toLowerCase() === tag)
+                );
+            } else if (!q) {
                 dialerContacts = [..._dialerAllContacts];
             } else {
                 dialerContacts = _dialerAllContacts.filter(c =>
                     (c.name || '').toLowerCase().includes(q) ||
                     (c.phone || '').includes(q) ||
-                    (c.email || '').toLowerCase().includes(q)
+                    (c.email || '').toLowerCase().includes(q) ||
+                    (c.tags || []).some(t => t.toLowerCase().includes(q))
                 );
             }
             dialerRenderContacts();
             dialerUpdateSelectionUI();
         }
+
+        // ── Tag autocomplete suggestions ──
+        function _dialerCollectAllTags() {
+            const tagMap = {};
+            for (const c of _dialerAllContacts) {
+                for (const t of (c.tags || [])) {
+                    const key = t.toLowerCase();
+                    if (!tagMap[key]) tagMap[key] = { name: t, count: 0 };
+                    tagMap[key].count++;
+                }
+            }
+            return Object.values(tagMap).sort((a, b) => b.count - a.count);
+        }
+
+        function dialerShowTagSuggestions() {
+            const q = (document.getElementById('dialerSearch').value || '').trim().toLowerCase();
+            let dropdown = document.getElementById('dialerTagSuggestions');
+            if (!q || q.length < 1) { dialerHideTagSuggestions(); return; }
+            const allTags = _dialerCollectAllTags();
+            const matches = allTags.filter(t => t.name.toLowerCase().includes(q)).slice(0, 6);
+            if (!matches.length) { dialerHideTagSuggestions(); return; }
+            if (!dropdown) {
+                dropdown = document.createElement('div');
+                dropdown.id = 'dialerTagSuggestions';
+                dropdown.style.cssText = 'position:absolute;left:0;right:0;top:100%;background:rgba(20,20,30,0.98);border:1px solid rgba(0,217,255,0.15);border-radius:0 0 8px 8px;z-index:100;max-height:200px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,0.4);';
+                const wrap = document.getElementById('dialerSearch').parentElement;
+                wrap.appendChild(dropdown);
+            }
+            dropdown.innerHTML = matches.map(t =>
+                `<div onclick="dialerSelectTag('${t.name.replace(/'/g, "\\'")}')" style="display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;transition:background .12s;border-bottom:1px solid rgba(255,255,255,0.04);" onmouseenter="this.style.background='rgba(0,217,255,0.08)'" onmouseleave="this.style.background='transparent'"><i class="fa-solid fa-tag" style="color:#00d9ff;font-size:0.7rem;"></i><span style="color:#ccc;font-size:0.85rem;">${dialerEsc(t.name)}</span><span style="margin-left:auto;color:#555;font-size:0.75rem;">${t.count}</span></div>`
+            ).join('');
+            dropdown.style.display = 'block';
+        }
+
+        function dialerHideTagSuggestions() {
+            const d = document.getElementById('dialerTagSuggestions');
+            if (d) d.style.display = 'none';
+        }
+
+        function dialerSelectTag(tag) {
+            _dialerActiveTagFilter = tag;
+            const input = document.getElementById('dialerSearch');
+            input.value = tag;
+            dialerHideTagSuggestions();
+            dialerFilterLocal();
+        }
+
+        // Hide tag suggestions when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('#dialerSearch') && !e.target.closest('#dialerTagSuggestions')) {
+                dialerHideTagSuggestions();
+            }
+        });
 
         // ── Fetch ALL contacts (paginated + cached on backend) ──
         let _dialerCacheLoaded = false; // Track if we've loaded from cache on first open
@@ -2308,10 +2373,23 @@
             dlrUpdateCharCount(text);
         }
 
-        // ── Quick Options popup menu (fixed positioning to escape overflow:hidden) ──
+        // ── Quick Options popup menu (portaled to body to escape overflow:hidden) ──
+        let _dlrQuickOptionsPortal = null;
+        function _dlrEnsureQuickOptionsPortal() {
+            if (_dlrQuickOptionsPortal) return _dlrQuickOptionsPortal;
+            const src = document.getElementById('dlrQuickOptionsMenu');
+            if (!src) return null;
+            // Clone to body so it escapes .iphone-screen overflow:hidden
+            _dlrQuickOptionsPortal = src.cloneNode(true);
+            _dlrQuickOptionsPortal.id = 'dlrQuickOptionsMenuPortal';
+            document.body.appendChild(_dlrQuickOptionsPortal);
+            // Hide the original
+            src.style.display = 'none';
+            return _dlrQuickOptionsPortal;
+        }
         function dlrToggleQuickOptions(e) {
             e.stopPropagation();
-            const menu = document.getElementById('dlrQuickOptionsMenu');
+            const menu = _dlrEnsureQuickOptionsPortal();
             if (!menu) return;
             const wasOpen = menu.classList.contains('open');
             menu.classList.remove('open');
@@ -2340,13 +2418,13 @@
         }
         function dlrQuickOption(text) {
             dlrSetQuickReply(text);
-            const menu = document.getElementById('dlrQuickOptionsMenu');
+            const menu = document.getElementById('dlrQuickOptionsMenuPortal');
             if (menu) { menu.classList.remove('open'); menu.style.top = ''; menu.style.bottom = ''; menu.style.left = ''; menu.style.right = ''; }
         }
         // Close menu when clicking outside
         document.addEventListener('click', function(e) {
-            const menu = document.getElementById('dlrQuickOptionsMenu');
-            if (menu && menu.classList.contains('open') && !e.target.closest('.ios-quick-options-wrap')) {
+            const menu = document.getElementById('dlrQuickOptionsMenuPortal');
+            if (menu && menu.classList.contains('open') && !e.target.closest('.ios-quick-options-wrap') && !e.target.closest('#dlrQuickOptionsMenuPortal')) {
                 menu.classList.remove('open'); menu.style.top = ''; menu.style.bottom = ''; menu.style.left = ''; menu.style.right = '';
             }
         });
