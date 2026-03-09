@@ -5225,8 +5225,14 @@ def a2p_status():
         except Exception as e:
             logger.warning(f"A2P auto-discovery failed (non-fatal): {e}")
 
+    # Derive registered from actual status fields — don't rely on stored boolean
+    # which may not have been set during import or certain registration flows
+    brand_ok = a2p.get('brand_status', '').upper() in ('APPROVED', 'VERIFIED')
+    campaign_ok = a2p.get('campaign_status', '').upper() in ('VERIFIED', 'APPROVED')
+    is_registered = (brand_ok and campaign_ok) or a2p.get('registered', False)
+
     return jsonify({
-        "registered": a2p.get('registered', False),
+        "registered": is_registered,
         "brand_sid": a2p.get('brand_sid', ''),
         "brand_status": a2p.get('brand_status', ''),
         "campaign_sid": a2p.get('campaign_sid', ''),
