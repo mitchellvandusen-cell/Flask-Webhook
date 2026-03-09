@@ -40,6 +40,9 @@
                             <button class="voice-menu-item" onclick="switchVoicePanel('numbers')" id="vmenu-numbers" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
                                 <i class="fa-solid fa-phone-volume" style="width:16px;text-align:center;"></i> Numbers
                             </button>
+                            <button class="voice-menu-item" onclick="switchVoicePanel('numberhealth')" id="vmenu-numberhealth" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                                <i class="fa-solid fa-heart-pulse" style="width:16px;text-align:center;"></i> Number Health
+                            </button>
                             <button class="voice-menu-item" onclick="switchVoicePanel('trusthub')" id="vmenu-trusthub" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
                                 <i class="fa-solid fa-shield-halved" style="width:16px;text-align:center;"></i> Spam Protection
                             </button>
@@ -194,13 +197,6 @@
                     <!-- Status output -->
                     <div id="voiceTestResult" class="mt-3" style="display:none;"></div>
 
-                    <!-- Pricing Info -->
-                    <div class="mt-4 p-3" style="background: rgba(255,165,0,0.04); border: 1px solid rgba(255,165,0,0.1); border-radius: 12px;">
-                        <p style="color:#aaa; font-size:0.8rem; margin:0;">
-                            <i class="fa-solid fa-circle-info me-1" style="color: #ffa500;"></i>
-                            <strong>Pricing:</strong> Voice calls use xAI at $0.07/min + voice rates (~$0.007/min inbound, ~$0.012/min outbound) + $1/mo per number. Average 5-min call costs ~$0.41. Voice minutes are included in your subscription.
-                        </p>
-                    </div>
                     </div><!-- /vstab-panel-settings -->
 
                     <!-- ══ Numbers sub-tab ══ -->
@@ -255,11 +251,14 @@
                             </div>
                         </div>
 
-                        <!-- Number Health Dashboard -->
-                        <div id="numberHealthPanel" style="margin-top:20px;">
+                    </div><!-- /vstab-panel-numbers -->
+
+                    <!-- ══ Number Health sub-tab ══ -->
+                    <div id="vstab-panel-numberhealth" style="display:none;">
+                        <div id="numberHealthPanel">
                             <div id="numberHealthContent"></div>
                         </div>
-                    </div><!-- /vstab-panel-numbers -->
+                    </div><!-- /vstab-panel-numberhealth -->
 
                     <!-- ══ Spam Protection sub-tab ══ -->
                     <div id="vstab-panel-trusthub" style="display:none;">

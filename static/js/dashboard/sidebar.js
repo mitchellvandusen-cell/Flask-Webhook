@@ -131,7 +131,7 @@
 
         // ── Voice Config column menu switching ──
         function switchVoicePanel(name) {
-            const panels = ['settings', 'activation', 'numbers', 'trusthub', 'training'];
+            const panels = ['settings', 'activation', 'numbers', 'numberhealth', 'trusthub', 'training'];
             panels.forEach(p => {
                 const panel = document.getElementById('vstab-panel-' + p);
                 const menuBtn = document.getElementById('vmenu-' + p);
@@ -144,6 +144,7 @@
                 }
             });
             if (name === 'numbers') loadNumbersTab();
+            if (name === 'numberhealth') loadNumberHealth();
             if (name === 'trusthub') loadTrustHubData();
             if (name === 'training') loadTrainingStatus();
         }
