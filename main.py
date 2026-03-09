@@ -1311,6 +1311,10 @@ def dialer():
 def getting_started():
     return render_template('getting-started.html')
 
+@app.route("/a2p-guide")
+def a2p_guide():
+    return render_template('a2p-guide.html')
+
 @app.route("/about")
 def about():
     return render_template('about.html')
