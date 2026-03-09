@@ -505,7 +505,7 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
         try:
             directive = generate_strategic_directive(
                 contact_id=contact_id,
-                message="[Voice call initiated]",
+                message=f"[Agent initiated outbound voice call]" if direction != "inbound" else "[Lead initiated inbound voice call]",
                 first_name=contact_name,
                 age=contact_age,
                 address=contact_address,

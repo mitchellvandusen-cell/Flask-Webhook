@@ -663,14 +663,7 @@
             buyPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
-        // Auto-load number health when numbers tab renders
-        if (typeof loadNumbersTab === 'function') {
-            var _origLoadNumbersTab = loadNumbersTab;
-            loadNumbersTab = async function() {
-                await _origLoadNumbersTab();
-                loadNumberHealth();
-            };
-        }
+        // Number health now has its own panel — no longer auto-loads with numbers tab
 
 
         // ===== A2P 10DLC TAB =====

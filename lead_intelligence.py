@@ -37,7 +37,7 @@ def _gather_contact_context(location_id, contact_id):
         "messages": [],
         "facts": [],
         "pipeline": None,
-        "calls": {"total": 0, "connected": 0, "long_calls": 0, "last_call": None},
+        "calls": {"total": 0, "agent_called": 0, "lead_called": 0, "answered": 0, "unanswered": 0, "long_calls": 0, "last_call": None},
         "tags": [],
         "narrative": None,
         "last_message_at": None,
@@ -94,12 +94,16 @@ def _gather_contact_context(location_id, contact_id):
         except Exception:
             pass
 
-        # Call history stats
+        # Call history stats — direction-aware
         try:
             cur.execute("""
                 SELECT COUNT(*) as total,
+                       COUNT(*) FILTER (WHERE direction = 'outbound') as agent_called,
+                       COUNT(*) FILTER (WHERE direction = 'inbound') as lead_called,
+                       COUNT(*) FILTER (WHERE status = 'completed' AND duration > 30) as answered,
                        COUNT(*) FILTER (WHERE status = 'completed' AND duration > 120) as long_calls,
-                       COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) as connected,
+                       COUNT(*) FILTER (WHERE status IN ('no-answer','busy','canceled','failed')
+                                              OR (status = 'completed' AND duration <= 30)) as unanswered,
                        MAX(created_at) as last_call
                 FROM call_history
                 WHERE location_id = %s AND contact_id = %s
@@ -108,7 +112,10 @@ def _gather_contact_context(location_id, contact_id):
             if calls:
                 ctx["calls"] = {
                     "total": calls.get('total', 0) or 0,
-                    "connected": calls.get('connected', 0) or 0,
+                    "agent_called": calls.get('agent_called', 0) or 0,
+                    "lead_called": calls.get('lead_called', 0) or 0,
+                    "answered": calls.get('answered', 0) or 0,
+                    "unanswered": calls.get('unanswered', 0) or 0,
                     "long_calls": calls.get('long_calls', 0) or 0,
                     "last_call": str(calls['last_call']) if calls.get('last_call') else None,
                 }
@@ -181,9 +188,10 @@ def _run_ai_analysis(location_id, contact_id, ctx):
         if p.get('monetary_value'):
             pipeline_str += f" | Value: ${p['monetary_value']:,.0f}"
 
-    calls_str = f"{ctx['calls']['total']} calls total, {ctx['calls']['connected']} connected, {ctx['calls']['long_calls']} calls >2min"
-    if ctx['calls']['last_call']:
-        calls_str += f", last call: {ctx['calls']['last_call']}"
+    c = ctx['calls']
+    calls_str = f"{c['total']} calls total ({c['agent_called']} outbound by agent, {c['lead_called']} inbound from lead), {c['answered']} answered (>30s), {c['unanswered']} unanswered/no-answer, {c['long_calls']} calls >2min"
+    if c['last_call']:
+        calls_str += f", last call: {c['last_call']}"
 
     narrative_str = ctx.get("narrative") or "No prior narrative."
 
@@ -229,7 +237,7 @@ CRITICAL CLASSIFICATION RULES — READ THESE CAREFULLY:
 "score" — 0-100 likelihood to convert to a paying client. Consider:
 - What the lead actually said (buying signals vs objections vs silence)
 - Pipeline stage and deal value if present
-- Call history (long connected calls = strong signal)
+- Call history: "outbound by agent" = the AGENT called the lead (NOT lead-initiated). "inbound from lead" = the LEAD called in. "answered (>30s)" = actually spoke. "unanswered" = no answer, busy, or call under 30s (likely voicemail/no pickup). Do NOT say "lead initiated a call" when the call was outbound by agent.
 - Recency of engagement
 - A lead who said "not interested" gets 5-15, NOT 50+
 
@@ -242,7 +250,7 @@ CRITICAL CLASSIFICATION RULES — READ THESE CAREFULLY:
 - 0 = No meaningful interaction yet (new lead, only outbound attempts)
 - 1 = Surface contact (lead acknowledged but no real conversation — one-word replies, "who is this", etc.)
 - 2 = Real conversation (lead is sharing information, asking questions, back-and-forth dialogue)
-- 3 = Deep engagement (multiple exchanges, discussing specifics, connected calls, approaching a decision)
+- 3 = Deep engagement (multiple exchanges, discussing specifics, answered calls >30s where they actually spoke, approaching a decision). Unanswered outbound calls do NOT count as engagement.
 
 "actions" — 2-4 specific next steps. Use icons: fa-phone (calls), fa-paper-plane (SMS), fa-file-invoice-dollar (quotes), fa-calendar (appointments), fa-fire (urgency), fa-clock (timing), fa-reply (responding), fa-bolt (quick action).
 - If no conversation exists, focus on initial outreach.
@@ -305,7 +313,7 @@ def _gather_bulk_contexts(location_id, contact_ids):
 
     results = {cid: {
         "messages": [], "facts": [], "pipeline": None,
-        "calls": {"total": 0, "connected": 0, "long_calls": 0, "last_call": None},
+        "calls": {"total": 0, "agent_called": 0, "lead_called": 0, "answered": 0, "unanswered": 0, "long_calls": 0, "last_call": None},
         "tags": [], "narrative": None, "last_message_at": None,
     } for cid in contact_ids}
 
@@ -369,13 +377,17 @@ def _gather_bulk_contexts(location_id, contact_ids):
         except Exception:
             pass
 
-        # ── Call history stats ──
+        # ── Call history stats — direction-aware ──
         try:
             cur.execute("""
                 SELECT contact_id,
                        COUNT(*) as total,
+                       COUNT(*) FILTER (WHERE direction = 'outbound') as agent_called,
+                       COUNT(*) FILTER (WHERE direction = 'inbound') as lead_called,
+                       COUNT(*) FILTER (WHERE status = 'completed' AND duration > 30) as answered,
                        COUNT(*) FILTER (WHERE status = 'completed' AND duration > 120) as long_calls,
-                       COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) as connected,
+                       COUNT(*) FILTER (WHERE status IN ('no-answer','busy','canceled','failed')
+                                              OR (status = 'completed' AND duration <= 30)) as unanswered,
                        MAX(created_at) as last_call
                 FROM call_history
                 WHERE location_id = %s AND contact_id = ANY(%s)
@@ -386,7 +398,10 @@ def _gather_bulk_contexts(location_id, contact_ids):
                 if cid in results:
                     results[cid]['calls'] = {
                         "total": r.get('total', 0) or 0,
-                        "connected": r.get('connected', 0) or 0,
+                        "agent_called": r.get('agent_called', 0) or 0,
+                        "lead_called": r.get('lead_called', 0) or 0,
+                        "answered": r.get('answered', 0) or 0,
+                        "unanswered": r.get('unanswered', 0) or 0,
                         "long_calls": r.get('long_calls', 0) or 0,
                         "last_call": str(r['last_call']) if r.get('last_call') else None,
                     }
@@ -448,7 +463,7 @@ def _build_contact_block(contact_id, ctx):
             pipeline_str += f" ${p['monetary_value']:,.0f}"
 
     calls = ctx['calls']
-    calls_str = f"{calls['total']}t/{calls['connected']}c/{calls['long_calls']}>2m"
+    calls_str = f"{calls['total']}t/{calls['agent_called']}out/{calls['lead_called']}in/{calls['answered']}ans/{calls['unanswered']}unans/{calls['long_calls']}>2m"
     if calls.get('last_call'):
         calls_str += f" last:{calls['last_call'][:10]}"
 
