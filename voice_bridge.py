@@ -5231,18 +5231,58 @@ def a2p_status():
     campaign_ok = a2p.get('campaign_status', '').upper() in ('VERIFIED', 'APPROVED')
     is_registered = (brand_ok and campaign_ok) or a2p.get('registered', False)
 
+    # Fetch the actual phone number SIDs associated with the messaging service
+    # so the frontend can show per-number A2P registration status accurately
+    registered_number_sids = []
+    ms_sid = a2p.get('messaging_service_sid', '')
+    if is_registered and ms_sid:
+        try:
+            ms_numbers = twilio_provisioning.list_messaging_service_phone_numbers(ms_sid)
+            registered_number_sids = [n['sid'] for n in ms_numbers]
+        except Exception as e:
+            logger.warning(f"Failed to fetch MS phone numbers (non-fatal): {e}")
+
     return jsonify({
         "registered": is_registered,
         "brand_sid": a2p.get('brand_sid', ''),
         "brand_status": a2p.get('brand_status', ''),
         "campaign_sid": a2p.get('campaign_sid', ''),
         "campaign_status": a2p.get('campaign_status', ''),
-        "messaging_service_sid": a2p.get('messaging_service_sid', ''),
+        "messaging_service_sid": ms_sid,
         "use_case": a2p.get('use_case', ''),
         "registered_at": a2p.get('registered_at', ''),
         "is_sub_user": is_sub_user,
         "a2p_fee_paid": a2p.get('a2p_fee_paid', False),
+        "registered_number_sids": registered_number_sids,
     })
+
+
+@voice_bp.route('/voice/a2p/add-number', methods=['POST'])
+@login_required
+def a2p_add_number():
+    """Add a phone number to the existing A2P messaging service."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    a2p = (vc or {}).get('a2p', {})
+    ms_sid = a2p.get('messaging_service_sid', '')
+    if not ms_sid:
+        return jsonify({"error": "No messaging service found. Complete A2P registration first."}), 400
+
+    data = request.get_json(silent=True) or {}
+    phone_number_sid = data.get('phone_number_sid', '').strip()
+    if not phone_number_sid or not phone_number_sid.startswith('PN'):
+        return jsonify({"error": "Invalid phone number SID"}), 400
+
+    try:
+        twilio_provisioning.add_phone_to_messaging_service(
+            sub_sid, ms_sid, phone_number_sid
+        )
+        return jsonify({"ok": True, "message": "Number added to A2P messaging service"})
+    except Exception as e:
+        logger.error(f"Failed to add number {phone_number_sid} to MS {ms_sid}: {e}")
+        return jsonify({"error": f"Failed to add number: {e}"}), 500
 
 
 @voice_bp.route('/voice/a2p/sync', methods=['POST'])
