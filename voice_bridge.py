@@ -6005,7 +6005,7 @@ def send_contact_sms(contact_id):
                 body=message,
             )
             logger.info(f"Twilio SMS sent: {tw_msg.sid} to {contact_id} by {current_user.email} (A2P)")
-            # Log to GHL so the message appears in CRM conversation history
+            # Log to GHL via Conversation Provider so CRM stays in sync
             try:
                 from ghl_logger import log_outbound_sms_to_ghl
                 ghl_token = get_valid_token(location_id)
@@ -6015,7 +6015,7 @@ def send_contact_sms(contact_id):
                         message=message,
                         access_token=ghl_token,
                         location_id=location_id,
-                        from_number=from_number,
+                        contact_phone=contact_phone,
                     )
             except Exception as ghl_log_err:
                 logger.debug(f"GHL conversation log skipped for manual SMS: {ghl_log_err}")

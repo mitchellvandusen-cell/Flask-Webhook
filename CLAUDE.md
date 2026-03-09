@@ -65,6 +65,7 @@ Workers run `process_webhook_task()` from `tasks.py` asynchronously. This is the
 | `ghl_api.py` | GHL OAuth token management + API helpers | small |
 | `ghl_calendar.py` | GHL calendar booking operations | medium |
 | `ghl_message.py` | GHL SMS delivery | small |
+| `ghl_logger.py` | Log IGB messages/calls to GHL via Conversation Provider API | small |
 | `webhook_delivery.py` | Outbound webhook delivery with HMAC signing + retries | small |
 | `send_email_api.py` | Mailgun API email sender | small |
 | `utils.py` | JSON serialization helpers + AI reply cleaning | small |
@@ -400,6 +401,45 @@ A2P 10DLC (Application-to-Person 10-Digit Long Code) is the carrier-mandated reg
 - **`twilio_sms.py`**: Drop-in replacement for `ghl_message.py`. Returns same 3-tuple `(success, fail_reason, http_detail)`. Includes deduplication, safety filtering, max-retry with backoff.
 - **Pipeline routing**: `tasks.py` checks `subscriber.sms_send_via` — if it starts with `+`, routes through `send_sms_via_twilio()`; otherwise uses GHL. Falls back to GHL if Twilio creds missing.
 - **Config UI**: Radio picker in Bot Config with LeadConnector logo for GHL numbers and robot icon for IGB/Twilio numbers.
+
+---
+
+## GHL Conversation Provider Sync (ghl_logger.py)
+
+GHL stays the source-of-truth CRM. When messages are sent or calls are made through IGB (via Twilio), they are logged back to GHL's conversation threads using the GHL Conversation Provider API.
+
+### Conversation Providers (GHL Marketplace App)
+Two providers are registered in the GHL Marketplace App under Modules > Conversation Providers:
+
+| Provider | Type | ID | Delivery URL |
+|----------|------|-----|-------------|
+| InsuranceGrokBot | Call | `699c83535fc465bbff87a78d` | `/voice/outbound-call` |
+| InsuranceGrokBot SMS | Custom SMS | `699c84aef36d66cc10a56e82` | `/webhook` |
+
+### Environment Variables
+- `GHL_SMS_CONVERSATION_PROVIDER_ID` — Custom SMS provider ID (default: `699c84aef36d66cc10a56e82`)
+- `GHL_CALL_CONVERSATION_PROVIDER_ID` — Call provider ID (default: `699c83535fc465bbff87a78d`)
+
+### How Sync Works
+
+**IGB → GHL (logging outbound activity)**:
+- After bot sends SMS via Twilio (`tasks.py`) → `log_outbound_sms_to_ghl()` POSTs to `/conversations/messages/outbound` with `conversationProviderId`
+- After agent sends SMS from dashboard (`voice_bridge.py`) → same flow
+- After call completes (`voice_bridge.py` status callback) → `log_call_to_ghl()` POSTs to `/conversations/messages/outbound` (or `/inbound` for inbound calls)
+
+**GHL → IGB (agent sends from GHL UI)**:
+- Agent types message in GHL conversation under InsuranceGrokBot SMS tab → GHL fires webhook to `/webhook`
+- `webhooks.py` detects Conversation Provider outbound webhook (has `messageId` + `type: "SMS"` + `phone`)
+- Sends via Twilio using subscriber's sub-account credentials
+- Returns result to GHL
+
+### API Endpoints Used
+- `POST /conversations/messages/outbound` — Log outbound SMS/calls to GHL (type: `Custom` for SMS, `Call` for calls)
+- `POST /conversations/messages/inbound` — Log inbound SMS/calls to GHL
+
+### Key Files
+- `ghl_logger.py` — `log_outbound_sms_to_ghl()`, `log_inbound_sms_to_ghl()`, `log_call_to_ghl()`
+- `blueprints/webhooks.py` — `_is_conversation_provider_outbound()`, `_handle_conversation_provider_outbound()`
 
 ---
 

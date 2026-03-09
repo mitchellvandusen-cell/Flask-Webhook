@@ -1128,7 +1128,7 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
                             )
                             if sent:
                                 logger.info(f"✅ Twilio direct SMS sent to {contact_id} from {sms_send_via}")
-                                # Log the Twilio-sent message to GHL so it appears in CRM conversation
+                                # Log to GHL via Conversation Provider so CRM stays in sync
                                 try:
                                     from ghl_logger import log_outbound_sms_to_ghl
                                     log_outbound_sms_to_ghl(
@@ -1136,8 +1136,7 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
                                         message=reply,
                                         access_token=auth_token,
                                         location_id=location_id,
-                                        from_number=sms_send_via,
-                                        conversation_id=conversation_id,
+                                        contact_phone=contact_phone,
                                     )
                                 except Exception as ghl_log_err:
                                     logger.debug(f"GHL conversation log skipped: {ghl_log_err}")

@@ -150,17 +150,102 @@ def normalize_payload_universal(payload: dict) -> dict:
     return normalized
 
 
+# ── GHL Conversation Provider outbound handler ────────────────────────────────
+# When an agent types a message in GHL's conversation UI under the
+# InsuranceGrokBot SMS tab, GHL sends a webhook to this delivery URL.
+# Payload: {contactId, locationId, messageId, type:"SMS", phone, message, userId}
+# We detect this and send the message via Twilio instead of treating it as a
+# normal inbound lead webhook.
+
+def _is_conversation_provider_outbound(payload: dict) -> bool:
+    """Detect if this is a GHL Conversation Provider outbound webhook."""
+    # CP outbound has: messageId + type=SMS + phone + message (not body)
+    # Regular GHL webhooks have: type=InboundMessage or type=OutboundMessage
+    has_message_id = bool(payload.get("messageId"))
+    msg_type = (payload.get("type") or "").upper()
+    has_phone = bool(payload.get("phone"))
+    has_message = bool(payload.get("message"))
+    # Must have all CP-specific fields and type must be SMS (not InboundMessage etc.)
+    return has_message_id and has_phone and has_message and msg_type == "SMS"
+
+
+def _handle_conversation_provider_outbound(payload: dict):
+    """
+    Handle a GHL Conversation Provider outbound SMS webhook.
+    Sends the message via Twilio and returns the result to GHL.
+    """
+    contact_id = payload.get("contactId", "")
+    location_id = payload.get("locationId", "")
+    message_id = payload.get("messageId", "")
+    phone = payload.get("phone", "")
+    message = payload.get("message", "")
+    user_id = payload.get("userId", "")
+
+    logger.info(
+        f"📤 CP Outbound SMS | contact={contact_id} | location={location_id} | "
+        f"phone={phone[:6]}*** | msgId={message_id[:12]}..."
+    )
+
+    if not location_id or not phone or not message:
+        logger.warning(f"CP outbound missing required fields: location={location_id}, phone={bool(phone)}, msg={bool(message)}")
+        return safe_jsonify({"status": "error", "reason": "missing_fields"}), 400
+
+    # Look up Twilio credentials for this subscriber
+    try:
+        from twilio_sms import get_twilio_credentials
+        sub_sid, sub_auth, from_number = get_twilio_credentials(location_id)
+        if not sub_sid or not sub_auth or not from_number:
+            logger.warning(f"CP outbound: no Twilio credentials for {location_id}")
+            return safe_jsonify({"status": "error", "reason": "no_twilio_creds"}), 400
+
+        from twilio_sms import send_sms_via_twilio
+        sent, fail_reason, http_detail = send_sms_via_twilio(
+            phone_to=phone,
+            message=message,
+            from_number=from_number,
+            twilio_sub_account_sid=sub_sid,
+            twilio_auth_token=sub_auth,
+            contact_id=contact_id,
+        )
+
+        if sent:
+            logger.info(f"✅ CP outbound SMS sent via Twilio to {phone[:6]}*** for {location_id}")
+            log_webhook_event(location_id, "cp_outbound_sms", "success",
+                              f"GHL CP SMS sent to {contact_id} ({len(message)} chars)",
+                              contact_id=contact_id)
+            return safe_jsonify({"status": "sent", "messageId": message_id}), 200
+        else:
+            logger.error(f"CP outbound SMS failed ({fail_reason}) for {contact_id}")
+            log_webhook_event(location_id, "cp_outbound_sms", "error",
+                              f"GHL CP SMS failed: {fail_reason}",
+                              contact_id=contact_id)
+            return safe_jsonify({"status": "error", "reason": fail_reason}), 500
+
+    except Exception as e:
+        logger.error(f"CP outbound SMS exception for {contact_id}: {e}")
+        return safe_jsonify({"status": "error", "reason": str(e)}), 500
+
+
 # ── Main webhook receiver ─────────────────────────────────────────────────────
 
 @webhooks_bp.route("/webhook", methods=["POST"])
 def webhook():
     """Main GHL webhook receiver — normalises payload and queues to RQ."""
+
+    # ── Conversation Provider outbound webhook ────────────────────────────
+    # When an agent sends a message from GHL UI via the InsuranceGrokBot SMS
+    # custom provider, GHL fires a webhook here with {messageId, type, phone,
+    # message, contactId, locationId}. We detect this and send via Twilio
+    # instead of processing as a normal lead webhook.
+    raw_payload = request.get_json(silent=True) or request.form.to_dict() or {}
+    if _is_conversation_provider_outbound(raw_payload):
+        return _handle_conversation_provider_outbound(raw_payload)
+
     if not extensions.ensure_redis():
         logger.critical("Redis/RQ unavailable after reconnect attempt")
         return safe_jsonify({"status": "error", "reason": "redis_unavailable"}), 503
 
-    payload     = request.get_json(silent=True) or request.form.to_dict() or {}
-    payload     = normalize_payload_universal(payload)
+    payload     = normalize_payload_universal(raw_payload)
     location_id = payload.get("location_id")
     contact_id  = payload.get("contact_id")
     message_body = payload.get("message") or payload.get("body")
