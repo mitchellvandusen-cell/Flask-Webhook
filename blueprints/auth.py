@@ -111,7 +111,7 @@ def register():
             conn.commit()
             logger.info(f"Post-OAuth registration completed: {email}")
             flash("Account created successfully! Welcome aboard.", "success")
-            return redirect(url_for("auth.login"))
+            return redirect(url_for("auth.login", registered=1))
 
         except Exception as e:
             conn.rollback()

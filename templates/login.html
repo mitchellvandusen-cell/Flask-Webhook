@@ -67,4 +67,7 @@
         </div>
     </div>
 </div>
+{% if request.args.get('registered') %}
+<script>fbq('track', 'CompleteRegistration');</script>
+{% endif %}
 {% endblock %}
