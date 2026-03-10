@@ -28,7 +28,7 @@ from extensions import (ADMIN_EMAILS, YOUR_DOMAIN, safe_jsonify,
 from db import (get_db_connection, return_db_connection, User,
                 get_webhook_logs, get_all_marketplace_installs,
                 get_incomplete_installs, mark_setup_email_sent,
-                log_webhook_event, audit_ai_minutes)
+                log_webhook_event, audit_ai_minutes, get_pool_stats)
 from email_templates import _email_wrapper, _build_install_welcome_email
 
 logger = logging.getLogger(__name__)
@@ -545,3 +545,13 @@ def api_admin_audit_ai_minutes():
 
     result = audit_ai_minutes(email)
     return jsonify(result)
+
+
+# ── Pool stats (admin monitoring) ──────────────────────────────────────────
+
+@admin_bp.route("/api/admin/pool-stats")
+@login_required
+@super_admin_required
+def pool_stats():
+    """Return DB connection pool utilization stats."""
+    return jsonify(get_pool_stats())
