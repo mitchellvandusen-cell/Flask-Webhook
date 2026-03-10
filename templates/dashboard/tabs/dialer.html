@@ -617,6 +617,56 @@
                         .ios-compose-footer { padding: 0 clamp(10px, 0.6vw, 18px) clamp(3px, 0.2vw, 6px); }
                         .ios-quick-replies { padding: clamp(5px, 0.32vw, 9px) clamp(8px, 0.5vw, 15px) clamp(2px, 0.13vw, 4px); gap: clamp(5px, 0.32vw, 9px); }
                     }
+
+                    /* ═══════════════════════════════════════════════
+                       iPhone Column — Center in column
+                       ═══════════════════════════════════════════════ */
+                    #dlrColPhone { padding: 10px 16px; }
+
+                    /* ═══════════════════════════════════════════════
+                       Light Theme — iPhone & Dialer Overrides
+                       ═══════════════════════════════════════════════ */
+                    body.light-theme .iphone-screen { background: #f2f2f7; }
+                    body.light-theme .ios-wallpaper {
+                        background:
+                            radial-gradient(ellipse at 30% 20%, rgba(88,86,214,0.15) 0%, transparent 50%),
+                            radial-gradient(ellipse at 70% 60%, rgba(52,199,89,0.12) 0%, transparent 50%),
+                            radial-gradient(ellipse at 50% 90%, rgba(0,122,255,0.15) 0%, transparent 50%),
+                            radial-gradient(ellipse at 80% 20%, rgba(255,55,95,0.1) 0%, transparent 40%),
+                            radial-gradient(ellipse at 20% 70%, rgba(175,82,222,0.1) 0%, transparent 45%),
+                            linear-gradient(160deg, #e8eaf0 0%, #dfe3ec 50%, #d5dbe8 100%) !important;
+                    }
+                    body.light-theme .ios-app-label { color: #1a1a2e !important; text-shadow: none !important; }
+                    body.light-theme .ios-status-bar { color: #1a1a2e !important; }
+                    body.light-theme .ios-dynamic-island { background: #1a1a2e !important; }
+                    body.light-theme .ios-home-indicator { background: rgba(0,0,0,0.2) !important; }
+                    body.light-theme .ios-nav-bar { background: rgba(255,255,255,0.94) !important; border-bottom-color: rgba(0,0,0,0.08) !important; }
+                    body.light-theme .ios-nav-name { color: #1a1a2e !important; }
+                    body.light-theme .ios-composer { background: rgba(255,255,255,0.94) !important; border-top-color: rgba(0,0,0,0.08) !important; }
+                    body.light-theme .ios-app-view { background: #f2f2f7 !important; }
+                    body.light-theme .ios-thread-scroll { background: #fff !important; }
+                    body.light-theme .ios-thread-scroll .dlr-bubble.inbound { background: #e9e9eb !important; border: none !important; color: #1a1a2e !important; }
+                    body.light-theme .ios-thread-scroll .dlr-bubble.outbound { background: #007AFF !important; color: #fff !important; }
+                    body.light-theme .ios-thread-scroll .dlr-date-sep span { background: rgba(0,0,0,0.04) !important; color: #8e8e93 !important; }
+                    body.light-theme .ios-empty-state { color: #1a1a2e !important; }
+                    body.light-theme .ios-empty-title { color: #1a1a2e !important; }
+                    body.light-theme .ios-empty-sub { color: #8e8e93 !important; }
+                    body.light-theme .ios-empty-icon { background: rgba(0,122,255,0.08) !important; border-color: rgba(0,122,255,0.15) !important; }
+                    body.light-theme .ios-qr-chip { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.08) !important; color: #4a5568 !important; }
+                    body.light-theme .ios-qr-chip:hover { background: rgba(0,122,255,0.08) !important; color: #007AFF !important; }
+                    body.light-theme .ios-quick-options-menu { background: rgba(255,255,255,0.96) !important; border-color: rgba(0,0,0,0.1) !important; }
+                    body.light-theme .ios-quick-options-menu button { color: #1a1a2e !important; }
+                    body.light-theme .ios-quick-options-menu button:hover { background: rgba(0,122,255,0.08) !important; }
+                    body.light-theme .iphone-bezel { background: linear-gradient(145deg,#d4d4d8 0%,#c0c0c4 20%,#b4b4b8 50%,#c0c0c4 80%,#d4d4d8 100%) !important; box-shadow: 0 0 0 1px rgba(0,0,0,0.06), 0 25px 60px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.6) !important; }
+
+                    /* Light theme — dialer panels */
+                    body.light-theme .dlr-top-bar { background: rgba(255,255,255,0.7) !important; border-color: rgba(0,0,0,0.08) !important; }
+                    body.light-theme .dlr-col { background: rgba(255,255,255,0.7) !important; border-color: rgba(0,0,0,0.08) !important; }
+                    body.light-theme .dlr-col-hdr { border-bottom-color: rgba(0,0,0,0.06) !important; }
+                    body.light-theme .dlr-col-hdr h6 { color: var(--lt-accent) !important; }
+                    body.light-theme .dlr-contact-row { border-bottom-color: rgba(0,0,0,0.03) !important; }
+                    body.light-theme .dlr-contact-row:hover { background: rgba(0,0,0,0.02) !important; }
+                    body.light-theme .dlr-contact-row.active { background: rgba(5,150,105,0.06) !important; border-left-color: var(--lt-accent) !important; }
                 </style>
 
                 <!-- Top Bar -->
