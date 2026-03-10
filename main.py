@@ -15,7 +15,7 @@ import gspread
 from openai import OpenAI
 from oauth2client.service_account import ServiceAccountCredentials
 from dotenv import load_dotenv
-from flask import Flask, request
+from flask import Flask, request, send_from_directory
 from flask import jsonify as flask_jsonify
 from flask_login import LoginManager, current_user
 from rq import Queue
@@ -154,6 +154,19 @@ def add_iframe_headers(response):
     response.headers['Permissions-Policy'] = 'microphone=*, camera=*, autoplay=*'
     response.headers['Content-Security-Policy'] = "frame-ancestors *"
     return response
+
+
+# ── PWA Service Worker (must be served from root scope) ──────────────────────
+
+@app.route('/sw.js')
+def service_worker():
+    return send_from_directory(app.static_folder, 'sw.js',
+                               mimetype='application/javascript')
+
+@app.route('/manifest.json')
+def pwa_manifest():
+    return send_from_directory(app.static_folder, 'manifest.json',
+                               mimetype='application/json')
 
 
 # ── Shared state (extensions.py) ─────────────────────────────────────────────
