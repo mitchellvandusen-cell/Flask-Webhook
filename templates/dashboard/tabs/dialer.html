@@ -301,21 +301,23 @@
                         /* 3-col layout → stacked mobile tabs */
                         .dlr-3col-layout { flex-direction:column !important; height:auto !important; min-height:auto !important; gap:0 !important; }
 
-                        /* Mobile dialer tab switcher */
-                        .dlr-mobile-tabs { display:flex !important; gap:2px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:3px; margin-bottom:8px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
-                        .dlr-mobile-tab { flex:1; padding:8px 4px; border-radius:8px; border:none; background:transparent; color:#666; font-size:0.78rem; font-weight:600; cursor:pointer; text-align:center; white-space:nowrap; min-height:40px; transition:all .15s; }
-                        .dlr-mobile-tab.active { background:rgba(0,217,255,0.15); color:#00d9ff; }
-                        .dlr-mobile-tab i { display:block; font-size:1rem; margin-bottom:2px; }
+                        /* Mobile dialer tab switcher — hidden; replaced by bottom action bar */
+                        .dlr-mobile-tabs { display:none !important; }
 
                         /* Each column becomes a full-width panel */
                         .dlr-3col-layout > .dlr-col,
                         .dlr-3col-layout > div { width:100% !important; border-radius:10px !important; }
                         .dlr-3col-layout > .dlr-col { display:none; }
-                        .dlr-3col-layout > .dlr-col.dlr-mobile-active { display:flex; height:calc(100vh - 220px); min-height:400px; }
+                        .dlr-3col-layout > .dlr-col.dlr-mobile-active { display:flex; height:calc(100vh - 260px); min-height:350px; }
 
-                        /* Right column (iPhone frame parent) */
-                        .dlr-3col-layout > div:last-child { display:none; }
-                        .dlr-3col-layout > div:last-child.dlr-mobile-active { display:flex; flex-direction:column; }
+                        /* Right column (iPhone frame parent) — HIDE on mobile completely */
+                        #dlrColPhone { display:none !important; }
+
+                        /* Contact list column — full height, no phone UI behind it */
+                        #dlrColContacts.dlr-mobile-active { height:calc(100vh - 260px); min-height:350px; }
+
+                        /* Intel column on mobile */
+                        #dlrColIntel.dlr-mobile-active { height:calc(100vh - 260px); min-height:350px; }
 
                         /* Contact rows — larger touch targets */
                         .dlr-contact-row { padding:12px !important; min-height:52px; }
@@ -323,12 +325,6 @@
                         /* Quick options on mobile — full-width bottom */
                         .ios-quick-options-menu { min-width:calc(100vw - 40px); }
                         .ios-quick-options-menu button { padding:14px 16px; font-size:0.92rem; min-height:48px; }
-
-                        /* Send button bigger for touch */
-                        .ios-send-btn { width:36px !important; height:36px !important; font-size:0.85rem !important; }
-
-                        /* Compose input */
-                        .ios-compose-input { font-size:16px !important; }
 
                         /* Stats/settings panels */
                         #dialerStatsPanel, #dialerSettingsPanel { position:fixed !important; bottom:0; left:0; right:0; top:auto !important; max-height:70vh; border-radius:20px 20px 0 0 !important; z-index:250; overflow-y:auto; }
@@ -340,17 +336,22 @@
                         /* Number rotation banner */
                         #numberRotationBanner { font-size:0.78rem !important; padding:8px 10px !important; }
 
-                        /* Reduce wallpaper intensity on mobile — the gradient blobs dominate small screens */
-                        .ios-wallpaper { opacity: 0.35; }
+                        /* ── Mobile Action Bar (below contact/intel) ── */
+                        .dlr-mobile-action-bar { display:flex !important; gap:6px; padding:10px 8px; background:rgba(8,8,16,0.8); border:1px solid rgba(255,255,255,0.06); border-radius:10px; margin-top:8px; }
+                        .dlr-mobile-action-btn { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:10px 8px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03); color:#888; font-size:0.78rem; font-weight:600; cursor:pointer; transition:all .15s; }
+                        .dlr-mobile-action-btn.active { background:rgba(0,217,255,0.12); border-color:rgba(0,217,255,0.25); color:#00d9ff; }
+                        .dlr-mobile-action-btn i { font-size:0.85rem; }
 
-                        /* Hide Discord/Slack app icons on mobile — they're buttons in the More sheet */
-                        .ios-app-icon[onclick*="discord"],
-                        .ios-app-icon[onclick*="slack"] { display: none !important; }
-
-                        /* iOS home screen apps grid — smaller on mobile */
-                        .ios-app-icon { width: 52px !important; }
-                        .ios-app-icon-img { width: 42px !important; height: 42px !important; }
-                        .ios-app-label { font-size: 0.6rem !important; }
+                        /* ── Mobile Apps Popup ── */
+                        .dlr-mobile-apps-popup { display:none; position:fixed; bottom:80px; left:10px; right:10px; background:rgba(20,20,30,0.96); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:12px; z-index:300; box-shadow:0 -4px 30px rgba(0,0,0,0.5); }
+                        .dlr-mobile-apps-popup.open { display:block; }
+                        .dlr-mobile-apps-popup-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+                        .dlr-mobile-apps-popup-item { display:flex; flex-direction:column; align-items:center; gap:4px; background:none; border:none; cursor:pointer; padding:8px 4px; border-radius:10px; transition:background .12s; }
+                        .dlr-mobile-apps-popup-item:active { background:rgba(255,255,255,0.06); }
+                        .dlr-mobile-apps-popup-item .dlr-mapp-icon { width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.2rem; color:#fff; }
+                        .dlr-mobile-apps-popup-item .dlr-mapp-label { font-size:0.68rem; color:#aaa; font-weight:500; }
+                        .dlr-mobile-apps-overlay { display:none; position:fixed; inset:0; z-index:299; background:rgba(0,0,0,0.3); }
+                        .dlr-mobile-apps-overlay.open { display:block; }
                     }
                     .ios-channel-row{display:flex;align-items:center;gap:5px;padding:2px 9px 0;}
                     .ios-channel-label{font-size:clamp(0.62rem, 0.52vw, 0.95rem);color:#8E8E93;font-weight:600;white-space:nowrap;}
@@ -1839,6 +1840,65 @@
                         </div>
                     </div>
 
+                </div>
+
+                <!-- ═══ Mobile Action Bar (below contacts/intel) ═══ -->
+                <div class="dlr-mobile-action-bar" id="dlrMobileActionBar" style="display:none;">
+                    <button class="dlr-mobile-action-btn active" id="dlrMobBtnContacts" onclick="dlrMobileSwitch('contacts')">
+                        <i class="fa-solid fa-address-book"></i> Contacts
+                    </button>
+                    <button class="dlr-mobile-action-btn" id="dlrMobBtnIntel" onclick="dlrMobileSwitch('intel')">
+                        <i class="fa-solid fa-crosshairs"></i> Intel
+                    </button>
+                    <button class="dlr-mobile-action-btn" id="dlrMobBtnMessages" onclick="dlrMobileOpenApp('messages')">
+                        <i class="fa-solid fa-comment-dots"></i> Messages
+                    </button>
+                    <button class="dlr-mobile-action-btn" id="dlrMobBtnApps" onclick="dlrMobileToggleApps()">
+                        <i class="fa-solid fa-grip"></i> Apps
+                    </button>
+                </div>
+
+                <!-- Mobile Apps Popup -->
+                <div class="dlr-mobile-apps-overlay" id="dlrMobileAppsOverlay" onclick="dlrMobileToggleApps()"></div>
+                <div class="dlr-mobile-apps-popup" id="dlrMobileAppsPopup">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 4px;">
+                        <span style="font-size:0.82rem;font-weight:700;color:#ccc;">Apps</span>
+                        <button onclick="dlrMobileToggleApps()" style="background:none;border:none;color:#666;cursor:pointer;font-size:1rem;"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="dlr-mobile-apps-popup-grid">
+                        <button class="dlr-mobile-apps-popup-item" onclick="dlrMobileOpenApp('messages')">
+                            <div class="dlr-mapp-icon" style="background:linear-gradient(180deg,#65D66A,#34C759);"><i class="fa-solid fa-comment-dots"></i></div>
+                            <span class="dlr-mapp-label">Messages</span>
+                        </button>
+                        <button class="dlr-mobile-apps-popup-item" onclick="dlrMobileOpenApp('calls')">
+                            <div class="dlr-mapp-icon" style="background:linear-gradient(180deg,#65D66A,#34C759);"><i class="fa-solid fa-phone"></i></div>
+                            <span class="dlr-mapp-label">Call History</span>
+                        </button>
+                        <button class="dlr-mobile-apps-popup-item" onclick="dlrMobileOpenApp('voicemail')">
+                            <div class="dlr-mapp-icon" style="background:linear-gradient(180deg,#FF9500,#FF6B00);"><i class="fa-solid fa-voicemail"></i></div>
+                            <span class="dlr-mapp-label">Voicemail</span>
+                        </button>
+                        <button class="dlr-mobile-apps-popup-item" onclick="dlrMobileOpenApp('recordings')">
+                            <div class="dlr-mapp-icon" style="background:linear-gradient(180deg,#FF9500,#FF6B00);"><i class="fa-solid fa-record-vinyl"></i></div>
+                            <span class="dlr-mapp-label">Recordings</span>
+                        </button>
+                        <button class="dlr-mobile-apps-popup-item" onclick="dlrMobileOpenApp('inbox')">
+                            <div class="dlr-mapp-icon" style="background:linear-gradient(180deg,#5856D6,#AF52DE);"><i class="fa-solid fa-inbox"></i></div>
+                            <span class="dlr-mapp-label">Inbox</span>
+                        </button>
+                        <button class="dlr-mobile-apps-popup-item" onclick="dlrMobileOpenApp('calendar')">
+                            <div class="dlr-mapp-icon" style="background:linear-gradient(180deg,#FF3B30,#FF2D55);"><i class="fa-solid fa-calendar"></i></div>
+                            <span class="dlr-mapp-label">Calendar</span>
+                        </button>
+                        <button class="dlr-mobile-apps-popup-item" onclick="dlrMobileOpenApp('discord')">
+                            <div class="dlr-mapp-icon" style="background:linear-gradient(180deg,#5865f2,#4752c4);"><i class="fa-brands fa-discord"></i></div>
+                            <span class="dlr-mapp-label">Discord</span>
+                        </button>
+                        <button class="dlr-mobile-apps-popup-item" onclick="dlrMobileOpenApp('slack')">
+                            <div class="dlr-mapp-icon" style="background:linear-gradient(180deg,#611f69,#4a154b);"><i class="fa-brands fa-slack"></i></div>
+                            <span class="dlr-mapp-label">Slack</span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Transcript Modal -->

@@ -310,6 +310,7 @@
             function switchConnectPanel(name) {
                 document.querySelectorAll('[id^="cntab-panel-"]').forEach(p => p.style.display = 'none');
                 document.querySelectorAll('.conn-menu-item').forEach(btn => {
+                    btn.classList.remove('active');
                     btn.style.background = 'transparent';
                     btn.style.border = '1px solid transparent';
                     btn.style.color = '#888';
@@ -318,6 +319,7 @@
                 if (panel) panel.style.display = '';
                 const activeBtn = document.getElementById('cnmenu-' + name);
                 if (activeBtn) {
+                    activeBtn.classList.add('active');
                     activeBtn.style.background = 'rgba(0,255,136,0.08)';
                     activeBtn.style.border = '1px solid rgba(0,255,136,0.15)';
                     activeBtn.style.color = 'var(--accent)';
