@@ -51,7 +51,7 @@ def slack_connect():
     client_id, _, redirect_uri = _slack_creds()
     if not client_id:
         flash("Slack integration is not configured. Contact support.", "error")
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("dashboard.dashboard"))
 
     state = secrets.token_urlsafe(16)
     session["slack_oauth_state"] = state
@@ -76,7 +76,7 @@ def slack_callback():
 
     if error or not code or state != stored_state:
         flash("Slack authorization failed or was cancelled.", "error")
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("dashboard.dashboard"))
 
     client_id, client_secret, redirect_uri = _slack_creds()
 
@@ -95,12 +95,12 @@ def slack_callback():
     except Exception as e:
         logger.error(f"Slack token exchange failed: {e}")
         flash("Could not connect to Slack. Try again.", "error")
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("dashboard.dashboard"))
 
     if not token_data.get("ok"):
         logger.error(f"Slack token error: {token_data}")
         flash("Slack authorization failed. Please try again.", "error")
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("dashboard.dashboard"))
 
     bot_token    = token_data.get("access_token", "")
     team         = token_data.get("team", {})
@@ -146,7 +146,7 @@ def slack_callback():
     ])
 
     flash(f"Slack connected to {team_name}!", "success")
-    return redirect(url_for("dashboard"))
+    return redirect(url_for("dashboard.dashboard"))
 
 
 @slack_bp.route("/slack/disconnect")
@@ -155,7 +155,7 @@ def slack_disconnect():
     """Remove Slack connection."""
     delete_slack_connection(current_user.email)
     flash("Slack disconnected.", "success")
-    return redirect(url_for("dashboard"))
+    return redirect(url_for("dashboard.dashboard"))
 
 
 # ── Status ────────────────────────────────────────────────────────────────────

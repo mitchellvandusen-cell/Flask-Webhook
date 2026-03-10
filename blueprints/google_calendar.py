@@ -106,7 +106,7 @@ def google_calendar_connect():
     client_id, _, redirect_uri = _google_creds()
     if not client_id:
         flash("Google Calendar integration is not configured. Contact support.", "error")
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("dashboard.dashboard"))
 
     # Build the Google OAuth URL for the consent page's "Continue" button
     state = secrets.token_urlsafe(16)
@@ -135,7 +135,7 @@ def google_calendar_callback():
 
     if not code or state != stored_state:
         flash("Google Calendar authorization failed or was cancelled.", "error")
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("dashboard.dashboard"))
 
     client_id, client_secret, redirect_uri = _google_creds()
 
@@ -152,12 +152,12 @@ def google_calendar_callback():
     except Exception as e:
         logger.error(f"Google Calendar token exchange failed: {e}")
         flash("Could not connect to Google Calendar. Try again.", "error")
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("dashboard.dashboard"))
 
     if "access_token" not in token_data:
         logger.error(f"Google Calendar token error: {token_data}")
         flash("Google Calendar authorization failed. Please try again.", "error")
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("dashboard.dashboard"))
 
     access_token = token_data["access_token"]
     refresh_token = token_data.get("refresh_token")
@@ -188,7 +188,7 @@ def google_calendar_callback():
     save_google_calendar_config(current_user.location_id, config)
 
     flash(f"Google Calendar connected{(' as ' + google_email) if google_email else ''}!", "success")
-    return redirect(url_for("dashboard"))
+    return redirect(url_for("dashboard.dashboard"))
 
 
 @google_calendar_bp.route("/google-calendar/disconnect")
@@ -197,7 +197,7 @@ def google_calendar_disconnect():
     """Disconnect Google Calendar integration."""
     delete_google_calendar_config(current_user.location_id)
     flash("Google Calendar disconnected.", "info")
-    return redirect(url_for("dashboard"))
+    return redirect(url_for("dashboard.dashboard"))
 
 
 # ── API endpoints ─────────────────────────────────────────────────────────────

@@ -93,7 +93,7 @@ def discord_connect():
     client_id, _, redirect_uri = _discord_creds()
     if not client_id:
         flash("Discord integration is not configured. Contact support.", "error")
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("dashboard.dashboard"))
 
     state = secrets.token_urlsafe(16)
     session["discord_oauth_state"] = state
@@ -117,7 +117,7 @@ def discord_callback():
 
     if not code or state != stored_state:
         flash("Discord authorization failed or was cancelled.", "error")
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("dashboard.dashboard"))
 
     client_id, client_secret, redirect_uri = _discord_creds()
 
@@ -137,12 +137,12 @@ def discord_callback():
     except Exception as e:
         logger.error(f"Discord token exchange failed: {e}")
         flash("Could not connect to Discord. Try again.", "error")
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("dashboard.dashboard"))
 
     if "access_token" not in token_data:
         logger.error(f"Discord token error: {token_data}")
         flash("Discord authorization failed. Please try again.", "error")
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("dashboard.dashboard"))
 
     access_token  = token_data["access_token"]
     refresh_token = token_data.get("refresh_token")
@@ -157,7 +157,7 @@ def discord_callback():
     except Exception as e:
         logger.error(f"Discord user fetch failed: {e}")
         flash("Connected to Discord but could not fetch user info.", "error")
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("dashboard.dashboard"))
 
     discord_user_id = discord_user.get("id", "")
     username        = discord_user.get("username", "")
@@ -176,7 +176,7 @@ def discord_callback():
     )
 
     flash(f"Discord connected as {global_name or username}! Add a server below.", "success")
-    return redirect(url_for("dashboard"))
+    return redirect(url_for("dashboard.dashboard"))
 
 
 @discord_bp.route("/discord/disconnect")
@@ -185,7 +185,7 @@ def discord_disconnect():
     """Remove Discord connection."""
     delete_discord_connection(current_user.email)
     flash("Discord disconnected.", "success")
-    return redirect(url_for("dashboard"))
+    return redirect(url_for("dashboard.dashboard"))
 
 
 # ── Status / guilds / servers ─────────────────────────────────────────────────

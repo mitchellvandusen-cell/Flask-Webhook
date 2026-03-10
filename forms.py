@@ -1,6 +1,6 @@
 # forms.py — All WTForms classes for InsuranceGrokBot
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField, TextAreaField, SelectField
+from wtforms import StringField, PasswordField, SubmitField, TextAreaField, SelectField, BooleanField
 from wtforms.validators import DataRequired, Email, EqualTo
 
 
@@ -15,6 +15,7 @@ class RegisterForm(FlaskForm):
 class LoginForm(FlaskForm):
     email = StringField("Email", validators=[DataRequired(), Email()])
     password = PasswordField("Password", validators=[DataRequired()])
+    remember = BooleanField("Remember me for 30 days")
     submit = SubmitField("Login")
 
 

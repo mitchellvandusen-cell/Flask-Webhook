@@ -147,14 +147,14 @@ def login():
             flash("Incorrect password.", "error")
             return render_template("login.html", form=form)
 
-        login_user(user)
+        login_user(user, remember=form.remember.data)
         role     = (user.role or 'individual').lower()
         is_admin = user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
 
         if is_admin or role not in ['agency_owner']:
-            return redirect(url_for("dashboard"))
+            return redirect(url_for("dashboard.dashboard"))
         else:
-            return redirect(url_for("agency_dashboard"))
+            return redirect(url_for("agency.agency_dashboard"))
 
     return render_template("login.html", form=form)
 
