@@ -3544,46 +3544,6 @@
             }
         }
 
-        // ── Latency / Ping ──
-        let _pingInterval = null;
-        function dialerStartPing() {
-            if (_pingInterval) return;
-            _pingInterval = setInterval(async () => {
-                const start = performance.now();
-                try {
-                    await fetch('/voice/ping', {method:'HEAD'});
-                    const ms = Math.round(performance.now() - start);
-                    const el = document.getElementById('dialerPingVal');
-                    const dot = document.getElementById('dialerPingDot');
-                    el.textContent = ms + 'ms';
-                    if (ms < 100) { dot.style.background = 'var(--accent)'; }
-                    else if (ms < 300) { dot.style.background = '#ffa500'; }
-                    else { dot.style.background = '#ef4444'; }
-                } catch(e) {
-                    const elV = document.getElementById('dialerPingVal');
-                    const elD = document.getElementById('dialerPingDot');
-                    if (elV) elV.textContent = '--ms';
-                    if (elD) elD.style.background = '#555';
-                }
-            }, 5000);
-            // Immediate first ping
-            (async () => {
-                const start = performance.now();
-                try {
-                    await fetch('/voice/ping', {method:'HEAD'});
-                    const ms = Math.round(performance.now() - start);
-                    document.getElementById('dialerPingVal').textContent = ms + 'ms';
-                    const dot = document.getElementById('dialerPingDot');
-                    if (ms < 100) dot.style.background = 'var(--accent)';
-                    else if (ms < 300) dot.style.background = '#ffa500';
-                    else dot.style.background = '#ef4444';
-                } catch(e) {}
-            })();
-        }
-        function dialerStopPing() {
-            if (_pingInterval) { clearInterval(_pingInterval); _pingInterval = null; }
-        }
-
         // ── Call History / Recordings scope (contact-specific vs all) ──
         let _dialerCallHistoryShowAll = false;
         let _dialerRecordingsShowAll = false;

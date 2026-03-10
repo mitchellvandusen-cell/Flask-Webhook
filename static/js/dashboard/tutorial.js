@@ -460,7 +460,7 @@
         steps.push(chapterStep(3, 'Power Dialer — Contacts &amp; Queue', 'The Power Dialer is your daily driver. Let\'s start with how to load contacts, build a call queue, and launch auto-dial sessions.'));
 
         steps.push({ element: '.dlr-top-bar',
-            popover: { title: 'Dialer Control Bar', description: 'Everything you need for dialing lives here — manual phone input, AI/Human mode, latency monitor, stats, and settings.', side: 'bottom' },
+            popover: { title: 'Dialer Control Bar', description: 'Everything you need for dialing lives here — manual phone input, AI/Human mode, stats, and settings.', side: 'bottom' },
             onHighlightStarted: function() { goTab('voicedialer'); }
         });
         steps.push({ element: '#dialModeType',
@@ -474,9 +474,6 @@
         });
         steps.push({ element: '#modeHumanBtn',
             popover: { title: 'Human / Browser Mode', description: 'In <strong>Human mode</strong>, YOU talk to the lead directly through your browser mic and speakers (VoIP). No AI involvement — just a regular phone call from your dashboard.', side: 'bottom' }
-        });
-        steps.push({ element: '#dialerLatency',
-            popover: { title: 'Latency Monitor', description: 'Real-time <strong>ping indicator</strong> showing connection quality to the voice servers. Green = great (<100ms), Orange = okay (<300ms), Red = poor.', side: 'bottom' }
         });
         steps.push({ element: '#dialerStatsToggle',
             popover: { title: 'Call Statistics', description: 'Opens the stats panel — click it now to see what\'s inside.', side: 'bottom' }
