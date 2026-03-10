@@ -336,22 +336,46 @@
                         /* Number rotation banner */
                         #numberRotationBanner { font-size:0.78rem !important; padding:8px 10px !important; }
 
+                        /* ── Hide ping/latency on mobile ── */
+                        #dialerLatency { display:none !important; }
+
+                        /* ── Hide Get Contacts button on mobile, keep sync/refresh only ── */
+                        #dialerGetContactsBtn { display:none !important; }
+
+                        /* ── Hide settings gear from top bar on mobile (moved to bottom bar) ── */
+                        #dialerSettingsToggle { display:none !important; }
+
                         /* ── Compact contacts panel on mobile ── */
                         #dlrColContacts .dlr-col-hdr { padding:5px 10px !important; }
                         #dlrColContacts .dlr-col-hdr h6 { font-size:0.82rem !important; }
                         #dlrColContacts .dlr-col-hdr button { padding:2px 6px !important; font-size:0.72rem !important; }
-                        /* Search + filters wrapper */
-                        #dialerFilterWrap { padding:4px 10px 3px !important; }
-                        #dialerFilterWrap > div:first-child { margin-bottom:3px !important; }
-                        #dialerSearch { padding:4px 8px 4px 24px !important; font-size:0.8rem !important; }
-                        #dialerPipelineFilter { padding:3px 6px !important; font-size:0.75rem !important; margin-bottom:2px !important; }
-                        #dialerStageFilter { padding:3px 6px !important; font-size:0.7rem !important; }
-                        #dialerCacheStatus { font-size:0.65rem !important; padding:0 !important; margin:0 !important; }
-                        /* Actions bar */
-                        #dialerActionsBar { padding:3px 10px !important; }
-                        /* Queue header */
-                        #dialerQueueCount { font-size:0.7rem !important; }
-                        #dialerQueueList { max-height:120px !important; padding:2px 6px !important; }
+
+                        /* ── Hide full search/filters/queue — replaced by compact icon toolbar ── */
+                        #dialerFilterWrap { display:none !important; }
+                        #dialerActionsBar { display:none !important; }
+                        #dialerQueueWrap { display:none !important; }
+
+                        /* ── Mobile compact toolbar (search/filter/queue icons) ── */
+                        .dlr-mobile-toolbar { display:flex !important; align-items:center; gap:6px; padding:6px 10px; border-bottom:1px solid rgba(255,255,255,0.04); flex-shrink:0; }
+                        .dlr-mob-tool-btn { width:36px; height:36px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.04); color:#888; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:0.82rem; font-weight:700; transition:all .15s; position:relative; flex-shrink:0; }
+                        .dlr-mob-tool-btn:active { background:rgba(0,217,255,0.15); color:#00d9ff; }
+                        .dlr-mob-tool-btn.active { background:rgba(0,217,255,0.12); border-color:rgba(0,217,255,0.25); color:#00d9ff; }
+                        .dlr-mob-tool-badge { position:absolute; top:-4px; right:-4px; min-width:16px; height:16px; border-radius:8px; background:#00d9ff; color:#000; font-size:0.6rem; font-weight:800; display:flex; align-items:center; justify-content:center; padding:0 3px; font-family:'JetBrains Mono',monospace; }
+
+                        /* ── Mobile search popup ── */
+                        .dlr-mob-search-popup { display:none; padding:6px 10px 8px; border-bottom:1px solid rgba(255,255,255,0.04); flex-shrink:0; }
+                        .dlr-mob-search-popup.open { display:block; }
+                        .dlr-mob-search-popup input { width:100%; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); color:#fff; padding:8px 10px; border-radius:8px; font-size:0.88rem; outline:none; }
+
+                        /* ── Mobile filter popup ── */
+                        .dlr-mob-filter-popup { display:none; padding:8px 10px; border-bottom:1px solid rgba(255,255,255,0.04); flex-shrink:0; }
+                        .dlr-mob-filter-popup.open { display:block; }
+                        .dlr-mob-filter-popup select { width:100%; background:#0d0d1a; border:1px solid rgba(255,255,255,0.08); color:#aaa; padding:8px 10px; border-radius:8px; font-size:0.82rem; outline:none; margin-bottom:6px; }
+
+                        /* ── Mobile queue popup ── */
+                        .dlr-mob-queue-popup { display:none; border-bottom:1px solid rgba(255,255,255,0.04); flex-shrink:0; }
+                        .dlr-mob-queue-popup.open { display:block; }
+
                         /* Contact rows — reduce gap + padding */
                         .dlr-contact-row { gap:6px !important; }
 
@@ -1095,7 +1119,7 @@
                             </div>
                         </div>
                         <!-- Queue (above contacts) -->
-                        <div style="border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
+                        <div id="dialerQueueWrap" style="border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
                             <div style="padding:6px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="document.getElementById('dialerQueueBody').style.display=document.getElementById('dialerQueueBody').style.display==='none'?'block':'none'">
                                 <span style="font-size:0.75rem;font-weight:700;color:var(--accent);"><i class="fa-solid fa-list-ol me-1"></i>Queue <span id="dialerQueueCount" style="color:#00d9ff;">0</span></span>
                                 <i class="fa-solid fa-chevron-down" style="color:#555;font-size:0.7rem;"></i>
@@ -1110,6 +1134,49 @@
                                     </button>
                                     <button onclick="dialerClearQueue()" style="padding:6px 10px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);color:#888;font-weight:600;font-size:0.75rem;cursor:pointer;">Clear</button>
                                 </div>
+                            </div>
+                        </div>
+                        <!-- ═══ Mobile Compact Toolbar (search/filter/queue as icons) ═══ -->
+                        <div class="dlr-mobile-toolbar" id="dlrMobileToolbar" style="display:none;">
+                            <button class="dlr-mob-tool-btn" id="dlrMobSearchBtn" onclick="dlrMobToggle('search')" title="Search contacts">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                            </button>
+                            <button class="dlr-mob-tool-btn" id="dlrMobFilterBtn" onclick="dlrMobToggle('filter')" title="Filter contacts">
+                                <i class="fa-solid fa-filter"></i>
+                            </button>
+                            <button class="dlr-mob-tool-btn" id="dlrMobQueueBtn" onclick="dlrMobToggle('queue')" title="Queue">
+                                <span style="font-size:0.72rem;letter-spacing:-0.5px;">Qu+</span>
+                                <span class="dlr-mob-tool-badge" id="dlrMobQueueBadge" style="display:none;">0</span>
+                            </button>
+                            <div style="flex:1;"></div>
+                            <div id="dlrMobCacheStatus" style="font-size:0.65rem;color:#555;display:flex;align-items:center;gap:3px;"></div>
+                        </div>
+                        <!-- Mobile Search Popup -->
+                        <div class="dlr-mob-search-popup" id="dlrMobSearchPopup">
+                            <input type="text" id="dlrMobSearchInput" placeholder="Search contacts..." oninput="dlrMobSearchSync(this.value)">
+                        </div>
+                        <!-- Mobile Filter Popup -->
+                        <div class="dlr-mob-filter-popup" id="dlrMobFilterPopup">
+                            <select id="dlrMobPipelineFilter" onchange="dlrMobPipelineSync(this.value)">
+                                <option value="">All Contacts</option>
+                            </select>
+                            <select id="dlrMobStageFilter" onchange="dlrMobStageSync(this.value)">
+                                <option value="">All Stages (select a pipeline first)</option>
+                            </select>
+                        </div>
+                        <!-- Mobile Queue Popup -->
+                        <div class="dlr-mob-queue-popup" id="dlrMobQueuePopup">
+                            <div style="padding:6px 10px;display:flex;align-items:center;justify-content:space-between;">
+                                <span style="font-size:0.75rem;font-weight:700;color:var(--accent);"><i class="fa-solid fa-list-ol me-1"></i>Queue <span id="dlrMobQueueCount">0</span></span>
+                            </div>
+                            <div id="dlrMobQueueList" style="max-height:160px;overflow-y:auto;padding:4px 8px;">
+                                <div style="text-align:center;padding:10px;color:#555;font-size:0.75rem;">Empty queue</div>
+                            </div>
+                            <div style="display:flex;gap:4px;padding:6px 8px;">
+                                <button onclick="dialerToggleQueue()" style="flex:1;padding:6px;border-radius:6px;border:none;background:linear-gradient(135deg,var(--accent),#00b36b);color:#000;font-weight:700;font-size:0.75rem;cursor:pointer;">
+                                    <i class="fa-solid fa-play me-1"></i>Auto-Dial
+                                </button>
+                                <button onclick="dialerClearQueue()" style="padding:6px 10px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);color:#888;font-weight:600;font-size:0.75rem;cursor:pointer;">Clear</button>
                             </div>
                         </div>
                         <!-- Contact List -->
@@ -1872,6 +1939,9 @@
                     <button class="dlr-mobile-action-btn" id="dlrMobBtnMessages" onclick="dlrMobileOpenApp('messages')">
                         <i class="fa-solid fa-comment-dots"></i> Messages
                     </button>
+                    <button class="dlr-mobile-action-btn" id="dlrMobBtnSettings" onclick="toggleDialerSettings()">
+                        <i class="fa-solid fa-gear"></i>
+                    </button>
                     <button class="dlr-mobile-action-btn" id="dlrMobBtnApps" onclick="dlrMobileToggleApps()">
                         <i class="fa-solid fa-grip"></i> Apps
                     </button>
@@ -1919,6 +1989,103 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- ═══ Mobile Toolbar JS ═══ -->
+                <script>
+                (function(){
+                    /* Toggle search/filter/queue popups on mobile */
+                    var _mobOpen = null;
+                    window.dlrMobToggle = function(which) {
+                        var panels = {
+                            search: 'dlrMobSearchPopup',
+                            filter: 'dlrMobFilterPopup',
+                            queue:  'dlrMobQueuePopup'
+                        };
+                        var btns = {
+                            search: 'dlrMobSearchBtn',
+                            filter: 'dlrMobFilterBtn',
+                            queue:  'dlrMobQueueBtn'
+                        };
+                        // Close current if same
+                        if (_mobOpen === which) {
+                            document.getElementById(panels[which]).classList.remove('open');
+                            document.getElementById(btns[which]).classList.remove('active');
+                            _mobOpen = null;
+                            return;
+                        }
+                        // Close any open
+                        Object.keys(panels).forEach(function(k){
+                            document.getElementById(panels[k]).classList.remove('open');
+                            document.getElementById(btns[k]).classList.remove('active');
+                        });
+                        // Open requested
+                        document.getElementById(panels[which]).classList.add('open');
+                        document.getElementById(btns[which]).classList.add('active');
+                        _mobOpen = which;
+                        // Focus search input
+                        if (which === 'search') {
+                            var inp = document.getElementById('dlrMobSearchInput');
+                            if (inp) setTimeout(function(){ inp.focus(); }, 100);
+                        }
+                    };
+
+                    /* Sync mobile search → desktop search */
+                    window.dlrMobSearchSync = function(val) {
+                        var desk = document.getElementById('dialerSearch');
+                        if (desk) { desk.value = val; }
+                        if (typeof dialerDebounceSearch === 'function') dialerDebounceSearch();
+                    };
+
+                    /* Sync mobile pipeline filter → desktop */
+                    window.dlrMobPipelineSync = function(val) {
+                        var desk = document.getElementById('dialerPipelineFilter');
+                        if (desk) { desk.value = val; desk.dispatchEvent(new Event('change')); }
+                    };
+
+                    /* Sync mobile stage filter → desktop */
+                    window.dlrMobStageSync = function(val) {
+                        var desk = document.getElementById('dialerStageFilter');
+                        if (desk) { desk.value = val; desk.dispatchEvent(new Event('change')); }
+                    };
+
+                    /* Keep mobile pipeline/stage selects in sync when desktop changes */
+                    function _syncSelects() {
+                        var dp = document.getElementById('dialerPipelineFilter');
+                        var mp = document.getElementById('dlrMobPipelineFilter');
+                        var ds = document.getElementById('dialerStageFilter');
+                        var ms = document.getElementById('dlrMobStageFilter');
+                        if (dp && mp) {
+                            // Clone options
+                            mp.innerHTML = dp.innerHTML;
+                            mp.value = dp.value;
+                        }
+                        if (ds && ms) {
+                            ms.innerHTML = ds.innerHTML;
+                            ms.value = ds.value;
+                            ms.disabled = ds.disabled;
+                        }
+                    }
+
+                    /* Observe desktop selects for option changes */
+                    var _syncInterval = setInterval(function(){
+                        if (window.innerWidth > 768) return;
+                        _syncSelects();
+                        /* Sync queue count badge */
+                        var dqc = document.getElementById('dialerQueueCount');
+                        var mqb = document.getElementById('dlrMobQueueBadge');
+                        var mqc = document.getElementById('dlrMobQueueCount');
+                        var mql = document.getElementById('dlrMobQueueList');
+                        var dql = document.getElementById('dialerQueueList');
+                        if (dqc && mqb) {
+                            var n = parseInt(dqc.textContent) || 0;
+                            mqb.style.display = n > 0 ? 'flex' : 'none';
+                            mqb.textContent = n;
+                            if (mqc) mqc.textContent = n;
+                        }
+                        if (dql && mql) mql.innerHTML = dql.innerHTML;
+                    }, 1500);
+                })();
+                </script>
 
                 <!-- Transcript Modal -->
                 <div id="transcriptModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);z-index:10000;align-items:center;justify-content:center;">
