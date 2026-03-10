@@ -854,33 +854,89 @@ def _log_sync_event(location_id, results, elapsed):
 
 # ─── Cron Entry Point ────────────────────────────────────────────────────────
 
+def sync_location_task(location_id):
+    """RQ task: sync GHL data for a single location.
+    Called by run_incremental_sync_all() which fans out one job per location.
+    Each location syncs independently — 100 locations run as 100 parallel jobs
+    instead of 1 serial loop.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return {"error": "no_db", "location_id": location_id}
+
+    try:
+        # Check if sync is already running (prevent overlap)
+        state = _get_sync_state(conn, location_id, 'conversations')
+        if state and state.get('sync_status') == 'running':
+            last_sync = state.get('last_sync_at')
+            if last_sync:
+                if isinstance(last_sync, str):
+                    last_sync = datetime.fromisoformat(last_sync.replace('Z', '+00:00'))
+                age = datetime.utcnow() - (last_sync.replace(tzinfo=None) if hasattr(last_sync, 'tzinfo') and last_sync.tzinfo else last_sync)
+                if age < timedelta(minutes=30):
+                    logger.info(f"[GHL_SYNC] {location_id} sync already running, skipping")
+                    return {"status": "skipped", "reason": "already_running"}
+
+        # Get subscriber row for token refresh
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT location_id, access_token, refresh_token, token_expires_at
+            FROM subscribers WHERE location_id = %s
+            UNION ALL
+            SELECT location_id, access_token, refresh_token, token_expires_at
+            FROM agency_billing WHERE location_id = %s
+            LIMIT 1
+        """, (location_id, location_id))
+        row = cur.fetchone()
+        cur.close()
+    except Exception as e:
+        logger.error(f"[GHL_SYNC] {location_id} DB error: {e}")
+        return {"error": str(e)}
+    finally:
+        return_db_connection(conn)
+
+    if not row:
+        return {"status": "skipped", "reason": "not_found"}
+
+    token = get_valid_token(location_id, row)
+    if not token or token == 'DEMO':
+        return {"status": "skipped", "reason": "no_token"}
+
+    try:
+        result = sync_all_for_location(location_id, token)
+        logger.info(f"[GHL_SYNC] {location_id} sync complete")
+        return {"status": "success", "location_id": location_id}
+    except Exception as e:
+        logger.error(f"[GHL_SYNC] {location_id} sync failed: {e}", exc_info=True)
+        return {"status": "failed", "error": str(e)}
+
+
 def run_incremental_sync_all():
     """
-    Cron entry point: sync GHL data for ALL active subscribers.
-    Designed to run every 5-10 minutes.
-    Returns summary stats.
+    Cron entry point: fan out per-location sync jobs to RQ.
+    Instead of syncing all locations serially in one job (which blocks for
+    30+ minutes at scale), this enqueues each location as its own independent
+    RQ job. The RQ worker pool processes them in parallel.
+
+    At 3 locations this is instant. At 100 locations, the worker pool
+    distributes the load — each location gets its own 5-minute job instead
+    of waiting behind 99 others.
     """
     conn = get_db_connection()
     if not conn:
         return {"error": "no_db", "synced": 0}
 
-    stats = {"total_locations": 0, "synced": 0, "failed": 0, "skipped": 0}
-
     try:
         cur = conn.cursor()
         # Get all active subscribers with tokens (OAuth or PIT)
-        # PIT (Private Integration Tokens) have no refresh_token — they're
-        # persistent API keys that don't expire.  Previously this query
-        # required refresh_token IS NOT NULL which silently excluded all
-        # PIT-authenticated accounts from the sync pipeline.
         cur.execute("""
-            SELECT location_id, access_token, refresh_token, token_expires_at
+            SELECT location_id
             FROM subscribers
             WHERE location_id IS NOT NULL
               AND access_token IS NOT NULL
               AND stripe_status IN ('active', 'trialing')
             UNION ALL
-            SELECT location_id, access_token, refresh_token, token_expires_at
+            SELECT location_id
             FROM agency_billing
             WHERE location_id IS NOT NULL
               AND access_token IS NOT NULL
@@ -894,51 +950,34 @@ def run_incremental_sync_all():
     finally:
         return_db_connection(conn)
 
-    stats["total_locations"] = len(rows)
-    logger.info(f"[GHL_SYNC] Starting incremental sync for {len(rows)} locations")
+    location_ids = [r['location_id'] for r in rows if r.get('location_id')]
+    logger.info(f"[GHL_SYNC] Fanning out sync for {len(location_ids)} locations")
 
-    for row in rows:
-        loc_id = row.get("location_id")
-        if not loc_id:
-            stats["skipped"] += 1
-            continue
+    # Enqueue each location as its own RQ job
+    queued = 0
+    try:
+        import redis as _redis
+        from rq import Queue as _Queue
+        _r = _redis.from_url(os.getenv('REDIS_URL', 'redis://localhost:6379'),
+                             socket_timeout=5, socket_connect_timeout=5)
+        _q = _Queue('website', connection=_r)
 
-        try:
-            # Check if sync is already running (prevent overlap)
-            conn2 = get_db_connection()
-            if conn2:
-                state = _get_sync_state(conn2, loc_id, 'conversations')
-                return_db_connection(conn2)
-                if state and state.get('sync_status') == 'running':
-                    # Check if it's been running too long (stuck)
-                    last_sync = state.get('last_sync_at')
-                    if last_sync:
-                        if isinstance(last_sync, str):
-                            last_sync = datetime.fromisoformat(last_sync.replace('Z', '+00:00'))
-                        age = datetime.utcnow() - (last_sync.replace(tzinfo=None) if hasattr(last_sync, 'tzinfo') and last_sync.tzinfo else last_sync)
-                        if age < timedelta(minutes=30):
-                            logger.info(f"[GHL_SYNC] {loc_id} sync already running, skipping")
-                            stats["skipped"] += 1
-                            continue
+        for loc_id in location_ids:
+            try:
+                _q.enqueue(
+                    sync_location_task,
+                    loc_id,
+                    job_timeout=600,   # 10 min per location (plenty)
+                    result_ttl=3600,
+                )
+                queued += 1
+            except Exception as e:
+                logger.error(f"[GHL_SYNC] Failed to queue {loc_id}: {e}")
+    except Exception as e:
+        logger.error(f"[GHL_SYNC] Redis/RQ error during fan-out: {e}")
 
-            # Get fresh token
-            token = get_valid_token(loc_id, row)
-            if not token or token == 'DEMO':
-                stats["skipped"] += 1
-                continue
-
-            result = sync_all_for_location(loc_id, token)
-            stats["synced"] += 1
-
-            # Brief pause between locations to be kind to GHL API
-            _time.sleep(1)
-
-        except Exception as e:
-            logger.error(f"[GHL_SYNC] {loc_id} sync failed: {e}", exc_info=True)
-            stats["failed"] += 1
-
-    logger.info(f"[GHL_SYNC] Incremental sync complete: {stats}")
-    return stats
+    logger.info(f"[GHL_SYNC] Queued {queued}/{len(location_ids)} location sync jobs")
+    return {"total_locations": len(location_ids), "queued": queued}
 
 
 # ─── Deep Initial Sync (One-Time Historical Pull) ────────────────────────────
