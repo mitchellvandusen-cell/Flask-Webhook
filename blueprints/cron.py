@@ -205,7 +205,7 @@ def api_cron_sync_ghl_data():
         from ghl_sync import run_incremental_sync_all
         job = extensions.q_website.enqueue(
             run_incremental_sync_all,
-            job_timeout=120,   # dispatcher is fast — just enqueues per-location jobs
+            job_timeout=900,   # all locations sync concurrently via threads (~5-10 min)
             result_ttl=86400,
         )
         return safe_jsonify({"success": True, "queued": True, "job_id": job.id})
