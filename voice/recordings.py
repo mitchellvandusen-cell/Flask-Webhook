@@ -147,16 +147,6 @@ def stream_recording(recording_sid):
 
 
 # ──────────────────────────────────────────────────────────────
-# ROUTE: Lightweight ping for latency measurement
-# ──────────────────────────────────────────────────────────────
-
-@recordings_bp.route('/voice/ping', methods=['GET', 'HEAD'])
-@login_required
-def voice_ping():
-    """Lightweight endpoint for the dialer to measure latency."""
-    return '', 204
-
-
 @recordings_bp.route('/voice/transcribe-recording', methods=['POST'])
 @login_required
 def transcribe_recording():

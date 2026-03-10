@@ -357,9 +357,6 @@
                         /* Number rotation banner */
                         #numberRotationBanner { font-size:0.78rem !important; padding:8px 10px !important; }
 
-                        /* ── Hide ping/latency on mobile ── */
-                        #dialerLatency { display:none !important; }
-
                         /* ── Hide Get Contacts button on mobile, keep sync/refresh only ── */
                         #dialerGetContactsBtn { display:none !important; }
 
@@ -729,11 +726,6 @@
                         <button id="modeHumanBtn" onclick="setDialerMode('human')" style="padding:6px 14px;border-radius:6px;border:none;background:transparent;color:#888;font-weight:700;font-size:0.88rem;cursor:pointer;transition:all .2s;">
                             <i class="fa-solid fa-headset me-1"></i>Human
                         </button>
-                    </div>
-                    <!-- Latency / Ping -->
-                    <div id="dialerLatency" style="display:flex;align-items:center;gap:6px;font-size:0.82rem;color:#888;">
-                        <span id="dialerPingDot" style="width:6px;height:6px;border-radius:50%;background:#555;"></span>
-                        <span id="dialerPingVal">--ms</span>
                     </div>
                     <!-- AI Call Timer -->
                     <div id="dialerAiTimer" style="display:none;font-family:monospace;font-size:1rem;color:var(--accent);font-weight:700;">00:00</div>
