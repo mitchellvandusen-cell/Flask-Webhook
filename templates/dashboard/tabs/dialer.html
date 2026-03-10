@@ -319,8 +319,8 @@
                         /* Intel column on mobile */
                         #dlrColIntel.dlr-mobile-active { height:calc(100vh - 260px); min-height:350px; }
 
-                        /* Contact rows — larger touch targets */
-                        .dlr-contact-row { padding:12px !important; min-height:52px; }
+                        /* Contact rows — compact touch targets */
+                        .dlr-contact-row { padding:8px 10px !important; min-height:44px; }
 
                         /* Quick options on mobile — full-width bottom */
                         .ios-quick-options-menu { min-width:calc(100vw - 40px); }
@@ -335,6 +335,25 @@
 
                         /* Number rotation banner */
                         #numberRotationBanner { font-size:0.78rem !important; padding:8px 10px !important; }
+
+                        /* ── Compact contacts panel on mobile ── */
+                        #dlrColContacts .dlr-col-hdr { padding:5px 10px !important; }
+                        #dlrColContacts .dlr-col-hdr h6 { font-size:0.82rem !important; }
+                        #dlrColContacts .dlr-col-hdr button { padding:2px 6px !important; font-size:0.72rem !important; }
+                        /* Search + filters wrapper */
+                        #dialerFilterWrap { padding:4px 10px 3px !important; }
+                        #dialerFilterWrap > div:first-child { margin-bottom:3px !important; }
+                        #dialerSearch { padding:4px 8px 4px 24px !important; font-size:0.8rem !important; }
+                        #dialerPipelineFilter { padding:3px 6px !important; font-size:0.75rem !important; margin-bottom:2px !important; }
+                        #dialerStageFilter { padding:3px 6px !important; font-size:0.7rem !important; }
+                        #dialerCacheStatus { font-size:0.65rem !important; padding:0 !important; margin:0 !important; }
+                        /* Actions bar */
+                        #dialerActionsBar { padding:3px 10px !important; }
+                        /* Queue header */
+                        #dialerQueueCount { font-size:0.7rem !important; }
+                        #dialerQueueList { max-height:120px !important; padding:2px 6px !important; }
+                        /* Contact rows — reduce gap + padding */
+                        .dlr-contact-row { gap:6px !important; }
 
                         /* ── Mobile Action Bar (below contact/intel) ── */
                         .dlr-mobile-action-bar { display:flex !important; gap:6px; padding:10px 8px; background:rgba(8,8,16,0.8); border:1px solid rgba(255,255,255,0.06); border-radius:10px; margin-top:8px; }
@@ -1031,7 +1050,7 @@
                         </div>
                         <!-- Quick Dial moved to header -->
                         <!-- Search + Filters -->
-                        <div style="padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.04);flex-shrink:0;">
+                        <div id="dialerFilterWrap" style="padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.04);flex-shrink:0;">
                             <div style="position:relative;margin-bottom:6px;">
                                 <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);color:#444;font-size:0.75rem;"></i>
                                 <input type="text" id="dialerSearch" placeholder="Search contacts..." oninput="dialerDebounceSearch()"
