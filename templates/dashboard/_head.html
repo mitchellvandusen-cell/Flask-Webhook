@@ -832,51 +832,11 @@
         .discord-channel-btn.active-channel .ch-hash { color: #5865f2; }
         .discord-channel-btn .ch-notif { margin-left: auto; }
 
-        /* Discord message panel — slides out from the right side of the sidebar */
-        #discordPanel {
-            position: fixed; top: 0; bottom: 0;
-            left: var(--sidebar-width);
-            width: 380px;
-            background: #0d0d14;
-            border-left: none;
-            border-right: 1px solid rgba(88, 101, 242, 0.18);
-            z-index: 150;
-            display: flex; flex-direction: column;
-            transform: translateX(-100%);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                        left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 6px 0 40px rgba(0,0,0,0.6);
-        }
-        #discordPanel.open { transform: translateX(0); }
-
-        /* Collapsed sidebar: move panel left to match collapsed sidebar width */
-        body.sidebar-collapsed #discordPanel { left: var(--sidebar-collapsed-width); }
-
-        /* Main content shifts right when Discord panel is open */
-        body.discord-open .main-wrapper {
-            margin-left: calc(var(--sidebar-width) + 380px);
-            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        body.discord-open.sidebar-collapsed .main-wrapper {
-            margin-left: calc(var(--sidebar-collapsed-width) + 380px);
-        }
-        @media (max-width: 992px) {
-            body.discord-open .main-wrapper,
-            body.discord-open.sidebar-collapsed .main-wrapper {
-                margin-left: calc(var(--sidebar-collapsed-width) + 380px);
-            }
-        }
-        /* Mobile: Discord panel becomes full-screen overlay */
-        @media (max-width: 768px) {
-            #discordPanel {
-                left: 0 !important; width: 100% !important;
-                z-index: 250 !important;
-            }
-            body.discord-open .main-wrapper,
-            body.discord-open.sidebar-collapsed .main-wrapper {
-                margin-left: 0 !important;
-            }
-        }
+        /* Discord/Slack side panels retired — replaced by in-phone UI apps.
+           Keep elements in DOM so existing JS doesn't crash, but never show them. */
+        /* Discord/Slack side panels retired — now phone UI apps */
+        #discordPanel { display: none !important; }
+        #discordPanel.open { display: none !important; }
 
         .discord-panel-header {
             display: flex; align-items: center; gap: 10px;
@@ -1165,47 +1125,8 @@
         .slack-channel-btn.active-channel .ch-hash { color: #36c5f0; }
         .slack-channel-btn .ch-notif { margin-left: auto; }
 
-        /* Slack message panel — slides out from the right side of the sidebar */
-        #slackPanel {
-            position: fixed; top: 0; bottom: 0;
-            left: var(--sidebar-width);
-            width: 380px;
-            background: #0d0d14;
-            border-left: none;
-            border-right: 1px solid rgba(54, 197, 240, 0.18);
-            z-index: 149;
-            display: flex; flex-direction: column;
-            transform: translateX(-100%);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                        left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 6px 0 40px rgba(0,0,0,0.6);
-        }
-        #slackPanel.open { transform: translateX(0); }
-        body.sidebar-collapsed #slackPanel { left: var(--sidebar-collapsed-width); }
-        body.slack-open .main-wrapper {
-            margin-left: calc(var(--sidebar-width) + 380px);
-            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        body.slack-open.sidebar-collapsed .main-wrapper {
-            margin-left: calc(var(--sidebar-collapsed-width) + 380px);
-        }
-        @media (max-width: 992px) {
-            body.slack-open .main-wrapper,
-            body.slack-open.sidebar-collapsed .main-wrapper {
-                margin-left: calc(var(--sidebar-collapsed-width) + 380px);
-            }
-        }
-        /* Mobile: Slack panel becomes full-screen overlay */
-        @media (max-width: 768px) {
-            #slackPanel {
-                left: 0 !important; width: 100% !important;
-                z-index: 249 !important;
-            }
-            body.slack-open .main-wrapper,
-            body.slack-open.sidebar-collapsed .main-wrapper {
-                margin-left: 0 !important;
-            }
-        }
+        #slackPanel { display: none !important; }
+        #slackPanel.open { display: none !important; }
 
         .slack-panel-header {
             display: flex; align-items: center; gap: 10px;

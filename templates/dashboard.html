@@ -103,6 +103,13 @@
             <i class="fa-solid fa-list-check"></i> <span>Activity Logs</span>
         </button>
         <div class="mobile-sheet-divider"></div>
+        <button class="mobile-sheet-item" onclick="mobileNav('voicedialer', null); mobileCloseMoreSheet(); setTimeout(function(){ if(typeof iosOpenApp==='function') iosOpenApp('discord'); }, 300);">
+            <i class="fa-brands fa-discord" style="color:#5865f2;"></i> <span>Discord</span>
+        </button>
+        <button class="mobile-sheet-item" onclick="mobileNav('voicedialer', null); mobileCloseMoreSheet(); setTimeout(function(){ if(typeof iosOpenApp==='function') iosOpenApp('slack'); }, 300);">
+            <i class="fa-brands fa-slack" style="color:#611f69;"></i> <span>Slack</span>
+        </button>
+        <div class="mobile-sheet-divider"></div>
         <a href="/onboarding-status" class="mobile-sheet-item" style="text-decoration:none;">
             <i class="fa-solid fa-circle-check"></i> <span>Setup Progress</span>
         </a>

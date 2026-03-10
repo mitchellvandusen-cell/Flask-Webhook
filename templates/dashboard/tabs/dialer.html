@@ -343,6 +343,10 @@
                         /* Reduce wallpaper intensity on mobile — the gradient blobs dominate small screens */
                         .ios-wallpaper { opacity: 0.35; }
 
+                        /* Hide Discord/Slack app icons on mobile — they're buttons in the More sheet */
+                        .ios-app-icon[onclick*="discord"],
+                        .ios-app-icon[onclick*="slack"] { display: none !important; }
+
                         /* iOS home screen apps grid — smaller on mobile */
                         .ios-app-icon { width: 52px !important; }
                         .ios-app-icon-img { width: 42px !important; height: 42px !important; }
