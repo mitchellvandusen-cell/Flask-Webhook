@@ -1,1488 +1,1008 @@
-<!-- Updated agency_dashboard.html (added owner config/profile section, accordion for subs remains) -->
-{% extends "base.html" %}
-{% block title %}Agency Command Center | InsuranceGrokBot{% endblock %}
-{% block content %}
-<div class="container" style="padding-top: 120px; padding-bottom: 80px;">
-   
-    <!-- Agency topbar utilities -->
-    <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-bottom:16px;">
-        <a href="/dashboard" style="background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.15);color:var(--accent,#00ff88);border-radius:8px;padding:6px 14px;font-size:0.82rem;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
-            <i class="fa-solid fa-phone-volume"></i> Voice Dialer
-        </a>
-        <button id="agencyThemeToggle" onclick="agencyToggleTheme()" title="Switch to light mode"
-            style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:8px;padding:6px 12px;font-size:0.95rem;cursor:pointer;transition:all .2s;">
-            <i class="fa-solid fa-sun"></i>
-        </button>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#050505">
+    <title>Agency Command Center | InsuranceGrokBot</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <style>
+        /* ── Agency Dashboard — sidebar + main layout ── */
+        :root {
+            --accent: #00ff88;
+            --cyan: #00d9ff;
+            --sidebar-w: 240px;
+            --sidebar-collapsed-w: 62px;
+            --dark-bg: #050505;
+            --card-bg: rgba(255,255,255,0.03);
+            --border: rgba(255,255,255,0.06);
+        }
+        body { background: var(--dark-bg); color: #ddd; font-family: 'Outfit', sans-serif; margin: 0; }
+
+        /* Sidebar */
+        .ag-sidebar {
+            position: fixed; top: 0; left: 0; bottom: 0;
+            width: var(--sidebar-w); background: rgba(8,8,16,0.95);
+            border-right: 1px solid var(--border); z-index: 100;
+            display: flex; flex-direction: column;
+            transition: width 0.25s ease;
+        }
+        .ag-sidebar.collapsed { width: var(--sidebar-collapsed-w); }
+        .ag-sidebar.collapsed .ag-nav-label,
+        .ag-sidebar.collapsed .ag-brand-text,
+        .ag-sidebar.collapsed .ag-section-header span,
+        .ag-sidebar.collapsed .ag-footer span { display: none; }
+        .ag-sidebar.collapsed .ag-section-chevron { display: none; }
+
+        .ag-brand { display: flex; align-items: center; gap: 10px; padding: 16px 14px; border-bottom: 1px solid var(--border); }
+        .ag-brand-logo { width: 28px; height: 28px; flex-shrink: 0; }
+        .ag-brand-text { font-weight: 800; font-size: 0.95rem; color: var(--accent); white-space: nowrap; }
+        .ag-toggle { background: none; border: none; color: #666; cursor: pointer; margin-left: auto; padding: 4px 8px; font-size: 1rem; }
+        .ag-toggle:hover { color: #fff; }
+
+        .ag-scroll { flex: 1; overflow-y: auto; padding: 8px 0; }
+        .ag-nav-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 14px; margin: 1px 6px; border-radius: 8px;
+            background: none; border: none; color: #888; font-size: 0.9rem;
+            font-weight: 500; cursor: pointer; width: calc(100% - 12px);
+            text-align: left; transition: all 0.15s; text-decoration: none;
+        }
+        .ag-nav-item:hover { background: rgba(255,255,255,0.04); color: #ccc; }
+        .ag-nav-item.active { background: rgba(0,255,136,0.06); color: var(--accent); }
+        .ag-nav-item i { width: 18px; text-align: center; font-size: 0.9rem; flex-shrink: 0; }
+        .ag-nav-label { white-space: nowrap; }
+        .ag-divider { height: 1px; background: var(--border); margin: 8px 14px; }
+
+        .ag-section-header {
+            display: flex; align-items: center; padding: 6px 14px;
+            font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px;
+            color: #555; font-weight: 700; cursor: pointer; user-select: none;
+        }
+        .ag-section-chevron { margin-left: auto; font-size: 0.65rem; transition: transform 0.2s; }
+        .ag-section.closed .ag-section-body { display: none; }
+        .ag-section.closed .ag-section-chevron { transform: rotate(-90deg); }
+
+        .ag-footer { padding: 8px 0; border-top: 1px solid var(--border); }
+        .ag-footer a, .ag-footer button {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 14px; color: #666; font-size: 0.85rem;
+            text-decoration: none; background: none; border: none;
+            cursor: pointer; width: 100%; text-align: left; transition: color 0.15s;
+        }
+        .ag-footer a:hover, .ag-footer button:hover { color: #ccc; }
+        .ag-footer i { width: 18px; text-align: center; flex-shrink: 0; }
+
+        /* Main content */
+        .ag-main { margin-left: var(--sidebar-w); padding: 0; min-height: 100vh; transition: margin-left 0.25s; }
+        .ag-sidebar.collapsed ~ .ag-main { margin-left: var(--sidebar-collapsed-w); }
+
+        /* Topbar */
+        .ag-topbar {
+            display: flex; align-items: center; gap: 16px;
+            padding: 12px 24px; border-bottom: 1px solid var(--border);
+            background: rgba(8,8,16,0.7); backdrop-filter: blur(12px);
+            position: sticky; top: 0; z-index: 50;
+        }
+        .ag-topbar h1 { font-size: 1.15rem; font-weight: 700; margin: 0; color: #fff; }
+        .ag-topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+        .ag-user-pill {
+            display: flex; align-items: center; gap: 8px;
+            background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+            border-radius: 20px; padding: 5px 14px 5px 5px;
+        }
+        .ag-avatar {
+            width: 28px; height: 28px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), #00d9ff);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.75rem; font-weight: 800; color: #000;
+        }
+        .ag-user-email { font-size: 0.8rem; color: #888; }
+        .ag-badge { background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.2); color: var(--accent); font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: 12px; }
+        .ag-theme-btn { background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: #aaa; border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+        .ag-theme-btn:hover { color: #fff; border-color: rgba(255,255,255,0.15); }
+
+        /* Content area */
+        .ag-content { padding: 24px; }
+        .ag-tab { display: none; }
+        .ag-tab.active { display: block; }
+
+        /* KPI Cards */
+        .ag-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .ag-kpi {
+            background: var(--card-bg); border: 1px solid var(--border);
+            border-radius: 12px; padding: 16px 18px; text-align: center;
+            transition: border-color 0.2s;
+        }
+        .ag-kpi:hover { border-color: rgba(255,255,255,0.12); }
+        .ag-kpi-val { font-size: 1.8rem; font-weight: 800; color: #fff; font-family: 'JetBrains Mono', monospace; line-height: 1.1; }
+        .ag-kpi-label { font-size: 0.75rem; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+        .ag-kpi-delta { font-size: 0.78rem; margin-top: 4px; }
+        .ag-kpi-delta.up { color: var(--accent); }
+        .ag-kpi-delta.down { color: #ef4444; }
+
+        /* Cards */
+        .ag-card {
+            background: var(--card-bg); border: 1px solid var(--border);
+            border-radius: 14px; margin-bottom: 20px; overflow: hidden;
+        }
+        .ag-card-header {
+            padding: 14px 18px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .ag-card-header h3 { margin: 0; font-size: 1rem; font-weight: 700; color: #fff; }
+        .ag-card-body { padding: 18px; }
+
+        /* Period picker */
+        .ag-period-bar { display: flex; gap: 6px; margin-bottom: 20px; }
+        .ag-period-btn {
+            background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+            color: #888; padding: 6px 14px; border-radius: 8px; cursor: pointer;
+            font-size: 0.82rem; font-weight: 600; transition: all 0.15s;
+        }
+        .ag-period-btn:hover { color: #ccc; border-color: rgba(255,255,255,0.15); }
+        .ag-period-btn.active { background: rgba(0,255,136,0.08); border-color: rgba(0,255,136,0.25); color: var(--accent); }
+
+        /* Agent table */
+        .ag-table { width: 100%; border-collapse: collapse; }
+        .ag-table th { font-size: 0.75rem; color: #555; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); font-weight: 700; }
+        .ag-table td { padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.03); font-size: 0.88rem; color: #ccc; }
+        .ag-table tr:hover td { background: rgba(255,255,255,0.02); }
+        .ag-table .mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* Call log */
+        .ag-call-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.03); transition: background 0.1s; }
+        .ag-call-row:hover { background: rgba(255,255,255,0.02); }
+        .ag-call-dir { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; flex-shrink: 0; }
+        .ag-call-dir.outbound { background: rgba(0,180,80,0.12); color: #4ade80; }
+        .ag-call-dir.inbound { background: rgba(59,130,246,0.12); color: #60a5fa; }
+        .ag-call-info { flex: 1; min-width: 0; }
+        .ag-call-name { font-weight: 600; font-size: 0.9rem; color: #ddd; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ag-call-meta { font-size: 0.78rem; color: #666; }
+        .ag-call-dur { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: #aaa; flex-shrink: 0; }
+        .ag-call-badges { display: flex; gap: 4px; flex-shrink: 0; }
+        .ag-call-badge { font-size: 0.7rem; padding: 2px 7px; border-radius: 6px; font-weight: 600; }
+
+        /* Sub-account card */
+        .ag-agent-card {
+            background: var(--card-bg); border: 1px solid var(--border);
+            border-radius: 12px; padding: 16px; display: flex; align-items: center; gap: 14px;
+            transition: border-color 0.2s; cursor: default;
+        }
+        .ag-agent-card:hover { border-color: rgba(255,255,255,0.12); }
+        .ag-agent-avatar {
+            width: 42px; height: 42px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--cyan));
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 1rem; color: #000; flex-shrink: 0;
+        }
+        .ag-agent-info { flex: 1; min-width: 0; }
+        .ag-agent-name { font-weight: 700; font-size: 0.95rem; color: #fff; }
+        .ag-agent-email { font-size: 0.78rem; color: #666; }
+        .ag-agent-status { font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 8px; }
+        .ag-agent-status.active { background: rgba(0,255,136,0.1); color: var(--accent); }
+        .ag-agent-status.pending { background: rgba(255,193,7,0.1); color: #ffc107; }
+        .ag-agent-actions { display: flex; gap: 6px; flex-shrink: 0; }
+        .ag-agent-actions button {
+            background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+            color: #888; border-radius: 8px; padding: 6px 10px; cursor: pointer;
+            font-size: 0.78rem; transition: all 0.15s;
+        }
+        .ag-agent-actions button:hover { color: #fff; border-color: rgba(255,255,255,0.2); }
+
+        /* Chart area */
+        .ag-chart-bars { display: flex; align-items: flex-end; gap: 2px; height: 120px; padding: 0 4px; }
+        .ag-chart-bar { flex: 1; background: rgba(0,217,255,0.3); border-radius: 3px 3px 0 0; min-height: 2px; transition: height 0.3s; cursor: pointer; position: relative; }
+        .ag-chart-bar:hover { background: rgba(0,217,255,0.6); }
+        .ag-chart-labels { display: flex; justify-content: space-between; padding: 4px 4px 0; font-size: 0.7rem; color: #555; }
+
+        /* Hourly heatmap */
+        .ag-heatmap { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; }
+        .ag-heatmap-cell { aspect-ratio: 1; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; color: transparent; transition: all 0.2s; }
+        .ag-heatmap-cell:hover { color: #fff; }
+
+        /* Loading shimmer */
+        @keyframes agShimmer { 0% { background-position: -200px 0; } 100% { background-position: calc(200px + 100%) 0; } }
+        .ag-shimmer { background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 100%); background-size: 200px 100%; animation: agShimmer 1.5s ease-in-out infinite; border-radius: 8px; }
+
+        /* Paywall */
+        .ag-paywall { text-align: center; padding: 60px 20px; }
+        .ag-paywall h2 { font-weight: 800; margin-bottom: 16px; }
+
+        /* Mobile */
+        .ag-mobile-menu-btn { display: none; background: none; border: none; color: #888; font-size: 1.2rem; cursor: pointer; padding: 4px 8px; }
+        @media (max-width: 768px) {
+            .ag-sidebar { transform: translateX(-100%); width: 260px; }
+            .ag-sidebar.mobile-open { transform: translateX(0); }
+            .ag-main { margin-left: 0 !important; }
+            .ag-mobile-menu-btn { display: block; }
+            .ag-mobile-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; display: none; }
+            .ag-mobile-backdrop.show { display: block; }
+            .ag-content { padding: 16px; }
+            .ag-kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .ag-table-wrap { overflow-x: auto; }
+            .ag-topbar { padding: 10px 16px; }
+            .ag-user-email { display: none; }
+        }
+
+        /* Light theme */
+        body.light-theme { background: #f5f5f5; color: #333; }
+        body.light-theme .ag-sidebar { background: #fff; border-color: #e5e5e5; }
+        body.light-theme .ag-topbar { background: rgba(255,255,255,0.9); border-color: #e5e5e5; }
+        body.light-theme .ag-topbar h1 { color: #111; }
+        body.light-theme .ag-nav-item { color: #666; }
+        body.light-theme .ag-nav-item:hover { background: rgba(0,0,0,0.04); color: #333; }
+        body.light-theme .ag-nav-item.active { background: rgba(0,255,136,0.08); color: #059669; }
+        body.light-theme .ag-kpi { background: #fff; border-color: #e5e5e5; }
+        body.light-theme .ag-kpi-val { color: #111; }
+        body.light-theme .ag-kpi-label { color: #888; }
+        body.light-theme .ag-card { background: #fff; border-color: #e5e5e5; }
+        body.light-theme .ag-card-header { border-color: #e5e5e5; }
+        body.light-theme .ag-card-header h3 { color: #111; }
+        body.light-theme .ag-table td { color: #444; border-color: #eee; }
+        body.light-theme .ag-table th { color: #888; border-color: #eee; }
+        body.light-theme .ag-agent-card { background: #fff; border-color: #e5e5e5; }
+        body.light-theme .ag-agent-name { color: #111; }
+        body.light-theme .ag-call-name { color: #222; }
+        body.light-theme .ag-period-btn { background: #fff; border-color: #e5e5e5; color: #666; }
+        body.light-theme .ag-period-btn.active { background: rgba(0,255,136,0.08); color: #059669; }
+        body.light-theme .ag-footer a, body.light-theme .ag-footer button { color: #888; }
+        body.light-theme .ag-divider { background: #e5e5e5; }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <div class="ag-sidebar" id="agSidebar">
+        <div class="ag-brand">
+            <img src="{{ url_for('static', filename='favicon.svg') }}" alt="IGB" class="ag-brand-logo">
+            <span class="ag-brand-text">Agency</span>
+            <button class="ag-toggle" onclick="agToggleSidebar()" title="Collapse"><i class="fa-solid fa-bars"></i></button>
+        </div>
+
+        <div class="ag-scroll">
+            <div class="ag-section" id="agSecMain">
+                <div class="ag-section-header" onclick="agToggleSection('agSecMain')">
+                    <span>Command Center</span>
+                    <i class="fa-solid fa-chevron-down ag-section-chevron"></i>
+                </div>
+                <div class="ag-section-body">
+                    <button class="ag-nav-item active" id="agNavOverview" onclick="agNav('overview', this)">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <span class="ag-nav-label">Overview</span>
+                    </button>
+                    <button class="ag-nav-item" id="agNavAgents" onclick="agNav('agents', this)">
+                        <i class="fa-solid fa-users"></i>
+                        <span class="ag-nav-label">Agents</span>
+                    </button>
+                    <button class="ag-nav-item" id="agNavCalls" onclick="agNav('calls', this)">
+                        <i class="fa-solid fa-phone-volume"></i>
+                        <span class="ag-nav-label">Call Log</span>
+                    </button>
+                    <button class="ag-nav-item" id="agNavActivity" onclick="agNav('activity', this)">
+                        <i class="fa-solid fa-list-check"></i>
+                        <span class="ag-nav-label">Activity</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="ag-divider"></div>
+
+            <div class="ag-section" id="agSecTools">
+                <div class="ag-section-header" onclick="agToggleSection('agSecTools')">
+                    <span>Tools</span>
+                    <i class="fa-solid fa-chevron-down ag-section-chevron"></i>
+                </div>
+                <div class="ag-section-body">
+                    <a class="ag-nav-item" href="/dashboard" style="text-decoration:none;">
+                        <i class="fa-solid fa-gauge-high"></i>
+                        <span class="ag-nav-label">My Dashboard</span>
+                    </a>
+                    <button class="ag-nav-item" id="agNavSettings" onclick="agNav('settings', this)">
+                        <i class="fa-solid fa-gear"></i>
+                        <span class="ag-nav-label">Agency Settings</span>
+                    </button>
+                    <button class="ag-nav-item" id="agNavBilling" onclick="agNav('billing', this)">
+                        <i class="fa-solid fa-credit-card"></i>
+                        <span class="ag-nav-label">Billing</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="ag-footer">
+            <a href="/support"><i class="fa-solid fa-circle-question"></i><span>Support</span></a>
+            <a href="/"><i class="fa-solid fa-house"></i><span>Homepage</span></a>
+            <a href="/logout" style="color:#ef4444;"><i class="fa-solid fa-right-from-bracket"></i><span>Sign Out</span></a>
+        </div>
     </div>
 
-    <div class="text-center mb-5">
-        <h1 style="font-weight: 900; font-size: 3rem; margin-bottom: 10px;">
-            Agency <span class="text-accent">Command Center</span>
-        </h1>
-        <p class="text-secondary" style="font-size: 1.1rem;">
-            Managing {{ stats.active_seats }} Agent {{ 'Seat' if stats.active_seats == 1 else 'Seats' }}
-        </p>
-    </div>
+    <!-- Mobile backdrop -->
+    <div class="ag-mobile-backdrop" id="agMobileBackdrop" onclick="agCloseMobileSidebar()"></div>
 
-    <!-- Agency Dashboard: green text overrides for readability on dark bg -->
-    <style>
-        /* ── Global text color override: all text green ── */
-        .container label,
-        .container p,
-        .container .text-secondary,
-        .container .text-muted,
-        .container .small.text-muted,
-        .container .card-body p,
-        .container .card-body label,
-        .container .card-body small,
-        .container .tech-readout,
-        .container .adv-setting-row label,
-        .container .adv-setting-row p,
-        .container code,
-        .container pre {
-            color: #00ff88 !important;
-        }
-        .container h1, .container h2, .container h3,
-        .container h4, .container h5, .container h6 {
-            color: #fff !important;
-        }
-        .container .card-header h4 {
-            color: #00ff88 !important;
-        }
-        /* Slider labels and range labels */
-        .container .adv-setting-row p,
-        .container input[type="range"] + div span {
-            color: #66ffaa !important;
-        }
-        /* Carrier chip names */
-        .container .carrier-chip .carrier-name {
-            color: #00ff88 !important;
-        }
-        .container .carrier-chip.selected .carrier-name {
-            color: #fff !important;
-        }
-        /* Accordion sub-account text */
-        .container .accordion-body label,
-        .container .accordion-body .tech-readout,
-        .container .accordion-body p {
-            color: #00ff88 !important;
-        }
-        /* Subtitle under title */
-        .container > .text-center .text-secondary {
-            color: #66ffaa !important;
-        }
-        /* API card text */
-        .container #apiKeyStatus strong,
-        .container #apiKeyStatus span,
-        .container #apiKeyDisplay {
-            color: #00ff88 !important;
-        }
-        /* Quick Start pre block */
-        .container pre {
-            color: #b8f0d0 !important;
-        }
-        /* Webhook secret */
-        .container #webhookSecretPreview {
-            color: #66ffaa !important;
-        }
-        /* After-hours time labels */
-        .container input[type="time"] {
-            color: #00ff88 !important;
-        }
-        /* Form placeholders */
-        .container textarea::placeholder,
-        .container input::placeholder {
-            color: rgba(0, 255, 136, 0.4) !important;
-        }
+    <!-- Main -->
+    <div class="ag-main">
 
-        /* ── Main sections accordion ── */
-        .agency-sections-accordion .accordion-item {
-            background: transparent;
-            border: none;
-            margin-bottom: 1.5rem;
-        }
-        .agency-sections-accordion .accordion-button {
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 12px !important;
-            color: #00ff88 !important;
-            font-weight: 700;
-            font-size: 1.15rem;
-            padding: 18px 24px;
-            box-shadow: none;
-        }
-        .agency-sections-accordion .accordion-button:not(.collapsed) {
-            background: rgba(0, 255, 136, 0.06);
-            border-color: rgba(0, 255, 136, 0.2);
-            border-radius: 12px 12px 0 0 !important;
-        }
-        .agency-sections-accordion .accordion-button::after {
-            filter: invert(1) brightness(2);
-        }
-        .agency-sections-accordion .accordion-button:not(.collapsed)::after {
-            filter: invert(59%) sepia(100%) saturate(500%) hue-rotate(100deg);
-        }
-        .agency-sections-accordion .accordion-collapse .accordion-body {
-            background: var(--card-glass, rgba(255, 255, 255, 0.03));
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-top: none;
-            border-radius: 0 0 12px 12px;
-            padding: 24px;
-        }
-    </style>
+        <!-- Topbar -->
+        <div class="ag-topbar">
+            <button class="ag-mobile-menu-btn" onclick="agOpenMobileSidebar()"><i class="fa-solid fa-bars"></i></button>
+            <div>
+                <h1 id="agPageTitle">Overview</h1>
+            </div>
+            <div class="ag-topbar-right">
+                <span class="ag-badge"><i class="fa-solid fa-building me-1"></i>{{ stats.tier }}</span>
+                <button class="ag-theme-btn" onclick="agToggleTheme()" title="Toggle theme"><i class="fa-solid fa-sun" id="agThemeIcon"></i></button>
+                <div class="ag-user-pill">
+                    <div class="ag-avatar">{{ current_user.email[0].upper() }}</div>
+                    <span class="ag-user-email">{{ current_user.email }}</span>
+                </div>
+            </div>
+        </div>
 
-    <!-- Persistent Alerts (DB-backed, survive page reloads) -->
-    <style>
-        .persistent-alert {
-            display: flex; align-items: flex-start; gap: 14px;
-            padding: 16px 20px; border-radius: 12px; margin-bottom: 12px;
-            border: 1px solid; position: relative;
-        }
-        .persistent-alert.alert-warning-persistent {
-            background: rgba(255, 193, 7, 0.08); border-color: rgba(255, 193, 7, 0.3);
-        }
-        .persistent-alert.alert-error-persistent {
-            background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.3);
-        }
-        .persistent-alert.alert-info-persistent {
-            background: rgba(59, 130, 246, 0.08); border-color: rgba(59, 130, 246, 0.3);
-        }
-        .persistent-alert .pa-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 2px; }
-        .alert-warning-persistent .pa-icon { color: #ffc107; }
-        .alert-error-persistent .pa-icon { color: #ef4444; }
-        .alert-info-persistent .pa-icon { color: #3b82f6; }
-        .persistent-alert .pa-body { flex: 1; }
-        .persistent-alert .pa-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; }
-        .alert-warning-persistent .pa-title { color: #ffc107; }
-        .alert-error-persistent .pa-title { color: #ef4444; }
-        .alert-info-persistent .pa-title { color: #3b82f6; }
-        .persistent-alert .pa-message { font-size: 0.88rem; color: #bbb; line-height: 1.5; }
-        .persistent-alert .pa-dismiss {
-            position: absolute; top: 12px; right: 14px;
-            background: none; border: none; color: #666; cursor: pointer;
-            font-size: 0.9rem; padding: 4px; transition: color 0.2s;
-        }
-        .persistent-alert .pa-dismiss:hover { color: #fff; }
-        .persistent-alert .pa-time { font-size: 0.75rem; color: #666; margin-top: 6px; }
-    </style>
-    <div id="persistent-alerts-container"></div>
+        <div class="ag-content">
 
-    {% if needs_subscription %}
-    <!-- Subscription Required Message -->
-    <div class="card glass-card mb-5" style="border: 2px solid #ffc107;">
-        <div class="card-body text-center py-5">
-            <i class="fa-solid fa-exclamation-triangle" style="font-size: 4rem; color: #ffc107; margin-bottom: 25px;"></i>
-            <h2 style="font-weight: 700; margin-bottom: 20px;">Agency Subscription Required</h2>
-            <p style="font-size: 1.1rem; color: #aaa; max-width: 600px; margin: 0 auto 30px;">
-                You've successfully connected your Lead Connector account! To activate your agency features and manage sub-accounts, please subscribe to an Agency Plan.
-            </p>
+            {% if needs_subscription %}
+            <!-- Paywall -->
+            <div class="ag-paywall">
+                <i class="fa-solid fa-exclamation-triangle" style="font-size:3rem;color:#ffc107;margin-bottom:20px;"></i>
+                <h2>Agency Subscription Required</h2>
+                <p style="color:#888;max-width:500px;margin:0 auto 30px;">Activate your agency to manage sub-accounts, view KPIs, and access the full command center.</p>
+                <div style="display:flex;justify-content:center;gap:20px;flex-wrap:wrap;">
+                    <a href="/checkout/agency-starter" class="btn" style="background:var(--accent);color:#000;font-weight:700;padding:12px 28px;border-radius:10px;">
+                        <i class="fa-solid fa-rocket me-2"></i>Agency Starter — $797.99/mo
+                    </a>
+                    <a href="/checkout/agency-pro" class="btn" style="background:var(--cyan);color:#000;font-weight:700;padding:12px 28px;border-radius:10px;">
+                        <i class="fa-solid fa-crown me-2"></i>Agency Pro — $1,597.99/mo
+                    </a>
+                </div>
+            </div>
+            {% else %}
 
-            <div class="row justify-content-center g-4 mb-4">
-                {% if detected_tier != 'agency_pro' %}
-                <div class="col-md-5">
-                    <div class="card h-100" style="border: 2px solid var(--accent);">
-                        <div class="card-body text-center">
-                            <h4 class="mb-3">Agency Starter</h4>
-                            <div class="mb-3">
-                                <h2 style="font-weight: 900; color: var(--accent);">${{ agency_starter_price }}</h2>
-                                <span style="color: #999;">/month</span>
+            <!-- Period Picker (shared across tabs) -->
+            <div class="ag-period-bar" id="agPeriodBar">
+                <button class="ag-period-btn" data-period="today" onclick="agSetPeriod('today', this)">Today</button>
+                <button class="ag-period-btn" data-period="week" onclick="agSetPeriod('week', this)">7 Days</button>
+                <button class="ag-period-btn active" data-period="month" onclick="agSetPeriod('month', this)">30 Days</button>
+                <button class="ag-period-btn" data-period="all" onclick="agSetPeriod('all', this)">All Time</button>
+            </div>
+
+            <!-- ═══ OVERVIEW TAB ═══ -->
+            <div class="ag-tab active" id="agTabOverview">
+
+                <!-- KPI Cards -->
+                <div class="ag-kpi-grid" id="agKpiGrid">
+                    <div class="ag-kpi">
+                        <div class="ag-kpi-val" id="agKpiCalls">—</div>
+                        <div class="ag-kpi-label">Total Calls</div>
+                        <div class="ag-kpi-delta" id="agKpiCallsDelta"></div>
+                    </div>
+                    <div class="ag-kpi">
+                        <div class="ag-kpi-val" id="agKpiConnected">—</div>
+                        <div class="ag-kpi-label">Connected</div>
+                        <div class="ag-kpi-delta" id="agKpiConnectedDelta"></div>
+                    </div>
+                    <div class="ag-kpi">
+                        <div class="ag-kpi-val" id="agKpiRate">—</div>
+                        <div class="ag-kpi-label">Connect Rate</div>
+                    </div>
+                    <div class="ag-kpi">
+                        <div class="ag-kpi-val" id="agKpiHours">—</div>
+                        <div class="ag-kpi-label">Talk Hours</div>
+                        <div class="ag-kpi-delta" id="agKpiHoursDelta"></div>
+                    </div>
+                    <div class="ag-kpi">
+                        <div class="ag-kpi-val" id="agKpiMessages">—</div>
+                        <div class="ag-kpi-label">Messages</div>
+                    </div>
+                    <div class="ag-kpi">
+                        <div class="ag-kpi-val" id="agKpiAgents">—</div>
+                        <div class="ag-kpi-label">Active Agents</div>
+                    </div>
+                    <div class="ag-kpi">
+                        <div class="ag-kpi-val" id="agKpiAvgDur">—</div>
+                        <div class="ag-kpi-label">Avg Call (sec)</div>
+                    </div>
+                    <div class="ag-kpi">
+                        <div class="ag-kpi-val" id="agKpiPerDay">—</div>
+                        <div class="ag-kpi-label">Calls / Day</div>
+                    </div>
+                </div>
+
+                <!-- Charts row -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+                    <!-- Daily Volume -->
+                    <div class="ag-card">
+                        <div class="ag-card-header"><h3><i class="fa-solid fa-chart-bar me-2" style="color:var(--cyan);"></i>Daily Volume</h3></div>
+                        <div class="ag-card-body">
+                            <div class="ag-chart-bars" id="agDailyChart" style="height:140px;"></div>
+                            <div class="ag-chart-labels" id="agDailyLabels"></div>
+                        </div>
+                    </div>
+                    <!-- Hourly Heatmap -->
+                    <div class="ag-card">
+                        <div class="ag-card-header"><h3><i class="fa-solid fa-clock me-2" style="color:var(--cyan);"></i>Hourly Distribution</h3></div>
+                        <div class="ag-card-body">
+                            <div class="ag-heatmap" id="agHourlyChart"></div>
+                            <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:0.7rem;color:#555;">
+                                <span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>11pm</span>
                             </div>
-                            <p style="color:#aaa;">Up to 14 sub-accounts</p>
-                            <p style="color:var(--accent); font-weight:600; margin-bottom:1.5rem;">~$57/sub-account</p>
-                            <a href="/checkout/agency-starter" class="btn btn-primary w-100">
-                                <i class="fa-solid fa-credit-card me-2"></i>Subscribe to Starter
-                            </a>
                         </div>
                     </div>
                 </div>
-                {% endif %}
-                <div class="col-md-5">
-                    <div class="card h-100" style="border: 2px solid #00d9ff;">
-                        <div class="card-body text-center">
-                            <span class="badge mb-2" style="background:rgba(0,217,255,0.2); color:#00d9ff; border:1px solid #00d9ff;">Best Value</span>
-                            <h4 class="mb-3">Agency Pro</h4>
-                            <div class="mb-3">
-                                <h2 style="font-weight: 900; color: var(--accent);">${{ agency_pro_price }}</h2>
-                                <span style="color: #999;">/month</span>
-                            </div>
-                            <p style="color:#aaa;">Unlimited sub-accounts</p>
-                            <p style="color:#00d9ff; font-weight:600; margin-bottom:1.5rem;">~$53/sub-account at 30 users</p>
-                            <a href="/checkout/agency-pro" class="btn btn-primary w-100">
-                                <i class="fa-solid fa-credit-card me-2"></i>Subscribe to Pro
-                            </a>
+
+                <!-- Top Agents Quick View -->
+                <div class="ag-card" style="margin-top:20px;">
+                    <div class="ag-card-header">
+                        <h3><i class="fa-solid fa-trophy me-2" style="color:#ffd700;"></i>Top Performing Agents</h3>
+                        <button class="ag-period-btn" onclick="agNav('agents', document.getElementById('agNavAgents'))">View All</button>
+                    </div>
+                    <div class="ag-card-body" style="padding:0;">
+                        <div class="ag-table-wrap">
+                            <table class="ag-table" id="agTopAgentsTable">
+                                <thead>
+                                    <tr><th>Agent</th><th>Calls</th><th>Connected</th><th>Talk Time</th><th>Messages</th></tr>
+                                </thead>
+                                <tbody id="agTopAgentsBody">
+                                    <tr><td colspan="5" style="text-align:center;color:#555;padding:24px;">Loading...</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <p class="small" style="color:#aaa;">Cancel anytime • No long-term contracts • Full feature access</p>
-        </div>
-    </div>
-    {% else %}
+            <!-- ═══ AGENTS TAB ═══ -->
+            <div class="ag-tab" id="agTabAgents">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                    <h3 style="margin:0;font-weight:700;color:#fff;">
+                        <i class="fa-solid fa-users me-2" style="color:var(--accent);"></i>
+                        {{ stats.active_seats }} Agent{{ 's' if stats.active_seats != 1 else '' }}
+                        <span style="font-size:0.8rem;color:#666;font-weight:400;">({{ stats.max_seats }} seats)</span>
+                    </h3>
+                    <button class="ag-period-btn" onclick="agInviteAll()" id="agInviteAllBtn" style="color:var(--accent);">
+                        <i class="fa-solid fa-paper-plane me-1"></i>Invite All Pending
+                    </button>
+                </div>
 
-    <!-- ═══ Main Sections Accordion ═══ -->
-    <div class="accordion agency-sections-accordion" id="agencySectionsAccordion">
-
-    <!-- 1. Your Agency Account -->
-    <div class="accordion-item">
-        <h2 class="accordion-header">
-            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#sectionAccount">
-                <i class="fa-solid fa-user-gear me-2"></i>Your Agency Account
-            </button>
-        </h2>
-        <div id="sectionAccount" class="accordion-collapse collapse show" data-bs-parent="#agencySectionsAccordion">
-        <div class="accordion-body">
-            <!-- Config Form -->
-            <form method="POST" id="agency-config-form">
-                {{ form.hidden_tag() }}
-                <div class="row g-4">
-                    <div class="col-md-6">
-                        <label for="location_id">Location ID</label>
-                        {{ form.location_id(class="form-control") }}
-                    </div>
-                    <div class="col-md-6">
-                        <label for="calendar_id">Calendar</label>
-                        <div class="d-flex gap-2">
-                            <select id="calendar_select" class="form-control" name="calendar_id" required>
-                                <option value="">-- Select Calendar --</option>
-                                {% if form.calendar_id.data %}
-                                <option value="{{ form.calendar_id.data }}" selected>{{ current_user.calendar_name or form.calendar_id.data }}</option>
-                                {% endif %}
-                            </select>
-                            <button type="button" class="btn btn-outline-primary" onclick="loadCalendars()" style="white-space: nowrap;">
-                                <i class="fa-solid fa-sync"></i> Load
+                <div id="agAgentsList" style="display:grid;gap:12px;">
+                    {% for sub in sub_accounts %}
+                    <div class="ag-agent-card" data-lid="{{ sub.location_id }}">
+                        <div class="ag-agent-avatar">{{ (sub.name or 'U')[0].upper() }}</div>
+                        <div class="ag-agent-info">
+                            <div class="ag-agent-name">{{ sub.name }}</div>
+                            <div class="ag-agent-email">{{ sub.email }} &middot; {{ sub.bot_name or 'No bot' }}</div>
+                        </div>
+                        <span class="ag-agent-status {{ sub.status_class }}">{{ sub.status }}</span>
+                        <div class="ag-agent-actions">
+                            {% if sub.onboarding_status != 'claimed' %}
+                            <button onclick="agInvite('{{ sub.location_id }}', '{{ sub.email }}')" title="Send invite">
+                                <i class="fa-solid fa-paper-plane"></i>
+                            </button>
+                            {% endif %}
+                            <button onclick="agViewLogs('{{ sub.location_id }}')" title="View logs">
+                                <i class="fa-solid fa-list-check"></i>
                             </button>
                         </div>
-                        <input type="hidden" id="calendar_name" name="calendar_name" value="{{ current_user.calendar_name or '' }}">
-                    </div>
-                    <div class="col-md-6">
-                        <label for="crm_user_id">CRM User ID</label>
-                        {{ form.crm_user_id(class="form-control") }}
-                    </div>
-                    <div class="col-md-6">
-                        <label for="bot_name">Bot First Name</label>
-                        {{ form.bot_name(class="form-control") }}
-                    </div>
-                    <div class="col-md-6">
-                        <label for="timezone">Timezone</label>
-                        {{ form.timezone(class="form-control") }}
-                    </div>
-                    <div class="col-md-12">
-                        <label for="initial_message">Initial Message</label>
-                        {{ form.initial_message(class="form-control") }}
-                    </div>
-                    <div class="col-md-6 mt-3">
-                        <label for="personal_website">Personal Website (optional)</label>
-                        {{ form.personal_website(class="form-control", placeholder="https://yoursite.com") }}
-                        <small class="text-muted">GrokBot will share this when leads ask for your website</small>
-                    </div>
-                </div>
-                <div class="mt-4 text-end">
-                    <button type="button" class="btn btn-primary px-5" id="agency-save-btn" onclick="saveAgencyConfig()">Save Configuration</button>
-                </div>
-            </form>
-           
-            <!-- Token Display -->
-            <div class="mt-4">
-                <label>Access Token</label>
-                <div class="tech-readout">{{ access_token_display }} {{ expires_in_str }}</div>
-            </div>
-            <div class="mt-2">
-                <label>Refresh Token</label>
-                <div class="tech-readout">{{ refresh_token_display }}</div>
-            </div>
-
-            {% if not access_token_display or access_token_display == '' %}
-            <div class="mt-3">
-                <a href="/oauth/initiate" class="btn btn-success w-100" style="background: linear-gradient(135deg, #00c853 0%, #00a843 100%); border: none; font-weight: 600; padding: 12px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 200, 83, 0.3);">
-                    <i class="fa-brands fa-google me-2"></i>Connect Lead Connector Account
-                </a>
-                <div class="text-center mt-2" style="font-size: 0.875rem; color: #6c757d;">
-                    Link your Lead Connector account to activate agency features
-                </div>
-            </div>
-            {% endif %}
-
-            <!-- Editable Profile -->
-            <div class="mt-4">
-                <label>Full Name</label>
-                <input id="name" class="form-control" value="{{ profile.full_name }}">
-                <label>Phone</label>
-                <input id="phone" class="form-control" value="{{ profile.phone }}">
-                <label>Bio</label>
-                <textarea id="bio" class="form-control">{{ profile.bio }}</textarea>
-                <button class="btn btn-secondary mt-2" onclick="saveProfile()">Save Profile</button>
-            </div>
-        </div>
-        </div>
-    </div>
-
-    <!-- 2. Contracted Carriers -->
-    <div class="accordion-item">
-        <h2 class="accordion-header">
-            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sectionCarriers">
-                <i class="fa-solid fa-building-columns me-2"></i>Contracted Carriers
-                <span id="carrierCount" class="ms-auto me-3" style="color: var(--accent, #00ff88); font-weight: 700; font-size: 0.85rem;">
-                    {{ selected_carriers|length if selected_carriers else 0 }} selected
-                </span>
-            </button>
-        </h2>
-        <div id="sectionCarriers" class="accordion-collapse collapse" data-bs-parent="#agencySectionsAccordion">
-        <div class="accordion-body">
-            <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 20px;">
-                Select the carriers your agency is contracted with. GrokBot will <strong>only</strong> reference these carriers
-                when talking to your leads.
-            </p>
-
-            <input type="text" id="carrierSearch" placeholder="Search carriers..."
-                   class="form-control mb-3"
-                   style="background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); color: #fff;"
-                   oninput="filterCarriers(this.value)">
-
-            <div style="display: flex; gap: 12px; margin-bottom: 16px;">
-                <button type="button" class="btn btn-sm btn-outline-success" onclick="selectAllCarriers()">Select All</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearAllCarriers()">Clear All</button>
-            </div>
-
-            <style>
-                .carrier-chip {
-                    display: flex; align-items: center; gap: 8px;
-                    padding: 10px 14px; background: rgba(255,255,255,0.03);
-                    border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
-                    cursor: pointer; transition: all 0.2s; user-select: none;
-                }
-                .carrier-chip:hover { border-color: rgba(0,255,136,0.2); background: rgba(0,255,136,0.04); }
-                .carrier-chip.selected { background: rgba(0,255,136,0.08); border-color: rgba(0,255,136,0.3); }
-                .carrier-chip .carrier-check {
-                    width: 20px; height: 20px; border-radius: 6px;
-                    border: 1.5px solid rgba(255,255,255,0.15);
-                    display: flex; align-items: center; justify-content: center;
-                    font-size: 0.75rem; color: transparent; transition: all 0.2s; flex-shrink: 0;
-                }
-                .carrier-chip.selected .carrier-check { background: var(--accent, #00ff88); border-color: var(--accent, #00ff88); color: #000; }
-                .carrier-chip .carrier-name { font-size: 0.85rem; color: #ccc; font-weight: 500; }
-                .carrier-chip.selected .carrier-name { color: #fff; }
-                .carrier-chip.hidden { display: none; }
-            </style>
-
-            <div id="carrierGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; max-height: 400px; overflow-y: auto; padding-right: 8px;">
-                {% for carrier in carrier_list %}
-                <label class="carrier-chip {% if carrier.key in selected_carriers %}selected{% endif %}"
-                       data-key="{{ carrier.key }}" data-name="{{ carrier.name|lower }}">
-                    <input type="checkbox" value="{{ carrier.key }}" {% if carrier.key in selected_carriers %}checked{% endif %}
-                           style="display: none;" onchange="updateCarrierCount()">
-                    <span class="carrier-check"><i class="fa-solid fa-check"></i></span>
-                    <span class="carrier-name">{{ carrier.name }}</span>
-                </label>
-                {% endfor %}
-            </div>
-
-            <div style="margin-top: 20px; display: flex; justify-content: flex-end; align-items: center; gap: 16px;">
-                <span id="carrierSaveStatus" style="color: var(--accent, #00ff88); font-size: 0.85rem; display: none;">
-                    <i class="fa-solid fa-check me-1"></i> Saved!
-                </span>
-                <button type="button" id="saveCarriersBtn" class="btn btn-success" onclick="saveCarriers()">
-                    <i class="fa-solid fa-floppy-disk me-2"></i> Save Carriers
-                </button>
-            </div>
-        </div>
-        </div>
-    </div>
-
-    <!-- 3. Advanced Settings -->
-    <div class="accordion-item">
-        <h2 class="accordion-header">
-            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sectionAdvanced">
-                <i class="fa-solid fa-wand-magic-sparkles me-2"></i>Advanced Settings
-                <span id="settingsStatus" class="ms-auto me-3" style="color: var(--accent, #00ff88); font-weight: 600; font-size: 0.85rem; opacity: 0; transition: opacity 0.3s;"></span>
-            </button>
-        </h2>
-        <div id="sectionAdvanced" class="accordion-collapse collapse" data-bs-parent="#agencySectionsAccordion">
-        <div class="accordion-body">
-            <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 24px;">
-                Fine-tune how your GrokBot behaves. Changes apply to all future conversations.
-            </p>
-
-            <style>
-                .adv-toggle { position: relative; display: inline-block; width: 48px; height: 26px; flex-shrink: 0; }
-                .adv-toggle input { opacity: 0; width: 0; height: 0; }
-                .adv-toggle-slider {
-                    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-                    background: rgba(255,255,255,0.1); border-radius: 26px; transition: 0.3s;
-                }
-                .adv-toggle-slider:before {
-                    content: ""; position: absolute; height: 20px; width: 20px; left: 3px; bottom: 3px;
-                    background: #666; border-radius: 50%; transition: 0.3s;
-                }
-                .adv-toggle input:checked + .adv-toggle-slider { background: rgba(0,255,136,0.25); }
-                .adv-toggle input:checked + .adv-toggle-slider:before { transform: translateX(22px); background: var(--accent, #00ff88); }
-                .adv-setting-row {
-                    display: flex; justify-content: space-between; align-items: center;
-                    padding: 14px 18px; background: rgba(255,255,255,0.03);
-                    border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; margin-bottom: 10px;
-                }
-                .adv-setting-row label { font-weight: 600; font-size: 0.9rem; }
-                .adv-setting-row p { color: #777; font-size: 0.78rem; margin: 3px 0 0 0; }
-            </style>
-
-            <!-- Professionalism Slider -->
-            <div style="margin-bottom: 20px; padding: 18px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <label style="font-weight: 600;">Professionalism Level</label>
-                    <span id="profLevelLabel" style="color: var(--accent, #00ff88); font-weight: 700; font-size: 0.9rem;">Casual</span>
-                </div>
-                <input type="range" id="professionalism_level" min="0" max="5" step="1"
-                       value="{{ bot_settings.professionalism_level|default(0) }}"
-                       oninput="updateProfLabel(this.value)"
-                       style="width: 100%; accent-color: var(--accent, #00ff88); cursor: pointer;">
-                <div style="display: flex; justify-content: space-between; margin-top: 6px; font-size: 0.75rem; color: #666;">
-                    <span>Casual & Friendly</span><span>Balanced</span><span>Ultra Professional</span>
-                </div>
-            </div>
-
-            <!-- Toggles -->
-            <div class="adv-setting-row">
-                <div><label>Emoji Usage</label><p>Allow GrokBot to use emojis</p></div>
-                <label class="adv-toggle"><input type="checkbox" id="auto_emoji" {{ 'checked' if bot_settings.auto_emoji|default(true) }}><span class="adv-toggle-slider"></span></label>
-            </div>
-            <div class="adv-setting-row">
-                <div><label>Humor Mode</label><p>Send jokes after 5+ unanswered messages</p></div>
-                <label class="adv-toggle"><input type="checkbox" id="humor_enabled" {{ 'checked' if bot_settings.humor_enabled|default(true) }}><span class="adv-toggle-slider"></span></label>
-            </div>
-            <div class="adv-setting-row">
-                <div><label>Lead Re-engagement</label><p>Auto follow up with unresponsive leads</p></div>
-                <label class="adv-toggle"><input type="checkbox" id="lead_reengagement" {{ 'checked' if bot_settings.lead_reengagement|default(true) }}><span class="adv-toggle-slider"></span></label>
-            </div>
-            <div class="adv-setting-row">
-                <div><label>Booking Confirmation</label><p>Double-confirm time before booking</p></div>
-                <label class="adv-toggle"><input type="checkbox" id="booking_confirmation" {{ 'checked' if bot_settings.booking_confirmation|default(true) }}><span class="adv-toggle-slider"></span></label>
-            </div>
-            <div class="adv-setting-row">
-                <div><label>Speed to Lead</label><p>Respond immediately to new leads</p></div>
-                <label class="adv-toggle"><input type="checkbox" id="speed_to_lead" {{ 'checked' if bot_settings.speed_to_lead|default(true) }}><span class="adv-toggle-slider"></span></label>
-            </div>
-            <div class="adv-setting-row">
-                <div><label>Conversation Memory</label><p>Remember details from past conversations</p></div>
-                <label class="adv-toggle"><input type="checkbox" id="conversation_memory" {{ 'checked' if bot_settings.conversation_memory|default(true) }}><span class="adv-toggle-slider"></span></label>
-            </div>
-            <div class="adv-setting-row">
-                <div><label>Multi-Language Detection</label><p>Respond in lead's language (Spanish, etc.)</p></div>
-                <label class="adv-toggle"><input type="checkbox" id="multi_language" {{ 'checked' if bot_settings.multi_language|default(false) }}><span class="adv-toggle-slider"></span></label>
-            </div>
-
-            <!-- Response Length -->
-            <div style="padding: 16px 18px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; margin-bottom: 10px;">
-                <label style="font-weight: 600; display: block; margin-bottom: 8px;">Response Length</label>
-                <div style="display: flex; gap: 8px;">
-                    {% for val, label in [('short', 'Short'), ('balanced', 'Balanced'), ('detailed', 'Detailed')] %}
-                    <button type="button" class="btn btn-sm resp-len-btn {{ 'btn-success' if bot_settings.response_length|default('balanced') == val else 'btn-outline-secondary' }}"
-                            data-value="{{ val }}" onclick="selectResponseLength('{{ val }}')" style="flex: 1;">{{ label }}</button>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <!-- Objection Persistence -->
-            <div style="padding: 16px 18px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; margin-bottom: 10px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <div><label style="font-weight: 600;">Objection Persistence</label><p style="color: #777; font-size: 0.78rem; margin: 3px 0 0 0;">How many angles before graceful exit</p></div>
-                    <span id="persistenceLabel" style="color: var(--accent, #00ff88); font-weight: 700;">{{ bot_settings.objection_persistence|default(3) }} angles</span>
-                </div>
-                <input type="range" id="objection_persistence" min="1" max="5" step="1"
-                       value="{{ bot_settings.objection_persistence|default(3) }}"
-                       oninput="document.getElementById('persistenceLabel').textContent = this.value + ' angles'"
-                       style="width: 100%; accent-color: var(--accent, #00ff88); cursor: pointer;">
-            </div>
-
-            <!-- After Hours -->
-            <div style="padding: 18px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; margin-bottom: 16px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <div><label style="font-weight: 600;">After Hours Mode</label><p style="color: #777; font-size: 0.78rem; margin: 3px 0 0 0;">Bot tells leads it's after hours</p></div>
-                    <label class="adv-toggle">
-                        <input type="checkbox" id="after_hours_enabled" {{ 'checked' if bot_settings.after_hours_enabled|default(false) }}
-                               onchange="document.getElementById('afterHoursRange').style.display = this.checked ? 'flex' : 'none'">
-                        <span class="adv-toggle-slider"></span>
-                    </label>
-                </div>
-                <div id="afterHoursRange" style="display: {{ 'flex' if bot_settings.after_hours_enabled|default(false) else 'none' }}; gap: 12px; align-items: center;">
-                    <div style="flex: 1;">
-                        <label style="font-size: 0.78rem; color: #888;">Starts at</label>
-                        <input type="time" id="after_hours_start" value="{{ bot_settings.after_hours_start|default('18:00') }}" class="form-control form-control-sm" style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); color: #fff;">
-                    </div>
-                    <span style="color: #555; margin-top: 16px;">to</span>
-                    <div style="flex: 1;">
-                        <label style="font-size: 0.78rem; color: #888;">Ends at</label>
-                        <input type="time" id="after_hours_end" value="{{ bot_settings.after_hours_end|default('09:00') }}" class="form-control form-control-sm" style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); color: #fff;">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Custom Outbound Messages -->
-            <div style="margin-bottom: 16px;">
-                <label style="font-weight: 600; display: block; margin-bottom: 6px;"><i class="fa-solid fa-paper-plane me-1"></i> Custom Outbound Messages</label>
-                <p style="color: #777; font-size: 0.8rem; margin-bottom: 10px;">Each message is sent once per lead then checked off. After all are sent, GrokBot switches to AI. <strong style="color: #aaa;">Hybrid mode.</strong></p>
-                <div id="outboundContainer">
-                    {% for msg in bot_settings.outbound_messages|default([]) %}
-                    <div class="outbound-msg-row" style="display: flex; gap: 8px; margin-bottom: 8px;">
-                        <span style="color: var(--accent, #00ff88); font-weight: 700; min-width: 22px; padding-top: 8px;">{{ loop.index }}.</span>
-                        <textarea class="outbound-msg-input form-control form-control-sm" rows="2" style="background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); color: #fff;">{{ msg }}</textarea>
-                        <button type="button" onclick="removeOutboundMsg(this)" class="btn btn-sm btn-outline-danger" style="height: 34px;"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                     {% endfor %}
                 </div>
-                <button type="button" onclick="addOutboundMsg()" class="btn btn-sm btn-outline-success mt-1"><i class="fa-solid fa-plus me-1"></i> Add Message</button>
-            </div>
 
-            <!-- Custom Behavior Instructions -->
-            <div style="margin-bottom: 20px;">
-                <label style="font-weight: 600; display: block; margin-bottom: 6px;"><i class="fa-solid fa-pen-fancy me-1"></i> Custom Behavior Instructions</label>
-                <p style="color: #777; font-size: 0.8rem; margin-bottom: 8px;">Tell GrokBot exactly how you want it to behave. These instructions override defaults.</p>
-                <textarea id="custom_behavior" rows="5" class="form-control"
-                          placeholder="Example: Always mention that we offer free policy reviews. Never discuss term lengths over the phone — save that for the appointment. If someone mentions they're a veteran, thank them for their service and mention our military discount. Keep responses under 3 sentences."
-                          style="background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); color: #fff; resize: vertical;">{{ bot_settings.custom_behavior|default('') }}</textarea>
-            </div>
-
-            <!-- Save -->
-            <div style="display: flex; justify-content: flex-end; gap: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06);">
-                <button type="button" class="btn btn-outline-secondary" onclick="resetAdvancedSettings()"><i class="fa-solid fa-rotate-left me-1"></i> Reset</button>
-                <button type="button" id="saveAdvancedBtn" class="btn btn-success" onclick="saveAdvancedSettings()"><i class="fa-solid fa-floppy-disk me-1"></i> Save Settings</button>
-            </div>
-        </div>
-        </div>
-    </div>
-
-    <!-- 4. API Access -->
-    <div class="accordion-item">
-        <h2 class="accordion-header">
-            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sectionApi">
-                <i class="fa-solid fa-code me-2"></i>API Access
-            </button>
-        </h2>
-        <div id="sectionApi" class="accordion-collapse collapse" data-bs-parent="#agencySectionsAccordion">
-        <div class="accordion-body">
-            <p class="text-muted small mb-3">
-                Integrate any CRM, mobile app, or custom system using our OpenAI-compatible API.
-                Send messages to <code>/api/v1/chat/completions</code> and receive bot replies via webhook.
-            </p>
-
-            <div id="apiKeyStatus" style="padding: 14px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;">
-                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
-                    <div>
-                        <strong style="color:#fff;">API Key:</strong>
-                        <span id="apiKeyDisplay" style="color:#888; font-family:monospace; font-size:0.85rem; margin-left:8px;">Loading...</span>
-                    </div>
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-sm btn-outline-success" onclick="generateApiKey()" id="btnGenKey">
-                            <i class="fa-solid fa-key me-1"></i> Generate Key
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="revokeApiKey()" id="btnRevokeKey" style="display:none;">
-                            <i class="fa-solid fa-ban me-1"></i> Revoke
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div style="margin-top: 14px; display:flex; gap:10px; align-items:end; flex-wrap:wrap;">
-                <div style="flex:1; min-width:250px;">
-                    <label class="form-label small text-muted mb-1">Outbound Webhook URL (HTTPS)</label>
-                    <input type="url" id="apiWebhookUrl" class="form-control form-control-sm"
-                           placeholder="https://your-app.com/webhook/grokbot"
-                           style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); color:#fff;">
-                </div>
-                <button class="btn btn-sm btn-primary" onclick="saveWebhookUrl()" style="height:31px;">
-                    <i class="fa-solid fa-save me-1"></i> Save
-                </button>
-            </div>
-
-            <div style="margin-top:10px;">
-                <small style="color:#888;">
-                    <i class="fa-solid fa-shield-halved me-1"></i> Webhook Secret:
-                    <span id="webhookSecretPreview" style="font-family:monospace; color:#666;">—</span>
-                </small>
-            </div>
-
-            <div style="margin-top:14px; padding:12px; background:rgba(0,255,136,0.04); border:1px solid rgba(0,255,136,0.1); border-radius:8px;">
-                <strong style="color:var(--accent, #00ff88); font-size:0.85rem;">Quick Start</strong>
-                <pre style="color:#ccc; font-size:0.75rem; margin:8px 0 0; white-space:pre-wrap; background:rgba(0,0,0,0.3); padding:10px; border-radius:6px;">curl -X POST {{ request.host_url }}api/v1/chat/completions \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "contact_id": "lead-123",
-    "messages": [{"role": "user", "content": "How much is life insurance?"}],
-    "first_name": "Maria"
-  }'</pre>
-            </div>
-        </div>
-        </div>
-    </div>
-
-    </div><!-- /agencySectionsAccordion -->
-
-    {% if sub_accounts %}
-        <!-- Bulk Actions -->
-        <div class="card glass-card mb-4">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h5 class="mb-1">
-                            <i class="fas fa-users me-2 text-accent"></i>
-                            Sub-User Management
-                        </h5>
-                        <p class="small text-muted mb-0">
-                            Manage onboarding for all sub-account users
-                        </p>
-                    </div>
-                    <div>
-                        <button class="btn btn-primary" onclick="inviteAllUsers()">
-                            <i class="fas fa-envelope-bulk me-2"></i>
-                            Invite All Pending Users
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="accordion mt-4" id="agencyAccordion">
-            {% for sub in sub_accounts %}
-                <div class="accordion-item glass-card mb-3 p-0"> <h2 class="accordion-header">
-                        <button class="accordion-button collapsed p-4" type="button" data-bs-toggle="collapse"
-                                data-bs-target="#collapse{{ loop.index }}">
-                            <i class="fa-solid fa-user-tie me-3 text-accent"></i>
-                            <span style="font-family:'JetBrains Mono'; margin-right: 15px;">{{ sub.location_id }}</span>
-                            <span style="font-weight:700;">{{ sub.name }}</span>
-                            <span class="badge badge-tier ms-auto">{{ sub.tier|upper|default('INDIVIDUAL') }}</span>
-                        </button>
-                    </h2>
-                    <div id="collapse{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#agencyAccordion">
-                        <div class="accordion-body p-4 border-top border-secondary">
-                            <div class="row g-4">
-                                <div class="col-md-6">
-                                    <label class="small text-muted mb-1">Bot Name</label>
-                                    <div class="tech-readout">{{ sub.bot_name|default('Not set') }}</div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="small text-muted mb-1">Timezone</label>
-                                    <div class="tech-readout">{{ sub.timezone|default('Not set') }}</div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="small text-muted mb-1">Access Token</label>
-                                    <div class="tech-readout text-truncate">
-                                        {% if sub.access_token %}
-                                            {{ sub.access_token[:12] }}...{{ sub.access_token[-6:] }}
-                                        {% else %}
-                                            <span class="text-danger">Not connected</span>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="small text-muted mb-1">Refresh Token</label>
-                                    <div class="tech-readout text-truncate">
-                                        {% if sub.refresh_token %}
-                                            {{ sub.refresh_token[:12] }}...{{ sub.refresh_token[-6:] }}
-                                        {% else %}
-                                            <span class="text-danger">Not connected</span>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="small text-muted mb-1">Agent Email</label>
-                                    <div class="tech-readout">
-                                        {% if sub.agent_email and sub.agent_email != 'No Agent Email' %}
-                                            {{ sub.agent_email }}
-                                        {% else %}
-                                            <span class="text-warning">No email detected</span>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="small text-muted mb-1">Onboarding Status</label>
-                                    <div>
-                                        {% if sub.onboarding_status == 'claimed' %}
-                                            <span class="badge bg-success">
-                                                <i class="fas fa-check-circle me-1"></i> Claimed
-                                            </span>
-                                        {% elif sub.onboarding_status == 'invited' %}
-                                            <span class="badge bg-warning text-dark">
-                                                <i class="fas fa-paper-plane me-1"></i> Invited
-                                            </span>
-                                            {% if sub.invite_sent_at %}
-                                                <small class="text-muted d-block mt-1">
-                                                    Sent: {{ sub.invite_sent_at.strftime('%b %d, %Y') }}
-                                                </small>
-                                            {% endif %}
-                                        {% else %}
-                                            <span class="badge bg-secondary">
-                                                <i class="fas fa-clock me-1"></i> Pending
-                                            </span>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Onboarding Actions -->
-                            {% if sub.onboarding_status != 'claimed' %}
-                                <div class="mt-4 p-3" style="background-color: rgba(59, 130, 246, 0.1); border-left: 3px solid #3b82f6; border-radius: 8px;">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <h6 class="mb-1">
-                                                <i class="fas fa-user-plus me-2 text-primary"></i>
-                                                Sub-User Onboarding
-                                            </h6>
-                                            <p class="small text-muted mb-0">
-                                                {% if sub.onboarding_status == 'pending' %}
-                                                    This sub-user hasn't been invited yet. Send them an email to claim their account.
-                                                {% else %}
-                                                    Invitation sent. User hasn't claimed their account yet.
-                                                {% endif %}
-                                            </p>
-                                        </div>
-                                        <div>
-                                            {% if sub.onboarding_status == 'pending' %}
-                                                <button class="btn btn-sm btn-primary" onclick="inviteUser('{{ sub.location_id }}', '{{ sub.agent_email }}')">
-                                                    <i class="fas fa-envelope me-1"></i> Send Invite
-                                                </button>
-                                            {% else %}
-                                                <button class="btn btn-sm btn-outline-primary" onclick="resendInvite('{{ sub.location_id }}')">
-                                                    <i class="fas fa-redo me-1"></i> Resend Invite
-                                                </button>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                </div>
-                            {% endif %}
-
-                            <div class="mt-4 text-end">
-                                <a href="/impersonate/{{ sub.location_id }}" class="btn btn-sm btn-outline-accent me-2">
-                                    <i class="fas fa-sign-in-alt me-1"></i> Enter Dashboard
-                                </a>
-                               
-                                <button class="btn btn-sm btn-outline-light me-2" onclick="viewLogs('{{ sub.location_id }}', '{{ sub.name }}')">
-                                    <i class="fas fa-history me-1"></i> View Logs
-                                </button>
-                               
-                                <button class="btn btn-sm btn-outline-danger" onclick="resetLocation('{{ sub.location_id }}')">
-                                    <i class="fas fa-trash me-1"></i> Reset Data
-                                </button>
-                            </div>
+                <!-- Per-Agent Stats Table -->
+                <div class="ag-card" style="margin-top:20px;">
+                    <div class="ag-card-header"><h3><i class="fa-solid fa-chart-simple me-2" style="color:var(--cyan);"></i>Agent Performance</h3></div>
+                    <div class="ag-card-body" style="padding:0;">
+                        <div class="ag-table-wrap">
+                            <table class="ag-table" id="agAgentStatsTable">
+                                <thead>
+                                    <tr><th>Agent</th><th>Calls</th><th>Connected</th><th>Rate</th><th>Talk Time</th><th>Avg Call</th><th>Messages</th><th>Last Call</th></tr>
+                                </thead>
+                                <tbody id="agAgentStatsBody">
+                                    <tr><td colspan="8" style="text-align:center;color:#555;padding:24px;">Loading...</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
-            {% endfor %}
-        </div>
-    {% else %}
-        <div class="no-data">
-            <h4 class="mb-4 text-white">No Agent Seats Yet</h4>
-            <p class="text-secondary mb-4">
-                Install InsuranceGrokBot on new Lead Connector locations to add them to your agency.
-            </p>
-            <a href="/getting-started" class="add-btn">
-                Add New Location Now
-            </a>
-        </div>
-    {% endif %}
-    <!-- Webhook Logs Modal -->
-    <div class="modal fade" id="logsModal" tabindex="-1">
-        <div class="modal-dialog modal-xl modal-dialog-scrollable">
-            <div class="modal-content" style="background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1);">
-                <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-                    <h5 class="modal-title" style="color: #fff;">
-                        <i class="fas fa-history me-2 text-accent"></i>Webhook Logs: <span id="logsModalName"></span>
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <!-- ═══ CALL LOG TAB ═══ -->
+            <div class="ag-tab" id="agTabCalls">
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                    <h3 style="margin:0;font-weight:700;color:#fff;"><i class="fa-solid fa-phone-volume me-2" style="color:var(--cyan);"></i>Call Log</h3>
+                    <!-- Agent filter dropdown -->
+                    <select id="agCallAgentFilter" onchange="agLoadCallLog(0)" style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;padding:6px 12px;font-size:0.82rem;">
+                        <option value="">All Agents</option>
+                        {% for sub in sub_accounts %}
+                        <option value="{{ sub.location_id }}">{{ sub.name }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
-                <div class="modal-body" style="max-height: 500px; overflow-y: auto;">
-                    <div class="d-flex gap-2 mb-3">
-                        <select id="agencyLogType" class="form-select form-select-sm" style="max-width: 180px; background: rgba(255,255,255,0.05); color: #fff; border-color: rgba(255,255,255,0.1);">
-                            <option value="">All Events</option>
-                            <option value="webhook_received">Webhook Received</option>
-                            <option value="booking_attempt">Booking Attempt</option>
-                            <option value="booking_success">Booking Success</option>
-                            <option value="booking_failed">Booking Failed</option>
-                            <option value="message_sent">Message Sent</option>
-                            <option value="message_failed">Message Failed</option>
-                            <option value="error">Error</option>
-                        </select>
-                        <select id="agencyLogStatus" class="form-select form-select-sm" style="max-width: 140px; background: rgba(255,255,255,0.05); color: #fff; border-color: rgba(255,255,255,0.1);">
-                            <option value="">All Statuses</option>
-                            <option value="success">Success</option>
-                            <option value="error">Error</option>
-                            <option value="warning">Warning</option>
-                            <option value="info">Info</option>
-                        </select>
-                        <button class="btn btn-sm btn-outline-accent" onclick="refreshAgencyLogs()">
-                            <i class="fas fa-sync"></i>
-                        </button>
+
+                <div class="ag-card">
+                    <div class="ag-card-body" id="agCallLogBody" style="padding:0;">
+                        <div style="text-align:center;padding:30px;color:#555;">Loading call log...</div>
                     </div>
-                    <div id="agencyLogsContainer">
-                        <div class="text-center text-secondary py-4">Loading logs...</div>
+                    <div style="display:flex;justify-content:center;gap:10px;padding:14px;border-top:1px solid var(--border);">
+                        <button class="ag-period-btn" id="agCallPrev" onclick="agCallLogPage(-1)" disabled>Previous</button>
+                        <span id="agCallPageInfo" style="font-size:0.82rem;color:#666;display:flex;align-items:center;"></span>
+                        <button class="ag-period-btn" id="agCallNext" onclick="agCallLogPage(1)">Next</button>
                     </div>
                 </div>
             </div>
+
+            <!-- ═══ ACTIVITY TAB ═══ -->
+            <div class="ag-tab" id="agTabActivity">
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                    <h3 style="margin:0;font-weight:700;color:#fff;"><i class="fa-solid fa-list-check me-2" style="color:var(--accent);"></i>Activity Logs</h3>
+                    <select id="agActivityAgent" onchange="agLoadActivity(0)" style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;padding:6px 12px;font-size:0.82rem;">
+                        <option value="">Select Agent</option>
+                        {% for sub in sub_accounts %}
+                        <option value="{{ sub.location_id }}">{{ sub.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="ag-card">
+                    <div class="ag-card-body" id="agActivityBody">
+                        <p style="text-align:center;color:#555;">Select an agent to view activity logs.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ SETTINGS TAB ═══ -->
+            <div class="ag-tab" id="agTabSettings">
+                <h3 style="margin-bottom:20px;font-weight:700;color:#fff;"><i class="fa-solid fa-gear me-2" style="color:var(--accent);"></i>Agency Settings</h3>
+
+                <div class="ag-card">
+                    <div class="ag-card-header"><h3>Agency Profile</h3></div>
+                    <div class="ag-card-body">
+                        <form method="post" id="agSettingsForm">
+                            {{ form.hidden_tag() }}
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                                <div>
+                                    <label style="font-size:0.78rem;color:#888;margin-bottom:4px;display:block;">Location ID</label>
+                                    {{ form.location_id(class="form-control", style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;") }}
+                                </div>
+                                <div>
+                                    <label style="font-size:0.78rem;color:#888;margin-bottom:4px;display:block;">Bot Name</label>
+                                    {{ form.bot_name(class="form-control", style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;") }}
+                                </div>
+                                <div>
+                                    <label style="font-size:0.78rem;color:#888;margin-bottom:4px;display:block;">Calendar ID</label>
+                                    {{ form.calendar_id(class="form-control", style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;") }}
+                                </div>
+                                <div>
+                                    <label style="font-size:0.78rem;color:#888;margin-bottom:4px;display:block;">CRM User ID</label>
+                                    {{ form.crm_user_id(class="form-control", style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;") }}
+                                </div>
+                                <div>
+                                    <label style="font-size:0.78rem;color:#888;margin-bottom:4px;display:block;">Timezone</label>
+                                    {{ form.timezone(class="form-control", style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;") }}
+                                </div>
+                                <div>
+                                    <label style="font-size:0.78rem;color:#888;margin-bottom:4px;display:block;">Website</label>
+                                    {{ form.personal_website(class="form-control", placeholder="https://...", style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;") }}
+                                </div>
+                            </div>
+                            <div style="margin-top:16px;">
+                                <label style="font-size:0.78rem;color:#888;margin-bottom:4px;display:block;">Initial Message</label>
+                                {{ form.initial_message(class="form-control", rows="3", style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;resize:none;") }}
+                            </div>
+                            <button type="submit" style="margin-top:16px;background:var(--accent);color:#000;font-weight:700;border:none;padding:10px 24px;border-radius:10px;cursor:pointer;font-size:0.9rem;">
+                                <i class="fa-solid fa-floppy-disk me-1"></i>Save Settings
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Token Info -->
+                <div class="ag-card">
+                    <div class="ag-card-header"><h3>CRM Connection</h3></div>
+                    <div class="ag-card-body">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                            <div>
+                                <label style="font-size:0.72rem;color:#555;text-transform:uppercase;letter-spacing:0.5px;">Access Token</label>
+                                <div style="font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:#888;padding:8px 0;">
+                                    {{ access_token_display or 'Not connected' }}
+                                    {% if expires_in_str %}<span style="font-size:0.75rem;color:#555;"> &middot; {{ expires_in_str }}</span>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <a href="/oauth/initiate" style="display:inline-block;margin-top:10px;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.2);color:var(--accent);padding:8px 18px;border-radius:8px;font-size:0.85rem;font-weight:600;text-decoration:none;">
+                            <i class="fa-solid fa-plug me-1"></i>{{ 'Reconnect CRM' if access_token_display else 'Connect CRM' }}
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ BILLING TAB ═══ -->
+            <div class="ag-tab" id="agTabBilling">
+                <h3 style="margin-bottom:20px;font-weight:700;color:#fff;"><i class="fa-solid fa-credit-card me-2" style="color:var(--cyan);"></i>Billing</h3>
+                <div class="ag-card">
+                    <div class="ag-card-body" style="text-align:center;padding:30px;">
+                        <div style="margin-bottom:16px;">
+                            <span class="ag-badge" style="font-size:0.9rem;padding:6px 18px;">{{ stats.tier }}</span>
+                        </div>
+                        <p style="color:#888;margin-bottom:20px;">{{ stats.active_seats }} / {{ stats.max_seats }} seats used</p>
+                        <div style="background:rgba(255,255,255,0.03);border-radius:12px;padding:4px;max-width:300px;margin:0 auto 20px;">
+                            <div style="height:8px;border-radius:8px;background:var(--accent);width:{{ ((stats.active_seats / stats.max_seats * 100) if stats.max_seats else 0)|int }}%;transition:width 0.5s;"></div>
+                        </div>
+                        <form method="post" action="/create-portal-session" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ form.hidden_tag() }}">
+                            <button type="submit" style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;padding:10px 24px;border-radius:10px;cursor:pointer;font-size:0.88rem;font-weight:600;">
+                                <i class="fa-solid fa-external-link me-1"></i>Manage Subscription
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            {% endif %}
         </div>
     </div>
 
-    <div class="text-center mt-5 d-flex justify-content-center gap-3 flex-wrap">
-        <a href="/" class="btn btn-outline-light">
-            <i class="fa-solid fa-house me-2"></i>Homepage
-        </a>
-        <a href="/dashboard" class="btn btn-outline-light">
-            <i class="fa-solid fa-gauge me-2"></i>Personal Dashboard
-        </a>
-        <a href="/dashboard" class="btn" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;">
-            <i class="fa-solid fa-phone-volume me-2"></i>Voice Dialer
-        </a>
-    </div>
-    {% endif %}
-</div>
+    <!-- Vendor JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-<!-- Save Overlay -->
-<div id="save-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); z-index:9999; align-items:center; justify-content:center;">
-    <div style="background:var(--card-glass, #1a1a2e); border:1px solid var(--glass-border, rgba(255,255,255,0.08)); border-radius:20px; padding:40px 50px; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,0.4);">
-        <div id="save-spinner" style="width:40px; height:40px; border:3px solid rgba(255,255,255,0.1); border-top-color:var(--accent, #00ff88); border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 16px;"></div>
-        <div id="save-check" style="display:none; font-size:2.5rem; color:var(--accent, #00ff88); margin-bottom:12px;"><i class="fa-solid fa-circle-check"></i></div>
-        <div id="save-text" style="font-size:1.1rem; font-weight:500; color:#fff;">Saving to database...</div>
-    </div>
-</div>
-<style>@keyframes spin { to { transform: rotate(360deg); } }</style>
-{% endblock %}
-{% block scripts %}
-<script>
-    function resetLocation(locId) {
-        if (confirm(`Reset ALL data for location ${locId}? This cannot be undone.`)) {
-            // Note: Ensure /reset-location route exists in main.py
-            fetch(`/reset-location/${locId}`, { method: 'POST' })
-                .then(r => r.json())
-                .then(d => {
-                    alert(d.message || 'Reset complete');
-                    window.location.reload();
-                })
-                .catch(() => alert('Reset failed — check console logs'));
-        }
-    }
-    function saveProfile() {
-        const data = {
-            name: document.getElementById('name').value,
-            phone: document.getElementById('phone').value,
-            bio: document.getElementById('bio').value
-        };
-        fetch('/save-profile', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        })
-        .then(r => r.json())
-        .then(d => {
-            if (d.status === 'success') {
-                alert('Profile updated!');
-            } else {
-                alert('Error: ' + d.error);
-            }
-        })
-        .catch(e => console.error('Save profile failed:', e));
-    }
-
-    // Invite a single sub-user
-    function inviteUser(locationId, agentEmail) {
-        if (!agentEmail || agentEmail === 'No Agent Email') {
-            alert('No agent email found for this location. Cannot send invite.');
-            return;
-        }
-
-        if (!confirm(`Send invitation email to ${agentEmail}?`)) {
-            return;
-        }
-
-        fetch('/api/agency/invite-sub-user', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ location_id: locationId, email: agentEmail })
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.status === 'success') {
-                alert(`✅ Invitation sent to ${agentEmail}`);
-                window.location.reload();
-            } else if (data.status === 'partial') {
-                alert(`⚠️ ${data.message}\n\nManual invite link: ${data.invite_url}`);
-                window.location.reload();
-            } else {
-                alert(`❌ Error: ${data.error || 'Unknown error'}`);
-            }
-        })
-        .catch(e => {
-            console.error('Invite failed:', e);
-            alert('Failed to send invitation. Check console for details.');
-        });
-    }
-
-    // Resend invitation to a sub-user
-    function resendInvite(locationId) {
-        if (!confirm('Resend invitation email to this user?')) {
-            return;
-        }
-
-        fetch('/api/agency/resend-invite', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ location_id: locationId })
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.status === 'success') {
-                alert(`✅ ${data.message}`);
-                window.location.reload();
-            } else if (data.status === 'partial') {
-                alert(`⚠️ ${data.message}\n\nManual invite link: ${data.invite_url}`);
-                window.location.reload();
-            } else {
-                alert(`❌ Error: ${data.error || 'Unknown error'}`);
-            }
-        })
-        .catch(e => {
-            console.error('Resend failed:', e);
-            alert('Failed to resend invitation. Check console for details.');
-        });
-    }
-
-    // Bulk invite all pending users
-    function inviteAllUsers() {
-        if (!confirm('Send invitation emails to all pending sub-users?')) {
-            return;
-        }
-
-        const btn = event.target;
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Sending...';
-
-        fetch('/api/agency/invite-all', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.status === 'success') {
-                alert(`✅ Successfully invited ${data.invited} users\n${data.failed > 0 ? `⚠️ ${data.failed} failed` : ''}`);
-                window.location.reload();
-            } else {
-                alert(`ℹ️ ${data.message}`);
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-envelope-bulk me-2"></i> Invite All Pending Users';
-            }
-        })
-        .catch(e => {
-            console.error('Bulk invite failed:', e);
-            alert('Failed to send invitations. Check console for details.');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-envelope-bulk me-2"></i> Invite All Pending Users';
-        });
-    }
-
-    // Load calendars from Lead Connector API
-    function loadCalendars() {
-        const btn = event.target.closest('button');
-        const originalHTML = btn.innerHTML;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-        btn.disabled = true;
-
-        fetch('/api/fetch-calendars')
-            .then(r => r.json())
-            .then(data => {
-                const select = document.getElementById('calendar_select');
-                const currentValue = select.value;
-
-                // Clear existing options
-                select.innerHTML = '<option value="">-- Select Calendar --</option>';
-
-                if (data.calendars && data.calendars.length > 0) {
-                    data.calendars.forEach(cal => {
-                        const option = document.createElement('option');
-                        option.value = cal.id;
-                        option.textContent = cal.name;
-                        option.setAttribute('data-name', cal.name);
-                        if (cal.id === currentValue) {
-                            option.selected = true;
-                        }
-                        select.appendChild(option);
-                    });
-                    btn.innerHTML = '<i class="fa-solid fa-check"></i> Loaded';
-                } else {
-                    btn.innerHTML = '<i class="fa-solid fa-exclamation"></i> None';
-                }
-
-                setTimeout(() => {
-                    btn.innerHTML = originalHTML;
-                    btn.disabled = false;
-                }, 2000);
-            })
-            .catch(e => {
-                console.error('Failed to load calendars:', e);
-                btn.innerHTML = '<i class="fa-solid fa-times"></i> Error';
-                setTimeout(() => {
-                    btn.innerHTML = originalHTML;
-                    btn.disabled = false;
-                }, 2000);
-            });
-    }
-
-    // Update calendar_name when selection changes
-    document.addEventListener('DOMContentLoaded', function() {
-        const calendarSelect = document.getElementById('calendar_select');
-        const calendarNameInput = document.getElementById('calendar_name');
-
-        if (calendarSelect && calendarNameInput) {
-            calendarSelect.addEventListener('change', function() {
-                const selectedOption = this.options[this.selectedIndex];
-                if (selectedOption && selectedOption.value) {
-                    calendarNameInput.value = selectedOption.getAttribute('data-name') || selectedOption.textContent;
-                } else {
-                    calendarNameInput.value = '';
-                }
-            });
-        }
-    });
-
-    // Webhook Logs Viewer
-    let currentLogLocation = '';
-    function viewLogs(locationId, name) {
-        currentLogLocation = locationId;
-        document.getElementById('logsModalName').textContent = name || locationId;
-        document.getElementById('agencyLogType').value = '';
-        document.getElementById('agencyLogStatus').value = '';
-        const modal = new bootstrap.Modal(document.getElementById('logsModal'));
-        modal.show();
-        fetchAgencyLogs(locationId);
-    }
-
-    function refreshAgencyLogs() {
-        if (currentLogLocation) fetchAgencyLogs(currentLogLocation);
-    }
-
-    function fetchAgencyLogs(locationId) {
-        const container = document.getElementById('agencyLogsContainer');
-        container.innerHTML = '<div class="text-center text-secondary py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading logs...</div>';
-
-        const eventType = document.getElementById('agencyLogType').value;
-        const status = document.getElementById('agencyLogStatus').value;
-        let url = `/api/agency/logs/${locationId}?limit=50`;
-        if (eventType) url += `&event_type=${eventType}`;
-        if (status) url += `&status=${status}`;
-
-        fetch(url)
-            .then(r => r.json())
-            .then(data => {
-                if (!data.logs || data.logs.length === 0) {
-                    container.innerHTML = '<div class="text-center text-secondary py-4"><i class="fas fa-inbox me-2"></i>No webhook logs found for this location.</div>';
-                    return;
-                }
-                let html = '<div class="table-responsive"><table class="table table-sm" style="color: #ccc; font-size: 0.85rem;">';
-                html += '<thead><tr><th style="color: #888; border-color: rgba(255,255,255,0.1);">Time</th><th style="color: #888; border-color: rgba(255,255,255,0.1);">Event</th><th style="color: #888; border-color: rgba(255,255,255,0.1);">Status</th><th style="color: #888; border-color: rgba(255,255,255,0.1);">Summary</th></tr></thead><tbody>';
-                data.logs.forEach(log => {
-                    const time = log.created_at ? new Date(log.created_at).toLocaleString() : '-';
-                    const badgeColor = {'success':'#10b981','error':'#ef4444','warning':'#f59e0b','info':'#3b82f6'}[log.status] || '#6b7280';
-                    html += `<tr style="border-color: rgba(255,255,255,0.05);">`;
-                    html += `<td style="white-space: nowrap; border-color: rgba(255,255,255,0.05);">${time}</td>`;
-                    html += `<td style="border-color: rgba(255,255,255,0.05);"><code style="color: var(--accent);">${log.event_type || '-'}</code></td>`;
-                    html += `<td style="border-color: rgba(255,255,255,0.05);"><span style="display:inline-block; padding:2px 8px; border-radius:6px; font-size:0.75rem; font-weight:600; background:${badgeColor}22; color:${badgeColor}; border:1px solid ${badgeColor}44;">${log.status}</span></td>`;
-                    html += `<td style="border-color: rgba(255,255,255,0.05);">${log.summary || '-'}</td>`;
-                    html += '</tr>';
-                });
-                html += '</tbody></table></div>';
-                container.innerHTML = html;
-            })
-            .catch(e => {
-                container.innerHTML = '<div class="text-center text-danger py-4"><i class="fas fa-exclamation-triangle me-2"></i>Failed to load logs.</div>';
-                console.error('Log fetch error:', e);
-            });
-    }
-
-    // Re-fetch when filters change
-    document.addEventListener('DOMContentLoaded', function() {
-        const logType = document.getElementById('agencyLogType');
-        const logStatus = document.getElementById('agencyLogStatus');
-        if (logType) logType.addEventListener('change', refreshAgencyLogs);
-        if (logStatus) logStatus.addEventListener('change', refreshAgencyLogs);
-    });
-
-    function saveAgencyConfig() {
-        const form = document.getElementById('agency-config-form');
-        const overlay = document.getElementById('save-overlay');
-        const spinner = document.getElementById('save-spinner');
-        const check = document.getElementById('save-check');
-        const text = document.getElementById('save-text');
-        const btn = document.getElementById('agency-save-btn');
-
-        const data = {
-            location_id: form.querySelector('[name="location_id"]')?.value || '',
-            calendar_id: form.querySelector('[name="calendar_id"]')?.value || '',
-            calendar_name: form.querySelector('[name="calendar_name"]')?.value || '',
-            crm_user_id: form.querySelector('[name="crm_user_id"]')?.value || '',
-            bot_name: form.querySelector('[name="bot_name"]')?.value || '',
-            timezone: form.querySelector('[name="timezone"]')?.value || '',
-            initial_message: form.querySelector('[name="initial_message"]')?.value || '',
-            personal_website: form.querySelector('[name="personal_website"]')?.value || ''
-        };
-
-        spinner.style.display = 'block';
-        check.style.display = 'none';
-        text.textContent = 'Saving to database...';
-        text.style.color = '#fff';
-        overlay.style.display = 'flex';
-        btn.disabled = true;
-
-        fetch('/api/save-config', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(data)
-        })
-        .then(r => r.json())
-        .then(resp => {
-            if (resp.success) {
-                spinner.style.display = 'none';
-                check.style.display = 'block';
-                text.textContent = 'Saved to database';
-                setTimeout(() => { overlay.style.display = 'none'; btn.disabled = false; }, 1500);
-            } else {
-                spinner.style.display = 'none';
-                text.textContent = 'Error: ' + (resp.error || 'Save failed');
-                text.style.color = '#ef4444';
-                setTimeout(() => { overlay.style.display = 'none'; btn.disabled = false; text.style.color = '#fff'; }, 2500);
-            }
-        })
-        .catch(err => {
-            spinner.style.display = 'none';
-            text.textContent = 'Network error. Please try again.';
-            text.style.color = '#ef4444';
-            setTimeout(() => { overlay.style.display = 'none'; btn.disabled = false; text.style.color = '#fff'; }, 2500);
-        });
-    }
-
-    // --- Persistent Alerts ---
+    <!-- Agency Dashboard JS -->
+    <script>
     (function() {
-        const SEVERITY_MAP = {
-            warning: { cls: 'alert-warning-persistent', icon: 'fa-triangle-exclamation' },
-            error:   { cls: 'alert-error-persistent',   icon: 'fa-circle-xmark' },
-            info:    { cls: 'alert-info-persistent',     icon: 'fa-circle-info' }
+        var period = 'month';
+        var callLogOffset = 0;
+        var callLogLimit = 50;
+
+        // ── Sidebar ──
+        window.agToggleSidebar = function() {
+            document.getElementById('agSidebar').classList.toggle('collapsed');
+        };
+        window.agToggleSection = function(id) {
+            document.getElementById(id).classList.toggle('closed');
+        };
+        window.agOpenMobileSidebar = function() {
+            document.getElementById('agSidebar').classList.add('mobile-open');
+            document.getElementById('agMobileBackdrop').classList.add('show');
+        };
+        window.agCloseMobileSidebar = function() {
+            document.getElementById('agSidebar').classList.remove('mobile-open');
+            document.getElementById('agMobileBackdrop').classList.remove('show');
         };
 
-        function escapeHtml(str) {
-            if (!str) return '';
-            const d = document.createElement('div');
-            d.textContent = str;
-            return d.innerHTML;
+        // ── Theme ──
+        var theme = localStorage.getItem('ag_theme') || 'dark';
+        if (theme === 'light') document.body.classList.add('light-theme');
+        window.agToggleTheme = function() {
+            document.body.classList.toggle('light-theme');
+            theme = document.body.classList.contains('light-theme') ? 'light' : 'dark';
+            localStorage.setItem('ag_theme', theme);
+            var icon = document.getElementById('agThemeIcon');
+            icon.className = theme === 'light' ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+        };
+
+        // ── Navigation ──
+        var tabMap = {
+            overview: 'agTabOverview',
+            agents: 'agTabAgents',
+            calls: 'agTabCalls',
+            activity: 'agTabActivity',
+            settings: 'agTabSettings',
+            billing: 'agTabBilling',
+        };
+        var titleMap = {
+            overview: 'Overview',
+            agents: 'Agents',
+            calls: 'Call Log',
+            activity: 'Activity',
+            settings: 'Agency Settings',
+            billing: 'Billing',
+        };
+        window.agNav = function(tab, btn) {
+            // Hide all tabs
+            var tabs = document.querySelectorAll('.ag-tab');
+            for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
+            // Show target
+            var el = document.getElementById(tabMap[tab]);
+            if (el) el.classList.add('active');
+            // Update sidebar active
+            var navs = document.querySelectorAll('.ag-nav-item');
+            for (var i = 0; i < navs.length; i++) navs[i].classList.remove('active');
+            if (btn) btn.classList.add('active');
+            // Update title
+            document.getElementById('agPageTitle').textContent = titleMap[tab] || tab;
+            // Show/hide period bar on relevant tabs
+            var periodBar = document.getElementById('agPeriodBar');
+            if (periodBar) periodBar.style.display = (tab === 'overview' || tab === 'agents' || tab === 'calls') ? 'flex' : 'none';
+            // Close mobile sidebar
+            agCloseMobileSidebar();
+            // Load data for tab
+            if (tab === 'calls') agLoadCallLog(0);
+        };
+
+        // ── Period ──
+        window.agSetPeriod = function(p, btn) {
+            period = p;
+            var btns = document.querySelectorAll('.ag-period-btn[data-period]');
+            for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
+            if (btn) btn.classList.add('active');
+            loadKpis();
+            loadAgentStats();
+        };
+
+        // ── Format helpers ──
+        function fmtDur(secs) {
+            secs = Math.round(secs);
+            var h = Math.floor(secs / 3600);
+            var m = Math.floor((secs % 3600) / 60);
+            var s = secs % 60;
+            if (h > 0) return h + 'h ' + m + 'm';
+            if (m > 0) return m + 'm ' + s + 's';
+            return s + 's';
+        }
+        function fmtHours(secs) {
+            return (secs / 3600).toFixed(1);
+        }
+        function fmtNum(n) {
+            if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
+            return n.toString();
+        }
+        function deltaHtml(val) {
+            if (val === null || val === undefined) return '';
+            var cls = val >= 0 ? 'up' : 'down';
+            var icon = val >= 0 ? 'fa-arrow-up' : 'fa-arrow-down';
+            return '<span class="ag-kpi-delta ' + cls + '"><i class="fa-solid ' + icon + '" style="font-size:0.7rem;"></i> ' + Math.abs(val) + '%</span>';
+        }
+        function fmtTime(iso) {
+            if (!iso) return '—';
+            var d = new Date(iso);
+            var now = new Date();
+            var diff = now - d;
+            if (diff < 60000) return 'Just now';
+            if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+            if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+            return d.toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
         }
 
-        function renderAlerts(alerts) {
-            const container = document.getElementById('persistent-alerts-container');
-            if (!container) return;
-            if (!alerts || alerts.length === 0) { container.innerHTML = ''; return; }
-            container.innerHTML = alerts.map(a => {
-                const sev = SEVERITY_MAP[a.severity] || SEVERITY_MAP.warning;
-                const created = a.created_at ? new Date(a.created_at).toLocaleString() : '';
-                return `<div class="persistent-alert ${sev.cls}" data-alert-id="${a.id}">
-                    <i class="fa-solid ${sev.icon} pa-icon"></i>
-                    <div class="pa-body">
-                        <div class="pa-title">${escapeHtml(a.title)}</div>
-                        <div class="pa-message">${escapeHtml(a.message)}</div>
-                        ${created ? `<div class="pa-time">${created}</div>` : ''}
-                    </div>
-                    <button class="pa-dismiss" onclick="dismissAlert(${a.id}, this)" title="Dismiss">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>`;
-            }).join('');
+        // ── Load KPIs ──
+        function loadKpis() {
+            fetch('/api/agency/kpis?period=' + period)
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    document.getElementById('agKpiCalls').textContent = fmtNum(d.total_calls);
+                    document.getElementById('agKpiConnected').textContent = fmtNum(d.connected_calls);
+                    document.getElementById('agKpiRate').textContent = d.connect_rate + '%';
+                    document.getElementById('agKpiHours').textContent = fmtHours(d.total_duration);
+                    document.getElementById('agKpiMessages').textContent = fmtNum(d.total_messages);
+                    document.getElementById('agKpiAgents').textContent = d.active_agents + '/' + d.total_agents;
+                    document.getElementById('agKpiAvgDur').textContent = Math.round(d.avg_duration);
+                    document.getElementById('agKpiPerDay').textContent = d.calls_per_day;
+
+                    // Deltas
+                    if (d.prior) {
+                        document.getElementById('agKpiCallsDelta').innerHTML = deltaHtml(d.prior.delta_calls);
+                        document.getElementById('agKpiConnectedDelta').innerHTML = deltaHtml(d.prior.delta_connected);
+                        document.getElementById('agKpiHoursDelta').innerHTML = deltaHtml(d.prior.delta_duration);
+                    }
+
+                    // Daily chart
+                    renderDailyChart(d.daily);
+                    // Hourly heatmap
+                    renderHourlyChart(d.hourly);
+                })
+                .catch(function(e) { console.error('KPI load error:', e); });
         }
 
-        window.dismissAlert = function(alertId, btn) {
-            const el = btn.closest('.persistent-alert');
-            if (el) el.style.opacity = '0.5';
-            fetch(`/api/alerts/${alertId}/dismiss`, { method: 'POST' })
-                .then(r => r.json())
-                .then(resp => {
-                    if (resp.success && el) {
-                        el.style.transition = 'all 0.3s';
-                        el.style.opacity = '0';
-                        el.style.maxHeight = '0';
-                        el.style.padding = '0';
-                        el.style.margin = '0';
-                        el.style.overflow = 'hidden';
-                        setTimeout(() => el.remove(), 350);
+        // ── Daily Chart ──
+        function renderDailyChart(daily) {
+            var container = document.getElementById('agDailyChart');
+            var labels = document.getElementById('agDailyLabels');
+            if (!daily || !daily.length) {
+                container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#555;font-size:0.85rem;">No data for this period</div>';
+                labels.innerHTML = '';
+                return;
+            }
+            var max = Math.max.apply(null, daily.map(function(d) { return d.calls; })) || 1;
+            var html = '';
+            for (var i = 0; i < daily.length; i++) {
+                var pct = (daily[i].calls / max * 100);
+                html += '<div class="ag-chart-bar" style="height:' + pct + '%" title="' + daily[i].day + ': ' + daily[i].calls + ' calls"></div>';
+            }
+            container.innerHTML = html;
+            // Labels: show first, middle, last
+            if (daily.length >= 3) {
+                labels.innerHTML = '<span>' + daily[0].day.slice(5) + '</span><span>' + daily[Math.floor(daily.length/2)].day.slice(5) + '</span><span>' + daily[daily.length-1].day.slice(5) + '</span>';
+            } else {
+                labels.innerHTML = daily.map(function(d) { return '<span>' + d.day.slice(5) + '</span>'; }).join('');
+            }
+        }
+
+        // ── Hourly Heatmap ──
+        function renderHourlyChart(hourly) {
+            var container = document.getElementById('agHourlyChart');
+            if (!hourly) { container.innerHTML = ''; return; }
+            var max = Math.max.apply(null, hourly.map(function(h) { return h.calls; })) || 1;
+            var html = '';
+            for (var i = 0; i < 24; i++) {
+                var calls = hourly[i] ? hourly[i].calls : 0;
+                var intensity = calls / max;
+                var bg = 'rgba(0,217,255,' + (0.05 + intensity * 0.7) + ')';
+                var label = (i === 0 ? '12a' : i < 12 ? i + 'a' : i === 12 ? '12p' : (i-12) + 'p');
+                html += '<div class="ag-heatmap-cell" style="background:' + bg + ';" title="' + label + ': ' + calls + ' calls">' + calls + '</div>';
+            }
+            container.innerHTML = html;
+        }
+
+        // ── Load Agent Stats ──
+        function loadAgentStats() {
+            fetch('/api/agency/agent-stats?period=' + period)
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    var agents = d.agents || [];
+                    // Top agents (overview)
+                    var topBody = document.getElementById('agTopAgentsBody');
+                    if (!agents.length) {
+                        topBody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#555;padding:24px;">No agent activity for this period</td></tr>';
+                    } else {
+                        var html = '';
+                        var top5 = agents.slice(0, 5);
+                        for (var i = 0; i < top5.length; i++) {
+                            var a = top5[i];
+                            html += '<tr>'
+                                + '<td><strong style="color:#fff;">' + a.name + '</strong></td>'
+                                + '<td class="mono">' + a.total_calls + '</td>'
+                                + '<td class="mono">' + a.connected + '</td>'
+                                + '<td class="mono">' + fmtDur(a.total_secs) + '</td>'
+                                + '<td class="mono">' + a.messages + '</td>'
+                                + '</tr>';
+                        }
+                        topBody.innerHTML = html;
+                    }
+
+                    // Full agent stats table
+                    var fullBody = document.getElementById('agAgentStatsBody');
+                    if (!agents.length) {
+                        fullBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#555;padding:24px;">No agent activity</td></tr>';
+                    } else {
+                        var html2 = '';
+                        for (var i = 0; i < agents.length; i++) {
+                            var a = agents[i];
+                            var rate = a.total_calls ? Math.round(a.connected / a.total_calls * 100) : 0;
+                            html2 += '<tr>'
+                                + '<td><strong style="color:#fff;">' + a.name + '</strong><br><span style="font-size:0.75rem;color:#555;">' + a.email + '</span></td>'
+                                + '<td class="mono">' + a.total_calls + '</td>'
+                                + '<td class="mono">' + a.connected + '</td>'
+                                + '<td class="mono">' + rate + '%</td>'
+                                + '<td class="mono">' + fmtDur(a.total_secs) + '</td>'
+                                + '<td class="mono">' + Math.round(a.avg_duration) + 's</td>'
+                                + '<td class="mono">' + a.messages + '</td>'
+                                + '<td style="color:#666;">' + fmtTime(a.last_call) + '</td>'
+                                + '</tr>';
+                        }
+                        fullBody.innerHTML = html2;
                     }
                 })
-                .catch(() => { if (el) el.style.opacity = '1'; });
-        };
-
-        fetch('/api/alerts')
-            .then(r => r.json())
-            .then(data => renderAlerts(data.alerts || []))
-            .catch(() => {});
-    })();
-
-    // === Carrier Picker ===
-    document.querySelectorAll('.carrier-chip').forEach(chip => {
-        chip.addEventListener('click', function() {
-            const cb = this.querySelector('input[type="checkbox"]');
-            cb.checked = !cb.checked;
-            this.classList.toggle('selected', cb.checked);
-            updateCarrierCount();
-        });
-    });
-
-    function updateCarrierCount() {
-        const checked = document.querySelectorAll('.carrier-chip input:checked').length;
-        const el = document.getElementById('carrierCount');
-        if (el) el.textContent = checked + ' selected';
-    }
-
-    function filterCarriers(query) {
-        const q = query.toLowerCase().trim();
-        document.querySelectorAll('.carrier-chip').forEach(chip => {
-            const name = chip.getAttribute('data-name') || '';
-            chip.classList.toggle('hidden', q && !name.includes(q));
-        });
-    }
-
-    function selectAllCarriers() {
-        document.querySelectorAll('.carrier-chip:not(.hidden)').forEach(chip => {
-            chip.classList.add('selected');
-            chip.querySelector('input[type="checkbox"]').checked = true;
-        });
-        updateCarrierCount();
-    }
-
-    function clearAllCarriers() {
-        document.querySelectorAll('.carrier-chip').forEach(chip => {
-            chip.classList.remove('selected');
-            chip.querySelector('input[type="checkbox"]').checked = false;
-        });
-        updateCarrierCount();
-    }
-
-    function saveCarriers() {
-        const btn = document.getElementById('saveCarriersBtn');
-        const status = document.getElementById('carrierSaveStatus');
-        const selected = [];
-        document.querySelectorAll('.carrier-chip input:checked').forEach(cb => {
-            selected.push(cb.value);
-        });
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> Saving...';
-        fetch('/api/carriers', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({carriers: selected})
-        })
-        .then(r => r.json())
-        .then(data => {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-2"></i> Save Carriers';
-            if (data.status === 'success') {
-                status.style.display = 'inline';
-                setTimeout(() => { status.style.display = 'none'; }, 3000);
-            } else {
-                alert('Failed to save: ' + (data.error || 'Unknown error'));
-            }
-        })
-        .catch(() => {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-2"></i> Save Carriers';
-            alert('Network error saving carriers.');
-        });
-    }
-
-    // ═══════════════════════════════════════
-    // ADVANCED SETTINGS
-    // ═══════════════════════════════════════
-    const profLabels = ['Casual', 'Relaxed', 'Balanced', 'Polished', 'Formal', 'Ultra Professional'];
-    function updateProfLabel(val) {
-        document.getElementById('profLevelLabel').textContent = profLabels[val] || 'Balanced';
-    }
-    updateProfLabel(document.getElementById('professionalism_level')?.value || 0);
-
-    function selectResponseLength(val) {
-        document.querySelectorAll('.resp-len-btn').forEach(btn => {
-            const isActive = btn.dataset.value === val;
-            btn.className = 'btn btn-sm resp-len-btn ' + (isActive ? 'btn-success' : 'btn-outline-secondary');
-        });
-    }
-
-    function addOutboundMsg(prefill) {
-        const container = document.getElementById('outboundContainer');
-        const idx = container.children.length + 1;
-        const row = document.createElement('div');
-        row.className = 'outbound-msg-row';
-        row.style = 'display: flex; gap: 8px; margin-bottom: 8px;';
-        row.innerHTML = `<span style="color: var(--accent, #00ff88); font-weight: 700; min-width: 22px; padding-top: 8px;">${idx}.</span>
-            <textarea class="outbound-msg-input form-control form-control-sm" rows="2" placeholder="Type your outbound message..."
-                      style="background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); color: #fff;">${prefill || ''}</textarea>
-            <button type="button" onclick="removeOutboundMsg(this)" class="btn btn-sm btn-outline-danger" style="height: 34px;"><i class="fa-solid fa-xmark"></i></button>`;
-        container.appendChild(row);
-        renumberOutbound();
-    }
-
-    function removeOutboundMsg(btn) { btn.closest('.outbound-msg-row').remove(); renumberOutbound(); }
-
-    function renumberOutbound() {
-        document.querySelectorAll('#outboundContainer .outbound-msg-row').forEach((row, i) => {
-            row.querySelector('span').textContent = (i + 1) + '.';
-        });
-    }
-
-    function collectSettings() {
-        const msgs = [];
-        document.querySelectorAll('.outbound-msg-input').forEach(ta => { const v = ta.value.trim(); if (v) msgs.push(v); });
-        const activeLen = document.querySelector('.resp-len-btn.btn-success');
-        return {
-            humor_enabled: document.getElementById('humor_enabled').checked,
-            professionalism_level: parseInt(document.getElementById('professionalism_level').value),
-            custom_behavior: document.getElementById('custom_behavior').value.trim(),
-            outbound_messages: msgs,
-            auto_emoji: document.getElementById('auto_emoji').checked,
-            after_hours_enabled: document.getElementById('after_hours_enabled').checked,
-            after_hours_start: document.getElementById('after_hours_start').value,
-            after_hours_end: document.getElementById('after_hours_end').value,
-            response_length: activeLen ? activeLen.dataset.value : 'balanced',
-            booking_confirmation: document.getElementById('booking_confirmation').checked,
-            objection_persistence: parseInt(document.getElementById('objection_persistence').value),
-            lead_reengagement: document.getElementById('lead_reengagement').checked,
-            conversation_memory: document.getElementById('conversation_memory').checked,
-            speed_to_lead: document.getElementById('speed_to_lead').checked,
-            multi_language: document.getElementById('multi_language').checked,
-        };
-    }
-
-    function saveAdvancedSettings() {
-        const btn = document.getElementById('saveAdvancedBtn');
-        const status = document.getElementById('settingsStatus');
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Saving...';
-        fetch('/api/bot-settings', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({settings: collectSettings()}) })
-        .then(r => r.json())
-        .then(data => {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-1"></i> Save Settings';
-            if (data.status === 'success') { status.textContent = 'Saved!'; status.style.opacity = '1'; setTimeout(() => { status.style.opacity = '0'; }, 3000); }
-            else { alert('Failed: ' + (data.error || 'Unknown')); }
-        })
-        .catch(() => { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-1"></i> Save Settings'; alert('Network error.'); });
-    }
-
-    function resetAdvancedSettings() {
-        if (!confirm('Reset all settings to defaults?')) return;
-        document.getElementById('professionalism_level').value = 0; updateProfLabel(0);
-        document.getElementById('humor_enabled').checked = true;
-        document.getElementById('auto_emoji').checked = true;
-        document.getElementById('after_hours_enabled').checked = false;
-        document.getElementById('afterHoursRange').style.display = 'none';
-        selectResponseLength('balanced');
-        document.getElementById('booking_confirmation').checked = true;
-        document.getElementById('objection_persistence').value = 3;
-        document.getElementById('persistenceLabel').textContent = '3 angles';
-        document.getElementById('lead_reengagement').checked = true;
-        document.getElementById('conversation_memory').checked = true;
-        document.getElementById('speed_to_lead').checked = true;
-        document.getElementById('multi_language').checked = false;
-        document.getElementById('custom_behavior').value = '';
-        document.getElementById('outboundContainer').innerHTML = '';
-        saveAdvancedSettings();
-    }
-
-    // ═══════════════════════════════════════════
-    // API KEY MANAGEMENT
-    // ═══════════════════════════════════════════
-    function loadApiStatus() {
-        fetch('/api/api-status')
-            .then(r => r.json())
-            .then(data => {
-                if (data.has_key) {
-                    document.getElementById('apiKeyDisplay').textContent = data.key_prefix || '••••••••';
-                    document.getElementById('btnGenKey').style.display = 'none';
-                    document.getElementById('btnRevokeKey').style.display = '';
-                    document.getElementById('apiWebhookUrl').value = data.webhook_url || '';
-                    document.getElementById('webhookSecretPreview').textContent = data.webhook_secret_preview || '—';
-                } else {
-                    document.getElementById('apiKeyDisplay').textContent = 'No key generated';
-                    document.getElementById('btnGenKey').style.display = '';
-                    document.getElementById('btnRevokeKey').style.display = 'none';
-                    document.getElementById('webhookSecretPreview').textContent = '—';
-                }
-            })
-            .catch(() => {
-                document.getElementById('apiKeyDisplay').textContent = 'Error loading';
-            });
-    }
-
-    function generateApiKey() {
-        if (!confirm('Generate a new API key? Any existing key will be replaced.')) return;
-        fetch('/api/generate-key', { method: 'POST', headers: {'Content-Type': 'application/json'} })
-            .then(r => r.json())
-            .then(data => {
-                if (data.api_key) {
-                    alert('API Key (copy now — shown only once):\n\n' + data.api_key + '\n\nWebhook Secret:\n' + data.webhook_secret);
-                    loadApiStatus();
-                } else {
-                    alert('Error: ' + (data.error || 'Unknown error'));
-                }
-            })
-            .catch(err => alert('Request failed: ' + err));
-    }
-
-    function revokeApiKey() {
-        if (!confirm('Revoke your API key? All API integrations using this key will stop working.')) return;
-        fetch('/api/revoke-key', { method: 'POST', headers: {'Content-Type': 'application/json'} })
-            .then(r => r.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    alert('API key revoked.');
-                    loadApiStatus();
-                } else {
-                    alert('Error: ' + (data.error || 'Unknown error'));
-                }
-            })
-            .catch(err => alert('Request failed: ' + err));
-    }
-
-    function saveWebhookUrl() {
-        const url = document.getElementById('apiWebhookUrl').value.trim();
-        if (!url) { alert('Enter a webhook URL'); return; }
-        if (!url.startsWith('https://')) { alert('Webhook URL must use HTTPS'); return; }
-        fetch('/api/webhook-url', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ url: url })
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.status === 'success') {
-                alert('Webhook URL saved.');
-            } else {
-                alert('Error: ' + (data.error || 'Unknown error'));
-            }
-        })
-        .catch(err => alert('Request failed: ' + err));
-    }
-
-    document.addEventListener('DOMContentLoaded', loadApiStatus);
-
-    // ── Agency Dashboard Theme Toggle ──────────────────────────
-    function agencyApplyTheme(theme, save) {
-        const body = document.body;
-        const btn = document.getElementById('agencyThemeToggle');
-        if (theme === 'light') {
-            body.classList.add('light-theme');
-            if (btn) { btn.innerHTML = '<i class="fa-solid fa-moon"></i>'; btn.title = 'Switch to dark mode'; }
-        } else {
-            body.classList.remove('light-theme');
-            if (btn) { btn.innerHTML = '<i class="fa-solid fa-sun"></i>'; btn.title = 'Switch to light mode'; }
+                .catch(function(e) { console.error('Agent stats error:', e); });
         }
-        if (save) localStorage.setItem('dash_theme', theme);
-    }
-    function agencyToggleTheme() {
-        const isLight = document.body.classList.contains('light-theme');
-        agencyApplyTheme(isLight ? 'dark' : 'light', true);
-    }
-    // Apply saved theme on load (shared key with main dashboard)
-    (function() {
-        const saved = localStorage.getItem('dash_theme') || 'dark';
-        agencyApplyTheme(saved, false);
+
+        // ── Call Log ──
+        window.agLoadCallLog = function(offset) {
+            callLogOffset = offset || 0;
+            var agent = document.getElementById('agCallAgentFilter').value;
+            var url = '/api/agency/call-log?limit=' + callLogLimit + '&offset=' + callLogOffset;
+            if (agent) url += '&agent=' + agent;
+
+            fetch(url)
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    var body = document.getElementById('agCallLogBody');
+                    var calls = d.calls || [];
+                    if (!calls.length) {
+                        body.innerHTML = '<div style="text-align:center;padding:30px;color:#555;">No calls found</div>';
+                    } else {
+                        var html = '';
+                        for (var i = 0; i < calls.length; i++) {
+                            var c = calls[i];
+                            var dirCls = c.direction === 'outbound' ? 'outbound' : 'inbound';
+                            var dirIcon = c.direction === 'outbound' ? 'fa-arrow-up-right' : 'fa-arrow-down-left';
+                            html += '<div class="ag-call-row">'
+                                + '<div class="ag-call-dir ' + dirCls + '"><i class="fa-solid ' + dirIcon + '"></i></div>'
+                                + '<div class="ag-call-info">'
+                                + '<div class="ag-call-name">' + c.contact_name + '</div>'
+                                + '<div class="ag-call-meta">' + c.agent_name + ' &middot; ' + fmtTime(c.created_at) + '</div>'
+                                + '</div>'
+                                + '<div class="ag-call-dur">' + fmtDur(c.duration) + '</div>'
+                                + '<div class="ag-call-badges">'
+                                + (c.has_recording ? '<span class="ag-call-badge" style="background:rgba(239,68,68,0.1);color:#ef4444;"><i class="fa-solid fa-circle" style="font-size:0.5rem;"></i> REC</span>' : '')
+                                + (c.has_transcript ? '<span class="ag-call-badge" style="background:rgba(59,130,246,0.1);color:#60a5fa;">TXT</span>' : '')
+                                + '</div>'
+                                + '</div>';
+                        }
+                        body.innerHTML = html;
+                    }
+
+                    // Pagination
+                    var total = d.total || 0;
+                    document.getElementById('agCallPageInfo').textContent =
+                        (callLogOffset + 1) + '-' + Math.min(callLogOffset + callLogLimit, total) + ' of ' + total;
+                    document.getElementById('agCallPrev').disabled = callLogOffset === 0;
+                    document.getElementById('agCallNext').disabled = callLogOffset + callLogLimit >= total;
+                })
+                .catch(function(e) { console.error('Call log error:', e); });
+        };
+        window.agCallLogPage = function(dir) {
+            var newOffset = callLogOffset + (dir * callLogLimit);
+            if (newOffset < 0) newOffset = 0;
+            agLoadCallLog(newOffset);
+        };
+
+        // ── Activity Logs ──
+        window.agLoadActivity = function() {
+            var lid = document.getElementById('agActivityAgent').value;
+            var body = document.getElementById('agActivityBody');
+            if (!lid) {
+                body.innerHTML = '<p style="text-align:center;color:#555;">Select an agent to view activity logs.</p>';
+                return;
+            }
+            body.innerHTML = '<p style="text-align:center;color:#555;">Loading...</p>';
+            fetch('/api/agency/logs/' + lid + '?limit=100')
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    var logs = d.logs || [];
+                    if (!logs.length) {
+                        body.innerHTML = '<p style="text-align:center;color:#555;">No activity logs found.</p>';
+                        return;
+                    }
+                    var html = '<table class="ag-table"><thead><tr><th>Time</th><th>Event</th><th>Status</th><th>Details</th></tr></thead><tbody>';
+                    for (var i = 0; i < logs.length; i++) {
+                        var l = logs[i];
+                        var statusColor = l.status === 'success' ? '#4ade80' : l.status === 'error' ? '#ef4444' : '#ffc107';
+                        html += '<tr>'
+                            + '<td style="white-space:nowrap;color:#666;">' + fmtTime(l.created_at) + '</td>'
+                            + '<td>' + (l.event_type || '—') + '</td>'
+                            + '<td><span style="color:' + statusColor + ';font-weight:600;">' + (l.status || '—') + '</span></td>'
+                            + '<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#666;">' + (l.message || l.details || '—') + '</td>'
+                            + '</tr>';
+                    }
+                    html += '</tbody></table>';
+                    body.innerHTML = html;
+                })
+                .catch(function() {
+                    body.innerHTML = '<p style="text-align:center;color:#ef4444;">Failed to load logs.</p>';
+                });
+        };
+        window.agViewLogs = function(lid) {
+            document.getElementById('agActivityAgent').value = lid;
+            agNav('activity', document.getElementById('agNavActivity'));
+            agLoadActivity();
+        };
+
+        // ── Invite actions ──
+        window.agInvite = function(lid, email) {
+            fetch('/api/agency/invite-sub-user', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({location_id: lid, email: email})
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                alert(d.message || d.error || 'Done');
+            })
+            .catch(function() { alert('Failed to send invite'); });
+        };
+        window.agInviteAll = function() {
+            fetch('/api/agency/invite-all', {method: 'POST'})
+                .then(function(r) { return r.json(); })
+                .then(function(d) { alert(d.message || 'Done'); })
+                .catch(function() { alert('Failed'); });
+        };
+
+        // ── Initial load ──
+        loadKpis();
+        loadAgentStats();
     })();
-</script>
-{% endblock %}
+    </script>
+
+</body>
+</html>

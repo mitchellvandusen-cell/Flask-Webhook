@@ -61,6 +61,10 @@
             apps.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
             if (home) home.style.display = 'flex';
             _iosCurrentApp = null;
+            // On mobile, close the full-screen app overlay
+            if (window.innerWidth <= 768 && typeof dlrMobileCloseApp === 'function') {
+                dlrMobileCloseApp();
+            }
         }
 
         // Live clock in status bar
@@ -1607,6 +1611,10 @@
             _jtcScrollToActiveContact();
             // Update Jump to Contact pill state
             _jtcUpdatePill();
+            // On mobile, auto-switch to Intel view so user sees lead intel immediately
+            if (window.innerWidth <= 768 && typeof dlrMobileSwitch === 'function') {
+                dlrMobileSwitch('intel');
+            }
         }
 
         // ═══════════════════════════════════════════════

@@ -138,6 +138,8 @@
                 const active = p === name;
                 if (panel) panel.style.display = active ? 'block' : 'none';
                 if (menuBtn) {
+                    // Toggle active class for mobile CSS !important rules
+                    if (active) { menuBtn.classList.add('active'); } else { menuBtn.classList.remove('active'); }
                     menuBtn.style.background = active ? 'rgba(0,217,255,0.08)' : 'transparent';
                     menuBtn.style.border = active ? '1px solid rgba(0,217,255,0.15)' : '1px solid transparent';
                     menuBtn.style.color = active ? '#00d9ff' : '#888';
@@ -279,32 +281,113 @@
         }
 
         // ── Dialer mobile tab switching ──
-        function dlrMobileSwitch(panel, btnEl) {
-            // Update tab buttons
-            document.querySelectorAll('.dlr-mobile-tab').forEach(b => b.classList.remove('active'));
-            if (btnEl) btnEl.classList.add('active');
+        function dlrMobileSwitch(panel) {
+            // Update action bar buttons
+            document.querySelectorAll('.dlr-mobile-action-btn').forEach(function(b) { b.classList.remove('active'); });
+            var btnMap = { contacts: 'dlrMobBtnContacts', intel: 'dlrMobBtnIntel' };
+            var activeBtn = document.getElementById(btnMap[panel]);
+            if (activeBtn) activeBtn.classList.add('active');
             // Hide all columns
             var cols = document.querySelectorAll('#dlr3colLayout > .dlr-col, #dlr3colLayout > div');
             cols.forEach(function(c) { c.classList.remove('dlr-mobile-active'); });
             // Show the target
-            var map = { contacts: 'dlrColContacts', intel: 'dlrColIntel', phone: 'dlrColPhone', calls: 'dlrColPhone' };
+            var map = { contacts: 'dlrColContacts', intel: 'dlrColIntel' };
             var target = document.getElementById(map[panel]);
             if (target) target.classList.add('dlr-mobile-active');
-            // If switching to messages/calls, auto-open the right app in the phone
-            if (panel === 'phone' && typeof iosOpenApp === 'function') {
-                iosOpenApp('messages');
+            // Close apps popup if open
+            dlrMobileCloseApps();
+        }
+
+        // ── Mobile: open an app in a full-screen overlay on mobile ──
+        function dlrMobileOpenApp(appName) {
+            dlrMobileCloseApps();
+            if (typeof iosOpenApp === 'function') iosOpenApp(appName);
+            // Show the phone column (it hosts the app views)
+            var phoneCol = document.getElementById('dlrColPhone');
+            if (phoneCol && window.innerWidth <= 768) {
+                // Temporarily show phone col as full-screen overlay
+                phoneCol.style.display = 'flex';
+                phoneCol.style.position = 'fixed';
+                phoneCol.style.inset = '0';
+                phoneCol.style.zIndex = '400';
+                phoneCol.style.background = '#000';
+                phoneCol.style.width = '100%';
+                phoneCol.style.height = '100%';
+                phoneCol.style.borderRadius = '0';
+                // Hide the iPhone frame chrome on mobile — just show the app content
+                var frame = phoneCol.querySelector('.iphone-frame');
+                if (frame) {
+                    frame.style.maxWidth = '100%';
+                    frame.style.width = '100%';
+                    frame.style.height = '100%';
+                    frame.style.aspectRatio = 'unset';
+                }
+                var bezel = phoneCol.querySelector('.iphone-bezel');
+                if (bezel) {
+                    bezel.style.borderRadius = '0';
+                    bezel.style.padding = '0';
+                    bezel.style.background = '#000';
+                    bezel.style.boxShadow = 'none';
+                }
+                var screen = phoneCol.querySelector('.iphone-screen');
+                if (screen) { screen.style.borderRadius = '0'; }
+                // Hide bezel buttons
+                phoneCol.querySelectorAll('.iphone-btn-right,.iphone-btn-left1,.iphone-btn-left2').forEach(function(b) { b.style.display = 'none'; });
+                // Hide status bar and dynamic island
+                var statusBar = phoneCol.querySelector('.ios-status-bar');
+                if (statusBar) statusBar.style.display = 'none';
             }
-            if (panel === 'calls' && typeof iosOpenApp === 'function') {
-                iosOpenApp('calls');
+        }
+
+        // ── Mobile: close full-screen app overlay ──
+        function dlrMobileCloseApp() {
+            var phoneCol = document.getElementById('dlrColPhone');
+            if (phoneCol && window.innerWidth <= 768) {
+                phoneCol.style.display = '';
+                phoneCol.style.position = '';
+                phoneCol.style.inset = '';
+                phoneCol.style.zIndex = '';
+                phoneCol.style.background = '';
+                phoneCol.style.width = '';
+                phoneCol.style.height = '';
+                phoneCol.style.borderRadius = '';
+                // Restore iPhone frame
+                var frame = phoneCol.querySelector('.iphone-frame');
+                if (frame) { frame.style.maxWidth = ''; frame.style.width = ''; frame.style.height = ''; frame.style.aspectRatio = ''; }
+                var bezel = phoneCol.querySelector('.iphone-bezel');
+                if (bezel) { bezel.style.borderRadius = ''; bezel.style.padding = ''; bezel.style.background = ''; bezel.style.boxShadow = ''; }
+                var screen = phoneCol.querySelector('.iphone-screen');
+                if (screen) { screen.style.borderRadius = ''; }
+                phoneCol.querySelectorAll('.iphone-btn-right,.iphone-btn-left1,.iphone-btn-left2').forEach(function(b) { b.style.display = ''; });
+                var statusBar = phoneCol.querySelector('.ios-status-bar');
+                if (statusBar) statusBar.style.display = '';
             }
+            if (typeof iosGoHome === 'function') iosGoHome();
+        }
+
+        // ── Mobile apps popup ──
+        function dlrMobileToggleApps() {
+            var popup = document.getElementById('dlrMobileAppsPopup');
+            var overlay = document.getElementById('dlrMobileAppsOverlay');
+            if (popup && overlay) {
+                var isOpen = popup.classList.contains('open');
+                popup.classList.toggle('open', !isOpen);
+                overlay.classList.toggle('open', !isOpen);
+            }
+        }
+        function dlrMobileCloseApps() {
+            var popup = document.getElementById('dlrMobileAppsPopup');
+            var overlay = document.getElementById('dlrMobileAppsOverlay');
+            if (popup) popup.classList.remove('open');
+            if (overlay) overlay.classList.remove('open');
         }
 
         // ── Auto-detect mobile and show/hide elements ──
         function _setupMobileLayout() {
             var isMobile = window.innerWidth <= 768;
-            var mobileTabs = document.getElementById('dlrMobileTabs');
+            var mobileActionBar = document.getElementById('dlrMobileActionBar');
             var bottomNav = document.getElementById('mobileBottomNav');
-            if (mobileTabs) mobileTabs.style.display = isMobile ? 'flex' : 'none';
+            if (mobileActionBar) mobileActionBar.style.display = isMobile ? 'flex' : 'none';
             // On mobile, make sure the active column is shown
             if (isMobile) {
                 var contactsCol = document.getElementById('dlrColContacts');
@@ -320,6 +403,7 @@
                 // Close mobile sidebar if resizing to desktop
                 mobileCloseSidebar();
                 mobileCloseMoreSheet();
+                dlrMobileCloseApps();
             }
         }
         window.addEventListener('resize', _setupMobileLayout);

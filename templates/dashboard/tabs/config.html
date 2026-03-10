@@ -521,8 +521,9 @@ Thanks for your interest! I have a few options that might work for you. When is 
             function switchConfigPanel(name) {
                 // Hide all panels
                 document.querySelectorAll('[id^="cfgtab-panel-"]').forEach(p => p.style.display = 'none');
-                // Deactivate all menu items
+                // Deactivate all menu items (toggle active class for mobile CSS + inline for desktop)
                 document.querySelectorAll('.cfg-menu-item').forEach(btn => {
+                    btn.classList.remove('active');
                     btn.style.background = 'transparent';
                     btn.style.border = '1px solid transparent';
                     btn.style.color = '#888';
@@ -533,6 +534,7 @@ Thanks for your interest! I have a few options that might work for you. When is 
                 // Activate menu item
                 const activeBtn = document.getElementById('cmenu-' + name);
                 if (activeBtn) {
+                    activeBtn.classList.add('active');
                     activeBtn.style.background = 'rgba(0,255,136,0.08)';
                     activeBtn.style.border = '1px solid rgba(0,255,136,0.15)';
                     activeBtn.style.color = 'var(--accent)';

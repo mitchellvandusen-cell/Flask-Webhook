@@ -431,8 +431,8 @@
             var html = '<div style="padding:10px 12px;background:' + statusBg + ';border:1px solid rgba(255,255,255,0.06);border-radius:8px;">';
 
             // Row 1: Phone + badges + health score
-            html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">';
-            html += '<div style="display:flex;align-items:center;gap:6px;">';
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:8px;">';
+            html += '<div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;overflow:hidden;flex-wrap:wrap;">';
             html += '<span style="color:#fff;font-weight:600;font-size:.8rem;">' + _esc(_fmtPhone(n.phone)) + '</span>';
             if (n.state) html += '<span style="background:rgba(0,217,255,0.08);color:#00d9ff;padding:1px 5px;border-radius:3px;font-size:.75rem;font-weight:700;letter-spacing:.3px;">' + _esc(n.state) + '</span>';
             if (n.is_primary) html += '<span style="background:rgba(0,217,255,0.15);color:#00d9ff;padding:1px 5px;border-radius:3px;font-size:.75rem;font-weight:700;">PRIMARY</span>';
@@ -441,7 +441,7 @@
             html += '</div>';
 
             // Health score badge
-            html += '<div style="display:flex;align-items:center;gap:6px;">';
+            html += '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">';
             if (n.status === 'frozen' || n.status === 'resting') {
                 html += '<span style="background:' + statusBg + ';color:' + statusColor + ';padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:700;text-transform:uppercase;">';
                 html += '<i class="fa-solid ' + statusIcon + ' me-1"></i>' + n.status;

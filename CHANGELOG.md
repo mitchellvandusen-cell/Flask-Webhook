@@ -31,6 +31,51 @@
 | 2026-03-01 | iMessage-style Inbox app redesign with search, filters, date grouping, proper conversation sorting |
 | 2026-03-01 | Mobile nav menu fix: solid background, custom toggle (replaces broken Bootstrap collapse) |
 | 2026-03-01 | Pricing update: $149.99/month across all pages, bot, and documentation |
+| 2026-03-10 | Hamburger menu fix, login crash fix, Remember Me (30-day), mobile dashboard redesign, agency dashboard revamp |
+
+---
+
+## 2026-03-10
+
+### Bug Fixes
+- **Hamburger menu fix**: `backdrop-filter: blur()` on `.navbar` was creating a containing block that clipped `position: fixed` children. Fixed with CSS `:has()` selector + JS `.nav-open` class fallback to remove backdrop-filter when menu is open
+- **Login crash fix**: `BuildError: Could not build url for endpoint 'dashboard'` — the dashboard route is in a blueprint, so endpoint must be `dashboard.dashboard`. Fixed across all blueprint files (auth, slack, discord, google_calendar) and templates
+
+### Authentication Improvements
+- **Remember Me for 30 days**: Added `BooleanField` to `LoginForm`, `login_user(user, remember=form.remember.data)`, `REMEMBER_COOKIE_DURATION = timedelta(days=30)` with secure cookie settings
+- **Dashboard button when authenticated**: Nav "Log In" button changes to "Dashboard" when `current_user.is_authenticated`
+
+### Mobile Dashboard Redesign
+- Complete mobile redesign (not just a wrapper/shrunk desktop) with fundamentally different sizing, spacing, and layout patterns
+- Two-column tab layouts break to single-column with horizontal scrolling pill tabs for settings menus
+- CSS attribute selectors `[style*="display:flex"][style*="min-height"]` override inline styles on Config/Voice/Connect tabs
+- Compact topbar, touch-friendly form controls, simplified spacing throughout
+- Workflow tabs, AI Minutes grid, and all `col-md-*` columns stack vertically on mobile
+
+### Discord/Slack Panel Retirement
+- Side panels hidden with `display: none !important` (DOM preserved for JS compatibility)
+- Discord/Slack accessible as phone UI apps in dialer + buttons in mobile "More" bottom sheet
+- Removed Discord/Slack bell buttons from topbar
+
+### Agency Dashboard Revamp
+- **Complete rewrite** from accordion layout to sidebar+tab architecture matching individual dashboard
+- **New sidebar navigation**: Overview, Agents, Call Log, Activity, Agency Settings, Billing
+- **KPI Overview tab**: 8 KPI cards (Total Calls, Connected, Connect Rate, Talk Hours, Messages, Active Agents, Avg Call, Calls/Day) with prior-period deltas
+- **Daily volume chart** and **hourly heatmap** visualizations
+- **Top Performing Agents** quick-view table on overview
+- **Agents tab**: Agent cards with status, invite actions, and full performance stats table (calls, connected, rate, talk time, avg call, messages, last call)
+- **Call Log tab**: Paginated call history across all agents with direction indicators, duration, recording/transcript badges, and agent filter dropdown
+- **Activity tab**: Per-agent webhook activity logs
+- **Agency Settings tab**: Profile form, CRM connection status
+- **Billing tab**: Seat usage progress bar, subscription management
+- **3 new API endpoints**: `GET /api/agency/kpis`, `GET /api/agency/agent-stats`, `GET /api/agency/call-log` — aggregate KPIs across all sub-user `location_id`s
+- Light/dark theme support, mobile responsive layout
+
+### Claim Account Email Redesign
+- Redesigned from basic blue HTML to dark-themed email matching IGB brand
+- Added gradient IGB logo header, "What's Included" feature list with checkmarks
+- Gradient CTA button with box-shadow, improved copy and layout
+- Dark background with glassmorphism card styling
 
 ---
 
