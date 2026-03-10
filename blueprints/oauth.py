@@ -29,6 +29,7 @@ from email_templates import _email_wrapper, _build_welcome_email
 from send_email_api import send_email_via_api
 from sync_subscribers import sync_subscribers
 from token_encryption import encrypt_token, decrypt_token
+from ghl_api import fetch_all_ghl_items, ghl_api_call as _ghl_api_call
 
 logger = logging.getLogger(__name__)
 
@@ -56,90 +57,6 @@ GHL_OAUTH_SCOPES = [
     "workflows.readonly",
     "twilioaccount.read",
 ]
-
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-def fetch_all_ghl_items(base_url, headers, item_key='locations', max_pages=50):
-    """
-    Handle Lead Connector pagination — fetches all locations/users across pages.
-    Prevents onboarding failures when agencies have >20 locations.
-
-    Returns a flat list of all items.
-    """
-    items = []
-    url = base_url
-    page_count = 0
-
-    while url and page_count < max_pages:
-        try:
-            resp = requests.get(url, headers=headers, timeout=15)
-            if not resp.ok:
-                if resp.status_code in (401, 403):
-                    logger.warning(
-                        f"SCOPE MISSING: /{item_key}/ returned {resp.status_code} — "
-                        f"'{item_key}.readonly' scope likely not granted. "
-                        f"Falling back to token-based data."
-                    )
-                else:
-                    logger.error(
-                        f"Failed to fetch {item_key} (page {page_count + 1}): "
-                        f"{resp.status_code} {resp.text[:300]}"
-                    )
-                break
-
-            data = resp.json()
-            batch = data.get(item_key, [])
-            items.extend(batch)
-            page_count += 1
-
-            logger.info(f"Fetched {len(batch)} {item_key} from page {page_count} (total: {len(items)})")
-
-            meta = data.get('meta', {})
-            next_url = meta.get('nextPageUrl') or data.get('nextPageUrl')
-
-            if next_url:
-                url = next_url if next_url.startswith('http') else f"https://services.leadconnectorhq.com{next_url}"
-            else:
-                url = None
-
-        except Exception as e:
-            logger.error(f"Pagination error fetching {item_key} (page {page_count + 1}): {e}")
-            break
-
-    logger.info(f"Pagination complete: {len(items)} total {item_key} fetched across {page_count} pages")
-    return items
-
-
-def _ghl_api_call(method, url, headers=None, data=None, timeout=15, label="GHL API"):
-    """
-    Make a GHL API call with 1 automatic retry on transient errors (5xx, timeout, connection).
-    Returns (response, error_message). On success error_message is None.
-    """
-    last_err = None
-    for attempt in range(2):
-        try:
-            if method == 'POST':
-                resp = requests.post(url, data=data, headers=headers, timeout=timeout)
-            else:
-                resp = requests.get(url, headers=headers, timeout=timeout)
-
-            if resp.status_code < 500:
-                return resp, None
-
-            last_err = f"{label} returned {resp.status_code}"
-            logger.warning(f"{label} attempt {attempt + 1}/2 got {resp.status_code}, body={resp.text[:300]}")
-        except requests.Timeout:
-            last_err = f"{label} timed out after {timeout}s"
-            logger.warning(f"{label} attempt {attempt + 1}/2 timed out")
-        except requests.ConnectionError as e:
-            last_err = f"{label} connection error: {e}"
-            logger.warning(f"{label} attempt {attempt + 1}/2 connection error: {e}")
-        except Exception as e:
-            last_err = f"{label} unexpected error: {e}"
-            logger.warning(f"{label} attempt {attempt + 1}/2 unexpected error: {e}")
-
-    return None, last_err
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────

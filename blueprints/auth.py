@@ -34,34 +34,8 @@ def _get_reset_serializer():
 
 def _send_reset_email(to_email: str, reset_url: str):
     """Send a password-reset link via Flask-Mail."""
-    html_body = f"""
-    <html>
-    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #2563eb;">Password Reset</h2>
-            <p>We received a request to reset your InsuranceGrokBot password.</p>
-            <p>Click the button below to choose a new password:</p>
-            <div style="text-align: center; margin: 30px 0;">
-                <a href="{reset_url}"
-                   style="background-color: #2563eb; color: white; padding: 14px 28px;
-                          text-decoration: none; border-radius: 8px; font-weight: bold;
-                          display: inline-block;">
-                    Reset My Password
-                </a>
-            </div>
-            <p style="color: #666; font-size: 14px;">
-                This link expires in 30 minutes. If you didn't request this,
-                you can safely ignore this email.
-            </p>
-            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-            <p style="color: #999; font-size: 12px;">
-                InsuranceGrokBot - AI-Powered Insurance Sales Assistant<br>
-                <a href="{YOUR_DOMAIN}" style="color: #2563eb;">{YOUR_DOMAIN}</a>
-            </p>
-        </div>
-    </body>
-    </html>
-    """
+    from email_templates import _build_password_reset_html
+    html_body = _build_password_reset_html(reset_url, YOUR_DOMAIN)
     msg = Message(
         subject="InsuranceGrokBot - Password Reset",
         recipients=[to_email],

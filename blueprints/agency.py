@@ -37,53 +37,13 @@ agency_bp = Blueprint('agency', __name__)
 
 def _send_invite_email(to_email: str, agent_name: str, agency_name: str, invite_url: str):
     """Send the onboarding invite email to a sub-account user via Flask-Mail."""
-    subject = f"You're invited to InsuranceGrokBot by {agency_name}"
-
-    html_body = f"""
-    <html>
-    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #2563eb;">Welcome to InsuranceGrokBot!</h2>
-            <p>Hi {agent_name},</p>
-            <p><strong>{agency_name}</strong> has set up an AI-powered sales assistant for your
-            location and invited you to activate your account.</p>
-            <p>Click the button below to set your password and get started:</p>
-            <div style="text-align: center; margin: 30px 0;">
-                <a href="{invite_url}"
-                   style="background-color: #2563eb; color: white; padding: 14px 28px;
-                          text-decoration: none; border-radius: 8px; font-weight: bold;
-                          display: inline-block;">
-                    Activate My Account
-                </a>
-            </div>
-            <p style="color: #666; font-size: 14px;">
-                This link expires in 7 days. If you didn't expect this email,
-                please contact your agency administrator.
-            </p>
-            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-            <p style="color: #999; font-size: 12px;">
-                InsuranceGrokBot - AI-Powered Insurance Sales Assistant<br>
-                <a href="{YOUR_DOMAIN}" style="color: #2563eb;">{YOUR_DOMAIN}</a>
-            </p>
-        </div>
-    </body>
-    </html>
-    """
-
-    text_body = (
-        f"Welcome to InsuranceGrokBot!\n\n"
-        f"Hi {agent_name},\n\n"
-        f"{agency_name} has set up an AI-powered sales assistant for your location "
-        f"and invited you to activate your account.\n\n"
-        f"Click here to set your password and get started:\n{invite_url}\n\n"
-        f"This link expires in 7 days.\n\n- InsuranceGrokBot Team"
-    )
-
+    from email_templates import _build_agency_invite_html
+    html_body, text_body = _build_agency_invite_html(agent_name, agency_name, invite_url, YOUR_DOMAIN)
     msg = Message(
-        subject=subject,
+        subject=f"You're invited to InsuranceGrokBot by {agency_name}",
         recipients=[to_email],
         html=html_body,
-        body=text_body
+        body=text_body,
     )
     mail.send(msg)
     logger.info(f"Invite email sent to {to_email}")
