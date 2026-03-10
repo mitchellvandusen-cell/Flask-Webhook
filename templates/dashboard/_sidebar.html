@@ -3,7 +3,7 @@
         <!-- Brand Row -->
         <div class="sb-brand">
             <div class="sb-brand-logo"><img src="{{ url_for('static', filename='favicon.svg') }}" alt="IGB" style="width:22px;height:22px;"></div>
-            <span class="sb-brand-text">InsuranceGrokBot</span>
+            <span class="sb-brand-text">IGB</span>
             <button class="sb-toggle" id="sbToggle" onclick="toggleSidebar()" title="Collapse sidebar">
                 <i class="fa-solid fa-bars" id="sbToggleIcon"></i>
             </button>
@@ -100,96 +100,23 @@
 
             <div class="sb-divider"></div>
 
-            <!-- ── DISCORD TEAM CHAT ── -->
-            <div class="sb-section open" id="sbSectionDiscord">
-                <div class="sb-section-header" onclick="toggleSbSection('sbSectionDiscord')">
-                    <i class="fa-brands fa-discord" style="color:#5865f2;font-size:0.75rem;"></i>
-                    <span>Team Chat</span>
-                    <i class="fa-solid fa-chevron-down sb-section-chevron"></i>
-                </div>
-                <div class="sb-section-body" id="discordSidebarBody">
-                    <!-- Shown when NOT connected -->
-                    <div id="discordNotConnected">
-                        <a href="/discord/connect" class="discord-connect-btn" id="discordConnectBtn" target="_top">
-                            <i class="fa-brands fa-discord" style="font-size:1rem;"></i>
-                            <span>Connect to Discord</span>
-                        </a>
-                        <div style="padding:6px 12px 8px;font-size:0.78rem;color:#555;line-height:1.4;">
-                            Link your Discord account to read and reply to team messages without leaving this page.
-                        </div>
-                    </div>
-                    <!-- Shown when connected -->
-                    <div id="discordConnected" style="display:none;">
-                        <div style="display:flex;align-items:center;gap:8px;padding:6px 12px 4px;">
-                            <div id="discordUserAvatar" class="discord-avatar-sm" style="width:22px;height:22px;border-radius:50%;background:rgba(88,101,242,0.2);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;color:#7289da;flex-shrink:0;"></div>
-                            <span id="discordUsername" style="font-size:0.82rem;color:#aaa;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;"></span>
-                            <a href="/discord/disconnect" style="font-size:0.75rem;color:#555;text-decoration:none;" title="Disconnect">
-                                <i class="fa-solid fa-xmark"></i>
-                            </a>
-                        </div>
-
-                        <!-- Session-expired banner (hidden by default; shown by JS when needs_reauth) -->
-                        <div id="discordReauthBanner" style="display:none;padding:4px 12px 2px;">
-                            <a href="/discord/connect" target="_top" style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:rgba(240,165,0,0.12);border:1px solid rgba(240,165,0,0.3);border-radius:7px;color:#f0a500;font-size:0.73rem;text-decoration:none;font-weight:600;">
-                                <i class="fa-solid fa-rotate-right" style="font-size:0.75rem;"></i>
-                                <span>Session expired — Reconnect</span>
-                            </a>
-                        </div>
-
-                        <!-- Server count pill + add button -->
-                        <div style="display:flex;align-items:center;gap:6px;padding:4px 12px 6px;">
-                            <span style="font-size:0.75rem;color:#555;" id="discordServerCount">0/3 servers</span>
-                            <button onclick="openServerModal()" style="margin-left:auto;background:rgba(88,101,242,0.1);border:1px solid rgba(88,101,242,0.25);color:#7289da;border-radius:6px;padding:3px 8px;font-size:0.75rem;cursor:pointer;font-weight:600;">
-                                <i class="fa-solid fa-plus me-1"></i>Add Server
-                            </button>
-                        </div>
-
-                        <!-- Server list (populated by JS) -->
-                        <div id="discordServerList"></div>
-                    </div>
-                </div>
+            <!-- Discord/Slack moved to phone UI apps in Dialer tab -->
+            <!-- Hidden elements still needed by discord.js / slack.js for status checks -->
+            <div id="discordNotConnected" style="display:none;"></div>
+            <div id="discordConnected" style="display:none;">
+                <div id="discordUserAvatar"></div>
+                <span id="discordUsername"></span>
+                <div id="discordReauthBanner" style="display:none;"></div>
+                <span id="discordServerCount"></span>
+                <div id="discordServerList"></div>
             </div>
-
-            <div class="sb-divider"></div>
-
-            <!-- ── SLACK TEAM CHAT ── -->
-            <div class="sb-section open" id="sbSectionSlack">
-                <div class="sb-section-header" onclick="toggleSbSection('sbSectionSlack')">
-                    <i class="fa-brands fa-slack" style="color:#36c5f0;font-size:0.75rem;"></i>
-                    <span>Slack</span>
-                    <i class="fa-solid fa-chevron-down sb-section-chevron"></i>
-                </div>
-                <div class="sb-section-body" id="slackSidebarBody">
-                    <!-- Shown when NOT connected -->
-                    <div id="slackNotConnected">
-                        <a href="/slack/connect" class="slack-connect-btn" id="slackConnectBtn" target="_top">
-                            <i class="fa-brands fa-slack" style="font-size:1rem;"></i>
-                            <span>Connect to Slack</span>
-                        </a>
-                        <div style="padding:6px 12px 8px;font-size:0.78rem;color:#555;line-height:1.4;">
-                            Link your Slack workspace to read and reply to team messages without leaving this page.
-                        </div>
-                    </div>
-                    <!-- Shown when connected -->
-                    <div id="slackConnected" style="display:none;">
-                        <div style="display:flex;align-items:center;gap:8px;padding:6px 12px 4px;">
-                            <div id="slackUserAvatar" style="width:22px;height:22px;border-radius:5px;background:rgba(54,197,240,0.2);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;color:#36c5f0;flex-shrink:0;"></div>
-                            <div style="flex:1;overflow:hidden;">
-                                <span id="slackUsername" style="font-size:0.82rem;color:#aaa;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;"></span>
-                                <span id="slackTeamName" style="font-size:0.75rem;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;"></span>
-                            </div>
-                            <a href="/slack/disconnect" style="font-size:0.75rem;color:#555;text-decoration:none;" title="Disconnect">
-                                <i class="fa-solid fa-xmark"></i>
-                            </a>
-                        </div>
-
-                        <!-- Channel list (populated by JS) -->
-                        <div class="slack-channel-list" id="slackChannelList" style="margin-top:4px;"></div>
-                    </div>
-                </div>
+            <div id="slackNotConnected" style="display:none;"></div>
+            <div id="slackConnected" style="display:none;">
+                <div id="slackUserAvatar"></div>
+                <span id="slackUsername"></span>
+                <span id="slackTeamName"></span>
+                <div id="slackChannelList"></div>
             </div>
-
-            <div class="sb-divider"></div>
 
             <!-- ── SYSTEM PARAMS (collapsible) ── -->
             <div class="sb-params">
@@ -256,16 +183,9 @@
 
         <!-- Sidebar Footer -->
         <div class="sb-footer">
-            <button class="sb-footer-item" id="discordChatToggleBtn" onclick="toggleDiscordPanel()" title="Toggle Discord Chat" style="border:none;cursor:pointer;background:none;width:100%;text-align:left;display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:0.9rem;color:#7289da;transition:background 0.15s,color 0.15s;position:relative;">
-                <i class="fa-brands fa-discord" style="width:18px;text-align:center;flex-shrink:0;font-size:0.9rem;"></i>
-                <span class="sb-nav-label">Discord Chat</span>
-                <span id="discordFooterBadge" style="display:none;background:#ed4245;color:#fff;font-size:0.75rem;font-weight:800;border-radius:8px;padding:1px 5px;min-width:16px;text-align:center;margin-left:auto;"></span>
-            </button>
-            <button class="sb-footer-item" id="slackChatToggleBtn" onclick="toggleSlackPanel()" title="Toggle Slack Chat" style="border:none;cursor:pointer;background:none;width:100%;text-align:left;display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:0.9rem;color:#36c5f0;transition:background 0.15s,color 0.15s;position:relative;">
-                <i class="fa-brands fa-slack" style="width:18px;text-align:center;flex-shrink:0;font-size:0.9rem;"></i>
-                <span class="sb-nav-label">Slack Chat</span>
-                <span id="slackFooterBadge" style="display:none;background:#e01e5a;color:#fff;font-size:0.75rem;font-weight:800;border-radius:8px;padding:1px 5px;min-width:16px;text-align:center;margin-left:auto;"></span>
-            </button>
+            <!-- Discord/Slack moved to phone UI apps -->
+            <span id="discordFooterBadge" style="display:none;"></span>
+            <span id="slackFooterBadge" style="display:none;"></span>
             <button class="sb-footer-item" id="sbnTutorial" onclick="startDashboardTutorial()" title="Replay interactive tutorial" style="border:none;cursor:pointer;background:none;width:100%;text-align:left;display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:0.9rem;color:#00d9ff;transition:background 0.15s,color 0.15s;">
                 <i class="fa-solid fa-graduation-cap" style="width:18px;text-align:center;flex-shrink:0;font-size:0.9rem;"></i>
                 <span class="sb-nav-label">Tutorial</span>

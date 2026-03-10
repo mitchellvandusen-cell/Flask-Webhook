@@ -38,7 +38,7 @@
         function iosOpenApp(app) {
             _iosCurrentApp = app;
             const home = document.getElementById('iosHome');
-            const apps = { messages: 'iosAppMessages', calls: 'iosAppCalls', recordings: 'iosAppRecordings', voicemail: 'iosAppVoicemail', inbox: 'iosAppInbox', calendar: 'iosAppCalendar' };
+            const apps = { messages: 'iosAppMessages', calls: 'iosAppCalls', recordings: 'iosAppRecordings', voicemail: 'iosAppVoicemail', inbox: 'iosAppInbox', calendar: 'iosAppCalendar', discord: 'iosAppDiscord', slack: 'iosAppSlack' };
             if (home) home.style.display = 'none';
             Object.keys(apps).forEach(k => {
                 const el = document.getElementById(apps[k]);
@@ -51,11 +51,13 @@
             if (app === 'voicemail') vmLoad();
             if (app === 'inbox') inboxRefresh();
             if (app === 'calendar') calendarInit();
+            if (app === 'discord') iosDiscordInit();
+            if (app === 'slack') iosSlackInit();
         }
 
         function iosGoHome() {
             const home = document.getElementById('iosHome');
-            const apps = ['iosAppMessages', 'iosAppCalls', 'iosAppRecordings', 'iosAppVoicemail', 'iosAppInbox', 'iosAppCalendar'];
+            const apps = ['iosAppMessages', 'iosAppCalls', 'iosAppRecordings', 'iosAppVoicemail', 'iosAppInbox', 'iosAppCalendar', 'iosAppDiscord', 'iosAppSlack'];
             apps.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
             if (home) home.style.display = 'flex';
             _iosCurrentApp = null;
@@ -4812,7 +4814,8 @@
         function _igbPollForResults(pendingIds) {
             if (_igbPollTimer) clearInterval(_igbPollTimer);
             let pollCount = 0;
-            const maxPolls = 90; // 4s * 90 = 6 minutes max polling
+            const totalToAnalyze = pendingIds.length;
+            const maxPolls = 450; // 4s * 450 = 30 minutes max polling
 
             _igbPollTimer = setInterval(async function() {
                 pollCount++;
@@ -4827,7 +4830,7 @@
 
                 try {
                     // Chunk polling requests for manageable batch sizes
-                    const POLL_CHUNK = 100;
+                    const POLL_CHUNK = 300;
                     let totalNewResults = 0;
                     for (let ci = 0; ci < pendingIds.length; ci += POLL_CHUNK) {
                         const chunkIds = pendingIds.slice(ci, ci + POLL_CHUNK).join(',');
@@ -5773,4 +5776,384 @@
                 setTimeout(_initSSENotifications, 1000);
             }
         });
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // ═══ DISCORD PHONE APP — bridges existing Discord.* state + API ══════
+        // ═══════════════════════════════════════════════════════════════════════
+        let _iosDiscordPollTimer = null;
+        let _iosDiscordActiveChannel = null;
+        let _iosDiscordLastMsgIds = {};
+
+        function iosDiscordInit() {
+            // Check if Discord is connected via the existing global state
+            if (typeof Discord !== 'undefined' && Discord.connected) {
+                document.getElementById('iosDiscordNotConnected').style.display = 'none';
+                const conn = document.getElementById('iosDiscordConnected');
+                conn.style.display = 'flex';
+                _iosDiscordRenderServers();
+            } else {
+                document.getElementById('iosDiscordNotConnected').style.display = 'flex';
+                document.getElementById('iosDiscordConnected').style.display = 'none';
+                // Try fetching status in case Discord.js hasn't loaded yet
+                fetch('/api/discord/status').then(r => r.json()).then(data => {
+                    if (!data.connected) return;
+                    document.getElementById('iosDiscordNotConnected').style.display = 'none';
+                    document.getElementById('iosDiscordConnected').style.display = 'flex';
+                    if (typeof Discord !== 'undefined') {
+                        Discord.connected = true;
+                        Discord.user = data.user;
+                        Discord.servers = data.servers || [];
+                    }
+                    _iosDiscordRenderServers();
+                }).catch(() => {});
+            }
+        }
+
+        function _iosDiscordRenderServers() {
+            const servers = (typeof Discord !== 'undefined') ? Discord.servers : [];
+            const el = document.getElementById('iosDiscordServers');
+            if (!servers.length) {
+                el.innerHTML = '<div style="font-size:0.78rem;color:#72767d;padding:4px 0;">No servers added. Click <strong style="color:#5865f2;">+ Add</strong> to get started.</div>';
+                return;
+            }
+            el.innerHTML = servers.map(s => {
+                const icon = s.icon_url
+                    ? `<img src="${s.icon_url}" style="width:28px;height:28px;border-radius:7px;object-fit:cover;">`
+                    : `<div style="width:28px;height:28px;border-radius:7px;background:rgba(88,101,242,0.2);display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:800;color:#5865f2;">${(s.name||'S')[0].toUpperCase()}</div>`;
+                const dot = s.bot_in_server
+                    ? '<span style="width:6px;height:6px;border-radius:50%;background:#43b581;flex-shrink:0;"></span>'
+                    : '<span style="width:6px;height:6px;border-radius:50%;background:#faa61a;flex-shrink:0;"></span>';
+                return `<button onclick="_iosDiscordLoadChannels('${s.guild_id}', ${s.bot_in_server}, '${(s.name||'').replace(/'/g,"\\'")}')" style="display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);cursor:pointer;width:100%;text-align:left;color:#dcddde;font-size:0.8rem;">
+                    ${icon}
+                    <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_iosEscHtml(s.name)}</span>
+                    ${dot}
+                </button>`;
+            }).join('');
+        }
+
+        function _iosDiscordLoadChannels(guildId, botInServer, serverName) {
+            const el = document.getElementById('iosDiscordChannels');
+            document.getElementById('iosDiscordServerName').textContent = serverName;
+            if (!botInServer) {
+                el.innerHTML = `<div style="padding:20px;text-align:center;">
+                    <div style="font-size:0.82rem;color:#faa61a;margin-bottom:12px;"><i class="fa-solid fa-robot me-1"></i>Bot needs to join this server</div>
+                    <button onclick="inviteBotToServer('${guildId}')" style="background:#5865f2;border:none;color:#fff;border-radius:8px;padding:10px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;">
+                        <i class="fa-brands fa-discord me-1"></i>Invite Bot
+                    </button>
+                </div>`;
+                return;
+            }
+            el.innerHTML = '<div style="padding:16px;text-align:center;color:#72767d;font-size:0.78rem;"><i class="fa-solid fa-spinner fa-spin me-1"></i>Loading channels...</div>';
+            fetch(`/api/discord/channels/${guildId}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error || data.needs_invite) {
+                        el.innerHTML = `<div style="padding:16px;color:#faa61a;font-size:0.82rem;text-align:center;">${_iosEscHtml(data.error || 'Bot not in server')}</div>`;
+                        return;
+                    }
+                    const channels = data.channels || [];
+                    if (!channels.length) { el.innerHTML = '<div style="padding:16px;color:#72767d;font-size:0.78rem;">No text channels found.</div>'; return; }
+                    el.innerHTML = '<div style="font-size:0.72rem;color:#72767d;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;padding:8px 0 4px;">Text Channels</div>' +
+                        channels.map(ch => `<button onclick="_iosDiscordOpenChat('${guildId}','${ch.id}','${(ch.name||'').replace(/'/g,"\\'")}','${serverName.replace(/'/g,"\\'")}')" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;background:none;border:none;cursor:pointer;width:100%;text-align:left;color:#8e9297;font-size:0.82rem;transition:background 0.15s,color 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.06)';this.style.color='#dcddde'" onmouseout="this.style.background='none';this.style.color='#8e9297'">
+                            <span style="color:#72767d;font-weight:500;">#</span>
+                            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_iosEscHtml(ch.name)}</span>
+                        </button>`).join('');
+                })
+                .catch(() => { el.innerHTML = '<div style="padding:16px;color:#faa61a;font-size:0.82rem;">Network error</div>'; });
+        }
+
+        function _iosDiscordOpenChat(guildId, channelId, channelName, serverName) {
+            _iosDiscordActiveChannel = channelId;
+            document.getElementById('iosDiscordChannelName').textContent = '#' + channelName;
+            document.getElementById('iosDiscordServerName').textContent = serverName;
+            document.getElementById('iosDiscordReplyText').placeholder = `Message #${channelName}...`;
+
+            // Show chat, hide picker
+            document.getElementById('iosDiscordConnected').style.display = 'none';
+            const chat = document.getElementById('iosDiscordChat');
+            chat.style.display = 'flex';
+
+            // Also update the existing Discord state for panel sync
+            if (typeof Discord !== 'undefined') {
+                Discord.activeGuildId = guildId;
+                Discord.activeChannelId = channelId;
+                Discord.activeChannelName = channelName;
+                Discord.activeServerName = serverName;
+            }
+
+            _iosDiscordFetchMessages(channelId, true);
+            _iosDiscordStartPoll();
+        }
+
+        function _iosDiscordFetchMessages(channelId, initial) {
+            const msgEl = document.getElementById('iosDiscordMessages');
+            if (initial) msgEl.innerHTML = '<div style="padding:24px;text-align:center;color:#72767d;font-size:0.78rem;"><i class="fa-solid fa-spinner fa-spin me-1"></i>Loading...</div>';
+
+            fetch(`/api/discord/messages/${channelId}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error) { msgEl.innerHTML = `<div style="padding:24px;text-align:center;color:#faa61a;font-size:0.82rem;">${_iosEscHtml(data.error)}</div>`; return; }
+                    const messages = data.messages || [];
+                    if (initial) {
+                        _iosDiscordLastMsgIds[channelId] = null;
+                        if (!messages.length) {
+                            msgEl.innerHTML = '<div style="padding:24px;text-align:center;color:#72767d;font-size:0.82rem;">No messages yet</div>';
+                        } else {
+                            msgEl.innerHTML = '';
+                            messages.forEach(m => _iosDiscordAppendMsg(m, channelId));
+                            msgEl.scrollTop = msgEl.scrollHeight;
+                        }
+                    } else {
+                        const lastId = _iosDiscordLastMsgIds[channelId];
+                        const newMsgs = lastId ? messages.filter(m => BigInt(m.id) > BigInt(lastId)) : [];
+                        if (newMsgs.length) {
+                            newMsgs.forEach(m => _iosDiscordAppendMsg(m, channelId));
+                            msgEl.scrollTop = msgEl.scrollHeight;
+                        }
+                    }
+                    if (messages.length) _iosDiscordLastMsgIds[channelId] = messages[messages.length-1].id;
+                })
+                .catch(() => { if (initial) msgEl.innerHTML = '<div style="padding:24px;text-align:center;color:#faa61a;">Network error</div>'; });
+        }
+
+        function _iosDiscordAppendMsg(msg, channelId) {
+            const msgEl = document.getElementById('iosDiscordMessages');
+            const isSelf = (typeof Discord !== 'undefined') && Discord.user && msg.author_id === Discord.user.discord_id;
+            const ts = msg.timestamp ? new Date(msg.timestamp) : null;
+            const timeStr = ts ? ts.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+
+            const avatar = msg.avatar_url
+                ? `<img src="${msg.avatar_url}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;">`
+                : `<div style="width:32px;height:32px;border-radius:50%;background:#5865f2;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:800;color:#fff;flex-shrink:0;">${(msg.author||'?')[0].toUpperCase()}</div>`;
+
+            const div = document.createElement('div');
+            div.style.cssText = 'display:flex;gap:10px;padding:4px 0;';
+            div.innerHTML = `${avatar}
+                <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:baseline;gap:6px;">
+                        <span style="font-weight:600;font-size:0.82rem;color:${isSelf ? '#5865f2' : '#fff'};">${_iosEscHtml(msg.author||'Unknown')}</span>
+                        <span style="font-size:0.65rem;color:#72767d;">${timeStr}</span>
+                    </div>
+                    <div style="font-size:0.82rem;color:#dcddde;line-height:1.4;word-break:break-word;">${_iosEscHtml(msg.content||'')}</div>
+                </div>`;
+            msgEl.appendChild(div);
+        }
+
+        function _iosDiscordStartPoll() {
+            _iosDiscordStopPoll();
+            _iosDiscordPollTimer = setInterval(() => {
+                if (_iosDiscordActiveChannel) _iosDiscordFetchMessages(_iosDiscordActiveChannel, false);
+            }, 4000);
+        }
+        function _iosDiscordStopPoll() {
+            if (_iosDiscordPollTimer) { clearInterval(_iosDiscordPollTimer); _iosDiscordPollTimer = null; }
+        }
+
+        function iosDiscordSend() {
+            const textEl = document.getElementById('iosDiscordReplyText');
+            const text = textEl.value.trim();
+            if (!text || !_iosDiscordActiveChannel) return;
+            textEl.disabled = true;
+            fetch(`/api/discord/messages/${_iosDiscordActiveChannel}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({content: text})
+            }).then(r => r.json()).then(data => {
+                textEl.disabled = false;
+                if (data.error) return;
+                textEl.value = '';
+                textEl.style.height = 'auto';
+                _iosDiscordFetchMessages(_iosDiscordActiveChannel, false);
+            }).catch(() => { textEl.disabled = false; });
+        }
+
+        // Back from chat to server/channel picker
+        function _iosDiscordBackToServers() {
+            _iosDiscordStopPoll();
+            _iosDiscordActiveChannel = null;
+            document.getElementById('iosDiscordChat').style.display = 'none';
+            document.getElementById('iosDiscordConnected').style.display = 'flex';
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // ═══ SLACK PHONE APP — bridges existing Slack.* state + API ══════════
+        // ═══════════════════════════════════════════════════════════════════════
+        let _iosSlackPollTimer = null;
+        let _iosSlackActiveChannel = null;
+        let _iosSlackLastMsgIds = {};
+
+        function iosSlackInit() {
+            if (typeof Slack !== 'undefined' && Slack.connected) {
+                document.getElementById('iosSlackNotConnected').style.display = 'none';
+                const conn = document.getElementById('iosSlackConnected');
+                conn.style.display = 'flex';
+                _iosSlackRenderWorkspace();
+                _iosSlackLoadChannels();
+            } else {
+                document.getElementById('iosSlackNotConnected').style.display = 'flex';
+                document.getElementById('iosSlackConnected').style.display = 'none';
+                fetch('/api/slack/status').then(r => r.json()).then(data => {
+                    if (!data.connected) return;
+                    document.getElementById('iosSlackNotConnected').style.display = 'none';
+                    document.getElementById('iosSlackConnected').style.display = 'flex';
+                    if (typeof Slack !== 'undefined') {
+                        Slack.connected = true;
+                        Slack.user = data.user;
+                    }
+                    _iosSlackRenderWorkspace();
+                    _iosSlackLoadChannels();
+                }).catch(() => {});
+            }
+        }
+
+        function _iosSlackRenderWorkspace() {
+            const user = (typeof Slack !== 'undefined') ? Slack.user : null;
+            if (!user) return;
+            const iconEl = document.getElementById('iosSlackWorkspaceIcon');
+            if (iconEl) iconEl.textContent = (user.team_name || 'S')[0].toUpperCase();
+            const teamEl = document.getElementById('iosSlackTeamDisplay');
+            if (teamEl) teamEl.textContent = user.team_name || 'Workspace';
+            const userEl = document.getElementById('iosSlackUserDisplay');
+            if (userEl) userEl.textContent = user.name || 'User';
+        }
+
+        function _iosSlackLoadChannels() {
+            const listEl = document.getElementById('iosSlackChannelList');
+            listEl.innerHTML = '<div style="padding:8px 0;color:#ababad;font-size:0.78rem;"><i class="fa-solid fa-spinner fa-spin me-1"></i>Loading...</div>';
+
+            fetch('/api/slack/channels')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error || data.needs_reconnect) {
+                        listEl.innerHTML = `<div style="padding:8px 0;color:#e01e5a;font-size:0.82rem;">${_iosEscHtml(data.error || 'Please reconnect Slack')}</div>`;
+                        return;
+                    }
+                    const channels = data.channels || [];
+                    if (typeof Slack !== 'undefined') { Slack.channels = channels; Slack.activeWorkspaceName = data.team_name || ''; }
+                    if (!channels.length) { listEl.innerHTML = '<div style="padding:8px 0;color:#ababad;font-size:0.78rem;">No channels found.</div>'; return; }
+                    listEl.innerHTML = channels.map(ch =>
+                        `<button onclick="_iosSlackOpenChat('${ch.id}','${(ch.name||'').replace(/'/g,"\\'")}')" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;background:none;border:none;cursor:pointer;width:100%;text-align:left;color:#ababad;font-size:0.82rem;transition:background 0.15s,color 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.06)';this.style.color='#d1d2d3'" onmouseout="this.style.background='none';this.style.color='#ababad'">
+                            <span style="color:#ababad;font-weight:500;">#</span>
+                            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_iosEscHtml(ch.name)}</span>
+                        </button>`
+                    ).join('');
+                })
+                .catch(() => { listEl.innerHTML = '<div style="padding:8px 0;color:#e01e5a;">Network error</div>'; });
+        }
+
+        function _iosSlackOpenChat(channelId, channelName) {
+            _iosSlackActiveChannel = channelId;
+            document.getElementById('iosSlackChannelName').textContent = '#' + channelName;
+            document.getElementById('iosSlackReplyText').placeholder = `Message #${channelName}...`;
+            const wsName = (typeof Slack !== 'undefined') ? (Slack.activeWorkspaceName || '') : '';
+            document.getElementById('iosSlackWorkspaceName').textContent = wsName;
+
+            document.getElementById('iosSlackConnected').style.display = 'none';
+            document.getElementById('iosSlackChat').style.display = 'flex';
+
+            if (typeof Slack !== 'undefined') {
+                Slack.activeChannelId = channelId;
+                Slack.activeChannelName = channelName;
+            }
+
+            _iosSlackFetchMessages(channelId, true);
+            _iosSlackStartPoll();
+        }
+
+        function _iosSlackFetchMessages(channelId, initial) {
+            const msgEl = document.getElementById('iosSlackMessages');
+            if (initial) msgEl.innerHTML = '<div style="padding:24px;text-align:center;color:#ababad;font-size:0.78rem;"><i class="fa-solid fa-spinner fa-spin me-1"></i>Loading...</div>';
+
+            fetch(`/api/slack/messages/${channelId}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error) { msgEl.innerHTML = `<div style="padding:24px;text-align:center;color:#e01e5a;font-size:0.82rem;">${_iosEscHtml(data.error)}</div>`; return; }
+                    const messages = data.messages || [];
+                    if (initial) {
+                        _iosSlackLastMsgIds[channelId] = null;
+                        if (!messages.length) {
+                            msgEl.innerHTML = '<div style="padding:24px;text-align:center;color:#ababad;font-size:0.82rem;">No messages yet</div>';
+                        } else {
+                            msgEl.innerHTML = '';
+                            messages.forEach(m => _iosSlackAppendMsg(m));
+                            msgEl.scrollTop = msgEl.scrollHeight;
+                        }
+                    } else {
+                        const lastTs = _iosSlackLastMsgIds[channelId];
+                        const newMsgs = lastTs ? messages.filter(m => parseFloat(m.id) > parseFloat(lastTs)) : [];
+                        if (newMsgs.length) {
+                            newMsgs.forEach(m => _iosSlackAppendMsg(m));
+                            msgEl.scrollTop = msgEl.scrollHeight;
+                        }
+                    }
+                    if (messages.length) _iosSlackLastMsgIds[channelId] = messages[messages.length-1].id;
+                })
+                .catch(() => { if (initial) msgEl.innerHTML = '<div style="padding:24px;text-align:center;color:#e01e5a;">Network error</div>'; });
+        }
+
+        function _iosSlackAppendMsg(msg) {
+            const msgEl = document.getElementById('iosSlackMessages');
+            const isSelf = (typeof Slack !== 'undefined') && Slack.user && msg.author_id === Slack.user.slack_user_id;
+            const ts = msg.timestamp ? new Date(msg.timestamp) : null;
+            const timeStr = ts ? ts.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+
+            const avatar = msg.avatar_url
+                ? `<img src="${msg.avatar_url}" style="width:32px;height:32px;border-radius:4px;object-fit:cover;flex-shrink:0;">`
+                : `<div style="width:32px;height:32px;border-radius:4px;background:rgba(54,197,240,0.15);display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:800;color:#36c5f0;flex-shrink:0;">${(msg.author||'?')[0].toUpperCase()}</div>`;
+
+            const div = document.createElement('div');
+            div.style.cssText = 'display:flex;gap:10px;padding:4px 0;';
+            div.innerHTML = `${avatar}
+                <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:baseline;gap:6px;">
+                        <span style="font-weight:700;font-size:0.82rem;color:${isSelf ? '#36c5f0' : '#d1d2d3'};">${_iosEscHtml(msg.author||'Unknown')}</span>
+                        <span style="font-size:0.65rem;color:#ababad;">${timeStr}</span>
+                    </div>
+                    <div style="font-size:0.82rem;color:#d1d2d3;line-height:1.4;word-break:break-word;">${_iosEscHtml(msg.content||'')}</div>
+                </div>`;
+            msgEl.appendChild(div);
+        }
+
+        function _iosSlackStartPoll() {
+            _iosSlackStopPoll();
+            _iosSlackPollTimer = setInterval(() => {
+                if (_iosSlackActiveChannel) _iosSlackFetchMessages(_iosSlackActiveChannel, false);
+            }, 4000);
+        }
+        function _iosSlackStopPoll() {
+            if (_iosSlackPollTimer) { clearInterval(_iosSlackPollTimer); _iosSlackPollTimer = null; }
+        }
+
+        function iosSlackSend() {
+            const textEl = document.getElementById('iosSlackReplyText');
+            const text = textEl.value.trim();
+            if (!text || !_iosSlackActiveChannel) return;
+            textEl.disabled = true;
+            fetch(`/api/slack/messages/${_iosSlackActiveChannel}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({content: text})
+            }).then(r => r.json()).then(data => {
+                textEl.disabled = false;
+                if (data.error) return;
+                textEl.value = '';
+                textEl.style.height = 'auto';
+                _iosSlackFetchMessages(_iosSlackActiveChannel, false);
+            }).catch(() => { textEl.disabled = false; });
+        }
+
+        function _iosSlackBackToChannels() {
+            _iosSlackStopPoll();
+            _iosSlackActiveChannel = null;
+            document.getElementById('iosSlackChat').style.display = 'none';
+            document.getElementById('iosSlackConnected').style.display = 'flex';
+        }
+
+        // Shared HTML escape
+        function _iosEscHtml(str) {
+            if (!str) return '';
+            const d = document.createElement('div');
+            d.textContent = str;
+            return d.innerHTML;
+        }
 

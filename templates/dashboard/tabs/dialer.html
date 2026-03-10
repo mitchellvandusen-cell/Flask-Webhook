@@ -1196,6 +1196,22 @@
                                                 </div>
                                                 <span class="ios-app-label">Calendar</span>
                                             </button>
+                                            <!-- Discord App -->
+                                            <button class="ios-app-icon" onclick="iosOpenApp('discord')">
+                                                <div class="ios-icon" style="background:linear-gradient(180deg,#5865f2 0%,#4752c4 100%);">
+                                                    <i class="fa-brands fa-discord"></i>
+                                                </div>
+                                                <span class="ios-app-label">Discord</span>
+                                                <span class="ios-badge" id="iosBadgeDiscord" style="display:none;">0</span>
+                                            </button>
+                                            <!-- Slack App -->
+                                            <button class="ios-app-icon" onclick="iosOpenApp('slack')">
+                                                <div class="ios-icon" style="background:linear-gradient(180deg,#611f69 0%,#4a154b 100%);">
+                                                    <i class="fa-brands fa-slack"></i>
+                                                </div>
+                                                <span class="ios-app-label">Slack</span>
+                                                <span class="ios-badge" id="iosBadgeSlack" style="display:none;">0</span>
+                                            </button>
                                         </div>
                                         <!-- Home Indicator -->
                                         <div class="ios-home-indicator-bar">
@@ -1673,6 +1689,123 @@
                                         </div>
 
                                         <div class="ios-home-indicator-bar"><div class="ios-home-indicator ios-home-indicator-dark"></div></div>
+                                    </div>
+
+                                    <!-- ═══ DISCORD APP ═══ -->
+                                    <div class="ios-app-view" id="iosAppDiscord" style="display:none;">
+                                        <div style="padding:66px 0 0;background:#36393f;flex-shrink:0;">
+                                            <div style="display:flex;align-items:center;gap:10px;padding:0 16px 10px;border-bottom:1px solid rgba(255,255,255,0.06);">
+                                                <button class="ios-back-btn" onclick="_iosDiscordActiveChannel ? _iosDiscordBackToServers() : iosGoHome()" style="margin:0;color:#b9bbbe;">
+                                                    <i class="fa-solid fa-chevron-left"></i>
+                                                </button>
+                                                <i class="fa-solid fa-hashtag" style="color:#72767d;font-size:0.85rem;"></i>
+                                                <span id="iosDiscordChannelName" style="font-weight:700;font-size:0.95rem;color:#fff;flex:1;">Discord</span>
+                                                <span id="iosDiscordServerName" style="font-size:0.75rem;color:#72767d;"></span>
+                                            </div>
+                                        </div>
+                                        <!-- Discord content area -->
+                                        <div id="iosDiscordContent" style="flex:1;overflow-y:auto;background:#36393f;display:flex;flex-direction:column;">
+                                            <!-- Not connected state -->
+                                            <div id="iosDiscordNotConnected" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;">
+                                                <div style="width:64px;height:64px;border-radius:50%;background:rgba(88,101,242,0.12);display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
+                                                    <i class="fa-brands fa-discord" style="font-size:1.6rem;color:#5865f2;"></i>
+                                                </div>
+                                                <div style="font-weight:700;font-size:0.95rem;color:#fff;margin-bottom:6px;">Connect Discord</div>
+                                                <div style="font-size:0.78rem;color:#72767d;margin-bottom:16px;line-height:1.4;">Link your Discord account to read and reply to team messages.</div>
+                                                <a href="/discord/connect" target="_top" style="padding:10px 24px;border-radius:8px;background:#5865f2;color:#fff;font-weight:700;font-size:0.82rem;text-decoration:none;display:inline-block;">
+                                                    <i class="fa-brands fa-discord me-1"></i> Connect
+                                                </a>
+                                            </div>
+                                            <!-- Connected: server/channel picker -->
+                                            <div id="iosDiscordConnected" style="display:none;flex:1;flex-direction:column;overflow-y:auto;">
+                                                <!-- Server selector -->
+                                                <div id="iosDiscordServerPicker" style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.06);">
+                                                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                                                        <span style="font-size:0.75rem;color:#72767d;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Servers</span>
+                                                        <button onclick="openServerModal()" style="background:rgba(88,101,242,0.15);border:1px solid rgba(88,101,242,0.3);color:#5865f2;border-radius:6px;padding:3px 8px;font-size:0.7rem;cursor:pointer;font-weight:600;">
+                                                            <i class="fa-solid fa-plus"></i> Add
+                                                        </button>
+                                                    </div>
+                                                    <div id="iosDiscordServers" style="display:flex;flex-direction:column;gap:4px;"></div>
+                                                </div>
+                                                <!-- Channel list -->
+                                                <div id="iosDiscordChannels" style="padding:8px 16px;flex:1;overflow-y:auto;"></div>
+                                            </div>
+                                            <!-- Chat view (shown when a channel is selected) -->
+                                            <div id="iosDiscordChat" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+                                                <div id="iosDiscordMessages" style="flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:2px;"></div>
+                                                <div style="padding:8px 12px;border-top:1px solid rgba(255,255,255,0.06);background:#40444b;">
+                                                    <div style="display:flex;gap:8px;align-items:flex-end;">
+                                                        <textarea id="iosDiscordReplyText" rows="1" placeholder="Message #channel" style="flex:1;background:rgba(255,255,255,0.06);border:none;border-radius:8px;padding:8px 12px;color:#dcddde;font-size:0.8rem;resize:none;outline:none;font-family:inherit;max-height:80px;" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();iosDiscordSend();}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px';"></textarea>
+                                                        <button onclick="iosDiscordSend()" style="background:#5865f2;border:none;border-radius:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;">
+                                                            <i class="fa-solid fa-paper-plane" style="color:#fff;font-size:0.75rem;"></i>
+                                                        </button>
+                                                    </div>
+                                                    <div style="font-size:0.65rem;color:#72767d;margin-top:4px;">Ctrl+Enter to send</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="ios-home-indicator-bar" style="background:#36393f;"><div class="ios-home-indicator" style="background:rgba(255,255,255,0.3);"></div></div>
+                                    </div>
+
+                                    <!-- ═══ SLACK APP ═══ -->
+                                    <div class="ios-app-view" id="iosAppSlack" style="display:none;">
+                                        <div style="padding:66px 0 0;background:#1a1d21;flex-shrink:0;">
+                                            <div style="display:flex;align-items:center;gap:10px;padding:0 16px 10px;border-bottom:1px solid rgba(255,255,255,0.06);">
+                                                <button class="ios-back-btn" onclick="_iosSlackActiveChannel ? _iosSlackBackToChannels() : iosGoHome()" style="margin:0;color:#ababad;">
+                                                    <i class="fa-solid fa-chevron-left"></i>
+                                                </button>
+                                                <i class="fa-solid fa-hashtag" style="color:#ababad;font-size:0.85rem;"></i>
+                                                <span id="iosSlackChannelName" style="font-weight:700;font-size:0.95rem;color:#fff;flex:1;">Slack</span>
+                                                <span id="iosSlackWorkspaceName" style="font-size:0.75rem;color:#ababad;"></span>
+                                            </div>
+                                        </div>
+                                        <!-- Slack content area -->
+                                        <div id="iosSlackContent" style="flex:1;overflow-y:auto;background:#1a1d21;display:flex;flex-direction:column;">
+                                            <!-- Not connected state -->
+                                            <div id="iosSlackNotConnected" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;">
+                                                <div style="width:64px;height:64px;border-radius:50%;background:rgba(54,197,240,0.12);display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
+                                                    <i class="fa-brands fa-slack" style="font-size:1.6rem;color:#36c5f0;"></i>
+                                                </div>
+                                                <div style="font-weight:700;font-size:0.95rem;color:#fff;margin-bottom:6px;">Connect Slack</div>
+                                                <div style="font-size:0.78rem;color:#ababad;margin-bottom:16px;line-height:1.4;">Link your Slack workspace to read and reply to team messages.</div>
+                                                <a href="/slack/connect" target="_top" style="padding:10px 24px;border-radius:8px;background:#4A154B;color:#fff;font-weight:700;font-size:0.82rem;text-decoration:none;display:inline-block;">
+                                                    <i class="fa-brands fa-slack me-1"></i> Connect
+                                                </a>
+                                            </div>
+                                            <!-- Connected: channel picker -->
+                                            <div id="iosSlackConnected" style="display:none;flex:1;flex-direction:column;overflow-y:auto;">
+                                                <!-- Workspace header -->
+                                                <div id="iosSlackWorkspaceHeader" style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.06);">
+                                                    <div style="display:flex;align-items:center;gap:8px;">
+                                                        <div id="iosSlackWorkspaceIcon" style="width:28px;height:28px;border-radius:6px;background:rgba(54,197,240,0.15);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;color:#36c5f0;flex-shrink:0;"></div>
+                                                        <div style="flex:1;">
+                                                            <div id="iosSlackTeamDisplay" style="font-weight:700;font-size:0.85rem;color:#fff;"></div>
+                                                            <div id="iosSlackUserDisplay" style="font-size:0.72rem;color:#ababad;"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <!-- Channel list -->
+                                                <div id="iosSlackChannels" style="padding:8px 16px;flex:1;overflow-y:auto;">
+                                                    <div style="font-size:0.72rem;color:#ababad;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;padding:8px 0 4px;">Channels</div>
+                                                    <div id="iosSlackChannelList" style="display:flex;flex-direction:column;gap:2px;"></div>
+                                                </div>
+                                            </div>
+                                            <!-- Chat view -->
+                                            <div id="iosSlackChat" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+                                                <div id="iosSlackMessages" style="flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:2px;"></div>
+                                                <div style="padding:8px 12px;border-top:1px solid rgba(255,255,255,0.06);background:#222529;">
+                                                    <div style="display:flex;gap:8px;align-items:flex-end;">
+                                                        <textarea id="iosSlackReplyText" rows="1" placeholder="Message #channel" style="flex:1;background:rgba(255,255,255,0.06);border:none;border-radius:8px;padding:8px 12px;color:#d1d2d3;font-size:0.8rem;resize:none;outline:none;font-family:inherit;max-height:80px;" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();iosSlackSend();}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px';"></textarea>
+                                                        <button onclick="iosSlackSend()" style="background:#007a5a;border:none;border-radius:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;">
+                                                            <i class="fa-solid fa-paper-plane" style="color:#fff;font-size:0.75rem;"></i>
+                                                        </button>
+                                                    </div>
+                                                    <div style="font-size:0.65rem;color:#ababad;margin-top:4px;">Ctrl+Enter to send</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="ios-home-indicator-bar" style="background:#1a1d21;"><div class="ios-home-indicator" style="background:rgba(255,255,255,0.3);"></div></div>
                                     </div>
 
                                     <!-- ═══ NOTIFICATION BANNER ═══ -->

@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from openai import OpenAI
 from db import get_db_connection, return_db_connection
@@ -529,9 +530,9 @@ CLASSIFICATION RULES:
 You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact IDs: {id_list}"""
 
     # Scale max tokens: ~150 tokens per contact (compact output) + buffer
-    max_tokens = min(16000, len(contact_blocks) * 200 + 200)
-    # Scale timeout: ~0.5s per contact + base
-    timeout = min(120.0, len(contact_blocks) * 0.8 + 10)
+    max_tokens = min(32000, len(contact_blocks) * 200 + 200)
+    # Scale timeout: ~0.8s per contact + base
+    timeout = min(180.0, len(contact_blocks) * 1.2 + 15)
 
     try:
         response = _client.chat.completions.create(
@@ -610,16 +611,20 @@ def bulk_analyze_and_cache(location_id, contact_ids):
     if not contact_blocks:
         return 0
 
-    # Process in sub-batches of 25 per LLM call
-    SUB_BATCH = 25
+    # Process in sub-batches of 50 per LLM call, run up to 4 concurrently
+    SUB_BATCH = 50
+    MAX_CONCURRENT = 4
     total_analyzed = 0
 
+    chunks = []
     for i in range(0, len(contact_blocks), SUB_BATCH):
-        chunk = contact_blocks[i:i + SUB_BATCH]
+        chunks.append(contact_blocks[i:i + SUB_BATCH])
 
+    def _process_chunk(chunk):
+        """Process a single chunk: call LLM, cache results, return count."""
+        analyzed = 0
         ai_results = _run_bulk_ai_analysis(location_id, chunk)
 
-        # Cache each result and fall back to single analysis for misses
         for cid, _ in chunk:
             result = ai_results.get(cid)
             if result:
@@ -633,7 +638,7 @@ def bulk_analyze_and_cache(location_id, contact_ids):
                     "should_respond_reason": result.get("should_respond_reason", ""),
                     "engagement_level": result.get("engagement_level", 0),
                 })
-                total_analyzed += 1
+                analyzed += 1
             else:
                 # Fallback: analyze individually if bulk missed this contact
                 try:
@@ -651,9 +656,19 @@ def bulk_analyze_and_cache(location_id, contact_ids):
                                 "should_respond_reason": single.get("should_respond_reason", ""),
                                 "engagement_level": single.get("engagement_level", 0),
                             })
-                            total_analyzed += 1
+                            analyzed += 1
                 except Exception as e:
                     logger.error(f"Fallback single analysis failed for {cid}: {e}")
+        return analyzed
+
+    # Run chunks concurrently with ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=min(MAX_CONCURRENT, len(chunks))) as executor:
+        futures = {executor.submit(_process_chunk, chunk): chunk for chunk in chunks}
+        for future in as_completed(futures):
+            try:
+                total_analyzed += future.result()
+            except Exception as e:
+                logger.error(f"Chunk analysis failed: {e}")
 
     logger.info(f"Bulk analysis complete: {total_analyzed}/{len(contact_ids)} contacts for {location_id}")
     return total_analyzed
