@@ -39,9 +39,29 @@ def dialer():
     return render_template('dialer.html')
 
 
+@public_bp.route("/comparison/dialers")
+def comparison_dialers():
+    return render_template('comparison-dialers.html')
+
+
 @public_bp.route("/getting-started")
 def getting_started():
     return render_template('getting-started.html')
+
+
+@public_bp.route("/a2p-guide")
+def a2p_guide():
+    return render_template('a2p-guide.html')
+
+
+@public_bp.route("/about")
+def about():
+    return render_template('about.html')
+
+
+@public_bp.route("/affiliate")
+def affiliate():
+    return render_template('affiliate.html')
 
 
 @public_bp.route("/support")
