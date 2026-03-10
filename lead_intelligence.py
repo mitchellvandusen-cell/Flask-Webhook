@@ -217,6 +217,7 @@ Respond with ONLY valid JSON (no markdown, no code fences, no explanation). Use 
   "should_respond": true or false,
   "should_respond_reason": "Why the agent should or should not respond right now.",
   "engagement_level": 0-3,
+  "under_contract": true or false,
   "actions": [
     {{
       "action": "Short imperative action (e.g. 'Call back about the term quote')",
@@ -252,6 +253,12 @@ CRITICAL CLASSIFICATION RULES — READ THESE CAREFULLY:
 - 1 = Surface contact (lead acknowledged but no real conversation — one-word replies, "who is this", etc.)
 - 2 = Real conversation (lead is sharing information, asking questions, back-and-forth dialogue)
 - 3 = Deep engagement (multiple exchanges, discussing specifics, answered calls >30s where they actually spoke, approaching a decision). Unanswered outbound calls do NOT count as engagement.
+
+"under_contract" — true if this contact appears to be an EXISTING CLIENT who already bought a policy, NOT an unsold lead:
+- Look at the PIPELINE data. If the contact is in a pipeline/stage that signals a completed sale (e.g. "sold", "closed won", "active client", "policy issued", "customer", "onboarding", "retention", "renewal", "in force", "bound"), set true.
+- Also look at conversation content: if the lead clearly purchased, has policy numbers, or is discussing servicing an existing policy, set true.
+- If the contact is in a sales/prospecting pipeline (e.g. "new leads", "follow up", "quoted", "nurture", "cold leads"), set false.
+- When in doubt (no pipeline, unclear stage), set false. Most contacts are unsold leads.
 
 "actions" — 2-4 specific next steps. Use icons: fa-phone (calls), fa-paper-plane (SMS), fa-file-invoice-dollar (quotes), fa-calendar (appointments), fa-fire (urgency), fa-clock (timing), fa-reply (responding), fa-bolt (quick action).
 - If no conversation exists, focus on initial outreach.
@@ -289,6 +296,8 @@ CRITICAL CLASSIFICATION RULES — READ THESE CAREFULLY:
         if not isinstance(result.get('engagement_level'), (int, float)):
             result['engagement_level'] = 0
         result['engagement_level'] = max(0, min(3, int(result['engagement_level'])))
+        if not isinstance(result.get('under_contract'), bool):
+            result['under_contract'] = False
 
         return result
 
@@ -509,6 +518,7 @@ Respond with ONLY a valid JSON array (no markdown, no code fences). Each element
     "should_respond": true or false,
     "should_respond_reason": "Why the agent should or should not respond now.",
     "engagement_level": 0-3,
+    "under_contract": true or false,
     "actions": [
       {{
         "action": "Short imperative action",
@@ -525,6 +535,7 @@ CLASSIFICATION RULES:
 - score: 0-100 conversion likelihood. "not interested"=5-15, NOT 50+.
 - should_respond: true only if the lead is WAITING for a reply (unanswered question, unaddressed interest). false if bot already replied, lead said stop, or nothing to respond to.
 - engagement_level: 0=no contact, 1=surface (one-word replies), 2=real conversation, 3=deep (specifics, calls, near decision).
+- under_contract: true if contact is an EXISTING CLIENT (sold). Look at PIPELINE — stages like "sold", "closed won", "active client", "policy issued", "customer", "in force", "bound", "retention", "renewal" = true. Sales/prospecting pipelines ("new leads", "follow up", "quoted", "nurture") = false. Also check conversation for policy numbers or servicing existing coverage. When in doubt, false.
 - actions: 2-4 per contact. Icons: fa-phone, fa-paper-plane, fa-file-invoice-dollar, fa-calendar, fa-fire, fa-clock, fa-reply, fa-bolt.
 
 You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact IDs: {id_list}"""
@@ -574,6 +585,8 @@ You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact 
             if not isinstance(item.get('engagement_level'), (int, float)):
                 item['engagement_level'] = 0
             item['engagement_level'] = max(0, min(3, int(item['engagement_level'])))
+            if not isinstance(item.get('under_contract'), bool):
+                item['under_contract'] = False
 
             results[cid] = item
 
@@ -609,6 +622,8 @@ You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact 
                     if not isinstance(item.get('engagement_level'), (int, float)):
                         item['engagement_level'] = 0
                     item['engagement_level'] = max(0, min(3, int(item['engagement_level'])))
+                    if not isinstance(item.get('under_contract'), bool):
+                        item['under_contract'] = False
                     results[cid] = item
                 logger.info(f"Bulk AI JSON repair succeeded: {len(results)}/{len(contact_blocks)} contacts")
                 return results
@@ -890,6 +905,7 @@ def get_bulk_cached_intelligence(location_id, contact_ids):
                 "temperature_reason": analysis.get("temperature_reason", ""),
                 "should_respond": analysis.get("should_respond", False),
                 "engagement_level": analysis.get("engagement_level", 0),
+                "under_contract": analysis.get("under_contract", False),
             }
 
         cur.close()

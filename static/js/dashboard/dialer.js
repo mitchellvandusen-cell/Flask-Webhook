@@ -1381,7 +1381,7 @@
         }
 
         function _igbGroupContacts(contacts) {
-            const respond = [], callbacks = [], hot = [], warm = [], interested = [], cool = [], cold = [], notInterested = [], dnc = [], unanalyzed = [], notShowing = [];
+            const respond = [], callbacks = [], hot = [], warm = [], interested = [], cool = [], cold = [], notInterested = [], underContract = [], dnc = [], unanalyzed = [], notShowing = [];
             const hasAI = Object.keys(_igbIntelCache).length > 0;
 
             contacts.forEach(c => {
@@ -1399,6 +1399,9 @@
                 if (disp === 'interested') { interested.push(c); return; }
 
                 const intel = _igbIntelCache[c.id];
+
+                // ── AI detected existing client (sold policy, in service pipeline) ──
+                if (intel && intel.under_contract) { underContract.push(c); return; }
 
                 if (intel && intel.temperature) {
                     // ── AI-powered classification ──
@@ -1428,6 +1431,7 @@
                 { key: 'cool', label: 'Cool', icon: 'fa-snowflake', color: '#5B7FFF', contacts: cool },
                 { key: 'cold', label: 'Cold', icon: 'fa-icicles', color: '#888', contacts: cold },
                 { key: 'not_interested', label: 'Not Interested', icon: 'fa-thumbs-down', color: '#ef4444', contacts: notInterested },
+                { key: 'under_contract', label: 'Clients Under Contract', icon: 'fa-file-shield', color: '#10b981', contacts: underContract },
                 { key: 'dnc', label: 'Do Not Contact', icon: 'fa-ban', color: '#ef4444', contacts: dnc },
             ];
             if (unanalyzed.length > 0) {
@@ -2044,6 +2048,8 @@
                         score: typeof aiScore === 'number' ? aiScore : 50,
                         summary: intel.summary || '',
                         temperature_reason: intel.temperature_reason || '',
+                        should_respond: intel.should_respond || false,
+                        under_contract: intel.under_contract || false,
                     };
                     try { sessionStorage.setItem('_igbIntelCache', JSON.stringify(_igbIntelCache)); } catch(e) {}
                     dialerRenderContacts();
