@@ -82,9 +82,9 @@ LOG_EVENT_TYPES = [
 ]
 
 # Pre-compute Butterworth low-pass filter coefficients (phone-line warmth EQ).
-# Standard telephone bandwidth tops out at ~3400 Hz; rolling off above that
-# removes the bright, synthetic shimmer that screams "AI" to the human ear.
-_WARMTH_B, _WARMTH_A = scipy.signal.butter(N=4, Wn=3400, fs=XAI_SAMPLE_RATE, btype='low')
+# Rolling off above 2800 Hz adds phone-line warmth and lowers perceived pitch
+# by removing the bright, synthetic shimmer that screams "AI" to the human ear.
+_WARMTH_B, _WARMTH_A = scipy.signal.butter(N=4, Wn=2800, fs=XAI_SAMPLE_RATE, btype='low')
 
 
 def _is_voicemail_phrase(text: str) -> bool:
@@ -114,7 +114,7 @@ def _pcm16_to_mulaw(pcm16_bytes: bytes) -> bytes:
     """
     samples = np.frombuffer(pcm16_bytes, dtype=np.int16).astype(np.float64)
 
-    # 1. Low-pass filter: cut harsh AI brightness above 3400 Hz
+    # 1. Low-pass filter: cut harsh AI brightness above 2800 Hz
     filtered = scipy.signal.lfilter(_WARMTH_B, _WARMTH_A, samples)
 
     # 2. Anti-aliased downsample 16kHz → 8kHz via soxr (polyphase sinc)
