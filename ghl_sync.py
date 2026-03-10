@@ -913,30 +913,30 @@ def sync_location_task(location_id):
 
 def run_incremental_sync_all():
     """
-    Cron entry point: fan out per-location sync jobs to RQ.
-    Instead of syncing all locations serially in one job (which blocks for
-    30+ minutes at scale), this enqueues each location as its own independent
-    RQ job. The RQ worker pool processes them in parallel.
+    Cron entry point: sync ALL locations concurrently using threads.
+    Every location gets its own thread — 100 users = 100 threads running
+    simultaneously. Each location finishes in ~5 min regardless of how
+    many other locations are syncing.
 
-    At 3 locations this is instant. At 100 locations, the worker pool
-    distributes the load — each location gets its own 5-minute job instead
-    of waiting behind 99 others.
+    Threads are ideal here because GHL sync is 99% I/O-bound (waiting on
+    HTTP responses). 100 threads use ~500MB total vs 100 processes at 15GB.
     """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     conn = get_db_connection()
     if not conn:
         return {"error": "no_db", "synced": 0}
 
     try:
         cur = conn.cursor()
-        # Get all active subscribers with tokens (OAuth or PIT)
         cur.execute("""
-            SELECT location_id
+            SELECT location_id, access_token, refresh_token, token_expires_at
             FROM subscribers
             WHERE location_id IS NOT NULL
               AND access_token IS NOT NULL
               AND stripe_status IN ('active', 'trialing')
             UNION ALL
-            SELECT location_id
+            SELECT location_id, access_token, refresh_token, token_expires_at
             FROM agency_billing
             WHERE location_id IS NOT NULL
               AND access_token IS NOT NULL
@@ -950,34 +950,67 @@ def run_incremental_sync_all():
     finally:
         return_db_connection(conn)
 
-    location_ids = [r['location_id'] for r in rows if r.get('location_id')]
-    logger.info(f"[GHL_SYNC] Fanning out sync for {len(location_ids)} locations")
+    # Filter to valid locations with tokens
+    locations = []
+    for row in rows:
+        loc_id = row.get("location_id")
+        if not loc_id:
+            continue
+        token = get_valid_token(loc_id, row)
+        if not token or token == 'DEMO':
+            continue
+        locations.append((loc_id, token))
 
-    # Enqueue each location as its own RQ job
-    queued = 0
-    try:
-        import redis as _redis
-        from rq import Queue as _Queue
-        _r = _redis.from_url(os.getenv('REDIS_URL', 'redis://localhost:6379'),
-                             socket_timeout=5, socket_connect_timeout=5)
-        _q = _Queue('website', connection=_r)
+    total = len(locations)
+    logger.info(f"[GHL_SYNC] Starting concurrent sync for {total} locations")
 
-        for loc_id in location_ids:
+    if not locations:
+        return {"total_locations": 0, "synced": 0, "failed": 0, "skipped": 0}
+
+    stats = {"total_locations": total, "synced": 0, "failed": 0, "skipped": 0}
+
+    def _sync_one(loc_id, token):
+        """Sync a single location (runs in its own thread)."""
+        try:
+            # Check overlap
+            c = get_db_connection()
+            if c:
+                state = _get_sync_state(c, loc_id, 'conversations')
+                return_db_connection(c)
+                if state and state.get('sync_status') == 'running':
+                    last_sync = state.get('last_sync_at')
+                    if last_sync:
+                        if isinstance(last_sync, str):
+                            last_sync = datetime.fromisoformat(last_sync.replace('Z', '+00:00'))
+                        age = datetime.utcnow() - (last_sync.replace(tzinfo=None) if hasattr(last_sync, 'tzinfo') and last_sync.tzinfo else last_sync)
+                        if age < timedelta(minutes=30):
+                            return "skipped"
+
+            sync_all_for_location(loc_id, token)
+            return "success"
+        except Exception as e:
+            logger.error(f"[GHL_SYNC] {loc_id} sync failed: {e}", exc_info=True)
+            return "failed"
+
+    # All locations sync at once — each gets its own thread.
+    # GHL rate limits are per-location token, so no conflict between threads.
+    max_threads = min(total, 100)  # cap at 100 threads (safety)
+    with ThreadPoolExecutor(max_workers=max_threads) as pool:
+        futures = {
+            pool.submit(_sync_one, loc_id, token): loc_id
+            for loc_id, token in locations
+        }
+        for future in as_completed(futures):
+            loc_id = futures[future]
             try:
-                _q.enqueue(
-                    sync_location_task,
-                    loc_id,
-                    job_timeout=600,   # 10 min per location (plenty)
-                    result_ttl=3600,
-                )
-                queued += 1
+                result = future.result(timeout=600)  # 10 min per location
+                stats[result] = stats.get(result, 0) + 1
             except Exception as e:
-                logger.error(f"[GHL_SYNC] Failed to queue {loc_id}: {e}")
-    except Exception as e:
-        logger.error(f"[GHL_SYNC] Redis/RQ error during fan-out: {e}")
+                logger.error(f"[GHL_SYNC] {loc_id} thread error: {e}")
+                stats["failed"] += 1
 
-    logger.info(f"[GHL_SYNC] Queued {queued}/{len(location_ids)} location sync jobs")
-    return {"total_locations": len(location_ids), "queued": queued}
+    logger.info(f"[GHL_SYNC] Concurrent sync complete: {stats}")
+    return stats
 
 
 # ─── Deep Initial Sync (One-Time Historical Pull) ────────────────────────────
