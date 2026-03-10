@@ -831,7 +831,7 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
             from rq import Queue as _Queue
             _r = _redis.from_url(os.getenv('REDIS_URL', 'redis://localhost:6379'),
                                  socket_timeout=5, socket_connect_timeout=5)
-            _q = _Queue('production', connection=_r)
+            _q = _Queue('website', connection=_r)
             _q.enqueue(
                 analyze_contact_intelligence_task,
                 location_id, contact_id,
