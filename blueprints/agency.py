@@ -541,21 +541,22 @@ def get_agency_logs(location_id):
 
     # Verify this location belongs to the requesting agency owner
     conn = get_db_connection()
-    if conn:
-        try:
-            _cur = conn.cursor()
-            _cur.execute(
-                "SELECT 1 FROM subscribers WHERE location_id = %s AND parent_agency_email = %s LIMIT 1",
-                (location_id, current_user.email)
-            )
-            if not _cur.fetchone():
-                # Also allow if this is the owner's own location_id
-                if location_id != getattr(current_user, 'location_id', None):
-                    _cur.close()
-                    return flask_jsonify({"error": "Access denied"}), 403
-            _cur.close()
-        finally:
-            return_db_connection(conn)
+    if not conn:
+        return flask_jsonify({"error": "Service temporarily unavailable"}), 503
+    try:
+        _cur = conn.cursor()
+        _cur.execute(
+            "SELECT 1 FROM subscribers WHERE location_id = %s AND parent_agency_email = %s LIMIT 1",
+            (location_id, current_user.email)
+        )
+        if not _cur.fetchone():
+            # Also allow if this is the owner's own location_id
+            if location_id != getattr(current_user, 'location_id', None):
+                _cur.close()
+                return flask_jsonify({"error": "Access denied"}), 403
+        _cur.close()
+    finally:
+        return_db_connection(conn)
 
     try:
         limit    = min(int(request.args.get("limit", 50)), 200)

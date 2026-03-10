@@ -213,6 +213,7 @@ def dashboard():
             finally:
                 cur.close()
                 return_db_connection(conn)
+                conn = None  # prevent double-return below
 
     if request.method == 'GET':
         form.location_id.data     = current_user.location_id

@@ -152,7 +152,6 @@ def demo_init_api():
             """, (contact_id, opener))
             conn.commit()
             cur.close()
-            return_db_connection(conn)
             return flask_jsonify({"contact_id": contact_id, "opener": opener, "status": "new"})
 
         cur.execute("""
@@ -170,7 +169,6 @@ def demo_init_api():
             for r in cur.fetchall()
         ]
         cur.close()
-        return_db_connection(conn)
         return flask_jsonify({"contact_id": contact_id, "history": history, "status": "existing"})
 
     except Exception as e:

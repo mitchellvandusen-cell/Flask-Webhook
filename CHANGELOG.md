@@ -32,6 +32,35 @@
 | 2026-03-01 | Mobile nav menu fix: solid background, custom toggle (replaces broken Bootstrap collapse) |
 | 2026-03-01 | Pricing update: $149.99/month across all pages, bot, and documentation |
 | 2026-03-10 | Hamburger menu fix, login crash fix, Remember Me (30-day), mobile dashboard redesign, agency dashboard revamp |
+| 2026-03-10 | Full QA audit: 6 critical bug fixes, 7 security fixes, 5 reliability fixes across 16 files |
+
+---
+
+## 2026-03-10 (QA Audit)
+
+### Critical Bug Fixes
+- **GHL CRM adapter completely broken**: `ghl_adapter.py` had wrong kwarg `message_body=` (actual param: `message=`) and missing `location_id` arg — all GHL adapter SMS sends and contact fetches were throwing TypeError
+- **Duplicate facts saved**: `tasks.py` had duplicate `if lead_vendor:` line saving the same fact twice per contact
+- **Intelligence queue orphaned**: `tasks.py` and `voice/intelligence.py` queued AI re-analysis jobs to `website` queue which has no worker — jobs piled up forever. Fixed to use `production` queue
+- **Uninstall data leak**: `db.py` `delete_subscriber_data()` used `location_id` on 6 email-keyed tables (`ai_minute_balances`, `discord_connections`, etc.) — orphaned data on app uninstall. Fixed to look up email first, then delete by email
+- **Contact validator broken**: `contact_validator.py` read raw encrypted tokens without calling `decrypt_token()`, and used wrong API base URL (`leadconnector.io` vs `leadconnectorhq.com`)
+- **Phone lookup corrupted**: `voice/helpers.py` SQL `REPLACE(..., '1', '')` stripped ALL `1` digits from phone numbers, not just the country code prefix. Fixed with `REGEXP_REPLACE(..., '^\+?1', '')`
+
+### Security Fixes
+- **Webhook signature verification**: Added HMAC-SHA256 verification for GHL webhooks when `MARKETPLACE_WEBHOOK_SECRET` is configured. Gracefully skips if no signature header present (GHL doesn't sign all webhook types)
+- **Agency logs IDOR**: Any agency owner could read any location's logs. Added ownership verification (checks `parent_agency_email` match). Returns 503 if DB unavailable instead of silently allowing access
+- **Agency paywall bypass**: Checked `stripe_customer_id` existence, not subscription status. Cancelled users could access dashboard. Now checks `stripe_status in ('active', 'trialing')`
+- **Malformed CSRF in agency dashboard**: `form.hidden_tag()` was placed inside a `value=""` attribute, producing nested HTML. CSRF token never validated correctly
+- **Hardcoded fallback secret key**: `"fallback-insecure-key"` replaced with random generation + warning log if env var missing
+- **Cron secret timing attack**: `_cron_authorized()` used `==` string comparison. Fixed to `hmac.compare_digest()`
+- **TwiML XML injection**: `transfer_twiml` embedded phone number directly in XML. Fixed with `xml.sax.saxutils.escape()`
+
+### Reliability Fixes
+- **DB connection pool leak in dashboard**: `get_db_connection()` called on line 171 but only returned in POST `finally` block — leaked on every GET request. Added cleanup before `render_template`
+- **DB connection double-return in demo**: `demo_init` called `return_db_connection(conn)` inline AND in `finally` block — returned same connection twice, corrupting pool. Removed inline returns, let `finally` handle cleanup
+- **DB connection leak in demo reset**: Second `get_db_connection()` in reset had no `finally` block. Added try/finally
+- **Transfer false success**: `voice_tools.py` returned "Transfer initiated" even when no matching active call was found. Now returns error message
+- **Stripe null dereference**: `session.customer_details.email` crashed when `customer_details` was None. Added safe access with fallback
 
 ---
 
