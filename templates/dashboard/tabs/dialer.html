@@ -291,14 +291,24 @@
 
                     /* ═══════════════════════════════════════════════
                        Mobile-Only Elements — Hidden on Desktop
+                       Use min-width media query so these ONLY apply on
+                       desktop and cannot be overridden by JS inline styles.
                        ═══════════════════════════════════════════════ */
-                    .dlr-mobile-toolbar { display:none; }
-                    .dlr-mob-search-popup { display:none; }
-                    .dlr-mob-filter-popup { display:none; }
-                    .dlr-mob-queue-popup { display:none; }
-                    .dlr-mobile-action-bar { display:none; }
-                    .dlr-mobile-apps-popup { display:none; }
-                    .dlr-mobile-apps-overlay { display:none; }
+                    @media (min-width: 769px) {
+                        .dlr-mobile-toolbar,
+                        .dlr-mob-search-popup,
+                        .dlr-mob-filter-popup,
+                        .dlr-mob-queue-popup,
+                        .dlr-mobile-action-bar,
+                        .dlr-mobile-action-btn,
+                        .dlr-mobile-apps-popup,
+                        .dlr-mobile-apps-overlay,
+                        .dlr-mobile-apps-popup-grid,
+                        .dlr-mobile-apps-popup-item,
+                        .dlr-mobile-tabs {
+                            display:none !important;
+                        }
+                    }
 
                     /* ═══════════════════════════════════════════════
                        Mobile Dialer Layout — App-Like Experience
