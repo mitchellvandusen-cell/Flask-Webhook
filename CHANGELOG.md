@@ -41,7 +41,7 @@
 ### Critical Bug Fixes
 - **GHL CRM adapter completely broken**: `ghl_adapter.py` had wrong kwarg `message_body=` (actual param: `message=`) and missing `location_id` arg — all GHL adapter SMS sends and contact fetches were throwing TypeError
 - **Duplicate facts saved**: `tasks.py` had duplicate `if lead_vendor:` line saving the same fact twice per contact
-- **Intelligence queue orphaned**: `tasks.py` and `voice/intelligence.py` queued AI re-analysis jobs to `website` queue which has no worker — jobs piled up forever. Fixed to use `production` queue
+- **Intelligence queue misrouted**: `tasks.py` and `voice/intelligence.py` queued AI re-analysis jobs to `website` queue. These short-latency intelligence tasks (30s/600s) belong on `production` to avoid queuing behind 2-hour sync jobs. Moved to `production` queue
 - **Uninstall data leak**: `db.py` `delete_subscriber_data()` used `location_id` on 6 email-keyed tables (`ai_minute_balances`, `discord_connections`, etc.) — orphaned data on app uninstall. Fixed to look up email first, then delete by email
 - **Contact validator broken**: `contact_validator.py` read raw encrypted tokens without calling `decrypt_token()`, and used wrong API base URL (`leadconnector.io` vs `leadconnectorhq.com`)
 - **Phone lookup corrupted**: `voice/helpers.py` SQL `REPLACE(..., '1', '')` stripped ALL `1` digits from phone numbers, not just the country code prefix. Fixed with `REGEXP_REPLACE(..., '^\+?1', '')`

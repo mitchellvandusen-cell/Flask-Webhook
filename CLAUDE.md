@@ -28,13 +28,22 @@ Gunicorn (4 threads) ──► Flask app (main.py, ~6700 lines)
 ### Worker Architecture
 
 ```
-Procfile:
-  web:           gunicorn main:app --threads 40 --timeout 0
-  worker-prod-1..4: python worker.py production   (4 parallel RQ workers)
-  worker-demo:      python worker.py demo          (1 demo worker)
+Deployment (Render / Railway):
+  Flask-Webhook:  gunicorn main:app --worker-class gthread --threads 40 --timeout 14400
+  worker:         python worker.py production        (webhook processing + AI intelligence)
+  worker-bg:      python worker.py website demo      (GHL sync, backfill, demo chat)
+  Redis:          managed Redis instance
 ```
 
-Workers run `process_webhook_task()` from `tasks.py` asynchronously. This is the core AI processing pipeline. Workers also process `analyze_contact_intelligence_task()` and `analyze_contacts_batch_task()` for Smart Filter AI classification.
+### RQ Queues
+
+| Queue | Worker | Purpose | Tasks |
+|-------|--------|---------|-------|
+| `production` | `worker` | Fast webhook processing + AI analysis | `process_webhook_task` (120s), `analyze_contact_intelligence_task` (30s), `analyze_contacts_batch_task` (600s) |
+| `website` | `worker-bg` | Long-running GHL sync + recovery | `run_incremental_sync_all` (30m), `deep_sync_conversations` (2h), `backfill_failed_webhooks` (10m) |
+| `demo` | `worker-bg` | Demo chat isolation | `process_webhook_task` for demo contacts (120s) |
+
+All queues are defined in `extensions.py` and initialized via `ensure_redis()`. Worker startup: `python worker.py <queue1> [queue2] ...` (defaults to `production` if no args).
 
 ---
 
@@ -633,11 +642,11 @@ cp .env.example .env
 # Fill in required values
 
 # Start web server
-gunicorn main:app --threads 40 --timeout 0
+gunicorn main:app --worker-class gthread --threads 40 --timeout 14400
 
 # Start workers (in separate terminals)
-python worker.py production
-python worker.py demo
+python worker.py production                # webhook processing + AI intelligence
+python worker.py website demo              # GHL sync, backfill, demo chat
 ```
 
 ### Dependency Highlights
