@@ -2557,18 +2557,18 @@ def delete_subscriber_data(location_id: str) -> bool:
         return False
     try:
         cur = conn.cursor()
+
+        # Look up the subscriber's email first (needed for email-keyed tables)
+        cur.execute("SELECT email FROM subscribers WHERE location_id = %s", (location_id,))
+        row = cur.fetchone()
+        subscriber_email = (row[0] if isinstance(row, tuple) else row.get('email')) if row else None
+
         # Delete from child/related tables first, then the subscriber row.
         # Tables that reference location_id directly:
-        related_tables = [
+        location_tables = [
             "webhook_logs",
             "persistent_alerts",
             "call_history",
-            "ai_minute_balances",
-            "ai_minute_purchases",
-            "ai_minute_usage_logs",
-            "discord_connections",
-            "discord_servers",
-            "discord_webhook_channels",
             "failed_webhook_payloads",
             "ghl_conversations",
             "ghl_opportunities",
@@ -2576,8 +2576,21 @@ def delete_subscriber_data(location_id: str) -> bool:
             "number_health",
             "contact_cache",
         ]
-        for table in related_tables:
+        for table in location_tables:
             cur.execute(f"DELETE FROM {table} WHERE location_id = %s", (location_id,))
+
+        # Tables keyed by email (not location_id)
+        if subscriber_email:
+            email_tables = [
+                "ai_minute_balances",
+                "ai_minute_purchases",
+                "ai_minute_usage_logs",
+                "discord_connections",
+                "discord_servers",
+                "discord_webhook_channels",
+            ]
+            for table in email_tables:
+                cur.execute(f"DELETE FROM {table} WHERE email = %s", (subscriber_email,))
 
         # Delete the subscriber row itself
         cur.execute("DELETE FROM subscribers WHERE location_id = %s", (location_id,))

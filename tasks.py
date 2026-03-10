@@ -264,7 +264,6 @@ def process_webhook_task(payload: dict):
         # if address: initial_facts.append(f"Address: {address}")
         if intent: initial_facts.append(f"Intent: {intent}")
         if lead_vendor: initial_facts.append(f"Lead vendor: {lead_vendor}")
-        if lead_vendor: initial_facts.append(f"Lead vendor: {lead_vendor}")
 
         if initial_facts and contact_id != "unknown":
             save_new_facts(contact_id, initial_facts)
@@ -318,7 +317,12 @@ def process_webhook_task(payload: dict):
                         logger.warning(f"⚠ SKIP: Already processed webhook {message_id}")
                         return {"status": "skipped", "reason": "duplicate webhook"}
                 except Exception as e:
-                    logger.error(f"Idempotency check failed: {e}")
+                    logger.error(f"Idempotency check failed — processing anyway to avoid message loss: {e}")
+                    if conn:
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
                 finally:
                     if cur:
                         cur.close()
@@ -827,7 +831,7 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
             from rq import Queue as _Queue
             _r = _redis.from_url(os.getenv('REDIS_URL', 'redis://localhost:6379'),
                                  socket_timeout=5, socket_connect_timeout=5)
-            _q = _Queue('website', connection=_r)
+            _q = _Queue('production', connection=_r)
             _q.enqueue(
                 analyze_contact_intelligence_task,
                 location_id, contact_id,

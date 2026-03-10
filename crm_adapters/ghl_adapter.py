@@ -24,7 +24,7 @@ class GHLAdapter(CRMAdapter):
         from ghl_message import send_sms_via_ghl
         sent, _reason, _http_detail = send_sms_via_ghl(
             contact_id=contact_id,
-            message_body=message,
+            message=message,
             access_token=self.access_token,
             location_id=self.location_id
         )
@@ -53,6 +53,7 @@ class GHLAdapter(CRMAdapter):
         from ghl_api import fetch_contact_data_from_ghl
         return fetch_contact_data_from_ghl(
             contact_id=contact_id,
+            location_id=self.location_id,
             access_token=self.access_token
         ) or {}
 

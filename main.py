@@ -143,7 +143,12 @@ def ws_listen_stream(ws):
 
 # ── Session & cookie config ──────────────────────────────────────────────────
 
-app.secret_key = os.getenv("SESSION_SECRET", "fallback-insecure-key")
+_secret = os.getenv("SESSION_SECRET") or os.getenv("SECRET_KEY")
+if not _secret:
+    import secrets as _s
+    _secret = _s.token_hex(32)
+    logger.warning("SESSION_SECRET / SECRET_KEY not set — using random key (sessions will not survive restarts)")
+app.secret_key = _secret
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_SECURE'] = True
 

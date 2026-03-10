@@ -176,6 +176,9 @@ def demo_init_api():
     except Exception as e:
         logger.error(f"Demo init error: {e}")
         return flask_jsonify({"error": str(e)}), 500
+    finally:
+        if conn:
+            return_db_connection(conn)
 
 
 @demo_bp.route("/demo/reset", methods=["POST"])
@@ -206,14 +209,20 @@ def demo_reset_api():
 
     conn = get_db_connection()
     if conn:
-        cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO contact_messages (contact_id, message_type, message_text)
-            VALUES (%s, 'assistant', %s)
-        """, (new_id, opener))
-        conn.commit()
-        cur.close()
-        return_db_connection(conn)
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO contact_messages (contact_id, message_type, message_text)
+                VALUES (%s, 'assistant', %s)
+            """, (new_id, opener))
+            conn.commit()
+            cur.close()
+        except Exception as e:
+            logger.error(f"Demo reset INSERT failed: {e}")
+            if conn:
+                conn.rollback()
+        finally:
+            return_db_connection(conn)
 
     return flask_jsonify({"contact_id": new_id, "opener": opener})
 

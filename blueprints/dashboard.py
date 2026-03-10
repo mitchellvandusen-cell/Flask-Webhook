@@ -281,6 +281,11 @@ def dashboard():
                           current_user.email.endswith('@placeholder.grokbot'))
     is_incomplete  = bool(not current_user.crm_user_id or not current_user.location_id)
 
+    # Return DB connection if still held (not consumed by POST path)
+    if conn:
+        return_db_connection(conn)
+        conn = None
+
     selected_carriers = get_contracted_carriers(current_user.email)
     bot_settings      = get_bot_settings(current_user.email)
     voice_config      = current_user.voice_config or {}
