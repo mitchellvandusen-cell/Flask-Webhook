@@ -341,7 +341,7 @@ footer a:hover { color: var(--accent); }
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0; overflow: hidden;
 }
-.sb-brand-text { font-weight: 800; font-size: 1rem; white-space: nowrap; overflow: hidden; transition: opacity 0.2s, max-width 0.25s; max-width: 200px; }
+.sb-brand-text { font-weight: 800; font-size: 0.85rem; white-space: nowrap; overflow: hidden; transition: opacity 0.2s, max-width 0.25s; max-width: 200px; letter-spacing: 0.5px; }
 .sb-toggle {
     margin-left: auto; flex-shrink: 0;
     background: none; border: none; color: #555; cursor: pointer;

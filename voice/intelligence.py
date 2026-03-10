@@ -266,7 +266,7 @@ def post_contact_intelligence_analyze():
         return jsonify({"queued": 0, "error": "queue_unavailable"}), 503
 
     from tasks import analyze_contacts_batch_task
-    BATCH = 100
+    BATCH = 200
     queued = 0
     for i in range(0, len(contact_ids), BATCH):
         batch = contact_ids[i:i + BATCH]
@@ -275,8 +275,8 @@ def post_contact_intelligence_analyze():
                 analyze_contacts_batch_task,
                 location_id,
                 batch,
-                job_timeout=300,
-                result_ttl=300,
+                job_timeout=600,
+                result_ttl=600,
             )
             queued += len(batch)
         except Exception as e:
