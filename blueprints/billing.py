@@ -102,12 +102,14 @@ def stripe_webhook():
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
         customer_id = session.customer
-        email = session.customer_details.email.lower() if session.customer_details.email else None
+        _cd = getattr(session, 'customer_details', None)
+        email = _cd.email.lower() if (_cd and _cd.email) else None
 
         # ── AI Minutes one-time purchase ──────────────────────────────────────
-        if session.metadata.get("purchase_type") == "ai_minutes" and email:
-            pkg_minutes = int(session.metadata.get("package_minutes", 0))
-            pkg_label   = session.metadata.get("package_label", "")
+        metadata = session.metadata or {}
+        if metadata.get("purchase_type") == "ai_minutes" and email:
+            pkg_minutes = int(metadata.get("package_minutes", 0))
+            pkg_label   = metadata.get("package_label", "")
             amount      = session.amount_total or 0
             credited = credit_ai_minutes(
                 email=email,
@@ -132,9 +134,9 @@ def stripe_webhook():
             return '', 200
 
         # ── A2P 10DLC registration fee ────────────────────────────────────────
-        if session.metadata.get("purchase_type") == "a2p_registration" and email:
-            brand_type = session.metadata.get("brand_type", "LOW_VOLUME")
-            paid_cents = session.metadata.get("total_cents", "0")
+        if metadata.get("purchase_type") == "a2p_registration" and email:
+            brand_type = metadata.get("brand_type", "LOW_VOLUME")
+            paid_cents = metadata.get("total_cents", "0")
             logger.info(f"A2P fee paid by {email} — brand_type={brand_type} amount=${int(paid_cents)/100:.2f}")
             try:
                 conn = get_db_connection()
@@ -171,8 +173,8 @@ def stripe_webhook():
             return '', 200
 
         # ── Subscription checkout ─────────────────────────────────────────────
-        target_role = session.metadata.get("target_role", "individual")
-        target_tier = session.metadata.get("target_tier", "individual")
+        target_role = metadata.get("target_role", "individual")
+        target_tier = metadata.get("target_tier", "individual")
 
         if email and customer_id:
             conn = get_db_connection()

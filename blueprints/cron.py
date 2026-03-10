@@ -21,12 +21,15 @@ cron_bp = Blueprint('cron', __name__)
 
 def _cron_authorized() -> bool:
     """Return True if the request carries a valid CRON_SECRET."""
+    import hmac
     cron_secret = os.getenv("CRON_SECRET", "")
     if not cron_secret:
         return False
     auth_header = request.headers.get("Authorization", "")
     query_key   = request.args.get("key", "")
-    return auth_header == f"Bearer {cron_secret}" or query_key == cron_secret
+    bearer_match = auth_header.startswith("Bearer ") and hmac.compare_digest(auth_header[7:], cron_secret)
+    key_match = bool(query_key) and hmac.compare_digest(query_key, cron_secret)
+    return bearer_match or key_match
 
 
 # ── Reminder emails ───────────────────────────────────────────────────────────

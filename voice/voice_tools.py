@@ -160,8 +160,8 @@ def execute_voice_tool(tool_name, arguments, subscriber, contact_id=None, first_
                 logger.info(f"Transfer signal set for call {csid} -> {transfer_number}")
                 break
         else:
-            # Fallback: set by location_id match
-            logger.warning("Could not find active call for transfer — setting global flag")
+            logger.warning("Could not find active call for transfer — no matching call_sid found")
+            return "I wasn't able to initiate the transfer right now. Let me continue helping you directly."
 
         return f"Transfer initiated to the senior advisor. Tell the lead to hold on for just a moment while you connect them. The transfer is happening now."
 

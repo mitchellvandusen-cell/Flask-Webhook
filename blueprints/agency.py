@@ -64,7 +64,9 @@ def agency_dashboard():
         flash("Access restricted to agency owners only.", "error")
         return redirect("/dashboard")
 
-    needs_subscription = not current_user.stripe_customer_id and not is_admin
+    has_active_sub = (current_user.stripe_customer_id and
+                      getattr(current_user, 'stripe_status', None) in ('active', 'trialing'))
+    needs_subscription = not has_active_sub and not is_admin
     if needs_subscription:
         detected_tier = current_user.subscription_tier or 'agency_starter'
         return render_template('agency-dashboard.html',
@@ -537,8 +539,30 @@ def get_agency_logs(location_id):
     if current_user.role != 'agency_owner':
         return flask_jsonify({"error": "Access denied"}), 403
 
-    limit        = min(int(request.args.get("limit", 50)), 200)
-    offset       = int(request.args.get("offset", 0))
+    # Verify this location belongs to the requesting agency owner
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "Service temporarily unavailable"}), 503
+    try:
+        _cur = conn.cursor()
+        _cur.execute(
+            "SELECT 1 FROM subscribers WHERE location_id = %s AND parent_agency_email = %s LIMIT 1",
+            (location_id, current_user.email)
+        )
+        if not _cur.fetchone():
+            # Also allow if this is the owner's own location_id
+            if location_id != getattr(current_user, 'location_id', None):
+                _cur.close()
+                return flask_jsonify({"error": "Access denied"}), 403
+        _cur.close()
+    finally:
+        return_db_connection(conn)
+
+    try:
+        limit    = min(int(request.args.get("limit", 50)), 200)
+        offset   = int(request.args.get("offset", 0))
+    except (ValueError, TypeError):
+        limit, offset = 50, 0
     event_type   = request.args.get("event_type", "").strip() or None
     status_filter= request.args.get("status", "").strip() or None
 

@@ -28,13 +28,22 @@ Gunicorn (4 threads) ──► Flask app (main.py, ~6700 lines)
 ### Worker Architecture
 
 ```
-Procfile:
-  web:           gunicorn main:app --threads 40 --timeout 0
-  worker-prod-1..4: python worker.py production   (4 parallel RQ workers)
-  worker-demo:      python worker.py demo          (1 demo worker)
+Deployment (Render / Railway):
+  Flask-Webhook:  gunicorn main:app --worker-class gthread --threads 40 --timeout 14400
+  worker:         python worker.py production        (webhook processing + AI intelligence)
+  worker-bg:      python worker.py website demo      (GHL sync, backfill, demo chat)
+  Redis:          managed Redis instance
 ```
 
-Workers run `process_webhook_task()` from `tasks.py` asynchronously. This is the core AI processing pipeline. Workers also process `analyze_contact_intelligence_task()` and `analyze_contacts_batch_task()` for Smart Filter AI classification.
+### RQ Queues
+
+| Queue | Worker | Purpose | Tasks |
+|-------|--------|---------|-------|
+| `production` | `worker` | Fast webhook processing + AI analysis | `process_webhook_task` (120s), `analyze_contact_intelligence_task` (30s), `analyze_contacts_batch_task` (600s) |
+| `website` | `worker-bg` | Long-running GHL sync + recovery | `run_incremental_sync_all` (30m), `deep_sync_conversations` (2h), `backfill_failed_webhooks` (10m) |
+| `demo` | `worker-bg` | Demo chat isolation | `process_webhook_task` for demo contacts (120s) |
+
+All queues are defined in `extensions.py` and initialized via `ensure_redis()`. Worker startup: `python worker.py <queue1> [queue2] ...` (defaults to `production` if no args).
 
 ---
 
@@ -80,53 +89,57 @@ Workers run `process_webhook_task()` from `tasks.py` asynchronously. This is the
 ## Environment Variables (`.env.example`)
 
 ### Flask / Core
-- `SECRET_KEY` — Flask session secret
+- `SESSION_SECRET` — Flask session secret (code also checks `SECRET_KEY` as fallback)
+- `YOUR_DOMAIN` — Public domain URL (default: `http://localhost:8080`)
 - `DATABASE_URL` — PostgreSQL connection string
 - `REDIS_URL` — Redis connection (default: `redis://localhost:6379`)
 
 ### GoHighLevel OAuth (CRM)
 - `GHL_CLIENT_ID`, `GHL_CLIENT_SECRET` — Public marketplace app credentials
-- `GHL_PRIVATE_CLIENT_ID`, `GHL_PRIVATE_CLIENT_SECRET` — Private/internal app credentials
 - `GHL_BASE_URL` — API base (default: `https://services.leadconnectorhq.com`)
 - `MARKETPLACE_WEBHOOK_SECRET` — Signature verification for GHL webhooks
+- `PRIVATE_APP_CLIENT_ID`, `PRIVATE_APP_SECRET_ID` — Private app credentials (fallback only)
 
 ### AI / xAI Grok
 - `XAI_API_KEY` — xAI API key (used for both text and voice Realtime API)
 
 ### Twilio
-- `TWILIO_MASTER_ACCOUNT_SID`, `TWILIO_MASTER_AUTH_TOKEN` — Master account (manages sub-accounts per user)
-- `TWILIO_API_KEY`, `TWILIO_API_SECRET` — For Twilio client tokens
-- `TWILIO_TWIML_APP_SID` — TwiML app for voice calls
+- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` — Master account (manages sub-accounts per user)
+- `TWILIO_PHONE_NUMBER` — Master fallback phone number
+- `TWILIO_API_KEY_SID`, `TWILIO_API_KEY_SECRET` — For browser-based calling (Access Tokens)
 
 ### Stripe
 - `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`
 - `STRIPE_WEBHOOK_SECRET` — For validating Stripe webhook events
 - `STRIPE_PRICE_ID` — Individual plan price ID
 - `STRIPE_AGENCY_STARTER_PRICE_ID`, `STRIPE_AGENCY_PRO_PRICE_ID`
-- `AI_MINUTES_PRICE_ID_*` — Usage-based AI minutes packages
-- `A2P_REGISTRATION_PRICE_ID` — Stripe price ID for A2P 10DLC registration fee ($19)
+- `AI_MINUTES_PRICE_ID_500`, `AI_MINUTES_PRICE_ID_2000`, `AI_MINUTES_PRICE_ID_5000`, `AI_MINUTES_PRICE_ID_10000` — Usage-based AI minutes packages
 
 ### Email
-- `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_DEFAULT_SENDER`
-- Supports: SendGrid, Mailgun, Gmail, or custom SMTP
+- `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_DEFAULT_SENDER`, `MAIL_USE_TLS`, `MAIL_USE_SSL`
+- `MAILGUN_API_KEY`, `MAILGUN_DOMAIN` — For API-based sending via `send_email_api.py`
 
-### Google Sheets (legacy backup)
-- `GOOGLE_SHEETS_CREDENTIALS` — JSON service account credentials
-- `GOOGLE_SHEETS_SPREADSHEET_ID` — Legacy data backup sheet ID
+### Google Sheets (subscriber sync)
+- `GOOGLE_CREDENTIALS` — JSON service account credentials
+- `SUBSCRIBER_SHEET_URL` — CSV export URL for subscriber sync
+- `SUBSCRIBER_SHEET_EDIT_URL` — Spreadsheet edit URL
+
+### Google Calendar (optional)
+- `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET`, `GOOGLE_CALENDAR_REDIRECT_URI`
 
 ### Discord
 - `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` — Discord OAuth app credentials
 - `DISCORD_BOT_TOKEN` — Bot token for reading/posting messages
 - `DISCORD_REDIRECT_URI` — OAuth callback URL
 
+### Slack (optional)
+- `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_REDIRECT_URI`
+
 ### Cron / Scheduled Jobs
 - `CRON_SECRET` — Shared secret for authenticating cron endpoints (passed as `?key=` query param or `Authorization: Bearer` header)
 
-### Subscription
-- `SUBSCRIPTION_PRICE` — Monthly price displayed on checkout (default: 149.99)
-
-### Cron / Background
-- `CRON_SECRET` — Shared secret for authenticating cron endpoints (`/api/cron/send-reminders`, `/api/cron/refresh-tokens`)
+### Railway Build Config (not used in app code)
+- `NIXPACKS_PYTHON_VERSION` — Python version for Railway builds
 
 ---
 
@@ -633,11 +646,11 @@ cp .env.example .env
 # Fill in required values
 
 # Start web server
-gunicorn main:app --threads 40 --timeout 0
+gunicorn main:app --worker-class gthread --threads 40 --timeout 14400
 
 # Start workers (in separate terminals)
-python worker.py production
-python worker.py demo
+python worker.py production                # webhook processing + AI intelligence
+python worker.py website demo              # GHL sync, backfill, demo chat
 ```
 
 ### Dependency Highlights

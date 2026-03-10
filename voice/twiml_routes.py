@@ -313,10 +313,14 @@ def transfer_twiml():
     host = request.host
     action_url = f"https://{host}/voice/transfer-complete?original_sid={call_sid}"
 
+    from xml.sax.saxutils import escape as xml_escape
+    safe_number = xml_escape(transfer_to)
+    safe_action = xml_escape(action_url)
+
     twiml = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         '<Response>'
-        f'<Dial action="{action_url}" method="POST">{transfer_to}</Dial>'
+        f'<Dial action="{safe_action}" method="POST">{safe_number}</Dial>'
         '</Response>'
     )
     return Response(twiml, content_type='text/xml')

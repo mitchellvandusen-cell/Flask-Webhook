@@ -632,7 +632,7 @@
                             <div style="height:8px;border-radius:8px;background:var(--accent);width:{{ ((stats.active_seats / stats.max_seats * 100) if stats.max_seats else 0)|int }}%;transition:width 0.5s;"></div>
                         </div>
                         <form method="post" action="/create-portal-session" style="display:inline;">
-                            <input type="hidden" name="csrf_token" value="{{ form.hidden_tag() }}">
+                            {{ form.hidden_tag() }}
                             <button type="submit" style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;padding:10px 24px;border-radius:10px;cursor:pointer;font-size:0.88rem;font-weight:600;">
                                 <i class="fa-solid fa-external-link me-1"></i>Manage Subscription
                             </button>
