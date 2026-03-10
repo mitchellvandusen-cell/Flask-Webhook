@@ -2343,18 +2343,35 @@ body { padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(sa
 
     /* Tab pane panels — full width, no side columns */
     .tab-pane { padding: 0 !important; }
+    .tab-pane .glass-panel.p-4 { padding: 16px !important; }
 
-    /* Config/Voice/Connect two-column → single column */
+    /* Config/Voice/Connect two-column → single column stacked */
     .tab-pane .row { margin: 0; }
     .tab-pane .col-lg-3, .tab-pane .col-lg-9,
     .tab-pane .col-md-3, .tab-pane .col-md-9 { width: 100%; padding: 0; }
 
-    /* Hide side menus on mobile (replaced by top pills) */
+    /* CRITICAL: Break the inline flex two-column containers to single-column on mobile.
+       These containers use inline style="display:flex;gap:16px" which we must override. */
+    #configSettingsMenu + div,
+    #voiceSettingsMenu + div,
+    #connectSettingsMenu + div { /* Right column content panes */ }
+    /* Target the parent flex containers of the settings menus */
+    #config [style*="display:flex"][style*="min-height"],
+    #voice [style*="display:flex"][style*="min-height"],
+    #connect [style*="display:flex"][style*="min-height"] {
+        display: block !important;
+        min-height: auto !important;
+    }
+
+    /* Convert side menus to horizontal scrolling pills */
     #voiceSettingsMenu, #configSettingsMenu, #connectSettingsMenu {
         display: flex !important; flex-direction: row !important;
         overflow-x: auto; gap: 6px; padding: 8px 0 12px;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
+        width: 100% !important; flex-shrink: 1 !important;
+        background: transparent !important; border: none !important;
+        border-radius: 0 !important;
     }
     #voiceSettingsMenu::-webkit-scrollbar,
     #configSettingsMenu::-webkit-scrollbar,
@@ -2363,6 +2380,37 @@ body { padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(sa
         white-space: nowrap; flex-shrink: 0;
         padding: 8px 16px !important; font-size: 0.82rem !important;
         border-radius: 20px !important; min-height: 36px;
+        width: auto !important;
+    }
+
+    /* Discord panel — full screen overlay on mobile, not side-by-side */
+    #discordPanel {
+        left: 0 !important; width: 100% !important;
+        z-index: 250 !important;
+    }
+    body.discord-open .main-wrapper,
+    body.discord-open.sidebar-collapsed .main-wrapper {
+        margin-left: 0 !important;
+    }
+
+    /* Slack panel — same treatment */
+    #slackPanel {
+        left: 0 !important; width: 100% !important;
+        z-index: 249 !important;
+    }
+    body.slack-open .main-wrapper,
+    body.slack-open.sidebar-collapsed .main-wrapper {
+        margin-left: 0 !important;
+    }
+
+    /* Header icons/badges — don't let them overflow */
+    .d-flex.align-items-center.mb-4 { flex-wrap: wrap; gap: 8px; }
+    .d-flex.align-items-center.mb-4 .ms-auto { margin-left: 0 !important; margin-top: 4px; }
+
+    /* Glass panel headers — compact on mobile */
+    .glass-panel h4 { font-size: 1.05rem !important; }
+    .glass-panel .d-flex > div:first-child[style*="48px"] {
+        width: 36px !important; height: 36px !important; min-width: 36px;
     }
 
     /* Dialer — on mobile show iPhone content without the phone frame */

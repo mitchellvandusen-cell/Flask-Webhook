@@ -339,6 +339,14 @@
 
                         /* Number rotation banner */
                         #numberRotationBanner { font-size:0.78rem !important; padding:8px 10px !important; }
+
+                        /* Reduce wallpaper intensity on mobile — the gradient blobs dominate small screens */
+                        .ios-wallpaper { opacity: 0.35; }
+
+                        /* iOS home screen apps grid — smaller on mobile */
+                        .ios-app-icon { width: 52px !important; }
+                        .ios-app-icon-img { width: 42px !important; height: 42px !important; }
+                        .ios-app-label { font-size: 0.6rem !important; }
                     }
                     .ios-channel-row{display:flex;align-items:center;gap:5px;padding:2px 9px 0;}
                     .ios-channel-label{font-size:clamp(0.62rem, 0.52vw, 0.95rem);color:#8E8E93;font-weight:600;white-space:nowrap;}

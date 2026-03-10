@@ -450,6 +450,22 @@
                 grid-template-columns: 1fr !important;
                 max-height: 300px !important;
             }
+
+            /* Stack col-md-6 columns on phone screens */
+            .row.g-3 > [class*="col-md-"],
+            .row.g-4 > [class*="col-md-"] {
+                flex: 0 0 100% !important;
+                max-width: 100% !important;
+            }
+
+            /* Workflow tab: full-width buttons */
+            .workflow-tab-btn { font-size: 0.78rem !important; padding: 8px 12px !important; }
+
+            /* AI Minutes packages: stack */
+            .ai-minutes-pkg-grid { grid-template-columns: 1fr !important; }
+
+            /* Billing cards */
+            .billing-card-grid { grid-template-columns: 1fr !important; }
         }
 
         /* -- Small mobile (≤480px) -- */
@@ -850,6 +866,17 @@
                 margin-left: calc(var(--sidebar-collapsed-width) + 380px);
             }
         }
+        /* Mobile: Discord panel becomes full-screen overlay */
+        @media (max-width: 768px) {
+            #discordPanel {
+                left: 0 !important; width: 100% !important;
+                z-index: 250 !important;
+            }
+            body.discord-open .main-wrapper,
+            body.discord-open.sidebar-collapsed .main-wrapper {
+                margin-left: 0 !important;
+            }
+        }
 
         .discord-panel-header {
             display: flex; align-items: center; gap: 10px;
@@ -1166,6 +1193,17 @@
             body.slack-open .main-wrapper,
             body.slack-open.sidebar-collapsed .main-wrapper {
                 margin-left: calc(var(--sidebar-collapsed-width) + 380px);
+            }
+        }
+        /* Mobile: Slack panel becomes full-screen overlay */
+        @media (max-width: 768px) {
+            #slackPanel {
+                left: 0 !important; width: 100% !important;
+                z-index: 249 !important;
+            }
+            body.slack-open .main-wrapper,
+            body.slack-open.sidebar-collapsed .main-wrapper {
+                margin-left: 0 !important;
             }
         }
 
