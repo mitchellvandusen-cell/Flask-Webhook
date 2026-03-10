@@ -376,7 +376,18 @@
                         #dialerActionsBar { display:none !important; }
                         #dialerQueueWrap { display:none !important; }
 
-                        /* ── Mobile compact toolbar (search/filter/queue icons) ── */
+                        /* ── Hide Queue entirely on mobile (desktop-only feature) ── */
+                        #dlrMobQueueBtn { display:none !important; }
+                        .dlr-mob-queue-popup { display:none !important; }
+
+                        /* ── Hide Dial button on mobile contact list (only show in lead intel) ── */
+                        #dialerCallSelectedBtn { display:none !important; }
+                        #dialerAddSelectedBtn { display:none !important; }
+
+                        /* ── Hide Discord & Slack from mobile apps popup ── */
+                        .dlr-mob-hide-app { display:none !important; }
+
+                        /* ── Mobile compact toolbar (search/filter icons) ── */
                         .dlr-mobile-toolbar { display:flex !important; align-items:center; gap:6px; padding:6px 10px; border-bottom:1px solid rgba(255,255,255,0.04); flex-shrink:0; }
                         .dlr-mob-tool-btn { width:36px; height:36px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.04); color:#888; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:0.82rem; font-weight:700; transition:all .15s; position:relative; flex-shrink:0; }
                         .dlr-mob-tool-btn:active { background:rgba(0,217,255,0.15); color:#00d9ff; }
@@ -392,10 +403,6 @@
                         .dlr-mob-filter-popup { display:none; padding:8px 10px; border-bottom:1px solid rgba(255,255,255,0.04); flex-shrink:0; }
                         .dlr-mob-filter-popup.open { display:block; }
                         .dlr-mob-filter-popup select { width:100%; background:#0d0d1a; border:1px solid rgba(255,255,255,0.08); color:#aaa; padding:8px 10px; border-radius:8px; font-size:0.82rem; outline:none; margin-bottom:6px; }
-
-                        /* ── Mobile queue popup ── */
-                        .dlr-mob-queue-popup { display:none; border-bottom:1px solid rgba(255,255,255,0.04); flex-shrink:0; }
-                        .dlr-mob-queue-popup.open { display:block; }
 
                         /* Contact rows — reduce gap + padding */
                         .dlr-contact-row { gap:6px !important; }
@@ -2000,11 +2007,11 @@
                             <div class="dlr-mapp-icon" style="background:linear-gradient(180deg,#FF3B30,#FF2D55);"><i class="fa-solid fa-calendar"></i></div>
                             <span class="dlr-mapp-label">Calendar</span>
                         </button>
-                        <button class="dlr-mobile-apps-popup-item" onclick="dlrMobileOpenApp('discord')">
+                        <button class="dlr-mobile-apps-popup-item dlr-mob-hide-app" id="dlrMobAppDiscord" onclick="dlrMobileOpenApp('discord')">
                             <div class="dlr-mapp-icon" style="background:linear-gradient(180deg,#5865f2,#4752c4);"><i class="fa-brands fa-discord"></i></div>
                             <span class="dlr-mapp-label">Discord</span>
                         </button>
-                        <button class="dlr-mobile-apps-popup-item" onclick="dlrMobileOpenApp('slack')">
+                        <button class="dlr-mobile-apps-popup-item dlr-mob-hide-app" id="dlrMobAppSlack" onclick="dlrMobileOpenApp('slack')">
                             <div class="dlr-mapp-icon" style="background:linear-gradient(180deg,#611f69,#4a154b);"><i class="fa-brands fa-slack"></i></div>
                             <span class="dlr-mapp-label">Slack</span>
                         </button>
