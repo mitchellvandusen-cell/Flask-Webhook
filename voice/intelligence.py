@@ -261,21 +261,21 @@ def post_contact_intelligence_analyze():
         return_db_connection(conn)
 
     # Enqueue batch analysis jobs to RQ background workers
-    from extensions import ensure_redis, q_website
-    if not ensure_redis() or not q_website:
+    from extensions import ensure_redis, q_intelligence
+    if not ensure_redis() or not q_intelligence:
         return jsonify({"queued": 0, "error": "queue_unavailable"}), 503
 
     from tasks import analyze_contacts_batch_task
-    BATCH = 200
+    BATCH = 50
     queued = 0
     for i in range(0, len(contact_ids), BATCH):
         batch = contact_ids[i:i + BATCH]
         try:
-            q_website.enqueue(
+            q_intelligence.enqueue(
                 analyze_contacts_batch_task,
                 location_id,
                 batch,
-                job_timeout=600,
+                job_timeout=120,
                 result_ttl=600,
             )
             queued += len(batch)
