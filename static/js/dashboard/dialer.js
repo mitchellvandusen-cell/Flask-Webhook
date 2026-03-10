@@ -6,7 +6,12 @@
         // InsuranceGrokBot engagement data cache: contactId → { messages, calls }
         let _igbEngagementCache = {};
         // InsuranceGrokBot AI intelligence cache: contactId → { temperature, score, summary }
+        // Persisted in sessionStorage so page refreshes don't reset to "Analyzing..."
         let _igbIntelCache = {};
+        try {
+            const stored = sessionStorage.getItem('_igbIntelCache');
+            if (stored) _igbIntelCache = JSON.parse(stored);
+        } catch(e) {}
         // Contacts that need AI analysis (no cached intelligence)
         let _igbUncachedIds = [];
         // Whether batch AI analysis is currently running
@@ -2040,6 +2045,7 @@
                         summary: intel.summary || '',
                         temperature_reason: intel.temperature_reason || '',
                     };
+                    try { sessionStorage.setItem('_igbIntelCache', JSON.stringify(_igbIntelCache)); } catch(e) {}
                     dialerRenderContacts();
                 }
 
@@ -4772,7 +4778,10 @@
                     if (!r.ok) continue;
                     const data = await r.json();
                     // Merge cached AI data
-                    if (data.cached) Object.assign(_igbIntelCache, data.cached);
+                    if (data.cached) {
+                        Object.assign(_igbIntelCache, data.cached);
+                        try { sessionStorage.setItem('_igbIntelCache', JSON.stringify(_igbIntelCache)); } catch(e) {}
+                    }
                     // Track uncached contacts for batch analysis
                     if (data.uncached) _igbUncachedIds.push(...data.uncached);
                 } catch(e) {
@@ -4823,7 +4832,7 @@
             if (_igbPollTimer) clearInterval(_igbPollTimer);
             let pollCount = 0;
             const totalToAnalyze = pendingIds.length;
-            const maxPolls = 450; // 4s * 450 = 30 minutes max polling
+            const maxPolls = 600; // 2s * 600 = 20 minutes max polling
 
             _igbPollTimer = setInterval(async function() {
                 pollCount++;
@@ -4850,6 +4859,7 @@
                                 if (!_igbIntelCache[cid]) totalNewResults++;
                                 _igbIntelCache[cid] = intel;
                             });
+                            try { sessionStorage.setItem('_igbIntelCache', JSON.stringify(_igbIntelCache)); } catch(e) {}
                         }
                     }
                     // Remove newly cached from pending
@@ -4873,7 +4883,7 @@
                 } catch(e) {
                     console.error('[IGB] Poll failed:', e);
                 }
-            }, 4000);
+            }, 2000);
         }
 
         // After local counts show, upgrade badges with GHL+WAVV counts from synced DB
