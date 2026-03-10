@@ -490,18 +490,161 @@ footer a:hover { color: var(--accent); }
 }
 
 /* Large & ultra-wide / 4K displays */
-@media (min-width: 2560px) {
+/* ═══════════════════════════════════════════════════════════════════
+   HIGH-DPI / 4K SCALING — Proportional scaling for large displays
+   Uses clamp() with vw units so elements scale smoothly from
+   1080p → 1440p → 4K (3840×2160) → 5K+ without breakpoint jumps.
+   ═══════════════════════════════════════════════════════════════════ */
+@media (min-width: 1920px) {
+    /* ── Root layout variables ── */
     :root {
-        --sidebar-width: 230px;
-        --sidebar-collapsed-width: 54px;
-        --topbar-height: 46px;
+        --sidebar-width: clamp(195px, 12vw, 320px);
+        --sidebar-collapsed-width: clamp(47px, 3vw, 72px);
+        --topbar-height: clamp(39px, 2.4vw, 60px);
     }
-    .main-wrapper { padding: 20px 32px 40px; }
-    .dash-topbar h1 { font-size: 1.8rem; }
-    .sb-brand { padding: 18px 20px; min-height: 64px; }
-    .sb-nav-item { padding: 11px 18px; }
 
-    /* Dialer: ensure phone column centers properly at scale */
+    /* ── Main wrapper ── */
+    .main-wrapper { padding: clamp(15px, 1vw, 28px) clamp(24px, 1.6vw, 48px) clamp(30px, 2vw, 56px); }
+
+    /* ── Topbar ── */
+    .dash-topbar { gap: clamp(12px, 0.8vw, 22px); padding: clamp(9px, 0.6vw, 16px) 0 clamp(15px, 1vw, 26px); margin-bottom: clamp(6px, 0.4vw, 12px); }
+    .dash-topbar h1 { font-size: clamp(1.5rem, 1.2vw, 2.4rem); }
+    .dash-subtitle { font-size: clamp(0.82rem, 0.55vw, 1.15rem); }
+    .dash-user-pill { gap: clamp(8px, 0.5vw, 14px); padding: clamp(5px, 0.3vw, 9px) clamp(12px, 0.8vw, 20px) clamp(5px, 0.3vw, 9px) clamp(6px, 0.4vw, 10px); border-radius: clamp(20px, 1.3vw, 36px); }
+    .dash-avatar { width: clamp(26px, 1.7vw, 42px); height: clamp(26px, 1.7vw, 42px); font-size: clamp(0.75rem, 0.5vw, 1.1rem); }
+    .dash-user-email { font-size: clamp(0.82rem, 0.55vw, 1.15rem); }
+
+    /* ── Sidebar ── */
+    .sb-brand { padding: clamp(14px, 0.9vw, 24px) clamp(16px, 1vw, 28px); gap: clamp(10px, 0.65vw, 18px); min-height: clamp(56px, 3.6vw, 86px); }
+    .sb-brand-logo { width: clamp(32px, 2.1vw, 52px); height: clamp(32px, 2.1vw, 52px); border-radius: clamp(8px, 0.5vw, 14px); }
+    .sb-brand-text { font-size: clamp(0.85rem, 0.58vw, 1.2rem); }
+    .sb-toggle { width: clamp(28px, 1.8vw, 44px); height: clamp(28px, 1.8vw, 44px); border-radius: clamp(6px, 0.4vw, 10px); }
+    .sidebar.collapsed .sb-toggle { width: clamp(40px, 2.6vw, 62px); height: clamp(40px, 2.6vw, 62px); border-radius: clamp(10px, 0.65vw, 16px); }
+    .sb-scroll { padding: clamp(8px, 0.5vw, 14px) 0; }
+    .sb-section { margin-bottom: clamp(4px, 0.26vw, 8px); }
+    .sb-section-header { gap: clamp(8px, 0.5vw, 14px); padding: clamp(8px, 0.5vw, 14px) clamp(16px, 1vw, 28px); font-size: clamp(0.72rem, 0.48vw, 1rem); letter-spacing: clamp(1px, 0.08vw, 2px); }
+    .sb-nav-item { gap: clamp(10px, 0.65vw, 18px); padding: clamp(9px, 0.6vw, 16px) clamp(16px, 1vw, 28px); border-radius: clamp(8px, 0.5vw, 14px); margin: clamp(1px, 0.06vw, 2px) clamp(6px, 0.4vw, 10px); font-size: clamp(0.95rem, 0.62vw, 1.3rem); }
+    .sb-nav-item i { width: clamp(18px, 1.2vw, 30px); font-size: clamp(0.9rem, 0.6vw, 1.25rem); }
+    .sb-footer { padding: clamp(8px, 0.5vw, 14px) clamp(6px, 0.4vw, 10px); }
+    .sb-footer-item { gap: clamp(10px, 0.65vw, 18px); padding: clamp(9px, 0.6vw, 16px) clamp(10px, 0.65vw, 18px); border-radius: clamp(8px, 0.5vw, 14px); font-size: clamp(0.9rem, 0.6vw, 1.25rem); }
+    .sb-footer-item i { width: clamp(18px, 1.2vw, 30px); font-size: clamp(0.9rem, 0.6vw, 1.25rem); }
+    .sb-divider { margin: clamp(4px, 0.26vw, 8px) clamp(12px, 0.8vw, 20px); }
+    .sb-params { padding: 0 clamp(8px, 0.5vw, 14px) clamp(8px, 0.5vw, 14px); }
+    .sb-params-header { gap: clamp(8px, 0.5vw, 14px); padding: clamp(6px, 0.4vw, 10px) clamp(8px, 0.5vw, 14px); border-radius: clamp(6px, 0.4vw, 10px); font-size: clamp(0.72rem, 0.48vw, 1rem); }
+
+    /* ── Status badge & readout ── */
+    .tech-readout { border-radius: clamp(8px, 0.5vw, 14px); padding: clamp(10px, 0.65vw, 18px) clamp(12px, 0.8vw, 20px); margin-bottom: clamp(10px, 0.65vw, 18px); }
+    .tech-value { font-size: clamp(0.92rem, 0.6vw, 1.3rem); }
+    .tech-label { font-size: clamp(0.72rem, 0.48vw, 1rem); }
+    .status-badge { gap: clamp(6px, 0.4vw, 10px); padding: clamp(4px, 0.26vw, 8px) clamp(10px, 0.65vw, 18px); font-size: clamp(0.72rem, 0.48vw, 1rem); }
+    .dot { width: clamp(7px, 0.45vw, 12px); height: clamp(7px, 0.45vw, 12px); box-shadow: 0 0 clamp(6px, 0.4vw, 10px) var(--accent); }
+
+    /* ── Public pages: Hero ── */
+    .hero { padding-top: clamp(80px, 5.2vw, 140px); }
+    .hero::after { width: clamp(600px, 38vw, 1000px); height: clamp(600px, 38vw, 1000px); }
+    .hero .lead { font-size: clamp(1.25rem, 0.82vw, 1.8rem); max-width: clamp(700px, 46vw, 1100px); margin-bottom: clamp(2.5rem, 1.6vw, 4rem); }
+    .section { padding: clamp(100px, 6.5vw, 180px) 0; }
+    .section-title { margin-bottom: clamp(60px, 3.9vw, 100px); }
+
+    /* ── Glass cards ── */
+    .glass-card { border-radius: clamp(24px, 1.6vw, 40px); padding: clamp(40px, 2.6vw, 68px) clamp(30px, 2vw, 52px); }
+    .feature-icon { font-size: clamp(3rem, 2vw, 5rem); margin-bottom: clamp(20px, 1.3vw, 36px); }
+    .feature-card h4 { font-size: clamp(1.4rem, 0.92vw, 2rem); margin-bottom: clamp(15px, 1vw, 26px); }
+    .feature-card p { font-size: clamp(0.95rem, 0.62vw, 1.3rem); }
+
+    /* ── Glass banner ── */
+    .glass-banner { border-radius: clamp(30px, 2vw, 52px); padding: clamp(60px, 3.9vw, 100px) clamp(50px, 3.25vw, 86px); }
+
+    /* ── Pricing cards ── */
+    .pricing-card { max-width: clamp(400px, 26vw, 660px); padding: clamp(40px, 2.6vw, 68px) clamp(30px, 2vw, 52px); }
+    .pricing-features li { margin-bottom: clamp(12px, 0.8vw, 20px); gap: clamp(10px, 0.65vw, 18px); }
+    .pricing-features { margin: clamp(30px, 2vw, 52px) 0; }
+    .price-tag { margin: clamp(20px, 1.3vw, 36px) 0; }
+
+    /* ── Auth cards ── */
+    .auth-card { border-radius: clamp(24px, 1.6vw, 40px); padding: clamp(40px, 2.6vw, 68px); }
+    .auth-logo { font-size: clamp(1.8rem, 1.2vw, 2.8rem); }
+    .auth-subtitle { margin-bottom: clamp(30px, 2vw, 52px); }
+    .form-control { padding: clamp(12px, 0.8vw, 20px); font-size: clamp(1rem, 0.65vw, 1.4rem); }
+    .form-label { margin-left: clamp(5px, 0.32vw, 9px); font-size: clamp(0.88rem, 0.58vw, 1.2rem); }
+
+    /* ── Legal pages ── */
+    .legal-container { margin: clamp(120px, 7.8vw, 200px) auto clamp(60px, 3.9vw, 100px); padding: clamp(60px, 3.9vw, 100px); border-radius: clamp(20px, 1.3vw, 36px); }
+    .legal-container h1 { margin-bottom: clamp(40px, 2.6vw, 68px); }
+    .legal-container h2 { margin: clamp(40px, 2.6vw, 68px) 0 clamp(20px, 1.3vw, 36px); }
+    .legal-container ul { padding-left: clamp(30px, 2vw, 52px); margin: clamp(30px, 2vw, 52px) 0; }
+
+    /* ── Popup / modal cards ── */
+    .popup-card { border-radius: clamp(24px, 1.6vw, 40px); padding: clamp(30px, 2vw, 52px); }
+    .popup-content h2 { font-size: clamp(2rem, 1.3vw, 3rem); margin: clamp(20px, 1.3vw, 36px) 0 clamp(10px, 0.65vw, 18px); }
+    .popup-content p { font-size: clamp(1rem, 0.65vw, 1.4rem); margin-bottom: clamp(30px, 2vw, 52px); }
+    .offer-box { padding: clamp(15px, 1vw, 26px); border-radius: clamp(16px, 1vw, 28px); margin-bottom: clamp(23px, 1.5vw, 40px); }
+    .big-text { font-size: clamp(2.5rem, 1.6vw, 4rem); }
+    .elite-btn { padding: clamp(16px, 1vw, 28px); font-size: clamp(1.1rem, 0.72vw, 1.6rem); border-radius: clamp(12px, 0.8vw, 20px); }
+    .close-btn { top: clamp(20px, 1.3vw, 36px); right: clamp(20px, 1.3vw, 36px); font-size: clamp(2rem, 1.3vw, 3rem); }
+    .icon-circle-red { width: clamp(80px, 5.2vw, 130px); height: clamp(80px, 5.2vw, 130px); margin: 0 auto clamp(30px, 2vw, 52px); font-size: clamp(2rem, 1.3vw, 3.2rem); }
+    .success-icon { width: clamp(80px, 5.2vw, 130px); height: clamp(80px, 5.2vw, 130px); margin: 0 auto clamp(30px, 2vw, 52px); font-size: clamp(2.5rem, 1.6vw, 4rem); }
+    .btn-outline { padding: clamp(14px, 0.9vw, 24px); border-radius: clamp(12px, 0.8vw, 20px); }
+
+    /* ── Chat widget ── */
+    .chat-widget-container { bottom: clamp(30px, 2vw, 52px); right: clamp(30px, 2vw, 52px); }
+    .chat-toggle-btn { width: clamp(60px, 3.9vw, 100px); height: clamp(60px, 3.9vw, 100px); font-size: clamp(1.5rem, 1vw, 2.4rem); }
+    .chat-callout { right: clamp(80px, 5.2vw, 130px); padding: clamp(8px, 0.5vw, 14px) clamp(15px, 1vw, 26px); border-radius: clamp(20px, 1.3vw, 36px) clamp(20px, 1.3vw, 36px) clamp(4px, 0.26vw, 8px) clamp(20px, 1.3vw, 36px); font-size: clamp(0.85rem, 0.55vw, 1.2rem); }
+    .chat-window { width: clamp(380px, 25vw, 620px); height: clamp(600px, 39vw, 960px); border-radius: clamp(24px, 1.6vw, 40px); margin-bottom: clamp(20px, 1.3vw, 36px); }
+    .chat-header { padding: clamp(15px, 1vw, 26px); }
+    .bot-avatar { width: clamp(30px, 2vw, 50px); height: clamp(30px, 2vw, 50px); border-radius: clamp(12px, 0.8vw, 20px); margin-right: clamp(8px, 0.5vw, 14px); }
+    .chat-body { padding: clamp(15px, 1vw, 26px); gap: clamp(12px, 0.8vw, 20px); }
+    .msg { padding: clamp(12px, 0.8vw, 20px) clamp(16px, 1vw, 28px); font-size: clamp(0.95rem, 0.62vw, 1.3rem); }
+    .msg.bot { border-radius: clamp(18px, 1.2vw, 30px) clamp(18px, 1.2vw, 30px) clamp(18px, 1.2vw, 30px) clamp(4px, 0.26vw, 8px); }
+    .chat-footer { padding: clamp(15px, 1vw, 26px); gap: clamp(10px, 0.65vw, 18px); }
+    .chat-input { border-radius: clamp(50px, 3.25vw, 80px); padding: clamp(12px, 0.8vw, 20px) clamp(20px, 1.3vw, 36px); font-size: clamp(0.95rem, 0.62vw, 1.3rem); }
+    .send-btn { width: clamp(45px, 2.9vw, 72px); height: clamp(45px, 2.9vw, 72px); font-size: clamp(1rem, 0.65vw, 1.4rem); }
+
+    /* ── FAQ page ── */
+    .faq-header-section { padding: clamp(140px, 9vw, 230px) 0 clamp(80px, 5.2vw, 130px); }
+    .faq-accordion { max-width: clamp(800px, 52vw, 1300px); }
+    .faq-accordion-item { border-radius: clamp(16px, 1vw, 28px); margin-bottom: clamp(20px, 1.3vw, 36px); }
+    .faq-accordion-button { padding: clamp(25px, 1.6vw, 42px) clamp(30px, 2vw, 52px); font-size: clamp(1.2rem, 0.78vw, 1.7rem); }
+    .faq-accordion-body { padding: 0 clamp(30px, 2vw, 52px) clamp(30px, 2vw, 52px); font-size: clamp(1.05rem, 0.68vw, 1.5rem); }
+    .btn-cta { padding: clamp(12px, 0.8vw, 20px) clamp(30px, 2vw, 52px); margin-top: clamp(15px, 1vw, 26px); }
+
+    /* ── Getting started / Launch ── */
+    .launch-header-section { padding: clamp(120px, 7.8vw, 200px) 0 clamp(60px, 3.9vw, 100px); }
+    .path-card { border-radius: clamp(24px, 1.6vw, 40px); padding: clamp(40px, 2.6vw, 68px); }
+    .card-icon { font-size: clamp(2.5rem, 1.6vw, 4rem); margin-bottom: clamp(25px, 1.6vw, 42px); width: clamp(60px, 3.9vw, 100px); height: clamp(60px, 3.9vw, 100px); border-radius: clamp(12px, 0.8vw, 20px); }
+    .step-item { gap: clamp(15px, 1vw, 26px); margin-bottom: clamp(20px, 1.3vw, 36px); }
+    .step-num { width: clamp(24px, 1.6vw, 40px); height: clamp(24px, 1.6vw, 40px); font-size: clamp(0.75rem, 0.5vw, 1.1rem); }
+    .btn-launch { padding: clamp(16px, 1vw, 28px); border-radius: clamp(12px, 0.8vw, 20px); font-size: clamp(1rem, 0.65vw, 1.4rem); }
+
+    /* ── Reviews page ── */
+    .review-grid { gap: clamp(25px, 1.6vw, 42px); }
+    .glass-review { border-radius: clamp(20px, 1.3vw, 36px); padding: clamp(35px, 2.3vw, 60px); }
+    .stars { margin-bottom: clamp(20px, 1.3vw, 36px); }
+    .review-text { margin-bottom: clamp(25px, 1.6vw, 42px); font-size: clamp(1rem, 0.65vw, 1.4rem); }
+    .author { gap: clamp(15px, 1vw, 26px); padding-top: clamp(20px, 1.3vw, 36px); }
+    .avatar-circle { width: clamp(45px, 2.9vw, 72px); height: clamp(45px, 2.9vw, 72px); font-size: clamp(1rem, 0.65vw, 1.5rem); }
+
+    /* ── Comparison page ── */
+    .main-header { margin: clamp(60px, 3.9vw, 100px) 0 clamp(40px, 2.6vw, 68px); }
+    .hero-card { border-radius: clamp(24px, 1.6vw, 40px); padding: clamp(3rem, 2vw, 5rem); margin-bottom: clamp(60px, 3.9vw, 100px); }
+    .hero-badge { padding: clamp(6px, 0.4vw, 10px) clamp(14px, 0.9vw, 24px); font-size: clamp(0.85rem, 0.55vw, 1.2rem); }
+    .hero-features-grid { gap: clamp(30px, 2vw, 52px) clamp(40px, 2.6vw, 68px); margin-top: clamp(40px, 2.6vw, 68px); }
+    .hero-feature-item { gap: clamp(15px, 1vw, 26px); padding-bottom: clamp(15px, 1vw, 26px); }
+    .icon-box { min-width: clamp(28px, 1.8vw, 46px); height: clamp(28px, 1.8vw, 46px); font-size: clamp(0.85rem, 0.55vw, 1.2rem); }
+    .feature-title { font-size: clamp(1.2rem, 0.78vw, 1.7rem); }
+    .competitor-grid { gap: clamp(20px, 1.3vw, 36px); }
+    .competitor-card .card-logo { height: clamp(40px, 2.6vw, 68px); margin-bottom: clamp(20px, 1.3vw, 36px); }
+
+    /* ── Agency cards ── */
+    .agency-card { border-radius: clamp(24px, 1.6vw, 40px); padding: clamp(45px, 2.9vw, 76px) clamp(40px, 2.6vw, 68px); }
+    .badge-agency { padding: clamp(6px, 0.4vw, 10px) clamp(14px, 0.9vw, 24px); font-size: clamp(0.85rem, 0.55vw, 1.2rem); }
+    .btn-agency { padding: clamp(14px, 0.9vw, 24px); border-radius: clamp(12px, 0.8vw, 20px); font-size: clamp(1rem, 0.65vw, 1.4rem); }
+    .agency-back-link { margin-top: clamp(30px, 2vw, 52px); font-size: clamp(0.92rem, 0.6vw, 1.3rem); }
+
+    /* ── Carousel ── */
+    .carousel-container { max-width: clamp(1200px, 78vw, 2000px); height: clamp(600px, 39vw, 1000px); }
+
+    /* ── Dialer: phone column ── */
     #dlrColPhone { align-items: center; justify-content: center; }
 }
 
