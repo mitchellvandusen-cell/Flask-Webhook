@@ -306,7 +306,8 @@
             var phoneCol = document.getElementById('dlrColPhone');
             if (phoneCol && window.innerWidth <= 768) {
                 // Temporarily show phone col as full-screen overlay
-                phoneCol.style.display = 'flex';
+                // Use setProperty with !important to override the CSS display:none !important rule
+                phoneCol.style.setProperty('display', 'flex', 'important');
                 phoneCol.style.position = 'fixed';
                 phoneCol.style.inset = '0';
                 phoneCol.style.zIndex = '400';
@@ -343,7 +344,7 @@
         function dlrMobileCloseApp() {
             var phoneCol = document.getElementById('dlrColPhone');
             if (phoneCol && window.innerWidth <= 768) {
-                phoneCol.style.display = '';
+                phoneCol.style.removeProperty('display');
                 phoneCol.style.position = '';
                 phoneCol.style.inset = '';
                 phoneCol.style.zIndex = '';

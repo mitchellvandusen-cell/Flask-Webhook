@@ -2526,6 +2526,7 @@ body { padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(sa
     .tab-pane .col-md-6 { width: 100% !important; flex: 0 0 100% !important; max-width: 100% !important; padding: 0; }
 
     /* Break ALL inline flex two-column containers */
+    .tab-two-col,
     #config [style*="display:flex"][style*="min-height"],
     #voice [style*="display:flex"][style*="min-height"],
     #connect [style*="display:flex"][style*="min-height"] {
