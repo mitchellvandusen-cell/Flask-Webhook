@@ -141,10 +141,10 @@ def ensure_redis() -> bool:
     try:
         redis_conn = get_redis_connection()
         redis_conn.ping()
-        q_production = Queue('production', connection=redis_conn)
-        q_demo       = Queue('demo',       connection=redis_conn)
-        q_website = Queue('website', connection=redis_conn)
-        q_intelligence = Queue('intelligence', connection=redis_conn)
+        q_production    = Queue('production',   connection=redis_conn)
+        q_demo          = Queue('demo',         connection=redis_conn)
+        q_website       = Queue('website',      connection=redis_conn)
+        q_intelligence  = Queue('intelligence', connection=redis_conn)
         logger.info("✅ Redis connection established")
         return True
     except (redis.ConnectionError, redis.TimeoutError, OSError) as e:

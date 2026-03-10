@@ -264,7 +264,6 @@ def process_webhook_task(payload: dict):
         # if address: initial_facts.append(f"Address: {address}")
         if intent: initial_facts.append(f"Intent: {intent}")
         if lead_vendor: initial_facts.append(f"Lead vendor: {lead_vendor}")
-        if lead_vendor: initial_facts.append(f"Lead vendor: {lead_vendor}")
 
         if initial_facts and contact_id != "unknown":
             save_new_facts(contact_id, initial_facts)
@@ -318,7 +317,12 @@ def process_webhook_task(payload: dict):
                         logger.warning(f"⚠ SKIP: Already processed webhook {message_id}")
                         return {"status": "skipped", "reason": "duplicate webhook"}
                 except Exception as e:
-                    logger.error(f"Idempotency check failed: {e}")
+                    logger.error(f"Idempotency check failed — processing anyway to avoid message loss: {e}")
+                    if conn:
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
                 finally:
                     if cur:
                         cur.close()

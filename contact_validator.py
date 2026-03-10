@@ -6,10 +6,11 @@ import logging
 import requests
 from typing import Optional, Dict, Any
 from db import get_db_connection, return_db_connection
+from token_encryption import decrypt_token
 
 logger = logging.getLogger(__name__)
 
-GHL_API_BASE = "https://services.leadconnector.io"
+GHL_API_BASE = "https://services.leadconnectorhq.com"
 
 
 def get_location_access_token(location_id: str) -> Optional[str]:
@@ -38,8 +39,8 @@ def get_location_access_token(location_id: str) -> Optional[str]:
         row = cur.fetchone()
 
         if row:
-            token = row[0] if isinstance(row, tuple) else row.get('access_token')
-            return token
+            raw_token = row[0] if isinstance(row, tuple) else row.get('access_token')
+            return decrypt_token(raw_token) if raw_token else None
         return None
     except Exception as e:
         logger.error(f"Failed to get access token for location {location_id}: {e}")

@@ -64,6 +64,7 @@ redis_conn = None
 q_production = None
 q_demo = None
 q_website = None
+q_intelligence = None
 
 
 def get_redis_connection():
@@ -79,7 +80,7 @@ def get_redis_connection():
 
 def ensure_redis():
     """Reconnect to Redis if the connection is dead. Returns True if healthy."""
-    global redis_conn, q_production, q_demo, q_website
+    global redis_conn, q_production, q_demo, q_website, q_intelligence
     try:
         if redis_conn:
             redis_conn.ping()
@@ -91,9 +92,10 @@ def ensure_redis():
     try:
         redis_conn = get_redis_connection()
         redis_conn.ping()
-        q_production = Queue('production', connection=redis_conn)
-        q_demo       = Queue('demo',       connection=redis_conn)
-        q_website    = Queue('website',    connection=redis_conn)
+        q_production    = Queue('production',   connection=redis_conn)
+        q_demo          = Queue('demo',         connection=redis_conn)
+        q_website       = Queue('website',      connection=redis_conn)
+        q_intelligence  = Queue('intelligence', connection=redis_conn)
         logger.info("Redis connection established")
         return True
     except (redis.ConnectionError, redis.TimeoutError, OSError) as e:
@@ -102,6 +104,7 @@ def ensure_redis():
         q_production = None
         q_demo = None
         q_website = None
+        q_intelligence = None
         return False
 
 
@@ -143,7 +146,12 @@ def ws_listen_stream(ws):
 
 # ── Session & cookie config ──────────────────────────────────────────────────
 
-app.secret_key = os.getenv("SESSION_SECRET", "fallback-insecure-key")
+_secret = os.getenv("SESSION_SECRET") or os.getenv("SECRET_KEY")
+if not _secret:
+    import secrets as _s
+    _secret = _s.token_hex(32)
+    logger.warning("SESSION_SECRET / SECRET_KEY not set — using random key (sessions will not survive restarts)")
+app.secret_key = _secret
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_SECURE'] = True
 

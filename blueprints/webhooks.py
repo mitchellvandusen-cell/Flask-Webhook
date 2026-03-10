@@ -7,6 +7,8 @@
 
 import os
 import json
+import hmac
+import hashlib
 import logging
 
 import redis
@@ -111,6 +113,23 @@ def _handle_conversation_provider_outbound(payload: dict):
 @webhooks_bp.route("/webhook", methods=["POST"])
 def webhook():
     """Main GHL webhook receiver — normalises payload and queues to RQ."""
+
+    # ── Webhook signature verification ────────────────────────────────────
+    # GHL signs webhooks with HMAC-SHA256 using the marketplace webhook secret.
+    # We verify when both the secret is configured AND a signature header is present.
+    # If the secret is set but no signature header arrives, we log a warning but
+    # allow the request — GHL may not sign all webhook types (e.g. Conversation Provider).
+    webhook_secret = os.getenv("MARKETPLACE_WEBHOOK_SECRET")
+    if webhook_secret:
+        signature = request.headers.get("X-Ghl-Signature") or request.headers.get("X-Hook-Secret") or ""
+        if signature:
+            body = request.get_data(as_text=True)
+            expected = hmac.new(webhook_secret.encode(), body.encode(), hashlib.sha256).hexdigest()
+            if not hmac.compare_digest(signature, expected):
+                logger.warning("Webhook signature mismatch — rejecting request")
+                return safe_jsonify({"status": "error", "reason": "invalid_signature"}), 401
+        else:
+            logger.debug("Webhook received without signature header — skipping verification")
 
     # ── Conversation Provider outbound webhook ────────────────────────────
     # When an agent sends a message from GHL UI via the InsuranceGrokBot SMS

@@ -271,9 +271,9 @@ def _get_contact_ids_for_sync(conn, location_id, headers):
 def _classify_message_type(msg):
     """Classify a GHL message into type and source.
     Returns (message_type, source)."""
-    msg_type = (msg.get("type") or msg.get("messageType") or "").lower()
-    content_type = (msg.get("contentType") or "").lower()
-    source_field = (msg.get("source") or "").lower()
+    msg_type = str(msg.get("type") or msg.get("messageType") or "").lower()
+    content_type = str(msg.get("contentType") or "").lower()
+    source_field = str(msg.get("source") or "").lower()
 
     # GHL message types:
     # TYPE_SMS = 1, TYPE_EMAIL = 2, TYPE_CALL = 3, TYPE_VOICEMAIL = 4
@@ -289,7 +289,7 @@ def _classify_message_type(msg):
 
     if type_num == 3 or msg_type == 'call' or content_type == 'call':
         # Determine call source
-        body = (msg.get("body") or "").lower()
+        body = str(msg.get("body") or "").lower()
         if "wavv" in body or "wavv" in source_field:
             return "call", "wavv"
         elif "dialer" in source_field or "insurancegrokbot" in source_field:

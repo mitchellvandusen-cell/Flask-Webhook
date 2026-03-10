@@ -26,11 +26,11 @@ def _get_subscriber_by_phone(phone_number):
             WHERE voice_config IS NOT NULL
               AND voice_config->>'enabled' = 'true'
               AND (
-                  REPLACE(REPLACE(voice_config->>'twilio_phone_number', '+', ''), '1', '') LIKE %s
+                  REGEXP_REPLACE(voice_config->>'twilio_phone_number', '^\+?1', '') = %s
                   OR voice_config->>'twilio_phone_number' = %s
               )
             LIMIT 1
-        """, (f'%{normalized}', phone_number))
+        """, (normalized, phone_number))
         row = cur.fetchone()
         cur.close()
         return dict(row) if row else None
