@@ -972,9 +972,9 @@ def analyze_contact_intelligence_task(location_id: str, contact_id: str) -> dict
 
 
 def analyze_contacts_batch_task(location_id: str, contact_ids: list) -> dict:
-    """RQ task: Analyze a batch of contacts via bulk AI prompt (up to 100 per job).
-    Uses a single LLM call per ~25 contacts instead of 1 call per contact.
-    Called by the dialer when it discovers uncached contacts.
+    """RQ task: Analyze a batch of contacts via bulk AI prompt (up to 500 per job).
+    Uses 10 concurrent LLM calls of ~25 contacts each for maximum throughput.
+    1000 contacts ≈ 2 minutes. Called by the dialer for uncached contacts.
     """
     if not contact_ids:
         return {"status": "empty", "analyzed": 0}

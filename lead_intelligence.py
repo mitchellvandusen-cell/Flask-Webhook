@@ -611,9 +611,10 @@ def bulk_analyze_and_cache(location_id, contact_ids):
     if not contact_blocks:
         return 0
 
-    # Process in sub-batches of 50 per LLM call, run up to 4 concurrently
-    SUB_BATCH = 50
-    MAX_CONCURRENT = 4
+    # Process in sub-batches of 25 per LLM call, run up to 10 concurrently
+    # 1000 contacts = 40 sub-batches / 10 concurrent = 4 rounds * ~8s = ~32s total
+    SUB_BATCH = 25
+    MAX_CONCURRENT = 10
     total_analyzed = 0
 
     chunks = []
@@ -749,10 +750,8 @@ def _get_cached_analysis(contact_id, last_message_at):
             if lm > analyzed_at:
                 return None
 
-        # Also expire after 24 hours regardless (safety net)
-        if isinstance(analyzed_at, datetime):
-            if datetime.utcnow() - analyzed_at > timedelta(hours=24):
-                return None
+        # No time-based expiry — cache persists until new messages arrive.
+        # This matches CLAUDE.md: "no time-based expiry."
 
         analysis = row.get('analysis')
         if isinstance(analysis, str):
