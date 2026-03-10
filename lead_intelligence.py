@@ -198,6 +198,17 @@ def _run_ai_analysis(location_id, contact_id, ctx):
 
     prompt = f"""You are an AI sales coach analyzing an insurance lead for an agent. Read ALL the data below carefully and produce a JSON intelligence report. Your classification MUST be based on what the lead ACTUALLY SAID, not just whether they responded.
 
+CRITICAL — READ CONVERSATIONS IN CONTEXT:
+Messages are a back-and-forth thread between "Bot" (the agent's AI assistant) and "Lead" (the prospect). You MUST read each Lead reply as a RESPONSE TO THE PRECEDING Bot message. Short or single-word Lead replies ONLY make sense in context of what the Bot just said.
+Examples of contextual reading:
+- Bot: "Would you like a free quote?" → Lead: "sure" = INTERESTED (responding yes to the offer)
+- Bot: "Reply STOP if you want to stop receiving messages" → Lead: "stop" = WANTS TO OPT OUT (not interested in anything)
+- Bot: "Do you currently have life insurance?" → Lead: "no" = NO EXISTING COVERAGE (not rejecting the conversation)
+- Bot: "Let me know if you want to stop talking" → Lead: "want" = WANTS TO STOP (completing the Bot's sentence)
+- Bot: "I can help with term or whole life — which interests you?" → Lead: "term" = INTERESTED IN TERM LIFE (not a one-word dismissal)
+- Bot: "Great! When works best for a call?" → Lead: "never" = REJECTING (not scheduling)
+Never classify a message in isolation. A "yes", "no", "ok", "sure", "want", "stop", etc. can mean completely different things depending on what the Bot asked.
+
 CONVERSATION HISTORY:
 {convo}
 
@@ -217,6 +228,7 @@ Respond with ONLY valid JSON (no markdown, no code fences, no explanation). Use 
   "should_respond": true or false,
   "should_respond_reason": "Why the agent should or should not respond right now.",
   "engagement_level": 0-3,
+  "under_contract": true or false,
   "actions": [
     {{
       "action": "Short imperative action (e.g. 'Call back about the term quote')",
@@ -229,11 +241,12 @@ Respond with ONLY valid JSON (no markdown, no code fences, no explanation). Use 
 
 CRITICAL CLASSIFICATION RULES — READ THESE CAREFULLY:
 
-"temperature" — Based on the CONTENT of what the lead said, NOT just whether they replied:
+"temperature" — Based on the CONTENT AND CONTEXT of what the lead said, NOT just whether they replied:
 - hot = Lead is actively buying: asking for quotes, requesting coverage, comparing products, ready to book, saying "let's do it." They are IN the buying process.
 - warm = Lead is engaged and positive: responding to questions, sharing information about their situation, showing genuine interest. The conversation is progressing forward.
 - cool = Lead went quiet (no response to last 2+ messages), giving slow/short replies, showing declining interest, OR gave a soft objection like "let me think about it."
 - cold = Lead explicitly said no: "not interested", "stop", "already covered", "don't contact me", OR has completely ghosted (no response to 3+ outreach attempts). A lead who REPLIED with "no thanks" or "I'm good" is COLD, not hot.
+IMPORTANT: If the Bot offered an opt-out and the lead's reply CONFIRMS they want to opt out (even with a single word that completes the Bot's sentence), that is COLD. Read the lead's reply in the context of what the Bot said immediately before it.
 
 "score" — 0-100 likelihood to convert to a paying client. Consider:
 - What the lead actually said (buying signals vs objections vs silence)
@@ -252,6 +265,12 @@ CRITICAL CLASSIFICATION RULES — READ THESE CAREFULLY:
 - 1 = Surface contact (lead acknowledged but no real conversation — one-word replies, "who is this", etc.)
 - 2 = Real conversation (lead is sharing information, asking questions, back-and-forth dialogue)
 - 3 = Deep engagement (multiple exchanges, discussing specifics, answered calls >30s where they actually spoke, approaching a decision). Unanswered outbound calls do NOT count as engagement.
+
+"under_contract" — true if this contact appears to be an EXISTING CLIENT who already bought a policy, NOT an unsold lead:
+- Look at the PIPELINE data. If the contact is in a pipeline/stage that signals a completed sale (e.g. "sold", "closed won", "active client", "policy issued", "customer", "onboarding", "retention", "renewal", "in force", "bound"), set true.
+- Also look at conversation content: if the lead clearly purchased, has policy numbers, or is discussing servicing an existing policy, set true.
+- If the contact is in a sales/prospecting pipeline (e.g. "new leads", "follow up", "quoted", "nurture", "cold leads"), set false.
+- When in doubt (no pipeline, unclear stage), set false. Most contacts are unsold leads.
 
 "actions" — 2-4 specific next steps. Use icons: fa-phone (calls), fa-paper-plane (SMS), fa-file-invoice-dollar (quotes), fa-calendar (appointments), fa-fire (urgency), fa-clock (timing), fa-reply (responding), fa-bolt (quick action).
 - If no conversation exists, focus on initial outreach.
@@ -289,6 +308,8 @@ CRITICAL CLASSIFICATION RULES — READ THESE CAREFULLY:
         if not isinstance(result.get('engagement_level'), (int, float)):
             result['engagement_level'] = 0
         result['engagement_level'] = max(0, min(3, int(result['engagement_level'])))
+        if not isinstance(result.get('under_contract'), bool):
+            result['under_contract'] = False
 
         return result
 
@@ -491,6 +512,9 @@ def _run_bulk_ai_analysis(location_id, contact_blocks):
 
     prompt = f"""You are an AI sales coach bulk-analyzing insurance leads. Below are {len(contact_blocks)} contacts separated by "---". For EACH contact, produce a JSON analysis object.
 
+CRITICAL — READ CONVERSATIONS IN CONTEXT:
+Each contact has a "CONVO" section showing Bot/Lead message exchanges. You MUST read each Lead reply as a RESPONSE TO THE PRECEDING Bot message. Short replies ("yes", "no", "ok", "stop", "want") mean completely different things depending on what the Bot just asked. For example: Bot asks "want to stop?" + Lead says "want" = WANTS TO STOP. Bot asks "want a quote?" + Lead says "want" = WANTS A QUOTE. Never classify messages in isolation — always read the thread as a conversation.
+
 {contacts_text}
 
 ---
@@ -509,6 +533,7 @@ Respond with ONLY a valid JSON array (no markdown, no code fences). Each element
     "should_respond": true or false,
     "should_respond_reason": "Why the agent should or should not respond now.",
     "engagement_level": 0-3,
+    "under_contract": true or false,
     "actions": [
       {{
         "action": "Short imperative action",
@@ -525,6 +550,7 @@ CLASSIFICATION RULES:
 - score: 0-100 conversion likelihood. "not interested"=5-15, NOT 50+.
 - should_respond: true only if the lead is WAITING for a reply (unanswered question, unaddressed interest). false if bot already replied, lead said stop, or nothing to respond to.
 - engagement_level: 0=no contact, 1=surface (one-word replies), 2=real conversation, 3=deep (specifics, calls, near decision).
+- under_contract: true if contact is an EXISTING CLIENT (sold). Look at PIPELINE — stages like "sold", "closed won", "active client", "policy issued", "customer", "in force", "bound", "retention", "renewal" = true. Sales/prospecting pipelines ("new leads", "follow up", "quoted", "nurture") = false. Also check conversation for policy numbers or servicing existing coverage. When in doubt, false.
 - actions: 2-4 per contact. Icons: fa-phone, fa-paper-plane, fa-file-invoice-dollar, fa-calendar, fa-fire, fa-clock, fa-reply, fa-bolt.
 
 You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact IDs: {id_list}"""
@@ -574,6 +600,8 @@ You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact 
             if not isinstance(item.get('engagement_level'), (int, float)):
                 item['engagement_level'] = 0
             item['engagement_level'] = max(0, min(3, int(item['engagement_level'])))
+            if not isinstance(item.get('under_contract'), bool):
+                item['under_contract'] = False
 
             results[cid] = item
 
@@ -609,6 +637,8 @@ You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact 
                     if not isinstance(item.get('engagement_level'), (int, float)):
                         item['engagement_level'] = 0
                     item['engagement_level'] = max(0, min(3, int(item['engagement_level'])))
+                    if not isinstance(item.get('under_contract'), bool):
+                        item['under_contract'] = False
                     results[cid] = item
                 logger.info(f"Bulk AI JSON repair succeeded: {len(results)}/{len(contact_blocks)} contacts")
                 return results
@@ -890,6 +920,7 @@ def get_bulk_cached_intelligence(location_id, contact_ids):
                 "temperature_reason": analysis.get("temperature_reason", ""),
                 "should_respond": analysis.get("should_respond", False),
                 "engagement_level": analysis.get("engagement_level", 0),
+                "under_contract": analysis.get("under_contract", False),
             }
 
         cur.close()
