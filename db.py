@@ -44,13 +44,38 @@ _connection_pool = None
 _pool_semaphore = None
 _pool_lock = threading.Lock()
 
-# Max real DB connections. Most managed Postgres (Render, Railway, Supabase) allow
-# 20-97 depending on plan. Set conservatively; the semaphore handles the queuing.
-_POOL_MAX = int(os.getenv("DB_POOL_MAX", "20"))
+# Pool sizing: match pool to thread count. Gunicorn runs 40 threads, so we need
+# at least 40 pool slots to avoid threads blocking each other waiting for DB.
+# Workers (4x production + 1x demo) each get their own pool via fork.
+_POOL_MIN = int(os.getenv("DB_POOL_MIN", "5"))
+_POOL_MAX = int(os.getenv("DB_POOL_MAX", "40"))
 # How many requests can wait for a connection before we reject/fallback
 _POOL_WAITERS_MAX = int(os.getenv("DB_POOL_WAITERS", "500"))
-# Seconds to wait for a pooled connection before falling back to direct
-_POOL_WAIT_TIMEOUT = float(os.getenv("DB_POOL_TIMEOUT", "10"))
+# Seconds to wait before falling back to direct connection. Keep short — it's
+# better to open a direct connection fast than to block a thread for 10s.
+_POOL_WAIT_TIMEOUT = float(os.getenv("DB_POOL_TIMEOUT", "3"))
+
+# Pool utilization tracking (lightweight counters for monitoring)
+_pool_stats_lock = threading.Lock()
+_pool_stats = {
+    "acquired": 0,
+    "released": 0,
+    "timeouts": 0,
+    "direct_fallbacks": 0,
+    "stale_replaced": 0,
+}
+
+def get_pool_stats() -> dict:
+    """Return pool utilization stats for monitoring."""
+    with _pool_stats_lock:
+        stats = dict(_pool_stats)
+    stats["in_use"] = stats["acquired"] - stats["released"]
+    stats["pool_max"] = _POOL_MAX
+    return stats
+
+def _bump_stat(key: str):
+    with _pool_stats_lock:
+        _pool_stats[key] += 1
 
 def _get_pool():
     """Lazy-init a threaded connection pool with semaphore queuing."""
@@ -60,14 +85,14 @@ def _get_pool():
             if _connection_pool is None:
                 try:
                     _connection_pool = pool.ThreadedConnectionPool(
-                        minconn=2,
+                        minconn=_POOL_MIN,
                         maxconn=_POOL_MAX,
                         dsn=DATABASE_URL,
                         connect_timeout=10,
                         cursor_factory=RealDictCursor,
                     )
                     _pool_semaphore = threading.Semaphore(_POOL_MAX)
-                    logger.info(f"Database connection pool initialized (2-{_POOL_MAX} connections, "
+                    logger.info(f"Database connection pool initialized ({_POOL_MIN}-{_POOL_MAX} connections, "
                                 f"{_POOL_WAITERS_MAX} max waiters, {_POOL_WAIT_TIMEOUT}s timeout)")
                 except psycopg2.Error as e:
                     logger.error(f"Connection pool creation failed: {e}", exc_info=True)
@@ -87,6 +112,7 @@ def get_db_connection() -> Optional[psycopg2.extensions.connection]:
         # Wait for a pool slot (blocks if all connections are checked out)
         acquired = _pool_semaphore.acquire(timeout=_POOL_WAIT_TIMEOUT)
         if not acquired:
+            _bump_stat("timeouts")
             logger.warning(f"Connection pool wait timed out after {_POOL_WAIT_TIMEOUT}s, "
                            "using direct connection")
             return _direct_connect()
@@ -100,6 +126,7 @@ def get_db_connection() -> Optional[psycopg2.extensions.connection]:
                 cur.close()
                 conn.rollback()
             except Exception:
+                _bump_stat("stale_replaced")
                 logger.warning("Stale pooled connection detected, replacing")
                 try:
                     p.putconn(conn, close=True)
@@ -112,7 +139,9 @@ def get_db_connection() -> Optional[psycopg2.extensions.connection]:
                     DATABASE_URL, connect_timeout=10, cursor_factory=RealDictCursor)
                 conn._pool_semaphore_acquired = True
                 conn.autocommit = False
+                _bump_stat("acquired")
                 return conn
+            _bump_stat("acquired")
             conn.autocommit = False
             return conn
         except Exception as e:
@@ -126,8 +155,10 @@ def get_db_connection() -> Optional[psycopg2.extensions.connection]:
                         conn.close()
                     except Exception:
                         pass
+            _bump_stat("direct_fallbacks")
             logger.warning(f"Pool getconn failed, falling back to direct: {e}")
             return _direct_connect()
+    _bump_stat("direct_fallbacks")
     return _direct_connect()
 
 def _direct_connect() -> Optional[psycopg2.extensions.connection]:
@@ -148,6 +179,7 @@ def return_db_connection(conn):
     """Return a connection to the pool (or close if not pooled)."""
     if conn is None:
         return
+    _bump_stat("released")
     # Check if this connection owns a semaphore slot (set on stale-replacement path)
     owns_semaphore = getattr(conn, '_pool_semaphore_acquired', False)
     # Always rollback any uncommitted transaction before returning to pool
