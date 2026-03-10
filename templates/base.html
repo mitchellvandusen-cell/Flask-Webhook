@@ -81,8 +81,12 @@
                     {% endif %}
                 </ul>
                 <div class="d-flex gap-3 mt-3 mt-lg-0">
+                    {% if current_user.is_authenticated %}
+                    <a href="/dashboard" class="btn btn-primary btn-sm nav-btn">Dashboard</a>
+                    {% else %}
                     <a href="/login" class="btn btn-outline-accent btn-sm nav-btn">Log In</a>
                     <a href="/register" class="btn btn-primary btn-sm nav-btn">Get Started</a>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -150,7 +154,12 @@
     <script>
     // Mobile nav toggle — must be global for onclick attribute
     function toggleMobileNav() {
-        document.getElementById('navbarNav').classList.toggle('show');
+        var nav = document.getElementById('navbarNav');
+        nav.classList.toggle('show');
+        // Toggle class on parent navbar so we can disable backdrop-filter
+        // (backdrop-filter creates a containing block that clips position:fixed children)
+        var navbar = nav.closest('.navbar');
+        if (navbar) navbar.classList.toggle('nav-open', nav.classList.contains('show'));
     }
 
     (function() {

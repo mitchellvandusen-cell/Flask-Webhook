@@ -9,6 +9,7 @@ import logging
 import re
 import os
 import json
+from datetime import timedelta
 import redis
 import stripe
 import gspread
@@ -218,6 +219,10 @@ if creds_dict:
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "auth.login"
+app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=30)
+app.config['REMEMBER_COOKIE_SECURE'] = True
+app.config['REMEMBER_COOKIE_HTTPONLY'] = True
+app.config['REMEMBER_COOKIE_SAMESITE'] = 'Lax'
 
 
 @login_manager.user_loader
