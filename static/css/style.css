@@ -2341,29 +2341,113 @@ body { padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(sa
     /* Mobile hamburger in topbar */
     .mobile-menu-btn { display: flex; }
 
-    /* Tab pane panels — full width, no side columns */
-    .tab-pane { padding: 0 !important; }
+    /* ══════════════════════════════════════════════════════
+       MOBILE-FIRST REDESIGN — clean, simplified layouts
+       Not a wrapper — a different experience for phones
+       ══════════════════════════════════════════════════════ */
 
-    /* Config/Voice/Connect two-column → single column */
+    /* ── Glass panels: clean cards, less chrome ── */
+    .tab-pane { padding: 0 !important; }
+    .tab-pane .glass-panel,
+    .tab-pane .glass-panel.p-4 {
+        padding: 14px !important;
+        border-radius: 14px !important;
+        border: 1px solid rgba(255,255,255,0.05) !important;
+    }
+
+    /* ── Headers: compact, no oversized icon boxes ── */
+    .tab-pane .glass-panel > .d-flex.align-items-center.mb-4 {
+        margin-bottom: 12px !important;
+        gap: 10px;
+    }
+    /* Shrink the 48px icon boxes to 32px */
+    .tab-pane .glass-panel > .d-flex.align-items-center.mb-4 > div[style*="48px"] {
+        width: 32px !important; height: 32px !important; min-width: 32px;
+        border-radius: 8px !important; margin-right: 8px !important;
+    }
+    .tab-pane .glass-panel > .d-flex.align-items-center.mb-4 > div[style*="48px"] i {
+        font-size: 0.9rem !important;
+    }
+    .tab-pane .glass-panel h4 { font-size: 1rem !important; }
+    .tab-pane .glass-panel > .d-flex.align-items-center.mb-4 p { font-size: 0.78rem !important; }
+    /* Badges: wrap to new line */
+    .tab-pane .glass-panel > .d-flex.align-items-center.mb-4 { flex-wrap: wrap; }
+    .tab-pane .glass-panel > .d-flex.align-items-center.mb-4 .ms-auto {
+        margin-left: 0 !important; margin-top: 0;
+    }
+
+    /* ── Two-column layouts → stacked single column ── */
     .tab-pane .row { margin: 0; }
     .tab-pane .col-lg-3, .tab-pane .col-lg-9,
-    .tab-pane .col-md-3, .tab-pane .col-md-9 { width: 100%; padding: 0; }
+    .tab-pane .col-md-3, .tab-pane .col-md-9,
+    .tab-pane .col-md-6 { width: 100% !important; flex: 0 0 100% !important; max-width: 100% !important; padding: 0; }
 
-    /* Hide side menus on mobile (replaced by top pills) */
+    /* Break ALL inline flex two-column containers */
+    #config [style*="display:flex"][style*="min-height"],
+    #voice [style*="display:flex"][style*="min-height"],
+    #connect [style*="display:flex"][style*="min-height"] {
+        display: block !important;
+        min-height: auto !important;
+    }
+
+    /* ── Settings menus → sleek horizontal pill tabs ── */
     #voiceSettingsMenu, #configSettingsMenu, #connectSettingsMenu {
         display: flex !important; flex-direction: row !important;
-        overflow-x: auto; gap: 6px; padding: 8px 0 12px;
+        overflow-x: auto; gap: 6px;
+        padding: 4px 0 10px;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
+        width: 100% !important; flex-shrink: 1 !important;
+        background: transparent !important; border: none !important;
+        border-radius: 0 !important;
     }
     #voiceSettingsMenu::-webkit-scrollbar,
     #configSettingsMenu::-webkit-scrollbar,
     #connectSettingsMenu::-webkit-scrollbar { display: none; }
+
     .voice-menu-item, .cfg-menu-item, .conn-menu-item {
         white-space: nowrap; flex-shrink: 0;
-        padding: 8px 16px !important; font-size: 0.82rem !important;
-        border-radius: 20px !important; min-height: 36px;
+        padding: 7px 14px !important; font-size: 0.78rem !important;
+        border-radius: 18px !important; min-height: 32px;
+        width: auto !important;
+        background: rgba(255,255,255,0.04) !important;
+        border: 1px solid rgba(255,255,255,0.08) !important;
+        color: #888 !important;
     }
+    .voice-menu-item.active, .cfg-menu-item.active, .conn-menu-item.active {
+        background: rgba(0,255,136,0.1) !important;
+        border-color: rgba(0,255,136,0.25) !important;
+        color: var(--accent) !important;
+    }
+
+    /* ── Forms: touch-friendly, spacious ── */
+    .form-control, .form-select {
+        font-size: 16px !important; /* Prevents iOS zoom */
+        padding: 10px 14px !important;
+        border-radius: 10px !important;
+    }
+    .form-label { font-size: 0.82rem !important; margin-bottom: 4px !important; }
+    small.text-muted { font-size: 0.72rem !important; }
+    textarea.form-control { min-height: 80px !important; }
+    .row.g-3 > [class*="col-"] { margin-bottom: 4px; }
+
+    /* ── SMS channel picker: full width cards ── */
+    .sms-channel-option { padding: 10px 12px !important; }
+    .sms-channel-option div[style*="font-size:0.85rem"] { font-size: 0.82rem !important; }
+    .sms-channel-option div[style*="font-size:0.75rem"] { font-size: 0.7rem !important; }
+
+    /* ── Voice config enable toggle ── */
+    #voice .mb-4.p-3 { padding: 10px 12px !important; }
+
+    /* ── Buttons: touch-friendly ── */
+    .btn { min-height: 40px; font-size: 0.85rem !important; }
+    .btn-sm { min-height: 34px; }
+
+    /* ── Webhook URL section compact ── */
+    #connect [style*="background:rgba(0,255,136,0.08)"] {
+        padding: 10px 12px !important; border-radius: 10px !important;
+    }
+    #connect code { font-size: 0.78rem !important; }
 
     /* Dialer — on mobile show iPhone content without the phone frame */
     .iphone-frame { max-width: 100% !important; width: 100% !important; }
