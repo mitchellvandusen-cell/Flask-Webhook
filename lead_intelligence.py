@@ -581,7 +581,40 @@ You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact 
         return results
 
     except json.JSONDecodeError as e:
-        logger.error(f"Bulk AI JSON parse failed: {e}")
+        logger.warning(f"Bulk AI JSON parse failed, attempting repair: {e}")
+        # Common LLM issues: trailing commas, unescaped quotes in strings
+        try:
+            fixed = raw
+            # Remove trailing commas before } or ]
+            fixed = re.sub(r',\s*([}\]])', r'\1', fixed)
+            # Try parsing the repaired JSON
+            parsed = json.loads(fixed)
+            if isinstance(parsed, list):
+                results = {}
+                for item in parsed:
+                    cid = item.get("contact_id", "")
+                    if not cid:
+                        continue
+                    if not isinstance(item.get('actions'), list):
+                        item['actions'] = []
+                    if item.get('temperature') not in ('hot', 'warm', 'cool', 'cold'):
+                        item['temperature'] = 'warm'
+                    if not isinstance(item.get('score'), (int, float)):
+                        item['score'] = 50
+                    item['score'] = max(0, min(100, int(item['score'])))
+                    if not isinstance(item.get('should_respond'), bool):
+                        item['should_respond'] = False
+                    if not isinstance(item.get('should_respond_reason'), str):
+                        item['should_respond_reason'] = ''
+                    if not isinstance(item.get('engagement_level'), (int, float)):
+                        item['engagement_level'] = 0
+                    item['engagement_level'] = max(0, min(3, int(item['engagement_level'])))
+                    results[cid] = item
+                logger.info(f"Bulk AI JSON repair succeeded: {len(results)}/{len(contact_blocks)} contacts")
+                return results
+        except Exception:
+            pass
+        logger.error(f"Bulk AI JSON repair also failed, dropping batch")
         return {}
     except Exception as e:
         logger.error(f"Bulk AI call failed: {e}")
