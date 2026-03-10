@@ -792,42 +792,96 @@ def _build_agency_invite_html(agent_name: str, agency_name: str,
     """
     html_body = f"""
     <html>
-    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #2563eb;">Welcome to InsuranceGrokBot!</h2>
-            <p>Hi {agent_name},</p>
-            <p><strong>{agency_name}</strong> has set up an AI-powered sales assistant for your
-            location and invited you to activate your account.</p>
-            <p>Click the button below to set your password and get started:</p>
-            <div style="text-align: center; margin: 30px 0;">
-                <a href="{invite_url}"
-                   style="background-color: #2563eb; color: white; padding: 14px 28px;
-                          text-decoration: none; border-radius: 8px; font-weight: bold;
-                          display: inline-block;">
-                    Activate My Account
-                </a>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin:0;padding:0;background-color:#050505;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+        <div style="max-width:560px;margin:0 auto;padding:40px 20px;">
+            <!-- Header -->
+            <div style="text-align:center;margin-bottom:32px;">
+                <div style="display:inline-block;background:linear-gradient(135deg,#00ff88,#00d9ff);width:56px;height:56px;border-radius:16px;line-height:56px;font-size:24px;font-weight:900;color:#000;margin-bottom:16px;">
+                    IGB
+                </div>
+                <h1 style="color:#ffffff;font-size:26px;font-weight:800;margin:0 0 6px;letter-spacing:-0.5px;">
+                    You're Invited
+                </h1>
+                <p style="color:#888;font-size:15px;margin:0;">
+                    Your AI-powered sales assistant is ready
+                </p>
             </div>
-            <p style="color: #666; font-size: 14px;">
-                This link expires in 7 days. If you didn't expect this email,
-                please contact your agency administrator.
-            </p>
-            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-            <p style="color: #999; font-size: 12px;">
-                InsuranceGrokBot - AI-Powered Insurance Sales Assistant<br>
-                <a href="{domain_url}" style="color: #2563eb;">{domain_url}</a>
-            </p>
+
+            <!-- Main card -->
+            <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:32px 28px;">
+                <p style="color:#ddd;font-size:16px;line-height:1.6;margin:0 0 8px;">
+                    Hi <strong style="color:#fff;">{agent_name}</strong>,
+                </p>
+                <p style="color:#aaa;font-size:15px;line-height:1.6;margin:0 0 24px;">
+                    <strong style="color:#00ff88;">{agency_name}</strong> has set up an AI-powered
+                    insurance sales assistant for your location. Your account is ready &mdash;
+                    just set your password to get started.
+                </p>
+
+                <!-- What you get -->
+                <div style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.12);border-radius:12px;padding:18px 20px;margin-bottom:24px;">
+                    <p style="color:#00ff88;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">What's Included</p>
+                    <table style="width:100%;border:0;" cellpadding="0" cellspacing="0">
+                        <tr>
+                            <td style="padding:4px 0;color:#ccc;font-size:14px;">&#x2713;&ensp; AI-powered SMS bot that responds to leads 24/7</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:4px 0;color:#ccc;font-size:14px;">&#x2713;&ensp; Smart dialer with AI call intelligence</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:4px 0;color:#ccc;font-size:14px;">&#x2713;&ensp; Real-time lead scoring and Smart Filters</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:4px 0;color:#ccc;font-size:14px;">&#x2713;&ensp; Automated workflows and follow-up sequences</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- CTA Button -->
+                <div style="text-align:center;margin-bottom:8px;">
+                    <a href="{invite_url}"
+                       style="display:inline-block;background:linear-gradient(135deg,#00ff88,#00d9ff);color:#000;font-weight:800;font-size:16px;padding:16px 40px;border-radius:12px;text-decoration:none;letter-spacing:-0.3px;box-shadow:0 4px 20px rgba(0,255,136,0.25);">
+                        Activate My Account
+                    </a>
+                </div>
+                <p style="text-align:center;color:#666;font-size:13px;margin:12px 0 0;">
+                    Takes less than 30 seconds
+                </p>
+            </div>
+
+            <!-- Footer -->
+            <div style="margin-top:32px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.06);text-align:center;">
+                <p style="color:#555;font-size:12px;margin:0 0 4px;">
+                    This invitation expires in 7 days.
+                </p>
+                <p style="color:#444;font-size:12px;margin:0;">
+                    InsuranceGrokBot &mdash; AI-Powered Insurance Sales Assistant<br>
+                    <a href="{domain_url}" style="color:#00ff88;text-decoration:none;">{domain_url}</a>
+                </p>
+            </div>
         </div>
     </body>
     </html>
     """
 
     text_body = (
-        f"Welcome to InsuranceGrokBot!\n\n"
+        f"You're Invited to InsuranceGrokBot!\n\n"
         f"Hi {agent_name},\n\n"
-        f"{agency_name} has set up an AI-powered sales assistant for your location "
-        f"and invited you to activate your account.\n\n"
-        f"Click here to set your password and get started:\n{invite_url}\n\n"
-        f"This link expires in 7 days.\n\n- InsuranceGrokBot Team"
+        f"{agency_name} has set up an AI-powered insurance sales assistant "
+        f"for your location. Your account is ready — just set your password "
+        f"to get started.\n\n"
+        f"What's included:\n"
+        f"- AI-powered SMS bot that responds to leads 24/7\n"
+        f"- Smart dialer with AI call intelligence\n"
+        f"- Real-time lead scoring and Smart Filters\n"
+        f"- Automated workflows and follow-up sequences\n\n"
+        f"Activate your account here:\n{invite_url}\n\n"
+        f"This invitation expires in 7 days.\n\n"
+        f"- InsuranceGrokBot Team\n{domain_url}"
     )
 
     return html_body, text_body

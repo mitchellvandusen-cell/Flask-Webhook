@@ -268,12 +268,15 @@ All tables created in `db.py`'s `init_db()` function:
 - `GET|POST /api/admin/discover-installs` — Discover new installs
 
 ### Agency
-- `GET|POST /agency-dashboard` — Agency owner dashboard
+- `GET|POST /agency-dashboard` — Agency owner command center (sidebar+tab layout with KPIs, agents, call log, activity, settings, billing)
 - `GET|POST /agency-login` — Agency sub-user login
 - `POST /api/agency/invite-sub-user` — Invite sub-user
 - `POST /api/agency/resend-invite` — Resend invite email
 - `POST /api/agency/invite-all` — Invite all pending sub-users
 - `GET /api/agency/logs/<location_id>` — Agency member logs
+- `GET /api/agency/kpis?period=<today|week|month|all>` — Aggregated KPIs across all sub-accounts (calls, connected, rate, duration, messages, active agents, daily/hourly charts, prior period comparison)
+- `GET /api/agency/agent-stats?period=<today|week|month|all>` — Per-agent stats breakdown (calls, connected, talk time, avg duration, messages, last call)
+- `GET /api/agency/call-log?limit=&offset=&agent=` — Paginated call log across all agents with optional agent filter
 
 ### GHL Data Sync & Inbox
 - `POST /api/cron/sync-ghl-data` — Trigger incremental GHL data sync (queued via RQ; auth via `CRON_SECRET`)
@@ -513,7 +516,8 @@ The dialer's Smart Filters use AI intelligence to classify contacts — NOT simp
 ### Template Structure
 ```
 templates/
-  dashboard.html              Main dashboard layout
+  dashboard.html              Main dashboard layout (individual user)
+  agency-dashboard.html       Agency command center (sidebar+tab, self-contained, inline JS)
   dashboard/_head.html        <head>, all inline CSS (Discord, alerts, etc.)
   dashboard/_topbar.html      Top bar with page title and controls
   dashboard/_sidebar.html     Left collapsible sidebar with nav
@@ -530,7 +534,7 @@ templates/
     billing.html              Billing/subscription management
     logs.html                 Activity logs
   dashboard/modals/
-    discord_panel.html        Discord message panel (side panel)
+    discord_panel.html        Discord message panel (side panel, hidden)
     discord_modal.html        Discord server picker modal
     congrats.html             Congratulations overlay
     save_overlay.html         Saving indicator overlay

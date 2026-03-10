@@ -7,11 +7,15 @@
 #   POST /api/agency/resend-invite          — Re-send invite email
 #   POST /api/agency/invite-all             — Invite all pending sub-users
 #   GET  /api/agency/logs/<location_id>     — Get logs for a sub-account
+#   GET  /api/agency/kpis                   — Aggregated KPIs across all sub-users
+#   GET  /api/agency/agent-stats            — Per-agent stats breakdown
+#   GET  /api/agency/call-log               — Paginated call log across all agents
 
 import secrets
 import logging
 from datetime import datetime, timedelta
 
+import pytz
 from flask import (Blueprint, request, render_template, redirect,
                    url_for, flash, session)
 from flask import jsonify as flask_jsonify
@@ -545,3 +549,360 @@ def get_agency_logs(location_id):
             log["created_at"] = log["created_at"].isoformat() + "Z"
 
     return safe_jsonify({"logs": logs, "total": len(logs)})
+
+
+# ── Agency KPI & Stats API Endpoints ─────────────────────────────────────────
+
+def _get_sub_location_ids(conn, agency_email):
+    """Return list of location_ids for all sub-accounts of this agency owner."""
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute(
+        "SELECT location_id FROM subscribers WHERE parent_agency_email = %s",
+        (agency_email,)
+    )
+    ids = [r['location_id'] for r in cur.fetchall()]
+    cur.close()
+    return ids
+
+
+def _get_period_range(period, tz_name='America/Chicago'):
+    """Return (start_date_utc, days) for the given period string."""
+    try:
+        user_tz = pytz.timezone(tz_name)
+    except Exception:
+        user_tz = pytz.timezone('America/Chicago')
+    now = datetime.now(user_tz)
+    if period == 'today':
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        days = 1
+    elif period == 'week':
+        start = now - timedelta(days=7)
+        days = 7
+    elif period == 'month':
+        start = now - timedelta(days=30)
+        days = 30
+    else:
+        start = datetime(2000, 1, 1, tzinfo=pytz.utc)
+        days = 0  # will compute from data
+    if start.tzinfo is not None:
+        start_utc = start.astimezone(pytz.utc)
+    else:
+        start_utc = pytz.utc.localize(start)
+    return start_utc, days, now
+
+
+@agency_bp.route("/api/agency/kpis")
+@login_required
+def agency_kpis():
+    """Aggregated KPIs across all sub-accounts for the agency owner."""
+    if current_user.role != 'agency_owner' and current_user.email.lower() not in [e.lower() for e in ADMIN_EMAILS]:
+        return flask_jsonify({"error": "Access denied"}), 403
+
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "DB unavailable"}), 503
+
+    try:
+        location_ids = _get_sub_location_ids(conn, current_user.email)
+        # Also include the owner's own location_id
+        if current_user.location_id:
+            location_ids.append(current_user.location_id)
+
+        if not location_ids:
+            return flask_jsonify({
+                "total_calls": 0, "connected_calls": 0, "connect_rate": 0,
+                "total_duration": 0, "avg_duration": 0, "total_messages": 0,
+                "active_agents": 0, "outbound_calls": 0, "inbound_calls": 0,
+                "over_1min": 0, "over_5min": 0, "unique_contacts": 0,
+                "calls_per_day": 0, "daily": [], "hourly": [], "prior": None,
+            })
+
+        period = request.args.get('period', 'month')
+        tz_name = current_user.timezone or 'America/Chicago'
+        start_utc, days, now = _get_period_range(period, tz_name)
+
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Core call KPIs
+        cur.execute("""
+            SELECT
+                COUNT(*)                                                      AS total_calls,
+                COUNT(*) FILTER (WHERE direction = 'outbound')                AS outbound_calls,
+                COUNT(*) FILTER (WHERE direction = 'inbound')                 AS inbound_calls,
+                COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) AS connected_calls,
+                COALESCE(AVG(duration) FILTER (WHERE duration > 0), 0)        AS avg_duration,
+                COALESCE(SUM(duration), 0)                                    AS total_duration,
+                COUNT(*) FILTER (WHERE duration >= 60)                        AS over_1min,
+                COUNT(*) FILTER (WHERE duration >= 300)                       AS over_5min,
+                COUNT(DISTINCT contact_id)                                    AS unique_contacts
+            FROM call_history
+            WHERE location_id = ANY(%s) AND created_at >= %s
+        """, (location_ids, start_utc))
+        r = cur.fetchone()
+        total = r['total_calls'] or 0
+        connected = r['connected_calls'] or 0
+        connect_rate = round(connected / total * 100, 1) if total else 0.0
+
+        # Message count
+        cur.execute("""
+            SELECT COUNT(*) AS cnt
+            FROM contact_messages
+            WHERE location_id = ANY(%s) AND timestamp >= %s
+        """, (location_ids, start_utc))
+        total_messages = cur.fetchone()['cnt'] or 0
+
+        # Active agents (have at least 1 call or message in period)
+        cur.execute("""
+            SELECT COUNT(DISTINCT location_id) AS cnt
+            FROM call_history
+            WHERE location_id = ANY(%s) AND created_at >= %s
+        """, (location_ids, start_utc))
+        active_agents = cur.fetchone()['cnt'] or 0
+
+        # Days for per-day calc
+        if days == 0:
+            cur.execute("SELECT MIN(created_at) AS first FROM call_history WHERE location_id = ANY(%s)", (location_ids,))
+            first = cur.fetchone()['first']
+            if first:
+                if first.tzinfo is None:
+                    first = pytz.utc.localize(first)
+                days = max(1, (now - first).days)
+            else:
+                days = 1
+
+        # Prior period comparison
+        prior = None
+        if period != 'all':
+            period_len = now - start_utc.astimezone(pytz.timezone(tz_name))
+            prior_end = start_utc
+            prior_start = start_utc - period_len
+            cur.execute("""
+                SELECT
+                    COUNT(*) AS total_calls,
+                    COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) AS connected_calls,
+                    COALESCE(SUM(duration), 0) AS total_duration
+                FROM call_history
+                WHERE location_id = ANY(%s) AND created_at >= %s AND created_at < %s
+            """, (location_ids, prior_start, prior_end))
+            pr = cur.fetchone()
+            p_total = pr['total_calls'] or 0
+            p_connected = pr['connected_calls'] or 0
+            p_dur = int(pr['total_duration'] or 0)
+
+            def _pct(curr, prev):
+                return round((curr - prev) / prev * 100, 1) if prev else None
+
+            prior = {
+                "delta_calls": _pct(total, p_total),
+                "delta_connected": _pct(connected, p_connected),
+                "delta_duration": _pct(int(r['total_duration'] or 0), p_dur),
+            }
+
+        # Daily volume
+        cur.execute("""
+            SELECT DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE %s) AS day,
+                   COUNT(*) AS calls,
+                   COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) AS connected,
+                   COALESCE(SUM(duration), 0) AS total_secs
+            FROM call_history
+            WHERE location_id = ANY(%s) AND created_at >= %s
+            GROUP BY day ORDER BY day
+        """, (tz_name, location_ids, start_utc))
+        daily = [
+            {"day": str(row['day']), "calls": row['calls'], "connected": row['connected'], "total_secs": row['total_secs']}
+            for row in cur.fetchall()
+        ]
+
+        # Hourly distribution
+        cur.execute("""
+            SELECT EXTRACT(HOUR FROM created_at AT TIME ZONE 'UTC' AT TIME ZONE %s)::int AS hr,
+                   COUNT(*) AS calls
+            FROM call_history
+            WHERE location_id = ANY(%s) AND created_at >= %s
+            GROUP BY hr ORDER BY hr
+        """, (tz_name, location_ids, start_utc))
+        hourly_map = {row['hr']: row['calls'] for row in cur.fetchall()}
+        hourly = [{"hour": h, "calls": hourly_map.get(h, 0)} for h in range(24)]
+
+        cur.close()
+        return flask_jsonify({
+            "period": period,
+            "total_calls": total,
+            "outbound_calls": r['outbound_calls'] or 0,
+            "inbound_calls": r['inbound_calls'] or 0,
+            "connected_calls": connected,
+            "connect_rate": connect_rate,
+            "avg_duration": round(float(r['avg_duration'] or 0), 1),
+            "total_duration": int(r['total_duration'] or 0),
+            "over_1min": r['over_1min'] or 0,
+            "over_5min": r['over_5min'] or 0,
+            "unique_contacts": r['unique_contacts'] or 0,
+            "total_messages": total_messages,
+            "active_agents": active_agents,
+            "total_agents": len(location_ids),
+            "calls_per_day": round(total / days, 1),
+            "daily": daily,
+            "hourly": hourly,
+            "prior": prior,
+        })
+    except Exception as e:
+        logger.error(f"agency_kpis error: {e}")
+        return flask_jsonify({"error": str(e)}), 500
+    finally:
+        return_db_connection(conn)
+
+
+@agency_bp.route("/api/agency/agent-stats")
+@login_required
+def agency_agent_stats():
+    """Per-agent stats breakdown for the agency dashboard."""
+    if current_user.role != 'agency_owner' and current_user.email.lower() not in [e.lower() for e in ADMIN_EMAILS]:
+        return flask_jsonify({"error": "Access denied"}), 403
+
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "DB unavailable"}), 503
+
+    try:
+        period = request.args.get('period', 'month')
+        tz_name = current_user.timezone or 'America/Chicago'
+        start_utc, _, _ = _get_period_range(period, tz_name)
+
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Get sub-accounts with their names
+        cur.execute("""
+            SELECT location_id, full_name, email, bot_first_name
+            FROM subscribers
+            WHERE parent_agency_email = %s
+        """, (current_user.email,))
+        subs = {r['location_id']: r for r in cur.fetchall()}
+        location_ids = list(subs.keys())
+
+        if not location_ids:
+            cur.close()
+            return flask_jsonify({"agents": []})
+
+        # Per-agent call stats
+        cur.execute("""
+            SELECT location_id,
+                   COUNT(*) AS total_calls,
+                   COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) AS connected,
+                   COALESCE(SUM(duration), 0) AS total_secs,
+                   COALESCE(AVG(duration) FILTER (WHERE duration > 0), 0) AS avg_dur,
+                   MAX(created_at) AS last_call
+            FROM call_history
+            WHERE location_id = ANY(%s) AND created_at >= %s
+            GROUP BY location_id
+        """, (location_ids, start_utc))
+        call_stats = {r['location_id']: r for r in cur.fetchall()}
+
+        # Per-agent message counts
+        cur.execute("""
+            SELECT location_id, COUNT(*) AS cnt
+            FROM contact_messages
+            WHERE location_id = ANY(%s) AND timestamp >= %s
+            GROUP BY location_id
+        """, (location_ids, start_utc))
+        msg_stats = {r['location_id']: r['cnt'] for r in cur.fetchall()}
+
+        agents = []
+        for lid in location_ids:
+            sub = subs[lid]
+            cs = call_stats.get(lid, {})
+            agents.append({
+                "location_id": lid,
+                "name": sub['full_name'] or sub['email'] or 'Unknown',
+                "email": sub['email'] or '',
+                "bot_name": sub['bot_first_name'] or '',
+                "total_calls": cs.get('total_calls', 0) or 0,
+                "connected": cs.get('connected', 0) or 0,
+                "total_secs": int(cs.get('total_secs', 0) or 0),
+                "avg_duration": round(float(cs.get('avg_dur', 0) or 0), 1),
+                "last_call": str(cs['last_call']) if cs.get('last_call') else None,
+                "messages": msg_stats.get(lid, 0),
+            })
+
+        # Sort by total calls descending
+        agents.sort(key=lambda a: a['total_calls'], reverse=True)
+
+        cur.close()
+        return flask_jsonify({"agents": agents})
+    except Exception as e:
+        logger.error(f"agency_agent_stats error: {e}")
+        return flask_jsonify({"error": str(e)}), 500
+    finally:
+        return_db_connection(conn)
+
+
+@agency_bp.route("/api/agency/call-log")
+@login_required
+def agency_call_log():
+    """Paginated call log across all agents for the agency dashboard."""
+    if current_user.role != 'agency_owner' and current_user.email.lower() not in [e.lower() for e in ADMIN_EMAILS]:
+        return flask_jsonify({"error": "Access denied"}), 403
+
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "DB unavailable"}), 503
+
+    try:
+        location_ids = _get_sub_location_ids(conn, current_user.email)
+        if current_user.location_id:
+            location_ids.append(current_user.location_id)
+        if not location_ids:
+            return flask_jsonify({"calls": [], "total": 0})
+
+        limit = min(int(request.args.get('limit', 50)), 200)
+        offset = int(request.args.get('offset', 0))
+        agent_filter = request.args.get('agent', '').strip() or None
+
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Build query
+        where = "location_id = ANY(%s)"
+        params = [location_ids]
+        if agent_filter:
+            where += " AND location_id = %s"
+            params.append(agent_filter)
+
+        cur.execute(f"""
+            SELECT ch.call_sid, ch.location_id, ch.contact_id, ch.contact_name,
+                   ch.direction, ch.status, ch.duration, ch.from_number, ch.to_number,
+                   ch.created_at, ch.recording_url, ch.transcript,
+                   s.full_name AS agent_name, s.email AS agent_email
+            FROM call_history ch
+            LEFT JOIN subscribers s ON ch.location_id = s.location_id
+            WHERE {where}
+            ORDER BY ch.created_at DESC
+            LIMIT %s OFFSET %s
+        """, params + [limit, offset])
+        calls = []
+        for row in cur.fetchall():
+            calls.append({
+                "call_sid": row['call_sid'],
+                "agent_name": row['agent_name'] or row['agent_email'] or 'Unknown',
+                "agent_email": row['agent_email'] or '',
+                "location_id": row['location_id'],
+                "contact_name": row['contact_name'] or 'Unknown',
+                "direction": row['direction'],
+                "status": row['status'],
+                "duration": row['duration'] or 0,
+                "from_number": row['from_number'],
+                "to_number": row['to_number'],
+                "created_at": row['created_at'].isoformat() + "Z" if row['created_at'] else None,
+                "has_recording": bool(row['recording_url']),
+                "has_transcript": bool(row['transcript']),
+            })
+
+        # Total count
+        cur.execute(f"SELECT COUNT(*) AS cnt FROM call_history WHERE {where}", params)
+        total = cur.fetchone()['cnt']
+
+        cur.close()
+        return flask_jsonify({"calls": calls, "total": total})
+    except Exception as e:
+        logger.error(f"agency_call_log error: {e}")
+        return flask_jsonify({"error": str(e)}), 500
+    finally:
+        return_db_connection(conn)
