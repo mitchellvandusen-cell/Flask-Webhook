@@ -181,3 +181,78 @@ def api_cron_backfill_failed_webhooks():
     except Exception as e:
         logger.error(f"Cron backfill-failed-webhooks crashed: {e}", exc_info=True)
         return safe_jsonify({"success": False, "error": str(e)}), 200
+
+
+# ── GHL data sync ────────────────────────────────────────────────────────────
+
+@cron_bp.route("/api/cron/sync-ghl-data", methods=["GET", "POST"])
+def api_cron_sync_ghl_data():
+    """
+    Run incremental GHL data sync for all active subscribers.
+    Syncs conversations, opportunities, phone numbers, and location data.
+    Schedule every 5-10 minutes via cron.
+    """
+    if not _cron_authorized():
+        return safe_jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        if not extensions.ensure_redis():
+            return safe_jsonify({"success": False, "error": "Redis unavailable"}), 503
+
+        from ghl_sync import run_incremental_sync_all
+        job = extensions.q_website.enqueue(
+            run_incremental_sync_all,
+            job_timeout=1800,
+            result_ttl=86400,
+        )
+        return safe_jsonify({"success": True, "queued": True, "job_id": job.id})
+    except Exception as e:
+        logger.error(f"Cron sync-ghl-data crashed: {e}", exc_info=True)
+        return safe_jsonify({"success": False, "error": str(e)}), 200
+
+
+# ── Number health daily maintenance ─────────────────────────────────────────
+
+@cron_bp.route("/api/cron/number-health", methods=["GET", "POST"])
+def api_cron_number_health():
+    """
+    Daily number health maintenance: reset daily call counters, expire resting/frozen
+    numbers, advance warm-up stages. Schedule once daily (e.g. 00:05 UTC).
+    """
+    if not _cron_authorized():
+        return safe_jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        from number_health import reset_daily_metrics, expire_resting_numbers, advance_warmup_stages
+
+        reset_count = reset_daily_metrics()
+        expired_count = expire_resting_numbers()
+        warmup_count = advance_warmup_stages()
+
+        return safe_jsonify({
+            "success": True,
+            "daily_reset": reset_count,
+            "expired_rest": expired_count,
+            "warmup_advanced": warmup_count,
+        })
+    except Exception as e:
+        logger.error(f"Cron number-health crashed: {e}", exc_info=True)
+        return safe_jsonify({"success": False, "error": str(e)}), 200
+
+
+@cron_bp.route("/api/cron/number-health-expire", methods=["GET", "POST"])
+def api_cron_number_health_expire():
+    """
+    Expire resting/frozen numbers more frequently (every 15 min).
+    Only runs the rest/freeze expiry check (not daily reset or warm-up).
+    """
+    if not _cron_authorized():
+        return safe_jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        from number_health import expire_resting_numbers
+        expired_count = expire_resting_numbers()
+        return safe_jsonify({"success": True, "expired": expired_count})
+    except Exception as e:
+        logger.error(f"Cron number-health-expire crashed: {e}", exc_info=True)
+        return safe_jsonify({"success": False, "error": str(e)}), 200

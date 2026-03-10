@@ -749,3 +749,85 @@ def _build_welcome_email(user_name: str, dashboard_link: str, domain_url: str) -
 </tr>
 '''
     return _email_wrapper(inner, domain_url)
+
+
+# ── Transactional emails ─────────────────────────────────────────────────────
+
+def _build_password_reset_html(reset_url: str, domain_url: str) -> str:
+    """Build HTML for the password-reset email."""
+    return f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #2563eb;">Password Reset</h2>
+            <p>We received a request to reset your InsuranceGrokBot password.</p>
+            <p>Click the button below to choose a new password:</p>
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{reset_url}"
+                   style="background-color: #2563eb; color: white; padding: 14px 28px;
+                          text-decoration: none; border-radius: 8px; font-weight: bold;
+                          display: inline-block;">
+                    Reset My Password
+                </a>
+            </div>
+            <p style="color: #666; font-size: 14px;">
+                This link expires in 30 minutes. If you didn't request this,
+                you can safely ignore this email.
+            </p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+            <p style="color: #999; font-size: 12px;">
+                InsuranceGrokBot - AI-Powered Insurance Sales Assistant<br>
+                <a href="{domain_url}" style="color: #2563eb;">{domain_url}</a>
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+
+
+def _build_agency_invite_html(agent_name: str, agency_name: str,
+                               invite_url: str, domain_url: str) -> tuple:
+    """Build HTML + text body for the agency sub-user invite email.
+    Returns (html_body, text_body).
+    """
+    html_body = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #2563eb;">Welcome to InsuranceGrokBot!</h2>
+            <p>Hi {agent_name},</p>
+            <p><strong>{agency_name}</strong> has set up an AI-powered sales assistant for your
+            location and invited you to activate your account.</p>
+            <p>Click the button below to set your password and get started:</p>
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{invite_url}"
+                   style="background-color: #2563eb; color: white; padding: 14px 28px;
+                          text-decoration: none; border-radius: 8px; font-weight: bold;
+                          display: inline-block;">
+                    Activate My Account
+                </a>
+            </div>
+            <p style="color: #666; font-size: 14px;">
+                This link expires in 7 days. If you didn't expect this email,
+                please contact your agency administrator.
+            </p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+            <p style="color: #999; font-size: 12px;">
+                InsuranceGrokBot - AI-Powered Insurance Sales Assistant<br>
+                <a href="{domain_url}" style="color: #2563eb;">{domain_url}</a>
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = (
+        f"Welcome to InsuranceGrokBot!\n\n"
+        f"Hi {agent_name},\n\n"
+        f"{agency_name} has set up an AI-powered sales assistant for your location "
+        f"and invited you to activate your account.\n\n"
+        f"Click here to set your password and get started:\n{invite_url}\n\n"
+        f"This link expires in 7 days.\n\n- InsuranceGrokBot Team"
+    )
+
+    return html_body, text_body

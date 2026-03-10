@@ -25,6 +25,7 @@
 
 import json
 import logging
+import requests
 from datetime import datetime
 
 from flask import Blueprint, request, render_template, redirect, url_for, flash
@@ -45,6 +46,7 @@ from forms import ConfigForm
 from carrier_list import CARRIER_LIST, validate_carrier_keys
 from crm_adapters.factory import (CRM_CONFIG_FIELDS, CRM_DISPLAY_NAMES,
                                    CRM_REGISTRY, get_crm_adapter)
+from translations import SUPPORTED_LANGUAGES
 
 logger = logging.getLogger(__name__)
 
@@ -887,3 +889,84 @@ def onboarding_check():
     all_connected= all(c["status"] == "success" for c in checks if c["key"] in core_keys)
 
     return flask_jsonify({"checks": checks, "all_connected": all_connected, "email": user.email})
+
+
+# ── Language preference ──────────────────────────────────────────────────────
+
+@dashboard_bp.route("/api/set-language", methods=["POST"])
+@login_required
+def api_set_language():
+    """Save the user's preferred language. Called from the topbar language picker."""
+    data = request.get_json(silent=True) or {}
+    lang = data.get("language", "en")
+    if lang not in SUPPORTED_LANGUAGES:
+        lang = "en"
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"ok": False}), 500
+    result = None
+    try:
+        cur = conn.cursor()
+        table = "agency_billing" if current_user.role == 'agency_owner' else "subscribers"
+        id_col = "agency_email" if current_user.role == 'agency_owner' else "email"
+        cur.execute(f"UPDATE {table} SET preferred_language = %s WHERE {id_col} = %s",
+                    (lang, current_user.email))
+        conn.commit()
+        cur.close()
+        result = flask_jsonify({"ok": True, "language": lang})
+    except Exception:
+        conn.rollback()
+        result = flask_jsonify({"ok": False}), 500
+    finally:
+        return_db_connection(conn)
+    return result
+
+
+# ── CRM auto-detect ──────────────────────────────────────────────────────────
+
+@dashboard_bp.route("/api/integrations/detect", methods=["POST"])
+@login_required
+def detect_crm_from_key():
+    """Auto-detect CRM type from an API key by probing known endpoints."""
+    data = request.get_json()
+    if not data or not data.get("api_key"):
+        return safe_jsonify({"detected": False, "error": "No API key provided"}), 400
+
+    api_key = data["api_key"].strip()
+
+    # Try HubSpot (Private App tokens start with "pat-")
+    if api_key.startswith("pat-") or api_key.startswith("eu1-"):
+        try:
+            r = requests.get("https://api.hubapi.com/crm/v3/objects/contacts",
+                             headers={"Authorization": f"Bearer {api_key}"},
+                             params={"limit": 1}, timeout=10)
+            if r.status_code == 200:
+                return safe_jsonify({"detected": True, "crm_type": "hubspot",
+                                     "label": "HubSpot", "field": "access_token"})
+        except Exception:
+            pass
+
+    # Try Pipedrive (40-char hex tokens)
+    try:
+        r = requests.get("https://api.pipedrive.com/api/v1/users/me",
+                         params={"api_token": api_key}, timeout=10)
+        if r.status_code == 200 and r.json().get("success"):
+            company = r.json().get("data", {}).get("company_domain", "")
+            return safe_jsonify({"detected": True, "crm_type": "pipedrive",
+                                 "label": "Pipedrive", "field": "api_token",
+                                 "extra": {"company_domain": company}})
+    except Exception:
+        pass
+
+    # Try HubSpot (non-pat tokens — OAuth or legacy)
+    try:
+        r = requests.get("https://api.hubapi.com/crm/v3/objects/contacts",
+                         headers={"Authorization": f"Bearer {api_key}"},
+                         params={"limit": 1}, timeout=10)
+        if r.status_code == 200:
+            return safe_jsonify({"detected": True, "crm_type": "hubspot",
+                                 "label": "HubSpot", "field": "access_token"})
+    except Exception:
+        pass
+
+    return safe_jsonify({"detected": False, "message": "Could not auto-detect CRM. Please select manually."})

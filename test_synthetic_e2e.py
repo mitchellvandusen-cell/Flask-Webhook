@@ -1180,7 +1180,7 @@ with app.test_client() as client:
 
 # B7: normalize_payload_universal handles various field naming conventions
 try:
-    from main import normalize_payload_universal
+    from payload_utils import normalize_payload_universal
 
     # snake_case
     result = normalize_payload_universal({"contact_id": "ct_123", "location_id": "loc_456"})
