@@ -613,11 +613,15 @@ def sync_ghl_phone_numbers(location_id, access_token=None):
         (f"{GHL_BASE}/locations/{location_id}", {}),   # fallback: locations.read scope
     ]
 
-    for url, params in endpoint_configs:
+    for idx, (url, params) in enumerate(endpoint_configs, 1):
+        logger.info(f"[GHL_SYNC] phone_numbers attempt {idx}/{len(endpoint_configs)}: GET {url} params={params or {}}")
         data, err = _api_get(url, headers, params=params or None)
         if err:
-            logger.warning(f"[GHL_SYNC] phone_numbers: {url} failed ({err})")
+            logger.warning(f"[GHL_SYNC] phone_numbers attempt {idx} FAILED ({err}): {url}")
             continue
+
+        logger.info(f"[GHL_SYNC] phone_numbers attempt {idx} HTTP OK — top-level keys: {list(data.keys()) if isinstance(data, dict) else type(data).__name__}")
+
         if data:
             # /locations/{id} returns a location wrapper — pull the main phone from it.
             # Tag as "location_fallback" so callers can detect that phonenumbers.read
@@ -625,6 +629,7 @@ def sync_ghl_phone_numbers(location_id, access_token=None):
             loc_obj = data.get("location")
             if loc_obj and isinstance(loc_obj, dict) and not data.get("phoneNumbers") and not data.get("numbers"):
                 phone = loc_obj.get("phone") or loc_obj.get("twilioNumber") or loc_obj.get("phoneNumber")
+                logger.info(f"[GHL_SYNC] phone_numbers attempt {idx} — location_fallback branch, phone={phone!r}")
                 if phone:
                     numbers.append({
                         "number": phone,
@@ -633,10 +638,13 @@ def sync_ghl_phone_numbers(location_id, access_token=None):
                         "capabilities": {"sms": True, "voice": True, "mms": False},
                         "source": "location_fallback",
                     })
+                    logger.info(f"[GHL_SYNC] phone_numbers ✅ WIN via location_fallback (attempt {idx}): {url} → {phone}")
                     break
+                logger.warning(f"[GHL_SYNC] phone_numbers attempt {idx} — location object found but no phone field, skipping")
                 continue
 
             raw_numbers = data.get("phoneNumbers", data.get("numbers", []))
+            logger.info(f"[GHL_SYNC] phone_numbers attempt {idx} — raw_numbers type={type(raw_numbers).__name__} count={len(raw_numbers) if isinstance(raw_numbers, list) else 'N/A'}")
             if isinstance(raw_numbers, list):
                 for n in raw_numbers:
                     if not isinstance(n, dict):
@@ -655,7 +663,10 @@ def sync_ghl_phone_numbers(location_id, access_token=None):
                         "source": "ghl",
                     })
                 if numbers:
+                    logger.info(f"[GHL_SYNC] phone_numbers ✅ WIN (attempt {idx}): {url} → {len(numbers)} number(s): {[n['number'] for n in numbers]}")
                     break
+                else:
+                    logger.warning(f"[GHL_SYNC] phone_numbers attempt {idx} — response had empty phoneNumbers/numbers list: {url}")
 
     # Store in voice_config['ghl_numbers']
     if numbers:
