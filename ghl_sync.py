@@ -49,7 +49,12 @@ def _api_get(url, headers, params=None, timeout=15):
         except requests.HTTPError as e:
             status = e.response.status_code if e.response else 0
             last_err = f"http_{status}"
-            logger.warning(f"[GHL_SYNC] HTTP {status} attempt {attempt+1}: {url}")
+            body_preview = ""
+            try:
+                body_preview = (e.response.text or "")[:200] if e.response else ""
+            except Exception:
+                pass
+            logger.warning(f"[GHL_SYNC] HTTP {status} attempt {attempt+1}: {url} | body: {body_preview}")
         except (requests.Timeout, requests.ConnectionError) as e:
             last_err = "network_error"
             logger.warning(f"[GHL_SYNC] Network error attempt {attempt+1}: {e}")
@@ -581,7 +586,7 @@ def _fetch_pipelines(location_id, headers):
 
 def sync_ghl_phone_numbers(location_id, access_token=None):
     """
-    Fetch phone numbers from GHL location (via twilioaccount.read scope).
+    Fetch phone numbers from GHL location (via phonenumbers.read scope).
     Stores in subscribers.voice_config['ghl_numbers'] for display alongside
     IGB-purchased Twilio numbers.
     """
@@ -593,16 +598,19 @@ def sync_ghl_phone_numbers(location_id, access_token=None):
     headers = _get_headers(access_token)
     numbers = []
 
-    # Try the GHL phone numbers endpoint
-    # GHL stores phone numbers at the location level
-    endpoints = [
-        f"{GHL_BASE}/locations/{location_id}/phone-numbers",
-        f"{GHL_BASE}/phone-numbers/?locationId={location_id}",
+    # GHL V2 phone numbers endpoint (phonenumbers.read scope).
+    # Pass locationId as a proper params dict — never embed query strings in the URL
+    # because GHL's API gateway routing depends on the clean path.
+    # Fallback to the location sub-resource endpoint for older tokens / twilioaccount.read.
+    endpoint_configs = [
+        (f"{GHL_BASE}/phone-numbers", {"locationId": location_id, "limit": 100}),
+        (f"{GHL_BASE}/locations/{location_id}/phoneNumbers", {}),
     ]
 
-    for url in endpoints:
-        data, err = _api_get(url, headers)
+    for url, params in endpoint_configs:
+        data, err = _api_get(url, headers, params=params or None)
         if err:
+            logger.warning(f"[GHL_SYNC] phone_numbers: {url} failed ({err})")
             continue
         if data:
             raw_numbers = data.get("phoneNumbers", data.get("numbers", []))
