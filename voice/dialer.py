@@ -4,26 +4,125 @@ import logging
 import threading
 import time
 import asyncio
-import re
-
+from datetime import datetime, timezone as dt_timezone
 import httpx
 import requests as http_requests
 from flask import Blueprint, request, Response, jsonify
 from flask_login import login_required, current_user
 
 import twilio_provisioning
-from db import get_db_connection, return_db_connection, log_webhook_event
+from db import get_db_connection, return_db_connection
 from ghl_api import get_valid_token
 from number_health import select_outbound_number
 from voice.audio import XAI_API_KEY, VOICE_OPTIONS, DEFAULT_VOICE, _generate_voice_preview, _pcm16_to_wav
-from voice.call_state import active_calls
+from voice.call_state import active_calls, transfer_requests, _twilio_hangup
 from voice.helpers import _get_subscriber_by_location, _get_current_subscriber_voice
-from voice.call_history_helpers import save_call_to_history
+from voice.call_history_helpers import save_call_to_history, update_call_history_status
+from voice.predictive_engine import (
+    calculate_optimal_dial_ratio, tcpa_tracker, agent_state_manager,
+    callback_queue, check_recipient_timezone, is_two_party_consent_state,
+    area_code_to_state, area_code_to_timezone, get_compliance_metrics,
+    AgentState,
+)
+from extensions import ADMIN_EMAILS
 
 logger = logging.getLogger("voice_bridge.dialer")
 
 dialer_bp = Blueprint('voice_dialer', __name__)
 
+
+# ═══ Multi-Line Dialer Enforcement Helpers ═══════════════════════════════════
+
+def _check_calling_hours(voice_config, agent_tz_str=None):
+    """Check if current time is within configured calling hours.
+    Uses agent's timezone since we don't reliably have contact timezone.
+    Returns (allowed, reason) tuple."""
+    start_str = voice_config.get('calling_hours_start', '08:00')
+    end_str = voice_config.get('calling_hours_end', '21:00')
+    if not start_str or not end_str:
+        return True, None
+
+    try:
+        import pytz
+    except ImportError:
+        return True, None  # pytz not available, skip check
+
+    tz_str = agent_tz_str or voice_config.get('timezone') or 'America/Chicago'
+    try:
+        tz = pytz.timezone(tz_str)
+    except pytz.UnknownTimeZoneError:
+        tz = pytz.timezone('America/Chicago')
+
+    now = datetime.now(tz)
+    try:
+        start_h, start_m = map(int, start_str.split(':'))
+        end_h, end_m = map(int, end_str.split(':'))
+    except (ValueError, AttributeError):
+        return True, None
+
+    # Validate hour/minute ranges
+    if not (0 <= start_h <= 23 and 0 <= start_m <= 59 and 0 <= end_h <= 23 and 0 <= end_m <= 59):
+        return True, None
+
+    current_minutes = now.hour * 60 + now.minute
+    start_minutes = start_h * 60 + start_m
+    end_minutes = end_h * 60 + end_m
+
+    if start_minutes <= end_minutes:
+        # Normal range (e.g., 08:00-21:00)
+        if current_minutes < start_minutes or current_minutes >= end_minutes:
+            return False, f"Outside calling hours ({start_str}-{end_str} {tz_str})"
+    else:
+        # Wraps midnight (e.g., 22:00-06:00): allowed if >= start OR < end
+        if current_minutes < start_minutes and current_minutes >= end_minutes:
+            return False, f"Outside calling hours ({start_str}-{end_str} {tz_str})"
+    return True, None
+
+
+def _check_cooldown_and_daily_max(location_id, phones, voice_config, conn):
+    """Batch check cooldown and daily max for a list of phone numbers.
+    Returns dict of phone -> reason string for phones that should be skipped."""
+    cooldown_hours = int(voice_config.get('same_number_cooldown_hours', 0))
+    daily_max = int(voice_config.get('same_contact_daily_max', 0))
+    if not cooldown_hours and not daily_max:
+        return {}
+
+    blocked = {}
+    if not phones or not conn:
+        return blocked
+
+    try:
+        cur = conn.cursor()
+
+        if cooldown_hours > 0:
+            cur.execute("""
+                SELECT phone, MAX(created_at) AS last_called
+                FROM call_history
+                WHERE location_id = %s AND phone = ANY(%s)
+                  AND created_at > NOW() - make_interval(hours => %s)
+                GROUP BY phone
+            """, (location_id, list(phones), cooldown_hours))
+            for row in cur.fetchall():
+                blocked[row['phone']] = f"Cooldown: called within {cooldown_hours}h"
+
+        if daily_max > 0:
+            cur.execute("""
+                SELECT phone, COUNT(*) AS cnt
+                FROM call_history
+                WHERE location_id = %s AND phone = ANY(%s)
+                  AND created_at >= CURRENT_DATE
+                GROUP BY phone
+                HAVING COUNT(*) >= %s
+            """, (location_id, list(phones), daily_max))
+            for row in cur.fetchall():
+                if row['phone'] not in blocked:
+                    blocked[row['phone']] = f"Daily max: {daily_max} calls/day reached"
+
+        cur.close()
+    except Exception as e:
+        logger.warning(f"Cooldown/daily-max check failed: {e}")
+
+    return blocked
 
 
 @dialer_bp.route('/voice/test', methods=['POST'])
@@ -580,7 +679,10 @@ def dial_contact():
     phone         = data.get('phone', '')
     first_name    = data.get('first_name', 'there')
     dial_mode     = data.get('dial_mode', 'ai')
-    dial_attempt  = int(data.get('dial_attempt', 1))
+    try:
+        dial_attempt = int(data.get('dial_attempt', 1))
+    except (ValueError, TypeError):
+        dial_attempt = 1
 
     if not phone:
         return jsonify({"error": "Phone number is required"}), 400
@@ -601,6 +703,8 @@ def dial_contact():
 
     location_id  = subscriber.get('location_id', '')
     voice_config = subscriber.get('voice_config') or {}
+    tier = subscriber.get('subscription_tier', 'individual')
+    is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
 
     # Manual dial: resolve contact name + ID by phone number lookup in GHL
     if first_name in ('Manual', 'there', '') and phone and location_id:
@@ -630,6 +734,22 @@ def dial_contact():
     if first_name in ('Manual', ''):
         first_name = 'there'
 
+    # ── Calling hours enforcement ──
+    hours_ok, hours_reason = _check_calling_hours(voice_config, subscriber.get('timezone'))
+    if not hours_ok:
+        return jsonify({"error": hours_reason, "calling_hours_blocked": True}), 400
+
+    # ── Recipient timezone enforcement (compliance — applies to admins too) ──
+    if tier in ('pro_dialer', 'predictive_dialer') or is_admin:
+        tz_ok, tz_reason, recip_tz, recip_time = check_recipient_timezone(
+            phone,
+            voice_config.get('calling_hours_start', '08:00'),
+            voice_config.get('calling_hours_end', '21:00'),
+        )
+        if not tz_ok:
+            return jsonify({"error": tz_reason, "recipient_tz_blocked": True,
+                            "recipient_timezone": recip_tz, "recipient_local_time": recip_time}), 400
+
     # Enforce max dial attempts server-side
     max_attempts = int(voice_config.get('dial_attempts', 2))
     if dial_attempt > max_attempts:
@@ -655,6 +775,19 @@ def dial_contact():
                 logger.debug(f"DnD check failed (non-fatal): {_dnd_e}")
             finally:
                 return_db_connection(_dnd_conn)
+
+    # ── Cooldown / daily max enforcement (same as multi_dial) ──
+    if phone and location_id:
+        _cd_conn = get_db_connection()
+        if _cd_conn:
+            try:
+                blocked = _check_cooldown_and_daily_max(location_id, [phone], voice_config, _cd_conn)
+                if phone in blocked:
+                    return jsonify({"error": blocked[phone], "cooldown_blocked": True}), 400
+            except Exception as _cd_e:
+                logger.warning(f"Cooldown check failed (non-fatal): {_cd_e}")
+            finally:
+                return_db_connection(_cd_conn)
 
     if dial_mode == 'ai' and not voice_config.get('enabled'):
         return jsonify({"error": "Voice AI is not enabled. Enable it in the Voice tab."}), 400
@@ -750,3 +883,712 @@ def dial_contact():
     except Exception as e:
         logger.error(f"Dialer call failed: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@dialer_bp.route('/voice/multi-dial', methods=['POST'])
+@login_required
+def multi_dial():
+    """
+    Multi-line dialer: initiate up to N concurrent calls.
+    Requires 'pro_dialer' subscription tier.
+    Returns list of {contact_id, call_sid, status, error} per line.
+    """
+    data = request.json or {}
+    contacts = data.get('contacts', [])  # [{contact_id, phone, first_name}]
+    dial_mode = data.get('dial_mode', 'ai')
+    try:
+        max_lines = int(data.get('max_lines', 3))
+    except (ValueError, TypeError):
+        max_lines = 3
+
+    if not contacts:
+        return jsonify({"error": "No contacts provided"}), 400
+    # Cap max_lines to server-side limit (1-4)
+    if max_lines < 1:
+        max_lines = 1
+    if max_lines > 4:
+        max_lines = 4
+
+    # ── Subscription tier gate ──
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return jsonify({"error": "Account not found"}), 404
+        subscriber = dict(row)
+    finally:
+        return_db_connection(conn)
+
+    tier = subscriber.get('subscription_tier', 'individual')
+    is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+    if tier not in ('pro_dialer', 'predictive_dialer') and not is_admin:
+        return jsonify({"error": "Multi-line dialer requires Pro Dialer subscription", "upgrade_required": True}), 403
+
+    location_id = subscriber.get('location_id', '')
+    voice_config = subscriber.get('voice_config') or {}
+
+    if dial_mode == 'ai' and not voice_config.get('enabled'):
+        return jsonify({"error": "Voice AI is not enabled"}), 400
+
+    sub_sid = voice_config.get('twilio_sub_account_sid', '')
+    from_number = voice_config.get('twilio_phone_number', '')
+
+    if not sub_sid or not from_number:
+        return jsonify({"error": "Voice service not fully provisioned"}), 400
+
+    # ── Calling hours enforcement ──
+    hours_ok, hours_reason = _check_calling_hours(voice_config, subscriber.get('timezone'))
+    if not hours_ok:
+        return jsonify({"error": hours_reason, "calling_hours_blocked": True}), 400
+
+    # Enforce max concurrent lines already active for this location
+    active_for_location = sum(
+        1 for sid, info in list(active_calls.items())
+        if info.get('_location_id') == location_id
+        and info.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')
+    )
+    available_lines = max(0, max_lines - active_for_location)
+    if available_lines == 0:
+        return jsonify({"error": f"All {max_lines} lines are busy", "active_lines": active_for_location}), 429
+
+    # Limit contacts to available lines
+    contacts_to_dial = contacts[:available_lines]
+    results = []
+
+    # Batch DnD check — single query for all contacts
+    dnd_contact_ids = set()
+    batch_cids = [c.get('contact_id', '') for c in contacts_to_dial if c.get('contact_id')]
+    if batch_cids and location_id:
+        _dnd_conn = get_db_connection()
+        if _dnd_conn:
+            try:
+                _dnd_cur = _dnd_conn.cursor()
+                _dnd_cur.execute(
+                    "SELECT contact_id FROM contact_cache WHERE location_id = %s AND contact_id = ANY(%s) AND dnd = true",
+                    (location_id, batch_cids)
+                )
+                dnd_contact_ids = {r['contact_id'] for r in _dnd_cur.fetchall()}
+                _dnd_cur.close()
+            except Exception as e:
+                logger.warning(f"Multi-dial DnD batch check failed: {e}")
+            finally:
+                return_db_connection(_dnd_conn)
+
+    # Batch cooldown + daily max check — single query for all phones
+    blocked_phones = {}
+    batch_phones = [c.get('phone', '') for c in contacts_to_dial if c.get('phone')]
+    if batch_phones and location_id:
+        _cd_conn = get_db_connection()
+        if _cd_conn:
+            try:
+                blocked_phones = _check_cooldown_and_daily_max(location_id, batch_phones, voice_config, _cd_conn)
+            except Exception as e:
+                logger.warning(f"Multi-dial cooldown batch check failed: {e}")
+            finally:
+                return_db_connection(_cd_conn)
+
+    # ── Per-contact timezone enforcement (compliance — applies to admins too) ──
+    tz_blocked_phones = set()
+    if tier in ('pro_dialer', 'predictive_dialer') or is_admin:
+        calling_start = voice_config.get('calling_hours_start', '08:00')
+        calling_end = voice_config.get('calling_hours_end', '21:00')
+        for contact in contacts_to_dial:
+            c_phone = contact.get('phone', '')
+            if c_phone:
+                tz_ok, tz_reason, _, _ = check_recipient_timezone(c_phone, calling_start, calling_end)
+                if not tz_ok:
+                    tz_blocked_phones.add(c_phone)
+
+    for contact in contacts_to_dial:
+        c_phone = contact.get('phone', '')
+        c_name = contact.get('first_name', 'there')
+        c_id = contact.get('contact_id', '')
+        try:
+            c_attempt = int(contact.get('dial_attempt', 1))
+        except (ValueError, TypeError):
+            c_attempt = 1
+
+        if not c_phone:
+            results.append({"contact_id": c_id, "call_sid": None, "status": "error", "error": "No phone number"})
+            continue
+
+        # Recipient timezone check
+        if c_phone in tz_blocked_phones:
+            state = area_code_to_state(c_phone) or "?"
+            results.append({"contact_id": c_id, "call_sid": None, "status": "skipped",
+                            "error": f"Outside calling hours in recipient's timezone ({state})",
+                            "recipient_tz_blocked": True})
+            continue
+
+        # DnD check (from batch query above)
+        if c_id in dnd_contact_ids:
+            results.append({"contact_id": c_id, "call_sid": None, "status": "skipped", "error": "Do Not Contact"})
+            continue
+
+        # Cooldown / daily max check (from batch query above)
+        if c_phone in blocked_phones:
+            results.append({"contact_id": c_id, "call_sid": None, "status": "skipped", "error": blocked_phones[c_phone]})
+            continue
+
+        # Max attempts guard
+        max_attempts = int(voice_config.get('dial_attempts', 2))
+        if c_attempt > max_attempts:
+            results.append({"contact_id": c_id, "call_sid": None, "status": "skipped", "error": "Max attempts exceeded"})
+            continue
+
+        # Double-dial guard per phone
+        existing_sid = None
+        for sid, info in list(active_calls.items()):
+            if (info.get('phone') == c_phone
+                    and info.get('_location_id') == location_id
+                    and info.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')):
+                existing_sid = sid
+                break
+        if existing_sid:
+            results.append({"contact_id": c_id, "call_sid": existing_sid, "status": "already_active", "error": None})
+            continue
+
+        # Smart number rotation
+        rotation_result = select_outbound_number(location_id, voice_config, dest_phone=c_phone)
+        call_from = rotation_result["phone"] if rotation_result else from_number
+
+        use_amd = True if dial_mode == 'ai' else voice_config.get('use_amd', False)
+
+        try:
+            host = request.host
+            webhook_base_url = f"https://{host}"
+            custom_params = {
+                'location_id': location_id,
+                'caller': call_from,
+                'called': c_phone,
+                'direction': 'outbound',
+                'contact_id': c_id,
+                'contact_name': c_name,
+                'dial_mode': dial_mode,
+            }
+            ring_timeout = voice_config.get('ring_timeout', 45)
+            result = twilio_provisioning.create_outbound_call(
+                sub_account_sid=sub_sid,
+                to=c_phone,
+                from_number=call_from,
+                webhook_base_url=webhook_base_url,
+                machine_detection='DetectMessageEnd' if use_amd else None,
+                custom_params=custom_params,
+                ring_timeout=ring_timeout,
+            )
+            call_sid = result.get('call_sid', '')
+
+            active_calls[call_sid] = {
+                "status": "initiated",
+                "duration": 0,
+                "contact_id": c_id,
+                "phone": c_phone,
+                "name": c_name,
+                "dial_mode": dial_mode,
+                "attempt": c_attempt,
+                "_location_id": location_id,
+                "_sub_sid": sub_sid,
+                "_host": request.host,
+                "_from_number": call_from,
+                "_multi_line": True,
+            }
+
+            save_call_to_history(
+                location_id=location_id,
+                call_sid=call_sid,
+                phone=c_phone,
+                contact_id=c_id,
+                contact_name=c_name,
+                direction='outbound',
+                status='initiated'
+            )
+
+            logger.info(f"Multi-dial [{dial_mode}]: {call_from} -> {c_phone} ({c_name}) attempt={c_attempt} sid={call_sid}")
+            results.append({"contact_id": c_id, "call_sid": call_sid, "status": "initiated", "error": None})
+
+        except Exception as e:
+            logger.error(f"Multi-dial failed for {c_phone}: {e}")
+            results.append({"contact_id": c_id, "call_sid": None, "status": "error", "error": str(e)})
+
+    return jsonify({
+        "results": results,
+        "active_lines": active_for_location + sum(1 for r in results if r["status"] == "initiated"),
+        "max_lines": max_lines
+    })
+
+
+@dialer_bp.route('/voice/active-lines', methods=['GET'])
+@login_required
+def get_active_lines():
+    """Return count and details of currently active call lines for this user."""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id, subscription_tier FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return jsonify({"error": "Account not found"}), 404
+        location_id = row['location_id']
+        tier = row['subscription_tier']
+    finally:
+        return_db_connection(conn)
+
+    is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+    max_lines = 4 if (tier in ('pro_dialer', 'predictive_dialer') or is_admin) else 1
+
+    lines = []
+    for sid, info in list(active_calls.items()):
+        if (info.get('_location_id') == location_id
+                and info.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')):
+            lines.append({
+                "call_sid": sid,
+                "contact_id": info.get("contact_id"),
+                "phone": info.get("phone"),
+                "name": info.get("name"),
+                "status": info.get("status"),
+                "duration": info.get("duration", 0),
+                "dial_mode": info.get("dial_mode"),
+            })
+
+    return jsonify({
+        "lines": lines,
+        "active_count": len(lines),
+        "max_lines": max_lines,
+        "tier": tier
+    })
+
+
+@dialer_bp.route('/voice/multi-hangup', methods=['POST'])
+@login_required
+def multi_hangup():
+    """Hang up multiple active calls at once."""
+    data = request.json or {}
+    call_sids = data.get('call_sids', [])
+    if not call_sids:
+        return jsonify({"error": "No call_sids provided"}), 400
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id, voice_config FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return jsonify({"error": "Account not found"}), 404
+        location_id = row['location_id']
+        sub_sid = (row['voice_config'] or {}).get('twilio_sub_account_sid', '')
+    finally:
+        return_db_connection(conn)
+
+    if not sub_sid:
+        return jsonify({"error": "Voice not provisioned"}), 400
+
+    results = []
+    for sid in call_sids:
+        try:
+            # Ownership check: only allow hanging up calls belonging to this location
+            call_info = active_calls.get(sid)
+            if call_info and call_info.get('_location_id') and call_info['_location_id'] != location_id:
+                results.append({"call_sid": sid, "success": False, "error": "Not your call"})
+                continue
+
+            success = _twilio_hangup(sid, sub_sid)
+            if sid in active_calls:
+                if success:
+                    active_calls[sid]['status'] = 'completed'
+                else:
+                    active_calls[sid]['status'] = 'hangup-failed'
+            transfer_requests.pop(sid, None)
+            if success:
+                try:
+                    update_call_history_status(sid, 'completed', 0)
+                except Exception:
+                    pass
+            results.append({"call_sid": sid, "success": success})
+        except Exception as e:
+            logger.error(f"Multi-hangup failed for {sid}: {e}")
+            results.append({"call_sid": sid, "success": False, "error": str(e)})
+
+    return jsonify({"results": results})
+
+
+@dialer_bp.route('/voice/multi-status', methods=['POST'])
+@login_required
+def multi_call_status():
+    """Poll status of multiple calls at once (reduces HTTP overhead for multi-line)."""
+    data = request.json or {}
+    call_sids = data.get('call_sids', [])
+    if not call_sids:
+        return jsonify({"error": "No call_sids provided"}), 400
+
+    # Resolve caller's location_id for ownership filtering
+    _owner_location = None
+    _ms_conn = get_db_connection()
+    if _ms_conn:
+        try:
+            _ms_cur = _ms_conn.cursor()
+            _ms_cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+            _ms_row = _ms_cur.fetchone()
+            _ms_cur.close()
+            if _ms_row:
+                _owner_location = _ms_row['location_id']
+        except Exception:
+            pass
+        finally:
+            return_db_connection(_ms_conn)
+
+    statuses = {}
+    for sid in call_sids:
+        if sid in active_calls:
+            info = active_calls[sid]
+            # Ownership check: skip calls belonging to other locations
+            if _owner_location and info.get('_location_id') and info['_location_id'] != _owner_location:
+                statuses[sid] = {"status": "unknown"}
+                continue
+            # Terminal state cleanup (same logic as single poll)
+            if info["status"] in ("completed", "busy", "no-answer", "failed", "canceled", "transferred"):
+                poll_count = info.get('_terminal_polls', 0) + 1
+                info['_terminal_polls'] = poll_count
+                if poll_count >= 20:
+                    status_copy = dict(info)
+                    del active_calls[sid]
+                    statuses[sid] = status_copy
+                    continue
+            entry = dict(info)
+            # Normalize internal keys for client consumption
+            if '_amd_result' in entry:
+                entry['amd_result'] = entry['_amd_result']
+            statuses[sid] = entry
+        else:
+            statuses[sid] = {"status": "unknown"}
+
+    return jsonify({"statuses": statuses})
+
+
+@dialer_bp.route('/voice/predictive-stats', methods=['GET'])
+@login_required
+def predictive_stats():
+    """
+    Return predictive dialing statistics using Erlang-C pacing algorithm.
+    Includes TCPA compliance status and recommended dial ratio.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id, subscription_tier, voice_config FROM subscribers WHERE email = %s",
+                    (current_user.email,))
+        row = cur.fetchone()
+        if not row:
+            return jsonify({"error": "Account not found"}), 404
+        location_id = row['location_id']
+        tier = row['subscription_tier'] or 'individual'
+        voice_config = row['voice_config'] or {}
+
+        # Get recent call stats for predictive calculations
+        cur.execute("""
+            SELECT
+                COUNT(*) as total_calls,
+                COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) as connected_calls,
+                COUNT(*) FILTER (WHERE status IN ('no-answer', 'busy', 'failed', 'canceled')) as failed_calls,
+                AVG(duration) FILTER (WHERE status = 'completed' AND duration > 0) as avg_duration,
+                AVG(duration) FILTER (WHERE status = 'completed' AND duration > 30) as avg_talk_time
+            FROM call_history
+            WHERE location_id = %s
+            AND created_at > NOW() - INTERVAL '7 days'
+        """, (location_id,))
+        stats_row = cur.fetchone()
+        cur.close()
+
+        total = stats_row['total_calls'] or 0
+        connected = stats_row['connected_calls'] or 0
+        failed = stats_row['failed_calls'] or 0
+        avg_duration = float(stats_row['avg_duration'] or 0)
+        avg_talk_time = float(stats_row['avg_talk_time'] or 0)
+
+        connect_rate = (connected / total * 100) if total > 0 else 0
+        wrap_up_time = int(voice_config.get('wrap_up_time', 15))
+
+        # Use Erlang-C for predictive_dialer tier, simple formula for pro_dialer
+        if tier == 'predictive_dialer':
+            current_abandon = tcpa_tracker.get_abandon_rate(location_id)
+            available = len(agent_state_manager.get_available_agents(location_id)) or 1
+
+            erlang_result = calculate_optimal_dial_ratio(
+                available_agents=available,
+                avg_handle_time_sec=avg_duration or 180,
+                avg_ring_time_sec=15,
+                answer_rate_pct=connect_rate or 25,
+                current_abandon_rate_pct=current_abandon,
+                target_abandon_rate_pct=float(voice_config.get('max_abandon_rate_pct', 3.0)),
+                wrap_up_time_sec=wrap_up_time,
+                max_ratio=4.0,
+            )
+
+            return jsonify({
+                "total_calls_7d": total,
+                "connected_calls_7d": connected,
+                "failed_calls_7d": failed,
+                "connect_rate": round(connect_rate, 1),
+                "avg_duration_sec": round(avg_duration, 1),
+                "avg_talk_time_sec": round(avg_talk_time, 1),
+                "recommended_lines": erlang_result["recommended_lines"],
+                "dial_ratio": erlang_result["dial_ratio"],
+                "erlang_c_probability": erlang_result["erlang_c_probability"],
+                "predicted_abandon_rate": erlang_result["predicted_abandon_rate"],
+                "current_abandon_rate": round(current_abandon, 2),
+                "throttled": erlang_result["throttled"],
+                "algorithm": "erlang_c",
+                "available_agents": erlang_result["inputs"]["available_agents"],
+            })
+        else:
+            # Simple formula for pro_dialer tier
+            if connect_rate > 0:
+                raw_ratio = min(4.0, max(1.0, 100 / connect_rate))
+            else:
+                raw_ratio = 3.0
+            recommended_lines = min(4, max(1, round(raw_ratio)))
+
+            return jsonify({
+                "total_calls_7d": total,
+                "connected_calls_7d": connected,
+                "failed_calls_7d": failed,
+                "connect_rate": round(connect_rate, 1),
+                "avg_duration_sec": round(avg_duration, 1),
+                "avg_talk_time_sec": round(avg_talk_time, 1),
+                "recommended_lines": recommended_lines,
+                "dial_ratio": round(raw_ratio, 2),
+                "algorithm": "simple",
+            })
+    except Exception as e:
+        logger.error(f"Predictive stats error: {e}")
+        return jsonify({"error": "Failed to calculate stats"}), 500
+    finally:
+        return_db_connection(conn)
+
+
+# ═══ Predictive Dialer Tier Routes ═══════════════════════════════════════════
+
+@dialer_bp.route('/voice/compliance', methods=['GET'])
+@login_required
+def compliance_dashboard():
+    """Get compliance metrics for the TCPA compliance dashboard."""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id, subscription_tier FROM subscribers WHERE email = %s",
+                    (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return jsonify({"error": "Account not found"}), 404
+
+        tier = row['subscription_tier'] or 'individual'
+        is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+        if tier != 'predictive_dialer' and not is_admin:
+            return jsonify({"error": "Compliance dashboard requires Predictive Dialer tier",
+                            "upgrade_required": True}), 403
+
+        location_id = row['location_id']
+    except Exception as e:
+        logger.error(f"Compliance dashboard DB error: {e}")
+        return jsonify({"error": "Database error"}), 500
+    finally:
+        return_db_connection(conn)
+
+    try:
+        period = int(request.args.get('period', 30))
+    except (ValueError, TypeError):
+        period = 30
+    period = max(1, min(90, period))
+
+    metrics = get_compliance_metrics(location_id, period_days=period)
+    return jsonify(metrics)
+
+
+@dialer_bp.route('/voice/agent-state', methods=['GET', 'POST'])
+@login_required
+def agent_state():
+    """Get or set agent state for the predictive dialer state machine."""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id, subscription_tier FROM subscribers WHERE email = %s",
+                    (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return jsonify({"error": "Account not found"}), 404
+        location_id = row['location_id']
+        tier = row['subscription_tier'] or 'individual'
+    except Exception as e:
+        logger.error(f"Agent state DB error: {e}")
+        return jsonify({"error": "Database error"}), 500
+    finally:
+        return_db_connection(conn)
+
+    is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+    if tier != 'predictive_dialer' and not is_admin:
+        return jsonify({"error": "Agent state requires Predictive Dialer tier",
+                        "upgrade_required": True}), 403
+
+    if request.method == 'GET':
+        state = agent_state_manager.get_agent_state(location_id, current_user.email)
+        all_agents = agent_state_manager.get_all_agents(location_id)
+        available = agent_state_manager.get_available_agents(location_id)
+        predicted = agent_state_manager.get_predicted_available(location_id, horizon_sec=30)
+        return jsonify({
+            "my_state": state,
+            "all_agents": all_agents,
+            "available_count": len(available),
+            "predicted_available_30s": predicted,
+        })
+
+    # POST: set state (user-settable states only; ON_CALL and WRAP_UP are server-controlled)
+    data = request.json or {}
+    new_state = data.get('state', '')
+    reason = data.get('reason')
+
+    valid = {AgentState.READY, AgentState.NOT_READY, AgentState.BREAK,
+             AgentState.EXTENDED_AWAY, AgentState.LOGGED_OUT}
+    if new_state not in valid:
+        return jsonify({"error": f"Invalid state: {new_state}. Valid: {sorted(valid)}"}), 400
+
+    agent_state_manager.set_state(location_id, current_user.email, new_state, reason=reason)
+    return jsonify({"success": True, "state": new_state})
+
+
+@dialer_bp.route('/voice/callback-queue', methods=['GET', 'POST', 'DELETE'])
+@login_required
+def callback_queue_route():
+    """Manage the callback/re-dial queue."""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id, subscription_tier FROM subscribers WHERE email = %s",
+                    (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return jsonify({"error": "Account not found"}), 404
+        location_id = row['location_id']
+        tier = row['subscription_tier'] or 'individual'
+    except Exception as e:
+        logger.error(f"Callback queue DB error: {e}")
+        return jsonify({"error": "Database error"}), 500
+    finally:
+        return_db_connection(conn)
+
+    is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+    if tier != 'predictive_dialer' and not is_admin:
+        return jsonify({"error": "Callback queue requires Predictive Dialer tier",
+                        "upgrade_required": True}), 403
+
+    if request.method == 'GET':
+        queue = callback_queue.get_queue(location_id)
+        due = callback_queue.get_due_callbacks(location_id)
+        return jsonify({
+            "queue": queue,
+            "queue_size": len(queue),
+            "due_count": len(due),
+            "due": due,
+        })
+
+    if request.method == 'POST':
+        data = request.json or {}
+        contact_id = data.get('contact_id', '')
+        phone = data.get('phone', '')
+        name = data.get('name', 'Unknown')
+        try:
+            delay_minutes = int(data.get('delay_minutes', 30))
+        except (ValueError, TypeError):
+            delay_minutes = 30
+        delay_minutes = max(1, min(10080, delay_minutes))  # 1 min to 7 days
+        reason = data.get('reason', 'no_answer')
+
+        if not phone:
+            return jsonify({"error": "Phone number required"}), 400
+
+        scheduled_at = time.time() + (delay_minutes * 60)
+        added = callback_queue.schedule_callback(
+            location_id, contact_id, phone, name, scheduled_at, reason
+        )
+        return jsonify({"success": added, "scheduled_in_minutes": delay_minutes})
+
+    if request.method == 'DELETE':
+        data = request.json or {}
+        phone = data.get('phone', '')
+        if data.get('clear_all'):
+            count = callback_queue.clear_queue(location_id)
+            return jsonify({"success": True, "cleared": count})
+        if phone:
+            cancelled = callback_queue.cancel_callback(location_id, phone)
+            return jsonify({"success": cancelled})
+        return jsonify({"error": "Provide 'phone' or 'clear_all'"}), 400
+
+
+@dialer_bp.route('/voice/recording-consent', methods=['GET'])
+@login_required
+def recording_consent_check():
+    """Check recording consent requirements for a phone number."""
+    phone = request.args.get('phone', '').strip()
+    if not phone:
+        return jsonify({"error": "Phone number required"}), 400
+
+    state = area_code_to_state(phone)
+    two_party = is_two_party_consent_state(phone)
+    tz = area_code_to_timezone(phone)
+
+    return jsonify({
+        "phone": phone,
+        "state": state,
+        "timezone": tz,
+        "two_party_consent": two_party,
+        "consent_required": two_party,
+        "disclosure_text": (
+            "This call may be recorded for quality and training purposes."
+            if two_party else None
+        ),
+    })
+
+
+@dialer_bp.route('/voice/recording-consent/batch', methods=['POST'])
+@login_required
+def recording_consent_batch():
+    """Batch check recording consent for multiple phone numbers."""
+    data = request.json or {}
+    phones = data.get('phones', [])
+    if not phones or not isinstance(phones, list):
+        return jsonify({"error": "No phone numbers provided (expected array)"}), 400
+
+    results = {}
+    for phone in phones[:300]:
+        state = area_code_to_state(phone)
+        results[phone] = {
+            "state": state,
+            "two_party_consent": is_two_party_consent_state(phone),
+        }
+
+    two_party_count = sum(1 for r in results.values() if r["two_party_consent"])
+    return jsonify({
+        "results": results,
+        "total": len(results),
+        "two_party_count": two_party_count,
+    })

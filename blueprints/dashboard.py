@@ -398,6 +398,18 @@ def save_voice_config():
     finally:
         return_db_connection(conn)
 
+    def _safe_int(val, default):
+        try:
+            return int(val)
+        except (TypeError, ValueError):
+            return default
+
+    def _safe_float(val, default):
+        try:
+            return float(val)
+        except (TypeError, ValueError):
+            return default
+
     # Merge user-facing settings onto existing config (preserves Twilio provisioned fields)
     voice_config = dict(existing_vc)
     voice_config.update({
@@ -406,19 +418,31 @@ def save_voice_config():
         "voice_bot_name":     (data.get("voice_bot_name") or "").strip(),
         "voice_instructions": (data.get("voice_instructions") or "").strip(),
         "call_script":        (data.get("call_script") or "").strip(),
-        "dial_attempts":      max(1, min(5, int(data.get("dial_attempts") or 2))),
+        "dial_attempts":      max(1, min(6, _safe_int(data.get("dial_attempts"), 2))),
         "auto_record":        bool(data.get("auto_record", True)),
         "auto_transcribe":    bool(data.get("auto_transcribe", False)),
         "local_presence":     bool(data.get("local_presence", False)),
         "transfer_number":    (data.get("transfer_number") or "").strip(),
         "voicemail_drop":     bool(data.get("voicemail_drop", False)),
         # Enterprise dialer tuning
-        "ring_timeout":          max(15, min(120, int(data.get("ring_timeout") or 45))),
-        "pause_between_calls":   max(0, min(30, int(data.get("pause_between_calls") or 1))),
+        "ring_timeout":          max(15, min(120, _safe_int(data.get("ring_timeout"), 45))),
+        "pause_between_calls":   max(0, min(30, _safe_int(data.get("pause_between_calls"), 1))),
         "use_amd":               bool(data.get("use_amd", False)),
-        "max_call_duration":     max(0, min(120, int(data.get("max_call_duration") or 0))),
-        "retry_delay":           max(1, min(30, int(data.get("retry_delay") or 2))),
+        "max_call_duration":     max(0, min(120, _safe_int(data.get("max_call_duration"), 0))),
+        "retry_delay":           max(1, min(30, _safe_int(data.get("retry_delay"), 2))),
         "auto_callback":         bool(data.get("auto_callback", False)),
+        # Multi-line / predictive dialer settings
+        "max_lines_setting":          max(1, min(4, _safe_int(data.get("max_lines_setting"), 3))),
+        "wrap_up_time":               max(0, min(120, _safe_int(data.get("wrap_up_time"), 15))),
+        "require_disposition":        bool(data.get("require_disposition", True)),
+        "calling_hours_start":        (data.get("calling_hours_start") or "08:00").strip()[:5],
+        "calling_hours_end":          (data.get("calling_hours_end") or "21:00").strip()[:5],
+        "same_number_cooldown_hours": max(0, min(72, _safe_int(data.get("same_number_cooldown_hours"), 4))),
+        "same_contact_daily_max":     max(0, min(10, _safe_int(data.get("same_contact_daily_max"), 3))),
+        "on_machine_action":          (data.get("on_machine_action") or "hangup") if data.get("on_machine_action") in ("hangup", "voicemail_drop", "continue") else "hangup",
+        "auto_disposition_no_answer": bool(data.get("auto_disposition_no_answer", True)),
+        "auto_disposition_voicemail": bool(data.get("auto_disposition_voicemail", True)),
+        "max_abandon_rate_pct":       max(1.0, min(10.0, _safe_float(data.get("max_abandon_rate_pct"), 3.0))),
         # Dossier display settings
         "show_ai_summary":       bool(data.get("show_ai_summary", True)),
         "show_known_facts":      bool(data.get("show_known_facts", True)),

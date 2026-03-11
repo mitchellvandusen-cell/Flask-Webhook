@@ -1,17 +1,92 @@
             <div class="tab-pane fade" id="billing" role="tabpanel">
-                <div class="glass-panel text-center py-5" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px;">
-                    <div style="font-size:3rem; color:var(--accent); margin-bottom:20px;"><i class="fa-solid fa-credit-card"></i></div>
-                    <h3 class="mb-3">Subscription Management</h3>
+                <div class="glass-panel py-4 px-4" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px;">
+                    <div class="text-center" style="margin-bottom: 24px;">
+                        <div style="font-size:2.5rem; color:var(--accent); margin-bottom:12px;"><i class="fa-solid fa-credit-card"></i></div>
+                        <h3 class="mb-2">Subscription Management</h3>
+                        <p style="color:#888; font-size:0.88rem;" id="billingCurrentPlan">Loading plan info...</p>
+                    </div>
+
                     {% if current_user.stripe_customer_id %}
-                        <p style="color:#aaa; max-width:400px; margin:0 auto 1.5rem;">Use the secure portal to update payment methods or view invoices.</p>
-                        <form method="post" action="/create-portal-session" target="_top">
-                            <button type="submit" class="btn btn-primary px-5">Open Stripe Portal</button>
+                    <!-- Plan Selector -->
+                    <div id="billingPlanCards" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:16px; max-width:960px; margin:0 auto 24px;">
+                        <!-- Power Dialer (Individual) -->
+                        <div id="billingPlanIndividual" class="billing-plan-card" onclick="billingSelectPlan('individual')"
+                             style="border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:24px; cursor:pointer; transition: all 0.2s; position:relative; background:rgba(255,255,255,0.02);">
+                            <div style="font-weight:800; font-size:1rem; color:#fff; margin-bottom:4px;">Power Dialer</div>
+                            <div style="margin-bottom:10px;">
+                                <span style="font-size:1.8rem; font-weight:900; color:var(--accent);">$149.99</span>
+                                <span style="color:#888; font-size:0.85rem;">/mo</span>
+                            </div>
+                            <ul style="list-style:none; padding:0; margin:0; font-size:0.82rem; color:#aaa;">
+                                <li style="padding:3px 0;"><i class="fa-solid fa-check" style="color:var(--accent); margin-right:6px;"></i>Single-line dialing</li>
+                                <li style="padding:3px 0;"><i class="fa-solid fa-check" style="color:var(--accent); margin-right:6px;"></i>AI Texting & Voice Agent</li>
+                                <li style="padding:3px 0;"><i class="fa-solid fa-check" style="color:var(--accent); margin-right:6px;"></i>Smart Filters & Lead Intel</li>
+                                <li style="padding:3px 0;"><i class="fa-solid fa-check" style="color:var(--accent); margin-right:6px;"></i>Unlimited minutes*</li>
+                            </ul>
+                            <div id="billingBadgeIndividual" style="display:none; position:absolute; top:-8px; right:12px; background:var(--accent); color:#000; font-size:0.72rem; font-weight:700; padding:2px 10px; border-radius:10px;">CURRENT</div>
+                        </div>
+
+                        <!-- Pro Dialer -->
+                        <div id="billingPlanProDialer" class="billing-plan-card" onclick="billingSelectPlan('pro_dialer')"
+                             style="border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:24px; cursor:pointer; transition: all 0.2s; position:relative; background:rgba(255,255,255,0.02);">
+                            <div style="position:absolute; top:-8px; left:12px; background:linear-gradient(135deg,#ff6b35,#ff3366); color:#fff; font-size:0.68rem; font-weight:700; padding:2px 10px; border-radius:10px; letter-spacing:0.5px;">UPGRADE</div>
+                            <div style="font-weight:800; font-size:1rem; color:#fff; margin-bottom:4px;">Pro Dialer</div>
+                            <div style="margin-bottom:10px;">
+                                <span style="font-size:1.8rem; font-weight:900; color:#ff6b35;">$224.99</span>
+                                <span style="color:#888; font-size:0.85rem;">/mo</span>
+                            </div>
+                            <ul style="list-style:none; padding:0; margin:0; font-size:0.82rem; color:#aaa;">
+                                <li style="padding:3px 0;"><i class="fa-solid fa-check" style="color:#ff6b35; margin-right:6px;"></i><strong>Multi-line dialing (up to 4)</strong></li>
+                                <li style="padding:3px 0;"><i class="fa-solid fa-check" style="color:#ff6b35; margin-right:6px;"></i><strong>Predictive dialer</strong></li>
+                                <li style="padding:3px 0;"><i class="fa-solid fa-check" style="color:#ff6b35; margin-right:6px;"></i>Everything in Power Dialer</li>
+                                <li style="padding:3px 0;"><i class="fa-solid fa-check" style="color:#ff6b35; margin-right:6px;"></i>Priority queue</li>
+                            </ul>
+                            <div id="billingBadgeProDialer" style="display:none; position:absolute; top:-8px; right:12px; background:#ff6b35; color:#fff; font-size:0.72rem; font-weight:700; padding:2px 10px; border-radius:10px;">CURRENT</div>
+                        </div>
+
+                        <!-- Predictive Dialer -->
+                        <div id="billingPlanPredictiveDialer" class="billing-plan-card" onclick="billingSelectPlan('predictive_dialer')"
+                             style="border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:24px; cursor:pointer; transition: all 0.2s; position:relative; background:rgba(255,255,255,0.02);">
+                            <div style="position:absolute; top:-8px; left:12px; background:linear-gradient(135deg,#8b5cf6,#6366f1); color:#fff; font-size:0.68rem; font-weight:700; padding:2px 10px; border-radius:10px; letter-spacing:0.5px;">ENTERPRISE</div>
+                            <div style="font-weight:800; font-size:1rem; color:#fff; margin-bottom:4px;">Predictive Dialer</div>
+                            <div style="margin-bottom:10px;">
+                                <span style="font-size:1.8rem; font-weight:900; color:#8b5cf6;">$349.98</span>
+                                <span style="color:#888; font-size:0.85rem;">/mo</span>
+                            </div>
+                            <ul style="list-style:none; padding:0; margin:0; font-size:0.82rem; color:#aaa;">
+                                <li style="padding:3px 0;"><i class="fa-solid fa-check" style="color:#8b5cf6; margin-right:6px;"></i><strong>Erlang-C predictive pacing</strong></li>
+                                <li style="padding:3px 0;"><i class="fa-solid fa-check" style="color:#8b5cf6; margin-right:6px;"></i><strong>TCPA auto-throttle (3%)</strong></li>
+                                <li style="padding:3px 0;"><i class="fa-solid fa-check" style="color:#8b5cf6; margin-right:6px;"></i><strong>Recipient timezone enforcement</strong></li>
+                                <li style="padding:3px 0;"><i class="fa-solid fa-check" style="color:#8b5cf6; margin-right:6px;"></i><strong>Compliance dashboard</strong></li>
+                                <li style="padding:3px 0;"><i class="fa-solid fa-check" style="color:#8b5cf6; margin-right:6px;"></i><strong>Recording consent tracking</strong></li>
+                                <li style="padding:3px 0;"><i class="fa-solid fa-check" style="color:#8b5cf6; margin-right:6px;"></i><strong>Callback queue + re-dials</strong></li>
+                                <li style="padding:3px 0;"><i class="fa-solid fa-check" style="color:#8b5cf6; margin-right:6px;"></i><strong>Agent state machine</strong></li>
+                                <li style="padding:3px 0;"><i class="fa-solid fa-check" style="color:#8b5cf6; margin-right:6px;"></i>Everything in Pro Dialer</li>
+                            </ul>
+                            <div id="billingBadgePredictiveDialer" style="display:none; position:absolute; top:-8px; right:12px; background:#8b5cf6; color:#fff; font-size:0.72rem; font-weight:700; padding:2px 10px; border-radius:10px;">CURRENT</div>
+                        </div>
+                    </div>
+
+                    <div class="text-center" style="margin-bottom:16px;">
+                        <button id="billingChangePlanBtn" onclick="billingChangePlan()" class="btn px-5 py-2" style="background:linear-gradient(135deg,#ff6b35,#ff3366); color:#fff; font-weight:700; border:none; border-radius:10px; display:none;">
+                            <i class="fa-solid fa-arrows-rotate me-2"></i>Change Plan
+                        </button>
+                    </div>
+
+                    <div class="text-center">
+                        <form method="post" action="/create-portal-session" target="_top" style="display:inline;">
+                            <button type="submit" class="btn btn-primary px-5">
+                                <i class="fa-solid fa-external-link me-2"></i>Manage Billing
+                            </button>
                         </form>
+                    </div>
                     {% else %}
-                        <p style="color:#aaa; margin-bottom:1.5rem;">You do not have an active Stripe subscription.</p>
-                        <p style="color:#aaa; max-width:500px; margin:0 auto;">
-                            If you installed via Marketplace, manage your subscription from within your Lead Connector account's Marketplace tab.
-                        </p>
+                        <div class="text-center">
+                            <p style="color:#aaa; margin-bottom:1.5rem;">You do not have an active Stripe subscription.</p>
+                            <p style="color:#aaa; max-width:500px; margin:0 auto;">
+                                If you installed via Marketplace, manage your subscription from within your Lead Connector account's Marketplace tab.
+                            </p>
+                        </div>
                     {% endif %}
                 </div>
             </div>

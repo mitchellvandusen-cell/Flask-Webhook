@@ -8,6 +8,8 @@
 
 | Date | Milestone |
 |------|-----------|
+| 2026-03-11 | Predictive Dialer tier ($349.98/mo): Erlang-C pacing, TCPA compliance, timezone enforcement, agent state machine, callback queue, recording consent |
+| 2026-03-11 | Multi-line dialer (up to 4 lines), predictive dialer, Pro Dialer tier ($224.99/mo), plan switching |
 | 2026-02-19 | Initial visible history begins; voice dialer UI, Trust Hub tabs, AMD fixes, AI latency improvements | 
 | 2026-02-19 | AI Minutes Marketplace launched (purchase bundles, auto-deduct on calls) |
 | 2026-02-20 | Complete voice infrastructure migration from Telnyx to white-label Twilio sub-accounts | 
@@ -33,6 +35,130 @@
 | 2026-03-01 | Pricing update: $149.99/month across all pages, bot, and documentation |
 | 2026-03-10 | Hamburger menu fix, login crash fix, Remember Me (30-day), mobile dashboard redesign, agency dashboard revamp |
 | 2026-03-10 | Full QA audit: 6 critical bug fixes, 7 security fixes, 5 reliability fixes across 16 files |
+
+---
+
+## 2026-03-11 (Multi-Line Dialer + Predictive Dialing)
+
+### Multi-Line Dialer (Pro Dialer Tier)
+- **Multi-line dialing engine**: Up to 4 concurrent outbound calls via `POST /voice/multi-dial`. Each call independently tracked in `active_calls` dict with `_multi_line: True` flag
+- **Batch status polling**: `POST /voice/multi-status` polls all active call SIDs in a single request (reduces HTTP overhead vs N individual polls)
+- **Multi-hangup**: `POST /voice/multi-hangup` terminates all active lines at once
+- **Active lines API**: `GET /voice/active-lines` returns current line count, details, and tier-based max
+- **Subscription gating**: Multi-line routes enforce `subscription_tier == 'pro_dialer'` with admin bypass. Returns `upgrade_required: true` for non-Pro users
+- **Frontend multi-line engine**: `_multiLineActive` Map tracks concurrent calls; `multiLineDialBatch()` dials N contacts from queue; `multiLinePollAll()` batch-polls every 1.5s; `multiLineRenderBanner()` renders per-line status with connect/hangup controls
+- **Line switching**: Agent can connect to any active line via `multiLineConnectToLine(callSid)` — switches detail panel, listen stream, and call controls
+- **Queue integration**: Multi-line queue automatically refills available lines as calls terminate, respecting retry logic and DnD guards
+
+### Predictive Dialer
+- **Connect rate analytics**: `GET /voice/predictive-stats` queries 7-day `call_history` for connect rate, avg duration, avg talk time
+- **AI-optimized dial ratio**: Algorithm calculates `min(4.0, max(1.0, 100 / connect_rate))` — lower connect rates automatically increase simultaneous lines
+- **Recommended lines**: Rounded ratio capped at 4, displayed in predictive stats panel
+- **Frontend stats panel**: Shows connect rate %, recommended lines, and dial ratio in real-time above dialer
+
+### Pro Dialer Subscription ($224.99/mo)
+- **New tier**: `subscription_tier = 'pro_dialer'` stored in `subscribers` table
+- **Stripe checkout**: `GET /checkout/pro-dialer` creates Stripe session with `STRIPE_PRO_DIALER_PRICE_ID`, 7-day trial, promo codes
+- **Plan switching**: `POST /change-plan` calls `stripe.Subscription.modify()` with proration. Accepts `target_tier: "individual"|"pro_dialer"`. Updates DB + returns new tier info
+- **Subscription info API**: `GET /subscription-info` returns tier, max_lines, features, admin status for dynamic UI rendering
+- **Billing tab redesign**: Two plan cards (Power Dialer $149.99, Pro Dialer $224.99) with current plan badge, feature comparison, and one-click plan switch button
+
+### Marketing & Website Updates
+- **3-tier pricing grid**: Home page pricing updated from 2-column (Individual + Agency) to 3-column (Power Dialer + Pro Dialer + Agency) with responsive mobile breakpoint
+- **Pro Dialer featured card**: Orange gradient badge "Most Popular", scaled 1.03x, with multi-line and predictive features highlighted
+- **Smart Dialer pillar**: Added "Multi-Line" tag to the Three Pillars section
+- **Capabilities grid**: Added "Multi-Line Dialing" capability item with predictive pacing description
+- **Comparison page**: Updated cost comparison table to include multi-line capability with "Pro" badge
+- **Hero CTA**: Updated from specific price to "Plans from $149.99/mo"
+
+### Dashboard UI
+- **Multi-line banner**: `#multiLineBanner` div shows per-line status (L1-L4) with name, status color, duration, connect/hangup buttons
+- **Predictive stats panel**: `#predictiveStatsPanel` shows connect rate, recommended lines, dial ratio
+- **Pro badge**: `#multiLineBadge` "PRO" badge shown next to mode toggle for pro_dialer users
+- **Line selector**: `#multiLineToggle` dropdown (1-4 lines) visible only for pro_dialer tier
+- **Billing plan cards**: Interactive plan selection with CURRENT badge, feature lists, and change plan CTA
+
+### Multi-Line Dialer Settings (11 new configurable settings)
+All settings stored in `voice_config` JSONB, validated server-side in `blueprints/dashboard.py`, enforced in `voice/dialer.py`:
+- **Max concurrent lines** (`max_lines_setting`): 1-4 lines, default 3. Server caps batch size in `multi_dial()`
+- **Wrap-up time** (`wrap_up_time`): 0-120 seconds after-call work timer between batches, default 15s
+- **Require disposition** (`require_disposition`): Gates next batch until all completed calls are dispositioned (works with and without wrap-up)
+- **Calling hours** (`calling_hours_start`/`calling_hours_end`): TCPA-compliant calling window with pytz timezone support and midnight wrap-around (e.g., 22:00-06:00)
+- **Same-number cooldown** (`same_number_cooldown_hours`): 0-72 hours before re-dialing same number, default 4h. Batch SQL with `make_interval()`
+- **Daily max per contact** (`same_contact_daily_max`): 0-10 calls per contact per day, default 3. Batch SQL enforcement
+- **On-machine action** (`on_machine_action`): hangup/voicemail_drop/continue when AMD detects answering machine
+- **Auto-disposition toggles** (`auto_disposition_no_answer`/`auto_disposition_voicemail`): Auto-mark terminal no-answer and voicemail calls
+- **Max abandon rate** (`max_abandon_rate_pct`): 1-10%, default 3.0% (FTC safe harbor for TCPA compliance)
+
+### Predictive Dialer Enterprise Tier ($349.98/mo)
+
+#### Erlang-C Predictive Pacing Engine (`voice/predictive_engine.py`)
+- **Erlang-C M/M/N queue model**: `calculate_optimal_dial_ratio()` uses binary search (20 iterations) to find maximum dial ratio keeping predicted abandon rate under TCPA 3% safe harbor
+- **Log-space arithmetic**: `_erlang_c_probability()` computes Erlang-C using log-space to prevent overflow with large factorials
+- **TCPA auto-throttle**: Starts reducing dial ratio at 80% of abandon rate limit (2.4%), proportional reduction factor down to 0.5x
+
+#### TCPA Compliance Engine
+- **Rolling 30-day tracker**: `TCPAComplianceTracker` (thread-safe singleton) tracks call outcomes in-memory with auto-prune of calls older than 30 days
+- **Real-time abandon rate**: `get_abandon_rate()` returns current rolling percentage; `get_compliance_status()` adds 1-hour window, warning/critical flags
+- **DB bootstrap**: `load_from_db()` loads historical `call_history` data for warm start after process restart
+- **Compliance dashboard**: `GET /voice/compliance` returns score (0-100) from TCPA rate + DNC violations + calling hours violations
+
+#### Recipient Timezone Enforcement
+- **Area code → timezone lookup**: ~300 NANP area code → US state → IANA timezone mappings
+- **Phone number parsing**: Digits-only extraction, strips US country code `1` only for 11-digit numbers (fixed: no longer mangles area codes starting with `1`)
+- **Calling hours check**: `check_recipient_timezone()` validates against recipient's local time, supports midnight wrap-around
+- **Enforcement points**: Single-line `dial_contact()` and multi-line `multi_dial()` both check recipient timezone for pro_dialer and predictive_dialer tiers
+
+#### Recording Consent Tracking
+- **Two-party consent states**: 12 states (CA, CT, DE, FL, IL, MD, MA, MT, NV, NH, PA, WA) requiring all-party consent
+- **Single check**: `GET /voice/recording-consent?phone=` returns state, timezone, consent requirement, disclosure text
+- **Batch check**: `POST /voice/recording-consent/batch` checks up to 300 phones at once
+- **UI banner**: Yellow warning banner appears in dialer when calling two-party consent states
+
+#### Agent State Machine
+- **ACD-style states**: Ready, Not Ready, On Call, Wrap-Up, Break, Extended Away, Logged Out
+- **Auto wrap-up→ready**: Timer-based transition when wrap-up period expires
+- **Predicted availability**: `get_predicted_available(horizon_sec)` counts agents who will be ready within N seconds
+- **API**: `GET|POST /voice/agent-state` for dashboard state selector with status dot and duration display
+
+#### Callback Queue
+- **Scheduled re-dials**: `POST /voice/callback-queue` schedules contacts for re-dial after configurable delay
+- **Duplicate prevention**: Same phone number can't be queued twice while pending
+- **Auto-prune**: Completed/cancelled items cleaned after 24 hours to prevent memory growth
+- **Due detection**: `GET /voice/callback-queue` returns pending count and due items for the queue badge
+
+#### Subscription & Billing
+- **New checkout**: `GET /checkout/predictive-dialer` with `STRIPE_PREDICTIVE_DIALER_PRICE_ID` env var, 7-day trial
+- **3-tier plan switching**: `POST /change-plan` supports individual ↔ pro_dialer ↔ predictive_dialer with Stripe proration
+- **Billing tab**: Purple-themed (#8b5cf6) plan card with ENTERPRISE badge, 8 feature checkmarks
+- **Home page**: New enterprise pricing card in 4-column grid between Pro Dialer and Agency
+
+#### Dashboard UI (Enterprise Features)
+- **TCPA compliance banner**: Green/yellow/red banner showing abandon rate and compliance score
+- **Agent state selector**: Dropdown with status dot (color-coded), duration timer, wrap-up countdown
+- **Callback queue badge**: Purple badge showing pending count and due items
+- **Recording consent warning**: Yellow banner before calls to two-party consent states
+- **Erlang-C metrics panel**: Shows predicted abandon rate, P(wait), throttle status, algorithm badge
+- **Predictive stats**: Enhanced with Erlang-C metrics for predictive_dialer tier, simple formula for pro_dialer
+
+#### Bug Fixes (Predictive Dialer Audit)
+- **HIGH: Phone number parsing `lstrip('1')` mangled area codes**: `lstrip('1')` strips ALL leading 1s, destroying area codes starting with `1`. Fixed with digits-only extraction + single country code removal for 11-digit numbers
+- **MEDIUM: CallbackQueue memory leak**: Completed/cancelled callback items never pruned. Added 24-hour auto-prune in `schedule_callback()`
+- **LOW: Unused imports**: Removed `timezone as dt_timezone` and `timedelta` from predictive_engine.py
+- **LOW: Data race in TCPA log statement**: `data['answered']` accessed outside lock. Moved read inside lock block
+
+### Bug Fixes (Audit Findings)
+- **CRITICAL: SQL injection via string interpolation**: `INTERVAL '%s hours'` in cooldown query — psycopg2 doesn't interpolate inside string literals. Fixed with `make_interval(hours => %s)` parameterized form
+- **CRITICAL: Night-shift calling hours always blocked**: Midnight wrap-around logic (start > end, e.g., 22:00-06:00) had inverted condition. Fixed with separate branch for normal vs wrapping ranges
+- **CRITICAL: AMD result field mismatch**: Client read `serverInfo.amd_result` but server stored `_amd_result`. Normalized key in `multi_call_status()` response
+- **CRITICAL: Wrap-up timer bypassed**: Poll cycle at 1.5s called `multiLineDialBatch()` immediately, ignoring pending wrap-up. Added `if (_dialerWrapUpTimer) return;` guard at top of `multiLinePollAll`
+- **HIGH: DASHBOARD_BOOT null coalescing broken**: `(window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.X) ?? default` — `&&` returns `false` (not `null`), so `??` won't coalesce. Fixed with optional chaining `window.DASHBOARD_BOOT?.X ?? default`
+- **HIGH: Wrap-up time 0 treated as 15**: `config.wrap_up_time || 15` in voice.js live-update coerced `0` to `15`. Fixed with `?? 15`
+- **MEDIUM: Require-disposition only enforced during wrap-up**: Non-wrap-up path (wrap_up_time=0) skipped disposition check. Added check to else branch
+- **LOW: Non-numeric input crash**: `int(data.get(...))` in dashboard.py could throw ValueError on malformed input. Added `_safe_int()` / `_safe_float()` helpers with fallback defaults
+- **BUG: multi_hangup marks completed on failure**: Now sets 'hangup-failed' status and skips DB update when `_twilio_hangup()` returns False
+- **BUG: Missing list() wrapper on active_calls.items()**: Could raise RuntimeError under concurrent thread access
+- **BUG: Wrong element ID**: `getElementById('dialer')` should be `'voicedialer'` for SSE auto-init
 
 ---
 

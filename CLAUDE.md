@@ -82,6 +82,7 @@ All queues are defined in `extensions.py` and initialized via `ensure_redis()`. 
 | `ghl_sync.py` | GHL data sync engine — pulls conversations, opportunities, phone numbers into local DB | ~900 lines |
 | `twilio_sms.py` | Direct Twilio SMS sender — bypasses GHL API, drop-in replacement for ghl_message.py | small |
 | `lead_intelligence.py` | AI-powered lead intelligence via xAI Grok micro-prompts with caching | medium |
+| `voice/predictive_engine.py` | Erlang-C pacing, TCPA compliance tracker, agent state machine, callback queue, timezone/consent lookup | medium |
 | `crm_adapters/` | CRM adapter factory + GHL/HubSpot/Salesforce/Pipedrive/Zoho/Insureio/Zapier | directory |
 
 ---
@@ -112,6 +113,8 @@ All queues are defined in `extensions.py` and initialized via `ensure_redis()`. 
 - `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`
 - `STRIPE_WEBHOOK_SECRET` — For validating Stripe webhook events
 - `STRIPE_PRICE_ID` — Individual plan price ID
+- `STRIPE_PRO_DIALER_PRICE_ID` — Pro Dialer plan price ID ($224.99/mo)
+- `STRIPE_PREDICTIVE_DIALER_PRICE_ID` — Predictive Dialer plan price ID ($349.98/mo)
 - `STRIPE_AGENCY_STARTER_PRICE_ID`, `STRIPE_AGENCY_PRO_PRICE_ID`
 - `AI_MINUTES_PRICE_ID_500`, `AI_MINUTES_PRICE_ID_2000`, `AI_MINUTES_PRICE_ID_5000`, `AI_MINUTES_PRICE_ID_10000` — Usage-based AI minutes packages
 
@@ -330,6 +333,24 @@ All tables created in `db.py`'s `init_db()` function:
 - `GET /voice/contact-intelligence-bulk?ids=<csv>` — Bulk cached AI intelligence for Smart Filters (zero AI cost, reads from cache only). Returns `{cached: {id: {temperature, score, summary}}, uncached: [ids]}`
 - `POST /voice/contact-intelligence-analyze` — Batch-analyze uncached contacts via AI (up to 5 per request). Body: `{contact_ids: [...]}`
 
+### Multi-Line Dialer (Blueprint, voice/dialer.py)
+- `POST /voice/multi-dial` — Initiate up to 4 concurrent calls (Pro Dialer tier required). Body: `{contacts: [{contact_id, phone, first_name}], dial_mode, max_lines}`
+- `GET /voice/active-lines` — Current active call lines count and details for the user
+- `POST /voice/multi-hangup` — Hang up multiple active calls at once. Body: `{call_sids: [...]}`
+- `POST /voice/multi-status` — Batch poll status of multiple calls. Body: `{call_sids: [...]}`
+- `GET /voice/predictive-stats` — 7-day predictive dialing analytics (connect rate, recommended lines, dial ratio); Erlang-C algorithm for `predictive_dialer` tier
+- `GET /voice/compliance` — TCPA compliance dashboard (abandon rate, DNC violations, hours violations, compliance score); `predictive_dialer` tier only
+- `GET|POST /voice/agent-state` — Agent state machine (Ready/Not Ready/Wrap-Up/Break); `predictive_dialer` tier
+- `GET|POST|DELETE /voice/callback-queue` — Callback queue management (schedule, view, cancel re-dials)
+- `GET /voice/recording-consent` — Check two-party recording consent by phone area code
+- `POST /voice/recording-consent/batch` — Batch consent check for up to 300 numbers
+- `GET /checkout/predictive-dialer` — Predictive Dialer plan checkout ($349.98/mo)
+
+### Billing / Plan Management
+- `GET /checkout/pro-dialer` — Pro Dialer plan checkout ($224.99/mo)
+- `POST /change-plan` — Switch between Power Dialer and Pro Dialer plans (Stripe proration). Body: `{target_tier: "individual"|"pro_dialer"}`
+- `GET /subscription-info` — Current subscription tier, max lines, features (JSON)
+
 ### A2P 10DLC (Blueprint, voice_bridge.py)
 - `GET /voice/a2p/status` — Current A2P registration state from voice_config JSONB
 - `POST /voice/a2p/register-brand` — Submit brand for Twilio A2P vetting (sub-users gated by payment)
@@ -362,9 +383,97 @@ When a GHL webhook arrives at `POST /webhook`:
 - **Flask Blueprint** `voice_bp` mounted in main.py
 - Bidirectional WebSocket bridge: Twilio mulaw 8kHz ↔ xAI PCM 16kHz
 - Audio pipeline: soxr resampling + audioop mulaw/PCM conversion + scipy Butterworth EQ
-- In-memory call tracking: `_active_calls`, `_transfer_requests`, `_call_listeners`
+- In-memory call tracking: `active_calls`, `transfer_requests`, `call_listeners`
 - Supports real-time voice AI conversations using xAI's Realtime API
 - A2P 10DLC registration routes for brand/campaign compliance (see A2P 10DLC section below)
+
+---
+
+## Multi-Line Dialer (voice/dialer.py)
+
+### What It Is
+Enterprise multi-line power dialer that allows Pro Dialer subscribers ($224.99/mo) to initiate up to 4 concurrent outbound calls simultaneously. Includes predictive dialing that uses AI-calculated dial ratios based on historical connect rates.
+
+### Architecture
+- **Subscription gating**: `POST /voice/multi-dial` checks `subscription_tier == 'pro_dialer'` or admin status before allowing multi-line calls
+- **Backend**: All multi-line routes in `voice/dialer.py` — `multi_dial()`, `get_active_lines()`, `multi_hangup()`, `multi_call_status()`, `predictive_stats()`
+- **Frontend**: Multi-line engine in `static/js/dashboard/dialer.js` — `_multiLineActive` Map tracks concurrent calls, `multiLineDialBatch()` fires batches, `multiLinePollAll()` batch-polls status
+- **In-memory tracking**: Uses same `active_calls` dict as single-line; multi-line calls tagged with `_multi_line: True`
+- **Predictive pacing**: `GET /voice/predictive-stats` calculates connect rate from 7-day call history, recommends optimal line count (1-4)
+
+### Key Routes
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `POST /voice/multi-dial` | POST | Initiate up to 4 concurrent calls |
+| `GET /voice/active-lines` | GET | Current active lines count + details |
+| `POST /voice/multi-hangup` | POST | Hang up multiple calls at once |
+| `POST /voice/multi-status` | POST | Batch poll status of multiple calls |
+| `GET /voice/predictive-stats` | GET | 7-day connect rate, recommended lines, dial ratio |
+
+### Predictive Dialer Algorithm
+**Pro Dialer** (simple formula):
+1. Query `call_history` for last 7 days of calls
+2. Calculate connect rate: `connected_calls / total_calls * 100`
+3. Compute dial ratio: `min(4.0, max(1.0, 100 / connect_rate))`
+4. Recommend lines: `round(dial_ratio)`, capped at 4
+
+**Predictive Dialer** (Erlang-C M/M/N queue model):
+1. Query `call_history` for 7-day stats (connect rate, avg handle time, avg talk time)
+2. Model as M/M/N queue: arrival rate = agents × ratio × answer rate / ring time
+3. Binary search (20 iterations) for max dial ratio keeping predicted abandon rate ≤ 3%
+4. TCPA auto-throttle: if current rolling 30-day abandon rate > 2.4%, reduce ratio by factor
+5. Uses `_erlang_c_probability()` with log-space arithmetic for numerical stability
+6. Phone number parsing: strips digits-only, removes country code `1` for 11-digit numbers
+
+### Frontend State
+- `_multiLineActive` (Map) — tracks all concurrent call SIDs with contact info
+- `_multiLineEnabled` (bool) — set from subscription tier check on page load
+- `_multiLineMaxLines` (int) — max concurrent lines (1 for individual, 4 for pro_dialer)
+- `_multiLineConnectedSid` (string) — which call the agent is currently interacting with
+- `_predictiveStats` (object) — cached predictive analytics from server
+
+### Multi-Line Dialer Settings (voice_config JSONB)
+All settings stored in `voice_config` JSONB on `subscribers` table, validated in `blueprints/dashboard.py`, enforced server-side in `voice/dialer.py`.
+
+| Setting | Key | Default | Range | Enforcement |
+|---------|-----|---------|-------|-------------|
+| Max concurrent lines | `max_lines_setting` | 3 | 1-4 | Server: caps batch size in `multi_dial()` |
+| Wrap-up time (seconds) | `wrap_up_time` | 15 | 0-120 | Client: timer between batches in `multiLinePollAll()` |
+| Require disposition | `require_disposition` | true | bool | Client: gates next batch until all completed calls dispositioned |
+| Calling hours start | `calling_hours_start` | "08:00" | HH:MM | Server: `_check_calling_hours()` with pytz timezone |
+| Calling hours end | `calling_hours_end` | "21:00" | HH:MM | Server: supports midnight wrap-around (e.g., 22:00-06:00) |
+| Same-number cooldown | `same_number_cooldown_hours` | 4 | 0-72 | Server: `_check_cooldown_and_daily_max()` batch SQL |
+| Daily max per contact | `same_contact_daily_max` | 3 | 0-10 | Server: batch SQL with `make_interval()` |
+| On-machine action | `on_machine_action` | "hangup" | hangup/voicemail_drop/continue | Client: handles AMD result in poll |
+| Auto-disposition no-answer | `auto_disposition_no_answer` | true | bool | Client: auto-marks terminal no-answer calls |
+| Auto-disposition voicemail | `auto_disposition_voicemail` | true | bool | Client: auto-marks terminal voicemail calls |
+| Max abandon rate % | `max_abandon_rate_pct` | 3.0 | 1.0-10.0 | FTC 3% safe harbor for TCPA compliance |
+
+### Server-Side Enforcement
+- `_check_calling_hours(voice_config, agent_tz_str)` — validates current time against configured window, supports midnight wrap-around
+- `_check_cooldown_and_daily_max(location_id, phones, voice_config, conn)` — batch SQL using `make_interval(hours => %s)` for proper psycopg2 parameterization
+- Both functions called in `dial_contact()` (single-line) and `multi_dial()` (multi-line)
+- Blocked contacts returned with `calling_hours_blocked` or `cooldown_blocked` status
+
+### DASHBOARD_BOOT Integration
+Settings injected from server to client via `window.DASHBOARD_BOOT` in `dashboard.html`. Client variables use optional chaining (`window.DASHBOARD_BOOT?.settingName ?? default`) to safely handle missing boot data.
+
+### Plan Switching
+- `POST /change-plan` — Stripe subscription modification with proration (supports individual ↔ pro_dialer ↔ predictive_dialer)
+- `GET /subscription-info` — Returns tier, max_lines, features for billing UI
+- Dashboard billing tab shows all three plans with "Change Plan" button
+- Plan change updates `subscription_tier` in DB and triggers frontend re-init
+
+### Predictive Dialer Engine (voice/predictive_engine.py)
+Enterprise-only module (`subscription_tier = 'predictive_dialer'`) with:
+- **Phone number parsing**: `area_code_to_timezone(phone)`, `area_code_to_state(phone)` — digits-only extraction, US country code removal for 11-digit numbers, ~300 NANP area code mappings
+- **Timezone enforcement**: `check_recipient_timezone(phone, start, end)` — pytz-based, midnight wrap-around support
+- **Recording consent**: `is_two_party_consent_state(phone)` — 12 two-party consent states (CA, CT, DE, FL, IL, MD, MA, MT, NV, NH, PA, WA)
+- **Erlang-C pacing**: `calculate_optimal_dial_ratio()` — M/M/N queue model with binary search, TCPA throttle at 80% of limit
+- **TCPA tracker**: `TCPAComplianceTracker` (global singleton `tcpa_tracker`) — thread-safe rolling 30-day abandon rate, auto-prune, DB bootstrap via `load_from_db()`
+- **Agent state machine**: `AgentStateManager` (global singleton `agent_state_manager`) — ACD states (Ready/Not Ready/On Call/Wrap-Up/Break/Extended Away/Logged Out), auto wrap-up→ready transitions, predicted availability within N-second horizon
+- **Callback queue**: `CallbackQueue` (global singleton `callback_queue`) — thread-safe scheduled re-dial queue with duplicate prevention, 24-hour auto-prune of completed/cancelled items
+- **Compliance metrics**: `get_compliance_metrics()` — aggregated compliance score (0-100) from TCPA, DNC violations, calling hours violations
 
 ---
 
@@ -699,9 +808,11 @@ python worker.py website demo              # GHL sync, backfill, demo chat
 
 ## Subscription Tiers
 
-- **Individual Plan**: $149.99/month — single agency user, all features included (AI texting, smart dialer, AI voice, lead intelligence, Smart Filters, unlimited minutes, 5 sales frameworks). No contracts, cancel anytime. No free trial.
+- **Power Dialer (Individual)**: $149.99/month — single-line dialing, AI texting, AI voice, lead intelligence, Smart Filters, unlimited minutes, 5 sales frameworks. No contracts, cancel anytime. `subscription_tier = 'individual'`
+- **Pro Dialer**: $224.99/month — everything in Power Dialer PLUS multi-line dialing (up to 4 concurrent lines), predictive dialer with AI-optimized pacing, connect rate analytics, priority queue. `subscription_tier = 'pro_dialer'`. Env var: `STRIPE_PRO_DIALER_PRICE_ID`
+- **Predictive Dialer**: $349.98/month — everything in Pro Dialer PLUS Erlang-C predictive pacing, TCPA auto-throttle (rolling 3% abandon rate), recipient timezone enforcement (area code → timezone lookup), agent state machine (Ready/Not Ready/Wrap-Up/Break), compliance dashboard, recording consent tracking (two-party consent states), callback queue with scheduled re-dials. `subscription_tier = 'predictive_dialer'`. Env var: `STRIPE_PREDICTIVE_DIALER_PRICE_ID`
 - **Agency Starter**: Agency owner + up to 14 sub-users, multi-tenant dashboard
 - **Agency Pro**: Agency owner + unlimited sub-users + dedicated queue + white-glove onboarding
 - **AI Minutes**: Add-on usage-based billing for AI voice processing
 
-Subscriptions managed via Stripe. Users without active subscriptions see a paywall on the dashboard.
+Subscriptions managed via Stripe. Users without active subscriptions see a paywall on the dashboard. Plan switching between Power Dialer, Pro Dialer, and Predictive Dialer is handled via `POST /change-plan` which calls `stripe.Subscription.modify()` with proration.

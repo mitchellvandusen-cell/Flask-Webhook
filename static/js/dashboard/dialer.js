@@ -22,20 +22,46 @@
         let dialerCallIdx = -1;
         let dialerPollTimer = null;
         let _dialerCallConnected = false;
+
+        // ── Multi-Line Dialer State ──
+        // Map<call_sid, {contact_id, phone, name, status, duration, dial_mode, attempt, line_index}>
+        let _multiLineActive = new Map();
+        let _multiLineEnabled = false;   // Set true when user has pro_dialer tier
+        let _multiLineMaxLines = 1;       // Default 1 (single line); up to 4 for pro_dialer
+        let _multiLinePollTimer = null;   // Interval for batch status polling
+        let _multiLineQueueIdx = -1;     // Current position in queue for multi-line
+        let _multiLineConnectedSid = null; // The call_sid the agent is currently talking to
+
+        // ── Predictive Dialer State ──
+        let _predictiveEnabled = false;
+        let _predictiveStats = null;     // {connect_rate, recommended_lines, dial_ratio}
+        let _predictiveAutoLines = 3;    // AI-recommended concurrent lines
         let dialerSearchTimer = null;
         let _dialerAllContacts = [];  // Full unfiltered contact list for local search
         let dialerActiveContact = null; // currently selected contact in middle panel
         let dialerPipelines = [];
         let _dialerFetchGen = 0;       // Generation counter to discard stale contact fetches
         let _dialerRefreshPoll = null;  // Interval ID for background refresh polling
-        let dialerMaxAttempts = (window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.dialMaxAttempts) || 2;
+        let dialerMaxAttempts = window.DASHBOARD_BOOT?.dialMaxAttempts ?? 2;
         // Enterprise dialer settings (loaded from voice_config via DASHBOARD_BOOT)
-        let _dialerRingTimeout = ((window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.ringTimeout) || 45) * 1000; // ms
-        let _dialerPauseBetween = ((window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.pauseBetween) ?? 1) * 1000; // ms
-        let _dialerRetryDelay = ((window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.retryDelay) || 2) * 1000; // ms
-        let _dialerMaxCallDuration = ((window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.maxCallDuration) || 0) * 60 * 1000; // ms (0=no limit)
-        let _dialerAutoCallback = (window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.autoCallback) || false;
+        let _dialerRingTimeout = (window.DASHBOARD_BOOT?.ringTimeout ?? 45) * 1000; // ms
+        let _dialerPauseBetween = (window.DASHBOARD_BOOT?.pauseBetween ?? 1) * 1000; // ms
+        let _dialerRetryDelay = (window.DASHBOARD_BOOT?.retryDelay ?? 2) * 1000; // ms
+        let _dialerMaxCallDuration = (window.DASHBOARD_BOOT?.maxCallDuration ?? 0) * 60 * 1000; // ms (0=no limit)
+        let _dialerAutoCallback = window.DASHBOARD_BOOT?.autoCallback ?? false;
         let _dialerCallDurationTimer = null; // Timer for max call duration enforcement
+        // Multi-line dialer settings (loaded from voice_config via DASHBOARD_BOOT)
+        let _dialerWrapUpTime = (window.DASHBOARD_BOOT?.wrapUpTime ?? 15) * 1000; // ms
+        let _dialerRequireDisposition = window.DASHBOARD_BOOT?.requireDisposition ?? true;
+        let _dialerAutoDispNoAnswer = window.DASHBOARD_BOOT?.autoDispositionNoAnswer ?? true;
+        let _dialerAutoDispVoicemail = window.DASHBOARD_BOOT?.autoDispositionVoicemail ?? true;
+        let _dialerOnMachineAction = window.DASHBOARD_BOOT?.onMachineAction ?? 'hangup';
+        let _dialerWrapUpTimer = null; // Timer for wrap-up countdown
+        let _dialerWrapUpActive = false; // Whether wrap-up is currently in progress
+        let _multiLineDialingInProgress = false; // Guard against concurrent multiLineDialBatch calls
+        let _multiLinePauseTimer = null; // Timer for pause-between-calls delay
+        let _multiLinePollErrors = 0; // Error counter for poll backoff
+        let _multiLineDispToastShown = false; // Debounce disposition toast
 
         // ── iPhone 15 Pro UI bridge ──
         let _iosCurrentApp = null;
@@ -3790,6 +3816,7 @@
         function dialerClearQueue() { if (dialerQueueRunning) return; dialerQueue = []; dialerCallIdx = -1; dialerRenderContacts(); dialerRenderQueue(); }
         function dialerUpdateBtn() {
             const btn = document.getElementById('dialerStartBtn');
+            if (!btn) return;
             if (dialerQueueRunning) { btn.innerHTML = '<i class="fa-solid fa-stop me-1"></i>Stop'; btn.style.background = 'linear-gradient(135deg,#ef4444,#cc3333)'; btn.style.color = '#fff'; }
             else { btn.innerHTML = '<i class="fa-solid fa-play me-1"></i>Auto-Dial'; btn.style.background = 'linear-gradient(135deg,var(--accent),#00b36b)'; btn.style.color = '#000'; }
         }
@@ -5755,7 +5782,7 @@
                 dialerTab.addEventListener('shown.bs.tab', _initSSENotifications);
                 dialerTab.addEventListener('click', function() { setTimeout(_initSSENotifications, 500); });
             }
-            const dialerPane = document.getElementById('dialer');
+            const dialerPane = document.getElementById('voicedialer');
             if (dialerPane && dialerPane.classList.contains('active')) {
                 setTimeout(_initSSENotifications, 1000);
             }
@@ -6139,5 +6166,913 @@
             const d = document.createElement('div');
             d.textContent = str;
             return d.innerHTML;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  MULTI-LINE DIALER ENGINE
+        //  Requires pro_dialer subscription tier.
+        //  Fires up to 4 concurrent Twilio calls via POST /voice/multi-dial
+        //  and polls all active calls via POST /voice/multi-status.
+        // ═══════════════════════════════════════════════════════════════
+
+        /**
+         * Initialize multi-line dialer on page load.
+         * Checks subscription tier and enables/disables multi-line UI.
+         */
+        async function multiLineInit() {
+            try {
+                const r = await fetch('/subscription-info');
+                if (!r.ok) return;
+                const info = await r.json();
+                const tier = info.tier || 'individual';
+                _multiLineEnabled = (tier === 'pro_dialer' || tier === 'predictive_dialer') || info.is_admin;
+                // Use user-configured max_lines_setting, capped by subscription tier
+                const configuredLines = window.DASHBOARD_BOOT?.maxLinesSetting ?? 3;
+                _multiLineMaxLines = _multiLineEnabled ? Math.min(info.max_lines || 4, configuredLines) : 1;
+
+                // Show/hide multi-line UI elements
+                const mlToggle = document.getElementById('multiLineToggle');
+                if (mlToggle) mlToggle.style.display = _multiLineEnabled ? 'flex' : 'none';
+
+                const mlBadge = document.getElementById('multiLineBadge');
+                if (mlBadge) {
+                    mlBadge.style.display = _multiLineEnabled ? 'inline-flex' : 'none';
+                    mlBadge.textContent = _multiLineEnabled ? 'PRO' : '';
+                }
+
+                // Show/hide multi-line settings section in settings panel
+                const mlSection = document.getElementById('multiLineSettingsSection');
+                if (mlSection) mlSection.style.display = _multiLineEnabled ? '' : 'none';
+                document.querySelectorAll('.multiline-setting').forEach(el => {
+                    el.style.display = _multiLineEnabled ? '' : 'none';
+                });
+
+                // Load predictive stats if multi-line enabled
+                if (_multiLineEnabled) {
+                    _predictiveEnabled = true;
+                    multiLineLoadPredictiveStats();
+                }
+            } catch (e) {
+                console.error('[MultiLine] Init failed:', e);
+            }
+        }
+
+        /**
+         * Load predictive dialing statistics from the server.
+         * Enhanced: supports Erlang-C metrics for predictive_dialer tier.
+         */
+        async function multiLineLoadPredictiveStats() {
+            try {
+                const r = await fetch('/voice/predictive-stats');
+                if (!r.ok) return;
+                _predictiveStats = await r.json();
+                _predictiveAutoLines = _predictiveStats.recommended_lines || 3;
+
+                // Update UI with predictive stats
+                const statsEl = document.getElementById('predictiveStatsPanel');
+                if (statsEl && _predictiveStats) {
+                    statsEl.style.display = 'block';
+                    const crEl = document.getElementById('predictiveConnectRate');
+                    const rlEl = document.getElementById('predictiveRecommendedLines');
+                    const drEl = document.getElementById('predictiveDialRatio');
+                    if (crEl) crEl.textContent = _predictiveStats.connect_rate + '%';
+                    if (rlEl) rlEl.textContent = _predictiveStats.recommended_lines;
+                    if (drEl) drEl.textContent = _predictiveStats.dial_ratio + ':1';
+
+                    // Show algorithm badge
+                    const algoEl = document.getElementById('predictiveAlgorithm');
+                    if (algoEl && _predictiveStats.algorithm === 'erlang_c') {
+                        algoEl.style.display = '';
+                        algoEl.textContent = 'Erlang-C';
+                    }
+
+                    // Show Erlang-C extended metrics
+                    const erlangEl = document.getElementById('erlangCMetrics');
+                    if (erlangEl && _predictiveStats.algorithm === 'erlang_c') {
+                        erlangEl.style.display = '';
+                        const arEl = document.getElementById('predictiveAbandonRate');
+                        const ecEl = document.getElementById('predictiveErlangC');
+                        const ttEl = document.getElementById('predictiveThrottleTag');
+                        if (arEl) {
+                            const rate = _predictiveStats.current_abandon_rate || 0;
+                            arEl.textContent = rate.toFixed(1) + '%';
+                            arEl.style.color = rate > 3 ? '#ef4444' : rate > 2 ? '#fbbf24' : '#4ade80';
+                        }
+                        if (ecEl) ecEl.textContent = (_predictiveStats.erlang_c_probability || 0).toFixed(3);
+                        if (ttEl) ttEl.style.display = _predictiveStats.throttled ? '' : 'none';
+                    }
+                }
+
+                // Load compliance & agent state for predictive_dialer tier
+                if (_predictiveStats.algorithm === 'erlang_c') {
+                    pdLoadCompliance();
+                    pdLoadAgentState();
+                    pdLoadCallbackQueue();
+                }
+            } catch (e) {
+                console.error('[MultiLine] Predictive stats load failed:', e);
+            }
+        }
+
+        // ═══ Predictive Dialer Enterprise Features ═══════════════════════════
+
+        /** Load TCPA compliance status */
+        async function pdLoadCompliance() {
+            try {
+                const r = await fetch('/voice/compliance');
+                if (!r.ok) return;
+                const d = await r.json();
+
+                const banner = document.getElementById('complianceBanner');
+                if (!banner) return;
+                banner.style.display = 'block';
+
+                const icon = document.getElementById('complianceIcon');
+                const label = document.getElementById('complianceLabel');
+                const rate = document.getElementById('complianceRate');
+                const score = document.getElementById('complianceScore');
+
+                if (d.tcpa?.critical) {
+                    banner.style.background = 'rgba(239,68,68,0.06)';
+                    banner.style.borderColor = 'rgba(239,68,68,0.2)';
+                    if (icon) icon.textContent = '\u26a0\ufe0f';
+                    if (label) { label.textContent = 'TCPA CRITICAL'; label.style.color = '#ef4444'; }
+                } else if (d.tcpa?.warning) {
+                    banner.style.background = 'rgba(251,191,36,0.06)';
+                    banner.style.borderColor = 'rgba(251,191,36,0.2)';
+                    if (icon) icon.textContent = '\u26a0\ufe0f';
+                    if (label) { label.textContent = 'TCPA WARNING'; label.style.color = '#fbbf24'; }
+                } else {
+                    banner.style.background = 'rgba(74,222,128,0.04)';
+                    banner.style.borderColor = 'rgba(74,222,128,0.12)';
+                    if (icon) icon.textContent = '\u2705';
+                    if (label) { label.textContent = 'TCPA COMPLIANT'; label.style.color = '#4ade80'; }
+                }
+                if (rate) rate.textContent = `Abandon: ${d.tcpa?.abandon_rate_30d ?? 0}% (30d) | ${d.tcpa?.abandon_rate_1h ?? 0}% (1h)`;
+                if (score) {
+                    score.textContent = `Score: ${d.compliance_score}/100`;
+                    score.style.color = d.compliance_score >= 80 ? '#4ade80' : d.compliance_score >= 50 ? '#fbbf24' : '#ef4444';
+                }
+            } catch (e) { console.error('[PD] Compliance load failed:', e); }
+        }
+
+        /** Load and render agent state */
+        async function pdLoadAgentState() {
+            try {
+                const r = await fetch('/voice/agent-state');
+                if (!r.ok) return;
+                const d = await r.json();
+
+                const panel = document.getElementById('agentStatePanel');
+                if (panel) panel.style.display = 'block';
+
+                const sel = document.getElementById('agentStateSelect');
+                const dot = document.getElementById('agentStateDot');
+                const dur = document.getElementById('agentStateDuration');
+                const wt = document.getElementById('agentWrapUpTimer');
+
+                const state = d.my_state?.state || 'ready';
+                if (sel) sel.value = state;
+
+                const colors = { ready: '#4ade80', on_call: '#3b82f6', wrap_up: '#ff6b35', not_ready: '#ef4444', break: '#fbbf24', extended_away: '#888' };
+                if (dot) dot.style.background = colors[state] || '#888';
+
+                if (dur && d.my_state?.duration_sec != null) {
+                    const mins = Math.floor(d.my_state.duration_sec / 60);
+                    const secs = d.my_state.duration_sec % 60;
+                    dur.textContent = `${mins}m ${secs}s`;
+                }
+                if (wt && d.my_state?.wrap_up_remaining_sec != null && state === 'wrap_up') {
+                    wt.style.display = '';
+                    wt.textContent = `Wrap-up: ${d.my_state.wrap_up_remaining_sec}s`;
+                } else if (wt) {
+                    wt.style.display = 'none';
+                }
+            } catch (e) { console.error('[PD] Agent state load failed:', e); }
+        }
+
+        /** Set agent state */
+        async function pdSetAgentState(state) {
+            try {
+                const r = await fetch('/voice/agent-state', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': typeof csrf_token !== 'undefined' ? csrf_token : '' },
+                    body: JSON.stringify({ state })
+                });
+                if (r.ok) pdLoadAgentState();
+            } catch (e) { console.error('[PD] Set agent state failed:', e); }
+        }
+
+        /** Load callback queue count */
+        async function pdLoadCallbackQueue() {
+            try {
+                const r = await fetch('/voice/callback-queue');
+                if (!r.ok) return;
+                const d = await r.json();
+
+                const banner = document.getElementById('callbackQueueBanner');
+                const countEl = document.getElementById('callbackQueueCount');
+                const dueEl = document.getElementById('callbackDueCount');
+
+                if (d.queue_size > 0 && banner) {
+                    banner.style.display = 'block';
+                    if (countEl) countEl.textContent = d.queue_size;
+                    if (dueEl && d.due_count > 0) {
+                        dueEl.style.display = '';
+                        dueEl.textContent = `${d.due_count} due`;
+                    } else if (dueEl) {
+                        dueEl.style.display = 'none';
+                    }
+                } else if (banner) {
+                    banner.style.display = 'none';
+                }
+            } catch (e) { console.error('[PD] Callback queue load failed:', e); }
+        }
+
+        /** Show callback queue details (placeholder — opens modal or panel) */
+        function pdShowCallbackQueue() {
+            _showDashToast(true, 'Callback queue panel coming soon');
+        }
+
+        /** Schedule a callback for a contact */
+        async function pdScheduleCallback(contactId, phone, name, delayMinutes = 30, reason = 'no_answer') {
+            try {
+                const r = await fetch('/voice/callback-queue', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': typeof csrf_token !== 'undefined' ? csrf_token : '' },
+                    body: JSON.stringify({ contact_id: contactId, phone, name, delay_minutes: delayMinutes, reason })
+                });
+                if (r.ok) {
+                    _showDashToast(true, `Callback scheduled in ${delayMinutes} min`);
+                    pdLoadCallbackQueue();
+                }
+            } catch (e) { console.error('[PD] Schedule callback failed:', e); }
+        }
+
+        /** Check recording consent for a contact and show banner if two-party state */
+        async function pdCheckRecordingConsent(phone) {
+            try {
+                const r = await fetch(`/voice/recording-consent?phone=${encodeURIComponent(phone)}`);
+                if (!r.ok) return;
+                const d = await r.json();
+                const banner = document.getElementById('recordingConsentBanner');
+                const stateEl = document.getElementById('consentStateName');
+                if (d.two_party_consent && banner) {
+                    banner.style.display = 'block';
+                    if (stateEl) stateEl.textContent = d.state || 'This state';
+                } else if (banner) {
+                    banner.style.display = 'none';
+                }
+            } catch (e) { /* silent */ }
+        }
+
+        /**
+         * Start multi-line queue dialing.
+         * Dials multiple contacts simultaneously from the queue.
+         */
+        async function multiLineStartQueue() {
+            if (!_multiLineEnabled) {
+                _showDashToast(false, 'Multi-line dialing requires Pro Dialer or Predictive Dialer plan');
+                return;
+            }
+            if (dialerQueue.length === 0) {
+                _showDashToast(false, 'Queue is empty');
+                return;
+            }
+
+            // Client-side calling hours check (server also enforces)
+            const B = window.DASHBOARD_BOOT || {};
+            const chStart = B.callingHoursStart || '08:00';
+            const chEnd = B.callingHoursEnd || '21:00';
+            if (chStart && chEnd) {
+                const now = new Date();
+                const nowMins = now.getHours() * 60 + now.getMinutes();
+                const [sh, sm] = chStart.split(':').map(Number);
+                const [eh, em] = chEnd.split(':').map(Number);
+                const startMins = sh * 60 + sm;
+                const endMins = eh * 60 + em;
+                let outsideHours;
+                if (endMins > startMins) {
+                    // Normal range (e.g., 08:00-21:00)
+                    outsideHours = nowMins < startMins || nowMins >= endMins;
+                } else {
+                    // Midnight wrap-around (e.g., 22:00-06:00): allowed if after start OR before end
+                    outsideHours = nowMins < startMins && nowMins >= endMins;
+                }
+                if (outsideHours) {
+                    _showDashToast(false, `Outside calling hours (${chStart}–${chEnd})`);
+                    return;
+                }
+            }
+
+            dialerQueueRunning = true;
+            _multiLineQueueIdx = 0;
+            dialerUpdateBtn();
+
+            // Auto-expand queue body
+            const qBody = document.getElementById('dialerQueueBody');
+            if (qBody) qBody.style.display = 'block';
+
+            // Dial first batch
+            await multiLineDialBatch();
+
+            // Start batch status polling (every 1.5s)
+            if (_multiLinePollTimer) clearInterval(_multiLinePollTimer);
+            _multiLinePollTimer = setInterval(multiLinePollAll, 1500);
+        }
+
+        /**
+         * Dial a batch of contacts from the queue.
+         * Picks the next N pending contacts where N = available lines.
+         */
+        async function multiLineDialBatch() {
+            if (!dialerQueueRunning) return;
+            if (_multiLineDialingInProgress) return; // Prevent concurrent batch dials
+            _multiLineDialingInProgress = true;
+
+            try {
+            // Collect pending contacts up to available lines
+            const activeCount = _multiLineActive.size;
+            const available = _multiLineMaxLines - activeCount;
+            if (available <= 0) return;
+
+            const pendingContacts = [];
+            for (let i = 0; i < dialerQueue.length && pendingContacts.length < available; i++) {
+                const item = dialerQueue[i];
+                if (item.status !== 'pending') continue;
+
+                // DnD check
+                const contactObj = dialerContacts.find(x => x.id === item.id) || _dialerAllContacts.find(x => x.id === item.id);
+                if (contactObj && _igbIsOptedOut(_igbEngagementCache[item.id], contactObj)) {
+                    item.status = 'skipped';
+                    continue;
+                }
+
+                if (!item.attempts) item.attempts = 0;
+                item.attempts++;
+                item.status = 'initiated';
+
+                pendingContacts.push({
+                    contact_id: item.id,
+                    phone: item.phone,
+                    first_name: item.firstName || item.name,
+                    dial_attempt: item.attempts
+                });
+            }
+
+            if (pendingContacts.length === 0) {
+                // Check if there are any active calls still running
+                if (_multiLineActive.size === 0) {
+                    multiLineStopQueue();
+                    _showDashToast(true, 'Queue complete');
+                }
+                return;
+            }
+
+            dialerRenderQueue();
+
+            try {
+                const r = await fetch('/voice/multi-dial', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contacts: pendingContacts,
+                        dial_mode: dialerMode,
+                        max_lines: _multiLineMaxLines
+                    })
+                });
+
+                if (!r.ok) {
+                    const err = await r.json().catch(() => ({}));
+                    if (err.upgrade_required) {
+                        _showDashToast(false, 'Upgrade to Pro Dialer for multi-line');
+                        multiLineStopQueue();
+                        return;
+                    }
+                    if (err.calling_hours_blocked) {
+                        _showDashToast(false, err.error || 'Outside calling hours');
+                        multiLineStopQueue();
+                        return;
+                    }
+                    console.error('[MultiLine] Dial batch failed:', err.error || r.status);
+                    // Mark failed contacts
+                    pendingContacts.forEach(pc => {
+                        const qi = dialerQueue.find(q => q.id === pc.contact_id);
+                        if (qi) qi.status = 'failed';
+                    });
+                    dialerRenderQueue();
+                    return;
+                }
+
+                const data = await r.json();
+                (data.results || []).forEach(result => {
+                    const qi = dialerQueue.find(q => q.id === result.contact_id);
+                    if (!qi) return;
+
+                    if (result.status === 'initiated' && result.call_sid) {
+                        qi.status = 'initiated';
+                        qi._call_sid = result.call_sid;
+                        _multiLineActive.set(result.call_sid, {
+                            contact_id: result.contact_id,
+                            phone: qi.phone,
+                            name: qi.name,
+                            status: 'initiated',
+                            duration: 0,
+                            dial_mode: dialerMode,
+                            attempt: qi.attempts
+                        });
+                    } else if (result.status === 'skipped' || result.status === 'error') {
+                        qi.status = result.status === 'skipped' ? 'skipped' : 'failed';
+                        qi._error = result.error;
+                    } else if (result.status === 'already_active') {
+                        qi.status = 'in-progress';
+                        qi._call_sid = result.call_sid;
+                    }
+                });
+
+                multiLineRenderBanner();
+                dialerRenderQueue();
+
+            } catch (e) {
+                console.error('[MultiLine] Dial batch network error:', e);
+                pendingContacts.forEach(pc => {
+                    const qi = dialerQueue.find(q => q.id === pc.contact_id);
+                    if (qi) qi.status = 'failed';
+                });
+                dialerRenderQueue();
+            }
+            } finally {
+                _multiLineDialingInProgress = false;
+            }
+        }
+
+        /**
+         * Poll status of all active multi-line calls.
+         */
+        async function multiLinePollAll() {
+            // If wrap-up timer is pending, don't advance — let it expire first
+            if (_dialerWrapUpTimer) return;
+
+            if (_multiLineActive.size === 0) {
+                // No active calls — try to dial more or stop
+                if (dialerQueueRunning) {
+                    const hasPending = dialerQueue.some(q => q.status === 'pending');
+                    if (hasPending) {
+                        await multiLineDialBatch();
+                    } else {
+                        multiLineStopQueue();
+                        _showDashToast(true, 'Queue complete — all contacts dialed');
+                    }
+                }
+                return;
+            }
+
+            const sids = Array.from(_multiLineActive.keys());
+
+            try {
+                const r = await fetch('/voice/multi-status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ call_sids: sids })
+                });
+                if (!r.ok) {
+                    _multiLinePollErrors++;
+                    console.warn('[MultiLine] Poll failed:', r.status, `(error ${_multiLinePollErrors})`);
+                    if (_multiLinePollErrors >= 10) {
+                        _showDashToast(false, 'Lost connection to server — stopping dialer');
+                        multiLineStopQueue();
+                    }
+                    return;
+                }
+                _multiLinePollErrors = 0; // Reset on success
+                const data = await r.json();
+                const statuses = data.statuses || {};
+
+                const terminalStatuses = new Set(['completed', 'busy', 'no-answer', 'failed', 'canceled', 'unknown', 'transferred']);
+                let anyTerminated = false;
+                let anyConnected = false;
+
+                for (const [sid, serverInfo] of Object.entries(statuses)) {
+                    const lineInfo = _multiLineActive.get(sid);
+                    if (!lineInfo) continue;
+
+                    const oldStatus = lineInfo.status;
+                    lineInfo.status = serverInfo.status;
+                    lineInfo.duration = serverInfo.duration || 0;
+
+                    // Update queue item status
+                    const qi = dialerQueue.find(q => q._call_sid === sid);
+                    if (qi) qi.status = serverInfo.status;
+
+                    // Detect connection (someone picked up)
+                    if (serverInfo.status === 'in-progress' && oldStatus !== 'in-progress') {
+                        anyConnected = true;
+                        // First connected call becomes the primary line
+                        if (!_multiLineConnectedSid) {
+                            _multiLineConnectedSid = sid;
+                            // Auto-select this contact in detail panel
+                            if (lineInfo.contact_id) {
+                                dialerSelectContact(lineInfo.contact_id);
+                                _jtcFlashContact(lineInfo.contact_id);
+                            }
+                        } else {
+                            // Additional lines connected — show notification
+                            _showDashToast(true, `${lineInfo.name || 'Contact'} picked up on line ${Array.from(_multiLineActive.keys()).indexOf(sid) + 1}`);
+                        }
+                    }
+
+                    // Handle terminal states
+                    if (terminalStatuses.has(serverInfo.status)) {
+                        anyTerminated = true;
+                        _multiLineActive.delete(sid);
+
+                        // Auto-disposition: set disposition automatically for no-answer/voicemail
+                        if (qi) {
+                            if (_dialerAutoDispNoAnswer && serverInfo.status === 'no-answer') {
+                                qi.disposition = 'no_answer';
+                            }
+                            if (_dialerAutoDispVoicemail && serverInfo.amd_result) {
+                                // Server sets amd_result='no-answer' for ALL AMD detections (machine_start, fax, etc.)
+                                // The field only exists when AMD was triggered, so its presence means voicemail
+                                qi.disposition = 'voicemail';
+                                qi.status = 'completed'; // AMD-detected VM
+                            }
+                        }
+
+                        // If this was the connected call, trigger wrap-up
+                        if (_multiLineConnectedSid === sid) {
+                            _multiLineConnectedSid = null;
+                            if (serverInfo.status === 'completed' && _dialerWrapUpTime > 0) {
+                                _dialerWrapUpActive = true;
+                            }
+                        }
+
+                        // Check retry logic (same as single-line: respects dialerMaxAttempts)
+                        if (qi && ['no-answer', 'busy', 'failed', 'canceled'].includes(serverInfo.status)) {
+                            if ((qi.attempts || 0) < dialerMaxAttempts) {
+                                qi.status = 'pending';
+                            }
+                        }
+                    }
+                }
+
+                multiLineRenderBanner();
+                dialerRenderQueue();
+
+                // If any calls terminated, try to dial more from queue
+                if (anyTerminated && dialerQueueRunning) {
+                    // If wrap-up is active, wait for wrap-up time before advancing
+                    if (_dialerWrapUpActive && _dialerWrapUpTime > 0) {
+                        _dialerWrapUpActive = false;
+                        if (_dialerWrapUpTimer) clearTimeout(_dialerWrapUpTimer);
+                        _dialerWrapUpTimer = setTimeout(() => {
+                            _dialerWrapUpTimer = null;
+                            if (!dialerQueueRunning) return;
+
+                            // If require_disposition is on, check that the last connected call was dispositioned
+                            if (_dialerRequireDisposition) {
+                                const undispositioned = dialerQueue.filter(q =>
+                                    q.status === 'completed' && !q.disposition
+                                );
+                                if (undispositioned.length > 0) {
+                                    if (!_multiLineDispToastShown) {
+                                        _showDashToast(false, 'Set disposition before next batch');
+                                        _multiLineDispToastShown = true;
+                                    }
+                                    return; // Poll will retry on next cycle
+                                }
+                            }
+                            _multiLineDispToastShown = false;
+
+                            const hasPending = dialerQueue.some(q => q.status === 'pending');
+                            if (hasPending) {
+                                multiLineDialBatch();
+                            } else if (_multiLineActive.size === 0) {
+                                multiLineStopQueue();
+                                _showDashToast(true, 'Queue complete — all contacts dialed');
+                            }
+                        }, _dialerWrapUpTime);
+                    } else {
+                        // Even without wrap-up, check disposition requirement
+                        if (_dialerRequireDisposition) {
+                            const undispositioned = dialerQueue.filter(q =>
+                                q.status === 'completed' && !q.disposition
+                            );
+                            if (undispositioned.length > 0) {
+                                if (!_multiLineDispToastShown) {
+                                    _showDashToast(false, 'Set disposition before next batch');
+                                    _multiLineDispToastShown = true;
+                                }
+                                return; // Poll will retry on next cycle
+                            }
+                        }
+                        _multiLineDispToastShown = false;
+                        const hasPending = dialerQueue.some(q => q.status === 'pending');
+                        if (hasPending) {
+                            // Use configured pause between calls — track timer for cleanup
+                            if (_multiLinePauseTimer) clearTimeout(_multiLinePauseTimer);
+                            _multiLinePauseTimer = setTimeout(() => { _multiLinePauseTimer = null; multiLineDialBatch(); }, _dialerPauseBetween || 1000);
+                        } else if (_multiLineActive.size === 0) {
+                            multiLineStopQueue();
+                            _showDashToast(true, 'Queue complete — all contacts dialed');
+                        }
+                    }
+                }
+
+            } catch (e) {
+                _multiLinePollErrors++;
+                console.error('[MultiLine] Poll error:', e, `(error ${_multiLinePollErrors})`);
+                if (_multiLinePollErrors >= 10) {
+                    _showDashToast(false, 'Lost connection to server — stopping dialer');
+                    multiLineStopQueue();
+                }
+            }
+        }
+
+        /**
+         * Stop multi-line queue and hang up all active calls.
+         */
+        function multiLineStopQueue() {
+            dialerQueueRunning = false;
+            _multiLineQueueIdx = -1;
+            _multiLineConnectedSid = null;
+            _dialerWrapUpActive = false;
+            _multiLineDialingInProgress = false;
+            _multiLinePollErrors = 0;
+            _multiLineDispToastShown = false;
+            if (_dialerWrapUpTimer) { clearTimeout(_dialerWrapUpTimer); _dialerWrapUpTimer = null; }
+            if (_multiLinePauseTimer) { clearTimeout(_multiLinePauseTimer); _multiLinePauseTimer = null; }
+            dialerUpdateBtn();
+
+            if (_multiLinePollTimer) {
+                clearInterval(_multiLinePollTimer);
+                _multiLinePollTimer = null;
+            }
+
+            // Hang up all active calls
+            if (_multiLineActive.size > 0) {
+                const sids = Array.from(_multiLineActive.keys());
+                _multiLineActive.clear();
+
+                fetch('/voice/multi-hangup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ call_sids: sids })
+                }).then(async r => {
+                    if (r.ok) {
+                        const d = await r.json();
+                        console.log('[MultiLine] Hung up', d.results?.length || 0, 'calls');
+                    }
+                }).catch(e => console.error('[MultiLine] Multi-hangup error:', e));
+            }
+
+            multiLineRenderBanner();
+            dialerRenderQueue();
+        }
+
+        /**
+         * Hang up a specific line in multi-line mode.
+         */
+        function multiLineHangupLine(callSid) {
+            const lineInfo = _multiLineActive.get(callSid);
+            _multiLineActive.delete(callSid);
+
+            if (_multiLineConnectedSid === callSid) {
+                _multiLineConnectedSid = null;
+            }
+
+            fetch('/voice/hangup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ call_sid: callSid })
+            }).catch(e => console.error('[MultiLine] Hangup line error:', e));
+
+            // Update queue item
+            const qi = dialerQueue.find(q => q._call_sid === callSid);
+            if (qi) qi.status = 'completed';
+
+            multiLineRenderBanner();
+            dialerRenderQueue();
+        }
+
+        /**
+         * Connect to a specific line (take over / listen to that call).
+         */
+        function multiLineConnectToLine(callSid) {
+            _multiLineConnectedSid = callSid;
+            const lineInfo = _multiLineActive.get(callSid);
+            if (lineInfo && lineInfo.contact_id) {
+                dialerSelectContact(lineInfo.contact_id);
+            }
+            multiLineRenderBanner();
+        }
+
+        /**
+         * Render the multi-line call banner showing all active lines.
+         */
+        function multiLineRenderBanner() {
+            const banner = document.getElementById('multiLineBanner');
+            if (!banner) return;
+
+            if (_multiLineActive.size === 0 && !dialerQueueRunning) {
+                banner.style.display = 'none';
+                return;
+            }
+
+            banner.style.display = 'block';
+
+            const lines = Array.from(_multiLineActive.entries());
+            const statusColors = {
+                'initiated': '#00d9ff',
+                'ringing': '#00d9ff',
+                'in-progress': '#4ade80',
+                'completed': '#666',
+                'busy': '#ffa500',
+                'no-answer': '#ffa500',
+                'failed': '#ef4444',
+            };
+
+            let html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
+            html += '<div style="font-size:0.82rem;font-weight:700;color:#fff;"><i class="fa-solid fa-phone-volume me-2" style="color:#ff6b35;"></i>Multi-Line Dialer';
+            html += '<span style="margin-left:8px;font-size:0.75rem;color:#888;">(' + lines.length + '/' + _multiLineMaxLines + ' lines)</span></div>';
+            html += '<button onclick="multiLineStopQueue()" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#ef4444;border-radius:6px;padding:3px 10px;font-size:0.75rem;font-weight:700;cursor:pointer;">Stop All</button>';
+            html += '</div>';
+
+            if (lines.length === 0 && dialerQueueRunning) {
+                html += '<div style="font-size:0.78rem;color:#888;text-align:center;padding:6px;">Dialing next batch...</div>';
+            }
+
+            lines.forEach(([sid, info], idx) => {
+                const color = statusColors[info.status] || '#888';
+                const isConnected = info.status === 'in-progress';
+                const isPrimary = sid === _multiLineConnectedSid;
+                const dur = info.duration ? Math.floor(info.duration / 60) + ':' + String(info.duration % 60).padStart(2, '0') : '';
+
+                html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;margin-bottom:3px;border-radius:8px;background:' +
+                    (isPrimary ? 'rgba(74,222,128,0.06)' : 'rgba(255,255,255,0.02)') +
+                    ';border:1px solid ' + (isPrimary ? 'rgba(74,222,128,0.15)' : 'rgba(255,255,255,0.04)') + ';">';
+
+                // Line number
+                html += '<span style="width:20px;height:20px;border-radius:50%;background:' + color + '20;color:' + color + ';display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:800;flex-shrink:0;">L' + (idx + 1) + '</span>';
+
+                // Contact name + status
+                html += '<div style="flex:1;min-width:0;">';
+                html += '<div style="font-size:0.82rem;font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(info.name || info.phone) + '</div>';
+                html += '<div style="font-size:0.72rem;color:' + color + ';">' + (info.status || 'unknown');
+                if (dur) html += ' &middot; ' + dur;
+                html += '</div></div>';
+
+                // Action buttons
+                if (isConnected && !isPrimary) {
+                    html += '<button onclick="multiLineConnectToLine(\'' + sid + '\')" style="background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);color:#4ade80;border-radius:5px;padding:2px 8px;font-size:0.72rem;cursor:pointer;" title="Switch to this line"><i class="fa-solid fa-headset"></i></button>';
+                }
+                if (isPrimary) {
+                    html += '<span style="font-size:0.68rem;color:#4ade80;font-weight:700;padding:2px 6px;">ACTIVE</span>';
+                }
+                html += '<button onclick="multiLineHangupLine(\'' + sid + '\')" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:#ef4444;border-radius:5px;padding:2px 8px;font-size:0.72rem;cursor:pointer;" title="Hang up this line"><i class="fa-solid fa-phone-slash"></i></button>';
+
+                html += '</div>';
+            });
+
+            banner.innerHTML = html;
+        }
+
+        /**
+         * Override dialerToggleQueue to support multi-line mode.
+         * If multi-line is enabled, use multi-line queue; otherwise use single-line.
+         */
+        const _originalDialerToggleQueue = dialerToggleQueue;
+        dialerToggleQueue = function() {
+            if (_multiLineEnabled && _multiLineMaxLines > 1) {
+                if (dialerQueueRunning) {
+                    multiLineStopQueue();
+                } else {
+                    // Reset pending items
+                    dialerQueue.forEach(q => {
+                        if (q.status !== 'completed' && q.status !== 'skipped') q.status = 'pending';
+                    });
+                    multiLineStartQueue();
+                }
+            } else {
+                _originalDialerToggleQueue();
+            }
+        };
+
+        // ═══════════════════════════════════════════════════════════════
+        //  BILLING PLAN MANAGEMENT (for billing tab)
+        // ═══════════════════════════════════════════════════════════════
+
+        let _billingCurrentTier = 'individual';
+        let _billingSelectedTier = null;
+
+        async function billingLoadPlanInfo() {
+            try {
+                const r = await fetch('/subscription-info');
+                if (!r.ok) return;
+                const info = await r.json();
+                _billingCurrentTier = info.tier || 'individual';
+
+                const planEl = document.getElementById('billingCurrentPlan');
+                if (planEl) {
+                    planEl.textContent = 'Current plan: ' + info.name + ' (' + info.price + ')';
+                }
+
+                // Highlight current plan card
+                const indCard = document.getElementById('billingPlanIndividual');
+                const proCard = document.getElementById('billingPlanProDialer');
+                const predCard = document.getElementById('billingPlanPredictiveDialer');
+                const indBadge = document.getElementById('billingBadgeIndividual');
+                const proBadge = document.getElementById('billingBadgeProDialer');
+                const predBadge = document.getElementById('billingBadgePredictiveDialer');
+
+                // Reset all cards
+                const allCards = [indCard, proCard, predCard];
+                const allBadges = [indBadge, proBadge, predBadge];
+                allCards.forEach(c => { if (c) c.style.borderColor = 'rgba(255,255,255,0.08)'; });
+                allBadges.forEach(b => { if (b) b.style.display = 'none'; });
+
+                if (_billingCurrentTier === 'predictive_dialer') {
+                    if (predCard) predCard.style.borderColor = 'rgba(139,92,246,0.4)';
+                    if (predBadge) predBadge.style.display = 'block';
+                } else if (_billingCurrentTier === 'pro_dialer') {
+                    if (proCard) proCard.style.borderColor = 'rgba(255,107,53,0.4)';
+                    if (proBadge) proBadge.style.display = 'block';
+                } else {
+                    if (indCard) indCard.style.borderColor = 'rgba(0,255,136,0.4)';
+                    if (indBadge) indBadge.style.display = 'block';
+                }
+            } catch (e) {
+                console.error('[Billing] Load plan info failed:', e);
+            }
+        }
+
+        function billingSelectPlan(tier) {
+            if (tier === _billingCurrentTier) {
+                _billingSelectedTier = null;
+                const btn = document.getElementById('billingChangePlanBtn');
+                if (btn) btn.style.display = 'none';
+                return;
+            }
+            _billingSelectedTier = tier;
+
+            const indCard = document.getElementById('billingPlanIndividual');
+            const proCard = document.getElementById('billingPlanProDialer');
+            const predCard = document.getElementById('billingPlanPredictiveDialer');
+            [indCard, proCard, predCard].forEach(c => { if (c) c.style.borderColor = 'rgba(255,255,255,0.08)'; });
+            if (tier === 'individual' && indCard) indCard.style.borderColor = 'rgba(0,255,136,0.4)';
+            if (tier === 'pro_dialer' && proCard) proCard.style.borderColor = 'rgba(255,107,53,0.4)';
+            if (tier === 'predictive_dialer' && predCard) predCard.style.borderColor = 'rgba(139,92,246,0.4)';
+
+            const btn = document.getElementById('billingChangePlanBtn');
+            if (btn) {
+                btn.style.display = 'inline-flex';
+                const tierNames = { individual: 'Power Dialer ($149.99/mo)', pro_dialer: 'Pro Dialer ($224.99/mo)', predictive_dialer: 'Predictive Dialer ($349.98/mo)' };
+                btn.innerHTML = '<i class="fa-solid fa-arrows-rotate me-2"></i>Switch to ' + (tierNames[tier] || tier);
+            }
+        }
+
+        async function billingChangePlan() {
+            if (!_billingSelectedTier || _billingSelectedTier === _billingCurrentTier) return;
+
+            const btn = document.getElementById('billingChangePlanBtn');
+            if (!btn) return;
+            const origHTML = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Changing plan...';
+
+            try {
+                const r = await fetch('/change-plan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target_tier: _billingSelectedTier })
+                });
+                let data;
+                try { data = await r.json(); } catch (_) { data = {}; }
+                if (r.ok && data.success) {
+                    _showDashToast(true, data.message || 'Plan changed successfully');
+                    _billingCurrentTier = _billingSelectedTier;
+                    _billingSelectedTier = null;
+                    btn.style.display = 'none';
+                    // Reload plan info
+                    billingLoadPlanInfo();
+                    // Re-init multi-line state
+                    multiLineInit();
+                } else {
+                    _showDashToast(false, data.error || 'Failed to change plan');
+                }
+            } catch (e) {
+                _showDashToast(false, 'Network error — plan change failed');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = origHTML;
+            }
+        }
+
+        // Auto-init on page load
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => { multiLineInit(); billingLoadPlanInfo(); });
+        } else {
+            multiLineInit();
+            billingLoadPlanInfo();
         }
 
