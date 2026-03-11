@@ -2202,13 +2202,13 @@
             if (_dlrAvailableChannels.includes('ghl')) {
                 var opt = document.createElement('option');
                 opt.value = 'ghl';
-                opt.textContent = 'LeadConnector';
+                opt.textContent = 'GHL';
                 sel.appendChild(opt);
             }
             if (_dlrAvailableChannels.includes('twilio')) {
                 var opt = document.createElement('option');
                 opt.value = 'twilio';
-                opt.textContent = 'InsuranceGrokBot (' + formatPhone(_dlrTwilioNumber) + ')';
+                opt.textContent = 'IGB ' + formatPhone(_dlrTwilioNumber);
                 sel.appendChild(opt);
             }
 
