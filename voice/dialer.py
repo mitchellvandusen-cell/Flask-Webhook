@@ -776,6 +776,19 @@ def dial_contact():
             finally:
                 return_db_connection(_dnd_conn)
 
+    # ── Cooldown / daily max enforcement (same as multi_dial) ──
+    if phone and location_id:
+        _cd_conn = get_db_connection()
+        if _cd_conn:
+            try:
+                blocked = _check_cooldown_and_daily_max(location_id, [phone], voice_config, _cd_conn)
+                if phone in blocked:
+                    return jsonify({"error": blocked[phone], "cooldown_blocked": True}), 400
+            except Exception as _cd_e:
+                logger.warning(f"Cooldown check failed (non-fatal): {_cd_e}")
+            finally:
+                return_db_connection(_cd_conn)
+
     if dial_mode == 'ai' and not voice_config.get('enabled'):
         return jsonify({"error": "Voice AI is not enabled. Enable it in the Voice tab."}), 400
 
@@ -961,8 +974,8 @@ def multi_dial():
                 )
                 dnd_contact_ids = {r['contact_id'] for r in _dnd_cur.fetchall()}
                 _dnd_cur.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Multi-dial DnD batch check failed: {e}")
             finally:
                 return_db_connection(_dnd_conn)
 
@@ -974,8 +987,8 @@ def multi_dial():
         if _cd_conn:
             try:
                 blocked_phones = _check_cooldown_and_daily_max(location_id, batch_phones, voice_config, _cd_conn)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Multi-dial cooldown batch check failed: {e}")
             finally:
                 return_db_connection(_cd_conn)
 
@@ -1167,11 +1180,12 @@ def multi_hangup():
         return jsonify({"error": "Database error"}), 500
     try:
         cur = conn.cursor()
-        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
+        cur.execute("SELECT location_id, voice_config FROM subscribers WHERE email = %s", (current_user.email,))
         row = cur.fetchone()
         cur.close()
         if not row:
             return jsonify({"error": "Account not found"}), 404
+        location_id = row['location_id']
         sub_sid = (row['voice_config'] or {}).get('twilio_sub_account_sid', '')
     finally:
         return_db_connection(conn)
@@ -1182,6 +1196,12 @@ def multi_hangup():
     results = []
     for sid in call_sids:
         try:
+            # Ownership check: only allow hanging up calls belonging to this location
+            call_info = active_calls.get(sid)
+            if call_info and call_info.get('_location_id') and call_info['_location_id'] != location_id:
+                results.append({"call_sid": sid, "success": False, "error": "Not your call"})
+                continue
+
             success = _twilio_hangup(sid, sub_sid)
             if sid in active_calls:
                 if success:
@@ -1211,10 +1231,30 @@ def multi_call_status():
     if not call_sids:
         return jsonify({"error": "No call_sids provided"}), 400
 
+    # Resolve caller's location_id for ownership filtering
+    _owner_location = None
+    _ms_conn = get_db_connection()
+    if _ms_conn:
+        try:
+            _ms_cur = _ms_conn.cursor()
+            _ms_cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+            _ms_row = _ms_cur.fetchone()
+            _ms_cur.close()
+            if _ms_row:
+                _owner_location = _ms_row['location_id']
+        except Exception:
+            pass
+        finally:
+            return_db_connection(_ms_conn)
+
     statuses = {}
     for sid in call_sids:
         if sid in active_calls:
             info = active_calls[sid]
+            # Ownership check: skip calls belonging to other locations
+            if _owner_location and info.get('_location_id') and info['_location_id'] != _owner_location:
+                statuses[sid] = {"status": "unknown"}
+                continue
             # Terminal state cleanup (same logic as single poll)
             if info["status"] in ("completed", "busy", "no-answer", "failed", "canceled", "transferred"):
                 poll_count = info.get('_terminal_polls', 0) + 1

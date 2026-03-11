@@ -460,6 +460,8 @@ class TCPAComplianceTracker:
                     ts = row["created_at"].timestamp() if row["created_at"] else time.time()
                     if status == "completed":
                         outcome = "answered"
+                    elif status == "abandoned":
+                        outcome = "abandoned"
                     elif status in ("no-answer", "busy", "failed", "canceled"):
                         outcome = "no_answer"
                     else:

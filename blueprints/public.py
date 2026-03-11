@@ -24,6 +24,16 @@ def home():
     return render_template('home.html')
 
 
+@public_bp.route("/for-agencies")
+def for_agencies():
+    return render_template('for-agencies.html')
+
+
+@public_bp.route("/for-individuals")
+def for_individuals():
+    return render_template('for-individuals.html')
+
+
 @public_bp.route("/comparison")
 def comparison():
     return render_template('comparison.html')
