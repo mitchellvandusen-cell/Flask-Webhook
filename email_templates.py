@@ -210,7 +210,7 @@ def _build_install_welcome_email(name: str, domain_url: str) -> str:
         </p>
         <p style="margin: 0; font-size: 14px; color: #ccc; line-height: 1.6;">
             <strong style="color: #fff;">1.</strong> Connect your CRM (click below)<br>
-            <strong style="color: #fff;">2.</strong> Subscribe ($149.99/mo &mdash; cancel anytime)<br>
+            <strong style="color: #fff;">2.</strong> Start free trial ($149.98/mo after 7 days &mdash; cancel anytime)<br>
             <strong style="color: #fff;">3.</strong> Set your password &amp; configure your dashboard
         </p>
         <p style="margin: 8px 0 0; font-size: 13px; color: #999;">
@@ -345,7 +345,7 @@ def _build_reminder_24h_email(name: str, domain_url: str, user_type: str, missin
         action_url = f"{domain_url}/oauth/initiate"
     elif "subscription" in missing:
         hero_subtitle = "Subscribe to activate your AI sales machine"
-        action_text = "Subscribe Now &mdash; $149.99/mo"
+        action_text = "Start Free Trial &mdash; $149.98/mo after"
         action_url = f"{domain_url}/checkout"
     else:
         hero_subtitle = "Complete your setup to start closing leads"
@@ -475,7 +475,7 @@ def _build_reminder_72h_email(name: str, domain_url: str, user_type: str, missin
         action_text = "Connect CRM & Go Live"
         action_url = f"{domain_url}/oauth/initiate"
     elif "subscription" in missing:
-        action_text = "Subscribe Now &mdash; $149.99/mo"
+        action_text = "Start Free Trial &mdash; $149.98/mo after"
         action_url = f"{domain_url}/checkout"
     else:
         action_text = "Complete Setup Now"
@@ -660,8 +660,8 @@ def _build_welcome_email(user_name: str, dashboard_link: str, domain_url: str) -
                             <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #00c853, #00e676); border-radius: 50%; text-align: center; line-height: 32px; color: #000; font-weight: 900; font-size: 15px;">1</div>
                         </td>
                         <td style="vertical-align: middle;">
-                            <a href="{checkout_url}" style="color: #00c853; font-weight: 700; text-decoration: none; font-size: 16px;">Subscribe &mdash; $149.99/mo</a>
-                            <div style="color: #888; font-size: 13px; margin-top: 2px;">Unlocks all features. Cancel anytime, no contracts.</div>
+                            <a href="{checkout_url}" style="color: #00c853; font-weight: 700; text-decoration: none; font-size: 16px;">Start Free Trial &mdash; $149.98/mo after</a>
+                            <div style="color: #888; font-size: 13px; margin-top: 2px;">7-day free trial. Cancel anytime, no contracts.</div>
                         </td>
                     </tr></table>
                 </td>
@@ -707,7 +707,7 @@ def _build_welcome_email(user_name: str, dashboard_link: str, domain_url: str) -
             </a>
         </td>
     </tr></table>
-    <p style="margin: 10px 0 0; font-size: 12px; color: #666;">$149.99/mo &bull; Cancel anytime &bull; No contracts</p>
+    <p style="margin: 10px 0 0; font-size: 12px; color: #666;">7-day free trial &bull; $149.98/mo after &bull; Cancel anytime</p>
 </td>
 </tr>
 

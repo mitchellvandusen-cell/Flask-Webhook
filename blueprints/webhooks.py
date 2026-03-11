@@ -571,7 +571,7 @@ def website_bot_webhook():
 
     if user_message == "pricing_individual" or (("price" in msg_lower or "cost" in msg_lower or "how much" in msg_lower) and "agency" not in msg_lower):
         return flask_jsonify({
-            "text": "$149.99/month. Unlimited conversations, full memory, all 5 sales methodologies, calendar auto-booking, underwriting logic, smart dialer, AI voice agent. No contracts, cancel anytime.",
+            "text": "$149.98/month with a 7-day free trial. Unlimited conversations, full memory, all 5 sales methodologies, calendar auto-booking, underwriting logic, smart dialer, AI voice agent. No contracts, cancel anytime.",
             "options": [
                 {"label": "Get started", "value": "signup_individual"},
                 {"label": "See it first",     "value": "demo"}
@@ -606,7 +606,7 @@ def website_bot_webhook():
 
     if "trial" in msg_lower or "free" in msg_lower:
         return flask_jsonify({
-            "text": "We don't offer a free trial, but you can try the full AI demo right now to see exactly how it works. No signup required for the demo. When you're ready, it's $149.99/month — cancel anytime, no contracts.",
+            "text": "Yes! Every plan includes a 7-day free trial — no charge until day 8. You can also try the full AI demo right now with no signup required. When you're ready, it's $149.98/month — cancel anytime, no contracts.",
             "options": [
                 {"label": "Try the demo",   "value": "demo"},
                 {"label": "Get started",    "value": "signup_individual"}
