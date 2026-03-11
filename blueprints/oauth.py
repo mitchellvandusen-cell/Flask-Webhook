@@ -752,6 +752,22 @@ def oauth_callback():
             if existing_by_location:
                 # Location already has a subscriber row — update tokens + crm_email.
                 # Never overwrite email (login identity) with CRM email.
+                #
+                # CRITICAL: Correct user_email to the subscriber's actual login email.
+                # When a non-logged-in user (marketplace install) connects OAuth, user_email
+                # is set from GHL's /users/ API (the CRM email, e.g. mitchvandusenlife@gmail.com).
+                # But the subscriber's login email may differ (e.g. mitchell_vandusen@hotmail.com).
+                # If we don't correct this, Step 9 calls User.get(crm_email) and may find a
+                # stale temp_* row from Stripe checkout, logging the user into the wrong account.
+                existing_login_email = existing_by_location['email']
+                if existing_login_email and existing_login_email != user_email:
+                    logger.info(
+                        f"Correcting user_email from CRM email {user_email!r} to "
+                        f"subscriber's login email {existing_login_email!r} "
+                        f"(existing subscriber found by location_id={primary_location_id})"
+                    )
+                    user_email = existing_login_email
+
                 cur.execute("""
                     UPDATE subscribers
                     SET crm_email = %s,
@@ -776,8 +792,24 @@ def oauth_callback():
                 ))
                 logger.info(
                     f"Synced OAuth tokens for existing location {primary_location_id} "
-                    f"(login: {existing_by_location['email']}, crm_email: {crm_email_resolved}, app_type={app_type})"
+                    f"(login: {user_email}, crm_email: {crm_email_resolved}, app_type={app_type})"
                 )
+
+                # Clean up any orphaned temp_* rows that share the CRM email.
+                # These are created by Stripe checkout before OAuth completes. Now that
+                # we've identified the real subscriber, the temp row is no longer needed
+                # and could cause User.get(crm_email) to return the wrong (token-less) account.
+                if crm_email_resolved and crm_email_resolved != user_email:
+                    cur.execute(
+                        "DELETE FROM subscribers WHERE email = %s AND location_id LIKE 'temp_%'",
+                        (crm_email_resolved,)
+                    )
+                    deleted = cur.rowcount
+                    if deleted:
+                        logger.info(
+                            f"Cleaned up {deleted} orphaned temp account(s) for CRM email "
+                            f"{crm_email_resolved!r} (real subscriber: {user_email!r})"
+                        )
             else:
                 # Location doesn't exist yet — check if email owns a different location
                 cur.execute(
