@@ -95,6 +95,7 @@ def god_mode_dashboard():
             'god_mode.html',
             all_users=all_users,
             impersonating=session.get('impersonating_as'),
+            mail_sender=os.getenv('MAIL_DEFAULT_SENDER', ''),
         )
     finally:
         return_db_connection(conn)

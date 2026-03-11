@@ -320,7 +320,11 @@
             <!-- From line (read-only info) -->
             <div style="background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.12);border-radius:9px;padding:10px 14px;font-size:0.82rem;">
                 <span style="color:#555;">From:</span>
-                <span style="color:#00ff88;font-weight:700;margin-left:6px;">InsuranceGrokBot &lt;noreply@insurancegrokbot.click&gt;</span>
+                {% if mail_sender %}
+                <span style="color:#00ff88;font-weight:700;margin-left:6px;">InsuranceGrokBot &lt;{{ mail_sender }}&gt;</span>
+                {% else %}
+                <span style="color:#ffa500;font-weight:700;margin-left:6px;">⚠ MAIL_DEFAULT_SENDER not set in .env</span>
+                {% endif %}
                 <span style="color:#444;margin-left:8px;">→</span>
                 <span style="color:#aaa;margin-left:8px;">Every subscriber in the database</span>
             </div>
