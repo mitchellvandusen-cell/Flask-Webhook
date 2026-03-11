@@ -603,14 +603,14 @@ def sync_ghl_phone_numbers(location_id, access_token=None):
     headers = _get_headers(access_token)
     numbers = []
 
-    # GHL V2 phone number endpoints to try in order.
-    # Confirmed 404s: /phone-numbers, /phone-numbers/search, /locations/{id}/phoneNumbers
-    # GHL docs URL pattern: docs/ghl/phone-system/active-numbers →  /phone-system/active-numbers
-    # GHL docs URL pattern: docs/ghl/phone-system/phone-numbers  →  /phone-system/phone-numbers
-    # Last resort: /locations/{id} (locations.read — always granted) — returns main location phone.
+    # GHL V2 phone number endpoint — locationId must be IN THE PATH, not a query param.
+    # Trying in order:
+    # 1. UI-pattern: /location/{id}/phone-system/phone-numbers  (mirrors GHL UI URL structure)
+    # 2. SDK-confirmed: /phone-system/numbers/location/{id}     (from official GHL TS SDK)
+    # 3. Fallback: /locations/{id}  (locations.read scope — always granted, returns profile phone)
     endpoint_configs = [
-        (f"{GHL_BASE}/phone-system/active-numbers", {"locationId": location_id, "limit": 100}),
-        (f"{GHL_BASE}/phone-system/phone-numbers",  {"locationId": location_id, "limit": 100}),
+        (f"{GHL_BASE}/location/{location_id}/phone-system/phone-numbers", {"pageSize": 100}),
+        (f"{GHL_BASE}/phone-system/numbers/location/{location_id}", {"pageSize": 100}),
         (f"{GHL_BASE}/locations/{location_id}", {}),   # fallback: locations.read scope
     ]
 
@@ -642,14 +642,16 @@ def sync_ghl_phone_numbers(location_id, access_token=None):
                 for n in raw_numbers:
                     if not isinstance(n, dict):
                         continue
+                    # SDK shape: phoneNumber, friendlyName, sid, capabilities{voice,SMS,MMS}
+                    caps = n.get("capabilities") or {}
                     numbers.append({
                         "number": n.get("phoneNumber") or n.get("number") or n.get("phone", ""),
-                        "ghl_id": n.get("id", ""),
-                        "name": n.get("name") or n.get("friendlyName", ""),
+                        "ghl_id": n.get("sid") or n.get("id", ""),
+                        "name": n.get("friendlyName") or n.get("name", ""),
                         "capabilities": {
-                            "sms": n.get("smsEnabled", True),
-                            "voice": n.get("voiceEnabled", True),
-                            "mms": n.get("mmsEnabled", False),
+                            "sms": caps.get("SMS", caps.get("sms", n.get("smsEnabled", True))),
+                            "voice": caps.get("voice", n.get("voiceEnabled", True)),
+                            "mms": caps.get("MMS", caps.get("mms", n.get("mmsEnabled", False))),
                         },
                         "source": "ghl",
                     })
