@@ -885,3 +885,136 @@ def _build_agency_invite_html(agent_name: str, agency_name: str,
     )
 
     return html_body, text_body
+
+
+def build_app_update_email(domain_url: str, update_notes: str = "") -> tuple:
+    """
+    Email sent to all subscribers when a new InsuranceGrokBot version is
+    published to the GHL Marketplace and users need to accept updated permissions.
+
+    Returns (html_body, text_body).
+    """
+    notes_block = ""
+    if update_notes:
+        notes_block = f"""
+<!-- What's New -->
+<tr>
+<td style="padding: 0 40px 28px;">
+    <div style="background: rgba(0,200,83,0.06); border: 1px solid rgba(0,200,83,0.15); border-radius: 14px; padding: 20px 24px;">
+        <p style="margin: 0 0 10px; font-size: 13px; font-weight: 700; color: #00c853; text-transform: uppercase; letter-spacing: 0.5px;">What's New in This Update</p>
+        <p style="margin: 0; font-size: 15px; color: #c8d6e5; line-height: 1.7;">{update_notes}</p>
+    </div>
+</td>
+</tr>
+"""
+
+    inner_html = f"""
+<!-- Hero -->
+<tr>
+<td align="center" style="padding: 10px 40px 28px;">
+    <div style="display: inline-block; background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.25); border-radius: 50px; padding: 7px 18px; margin-bottom: 18px;">
+        <span style="font-size: 12px; font-weight: 700; color: #a5b4fc; text-transform: uppercase; letter-spacing: 1px;">App Update Available</span>
+    </div>
+    <h1 style="margin: 0 0 12px; font-size: 28px; font-weight: 800; color: #ffffff; line-height: 1.25;">A New Version of InsuranceGrokBot<br>is Ready to Install</h1>
+    <p style="margin: 0; font-size: 16px; color: #8892a4; line-height: 1.6;">We've pushed an update to the GoHighLevel Marketplace. To keep your bot running with the latest features and fixes, please update the app in your Lead Connector account — it only takes 30 seconds.</p>
+</td>
+</tr>
+
+{notes_block}
+
+<!-- Steps -->
+<tr>
+<td style="padding: 0 40px 32px;">
+    <p style="margin: 0 0 16px; font-size: 14px; font-weight: 700; color: #ffffff; text-transform: uppercase; letter-spacing: 0.5px;">How to Update — Follow These Steps</p>
+
+    <!-- Step 1 -->
+    <table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 10px;">
+    <tr>
+        <td width="40" valign="top" style="padding-top: 2px;">
+            <div style="width: 28px; height: 28px; background: linear-gradient(135deg,#3b82f6,#6366f1); border-radius: 50%; text-align: center; line-height: 28px; font-size: 13px; font-weight: 800; color: #fff;">1</div>
+        </td>
+        <td style="padding-left: 10px;">
+            <p style="margin: 0; font-size: 15px; color: #e2e8f0; line-height: 1.5;"><strong style="color:#ffffff;">Log into Lead Connector</strong><br><span style="color:#8892a4;font-size:13px;">Go to <a href="https://app.leadconnectorhq.com" style="color:#00c853;text-decoration:none;">app.leadconnectorhq.com</a> and sign in to your account.</span></p>
+        </td>
+    </tr>
+    </table>
+
+    <!-- Step 2 -->
+    <table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 10px;">
+    <tr>
+        <td width="40" valign="top" style="padding-top: 2px;">
+            <div style="width: 28px; height: 28px; background: linear-gradient(135deg,#3b82f6,#6366f1); border-radius: 50%; text-align: center; line-height: 28px; font-size: 13px; font-weight: 800; color: #fff;">2</div>
+        </td>
+        <td style="padding-left: 10px;">
+            <p style="margin: 0; font-size: 15px; color: #e2e8f0; line-height: 1.5;"><strong style="color:#ffffff;">Go to App Marketplace</strong><br><span style="color:#8892a4;font-size:13px;">In the left sidebar, click <strong style="color:#c8d6e5;">App Marketplace</strong>.</span></p>
+        </td>
+    </tr>
+    </table>
+
+    <!-- Step 3 -->
+    <table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 10px;">
+    <tr>
+        <td width="40" valign="top" style="padding-top: 2px;">
+            <div style="width: 28px; height: 28px; background: linear-gradient(135deg,#3b82f6,#6366f1); border-radius: 50%; text-align: center; line-height: 28px; font-size: 13px; font-weight: 800; color: #fff;">3</div>
+        </td>
+        <td style="padding-left: 10px;">
+            <p style="margin: 0; font-size: 15px; color: #e2e8f0; line-height: 1.5;"><strong style="color:#ffffff;">Go to Installed Apps</strong><br><span style="color:#8892a4;font-size:13px;">Click the <strong style="color:#c8d6e5;">Installed Apps</strong> tab at the top of the Marketplace page.</span></p>
+        </td>
+    </tr>
+    </table>
+
+    <!-- Step 4 -->
+    <table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 10px;">
+    <tr>
+        <td width="40" valign="top" style="padding-top: 2px;">
+            <div style="width: 28px; height: 28px; background: linear-gradient(135deg,#3b82f6,#6366f1); border-radius: 50%; text-align: center; line-height: 28px; font-size: 13px; font-weight: 800; color: #fff;">4</div>
+        </td>
+        <td style="padding-left: 10px;">
+            <p style="margin: 0; font-size: 15px; color: #e2e8f0; line-height: 1.5;"><strong style="color:#ffffff;">Select InsuranceGrokBot</strong><br><span style="color:#8892a4;font-size:13px;">Find <strong style="color:#c8d6e5;">InsuranceGrokBot</strong> in your installed apps list and click on it.</span></p>
+        </td>
+    </tr>
+    </table>
+
+    <!-- Step 5 -->
+    <table cellpadding="0" cellspacing="0" width="100%">
+    <tr>
+        <td width="40" valign="top" style="padding-top: 2px;">
+            <div style="width: 28px; height: 28px; background: linear-gradient(135deg,#00c853,#00e676); border-radius: 50%; text-align: center; line-height: 28px; font-size: 13px; font-weight: 800; color: #000;">5</div>
+        </td>
+        <td style="padding-left: 10px;">
+            <p style="margin: 0; font-size: 15px; color: #e2e8f0; line-height: 1.5;"><strong style="color:#ffffff;">Click Update</strong><br><span style="color:#8892a4;font-size:13px;">Click the <strong style="color:#00c853;">Update</strong> button to accept the latest version. That's it — your bot will continue running automatically.</span></p>
+        </td>
+    </tr>
+    </table>
+</td>
+</tr>
+
+<!-- Help -->
+<tr>
+<td style="padding: 0 40px 36px;">
+    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 18px 22px; text-align: center;">
+        <p style="margin: 0; font-size: 14px; color: #8892a4; line-height: 1.6;">Questions or trouble updating? Reply to this email or visit your dashboard at <a href="{domain_url}/dashboard" style="color: #00c853; text-decoration: none;">{domain_url}/dashboard</a>.</p>
+    </div>
+</td>
+</tr>
+"""
+
+    html_body = _email_wrapper(inner_html, domain_url)
+
+    text_body = (
+        "InsuranceGrokBot — App Update Available\n\n"
+        "A new version of InsuranceGrokBot has been published to the GoHighLevel Marketplace.\n"
+        "Please update the app in Lead Connector to stay current.\n\n"
+        + (f"What's New:\n{update_notes}\n\n" if update_notes else "")
+        + "How to Update:\n"
+        "1. Log into Lead Connector at https://app.leadconnectorhq.com\n"
+        "2. Go to App Marketplace (left sidebar)\n"
+        "3. Click the Installed Apps tab\n"
+        "4. Find InsuranceGrokBot and click on it\n"
+        "5. Click Update\n\n"
+        "Questions? Reply to this email or visit your dashboard:\n"
+        f"{domain_url}/dashboard\n\n"
+        "- InsuranceGrokBot Team"
+    )
+
+    return html_body, text_body
