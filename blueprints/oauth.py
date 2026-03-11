@@ -801,7 +801,7 @@ def oauth_callback():
                 # and could cause User.get(crm_email) to return the wrong (token-less) account.
                 if crm_email_resolved and crm_email_resolved != user_email:
                     cur.execute(
-                        "DELETE FROM subscribers WHERE email = %s AND location_id LIKE 'temp_%'",
+                        "DELETE FROM subscribers WHERE email = %s AND location_id LIKE 'temp_%%'",
                         (crm_email_resolved,)
                     )
                     deleted = cur.rowcount
