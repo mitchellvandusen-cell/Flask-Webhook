@@ -603,70 +603,32 @@ def sync_ghl_phone_numbers(location_id, access_token=None):
     headers = _get_headers(access_token)
     numbers = []
 
-    # GHL V2 phone number endpoint — try multiple path variations in order.
-    endpoint_configs = [
-        (f"{GHL_BASE}/location/{location_id}/phone-numbers",              {"pageSize": 100}),
-        (f"{GHL_BASE}/location/{location_id}/phone-system/phone-numbers", {"pageSize": 100}),
-        (f"{GHL_BASE}/{location_id}/phone-numbers",                       {"pageSize": 100}),
-        (f"{GHL_BASE}/{location_id}/phone-system/phone-numbers",          {"pageSize": 100}),
-        (f"{GHL_BASE}/phone-system/numbers/location/{location_id}",       {"pageSize": 100}),  # official SDK
-        (f"{GHL_BASE}/locations/{location_id}", {}),   # fallback: locations.read scope
-    ]
-
-    for idx, (url, params) in enumerate(endpoint_configs, 1):
-        logger.info(f"[GHL_SYNC] phone_numbers attempt {idx}/{len(endpoint_configs)}: GET {url} params={params or {}}")
-        data, err = _api_get(url, headers, params=params or None)
-        if err:
-            logger.warning(f"[GHL_SYNC] phone_numbers attempt {idx} FAILED ({err}): {url}")
-            continue
-
-        logger.info(f"[GHL_SYNC] phone_numbers attempt {idx} HTTP OK — top-level keys: {list(data.keys()) if isinstance(data, dict) else type(data).__name__}")
-
-        if data:
-            # /locations/{id} returns a location wrapper — pull the main phone from it.
-            # Tag as "location_fallback" so callers can detect that phonenumbers.read
-            # scope is missing and prompt the user to reconnect OAuth.
-            loc_obj = data.get("location")
-            if loc_obj and isinstance(loc_obj, dict) and not data.get("phoneNumbers") and not data.get("numbers"):
-                phone = loc_obj.get("phone") or loc_obj.get("twilioNumber") or loc_obj.get("phoneNumber")
-                logger.info(f"[GHL_SYNC] phone_numbers attempt {idx} — location_fallback branch, phone={phone!r}")
-                if phone:
-                    numbers.append({
-                        "number": phone,
-                        "ghl_id": loc_obj.get("id", ""),
-                        "name": loc_obj.get("name") or "Business Profile Number",
-                        "capabilities": {"sms": True, "voice": True, "mms": False},
-                        "source": "location_fallback",
-                    })
-                    logger.info(f"[GHL_SYNC] phone_numbers ✅ WIN via location_fallback (attempt {idx}): {url} → {phone}")
-                    break
-                logger.warning(f"[GHL_SYNC] phone_numbers attempt {idx} — location object found but no phone field, skipping")
-                continue
-
-            raw_numbers = data.get("phoneNumbers", data.get("numbers", []))
-            logger.info(f"[GHL_SYNC] phone_numbers attempt {idx} — raw_numbers type={type(raw_numbers).__name__} count={len(raw_numbers) if isinstance(raw_numbers, list) else 'N/A'}")
-            if isinstance(raw_numbers, list):
-                for n in raw_numbers:
-                    if not isinstance(n, dict):
-                        continue
-                    # SDK shape: phoneNumber, friendlyName, sid, capabilities{voice,SMS,MMS}
-                    caps = n.get("capabilities") or {}
-                    numbers.append({
-                        "number": n.get("phoneNumber") or n.get("number") or n.get("phone", ""),
-                        "ghl_id": n.get("sid") or n.get("id", ""),
-                        "name": n.get("friendlyName") or n.get("name", ""),
-                        "capabilities": {
-                            "sms": caps.get("SMS", caps.get("sms", n.get("smsEnabled", True))),
-                            "voice": caps.get("voice", n.get("voiceEnabled", True)),
-                            "mms": caps.get("MMS", caps.get("mms", n.get("mmsEnabled", False))),
-                        },
-                        "source": "ghl",
-                    })
-                if numbers:
-                    logger.info(f"[GHL_SYNC] phone_numbers ✅ WIN (attempt {idx}): {url} → {len(numbers)} number(s): {[n['number'] for n in numbers]}")
-                    break
-                else:
-                    logger.warning(f"[GHL_SYNC] phone_numbers attempt {idx} — response had empty phoneNumbers/numbers list: {url}")
+    url = f"{GHL_BASE}/phone-system/numbers/location/{location_id}"
+    data, err = _api_get(url, headers, params={"pageSize": 100})
+    if err:
+        logger.warning(f"[GHL_SYNC] phone_numbers FAILED ({err}): {url}")
+    elif data:
+        raw_numbers = data.get("numbers", data.get("phoneNumbers", []))
+        if isinstance(raw_numbers, list):
+            for n in raw_numbers:
+                if not isinstance(n, dict):
+                    continue
+                caps = n.get("capabilities") or {}
+                numbers.append({
+                    "number": n.get("phoneNumber") or n.get("number") or n.get("phone", ""),
+                    "ghl_id": n.get("sid") or n.get("id", ""),
+                    "name": n.get("friendlyName") or n.get("name", ""),
+                    "capabilities": {
+                        "sms": caps.get("SMS", caps.get("sms", n.get("smsEnabled", True))),
+                        "voice": caps.get("voice", n.get("voiceEnabled", True)),
+                        "mms": caps.get("MMS", caps.get("mms", n.get("mmsEnabled", False))),
+                    },
+                    "source": "ghl",
+                })
+            if numbers:
+                logger.info(f"[GHL_SYNC] phone_numbers ✅ {url} → {len(numbers)} number(s): {[n['number'] for n in numbers]}")
+            else:
+                logger.warning(f"[GHL_SYNC] phone_numbers — empty numbers list: {url}")
 
     # Store in voice_config['ghl_numbers']
     if numbers:
