@@ -604,6 +604,8 @@ def change_plan():
             return flask_jsonify({"error": "No active subscription found"}), 400
 
         subscription = subscriptions.data[0]
+        if not subscription['items']['data']:
+            return flask_jsonify({"error": "Subscription has no line items"}), 400
         sub_item_id = subscription['items']['data'][0]['id']
 
         # Update subscription to the new price
@@ -623,6 +625,7 @@ def change_plan():
         # Update local DB
         conn = get_db_connection()
         if conn:
+            cur = None
             try:
                 cur = conn.cursor()
                 cur.execute(
@@ -638,10 +641,11 @@ def change_plan():
                 except Exception:
                     pass
             finally:
-                try:
-                    cur.close()
-                except Exception:
-                    pass
+                if cur:
+                    try:
+                        cur.close()
+                    except Exception:
+                        pass
                 return_db_connection(conn)
 
         tier_names = {

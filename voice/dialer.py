@@ -822,6 +822,25 @@ def multi_dial():
     contacts_to_dial = contacts[:available_lines]
     results = []
 
+    # Batch DnD check — single query for all contacts
+    dnd_contact_ids = set()
+    batch_cids = [c.get('contact_id', '') for c in contacts_to_dial if c.get('contact_id')]
+    if batch_cids and location_id:
+        _dnd_conn = get_db_connection()
+        if _dnd_conn:
+            try:
+                _dnd_cur = _dnd_conn.cursor()
+                _dnd_cur.execute(
+                    "SELECT contact_id FROM contact_cache WHERE location_id = %s AND contact_id = ANY(%s) AND dnd = true",
+                    (location_id, batch_cids)
+                )
+                dnd_contact_ids = {r['contact_id'] for r in _dnd_cur.fetchall()}
+                _dnd_cur.close()
+            except Exception:
+                pass
+            finally:
+                return_db_connection(_dnd_conn)
+
     for contact in contacts_to_dial:
         c_phone = contact.get('phone', '')
         c_name = contact.get('first_name', 'there')
@@ -832,25 +851,10 @@ def multi_dial():
             results.append({"contact_id": c_id, "call_sid": None, "status": "error", "error": "No phone number"})
             continue
 
-        # DnD check
-        if c_id and location_id:
-            _dnd_conn = get_db_connection()
-            if _dnd_conn:
-                try:
-                    _dnd_cur = _dnd_conn.cursor()
-                    _dnd_cur.execute(
-                        "SELECT dnd FROM contact_cache WHERE location_id = %s AND contact_id = %s",
-                        (location_id, c_id)
-                    )
-                    _dnd_row = _dnd_cur.fetchone()
-                    _dnd_cur.close()
-                    if _dnd_row and _dnd_row.get("dnd"):
-                        results.append({"contact_id": c_id, "call_sid": None, "status": "skipped", "error": "Do Not Contact"})
-                        continue
-                except Exception:
-                    pass
-                finally:
-                    return_db_connection(_dnd_conn)
+        # DnD check (from batch query above)
+        if c_id in dnd_contact_ids:
+            results.append({"contact_id": c_id, "call_sid": None, "status": "skipped", "error": "Do Not Contact"})
+            continue
 
         # Max attempts guard
         max_attempts = int(voice_config.get('dial_attempts', 2))
