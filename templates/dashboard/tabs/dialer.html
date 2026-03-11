@@ -727,6 +727,18 @@
                             <i class="fa-solid fa-headset me-1"></i>Human
                         </button>
                     </div>
+                    <!-- Multi-Line Badge (shown for pro_dialer tier) -->
+                    <span id="multiLineBadge" style="display:none;background:linear-gradient(135deg,#ff6b35,#ff3366);color:#fff;font-size:0.68rem;font-weight:800;padding:3px 8px;border-radius:5px;letter-spacing:0.5px;">PRO</span>
+                    <!-- Multi-Line Toggle (shown for pro_dialer tier) -->
+                    <div id="multiLineToggle" style="display:none;align-items:center;gap:6px;">
+                        <span style="font-size:0.78rem;color:#888;">Lines:</span>
+                        <select id="multiLineCount" onchange="_multiLineMaxLines=parseInt(this.value)" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:5px;padding:2px 6px;font-size:0.82rem;font-weight:700;">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3" selected>3</option>
+                            <option value="4">4</option>
+                        </select>
+                    </div>
                     <!-- AI Call Timer -->
                     <div id="dialerAiTimer" style="display:none;font-family:monospace;font-size:1rem;color:var(--accent);font-weight:700;">00:00</div>
                     <div id="voipStatus" style="display:none;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);border-radius:6px;padding:3px 8px;font-size:0.82rem;color:var(--accent);font-weight:600;">
@@ -806,6 +818,19 @@
                             <button onclick="dialerSetDisposition('hung_up')" class="disp-btn" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#ccc;border-radius:5px;padding:3px 10px;font-size:0.85rem;cursor:pointer;">Hung Up</button>
                         </div>
                         <button onclick="dialerDismissDisposition()" style="background:none;border:none;color:#555;cursor:pointer;font-size:0.75rem;"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                </div>
+
+                <!-- Multi-Line Dialer Banner -->
+                <div id="multiLineBanner" style="display:none;background:rgba(255,107,53,0.04);border:1px solid rgba(255,107,53,0.15);border-radius:10px;padding:10px 14px;margin-bottom:10px;"></div>
+
+                <!-- Predictive Dialer Stats Panel -->
+                <div id="predictiveStatsPanel" style="display:none;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:10px 14px;margin-bottom:10px;">
+                    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                        <div style="font-size:0.78rem;font-weight:700;color:#ff6b35;"><i class="fa-solid fa-chart-line me-1"></i>Predictive</div>
+                        <div style="font-size:0.75rem;color:#aaa;">Connect Rate: <span id="predictiveConnectRate" style="color:#fff;font-weight:700;">--</span></div>
+                        <div style="font-size:0.75rem;color:#aaa;">AI Lines: <span id="predictiveRecommendedLines" style="color:#ff6b35;font-weight:700;">--</span></div>
+                        <div style="font-size:0.75rem;color:#aaa;">Ratio: <span id="predictiveDialRatio" style="color:#fff;font-weight:700;">--</span></div>
                     </div>
                 </div>
 

@@ -112,6 +112,7 @@ All queues are defined in `extensions.py` and initialized via `ensure_redis()`. 
 - `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`
 - `STRIPE_WEBHOOK_SECRET` — For validating Stripe webhook events
 - `STRIPE_PRICE_ID` — Individual plan price ID
+- `STRIPE_PRO_DIALER_PRICE_ID` — Pro Dialer plan price ID ($224.99/mo)
 - `STRIPE_AGENCY_STARTER_PRICE_ID`, `STRIPE_AGENCY_PRO_PRICE_ID`
 - `AI_MINUTES_PRICE_ID_500`, `AI_MINUTES_PRICE_ID_2000`, `AI_MINUTES_PRICE_ID_5000`, `AI_MINUTES_PRICE_ID_10000` — Usage-based AI minutes packages
 
@@ -330,6 +331,18 @@ All tables created in `db.py`'s `init_db()` function:
 - `GET /voice/contact-intelligence-bulk?ids=<csv>` — Bulk cached AI intelligence for Smart Filters (zero AI cost, reads from cache only). Returns `{cached: {id: {temperature, score, summary}}, uncached: [ids]}`
 - `POST /voice/contact-intelligence-analyze` — Batch-analyze uncached contacts via AI (up to 5 per request). Body: `{contact_ids: [...]}`
 
+### Multi-Line Dialer (Blueprint, voice/dialer.py)
+- `POST /voice/multi-dial` — Initiate up to 4 concurrent calls (Pro Dialer tier required). Body: `{contacts: [{contact_id, phone, first_name}], dial_mode, max_lines}`
+- `GET /voice/active-lines` — Current active call lines count and details for the user
+- `POST /voice/multi-hangup` — Hang up multiple active calls at once. Body: `{call_sids: [...]}`
+- `POST /voice/multi-status` — Batch poll status of multiple calls. Body: `{call_sids: [...]}`
+- `GET /voice/predictive-stats` — 7-day predictive dialing analytics (connect rate, recommended lines, dial ratio)
+
+### Billing / Plan Management
+- `GET /checkout/pro-dialer` — Pro Dialer plan checkout ($224.99/mo)
+- `POST /change-plan` — Switch between Power Dialer and Pro Dialer plans (Stripe proration). Body: `{target_tier: "individual"|"pro_dialer"}`
+- `GET /subscription-info` — Current subscription tier, max lines, features (JSON)
+
 ### A2P 10DLC (Blueprint, voice_bridge.py)
 - `GET /voice/a2p/status` — Current A2P registration state from voice_config JSONB
 - `POST /voice/a2p/register-brand` — Submit brand for Twilio A2P vetting (sub-users gated by payment)
@@ -362,9 +375,52 @@ When a GHL webhook arrives at `POST /webhook`:
 - **Flask Blueprint** `voice_bp` mounted in main.py
 - Bidirectional WebSocket bridge: Twilio mulaw 8kHz ↔ xAI PCM 16kHz
 - Audio pipeline: soxr resampling + audioop mulaw/PCM conversion + scipy Butterworth EQ
-- In-memory call tracking: `_active_calls`, `_transfer_requests`, `_call_listeners`
+- In-memory call tracking: `active_calls`, `transfer_requests`, `call_listeners`
 - Supports real-time voice AI conversations using xAI's Realtime API
 - A2P 10DLC registration routes for brand/campaign compliance (see A2P 10DLC section below)
+
+---
+
+## Multi-Line Dialer (voice/dialer.py)
+
+### What It Is
+Enterprise multi-line power dialer that allows Pro Dialer subscribers ($224.99/mo) to initiate up to 4 concurrent outbound calls simultaneously. Includes predictive dialing that uses AI-calculated dial ratios based on historical connect rates.
+
+### Architecture
+- **Subscription gating**: `POST /voice/multi-dial` checks `subscription_tier == 'pro_dialer'` or admin status before allowing multi-line calls
+- **Backend**: All multi-line routes in `voice/dialer.py` — `multi_dial()`, `get_active_lines()`, `multi_hangup()`, `multi_call_status()`, `predictive_stats()`
+- **Frontend**: Multi-line engine in `static/js/dashboard/dialer.js` — `_multiLineActive` Map tracks concurrent calls, `multiLineDialBatch()` fires batches, `multiLinePollAll()` batch-polls status
+- **In-memory tracking**: Uses same `active_calls` dict as single-line; multi-line calls tagged with `_multi_line: True`
+- **Predictive pacing**: `GET /voice/predictive-stats` calculates connect rate from 7-day call history, recommends optimal line count (1-4)
+
+### Key Routes
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `POST /voice/multi-dial` | POST | Initiate up to 4 concurrent calls |
+| `GET /voice/active-lines` | GET | Current active lines count + details |
+| `POST /voice/multi-hangup` | POST | Hang up multiple calls at once |
+| `POST /voice/multi-status` | POST | Batch poll status of multiple calls |
+| `GET /voice/predictive-stats` | GET | 7-day connect rate, recommended lines, dial ratio |
+
+### Predictive Dialer Algorithm
+1. Query `call_history` for last 7 days of calls
+2. Calculate connect rate: `connected_calls / total_calls * 100`
+3. Compute dial ratio: `min(4.0, max(1.0, 100 / connect_rate))`
+4. Recommend lines: `round(dial_ratio)`, capped at 4
+5. Lower connect rate → more simultaneous lines → higher throughput
+
+### Frontend State
+- `_multiLineActive` (Map) — tracks all concurrent call SIDs with contact info
+- `_multiLineEnabled` (bool) — set from subscription tier check on page load
+- `_multiLineMaxLines` (int) — max concurrent lines (1 for individual, 4 for pro_dialer)
+- `_multiLineConnectedSid` (string) — which call the agent is currently interacting with
+- `_predictiveStats` (object) — cached predictive analytics from server
+
+### Plan Switching
+- `POST /change-plan` — Stripe subscription modification with proration
+- `GET /subscription-info` — Returns tier, max_lines, features for billing UI
+- Dashboard billing tab shows both plans with "Change Plan" button
+- Plan change updates `subscription_tier` in DB and triggers frontend re-init
 
 ---
 
@@ -699,9 +755,10 @@ python worker.py website demo              # GHL sync, backfill, demo chat
 
 ## Subscription Tiers
 
-- **Individual Plan**: $149.99/month — single agency user, all features included (AI texting, smart dialer, AI voice, lead intelligence, Smart Filters, unlimited minutes, 5 sales frameworks). No contracts, cancel anytime. No free trial.
+- **Power Dialer (Individual)**: $149.99/month — single-line dialing, AI texting, AI voice, lead intelligence, Smart Filters, unlimited minutes, 5 sales frameworks. No contracts, cancel anytime. `subscription_tier = 'individual'`
+- **Pro Dialer**: $224.99/month — everything in Power Dialer PLUS multi-line dialing (up to 4 concurrent lines), predictive dialer with AI-optimized pacing, connect rate analytics, priority queue. `subscription_tier = 'pro_dialer'`. Env var: `STRIPE_PRO_DIALER_PRICE_ID`
 - **Agency Starter**: Agency owner + up to 14 sub-users, multi-tenant dashboard
 - **Agency Pro**: Agency owner + unlimited sub-users + dedicated queue + white-glove onboarding
 - **AI Minutes**: Add-on usage-based billing for AI voice processing
 
-Subscriptions managed via Stripe. Users without active subscriptions see a paywall on the dashboard.
+Subscriptions managed via Stripe. Users without active subscriptions see a paywall on the dashboard. Plan switching between Power Dialer and Pro Dialer is handled via `POST /change-plan` which calls `stripe.Subscription.modify()` with proration.

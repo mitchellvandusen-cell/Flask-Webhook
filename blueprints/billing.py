@@ -27,7 +27,7 @@ from flask import (Blueprint, redirect, request, render_template_string,
 from flask import jsonify as flask_jsonify
 from flask_login import login_required, login_user, current_user
 
-from extensions import YOUR_DOMAIN, safe_jsonify
+from extensions import YOUR_DOMAIN, safe_jsonify, ADMIN_EMAILS
 from db import (
     get_db_connection, return_db_connection, User,
     get_ai_minute_balance, get_ai_minute_purchases,
@@ -293,6 +293,67 @@ def checkout():
                            f"Error Code: {e}")
 
 
+@billing_bp.route("/checkout/pro-dialer")
+def checkout_pro_dialer():
+    """Pro Dialer plan checkout — multi-line dialing + predictive features."""
+    try:
+        price_id = os.getenv("STRIPE_PRO_DIALER_PRICE_ID")
+        if not price_id:
+            logger.error("STRIPE_PRO_DIALER_PRICE_ID environment variable is not set!")
+            return _error_page(
+                "Configuration Error",
+                "The Pro Dialer price ID is not configured. Please contact support.",
+                "Error Code: MISSING_PRICE_ID"
+            )
+
+        customer_email = current_user.email if current_user.is_authenticated else None
+        logger.info(f"Creating Pro Dialer checkout with price_id: {price_id}")
+
+        checkout_params = dict(
+            payment_method_types=["card"],
+            mode="subscription",
+            line_items=[{"price": price_id, "quantity": 1}],
+            allow_promotion_codes=True,
+            customer_email=customer_email,
+            metadata={
+                "user_email": customer_email,
+                "target_role": "individual",
+                "target_tier": "pro_dialer",
+                "source": "website"
+            },
+            subscription_data={
+                "trial_period_days": 7,
+                "metadata": {
+                    "user_email": customer_email,
+                    "target_role": "individual",
+                    "target_tier": "pro_dialer"
+                },
+            },
+            success_url=f"{YOUR_DOMAIN}/success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{YOUR_DOMAIN}/cancel",
+        )
+
+        referral = request.args.get("referral", "").strip()
+        if referral:
+            checkout_params["client_reference_id"] = referral
+
+        session = stripe.checkout.Session.create(**checkout_params)
+        return redirect(session.url, code=303)
+
+    except stripe.error.InvalidRequestError as e:
+        logger.error(f"Stripe Invalid Request Error (Pro Dialer): {e}")
+        return _error_page(
+            "Stripe Configuration Error",
+            "There's an issue with the payment configuration. Please contact support.",
+            f"Error: {e}"
+        )
+    except Exception as e:
+        logger.error(f"Pro Dialer checkout error: {e}")
+        return _error_page("Checkout Error",
+                           "Unable to create checkout session. Please contact support.",
+                           f"Error Code: {e}")
+
+
 @billing_bp.route("/checkout/agency-starter")
 def checkout_agency_starter():
     """
@@ -489,6 +550,146 @@ def create_portal_session():
         logger.error(f"Portal error: {e}")
         flash("Unable to open billing portal", "error")
         return redirect("/dashboard")
+
+
+# ── Plan switching ────────────────────────────────────────────────────────────
+
+@billing_bp.route("/change-plan", methods=["POST"])
+@login_required
+def change_plan():
+    """
+    Change subscription plan. Creates a new Stripe checkout session
+    with the target plan, managing the transition through Stripe's
+    subscription update flow.
+    """
+    data = request.get_json(silent=True) or {}
+    target_tier = data.get("target_tier", "")
+
+    tier_to_price = {
+        "individual": os.getenv("STRIPE_PRICE_ID"),
+        "pro_dialer": os.getenv("STRIPE_PRO_DIALER_PRICE_ID"),
+    }
+
+    if target_tier not in tier_to_price:
+        return flask_jsonify({"error": f"Unknown plan: {target_tier}"}), 400
+
+    # Guard: prevent no-op plan change to same tier
+    current_tier = current_user.subscription_tier or 'individual'
+    if target_tier == current_tier:
+        return flask_jsonify({"error": "Already on this plan", "current_tier": current_tier}), 400
+
+    price_id = tier_to_price[target_tier]
+    if not price_id:
+        return flask_jsonify({"error": f"Price not configured for {target_tier}"}), 500
+
+    if not current_user.stripe_customer_id:
+        return flask_jsonify({"error": "No active subscription to change"}), 400
+
+    try:
+        # Get current subscription
+        subscriptions = stripe.Subscription.list(
+            customer=current_user.stripe_customer_id,
+            status='active',
+            limit=1
+        )
+        if not subscriptions.data:
+            # Try trialing
+            subscriptions = stripe.Subscription.list(
+                customer=current_user.stripe_customer_id,
+                status='trialing',
+                limit=1
+            )
+
+        if not subscriptions.data:
+            return flask_jsonify({"error": "No active subscription found"}), 400
+
+        subscription = subscriptions.data[0]
+        sub_item_id = subscription['items']['data'][0]['id']
+
+        # Update subscription to the new price
+        stripe.Subscription.modify(
+            subscription.id,
+            items=[{
+                'id': sub_item_id,
+                'price': price_id,
+            }],
+            proration_behavior='create_prorations',
+            metadata={
+                'target_tier': target_tier,
+                'changed_at': datetime.utcnow().isoformat(),
+            }
+        )
+
+        # Update local DB
+        conn = get_db_connection()
+        if conn:
+            try:
+                cur = conn.cursor()
+                cur.execute(
+                    "UPDATE subscribers SET subscription_tier = %s, updated_at = NOW() WHERE email = %s",
+                    (target_tier, current_user.email)
+                )
+                conn.commit()
+                logger.info(f"Plan changed to {target_tier} for {current_user.email}")
+            except Exception as db_err:
+                logger.error(f"Plan change DB update failed: {db_err}")
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+            finally:
+                try:
+                    cur.close()
+                except Exception:
+                    pass
+                return_db_connection(conn)
+
+        tier_names = {
+            "individual": "Power Dialer ($149.99/mo)",
+            "pro_dialer": "Pro Dialer ($224.99/mo)",
+        }
+        return flask_jsonify({
+            "success": True,
+            "new_tier": target_tier,
+            "message": f"Plan changed to {tier_names.get(target_tier, target_tier)}"
+        })
+
+    except stripe.error.InvalidRequestError as e:
+        logger.error(f"Stripe plan change error: {e}")
+        return flask_jsonify({"error": "Unable to change plan. Please contact support."}), 500
+    except Exception as e:
+        logger.error(f"Plan change error: {e}")
+        return flask_jsonify({"error": str(e)}), 500
+
+
+@billing_bp.route("/subscription-info")
+@login_required
+def subscription_info():
+    """Return current subscription tier info for the dashboard billing UI."""
+    tier = current_user.subscription_tier or 'individual'
+    is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+
+    tier_info = {
+        "individual": {
+            "name": "Power Dialer",
+            "price": "$149.99/mo",
+            "max_lines": 1,
+            "features": ["Single-line dialing", "AI Texting", "AI Voice Agent", "Smart Filters", "Lead Intelligence"],
+        },
+        "pro_dialer": {
+            "name": "Pro Dialer",
+            "price": "$224.99/mo",
+            "max_lines": 4,
+            "features": ["Multi-line dialing (up to 4)", "Predictive dialer", "AI Texting", "AI Voice Agent", "Smart Filters", "Lead Intelligence", "Priority queue"],
+        },
+    }
+
+    info = tier_info.get(tier, tier_info["individual"])
+    return flask_jsonify({
+        "tier": tier,
+        "is_admin": is_admin,
+        **info
+    })
 
 
 # ── AI Minutes ────────────────────────────────────────────────────────────────

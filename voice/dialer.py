@@ -16,14 +16,20 @@ from db import get_db_connection, return_db_connection, log_webhook_event
 from ghl_api import get_valid_token
 from number_health import select_outbound_number
 from voice.audio import XAI_API_KEY, VOICE_OPTIONS, DEFAULT_VOICE, _generate_voice_preview, _pcm16_to_wav
-from voice.call_state import active_calls
+from voice.call_state import active_calls, transfer_requests, _twilio_hangup
 from voice.helpers import _get_subscriber_by_location, _get_current_subscriber_voice
-from voice.call_history_helpers import save_call_to_history
+from voice.call_history_helpers import save_call_to_history, update_call_history_status
+from extensions import ADMIN_EMAILS
 
 logger = logging.getLogger("voice_bridge.dialer")
 
 dialer_bp = Blueprint('voice_dialer', __name__)
 
+
+def _check_multi_line_access(subscriber):
+    """Check if subscriber has multi-line dialer access."""
+    tier = subscriber.get('subscription_tier', 'individual')
+    return tier == 'pro_dialer'
 
 
 @dialer_bp.route('/voice/test', methods=['POST'])
@@ -750,3 +756,369 @@ def dial_contact():
     except Exception as e:
         logger.error(f"Dialer call failed: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@dialer_bp.route('/voice/multi-dial', methods=['POST'])
+@login_required
+def multi_dial():
+    """
+    Multi-line dialer: initiate up to N concurrent calls.
+    Requires 'pro_dialer' subscription tier.
+    Returns list of {contact_id, call_sid, status, error} per line.
+    """
+    data = request.json or {}
+    contacts = data.get('contacts', [])  # [{contact_id, phone, first_name}]
+    dial_mode = data.get('dial_mode', 'ai')
+    max_lines = int(data.get('max_lines', 3))
+
+    if not contacts:
+        return jsonify({"error": "No contacts provided"}), 400
+    if max_lines < 1 or max_lines > 4:
+        return jsonify({"error": "max_lines must be 1-4"}), 400
+
+    # ── Subscription tier gate ──
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return jsonify({"error": "Account not found"}), 404
+        subscriber = dict(row)
+    finally:
+        return_db_connection(conn)
+
+    tier = subscriber.get('subscription_tier', 'individual')
+    is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+    if tier != 'pro_dialer' and not is_admin:
+        return jsonify({"error": "Multi-line dialer requires Pro Dialer subscription", "upgrade_required": True}), 403
+
+    location_id = subscriber.get('location_id', '')
+    voice_config = subscriber.get('voice_config') or {}
+
+    if dial_mode == 'ai' and not voice_config.get('enabled'):
+        return jsonify({"error": "Voice AI is not enabled"}), 400
+
+    sub_sid = voice_config.get('twilio_sub_account_sid', '')
+    from_number = voice_config.get('twilio_phone_number', '')
+
+    if not sub_sid or not from_number:
+        return jsonify({"error": "Voice service not fully provisioned"}), 400
+
+    # Enforce max concurrent lines already active for this location
+    active_for_location = sum(
+        1 for sid, info in active_calls.items()
+        if info.get('_location_id') == location_id
+        and info.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')
+    )
+    available_lines = max(0, max_lines - active_for_location)
+    if available_lines == 0:
+        return jsonify({"error": f"All {max_lines} lines are busy", "active_lines": active_for_location}), 429
+
+    # Limit contacts to available lines
+    contacts_to_dial = contacts[:available_lines]
+    results = []
+
+    for contact in contacts_to_dial:
+        c_phone = contact.get('phone', '')
+        c_name = contact.get('first_name', 'there')
+        c_id = contact.get('contact_id', '')
+        c_attempt = int(contact.get('dial_attempt', 1))
+
+        if not c_phone:
+            results.append({"contact_id": c_id, "call_sid": None, "status": "error", "error": "No phone number"})
+            continue
+
+        # DnD check
+        if c_id and location_id:
+            _dnd_conn = get_db_connection()
+            if _dnd_conn:
+                try:
+                    _dnd_cur = _dnd_conn.cursor()
+                    _dnd_cur.execute(
+                        "SELECT dnd FROM contact_cache WHERE location_id = %s AND contact_id = %s",
+                        (location_id, c_id)
+                    )
+                    _dnd_row = _dnd_cur.fetchone()
+                    _dnd_cur.close()
+                    if _dnd_row and _dnd_row.get("dnd"):
+                        results.append({"contact_id": c_id, "call_sid": None, "status": "skipped", "error": "Do Not Contact"})
+                        continue
+                except Exception:
+                    pass
+                finally:
+                    return_db_connection(_dnd_conn)
+
+        # Max attempts guard
+        max_attempts = int(voice_config.get('dial_attempts', 2))
+        if c_attempt > max_attempts:
+            results.append({"contact_id": c_id, "call_sid": None, "status": "skipped", "error": "Max attempts exceeded"})
+            continue
+
+        # Double-dial guard per phone
+        existing_sid = None
+        for sid, info in list(active_calls.items()):
+            if (info.get('phone') == c_phone
+                    and info.get('_location_id') == location_id
+                    and info.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')):
+                existing_sid = sid
+                break
+        if existing_sid:
+            results.append({"contact_id": c_id, "call_sid": existing_sid, "status": "already_active", "error": None})
+            continue
+
+        # Smart number rotation
+        rotation_result = select_outbound_number(location_id, voice_config, dest_phone=c_phone)
+        call_from = rotation_result["phone"] if rotation_result else from_number
+
+        use_amd = True if dial_mode == 'ai' else voice_config.get('use_amd', False)
+
+        try:
+            host = request.host
+            webhook_base_url = f"https://{host}"
+            custom_params = {
+                'location_id': location_id,
+                'caller': call_from,
+                'called': c_phone,
+                'direction': 'outbound',
+                'contact_id': c_id,
+                'contact_name': c_name,
+                'dial_mode': dial_mode,
+            }
+            ring_timeout = voice_config.get('ring_timeout', 45)
+            result = twilio_provisioning.create_outbound_call(
+                sub_account_sid=sub_sid,
+                to=c_phone,
+                from_number=call_from,
+                webhook_base_url=webhook_base_url,
+                machine_detection='DetectMessageEnd' if use_amd else None,
+                custom_params=custom_params,
+                ring_timeout=ring_timeout,
+            )
+            call_sid = result.get('call_sid', '')
+
+            active_calls[call_sid] = {
+                "status": "initiated",
+                "duration": 0,
+                "contact_id": c_id,
+                "phone": c_phone,
+                "name": c_name,
+                "dial_mode": dial_mode,
+                "attempt": c_attempt,
+                "_location_id": location_id,
+                "_sub_sid": sub_sid,
+                "_host": request.host,
+                "_from_number": call_from,
+                "_multi_line": True,
+            }
+
+            save_call_to_history(
+                location_id=location_id,
+                call_sid=call_sid,
+                phone=c_phone,
+                contact_id=c_id,
+                contact_name=c_name,
+                direction='outbound',
+                status='initiated'
+            )
+
+            logger.info(f"Multi-dial [{dial_mode}]: {call_from} -> {c_phone} ({c_name}) attempt={c_attempt} sid={call_sid}")
+            results.append({"contact_id": c_id, "call_sid": call_sid, "status": "initiated", "error": None})
+
+        except Exception as e:
+            logger.error(f"Multi-dial failed for {c_phone}: {e}")
+            results.append({"contact_id": c_id, "call_sid": None, "status": "error", "error": str(e)})
+
+    return jsonify({
+        "results": results,
+        "active_lines": active_for_location + sum(1 for r in results if r["status"] == "initiated"),
+        "max_lines": max_lines
+    })
+
+
+@dialer_bp.route('/voice/active-lines', methods=['GET'])
+@login_required
+def get_active_lines():
+    """Return count and details of currently active call lines for this user."""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id, subscription_tier FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return jsonify({"error": "Account not found"}), 404
+        location_id = row['location_id']
+        tier = row['subscription_tier']
+    finally:
+        return_db_connection(conn)
+
+    is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+    max_lines = 4 if (tier == 'pro_dialer' or is_admin) else 1
+
+    lines = []
+    for sid, info in list(active_calls.items()):
+        if (info.get('_location_id') == location_id
+                and info.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')):
+            lines.append({
+                "call_sid": sid,
+                "contact_id": info.get("contact_id"),
+                "phone": info.get("phone"),
+                "name": info.get("name"),
+                "status": info.get("status"),
+                "duration": info.get("duration", 0),
+                "dial_mode": info.get("dial_mode"),
+            })
+
+    return jsonify({
+        "lines": lines,
+        "active_count": len(lines),
+        "max_lines": max_lines,
+        "tier": tier
+    })
+
+
+@dialer_bp.route('/voice/multi-hangup', methods=['POST'])
+@login_required
+def multi_hangup():
+    """Hang up multiple active calls at once."""
+    data = request.json or {}
+    call_sids = data.get('call_sids', [])
+    if not call_sids:
+        return jsonify({"error": "No call_sids provided"}), 400
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return jsonify({"error": "Account not found"}), 404
+        sub_sid = (row['voice_config'] or {}).get('twilio_sub_account_sid', '')
+    finally:
+        return_db_connection(conn)
+
+    if not sub_sid:
+        return jsonify({"error": "Voice not provisioned"}), 400
+
+    results = []
+    for sid in call_sids:
+        try:
+            success = _twilio_hangup(sid, sub_sid)
+            if sid in active_calls:
+                active_calls[sid]['status'] = 'completed'
+            transfer_requests.pop(sid, None)
+            try:
+                update_call_history_status(sid, 'completed', 0)
+            except Exception:
+                pass
+            results.append({"call_sid": sid, "success": success})
+        except Exception as e:
+            logger.error(f"Multi-hangup failed for {sid}: {e}")
+            results.append({"call_sid": sid, "success": False, "error": str(e)})
+
+    return jsonify({"results": results})
+
+
+@dialer_bp.route('/voice/multi-status', methods=['POST'])
+@login_required
+def multi_call_status():
+    """Poll status of multiple calls at once (reduces HTTP overhead for multi-line)."""
+    data = request.json or {}
+    call_sids = data.get('call_sids', [])
+    if not call_sids:
+        return jsonify({"error": "No call_sids provided"}), 400
+
+    statuses = {}
+    for sid in call_sids:
+        if sid in active_calls:
+            info = active_calls[sid]
+            # Terminal state cleanup (same logic as single poll)
+            if info["status"] in ("completed", "busy", "no-answer", "failed", "canceled", "transferred"):
+                poll_count = info.get('_terminal_polls', 0) + 1
+                info['_terminal_polls'] = poll_count
+                if poll_count >= 20:
+                    status_copy = dict(info)
+                    del active_calls[sid]
+                    statuses[sid] = status_copy
+                    continue
+            statuses[sid] = dict(info)
+        else:
+            statuses[sid] = {"status": "unknown"}
+
+    return jsonify({"statuses": statuses})
+
+
+@dialer_bp.route('/voice/predictive-stats', methods=['GET'])
+@login_required
+def predictive_stats():
+    """
+    Return predictive dialing statistics for the current user.
+    Used to calculate optimal dial ratio and pacing.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        if not row:
+            return jsonify({"error": "Account not found"}), 404
+        location_id = row['location_id']
+
+        # Get recent call stats for predictive calculations
+        cur.execute("""
+            SELECT
+                COUNT(*) as total_calls,
+                COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) as connected_calls,
+                COUNT(*) FILTER (WHERE status IN ('no-answer', 'busy', 'failed', 'canceled')) as failed_calls,
+                AVG(duration) FILTER (WHERE status = 'completed' AND duration > 0) as avg_duration,
+                AVG(duration) FILTER (WHERE status = 'completed' AND duration > 30) as avg_talk_time
+            FROM call_history
+            WHERE location_id = %s
+            AND created_at > NOW() - INTERVAL '7 days'
+        """, (location_id,))
+        stats_row = cur.fetchone()
+        cur.close()
+
+        total = stats_row['total_calls'] or 0
+        connected = stats_row['connected_calls'] or 0
+        failed = stats_row['failed_calls'] or 0
+        avg_duration = float(stats_row['avg_duration'] or 0)
+        avg_talk_time = float(stats_row['avg_talk_time'] or 0)
+
+        # Calculate connect rate and recommended dial ratio
+        connect_rate = (connected / total * 100) if total > 0 else 0
+        # Predictive ratio: inverse of connect rate, capped 1.0-4.0
+        # Lower connect rate = dial more lines simultaneously
+        if connect_rate > 0:
+            raw_ratio = min(4.0, max(1.0, 100 / connect_rate))
+        else:
+            raw_ratio = 3.0  # Default when no data
+
+        recommended_lines = min(4, max(1, round(raw_ratio)))
+
+        return jsonify({
+            "total_calls_7d": total,
+            "connected_calls_7d": connected,
+            "failed_calls_7d": failed,
+            "connect_rate": round(connect_rate, 1),
+            "avg_duration_sec": round(avg_duration, 1),
+            "avg_talk_time_sec": round(avg_talk_time, 1),
+            "recommended_lines": recommended_lines,
+            "dial_ratio": round(raw_ratio, 2),
+        })
+    except Exception as e:
+        logger.error(f"Predictive stats error: {e}")
+        return jsonify({"error": "Failed to calculate stats"}), 500
+    finally:
+        return_db_connection(conn)

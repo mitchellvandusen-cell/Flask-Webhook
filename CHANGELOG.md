@@ -8,6 +8,7 @@
 
 | Date | Milestone |
 |------|-----------|
+| 2026-03-11 | Multi-line dialer (up to 4 lines), predictive dialer, Pro Dialer tier ($224.99/mo), plan switching |
 | 2026-02-19 | Initial visible history begins; voice dialer UI, Trust Hub tabs, AMD fixes, AI latency improvements | 
 | 2026-02-19 | AI Minutes Marketplace launched (purchase bundles, auto-deduct on calls) |
 | 2026-02-20 | Complete voice infrastructure migration from Telnyx to white-label Twilio sub-accounts | 
@@ -33,6 +34,48 @@
 | 2026-03-01 | Pricing update: $149.99/month across all pages, bot, and documentation |
 | 2026-03-10 | Hamburger menu fix, login crash fix, Remember Me (30-day), mobile dashboard redesign, agency dashboard revamp |
 | 2026-03-10 | Full QA audit: 6 critical bug fixes, 7 security fixes, 5 reliability fixes across 16 files |
+
+---
+
+## 2026-03-11 (Multi-Line Dialer + Predictive Dialing)
+
+### Multi-Line Dialer (Pro Dialer Tier)
+- **Multi-line dialing engine**: Up to 4 concurrent outbound calls via `POST /voice/multi-dial`. Each call independently tracked in `active_calls` dict with `_multi_line: True` flag
+- **Batch status polling**: `POST /voice/multi-status` polls all active call SIDs in a single request (reduces HTTP overhead vs N individual polls)
+- **Multi-hangup**: `POST /voice/multi-hangup` terminates all active lines at once
+- **Active lines API**: `GET /voice/active-lines` returns current line count, details, and tier-based max
+- **Subscription gating**: Multi-line routes enforce `subscription_tier == 'pro_dialer'` with admin bypass. Returns `upgrade_required: true` for non-Pro users
+- **Frontend multi-line engine**: `_multiLineActive` Map tracks concurrent calls; `multiLineDialBatch()` dials N contacts from queue; `multiLinePollAll()` batch-polls every 1.5s; `multiLineRenderBanner()` renders per-line status with connect/hangup controls
+- **Line switching**: Agent can connect to any active line via `multiLineConnectToLine(callSid)` — switches detail panel, listen stream, and call controls
+- **Queue integration**: Multi-line queue automatically refills available lines as calls terminate, respecting retry logic and DnD guards
+
+### Predictive Dialer
+- **Connect rate analytics**: `GET /voice/predictive-stats` queries 7-day `call_history` for connect rate, avg duration, avg talk time
+- **AI-optimized dial ratio**: Algorithm calculates `min(4.0, max(1.0, 100 / connect_rate))` — lower connect rates automatically increase simultaneous lines
+- **Recommended lines**: Rounded ratio capped at 4, displayed in predictive stats panel
+- **Frontend stats panel**: Shows connect rate %, recommended lines, and dial ratio in real-time above dialer
+
+### Pro Dialer Subscription ($224.99/mo)
+- **New tier**: `subscription_tier = 'pro_dialer'` stored in `subscribers` table
+- **Stripe checkout**: `GET /checkout/pro-dialer` creates Stripe session with `STRIPE_PRO_DIALER_PRICE_ID`, 7-day trial, promo codes
+- **Plan switching**: `POST /change-plan` calls `stripe.Subscription.modify()` with proration. Accepts `target_tier: "individual"|"pro_dialer"`. Updates DB + returns new tier info
+- **Subscription info API**: `GET /subscription-info` returns tier, max_lines, features, admin status for dynamic UI rendering
+- **Billing tab redesign**: Two plan cards (Power Dialer $149.99, Pro Dialer $224.99) with current plan badge, feature comparison, and one-click plan switch button
+
+### Marketing & Website Updates
+- **3-tier pricing grid**: Home page pricing updated from 2-column (Individual + Agency) to 3-column (Power Dialer + Pro Dialer + Agency) with responsive mobile breakpoint
+- **Pro Dialer featured card**: Orange gradient badge "Most Popular", scaled 1.03x, with multi-line and predictive features highlighted
+- **Smart Dialer pillar**: Added "Multi-Line" tag to the Three Pillars section
+- **Capabilities grid**: Added "Multi-Line Dialing" capability item with predictive pacing description
+- **Comparison page**: Updated cost comparison table to include multi-line capability with "Pro" badge
+- **Hero CTA**: Updated from specific price to "Plans from $149.99/mo"
+
+### Dashboard UI
+- **Multi-line banner**: `#multiLineBanner` div shows per-line status (L1-L4) with name, status color, duration, connect/hangup buttons
+- **Predictive stats panel**: `#predictiveStatsPanel` shows connect rate, recommended lines, dial ratio
+- **Pro badge**: `#multiLineBadge` "PRO" badge shown next to mode toggle for pro_dialer users
+- **Line selector**: `#multiLineToggle` dropdown (1-4 lines) visible only for pro_dialer tier
+- **Billing plan cards**: Interactive plan selection with CURRENT badge, feature lists, and change plan CTA
 
 ---
 

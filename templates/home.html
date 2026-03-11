@@ -65,6 +65,7 @@
     .price-features li { padding: 5px 0; color: #bbb; font-size: 0.85rem; }
     .price-features li i { margin-right: 8px; }
     @media (max-width: 767px) { .price-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 991px) { #pricing .container > div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; } #pricing .price-card { transform: none !important; } }
 
     /* ── CRM bar ── */
     .crm-bar { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; }
@@ -100,7 +101,7 @@
                 AI handles your leads 24/7 — you just close.
             </p>
             <div class="d-flex justify-content-center gap-3 flex-wrap">
-                <a href="#pricing" class="btn btn-primary btn-lg">Get Started — $149.99/mo</a>
+                <a href="#pricing" class="btn btn-primary btn-lg">Plans from $149.99/mo</a>
                 <a href="/demo-chat" class="btn btn-outline-accent btn-lg">Try the Demo</a>
                 <a href="https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&redirect_uri=https%3A%2F%2Finsurancegrokbot.click%2Foauth%2Fcallback&client_id=695e99698a5ae81dbb426515-mkaz316h&scope=calendars.readonly+calendars%2Fevents.readonly+calendars%2Fevents.write+conversations%2Fmessage.write+conversations%2Fmessage.readonly+contacts.readonly+locations%2FcustomFields.readonly+locations%2FcustomValues.readonly+calendars%2Fgroups.readonly+conversations.readonly+conversations.write+locations%2Ftags.readonly+oauth.readonly+locations.readonly+users.readonly+opportunities.readonly+workflows.readonly+twilioaccount.read+contacts.write+locations%2Ftags.write+locations%2FcustomFields.write+phonenumbers.read&version_id=69a20babaec7c63e20613b09"
                    target="_blank" rel="noopener noreferrer"
@@ -161,6 +162,7 @@
                     <span class="ps-tag" style="background: rgba(0,217,255,0.08); color: #00d9ff;">Auto-Retry</span>
                     <span class="ps-tag" style="background: rgba(0,217,255,0.08); color: #00d9ff;">Live Intercept</span>
                     <span class="ps-tag" style="background: rgba(0,217,255,0.08); color: #00d9ff;">Number Rotation</span>
+                    <span class="ps-tag" style="background: rgba(0,217,255,0.08); color: #00d9ff;">Multi-Line</span>
                 </div>
                 <a href="/dialer" style="color: #00d9ff; font-size: 0.82rem; font-weight: 600; text-decoration: none; display: inline-block; margin-top: 10px;">Explore the Dialer <i class="fa-solid fa-arrow-right ms-1" style="font-size: 0.75rem;"></i></a>
             </div>
@@ -303,6 +305,11 @@
                 <i class="fa-solid fa-code" style="color: #e91e63;"></i>
                 <h6>API + Webhooks</h6>
                 <p>OpenAI-compatible API, outbound webhooks with HMAC signing, and full event logging.</p>
+            </div>
+            <div class="cap-item">
+                <i class="fa-solid fa-phone-flip" style="color: #ff6b35;"></i>
+                <h6>Multi-Line Dialing</h6>
+                <p>Dial up to 4 contacts simultaneously. Predictive pacing adjusts lines based on your connect rate.</p>
             </div>
         </div>
 
@@ -515,41 +522,61 @@
             <p style="color: #777; font-size: 0.95rem;">Everything included. No per-minute charges. No hidden fees.</p>
         </div>
 
-        <div class="price-grid" data-aos="fade-up">
-            <!-- Individual -->
-            <div class="price-card featured">
-                <span class="price-badge" style="background: rgba(0,255,136,0.3); border: 1px solid #00ff88;">Most Popular</span>
-                <h4 style="color: #fff; margin-top: 8px;">Individual</h4>
-                <div><span class="price-amount" style="color: var(--accent);">$149.99</span><span style="color: #888;">/mo</span></div>
-                <p style="color: var(--accent); font-weight: 600; font-size: 0.88rem; margin-top: 8px;">Everything you need to text, call, and close.</p>
+        <div data-aos="fade-up" style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 1080px; margin: 0 auto;">
+            <!-- Power Dialer -->
+            <div class="price-card">
+                <span class="price-badge" style="background: rgba(0,255,136,0.3); border: 1px solid #00ff88;">Starter</span>
+                <h4 style="color: #fff; margin-top: 8px;">Power Dialer</h4>
+                <div><span class="price-amount" style="color: var(--accent); font-size: 2.4rem;">$149.99</span><span style="color: #888;">/mo</span></div>
+                <p style="color: var(--accent); font-weight: 600; font-size: 0.85rem; margin-top: 8px;">Single-line dialing with full AI.</p>
                 <p style="color: #666; font-size: 0.82rem;">Cancel anytime. No contracts.</p>
 
                 <ul class="price-features">
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> <strong>AI Texting</strong> — outbound, inbound, replies & booking</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> <strong>Smart Dialer</strong> — number rotation, auto-retry, geo-routing</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> <strong>AI Voice Agent</strong> — fully autonomous calling</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> <strong>Lead Intelligence</strong> — score, timeline & AI summary</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> <strong>Smart Filters</strong> — auto-sort hot, warm & cold</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> <strong>Unlimited Minutes*</strong> included</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> AI &harr; Human live handoff & intercept</li>
+                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> <strong>Single-line power dialer</strong></li>
+                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> AI Texting — outbound, inbound & booking</li>
+                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> AI Voice Agent — autonomous calling</li>
+                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Lead Intelligence & Smart Filters</li>
+                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Number rotation & geo-routing</li>
+                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Unlimited minutes* included</li>
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> 270+ carrier recognition</li>
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> 5 elite sales frameworks</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Full narrative memory</li>
                 </ul>
 
                 <a href="/checkout" class="btn btn-primary w-100 py-3" style="font-weight: 700;">Get Started — $149.99/mo</a>
+            </div>
+
+            <!-- Pro Dialer (featured) -->
+            <div class="price-card featured" style="border-color: rgba(255,107,53,0.4); transform: scale(1.03);">
+                <span class="price-badge" style="background: linear-gradient(135deg, #ff6b35, #ff3366); border: none;">Most Popular</span>
+                <h4 style="color: #fff; margin-top: 8px;">Pro Dialer</h4>
+                <div><span class="price-amount" style="color: #ff6b35; font-size: 2.4rem;">$224.99</span><span style="color: #888;">/mo</span></div>
+                <p style="color: #ff6b35; font-weight: 600; font-size: 0.85rem; margin-top: 8px;">Multi-line power + predictive dialing.</p>
+                <p style="color: #666; font-size: 0.82rem;">Cancel anytime. No contracts.</p>
+
+                <ul class="price-features">
+                    <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> <strong>Multi-line dialer (up to 4 lines)</strong></li>
+                    <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> <strong>Predictive dialer with auto-pacing</strong></li>
+                    <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Everything in Power Dialer</li>
+                    <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> AI-optimized dial ratio</li>
+                    <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Multi-call status dashboard</li>
+                    <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Priority queue processing</li>
+                    <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Connect rate analytics</li>
+                    <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Unlimited minutes* included</li>
+                </ul>
+
+                <a href="/checkout/pro-dialer" class="btn w-100 py-3" style="background: linear-gradient(135deg, #ff6b35, #ff3366); color: #fff; font-weight: 700; border: none;">Get Started — $224.99/mo</a>
             </div>
 
             <!-- Agency -->
             <div class="price-card" style="border-color: rgba(0,217,255,0.2);">
                 <span class="price-badge" style="background: rgba(0,217,255,0.3); border: 1px solid #00d9ff;">Agency Owner</span>
                 <h4 style="color: #fff; margin-top: 8px;">Agency</h4>
-                <div><span class="price-amount" style="color: #00d9ff; font-size: 2rem;">Custom Pricing</span></div>
-                <p style="color: #00d9ff; font-weight: 600; font-size: 0.88rem; margin-top: 8px;">Tailored to your agency size and needs.</p>
+                <div><span class="price-amount" style="color: #00d9ff; font-size: 1.8rem;">Custom Pricing</span></div>
+                <p style="color: #00d9ff; font-weight: 600; font-size: 0.85rem; margin-top: 8px;">Tailored to your agency size and needs.</p>
                 <p style="color: #666; font-size: 0.82rem;">For agencies with sub-accounts and teams.</p>
 
                 <ul class="price-features">
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Everything in Individual</li>
+                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Everything in Pro Dialer</li>
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Multi-tenant agency dashboard</li>
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Sub-account management</li>
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Per-agent calendar & config</li>
