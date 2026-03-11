@@ -929,6 +929,9 @@
                                 <option value="1" {% if voice_config.get('dial_attempts', 2)|int == 1 %}selected{% endif %}>1 attempt</option>
                                 <option value="2" {% if voice_config.get('dial_attempts', 2)|int == 2 %}selected{% endif %}>2 attempts (recommended)</option>
                                 <option value="3" {% if voice_config.get('dial_attempts', 2)|int == 3 %}selected{% endif %}>3 attempts</option>
+                                <option value="4" {% if voice_config.get('dial_attempts', 2)|int == 4 %}selected{% endif %}>4 attempts</option>
+                                <option value="5" {% if voice_config.get('dial_attempts', 2)|int == 5 %}selected{% endif %}>5 attempts</option>
+                                <option value="6" {% if voice_config.get('dial_attempts', 2)|int == 6 %}selected{% endif %}>6 attempts (insurance max)</option>
                             </select>
                             <small style="color:#666; font-size:0.75rem;">Detects voicemail, hangs up, and retries automatically</small>
                         </div>
@@ -1125,6 +1128,139 @@
                                 </button>
                                 <span id="audioDeviceStatus" style="font-size:0.75rem;color:#888;"></span>
                             </div>
+                        </div>
+                        <!-- ── Multi-Line / Predictive Dialer Settings ── -->
+                        <div class="col-12 mt-2 mb-1" id="multiLineSettingsSection" style="display:none;">
+                            <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:10px;">
+                                <span style="font-size:0.75rem;color:#555;text-transform:uppercase;font-weight:700;letter-spacing:.5px;">
+                                    <i class="fa-solid fa-lines-leaning me-1" style="color:#ff6b35;"></i>Multi-Line Dialer Settings
+                                    <span style="background:rgba(255,107,53,0.1);color:#ff6b35;font-size:0.65rem;padding:2px 6px;border-radius:4px;margin-left:6px;">PRO</span>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-md-4 multiline-setting" style="display:none;">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Max Concurrent Lines</label>
+                            <select class="form-control" id="voiceMaxLinesSetting"
+                                style="background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
+                                <option value="2" {% if voice_config.get('max_lines_setting', 3)|int == 2 %}selected{% endif %}>2 lines</option>
+                                <option value="3" {% if voice_config.get('max_lines_setting', 3)|int == 3 %}selected{% endif %}>3 lines (recommended)</option>
+                                <option value="4" {% if voice_config.get('max_lines_setting', 3)|int == 4 %}selected{% endif %}>4 lines (max)</option>
+                            </select>
+                            <small style="color:#666; font-size:0.75rem;">Simultaneous outbound calls per batch</small>
+                        </div>
+                        <div class="col-md-4 multiline-setting" style="display:none;">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Wrap-Up Time (After Call)</label>
+                            <select class="form-control" id="voiceWrapUpTime"
+                                style="background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
+                                <option value="0" {% if voice_config.get('wrap_up_time', 15)|int == 0 %}selected{% endif %}>No wrap-up</option>
+                                <option value="5" {% if voice_config.get('wrap_up_time', 15)|int == 5 %}selected{% endif %}>5 seconds</option>
+                                <option value="10" {% if voice_config.get('wrap_up_time', 15)|int == 10 %}selected{% endif %}>10 seconds</option>
+                                <option value="15" {% if voice_config.get('wrap_up_time', 15)|int == 15 %}selected{% endif %}>15 seconds (recommended)</option>
+                                <option value="30" {% if voice_config.get('wrap_up_time', 15)|int == 30 %}selected{% endif %}>30 seconds</option>
+                                <option value="60" {% if voice_config.get('wrap_up_time', 15)|int == 60 %}selected{% endif %}>60 seconds</option>
+                            </select>
+                            <small style="color:#666; font-size:0.75rem;">Time to disposition before next batch dials</small>
+                        </div>
+                        <div class="col-md-4 multiline-setting" style="display:none;">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Require Disposition</label>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="voiceRequireDisposition"
+                                        {% if voice_config.get('require_disposition', True) != False %}checked{% endif %}
+                                        style="width:2.5em; height:1.3em; cursor:pointer;">
+                                </div>
+                                <span style="color:#888; font-size:0.8rem;">Must disposition before advance</span>
+                            </div>
+                            <small style="color:#666; font-size:0.75rem;">Block auto-advance until agent selects outcome</small>
+                        </div>
+                        <div class="col-md-4 multiline-setting" style="display:none;">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">On Voicemail/Machine</label>
+                            <select class="form-control" id="voiceOnMachineAction"
+                                style="background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
+                                <option value="hangup" {% if voice_config.get('on_machine_action', 'hangup') == 'hangup' %}selected{% endif %}>Hang up & retry</option>
+                                <option value="voicemail_drop" {% if voice_config.get('on_machine_action', 'hangup') == 'voicemail_drop' %}selected{% endif %}>Drop voicemail (AI)</option>
+                                <option value="continue" {% if voice_config.get('on_machine_action', 'hangup') == 'continue' %}selected{% endif %}>Continue (let agent decide)</option>
+                            </select>
+                            <small style="color:#666; font-size:0.75rem;">What happens when AMD detects a machine</small>
+                        </div>
+                        <div class="col-md-4 multiline-setting" style="display:none;">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Auto-Disposition (No Answer)</label>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="voiceAutoDispNoAnswer"
+                                        {% if voice_config.get('auto_disposition_no_answer', True) != False %}checked{% endif %}
+                                        style="width:2.5em; height:1.3em; cursor:pointer;">
+                                </div>
+                                <span style="color:#888; font-size:0.8rem;">Auto-set "No Answer" on timeout</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4 multiline-setting" style="display:none;">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Auto-Disposition (Voicemail)</label>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="voiceAutoDispVoicemail"
+                                        {% if voice_config.get('auto_disposition_voicemail', True) != False %}checked{% endif %}
+                                        style="width:2.5em; height:1.3em; cursor:pointer;">
+                                </div>
+                                <span style="color:#888; font-size:0.8rem;">Auto-set "Voicemail" on AMD detect</span>
+                            </div>
+                        </div>
+                        <!-- ── TCPA Compliance Settings ── -->
+                        <div class="col-12 mt-2 mb-1 multiline-setting" style="display:none;">
+                            <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:10px;">
+                                <span style="font-size:0.75rem;color:#555;text-transform:uppercase;font-weight:700;letter-spacing:.5px;">
+                                    <i class="fa-solid fa-shield-halved me-1" style="color:#f59e0b;"></i>TCPA Compliance & Contact Protection
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-md-3 multiline-setting" style="display:none;">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Calling Hours Start</label>
+                            <input type="time" class="form-control" id="voiceCallingHoursStart"
+                                value="{{ voice_config.get('calling_hours_start', '08:00') }}"
+                                style="background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px; font-size:0.85rem;">
+                            <small style="color:#666; font-size:0.75rem;">TCPA: 8 AM minimum (agent TZ)</small>
+                        </div>
+                        <div class="col-md-3 multiline-setting" style="display:none;">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Calling Hours End</label>
+                            <input type="time" class="form-control" id="voiceCallingHoursEnd"
+                                value="{{ voice_config.get('calling_hours_end', '21:00') }}"
+                                style="background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px; font-size:0.85rem;">
+                            <small style="color:#666; font-size:0.75rem;">TCPA: 9 PM maximum (agent TZ)</small>
+                        </div>
+                        <div class="col-md-3 multiline-setting" style="display:none;">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Redial Cooldown (hours)</label>
+                            <select class="form-control" id="voiceCooldownHours"
+                                style="background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
+                                <option value="0" {% if voice_config.get('same_number_cooldown_hours', 4)|int == 0 %}selected{% endif %}>No cooldown</option>
+                                <option value="1" {% if voice_config.get('same_number_cooldown_hours', 4)|int == 1 %}selected{% endif %}>1 hour</option>
+                                <option value="2" {% if voice_config.get('same_number_cooldown_hours', 4)|int == 2 %}selected{% endif %}>2 hours</option>
+                                <option value="4" {% if voice_config.get('same_number_cooldown_hours', 4)|int == 4 %}selected{% endif %}>4 hours (recommended)</option>
+                                <option value="8" {% if voice_config.get('same_number_cooldown_hours', 4)|int == 8 %}selected{% endif %}>8 hours</option>
+                                <option value="24" {% if voice_config.get('same_number_cooldown_hours', 4)|int == 24 %}selected{% endif %}>24 hours</option>
+                            </select>
+                            <small style="color:#666; font-size:0.75rem;">Min wait before redialing same number</small>
+                        </div>
+                        <div class="col-md-3 multiline-setting" style="display:none;">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Daily Max Per Contact</label>
+                            <select class="form-control" id="voiceDailyMaxContact"
+                                style="background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
+                                <option value="0" {% if voice_config.get('same_contact_daily_max', 3)|int == 0 %}selected{% endif %}>No limit</option>
+                                <option value="1" {% if voice_config.get('same_contact_daily_max', 3)|int == 1 %}selected{% endif %}>1 call/day</option>
+                                <option value="2" {% if voice_config.get('same_contact_daily_max', 3)|int == 2 %}selected{% endif %}>2 calls/day</option>
+                                <option value="3" {% if voice_config.get('same_contact_daily_max', 3)|int == 3 %}selected{% endif %}>3 calls/day (recommended)</option>
+                                <option value="5" {% if voice_config.get('same_contact_daily_max', 3)|int == 5 %}selected{% endif %}>5 calls/day</option>
+                            </select>
+                            <small style="color:#666; font-size:0.75rem;">Max calls per contact per day</small>
+                        </div>
+                        <div class="col-md-4 multiline-setting" style="display:none;">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Max Abandon Rate %</label>
+                            <select class="form-control" id="voiceMaxAbandonRate"
+                                style="background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
+                                <option value="2" {% if voice_config.get('max_abandon_rate_pct', 3.0)|float == 2.0 %}selected{% endif %}>2% (conservative)</option>
+                                <option value="3" {% if voice_config.get('max_abandon_rate_pct', 3.0)|float == 3.0 %}selected{% endif %}>3% (FTC safe harbor)</option>
+                                <option value="5" {% if voice_config.get('max_abandon_rate_pct', 3.0)|float == 5.0 %}selected{% endif %}>5% (aggressive)</option>
+                            </select>
+                            <small style="color:#666; font-size:0.75rem;">FTC 3% safe harbor for predictive dialing</small>
                         </div>
                         <div class="col-12 text-end mt-2">
                             <button class="btn px-4 py-2" onclick="saveVoiceConfig()"

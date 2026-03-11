@@ -4,6 +4,7 @@ import logging
 import threading
 import time
 import asyncio
+from datetime import datetime, timezone as dt_timezone
 import httpx
 import requests as http_requests
 from flask import Blueprint, request, Response, jsonify
@@ -22,6 +23,90 @@ from extensions import ADMIN_EMAILS
 logger = logging.getLogger("voice_bridge.dialer")
 
 dialer_bp = Blueprint('voice_dialer', __name__)
+
+
+# ═══ Multi-Line Dialer Enforcement Helpers ═══════════════════════════════════
+
+def _check_calling_hours(voice_config, agent_tz_str=None):
+    """Check if current time is within configured calling hours.
+    Uses agent's timezone since we don't reliably have contact timezone.
+    Returns (allowed, reason) tuple."""
+    start_str = voice_config.get('calling_hours_start', '08:00')
+    end_str = voice_config.get('calling_hours_end', '21:00')
+    if not start_str or not end_str:
+        return True, None
+
+    try:
+        import pytz
+    except ImportError:
+        return True, None  # pytz not available, skip check
+
+    tz_str = agent_tz_str or voice_config.get('timezone') or 'America/Chicago'
+    try:
+        tz = pytz.timezone(tz_str)
+    except pytz.UnknownTimeZoneError:
+        tz = pytz.timezone('America/Chicago')
+
+    now = datetime.now(tz)
+    try:
+        start_h, start_m = map(int, start_str.split(':'))
+        end_h, end_m = map(int, end_str.split(':'))
+    except (ValueError, AttributeError):
+        return True, None
+
+    current_minutes = now.hour * 60 + now.minute
+    start_minutes = start_h * 60 + start_m
+    end_minutes = end_h * 60 + end_m
+
+    if current_minutes < start_minutes or current_minutes >= end_minutes:
+        return False, f"Outside calling hours ({start_str}-{end_str} {tz_str})"
+    return True, None
+
+
+def _check_cooldown_and_daily_max(location_id, phones, voice_config, conn):
+    """Batch check cooldown and daily max for a list of phone numbers.
+    Returns dict of phone -> reason string for phones that should be skipped."""
+    cooldown_hours = int(voice_config.get('same_number_cooldown_hours', 0))
+    daily_max = int(voice_config.get('same_contact_daily_max', 0))
+    if not cooldown_hours and not daily_max:
+        return {}
+
+    blocked = {}
+    if not phones or not conn:
+        return blocked
+
+    try:
+        cur = conn.cursor()
+
+        if cooldown_hours > 0:
+            cur.execute("""
+                SELECT phone, MAX(created_at) AS last_called
+                FROM call_history
+                WHERE location_id = %s AND phone = ANY(%s)
+                  AND created_at > NOW() - INTERVAL '%s hours'
+                GROUP BY phone
+            """, (location_id, list(phones), cooldown_hours))
+            for row in cur.fetchall():
+                blocked[row['phone']] = f"Cooldown: called within {cooldown_hours}h"
+
+        if daily_max > 0:
+            cur.execute("""
+                SELECT phone, COUNT(*) AS cnt
+                FROM call_history
+                WHERE location_id = %s AND phone = ANY(%s)
+                  AND created_at >= CURRENT_DATE
+                GROUP BY phone
+                HAVING COUNT(*) >= %s
+            """, (location_id, list(phones), daily_max))
+            for row in cur.fetchall():
+                if row['phone'] not in blocked:
+                    blocked[row['phone']] = f"Daily max: {daily_max} calls/day reached"
+
+        cur.close()
+    except Exception as e:
+        logger.debug(f"Cooldown/daily-max check failed (non-fatal): {e}")
+
+    return blocked
 
 
 @dialer_bp.route('/voice/test', methods=['POST'])
@@ -628,6 +713,11 @@ def dial_contact():
     if first_name in ('Manual', ''):
         first_name = 'there'
 
+    # ── Calling hours enforcement ──
+    hours_ok, hours_reason = _check_calling_hours(voice_config, subscriber.get('timezone'))
+    if not hours_ok:
+        return jsonify({"error": hours_reason, "calling_hours_blocked": True}), 400
+
     # Enforce max dial attempts server-side
     max_attempts = int(voice_config.get('dial_attempts', 2))
     if dial_attempt > max_attempts:
@@ -765,8 +855,11 @@ def multi_dial():
 
     if not contacts:
         return jsonify({"error": "No contacts provided"}), 400
-    if max_lines < 1 or max_lines > 4:
-        return jsonify({"error": "max_lines must be 1-4"}), 400
+    # Cap max_lines to server-side limit (1-4)
+    if max_lines < 1:
+        max_lines = 1
+    if max_lines > 4:
+        max_lines = 4
 
     # ── Subscription tier gate ──
     conn = get_db_connection()
@@ -799,6 +892,11 @@ def multi_dial():
 
     if not sub_sid or not from_number:
         return jsonify({"error": "Voice service not fully provisioned"}), 400
+
+    # ── Calling hours enforcement ──
+    hours_ok, hours_reason = _check_calling_hours(voice_config, subscriber.get('timezone'))
+    if not hours_ok:
+        return jsonify({"error": hours_reason, "calling_hours_blocked": True}), 400
 
     # Enforce max concurrent lines already active for this location
     active_for_location = sum(
@@ -833,6 +931,19 @@ def multi_dial():
             finally:
                 return_db_connection(_dnd_conn)
 
+    # Batch cooldown + daily max check — single query for all phones
+    blocked_phones = {}
+    batch_phones = [c.get('phone', '') for c in contacts_to_dial if c.get('phone')]
+    if batch_phones and location_id:
+        _cd_conn = get_db_connection()
+        if _cd_conn:
+            try:
+                blocked_phones = _check_cooldown_and_daily_max(location_id, batch_phones, voice_config, _cd_conn)
+            except Exception:
+                pass
+            finally:
+                return_db_connection(_cd_conn)
+
     for contact in contacts_to_dial:
         c_phone = contact.get('phone', '')
         c_name = contact.get('first_name', 'there')
@@ -846,6 +957,11 @@ def multi_dial():
         # DnD check (from batch query above)
         if c_id in dnd_contact_ids:
             results.append({"contact_id": c_id, "call_sid": None, "status": "skipped", "error": "Do Not Contact"})
+            continue
+
+        # Cooldown / daily max check (from batch query above)
+        if c_phone in blocked_phones:
+            results.append({"contact_id": c_id, "call_sid": None, "status": "skipped", "error": blocked_phones[c_phone]})
             continue
 
         # Max attempts guard

@@ -119,6 +119,18 @@
                 max_call_duration: parseInt(document.getElementById('voiceMaxCallDuration')?.value || '0'),
                 retry_delay: parseInt(document.getElementById('voiceRetryDelay')?.value || '2'),
                 auto_callback: document.getElementById('voiceAutoCallback')?.checked ?? false,
+                // Multi-line / predictive dialer settings
+                max_lines_setting: parseInt(document.getElementById('voiceMaxLinesSetting')?.value || '3'),
+                wrap_up_time: parseInt(document.getElementById('voiceWrapUpTime')?.value || '15'),
+                require_disposition: document.getElementById('voiceRequireDisposition')?.checked ?? true,
+                calling_hours_start: document.getElementById('voiceCallingHoursStart')?.value || '08:00',
+                calling_hours_end: document.getElementById('voiceCallingHoursEnd')?.value || '21:00',
+                same_number_cooldown_hours: parseInt(document.getElementById('voiceCooldownHours')?.value || '4'),
+                same_contact_daily_max: parseInt(document.getElementById('voiceDailyMaxContact')?.value || '3'),
+                on_machine_action: document.getElementById('voiceOnMachineAction')?.value || 'hangup',
+                auto_disposition_no_answer: document.getElementById('voiceAutoDispNoAnswer')?.checked ?? true,
+                auto_disposition_voicemail: document.getElementById('voiceAutoDispVoicemail')?.checked ?? true,
+                max_abandon_rate_pct: parseFloat(document.getElementById('voiceMaxAbandonRate')?.value || '3'),
                 // Dossier display settings
                 show_ai_summary: document.getElementById('voiceShowAiSummary')?.checked ?? true,
                 show_known_facts: document.getElementById('voiceShowKnownFacts')?.checked ?? true,
@@ -139,6 +151,15 @@
                     if (typeof _dialerRetryDelay !== 'undefined') _dialerRetryDelay = (config.retry_delay || 2) * 1000;
                     if (typeof _dialerMaxCallDuration !== 'undefined') _dialerMaxCallDuration = (config.max_call_duration || 0) * 60 * 1000;
                     if (typeof _dialerAutoCallback !== 'undefined') _dialerAutoCallback = config.auto_callback || false;
+                    // Live-update multi-line settings
+                    if (typeof _dialerWrapUpTime !== 'undefined') _dialerWrapUpTime = (config.wrap_up_time || 15) * 1000;
+                    if (typeof _dialerRequireDisposition !== 'undefined') _dialerRequireDisposition = config.require_disposition ?? true;
+                    if (typeof _dialerAutoDispNoAnswer !== 'undefined') _dialerAutoDispNoAnswer = config.auto_disposition_no_answer ?? true;
+                    if (typeof _dialerAutoDispVoicemail !== 'undefined') _dialerAutoDispVoicemail = config.auto_disposition_voicemail ?? true;
+                    if (typeof _dialerOnMachineAction !== 'undefined') _dialerOnMachineAction = config.on_machine_action || 'hangup';
+                    if (typeof _multiLineMaxLines !== 'undefined' && typeof _multiLineEnabled !== 'undefined' && _multiLineEnabled) {
+                        _multiLineMaxLines = Math.min(4, Math.max(1, config.max_lines_setting || 3));
+                    }
                     // Live-update dossier toggles
                     if (window.DASHBOARD_BOOT) {
                         window.DASHBOARD_BOOT.showAiSummary = config.show_ai_summary;
