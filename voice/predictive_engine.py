@@ -7,7 +7,7 @@ import math
 import logging
 import threading
 import time
-from datetime import datetime, timezone as dt_timezone, timedelta
+from datetime import datetime
 from collections import defaultdict
 
 from db import get_db_connection, return_db_connection
@@ -117,8 +117,11 @@ def area_code_to_timezone(phone):
     """Extract area code from phone number and return IANA timezone string."""
     if not phone:
         return None
-    digits = phone.lstrip('+').lstrip('1')
-    if len(digits) < 3:
+    digits = ''.join(c for c in phone if c.isdigit())
+    # Strip US/Canada country code '1' if 11 digits
+    if len(digits) == 11 and digits[0] == '1':
+        digits = digits[1:]
+    if len(digits) < 10:
         return None
     area = digits[:3]
     state = AREA_CODE_TO_STATE.get(area)
@@ -131,8 +134,11 @@ def area_code_to_state(phone):
     """Extract area code from phone number and return 2-letter state code."""
     if not phone:
         return None
-    digits = phone.lstrip('+').lstrip('1')
-    if len(digits) < 3:
+    digits = ''.join(c for c in phone if c.isdigit())
+    # Strip US/Canada country code '1' if 11 digits
+    if len(digits) == 11 and digits[0] == '1':
+        digits = digits[1:]
+    if len(digits) < 10:
         return None
     return AREA_CODE_TO_STATE.get(digits[:3])
 
@@ -463,9 +469,10 @@ class TCPAComplianceTracker:
                         data["answered"] += 1
                     elif outcome == "abandoned":
                         data["abandoned"] += 1
+                answered_count = data["answered"]
 
             logger.info(f"[TCPA] Loaded {len(rows)} calls for {location_id} "
-                        f"(answered={data['answered']}, abandon_rate={self.get_abandon_rate(location_id):.1f}%)")
+                        f"(answered={answered_count}, abandon_rate={self.get_abandon_rate(location_id):.1f}%)")
         except Exception as e:
             logger.error(f"[TCPA] Failed to load call history for {location_id}: {e}")
         finally:
@@ -675,6 +682,12 @@ class CallbackQueue:
                           scheduled_at, reason="no_answer", attempts=1):
         """Add a contact to the callback queue."""
         with self._lock:
+            # Prune completed/cancelled items older than 24 hours
+            cutoff = time.time() - 86400
+            self._queues[location_id] = [
+                item for item in self._queues[location_id]
+                if item["status"] == "pending" or item.get("created_at", 0) > cutoff
+            ]
             # Prevent duplicates
             for item in self._queues[location_id]:
                 if item["phone"] == phone and item["status"] == "pending":

@@ -90,6 +90,63 @@ All settings stored in `voice_config` JSONB, validated server-side in `blueprint
 - **Auto-disposition toggles** (`auto_disposition_no_answer`/`auto_disposition_voicemail`): Auto-mark terminal no-answer and voicemail calls
 - **Max abandon rate** (`max_abandon_rate_pct`): 1-10%, default 3.0% (FTC safe harbor for TCPA compliance)
 
+### Predictive Dialer Enterprise Tier ($349.98/mo)
+
+#### Erlang-C Predictive Pacing Engine (`voice/predictive_engine.py`)
+- **Erlang-C M/M/N queue model**: `calculate_optimal_dial_ratio()` uses binary search (20 iterations) to find maximum dial ratio keeping predicted abandon rate under TCPA 3% safe harbor
+- **Log-space arithmetic**: `_erlang_c_probability()` computes Erlang-C using log-space to prevent overflow with large factorials
+- **TCPA auto-throttle**: Starts reducing dial ratio at 80% of abandon rate limit (2.4%), proportional reduction factor down to 0.5x
+
+#### TCPA Compliance Engine
+- **Rolling 30-day tracker**: `TCPAComplianceTracker` (thread-safe singleton) tracks call outcomes in-memory with auto-prune of calls older than 30 days
+- **Real-time abandon rate**: `get_abandon_rate()` returns current rolling percentage; `get_compliance_status()` adds 1-hour window, warning/critical flags
+- **DB bootstrap**: `load_from_db()` loads historical `call_history` data for warm start after process restart
+- **Compliance dashboard**: `GET /voice/compliance` returns score (0-100) from TCPA rate + DNC violations + calling hours violations
+
+#### Recipient Timezone Enforcement
+- **Area code → timezone lookup**: ~300 NANP area code → US state → IANA timezone mappings
+- **Phone number parsing**: Digits-only extraction, strips US country code `1` only for 11-digit numbers (fixed: no longer mangles area codes starting with `1`)
+- **Calling hours check**: `check_recipient_timezone()` validates against recipient's local time, supports midnight wrap-around
+- **Enforcement points**: Single-line `dial_contact()` and multi-line `multi_dial()` both check recipient timezone for pro_dialer and predictive_dialer tiers
+
+#### Recording Consent Tracking
+- **Two-party consent states**: 12 states (CA, CT, DE, FL, IL, MD, MA, MT, NV, NH, PA, WA) requiring all-party consent
+- **Single check**: `GET /voice/recording-consent?phone=` returns state, timezone, consent requirement, disclosure text
+- **Batch check**: `POST /voice/recording-consent/batch` checks up to 300 phones at once
+- **UI banner**: Yellow warning banner appears in dialer when calling two-party consent states
+
+#### Agent State Machine
+- **ACD-style states**: Ready, Not Ready, On Call, Wrap-Up, Break, Extended Away, Logged Out
+- **Auto wrap-up→ready**: Timer-based transition when wrap-up period expires
+- **Predicted availability**: `get_predicted_available(horizon_sec)` counts agents who will be ready within N seconds
+- **API**: `GET|POST /voice/agent-state` for dashboard state selector with status dot and duration display
+
+#### Callback Queue
+- **Scheduled re-dials**: `POST /voice/callback-queue` schedules contacts for re-dial after configurable delay
+- **Duplicate prevention**: Same phone number can't be queued twice while pending
+- **Auto-prune**: Completed/cancelled items cleaned after 24 hours to prevent memory growth
+- **Due detection**: `GET /voice/callback-queue` returns pending count and due items for the queue badge
+
+#### Subscription & Billing
+- **New checkout**: `GET /checkout/predictive-dialer` with `STRIPE_PREDICTIVE_DIALER_PRICE_ID` env var, 7-day trial
+- **3-tier plan switching**: `POST /change-plan` supports individual ↔ pro_dialer ↔ predictive_dialer with Stripe proration
+- **Billing tab**: Purple-themed (#8b5cf6) plan card with ENTERPRISE badge, 8 feature checkmarks
+- **Home page**: New enterprise pricing card in 4-column grid between Pro Dialer and Agency
+
+#### Dashboard UI (Enterprise Features)
+- **TCPA compliance banner**: Green/yellow/red banner showing abandon rate and compliance score
+- **Agent state selector**: Dropdown with status dot (color-coded), duration timer, wrap-up countdown
+- **Callback queue badge**: Purple badge showing pending count and due items
+- **Recording consent warning**: Yellow banner before calls to two-party consent states
+- **Erlang-C metrics panel**: Shows predicted abandon rate, P(wait), throttle status, algorithm badge
+- **Predictive stats**: Enhanced with Erlang-C metrics for predictive_dialer tier, simple formula for pro_dialer
+
+#### Bug Fixes (Predictive Dialer Audit)
+- **HIGH: Phone number parsing `lstrip('1')` mangled area codes**: `lstrip('1')` strips ALL leading 1s, destroying area codes starting with `1`. Fixed with digits-only extraction + single country code removal for 11-digit numbers
+- **MEDIUM: CallbackQueue memory leak**: Completed/cancelled callback items never pruned. Added 24-hour auto-prune in `schedule_callback()`
+- **LOW: Unused imports**: Removed `timezone as dt_timezone` and `timedelta` from predictive_engine.py
+- **LOW: Data race in TCPA log statement**: `data['answered']` accessed outside lock. Moved read inside lock block
+
 ### Bug Fixes (Audit Findings)
 - **CRITICAL: SQL injection via string interpolation**: `INTERVAL '%s hours'` in cooldown query — psycopg2 doesn't interpolate inside string literals. Fixed with `make_interval(hours => %s)` parameterized form
 - **CRITICAL: Night-shift calling hours always blocked**: Midnight wrap-around logic (start > end, e.g., 22:00-06:00) had inverted condition. Fixed with separate branch for normal vs wrapping ranges

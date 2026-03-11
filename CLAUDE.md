@@ -410,11 +410,19 @@ Enterprise multi-line power dialer that allows Pro Dialer subscribers ($224.99/m
 | `GET /voice/predictive-stats` | GET | 7-day connect rate, recommended lines, dial ratio |
 
 ### Predictive Dialer Algorithm
+**Pro Dialer** (simple formula):
 1. Query `call_history` for last 7 days of calls
 2. Calculate connect rate: `connected_calls / total_calls * 100`
 3. Compute dial ratio: `min(4.0, max(1.0, 100 / connect_rate))`
 4. Recommend lines: `round(dial_ratio)`, capped at 4
-5. Lower connect rate → more simultaneous lines → higher throughput
+
+**Predictive Dialer** (Erlang-C M/M/N queue model):
+1. Query `call_history` for 7-day stats (connect rate, avg handle time, avg talk time)
+2. Model as M/M/N queue: arrival rate = agents × ratio × answer rate / ring time
+3. Binary search (20 iterations) for max dial ratio keeping predicted abandon rate ≤ 3%
+4. TCPA auto-throttle: if current rolling 30-day abandon rate > 2.4%, reduce ratio by factor
+5. Uses `_erlang_c_probability()` with log-space arithmetic for numerical stability
+6. Phone number parsing: strips digits-only, removes country code `1` for 11-digit numbers
 
 ### Frontend State
 - `_multiLineActive` (Map) — tracks all concurrent call SIDs with contact info
@@ -450,10 +458,21 @@ All settings stored in `voice_config` JSONB on `subscribers` table, validated in
 Settings injected from server to client via `window.DASHBOARD_BOOT` in `dashboard.html`. Client variables use optional chaining (`window.DASHBOARD_BOOT?.settingName ?? default`) to safely handle missing boot data.
 
 ### Plan Switching
-- `POST /change-plan` — Stripe subscription modification with proration
+- `POST /change-plan` — Stripe subscription modification with proration (supports individual ↔ pro_dialer ↔ predictive_dialer)
 - `GET /subscription-info` — Returns tier, max_lines, features for billing UI
-- Dashboard billing tab shows both plans with "Change Plan" button
+- Dashboard billing tab shows all three plans with "Change Plan" button
 - Plan change updates `subscription_tier` in DB and triggers frontend re-init
+
+### Predictive Dialer Engine (voice/predictive_engine.py)
+Enterprise-only module (`subscription_tier = 'predictive_dialer'`) with:
+- **Phone number parsing**: `area_code_to_timezone(phone)`, `area_code_to_state(phone)` — digits-only extraction, US country code removal for 11-digit numbers, ~300 NANP area code mappings
+- **Timezone enforcement**: `check_recipient_timezone(phone, start, end)` — pytz-based, midnight wrap-around support
+- **Recording consent**: `is_two_party_consent_state(phone)` — 12 two-party consent states (CA, CT, DE, FL, IL, MD, MA, MT, NV, NH, PA, WA)
+- **Erlang-C pacing**: `calculate_optimal_dial_ratio()` — M/M/N queue model with binary search, TCPA throttle at 80% of limit
+- **TCPA tracker**: `TCPAComplianceTracker` (global singleton `tcpa_tracker`) — thread-safe rolling 30-day abandon rate, auto-prune, DB bootstrap via `load_from_db()`
+- **Agent state machine**: `AgentStateManager` (global singleton `agent_state_manager`) — ACD states (Ready/Not Ready/On Call/Wrap-Up/Break/Extended Away/Logged Out), auto wrap-up→ready transitions, predicted availability within N-second horizon
+- **Callback queue**: `CallbackQueue` (global singleton `callback_queue`) — thread-safe scheduled re-dial queue with duplicate prevention, 24-hour auto-prune of completed/cancelled items
+- **Compliance metrics**: `get_compliance_metrics()` — aggregated compliance score (0-100) from TCPA, DNC violations, calling hours violations
 
 ---
 
