@@ -82,6 +82,7 @@ All queues are defined in `extensions.py` and initialized via `ensure_redis()`. 
 | `ghl_sync.py` | GHL data sync engine — pulls conversations, opportunities, phone numbers into local DB | ~900 lines |
 | `twilio_sms.py` | Direct Twilio SMS sender — bypasses GHL API, drop-in replacement for ghl_message.py | small |
 | `lead_intelligence.py` | AI-powered lead intelligence via xAI Grok micro-prompts with caching | medium |
+| `voice/predictive_engine.py` | Erlang-C pacing, TCPA compliance tracker, agent state machine, callback queue, timezone/consent lookup | medium |
 | `crm_adapters/` | CRM adapter factory + GHL/HubSpot/Salesforce/Pipedrive/Zoho/Insureio/Zapier | directory |
 
 ---
@@ -336,7 +337,13 @@ All tables created in `db.py`'s `init_db()` function:
 - `GET /voice/active-lines` — Current active call lines count and details for the user
 - `POST /voice/multi-hangup` — Hang up multiple active calls at once. Body: `{call_sids: [...]}`
 - `POST /voice/multi-status` — Batch poll status of multiple calls. Body: `{call_sids: [...]}`
-- `GET /voice/predictive-stats` — 7-day predictive dialing analytics (connect rate, recommended lines, dial ratio)
+- `GET /voice/predictive-stats` — 7-day predictive dialing analytics (connect rate, recommended lines, dial ratio); Erlang-C algorithm for `predictive_dialer` tier
+- `GET /voice/compliance` — TCPA compliance dashboard (abandon rate, DNC violations, hours violations, compliance score); `predictive_dialer` tier only
+- `GET|POST /voice/agent-state` — Agent state machine (Ready/Not Ready/Wrap-Up/Break); `predictive_dialer` tier
+- `GET|POST|DELETE /voice/callback-queue` — Callback queue management (schedule, view, cancel re-dials)
+- `GET /voice/recording-consent` — Check two-party recording consent by phone area code
+- `POST /voice/recording-consent/batch` — Batch consent check for up to 300 numbers
+- `GET /checkout/predictive-dialer` — Predictive Dialer plan checkout ($349.98/mo)
 
 ### Billing / Plan Management
 - `GET /checkout/pro-dialer` — Pro Dialer plan checkout ($224.99/mo)
@@ -783,8 +790,9 @@ python worker.py website demo              # GHL sync, backfill, demo chat
 
 - **Power Dialer (Individual)**: $149.99/month — single-line dialing, AI texting, AI voice, lead intelligence, Smart Filters, unlimited minutes, 5 sales frameworks. No contracts, cancel anytime. `subscription_tier = 'individual'`
 - **Pro Dialer**: $224.99/month — everything in Power Dialer PLUS multi-line dialing (up to 4 concurrent lines), predictive dialer with AI-optimized pacing, connect rate analytics, priority queue. `subscription_tier = 'pro_dialer'`. Env var: `STRIPE_PRO_DIALER_PRICE_ID`
+- **Predictive Dialer**: $349.98/month — everything in Pro Dialer PLUS Erlang-C predictive pacing, TCPA auto-throttle (rolling 3% abandon rate), recipient timezone enforcement (area code → timezone lookup), agent state machine (Ready/Not Ready/Wrap-Up/Break), compliance dashboard, recording consent tracking (two-party consent states), callback queue with scheduled re-dials. `subscription_tier = 'predictive_dialer'`. Env var: `STRIPE_PREDICTIVE_DIALER_PRICE_ID`
 - **Agency Starter**: Agency owner + up to 14 sub-users, multi-tenant dashboard
 - **Agency Pro**: Agency owner + unlimited sub-users + dedicated queue + white-glove onboarding
 - **AI Minutes**: Add-on usage-based billing for AI voice processing
 
-Subscriptions managed via Stripe. Users without active subscriptions see a paywall on the dashboard. Plan switching between Power Dialer and Pro Dialer is handled via `POST /change-plan` which calls `stripe.Subscription.modify()` with proration.
+Subscriptions managed via Stripe. Users without active subscriptions see a paywall on the dashboard. Plan switching between Power Dialer, Pro Dialer, and Predictive Dialer is handled via `POST /change-plan` which calls `stripe.Subscription.modify()` with proration.

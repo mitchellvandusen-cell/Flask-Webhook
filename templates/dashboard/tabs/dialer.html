@@ -831,6 +831,61 @@
                         <div style="font-size:0.75rem;color:#aaa;">Connect Rate: <span id="predictiveConnectRate" style="color:#fff;font-weight:700;">--</span></div>
                         <div style="font-size:0.75rem;color:#aaa;">AI Lines: <span id="predictiveRecommendedLines" style="color:#ff6b35;font-weight:700;">--</span></div>
                         <div style="font-size:0.75rem;color:#aaa;">Ratio: <span id="predictiveDialRatio" style="color:#fff;font-weight:700;">--</span></div>
+                        <div id="predictiveAlgorithm" style="display:none;font-size:0.7rem;color:#555;"></div>
+                    </div>
+                    <!-- Erlang-C extended metrics (predictive_dialer tier only) -->
+                    <div id="erlangCMetrics" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04);">
+                        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                            <div style="font-size:0.72rem;color:#888;">Abandon Rate: <span id="predictiveAbandonRate" style="font-weight:700;">--</span></div>
+                            <div style="font-size:0.72rem;color:#888;">Erlang-C P(wait): <span id="predictiveErlangC" style="color:#aaa;font-weight:700;">--</span></div>
+                            <div id="predictiveThrottleTag" style="display:none;font-size:0.68rem;padding:2px 8px;border-radius:8px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#ef4444;font-weight:700;">THROTTLED</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TCPA Compliance Banner (predictive_dialer tier only) -->
+                <div id="complianceBanner" style="display:none;border-radius:10px;padding:10px 14px;margin-bottom:10px;">
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                        <span id="complianceIcon" style="font-size:1rem;"></span>
+                        <span id="complianceLabel" style="font-size:0.78rem;font-weight:700;"></span>
+                        <span id="complianceRate" style="font-size:0.75rem;color:#aaa;"></span>
+                        <span id="complianceScore" style="font-size:0.72rem;margin-left:auto;"></span>
+                    </div>
+                </div>
+
+                <!-- Agent State Selector (predictive_dialer tier only) -->
+                <div id="agentStatePanel" style="display:none;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:8px 12px;margin-bottom:10px;">
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <span style="font-size:0.75rem;color:#888;font-weight:600;"><i class="fa-solid fa-user-clock me-1"></i>Status:</span>
+                        <select id="agentStateSelect" onchange="pdSetAgentState(this.value)" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:6px;padding:4px 8px;font-size:0.78rem;">
+                            <option value="ready" style="background:#111;">Ready</option>
+                            <option value="not_ready" style="background:#111;">Not Ready</option>
+                            <option value="break" style="background:#111;">Break</option>
+                            <option value="extended_away" style="background:#111;">Extended Away</option>
+                        </select>
+                        <span id="agentStateDot" style="width:8px;height:8px;border-radius:50%;background:#4ade80;"></span>
+                        <span id="agentStateDuration" style="font-size:0.72rem;color:#555;font-family:monospace;"></span>
+                        <span id="agentWrapUpTimer" style="display:none;font-size:0.72rem;color:#ff6b35;font-family:monospace;font-weight:700;"></span>
+                    </div>
+                </div>
+
+                <!-- Callback Queue Badge (predictive_dialer tier only) -->
+                <div id="callbackQueueBanner" style="display:none;background:rgba(139,92,246,0.04);border:1px solid rgba(139,92,246,0.15);border-radius:10px;padding:8px 14px;margin-bottom:10px;cursor:pointer;" onclick="pdShowCallbackQueue()">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <i class="fa-solid fa-clock-rotate-left" style="color:#8b5cf6;"></i>
+                        <span style="font-size:0.78rem;color:#aaa;">Callback Queue:</span>
+                        <span id="callbackQueueCount" style="font-size:0.82rem;font-weight:700;color:#8b5cf6;">0</span>
+                        <span id="callbackDueCount" style="display:none;font-size:0.68rem;padding:2px 8px;border-radius:8px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#ef4444;font-weight:700;">0 due</span>
+                        <i class="fa-solid fa-chevron-right ms-auto" style="font-size:0.7rem;color:#555;"></i>
+                    </div>
+                </div>
+
+                <!-- Recording Consent Warning (shown before calls to 2-party states) -->
+                <div id="recordingConsentBanner" style="display:none;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2);border-radius:10px;padding:8px 14px;margin-bottom:10px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <i class="fa-solid fa-shield-halved" style="color:#fbbf24;"></i>
+                        <span style="font-size:0.78rem;color:#ddd;"><strong>Two-Party Consent:</strong> <span id="consentStateName">--</span> requires all-party recording consent.</span>
+                        <button onclick="document.getElementById('recordingConsentBanner').style.display='none'" style="background:none;border:none;color:#555;cursor:pointer;margin-left:auto;"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                 </div>
 

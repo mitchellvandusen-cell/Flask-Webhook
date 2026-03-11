@@ -359,6 +359,67 @@ def checkout_pro_dialer():
                            f"Error Code: {e}")
 
 
+@billing_bp.route("/checkout/predictive-dialer")
+def checkout_predictive_dialer():
+    """Predictive Dialer plan checkout — enterprise predictive features."""
+    try:
+        price_id = os.getenv("STRIPE_PREDICTIVE_DIALER_PRICE_ID")
+        if not price_id:
+            logger.error("STRIPE_PREDICTIVE_DIALER_PRICE_ID environment variable is not set!")
+            return _error_page(
+                "Configuration Error",
+                "The Predictive Dialer price ID is not configured. Please contact support.",
+                "Error Code: MISSING_PRICE_ID"
+            )
+
+        customer_email = current_user.email if current_user.is_authenticated else None
+        logger.info(f"Creating Predictive Dialer checkout with price_id: {price_id}")
+
+        checkout_params = dict(
+            payment_method_types=["card"],
+            mode="subscription",
+            line_items=[{"price": price_id, "quantity": 1}],
+            allow_promotion_codes=True,
+            customer_email=customer_email,
+            metadata={
+                "user_email": customer_email,
+                "target_role": "individual",
+                "target_tier": "predictive_dialer",
+                "source": "website"
+            },
+            subscription_data={
+                "trial_period_days": 7,
+                "metadata": {
+                    "user_email": customer_email,
+                    "target_role": "individual",
+                    "target_tier": "predictive_dialer"
+                },
+            },
+            success_url=f"{YOUR_DOMAIN}/success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{YOUR_DOMAIN}/cancel",
+        )
+
+        referral = request.args.get("referral", "").strip()
+        if referral:
+            checkout_params["client_reference_id"] = referral
+
+        session = stripe.checkout.Session.create(**checkout_params)
+        return redirect(session.url, code=303)
+
+    except stripe.error.InvalidRequestError as e:
+        logger.error(f"Stripe Invalid Request Error (Predictive Dialer): {e}")
+        return _error_page(
+            "Stripe Configuration Error",
+            "There's an issue with the payment configuration. Please contact support.",
+            f"Error: {e}"
+        )
+    except Exception as e:
+        logger.error(f"Predictive Dialer checkout error: {e}")
+        return _error_page("Checkout Error",
+                           "Unable to create checkout session. Please contact support.",
+                           f"Error Code: {e}")
+
+
 @billing_bp.route("/checkout/agency-starter")
 def checkout_agency_starter():
     """
@@ -576,6 +637,7 @@ def change_plan():
     tier_to_price = {
         "individual": os.getenv("STRIPE_PRICE_ID"),
         "pro_dialer": os.getenv("STRIPE_PRO_DIALER_PRICE_ID"),
+        "predictive_dialer": os.getenv("STRIPE_PREDICTIVE_DIALER_PRICE_ID"),
     }
 
     if target_tier not in tier_to_price:
@@ -659,6 +721,7 @@ def change_plan():
         tier_names = {
             "individual": "Power Dialer ($149.99/mo)",
             "pro_dialer": "Pro Dialer ($224.99/mo)",
+            "predictive_dialer": "Predictive Dialer ($349.98/mo)",
         }
         return flask_jsonify({
             "success": True,
@@ -693,6 +756,19 @@ def subscription_info():
             "price": "$224.99/mo",
             "max_lines": 4,
             "features": ["Multi-line dialing (up to 4)", "Predictive dialer", "AI Texting", "AI Voice Agent", "Smart Filters", "Lead Intelligence", "Priority queue"],
+        },
+        "predictive_dialer": {
+            "name": "Predictive Dialer",
+            "price": "$349.98/mo",
+            "max_lines": 4,
+            "features": [
+                "Erlang-C predictive pacing", "TCPA auto-throttle (3% abandon rate)",
+                "Recipient timezone enforcement", "Agent state machine",
+                "Compliance dashboard", "Recording consent tracking",
+                "Callback queue with scheduled re-dials", "Advanced AMD",
+                "Multi-line dialing (up to 4)", "AI Texting", "AI Voice Agent",
+                "Smart Filters", "Lead Intelligence", "Priority queue",
+            ],
         },
     }
 

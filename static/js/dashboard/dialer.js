@@ -6180,7 +6180,7 @@
                 if (!r.ok) return;
                 const info = await r.json();
                 const tier = info.tier || 'individual';
-                _multiLineEnabled = (tier === 'pro_dialer') || info.is_admin;
+                _multiLineEnabled = (tier === 'pro_dialer' || tier === 'predictive_dialer') || info.is_admin;
                 // Use user-configured max_lines_setting, capped by subscription tier
                 const configuredLines = (window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.maxLinesSetting) || 3;
                 _multiLineMaxLines = _multiLineEnabled ? Math.min(info.max_lines || 4, configuredLines) : 1;
@@ -6214,6 +6214,7 @@
 
         /**
          * Load predictive dialing statistics from the server.
+         * Enhanced: supports Erlang-C metrics for predictive_dialer tier.
          */
         async function multiLineLoadPredictiveStats() {
             try {
@@ -6232,10 +6233,192 @@
                     if (crEl) crEl.textContent = _predictiveStats.connect_rate + '%';
                     if (rlEl) rlEl.textContent = _predictiveStats.recommended_lines;
                     if (drEl) drEl.textContent = _predictiveStats.dial_ratio + ':1';
+
+                    // Show algorithm badge
+                    const algoEl = document.getElementById('predictiveAlgorithm');
+                    if (algoEl && _predictiveStats.algorithm === 'erlang_c') {
+                        algoEl.style.display = '';
+                        algoEl.textContent = 'Erlang-C';
+                    }
+
+                    // Show Erlang-C extended metrics
+                    const erlangEl = document.getElementById('erlangCMetrics');
+                    if (erlangEl && _predictiveStats.algorithm === 'erlang_c') {
+                        erlangEl.style.display = '';
+                        const arEl = document.getElementById('predictiveAbandonRate');
+                        const ecEl = document.getElementById('predictiveErlangC');
+                        const ttEl = document.getElementById('predictiveThrottleTag');
+                        if (arEl) {
+                            const rate = _predictiveStats.current_abandon_rate || 0;
+                            arEl.textContent = rate.toFixed(1) + '%';
+                            arEl.style.color = rate > 3 ? '#ef4444' : rate > 2 ? '#fbbf24' : '#4ade80';
+                        }
+                        if (ecEl) ecEl.textContent = (_predictiveStats.erlang_c_probability || 0).toFixed(3);
+                        if (ttEl) ttEl.style.display = _predictiveStats.throttled ? '' : 'none';
+                    }
+                }
+
+                // Load compliance & agent state for predictive_dialer tier
+                if (_predictiveStats.algorithm === 'erlang_c') {
+                    pdLoadCompliance();
+                    pdLoadAgentState();
+                    pdLoadCallbackQueue();
                 }
             } catch (e) {
                 console.error('[MultiLine] Predictive stats load failed:', e);
             }
+        }
+
+        // ═══ Predictive Dialer Enterprise Features ═══════════════════════════
+
+        /** Load TCPA compliance status */
+        async function pdLoadCompliance() {
+            try {
+                const r = await fetch('/voice/compliance');
+                if (!r.ok) return;
+                const d = await r.json();
+
+                const banner = document.getElementById('complianceBanner');
+                if (!banner) return;
+                banner.style.display = 'block';
+
+                const icon = document.getElementById('complianceIcon');
+                const label = document.getElementById('complianceLabel');
+                const rate = document.getElementById('complianceRate');
+                const score = document.getElementById('complianceScore');
+
+                if (d.tcpa?.critical) {
+                    banner.style.background = 'rgba(239,68,68,0.06)';
+                    banner.style.borderColor = 'rgba(239,68,68,0.2)';
+                    if (icon) icon.textContent = '\u26a0\ufe0f';
+                    if (label) { label.textContent = 'TCPA CRITICAL'; label.style.color = '#ef4444'; }
+                } else if (d.tcpa?.warning) {
+                    banner.style.background = 'rgba(251,191,36,0.06)';
+                    banner.style.borderColor = 'rgba(251,191,36,0.2)';
+                    if (icon) icon.textContent = '\u26a0\ufe0f';
+                    if (label) { label.textContent = 'TCPA WARNING'; label.style.color = '#fbbf24'; }
+                } else {
+                    banner.style.background = 'rgba(74,222,128,0.04)';
+                    banner.style.borderColor = 'rgba(74,222,128,0.12)';
+                    if (icon) icon.textContent = '\u2705';
+                    if (label) { label.textContent = 'TCPA COMPLIANT'; label.style.color = '#4ade80'; }
+                }
+                if (rate) rate.textContent = `Abandon: ${d.tcpa?.abandon_rate_30d ?? 0}% (30d) | ${d.tcpa?.abandon_rate_1h ?? 0}% (1h)`;
+                if (score) {
+                    score.textContent = `Score: ${d.compliance_score}/100`;
+                    score.style.color = d.compliance_score >= 80 ? '#4ade80' : d.compliance_score >= 50 ? '#fbbf24' : '#ef4444';
+                }
+            } catch (e) { console.error('[PD] Compliance load failed:', e); }
+        }
+
+        /** Load and render agent state */
+        async function pdLoadAgentState() {
+            try {
+                const r = await fetch('/voice/agent-state');
+                if (!r.ok) return;
+                const d = await r.json();
+
+                const panel = document.getElementById('agentStatePanel');
+                if (panel) panel.style.display = 'block';
+
+                const sel = document.getElementById('agentStateSelect');
+                const dot = document.getElementById('agentStateDot');
+                const dur = document.getElementById('agentStateDuration');
+                const wt = document.getElementById('agentWrapUpTimer');
+
+                const state = d.my_state?.state || 'ready';
+                if (sel) sel.value = state;
+
+                const colors = { ready: '#4ade80', on_call: '#3b82f6', wrap_up: '#ff6b35', not_ready: '#ef4444', break: '#fbbf24', extended_away: '#888' };
+                if (dot) dot.style.background = colors[state] || '#888';
+
+                if (dur && d.my_state?.duration_sec != null) {
+                    const mins = Math.floor(d.my_state.duration_sec / 60);
+                    const secs = d.my_state.duration_sec % 60;
+                    dur.textContent = `${mins}m ${secs}s`;
+                }
+                if (wt && d.my_state?.wrap_up_remaining_sec != null && state === 'wrap_up') {
+                    wt.style.display = '';
+                    wt.textContent = `Wrap-up: ${d.my_state.wrap_up_remaining_sec}s`;
+                } else if (wt) {
+                    wt.style.display = 'none';
+                }
+            } catch (e) { console.error('[PD] Agent state load failed:', e); }
+        }
+
+        /** Set agent state */
+        async function pdSetAgentState(state) {
+            try {
+                const r = await fetch('/voice/agent-state', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': typeof csrf_token !== 'undefined' ? csrf_token : '' },
+                    body: JSON.stringify({ state })
+                });
+                if (r.ok) pdLoadAgentState();
+            } catch (e) { console.error('[PD] Set agent state failed:', e); }
+        }
+
+        /** Load callback queue count */
+        async function pdLoadCallbackQueue() {
+            try {
+                const r = await fetch('/voice/callback-queue');
+                if (!r.ok) return;
+                const d = await r.json();
+
+                const banner = document.getElementById('callbackQueueBanner');
+                const countEl = document.getElementById('callbackQueueCount');
+                const dueEl = document.getElementById('callbackDueCount');
+
+                if (d.queue_size > 0 && banner) {
+                    banner.style.display = 'block';
+                    if (countEl) countEl.textContent = d.queue_size;
+                    if (dueEl && d.due_count > 0) {
+                        dueEl.style.display = '';
+                        dueEl.textContent = `${d.due_count} due`;
+                    } else if (dueEl) {
+                        dueEl.style.display = 'none';
+                    }
+                } else if (banner) {
+                    banner.style.display = 'none';
+                }
+            } catch (e) { console.error('[PD] Callback queue load failed:', e); }
+        }
+
+        /** Show callback queue details (placeholder — opens modal or panel) */
+        function pdShowCallbackQueue() {
+            _showDashToast(true, 'Callback queue panel coming soon');
+        }
+
+        /** Schedule a callback for a contact */
+        async function pdScheduleCallback(contactId, phone, name, delayMinutes = 30, reason = 'no_answer') {
+            try {
+                const r = await fetch('/voice/callback-queue', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': typeof csrf_token !== 'undefined' ? csrf_token : '' },
+                    body: JSON.stringify({ contact_id: contactId, phone, name, delay_minutes: delayMinutes, reason })
+                });
+                if (r.ok) {
+                    _showDashToast(true, `Callback scheduled in ${delayMinutes} min`);
+                    pdLoadCallbackQueue();
+                }
+            } catch (e) { console.error('[PD] Schedule callback failed:', e); }
+        }
+
+        /** Check recording consent for a contact and show banner if two-party state */
+        async function pdCheckRecordingConsent(phone) {
+            try {
+                const r = await fetch(`/voice/recording-consent?phone=${encodeURIComponent(phone)}`);
+                if (!r.ok) return;
+                const d = await r.json();
+                const banner = document.getElementById('recordingConsentBanner');
+                const stateEl = document.getElementById('consentStateName');
+                if (d.two_party_consent && banner) {
+                    banner.style.display = 'block';
+                    if (stateEl) stateEl.textContent = d.state || 'This state';
+                } else if (banner) {
+                    banner.style.display = 'none';
+                }
+            } catch (e) { /* silent */ }
         }
 
         /**
@@ -6244,7 +6427,7 @@
          */
         async function multiLineStartQueue() {
             if (!_multiLineEnabled) {
-                _showDashToast(false, 'Multi-line dialing requires Pro Dialer plan');
+                _showDashToast(false, 'Multi-line dialing requires Pro Dialer or Predictive Dialer plan');
                 return;
             }
             if (dialerQueue.length === 0) {
@@ -6747,21 +6930,26 @@
                 // Highlight current plan card
                 const indCard = document.getElementById('billingPlanIndividual');
                 const proCard = document.getElementById('billingPlanProDialer');
+                const predCard = document.getElementById('billingPlanPredictiveDialer');
                 const indBadge = document.getElementById('billingBadgeIndividual');
                 const proBadge = document.getElementById('billingBadgeProDialer');
+                const predBadge = document.getElementById('billingBadgePredictiveDialer');
 
-                if (indCard && proCard) {
-                    if (_billingCurrentTier === 'pro_dialer') {
-                        proCard.style.borderColor = 'rgba(255,107,53,0.4)';
-                        indCard.style.borderColor = 'rgba(255,255,255,0.08)';
-                        if (proBadge) proBadge.style.display = 'block';
-                        if (indBadge) indBadge.style.display = 'none';
-                    } else {
-                        indCard.style.borderColor = 'rgba(0,255,136,0.4)';
-                        proCard.style.borderColor = 'rgba(255,255,255,0.08)';
-                        if (indBadge) indBadge.style.display = 'block';
-                        if (proBadge) proBadge.style.display = 'none';
-                    }
+                // Reset all cards
+                const allCards = [indCard, proCard, predCard];
+                const allBadges = [indBadge, proBadge, predBadge];
+                allCards.forEach(c => { if (c) c.style.borderColor = 'rgba(255,255,255,0.08)'; });
+                allBadges.forEach(b => { if (b) b.style.display = 'none'; });
+
+                if (_billingCurrentTier === 'predictive_dialer') {
+                    if (predCard) predCard.style.borderColor = 'rgba(139,92,246,0.4)';
+                    if (predBadge) predBadge.style.display = 'block';
+                } else if (_billingCurrentTier === 'pro_dialer') {
+                    if (proCard) proCard.style.borderColor = 'rgba(255,107,53,0.4)';
+                    if (proBadge) proBadge.style.display = 'block';
+                } else {
+                    if (indCard) indCard.style.borderColor = 'rgba(0,255,136,0.4)';
+                    if (indBadge) indBadge.style.display = 'block';
                 }
             } catch (e) {
                 console.error('[Billing] Load plan info failed:', e);
@@ -6779,15 +6967,16 @@
 
             const indCard = document.getElementById('billingPlanIndividual');
             const proCard = document.getElementById('billingPlanProDialer');
-            if (indCard && proCard) {
-                indCard.style.borderColor = tier === 'individual' ? 'rgba(0,255,136,0.4)' : 'rgba(255,255,255,0.08)';
-                proCard.style.borderColor = tier === 'pro_dialer' ? 'rgba(255,107,53,0.4)' : 'rgba(255,255,255,0.08)';
-            }
+            const predCard = document.getElementById('billingPlanPredictiveDialer');
+            [indCard, proCard, predCard].forEach(c => { if (c) c.style.borderColor = 'rgba(255,255,255,0.08)'; });
+            if (tier === 'individual' && indCard) indCard.style.borderColor = 'rgba(0,255,136,0.4)';
+            if (tier === 'pro_dialer' && proCard) proCard.style.borderColor = 'rgba(255,107,53,0.4)';
+            if (tier === 'predictive_dialer' && predCard) predCard.style.borderColor = 'rgba(139,92,246,0.4)';
 
             const btn = document.getElementById('billingChangePlanBtn');
             if (btn) {
                 btn.style.display = 'inline-flex';
-                const tierNames = { individual: 'Power Dialer ($149.99/mo)', pro_dialer: 'Pro Dialer ($224.99/mo)' };
+                const tierNames = { individual: 'Power Dialer ($149.99/mo)', pro_dialer: 'Pro Dialer ($224.99/mo)', predictive_dialer: 'Predictive Dialer ($349.98/mo)' };
                 btn.innerHTML = '<i class="fa-solid fa-arrows-rotate me-2"></i>Switch to ' + (tierNames[tier] || tier);
             }
         }

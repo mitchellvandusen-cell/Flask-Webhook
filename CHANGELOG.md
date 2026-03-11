@@ -8,6 +8,7 @@
 
 | Date | Milestone |
 |------|-----------|
+| 2026-03-11 | Predictive Dialer tier ($349.98/mo): Erlang-C pacing, TCPA compliance, timezone enforcement, agent state machine, callback queue, recording consent |
 | 2026-03-11 | Multi-line dialer (up to 4 lines), predictive dialer, Pro Dialer tier ($224.99/mo), plan switching |
 | 2026-02-19 | Initial visible history begins; voice dialer UI, Trust Hub tabs, AMD fixes, AI latency improvements | 
 | 2026-02-19 | AI Minutes Marketplace launched (purchase bundles, auto-deduct on calls) |
