@@ -423,7 +423,7 @@
                     }
                     .ios-channel-row{display:flex;align-items:center;gap:5px;padding:2px 9px 0;}
                     .ios-channel-label{font-size:clamp(0.62rem, 0.52vw, 0.95rem);color:#8E8E93;font-weight:600;white-space:nowrap;}
-                    .ios-channel-select{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#ccc;padding:clamp(3px, 0.16vw, 6px) clamp(7px, 0.36vw, 13px);border-radius:6px;font-size:clamp(0.65rem, 0.54vw, 1rem);outline:none;cursor:pointer;}
+                    .ios-channel-select{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#ccc;padding:2px 5px;border-radius:6px;font-size:0.6rem;outline:none;cursor:pointer;max-width:82px;}
                     .ios-channel-note{font-size:clamp(0.56rem, 0.47vw, 0.85rem);color:#8E8E93;}
                     .ios-compose-row{display:flex;gap:5px;align-items:flex-end;padding:5px 8px 2px;}
                     .ios-compose-input-wrap{flex:1;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:2px 4px;transition:border-color 0.15s;}
@@ -655,6 +655,22 @@
                     body.light-theme .ios-quick-options-menu button { color: #1a1a2e !important; }
                     body.light-theme .ios-quick-options-menu button:hover { background: rgba(0,122,255,0.08) !important; }
                     body.light-theme .iphone-bezel { background: linear-gradient(145deg,#d4d4d8 0%,#c0c0c4 20%,#b4b4b8 50%,#c0c0c4 80%,#d4d4d8 100%) !important; box-shadow: 0 0 0 1px rgba(0,0,0,0.06), 0 clamp(12px, 1.3vw, 40px) clamp(30px, 3.1vw, 96px) rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.6) !important; }
+                    /* Light theme — phone interior elements */
+                    body.light-theme .iphone-frame .ios-back-btn { color: #007AFF !important; }
+                    body.light-theme .iphone-frame .ios-nav-subtitle { color: #636366 !important; }
+                    body.light-theme .iphone-frame .ios-nav-action { color: #007AFF !important; }
+                    body.light-theme .iphone-frame .ios-compose-input { color: #1a1a2e !important; }
+                    body.light-theme .iphone-frame .ios-compose-input::placeholder { color: #aeaeb2 !important; }
+                    body.light-theme .iphone-frame .ios-compose-input-wrap { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.1) !important; }
+                    body.light-theme .iphone-frame .ios-toolbar-btn { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.08) !important; color: #636366 !important; }
+                    body.light-theme .iphone-frame .ios-toolbar-btn:hover { background: rgba(0,122,255,0.08) !important; color: #007AFF !important; border-color: rgba(0,122,255,0.2) !important; }
+                    body.light-theme .iphone-frame .ios-toolbar-ai { background: rgba(0,122,255,0.08) !important; border-color: rgba(0,122,255,0.2) !important; color: #007AFF !important; }
+                    body.light-theme .iphone-frame .ios-channel-select { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.1) !important; color: #1a1a2e !important; }
+                    body.light-theme .iphone-frame .ios-channel-label { color: #636366 !important; }
+                    body.light-theme .iphone-frame .ios-char-count { color: #8e8e93 !important; }
+                    body.light-theme .iphone-frame .ios-sms-status { color: #636366 !important; }
+                    body.light-theme .iphone-frame .ios-dynamic-island { background: #1a1a2e !important; }
+                    body.light-theme .iphone-frame .ios-home-indicator { background: rgba(0,0,0,0.2) !important; }
 
                     /* Light theme — dialer panels */
                     body.light-theme .dlr-top-bar { background: rgba(255,255,255,0.7) !important; border-color: rgba(0,0,0,0.08) !important; }
