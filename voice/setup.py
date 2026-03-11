@@ -16,6 +16,12 @@ TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
 setup_bp = Blueprint('voice_setup', __name__)
 
 
+@setup_bp.route('/voice/ping', methods=['GET', 'HEAD'])
+def voice_ping():
+    """Health check endpoint — used by Railway/Render platform health monitors."""
+    return '', 200
+
+
 @setup_bp.route('/voice/automate-setup', methods=['POST'])
 @login_required
 def automate_voice_setup():
