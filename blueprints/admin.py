@@ -276,7 +276,7 @@ def api_admin_send_email_all():
     finally:
         return_db_connection(conn)
 
-    emails = [r[0] for r in rows]
+    emails = [r["email"] if isinstance(r, dict) else r[0] for r in rows]
     if not emails:
         return safe_jsonify({"error": "No subscriber emails found"}), 404
 
