@@ -114,6 +114,7 @@ All queues are defined in `extensions.py` and initialized via `ensure_redis()`. 
 - `STRIPE_WEBHOOK_SECRET` — For validating Stripe webhook events
 - `STRIPE_PRICE_ID` — Individual plan price ID
 - `STRIPE_PRO_DIALER_PRICE_ID` — Pro Dialer plan price ID ($224.99/mo)
+- `STRIPE_PREDICTIVE_DIALER_PRICE_ID` — Predictive Dialer plan price ID ($349.98/mo)
 - `STRIPE_AGENCY_STARTER_PRICE_ID`, `STRIPE_AGENCY_PRO_PRICE_ID`
 - `AI_MINUTES_PRICE_ID_500`, `AI_MINUTES_PRICE_ID_2000`, `AI_MINUTES_PRICE_ID_5000`, `AI_MINUTES_PRICE_ID_10000` — Usage-based AI minutes packages
 

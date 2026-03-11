@@ -6985,6 +6985,7 @@
             if (!_billingSelectedTier || _billingSelectedTier === _billingCurrentTier) return;
 
             const btn = document.getElementById('billingChangePlanBtn');
+            if (!btn) return;
             const origHTML = btn.innerHTML;
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Changing plan...';
@@ -6995,7 +6996,8 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ target_tier: _billingSelectedTier })
                 });
-                const data = await r.json();
+                let data;
+                try { data = await r.json(); } catch (_) { data = {}; }
                 if (r.ok && data.success) {
                     _showDashToast(true, data.message || 'Plan changed successfully');
                     _billingCurrentTier = _billingSelectedTier;

@@ -679,7 +679,10 @@ def dial_contact():
     phone         = data.get('phone', '')
     first_name    = data.get('first_name', 'there')
     dial_mode     = data.get('dial_mode', 'ai')
-    dial_attempt  = int(data.get('dial_attempt', 1))
+    try:
+        dial_attempt = int(data.get('dial_attempt', 1))
+    except (ValueError, TypeError):
+        dial_attempt = 1
 
     if not phone:
         return jsonify({"error": "Phone number is required"}), 400
@@ -736,7 +739,7 @@ def dial_contact():
     if not hours_ok:
         return jsonify({"error": hours_reason, "calling_hours_blocked": True}), 400
 
-    # ── Recipient timezone enforcement (predictive_dialer tier) ──
+    # ── Recipient timezone enforcement (compliance — applies to admins too) ──
     if tier in ('pro_dialer', 'predictive_dialer') or is_admin:
         tz_ok, tz_reason, recip_tz, recip_time = check_recipient_timezone(
             phone,
@@ -880,7 +883,10 @@ def multi_dial():
     data = request.json or {}
     contacts = data.get('contacts', [])  # [{contact_id, phone, first_name}]
     dial_mode = data.get('dial_mode', 'ai')
-    max_lines = int(data.get('max_lines', 3))
+    try:
+        max_lines = int(data.get('max_lines', 3))
+    except (ValueError, TypeError):
+        max_lines = 3
 
     if not contacts:
         return jsonify({"error": "No contacts provided"}), 400
@@ -973,7 +979,7 @@ def multi_dial():
             finally:
                 return_db_connection(_cd_conn)
 
-    # ── Per-contact timezone enforcement (predictive_dialer tier) ──
+    # ── Per-contact timezone enforcement (compliance — applies to admins too) ──
     tz_blocked_phones = set()
     if tier in ('pro_dialer', 'predictive_dialer') or is_admin:
         calling_start = voice_config.get('calling_hours_start', '08:00')
@@ -989,7 +995,10 @@ def multi_dial():
         c_phone = contact.get('phone', '')
         c_name = contact.get('first_name', 'there')
         c_id = contact.get('contact_id', '')
-        c_attempt = int(contact.get('dial_attempt', 1))
+        try:
+            c_attempt = int(contact.get('dial_attempt', 1))
+        except (ValueError, TypeError):
+            c_attempt = 1
 
         if not c_phone:
             results.append({"contact_id": c_id, "call_sid": None, "status": "error", "error": "No phone number"})
@@ -1354,13 +1363,20 @@ def compliance_dashboard():
                             "upgrade_required": True}), 403
 
         location_id = row['location_id']
-        period = int(request.args.get('period', 30))
-        period = max(1, min(90, period))
-
-        metrics = get_compliance_metrics(location_id, period_days=period)
-        return jsonify(metrics)
+    except Exception as e:
+        logger.error(f"Compliance dashboard DB error: {e}")
+        return jsonify({"error": "Database error"}), 500
     finally:
         return_db_connection(conn)
+
+    try:
+        period = int(request.args.get('period', 30))
+    except (ValueError, TypeError):
+        period = 30
+    period = max(1, min(90, period))
+
+    metrics = get_compliance_metrics(location_id, period_days=period)
+    return jsonify(metrics)
 
 
 @dialer_bp.route('/voice/agent-state', methods=['GET', 'POST'])
@@ -1379,8 +1395,17 @@ def agent_state():
         if not row:
             return jsonify({"error": "Account not found"}), 404
         location_id = row['location_id']
+        tier = row['subscription_tier'] or 'individual'
+    except Exception as e:
+        logger.error(f"Agent state DB error: {e}")
+        return jsonify({"error": "Database error"}), 500
     finally:
         return_db_connection(conn)
+
+    is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+    if tier != 'predictive_dialer' and not is_admin:
+        return jsonify({"error": "Agent state requires Predictive Dialer tier",
+                        "upgrade_required": True}), 403
 
     if request.method == 'GET':
         state = agent_state_manager.get_agent_state(location_id, current_user.email)
@@ -1394,7 +1419,7 @@ def agent_state():
             "predicted_available_30s": predicted,
         })
 
-    # POST: set state
+    # POST: set state (user-settable states only; ON_CALL and WRAP_UP are server-controlled)
     data = request.json or {}
     new_state = data.get('state', '')
     reason = data.get('reason')
@@ -1417,15 +1442,24 @@ def callback_queue_route():
         return jsonify({"error": "Database error"}), 500
     try:
         cur = conn.cursor()
-        cur.execute("SELECT location_id FROM subscribers WHERE email = %s",
+        cur.execute("SELECT location_id, subscription_tier FROM subscribers WHERE email = %s",
                     (current_user.email,))
         row = cur.fetchone()
         cur.close()
         if not row:
             return jsonify({"error": "Account not found"}), 404
         location_id = row['location_id']
+        tier = row['subscription_tier'] or 'individual'
+    except Exception as e:
+        logger.error(f"Callback queue DB error: {e}")
+        return jsonify({"error": "Database error"}), 500
     finally:
         return_db_connection(conn)
+
+    is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+    if tier != 'predictive_dialer' and not is_admin:
+        return jsonify({"error": "Callback queue requires Predictive Dialer tier",
+                        "upgrade_required": True}), 403
 
     if request.method == 'GET':
         queue = callback_queue.get_queue(location_id)
@@ -1442,7 +1476,11 @@ def callback_queue_route():
         contact_id = data.get('contact_id', '')
         phone = data.get('phone', '')
         name = data.get('name', 'Unknown')
-        delay_minutes = int(data.get('delay_minutes', 30))
+        try:
+            delay_minutes = int(data.get('delay_minutes', 30))
+        except (ValueError, TypeError):
+            delay_minutes = 30
+        delay_minutes = max(1, min(10080, delay_minutes))  # 1 min to 7 days
         reason = data.get('reason', 'no_answer')
 
         if not phone:
@@ -1497,8 +1535,8 @@ def recording_consent_batch():
     """Batch check recording consent for multiple phone numbers."""
     data = request.json or {}
     phones = data.get('phones', [])
-    if not phones:
-        return jsonify({"error": "No phone numbers provided"}), 400
+    if not phones or not isinstance(phones, list):
+        return jsonify({"error": "No phone numbers provided (expected array)"}), 400
 
     results = {}
     for phone in phones[:300]:
