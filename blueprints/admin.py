@@ -245,6 +245,59 @@ def api_admin_send_email():
     return safe_jsonify({"error": f"Failed to send email to {to_email}"}), 500
 
 
+@admin_bp.route("/api/admin/send-email-all", methods=["POST"])
+def api_admin_send_email_all():
+    """Blast a branded update email to every subscriber. Auth: admin login or CRON_SECRET."""
+    if not _is_admin_request():
+        return safe_jsonify({"error": "Admin access required"}), 403
+
+    body = request.get_json(silent=True) or {}
+    subject      = body.get("subject", "New Update from InsuranceGrokBot")
+    update_notes = body.get("update_notes", "")  # optional green callout block
+
+    if not subject:
+        return safe_jsonify({"error": "Missing 'subject'"}), 400
+
+    from send_email_api import send_email_via_api
+    from email_templates import build_app_update_email
+    from db import get_db_connection, return_db_connection
+
+    domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+    html_body, text_body = build_app_update_email(domain_url=domain_url, update_notes=update_notes)
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT DISTINCT email FROM subscribers WHERE email IS NOT NULL AND email <> '' ORDER BY email"
+            )
+            rows = cur.fetchall()
+    finally:
+        return_db_connection(conn)
+
+    emails = [r[0] for r in rows]
+    if not emails:
+        return safe_jsonify({"error": "No subscriber emails found"}), 404
+
+    sent_count = 0
+    failed = []
+    for addr in emails:
+        ok = send_email_via_api(to_email=addr, subject=subject,
+                                html_body=html_body, text_body=text_body)
+        if ok:
+            sent_count += 1
+        else:
+            failed.append(addr)
+
+    return safe_jsonify({
+        "success": True,
+        "total": len(emails),
+        "sent": sent_count,
+        "failed": len(failed),
+        "failed_addresses": failed,
+    })
+
+
 # ── Marketplace installs ───────────────────────────────────────────────────────
 
 @admin_bp.route("/api/admin/marketplace-installs", methods=["GET"])
