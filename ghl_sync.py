@@ -598,13 +598,13 @@ def sync_ghl_phone_numbers(location_id, access_token=None):
     headers = _get_headers(access_token)
     numbers = []
 
-    # GHL V2 phone numbers endpoint (phonenumbers.read scope).
-    # Pass locationId as a proper params dict — never embed query strings in the URL
-    # because GHL's API gateway routing depends on the clean path.
-    # Fallback to the location sub-resource endpoint for older tokens / twilioaccount.read.
+    # Try phone-number endpoints in order. Both dedicated endpoints require the
+    # phonenumbers.read scope. If those fail, fall back to GET /locations/{id}
+    # (locations.read — always granted) which returns the main location phone.
     endpoint_configs = [
         (f"{GHL_BASE}/phone-numbers", {"locationId": location_id, "limit": 100}),
         (f"{GHL_BASE}/locations/{location_id}/phoneNumbers", {}),
+        (f"{GHL_BASE}/locations/{location_id}", {}),   # fallback: locations.read scope
     ]
 
     for url, params in endpoint_configs:
@@ -613,6 +613,21 @@ def sync_ghl_phone_numbers(location_id, access_token=None):
             logger.warning(f"[GHL_SYNC] phone_numbers: {url} failed ({err})")
             continue
         if data:
+            # /locations/{id} returns a location wrapper — pull the main phone from it
+            loc_obj = data.get("location")
+            if loc_obj and isinstance(loc_obj, dict) and not data.get("phoneNumbers") and not data.get("numbers"):
+                phone = loc_obj.get("phone") or loc_obj.get("twilioNumber") or loc_obj.get("phoneNumber")
+                if phone:
+                    numbers.append({
+                        "number": phone,
+                        "ghl_id": loc_obj.get("id", ""),
+                        "name": loc_obj.get("name") or "GHL Number",
+                        "capabilities": {"sms": True, "voice": True, "mms": False},
+                        "source": "ghl",
+                    })
+                    break
+                continue
+
             raw_numbers = data.get("phoneNumbers", data.get("numbers", []))
             if isinstance(raw_numbers, list):
                 for n in raw_numbers:
