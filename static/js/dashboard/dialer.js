@@ -51,11 +51,11 @@
         let _dialerAutoCallback = (window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.autoCallback) || false;
         let _dialerCallDurationTimer = null; // Timer for max call duration enforcement
         // Multi-line dialer settings (loaded from voice_config via DASHBOARD_BOOT)
-        let _dialerWrapUpTime = ((window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.wrapUpTime) ?? 15) * 1000; // ms
-        let _dialerRequireDisposition = (window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.requireDisposition) ?? true;
-        let _dialerAutoDispNoAnswer = (window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.autoDispositionNoAnswer) ?? true;
-        let _dialerAutoDispVoicemail = (window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.autoDispositionVoicemail) ?? true;
-        let _dialerOnMachineAction = (window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.onMachineAction) || 'hangup';
+        let _dialerWrapUpTime = (window.DASHBOARD_BOOT?.wrapUpTime ?? 15) * 1000; // ms
+        let _dialerRequireDisposition = window.DASHBOARD_BOOT?.requireDisposition ?? true;
+        let _dialerAutoDispNoAnswer = window.DASHBOARD_BOOT?.autoDispositionNoAnswer ?? true;
+        let _dialerAutoDispVoicemail = window.DASHBOARD_BOOT?.autoDispositionVoicemail ?? true;
+        let _dialerOnMachineAction = window.DASHBOARD_BOOT?.onMachineAction ?? 'hangup';
         let _dialerWrapUpTimer = null; // Timer for wrap-up countdown
         let _dialerWrapUpActive = false; // Whether wrap-up is currently in progress
 
@@ -6406,6 +6406,9 @@
          * Poll status of all active multi-line calls.
          */
         async function multiLinePollAll() {
+            // If wrap-up timer is pending, don't advance — let it expire first
+            if (_dialerWrapUpTimer) return;
+
             if (_multiLineActive.size === 0) {
                 // No active calls — try to dial more or stop
                 if (dialerQueueRunning) {
@@ -6531,6 +6534,16 @@
                             }
                         }, _dialerWrapUpTime);
                     } else {
+                        // Even without wrap-up, check disposition requirement
+                        if (_dialerRequireDisposition) {
+                            const undispositioned = dialerQueue.filter(q =>
+                                q.status === 'completed' && !q.disposition
+                            );
+                            if (undispositioned.length > 0) {
+                                _showDashToast(false, 'Set disposition before next batch');
+                                return; // Poll will retry on next cycle
+                            }
+                        }
                         const hasPending = dialerQueue.some(q => q.status === 'pending');
                         if (hasPending) {
                             // Use configured pause between calls

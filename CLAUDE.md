@@ -416,6 +416,32 @@ Enterprise multi-line power dialer that allows Pro Dialer subscribers ($224.99/m
 - `_multiLineConnectedSid` (string) — which call the agent is currently interacting with
 - `_predictiveStats` (object) — cached predictive analytics from server
 
+### Multi-Line Dialer Settings (voice_config JSONB)
+All settings stored in `voice_config` JSONB on `subscribers` table, validated in `blueprints/dashboard.py`, enforced server-side in `voice/dialer.py`.
+
+| Setting | Key | Default | Range | Enforcement |
+|---------|-----|---------|-------|-------------|
+| Max concurrent lines | `max_lines_setting` | 3 | 1-4 | Server: caps batch size in `multi_dial()` |
+| Wrap-up time (seconds) | `wrap_up_time` | 15 | 0-120 | Client: timer between batches in `multiLinePollAll()` |
+| Require disposition | `require_disposition` | true | bool | Client: gates next batch until all completed calls dispositioned |
+| Calling hours start | `calling_hours_start` | "08:00" | HH:MM | Server: `_check_calling_hours()` with pytz timezone |
+| Calling hours end | `calling_hours_end` | "21:00" | HH:MM | Server: supports midnight wrap-around (e.g., 22:00-06:00) |
+| Same-number cooldown | `same_number_cooldown_hours` | 4 | 0-72 | Server: `_check_cooldown_and_daily_max()` batch SQL |
+| Daily max per contact | `same_contact_daily_max` | 3 | 0-10 | Server: batch SQL with `make_interval()` |
+| On-machine action | `on_machine_action` | "hangup" | hangup/voicemail_drop/continue | Client: handles AMD result in poll |
+| Auto-disposition no-answer | `auto_disposition_no_answer` | true | bool | Client: auto-marks terminal no-answer calls |
+| Auto-disposition voicemail | `auto_disposition_voicemail` | true | bool | Client: auto-marks terminal voicemail calls |
+| Max abandon rate % | `max_abandon_rate_pct` | 3.0 | 1.0-10.0 | FTC 3% safe harbor for TCPA compliance |
+
+### Server-Side Enforcement
+- `_check_calling_hours(voice_config, agent_tz_str)` — validates current time against configured window, supports midnight wrap-around
+- `_check_cooldown_and_daily_max(location_id, phones, voice_config, conn)` — batch SQL using `make_interval(hours => %s)` for proper psycopg2 parameterization
+- Both functions called in `dial_contact()` (single-line) and `multi_dial()` (multi-line)
+- Blocked contacts returned with `calling_hours_blocked` or `cooldown_blocked` status
+
+### DASHBOARD_BOOT Integration
+Settings injected from server to client via `window.DASHBOARD_BOOT` in `dashboard.html`. Client variables use optional chaining (`window.DASHBOARD_BOOT?.settingName ?? default`) to safely handle missing boot data.
+
 ### Plan Switching
 - `POST /change-plan` — Stripe subscription modification with proration
 - `GET /subscription-info` — Returns tier, max_lines, features for billing UI

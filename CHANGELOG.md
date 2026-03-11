@@ -77,6 +77,31 @@
 - **Line selector**: `#multiLineToggle` dropdown (1-4 lines) visible only for pro_dialer tier
 - **Billing plan cards**: Interactive plan selection with CURRENT badge, feature lists, and change plan CTA
 
+### Multi-Line Dialer Settings (11 new configurable settings)
+All settings stored in `voice_config` JSONB, validated server-side in `blueprints/dashboard.py`, enforced in `voice/dialer.py`:
+- **Max concurrent lines** (`max_lines_setting`): 1-4 lines, default 3. Server caps batch size in `multi_dial()`
+- **Wrap-up time** (`wrap_up_time`): 0-120 seconds after-call work timer between batches, default 15s
+- **Require disposition** (`require_disposition`): Gates next batch until all completed calls are dispositioned (works with and without wrap-up)
+- **Calling hours** (`calling_hours_start`/`calling_hours_end`): TCPA-compliant calling window with pytz timezone support and midnight wrap-around (e.g., 22:00-06:00)
+- **Same-number cooldown** (`same_number_cooldown_hours`): 0-72 hours before re-dialing same number, default 4h. Batch SQL with `make_interval()`
+- **Daily max per contact** (`same_contact_daily_max`): 0-10 calls per contact per day, default 3. Batch SQL enforcement
+- **On-machine action** (`on_machine_action`): hangup/voicemail_drop/continue when AMD detects answering machine
+- **Auto-disposition toggles** (`auto_disposition_no_answer`/`auto_disposition_voicemail`): Auto-mark terminal no-answer and voicemail calls
+- **Max abandon rate** (`max_abandon_rate_pct`): 1-10%, default 3.0% (FTC safe harbor for TCPA compliance)
+
+### Bug Fixes (Audit Findings)
+- **CRITICAL: SQL injection via string interpolation**: `INTERVAL '%s hours'` in cooldown query — psycopg2 doesn't interpolate inside string literals. Fixed with `make_interval(hours => %s)` parameterized form
+- **CRITICAL: Night-shift calling hours always blocked**: Midnight wrap-around logic (start > end, e.g., 22:00-06:00) had inverted condition. Fixed with separate branch for normal vs wrapping ranges
+- **CRITICAL: AMD result field mismatch**: Client read `serverInfo.amd_result` but server stored `_amd_result`. Normalized key in `multi_call_status()` response
+- **CRITICAL: Wrap-up timer bypassed**: Poll cycle at 1.5s called `multiLineDialBatch()` immediately, ignoring pending wrap-up. Added `if (_dialerWrapUpTimer) return;` guard at top of `multiLinePollAll`
+- **HIGH: DASHBOARD_BOOT null coalescing broken**: `(window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.X) ?? default` — `&&` returns `false` (not `null`), so `??` won't coalesce. Fixed with optional chaining `window.DASHBOARD_BOOT?.X ?? default`
+- **HIGH: Wrap-up time 0 treated as 15**: `config.wrap_up_time || 15` in voice.js live-update coerced `0` to `15`. Fixed with `?? 15`
+- **MEDIUM: Require-disposition only enforced during wrap-up**: Non-wrap-up path (wrap_up_time=0) skipped disposition check. Added check to else branch
+- **LOW: Non-numeric input crash**: `int(data.get(...))` in dashboard.py could throw ValueError on malformed input. Added `_safe_int()` / `_safe_float()` helpers with fallback defaults
+- **BUG: multi_hangup marks completed on failure**: Now sets 'hangup-failed' status and skips DB update when `_twilio_hangup()` returns False
+- **BUG: Missing list() wrapper on active_calls.items()**: Could raise RuntimeError under concurrent thread access
+- **BUG: Wrong element ID**: `getElementById('dialer')` should be `'voicedialer'` for SSE auto-init
+
 ---
 
 ## 2026-03-10 (QA Audit)

@@ -152,7 +152,7 @@
                     if (typeof _dialerMaxCallDuration !== 'undefined') _dialerMaxCallDuration = (config.max_call_duration || 0) * 60 * 1000;
                     if (typeof _dialerAutoCallback !== 'undefined') _dialerAutoCallback = config.auto_callback || false;
                     // Live-update multi-line settings
-                    if (typeof _dialerWrapUpTime !== 'undefined') _dialerWrapUpTime = (config.wrap_up_time || 15) * 1000;
+                    if (typeof _dialerWrapUpTime !== 'undefined') _dialerWrapUpTime = (config.wrap_up_time ?? 15) * 1000;
                     if (typeof _dialerRequireDisposition !== 'undefined') _dialerRequireDisposition = config.require_disposition ?? true;
                     if (typeof _dialerAutoDispNoAnswer !== 'undefined') _dialerAutoDispNoAnswer = config.auto_disposition_no_answer ?? true;
                     if (typeof _dialerAutoDispVoicemail !== 'undefined') _dialerAutoDispVoicemail = config.auto_disposition_voicemail ?? true;

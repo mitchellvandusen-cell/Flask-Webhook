@@ -1176,7 +1176,11 @@ def multi_call_status():
                     del active_calls[sid]
                     statuses[sid] = status_copy
                     continue
-            statuses[sid] = dict(info)
+            entry = dict(info)
+            # Normalize internal keys for client consumption
+            if '_amd_result' in entry:
+                entry['amd_result'] = entry['_amd_result']
+            statuses[sid] = entry
         else:
             statuses[sid] = {"status": "unknown"}
 
