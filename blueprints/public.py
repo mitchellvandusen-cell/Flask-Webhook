@@ -46,7 +46,12 @@ def comparison_text_drip():
 
 @public_bp.route("/dialer")
 def dialer():
-    return render_template('dialer.html')
+    return redirect('/for-individuals')
+
+
+@public_bp.route("/sms")
+def sms():
+    return render_template('sms.html')
 
 
 @public_bp.route("/comparison/dialers")
