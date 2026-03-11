@@ -5769,7 +5769,7 @@
                 dialerTab.addEventListener('shown.bs.tab', _initSSENotifications);
                 dialerTab.addEventListener('click', function() { setTimeout(_initSSENotifications, 500); });
             }
-            const dialerPane = document.getElementById('dialer');
+            const dialerPane = document.getElementById('voicedialer');
             if (dialerPane && dialerPane.classList.contains('active')) {
                 setTimeout(_initSSENotifications, 1000);
             }

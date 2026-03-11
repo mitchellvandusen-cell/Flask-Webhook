@@ -141,6 +141,7 @@ def stripe_webhook():
             try:
                 conn = get_db_connection()
                 if conn:
+                    cur = None
                     try:
                         cur = conn.cursor()
                         cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (email,))
@@ -159,7 +160,6 @@ def stripe_webhook():
                                 (json.dumps(vc), email)
                             )
                             conn.commit()
-                        cur.close()
                     except Exception as e:
                         logger.error(f"Failed to mark A2P fee paid: {e}")
                         try:
@@ -167,6 +167,11 @@ def stripe_webhook():
                         except Exception:
                             pass
                     finally:
+                        if cur:
+                            try:
+                                cur.close()
+                            except Exception:
+                                pass
                         return_db_connection(conn)
             except Exception as e:
                 logger.error(f"A2P fee webhook error: {e}")
@@ -506,6 +511,9 @@ def success():
                 ON CONFLICT (email) DO UPDATE SET
                     stripe_customer_id = COALESCE(EXCLUDED.stripe_customer_id,
                                                   subscribers.stripe_customer_id),
+                    role = COALESCE(subscribers.role, EXCLUDED.role),
+                    subscription_tier = COALESCE(subscribers.subscription_tier,
+                                                  EXCLUDED.subscription_tier),
                     updated_at = NOW()
             """, (temp_id, email, customer_id, 'individual', 'individual',
                   '', 'Grok', 'America/Chicago'))

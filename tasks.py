@@ -681,6 +681,7 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
                             if row and row[0]:
                                 resolved_number = row[0]
                                 logger.info(f"[last_used] Resolved to {resolved_number} from call history for {contact_id}")
+                            cur.close()
                         finally:
                             return_db_connection(conn)
                     except Exception as lu_err:

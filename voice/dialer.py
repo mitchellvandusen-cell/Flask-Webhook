@@ -4,15 +4,13 @@ import logging
 import threading
 import time
 import asyncio
-import re
-
 import httpx
 import requests as http_requests
 from flask import Blueprint, request, Response, jsonify
 from flask_login import login_required, current_user
 
 import twilio_provisioning
-from db import get_db_connection, return_db_connection, log_webhook_event
+from db import get_db_connection, return_db_connection
 from ghl_api import get_valid_token
 from number_health import select_outbound_number
 from voice.audio import XAI_API_KEY, VOICE_OPTIONS, DEFAULT_VOICE, _generate_voice_preview, _pcm16_to_wav
@@ -24,12 +22,6 @@ from extensions import ADMIN_EMAILS
 logger = logging.getLogger("voice_bridge.dialer")
 
 dialer_bp = Blueprint('voice_dialer', __name__)
-
-
-def _check_multi_line_access(subscriber):
-    """Check if subscriber has multi-line dialer access."""
-    tier = subscriber.get('subscription_tier', 'individual')
-    return tier == 'pro_dialer'
 
 
 @dialer_bp.route('/voice/test', methods=['POST'])
@@ -810,7 +802,7 @@ def multi_dial():
 
     # Enforce max concurrent lines already active for this location
     active_for_location = sum(
-        1 for sid, info in active_calls.items()
+        1 for sid, info in list(active_calls.items())
         if info.get('_location_id') == location_id
         and info.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')
     )
@@ -1018,12 +1010,16 @@ def multi_hangup():
         try:
             success = _twilio_hangup(sid, sub_sid)
             if sid in active_calls:
-                active_calls[sid]['status'] = 'completed'
+                if success:
+                    active_calls[sid]['status'] = 'completed'
+                else:
+                    active_calls[sid]['status'] = 'hangup-failed'
             transfer_requests.pop(sid, None)
-            try:
-                update_call_history_status(sid, 'completed', 0)
-            except Exception:
-                pass
+            if success:
+                try:
+                    update_call_history_status(sid, 'completed', 0)
+                except Exception:
+                    pass
             results.append({"call_sid": sid, "success": success})
         except Exception as e:
             logger.error(f"Multi-hangup failed for {sid}: {e}")
