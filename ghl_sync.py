@@ -43,21 +43,21 @@ def _api_get(url, headers, params=None, timeout=15):
             if resp.status_code in (401, 403):
                 return None, "auth_error"
 
+            if not resp.ok:
+                # Log the real status + body BEFORE raise_for_status swallows detail
+                logger.warning(f"[GHL_SYNC] HTTP {resp.status_code} attempt {attempt+1}: {url} | body: {resp.text[:300]}")
+
             resp.raise_for_status()
             return resp.json(), None
 
         except requests.HTTPError as e:
             status = e.response.status_code if e.response else 0
             last_err = f"http_{status}"
-            body_preview = ""
-            try:
-                body_preview = (e.response.text or "")[:200] if e.response else ""
-            except Exception:
-                pass
-            logger.warning(f"[GHL_SYNC] HTTP {status} attempt {attempt+1}: {url} | body: {body_preview}")
+            detail = (e.response.text or "")[:200] if e.response else str(e)[:300]
+            logger.warning(f"[GHL_SYNC] HTTPError {status} ({type(e).__name__}) attempt {attempt+1}: {url} | {detail}")
         except (requests.Timeout, requests.ConnectionError) as e:
             last_err = "network_error"
-            logger.warning(f"[GHL_SYNC] Network error attempt {attempt+1}: {e}")
+            logger.warning(f"[GHL_SYNC] Network error attempt {attempt+1}: {type(e).__name__}: {e}")
         except Exception as e:
             last_err = "unexpected"
             logger.error(f"[GHL_SYNC] Unexpected error: {e}", exc_info=True)
