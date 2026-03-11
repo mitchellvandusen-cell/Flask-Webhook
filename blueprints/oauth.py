@@ -53,6 +53,7 @@ GHL_OAUTH_SCOPES = [
     "locations/tags.readonly",
     "oauth.readonly",
     "opportunities.readonly",
+    "phonenumbers.read",
     "users.readonly",
     "workflows.readonly",
     "twilioaccount.read",

@@ -620,7 +620,9 @@ def sync_ghl_phone_numbers(location_id, access_token=None):
             logger.warning(f"[GHL_SYNC] phone_numbers: {url} failed ({err})")
             continue
         if data:
-            # /locations/{id} returns a location wrapper — pull the main phone from it
+            # /locations/{id} returns a location wrapper — pull the main phone from it.
+            # Tag as "location_fallback" so callers can detect that phonenumbers.read
+            # scope is missing and prompt the user to reconnect OAuth.
             loc_obj = data.get("location")
             if loc_obj and isinstance(loc_obj, dict) and not data.get("phoneNumbers") and not data.get("numbers"):
                 phone = loc_obj.get("phone") or loc_obj.get("twilioNumber") or loc_obj.get("phoneNumber")
@@ -628,9 +630,9 @@ def sync_ghl_phone_numbers(location_id, access_token=None):
                     numbers.append({
                         "number": phone,
                         "ghl_id": loc_obj.get("id", ""),
-                        "name": loc_obj.get("name") or "GHL Number",
+                        "name": loc_obj.get("name") or "Business Profile Number",
                         "capabilities": {"sms": True, "voice": True, "mms": False},
-                        "source": "ghl",
+                        "source": "location_fallback",
                     })
                     break
                 continue

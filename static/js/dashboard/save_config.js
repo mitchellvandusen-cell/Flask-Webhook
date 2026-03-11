@@ -92,12 +92,21 @@
         Promise.all([ghlFetch, provFetch]).then(([ghlData, provData]) => {
             loading.style.display = 'none';
 
+            // If GHL only returned the location-profile fallback, the token is missing
+            // phonenumbers.read scope — show a reconnect prompt.
+            if (ghlData.needs_reconnect) {
+                const warn = document.createElement('div');
+                warn.style.cssText = 'padding:10px 14px;background:rgba(255,165,0,0.08);border:1px solid rgba(255,165,0,0.25);border-radius:9px;font-size:0.8rem;color:#ffa500;margin-bottom:8px;';
+                warn.innerHTML = '<i class="fa-solid fa-triangle-exclamation me-2"></i><strong>Only your business profile number was found.</strong> To load your GHL purchased numbers, <a href="/oauth/initiate" style="color:#ffa500;text-decoration:underline;">reconnect your GHL account</a> to grant phone number access.';
+                container.appendChild(warn);
+            }
+
             const ghlNums = (ghlData.numbers || []).filter(n => n.number);
             const provNums = (provData.numbers || []).filter(n => n.phone);
             const allNums = [];
             const seen = new Set();
 
-            // GHL numbers first
+            // GHL numbers first (exclude location_fallback if a reconnect warning is shown)
             ghlNums.forEach(n => {
                 const num = n.number;
                 if (seen.has(num)) return;
@@ -106,7 +115,7 @@
                     number: num,
                     label: n.name || '',
                     smsCapable: n.capabilities?.sms !== false,
-                    source: 'ghl',
+                    source: n.source === 'location_fallback' ? 'ghl_fallback' : 'ghl',
                 });
             });
 
