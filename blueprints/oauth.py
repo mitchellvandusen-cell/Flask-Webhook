@@ -36,23 +36,27 @@ logger = logging.getLogger(__name__)
 oauth_bp = Blueprint('oauth', __name__)
 
 # ── OAuth scopes ─────────────────────────────────────────────────────────────
-# All scopes approved on the public marketplace app as of 2026-03-01.
+# Synced exactly to the marketplace app install URL as of 2026-03-11.
 GHL_OAUTH_SCOPES = [
     "calendars.readonly",
     "calendars/events.readonly",
     "calendars/events.write",
     "calendars/groups.readonly",
     "contacts.readonly",
+    "contacts.write",
     "conversations.readonly",
     "conversations.write",
     "conversations/message.readonly",
     "conversations/message.write",
     "locations.readonly",
     "locations/customFields.readonly",
+    "locations/customFields.write",
     "locations/customValues.readonly",
     "locations/tags.readonly",
+    "locations/tags.write",
     "oauth.readonly",
     "opportunities.readonly",
+    "phonenumbers.read",
     "users.readonly",
     "workflows.readonly",
     "twilioaccount.read",
