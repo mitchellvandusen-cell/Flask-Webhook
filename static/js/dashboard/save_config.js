@@ -106,10 +106,11 @@
                     number: num,
                     label: n.name || '',
                     smsCapable: n.capabilities?.sms !== false,
+                    source: 'ghl',
                 });
             });
 
-            // Provisioned numbers (skip duplicates)
+            // Provisioned IGB numbers (skip duplicates)
             provNums.forEach(n => {
                 const num = n.phone;
                 if (seen.has(num)) return;
@@ -118,6 +119,7 @@
                     number: num,
                     label: n.nickname || '',
                     smsCapable: n.capabilities?.sms !== false,
+                    source: 'igb',
                 });
             });
 
@@ -134,13 +136,17 @@
                 el.className = 'sms-channel-option';
                 el.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;cursor:pointer;transition:all .15s;' + (isChecked ? 'border-color:rgba(0,255,136,0.3);background:rgba(0,255,136,0.04);' : '') + (isDisabled ? 'opacity:0.4;cursor:not-allowed;' : '');
 
-                const desc = num.label && num.label !== num.number ? num.label : 'Send from this number';
+                const desc = num.label && num.label !== num.number ? num.label : (num.source === 'ghl' ? 'GoHighLevel / LeadConnector number' : 'InsuranceGrokBot number');
+
+                const iconHtml = num.source === 'ghl'
+                    ? `<img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/WDJNKXKiQj2XODO7jYzV/media/66be66f4b5e9ba05e7a7c191.png" alt="LC" style="width:22px;height:22px;border-radius:4px;flex-shrink:0;" onerror="this.style.display='none'">`
+                    : `<i class="fa-solid fa-robot" style="color:var(--accent);font-size:1rem;flex-shrink:0;width:22px;text-align:center;"></i>`;
 
                 el.innerHTML = `
                     <input type="radio" name="sms_send_via" value="${num.number}"
                         ${isChecked ? 'checked' : ''} ${isDisabled ? 'disabled' : ''}
                         style="accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;">
-                    <i class="fa-solid fa-phone" style="color:var(--accent);font-size:1rem;flex-shrink:0;width:22px;text-align:center;"></i>
+                    ${iconHtml}
                     <div style="flex:1;min-width:0;">
                         <div style="font-size:0.85rem;font-weight:600;color:#fff;">${_formatPhone(num.number)}</div>
                         <div style="font-size:0.75rem;color:#888;">${desc}${isDisabled ? ' (no SMS capability)' : ''}</div>

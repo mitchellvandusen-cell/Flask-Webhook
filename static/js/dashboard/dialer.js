@@ -7045,7 +7045,7 @@
             const btn = document.getElementById('billingChangePlanBtn');
             if (btn) {
                 btn.style.display = 'inline-flex';
-                const tierNames = { individual: 'Power Dialer ($149.99/mo)', pro_dialer: 'Pro Dialer ($224.99/mo)', predictive_dialer: 'Predictive Dialer ($349.98/mo)' };
+                const tierNames = { individual: 'Power Dialer ($149.98/mo)', pro_dialer: 'Pro Dialer ($249.98/mo)', predictive_dialer: 'Predictive Dialer ($349.98/mo)' };
                 btn.innerHTML = '<i class="fa-solid fa-arrows-rotate me-2"></i>Switch to ' + (tierNames[tier] || tier);
             }
         }
