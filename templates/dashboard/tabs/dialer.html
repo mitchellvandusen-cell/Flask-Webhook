@@ -764,6 +764,33 @@
                     body.light-theme .iphone-frame .ios-empty-sub { color: #636366 !important; }
                     body.light-theme .iphone-frame .ios-empty-icon { background: rgba(0,122,255,0.08) !important; border-color: rgba(0,122,255,0.15) !important; }
 
+                    /* ── KPI Banner Pills ── */
+                    .dlr-kpi-pill{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);white-space:nowrap;transition:background .15s;}
+                    .dlr-kpi-pill:hover{background:rgba(255,255,255,0.07);}
+                    .dlr-kpi-icon{font-size:0.72rem;color:#666;flex-shrink:0;}
+                    .dlr-kpi-val{font-size:1.05rem;font-weight:700;color:#fff;line-height:1;min-width:18px;text-align:center;}
+                    .dlr-kpi-lbl{font-size:0.68rem;color:#666;text-transform:uppercase;letter-spacing:0.4px;font-weight:600;}
+                    .dlr-kpi-sep{width:1px;height:24px;background:rgba(255,255,255,0.07);flex-shrink:0;}
+                    /* pickup accent */
+                    .dlr-kpi-pickup .dlr-kpi-icon{color:var(--accent);}
+                    .dlr-kpi-pickup .dlr-kpi-val{color:var(--accent);}
+                    /* 2-min accent */
+                    .dlr-kpi-2min .dlr-kpi-icon{color:#00d9ff;}
+                    .dlr-kpi-2min .dlr-kpi-val{color:#00d9ff;}
+                    /* 10-min accent */
+                    .dlr-kpi-10min .dlr-kpi-icon{color:#ff6b35;}
+                    .dlr-kpi-10min .dlr-kpi-val{color:#ff6b35;}
+                    /* Light theme overrides */
+                    body.light-theme .dlr-kpi-pill{background:rgba(0,0,0,0.03) !important;border-color:rgba(0,0,0,0.06) !important;}
+                    body.light-theme .dlr-kpi-pill:hover{background:rgba(0,0,0,0.06) !important;}
+                    body.light-theme .dlr-kpi-val{color:#1a1a2e !important;}
+                    body.light-theme .dlr-kpi-sep{background:rgba(0,0,0,0.08) !important;}
+                    body.light-theme .dlr-kpi-pickup .dlr-kpi-val{color:var(--lt-accent) !important;}
+                    body.light-theme .dlr-kpi-2min .dlr-kpi-val{color:#0099cc !important;}
+                    body.light-theme .dlr-kpi-10min .dlr-kpi-val{color:#e05020 !important;}
+                    /* Mobile: hide banner on small screens */
+                    @media(max-width:768px){#dialerKpiBanner{display:none !important;}}
+
                     /* Light theme — dialer panels */
                     body.light-theme .dlr-top-bar { background: rgba(255,255,255,0.7) !important; border-color: rgba(0,0,0,0.08) !important; }
                     body.light-theme .dlr-col { background: rgba(255,255,255,0.7) !important; border-color: rgba(0,0,0,0.08) !important; }
@@ -824,6 +851,32 @@
                                     <button onclick="dialerManualCall()" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:8px;padding:7px;font-size:0.85rem;font-weight:700;cursor:pointer;"><i class="fa-solid fa-phone"></i></button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                    <!-- ── KPI Banner ─────────────────────────────────────────── -->
+                    <div id="dialerKpiBanner" style="display:flex;align-items:center;gap:6px;flex:1;justify-content:center;flex-wrap:nowrap;min-width:0;">
+                        <div class="dlr-kpi-pill" title="Total dials today">
+                            <span class="dlr-kpi-icon"><i class="fa-solid fa-phone"></i></span>
+                            <span class="dlr-kpi-val" id="kpiDials">—</span>
+                            <span class="dlr-kpi-lbl">Dials</span>
+                        </div>
+                        <div class="dlr-kpi-sep"></div>
+                        <div class="dlr-kpi-pill dlr-kpi-pickup" title="Answered calls today">
+                            <span class="dlr-kpi-icon"><i class="fa-solid fa-phone-volume"></i></span>
+                            <span class="dlr-kpi-val" id="kpiPickups">—</span>
+                            <span class="dlr-kpi-lbl">Pickups</span>
+                        </div>
+                        <div class="dlr-kpi-sep"></div>
+                        <div class="dlr-kpi-pill dlr-kpi-2min" title="Calls longer than 2 minutes">
+                            <span class="dlr-kpi-icon"><i class="fa-solid fa-clock"></i></span>
+                            <span class="dlr-kpi-val" id="kpiOver2">—</span>
+                            <span class="dlr-kpi-lbl">&gt;2 min</span>
+                        </div>
+                        <div class="dlr-kpi-sep"></div>
+                        <div class="dlr-kpi-pill dlr-kpi-10min" title="Calls longer than 10 minutes">
+                            <span class="dlr-kpi-icon"><i class="fa-solid fa-fire"></i></span>
+                            <span class="dlr-kpi-val" id="kpiOver10">—</span>
+                            <span class="dlr-kpi-lbl">&gt;10 min</span>
                         </div>
                     </div>
                     <!-- Mode Toggle -->

@@ -2955,6 +2955,8 @@
                         clearInterval(dialerPollTimer);
                         dialerStopAiTimer();
                         _dialerClearCallDurationTimer();
+                        // Refresh KPI banner so today's numbers update after each call
+                        setTimeout(dialerLoadKpiBanner, 2000);
                         // ── Auto-speaker cleanup ──
                         _stopRingTone();
                         if (_autoListenActive) { _stopListenStream(); _resetListenBtn(); _autoListenActive = false; }
@@ -5041,6 +5043,20 @@
             }
         }
 
+        // ── KPI Banner (top bar: Dials / Pickups / >2min / >10min) ──────────────
+        async function dialerLoadKpiBanner() {
+            try {
+                const r = await fetch('/voice/stats?period=today');
+                if (!r.ok) return;
+                const s = await r.json();
+                const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val ?? '0'; };
+                set('kpiDials',   s.total_calls    ?? 0);
+                set('kpiPickups', s.connected_calls ?? 0);
+                set('kpiOver2',   s.over_2min      ?? 0);
+                set('kpiOver10',  s.over_10min     ?? 0);
+            } catch(e) { /* silent — banner stays at dashes */ }
+        }
+
         function _fmtDuration(secs) {
             secs = Math.round(secs);
             if (secs < 60) return secs + 's';
@@ -7089,9 +7105,10 @@
 
         // Auto-init on page load
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => { multiLineInit(); billingLoadPlanInfo(); });
+            document.addEventListener('DOMContentLoaded', () => { multiLineInit(); billingLoadPlanInfo(); dialerLoadKpiBanner(); });
         } else {
             multiLineInit();
             billingLoadPlanInfo();
+            dialerLoadKpiBanner();
         }
 
