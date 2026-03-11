@@ -131,6 +131,42 @@
 
     /* Empty state */
     .gm-empty { text-align: center; padding: 60px 20px; color: #555; }
+
+    /* Email blast button */
+    .btn-email-blast {
+        padding: 9px 18px; border-radius: 9px; font-size: 0.85rem;
+        font-weight: 700; border: 1px solid rgba(0,255,136,0.4);
+        background: rgba(0,255,136,0.08); color: var(--accent, #00ff88);
+        cursor: pointer; transition: all 0.2s; display: inline-flex;
+        align-items: center; gap: 7px;
+    }
+    .btn-email-blast:hover { background: rgba(0,255,136,0.16); border-color: var(--accent, #00ff88); transform: translateY(-1px); }
+
+    /* Email modal */
+    .gm-email-modal {
+        background: #0e0e18; border: 1px solid rgba(0,255,136,0.15);
+        border-radius: 18px; max-width: 560px; width: 95%;
+        display: flex; flex-direction: column; overflow: hidden;
+        box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+    }
+    .gm-email-field {
+        width: 100%; background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
+        padding: 11px 14px; color: #fff; font-size: 0.9rem;
+        outline: none; font-family: inherit; transition: border 0.2s;
+        box-sizing: border-box;
+    }
+    .gm-email-field:focus { border-color: var(--accent, #00ff88); }
+    .gm-email-field::placeholder { color: rgba(255,255,255,0.25); }
+    .gm-email-label { font-size: 0.78rem; color: #666; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; display: block; }
+    .gm-send-btn {
+        width: 100%; padding: 13px; border-radius: 10px; font-size: 0.95rem;
+        font-weight: 800; border: none; cursor: pointer; transition: all 0.2s;
+        background: linear-gradient(135deg, #00c853, #00e676); color: #000;
+    }
+    .gm-send-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,255,136,0.3); }
+    .gm-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>
 
 <div class="container gm-page">
@@ -140,9 +176,14 @@
             <div class="gm-title">⚡ <span>God Mode</span> — Super Admin</div>
             <div class="gm-subtitle">You have full platform visibility. Use impersonation responsibly.</div>
         </div>
-        <a href="/dashboard" class="btn btn-outline-secondary btn-sm">
-            <i class="fa-solid fa-arrow-left me-1"></i> My Dashboard
-        </a>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <button class="btn-email-blast" onclick="openEmailBlast()">
+                <i class="fa-solid fa-paper-plane"></i> Email All Users
+            </button>
+            <a href="/dashboard" class="btn btn-outline-secondary btn-sm">
+                <i class="fa-solid fa-arrow-left me-1"></i> My Dashboard
+            </a>
+        </div>
     </div>
 
     <!-- Stats -->
@@ -263,6 +304,53 @@
     </div>
 </div>
 
+<!-- Email Blast Modal -->
+<div class="gm-modal-overlay" id="gmEmailOverlay" onclick="if(event.target===this)closeEmailBlast()">
+    <div class="gm-email-modal">
+        <div class="gm-modal-header">
+            <div>
+                <span style="color:var(--accent,#00ff88);font-weight:800;font-size:1rem;">
+                    <i class="fa-solid fa-paper-plane me-2"></i>Email All Users
+                </span>
+                <div id="gmEmailUserCount" style="font-size:0.78rem;color:#555;margin-top:2px;"></div>
+            </div>
+            <button class="gm-modal-close" onclick="closeEmailBlast()">&times;</button>
+        </div>
+        <div class="gm-modal-body" style="display:flex;flex-direction:column;gap:18px;">
+            <!-- From line (read-only info) -->
+            <div style="background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.12);border-radius:9px;padding:10px 14px;font-size:0.82rem;">
+                <span style="color:#555;">From:</span>
+                <span style="color:#00ff88;font-weight:700;margin-left:6px;">InsuranceGrokBot &lt;noreply@insurancegrokbot.click&gt;</span>
+                <span style="color:#444;margin-left:8px;">→</span>
+                <span style="color:#aaa;margin-left:8px;">Every subscriber in the database</span>
+            </div>
+
+            <!-- Subject -->
+            <div>
+                <label class="gm-email-label">Subject line</label>
+                <input type="text" id="gmEmailSubject" class="gm-email-field"
+                    placeholder="e.g. New Update from InsuranceGrokBot"
+                    value="New Update from InsuranceGrokBot">
+            </div>
+
+            <!-- Message / update notes -->
+            <div>
+                <label class="gm-email-label">Message <span style="color:#444;font-weight:400;text-transform:none;letter-spacing:0;">(shown as a highlighted block in the email)</span></label>
+                <textarea id="gmEmailNotes" class="gm-email-field" rows="5"
+                    placeholder="What's new? e.g. — Smart Dialer improvements, faster AI responses, new Calendar app…"></textarea>
+            </div>
+
+            <!-- Send button -->
+            <button class="gm-send-btn" id="gmSendBtn" onclick="sendEmailBlast()">
+                <i class="fa-solid fa-paper-plane me-2"></i>Send to All Users
+            </button>
+
+            <!-- Result -->
+            <div id="gmEmailResult" style="display:none;text-align:center;padding:14px;border-radius:10px;font-size:0.88rem;font-weight:600;"></div>
+        </div>
+    </div>
+</div>
+
 <!-- Logs Modal -->
 <div class="gm-modal-overlay" id="gmLogsOverlay" onclick="if(event.target===this)closeLogsModal()">
     <div class="gm-modal">
@@ -368,6 +456,76 @@
         const d = document.createElement('div');
         d.textContent = s;
         return d.innerHTML;
+    }
+
+    // ── Email Blast ──────────────────────────────────────────────────────────
+    function openEmailBlast() {
+        document.getElementById('gmEmailOverlay').classList.add('active');
+        document.getElementById('gmEmailResult').style.display = 'none';
+        document.getElementById('gmSendBtn').disabled = false;
+        document.getElementById('gmSendBtn').innerHTML = '<i class="fa-solid fa-paper-plane me-2"></i>Send to All Users';
+        const count = document.querySelectorAll('#gmTableBody tr[data-search]').length;
+        document.getElementById('gmEmailUserCount').textContent = count + ' users will receive this email';
+    }
+
+    function closeEmailBlast() {
+        document.getElementById('gmEmailOverlay').classList.remove('active');
+    }
+
+    async function sendEmailBlast() {
+        const subject = document.getElementById('gmEmailSubject').value.trim();
+        const notes   = document.getElementById('gmEmailNotes').value.trim();
+        const result  = document.getElementById('gmEmailResult');
+        const btn     = document.getElementById('gmSendBtn');
+
+        if (!subject) {
+            result.style.display = 'block';
+            result.style.background = 'rgba(239,68,68,0.1)';
+            result.style.border = '1px solid rgba(239,68,68,0.3)';
+            result.style.color = '#ef4444';
+            result.textContent = 'Please enter a subject line.';
+            return;
+        }
+        if (!notes) {
+            result.style.display = 'block';
+            result.style.background = 'rgba(239,68,68,0.1)';
+            result.style.border = '1px solid rgba(239,68,68,0.3)';
+            result.style.color = '#ef4444';
+            result.textContent = 'Please enter a message.';
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Sending…';
+        result.style.display = 'none';
+
+        try {
+            const r = await fetch('/api/admin/send-email-all', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ subject, update_notes: notes })
+            });
+            const d = await r.json();
+            result.style.display = 'block';
+            if (r.ok && d.success) {
+                result.style.background = 'rgba(0,255,136,0.08)';
+                result.style.border = '1px solid rgba(0,255,136,0.2)';
+                result.style.color = '#00ff88';
+                result.innerHTML = '<i class="fa-solid fa-circle-check me-2"></i>Sent to ' + d.sent + ' of ' + d.total + ' users.' +
+                    (d.failed > 0 ? ' <span style="color:#ffa500;">(' + d.failed + ' failed)</span>' : '');
+                btn.innerHTML = '<i class="fa-solid fa-check me-2"></i>Done!';
+            } else {
+                throw new Error(d.error || 'Unknown error');
+            }
+        } catch(e) {
+            result.style.display = 'block';
+            result.style.background = 'rgba(239,68,68,0.1)';
+            result.style.border = '1px solid rgba(239,68,68,0.3)';
+            result.style.color = '#ef4444';
+            result.textContent = 'Error: ' + e.message;
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-paper-plane me-2"></i>Send to All Users';
+        }
     }
 </script>
 {% endblock %}
