@@ -54,10 +54,19 @@
 - **Unsafe int/float parsing**: Multiple `int(voice_config.get(...))` calls in `voice/dialer.py` could crash with ValueError if JSONB stored non-numeric strings. Wrapped `cooldown_hours`, `daily_max`, `max_attempts`, and `ring_timeout` in try/except with safe defaults (2 places each for single-line and multi-line)
 - **Calling hours HH:MM validation**: Added `_safe_hhmm()` regex validator in `blueprints/dashboard.py` to reject malformed time strings before they reach `_check_calling_hours()`
 
+### Frontend Fixes (dialer.js)
+- **HIGH: Disposition gate missing at idle state**: When all active calls ended and queue had pending items, `multiLinePollAll()` would dial next batch without checking dispositions. Added disposition gate in the `_multiLineActive.size === 0` branch
+- **HIGH: Queue stuck after wrap-up + disposition block**: Wrap-up timer fired once, disposition check failed, but the re-check only ran on `anyTerminated` which never triggers again when no calls are active. The idle-state gate now handles re-checking every 1.5s poll cycle
+- **MEDIUM: Stale primary line after hangup**: `_multiLineConnectedSid` was set to null when primary line terminated, even if other lines were in-progress. Now auto-selects next in-progress line and switches detail panel
+- **MEDIUM: JSON parse error lost error context**: `r.json().catch(() => ({}))` returned empty object on non-JSON errors (e.g., 502 HTML pages), losing `calling_hours_blocked` and other error fields. Now includes `HTTP {status}` fallback
+- **LOW: sessionStorage parse error silent**: Corrupted `_igbIntelCache` in sessionStorage silently failed, leaving cache empty with no debug info. Now logs warning and explicitly resets to `{}`
+- **LOW: Unknown contact in multi-dial result**: Server results for contacts not in local `dialerQueue` were silently skipped, causing server/client state divergence. Now logs warning
+
 ### Files Changed
 - `voice/outbound.py` — +81 lines: TCPA tracking, agent state auto-transitions, auto-callback scheduling
 - `voice/dialer.py` — +47/-4 lines: safe parsing, TCPA bootstrap, agent identity in active_calls
 - `blueprints/dashboard.py` — +15/-2 lines: HH:MM regex validation
+- `static/js/dashboard/dialer.js` — +24/-5 lines: disposition gate, line auto-switch, error context
 
 ---
 
