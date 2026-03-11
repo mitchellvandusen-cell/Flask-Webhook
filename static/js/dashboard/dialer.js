@@ -42,13 +42,13 @@
         let dialerPipelines = [];
         let _dialerFetchGen = 0;       // Generation counter to discard stale contact fetches
         let _dialerRefreshPoll = null;  // Interval ID for background refresh polling
-        let dialerMaxAttempts = (window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.dialMaxAttempts) || 2;
+        let dialerMaxAttempts = window.DASHBOARD_BOOT?.dialMaxAttempts ?? 2;
         // Enterprise dialer settings (loaded from voice_config via DASHBOARD_BOOT)
-        let _dialerRingTimeout = ((window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.ringTimeout) || 45) * 1000; // ms
-        let _dialerPauseBetween = ((window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.pauseBetween) ?? 1) * 1000; // ms
-        let _dialerRetryDelay = ((window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.retryDelay) || 2) * 1000; // ms
-        let _dialerMaxCallDuration = ((window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.maxCallDuration) || 0) * 60 * 1000; // ms (0=no limit)
-        let _dialerAutoCallback = (window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.autoCallback) || false;
+        let _dialerRingTimeout = (window.DASHBOARD_BOOT?.ringTimeout ?? 45) * 1000; // ms
+        let _dialerPauseBetween = (window.DASHBOARD_BOOT?.pauseBetween ?? 1) * 1000; // ms
+        let _dialerRetryDelay = (window.DASHBOARD_BOOT?.retryDelay ?? 2) * 1000; // ms
+        let _dialerMaxCallDuration = (window.DASHBOARD_BOOT?.maxCallDuration ?? 0) * 60 * 1000; // ms (0=no limit)
+        let _dialerAutoCallback = window.DASHBOARD_BOOT?.autoCallback ?? false;
         let _dialerCallDurationTimer = null; // Timer for max call duration enforcement
         // Multi-line dialer settings (loaded from voice_config via DASHBOARD_BOOT)
         let _dialerWrapUpTime = (window.DASHBOARD_BOOT?.wrapUpTime ?? 15) * 1000; // ms
@@ -58,6 +58,10 @@
         let _dialerOnMachineAction = window.DASHBOARD_BOOT?.onMachineAction ?? 'hangup';
         let _dialerWrapUpTimer = null; // Timer for wrap-up countdown
         let _dialerWrapUpActive = false; // Whether wrap-up is currently in progress
+        let _multiLineDialingInProgress = false; // Guard against concurrent multiLineDialBatch calls
+        let _multiLinePauseTimer = null; // Timer for pause-between-calls delay
+        let _multiLinePollErrors = 0; // Error counter for poll backoff
+        let _multiLineDispToastShown = false; // Debounce disposition toast
 
         // ── iPhone 15 Pro UI bridge ──
         let _iosCurrentApp = null;
@@ -3812,6 +3816,7 @@
         function dialerClearQueue() { if (dialerQueueRunning) return; dialerQueue = []; dialerCallIdx = -1; dialerRenderContacts(); dialerRenderQueue(); }
         function dialerUpdateBtn() {
             const btn = document.getElementById('dialerStartBtn');
+            if (!btn) return;
             if (dialerQueueRunning) { btn.innerHTML = '<i class="fa-solid fa-stop me-1"></i>Stop'; btn.style.background = 'linear-gradient(135deg,#ef4444,#cc3333)'; btn.style.color = '#fff'; }
             else { btn.innerHTML = '<i class="fa-solid fa-play me-1"></i>Auto-Dial'; btn.style.background = 'linear-gradient(135deg,var(--accent),#00b36b)'; btn.style.color = '#000'; }
         }
@@ -6182,7 +6187,7 @@
                 const tier = info.tier || 'individual';
                 _multiLineEnabled = (tier === 'pro_dialer' || tier === 'predictive_dialer') || info.is_admin;
                 // Use user-configured max_lines_setting, capped by subscription tier
-                const configuredLines = (window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.maxLinesSetting) || 3;
+                const configuredLines = window.DASHBOARD_BOOT?.maxLinesSetting ?? 3;
                 _multiLineMaxLines = _multiLineEnabled ? Math.min(info.max_lines || 4, configuredLines) : 1;
 
                 // Show/hide multi-line UI elements
@@ -6444,7 +6449,17 @@
                 const nowMins = now.getHours() * 60 + now.getMinutes();
                 const [sh, sm] = chStart.split(':').map(Number);
                 const [eh, em] = chEnd.split(':').map(Number);
-                if (nowMins < sh * 60 + sm || nowMins >= eh * 60 + em) {
+                const startMins = sh * 60 + sm;
+                const endMins = eh * 60 + em;
+                let outsideHours;
+                if (endMins > startMins) {
+                    // Normal range (e.g., 08:00-21:00)
+                    outsideHours = nowMins < startMins || nowMins >= endMins;
+                } else {
+                    // Midnight wrap-around (e.g., 22:00-06:00): allowed if after start OR before end
+                    outsideHours = nowMins < startMins && nowMins >= endMins;
+                }
+                if (outsideHours) {
                     _showDashToast(false, `Outside calling hours (${chStart}–${chEnd})`);
                     return;
                 }
@@ -6472,7 +6487,10 @@
          */
         async function multiLineDialBatch() {
             if (!dialerQueueRunning) return;
+            if (_multiLineDialingInProgress) return; // Prevent concurrent batch dials
+            _multiLineDialingInProgress = true;
 
+            try {
             // Collect pending contacts up to available lines
             const activeCount = _multiLineActive.size;
             const available = _multiLineMaxLines - activeCount;
@@ -6583,6 +6601,9 @@
                 });
                 dialerRenderQueue();
             }
+            } finally {
+                _multiLineDialingInProgress = false;
+            }
         }
 
         /**
@@ -6614,11 +6635,20 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ call_sids: sids })
                 });
-                if (!r.ok) return;
+                if (!r.ok) {
+                    _multiLinePollErrors++;
+                    console.warn('[MultiLine] Poll failed:', r.status, `(error ${_multiLinePollErrors})`);
+                    if (_multiLinePollErrors >= 10) {
+                        _showDashToast(false, 'Lost connection to server — stopping dialer');
+                        multiLineStopQueue();
+                    }
+                    return;
+                }
+                _multiLinePollErrors = 0; // Reset on success
                 const data = await r.json();
                 const statuses = data.statuses || {};
 
-                const terminalStatuses = new Set(['completed', 'busy', 'no-answer', 'failed', 'canceled']);
+                const terminalStatuses = new Set(['completed', 'busy', 'no-answer', 'failed', 'canceled', 'unknown', 'transferred']);
                 let anyTerminated = false;
                 let anyConnected = false;
 
@@ -6661,7 +6691,9 @@
                             if (_dialerAutoDispNoAnswer && serverInfo.status === 'no-answer') {
                                 qi.disposition = 'no_answer';
                             }
-                            if (_dialerAutoDispVoicemail && serverInfo.amd_result === 'machine_start') {
+                            if (_dialerAutoDispVoicemail && serverInfo.amd_result) {
+                                // Server sets amd_result='no-answer' for ALL AMD detections (machine_start, fax, etc.)
+                                // The field only exists when AMD was triggered, so its presence means voicemail
                                 qi.disposition = 'voicemail';
                                 qi.status = 'completed'; // AMD-detected VM
                             }
@@ -6703,10 +6735,14 @@
                                     q.status === 'completed' && !q.disposition
                                 );
                                 if (undispositioned.length > 0) {
-                                    _showDashToast(false, 'Set disposition before next batch');
+                                    if (!_multiLineDispToastShown) {
+                                        _showDashToast(false, 'Set disposition before next batch');
+                                        _multiLineDispToastShown = true;
+                                    }
                                     return; // Poll will retry on next cycle
                                 }
                             }
+                            _multiLineDispToastShown = false;
 
                             const hasPending = dialerQueue.some(q => q.status === 'pending');
                             if (hasPending) {
@@ -6723,14 +6759,19 @@
                                 q.status === 'completed' && !q.disposition
                             );
                             if (undispositioned.length > 0) {
-                                _showDashToast(false, 'Set disposition before next batch');
+                                if (!_multiLineDispToastShown) {
+                                    _showDashToast(false, 'Set disposition before next batch');
+                                    _multiLineDispToastShown = true;
+                                }
                                 return; // Poll will retry on next cycle
                             }
                         }
+                        _multiLineDispToastShown = false;
                         const hasPending = dialerQueue.some(q => q.status === 'pending');
                         if (hasPending) {
-                            // Use configured pause between calls
-                            setTimeout(() => multiLineDialBatch(), _dialerPauseBetween || 1000);
+                            // Use configured pause between calls — track timer for cleanup
+                            if (_multiLinePauseTimer) clearTimeout(_multiLinePauseTimer);
+                            _multiLinePauseTimer = setTimeout(() => { _multiLinePauseTimer = null; multiLineDialBatch(); }, _dialerPauseBetween || 1000);
                         } else if (_multiLineActive.size === 0) {
                             multiLineStopQueue();
                             _showDashToast(true, 'Queue complete — all contacts dialed');
@@ -6739,7 +6780,12 @@
                 }
 
             } catch (e) {
-                console.error('[MultiLine] Poll error:', e);
+                _multiLinePollErrors++;
+                console.error('[MultiLine] Poll error:', e, `(error ${_multiLinePollErrors})`);
+                if (_multiLinePollErrors >= 10) {
+                    _showDashToast(false, 'Lost connection to server — stopping dialer');
+                    multiLineStopQueue();
+                }
             }
         }
 
@@ -6751,7 +6797,11 @@
             _multiLineQueueIdx = -1;
             _multiLineConnectedSid = null;
             _dialerWrapUpActive = false;
+            _multiLineDialingInProgress = false;
+            _multiLinePollErrors = 0;
+            _multiLineDispToastShown = false;
             if (_dialerWrapUpTimer) { clearTimeout(_dialerWrapUpTimer); _dialerWrapUpTimer = null; }
+            if (_multiLinePauseTimer) { clearTimeout(_multiLinePauseTimer); _multiLinePauseTimer = null; }
             dialerUpdateBtn();
 
             if (_multiLinePollTimer) {
