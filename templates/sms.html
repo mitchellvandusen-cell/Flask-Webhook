@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block title %}AI SMS — InsuranceGrokBot{% endblock %}
+
+{% block content %}
+<style>
+    .sms-hero { padding: 150px 0 80px; position: relative; overflow: hidden; }
+    .sms-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 30% 20%, rgba(0,255,136,0.08) 0%, transparent 55%), radial-gradient(ellipse at 70% 80%, rgba(0,217,255,0.05) 0%, transparent 50%); pointer-events: none; }
+    .sms-tag { display: inline-block; background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.25); color: var(--accent); padding: 6px 20px; border-radius: 24px; font-size: 0.78rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 20px; }
+    .sms-h1 { font-size: clamp(2.4rem, 4.5vw, 3.6rem); font-weight: 900; line-height: 1.08; margin-bottom: 20px; }
+    .sms-h1 span { background: linear-gradient(135deg, var(--accent), #00d9ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .sms-sub { color: #999; font-size: 1.1rem; max-width: 660px; margin: 0 auto 32px; line-height: 1.65; }
+    .s-section { padding: 80px 0; }
+    .s-section + .s-section { padding-top: 0; }
+
+    /* Feature blocks */
+    .sfb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+    .sfb-grid.reverse { direction: rtl; }
+    .sfb-grid.reverse > * { direction: ltr; }
+    @media (max-width: 991px) { .sfb-grid, .sfb-grid.reverse { grid-template-columns: 1fr; direction: ltr; } }
+    .sfb-icon { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; margin-bottom: 16px; }
+    .sfb-list { list-style: none; padding: 0; margin: 16px 0 0; }
+    .sfb-list li { padding: 6px 0; color: #bbb; font-size: 0.9rem; }
+    .sfb-list li i { margin-right: 10px; font-size: 0.8rem; }
+
+    /* Capability grid */
+    .scap-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: rgba(255,255,255,0.06); border-radius: 16px; overflow: hidden; }
+    .scap-item { background: #0a0a0a; padding: 28px 24px; transition: background 0.3s; }
+    .scap-item:hover { background: rgba(255,255,255,0.03); }
+    .scap-item i { font-size: 1.1rem; margin-bottom: 10px; display: block; }
+    .scap-item h6 { font-weight: 700; font-size: 0.88rem; margin-bottom: 4px; color: #fff; }
+    .scap-item p { color: #666; font-size: 0.78rem; margin: 0; line-height: 1.5; }
+    @media (max-width: 991px) { .scap-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 575px) { .scap-grid { grid-template-columns: 1fr; } }
+
+    /* Conversation mockup */
+    .sms-mock { max-width: 380px; margin: 0 auto; }
+    .sms-bubble { padding: 10px 14px; border-radius: 14px; font-size: 0.82rem; margin-bottom: 8px; max-width: 85%; line-height: 1.55; }
+    .sms-bubble.lead { background: rgba(0,217,255,0.08); border: 1px solid rgba(0,217,255,0.12); color: #bbb; }
+    .sms-bubble.bot { background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.1); color: #bbb; margin-left: auto; }
+    .sms-bubble .ts { font-size: 0.65rem; color: #555; margin-top: 4px; }
+
+    /* Problem/solution cards */
+    .ps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    @media (max-width: 767px) { .ps-grid { grid-template-columns: 1fr; } }
+</style>
+
+
+<!-- ═══ HERO ═══ -->
+<section class="sms-hero">
+    <div class="container" style="position: relative; z-index: 2;">
+        <div class="text-center" data-aos="fade-up">
+            <span class="sms-tag">AI-Powered SMS</span>
+            <h1 class="sms-h1">Every Lead Gets a<br><span>Real Conversation.</span></h1>
+            <p class="sms-sub">
+                Not a text drip. Not a scripted sequence. An AI that reads every reply, overcomes objections,
+                and books appointments — 24/7. Your leads think they're texting you.
+            </p>
+            <div class="d-flex justify-content-center gap-3 flex-wrap">
+                <a href="/#pricing" class="btn btn-primary btn-lg">Get Started — $149.99/mo</a>
+                <a href="/demo-chat" class="btn btn-outline-accent btn-lg">Try the Demo</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══ CONVERSATION MOCKUP ═══ -->
+<section class="s-section">
+    <div class="container">
+        <div class="sfb-grid" data-aos="fade-up">
+            <div>
+                <div class="sfb-icon" style="background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.2);">
+                    <i class="fa-solid fa-comment-sms" style="color: var(--accent);"></i>
+                </div>
+                <h2 style="font-weight: 900; font-size: 1.8rem; margin-bottom: 8px;">Conversations, Not Campaigns</h2>
+                <p style="color: #888; font-size: 0.95rem; line-height: 1.7;">
+                    Text drips send the same generic message to every lead. InsuranceGrokBot reads what the lead
+                    actually says and responds with context — referencing their age, coverage needs, carrier
+                    preferences, and prior conversations.
+                </p>
+                <ul class="sfb-list">
+                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> AI reads full conversation history before replying</li>
+                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Handles objections like your best closer</li>
+                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Books appointments mid-conversation</li>
+                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Remembers every detail across messages</li>
+                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Responds instantly — 24/7, no delays</li>
+                </ul>
+            </div>
+            <div style="background: #0a0a0a; border: 1px solid rgba(255,255,255,0.06); border-radius: 20px; padding: 28px;">
+                <div style="text-align: center; margin-bottom: 16px;">
+                    <div style="font-size: 0.75rem; font-weight: 700; color: #555;">LIVE CONVERSATION</div>
+                    <div style="font-size: 0.88rem; font-weight: 700; color: #fff;">Maria Gonzalez</div>
+                </div>
+                <div class="sms-mock">
+                    <div class="sms-bubble bot">Hi Maria! I'm reaching out from ABC Insurance. I noticed you were looking into life insurance coverage. Are you still exploring options?<div class="ts">10:14 AM</div></div>
+                    <div class="sms-bubble lead">Yeah I already have coverage through my job tho<div class="ts">10:22 AM</div></div>
+                    <div class="sms-bubble bot">That's great that you have employer coverage! One thing many people don't realize is that employer plans typically don't follow you if you leave your job. Have you thought about what would happen to your coverage if you switched companies?<div class="ts">10:22 AM</div></div>
+                    <div class="sms-bubble lead">Hmm I didn't think about that. What would something personal cost?<div class="ts">10:25 AM</div></div>
+                    <div class="sms-bubble bot">Great question! For someone your age, a $500K 20-year term policy can start around $25-40/mo depending on health. Want to hop on a quick 10-minute call so I can pull exact quotes for you?<div class="ts">10:25 AM</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══ SALES FRAMEWORKS ═══ -->
+<section class="s-section">
+    <div class="container">
+        <div class="sfb-grid reverse" data-aos="fade-up">
+            <div>
+                <div class="sfb-icon" style="background: rgba(233,30,99,0.1); border: 1px solid rgba(233,30,99,0.2);">
+                    <i class="fa-solid fa-bullseye" style="color: #e91e63;"></i>
+                </div>
+                <h2 style="font-weight: 900; font-size: 1.8rem; margin-bottom: 8px;">5 Elite Sales Frameworks</h2>
+                <p style="color: #888; font-size: 0.95rem; line-height: 1.7;">
+                    The AI doesn't just respond — it sells. Choose from five proven sales methodologies
+                    and the bot adapts its texting style to match. Each framework changes how the AI
+                    qualifies, handles objections, and closes.
+                </p>
+                <ul class="sfb-list">
+                    <li><i class="fa-solid fa-check" style="color: #e91e63;"></i> NEPQ — Neuro-Emotional Persuasion Questions</li>
+                    <li><i class="fa-solid fa-check" style="color: #e91e63;"></i> Gap Selling — Problem-centric discovery</li>
+                    <li><i class="fa-solid fa-check" style="color: #e91e63;"></i> Chris Voss — Tactical empathy and mirroring</li>
+                    <li><i class="fa-solid fa-check" style="color: #e91e63;"></i> Sandler — Pain-based qualification</li>
+                    <li><i class="fa-solid fa-check" style="color: #e91e63;"></i> Challenger — Teach, tailor, take control</li>
+                </ul>
+            </div>
+            <div style="background: rgba(233,30,99,0.02); border: 1px solid rgba(233,30,99,0.1); border-radius: 16px; padding: 28px;">
+                <div style="font-size: 0.78rem; font-weight: 700; color: #fff; margin-bottom: 14px;"><i class="fa-solid fa-bolt me-2" style="color: #e91e63;"></i>How the AI Handles Objections</div>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 12px 14px;">
+                        <div style="font-size: 0.75rem; color: #e91e63; font-weight: 700; margin-bottom: 4px;">"I already have coverage"</div>
+                        <div style="font-size: 0.78rem; color: #aaa;">AI asks about portability, coverage gaps, and whether rates are locked — not a scripted "but have you considered..."</div>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 12px 14px;">
+                        <div style="font-size: 0.75rem; color: #e91e63; font-weight: 700; margin-bottom: 4px;">"I can't afford it"</div>
+                        <div style="font-size: 0.78rem; color: #aaa;">AI reframes around daily cost, compares to existing spend, and offers to pull budget-friendly options</div>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 12px 14px;">
+                        <div style="font-size: 0.75rem; color: #e91e63; font-weight: 700; margin-bottom: 4px;">"Not interested"</div>
+                        <div style="font-size: 0.78rem; color: #aaa;">AI respects the response, classifies as cold, and stops messaging. No pushy follow-ups.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══ WHY NOT TEXT DRIPS ═══ -->
+<section class="s-section">
+    <div class="container">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <span style="color: #00d9ff; font-weight: 700; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;">Why Switch</span>
+            <h2 style="font-weight: 900; font-size: 2.2rem; margin-top: 8px;">Text Drips Are <span style="color: #00d9ff;">Costing You Deals.</span></h2>
+        </div>
+
+        <div class="ps-grid" data-aos="fade-up">
+            <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 28px;">
+                <i class="fa-solid fa-ban" style="color: #ef4444; font-size: 1.3rem; margin-bottom: 14px; display: block;"></i>
+                <h4 style="font-weight: 800; font-size: 1rem; margin-bottom: 8px;">Drips Can't Handle Replies</h4>
+                <p style="color: #888; font-size: 0.88rem; line-height: 1.6; margin: 0;">A lead responds "what kind of rates?" and your drip sends the next scheduled message about a completely different topic. The conversation dies.</p>
+            </div>
+            <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 28px;">
+                <i class="fa-solid fa-clock" style="color: #ff6b35; font-size: 1.3rem; margin-bottom: 14px; display: block;"></i>
+                <h4 style="font-weight: 800; font-size: 1rem; margin-bottom: 8px;">Leads Don't Wait</h4>
+                <p style="color: #888; font-size: 0.88rem; line-height: 1.6; margin: 0;">Insurance leads respond at all hours. If it takes you 2 hours to reply, they've already moved on. The AI responds instantly — every time.</p>
+            </div>
+            <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 28px;">
+                <i class="fa-solid fa-comment-slash" style="color: #00d9ff; font-size: 1.3rem; margin-bottom: 14px; display: block;"></i>
+                <h4 style="font-weight: 800; font-size: 1rem; margin-bottom: 8px;">Generic = Ignored</h4>
+                <p style="color: #888; font-size: 0.88rem; line-height: 1.6; margin: 0;">Leads can tell when they're getting a template. The AI references their specific situation — their age, coverage type, carrier, and what they said last time.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══ SMS CAPABILITIES ═══ -->
+<section class="s-section">
+    <div class="container">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <h2 style="font-weight: 900; font-size: 2.2rem;">Everything the AI <span style="color: var(--accent);">Does Over SMS</span></h2>
+        </div>
+
+        <div class="scap-grid" data-aos="fade-up">
+            <div class="scap-item">
+                <i class="fa-solid fa-paper-plane" style="color: var(--accent);"></i>
+                <h6>Outbound Campaigns</h6>
+                <p>AI sends the first message tailored to each lead's context — not a mass blast.</p>
+            </div>
+            <div class="scap-item">
+                <i class="fa-solid fa-reply" style="color: #00d9ff;"></i>
+                <h6>Inbound Handling</h6>
+                <p>Every reply gets an intelligent response. Objections, questions, scheduling — handled.</p>
+            </div>
+            <div class="scap-item">
+                <i class="fa-solid fa-calendar-check" style="color: #e91e63;"></i>
+                <h6>Auto-Booking</h6>
+                <p>Books directly to your calendar mid-conversation. No follow-up needed.</p>
+            </div>
+            <div class="scap-item">
+                <i class="fa-solid fa-brain" style="color: #8b5cf6;"></i>
+                <h6>Contact Memory</h6>
+                <p>Remembers every detail across conversations. Never asks the same question twice.</p>
+            </div>
+            <div class="scap-item">
+                <i class="fa-solid fa-building-columns" style="color: var(--accent);"></i>
+                <h6>270+ Carriers</h6>
+                <p>Knows carrier names, product types, and underwriting. Only references yours.</p>
+            </div>
+            <div class="scap-item">
+                <i class="fa-solid fa-shield-halved" style="color: #00d9ff;"></i>
+                <h6>A2P Compliant</h6>
+                <p>Full A2P 10DLC registration built in. No carrier filtering or blocked messages.</p>
+            </div>
+            <div class="scap-item">
+                <i class="fa-solid fa-plug" style="color: #e91e63;"></i>
+                <h6>CRM Sync</h6>
+                <p>Messages logged back to GoHighLevel, HubSpot, Salesforce, and 4 more CRMs.</p>
+            </div>
+            <div class="scap-item">
+                <i class="fa-solid fa-toggle-on" style="color: #8b5cf6;"></i>
+                <h6>White-Label SMS</h6>
+                <p>Messages come from your number. Leads never see Twilio or any third-party branding.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══ CTA ═══ -->
+<section class="s-section" style="padding-bottom: 100px;">
+    <div class="container">
+        <div class="text-center" data-aos="fade-up">
+            <div style="background: linear-gradient(135deg, rgba(0,255,136,0.06), rgba(0,217,255,0.04)); border: 1px solid rgba(0,255,136,0.15); border-radius: 24px; padding: 60px 40px; max-width: 720px; margin: 0 auto;">
+                <h2 style="font-weight: 900; font-size: 2rem; margin-bottom: 12px;">Let the AI Text for You.</h2>
+                <p style="color: #888; font-size: 0.95rem; max-width: 480px; margin: 0 auto 24px;">
+                    Included with every plan. No per-message charges. The AI handles your leads while you focus on closing.
+                </p>
+                <div class="d-flex justify-content-center gap-3 flex-wrap">
+                    <a href="/#pricing" class="btn btn-primary btn-lg">Get Started — $149.99/mo</a>
+                    <a href="/demo-chat" class="btn btn-outline-accent btn-lg">Try the Demo First</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

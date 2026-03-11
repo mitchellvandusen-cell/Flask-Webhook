@@ -31,7 +31,7 @@
     .fb-list li i { margin-right: 10px; font-size: 0.8rem; }
 
     /* Tier comparison */
-    .tier-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 1080px; margin: 0 auto; }
+    .tier-grid { display: grid; grid-template-columns: 1fr; gap: 20px; max-width: 1080px; margin: 0 auto; }
     .tier-card { border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 36px 32px; position: relative; background: rgba(255,255,255,0.02); }
     .tier-card.featured { border-color: rgba(139,92,246,0.35); }
     .tier-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); padding: 4px 16px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; color: #fff; white-space: nowrap; }
@@ -511,60 +511,31 @@
             <p style="color: #777; font-size: 0.95rem;">Every plan includes the full platform. Scale your team without scaling your costs.</p>
         </div>
 
-        <div class="tier-grid" data-aos="fade-up">
-            <!-- Pro Dialer (per agent) -->
-            <div class="tier-card">
-                <span class="tier-badge" style="background: linear-gradient(135deg, #ff6b35, #ff3366);">Per Agent</span>
-                <h4 style="color: #fff; margin-top: 8px;">Pro Dialer</h4>
-                <div><span class="tier-amount" style="color: #ff6b35;">$224.99</span><span style="color: #888;">/mo per seat</span></div>
-                <p style="color: #666; font-size: 0.82rem; margin-top: 8px;">Multi-line dialing for individual agents.</p>
-                <ul class="tier-features">
-                    <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Multi-line dialer (up to 4 lines)</li>
-                    <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> AI-optimized pacing</li>
-                    <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> All AI features included</li>
-                    <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Connect rate analytics</li>
-                    <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> No contracts</li>
-                </ul>
-                <a href="/checkout/pro-dialer" class="btn w-100 py-3" style="background: linear-gradient(135deg, #ff6b35, #ff3366); color: #fff; font-weight: 700; border: none;">Get Started</a>
-            </div>
-
-            <!-- Predictive Dialer (featured) -->
-            <div class="tier-card featured">
-                <span class="tier-badge" style="background: linear-gradient(135deg, #8b5cf6, #6366f1);">Enterprise</span>
+        <div style="max-width: 480px; margin: 0 auto;" data-aos="fade-up">
+            <div class="tier-card featured" style="border-color: rgba(139,92,246,0.35);">
+                <span class="tier-badge" style="background: linear-gradient(135deg, #8b5cf6, #6366f1);">Enterprise &middot; 5+ Agents</span>
                 <h4 style="color: #fff; margin-top: 8px;">Predictive Dialer</h4>
                 <div><span class="tier-amount" style="color: #8b5cf6;">$349.98</span><span style="color: #888;">/mo per seat</span></div>
-                <p style="color: #8b5cf6; font-size: 0.82rem; font-weight: 600; margin-top: 8px;">Full compliance suite + AI-optimized pacing.</p>
+                <p style="color: #8b5cf6; font-size: 0.82rem; font-weight: 600; margin-top: 8px;">Full compliance suite + AI-optimized pacing for teams.</p>
                 <ul class="tier-features">
-                    <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> <strong>Everything in Pro Dialer</strong></li>
-                    <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> AI-optimized predictive pacing</li>
+                    <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> <strong>Multi-line dialer (up to 4 lines)</strong></li>
+                    <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> <strong>Erlang-C predictive pacing</strong></li>
                     <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> TCPA auto-throttle (3% safe harbor)</li>
                     <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Recipient timezone enforcement</li>
                     <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Compliance dashboard</li>
                     <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Recording consent tracking</li>
                     <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Agent state machine</li>
                     <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Callback queue</li>
+                    <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Agency command center + KPIs</li>
+                    <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Multi-tenant sub-account management</li>
+                    <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Centralized billing</li>
+                    <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Training API access</li>
+                    <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Priority support + onboarding</li>
                 </ul>
-                <a href="/checkout/predictive-dialer" class="btn w-100 py-3" style="background: linear-gradient(135deg, #8b5cf6, #6366f1); color: #fff; font-weight: 700; border: none;">Get Started</a>
-            </div>
-
-            <!-- Agency Plans -->
-            <div class="tier-card" style="border-color: rgba(0,217,255,0.2);">
-                <span class="tier-badge" style="background: rgba(0,217,255,0.3); border: 1px solid #00d9ff;">Agency Owner</span>
-                <h4 style="color: #fff; margin-top: 8px;">Agency Plans</h4>
-                <div><span class="tier-amount" style="color: #00d9ff; font-size: 1.8rem;">Custom Pricing</span></div>
-                <p style="color: #00d9ff; font-size: 0.82rem; font-weight: 600; margin-top: 8px;">Volume discounts for teams of 5+.</p>
-                <ul class="tier-features">
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Agency command center dashboard</li>
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Multi-tenant sub-account management</li>
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Per-agent KPIs and call logs</li>
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Centralized billing</li>
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Priority support + onboarding</li>
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Dedicated processing queue</li>
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Training API access</li>
-                </ul>
-                <a href="https://api.leadconnectorhq.com/widget/booking/S4knucFaXO769HDFlRtv" target="_blank" rel="noopener noreferrer" class="btn w-100 py-3" style="background: linear-gradient(135deg, #00d9ff, #0066ff); color: #fff; font-weight: 700; border: none;">
+                <a href="https://api.leadconnectorhq.com/widget/booking/S4knucFaXO769HDFlRtv" target="_blank" rel="noopener noreferrer" class="btn w-100 py-3" style="background: linear-gradient(135deg, #8b5cf6, #6366f1); color: #fff; font-weight: 700; border: none;">
                     <i class="fa-solid fa-calendar-check me-2"></i>Book a Call
                 </a>
+                <div class="text-center mt-2"><span style="color: #888; font-size: 0.78rem;">Requires 5+ team members</span></div>
             </div>
         </div>
 
@@ -573,6 +544,7 @@
                 All plans include unlimited human-to-human dialing minutes. AI voice calls require AI Minutes.
                 No contracts. Cancel anytime. See <a href="/terms" style="color: var(--accent);">Terms</a> for details.
             </p>
+            <a href="/for-individuals" style="color: var(--accent); font-weight: 600; font-size: 0.88rem; margin-top: 12px; display: inline-block;">Solo agent? See individual plans <i class="fa-solid fa-arrow-right ms-1" style="font-size: 0.75rem;"></i></a>
         </div>
     </div>
 </section>
