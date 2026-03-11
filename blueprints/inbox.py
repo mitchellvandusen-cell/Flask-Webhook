@@ -37,14 +37,16 @@ def api_ghl_phone_numbers():
     if not location_id:
         return safe_jsonify({"numbers": [], "error": "No location connected"})
 
-    # Return cached numbers from voice_config if available
+    # Return cached numbers from voice_config if available (always prefer cache for speed)
     cached = (current_user.voice_config or {}).get("ghl_numbers", [])
     refresh = request.args.get("refresh", "false").lower() == "true"
 
-    if cached and not refresh:
+    # Always serve from cache if populated — avoids 30s live sync on every button click.
+    # Only do a live sync when the cache is truly empty (first-time setup).
+    if cached:
         return safe_jsonify({"numbers": cached, "source": "cache"})
 
-    # Fresh fetch from GHL
+    # Cache empty — must do a live sync
     try:
         from ghl_sync import sync_ghl_phone_numbers
         result = sync_ghl_phone_numbers(location_id)
@@ -54,7 +56,7 @@ def api_ghl_phone_numbers():
         })
     except Exception as e:
         logger.error(f"GHL phone number fetch failed: {e}")
-        return safe_jsonify({"numbers": cached, "source": "cache_fallback"})
+        return safe_jsonify({"numbers": [], "source": "error"})
 
 
 # ── Inbox Conversations ──────────────────────────────────────────────────────

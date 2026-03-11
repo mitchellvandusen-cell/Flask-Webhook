@@ -40,6 +40,11 @@ def _api_get(url, headers, params=None, timeout=15):
                 _time.sleep(retry_after)
                 continue
 
+            if resp.status_code == 404:
+                # Permanent failure — endpoint doesn't exist, no point retrying
+                logger.warning(f"[GHL_SYNC] HTTP 404 (no retry): {url}")
+                return None, "http_404"
+
             if resp.status_code in (401, 403):
                 return None, "auth_error"
 
