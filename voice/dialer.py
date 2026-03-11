@@ -54,12 +54,22 @@ def _check_calling_hours(voice_config, agent_tz_str=None):
     except (ValueError, AttributeError):
         return True, None
 
+    # Validate hour/minute ranges
+    if not (0 <= start_h <= 23 and 0 <= start_m <= 59 and 0 <= end_h <= 23 and 0 <= end_m <= 59):
+        return True, None
+
     current_minutes = now.hour * 60 + now.minute
     start_minutes = start_h * 60 + start_m
     end_minutes = end_h * 60 + end_m
 
-    if current_minutes < start_minutes or current_minutes >= end_minutes:
-        return False, f"Outside calling hours ({start_str}-{end_str} {tz_str})"
+    if start_minutes <= end_minutes:
+        # Normal range (e.g., 08:00-21:00)
+        if current_minutes < start_minutes or current_minutes >= end_minutes:
+            return False, f"Outside calling hours ({start_str}-{end_str} {tz_str})"
+    else:
+        # Wraps midnight (e.g., 22:00-06:00): allowed if >= start OR < end
+        if current_minutes < start_minutes and current_minutes >= end_minutes:
+            return False, f"Outside calling hours ({start_str}-{end_str} {tz_str})"
     return True, None
 
 
@@ -83,7 +93,7 @@ def _check_cooldown_and_daily_max(location_id, phones, voice_config, conn):
                 SELECT phone, MAX(created_at) AS last_called
                 FROM call_history
                 WHERE location_id = %s AND phone = ANY(%s)
-                  AND created_at > NOW() - INTERVAL '%s hours'
+                  AND created_at > NOW() - make_interval(hours => %s)
                 GROUP BY phone
             """, (location_id, list(phones), cooldown_hours))
             for row in cur.fetchall():
@@ -104,7 +114,7 @@ def _check_cooldown_and_daily_max(location_id, phones, voice_config, conn):
 
         cur.close()
     except Exception as e:
-        logger.debug(f"Cooldown/daily-max check failed (non-fatal): {e}")
+        logger.warning(f"Cooldown/daily-max check failed: {e}")
 
     return blocked
 
