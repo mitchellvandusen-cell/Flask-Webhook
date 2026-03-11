@@ -209,9 +209,9 @@ def api_inbox_thread(contact_id):
             ORDER BY date_added ASC
             LIMIT %s
         """, (location_id, contact_id, limit))
-        messages = []
+        ghl_messages = []
         for row in cur.fetchall():
-            messages.append({
+            ghl_messages.append({
                 "body": row['body'] or "",
                 "direction": row['direction'],
                 "type": row['message_type'],
@@ -219,27 +219,41 @@ def api_inbox_thread(contact_id):
                 "date": row['date_added'],
             })
 
-        # Fallback: local contact_messages if GHL sync has no data for this contact
-        if not messages:
-            cur.execute("""
-                SELECT message_text as body,
-                       CASE WHEN message_type = 'lead' THEN 'inbound' ELSE 'outbound' END as direction,
-                       'sms' as message_type,
-                       'local' as source,
-                       created_at::text as date_added
-                FROM contact_messages
-                WHERE contact_id = %s
-                ORDER BY created_at ASC
-                LIMIT %s
-            """, (contact_id, limit))
-            for row in cur.fetchall():
-                messages.append({
-                    "body": row['body'] or "",
-                    "direction": row['direction'],
-                    "type": row['message_type'],
-                    "source": row['source'],
-                    "date": row['date_added'],
-                })
+        # Always supplement with local contact_messages (real-time webhook data).
+        # This ensures inbound replies from contacts appear even when the GHL deep
+        # sync hasn't run yet or hasn't captured them.
+        cur.execute("""
+            SELECT message_text as body,
+                   CASE WHEN message_type = 'lead' THEN 'inbound' ELSE 'outbound' END as direction,
+                   'sms' as message_type,
+                   'local' as source,
+                   created_at::text as date_added
+            FROM contact_messages
+            WHERE contact_id = %s
+            ORDER BY created_at ASC
+            LIMIT %s
+        """, (contact_id, limit))
+        local_messages = []
+        for row in cur.fetchall():
+            local_messages.append({
+                "body": row['body'] or "",
+                "direction": row['direction'],
+                "type": row['message_type'],
+                "source": row['source'],
+                "date": row['date_added'],
+            })
+
+        # Merge: GHL data is primary; add local messages not already present in GHL.
+        # Dedup by (first 80 chars of body, direction) to avoid showing duplicates.
+        ghl_fingerprints = {(m['body'][:80], m['direction']) for m in ghl_messages}
+        messages = list(ghl_messages)
+        for lm in local_messages:
+            fp = (lm['body'][:80], lm['direction'])
+            if fp not in ghl_fingerprints:
+                messages.append(lm)
+
+        # Sort merged result by date
+        messages.sort(key=lambda m: str(m.get('date') or ''))
 
         cur.close()
 
