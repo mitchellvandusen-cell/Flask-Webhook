@@ -8,6 +8,7 @@
 
 | Date | Milestone |
 |------|-----------|
+| 2026-03-11 | Deep dialer audit: wired dead-code TCPA tracker, agent state auto-transitions, auto-callbacks, safe input parsing |
 | 2026-03-11 | Predictive Dialer tier ($349.98/mo): Erlang-C pacing, TCPA compliance, timezone enforcement, agent state machine, callback queue, recording consent |
 | 2026-03-11 | Multi-line dialer (up to 4 lines), predictive dialer, Pro Dialer tier ($224.99/mo), plan switching |
 | 2026-02-19 | Initial visible history begins; voice dialer UI, Trust Hub tabs, AMD fixes, AI latency improvements | 
@@ -35,6 +36,37 @@
 | 2026-03-01 | Pricing update: $149.99/month across all pages, bot, and documentation |
 | 2026-03-10 | Hamburger menu fix, login crash fix, Remember Me (30-day), mobile dashboard redesign, agency dashboard revamp |
 | 2026-03-10 | Full QA audit: 6 critical bug fixes, 7 security fixes, 5 reliability fixes across 16 files |
+
+---
+
+## 2026-03-11 (Dialer Systems Deep Audit)
+
+### CRITICAL Fixes
+- **TCPA tracker was dead code**: `tcpa_tracker.record_call_outcome()` defined in `predictive_engine.py` but never called anywhere — abandon rate always reported 0%. Wired into `voice/outbound.py:voice_status()` to record outcomes (answered/abandoned/no_answer/busy) on every terminal call status
+- **TCPA tracker never bootstrapped from DB**: `tcpa_tracker.load_from_db()` never called — after process restart, tracker had zero history. Added lazy bootstrap in `predictive_stats` and `compliance_dashboard` routes
+- **Agent state machine non-functional**: `agent_state_manager.set_state()` only called from user-facing `POST /voice/agent-state` route. Auto-transitions to ON_CALL (call in-progress) and WRAP_UP (call ended) never happened — predictive pacing always saw 0 available agents. Added auto-transitions in `voice_status()` callback
+
+### HIGH Fixes
+- **Callback queue never auto-populated**: No-answer/busy calls were never auto-scheduled for re-dial. Added auto-scheduling in `voice_status()` when `auto_callback` enabled in voice_config
+- **Missing agent identity in active_calls**: `_agent_email` and `_wrap_up_time` not stored in `active_calls` dict, so agent state machine couldn't identify the agent on status callbacks. Added to both `dial_contact()` and `multi_dial()` in `voice/dialer.py`, and `trigger_outbound_call()` in `voice/outbound.py`
+
+### MEDIUM Fixes
+- **Unsafe int/float parsing**: Multiple `int(voice_config.get(...))` calls in `voice/dialer.py` could crash with ValueError if JSONB stored non-numeric strings. Wrapped `cooldown_hours`, `daily_max`, `max_attempts`, and `ring_timeout` in try/except with safe defaults (2 places each for single-line and multi-line)
+- **Calling hours HH:MM validation**: Added `_safe_hhmm()` regex validator in `blueprints/dashboard.py` to reject malformed time strings before they reach `_check_calling_hours()`
+
+### Frontend Fixes (dialer.js)
+- **HIGH: Disposition gate missing at idle state**: When all active calls ended and queue had pending items, `multiLinePollAll()` would dial next batch without checking dispositions. Added disposition gate in the `_multiLineActive.size === 0` branch
+- **HIGH: Queue stuck after wrap-up + disposition block**: Wrap-up timer fired once, disposition check failed, but the re-check only ran on `anyTerminated` which never triggers again when no calls are active. The idle-state gate now handles re-checking every 1.5s poll cycle
+- **MEDIUM: Stale primary line after hangup**: `_multiLineConnectedSid` was set to null when primary line terminated, even if other lines were in-progress. Now auto-selects next in-progress line and switches detail panel
+- **MEDIUM: JSON parse error lost error context**: `r.json().catch(() => ({}))` returned empty object on non-JSON errors (e.g., 502 HTML pages), losing `calling_hours_blocked` and other error fields. Now includes `HTTP {status}` fallback
+- **LOW: sessionStorage parse error silent**: Corrupted `_igbIntelCache` in sessionStorage silently failed, leaving cache empty with no debug info. Now logs warning and explicitly resets to `{}`
+- **LOW: Unknown contact in multi-dial result**: Server results for contacts not in local `dialerQueue` were silently skipped, causing server/client state divergence. Now logs warning
+
+### Files Changed
+- `voice/outbound.py` — +81 lines: TCPA tracking, agent state auto-transitions, auto-callback scheduling
+- `voice/dialer.py` — +47/-4 lines: safe parsing, TCPA bootstrap, agent identity in active_calls
+- `blueprints/dashboard.py` — +15/-2 lines: HH:MM regex validation
+- `static/js/dashboard/dialer.js` — +24/-5 lines: disposition gate, line auto-switch, error context
 
 ---
 

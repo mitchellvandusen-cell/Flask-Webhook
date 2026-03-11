@@ -19,6 +19,7 @@ from number_health import select_outbound_number, update_number_health
 from voice.call_state import active_calls, transfer_requests
 from voice.helpers import _get_subscriber_by_location
 from voice.call_history_helpers import save_call_to_history, update_call_history_status
+from voice.predictive_engine import tcpa_tracker, agent_state_manager, callback_queue, AgentState
 
 logger = logging.getLogger("voice_bridge.outbound")
 
@@ -110,7 +111,10 @@ def trigger_outbound_call():
 
         # Create outbound call via Twilio REST API
         # AI mode always needs AMD to detect voicemail greetings
-        ring_timeout = voice_config.get('ring_timeout', 45)
+        try:
+            ring_timeout = int(voice_config.get('ring_timeout', 45))
+        except (ValueError, TypeError):
+            ring_timeout = 45
         result = twilio_provisioning.create_outbound_call(
             sub_account_sid=sub_sid,
             to=lead_phone,
@@ -125,6 +129,10 @@ def trigger_outbound_call():
         logger.info(f"Outbound call initiated: {from_number} -> {lead_phone} (sid={call_sid})")
 
         # Track in active calls
+        agent_email = ''
+        if current_user and getattr(current_user, 'is_authenticated', False):
+            agent_email = getattr(current_user, 'email', '')
+        voice_config_wt = subscriber.get("voice_config") or {}
         active_calls[call_sid] = {
             "status": "initiated",
             "duration": 0,
@@ -135,6 +143,8 @@ def trigger_outbound_call():
             "_sub_sid": sub_sid,
             "_host": host,
             "_from_number": from_number,
+            "_agent_email": agent_email,
+            "_wrap_up_time": int(voice_config_wt.get('wrap_up_time', 15)),
         }
 
         # Persist to call_history DB
@@ -210,6 +220,14 @@ def voice_status():
             logger.info(f"📞 Ignoring out-of-order status '{effective_status}' for {call_sid[:16]} (current='{current_status}')")
         active_calls[call_sid]["duration"] = int(duration or 0)
 
+    # ── Agent state machine: auto-transition to ON_CALL when call goes in-progress ──
+    if call_status == 'in-progress' and call_sid in active_calls:
+        asm_info = active_calls[call_sid]
+        asm_loc = asm_info.get('_location_id', '')
+        asm_email = asm_info.get('_agent_email', '')
+        if asm_loc and asm_email:
+            agent_state_manager.set_state(asm_loc, asm_email, AgentState.ON_CALL, call_sid=call_sid)
+
     # Persist to call_history DB
     if call_sid:
         try:
@@ -217,8 +235,67 @@ def voice_status():
         except Exception as e:
             logger.warning(f"call_history update failed for {call_sid}: {e}")
 
-    # Update number health metrics on terminal statuses
+    # ── TCPA compliance: record call outcome for abandon rate tracking ──
     terminal_statuses = {'completed', 'busy', 'no-answer', 'failed', 'canceled'}
+    if call_status in terminal_statuses and call_sid:
+        call_info = active_calls.get(call_sid, {})
+        tcpa_location = call_info.get('_location_id', '')
+        if tcpa_location:
+            dur_int = int(duration or 0)
+            if call_status == 'completed' and dur_int > 0:
+                tcpa_tracker.record_call_outcome(tcpa_location, 'answered')
+            elif call_status == 'completed' and dur_int == 0:
+                # Call answered but 0 duration — agent likely abandoned before pickup
+                tcpa_tracker.record_call_outcome(tcpa_location, 'abandoned')
+            elif call_status == 'no-answer':
+                tcpa_tracker.record_call_outcome(tcpa_location, 'no_answer')
+            elif call_status == 'busy':
+                tcpa_tracker.record_call_outcome(tcpa_location, 'busy')
+            elif call_status in ('failed', 'canceled'):
+                tcpa_tracker.record_call_outcome(tcpa_location, 'no_answer')
+
+    # ── Auto-callback scheduling: queue re-dial for no-answer/busy if enabled ──
+    if call_status in ('no-answer', 'busy') and call_sid:
+        cb_info = active_calls.get(call_sid, {})
+        cb_location = cb_info.get('_location_id', '')
+        if cb_location:
+            try:
+                subscriber = _get_subscriber_by_location(cb_location)
+                if subscriber:
+                    vc = subscriber.get('voice_config') or {}
+                    if vc.get('auto_callback'):
+                        cb_phone = cb_info.get('phone', '')
+                        cb_name = cb_info.get('name', 'Unknown')
+                        cb_contact_id = cb_info.get('contact_id', '')
+                        cb_delay = 30  # default 30 minutes
+                        if cb_phone:
+                            callback_queue.schedule_callback(
+                                cb_location, cb_contact_id, cb_phone, cb_name,
+                                time.time() + (cb_delay * 60), call_status
+                            )
+                            logger.info(f"Auto-scheduled callback for {cb_phone} in {cb_delay}min (reason={call_status})")
+            except Exception as e:
+                logger.debug(f"Auto-callback scheduling failed (non-fatal): {e}")
+
+    # ── Agent state machine: auto-transition ON_CALL → WRAP_UP on terminal ──
+    if call_status in terminal_statuses and call_sid:
+        call_info_asm = active_calls.get(call_sid, {})
+        asm_location = call_info_asm.get('_location_id', '')
+        if asm_location and call_status == 'in-progress':
+            pass  # handled below
+        elif asm_location and call_status in terminal_statuses:
+            # Find the agent email from the subscriber lookup (cached in call_info)
+            asm_email = call_info_asm.get('_agent_email', '')
+            if asm_email:
+                agent_current = agent_state_manager.get_agent_state(asm_location, asm_email)
+                if agent_current.get('state') == AgentState.ON_CALL:
+                    wrap_time = call_info_asm.get('_wrap_up_time', 15)
+                    if int(duration or 0) > 0:
+                        agent_state_manager.start_wrap_up(asm_location, asm_email, wrap_time)
+                    else:
+                        agent_state_manager.set_state(asm_location, asm_email, AgentState.READY)
+
+    # Update number health metrics on terminal statuses
     if call_status in terminal_statuses and call_sid:
         call_info = active_calls.get(call_sid, {})
         nh_location = call_info.get('_location_id', '')

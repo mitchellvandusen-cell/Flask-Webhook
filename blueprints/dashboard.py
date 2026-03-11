@@ -404,6 +404,17 @@ def save_voice_config():
         except (TypeError, ValueError):
             return default
 
+    import re as _re
+
+    def _safe_hhmm(val, default):
+        """Validate HH:MM format; return default if invalid."""
+        if not val or not isinstance(val, str):
+            return default
+        val = val.strip()[:5]
+        if _re.match(r'^([01]\d|2[0-3]):[0-5]\d$', val):
+            return val
+        return default
+
     def _safe_float(val, default):
         try:
             return float(val)
@@ -435,8 +446,8 @@ def save_voice_config():
         "max_lines_setting":          max(1, min(4, _safe_int(data.get("max_lines_setting"), 3))),
         "wrap_up_time":               max(0, min(120, _safe_int(data.get("wrap_up_time"), 15))),
         "require_disposition":        bool(data.get("require_disposition", True)),
-        "calling_hours_start":        (data.get("calling_hours_start") or "08:00").strip()[:5],
-        "calling_hours_end":          (data.get("calling_hours_end") or "21:00").strip()[:5],
+        "calling_hours_start":        _safe_hhmm(data.get("calling_hours_start"), "08:00"),
+        "calling_hours_end":          _safe_hhmm(data.get("calling_hours_end"), "21:00"),
         "same_number_cooldown_hours": max(0, min(72, _safe_int(data.get("same_number_cooldown_hours"), 4))),
         "same_contact_daily_max":     max(0, min(10, _safe_int(data.get("same_contact_daily_max"), 3))),
         "on_machine_action":          (data.get("on_machine_action") or "hangup") if data.get("on_machine_action") in ("hangup", "voicemail_drop", "continue") else "hangup",

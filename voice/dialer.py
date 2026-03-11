@@ -82,8 +82,14 @@ def _check_calling_hours(voice_config, agent_tz_str=None):
 def _check_cooldown_and_daily_max(location_id, phones, voice_config, conn):
     """Batch check cooldown and daily max for a list of phone numbers.
     Returns dict of phone -> reason string for phones that should be skipped."""
-    cooldown_hours = int(voice_config.get('same_number_cooldown_hours', 0))
-    daily_max = int(voice_config.get('same_contact_daily_max', 0))
+    try:
+        cooldown_hours = int(voice_config.get('same_number_cooldown_hours', 0))
+    except (ValueError, TypeError):
+        cooldown_hours = 0
+    try:
+        daily_max = int(voice_config.get('same_contact_daily_max', 0))
+    except (ValueError, TypeError):
+        daily_max = 0
     if not cooldown_hours and not daily_max:
         return {}
 
@@ -751,7 +757,10 @@ def dial_contact():
                             "recipient_timezone": recip_tz, "recipient_local_time": recip_time}), 400
 
     # Enforce max dial attempts server-side
-    max_attempts = int(voice_config.get('dial_attempts', 2))
+    try:
+        max_attempts = int(voice_config.get('dial_attempts', 2))
+    except (ValueError, TypeError):
+        max_attempts = 2
     if dial_attempt > max_attempts:
         logger.warning(f"Blocked dial attempt {dial_attempt} > max {max_attempts} for {current_user.email}")
         return jsonify({"error": f"Max dial attempts ({max_attempts}) exceeded"}), 400
@@ -841,7 +850,10 @@ def dial_contact():
             'dial_mode':    dial_mode,
         }
 
-        ring_timeout = voice_config.get('ring_timeout', 45)
+        try:
+            ring_timeout = int(voice_config.get('ring_timeout', 45))
+        except (ValueError, TypeError):
+            ring_timeout = 45
         result = twilio_provisioning.create_outbound_call(
             sub_account_sid=sub_sid,
             to=phone,
@@ -865,6 +877,8 @@ def dial_contact():
             "_sub_sid":     sub_sid,
             "_host":        request.host,
             "_from_number": from_number,
+            "_agent_email": current_user.email,
+            "_wrap_up_time": int(voice_config.get('wrap_up_time', 15)),
         }
 
         save_call_to_history(
@@ -1036,7 +1050,10 @@ def multi_dial():
             continue
 
         # Max attempts guard
-        max_attempts = int(voice_config.get('dial_attempts', 2))
+        try:
+            max_attempts = int(voice_config.get('dial_attempts', 2))
+        except (ValueError, TypeError):
+            max_attempts = 2
         if c_attempt > max_attempts:
             results.append({"contact_id": c_id, "call_sid": None, "status": "skipped", "error": "Max attempts exceeded"})
             continue
@@ -1071,7 +1088,10 @@ def multi_dial():
                 'contact_name': c_name,
                 'dial_mode': dial_mode,
             }
-            ring_timeout = voice_config.get('ring_timeout', 45)
+            try:
+                ring_timeout = int(voice_config.get('ring_timeout', 45))
+            except (ValueError, TypeError):
+                ring_timeout = 45
             result = twilio_provisioning.create_outbound_call(
                 sub_account_sid=sub_sid,
                 to=c_phone,
@@ -1096,6 +1116,8 @@ def multi_dial():
                 "_host": request.host,
                 "_from_number": call_from,
                 "_multi_line": True,
+                "_agent_email": current_user.email,
+                "_wrap_up_time": int(voice_config.get('wrap_up_time', 15)),
             }
 
             save_call_to_history(
@@ -1322,6 +1344,12 @@ def predictive_stats():
 
         # Use Erlang-C for predictive_dialer tier, simple formula for pro_dialer
         if tier == 'predictive_dialer':
+            # Bootstrap TCPA tracker from DB if this location has no in-memory data yet
+            if tcpa_tracker.get_abandon_rate(location_id) == 0.0:
+                try:
+                    tcpa_tracker.load_from_db(location_id)
+                except Exception as e:
+                    logger.warning(f"TCPA bootstrap failed for {location_id}: {e}")
             current_abandon = tcpa_tracker.get_abandon_rate(location_id)
             available = len(agent_state_manager.get_available_agents(location_id)) or 1
 
@@ -1408,6 +1436,13 @@ def compliance_dashboard():
         return jsonify({"error": "Database error"}), 500
     finally:
         return_db_connection(conn)
+
+    # Bootstrap TCPA tracker from DB if not yet loaded for this location
+    if tcpa_tracker.get_abandon_rate(location_id) == 0.0:
+        try:
+            tcpa_tracker.load_from_db(location_id)
+        except Exception as e:
+            logger.warning(f"TCPA bootstrap failed for {location_id}: {e}")
 
     try:
         period = int(request.args.get('period', 30))

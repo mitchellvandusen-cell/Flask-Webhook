@@ -11,7 +11,7 @@
         try {
             const stored = sessionStorage.getItem('_igbIntelCache');
             if (stored) _igbIntelCache = JSON.parse(stored);
-        } catch(e) {}
+        } catch(e) { console.warn('[IGB] sessionStorage parse error, starting fresh:', e); _igbIntelCache = {}; }
         // Contacts that need AI analysis (no cached intelligence)
         let _igbUncachedIds = [];
         // Whether batch AI analysis is currently running
@@ -6543,7 +6543,7 @@
                 });
 
                 if (!r.ok) {
-                    const err = await r.json().catch(() => ({}));
+                    const err = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
                     if (err.upgrade_required) {
                         _showDashToast(false, 'Upgrade to Pro Dialer for multi-line');
                         multiLineStopQueue();
@@ -6567,7 +6567,7 @@
                 const data = await r.json();
                 (data.results || []).forEach(result => {
                     const qi = dialerQueue.find(q => q.id === result.contact_id);
-                    if (!qi) return;
+                    if (!qi) { console.warn('[MultiLine] Result for unknown contact:', result.contact_id); return; }
 
                     if (result.status === 'initiated' && result.call_sid) {
                         qi.status = 'initiated';
@@ -6616,6 +6616,20 @@
             if (_multiLineActive.size === 0) {
                 // No active calls — try to dial more or stop
                 if (dialerQueueRunning) {
+                    // Check disposition gate before advancing
+                    if (_dialerRequireDisposition) {
+                        const undispositioned = dialerQueue.filter(q =>
+                            q.status === 'completed' && !q.disposition
+                        );
+                        if (undispositioned.length > 0) {
+                            if (!_multiLineDispToastShown) {
+                                _showDashToast(false, 'Set disposition before next batch');
+                                _multiLineDispToastShown = true;
+                            }
+                            return; // Wait for user to set dispositions
+                        }
+                        _multiLineDispToastShown = false;
+                    }
                     const hasPending = dialerQueue.some(q => q.status === 'pending');
                     if (hasPending) {
                         await multiLineDialBatch();
@@ -6699,9 +6713,14 @@
                             }
                         }
 
-                        // If this was the connected call, trigger wrap-up
+                        // If this was the connected call, trigger wrap-up and auto-select next active line
                         if (_multiLineConnectedSid === sid) {
-                            _multiLineConnectedSid = null;
+                            // Try to find another in-progress line to auto-switch to
+                            const nextActive = Array.from(_multiLineActive.entries()).find(([s, li]) => s !== sid && li.status === 'in-progress');
+                            _multiLineConnectedSid = nextActive ? nextActive[0] : null;
+                            if (nextActive && nextActive[1].contact_id) {
+                                dialerSelectContact(nextActive[1].contact_id);
+                            }
                             if (serverInfo.status === 'completed' && _dialerWrapUpTime > 0) {
                                 _dialerWrapUpActive = true;
                             }
