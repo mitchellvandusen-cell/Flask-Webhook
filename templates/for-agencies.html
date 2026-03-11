@@ -232,8 +232,8 @@
             <span style="color: #8b5cf6; font-weight: 700; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;">Enterprise-Grade Dialing</span>
             <h2 style="font-weight: 900; font-size: 2.2rem; margin-top: 8px;">The Predictive Dialer That <span style="color: #8b5cf6;">Actually Predicts.</span></h2>
             <p style="color: #777; font-size: 0.95rem; max-width: 640px; margin: 8px auto 0;">
-                Not just multi-line calling. Real Erlang-C queuing theory, real-time TCPA throttling,
-                and per-contact timezone enforcement. The same algorithms used by enterprise contact centers — built for insurance agencies.
+                Not just multi-line calling. The system learns your connect rates, automatically adjusts how many lines to dial,
+                and keeps you compliant with TCPA regulations — no spreadsheets, no manual tracking, no guesswork.
             </p>
         </div>
 
@@ -241,18 +241,18 @@
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px;">
                 <div>
                     <h3 style="font-weight: 800; font-size: 1.2rem; color: #8b5cf6; margin-bottom: 12px;">
-                        <i class="fa-solid fa-square-root-variable me-2"></i>Erlang-C Pacing Algorithm
+                        <i class="fa-solid fa-chart-line me-2"></i>AI-Optimized Dial Pacing
                     </h3>
                     <p style="color: #bbb; font-size: 0.88rem; line-height: 1.7;">
-                        Your dial ratio isn't a guess. The system models your call center as an M/M/N queue —
-                        arrival rate, service rate, and agent availability — then uses binary search across
-                        20 iterations to find the maximum dial ratio that keeps predicted abandonment under 3%.
+                        Your dial ratio isn't a guess. The system analyzes your team's real connect rates,
+                        average handle time, and agent availability to calculate exactly how many lines
+                        to dial — maximizing conversations while keeping abandonment below the 3% safe harbor.
                     </p>
                     <ul class="fb-list">
-                        <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> M/M/N queue model with traffic intensity in Erlangs</li>
-                        <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Log-space arithmetic for numerical stability</li>
-                        <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Real-time inputs: connect rate, handle time, wrap-up</li>
+                        <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Learns from your team's actual call data</li>
+                        <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Factors in connect rate, handle time, and wrap-up</li>
                         <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Auto-adjusts recommended lines (1-4) continuously</li>
+                        <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> More conversations per hour without over-dialing</li>
                     </ul>
                 </div>
                 <div>
@@ -261,15 +261,15 @@
                     </h3>
                     <p style="color: #bbb; font-size: 0.88rem; line-height: 1.7;">
                         The FTC's Telemarketing Sales Rule requires abandon rates below 3%.
-                        Our rolling 30-day tracker monitors every call outcome in real time.
-                        When your rate hits 80% of the limit (2.4%), the system automatically
+                        The system monitors every call outcome with a rolling 30-day tracker.
+                        When your rate approaches the limit, it automatically
                         reduces the dial ratio — no manual intervention needed.
                     </p>
                     <ul class="fb-list">
                         <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Rolling 30-day abandon rate tracking</li>
-                        <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Auto-throttle at 80% of 3% safe harbor</li>
-                        <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> 1-hour real-time monitoring window</li>
-                        <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> DB-bootstrapped from call history on startup</li>
+                        <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Auto-throttle before you hit the 3% limit</li>
+                        <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Real-time monitoring — not end-of-day reports</li>
+                        <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Stay compliant without thinking about it</li>
                     </ul>
                 </div>
             </div>
@@ -290,7 +290,7 @@
             <div class="comp-item">
                 <i class="fa-solid fa-user-shield" style="color: var(--accent);"></i>
                 <h6>Agent State Machine</h6>
-                <p>ACD-style agent tracking — Ready, Not Ready, On Call, Wrap-Up, Break. The pacing algorithm knows how many agents are available in real time.</p>
+                <p>Track every agent's status — Ready, Not Ready, On Call, Wrap-Up, Break. The dialer knows who's available and adjusts pacing automatically.</p>
             </div>
             <div class="comp-item">
                 <i class="fa-solid fa-phone-missed" style="color: #00d9ff;"></i>
@@ -352,7 +352,7 @@
                     <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Same-number cooldown (configurable 0-72h)</li>
                     <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Daily max per contact (configurable 0-10)</li>
                     <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Configurable wrap-up time between batches</li>
-                    <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Batch DnD + cooldown checks (single SQL query)</li>
+                    <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Automatic Do-Not-Disturb enforcement</li>
                     <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Double-dial prevention per phone number</li>
                 </ul>
             </div>
@@ -447,56 +447,56 @@
 </section>
 
 
-<!-- ═══ ROI SECTION ═══ -->
+<!-- ═══ WHY SWITCH SECTION ═══ -->
 <section class="a-section">
     <div class="container">
         <div class="text-center mb-4" data-aos="fade-up">
-            <h2 style="font-weight: 900; font-size: 2.2rem;">The Math <span style="color: #00d9ff;">Works.</span></h2>
+            <h2 style="font-weight: 900; font-size: 2.2rem;">Stop Paying for <span style="color: #00d9ff;">4 Platforms.</span></h2>
             <p style="color: #777; font-size: 0.95rem; max-width: 600px; margin: 8px auto 0;">
-                Replace your dialer, text bot, and team chat tool. Stop paying per-seat for 4 different platforms.
+                Most agencies run a separate dialer, text bot, team chat tool, and data dashboard. This replaces all of them.
             </p>
         </div>
 
         <div class="roi-grid" data-aos="fade-up">
             <div class="roi-card">
-                <div class="roi-num">$680+</div>
-                <div class="roi-lbl">Avg. monthly savings vs separate tools</div>
+                <div style="font-size: 2rem; font-weight: 900; color: #00d9ff;"><i class="fa-solid fa-layer-group"></i></div>
+                <div class="roi-lbl">One platform replaces your dialer, text bot, calendar tool, and inbox</div>
             </div>
             <div class="roi-card">
-                <div class="roi-num">4x</div>
-                <div class="roi-lbl">More contacts reached per hour with multi-line</div>
+                <div style="font-size: 2rem; font-weight: 900; color: #00d9ff;"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+                <div class="roi-lbl">One bill for the whole team — no per-tool invoices</div>
             </div>
             <div class="roi-card">
-                <div class="roi-num">3h/day</div>
-                <div class="roi-lbl">Saved per agent on manual follow-up</div>
+                <div style="font-size: 2rem; font-weight: 900; color: #00d9ff;"><i class="fa-solid fa-gauge-high"></i></div>
+                <div class="roi-lbl">Multi-line dialing reaches more contacts per hour than single-line</div>
             </div>
         </div>
     </div>
 </section>
 
 
-<!-- ═══ SOCIAL PROOF ═══ -->
+<!-- ═══ WHY AGENCIES CHOOSE THIS ═══ -->
 <section class="a-section">
     <div class="container">
         <div class="text-center mb-4" data-aos="fade-up">
-            <h2 style="font-weight: 900; font-size: 2.2rem;">Agencies <span style="color: var(--accent);">Love It.</span></h2>
+            <h2 style="font-weight: 900; font-size: 2.2rem;">Built for <span style="color: var(--accent);">Agency Problems.</span></h2>
         </div>
 
         <div class="agency-proof" data-aos="fade-up">
             <div class="ap-card">
-                <p class="quote">"We were paying for a separate dialer, a text bot, a team chat tool, and a data dashboard. InsuranceGrokBot replaced all four. My agents spend more time on the phone with warm leads."</p>
-                <div class="author-name">Danielle R.</div>
-                <div class="author-role">Agency Owner &middot; 6 Agents &middot; Georgia</div>
+                <i class="fa-solid fa-chart-pie" style="color: var(--accent); font-size: 1.2rem; margin-bottom: 12px; display: block;"></i>
+                <h5 style="font-weight: 700; color: #fff; margin-bottom: 8px;">Data-Driven Coaching</h5>
+                <p style="color: #bbb; font-size: 0.88rem; line-height: 1.65; margin: 0;">See which agents are performing and which need coaching — in real time. Per-agent stats and call logs make weekly reviews data-driven instead of anecdotal.</p>
             </div>
             <div class="ap-card">
-                <p class="quote">"The compliance dashboard alone justified the predictive tier. We were manually tracking abandon rates in a spreadsheet. Now it's automatic and the system self-corrects before we hit limits."</p>
-                <div class="author-name">Robert M.</div>
-                <div class="author-role">Agency Owner &middot; 12 Agents &middot; Texas</div>
+                <i class="fa-solid fa-shield-halved" style="color: #8b5cf6; font-size: 1.2rem; margin-bottom: 12px; display: block;"></i>
+                <h5 style="font-weight: 700; color: #fff; margin-bottom: 8px;">Compliance on Autopilot</h5>
+                <p style="color: #bbb; font-size: 0.88rem; line-height: 1.65; margin: 0;">Stop tracking abandon rates in spreadsheets. The compliance dashboard monitors everything automatically and self-corrects before you hit limits.</p>
             </div>
             <div class="ap-card">
-                <p class="quote">"I can see which agents are performing and which need coaching — in real time. The per-agent stats and call log make our weekly reviews data-driven instead of anecdotal."</p>
-                <div class="author-name">Lisa K.</div>
-                <div class="author-role">Agency Owner &middot; 8 Agents &middot; California</div>
+                <i class="fa-solid fa-wallet" style="color: #00d9ff; font-size: 1.2rem; margin-bottom: 12px; display: block;"></i>
+                <h5 style="font-weight: 700; color: #fff; margin-bottom: 8px;">One Bill, Every Tool</h5>
+                <p style="color: #bbb; font-size: 0.88rem; line-height: 1.65; margin: 0;">No more paying separately for a dialer, a text bot, a team chat tool, and a data dashboard. One subscription covers every agent on your team.</p>
             </div>
         </div>
     </div>
@@ -533,10 +533,10 @@
                 <span class="tier-badge" style="background: linear-gradient(135deg, #8b5cf6, #6366f1);">Enterprise</span>
                 <h4 style="color: #fff; margin-top: 8px;">Predictive Dialer</h4>
                 <div><span class="tier-amount" style="color: #8b5cf6;">$349.98</span><span style="color: #888;">/mo per seat</span></div>
-                <p style="color: #8b5cf6; font-size: 0.82rem; font-weight: 600; margin-top: 8px;">Full compliance suite + Erlang-C pacing.</p>
+                <p style="color: #8b5cf6; font-size: 0.82rem; font-weight: 600; margin-top: 8px;">Full compliance suite + AI-optimized pacing.</p>
                 <ul class="tier-features">
                     <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> <strong>Everything in Pro Dialer</strong></li>
-                    <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Erlang-C predictive pacing</li>
+                    <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> AI-optimized predictive pacing</li>
                     <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> TCPA auto-throttle (3% safe harbor)</li>
                     <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Recipient timezone enforcement</li>
                     <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Compliance dashboard</li>
