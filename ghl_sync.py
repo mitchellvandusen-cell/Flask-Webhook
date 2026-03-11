@@ -598,11 +598,14 @@ def sync_ghl_phone_numbers(location_id, access_token=None):
     headers = _get_headers(access_token)
     numbers = []
 
-    # Try phone-number endpoints in order. Both dedicated endpoints require the
-    # phonenumbers.read scope. If those fail, fall back to GET /locations/{id}
-    # (locations.read — always granted) which returns the main location phone.
+    # Try phone-number endpoints in order.
+    # /phone-numbers/search is the correct GHL V2 path (phonenumbers.read scope).
+    # /phone-numbers (no /search) returns 404 — wrong path.
+    # /locations/{id}/phoneNumbers is a legacy sub-resource path.
+    # Last resort: /locations/{id} (locations.read — always granted) contains
+    # the main location phone in the location object.
     endpoint_configs = [
-        (f"{GHL_BASE}/phone-numbers", {"locationId": location_id, "limit": 100}),
+        (f"{GHL_BASE}/phone-numbers/search", {"locationId": location_id, "limit": 100}),
         (f"{GHL_BASE}/locations/{location_id}/phoneNumbers", {}),
         (f"{GHL_BASE}/locations/{location_id}", {}),   # fallback: locations.read scope
     ]
