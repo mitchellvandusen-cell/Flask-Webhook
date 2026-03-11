@@ -40,25 +40,15 @@ def api_ghl_phone_numbers():
     cached = (current_user.voice_config or {}).get("ghl_numbers", [])
     refresh = request.args.get("refresh", "false").lower() == "true"
 
-    # Serve from cache unless ?refresh=true is explicitly requested.
-    # Cache may contain only the location-fallback number (source="location_fallback")
-    # which means phonenumbers.read scope wasn't available when it was populated —
-    # in that case honour refresh=true so users can re-sync after reconnecting OAuth.
-    only_fallback = cached and all(n.get("source") == "location_fallback" for n in cached)
-    if cached and not refresh and not only_fallback:
+    if cached and not refresh:
         return safe_jsonify({"numbers": cached, "source": "cache"})
 
-    # Live sync (cache empty, refresh requested, or cache contains only fallback data)
     try:
         from ghl_sync import sync_ghl_phone_numbers
         result = sync_ghl_phone_numbers(location_id)
-        numbers = result.get("numbers", [])
-        # Detect if we still only got the location-profile fallback number
-        needs_reconnect = bool(numbers) and all(n.get("source") == "location_fallback" for n in numbers)
         return safe_jsonify({
-            "numbers": numbers,
+            "numbers": result.get("numbers", []),
             "source": "live",
-            "needs_reconnect": needs_reconnect,
         })
     except Exception as e:
         logger.error(f"GHL phone number fetch failed: {e}")
