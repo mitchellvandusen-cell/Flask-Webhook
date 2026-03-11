@@ -604,13 +604,13 @@ def sync_ghl_phone_numbers(location_id, access_token=None):
     numbers = []
 
     # GHL V2 phone number endpoint — locationId must be IN THE PATH, not a query param.
-    # Trying in order:
-    # 1. UI-pattern: /location/{id}/phone-system/phone-numbers  (mirrors GHL UI URL structure)
-    # 2. SDK-confirmed: /phone-system/numbers/location/{id}     (from official GHL TS SDK)
-    # 3. Fallback: /locations/{id}  (locations.read scope — always granted, returns profile phone)
+    # Try all plausible path variations in order until one returns data.
     endpoint_configs = [
+        (f"{GHL_BASE}/location/{location_id}/phone-numbers",              {"pageSize": 100}),
         (f"{GHL_BASE}/location/{location_id}/phone-system/phone-numbers", {"pageSize": 100}),
-        (f"{GHL_BASE}/phone-system/numbers/location/{location_id}", {"pageSize": 100}),
+        (f"{GHL_BASE}/{location_id}/phone-numbers",                       {"pageSize": 100}),
+        (f"{GHL_BASE}/{location_id}/phone-system/phone-numbers",          {"pageSize": 100}),
+        (f"{GHL_BASE}/phone-system/numbers/location/{location_id}",       {"pageSize": 100}),  # official SDK
         (f"{GHL_BASE}/locations/{location_id}", {}),   # fallback: locations.read scope
     ]
 
