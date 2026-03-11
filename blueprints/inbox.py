@@ -82,6 +82,8 @@ def api_inbox_conversations():
         cur = conn.cursor()
 
         # Primary: GHL synced conversations — get latest message per contact
+        # Include all messaging types (sms, email, social) but exclude calls/voicemails
+        # which have dedicated apps in the phone UI.
         if search:
             cur.execute("""
                 SELECT DISTINCT ON (contact_id)
@@ -89,7 +91,8 @@ def api_inbox_conversations():
                     body as last_message, direction as last_direction,
                     message_type, date_added, source
                 FROM ghl_conversations
-                WHERE location_id = %s AND message_type = 'sms'
+                WHERE location_id = %s
+                  AND message_type NOT IN ('call', 'voicemail')
                   AND (lower(contact_name) LIKE %s OR contact_phone LIKE %s)
                 ORDER BY contact_id, date_added DESC
             """, (location_id, f"%{search}%", f"%{search}%"))
@@ -100,7 +103,8 @@ def api_inbox_conversations():
                     body as last_message, direction as last_direction,
                     message_type, date_added, source
                 FROM ghl_conversations
-                WHERE location_id = %s AND message_type = 'sms'
+                WHERE location_id = %s
+                  AND message_type NOT IN ('call', 'voicemail')
                 ORDER BY contact_id, date_added DESC
             """, (location_id,))
         all_convos = cur.fetchall()
