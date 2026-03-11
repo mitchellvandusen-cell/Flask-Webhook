@@ -603,8 +603,7 @@ def sync_ghl_phone_numbers(location_id, access_token=None):
     headers = _get_headers(access_token)
     numbers = []
 
-    # GHL V2 phone number endpoint — locationId must be IN THE PATH, not a query param.
-    # Try all plausible path variations in order until one returns data.
+    # GHL V2 phone number endpoint — try multiple path variations in order.
     endpoint_configs = [
         (f"{GHL_BASE}/location/{location_id}/phone-numbers",              {"pageSize": 100}),
         (f"{GHL_BASE}/location/{location_id}/phone-system/phone-numbers", {"pageSize": 100}),
