@@ -40,6 +40,11 @@ def _api_get(url, headers, params=None, timeout=15):
                 _time.sleep(retry_after)
                 continue
 
+            if resp.status_code == 404:
+                # Permanent failure — endpoint doesn't exist, no point retrying
+                logger.warning(f"[GHL_SYNC] HTTP 404 (no retry): {url}")
+                return None, "http_404"
+
             if resp.status_code in (401, 403):
                 return None, "auth_error"
 
@@ -598,15 +603,14 @@ def sync_ghl_phone_numbers(location_id, access_token=None):
     headers = _get_headers(access_token)
     numbers = []
 
-    # Try phone-number endpoints in order.
-    # /phone-numbers/search is the correct GHL V2 path (phonenumbers.read scope).
-    # /phone-numbers (no /search) returns 404 — wrong path.
-    # /locations/{id}/phoneNumbers is a legacy sub-resource path.
-    # Last resort: /locations/{id} (locations.read — always granted) contains
-    # the main location phone in the location object.
+    # GHL V2 phone number endpoints to try in order.
+    # Confirmed 404s: /phone-numbers, /phone-numbers/search, /locations/{id}/phoneNumbers
+    # GHL docs URL pattern: docs/ghl/phone-system/active-numbers →  /phone-system/active-numbers
+    # GHL docs URL pattern: docs/ghl/phone-system/phone-numbers  →  /phone-system/phone-numbers
+    # Last resort: /locations/{id} (locations.read — always granted) — returns main location phone.
     endpoint_configs = [
-        (f"{GHL_BASE}/phone-numbers/search", {"locationId": location_id, "limit": 100}),
-        (f"{GHL_BASE}/locations/{location_id}/phoneNumbers", {}),
+        (f"{GHL_BASE}/phone-system/active-numbers", {"locationId": location_id, "limit": 100}),
+        (f"{GHL_BASE}/phone-system/phone-numbers",  {"locationId": location_id, "limit": 100}),
         (f"{GHL_BASE}/locations/{location_id}", {}),   # fallback: locations.read scope
     ]
 

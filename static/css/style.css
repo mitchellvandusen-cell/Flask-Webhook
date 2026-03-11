@@ -1067,39 +1067,7 @@ body.light-theme .tab-pane [style*="color: #555"] { color: var(--lt-text-faint) 
 body.light-theme .tab-pane [style*="color:#444"] { color: var(--lt-text-faint) !important; }
 body.light-theme .tab-pane [style*="color: #444"] { color: var(--lt-text-faint) !important; }
 
-/* ── iPhone frame: preserve dark UI in light mode ── */
-/* The phone interior should always stay dark regardless of dashboard theme */
-body.light-theme .iphone-frame .iphone-screen { background: #000 !important; }
-body.light-theme .iphone-frame .ios-app-label { color: #fff !important; text-shadow: 0 1px 3px rgba(0,0,0,0.6) !important; }
-body.light-theme .iphone-frame .ios-status-bar { color: #fff !important; }
-body.light-theme .iphone-frame .ios-nav-name { color: #fff !important; }
-body.light-theme .iphone-frame .ios-nav-subtitle { color: #8E8E93 !important; }
-body.light-theme .iphone-frame .ios-nav-action { color: #007AFF !important; }
-body.light-theme .iphone-frame .ios-empty-title { color: #fff !important; }
-body.light-theme .iphone-frame .ios-empty-sub { color: #8E8E93 !important; }
-body.light-theme .iphone-frame .ios-home-indicator { background: rgba(255,255,255,0.25) !important; }
-body.light-theme .iphone-frame .ios-app-view { background: #000 !important; }
-body.light-theme .iphone-frame .ios-nav-bar { background: rgba(18,18,18,0.94) !important; }
-body.light-theme .iphone-frame .ios-back-btn { color: #007AFF !important; }
-body.light-theme .iphone-frame .ios-thread-scroll { background: #000 !important; }
-body.light-theme .iphone-frame .ios-thread-scroll .dlr-bubble.outbound { background: #007AFF !important; color: #fff !important; }
-body.light-theme .iphone-frame .ios-thread-scroll .dlr-bubble.inbound { background: #1C1C1E !important; color: #fff !important; }
-body.light-theme .iphone-frame .ios-thread-scroll .dlr-date-sep span { background: rgba(255,255,255,0.06) !important; color: #8E8E93 !important; }
-/* Re-override blanket inline-style color rules for elements inside the phone */
-body.light-theme .iphone-frame [style*="color:#fff"] { color: #fff !important; }
-body.light-theme .iphone-frame [style*="color: #fff"] { color: #fff !important; }
-body.light-theme .iphone-frame [style*="color:#ccc"] { color: #ccc !important; }
-body.light-theme .iphone-frame [style*="color: #ccc"] { color: #ccc !important; }
-body.light-theme .iphone-frame [style*="color:#aaa"] { color: #aaa !important; }
-body.light-theme .iphone-frame [style*="color: #aaa"] { color: #aaa !important; }
-body.light-theme .iphone-frame [style*="color:#888"] { color: #888 !important; }
-body.light-theme .iphone-frame [style*="color: #888"] { color: #888 !important; }
-body.light-theme .iphone-frame [style*="color:#666"] { color: #666 !important; }
-body.light-theme .iphone-frame [style*="color: #666"] { color: #666 !important; }
-body.light-theme .iphone-frame [style*="color:#555"] { color: #555 !important; }
-body.light-theme .iphone-frame [style*="color: #555"] { color: #555 !important; }
-body.light-theme .iphone-frame [style*="color:#444"] { color: #444 !important; }
-body.light-theme .iphone-frame [style*="color: #444"] { color: #444 !important; }
+/* ── iPhone frame: light theme handled in dialer.html inline styles ── */
 /* ── Skeleton shimmer in light mode ── */
 body.light-theme .skel {
     background: linear-gradient(90deg, rgba(0,0,0,0.04) 25%, rgba(0,0,0,0.08) 50%, rgba(0,0,0,0.04) 75%) !important;
