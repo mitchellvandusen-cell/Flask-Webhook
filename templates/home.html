@@ -61,8 +61,10 @@
 
     /* ── Pricing ── */
     .price-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; max-width: 880px; margin: 0 auto; }
-    .price-card { border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 40px 36px; position: relative; background: rgba(15,15,15,0.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06); }
-    .price-card.featured { border-color: rgba(0,255,136,0.3); }
+    .price-card { border: 1px solid rgba(255,255,255,0.22); border-radius: 24px; padding: 40px 36px; position: relative; overflow: hidden; background: rgba(255,255,255,0.065); backdrop-filter: blur(40px) saturate(200%) brightness(1.07) contrast(1.04); -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.07) contrast(1.04); box-shadow: 0 32px 80px rgba(0,0,0,0.45), inset 0 1.5px 0 rgba(255,255,255,0.55), inset 1px 0 0 rgba(255,255,255,0.15), inset 0 -1px 0 rgba(255,255,255,0.07); }
+    .price-card::before { content: ''; position: absolute; top: 0; left: 6%; right: 6%; height: 55%; background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.06) 40%, rgba(255,255,255,0.01) 70%, transparent 100%); border-radius: 0 0 65% 65%; filter: blur(10px); pointer-events: none; z-index: 0; }
+    .price-card::after { content: ''; position: absolute; bottom: 0; left: 8%; right: 8%; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.30) 30%, rgba(255,255,255,0.42) 50%, rgba(255,255,255,0.30) 70%, transparent); pointer-events: none; z-index: 0; }
+    .price-card.featured { border-color: rgba(0,255,136,0.40); box-shadow: 0 32px 80px rgba(0,0,0,0.48), inset 0 1.5px 0 rgba(255,255,255,0.60), inset 1px 0 0 rgba(255,255,255,0.18), 0 0 60px rgba(0,255,136,0.08); }
     .price-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); padding: 4px 16px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; color: #fff; white-space: nowrap; }
     .price-card h4 { font-weight: 800; font-size: 1.15rem; margin-bottom: 8px; }
     .price-amount { font-size: 2.8rem; font-weight: 900; line-height: 1; }
@@ -267,17 +269,17 @@
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;" data-aos="fade-up">
-            <div style="background: rgba(15,15,15,0.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 28px; box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);">
+            <div style="background: rgba(255,255,255,0.065); backdrop-filter: blur(40px) saturate(200%) brightness(1.07) contrast(1.04); -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.07) contrast(1.04); border: 1px solid rgba(255,255,255,0.22); border-radius: 20px; padding: 28px; box-shadow: 0 32px 80px rgba(0,0,0,0.45), inset 0 1.5px 0 rgba(255,255,255,0.55), inset 1px 0 0 rgba(255,255,255,0.15);">
                 <i class="fa-solid fa-ban" style="color: var(--accent); font-size: 1.3rem; margin-bottom: 14px; display: block;"></i>
                 <h4 style="font-weight: 800; font-size: 1rem; margin-bottom: 8px;">No More Tool Juggling</h4>
                 <p style="color: #888; font-size: 0.88rem; line-height: 1.6; margin: 0;">Most agents pay for a dialer, a text bot, a calendar tool, and a CRM inbox separately. This replaces all four with one login and one bill.</p>
             </div>
-            <div style="background: rgba(15,15,15,0.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 28px; box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);">
+            <div style="background: rgba(255,255,255,0.065); backdrop-filter: blur(40px) saturate(200%) brightness(1.07) contrast(1.04); -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.07) contrast(1.04); border: 1px solid rgba(255,255,255,0.22); border-radius: 20px; padding: 28px; box-shadow: 0 32px 80px rgba(0,0,0,0.45), inset 0 1.5px 0 rgba(255,255,255,0.55), inset 1px 0 0 rgba(255,255,255,0.15);">
                 <i class="fa-solid fa-building-columns" style="color: #00d9ff; font-size: 1.3rem; margin-bottom: 14px; display: block;"></i>
                 <h4 style="font-weight: 800; font-size: 1rem; margin-bottom: 8px;">Built for Insurance — Not Adapted</h4>
                 <p style="color: #888; font-size: 0.88rem; line-height: 1.6; margin: 0;">The AI knows 270+ carriers, understands term, whole, IUL, and final expense, and only references the carriers you're contracted with. No generic scripts.</p>
             </div>
-            <div style="background: rgba(15,15,15,0.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 28px; box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);">
+            <div style="background: rgba(255,255,255,0.065); backdrop-filter: blur(40px) saturate(200%) brightness(1.07) contrast(1.04); -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.07) contrast(1.04); border: 1px solid rgba(255,255,255,0.22); border-radius: 20px; padding: 28px; box-shadow: 0 32px 80px rgba(0,0,0,0.45), inset 0 1.5px 0 rgba(255,255,255,0.55), inset 1px 0 0 rgba(255,255,255,0.15);">
                 <i class="fa-solid fa-clock" style="color: #e91e63; font-size: 1.3rem; margin-bottom: 14px; display: block;"></i>
                 <h4 style="font-weight: 800; font-size: 1rem; margin-bottom: 8px;">Your Leads Never Wait</h4>
                 <p style="color: #888; font-size: 0.88rem; line-height: 1.6; margin: 0;">Leads respond at all hours. The AI handles every reply instantly — qualifying, overcoming objections, and booking appointments while you sleep.</p>
