@@ -6422,6 +6422,7 @@
                 const info = await r.json();
                 const tier = info.tier || 'individual';
                 _multiLineEnabled = (tier === 'pro_dialer' || tier === 'predictive_dialer') || info.is_admin;
+                _predictiveEnabled = (tier === 'predictive_dialer') || info.is_admin;
                 // Use user-configured max_lines_setting, capped by subscription tier
                 const configuredLines = window.DASHBOARD_BOOT?.maxLinesSetting ?? 3;
                 _multiLineMaxLines = _multiLineEnabled ? Math.min(info.max_lines || 4, configuredLines) : 1;
@@ -6432,8 +6433,17 @@
 
                 const mlBadge = document.getElementById('multiLineBadge');
                 if (mlBadge) {
-                    mlBadge.style.display = _multiLineEnabled ? 'inline-flex' : 'none';
-                    mlBadge.textContent = _multiLineEnabled ? 'PRO' : '';
+                    if (_predictiveEnabled) {
+                        mlBadge.style.display = 'inline-flex';
+                        mlBadge.textContent = 'ENTERPRISE';
+                        mlBadge.style.background = 'linear-gradient(135deg,#8b5cf6,#6366f1)';
+                    } else if (_multiLineEnabled) {
+                        mlBadge.style.display = 'inline-flex';
+                        mlBadge.textContent = 'PRO';
+                        mlBadge.style.background = 'linear-gradient(135deg,#ff6b35,#ff3366)';
+                    } else {
+                        mlBadge.style.display = 'none';
+                    }
                 }
 
                 // Show/hide multi-line settings section in settings panel
@@ -6447,10 +6457,15 @@
                 const proSection = document.getElementById('proDialerSection');
                 if (proSection) proSection.style.display = _multiLineEnabled ? '' : 'none';
 
-                // Load predictive stats if multi-line enabled
-                if (_multiLineEnabled) {
-                    _predictiveEnabled = true;
+                // Load predictive stats only for predictive_dialer tier
+                if (_predictiveEnabled) {
                     multiLineLoadPredictiveStats();
+                }
+
+                // Hide predictive-only panels for non-predictive tiers
+                if (!_predictiveEnabled) {
+                    const ids = ['predictiveStatsPanel', 'complianceBanner', 'agentStatePanel', 'callbackQueueBanner', 'erlangCMetrics'];
+                    ids.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
                 }
             } catch (e) {
                 console.error('[MultiLine] Init failed:', e);
