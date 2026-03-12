@@ -260,10 +260,9 @@ def toggle_cnam(number_id):
     business_name = data.get('business_name', vc.get('trust_hub', {}).get('business_name', ''))
 
     try:
-        client = twilio_provisioning.get_master_client()
+        client = twilio_provisioning.get_sub_account_client(sub_sid)
         client.incoming_phone_numbers(number_id).update(
             friendly_name=business_name[:15] if business_name else '',
-            account_sid=sub_sid,
         )
         return jsonify({"status": "ok", "cnam_listed": bool(business_name)})
     except Exception as e:
