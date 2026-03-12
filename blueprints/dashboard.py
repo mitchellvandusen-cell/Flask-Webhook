@@ -291,6 +291,24 @@ def dashboard():
     bot_settings      = get_bot_settings(current_user.email)
     voice_config      = current_user.voice_config or {}
 
+    # Auto-sync primary phone number: if sub-account is provisioned but
+    # twilio_phone_number is missing, look up the first active number from
+    # Twilio and persist it so the Activate Voice panel shows correctly.
+    _sub_sid = voice_config.get('twilio_sub_account_sid', '')
+    if _sub_sid and not voice_config.get('twilio_phone_number'):
+        try:
+            import twilio_provisioning as _tp
+            from voice.helpers import _save_voice_config as _svc
+            _nums = _tp.list_phone_numbers(_sub_sid)
+            if _nums:
+                _first = _nums[0]
+                voice_config['twilio_phone_number'] = _first.get('phone', '')
+                voice_config['twilio_number_sid'] = _first.get('sid', '')
+                _svc(current_user.email, voice_config)
+                logger.info(f"[dashboard] Auto-synced primary number {voice_config['twilio_phone_number']} for {current_user.email}")
+        except Exception as _e:
+            logger.warning(f"[dashboard] Primary number auto-sync failed: {_e}")
+
     return render_template('dashboard.html',
         form=form,
         access_token_display=access_token_display,

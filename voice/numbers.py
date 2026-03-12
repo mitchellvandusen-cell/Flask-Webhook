@@ -62,6 +62,17 @@ def list_voice_numbers():
 
     try:
         numbers = twilio_provisioning.list_phone_numbers(sub_sid)
+
+        # Auto-sync: if no primary number is saved but numbers exist on the
+        # sub-account, pick the first one and persist it to voice_config.
+        if not primary_number and numbers:
+            primary_number = numbers[0].get('phone', '')
+            if primary_number:
+                vc['twilio_phone_number'] = primary_number
+                vc['twilio_number_sid'] = numbers[0].get('sid', '')
+                _save_voice_config(current_user.email, vc)
+                logger.info(f"[numbers] Auto-synced primary number {primary_number} for {current_user.email}")
+
         result = []
         for n in numbers:
             phone = n.get('phone', '')
