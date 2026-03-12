@@ -6443,6 +6443,10 @@
                     el.style.display = _multiLineEnabled ? '' : 'none';
                 });
 
+                // Show/hide pro-only settings in Voice Config dialer tab
+                const proSection = document.getElementById('proDialerSection');
+                if (proSection) proSection.style.display = _multiLineEnabled ? '' : 'none';
+
                 // Load predictive stats if multi-line enabled
                 if (_multiLineEnabled) {
                     _predictiveEnabled = true;

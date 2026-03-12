@@ -274,6 +274,7 @@ from blueprints.oauth import oauth_bp
 from blueprints.google_calendar import google_calendar_bp
 from blueprints.calendar import calendar_bp
 from blueprints.inbox import inbox_bp
+from voice.numbers import numbers_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(public_bp)
@@ -290,6 +291,7 @@ app.register_blueprint(oauth_bp)
 app.register_blueprint(google_calendar_bp)
 app.register_blueprint(calendar_bp)
 app.register_blueprint(inbox_bp)
+app.register_blueprint(numbers_bp)
 
 logger.info("All modular blueprints registered successfully.")
 

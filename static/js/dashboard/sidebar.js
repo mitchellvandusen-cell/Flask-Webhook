@@ -114,19 +114,9 @@
 
         // ── Dialer settings panel toggle ──
         function toggleDialerSettings() {
-            const panel = document.getElementById('dialerSettingsPanel');
-            const btn = document.getElementById('dialerSettingsToggle');
-            if (panel.style.display === 'none') {
-                panel.style.display = 'block';
-                btn.style.background = 'rgba(0,217,255,0.12)';
-                btn.style.borderColor = 'rgba(0,217,255,0.3)';
-                btn.style.color = '#00d9ff';
-            } else {
-                panel.style.display = 'none';
-                btn.style.background = 'rgba(255,255,255,0.04)';
-                btn.style.borderColor = 'rgba(255,255,255,0.08)';
-                btn.style.color = '#aaa';
-            }
+            // Settings have moved to Voice Config > Dialer tab
+            navTo('voice');
+            setTimeout(() => switchVoicePanel('dialer'), 100);
         }
 
         // ── Voice Config column menu switching ──
