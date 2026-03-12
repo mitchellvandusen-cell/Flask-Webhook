@@ -68,8 +68,34 @@ def get_master_client() -> TwilioClient:
 
 def get_sub_account_client(sub_account_sid: str) -> TwilioClient:
     """Get a Twilio client authenticated for a sub-account.
-    Uses master credentials but targets the sub-account for API calls."""
+    Uses master credentials but targets the sub-account for API calls.
+    ONLY use this for Core REST API calls (api.twilio.com/2010-04-01/Accounts/{account_sid}/...)
+    which support path-based account scoping via the `account_sid` parameter.
+    For Messaging/TrustHub APIs, use get_sub_account_client_native() instead."""
     return TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, sub_account_sid)
+
+
+def get_sub_account_client_native(sub_account_sid: str,
+                                   sub_account_auth_token: str) -> TwilioClient:
+    """Get a Twilio client using the sub-account's OWN credentials.
+
+    REQUIRED for Messaging API (messaging.twilio.com/v1) and TrustHub API
+    (trusthub.twilio.com/v1). These APIs authenticate via HTTP Basic auth and
+    scope resources to the `username` account — NOT to a path-based account_sid.
+    Using master credentials here would return master-account resources instead of
+    the subscriber's sub-account resources, causing cross-account contamination.
+    """
+    if not sub_account_auth_token:
+        # No native credentials available — fall back to master-credential client.
+        # This is the legacy behaviour and may return master-account resources for
+        # Messaging/TrustHub endpoints. Log a warning so it's visible.
+        logger.warning(
+            f"[get_sub_account_client_native] No auth token provided for {sub_account_sid}; "
+            "falling back to master-credential client. Messaging/TrustHub API calls may "
+            "return master-account resources. Provide sub_account_auth_token to fix this."
+        )
+        return get_sub_account_client(sub_account_sid)
+    return TwilioClient(sub_account_sid, sub_account_auth_token)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -501,12 +527,13 @@ def register_business_profile(sub_account_sid: str, business_name: str,
                                 ein: str, street: str, city: str,
                                 state: str, zip_code: str,
                                 contact_name: str, contact_email: str,
-                                contact_phone: str) -> dict:
+                                contact_phone: str,
+                                sub_account_auth_token: str = "") -> dict:
     """
     Register a business profile for CNAM / caller ID on Twilio.
     This creates a Trust Hub Customer Profile for the sub-account.
     """
-    client = get_sub_account_client(sub_account_sid)
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
     results = {"steps": [], "errors": []}
 
     try:
@@ -615,7 +642,8 @@ def create_a2p_brand(sub_account_sid: str,
                      stock_exchange: str = "NONE",
                      stock_ticker: str = "",
                      website: str = "",
-                     vertical: str = "INSURANCE") -> dict:
+                     vertical: str = "INSURANCE",
+                     sub_account_auth_token: str = "") -> dict:
     """
     Register a new A2P 10DLC Brand via Twilio's Trust Hub + Brand
     Registration API.  Follows the ISV onboarding flow:
@@ -634,7 +662,8 @@ def create_a2p_brand(sub_account_sid: str,
     """
     # Each sub-account registers its own Trust Hub profile and brand so that
     # their business identity appears in Twilio — not the master account's identity.
-    client = get_sub_account_client(sub_account_sid)
+    # MUST use sub-account's own credentials for TrustHub/Messaging APIs.
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
     try:
         # ── Step 1: Secondary Customer Profile ──
         profile = client.trusthub.v1.customer_profiles.create(
@@ -716,12 +745,13 @@ def create_a2p_brand(sub_account_sid: str,
         raise
 
 
-def get_a2p_brand_status(brand_sid: str, sub_account_sid: str = "") -> dict:
+def get_a2p_brand_status(brand_sid: str, sub_account_sid: str = "",
+                          sub_account_auth_token: str = "") -> dict:
     """Check the vetting status of an A2P Brand.
     Always uses sub-account client when sub_account_sid is provided."""
     if not sub_account_sid:
         raise ValueError("sub_account_sid is required for A2P brand status — do not use master account")
-    client = get_sub_account_client(sub_account_sid)
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
     try:
         brand = client.messaging.v1.brand_registrations(brand_sid).fetch()
         return {
@@ -737,12 +767,13 @@ def get_a2p_brand_status(brand_sid: str, sub_account_sid: str = "") -> dict:
 
 
 def create_messaging_service(sub_account_sid: str,
-                              friendly_name: str) -> dict:
+                              friendly_name: str,
+                              sub_account_auth_token: str = "") -> dict:
     """
     Create a Messaging Service on the sub-account.
     This is required to associate phone numbers with an A2P campaign.
     """
-    client = get_sub_account_client(sub_account_sid)
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
     try:
         svc = client.messaging.v1.services.create(
             friendly_name=friendly_name,
@@ -759,9 +790,10 @@ def create_messaging_service(sub_account_sid: str,
 
 def add_phone_to_messaging_service(sub_account_sid: str,
                                     messaging_service_sid: str,
-                                    phone_number_sid: str) -> bool:
+                                    phone_number_sid: str,
+                                    sub_account_auth_token: str = "") -> bool:
     """Associate a phone number with a Messaging Service."""
-    client = get_sub_account_client(sub_account_sid)
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
     try:
         client.messaging.v1.services(messaging_service_sid).phone_numbers.create(
             phone_number_sid=phone_number_sid,
@@ -781,7 +813,8 @@ def create_a2p_campaign(messaging_service_sid: str,
                          has_embedded_links: bool = False,
                          has_embedded_phone: bool = False,
                          message_flow: str = "",
-                         sub_account_sid: str = "") -> dict:
+                         sub_account_sid: str = "",
+                         sub_account_auth_token: str = "") -> dict:
     """
     Create an A2P 10DLC Campaign and associate it with a Messaging Service.
 
@@ -791,7 +824,7 @@ def create_a2p_campaign(messaging_service_sid: str,
     """
     if not sub_account_sid:
         raise ValueError("sub_account_sid is required for A2P campaign creation — do not use master account")
-    client = get_sub_account_client(sub_account_sid)
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
 
     if not sample_messages:
         sample_messages = [
@@ -841,11 +874,12 @@ def create_a2p_campaign(messaging_service_sid: str,
 
 def get_a2p_campaign_status(messaging_service_sid: str,
                              campaign_sid: str,
-                             sub_account_sid: str = "") -> dict:
+                             sub_account_sid: str = "",
+                             sub_account_auth_token: str = "") -> dict:
     """Check the approval status of an A2P Campaign."""
     if not sub_account_sid:
         raise ValueError("sub_account_sid is required for A2P campaign status — do not use master account")
-    client = get_sub_account_client(sub_account_sid)
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
     try:
         campaign = client.messaging.v1.services(
             messaging_service_sid
@@ -862,9 +896,10 @@ def get_a2p_campaign_status(messaging_service_sid: str,
         raise
 
 
-def list_messaging_services(sub_account_sid: str) -> list:
+def list_messaging_services(sub_account_sid: str,
+                             sub_account_auth_token: str = "") -> list:
     """List all Messaging Services on a sub-account."""
-    client = get_sub_account_client(sub_account_sid)
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
     try:
         services = client.messaging.v1.services.list(limit=50)
         return [
@@ -881,7 +916,8 @@ def list_messaging_services(sub_account_sid: str) -> list:
 
 
 def list_messaging_service_phone_numbers(messaging_service_sid: str,
-                                          sub_account_sid: str = "") -> list:
+                                          sub_account_sid: str = "",
+                                          sub_account_auth_token: str = "") -> list:
     """
     List all phone numbers associated with a Messaging Service.
     Returns list of {sid, phone_number} dicts — these are the numbers
@@ -890,7 +926,7 @@ def list_messaging_service_phone_numbers(messaging_service_sid: str,
     """
     if not sub_account_sid:
         raise ValueError("sub_account_sid is required for listing messaging service phone numbers")
-    client = get_sub_account_client(sub_account_sid)
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
     try:
         numbers = client.messaging.v1.services(
             messaging_service_sid
@@ -911,14 +947,15 @@ def list_messaging_service_phone_numbers(messaging_service_sid: str,
 # A2P DISCOVERY — Sync existing registrations from Twilio
 # ──────────────────────────────────────────────────────────────
 
-def discover_a2p_brands(sub_account_sid: str = "") -> list:
+def discover_a2p_brands(sub_account_sid: str = "",
+                         sub_account_auth_token: str = "") -> list:
     """
     Discover all existing A2P Brand Registrations on a sub-account.
     Returns list of {brand_sid, status, brand_score, ...} dicts.
     """
     if not sub_account_sid:
         raise ValueError("sub_account_sid is required for A2P brand discovery — do not use master account")
-    client = get_sub_account_client(sub_account_sid)
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
     try:
         brands = client.messaging.v1.brand_registrations.list(limit=100)
         results = []
@@ -933,7 +970,7 @@ def discover_a2p_brands(sub_account_sid: str = "") -> list:
                 "date_created": b.date_created.isoformat() if b.date_created else "",
                 "date_updated": b.date_updated.isoformat() if b.date_updated else "",
             })
-        logger.info(f"Discovered {len(results)} A2P brands on master account")
+        logger.info(f"Discovered {len(results)} A2P brands on sub-account {sub_account_sid}")
         return results
     except TwilioRestException as e:
         logger.error(f"Failed to discover A2P brands: {e}")
@@ -941,14 +978,15 @@ def discover_a2p_brands(sub_account_sid: str = "") -> list:
 
 
 def discover_a2p_campaigns(messaging_service_sid: str,
-                            sub_account_sid: str = "") -> list:
+                            sub_account_sid: str = "",
+                            sub_account_auth_token: str = "") -> list:
     """
     Discover all existing A2P campaigns on a Messaging Service.
     Returns list of {campaign_sid, campaign_status, description, use_case} dicts.
     """
     if not sub_account_sid:
         raise ValueError("sub_account_sid is required for A2P campaign discovery — do not use master account")
-    client = get_sub_account_client(sub_account_sid)
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
     try:
         campaigns = client.messaging.v1.services(
             messaging_service_sid
@@ -970,14 +1008,15 @@ def discover_a2p_campaigns(messaging_service_sid: str,
         return []
 
 
-def discover_trust_hub_profiles(sub_account_sid: str = "") -> list:
+def discover_trust_hub_profiles(sub_account_sid: str = "",
+                                 sub_account_auth_token: str = "") -> list:
     """
     Discover all Trust Hub Customer Profiles on a sub-account.
     Returns list of {profile_sid, status, friendly_name} dicts.
     """
     if not sub_account_sid:
         raise ValueError("sub_account_sid is required for Trust Hub profile discovery — do not use master account")
-    client = get_sub_account_client(sub_account_sid)
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
     try:
         profiles = client.trusthub.v1.customer_profiles.list(limit=100)
         results = []
@@ -995,10 +1034,11 @@ def discover_trust_hub_profiles(sub_account_sid: str = "") -> list:
         return []
 
 
-def discover_full_a2p_status(sub_account_sid: str) -> dict:
+def discover_full_a2p_status(sub_account_sid: str,
+                              sub_account_auth_token: str = "") -> dict:
     """
     Comprehensive A2P discovery: finds brands, messaging services, and campaigns.
-    Works for both master account and sub-accounts.
+    Always queries the sub-account directly — never the master account.
     Returns dict ready to merge into voice_config['a2p'].
     """
     result = {
@@ -1010,7 +1050,7 @@ def discover_full_a2p_status(sub_account_sid: str) -> dict:
     }
 
     # 1. Discover brands on the sub-account
-    brands = discover_a2p_brands(sub_account_sid)
+    brands = discover_a2p_brands(sub_account_sid, sub_account_auth_token)
     result["brands"] = brands
 
     # Find the best brand (prefer APPROVED, then most recent)
@@ -1021,12 +1061,12 @@ def discover_full_a2p_status(sub_account_sid: str) -> dict:
         result["best_brand"] = brands[0]
 
     # 2. Discover messaging services on the sub-account
-    ms_list = list_messaging_services(sub_account_sid) if sub_account_sid else []
+    ms_list = list_messaging_services(sub_account_sid, sub_account_auth_token) if sub_account_sid else []
     result["messaging_services"] = ms_list
 
     # 3. Discover campaigns on each messaging service
     for ms in ms_list:
-        campaigns = discover_a2p_campaigns(ms["sid"], sub_account_sid)
+        campaigns = discover_a2p_campaigns(ms["sid"], sub_account_sid, sub_account_auth_token)
         for c in campaigns:
             c["messaging_service_sid"] = ms["sid"]
         result["campaigns"].extend(campaigns)

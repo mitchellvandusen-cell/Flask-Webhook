@@ -29,6 +29,7 @@ def a2p_status():
 
     a2p = (vc or {}).get('a2p', {})
     is_sub_user = bool((subscriber or {}).get('parent_agency_email'))
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
 
     # ALWAYS live-query Twilio sub-account for A2P brand/campaign status.
     # We NEVER trust cached brand_sid/campaign_sid/messaging_service_sid from voice_config
@@ -37,7 +38,7 @@ def a2p_status():
     _TWILIO_SID_KEYS = ('brand_sid', 'brand_status', 'campaign_sid', 'campaign_status',
                         'messaging_service_sid', 'use_case', 'registered', '_sub_sid')
     try:
-        discovered = twilio_provisioning.discover_full_a2p_status(sub_sid)
+        discovered = twilio_provisioning.discover_full_a2p_status(sub_sid, sub_auth_token)
 
         if discovered.get('best_brand'):
             brand = discovered['best_brand']
@@ -91,7 +92,8 @@ def a2p_status():
     ms_sid = a2p.get('messaging_service_sid', '')
     if is_registered and ms_sid:
         try:
-            ms_numbers = twilio_provisioning.list_messaging_service_phone_numbers(ms_sid, sub_sid)
+            ms_numbers = twilio_provisioning.list_messaging_service_phone_numbers(
+                ms_sid, sub_sid, sub_auth_token)
             registered_number_sids = [n['sid'] for n in ms_numbers]
         except Exception as e:
             logger.warning(f"Failed to fetch MS phone numbers (non-fatal): {e}")
@@ -129,9 +131,10 @@ def a2p_add_number():
     if not phone_number_sid or not phone_number_sid.startswith('PN'):
         return jsonify({"error": "Invalid phone number SID"}), 400
 
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
     try:
         twilio_provisioning.add_phone_to_messaging_service(
-            sub_sid, ms_sid, phone_number_sid
+            sub_sid, ms_sid, phone_number_sid, sub_auth_token
         )
         return jsonify({"ok": True, "message": "Number added to A2P messaging service"})
     except Exception as e:
@@ -151,8 +154,9 @@ def a2p_sync():
     if not sub_sid:
         return jsonify({"error": "Voice service not provisioned"}), 400
 
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
     try:
-        discovered = twilio_provisioning.discover_full_a2p_status(sub_sid)
+        discovered = twilio_provisioning.discover_full_a2p_status(sub_sid, sub_auth_token)
 
         a2p = (vc or {}).get('a2p', {})
         synced = False
@@ -275,6 +279,7 @@ def a2p_register_brand():
     }
     business_type = biz_type_map.get(brand_type, 'private_profit')
 
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
     try:
         result = twilio_provisioning.create_a2p_brand(
             sub_account_sid=sub_sid,
@@ -289,6 +294,7 @@ def a2p_register_brand():
             business_type=business_type,
             website=data.get('website', ''),
             vertical=data.get('vertical', 'INSURANCE'),
+            sub_account_auth_token=sub_auth_token,
         )
 
         # Persist to voice_config
@@ -328,8 +334,10 @@ def a2p_brand_status():
     if not brand_sid:
         return jsonify({"error": "No brand registered"}), 404
 
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
     try:
-        result = twilio_provisioning.get_a2p_brand_status(brand_sid, sub_sid)
+        result = twilio_provisioning.get_a2p_brand_status(brand_sid, sub_sid,
+                                                           sub_auth_token)
 
         # Update stored status if changed
         if result["status"] != a2p.get("brand_status"):
@@ -370,13 +378,14 @@ def a2p_create_campaign():
     if use_case not in twilio_provisioning.A2P_USE_CASES:
         return jsonify({"error": f"Invalid use case. Must be one of: {', '.join(twilio_provisioning.A2P_USE_CASES)}"}), 400
 
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
     try:
         # Step 1: Create Messaging Service (or reuse existing)
         ms_sid = a2p.get('messaging_service_sid', '')
         if not ms_sid:
             biz_name = a2p.get('business_name', 'Insurance Bot')
             ms_result = twilio_provisioning.create_messaging_service(
-                sub_sid, f"A2P - {biz_name}"
+                sub_sid, f"A2P - {biz_name}", sub_auth_token
             )
             ms_sid = ms_result["messaging_service_sid"]
             a2p["messaging_service_sid"] = ms_sid
@@ -386,7 +395,7 @@ def a2p_create_campaign():
             for pn_sid in phone_number_sids:
                 try:
                     twilio_provisioning.add_phone_to_messaging_service(
-                        sub_sid, ms_sid, pn_sid
+                        sub_sid, ms_sid, pn_sid, sub_auth_token
                     )
                 except Exception as e:
                     logger.warning(f"Failed to add {pn_sid} to MS: {e}")
@@ -402,6 +411,7 @@ def a2p_create_campaign():
             has_embedded_links=data.get('has_embedded_links', False),
             has_embedded_phone=data.get('has_embedded_phone', False),
             sub_account_sid=sub_sid,
+            sub_account_auth_token=sub_auth_token,
         )
 
         # Persist
@@ -439,8 +449,10 @@ def a2p_campaign_status():
     if not ms_sid or not campaign_sid:
         return jsonify({"error": "No campaign registered"}), 404
 
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
     try:
-        result = twilio_provisioning.get_a2p_campaign_status(ms_sid, campaign_sid, sub_sid)
+        result = twilio_provisioning.get_a2p_campaign_status(
+            ms_sid, campaign_sid, sub_sid, sub_auth_token)
 
         if result["campaign_status"] != a2p.get("campaign_status"):
             a2p["campaign_status"] = result["campaign_status"]
