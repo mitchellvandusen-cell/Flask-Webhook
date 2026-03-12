@@ -18,6 +18,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 from dotenv import load_dotenv
 from flask import Flask, request, send_from_directory
 from flask import jsonify as flask_jsonify
+from flask_wtf.csrf import generate_csrf
 from flask_login import LoginManager, current_user
 from rq import Queue
 
@@ -252,7 +253,8 @@ def inject_i18n():
         lang = current_user.preferred_language
     else:
         lang = detect_language(request.headers.get('Accept-Language', ''))
-    return {"_t": _t, "lang": lang, "SUPPORTED_LANGUAGES": SUPPORTED_LANGUAGES}
+    return {"_t": _t, "lang": lang, "SUPPORTED_LANGUAGES": SUPPORTED_LANGUAGES,
+            "csrf_token": generate_csrf}
 
 
 # ── Blueprint registrations ──────────────────────────────────────────────────
