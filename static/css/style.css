@@ -3287,3 +3287,228 @@ body.light-theme .pwa-banner-text span { color: #666; }
 @media (min-width: 769px) {
     #pwaBanner { bottom: 24px; }
 }
+
+
+/* =========================================
+   MARKETING LIQUID GLASS SYSTEM
+   ========================================= */
+
+/* ── Ambient layering — main content sits above aura pseudo-elements ── */
+main#main-content { position: relative; z-index: 10; }
+nav.navbar { position: fixed; z-index: 1000; }
+
+/* ── Marketing glass feature cards ── */
+.mkt-glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-top: 1px solid var(--glass-border-top);
+    border-left: 1px solid var(--glass-border-left);
+    border-right: 1px solid var(--glass-border-bottom);
+    border-bottom: 1px solid var(--glass-border-bottom);
+    border-radius: 20px;
+    padding: 28px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--glass-shadow);
+    transition: var(--transition);
+}
+.mkt-glass-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 50%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+    transform: skewX(-20deg);
+    pointer-events: none;
+    transition: 0.5s;
+}
+.mkt-glass-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    border-top-color: rgba(0, 255, 136, 0.5);
+    box-shadow: 0 24px 60px -12px rgba(0, 255, 136, 0.15), var(--glass-shadow-hover);
+}
+.mkt-glass-card:hover::after { left: 150%; transition: 0.7s ease-in-out; }
+
+/* Cyan-accent variant */
+.mkt-glass-card--cyan:hover { border-top-color: rgba(0, 217, 255, 0.5); box-shadow: 0 24px 60px -12px rgba(0, 217, 255, 0.12), var(--glass-shadow-hover); }
+/* Orange-accent variant */
+.mkt-glass-card--orange:hover { border-top-color: rgba(255, 107, 53, 0.5); box-shadow: 0 24px 60px -12px rgba(255, 107, 53, 0.12), var(--glass-shadow-hover); }
+/* Purple-accent variant */
+.mkt-glass-card--purple:hover { border-top-color: rgba(139, 92, 246, 0.5); box-shadow: 0 24px 60px -12px rgba(139, 92, 246, 0.12), var(--glass-shadow-hover); }
+
+/* ── Marketing inset glass (comparison tables, embedded demos) ── */
+.mkt-inset-glass {
+    background: rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border-top: 1px solid rgba(0, 0, 0, 0.2);
+    border-left: 1px solid rgba(0, 0, 0, 0.1);
+    border-right: 1px solid rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 16px;
+    box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Marketing proof/testimonial panels ── */
+.mkt-glass-panel {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.015) 100%);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border-top: 1px solid var(--glass-border-top);
+    border-left: 1px solid var(--glass-border-left);
+    border-right: 1px solid var(--glass-border-bottom);
+    border-bottom: 1px solid var(--glass-border-bottom);
+    border-radius: 18px;
+    box-shadow: var(--glass-shadow);
+    position: relative;
+    overflow: hidden;
+}
+
+/* ── Metallic stats (hero numbers, KPIs) ── */
+.metallic-stat {
+    font-size: 2.4rem;
+    font-weight: 900;
+    line-height: 1;
+    background: linear-gradient(135deg, #00ff88 0%, #b8ffdb 30%, #00ff88 50%, #00cc6a 75%, #00ff88 100%);
+    background-size: 200% 200%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: metallicShimmer 4s ease-in-out infinite;
+}
+.metallic-stat--cyan {
+    background: linear-gradient(135deg, #00d9ff 0%, #b8f0ff 30%, #00d9ff 50%, #0099cc 75%, #00d9ff 100%);
+    background-size: 200% 200%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: metallicShimmer 4s ease-in-out infinite;
+}
+
+/* ── CTA button — gradient with glow ── */
+.btn-gradient-cyan {
+    background: linear-gradient(135deg, #00d9ff, #0066ff) !important;
+    color: #fff !important;
+    font-weight: 700;
+    border: none !important;
+    box-shadow: 0 0 20px rgba(0, 217, 255, 0.15);
+    transition: var(--transition);
+}
+.btn-gradient-cyan:hover {
+    box-shadow: 0 0 32px rgba(0, 217, 255, 0.3);
+    transform: translateY(-2px);
+    color: #fff !important;
+}
+.btn-gradient-orange {
+    background: linear-gradient(135deg, #ff6b35, #ff3366) !important;
+    color: #fff !important;
+    font-weight: 700;
+    border: none !important;
+    box-shadow: 0 0 20px rgba(255, 107, 53, 0.15);
+    transition: var(--transition);
+}
+.btn-gradient-orange:hover {
+    box-shadow: 0 0 32px rgba(255, 107, 53, 0.3);
+    transform: translateY(-2px);
+    color: #fff !important;
+}
+.btn-gradient-purple {
+    background: linear-gradient(135deg, #8b5cf6, #6366f1) !important;
+    color: #fff !important;
+    font-weight: 700;
+    border: none !important;
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.15);
+    transition: var(--transition);
+}
+.btn-gradient-purple:hover {
+    box-shadow: 0 0 32px rgba(139, 92, 246, 0.3);
+    transform: translateY(-2px);
+    color: #fff !important;
+}
+.btn-gradient-blue {
+    background: linear-gradient(135deg, #3b82f6, #6366f1) !important;
+    color: #fff !important;
+    font-weight: 700;
+    border: none !important;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+    transition: var(--transition);
+}
+.btn-gradient-blue:hover {
+    box-shadow: 0 0 32px rgba(59, 130, 246, 0.3);
+    transform: translateY(-2px);
+    color: #fff !important;
+}
+
+/* ── Geometric button radius (replace pill 50px) ── */
+.btn { border-radius: 10px; }
+.btn-lg { border-radius: 12px; }
+.btn-sm { border-radius: 8px; }
+
+/* ── Marketing hero mockup frame ── */
+.mkt-hero-frame {
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 24px 80px rgba(0, 255, 136, 0.06), 0 0 0 1px rgba(255, 255, 255, 0.03);
+    position: relative;
+}
+.mkt-hero-frame img { width: 100%; display: block; }
+
+/* ── Section heading typography ── */
+.mkt-section-label {
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+.mkt-h2 {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 900;
+    font-size: 2.2rem;
+}
+.mkt-h2 span { color: var(--accent); }
+.mkt-body { color: #777; font-size: 0.95rem; font-family: 'Inter', sans-serif; }
+
+/* ── Marketing CRM pill link ── */
+.mkt-pill-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 28px;
+    border-radius: 12px;
+    background: rgba(0, 217, 255, 0.06);
+    border: 1px solid rgba(0, 217, 255, 0.18);
+    color: #00d9ff;
+    font-weight: 700;
+    font-size: 0.88rem;
+    text-decoration: none;
+    transition: var(--transition);
+}
+.mkt-pill-link:hover { background: rgba(0, 217, 255, 0.12); color: #fff; transform: translateY(-2px); }
+
+/* ── Icon box utility ── */
+.mkt-icon-box {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem;
+}
+.mkt-icon-box--accent { background: rgba(0, 255, 136, 0.1); border: 1px solid rgba(0, 255, 136, 0.2); color: var(--accent); }
+.mkt-icon-box--cyan { background: rgba(0, 217, 255, 0.1); border: 1px solid rgba(0, 217, 255, 0.2); color: #00d9ff; }
+.mkt-icon-box--pink { background: rgba(233, 30, 99, 0.1); border: 1px solid rgba(233, 30, 99, 0.2); color: #e91e63; }
+.mkt-icon-box--purple { background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.2); color: #8b5cf6; }
+.mkt-icon-box--orange { background: rgba(255, 107, 53, 0.1); border: 1px solid rgba(255, 107, 53, 0.2); color: #ff6b35; }
+
+/* ── Chip/tag utility ── */
+.mkt-tag { font-size: 0.72rem; font-weight: 600; padding: 3px 10px; border-radius: 8px; display: inline-block; }
+.mkt-tag--accent { background: rgba(0, 255, 136, 0.08); color: var(--accent); }
+.mkt-tag--cyan { background: rgba(0, 217, 255, 0.08); color: #00d9ff; }
+.mkt-tag--pink { background: rgba(233, 30, 99, 0.08); color: #e91e63; }
+
+/* ── Responsive marketing grids ── */
+@media (max-width: 767px) {
+    .mkt-grid-3 { grid-template-columns: 1fr !important; }
+    .mkt-grid-2 { grid-template-columns: 1fr !important; }
+}

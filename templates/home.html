@@ -15,7 +15,6 @@
     /* ── Stats bar ── */
     .stats-bar { display: flex; justify-content: center; gap: 48px; flex-wrap: wrap; padding: 40px 0; }
     .stat-block { text-align: center; }
-    .stat-block .num { font-size: 2.4rem; font-weight: 900; color: var(--accent); line-height: 1; }
     .stat-block .lbl { color: #666; font-size: 0.78rem; margin-top: 4px; font-weight: 500; }
 
     /* ── Platform strip ── */
@@ -100,8 +99,8 @@
                 <a href="/demo-chat" class="btn btn-outline-accent btn-lg">Try the Demo</a>
                 <a href="https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&redirect_uri=https%3A%2F%2Finsurancegrokbot.click%2Foauth%2Fcallback&client_id=695e99698a5ae81dbb426515-mkaz316h&scope=calendars.readonly+calendars%2Fevents.readonly+calendars%2Fevents.write+conversations%2Fmessage.write+conversations%2Fmessage.readonly+contacts.readonly+locations%2FcustomFields.readonly+locations%2FcustomValues.readonly+calendars%2Fgroups.readonly+conversations.readonly+conversations.write+locations%2Ftags.readonly+oauth.readonly+locations.readonly+users.readonly+opportunities.readonly+workflows.readonly+twilioaccount.read+contacts.write+locations%2Ftags.write+locations%2FcustomFields.write+phonenumbers.read&version_id=69a20babaec7c63e20613b09"
                    target="_blank" rel="noopener noreferrer"
-                   class="btn btn-lg"
-                   style="background:linear-gradient(135deg,#3b82f6,#6366f1);color:#fff;border:none;display:inline-flex;align-items:center;gap:8px;">
+                   class="btn btn-lg btn-gradient-blue"
+                   style="display:inline-flex;align-items:center;gap:8px;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2ZM12 3c1.66 0 3 1.34 3 3v2H9V6c0-1.66 1.34-3 3-3Zm6 17H6V10h12v10Zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2Z" fill="currentColor"/></svg>
                     Download on Marketplace
                 </a>
@@ -110,10 +109,10 @@
 
         <!-- Stats bar -->
         <div class="stats-bar" data-aos="fade-up" data-aos-delay="200">
-            <div class="stat-block"><div class="num">270+</div><div class="lbl">Carriers Known</div></div>
-            <div class="stat-block"><div class="num">&infin;</div><div class="lbl">Minutes Included</div></div>
-            <div class="stat-block"><div class="num">7</div><div class="lbl">CRM Integrations</div></div>
-            <div class="stat-block"><div class="num">24/7</div><div class="lbl">AI Coverage</div></div>
+            <div class="stat-block"><div class="metallic-stat">270+</div><div class="lbl">Carriers Known</div></div>
+            <div class="stat-block"><div class="metallic-stat">&infin;</div><div class="lbl">Minutes Included</div></div>
+            <div class="stat-block"><div class="metallic-stat metallic-stat--cyan">7</div><div class="lbl">CRM Integrations</div></div>
+            <div class="stat-block"><div class="metallic-stat">24/7</div><div class="lbl">AI Coverage</div></div>
         </div>
     </div>
 </section>
@@ -123,51 +122,51 @@
 <section class="hp-section">
     <div class="container">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h2 style="font-weight: 900; font-size: 2.2rem;">Three Products. <span style="color: var(--accent);">One Subscription.</span></h2>
-            <p style="color: #777; font-size: 1rem; max-width: 560px; margin: 8px auto 0;">Everything you need to work leads — texting, calling, and voice AI — built into a single platform.</p>
+            <h2 class="mkt-h2">Three Products. <span style="color: var(--accent);">One Subscription.</span></h2>
+            <p class="mkt-body" style="max-width: 560px; margin: 8px auto 0;">Everything you need to work leads — texting, calling, and voice AI — built into a single platform.</p>
         </div>
 
         <div class="platform-strip" data-aos="fade-up">
             <!-- AI Texting -->
             <div class="ps-cell">
-                <div class="ps-icon" style="background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.2);">
+                <div class="ps-icon mkt-icon-box--accent">
                     <i class="fa-solid fa-comment-sms" style="color: var(--accent);"></i>
                 </div>
                 <h4 style="color: var(--accent);">AI Texting</h4>
                 <p>Sends outbound SMS, handles every reply, overcomes objections, and books appointments — all automatically.</p>
                 <div class="ps-tags">
-                    <span class="ps-tag" style="background: rgba(0,255,136,0.08); color: var(--accent);">Outbound + Inbound</span>
-                    <span class="ps-tag" style="background: rgba(0,255,136,0.08); color: var(--accent);">Objection Handling</span>
-                    <span class="ps-tag" style="background: rgba(0,255,136,0.08); color: var(--accent);">Auto-Booking</span>
+                    <span class="ps-tag mkt-tag--accent">Outbound + Inbound</span>
+                    <span class="ps-tag mkt-tag--accent">Objection Handling</span>
+                    <span class="ps-tag mkt-tag--accent">Auto-Booking</span>
                 </div>
             </div>
 
             <!-- Smart Dialer -->
             <div class="ps-cell">
-                <div class="ps-icon" style="background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2);">
+                <div class="ps-icon mkt-icon-box--cyan">
                     <i class="fa-solid fa-phone-volume" style="color: #00d9ff;"></i>
                 </div>
                 <h4 style="color: #00d9ff;">Smart Dialer</h4>
                 <p>AI-powered dialer with lead intelligence scoring, Smart Filters, queue dialing, and live eavesdrop.</p>
                 <div class="ps-tags">
-                    <span class="ps-tag" style="background: rgba(0,217,255,0.08); color: #00d9ff;">Lead Scoring</span>
-                    <span class="ps-tag" style="background: rgba(0,217,255,0.08); color: #00d9ff;">Smart Filters</span>
-                    <span class="ps-tag" style="background: rgba(0,217,255,0.08); color: #00d9ff;">Multi-Line</span>
+                    <span class="ps-tag mkt-tag--cyan">Lead Scoring</span>
+                    <span class="ps-tag mkt-tag--cyan">Smart Filters</span>
+                    <span class="ps-tag mkt-tag--cyan">Multi-Line</span>
                 </div>
                 <a href="/for-individuals" style="color: #00d9ff; font-size: 0.82rem; font-weight: 600; text-decoration: none; display: inline-block; margin-top: 10px;">Explore the Dialer <i class="fa-solid fa-arrow-right ms-1" style="font-size: 0.75rem;"></i></a>
             </div>
 
             <!-- AI Voice Agent -->
             <div class="ps-cell">
-                <div class="ps-icon" style="background: rgba(233,30,99,0.1); border: 1px solid rgba(233,30,99,0.2);">
+                <div class="ps-icon mkt-icon-box--pink">
                     <i class="fa-solid fa-robot" style="color: #e91e63;"></i>
                 </div>
                 <h4 style="color: #e91e63;">AI Voice Agent</h4>
                 <p>Fully autonomous phone calls powered by Grok speech-to-speech. The AI qualifies, handles objections, and books.</p>
                 <div class="ps-tags">
-                    <span class="ps-tag" style="background: rgba(233,30,99,0.08); color: #e91e63;">Speech-to-Speech</span>
-                    <span class="ps-tag" style="background: rgba(233,30,99,0.08); color: #e91e63;">7 Voices</span>
-                    <span class="ps-tag" style="background: rgba(233,30,99,0.08); color: #e91e63;">Live Booking</span>
+                    <span class="ps-tag mkt-tag--pink">Speech-to-Speech</span>
+                    <span class="ps-tag mkt-tag--pink">7 Voices</span>
+                    <span class="ps-tag mkt-tag--pink">Live Booking</span>
                 </div>
             </div>
         </div>
@@ -179,20 +178,17 @@
 <section class="hp-section">
     <div class="container">
         <div class="text-center mb-5" data-aos="fade-up">
-            <span style="color: var(--accent); font-weight: 700; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;">See It In Action</span>
-            <h2 style="font-weight: 900; font-size: 2.2rem; margin-top: 8px;">Your Command <span style="color: var(--accent);">Center</span></h2>
+            <span class="mkt-section-label">See It In Action</span>
+            <h2 class="mkt-h2" style="margin-top: 8px;">Your Command <span style="color: var(--accent);">Center</span></h2>
         </div>
 
-        <div data-aos="fade-up" data-aos-delay="100" style="position: relative; max-width: 960px; margin: 0 auto;">
-            <div style="border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 24px 80px rgba(0,255,136,0.06), 0 0 0 1px rgba(255,255,255,0.03);">
-                <img src="{{ url_for('static', filename='images/dialer-overview.png') }}" alt="InsuranceGrokBot Smart Dialer — lead scoring, Smart Filters, and built-in phone" style="width: 100%; display: block;" loading="lazy">
-            </div>
-            <div style="position: absolute; inset: 20%; z-index: -1; background: radial-gradient(ellipse, rgba(0,255,136,0.08), transparent 70%); filter: blur(60px);"></div>
+        <div data-aos="fade-up" data-aos-delay="100" class="mkt-hero-frame">
+            <img src="{{ url_for('static', filename='images/dialer-overview.png') }}" alt="InsuranceGrokBot Smart Dialer — lead scoring, Smart Filters, and built-in phone" style="width: 100%; display: block;" loading="lazy">
         </div>
 
         <!-- Video CTA -->
         <div class="text-center mt-4" data-aos="fade-up" data-aos-delay="200">
-            <a href="/for-individuals" style="display: inline-flex; align-items: center; gap: 10px; padding: 12px 28px; border-radius: 30px; background: rgba(0,217,255,0.06); border: 1px solid rgba(0,217,255,0.18); color: #00d9ff; font-weight: 700; font-size: 0.88rem; text-decoration: none; transition: all 0.3s;">
+            <a href="/for-individuals" class="mkt-pill-link">
                 <i class="fa-solid fa-circle-play" style="font-size: 1.2rem;"></i>
                 See Everything Included
                 <i class="fa-solid fa-arrow-right" style="font-size: 0.75rem;"></i>
@@ -206,8 +202,8 @@
 <section class="hp-section">
     <div class="container">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h2 style="font-weight: 900; font-size: 2.2rem;">Built for <span style="color: var(--accent);">How You Work</span></h2>
-            <p style="color: #777; font-size: 0.95rem; max-width: 560px; margin: 8px auto 0;">Whether you're a solo agent or running a team, the platform scales with you.</p>
+            <h2 class="mkt-h2">Built for <span style="color: var(--accent);">How You Work</span></h2>
+            <p class="mkt-body" style="max-width: 560px; margin: 8px auto 0;">Whether you're a solo agent or running a team, the platform scales with you.</p>
         </div>
 
         <div class="audience-grid" data-aos="fade-up">
@@ -234,7 +230,7 @@
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Sub-account management + team billing</li>
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Built-in compliance tracking + recording consent</li>
                 </ul>
-                <a href="/for-agencies" class="btn w-100 py-3" style="background: linear-gradient(135deg, #00d9ff, #0066ff); color: #fff; font-weight: 700; border: none;">See Agency Plans <i class="fa-solid fa-arrow-right ms-2"></i></a>
+                <a href="/for-agencies" class="btn btn-gradient-cyan w-100 py-3" style="font-weight: 700;">See Agency Plans <i class="fa-solid fa-arrow-right ms-2"></i></a>
             </div>
         </div>
     </div>
@@ -264,22 +260,22 @@
 <section class="hp-section">
     <div class="container">
         <div class="text-center mb-5" data-aos="fade-up">
-            <span style="color: var(--accent); font-weight: 700; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;">Why Switch</span>
-            <h2 style="font-weight: 900; font-size: 2.2rem; margin-top: 8px;">What Makes This <span style="color: var(--accent);">Different</span></h2>
+            <span class="mkt-section-label">Why Switch</span>
+            <h2 class="mkt-h2" style="margin-top: 8px;">What Makes This <span style="color: var(--accent);">Different</span></h2>
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;" data-aos="fade-up">
-            <div style="background: rgba(255,255,255,0.065); backdrop-filter: blur(40px) saturate(200%) brightness(1.07) contrast(1.04); -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.07) contrast(1.04); border: 1px solid rgba(255,255,255,0.22); border-radius: 20px; padding: 28px; box-shadow: 0 32px 80px rgba(0,0,0,0.45), inset 0 1.5px 0 rgba(255,255,255,0.55), inset 1px 0 0 rgba(255,255,255,0.15);">
+            <div class="mkt-glass-card">
                 <i class="fa-solid fa-ban" style="color: var(--accent); font-size: 1.3rem; margin-bottom: 14px; display: block;"></i>
                 <h4 style="font-weight: 800; font-size: 1rem; margin-bottom: 8px;">No More Tool Juggling</h4>
                 <p style="color: #888; font-size: 0.88rem; line-height: 1.6; margin: 0;">Most agents pay for a dialer, a text bot, a calendar tool, and a CRM inbox separately. This replaces all four with one login and one bill.</p>
             </div>
-            <div style="background: rgba(255,255,255,0.065); backdrop-filter: blur(40px) saturate(200%) brightness(1.07) contrast(1.04); -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.07) contrast(1.04); border: 1px solid rgba(255,255,255,0.22); border-radius: 20px; padding: 28px; box-shadow: 0 32px 80px rgba(0,0,0,0.45), inset 0 1.5px 0 rgba(255,255,255,0.55), inset 1px 0 0 rgba(255,255,255,0.15);">
+            <div class="mkt-glass-card mkt-glass-card--cyan">
                 <i class="fa-solid fa-building-columns" style="color: #00d9ff; font-size: 1.3rem; margin-bottom: 14px; display: block;"></i>
                 <h4 style="font-weight: 800; font-size: 1rem; margin-bottom: 8px;">Built for Insurance — Not Adapted</h4>
                 <p style="color: #888; font-size: 0.88rem; line-height: 1.6; margin: 0;">The AI knows 270+ carriers, understands term, whole, IUL, and final expense, and only references the carriers you're contracted with. No generic scripts.</p>
             </div>
-            <div style="background: rgba(255,255,255,0.065); backdrop-filter: blur(40px) saturate(200%) brightness(1.07) contrast(1.04); -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.07) contrast(1.04); border: 1px solid rgba(255,255,255,0.22); border-radius: 20px; padding: 28px; box-shadow: 0 32px 80px rgba(0,0,0,0.45), inset 0 1.5px 0 rgba(255,255,255,0.55), inset 1px 0 0 rgba(255,255,255,0.15);">
+            <div class="mkt-glass-card mkt-glass-card--purple">
                 <i class="fa-solid fa-clock" style="color: #e91e63; font-size: 1.3rem; margin-bottom: 14px; display: block;"></i>
                 <h4 style="font-weight: 800; font-size: 1rem; margin-bottom: 8px;">Your Leads Never Wait</h4>
                 <p style="color: #888; font-size: 0.88rem; line-height: 1.6; margin: 0;">Leads respond at all hours. The AI handles every reply instantly — qualifying, overcoming objections, and booking appointments while you sleep.</p>
@@ -293,8 +289,8 @@
 <section id="pricing" class="hp-section">
     <div class="container">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h2 style="font-weight: 900; font-size: 2.2rem;">Simple <span style="color: var(--accent);">Pricing</span></h2>
-            <p style="color: #777; font-size: 0.95rem;">Everything included. No per-minute charges. No hidden fees.</p>
+            <h2 class="mkt-h2">Simple <span style="color: var(--accent);">Pricing</span></h2>
+            <p class="mkt-body">Everything included. No per-minute charges. No hidden fees.</p>
         </div>
 
         <div class="price-grid" data-aos="fade-up">
@@ -338,7 +334,7 @@
                     <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Unlimited minutes* included</li>
                 </ul>
 
-                <a href="/checkout/pro-dialer" class="btn w-100 py-3" style="background: linear-gradient(135deg, #ff6b35, #ff3366); color: #fff; font-weight: 700; border: none;">Start Free Trial — $249.98/mo after</a>
+                <a href="/checkout/pro-dialer" class="btn btn-gradient-orange w-100 py-3" style="font-weight: 700;">Start Free Trial — $249.98/mo after</a>
                 <div class="text-center mt-2"><a href="/for-individuals" style="color: #888; font-size: 0.78rem;">See all features <i class="fa-solid fa-arrow-right ms-1" style="font-size: 0.65rem;"></i></a></div>
             </div>
         </div>

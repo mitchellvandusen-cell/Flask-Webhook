@@ -16,7 +16,6 @@
     /* KPI banner */
     .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 48px; }
     .kpi-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 28px 24px; text-align: center; }
-    .kpi-card .num { font-size: 2.2rem; font-weight: 900; line-height: 1; }
     .kpi-card .lbl { color: #777; font-size: 0.8rem; margin-top: 6px; font-weight: 500; }
     @media (max-width: 767px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
 
@@ -52,7 +51,7 @@
 
     /* Compliance strip */
     .compliance-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: rgba(255,255,255,0.06); border-radius: 16px; overflow: hidden; }
-    .comp-item { background: #0a0a0a; padding: 28px 24px; }
+    .comp-item { background: rgba(10,10,10,0.85); padding: 28px 24px; }
     .comp-item i { font-size: 1.1rem; margin-bottom: 10px; display: block; }
     .comp-item h6 { font-weight: 700; font-size: 0.88rem; margin-bottom: 4px; color: #fff; }
     .comp-item p { color: #666; font-size: 0.78rem; margin: 0; line-height: 1.5; }
@@ -81,7 +80,7 @@
                 compliance automation, and real-time KPIs — all from a single command center.
             </p>
             <div class="d-flex justify-content-center gap-3 flex-wrap">
-                <a href="https://api.leadconnectorhq.com/widget/booking/S4knucFaXO769HDFlRtv" target="_blank" rel="noopener noreferrer" class="btn btn-lg" style="background: linear-gradient(135deg, #00d9ff, #0066ff); color: #fff; border: none; font-weight: 700;">
+                <a href="https://api.leadconnectorhq.com/widget/booking/S4knucFaXO769HDFlRtv" target="_blank" rel="noopener noreferrer" class="btn btn-lg btn-gradient-cyan" style="font-weight: 700;">
                     <i class="fa-solid fa-calendar-check me-2"></i>Book a Demo
                 </a>
                 <a href="#agency-pricing" class="btn btn-outline-accent btn-lg">See Pricing</a>
@@ -90,19 +89,19 @@
 
         <div class="kpi-row" data-aos="fade-up" data-aos-delay="200">
             <div class="kpi-card">
-                <div class="num" style="color: #00d9ff;">14+</div>
+                <div class="metallic-stat metallic-stat--cyan">14+</div>
                 <div class="lbl">Agents per Account</div>
             </div>
             <div class="kpi-card">
-                <div class="num" style="color: var(--accent);">4x</div>
+                <div class="metallic-stat">4x</div>
                 <div class="lbl">Lines Dialing Simultaneously</div>
             </div>
             <div class="kpi-card">
-                <div class="num" style="color: #8b5cf6;">100%</div>
+                <div class="metallic-stat" style="--metallic-from:#8b5cf6;--metallic-to:#a78bfa;">100%</div>
                 <div class="lbl">TCPA Compliant</div>
             </div>
             <div class="kpi-card">
-                <div class="num" style="color: #e91e63;">24/7</div>
+                <div class="metallic-stat" style="--metallic-from:#e91e63;--metallic-to:#ff6b9d;">24/7</div>
                 <div class="lbl">AI Lead Handling</div>
             </div>
         </div>
@@ -115,7 +114,7 @@
     <div class="container">
         <div class="fb-grid" data-aos="fade-up">
             <div>
-                <div class="fb-icon-box" style="background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2);">
+                <div class="fb-icon-box mkt-icon-box--cyan">
                     <i class="fa-solid fa-chart-line" style="color: #00d9ff;"></i>
                 </div>
                 <h2 style="font-weight: 900; font-size: 1.8rem; margin-bottom: 8px;">Agency Command Center</h2>
@@ -177,7 +176,7 @@
     <div class="container">
         <div class="fb-grid reverse" data-aos="fade-up">
             <div>
-                <div class="fb-icon-box" style="background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.2);">
+                <div class="fb-icon-box mkt-icon-box--accent">
                     <i class="fa-solid fa-users-gear" style="color: var(--accent);"></i>
                 </div>
                 <h2 style="font-weight: 900; font-size: 1.8rem; margin-bottom: 8px;">Multi-Tenant Agent Management</h2>
@@ -229,9 +228,9 @@
 <section class="a-section">
     <div class="container">
         <div class="text-center mb-5" data-aos="fade-up">
-            <span style="color: #8b5cf6; font-weight: 700; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;">Enterprise-Grade Dialing</span>
-            <h2 style="font-weight: 900; font-size: 2.2rem; margin-top: 8px;">The Predictive Dialer That <span style="color: #8b5cf6;">Actually Predicts.</span></h2>
-            <p style="color: #777; font-size: 0.95rem; max-width: 640px; margin: 8px auto 0;">
+            <span class="mkt-section-label" style="color: #8b5cf6;">Enterprise-Grade Dialing</span>
+            <h2 class="mkt-h2" style="margin-top: 8px;">The Predictive Dialer That <span style="color: #8b5cf6;">Actually Predicts.</span></h2>
+            <p class="mkt-body" style="max-width: 640px; margin: 8px auto 0;">
                 Not just multi-line calling. The system learns your connect rates, automatically adjusts how many lines to dial,
                 and keeps you compliant with TCPA regulations — no spreadsheets, no manual tracking, no guesswork.
             </p>
@@ -336,7 +335,7 @@
     <div class="container">
         <div class="fb-grid" data-aos="fade-up">
             <div>
-                <div class="fb-icon-box" style="background: rgba(255,107,53,0.1); border: 1px solid rgba(255,107,53,0.2);">
+                <div class="fb-icon-box mkt-icon-box--orange">
                     <i class="fa-solid fa-layer-group" style="color: #ff6b35;"></i>
                 </div>
                 <h2 style="font-weight: 900; font-size: 1.8rem; margin-bottom: 8px;">Multi-Line Power Dialer</h2>
@@ -394,8 +393,8 @@
 <section class="a-section">
     <div class="container">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h2 style="font-weight: 900; font-size: 2.2rem;">Every Agent Gets <span style="color: var(--accent);">Full AI Power</span></h2>
-            <p style="color: #777; font-size: 0.95rem; max-width: 560px; margin: 8px auto 0;">
+            <h2 class="mkt-h2">Every Agent Gets <span style="color: var(--accent);">Full AI Power</span></h2>
+            <p class="mkt-body" style="max-width: 560px; margin: 8px auto 0;">
                 Each agent on your team gets the complete platform — AI texting, AI voice, lead intelligence,
                 Smart Filters, and 270+ carrier recognition.
             </p>
@@ -451,8 +450,8 @@
 <section class="a-section">
     <div class="container">
         <div class="text-center mb-4" data-aos="fade-up">
-            <h2 style="font-weight: 900; font-size: 2.2rem;">Stop Paying for <span style="color: #00d9ff;">4 Platforms.</span></h2>
-            <p style="color: #777; font-size: 0.95rem; max-width: 600px; margin: 8px auto 0;">
+            <h2 class="mkt-h2">Stop Paying for <span style="color: #00d9ff;">4 Platforms.</span></h2>
+            <p class="mkt-body" style="max-width: 600px; margin: 8px auto 0;">
                 Most agencies run a separate dialer, text bot, team chat tool, and data dashboard. This replaces all of them.
             </p>
         </div>
@@ -479,7 +478,7 @@
 <section class="a-section">
     <div class="container">
         <div class="text-center mb-4" data-aos="fade-up">
-            <h2 style="font-weight: 900; font-size: 2.2rem;">Built for <span style="color: var(--accent);">Agency Problems.</span></h2>
+            <h2 class="mkt-h2">Built for <span style="color: var(--accent);">Agency Problems.</span></h2>
         </div>
 
         <div class="agency-proof" data-aos="fade-up">
@@ -507,15 +506,15 @@
 <section id="agency-pricing" class="a-section">
     <div class="container">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h2 style="font-weight: 900; font-size: 2.2rem;">Agency <span style="color: #00d9ff;">Pricing</span></h2>
-            <p style="color: #777; font-size: 0.95rem;">Every plan includes the full platform. Scale your team without scaling your costs.</p>
+            <h2 class="mkt-h2">Agency <span style="color: #00d9ff;">Pricing</span></h2>
+            <p class="mkt-body">Every plan includes the full platform. Scale your team without scaling your costs.</p>
         </div>
 
         <div style="max-width: 480px; margin: 0 auto;" data-aos="fade-up">
             <div class="tier-card featured" style="border-color: rgba(139,92,246,0.35);">
                 <span class="tier-badge" style="background: linear-gradient(135deg, #8b5cf6, #6366f1);">Enterprise &middot; 5+ Agents</span>
                 <h4 style="color: #fff; margin-top: 8px;">Predictive Dialer</h4>
-                <div><span class="tier-amount" style="color: #8b5cf6;">$349.98</span><span style="color: #888;">/mo per seat</span></div>
+                <div><span class="tier-amount metallic-stat" style="--metallic-from:#8b5cf6;--metallic-to:#a78bfa;font-size:2.4rem;">$349.98</span><span style="color: #888;">/mo per seat</span></div>
                 <p style="color: #8b5cf6; font-size: 0.82rem; font-weight: 600; margin-top: 8px;">Full compliance suite + AI-optimized pacing for teams.</p>
                 <ul class="tier-features">
                     <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> <strong>Multi-line dialer (up to 4 lines)</strong></li>
@@ -532,7 +531,7 @@
                     <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Training API access</li>
                     <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Priority support + onboarding</li>
                 </ul>
-                <a href="https://api.leadconnectorhq.com/widget/booking/S4knucFaXO769HDFlRtv" target="_blank" rel="noopener noreferrer" class="btn w-100 py-3" style="background: linear-gradient(135deg, #8b5cf6, #6366f1); color: #fff; font-weight: 700; border: none;">
+                <a href="https://api.leadconnectorhq.com/widget/booking/S4knucFaXO769HDFlRtv" target="_blank" rel="noopener noreferrer" class="btn btn-gradient-purple w-100 py-3" style="font-weight: 700;">
                     <i class="fa-solid fa-calendar-check me-2"></i>Book a Call
                 </a>
                 <div class="text-center mt-2"><span style="color: #888; font-size: 0.78rem;">Requires 5+ team members</span></div>
@@ -554,14 +553,14 @@
 <section class="a-section" style="padding-bottom: 100px;">
     <div class="container">
         <div class="text-center" data-aos="fade-up">
-            <div style="background: linear-gradient(135deg, rgba(0,217,255,0.06), rgba(139,92,246,0.06)); border: 1px solid rgba(0,217,255,0.15); border-radius: 24px; padding: 60px 40px; max-width: 720px; margin: 0 auto;">
+            <div class="mkt-glass-card mkt-glass-card--cyan" style="padding: 60px 40px; max-width: 720px; margin: 0 auto;">
                 <h2 style="font-weight: 900; font-size: 2rem; margin-bottom: 12px;">Ready to Scale?</h2>
                 <p style="color: #888; font-size: 0.95rem; max-width: 480px; margin: 0 auto 24px;">
                     Book a 15-minute demo and we'll show you the agency dashboard,
                     predictive dialer, and compliance suite live.
                 </p>
                 <div class="d-flex justify-content-center gap-3 flex-wrap">
-                    <a href="https://api.leadconnectorhq.com/widget/booking/S4knucFaXO769HDFlRtv" target="_blank" rel="noopener noreferrer" class="btn btn-lg" style="background: linear-gradient(135deg, #00d9ff, #0066ff); color: #fff; border: none; font-weight: 700;">
+                    <a href="https://api.leadconnectorhq.com/widget/booking/S4knucFaXO769HDFlRtv" target="_blank" rel="noopener noreferrer" class="btn btn-lg btn-gradient-cyan" style="font-weight: 700;">
                         <i class="fa-solid fa-calendar-check me-2"></i>Book a Demo
                     </a>
                     <a href="/for-individuals" class="btn btn-outline-accent btn-lg">Looking for Individual Plans?</a>
