@@ -741,8 +741,9 @@ def dial_contact():
         first_name = 'there'
 
     # ── Calling hours enforcement ──
+    bypass_hours = voice_config.get('bypass_calling_hours', False)
     hours_ok, hours_reason = _check_calling_hours(voice_config, subscriber.get('timezone'))
-    if not hours_ok:
+    if not hours_ok and not bypass_hours:
         return jsonify({"error": hours_reason, "calling_hours_blocked": True}), 400
 
     # ── Recipient timezone enforcement (compliance — applies to admins too) ──
@@ -752,7 +753,7 @@ def dial_contact():
             voice_config.get('calling_hours_start', '08:00'),
             voice_config.get('calling_hours_end', '21:00'),
         )
-        if not tz_ok:
+        if not tz_ok and not bypass_hours:
             return jsonify({"error": tz_reason, "recipient_tz_blocked": True,
                             "recipient_timezone": recip_tz, "recipient_local_time": recip_time}), 400
 
@@ -956,8 +957,9 @@ def multi_dial():
         return jsonify({"error": "Voice service not fully provisioned"}), 400
 
     # ── Calling hours enforcement ──
+    bypass_hours = voice_config.get('bypass_calling_hours', False)
     hours_ok, hours_reason = _check_calling_hours(voice_config, subscriber.get('timezone'))
-    if not hours_ok:
+    if not hours_ok and not bypass_hours:
         return jsonify({"error": hours_reason, "calling_hours_blocked": True}), 400
 
     # Enforce max concurrent lines already active for this location
