@@ -609,3 +609,119 @@ def api_admin_audit_ai_minutes():
 def pool_stats():
     """Return DB connection pool utilization stats."""
     return jsonify(get_pool_stats())
+
+
+# ── Sub-account data isolation cleanup ───────────────────────────────────────
+
+@admin_bp.route("/api/admin/clear-subaccount-contamination", methods=["POST"])
+@login_required
+@super_admin_required
+def clear_subaccount_contamination():
+    """
+    One-shot cleanup: wipe trust_hub and A2P SID fields from ALL sub-account
+    voice_configs that don't have a _sub_sid ownership tag.
+
+    This fixes contamination from the old auto-discovery code that copied the
+    master account's Trust Hub profiles / A2P brands into sub-account records.
+
+    Safe to run multiple times — only touches rows where sub_sid != master_sid
+    and where the SID keys exist without proper _sub_sid tagging.
+    """
+    import json as _json
+    import os as _os
+
+    master_sid = _os.getenv("TWILIO_ACCOUNT_SID", "")
+    if not master_sid:
+        return jsonify({"error": "TWILIO_ACCOUNT_SID not set"}), 500
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+
+    cleaned_trust_hub = 0
+    cleaned_a2p = 0
+    skipped = 0
+    errors = 0
+
+    try:
+        cur = conn.cursor()
+        # Fetch all subscribers with non-null voice_config and a sub-account (not master)
+        cur.execute("""
+            SELECT email, voice_config
+            FROM subscribers
+            WHERE voice_config IS NOT NULL
+              AND voice_config->>'twilio_sub_account_sid' IS NOT NULL
+              AND voice_config->>'twilio_sub_account_sid' != %s
+        """, (master_sid,))
+        rows = cur.fetchall()
+        cur.close()
+
+        for row in rows:
+            email = row['email']
+            vc = row['voice_config'] or {}
+            if not isinstance(vc, dict):
+                try:
+                    vc = _json.loads(vc)
+                except Exception:
+                    continue
+
+            sub_sid = vc.get('twilio_sub_account_sid', '')
+            changed = False
+
+            # Clean trust_hub: remove protection fields unless _sub_sid matches this sub-account
+            trust_hub = vc.get('trust_hub', {})
+            if isinstance(trust_hub, dict):
+                th_sub = trust_hub.get('_sub_sid', '')
+                has_stale = any(trust_hub.get(k) for k in ('protection_active', 'profile_sid', 'business_name'))
+                if has_stale and th_sub != sub_sid:
+                    for k in ('protection_active', 'profile_sid', 'business_name', 'registered_at', '_sub_sid'):
+                        trust_hub.pop(k, None)
+                    vc['trust_hub'] = trust_hub
+                    changed = True
+                    cleaned_trust_hub += 1
+
+            # Clean a2p: remove Twilio SID fields unless _sub_sid matches this sub-account
+            a2p = vc.get('a2p', {})
+            if isinstance(a2p, dict):
+                a2p_sub = a2p.get('_sub_sid', '')
+                has_stale = any(a2p.get(k) for k in ('brand_sid', 'campaign_sid', 'messaging_service_sid'))
+                if has_stale and a2p_sub != sub_sid:
+                    for k in ('brand_sid', 'brand_status', 'campaign_sid', 'campaign_status',
+                              'messaging_service_sid', 'use_case', 'registered', '_sub_sid'):
+                        a2p.pop(k, None)
+                    vc['a2p'] = a2p
+                    changed = True
+                    cleaned_a2p += 1
+
+            if changed:
+                try:
+                    upd_cur = conn.cursor()
+                    upd_cur.execute(
+                        "UPDATE subscribers SET voice_config = %s WHERE email = %s",
+                        (_json.dumps(vc), email)
+                    )
+                    upd_cur.close()
+                    conn.commit()
+                    logger.info(f"[cleanup] Cleaned contaminated voice_config for {email}")
+                except Exception as e:
+                    logger.error(f"[cleanup] Failed to update {email}: {e}")
+                    try: conn.rollback()
+                    except Exception: pass
+                    errors += 1
+            else:
+                skipped += 1
+
+        return jsonify({
+            "status": "ok",
+            "subscribers_checked": len(rows),
+            "trust_hub_cleaned": cleaned_trust_hub,
+            "a2p_cleaned": cleaned_a2p,
+            "skipped_clean": skipped,
+            "errors": errors,
+        })
+
+    except Exception as e:
+        logger.error(f"[cleanup] Sub-account contamination cleanup failed: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+    finally:
+        return_db_connection(conn)

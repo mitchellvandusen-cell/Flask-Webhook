@@ -22,8 +22,7 @@ a2p_bp = Blueprint('voice_a2p', __name__)
 @a2p_bp.route('/voice/a2p/status', methods=['GET'])
 @login_required
 def a2p_status():
-    """Return current A2P 10DLC registration status from voice_config.
-    Auto-discovers from Twilio if local data is empty."""
+    """Return current A2P 10DLC registration status, always live-queried from Twilio."""
     subscriber, vc, sub_sid = _get_current_subscriber_voice()
     if not sub_sid:
         return jsonify({"error": "Voice service not provisioned"}), 400
@@ -31,43 +30,54 @@ def a2p_status():
     a2p = (vc or {}).get('a2p', {})
     is_sub_user = bool((subscriber or {}).get('parent_agency_email'))
 
-    # Validate cached A2P data belongs to THIS sub-account (not stale master data)
-    cached_for_sid = a2p.get('_sub_sid', '')
-    if a2p.get('brand_sid') and cached_for_sid and cached_for_sid != sub_sid:
-        logger.info(f"Clearing stale A2P data (cached for {cached_for_sid}, current sub={sub_sid})")
-        a2p.clear()
-        vc['a2p'] = a2p
+    # ALWAYS live-query Twilio sub-account for A2P brand/campaign status.
+    # We NEVER trust cached brand_sid/campaign_sid/messaging_service_sid from voice_config
+    # because old auto-discovery contaminated sub-accounts with master account data.
+    # Only user-entered form fields (brand_type, a2p_fee_paid, etc.) come from cache.
+    _TWILIO_SID_KEYS = ('brand_sid', 'brand_status', 'campaign_sid', 'campaign_status',
+                        'messaging_service_sid', 'use_case', 'registered', '_sub_sid')
+    try:
+        discovered = twilio_provisioning.discover_full_a2p_status(sub_sid)
+
+        if discovered.get('best_brand'):
+            brand = discovered['best_brand']
+            a2p['brand_sid'] = brand['brand_sid']
+            a2p['brand_status'] = brand['status']
+            a2p['_sub_sid'] = sub_sid
+
+            if discovered.get('best_campaign'):
+                campaign = discovered['best_campaign']
+                a2p['campaign_sid'] = campaign['campaign_sid']
+                a2p['campaign_status'] = campaign['campaign_status']
+                a2p['messaging_service_sid'] = campaign.get('messaging_service_sid', '')
+                a2p['use_case'] = campaign.get('use_case', '')
+                a2p['registered'] = campaign.get('campaign_status', '').upper() in ('VERIFIED', 'APPROVED')
+            else:
+                # No campaign on this sub-account — clear stale campaign data
+                for k in ('campaign_sid', 'campaign_status', 'messaging_service_sid', 'use_case', 'registered'):
+                    a2p.pop(k, None)
+
+            logger.info(f"[a2p-status] Live A2P for sub={sub_sid}: brand={a2p.get('brand_sid')}")
+        else:
+            # No brands found on this sub-account — clear ALL stale SID data
+            stale_cleared = any(a2p.get(k) for k in _TWILIO_SID_KEYS)
+            for k in _TWILIO_SID_KEYS:
+                a2p.pop(k, None)
+            if stale_cleared:
+                logger.info(f"[a2p-status] Cleared stale A2P SID data for sub={sub_sid} (no brands found on sub-account)")
+
+        # Persist updated a2p (keeps form fields like brand_type, a2p_fee_paid; overwrites SIDs)
         _save_a2p_to_voice_config(subscriber, vc, a2p)
-    # Also clear if there's cached data but no _sub_sid tag (legacy data from before tagging)
-    elif a2p.get('brand_sid') and not cached_for_sid and not getattr(current_user, 'is_super_admin', False):
-        logger.info(f"Clearing untagged A2P data for sub={sub_sid} (likely stale master data)")
-        a2p.clear()
-        vc['a2p'] = a2p
-        _save_a2p_to_voice_config(subscriber, vc, a2p)
 
-    # Auto-discover from Twilio if no brand is stored locally
-    if not a2p.get('brand_sid'):
-        try:
-            discovered = twilio_provisioning.discover_full_a2p_status(sub_sid)
-            if discovered.get('best_brand'):
-                brand = discovered['best_brand']
-                a2p['brand_sid'] = brand['brand_sid']
-                a2p['brand_status'] = brand['status']
-                a2p['_sub_sid'] = sub_sid  # Tag which sub-account this belongs to
-
-                if discovered.get('best_campaign'):
-                    campaign = discovered['best_campaign']
-                    a2p['campaign_sid'] = campaign['campaign_sid']
-                    a2p['campaign_status'] = campaign['campaign_status']
-                    a2p['messaging_service_sid'] = campaign.get('messaging_service_sid', '')
-                    a2p['use_case'] = campaign.get('use_case', '')
-                    a2p['registered'] = campaign.get('campaign_status', '').upper() in ('VERIFIED', 'APPROVED')
-
-                # Persist discovered data to voice_config
-                _save_a2p_to_voice_config(subscriber, vc, a2p)
-                logger.info(f"Auto-discovered A2P: brand={a2p.get('brand_sid')}, campaign={a2p.get('campaign_sid')}")
-        except Exception as e:
-            logger.warning(f"A2P auto-discovery failed (non-fatal): {e}")
+    except Exception as e:
+        # Twilio unreachable — fall back to cache ONLY if tagged to this sub_sid
+        logger.warning(f"[a2p-status] Live A2P query failed for sub={sub_sid}: {e}")
+        cached_sub_sid = a2p.get('_sub_sid', '')
+        if cached_sub_sid != sub_sid:
+            # Cache is untagged or mismatched — suppress to avoid showing master data
+            for k in _TWILIO_SID_KEYS:
+                a2p.pop(k, None)
+            logger.warning(f"[a2p-status] Suppressed potentially stale A2P cache for sub={sub_sid}")
 
     # Derive registered from actual status fields — don't rely on stored boolean
     # which may not have been set during import or certain registration flows
