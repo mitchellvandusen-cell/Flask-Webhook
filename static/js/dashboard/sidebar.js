@@ -131,7 +131,7 @@
 
         // ── Voice Config column menu switching ──
         function switchVoicePanel(name) {
-            const panels = ['settings', 'activation', 'numbers', 'numberhealth', 'trusthub', 'training'];
+            const panels = ['activation', 'enable', 'settings', 'numbers', 'dialer', 'numberhealth', 'trusthub', 'training'];
             panels.forEach(p => {
                 const panel = document.getElementById('vstab-panel-' + p);
                 const menuBtn = document.getElementById('vmenu-' + p);

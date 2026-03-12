@@ -35,8 +35,12 @@ dialer_bp = Blueprint('voice_dialer', __name__)
 
 def _check_calling_hours(voice_config, agent_tz_str=None):
     """Check if current time is within configured calling hours.
+    Only enforced when quiet_hours_enabled is True (opt-in, default OFF).
     Uses agent's timezone since we don't reliably have contact timezone.
     Returns (allowed, reason) tuple."""
+    # Quiet hours are opt-in — skip enforcement unless explicitly enabled
+    if not voice_config.get('quiet_hours_enabled', False):
+        return True, None
     start_str = voice_config.get('calling_hours_start', '08:00')
     end_str = voice_config.get('calling_hours_end', '21:00')
     if not start_str or not end_str:
