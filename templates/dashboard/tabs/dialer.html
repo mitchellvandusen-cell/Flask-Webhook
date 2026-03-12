@@ -1593,6 +1593,18 @@
                                 </div>
                             </div>
                         </div>
+                        <!-- Campaign History -->
+                        <div id="dlrCampaignWrap" style="border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
+                            <div style="padding:6px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="var b=document.getElementById('dlrCampaignBody');b.style.display=b.style.display==='none'?'block':'none';_campaignRenderHistory();">
+                                <span style="font-size:0.75rem;font-weight:700;color:#888;"><i class="fa-solid fa-clock-rotate-left me-1" style="color:#a78bfa;"></i>Campaign History</span>
+                                <i class="fa-solid fa-chevron-down" style="color:#555;font-size:0.7rem;"></i>
+                            </div>
+                            <div id="dlrCampaignBody" style="display:none;border-top:1px solid rgba(255,255,255,0.04);">
+                                <div id="dlrCampaignHistory" style="max-height:180px;overflow-y:auto;padding:4px 8px;">
+                                    <div style="text-align:center;padding:10px;color:#555;font-size:0.75rem;">No campaigns yet</div>
+                                </div>
+                            </div>
+                        </div>
                         <!-- ═══ Mobile Compact Toolbar (search/filter/queue as icons) ═══ -->
                         <div class="dlr-mobile-toolbar" id="dlrMobileToolbar" style="display:none;">
                             <button class="dlr-mob-tool-btn" id="dlrMobSearchBtn" onclick="dlrMobToggle('search')" title="Search contacts">

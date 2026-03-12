@@ -1614,11 +1614,13 @@
             groups.forEach(g => {
                 if (!g.contacts.length) return;
                 const isCollapsed = _igbFilterCollapsed[g.key] || false;
-                html += '<div class="igb-filter-hdr" onclick="igbToggleFilter(\'' + g.key + '\')">' +
+                const allGrpSelected = g.contacts.length > 0 && g.contacts.every(c => dialerSelected.has(c.id));
+                html += '<div class="igb-filter-hdr" onclick="igbToggleFilter(\'' + g.key + '\')" style="position:relative;">' +
                     '<i class="fa-solid fa-chevron-down igb-filter-icon' + (isCollapsed ? ' collapsed' : '') + '" style="color:' + g.color + ';"></i>' +
                     '<i class="fa-solid ' + g.icon + '" style="color:' + g.color + ';font-size:.75rem;"></i>' +
                     '<span class="igb-filter-label" style="color:' + g.color + ';">' + g.label + '</span>' +
                     '<span class="igb-filter-count">' + g.contacts.length + '</span>' +
+                    '<button onclick="event.stopPropagation();_igbSelectAllInGroup(\'' + g.key + '\')" title="Select all ' + dialerEsc(g.label) + '" style="margin-left:4px;background:' + (allGrpSelected ? g.color : 'rgba(255,255,255,0.07)') + ';border:1px solid ' + g.color + ';color:' + (allGrpSelected ? '#000' : g.color) + ';border-radius:4px;font-size:.65rem;font-weight:700;padding:1px 6px;cursor:pointer;line-height:1.4;white-space:nowrap;">Select All</button>' +
                 '</div>';
                 if (!isCollapsed) {
                     html += g.contacts.map(c => _igbRenderContactRow(c)).join('');
@@ -2025,15 +2027,32 @@
                 html += '<div id="igb-nba-section" style="margin-top:8px;"></div>';
                 html += '<div id="igb-pipeline-badge" style="margin-top:6px;"></div>';
 
-                // Notes
+                // Notes + Add Note form
+                html += '<div style="margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04);">';
+                html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">'
+                    + '<span style="font-size:.75rem;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;">Notes</span>'
+                    + '<button onclick="_dlrToggleAddNote(' + "'" + 'dlrAddNote_' + c.id + "'" + ')" style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.2);color:var(--accent);border-radius:4px;font-size:.65rem;font-weight:700;padding:2px 8px;cursor:pointer;"><i class=\"fa-solid fa-plus\" style=\"margin-right:3px;\"></i>Add Note</button>'
+                    + '</div>';
+                html += '<div id="dlrAddNote_' + c.id + '" style="display:none;margin-bottom:8px;">'
+                    + '<textarea id="dlrNoteText_' + c.id + '" placeholder="Type your note..." rows="3" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#ddd;font-size:0.82rem;padding:6px 8px;resize:vertical;box-sizing:border-box;"></textarea>'
+                    + '<button onclick="_dlrSaveNote(' + "'" + c.id + "'" + ')" style="margin-top:4px;width:100%;padding:5px;background:linear-gradient(135deg,var(--accent),#00b36b);border:none;border-radius:5px;color:#000;font-weight:700;font-size:.75rem;cursor:pointer;">Save Note to GHL</button>'
+                    + '</div>';
                 if (c.notes && c.notes.length) {
-                    html += '<div style="margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04);">';
-                    html += '<div style="font-size:.75rem;font-weight:700;color:#aaa;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;">Notes</div>';
                     c.notes.forEach(n => {
                         html += '<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:6px;padding:8px 10px;margin-bottom:6px;font-size:0.82rem;color:#bbb;">' + dialerEsc(n.body) + '<div style="font-size:.75rem;color:#555;margin-top:3px;">' + (n.dateAdded ? new Date(n.dateAdded).toLocaleDateString() : '') + '</div></div>';
                     });
-                    html += '</div>';
+                } else {
+                    html += '<div style="color:#555;font-size:.75rem;font-style:italic;">No notes yet</div>';
                 }
+                html += '</div>';
+
+                // Edit Contact section
+                html += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04);">'
+                    + '<div id="dlrEditContactToggle_' + c.id + '">'
+                    + '<button onclick="_dlrOpenEditContact(' + "'" + c.id + "'" + ')" style="width:100%;padding:5px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:6px;color:#aaa;font-size:.75rem;font-weight:600;cursor:pointer;"><i class=\"fa-solid fa-pen\" style=\"margin-right:5px;color:#5B7FFF;\"></i>Edit Contact</button>'
+                    + '</div>'
+                    + '<div id="dlrEditContactForm_' + c.id + '" style="display:none;"></div>'
+                    + '</div>';
 
                 // Powered by footer
                 html += '<div style="text-align:center;margin-top:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.03);"><span style="font-size:.75rem;color:#333;letter-spacing:.3px;">Powered by InsuranceGrokBot</span></div>';
@@ -2045,6 +2064,103 @@
                 _loadContactIntelligence(contactId);
             } catch(e) {
                 panel.innerHTML = '<div style="color:#888;padding:20px;text-align:center;">Failed to load contact</div>';
+            }
+        }
+
+        // ── Note Creation + Contact Edit Helpers ──
+
+        function _dlrToggleAddNote(formId) {
+            const el = document.getElementById(formId);
+            if (!el) return;
+            el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        }
+
+        async function _dlrSaveNote(contactId) {
+            const ta = document.getElementById('dlrNoteText_' + contactId);
+            if (!ta) return;
+            const body = ta.value.trim();
+            if (!body) { _showDashToast(false, 'Note cannot be empty'); return; }
+            try {
+                const r = await fetch('/voice/contact/' + contactId + '/notes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ body }),
+                });
+                const d = await r.json();
+                if (d.ok) {
+                    _showDashToast(true, 'Note saved to GHL');
+                    ta.value = '';
+                    document.getElementById('dlrAddNote_' + contactId).style.display = 'none';
+                    // Reload contact detail to show new note
+                    if (dialerActiveContact && dialerActiveContact.id === contactId) dialerLoadContactDetail(contactId);
+                } else {
+                    _showDashToast(false, d.error || 'Failed to save note');
+                }
+            } catch(e) {
+                _showDashToast(false, 'Network error saving note');
+            }
+        }
+
+        function _dlrOpenEditContact(contactId) {
+            const c = dialerContacts.find(x => x.id === contactId) || (dialerActiveContact && dialerActiveContact.id === contactId ? dialerActiveContact : null);
+            const toggleEl = document.getElementById('dlrEditContactToggle_' + contactId);
+            const formEl = document.getElementById('dlrEditContactForm_' + contactId);
+            if (!formEl) return;
+            if (toggleEl) toggleEl.style.display = 'none';
+            const fld = (k, label, val) => '<div style="margin-bottom:6px;">'
+                + '<label style="font-size:.7rem;color:#888;display:block;margin-bottom:2px;">' + label + '</label>'
+                + '<input data-field="' + k + '" value="' + dialerEsc(val || '') + '" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:5px;color:#ddd;font-size:0.82rem;padding:4px 7px;box-sizing:border-box;">'
+                + '</div>';
+            const data = c || {};
+            formEl.innerHTML = ''
+                + fld('firstName', 'First Name', data.firstName)
+                + fld('lastName', 'Last Name', data.lastName)
+                + fld('phone', 'Phone', data.phone)
+                + fld('email', 'Email', data.email)
+                + fld('address1', 'Address', data.address)
+                + fld('city', 'City', data.city)
+                + fld('state', 'State', data.state)
+                + fld('companyName', 'Company', data.companyName)
+                + '<div style="display:flex;gap:6px;margin-top:8px;">'
+                + '<button onclick="_dlrSaveContact('' + contactId + '')" style="flex:1;padding:5px;background:linear-gradient(135deg,var(--accent),#00b36b);border:none;border-radius:5px;color:#000;font-weight:700;font-size:.75rem;cursor:pointer;">Save to GHL</button>'
+                + '<button onclick="document.getElementById('dlrEditContactForm_' + contactId + '').style.display='none';document.getElementById('dlrEditContactToggle_' + contactId + '').style.display=''" style="padding:5px 10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:5px;color:#888;font-size:.75rem;cursor:pointer;">Cancel</button>'
+                + '</div>';
+            formEl.style.display = 'block';
+        }
+
+        async function _dlrSaveContact(contactId) {
+            const formEl = document.getElementById('dlrEditContactForm_' + contactId);
+            if (!formEl) return;
+            const payload = {};
+            formEl.querySelectorAll('input[data-field]').forEach(inp => {
+                const v = inp.value.trim();
+                if (v) payload[inp.dataset.field] = v;
+            });
+            if (!Object.keys(payload).length) { _showDashToast(false, 'No changes to save'); return; }
+            try {
+                const r = await fetch('/voice/contact/' + contactId, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                const d = await r.json();
+                if (d.ok) {
+                    _showDashToast(true, 'Contact updated in GHL');
+                    // Update local copy
+                    const local = dialerContacts.find(x => x.id === contactId);
+                    if (local) {
+                        if (payload.firstName) local.firstName = payload.firstName;
+                        if (payload.lastName) local.lastName = payload.lastName;
+                        if (payload.firstName || payload.lastName) local.name = ((payload.firstName || local.firstName || '') + ' ' + (payload.lastName || local.lastName || '')).trim();
+                        if (payload.phone) local.phone = payload.phone;
+                    }
+                    // Reload detail panel
+                    if (dialerActiveContact && dialerActiveContact.id === contactId) dialerLoadContactDetail(contactId);
+                } else {
+                    _showDashToast(false, d.error || 'Failed to update contact');
+                }
+            } catch(e) {
+                _showDashToast(false, 'Network error updating contact');
             }
         }
 
@@ -2685,6 +2801,19 @@
         }
 
         // ── Selection ──
+        function _igbSelectAllInGroup(key) {
+            const groups = _igbGroupContacts(dialerContacts);
+            const g = groups.find(x => x.key === key);
+            if (!g) return;
+            const allSelected = g.contacts.every(c => dialerSelected.has(c.id));
+            if (allSelected) {
+                g.contacts.forEach(c => dialerSelected.delete(c.id));
+            } else {
+                g.contacts.forEach(c => { if (!_igbIsOptedOut(_igbEngagementCache[c.id], c)) dialerSelected.add(c.id); });
+            }
+            dialerUpdateSelectionUI();
+            dialerRenderContacts();
+        }
         function dialerToggleSelect(id) {
             if (dialerSelected.has(id)) dialerSelected.delete(id);
             else dialerSelected.add(id);
@@ -3801,6 +3930,11 @@
             const btn = document.getElementById('dialerStartBtn');
             cnt.textContent = dialerQueue.length;
             btn.disabled = !dialerQueue.length;
+            // Auto-expand queue body when contacts are added
+            if (dialerQueue.length > 0) {
+                const qBodyAuto = document.getElementById('dialerQueueBody');
+                if (qBodyAuto && qBodyAuto.style.display === 'none') qBodyAuto.style.display = 'block';
+            }
             if (!dialerQueue.length) { list.innerHTML = '<div style="text-align:center;padding:10px;color:#555;font-size:.75rem;">Empty queue</div>'; return; }
             const icons = { pending:'<span style="color:#555;">Wait</span>', initiated:'<i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i>', ringing:'<span style="color:#00d9ff;">Ring</span>', 'in-progress':'<span style="color:var(--accent);">Live</span>', completed:'<i class="fa-solid fa-check" style="color:var(--accent);"></i>', 'no-answer':'<span style="color:#ffa500;">N/A</span>', busy:'<span style="color:#ffa500;">Busy</span>', failed:'<i class="fa-solid fa-xmark" style="color:#ef4444;"></i>', skipped:'<i class="fa-solid fa-ban" style="color:#ef4444;" title="DnD — skipped"></i>' };
             list.innerHTML = dialerQueue.map((q, i) => {
@@ -3816,6 +3950,85 @@
         }
 
         function dialerClearQueue() { if (dialerQueueRunning) return; dialerQueue = []; dialerCallIdx = -1; dialerRenderContacts(); dialerRenderQueue(); }
+
+        // ═══════════════════════════════════════════════════════════════
+        //   Campaign History — queues saved as named campaigns in localStorage
+        // ═══════════════════════════════════════════════════════════════
+        const _CAMPAIGNS_KEY = 'igb_dialer_campaigns';
+        function _campaignLoad() { try { return JSON.parse(localStorage.getItem(_CAMPAIGNS_KEY) || '[]'); } catch(e) { return []; } }
+        function _campaignSave(list) { try { localStorage.setItem(_CAMPAIGNS_KEY, JSON.stringify(list)); } catch(e) {} }
+
+        function _campaignStart() {
+            if (!dialerQueue.length) return;
+            const campaigns = _campaignLoad();
+            const existing = campaigns.find(c => c.id === _activeCampaignId);
+            if (existing) return; // already saved for this session
+            const id = 'cmp_' + Date.now();
+            _activeCampaignId = id;
+            campaigns.unshift({
+                id,
+                name: 'Campaign ' + new Date().toLocaleDateString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }),
+                startedAt: Date.now(),
+                completedAt: null,
+                contacts: dialerQueue.map(q => ({ id: q.id, name: q.name, firstName: q.firstName, phone: q.phone })),
+                progress: { total: dialerQueue.length, completed: 0 },
+            });
+            // Keep max 20 campaigns
+            _campaignSave(campaigns.slice(0, 20));
+            _campaignRenderHistory();
+        }
+
+        function _campaignFinish() {
+            if (!_activeCampaignId) return;
+            const campaigns = _campaignLoad();
+            const idx = campaigns.findIndex(c => c.id === _activeCampaignId);
+            if (idx >= 0) {
+                campaigns[idx].completedAt = Date.now();
+                campaigns[idx].progress.completed = dialerQueue.filter(q => q.status === 'completed').length;
+                _campaignSave(campaigns);
+                _campaignRenderHistory();
+            }
+        }
+
+        function _campaignResume(id) {
+            if (dialerQueueRunning) { _showDashToast(false, 'Stop the current session before resuming a campaign'); return; }
+            const campaigns = _campaignLoad();
+            const c = campaigns.find(x => x.id === id);
+            if (!c) return;
+            dialerQueue = c.contacts.map(ct => ({ id: ct.id, name: ct.name, firstName: ct.firstName, phone: ct.phone, status: 'pending' }));
+            dialerCallIdx = -1;
+            _activeCampaignId = id;
+            dialerRenderContacts();
+            dialerRenderQueue();
+            _showDashToast(true, 'Campaign loaded — ' + c.contacts.length + ' contacts ready');
+            // Ensure queue panel is open
+            const qBody = document.getElementById('dialerQueueBody');
+            if (qBody) qBody.style.display = 'block';
+        }
+
+        function _campaignRenderHistory() {
+            const el = document.getElementById('dlrCampaignHistory');
+            if (!el) return;
+            const campaigns = _campaignLoad();
+            if (!campaigns.length) { el.innerHTML = '<div style="text-align:center;padding:10px;color:#555;font-size:.75rem;">No campaigns yet</div>'; return; }
+            el.innerHTML = campaigns.map(c => {
+                const date = new Date(c.startedAt).toLocaleDateString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+                const done = c.completedAt ? '<i class="fa-solid fa-check" style="color:var(--accent);font-size:.65rem;"></i>' : '<span style="font-size:.65rem;color:#ffa500;">In Progress</span>';
+                const pct = c.progress.total ? Math.round(c.progress.completed / c.progress.total * 100) : 0;
+                const isActive = c.id === _activeCampaignId;
+                return '<div style="display:flex;align-items:center;gap:6px;padding:5px 4px;border-radius:4px;font-size:.75rem;' + (isActive ? 'background:rgba(0,255,136,0.05);' : '') + '">' +
+                    '<div style="flex:1;overflow:hidden;">' +
+                    '<div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dialerEsc(c.name) + '</div>' +
+                    '<div style="color:#555;font-size:.7rem;">' + date + ' · ' + c.progress.total + ' contacts' + (c.progress.completed ? ' · ' + pct + '% done' : '') + '</div>' +
+                    '</div>' +
+                    done +
+                    (!isActive ? '<button onclick="_campaignResume('' + c.id + '')" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:#ccc;border-radius:4px;font-size:.65rem;font-weight:700;padding:2px 7px;cursor:pointer;">Resume</button>' : '<span style="font-size:.65rem;color:var(--accent);font-weight:700;">Active</span>') +
+                '</div>';
+            }).join('');
+        }
+
+        let _activeCampaignId = null;
+
         function dialerUpdateBtn() {
             const btn = document.getElementById('dialerStartBtn');
             if (!btn) return;
@@ -3831,10 +4044,11 @@
             const qBody = document.getElementById('dialerQueueBody');
             if (qBody) qBody.style.display = 'block';
             dialerUpdateBtn();
+            _campaignStart();
             dialerDialNext();
         }
         function dialerDialNext() {
-            if (!dialerQueueRunning || dialerCallIdx < 0 || dialerCallIdx >= dialerQueue.length) { dialerQueueRunning = false; _jtcDialingContactId = null; dialerUpdateBtn(); dialerHideBanner(); dialerRenderQueue(); _jtcUpdatePill(); return; }
+            if (!dialerQueueRunning || dialerCallIdx < 0 || dialerCallIdx >= dialerQueue.length) { dialerQueueRunning = false; _jtcDialingContactId = null; _campaignFinish(); dialerUpdateBtn(); dialerHideBanner(); dialerRenderQueue(); _jtcUpdatePill(); return; }
             const item = dialerQueue[dialerCallIdx];
             // Safety net: skip DnD contacts even if they got into the queue
             const contactObj = dialerContacts.find(x => x.id === item.id) || _dialerAllContacts.find(x => x.id === item.id);
