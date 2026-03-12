@@ -105,17 +105,37 @@ def god_mode_dashboard():
 @login_required
 @super_admin_required
 def impersonate_user(target_email):
-    """Log in as any user without their password. Saves original admin to session."""
+    """
+    Ghost Mode: log in as any user without their password.
+    Saves original admin email to session so we can revert later.
+
+    This is TRUE ghost mode — after login_user(target), current_user IS the
+    target user with their own sub_account_sid, role, and subscription tier.
+    All Twilio API calls, sub-account lookups, and billing checks use the target
+    user's credentials — NOT the master account.
+    """
     target = User.get(target_email)
     if not target:
         flash(f"User not found: {target_email}", "danger")
         return redirect(url_for('admin.god_mode_dashboard'))
 
-    session['original_admin_email'] = current_user.email
+    admin_email = current_user.email
+    session['original_admin_email'] = admin_email
     session['impersonating_as']     = target.email
 
+    # Run stale-data cleanup for this specific user before viewing their account
+    # so the admin sees the exact same thing the customer would see
+    try:
+        from db import clean_subaccount_contamination
+        result = clean_subaccount_contamination()
+        if result.get('cleaned', 0) > 0:
+            logger.info(f"[GOD MODE] Pre-impersonation cleanup fixed {result['cleaned']} records")
+    except Exception as e:
+        logger.warning(f"[GOD MODE] Pre-impersonation cleanup failed (non-fatal): {e}")
+
     login_user(target)
-    logger.info(f"[GOD MODE] {session['original_admin_email']} impersonating {target.email}")
+    logger.info(f"[GOD MODE] {admin_email} ghosting as {target.email} "
+                f"(sub_sid={getattr(target, 'voice_config', {}).get('twilio_sub_account_sid', 'N/A') if hasattr(target, 'voice_config') else 'N/A'})")
 
     if target.is_agency_owner:
         return redirect(url_for('agency.agency_dashboard'))
