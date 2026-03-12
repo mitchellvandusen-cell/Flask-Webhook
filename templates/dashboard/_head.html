@@ -147,23 +147,36 @@
             pointer-events: auto;
         }
         .congrats-card {
-            background: rgba(12, 12, 12, 0.85);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(0, 255, 136, 0.2);
-            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.065);
+            backdrop-filter: blur(48px) saturate(200%) brightness(1.08) contrast(1.04);
+            -webkit-backdrop-filter: blur(48px) saturate(200%) brightness(1.08) contrast(1.04);
+            border: 1px solid rgba(0, 255, 136, 0.35);
+            border-radius: 28px;
             padding: 50px 40px;
             max-width: 480px;
             width: 90%;
             text-align: center;
-            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5), 0 0 60px rgba(0, 255, 136, 0.08);
+            box-shadow: 0 32px 80px rgba(0,0,0,0.5), inset 0 1.5px 0 rgba(255,255,255,0.55), inset 1px 0 0 rgba(255,255,255,0.15), 0 0 60px rgba(0,255,136,0.08);
             position: relative;
             overflow: hidden;
         }
+        /* Liquid glass specular dome */
         .congrats-card::before {
+            content: '';
+            position: absolute; top: 0; left: 5%; right: 5%;
+            height: 50%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(0,255,136,0.04) 40%, transparent 100%);
+            border-radius: 0 0 60% 60%;
+            filter: blur(10px);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .congrats-card::after {
             content: '';
             position: absolute; top: 0; left: 0; width: 100%; height: 1px;
             background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            pointer-events: none;
+            z-index: 2;
         }
         .congrats-icon {
             width: 80px; height: 80px;
@@ -217,21 +230,25 @@
         .workflow-tab-btn {
             flex: 1;
             padding: 12px 16px;
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.07);
-            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 14px;
             color: #888;
             font-weight: 600;
             font-size: var(--fs-base);
             cursor: pointer;
             transition: all 0.3s;
             text-align: center;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
         }
-        .workflow-tab-btn:hover { border-color: rgba(255, 255, 255, 0.15); color: #bbb; }
+        .workflow-tab-btn:hover { border-color: rgba(255, 255, 255, 0.28); color: #ddd; background: rgba(255,255,255,0.09); box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 4px 16px rgba(0,0,0,0.2); }
         .workflow-tab-btn.active {
-            background: rgba(0, 217, 255, 0.1);
-            border-color: rgba(0, 217, 255, 0.2);
+            background: rgba(0, 255, 136, 0.08);
+            border-color: rgba(0, 255, 136, 0.32);
             color: var(--accent);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 0 20px rgba(0,255,136,0.06);
         }
         .workflow-content { display: none; }
         .workflow-content.active { display: block; }
@@ -240,12 +257,13 @@
             gap: 14px;
             padding: 14px 16px;
             margin-bottom: 8px;
-            background: rgba(15, 15, 15, 0.5);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.055);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 14px;
             align-items: flex-start;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            backdrop-filter: blur(24px) saturate(180%) brightness(1.05);
+            -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.05);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 4px 16px rgba(0,0,0,0.2);
         }
         .wf-step-num {
             width: 28px; height: 28px;
@@ -272,12 +290,13 @@
             gap: 14px;
         }
         .wf-tag-card {
-            background: rgba(15,15,15,0.5);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.055);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 16px;
             padding: 18px;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            backdrop-filter: blur(28px) saturate(180%) brightness(1.05);
+            -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.05);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.38), 0 6px 20px rgba(0,0,0,0.22);
         }
         .wf-tag-header {
             display: flex;
