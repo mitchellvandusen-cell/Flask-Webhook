@@ -6677,10 +6677,11 @@
             }
 
             // Client-side calling hours check (server also enforces)
+            // Only runs when quiet hours are opt-in enabled
             const B = window.DASHBOARD_BOOT || {};
             const chStart = B.callingHoursStart || '08:00';
             const chEnd = B.callingHoursEnd || '21:00';
-            if (chStart && chEnd) {
+            if (B.quietHoursEnabled && chStart && chEnd) {
                 const now = new Date();
                 const nowMins = now.getHours() * 60 + now.getMinutes();
                 const [sh, sm] = chStart.split(':').map(Number);

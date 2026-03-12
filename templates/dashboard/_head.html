@@ -129,6 +129,7 @@
         .congrats-card {
             background: rgba(12, 12, 12, 0.85);
             backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
             border: 1px solid rgba(0, 255, 136, 0.2);
             border-radius: 24px;
             padding: 50px 40px;
@@ -196,8 +197,8 @@
         .workflow-tab-btn {
             flex: 1;
             padding: 12px 16px;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.07);
             border-radius: 12px;
             color: #888;
             font-weight: 600;
@@ -208,8 +209,8 @@
         }
         .workflow-tab-btn:hover { border-color: rgba(255, 255, 255, 0.15); color: #bbb; }
         .workflow-tab-btn.active {
-            background: rgba(0, 255, 136, 0.06);
-            border-color: rgba(0, 255, 136, 0.2);
+            background: rgba(0, 217, 255, 0.1);
+            border-color: rgba(0, 217, 255, 0.2);
             color: var(--accent);
         }
         .workflow-content { display: none; }
@@ -219,10 +220,12 @@
             gap: 14px;
             padding: 14px 16px;
             margin-bottom: 8px;
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(15, 15, 15, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 12px;
             align-items: flex-start;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
         }
         .wf-step-num {
             width: 28px; height: 28px;
@@ -249,10 +252,12 @@
             gap: 14px;
         }
         .wf-tag-card {
-            background: rgba(255,255,255,0.02);
-            border: 1px solid rgba(255,255,255,0.06);
-            border-radius: 14px;
+            background: rgba(15,15,15,0.5);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
             padding: 18px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
         }
         .wf-tag-header {
             display: flex;
@@ -323,11 +328,11 @@
             align-items: flex-start;
             gap: 12px;
             padding: 10px 12px;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
+            border-bottom: 1px solid rgba(255,255,255,0.04);
             font-size: var(--fs-base);
             transition: background 0.2s;
         }
-        .log-row:hover { background: rgba(255,255,255,0.03); }
+        .log-row:hover { background: rgba(255,255,255,0.04); }
         .log-badge {
             display: inline-block;
             padding: 2px 8px;
@@ -532,7 +537,7 @@
         }
         .save-overlay.active { display: flex; }
         .save-overlay-box {
-            background: var(--card-glass, #1a1a2e);
+            background: var(--card-glass, rgba(15,15,15,0.6));
             border: 1px solid var(--glass-border, rgba(255,255,255,0.08));
             border-radius: 20px;
             padding: 40px 50px;
@@ -954,7 +959,7 @@
         .discord-composer {
             padding: 10px 16px 14px;
             border-top: 1px solid rgba(255,255,255,0.05);
-            flex-shrink: 0; background: #0d0d14;
+            flex-shrink: 0; background: rgba(15,15,15,0.6);
         }
         .discord-composer-inner {
             display: flex; gap: 0; align-items: flex-end;
@@ -1030,11 +1035,13 @@
         }
         #discordServerModal.open { opacity: 1; pointer-events: auto; }
         .discord-modal-card {
-            background: #0e0e16;
+            background: rgba(15,15,15,0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(88, 101, 242, 0.2);
             border-radius: 20px; padding: 28px 30px;
             max-width: 480px; width: 90%;
-            box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
             animation: modalIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
         }
         @keyframes modalIn { from { opacity:0; transform: scale(0.94) translateY(10px); } to { opacity:1; transform: scale(1) translateY(0); } }
@@ -1230,7 +1237,7 @@
         .slack-composer {
             padding: 10px 16px 14px;
             border-top: 1px solid rgba(255,255,255,0.05);
-            flex-shrink: 0; background: #0d0d14;
+            flex-shrink: 0; background: rgba(15,15,15,0.6);
         }
         .slack-composer-inner {
             display: flex; gap: 0; align-items: flex-end;

@@ -17,28 +17,24 @@
                         </div>
                     </div>
 
-                    <!-- Enable Toggle -->
-                    <div class="mb-4 p-3" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
-                        <div class="form-check form-switch d-flex align-items-center">
-                            <input class="form-check-input me-3" type="checkbox" id="voiceEnabled" {% if voice_config.get('enabled') %}checked{% endif %}
-                                style="width: 3em; height: 1.5em; cursor: pointer;">
-                            <label class="form-check-label" for="voiceEnabled" style="color: #fff; font-weight: 600; font-size: 1rem;">Enable Voice AI Agent</label>
-                        </div>
-                        <p style="color:#777; font-size:0.8rem; margin: 8px 0 0 3.5em;">When enabled, your phone number will handle inbound calls with AI and you can trigger outbound calls via webhook.</p>
-                    </div>
-
                     <!-- ══ Voice Config: Two-column settings menu ══ -->
                     <div class="tab-two-col" style="display:flex;gap:16px;min-height:420px;">
                         <!-- Left column: settings categories -->
                         <div id="voiceSettingsMenu" style="width:220px;flex-shrink:0;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:8px;">
-                            <button class="voice-menu-item active" onclick="switchVoicePanel('settings')" id="vmenu-settings" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.15);border-radius:8px;color:#00d9ff;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
-                                <i class="fa-solid fa-microphone" style="width:16px;text-align:center;"></i> Voice AI
-                            </button>
-                            <button class="voice-menu-item" onclick="switchVoicePanel('activation')" id="vmenu-activation" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                            <button class="voice-menu-item active" onclick="switchVoicePanel('activation')" id="vmenu-activation" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.15);border-radius:8px;color:#00d9ff;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
                                 <i class="fa-solid fa-wand-magic-sparkles" style="width:16px;text-align:center;"></i> Activate Voice
+                            </button>
+                            <button class="voice-menu-item" onclick="switchVoicePanel('enable')" id="vmenu-enable" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                                <i class="fa-solid fa-toggle-on" style="width:16px;text-align:center;"></i> Enable Voice
+                            </button>
+                            <button class="voice-menu-item" onclick="switchVoicePanel('settings')" id="vmenu-settings" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                                <i class="fa-solid fa-microphone" style="width:16px;text-align:center;"></i> Voice AI
                             </button>
                             <button class="voice-menu-item" onclick="switchVoicePanel('numbers')" id="vmenu-numbers" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
                                 <i class="fa-solid fa-phone-volume" style="width:16px;text-align:center;"></i> Numbers
+                            </button>
+                            <button class="voice-menu-item" onclick="switchVoicePanel('dialer')" id="vmenu-dialer" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                                <i class="fa-solid fa-sliders" style="width:16px;text-align:center;"></i> Dialer Settings
                             </button>
                             <button class="voice-menu-item" onclick="switchVoicePanel('numberhealth')" id="vmenu-numberhealth" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
                                 <i class="fa-solid fa-heart-pulse" style="width:16px;text-align:center;"></i> Number Health
@@ -55,9 +51,8 @@
                         <!-- Right column: settings content -->
                         <div style="flex:1;min-width:0;">
 
-                    <!-- ── Voice AI settings panel ── -->
-                    <!-- ── Activate Voice panel ── -->
-                    <div id="vstab-panel-activation" style="display:none;">
+                    <!-- ── Activate Voice panel (default) ── -->
+                    <div id="vstab-panel-activation">
                         <div class="p-4" style="background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.15);border-radius:14px;">
                             <div class="d-flex align-items-center gap-3 mb-3">
                                 <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -107,8 +102,40 @@
                         </div>
                     </div>
 
+                    <!-- ── Enable Voice panel ── -->
+                    <div id="vstab-panel-enable" style="display:none;">
+                        <div class="p-4" style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.15);border-radius:14px;">
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,255,136,0.12);border:1px solid rgba(0,255,136,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                    <i class="fa-solid fa-toggle-on" style="color:#00ff88;"></i>
+                                </div>
+                                <div>
+                                    <h6 style="margin:0;font-weight:700;color:#fff;">Enable Voice AI Agent</h6>
+                                    <p style="margin:0;color:#888;font-size:0.8rem;">Requires an active voice account and phone number (set up in Activate Voice first)</p>
+                                </div>
+                            </div>
+                            {% if not voice_config.get('twilio_sub_account_sid') %}
+                            <div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:0.82rem;color:#fbbf24;">
+                                <i class="fa-solid fa-triangle-exclamation me-2"></i>Complete <strong>Activate Voice</strong> first to provision your voice account and phone number.
+                            </div>
+                            {% endif %}
+                            <div class="form-check form-switch d-flex align-items-center gap-3 mb-2" style="margin:0;">
+                                <input class="form-check-input" type="checkbox" id="voiceEnabled" {% if voice_config.get('enabled') %}checked{% endif %}
+                                    {% if not voice_config.get('twilio_sub_account_sid') %}disabled{% endif %}
+                                    style="width: 3em; height: 1.5em; cursor: pointer;">
+                                <label class="form-check-label" for="voiceEnabled" style="color: #fff; font-weight: 600; font-size: 1rem;">
+                                    Enable Voice AI Agent
+                                </label>
+                                <span id="voiceEnabledStatus" style="font-size:0.8rem;color:{% if voice_config.get('enabled') %}#00ff88{% else %}#666{% endif %};">
+                                    {% if voice_config.get('enabled') %}Active{% else %}Inactive{% endif %}
+                                </span>
+                            </div>
+                            <p style="color:#777; font-size:0.8rem; margin: 0 0 0 3.5em;">When enabled, your phone number handles inbound calls with AI and you can trigger outbound calls via webhook.</p>
+                        </div>
+                    </div>
+
                     <!-- ── Voice AI settings panel ── -->
-                    <div id="vstab-panel-settings">
+                    <div id="vstab-panel-settings" style="display:none;">
 
                     <!-- AI Voice -->
                     <div class="row g-3 mb-4">
@@ -252,6 +279,148 @@
                         </div>
 
                     </div><!-- /vstab-panel-numbers -->
+
+                    <!-- ══ Dialer Settings panel (moved from Dialer tab) ══ -->
+                    <div id="vstab-panel-dialer" style="display:none;">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                            <div style="width:36px;height:36px;border-radius:9px;background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                <i class="fa-solid fa-sliders" style="color:#00d9ff;font-size:0.95rem;"></i>
+                            </div>
+                            <div>
+                                <h6 style="margin:0;font-weight:700;">Dialer Settings</h6>
+                                <p style="margin:0;color:#888;font-size:0.78rem;">Multi-line pacing, contact protection, and quiet hours</p>
+                            </div>
+                        </div>
+
+                        <!-- Multi-line settings -->
+                        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px;margin-bottom:12px;">
+                            <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.8px;color:#555;font-weight:700;margin-bottom:12px;">
+                                <i class="fa-solid fa-layer-group me-1" style="color:#00d9ff;"></i>Multi-Line Pacing
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">Max Concurrent Lines</label>
+                                    <select class="form-control" id="voiceMaxLinesSetting" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;">
+                                        <option value="1" {% if voice_config.get('max_lines_setting',3)|int == 1 %}selected{% endif %}>1 line</option>
+                                        <option value="2" {% if voice_config.get('max_lines_setting',3)|int == 2 %}selected{% endif %}>2 lines</option>
+                                        <option value="3" {% if voice_config.get('max_lines_setting',3)|int == 3 %}selected{% endif %}>3 lines (recommended)</option>
+                                        <option value="4" {% if voice_config.get('max_lines_setting',3)|int == 4 %}selected{% endif %}>4 lines (max)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">Wrap-Up Time (seconds)</label>
+                                    <select class="form-control" id="voiceWrapUpTime" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;">
+                                        <option value="0" {% if voice_config.get('wrap_up_time',15)|int == 0 %}selected{% endif %}>No wrap-up</option>
+                                        <option value="5" {% if voice_config.get('wrap_up_time',15)|int == 5 %}selected{% endif %}>5 seconds</option>
+                                        <option value="10" {% if voice_config.get('wrap_up_time',15)|int == 10 %}selected{% endif %}>10 seconds</option>
+                                        <option value="15" {% if voice_config.get('wrap_up_time',15)|int == 15 %}selected{% endif %}>15 seconds (recommended)</option>
+                                        <option value="30" {% if voice_config.get('wrap_up_time',15)|int == 30 %}selected{% endif %}>30 seconds</option>
+                                        <option value="60" {% if voice_config.get('wrap_up_time',15)|int == 60 %}selected{% endif %}>60 seconds</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">On Voicemail/Machine</label>
+                                    <select class="form-control" id="voiceOnMachineAction" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;">
+                                        <option value="hangup" {% if voice_config.get('on_machine_action','hangup') == 'hangup' %}selected{% endif %}>Hang up &amp; retry</option>
+                                        <option value="voicemail_drop" {% if voice_config.get('on_machine_action','hangup') == 'voicemail_drop' %}selected{% endif %}>Drop voicemail (AI)</option>
+                                        <option value="continue" {% if voice_config.get('on_machine_action','hangup') == 'continue' %}selected{% endif %}>Continue (let agent decide)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" id="voiceRequireDisposition"
+                                                {% if voice_config.get('require_disposition', True) != False %}checked{% endif %}
+                                                style="width:2.5em;height:1.3em;cursor:pointer;">
+                                        </div>
+                                        <span style="color:#ccc;font-size:0.82rem;font-weight:600;">Require disposition before next batch</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" id="voiceAutoDispNoAnswer"
+                                                {% if voice_config.get('auto_disposition_no_answer', True) != False %}checked{% endif %}
+                                                style="width:2.5em;height:1.3em;cursor:pointer;">
+                                        </div>
+                                        <span style="color:#ccc;font-size:0.82rem;font-weight:600;">Auto-disposition no-answer calls</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Contact protection -->
+                        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px;margin-bottom:12px;">
+                            <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.8px;color:#555;font-weight:700;margin-bottom:12px;">
+                                <i class="fa-solid fa-user-shield me-1" style="color:#f59e0b;"></i>Contact Protection
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">Redial Cooldown</label>
+                                    <select class="form-control" id="voiceCooldownHours" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;">
+                                        <option value="0" {% if voice_config.get('same_number_cooldown_hours',4)|int == 0 %}selected{% endif %}>No cooldown</option>
+                                        <option value="1" {% if voice_config.get('same_number_cooldown_hours',4)|int == 1 %}selected{% endif %}>1 hour</option>
+                                        <option value="2" {% if voice_config.get('same_number_cooldown_hours',4)|int == 2 %}selected{% endif %}>2 hours</option>
+                                        <option value="4" {% if voice_config.get('same_number_cooldown_hours',4)|int == 4 %}selected{% endif %}>4 hours (recommended)</option>
+                                        <option value="8" {% if voice_config.get('same_number_cooldown_hours',4)|int == 8 %}selected{% endif %}>8 hours</option>
+                                        <option value="24" {% if voice_config.get('same_number_cooldown_hours',4)|int == 24 %}selected{% endif %}>24 hours</option>
+                                    </select>
+                                    <small style="color:#555;font-size:0.75rem;">Min wait before redialing same number</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">Daily Max Per Contact</label>
+                                    <select class="form-control" id="voiceDailyMaxContact" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;">
+                                        <option value="0" {% if voice_config.get('same_contact_daily_max',3)|int == 0 %}selected{% endif %}>No limit</option>
+                                        <option value="1" {% if voice_config.get('same_contact_daily_max',3)|int == 1 %}selected{% endif %}>1 call/day</option>
+                                        <option value="2" {% if voice_config.get('same_contact_daily_max',3)|int == 2 %}selected{% endif %}>2 calls/day</option>
+                                        <option value="3" {% if voice_config.get('same_contact_daily_max',3)|int == 3 %}selected{% endif %}>3 calls/day (recommended)</option>
+                                        <option value="5" {% if voice_config.get('same_contact_daily_max',3)|int == 5 %}selected{% endif %}>5 calls/day</option>
+                                    </select>
+                                    <small style="color:#555;font-size:0.75rem;">Max calls per contact per day</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quiet Hours (opt-in) -->
+                        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px;">
+                            <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.8px;color:#555;font-weight:700;margin-bottom:12px;">
+                                <i class="fa-solid fa-moon me-1" style="color:#a78bfa;"></i>Quiet Hours <span style="color:#555;font-weight:500;font-size:0.7rem;text-transform:none;letter-spacing:0;margin-left:4px;">(optional — off by default)</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="voiceQuietHoursEnabled"
+                                        {% if voice_config.get('quiet_hours_enabled') %}checked{% endif %}
+                                        style="width:2.5em;height:1.3em;cursor:pointer;"
+                                        onchange="document.getElementById('quietHoursTimeRow').style.display=this.checked?'flex':'none';">
+                                </div>
+                                <span style="color:#ccc;font-size:0.85rem;font-weight:600;">Enable Quiet Hours</span>
+                                <span style="color:#777;font-size:0.78rem;">— restrict outbound calls to a configured time window</span>
+                            </div>
+                            <div id="quietHoursTimeRow" class="row g-3" style="display:{% if voice_config.get('quiet_hours_enabled') %}flex{% else %}none{% endif %};">
+                                <div class="col-md-4">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">Start Time</label>
+                                    <input type="time" class="form-control" id="voiceCallingHoursStart"
+                                        value="{{ voice_config.get('calling_hours_start', '08:00') }}"
+                                        style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;">
+                                    <small style="color:#555;font-size:0.75rem;">Agent timezone</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">End Time</label>
+                                    <input type="time" class="form-control" id="voiceCallingHoursEnd"
+                                        value="{{ voice_config.get('calling_hours_end', '21:00') }}"
+                                        style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;">
+                                    <small style="color:#555;font-size:0.75rem;">Agent timezone</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Save button -->
+                        <div class="mt-3">
+                            <button onclick="saveVoiceConfig()" style="background:linear-gradient(135deg,#00ff88,#00d9ff);border:none;color:#000;border-radius:10px;padding:9px 24px;font-weight:700;font-size:0.85rem;cursor:pointer;">
+                                <i class="fa-solid fa-floppy-disk me-2"></i>Save Dialer Settings
+                            </button>
+                        </div>
+                    </div><!-- /vstab-panel-dialer -->
 
                     <!-- ══ Number Health sub-tab ══ -->
                     <div id="vstab-panel-numberhealth" style="display:none;">

@@ -472,6 +472,7 @@ def save_voice_config():
         "auto_disposition_no_answer": bool(data.get("auto_disposition_no_answer", True)),
         "auto_disposition_voicemail": bool(data.get("auto_disposition_voicemail", True)),
         "max_abandon_rate_pct":       max(1.0, min(10.0, _safe_float(data.get("max_abandon_rate_pct"), 3.0))),
+        "quiet_hours_enabled":        bool(data.get("quiet_hours_enabled", False)),
         "bypass_calling_hours":       bool(data.get("bypass_calling_hours", False)),
         # Dossier display settings
         "show_ai_summary":       bool(data.get("show_ai_summary", True)),

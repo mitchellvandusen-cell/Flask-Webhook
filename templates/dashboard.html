@@ -35,6 +35,21 @@
             <li class="nav-item"><button class="nav-link"        id="tbVoice"   data-bs-toggle="tab" data-bs-target="#voice"       type="button" tabindex="-1"></button></li>
         </ul>
 
+        <!-- ── Onboarding banners ── -->
+        {% if not voice_config.get('twilio_sub_account_sid') %}
+        <div class="d-flex align-items-center gap-3 mb-3 px-3 py-2" style="background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.18);border-radius:12px;cursor:pointer;" onclick="navTo('voice');setTimeout(()=>switchVoicePanel('activation'),100);">
+            <i class="fa-solid fa-wand-magic-sparkles" style="color:#00d9ff;font-size:1rem;flex-shrink:0;"></i>
+            <span style="font-size:0.82rem;color:#ccc;">Get started: <strong style="color:#00d9ff;">Activate Voice</strong> to enable your AI phone agent and dialer.</span>
+            <i class="fa-solid fa-arrow-right ms-auto" style="color:#00d9ff;font-size:0.8rem;flex-shrink:0;"></i>
+        </div>
+        {% elif not voice_config.get('bot_phone_number') and not sub.bot_first_name %}
+        <div class="d-flex align-items-center gap-3 mb-3 px-3 py-2" style="background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.15);border-radius:12px;cursor:pointer;" onclick="navTo('config');">
+            <i class="fa-solid fa-comments" style="color:#00ff88;font-size:1rem;flex-shrink:0;"></i>
+            <span style="font-size:0.82rem;color:#ccc;">Almost there: <strong style="color:#00ff88;">Configure your SMS bot</strong> to start responding to leads automatically.</span>
+            <i class="fa-solid fa-arrow-right ms-auto" style="color:#00ff88;font-size:0.8rem;flex-shrink:0;"></i>
+        </div>
+        {% endif %}
+
         <div class="tab-content" id="dashTabsContent">
             {% include "dashboard/tabs/config.html" %}
             {% include "dashboard/tabs/workflows.html" %}
@@ -167,6 +182,7 @@
         autoDispositionVoicemail:{{ 'false' if voice_config is defined and voice_config.get('auto_disposition_voicemail') == False else 'true' }},
         maxAbandonRatePct:       {{ (voice_config.get('max_abandon_rate_pct', 3.0)|float) if voice_config is defined else 3.0 }},
         bypassCallingHours:      {{ 'true' if voice_config is defined and voice_config.get('bypass_calling_hours') else 'false' }},
+        quietHoursEnabled:       {{ 'true' if voice_config is defined and voice_config.get('quiet_hours_enabled') else 'false' }},
     };
     </script>
 
