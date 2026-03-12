@@ -234,9 +234,31 @@
                                 <button onclick="loadNumbersTab()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:5px 12px;font-size:0.78rem;cursor:pointer;">
                                     <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
                                 </button>
+                                <!-- Cart Button -->
+                                <button id="numCartBtn" onclick="numCartToggle()" style="position:relative;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:5px 12px;font-size:0.78rem;cursor:pointer;display:none;">
+                                    <i class="fa-solid fa-cart-shopping me-1"></i>Cart
+                                    <span id="numCartCount" style="position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;font-size:0.6rem;font-weight:700;min-width:16px;height:16px;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 4px;">0</span>
+                                </button>
                                 <button onclick="document.getElementById('vstabBuyPanel').style.display=document.getElementById('vstabBuyPanel').style.display==='none'?'block':'none'"
                                     style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:6px;padding:5px 14px;font-size:0.78rem;font-weight:700;cursor:pointer;">
                                     <i class="fa-solid fa-plus me-1"></i>Buy Number
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Cart Overlay -->
+                        <div id="numCartOverlay" style="display:none;margin-bottom:16px;padding:16px;background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.15);border-radius:12px;">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <h6 style="margin:0;font-weight:700;color:#00ff88;font-size:0.88rem;"><i class="fa-solid fa-cart-shopping me-2"></i>Number Cart</h6>
+                                <button onclick="numCartToggle()" style="background:none;border:none;color:#888;cursor:pointer;font-size:0.85rem;"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                            <div id="numCartItems" style="max-height:240px;overflow-y:auto;margin-bottom:12px;font-size:0.82rem;"></div>
+                            <div id="numCartSummary" style="border-top:1px solid rgba(255,255,255,0.06);padding-top:10px;font-size:0.82rem;"></div>
+                            <div class="d-flex gap-2 mt-3">
+                                <button onclick="numCartClear()" style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:8px;padding:8px;font-size:0.82rem;cursor:pointer;">
+                                    <i class="fa-solid fa-trash me-1"></i>Clear Cart
+                                </button>
+                                <button onclick="numCartCheckout()" id="numCartCheckoutBtn" style="flex:2;background:linear-gradient(135deg,#00ff88,#00cc6a);border:none;color:#000;border-radius:8px;padding:8px;font-size:0.82rem;font-weight:700;cursor:pointer;">
+                                    <i class="fa-solid fa-credit-card me-1"></i>Checkout
                                 </button>
                             </div>
                         </div>

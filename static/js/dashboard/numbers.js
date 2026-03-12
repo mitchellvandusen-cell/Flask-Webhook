@@ -8,6 +8,180 @@
             return p;
         }
 
+        // ===== NUMBER CART =====
+        var _numCart = []; // [{phone, numberType, priceLabel, priceCents}]
+
+        function _numCartSave() {
+            try { localStorage.setItem('numCart', JSON.stringify(_numCart)); } catch(e) {}
+        }
+        function _numCartLoad() {
+            try {
+                var saved = localStorage.getItem('numCart');
+                if (saved) _numCart = JSON.parse(saved);
+            } catch(e) { _numCart = []; }
+            _numCartUpdateUI();
+        }
+
+        function numCartAdd(phone, numberType) {
+            if (_numCart.find(function(i) { return i.phone === phone; })) return;
+            var priceCents = numberType === 'toll_free' ? 215 : 90;
+            var priceLabel = numberType === 'toll_free' ? '$2.15/mo' : '$0.90/mo';
+            _numCart.push({ phone: phone, numberType: numberType, priceLabel: priceLabel, priceCents: priceCents });
+            _numCartSave();
+            _numCartUpdateUI();
+            if (typeof _showDashToast === 'function') _showDashToast(true, _fmtPhone(phone) + ' added to cart');
+        }
+
+        function numCartRemove(phone) {
+            _numCart = _numCart.filter(function(i) { return i.phone !== phone; });
+            _numCartSave();
+            _numCartUpdateUI();
+        }
+
+        function numCartClear() {
+            _numCart = [];
+            _numCartSave();
+            _numCartUpdateUI();
+        }
+
+        function numCartToggle() {
+            var overlay = document.getElementById('numCartOverlay');
+            if (!overlay) return;
+            overlay.style.display = overlay.style.display === 'none' ? 'block' : 'none';
+            _numCartRenderItems();
+        }
+
+        function _numCartUpdateUI() {
+            var btn = document.getElementById('numCartBtn');
+            var countEl = document.getElementById('numCartCount');
+            if (btn) btn.style.display = _numCart.length > 0 ? 'inline-flex' : 'none';
+            if (countEl) countEl.textContent = _numCart.length;
+            _numCartRenderItems();
+        }
+
+        function _numCartRenderItems() {
+            var itemsEl = document.getElementById('numCartItems');
+            var summaryEl = document.getElementById('numCartSummary');
+            if (!itemsEl || !summaryEl) return;
+
+            if (!_numCart.length) {
+                itemsEl.innerHTML = '<div style="text-align:center;padding:12px;color:#666;">Cart is empty</div>';
+                summaryEl.innerHTML = '';
+                return;
+            }
+
+            // Calculate pricing: first 5 numbers total are free, rest are paid
+            var freeRemaining = _numFreeRemaining !== null ? _numFreeRemaining : 0;
+            var totalCents = 0;
+            var freeCount = 0;
+            var paidCount = 0;
+
+            itemsEl.innerHTML = _numCart.map(function(item, idx) {
+                var isFree = freeRemaining > 0;
+                if (isFree) { freeRemaining--; freeCount++; }
+                else { totalCents += item.priceCents; paidCount++; }
+                var priceDisplay = isFree
+                    ? '<span style="color:#00ff88;font-weight:700;">FREE</span>'
+                    : '<span style="color:#00ff88;">' + item.priceLabel + '</span>';
+                return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 4px;border-bottom:1px solid rgba(255,255,255,0.04);">' +
+                    '<div style="flex:1;">' +
+                        '<span style="color:#fff;font-weight:600;">' + _esc(_fmtPhone(item.phone)) + '</span>' +
+                        '<span style="margin-left:8px;font-size:0.75rem;color:#888;">' + item.numberType + '</span>' +
+                    '</div>' +
+                    '<div style="display:flex;align-items:center;gap:8px;">' +
+                        priceDisplay +
+                        '<button onclick="numCartRemove(\'' + item.phone + '\')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:0.75rem;padding:2px 4px;" title="Remove"><i class="fa-solid fa-xmark"></i></button>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+
+            var totalDollars = (totalCents / 100).toFixed(2);
+            summaryEl.innerHTML =
+                '<div style="display:flex;justify-content:space-between;color:#aaa;margin-bottom:4px;">' +
+                    '<span>' + _numCart.length + ' number' + (_numCart.length > 1 ? 's' : '') + '</span>' +
+                    (freeCount > 0 ? '<span style="color:#00ff88;">' + freeCount + ' free</span>' : '') +
+                '</div>' +
+                (paidCount > 0 ? '<div style="display:flex;justify-content:space-between;font-weight:700;font-size:0.95rem;">' +
+                    '<span style="color:#fff;">Total</span>' +
+                    '<span style="color:#00ff88;">$' + totalDollars + '/mo</span>' +
+                '</div>' : '<div style="color:#00ff88;font-weight:700;">All numbers are free!</div>');
+        }
+
+        async function numCartCheckout() {
+            if (!_numCart.length) return;
+
+            var btn = document.getElementById('numCartCheckoutBtn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Processing...'; }
+
+            try {
+                var r = await fetch('/voice/numbers/cart-checkout', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ items: _numCart.map(function(i) { return { phone_number: i.phone, number_type: i.numberType }; }) })
+                });
+                var d = await r.json();
+
+                if (d.all_free) {
+                    // All numbers were free — they've been provisioned
+                    _numCart = [];
+                    _numCartSave();
+                    _numCartUpdateUI();
+                    var overlay = document.getElementById('numCartOverlay');
+                    if (overlay) overlay.style.display = 'none';
+                    if (typeof _showDashToast === 'function') _showDashToast(true, d.provisioned + ' number(s) added!');
+                    loadNumbersTab();
+                    return;
+                }
+
+                if (d.checkout_url) {
+                    // Store cart items pending in localStorage for post-checkout provisioning
+                    localStorage.setItem('numCartPending', JSON.stringify(_numCart));
+                    _numCart = [];
+                    _numCartSave();
+                    window.location.href = d.checkout_url;
+                    return;
+                }
+
+                alert(d.error || 'Checkout failed');
+            } catch(e) {
+                alert('Network error during checkout');
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-credit-card me-1"></i>Checkout'; }
+            }
+        }
+
+        // Post-purchase: complete provisioning after Stripe redirect
+        (function() {
+            var params = new URLSearchParams(window.location.search);
+            if (params.get('cart_purchased') === '1') {
+                var pending = [];
+                try { pending = JSON.parse(localStorage.getItem('numCartPending') || '[]'); } catch(e) {}
+                if (pending.length) {
+                    localStorage.removeItem('numCartPending');
+                    fetch('/voice/numbers/complete-cart-purchase', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ items: pending.map(function(i) { return { phone_number: i.phone, number_type: i.numberType }; }) })
+                    }).then(function(r) { return r.json(); }).then(function(d) {
+                        if (d.provisioned > 0) {
+                            if (typeof _showDashToast === 'function') _showDashToast(true, d.provisioned + ' number(s) purchased and activated!');
+                        }
+                        if (d.errors && d.errors.length) {
+                            alert('Some numbers failed to provision:\n' + d.errors.join('\n'));
+                        }
+                        // Clean URL
+                        var url = new URL(window.location);
+                        url.searchParams.delete('cart_purchased');
+                        window.history.replaceState({}, '', url);
+                        if (typeof loadNumbersTab === 'function') loadNumbersTab();
+                    }).catch(function() {});
+                }
+            }
+        })();
+
+        // Load cart from localStorage on script init
+        _numCartLoad();
+
         // ===== SPAM PROTECTION TAB =====
         async function loadTrustHubData() { loadSpamProtectionStatus(); }
 
@@ -192,14 +366,19 @@
                     const priceLabel = isFree
                         ? '<span style="color:#00ff88;font-size:.75rem;font-weight:700;">FREE</span>'
                         : '<span style="color:#00ff88;font-size:.75rem;font-weight:600;">' + monthlyPrice + '/mo</span>';
+                    var inCart = _numCart.find(function(ci) { return ci.phone === n.phone; });
+                    var cartBtn = inCart
+                        ? '<span style="color:#00ff88;font-size:.7rem;font-weight:600;"><i class="fa-solid fa-check me-1"></i>In Cart</span>'
+                        : '<button onclick="numCartAdd(\'' + n.phone + '\',\'' + numberType + '\')" style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.2);color:#00ff88;border-radius:4px;padding:3px 8px;font-size:.7rem;font-weight:600;cursor:pointer;" title="Add to cart"><i class="fa-solid fa-cart-plus"></i></button>';
                     return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 4px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.78rem;">' +
                         '<div style="flex:1;min-width:0;">' +
                             '<span style="color:#fff;font-weight:600;">' + _esc(_fmtPhone(n.phone)) + '</span>' +
                             (loc ? '<span style="color:#666;font-size:.75rem;margin-left:6px;">' + _esc(loc) + '</span>' : '') +
                             '<div style="margin-top:2px;">' + caps.map(c => '<span style="background:rgba(0,217,255,0.08);color:#00d9ff;padding:1px 6px;border-radius:4px;font-size:.75rem;margin-right:3px;">' + c + '</span>').join('') + '</div>' +
                         '</div>' +
-                        '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">' +
+                        '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">' +
                             priceLabel +
+                            cartBtn +
                             '<button onclick="buyNumber(\'' + n.phone + '\',\'' + numberType + '\')" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:4px;padding:3px 10px;font-size:.75rem;font-weight:700;cursor:pointer;">' + (isFree ? 'Add Free' : 'Buy') + '</button>' +
                         '</div>' +
                     '</div>';
