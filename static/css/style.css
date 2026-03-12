@@ -76,33 +76,27 @@ body {
     min-height: 100vh;
 }
 
-/* Animated Aura Environment — dedicated div avoids Safari z-index trap */
-.ambient-auras {
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    overflow: hidden;
-}
-
-.ambient-auras::before, .ambient-auras::after {
+/* Animated Aura Environment — glass panels refract these blobs */
+body::before, body::after {
     content: '';
-    position: absolute;
+    position: fixed;
     width: 60vw;
     height: 60vw;
     border-radius: 50%;
     filter: blur(120px);
+    z-index: -1;
+    pointer-events: none;
     opacity: 0.4;
     animation: aura-drift 20s ease-in-out infinite alternate;
 }
 
-.ambient-auras::before {
+body::before {
     top: -10%;
     left: -10%;
     background: radial-gradient(circle, rgba(0, 255, 136, 0.4) 0%, transparent 70%);
 }
 
-.ambient-auras::after {
+body::after {
     bottom: -20%;
     right: -10%;
     background: radial-gradient(circle, rgba(99, 102, 241, 0.4) 0%, transparent 70%);
@@ -113,11 +107,6 @@ body {
     0%   { transform: translate(0, 0) scale(1); }
     100% { transform: translate(10vw, 5vh) scale(1.2); }
 }
-
-/* Ensure UI layers sit above the aura layer */
-.sidebar { z-index: 200; }
-.main-wrapper { position: relative; z-index: 10; }
-.navbar { z-index: 100; }
 
 /* Headings keep Outfit's personality; UI text uses Inter's clarity */
 h1, h2, h3 { font-family: 'Outfit', sans-serif; }
@@ -1049,7 +1038,7 @@ body.light-theme .dlr-col-hdr { border-bottom-color: var(--lt-border) !important
 body.light-theme .dlr-col-hdr h6 { color: var(--lt-accent) !important; }
 body.light-theme .dlr-top-bar { background: var(--lt-surface) !important; border-color: var(--lt-border) !important; }
 body.light-theme .dlr-contact-row { border-bottom-color: rgba(0,0,0,0.04) !important; color: var(--lt-text-secondary) !important; }
-body.light-theme .dlr-contact-row:hover { background: transparent !important; box-shadow: inset 0 0 20px rgba(0,0,0,0.04) !important; border-left-color: var(--lt-accent) !important; }
+body.light-theme .dlr-contact-row:hover { background: rgba(0,0,0,0.02) !important; }
 body.light-theme .dlr-contact-row.active { background: var(--lt-accent-bg) !important; border-left-color: var(--lt-accent) !important; }
 body.light-theme .dlr-bubble.inbound { background: #f0f2f5 !important; border-color: #e2e5ea !important; color: var(--lt-text-primary) !important; }
 body.light-theme .dlr-bubble.outbound { background: rgba(5,150,105,0.08) !important; border-color: rgba(5,150,105,0.18) !important; color: #064e3b !important; }
@@ -1085,7 +1074,7 @@ body.light-theme .wf-cf-chip { background: rgba(156,39,176,0.06) !important; bor
 
 /* ── Log rows ── */
 body.light-theme .log-row { border-bottom-color: var(--lt-border) !important; }
-body.light-theme .log-row:hover { background: transparent !important; box-shadow: inset 0 0 20px rgba(0,0,0,0.04) !important; border-left-color: var(--lt-accent) !important; }
+body.light-theme .log-row:hover { background: rgba(0,0,0,0.015) !important; }
 body.light-theme .log-time { color: var(--lt-text-muted) !important; }
 body.light-theme .log-event { color: var(--lt-text-muted) !important; }
 body.light-theme .log-summary { color: var(--lt-text-secondary) !important; }
@@ -3128,148 +3117,3 @@ body.light-theme .pwa-banner-text span { color: #666; }
 @media (min-width: 769px) {
     #pwaBanner { bottom: 24px; }
 }
-/* =========================================
-   CHOICES.JS — Liquid Glass Custom Selects
-   Overrides default Choices.js styles with
-   the directional edge-lit glass system.
-   ========================================= */
-
-/* Reset Choices.js defaults that conflict */
-.choices { position: relative; margin-bottom: 0; }
-.choices * { box-sizing: border-box; }
-
-/* The visible "closed" select box */
-.choices__inner {
-    background: rgba(0, 0, 0, 0.2) !important;
-    border: none !important;
-    border-top: 1px solid rgba(0, 0, 0, 0.4) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
-    border-radius: 12px !important;
-    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3) !important;
-    padding: 7px 36px 7px 12px !important;
-    min-height: 0 !important;
-    font-size: 0.875rem;
-    color: #fff !important;
-    transition: all 0.3s ease;
-    cursor: pointer;
-}
-
-/* Focus / open state */
-.is-open .choices__inner,
-.is-focused .choices__inner {
-    background: rgba(0, 0, 0, 0.3) !important;
-    border-bottom-color: var(--accent) !important;
-    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 255, 136, 0.1) !important;
-    border-radius: 12px 12px 8px 8px !important;
-}
-
-/* Arrow chevron */
-.choices[data-type*='select-one']::after {
-    border-color: rgba(255, 255, 255, 0.4) transparent transparent !important;
-    right: 12px;
-    transition: border-color 0.2s;
-}
-.choices[data-type*='select-one'].is-open::after {
-    border-color: transparent transparent var(--accent) !important;
-}
-
-/* Current selected item text */
-.choices__list--single { padding: 0 !important; }
-.choices__list--single .choices__item { padding: 0 !important; color: #fff; }
-.choices__placeholder { color: rgba(255, 255, 255, 0.4) !important; }
-
-/* The floating dropdown panel — True Liquid Glass */
-.choices__list--dropdown,
-.choices__list[aria-expanded] {
-    background: linear-gradient(135deg, rgba(15, 15, 25, 0.85) 0%, rgba(8, 8, 18, 0.95) 100%) !important;
-    backdrop-filter: blur(24px) saturate(160%) brightness(1.1) !important;
-    -webkit-backdrop-filter: blur(24px) saturate(160%) brightness(1.1) !important;
-    border-top: 1px solid var(--glass-border-top) !important;
-    border-left: 1px solid var(--glass-border-left) !important;
-    border-right: 1px solid var(--glass-border-bottom) !important;
-    border-bottom: 1px solid var(--glass-border-bottom) !important;
-    border-radius: 12px !important;
-    box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.6) !important;
-    margin-top: 4px !important;
-    z-index: 9999 !important;
-    overflow: hidden;
-}
-
-/* Individual option rows */
-.choices__item {
-    color: #bbb !important;
-    font-size: 0.875rem !important;
-    padding: 9px 14px !important;
-    border-left: 2px solid transparent;
-    transition: all 0.12s ease;
-}
-
-/* Hover / keyboard-highlight */
-.choices__item--selectable.is-highlighted {
-    background: transparent !important;
-    box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.05) !important;
-    border-left-color: var(--accent) !important;
-    color: #fff !important;
-}
-
-/* Currently selected item in dropdown */
-.choices__item.is-selected {
-    color: var(--accent) !important;
-    background: rgba(0, 255, 136, 0.06) !important;
-}
-
-/* Disabled state */
-.choices.is-disabled .choices__inner {
-    opacity: 0.5;
-    cursor: not-allowed;
-    pointer-events: none;
-}
-.choices__item--disabled {
-    color: rgba(255, 255, 255, 0.25) !important;
-    cursor: not-allowed;
-}
-
-/* Search input inside dropdown (for searchable instances) */
-.choices__input {
-    background: rgba(0, 0, 0, 0.3) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
-    color: #fff !important;
-    font-size: 0.85rem !important;
-    margin: 0 !important;
-    padding: 8px 12px !important;
-    width: 100% !important;
-}
-.choices__input:focus { border-bottom-color: var(--accent) !important; outline: none !important; }
-
-/* ── Light theme overrides ── */
-body.light-theme .choices__inner {
-    background: rgba(0, 0, 0, 0.06) !important;
-    border-top-color: rgba(0, 0, 0, 0.15) !important;
-    border-bottom-color: rgba(255, 255, 255, 0.7) !important;
-    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.08) !important;
-    color: var(--lt-text-primary) !important;
-}
-body.light-theme .is-open .choices__inner,
-body.light-theme .is-focused .choices__inner {
-    border-bottom-color: var(--lt-accent) !important;
-}
-body.light-theme .choices[data-type*='select-one']::after {
-    border-color: rgba(0, 0, 0, 0.4) transparent transparent !important;
-}
-body.light-theme .choices[data-type*='select-one'].is-open::after {
-    border-color: transparent transparent var(--lt-accent) !important;
-}
-body.light-theme .choices__list--dropdown,
-body.light-theme .choices__list[aria-expanded] {
-    background: rgba(255, 255, 255, 0.92) !important;
-    backdrop-filter: blur(20px) !important;
-    border-top-color: rgba(255, 255, 255, 0.9) !important;
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.15) !important;
-}
-body.light-theme .choices__item { color: var(--lt-text-secondary) !important; }
-body.light-theme .choices__item--selectable.is-highlighted {
-    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.04) !important;
-    border-left-color: var(--lt-accent) !important;
-    color: var(--lt-text-primary) !important;
-}
-body.light-theme .choices__item.is-selected { color: var(--lt-accent) !important; background: var(--lt-accent-bg) !important; }
