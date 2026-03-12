@@ -280,7 +280,7 @@
 
                     </div><!-- /vstab-panel-numbers -->
 
-                    <!-- ══ Dialer Settings panel (moved from Dialer tab) ══ -->
+                    <!-- ══ Dialer Settings panel ══ -->
                     <div id="vstab-panel-dialer" style="display:none;">
                         <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
                             <div style="width:36px;height:36px;border-radius:9px;background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -288,9 +288,227 @@
                             </div>
                             <div>
                                 <h6 style="margin:0;font-weight:700;">Dialer Settings</h6>
-                                <p style="margin:0;color:#888;font-size:0.78rem;">Multi-line pacing, contact protection, and quiet hours</p>
+                                <p style="margin:0;color:#888;font-size:0.78rem;">Call behavior, contact protection, and quiet hours</p>
                             </div>
                         </div>
+
+                        <!-- ── Core Dialer Settings (all tiers) ── -->
+                        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px;margin-bottom:12px;">
+                            <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.8px;color:#555;font-weight:700;margin-bottom:12px;">
+                                <i class="fa-solid fa-phone me-1" style="color:#00d9ff;"></i>Call Behavior
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">Dial Attempts (no-answer/VM)</label>
+                                    <select class="form-control" id="voiceDialAttempts" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;">
+                                        <option value="1" {% if voice_config.get('dial_attempts',2)|int == 1 %}selected{% endif %}>1 attempt</option>
+                                        <option value="2" {% if voice_config.get('dial_attempts',2)|int == 2 %}selected{% endif %}>2 attempts (recommended)</option>
+                                        <option value="3" {% if voice_config.get('dial_attempts',2)|int == 3 %}selected{% endif %}>3 attempts</option>
+                                        <option value="4" {% if voice_config.get('dial_attempts',2)|int == 4 %}selected{% endif %}>4 attempts</option>
+                                        <option value="5" {% if voice_config.get('dial_attempts',2)|int == 5 %}selected{% endif %}>5 attempts</option>
+                                        <option value="6" {% if voice_config.get('dial_attempts',2)|int == 6 %}selected{% endif %}>6 attempts (insurance max)</option>
+                                    </select>
+                                    <small style="color:#555;font-size:0.75rem;">Detects voicemail, hangs up, retries automatically</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">Ring Timeout</label>
+                                    <select class="form-control" id="voiceRingTimeout" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;">
+                                        <option value="30" {% if voice_config.get('ring_timeout',45)|int == 30 %}selected{% endif %}>30 seconds</option>
+                                        <option value="45" {% if voice_config.get('ring_timeout',45)|int == 45 %}selected{% endif %}>45 seconds (recommended)</option>
+                                        <option value="60" {% if voice_config.get('ring_timeout',45)|int == 60 %}selected{% endif %}>60 seconds</option>
+                                        <option value="90" {% if voice_config.get('ring_timeout',45)|int == 90 %}selected{% endif %}>90 seconds</option>
+                                        <option value="120" {% if voice_config.get('ring_timeout',45)|int == 120 %}selected{% endif %}>120 seconds</option>
+                                    </select>
+                                    <small style="color:#555;font-size:0.75rem;">How long to ring before moving to next contact</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">Pause Between Calls</label>
+                                    <select class="form-control" id="voicePauseBetween" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;">
+                                        <option value="0" {% if voice_config.get('pause_between_calls',1)|int == 0 %}selected{% endif %}>No pause</option>
+                                        <option value="1" {% if voice_config.get('pause_between_calls',1)|int == 1 %}selected{% endif %}>1 second (recommended)</option>
+                                        <option value="2" {% if voice_config.get('pause_between_calls',1)|int == 2 %}selected{% endif %}>2 seconds</option>
+                                        <option value="3" {% if voice_config.get('pause_between_calls',1)|int == 3 %}selected{% endif %}>3 seconds</option>
+                                        <option value="5" {% if voice_config.get('pause_between_calls',1)|int == 5 %}selected{% endif %}>5 seconds</option>
+                                    </select>
+                                    <small style="color:#555;font-size:0.75rem;">Wait time before auto-dialing next contact</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">Max Call Duration</label>
+                                    <select class="form-control" id="voiceMaxCallDuration" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;">
+                                        <option value="0" {% if voice_config.get('max_call_duration',0)|int == 0 %}selected{% endif %}>No limit</option>
+                                        <option value="15" {% if voice_config.get('max_call_duration',0)|int == 15 %}selected{% endif %}>15 minutes</option>
+                                        <option value="30" {% if voice_config.get('max_call_duration',0)|int == 30 %}selected{% endif %}>30 minutes</option>
+                                        <option value="60" {% if voice_config.get('max_call_duration',0)|int == 60 %}selected{% endif %}>60 minutes</option>
+                                    </select>
+                                    <small style="color:#555;font-size:0.75rem;">Auto-end calls after this duration</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">Retry Delay</label>
+                                    <select class="form-control" id="voiceRetryDelay" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;">
+                                        <option value="2" {% if voice_config.get('retry_delay',2)|int == 2 %}selected{% endif %}>2 seconds (recommended)</option>
+                                        <option value="5" {% if voice_config.get('retry_delay',2)|int == 5 %}selected{% endif %}>5 seconds</option>
+                                        <option value="10" {% if voice_config.get('retry_delay',2)|int == 10 %}selected{% endif %}>10 seconds</option>
+                                        <option value="30" {% if voice_config.get('retry_delay',2)|int == 30 %}selected{% endif %}>30 seconds</option>
+                                    </select>
+                                    <small style="color:#555;font-size:0.75rem;">Wait before retrying a no-answer contact</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">Transfer Number (Hot Handoff)</label>
+                                    <input type="tel" class="form-control" id="voiceTransferNumber"
+                                        value="{{ voice_config.get('transfer_number','') }}"
+                                        placeholder="+1XXXXXXXXXX"
+                                        style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;font-size:0.85rem;">
+                                    <small style="color:#555;font-size:0.75rem;">Agent number for AI warm transfers. E.164 format.</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">Auto-Record All Calls</label>
+                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" id="voiceAutoRecord"
+                                                {% if voice_config.get('auto_record',True) %}checked{% endif %}
+                                                style="width:2.5em;height:1.3em;cursor:pointer;">
+                                        </div>
+                                        <span style="color:#888;font-size:0.8rem;">Record every call (MP3)</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">Auto-Transcribe Calls</label>
+                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" id="voiceAutoTranscribe"
+                                                {% if voice_config.get('auto_transcribe',False) %}checked{% endif %}
+                                                style="width:2.5em;height:1.3em;cursor:pointer;">
+                                        </div>
+                                        <span style="color:#888;font-size:0.8rem;">Real-time transcription ($0.025/min)</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">Answering Machine Detection</label>
+                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" id="voiceAMD"
+                                                {% if voice_config.get('use_amd',False) %}checked{% endif %}
+                                                style="width:2.5em;height:1.3em;cursor:pointer;">
+                                        </div>
+                                        <span style="color:#888;font-size:0.8rem;">Detect voicemail/answering machines</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">Local Presence Dialing</label>
+                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" id="voiceLocalPresence"
+                                                {% if voice_config.get('local_presence',False) %}checked{% endif %}
+                                                style="width:2.5em;height:1.3em;cursor:pointer;">
+                                        </div>
+                                        <span style="color:#888;font-size:0.8rem;">Match caller ID area code to lead</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">Voicemail Drop</label>
+                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" id="voiceVoicemailDrop"
+                                                {% if voice_config.get('voicemail_drop',False) %}checked{% endif %}
+                                                style="width:2.5em;height:1.3em;cursor:pointer;">
+                                        </div>
+                                        <span style="color:#888;font-size:0.8rem;">Let AI leave voicemail</span>
+                                    </div>
+                                    <small style="color:#555;font-size:0.75rem;">OFF = hang up on VM, retry. ON = AI leaves message.</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">AI Auto-Callback</label>
+                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" id="voiceAutoCallback"
+                                                {% if voice_config.get('auto_callback',False) %}checked{% endif %}
+                                                style="width:2.5em;height:1.3em;cursor:pointer;">
+                                        </div>
+                                        <span style="color:#888;font-size:0.8rem;">AI schedules callbacks from transcripts</span>
+                                    </div>
+                                    <small style="color:#555;font-size:0.75rem;">"Call me back at 5" = auto-queued at 5 PM</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── Dossier Display (all tiers) ── -->
+                        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px;margin-bottom:12px;">
+                            <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.8px;color:#555;font-weight:700;margin-bottom:12px;">
+                                <i class="fa-solid fa-id-card me-1" style="color:#a78bfa;"></i>Lead Dossier Display
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">Show AI Summary</label>
+                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" id="voiceShowAiSummary"
+                                                {% if voice_config.get('show_ai_summary',True) %}checked{% endif %}
+                                                style="width:2.5em;height:1.3em;cursor:pointer;">
+                                        </div>
+                                        <span style="color:#888;font-size:0.8rem;">Display AI narrative in dossier</span>
+                                    </div>
+                                    <small style="color:#555;font-size:0.75rem;">30-word conversation snapshot</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">Show Known Facts</label>
+                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" id="voiceShowKnownFacts"
+                                                {% if voice_config.get('show_known_facts',True) %}checked{% endif %}
+                                                style="width:2.5em;height:1.3em;cursor:pointer;">
+                                        </div>
+                                        <span style="color:#888;font-size:0.8rem;">Display extracted facts in dossier</span>
+                                    </div>
+                                    <small style="color:#555;font-size:0.75rem;">AI-extracted lead details</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── Browser VoIP (all tiers) ── -->
+                        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px;margin-bottom:12px;">
+                            <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.8px;color:#555;font-weight:700;margin-bottom:12px;">
+                                <i class="fa-solid fa-headset me-1" style="color:#00d9ff;"></i>Browser VoIP
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">VoIP Setup</label>
+                                    <div style="display:flex;gap:8px;align-items:center;margin-top:2px;">
+                                        <button onclick="setupVoIP()" id="voipSetupBtnDialer" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:8px;padding:6px 14px;font-weight:700;font-size:0.8rem;cursor:pointer;">
+                                            <i class="fa-solid fa-headset me-1"></i>Setup Browser VoIP
+                                        </button>
+                                        <span id="voipSetupBtnDialerStatus" style="font-size:0.75rem;color:#888;">{% if voice_config.get('twilio_twiml_app_sid') %}VoIP configured{% else %}Required for human dialing{% endif %}</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;"><i class="fa-solid fa-microphone me-1" style="color:#00d9ff;"></i>Microphone</label>
+                                    <select id="audioInputDevice" onchange="setAudioInputDevice(this.value)"
+                                        style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
+                                        <option value="">Default microphone</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;"><i class="fa-solid fa-volume-high me-1" style="color:#00d9ff;"></i>Speaker</label>
+                                    <select id="audioOutputDevice" onchange="setAudioOutputDevice(this.value)"
+                                        style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
+                                        <option value="">Default speaker</option>
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <button onclick="refreshAudioDevices()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer;">
+                                            <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh Devices
+                                        </button>
+                                        <button onclick="testAudioOutput()" style="background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer;">
+                                            <i class="fa-solid fa-play me-1"></i>Test Speaker
+                                        </button>
+                                        <span id="audioDeviceStatus" style="font-size:0.75rem;color:#888;"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── Pro Dialer Settings (pro_dialer / predictive_dialer only) ── -->
+                        <div id="proDialerSection" style="display:none;">
 
                         <!-- Multi-line settings -->
                         <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px;margin-bottom:12px;">
@@ -380,6 +598,7 @@
                                 </div>
                             </div>
                         </div>
+                        </div><!-- /proDialerSection -->
 
                         <!-- Quiet Hours (opt-in) -->
                         <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px;">
