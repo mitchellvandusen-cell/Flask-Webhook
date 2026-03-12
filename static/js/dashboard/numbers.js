@@ -169,14 +169,18 @@
                 if (!r.ok) { list.innerHTML = '<div style="color:#ef4444;padding:4px;">' + _esc(d.error || 'Failed') + '</div>'; return; }
                 const nums = d.numbers || [];
                 if (!nums.length) { list.innerHTML = '<div style="color:#888;padding:4px;font-size:.75rem;">No numbers found for that search. Try different filters.</div>'; return; }
-                const priceMap = { local: '$1.15', toll_free: '$2.15', mobile: '$1.15' };
-                const monthlyPrice = priceMap[numberType] || '$1.15';
+                const priceMap = { local: '$0.90', toll_free: '$2.15', mobile: '$0.90' };
+                const monthlyPrice = priceMap[numberType] || '$0.90';
+                const isFree = _numFreeRemaining !== null && _numFreeRemaining > 0;
                 list.innerHTML = nums.map(n => {
                     const loc = [n.locality, n.region].filter(Boolean).join(', ');
                     const caps = [];
                     if (n.capabilities && n.capabilities.voice) caps.push('Voice');
                     if (n.capabilities && n.capabilities.sms) caps.push('SMS');
                     if (n.capabilities && n.capabilities.mms) caps.push('MMS');
+                    const priceLabel = isFree
+                        ? '<span style="color:#00ff88;font-size:.75rem;font-weight:700;">FREE</span>'
+                        : '<span style="color:#00ff88;font-size:.75rem;font-weight:600;">' + monthlyPrice + '/mo</span>';
                     return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 4px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.78rem;">' +
                         '<div style="flex:1;min-width:0;">' +
                             '<span style="color:#fff;font-weight:600;">' + _esc(_fmtPhone(n.phone)) + '</span>' +
@@ -184,22 +188,50 @@
                             '<div style="margin-top:2px;">' + caps.map(c => '<span style="background:rgba(0,217,255,0.08);color:#00d9ff;padding:1px 6px;border-radius:4px;font-size:.75rem;margin-right:3px;">' + c + '</span>').join('') + '</div>' +
                         '</div>' +
                         '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">' +
-                            '<span style="color:#00ff88;font-size:.75rem;font-weight:600;">' + monthlyPrice + '/mo</span>' +
-                            '<button onclick="buyNumber(\'' + n.phone + '\')" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:4px;padding:3px 10px;font-size:.75rem;font-weight:700;cursor:pointer;">Buy</button>' +
+                            priceLabel +
+                            '<button onclick="buyNumber(\'' + n.phone + '\',\'' + numberType + '\')" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:4px;padding:3px 10px;font-size:.75rem;font-weight:700;cursor:pointer;">' + (isFree ? 'Add Free' : 'Buy') + '</button>' +
                         '</div>' +
                     '</div>';
                 }).join('');
             } catch(e) { list.innerHTML = '<div style="color:#ef4444;">Network error</div>'; }
         }
 
-        async function buyNumber(phone) {
-            if (!confirm('Purchase ' + phone + '?\nThis will be added to your account.')) return;
+        var _numFreeRemaining = null; // populated by loadNumbersTab
+
+        async function buyNumber(phone, numberType) {
+            numberType = numberType || document.getElementById('buyNumberType')?.value || 'local';
+            var isFree = _numFreeRemaining !== null && _numFreeRemaining > 0;
+            var msg = isFree
+                ? 'Add ' + phone + ' to your account?\n\nThis number is FREE (' + _numFreeRemaining + ' free remaining).'
+                : 'Purchase ' + phone + ' for $' + (numberType === 'toll_free' ? '2.15' : '0.90') + '/mo?\n\nThis will be charged to your card.';
+            if (!confirm(msg)) return;
+
             try {
-                const r = await fetch('/voice/numbers/buy', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ phone_number: phone }) });
-                const d = await r.json();
+                // Try the direct buy first (works if free numbers remain)
+                var r = await fetch('/voice/numbers/buy', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ phone_number: phone, number_type: numberType })
+                });
+                var d = await r.json();
+
+                if (r.status === 402 && d.payment_required) {
+                    // Free allowance exhausted — route through Stripe checkout
+                    var cr = await fetch('/voice/numbers/checkout', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ phone_number: phone, number_type: numberType })
+                    });
+                    var cd = await cr.json();
+                    if (!cr.ok) { alert(cd.error || 'Checkout failed'); return; }
+                    // Redirect to Stripe
+                    window.location.href = cd.checkout_url;
+                    return;
+                }
+
                 if (!r.ok) { alert(d.error || 'Failed'); return; }
-                alert('Purchased: ' + d.phone);
-                const buyPanel = document.getElementById('vstabBuyPanel'); if (buyPanel) buyPanel.style.display = 'none';
+                alert('Number added: ' + d.phone);
+                var buyPanel = document.getElementById('vstabBuyPanel'); if (buyPanel) buyPanel.style.display = 'none';
                 loadNumbersTab();
                 loadNumberHealth();
             } catch(e) { alert('Network error'); }
@@ -1132,6 +1164,38 @@
             }
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-lock me-2"></i><span id="a2pPayBtnLabel">Pay Registration Fee — $' + total.toFixed(2) + '</span>'; }
         }
+
+        // Check URL params for phone number purchase success
+        (function() {
+            var params = new URLSearchParams(window.location.search);
+            if (params.get('number_purchased') === '1') {
+                var phone = params.get('phone') || '';
+                if (phone) {
+                    // Complete the purchase — provision the number after Stripe payment
+                    fetch('/voice/numbers/complete-purchase', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ phone_number: phone })
+                    }).then(r => r.json()).then(d => {
+                        if (d.status === 'purchased') {
+                            if (typeof _showDashToast === 'function') _showDashToast(true, 'Number purchased: ' + (d.phone || phone));
+                        } else {
+                            if (typeof _showDashToast === 'function') _showDashToast(false, d.error || 'Number provisioning failed');
+                        }
+                        // Switch to Voice > Numbers tab and reload
+                        if (typeof switchVoicePanel === 'function') switchVoicePanel('numbers');
+                        if (typeof loadNumbersTab === 'function') loadNumbersTab();
+                    }).catch(() => {
+                        if (typeof _showDashToast === 'function') _showDashToast(false, 'Network error completing number purchase');
+                    });
+                }
+                // Clean URL
+                var url = new URL(window.location);
+                url.searchParams.delete('number_purchased');
+                url.searchParams.delete('phone');
+                window.history.replaceState({}, '', url);
+            }
+        })();
 
         // Check URL params for A2P payment success
         (function() {
