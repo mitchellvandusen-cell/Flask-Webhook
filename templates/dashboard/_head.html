@@ -61,6 +61,26 @@
             color: transparent !important;
         }
         input:focus { caret-color: #fff; }
+        /* Glass inputs and selects for dark theme */
+        .form-control, .form-select,
+        input[type="text"], input[type="email"], input[type="password"],
+        input[type="url"], input[type="number"], input[type="tel"],
+        textarea, select {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #fff;
+            border-radius: 10px;
+        }
+        .form-control:focus, .form-select:focus,
+        input[type="text"]:focus, input[type="email"]:focus,
+        input[type="password"]:focus, input[type="url"]:focus,
+        input[type="number"]:focus, input[type="tel"]:focus,
+        textarea:focus, select:focus {
+            background: rgba(255,255,255,0.06);
+            border-color: rgba(255,255,255,0.2);
+            color: #fff;
+            box-shadow: 0 0 0 3px rgba(0,255,136,0.08);
+        }
         /* Dark theme for all select dropdowns */
         select option { background: #2a2a35; color: #fff; }
         /* Light theme overrides for placeholders and selects */

@@ -127,9 +127,11 @@ body {
 }
 
 footer {
-    border-top: 1px solid #111;
+    border-top: 1px solid rgba(255,255,255,0.08);
     padding: 60px 0;
-    background: #020202;
+    background: rgba(15,15,15,0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     text-align: center;
     color: #555;
     margin-top: auto; /* Pushes footer down if page is short */
@@ -1784,9 +1786,11 @@ body.light-theme [style*="background: rgba(20,20,20"] {
 
 /* Hero Card (Top Position) */
 .hero-card {
-    background: linear-gradient(180deg, rgba(20, 20, 20, 0.8) 0%, rgba(10, 10, 10, 0.95) 100%);
+    background: rgba(15, 15, 15, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--accent);
-    box-shadow: 0 0 50px rgba(0, 255, 136, 0.08);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06), 0 0 50px rgba(0, 255, 136, 0.08);
     border-radius: 24px;
     padding: 3rem;
     position: relative;
