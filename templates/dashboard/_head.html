@@ -1074,13 +1074,16 @@
         }
         #discordServerModal.open { opacity: 1; pointer-events: auto; }
         .discord-modal-card {
-            background: rgba(15,15,15,0.6);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(88, 101, 242, 0.2);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+            backdrop-filter: blur(20px) saturate(160%) brightness(1.1);
+            -webkit-backdrop-filter: blur(20px) saturate(160%) brightness(1.1);
+            border-top: 1px solid rgba(88, 101, 242, 0.4);
+            border-left: 1px solid rgba(88, 101, 242, 0.25);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
             border-radius: 20px; padding: 28px 30px;
             max-width: 480px; width: 90%;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+            box-shadow: 0 32px 64px -16px rgba(0, 0, 0, 0.6), inset 0 1px 2px rgba(255, 255, 255, 0.2);
             animation: modalIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
         }
         @keyframes modalIn { from { opacity:0; transform: scale(0.94) translateY(10px); } to { opacity:1; transform: scale(1) translateY(0); } }
