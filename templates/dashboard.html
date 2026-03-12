@@ -230,24 +230,25 @@
     </script>
 
     <!-- ── Dashboard JS modules (load order matters) ── -->
-    <script src="{{ url_for('static', filename='js/dashboard/sidebar.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/dashboard/save_config.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/dashboard/alerts.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/dashboard/logs.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/dashboard/connect_crm.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/dashboard/voice.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/dashboard/dialer.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/dashboard/numbers.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/dashboard/ai_minutes.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/dashboard/carriers.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/dashboard/advanced.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/dashboard/api_keys.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/dashboard/discord.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/dashboard/slack.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/dashboard/tutorial.js') }}"></script>
+    {% set _sv = "20260312b" %}
+    <script src="{{ url_for('static', filename='js/dashboard/sidebar.js') }}?v={{ _sv }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard/save_config.js') }}?v={{ _sv }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard/alerts.js') }}?v={{ _sv }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard/logs.js') }}?v={{ _sv }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard/connect_crm.js') }}?v={{ _sv }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard/voice.js') }}?v={{ _sv }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard/dialer.js') }}?v={{ _sv }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard/numbers.js') }}?v={{ _sv }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard/ai_minutes.js') }}?v={{ _sv }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard/carriers.js') }}?v={{ _sv }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard/advanced.js') }}?v={{ _sv }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard/api_keys.js') }}?v={{ _sv }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard/discord.js') }}?v={{ _sv }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard/slack.js') }}?v={{ _sv }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard/tutorial.js') }}?v={{ _sv }}"></script>
 
     <!-- ── PWA: Service Worker Registration + Install Prompt ── -->
-    <script src="{{ url_for('static', filename='js/dashboard/pwa.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard/pwa.js') }}?v={{ _sv }}"></script>
 
 </body>
 </html>
