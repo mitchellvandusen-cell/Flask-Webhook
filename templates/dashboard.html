@@ -166,6 +166,7 @@
         autoDispositionNoAnswer: {{ 'false' if voice_config is defined and voice_config.get('auto_disposition_no_answer') == False else 'true' }},
         autoDispositionVoicemail:{{ 'false' if voice_config is defined and voice_config.get('auto_disposition_voicemail') == False else 'true' }},
         maxAbandonRatePct:       {{ (voice_config.get('max_abandon_rate_pct', 3.0)|float) if voice_config is defined else 3.0 }},
+        bypassCallingHours:      {{ 'true' if voice_config is defined and voice_config.get('bypass_calling_hours') else 'false' }},
     };
     </script>
 

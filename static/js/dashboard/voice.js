@@ -131,6 +131,7 @@
                 auto_disposition_no_answer: document.getElementById('voiceAutoDispNoAnswer')?.checked ?? true,
                 auto_disposition_voicemail: document.getElementById('voiceAutoDispVoicemail')?.checked ?? true,
                 max_abandon_rate_pct: parseFloat(document.getElementById('voiceMaxAbandonRate')?.value || '3'),
+                bypass_calling_hours: document.getElementById('voiceBypassCallingHours')?.checked ?? false,
                 // Dossier display settings
                 show_ai_summary: document.getElementById('voiceShowAiSummary')?.checked ?? true,
                 show_known_facts: document.getElementById('voiceShowKnownFacts')?.checked ?? true,
