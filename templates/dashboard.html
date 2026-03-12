@@ -154,6 +154,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='js/twilio-voice-sdk-2.18.0.min.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.js.iife.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/scripts/choices.min.js"></script>
 
     <!-- ── Boot data: must load before JS modules that read it at parse time ── -->
     <script>
@@ -250,6 +251,9 @@
 
     <!-- ── PWA: Service Worker Registration + Install Prompt ── -->
     <script src="{{ url_for('static', filename='js/dashboard/pwa.js') }}?v={{ _sv }}"></script>
+
+    <!-- ── Choices.js global init — must load after all tabs/modules ── -->
+    <script src="{{ url_for('static', filename='js/dashboard/choices-init.js') }}?v={{ _sv }}"></script>
 
 </body>
 </html>

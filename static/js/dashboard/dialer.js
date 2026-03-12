@@ -139,7 +139,7 @@
         async function calendarInit() {
             const picker = document.getElementById('iosCalendarPicker');
             if (!_calInitialized || !_calCalendars.length) {
-                if (picker) picker.innerHTML = '<option value="">Loading calendars...</option>';
+                if (picker) { picker.innerHTML = '<option value="">Loading calendars...</option>'; if (window.igbRefreshChoices) igbRefreshChoices('iosCalendarPicker'); }
                 let loaded = false;
 
                 // Fetch GHL calendars and Google Calendar status in parallel
@@ -156,7 +156,7 @@
                                 const errData = await r.json().catch(() => ({}));
                                 console.warn(`[Calendar] Fetch calendars HTTP ${r.status} (attempt ${attempt + 1}):`, errData.error || '');
                                 if (r.status === 401 || r.status === 403) {
-                                    if (picker) picker.innerHTML = '<option value="">Reconnect CRM to load calendars</option>';
+                                    if (picker) { picker.innerHTML = '<option value="">Reconnect CRM to load calendars</option>'; if (window.igbRefreshChoices) igbRefreshChoices('iosCalendarPicker'); }
                                     return null;
                                 }
                             } catch(e) {
@@ -176,13 +176,16 @@
                             `<option value="${dialerEsc(c.id)}">${dialerEsc(c.name)}</option>`
                         ).join('');
                         _calActiveCalId = _calCalendars[0].id;
+                        if (window.igbRefreshChoices) igbRefreshChoices('iosCalendarPicker');
                     } else if (picker && !picker.innerHTML.includes('Reconnect')) {
                         picker.innerHTML = '<option value="">No calendars found</option>';
+                        if (window.igbRefreshChoices) igbRefreshChoices('iosCalendarPicker');
                     }
                     loaded = true;
                 }
                 if (!loaded && picker && !picker.innerHTML.includes('Reconnect')) {
                     picker.innerHTML = '<option value="">Failed to load — tap refresh</option>';
+                    if (window.igbRefreshChoices) igbRefreshChoices('iosCalendarPicker');
                 }
                 _calInitialized = loaded;
 
@@ -1054,27 +1057,36 @@
                 console.log('[Dialer] Pipelines loaded:', dialerPipelines.length, dialerPipelines.map(p => p.name));
                 if (d.scope_missing) {
                     // opportunities.readonly not yet approved — show manual ID input
-                    sel.style.display = 'none';
+                    igbChoicesSetVisible('dialerPipelineFilter', false);
                     manualWrap.style.display = 'block';
                     stageSel.disabled = true;
                     stageSel.innerHTML = '<option value="">All Stages (pipeline scope pending)</option>';
+                    igbRefreshChoices('dialerStageFilter');
+                    igbChoicesSetDisabled('dialerStageFilter', true);
                 } else if (dialerPipelines.length === 0) {
-                    sel.style.display = 'block';
+                    igbChoicesSetVisible('dialerPipelineFilter', true);
                     manualWrap.style.display = 'none';
-                    sel.innerHTML = '<option value="">All Contacts</option><option value="" disabled style="color:#555;">No pipelines found in LeadConnector</option>';
+                    sel.innerHTML = '<option value="">All Contacts</option><option value="" disabled>No pipelines found in LeadConnector</option>';
                     stageSel.disabled = true;
                     stageSel.innerHTML = '<option value="">All Stages (no pipelines)</option>';
+                    igbRefreshChoices('dialerPipelineFilter');
+                    igbRefreshChoices('dialerStageFilter');
+                    igbChoicesSetDisabled('dialerStageFilter', true);
                 } else {
-                    sel.style.display = 'block';
+                    igbChoicesSetVisible('dialerPipelineFilter', true);
                     manualWrap.style.display = 'none';
                     sel.innerHTML = '<option value="">All Contacts</option>' +
                         dialerPipelines.map(p => '<option value="' + p.id + '">' + dialerEsc(p.name) + '</option>').join('');
                     stageSel.disabled = true;
                     stageSel.innerHTML = '<option value="">All Stages (select a pipeline)</option>';
+                    igbRefreshChoices('dialerPipelineFilter');
+                    igbRefreshChoices('dialerStageFilter');
+                    igbChoicesSetDisabled('dialerStageFilter', true);
                 }
             } catch(e) {
                 console.error('[Dialer] Pipeline load error:', e);
                 sel.innerHTML = '<option value="">All Contacts</option>';
+                if (window.igbRefreshChoices) igbRefreshChoices('dialerPipelineFilter');
             }
         }
 
@@ -1093,13 +1105,16 @@
                     stageSel.innerHTML = '<option value="">All Stages</option>' +
                         p.stages.map(s => '<option value="' + s.id + '">' + dialerEsc(s.name) + '</option>').join('');
                     stageSel.disabled = false;
+                    if (window.igbRefreshChoices) { igbRefreshChoices('dialerStageFilter'); igbChoicesSetDisabled('dialerStageFilter', false); }
                 } else {
                     stageSel.innerHTML = '<option value="">No stages in this pipeline</option>';
                     stageSel.disabled = true;
+                    if (window.igbRefreshChoices) { igbRefreshChoices('dialerStageFilter'); igbChoicesSetDisabled('dialerStageFilter', true); }
                 }
             } else {
                 stageSel.innerHTML = '<option value="">All Stages (select a pipeline)</option>';
                 stageSel.disabled = true;
+                if (window.igbRefreshChoices) { igbRefreshChoices('dialerStageFilter'); igbChoicesSetDisabled('dialerStageFilter', true); }
             }
             dialerFetchContacts();
         }
@@ -4528,29 +4543,31 @@
                 const curInput = inputSelect.value || _selectedInputDeviceId;
                 const curOutput = outputSelect.value || _selectedOutputDeviceId;
 
-                const optStyle = 'background:#2a2a35;color:#fff;';
-
                 // Clear and rebuild input list
-                inputSelect.innerHTML = '<option value="" style="' + optStyle + '">Default microphone</option>';
+                inputSelect.innerHTML = '<option value="">Default microphone</option>';
                 devices.filter(d => d.kind === 'audioinput').forEach(d => {
                     const opt = document.createElement('option');
                     opt.value = d.deviceId;
                     opt.textContent = d.label || ('Microphone ' + d.deviceId.slice(0,8));
-                    opt.style.cssText = optStyle;
                     if (d.deviceId === curInput) opt.selected = true;
                     inputSelect.appendChild(opt);
                 });
 
                 // Clear and rebuild output list
-                outputSelect.innerHTML = '<option value="" style="' + optStyle + '">Default speaker</option>';
+                outputSelect.innerHTML = '<option value="">Default speaker</option>';
                 devices.filter(d => d.kind === 'audiooutput').forEach(d => {
                     const opt = document.createElement('option');
                     opt.value = d.deviceId;
                     opt.textContent = d.label || ('Speaker ' + d.deviceId.slice(0,8));
-                    opt.style.cssText = optStyle;
                     if (d.deviceId === curOutput) opt.selected = true;
                     outputSelect.appendChild(opt);
                 });
+
+                // Refresh Choices.js wrappers after rebuilding options
+                if (window.igbRefreshChoices) {
+                    igbRefreshChoices('audioInputDevice');
+                    igbRefreshChoices('audioOutputDevice');
+                }
 
                 const statusEl = document.getElementById('audioDeviceStatus');
                 const inputCount = devices.filter(d => d.kind === 'audioinput').length;
