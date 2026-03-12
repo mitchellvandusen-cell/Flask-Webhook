@@ -632,7 +632,9 @@ def create_a2p_brand(sub_account_sid: str,
     Twilio docs:
       https://www.twilio.com/docs/messaging/compliance/a2p-10dlc/onboarding-isv-api
     """
-    client = get_master_client()
+    # Each sub-account registers its own Trust Hub profile and brand so that
+    # their business identity appears in Twilio — not the master account's identity.
+    client = get_sub_account_client(sub_account_sid)
     try:
         # ── Step 1: Secondary Customer Profile ──
         profile = client.trusthub.v1.customer_profiles.create(
@@ -714,9 +716,9 @@ def create_a2p_brand(sub_account_sid: str,
         raise
 
 
-def get_a2p_brand_status(brand_sid: str) -> dict:
+def get_a2p_brand_status(brand_sid: str, sub_account_sid: str = "") -> dict:
     """Check the vetting status of an A2P Brand."""
-    client = get_master_client()
+    client = get_sub_account_client(sub_account_sid) if sub_account_sid else get_master_client()
     try:
         brand = client.messaging.v1.brand_registrations(brand_sid).fetch()
         return {
@@ -775,7 +777,8 @@ def create_a2p_campaign(messaging_service_sid: str,
                          sample_messages: list = None,
                          has_embedded_links: bool = False,
                          has_embedded_phone: bool = False,
-                         message_flow: str = "") -> dict:
+                         message_flow: str = "",
+                         sub_account_sid: str = "") -> dict:
     """
     Create an A2P 10DLC Campaign and associate it with a Messaging Service.
 
@@ -783,7 +786,7 @@ def create_a2p_campaign(messaging_service_sid: str,
     This is the final step — once the campaign is approved, the number can
     send 10DLC-compliant SMS.
     """
-    client = get_master_client()
+    client = get_sub_account_client(sub_account_sid) if sub_account_sid else get_master_client()
 
     if not sample_messages:
         sample_messages = [
@@ -832,9 +835,10 @@ def create_a2p_campaign(messaging_service_sid: str,
 
 
 def get_a2p_campaign_status(messaging_service_sid: str,
-                             campaign_sid: str) -> dict:
+                             campaign_sid: str,
+                             sub_account_sid: str = "") -> dict:
     """Check the approval status of an A2P Campaign."""
-    client = get_master_client()
+    client = get_sub_account_client(sub_account_sid) if sub_account_sid else get_master_client()
     try:
         campaign = client.messaging.v1.services(
             messaging_service_sid
@@ -869,14 +873,15 @@ def list_messaging_services(sub_account_sid: str) -> list:
         return []
 
 
-def list_messaging_service_phone_numbers(messaging_service_sid: str) -> list:
+def list_messaging_service_phone_numbers(messaging_service_sid: str,
+                                          sub_account_sid: str = "") -> list:
     """
     List all phone numbers associated with a Messaging Service.
     Returns list of {sid, phone_number} dicts — these are the numbers
     actually registered for A2P via this messaging service.
     The `sid` is the PN... IncomingPhoneNumber SID.
     """
-    client = get_master_client()
+    client = get_sub_account_client(sub_account_sid) if sub_account_sid else get_master_client()
     try:
         numbers = client.messaging.v1.services(
             messaging_service_sid
@@ -897,12 +902,12 @@ def list_messaging_service_phone_numbers(messaging_service_sid: str) -> list:
 # A2P DISCOVERY — Sync existing registrations from Twilio
 # ──────────────────────────────────────────────────────────────
 
-def discover_a2p_brands() -> list:
+def discover_a2p_brands(sub_account_sid: str = "") -> list:
     """
-    Discover all existing A2P Brand Registrations on the master account.
+    Discover all existing A2P Brand Registrations on a sub-account (or master).
     Returns list of {brand_sid, status, brand_score, ...} dicts.
     """
-    client = get_master_client()
+    client = get_sub_account_client(sub_account_sid) if sub_account_sid else get_master_client()
     try:
         brands = client.messaging.v1.brand_registrations.list(limit=100)
         results = []
@@ -924,12 +929,13 @@ def discover_a2p_brands() -> list:
         return []
 
 
-def discover_a2p_campaigns(messaging_service_sid: str) -> list:
+def discover_a2p_campaigns(messaging_service_sid: str,
+                            sub_account_sid: str = "") -> list:
     """
     Discover all existing A2P campaigns on a Messaging Service.
     Returns list of {campaign_sid, campaign_status, description, use_case} dicts.
     """
-    client = get_master_client()
+    client = get_sub_account_client(sub_account_sid) if sub_account_sid else get_master_client()
     try:
         campaigns = client.messaging.v1.services(
             messaging_service_sid
@@ -951,12 +957,12 @@ def discover_a2p_campaigns(messaging_service_sid: str) -> list:
         return []
 
 
-def discover_trust_hub_profiles() -> list:
+def discover_trust_hub_profiles(sub_account_sid: str = "") -> list:
     """
-    Discover all Trust Hub Customer Profiles on the master account.
+    Discover all Trust Hub Customer Profiles on a sub-account (or master).
     Returns list of {profile_sid, status, friendly_name} dicts.
     """
-    client = get_master_client()
+    client = get_sub_account_client(sub_account_sid) if sub_account_sid else get_master_client()
     try:
         profiles = client.trusthub.v1.customer_profiles.list(limit=100)
         results = []
@@ -988,8 +994,8 @@ def discover_full_a2p_status(sub_account_sid: str) -> dict:
         "best_campaign": None,
     }
 
-    # 1. Discover brands on master account
-    brands = discover_a2p_brands()
+    # 1. Discover brands on the sub-account
+    brands = discover_a2p_brands(sub_account_sid)
     result["brands"] = brands
 
     # Find the best brand (prefer APPROVED, then most recent)
@@ -999,29 +1005,13 @@ def discover_full_a2p_status(sub_account_sid: str) -> dict:
     elif brands:
         result["best_brand"] = brands[0]
 
-    # 2. Discover messaging services on the account
-    # Try sub-account first, then master if sub has none
+    # 2. Discover messaging services on the sub-account
     ms_list = list_messaging_services(sub_account_sid) if sub_account_sid else []
-    if not ms_list:
-        # Also check master account for messaging services
-        try:
-            client = get_master_client()
-            services = client.messaging.v1.services.list(limit=50)
-            ms_list = [
-                {
-                    "sid": s.sid,
-                    "friendly_name": s.friendly_name,
-                    "date_created": s.date_created.isoformat() if s.date_created else "",
-                }
-                for s in services
-            ]
-        except Exception as e:
-            logger.debug(f"No messaging services on master: {e}")
     result["messaging_services"] = ms_list
 
     # 3. Discover campaigns on each messaging service
     for ms in ms_list:
-        campaigns = discover_a2p_campaigns(ms["sid"])
+        campaigns = discover_a2p_campaigns(ms["sid"], sub_account_sid)
         for c in campaigns:
             c["messaging_service_sid"] = ms["sid"]
         result["campaigns"].extend(campaigns)

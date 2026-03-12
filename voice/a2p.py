@@ -66,7 +66,7 @@ def a2p_status():
     ms_sid = a2p.get('messaging_service_sid', '')
     if is_registered and ms_sid:
         try:
-            ms_numbers = twilio_provisioning.list_messaging_service_phone_numbers(ms_sid)
+            ms_numbers = twilio_provisioning.list_messaging_service_phone_numbers(ms_sid, sub_sid)
             registered_number_sids = [n['sid'] for n in ms_numbers]
         except Exception as e:
             logger.warning(f"Failed to fetch MS phone numbers (non-fatal): {e}")
@@ -302,7 +302,7 @@ def a2p_brand_status():
         return jsonify({"error": "No brand registered"}), 404
 
     try:
-        result = twilio_provisioning.get_a2p_brand_status(brand_sid)
+        result = twilio_provisioning.get_a2p_brand_status(brand_sid, sub_sid)
 
         # Update stored status if changed
         if result["status"] != a2p.get("brand_status"):
@@ -374,6 +374,7 @@ def a2p_create_campaign():
             message_flow=message_flow or None,
             has_embedded_links=data.get('has_embedded_links', False),
             has_embedded_phone=data.get('has_embedded_phone', False),
+            sub_account_sid=sub_sid,
         )
 
         # Persist
@@ -412,7 +413,7 @@ def a2p_campaign_status():
         return jsonify({"error": "No campaign registered"}), 404
 
     try:
-        result = twilio_provisioning.get_a2p_campaign_status(ms_sid, campaign_sid)
+        result = twilio_provisioning.get_a2p_campaign_status(ms_sid, campaign_sid, sub_sid)
 
         if result["campaign_status"] != a2p.get("campaign_status"):
             a2p["campaign_status"] = result["campaign_status"]

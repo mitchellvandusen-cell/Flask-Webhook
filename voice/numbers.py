@@ -637,10 +637,10 @@ def spam_protection_status():
     protection_active = trust_hub.get('protection_active', False)
     business_name = trust_hub.get('business_name', '')
 
-    # Auto-discover Trust Hub profiles from master if not locally configured
+    # Auto-discover Trust Hub profiles from the sub-account if not locally configured
     if not protection_active and not business_name:
         try:
-            profiles = twilio_provisioning.discover_trust_hub_profiles()
+            profiles = twilio_provisioning.discover_trust_hub_profiles(sub_sid)
             # Find a compliant/approved profile
             approved = [p for p in profiles if p.get('status', '').lower() in ('twilio-approved', 'compliant', 'approved')]
             if approved:
