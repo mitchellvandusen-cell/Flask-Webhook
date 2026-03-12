@@ -296,13 +296,11 @@
                                     <div class="col-md-8">
                                         <label style="color:#aaa;font-size:0.75rem;font-weight:600;display:block;margin-bottom:3px;">Business Name (must match IRS docs)</label>
                                         <input type="text" id="spBizName" placeholder="ACME Insurance LLC"
-                                            value="{{ (voice_config.get('trust_hub') or {}).get('business_name', '') }}"
                                             style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
                                     </div>
                                     <div class="col-md-4">
                                         <label style="color:#aaa;font-size:0.75rem;font-weight:600;display:block;margin-bottom:3px;">EIN (Tax ID)</label>
                                         <input type="text" id="spEIN" placeholder="XX-XXXXXXX"
-                                            value="{{ (voice_config.get('trust_hub') or {}).get('ein', '') }}"
                                             style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
                                     </div>
                                 </div>
@@ -311,22 +309,18 @@
                                 <div class="row g-2 mb-3">
                                     <div class="col-12">
                                         <input type="text" id="spStreet" placeholder="123 Main Street, Suite 100"
-                                            value="{{ (voice_config.get('trust_hub') or {}).get('street', '') }}"
                                             style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
                                     </div>
                                     <div class="col-md-5">
                                         <input type="text" id="spCity" placeholder="City"
-                                            value="{{ (voice_config.get('trust_hub') or {}).get('city', '') }}"
                                             style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
                                     </div>
                                     <div class="col-md-3">
                                         <input type="text" id="spState" placeholder="State" maxlength="2"
-                                            value="{{ (voice_config.get('trust_hub') or {}).get('state', '') }}"
                                             style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;text-transform:uppercase;">
                                     </div>
                                     <div class="col-md-4">
                                         <input type="text" id="spZip" placeholder="ZIP Code"
-                                            value="{{ (voice_config.get('trust_hub') or {}).get('zip', '') }}"
                                             style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
                                     </div>
                                 </div>
@@ -335,17 +329,14 @@
                                 <div class="row g-2 mb-3">
                                     <div class="col-md-4">
                                         <input type="text" id="spContactName" placeholder="Full Name"
-                                            value="{{ (voice_config.get('trust_hub') or {}).get('contact_name', '') }}"
                                             style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
                                     </div>
                                     <div class="col-md-4">
                                         <input type="email" id="spContactEmail" placeholder="Email"
-                                            value="{{ (voice_config.get('trust_hub') or {}).get('contact_email', '') }}"
                                             style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
                                     </div>
                                     <div class="col-md-4">
                                         <input type="tel" id="spContactPhone" placeholder="Phone"
-                                            value="{{ (voice_config.get('trust_hub') or {}).get('contact_phone', '') }}"
                                             style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
                                     </div>
                                 </div>
