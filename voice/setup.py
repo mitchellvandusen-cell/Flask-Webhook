@@ -43,14 +43,11 @@ def automate_voice_setup():
         # If super_admin was incorrectly provisioned with a sub-account, re-provision with master
         if current_user.is_super_admin and existing_sub_sid != TWILIO_ACCOUNT_SID:
             logger.info(f"[activate] Super admin {current_user.email} has sub-account {existing_sub_sid}, re-provisioning with master account")
-            # Clear old voice_config but preserve phone number if any
-            old_phone = vc.get('twilio_phone_number', '')
-            old_number_sid = vc.get('twilio_number_sid', '')
+            # Clear old voice_config entirely — do NOT preserve twilio_number_sid because
+            # it was purchased on the old sub-account (existing_sub_sid) and is invalid on
+            # the master account. provision_master() will find the correct SID via API lookup.
             vc.clear()
             vc['enabled'] = False
-            if old_phone:
-                vc['twilio_phone_number'] = old_phone
-                vc['twilio_number_sid'] = old_number_sid
             _save_voice_config(current_user.email, vc)
             # Fall through to re-provision below
         else:

@@ -734,6 +734,7 @@ def register_spam_protection():
     _save_voice_config(current_user.email, vc)
 
     # Step 2: Register with Twilio Trust Hub + set CNAM on all numbers
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
     results = twilio_provisioning.register_business_profile(
         sub_account_sid=sub_sid,
         business_name=business_name,
@@ -745,6 +746,7 @@ def register_spam_protection():
         contact_name=contact_name,
         contact_email=contact_email or current_user.email,
         contact_phone=contact_phone,
+        sub_account_auth_token=sub_auth_token,
     )
 
     # Step 3: Mark auto-protection enabled
