@@ -16,7 +16,7 @@
                         <i class="fa-solid fa-globe"></i>
                         <span style="font-size:0.7rem;margin-left:2px;font-weight:700;">{{ lang|upper }}</span>
                     </button>
-                    <ul class="dropdown-menu dropdown-menu-end" style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.1);min-width:140px;">
+                    <ul class="dropdown-menu dropdown-menu-end glass-panel" style="min-width:140px;padding:8px;">
                         {% for code, name in SUPPORTED_LANGUAGES.items() %}
                         <li>
                             <a class="dropdown-item{% if code == lang %} active{% endif %}" href="#"
