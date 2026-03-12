@@ -51,9 +51,15 @@
             opacity: 1 !important;
             font-weight: 400;
             letter-spacing: 0.01em;
+            transition: opacity 0.15s;
         }
-        /* Prevent cursor from visually overlapping placeholder text */
-        input:placeholder-shown { caret-color: rgba(255,255,255,0.35); }
+        /* Hide placeholder immediately on focus so it never overlaps typed text */
+        .form-control:focus::placeholder,
+        textarea:focus::placeholder,
+        input:focus::placeholder {
+            opacity: 0 !important;
+            color: transparent !important;
+        }
         input:focus { caret-color: #fff; }
         /* Dark theme for all select dropdowns */
         select option { background: #2a2a35; color: #fff; }

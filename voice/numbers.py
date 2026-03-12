@@ -168,7 +168,16 @@ def _provision_number(sub_sid, vc, phone_number):
             webhook_base_url=webhook_base_url,
             twiml_app_sid=twiml_app_sid,
         )
-        logger.info(f"Purchased number: {result.get('phone')} (SID: {result.get('sid')})")
+        purchased_phone = result.get("phone", phone_number)
+        purchased_sid = result.get("sid", "")
+        logger.info(f"Purchased number: {purchased_phone} (SID: {purchased_sid})")
+
+        # Set as primary number if this is the first number on the account
+        if not vc.get('twilio_phone_number'):
+            vc['twilio_phone_number'] = purchased_phone
+            vc['twilio_number_sid'] = purchased_sid
+            _save_voice_config(current_user.email, vc)
+            logger.info(f"Set {purchased_phone} as primary number for {current_user.email}")
 
         # Invalidate live numbers cache so smart rotation picks up the new number
         from number_health import invalidate_live_numbers_cache
@@ -176,8 +185,8 @@ def _provision_number(sub_sid, vc, phone_number):
 
         return jsonify({
             "status": "purchased",
-            "phone": result.get("phone", phone_number),
-            "sid": result.get("sid", ""),
+            "phone": purchased_phone,
+            "sid": purchased_sid,
         })
 
     except Exception as e:
@@ -739,6 +748,7 @@ def register_spam_protection():
 
     # Step 3: Mark auto-protection enabled
     trust_hub['protection_active'] = True
+    trust_hub['_sub_sid'] = sub_sid  # Tag which sub-account this belongs to
     vc['trust_hub'] = trust_hub
     _save_voice_config(current_user.email, vc)
 
@@ -763,6 +773,21 @@ def spam_protection_status():
         return jsonify({"error": "Voice service not provisioned"}), 400
 
     trust_hub = (vc or {}).get('trust_hub', {})
+
+    # Validate cached trust_hub data belongs to THIS sub-account (not stale master data)
+    cached_for_sid = trust_hub.get('_sub_sid', '')
+    if trust_hub.get('profile_sid') and cached_for_sid and cached_for_sid != sub_sid:
+        logger.info(f"Clearing stale trust_hub data (cached for {cached_for_sid}, current sub={sub_sid})")
+        trust_hub.clear()
+        vc['trust_hub'] = trust_hub
+        _save_voice_config(current_user.email, vc)
+    # Also clear if there's cached data but no _sub_sid tag (legacy data from before tagging)
+    elif trust_hub.get('profile_sid') and not cached_for_sid and not getattr(current_user, 'is_super_admin', False):
+        logger.info(f"Clearing untagged trust_hub data for sub={sub_sid} (likely stale master data)")
+        trust_hub.clear()
+        vc['trust_hub'] = trust_hub
+        _save_voice_config(current_user.email, vc)
+
     protection_active = trust_hub.get('protection_active', False)
     business_name = trust_hub.get('business_name', '')
 
@@ -778,6 +803,7 @@ def spam_protection_status():
                 trust_hub['profile_sid'] = best['profile_sid']
                 trust_hub['business_name'] = best.get('friendly_name', 'Verified Business')
                 trust_hub['registered_at'] = best.get('date_created', '')
+                trust_hub['_sub_sid'] = sub_sid  # Tag which sub-account this belongs to
                 protection_active = True
                 business_name = trust_hub['business_name']
                 # Persist (handles both agency owners and regular subscribers)

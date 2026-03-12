@@ -31,6 +31,20 @@ def a2p_status():
     a2p = (vc or {}).get('a2p', {})
     is_sub_user = bool((subscriber or {}).get('parent_agency_email'))
 
+    # Validate cached A2P data belongs to THIS sub-account (not stale master data)
+    cached_for_sid = a2p.get('_sub_sid', '')
+    if a2p.get('brand_sid') and cached_for_sid and cached_for_sid != sub_sid:
+        logger.info(f"Clearing stale A2P data (cached for {cached_for_sid}, current sub={sub_sid})")
+        a2p.clear()
+        vc['a2p'] = a2p
+        _save_a2p_to_voice_config(subscriber, vc, a2p)
+    # Also clear if there's cached data but no _sub_sid tag (legacy data from before tagging)
+    elif a2p.get('brand_sid') and not cached_for_sid and not getattr(current_user, 'is_super_admin', False):
+        logger.info(f"Clearing untagged A2P data for sub={sub_sid} (likely stale master data)")
+        a2p.clear()
+        vc['a2p'] = a2p
+        _save_a2p_to_voice_config(subscriber, vc, a2p)
+
     # Auto-discover from Twilio if no brand is stored locally
     if not a2p.get('brand_sid'):
         try:
@@ -39,6 +53,7 @@ def a2p_status():
                 brand = discovered['best_brand']
                 a2p['brand_sid'] = brand['brand_sid']
                 a2p['brand_status'] = brand['status']
+                a2p['_sub_sid'] = sub_sid  # Tag which sub-account this belongs to
 
                 if discovered.get('best_campaign'):
                     campaign = discovered['best_campaign']
@@ -136,6 +151,7 @@ def a2p_sync():
             brand = discovered['best_brand']
             a2p['brand_sid'] = brand['brand_sid']
             a2p['brand_status'] = brand['status']
+            a2p['_sub_sid'] = sub_sid
             synced = True
 
         if discovered.get('best_campaign'):
@@ -274,6 +290,7 @@ def a2p_register_brand():
             "business_name": business_name,
             "brand_type": brand_type,
             "registered_at": datetime.utcnow().isoformat(),
+            "_sub_sid": sub_sid,
         })
         vc['a2p'] = a2p
         _save_voice_config(current_user.email, vc)
