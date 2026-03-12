@@ -9,6 +9,23 @@
             {% endif %}
         {% endwith %}
 
+        {# ── Ghost Mode Banner — shown when admin is impersonating a user ── #}
+        {% if session.get('original_admin_email') and session.get('impersonating_as') %}
+        <div style="position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;padding:8px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 2px 12px rgba(124,58,237,0.5);font-size:0.82rem;">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <i class="fa-solid fa-ghost" style="font-size:1rem;opacity:0.9;"></i>
+                <span><strong>GHOST MODE</strong> — You are viewing <strong>{{ session.get('impersonating_as') }}</strong>'s account. All data shown is from their sub-account only. Your master account data is hidden.</span>
+            </div>
+            <form method="POST" action="/admin/revert" style="margin:0;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:#fff;padding:4px 14px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+                    <i class="fa-solid fa-arrow-left me-1"></i> Exit Ghost Mode
+                </button>
+            </form>
+        </div>
+        <div style="height:38px;flex-shrink:0;"></div>
+        {% endif %}
+
         <!-- Persistent Alerts (DB-backed, survive page reloads) -->
         <div id="persistent-alerts-container"></div>
 

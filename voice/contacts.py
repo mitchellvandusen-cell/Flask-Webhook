@@ -30,6 +30,46 @@ contacts_bp = Blueprint('voice_contacts', __name__)
 GHL_API_BASE = "https://services.leadconnectorhq.com"
 GHL_API_VERSION = "2021-07-28"
 
+_HTML_TAG_RE = re.compile(r'<[^>]+>')
+_HTML_MULTI_SPACE_RE = re.compile(r'\s{2,}')
+
+
+def _strip_html(text: str) -> str:
+    """Strip HTML tags and collapse whitespace from note/text bodies."""
+    if not text:
+        return text
+    clean = _HTML_TAG_RE.sub(' ', text)
+    clean = _HTML_MULTI_SPACE_RE.sub(' ', clean)
+    return clean.strip()
+
+
+def _get_current_location_and_token():
+    """Return (location_id, access_token, headers) for the current user, or raise."""
+    conn = get_db_connection()
+    if not conn:
+        return None, None, None
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row or not row['location_id']:
+            return None, None, None
+        location_id = row['location_id']
+    finally:
+        return_db_connection(conn)
+
+    access_token = get_valid_token(location_id)
+    if not access_token:
+        return location_id, None, None
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Version": GHL_API_VERSION,
+        "Content-Type": "application/json",
+    }
+    return location_id, access_token, headers
+
 
 def _get_custom_field_defs(location_id: str, headers: dict) -> dict:
     """
@@ -143,8 +183,9 @@ def get_contact_detail(contact_id):
             "notes": [
                 {
                     "id": n.get("id", ""),
-                    "body": n.get("body", ""),
+                    "body": _strip_html(n.get("body", "")),
                     "dateAdded": n.get("dateAdded", ""),
+                    "userId": n.get("userId", ""),
                 }
                 for n in sorted(notes, key=lambda n: n.get("dateAdded", ""), reverse=True)[:20]
             ],
@@ -703,3 +744,83 @@ def get_pipelines():
     except Exception as e:
         logger.error(f"Failed to fetch pipelines: {e}")
         return jsonify({"pipelines": []})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Note creation — POST /voice/contact/<contact_id>/notes
+# ─────────────────────────────────────────────────────────────────────────────
+
+@contacts_bp.route('/voice/contact/<contact_id>/notes', methods=['POST'])
+@login_required
+def create_contact_note(contact_id):
+    """Create a note on a GHL contact (requires contacts.write scope)."""
+    data = request.get_json(silent=True) or {}
+    body = (data.get("body") or "").strip()
+    if not body:
+        return jsonify({"error": "Note body is required"}), 400
+
+    location_id, access_token, headers = _get_current_location_and_token()
+    if not access_token:
+        return jsonify({"error": "No valid auth token"}), 401
+
+    try:
+        resp = http_requests.post(
+            f"{GHL_API_BASE}/contacts/{contact_id}/notes",
+            headers=headers,
+            json={"body": body, "userId": ""},
+            timeout=10,
+        )
+        if resp.status_code in (200, 201):
+            note = resp.json().get("note", {})
+            return jsonify({
+                "ok": True,
+                "note": {
+                    "id": note.get("id", ""),
+                    "body": _strip_html(note.get("body", body)),
+                    "dateAdded": note.get("dateAdded", ""),
+                }
+            })
+        logger.warning(f"GHL note creation {resp.status_code}: {resp.text[:300]}")
+        return jsonify({"error": f"GHL returned {resp.status_code}"}), resp.status_code
+    except Exception as e:
+        logger.error(f"create_contact_note error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Contact update — PUT /voice/contact/<contact_id>
+# ─────────────────────────────────────────────────────────────────────────────
+
+_ALLOWED_UPDATE_FIELDS = {
+    "firstName", "lastName", "phone", "email",
+    "address1", "city", "state", "postalCode", "country",
+    "companyName", "website", "source", "tags",
+}
+
+@contacts_bp.route('/voice/contact/<contact_id>', methods=['PUT'])
+@login_required
+def update_contact(contact_id):
+    """Update GHL contact fields (requires contacts.write scope)."""
+    data = request.get_json(silent=True) or {}
+    payload = {k: v for k, v in data.items() if k in _ALLOWED_UPDATE_FIELDS}
+    if not payload:
+        return jsonify({"error": "No valid fields to update"}), 400
+
+    location_id, access_token, headers = _get_current_location_and_token()
+    if not access_token:
+        return jsonify({"error": "No valid auth token"}), 401
+
+    try:
+        resp = http_requests.put(
+            f"{GHL_API_BASE}/contacts/{contact_id}",
+            headers=headers,
+            json=payload,
+            timeout=10,
+        )
+        if resp.status_code in (200, 201):
+            return jsonify({"ok": True})
+        logger.warning(f"GHL contact update {resp.status_code}: {resp.text[:300]}")
+        return jsonify({"error": f"GHL returned {resp.status_code}"}), resp.status_code
+    except Exception as e:
+        logger.error(f"update_contact error: {e}")
+        return jsonify({"error": str(e)}), 500
