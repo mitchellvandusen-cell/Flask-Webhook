@@ -2122,8 +2122,8 @@
                 + fld('state', 'State', data.state)
                 + fld('companyName', 'Company', data.companyName)
                 + '<div style="display:flex;gap:6px;margin-top:8px;">'
-                + '<button onclick="_dlrSaveContact('' + contactId + '')" style="flex:1;padding:5px;background:linear-gradient(135deg,var(--accent),#00b36b);border:none;border-radius:5px;color:#000;font-weight:700;font-size:.75rem;cursor:pointer;">Save to GHL</button>'
-                + '<button onclick="document.getElementById('dlrEditContactForm_' + contactId + '').style.display='none';document.getElementById('dlrEditContactToggle_' + contactId + '').style.display=''" style="padding:5px 10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:5px;color:#888;font-size:.75rem;cursor:pointer;">Cancel</button>'
+                + '<button onclick="_dlrSaveContact(\'' + contactId + '\')" style="flex:1;padding:5px;background:linear-gradient(135deg,var(--accent),#00b36b);border:none;border-radius:5px;color:#000;font-weight:700;font-size:.75rem;cursor:pointer;">Save to GHL</button>'
+                + '<button onclick="document.getElementById(\'dlrEditContactForm_' + contactId + '\').style.display=\'none\';document.getElementById(\'dlrEditContactToggle_' + contactId + '\').style.display=\'\'" style="padding:5px 10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:5px;color:#888;font-size:.75rem;cursor:pointer;">Cancel</button>'
                 + '</div>';
             formEl.style.display = 'block';
         }
@@ -4022,7 +4022,7 @@
                     '<div style="color:#555;font-size:.7rem;">' + date + ' · ' + c.progress.total + ' contacts' + (c.progress.completed ? ' · ' + pct + '% done' : '') + '</div>' +
                     '</div>' +
                     done +
-                    (!isActive ? '<button onclick="_campaignResume('' + c.id + '')" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:#ccc;border-radius:4px;font-size:.65rem;font-weight:700;padding:2px 7px;cursor:pointer;">Resume</button>' : '<span style="font-size:.65rem;color:var(--accent);font-weight:700;">Active</span>') +
+                    (!isActive ? '<button onclick="_campaignResume(\'' + c.id + '\')" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:#ccc;border-radius:4px;font-size:.65rem;font-weight:700;padding:2px 7px;cursor:pointer;">Resume</button>' : '<span style="font-size:.65rem;color:var(--accent);font-weight:700;">Active</span>') +
                 '</div>';
             }).join('');
         }
