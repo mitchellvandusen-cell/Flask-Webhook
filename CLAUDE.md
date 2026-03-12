@@ -529,6 +529,68 @@ A2P 10DLC (Application-to-Person 10-Digit Long Code) is the carrier-mandated reg
 
 ---
 
+## Phone Number Management (voice/numbers.py)
+
+### Pricing Model
+- **First 5 numbers FREE** with any subscription (`FREE_NUMBERS_ALLOWANCE = 5`)
+- **Local numbers**: $0.90/mo each (`NUMBER_PRICE_CENTS = 90`)
+- **Toll-free numbers**: $2.15/mo each (`TOLL_FREE_PRICE_CENTS = 215`)
+- Numbers are purchased on the user's Twilio sub-account; Stripe payment reimburses platform costs
+
+### Routes
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/voice/numbers` | GET | List all phone numbers + free remaining count |
+| `/voice/numbers/search` | GET | Search available numbers by area code, state, city, zip, contains |
+| `/voice/numbers/buy` | POST | Buy single number (free if under allowance, 402 if payment required) |
+| `/voice/numbers/checkout` | POST | Create Stripe session for single paid number |
+| `/voice/numbers/complete-purchase` | POST | Verify Stripe payment and provision single number |
+| `/voice/numbers/cart-checkout` | POST | Cart checkout: provision free numbers, create Stripe session for paid batch |
+| `/voice/numbers/complete-cart-purchase` | POST | Verify cart payment and provision all paid numbers from cart |
+| `/voice/numbers/release` | POST | Release (delete) a phone number from sub-account |
+| `/voice/numbers/nickname` | POST | Set friendly nickname for a number |
+| `/voice/numbers/set-primary` | POST | Set a number as primary caller ID |
+| `/voice/number-health` | GET | Number health dashboard data |
+| `/voice/number-health/toggle` | POST | Enable/disable smart number rotation |
+| `/voice/number-health/set-status` | POST | Manually set number status (active/resting/frozen/warmup) |
+| `/voice/licensed-states` | POST | Save agent's licensed states |
+| `/voice/trust-hub` | GET | Trust Hub / carrier registration status |
+| `/voice/trust-hub/save` | POST | Save business profile for Trust Hub |
+| `/voice/spam-protection/register` | POST | One-click spam protection (CNAM + Trust Hub) |
+| `/voice/spam-protection/status` | GET | Spam protection status |
+
+### Cart System
+- Frontend cart stored in `localStorage` (`numCart` key), persists across page reloads
+- Cart button with count badge appears in Numbers tab header when items are in cart
+- Cart overlay shows pricing breakdown: free numbers labeled, paid numbers with per-unit price
+- `POST /voice/numbers/cart-checkout` splits items into free (provisioned immediately) and paid (Stripe session)
+- After Stripe redirect, `POST /voice/numbers/complete-cart-purchase` verifies payment and provisions remaining numbers
+- Stripe metadata: `purchase_type: "phone_number_cart"`, `phone_numbers` (comma-separated), `total_cents`
+
+---
+
+## Dashboard Theme System
+
+### Light/Dark Toggle
+- **Toggle button**: Sun/Moon icon in topbar (`#themeToggleBtn`)
+- **JavaScript**: `toggleTheme()` in `sidebar.js`, persisted via `localStorage` key `dash_theme`
+- **CSS class**: `body.light-theme` activates all light mode overrides
+- **CSS variables**: Light theme defines `--lt-*` variables (bg, surface, border, text, accent, input colors)
+
+### Coverage
+The light theme has comprehensive overrides for:
+- Sidebar, topbar, glass panels, form inputs, dropdowns
+- Dialer columns, contact rows, message bubbles, date separators
+- iPhone/iOS UI (nav bar, thread scroll, composer, tab bar, call log, voicemail)
+- Billing plan cards, pricing cards, metallic price text
+- Discord panel, Slack panel, modals, tooltips, toasts
+- Smart Filters, AI intelligence panels, workflow tabs
+- Scrollbars, carrier chips, CRM buttons, advanced settings toggles
+- All inline dark backgrounds/text colors overridden via attribute selectors
+
+---
+
 ## GHL Conversation Provider Sync (ghl_logger.py)
 
 GHL stays the source-of-truth CRM. When messages are sent or calls are made through IGB (via Twilio), they are logged back to GHL's conversation threads using the GHL Conversation Provider API.

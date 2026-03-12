@@ -296,6 +296,173 @@ def complete_number_purchase():
     return _provision_number(sub_sid, vc, phone_number)
 
 
+@numbers_bp.route('/voice/numbers/cart-checkout', methods=['POST'])
+@login_required
+def cart_checkout():
+    """
+    Handle cart checkout: provision free numbers directly, create Stripe session for paid ones.
+    Body: { items: [{phone_number, number_type}, ...] }
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    data = request.json or {}
+    items = data.get('items', [])
+    if not items:
+        return jsonify({"error": "Cart is empty"}), 400
+    if len(items) > 20:
+        return jsonify({"error": "Maximum 20 numbers per checkout"}), 400
+
+    current_count = _count_current_numbers(sub_sid)
+    free_remaining = max(0, FREE_NUMBERS_ALLOWANCE - current_count)
+
+    # Split items into free and paid
+    free_items = items[:free_remaining]
+    paid_items = items[free_remaining:]
+
+    # Provision free numbers immediately
+    provisioned = 0
+    errors = []
+    for item in free_items:
+        phone = item.get('phone_number', '')
+        if not phone:
+            continue
+        try:
+            resp = _provision_number(sub_sid, vc, phone)
+            resp_data = resp.get_json() if hasattr(resp, 'get_json') else {}
+            if isinstance(resp, tuple):
+                resp_data = resp[0].get_json() if hasattr(resp[0], 'get_json') else {}
+                if resp[1] != 200:
+                    errors.append(f"{phone}: {resp_data.get('error', 'Failed')}")
+                    continue
+            provisioned += 1
+            # Refresh vc after each provision in case primary was set
+            _, vc, _ = _get_current_subscriber_voice()
+        except Exception as e:
+            errors.append(f"{phone}: {str(e)}")
+
+    if not paid_items:
+        return jsonify({
+            "all_free": True,
+            "provisioned": provisioned,
+            "errors": errors,
+        })
+
+    # Calculate total for paid items
+    total_cents = 0
+    line_items = []
+    phone_list = []
+    for item in paid_items:
+        phone = item.get('phone_number', '')
+        ntype = item.get('number_type', 'local')
+        price_cents = TOLL_FREE_PRICE_CENTS if ntype == 'toll_free' else NUMBER_PRICE_CENTS
+        total_cents += price_cents
+        phone_list.append(phone)
+        line_items.append({
+            "price_data": {
+                "currency": "usd",
+                "unit_amount": price_cents,
+                "product_data": {
+                    "name": f"Phone Number — {phone}",
+                    "description": f"{'Toll-free' if ntype == 'toll_free' else 'Local'} number (${price_cents/100:.2f}/mo)",
+                },
+            },
+            "quantity": 1,
+        })
+
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=["card"],
+            mode="payment",
+            customer_email=current_user.email,
+            line_items=line_items,
+            metadata={
+                "purchase_type": "phone_number_cart",
+                "user_email": current_user.email,
+                "phone_numbers": ",".join(phone_list),
+                "item_count": str(len(paid_items)),
+                "total_cents": str(total_cents),
+            },
+            success_url=f"{YOUR_DOMAIN}/dashboard?cart_purchased=1",
+            cancel_url=f"{YOUR_DOMAIN}/dashboard?cart_cancel=1",
+        )
+        return jsonify({
+            "all_free": False,
+            "checkout_url": checkout_session.url,
+            "free_provisioned": provisioned,
+            "paid_count": len(paid_items),
+            "total_cents": total_cents,
+        })
+    except Exception as e:
+        logger.error(f"Cart checkout error: {e}")
+        return jsonify({"error": "Unable to create checkout session."}), 500
+
+
+@numbers_bp.route('/voice/numbers/complete-cart-purchase', methods=['POST'])
+@login_required
+def complete_cart_purchase():
+    """
+    Called after Stripe redirect to provision all paid numbers from cart.
+    Verifies Stripe payment before provisioning.
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    data = request.json or {}
+    items = data.get('items', [])
+    if not items:
+        return jsonify({"error": "No items to provision"}), 400
+
+    # Verify a cart payment exists in Stripe
+    try:
+        sessions = stripe.checkout.Session.list(
+            customer_email=current_user.email,
+            limit=10,
+        )
+        verified = False
+        for sess in sessions.data:
+            meta = sess.metadata or {}
+            if (sess.payment_status == 'paid' and
+                    meta.get('purchase_type') == 'phone_number_cart' and
+                    meta.get('user_email') == current_user.email):
+                verified = True
+                break
+
+        if not verified:
+            return jsonify({"error": "No verified cart payment found."}), 403
+    except Exception as e:
+        logger.warning(f"Cart payment verification failed: {e}")
+        return jsonify({"error": "Payment verification temporarily unavailable."}), 503
+
+    # Provision all numbers
+    provisioned = 0
+    errors = []
+    for item in items:
+        phone = item.get('phone_number', '')
+        if not phone:
+            continue
+        try:
+            resp = _provision_number(sub_sid, vc, phone)
+            resp_data = resp.get_json() if hasattr(resp, 'get_json') else {}
+            if isinstance(resp, tuple):
+                resp_data = resp[0].get_json() if hasattr(resp[0], 'get_json') else {}
+                if resp[1] != 200:
+                    errors.append(f"{phone}: {resp_data.get('error', 'Failed')}")
+                    continue
+            provisioned += 1
+            _, vc, _ = _get_current_subscriber_voice()
+        except Exception as e:
+            errors.append(f"{phone}: {str(e)}")
+
+    logger.info(f"Cart purchase complete: {provisioned} provisioned, {len(errors)} errors for {current_user.email}")
+    return jsonify({
+        "provisioned": provisioned,
+        "errors": errors,
+    })
+
+
 @numbers_bp.route('/voice/numbers/release', methods=['POST'])
 @login_required
 def release_voice_number():

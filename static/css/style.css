@@ -402,7 +402,7 @@ footer a:hover { color: var(--accent); }
     cursor: pointer;
     transition: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     box-shadow: var(--glass-shadow);
 }
 .billing-plan-card::after {
@@ -414,6 +414,8 @@ footer a:hover { color: var(--accent); }
     transform: skewX(-20deg);
     pointer-events: none;
     transition: 0.5s;
+    border-radius: 18px;
+    clip-path: inset(0 round 18px);
 }
 .billing-plan-card:hover {
     transform: translateY(-6px) scale(1.02);
@@ -506,7 +508,7 @@ footer a:hover { color: var(--accent); }
     border-radius: 20px;
     padding: 36px 28px;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
     box-shadow: var(--glass-shadow);
 }
@@ -519,6 +521,8 @@ footer a:hover { color: var(--accent); }
     transform: skewX(-20deg);
     pointer-events: none;
     transition: 0.5s;
+    border-radius: 20px;
+    clip-path: inset(0 round 20px);
 }
 .price-card:hover, .ind-price-card:hover {
     transform: translateY(-8px) scale(1.02);
@@ -1480,6 +1484,19 @@ body.light-theme .skel {
     background-size: 600px 100%;
 }
 
+/* ── Hide magnifying glass icon when search input is focused ── */
+div:has(> input:focus) > .fa-magnifying-glass,
+div:has(> input:focus) > i.fa-magnifying-glass,
+.search-wrap:focus-within > .fa-magnifying-glass,
+.search-wrap:focus-within > i.fa-magnifying-glass {
+    opacity: 0 !important;
+    transition: opacity 0.15s ease;
+}
+/* Ensure the icon has a transition for smooth hide/show */
+.fa-magnifying-glass {
+    transition: opacity 0.15s ease;
+}
+
 /* ── Theme toggle button ── */
 .theme-toggle-btn {
     background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
@@ -1677,6 +1694,296 @@ body.light-theme [style*="background: rgba(20,20,20"] {
     background: var(--lt-surface) !important;
     border-color: var(--lt-border) !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   LIGHT THEME — Comprehensive Coverage (scrollbars, iOS UI, dropdowns,
+   billing cards, search inputs, modals, iPhone apps)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Global scrollbars ── */
+body.light-theme ::-webkit-scrollbar { width: 6px; height: 6px; }
+body.light-theme ::-webkit-scrollbar-track { background: transparent; }
+body.light-theme ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 4px; }
+body.light-theme ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
+body.light-theme { scrollbar-color: rgba(0,0,0,0.15) transparent; }
+
+/* ── Dialer field labels/values ── */
+body.light-theme .dlr-field-label { color: var(--lt-text-muted) !important; }
+body.light-theme .dlr-field-value { color: var(--lt-text-primary) !important; }
+body.light-theme .dlr-type-badge { color: var(--lt-text-muted) !important; }
+body.light-theme .dlr-status-icon.pending { color: var(--lt-text-muted) !important; }
+body.light-theme .dlr-bar-label { color: var(--lt-text-secondary) !important; }
+body.light-theme .dlr-bar-count { color: var(--lt-text-primary) !important; }
+body.light-theme .igb-score-sub { color: var(--lt-text-muted) !important; }
+body.light-theme .igb-filter-hdr .igb-filter-brand { color: var(--lt-text-faint) !important; }
+
+/* ── iPhone / iOS UI elements (dialer apps) ── */
+body.light-theme .ios-nav-bar {
+    background: rgba(255,255,255,0.94) !important;
+    border-bottom-color: var(--lt-border) !important;
+}
+body.light-theme .ios-nav-title { color: var(--lt-text-primary) !important; }
+body.light-theme .ios-nav-subtitle { color: var(--lt-text-muted) !important; }
+body.light-theme .ios-thread-scroll { background: var(--lt-bg) !important; }
+body.light-theme .ios-empty-title { color: var(--lt-text-primary) !important; }
+body.light-theme .ios-empty-sub { color: var(--lt-text-muted) !important; }
+body.light-theme .ios-qr-chip {
+    color: var(--lt-text-secondary) !important;
+    background: rgba(0,0,0,0.04) !important;
+    border-color: var(--lt-border) !important;
+}
+body.light-theme .ios-qr-chip:hover { background: rgba(0,0,0,0.08) !important; }
+body.light-theme .ios-channel-label,
+body.light-theme .ios-channel-note { color: var(--lt-text-muted) !important; }
+body.light-theme .ios-channel-select {
+    color: var(--lt-text-secondary) !important;
+    background: var(--lt-input-bg) !important;
+    border-color: var(--lt-input-border) !important;
+}
+body.light-theme .ios-toolbar-btn { color: var(--lt-text-muted) !important; }
+body.light-theme .ios-toolbar-btn:hover { color: var(--lt-accent) !important; }
+body.light-theme .ios-composer {
+    background: rgba(255,255,255,0.9) !important;
+    border-top-color: var(--lt-border) !important;
+}
+body.light-theme .ios-composer input,
+body.light-theme .ios-composer textarea {
+    background: var(--lt-input-bg) !important;
+    color: var(--lt-text-primary) !important;
+    border-color: var(--lt-input-border) !important;
+}
+body.light-theme .ios-msg-row .ios-bubble-text { color: var(--lt-text-primary) !important; }
+body.light-theme .ios-bubble.received {
+    background: #e9e9eb !important;
+    color: #1a1a2e !important;
+}
+body.light-theme .ios-time-label { color: var(--lt-text-muted) !important; }
+body.light-theme .ios-tab-bar {
+    background: rgba(255,255,255,0.9) !important;
+    border-top-color: var(--lt-border) !important;
+}
+body.light-theme .ios-tab-btn { color: var(--lt-text-muted) !important; }
+body.light-theme .ios-tab-btn.active { color: #007AFF !important; }
+
+/* ── iPhone frame in light mode ── */
+body.light-theme .iphone-frame,
+body.light-theme [class*="iphone"] {
+    border-color: var(--lt-border-strong) !important;
+}
+body.light-theme .ios-status-bar {
+    background: rgba(255,255,255,0.9) !important;
+    color: var(--lt-text-primary) !important;
+}
+body.light-theme .ios-home-grid { background: var(--lt-bg) !important; }
+body.light-theme .ios-app-label { color: var(--lt-text-secondary) !important; }
+
+/* ── iPhone call log / voicemail ── */
+body.light-theme .ios-call-row,
+body.light-theme .ios-vm-row {
+    border-bottom-color: var(--lt-border) !important;
+}
+body.light-theme .ios-call-name,
+body.light-theme .ios-vm-name { color: var(--lt-text-primary) !important; }
+body.light-theme .ios-call-detail,
+body.light-theme .ios-vm-detail { color: var(--lt-text-muted) !important; }
+body.light-theme .ios-call-time,
+body.light-theme .ios-vm-time { color: var(--lt-text-faint) !important; }
+body.light-theme .ios-call-log-scroll,
+body.light-theme .ios-voicemail-scroll { background: var(--lt-bg) !important; }
+
+/* ── Inbox app (inside dialer iPhone) ── */
+body.light-theme #inboxConversationList,
+body.light-theme #inboxThreadMessages { background: var(--lt-bg) !important; }
+body.light-theme .inbox-conv-row {
+    border-bottom-color: var(--lt-border) !important;
+}
+body.light-theme .inbox-conv-row:hover { background: rgba(0,0,0,0.02) !important; }
+body.light-theme .inbox-conv-name { color: var(--lt-text-primary) !important; }
+body.light-theme .inbox-conv-preview { color: var(--lt-text-muted) !important; }
+body.light-theme .inbox-conv-time { color: var(--lt-text-faint) !important; }
+
+/* ── Billing plan cards in light mode ── */
+body.light-theme .billing-plan-card {
+    background: var(--lt-surface) !important;
+    border-color: var(--lt-border) !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06) !important;
+}
+body.light-theme .billing-plan-card:hover {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1) !important;
+}
+body.light-theme .billing-plan-card.selected {
+    border-color: var(--lt-accent) !important;
+    box-shadow: 0 0 20px rgba(5,150,105,0.12), 0 4px 16px rgba(0,0,0,0.06) !important;
+}
+body.light-theme .billing-plan-card .carved-features li {
+    color: var(--lt-text-secondary) !important;
+}
+
+/* ── Pricing page cards in light mode ── */
+body.light-theme .price-card,
+body.light-theme .ind-price-card {
+    background: var(--lt-surface) !important;
+    border-color: var(--lt-border) !important;
+}
+
+/* ── Sidebar profile section ── */
+body.light-theme .sb-footer input[type="text"] {
+    background: rgba(0,0,0,0.03) !important;
+    border-color: var(--lt-border) !important;
+    color: var(--lt-text-primary) !important;
+}
+
+/* ── Modals and popups ── */
+body.light-theme .popup-card {
+    background: var(--lt-surface) !important;
+    border-color: var(--lt-border) !important;
+}
+body.light-theme .modal-content {
+    background: var(--lt-surface) !important;
+    border-color: var(--lt-border) !important;
+    color: var(--lt-text-primary) !important;
+}
+
+/* ── Call panel ── */
+body.light-theme #callPanelOverlay {
+    background: rgba(255,255,255,0.95) !important;
+}
+body.light-theme .call-panel-card {
+    background: var(--lt-surface) !important;
+    border-color: var(--lt-border) !important;
+}
+
+/* ── Toast notifications ── */
+body.light-theme .dash-toast {
+    background: var(--lt-surface) !important;
+    border-color: var(--lt-border) !important;
+    color: var(--lt-text-primary) !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
+}
+
+/* ── Training tab ── */
+body.light-theme .training-card {
+    background: var(--lt-surface) !important;
+    border-color: var(--lt-border) !important;
+}
+
+/* ── Context menus / right-click menus ── */
+body.light-theme [role="menu"],
+body.light-theme .context-menu {
+    background: var(--lt-surface) !important;
+    border-color: var(--lt-border) !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
+}
+
+/* ── Confirm dialogs / alerts ── */
+body.light-theme .swal2-popup {
+    background: var(--lt-surface) !important;
+    color: var(--lt-text-primary) !important;
+}
+
+/* ── Number management (voice numbers tab) ── */
+body.light-theme .number-row {
+    border-bottom-color: var(--lt-border) !important;
+}
+body.light-theme .number-row:hover { background: rgba(0,0,0,0.02) !important; }
+
+/* ── AI Minutes cards ── */
+body.light-theme .ai-pkg-card {
+    background: var(--lt-surface) !important;
+    border-color: var(--lt-border) !important;
+}
+body.light-theme .ai-pkg-card:hover {
+    border-color: var(--lt-accent-border) !important;
+}
+
+/* ── Settings panels (dialer stats, dialer settings) ── */
+body.light-theme #dialerSettingsPanel input[type="range"] {
+    accent-color: var(--lt-accent);
+}
+
+/* ── Dark inline rgba backgrounds missed by earlier rules ── */
+body.light-theme [style*="background:rgba(255,255,255,0.02"],
+body.light-theme [style*="background: rgba(255,255,255,0.02"],
+body.light-theme [style*="background:rgba(255,255,255,0.03"],
+body.light-theme [style*="background: rgba(255,255,255,0.03"],
+body.light-theme [style*="background:rgba(255,255,255,0.05"],
+body.light-theme [style*="background: rgba(255,255,255,0.05"] {
+    background: rgba(0,0,0,0.02) !important;
+}
+
+/* ── Metallic price text readable in light mode ── */
+body.light-theme .metallic-price--green {
+    background: linear-gradient(135deg, #059669 0%, #34d399 30%, #059669 50%, #047857 75%, #059669 100%) !important;
+    background-size: 200% 200% !important;
+    background-clip: text !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+}
+body.light-theme .metallic-price--orange {
+    background: linear-gradient(135deg, #ea580c 0%, #f97316 30%, #ea580c 50%, #c2410c 75%, #ea580c 100%) !important;
+    background-size: 200% 200% !important;
+    background-clip: text !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+}
+body.light-theme .metallic-price--purple {
+    background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 30%, #7c3aed 50%, #6d28d9 75%, #7c3aed 100%) !important;
+    background-size: 200% 200% !important;
+    background-clip: text !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+}
+
+/* ── Accent-colored text: keep readable in light ── */
+body.light-theme [style*="color:#00ff88"],
+body.light-theme [style*="color: #00ff88"],
+body.light-theme [style*="color:var(--accent)"] {
+    color: #059669 !important;
+}
+body.light-theme [style*="color:#00d9ff"],
+body.light-theme [style*="color: #00d9ff"] {
+    color: #0284c7 !important;
+}
+
+/* ── Carved features checkmarks: keep colorful ── */
+body.light-theme .carved-features li i[style*="color:var(--accent)"],
+body.light-theme .carved-features li i[style*="color: var(--accent)"] {
+    color: #059669 !important;
+}
+
+/* ── Tooltip / popover overrides ── */
+body.light-theme .tooltip-inner {
+    background: var(--lt-text-primary) !important;
+    color: var(--lt-surface) !important;
+}
+
+/* ── Tab pane link colors ── */
+body.light-theme .tab-pane a:not([class]):not([style*="color"]) {
+    color: var(--lt-accent) !important;
+}
+
+/* ── Dialer multi-line status badges ── */
+body.light-theme .dlr-multi-badge {
+    background: var(--lt-surface-hover) !important;
+    border-color: var(--lt-border) !important;
+    color: var(--lt-text-secondary) !important;
+}
+
+/* ── Smart Filter group headers — keep category colors ── */
+body.light-theme .igb-filter-hdr[data-group="should_respond"] { background: rgba(239,68,68,0.06) !important; }
+body.light-theme .igb-filter-hdr[data-group="hot"] { background: rgba(34,197,94,0.06) !important; }
+body.light-theme .igb-filter-hdr[data-group="warm"] { background: rgba(249,115,22,0.06) !important; }
+body.light-theme .igb-filter-hdr[data-group="cool"] { background: rgba(59,130,246,0.06) !important; }
+body.light-theme .igb-filter-hdr[data-group="cold"] { background: rgba(156,163,175,0.06) !important; }
+
+/* ── Number cart badge (floating) ── */
+body.light-theme .num-cart-badge {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12) !important;
+}
+
+/* ── Agency dashboard light theme extras ── */
+body.light-theme .ag-status-badge { color: var(--lt-text-muted) !important; }
+body.light-theme .ag-metric { color: var(--lt-text-secondary) !important; }
 
 /* =========================================
    8. CHAT WIDGET (Global)

@@ -8,7 +8,7 @@
 
                     {% if current_user.stripe_customer_id %}
                     <!-- Plan Selector -->
-                    <div id="billingPlanCards" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:16px; max-width:960px; margin:0 auto 24px;">
+                    <div id="billingPlanCards" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:16px; max-width:960px; margin:0 auto 24px; padding-top:16px;">
                         <!-- Power Dialer (Individual) -->
                         <div id="billingPlanIndividual" class="billing-plan-card" onclick="billingSelectPlan('individual')">
                             <div style="font-weight:800; font-size:1rem; color:#fff; margin-bottom:4px;">Power Dialer</div>

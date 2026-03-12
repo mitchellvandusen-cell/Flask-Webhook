@@ -8,6 +8,7 @@
 
 | Date | Milestone |
 |------|-----------|
+| 2026-03-12 | Pricing badge fix, comprehensive light/dark theme, magnifying glass UX fix, phone number cart with Stripe checkout |
 | 2026-03-11 | Deep dialer audit: wired dead-code TCPA tracker, agent state auto-transitions, auto-callbacks, safe input parsing |
 | 2026-03-11 | Predictive Dialer tier ($349.98/mo): Erlang-C pacing, TCPA compliance, timezone enforcement, agent state machine, callback queue, recording consent |
 | 2026-03-11 | Multi-line dialer (up to 4 lines), predictive dialer, Pro Dialer tier ($224.99/mo), plan switching |
@@ -36,6 +37,40 @@
 | 2026-03-01 | Pricing update: $149.99/month across all pages, bot, and documentation |
 | 2026-03-10 | Hamburger menu fix, login crash fix, Remember Me (30-day), mobile dashboard redesign, agency dashboard revamp |
 | 2026-03-10 | Full QA audit: 6 critical bug fixes, 7 security fixes, 5 reliability fixes across 16 files |
+
+---
+
+## 2026-03-12 (Pricing, Themes, Phone Number Cart)
+
+### UI Fixes
+- **Pricing badge cutoff fixed**: Badges ("Starter", "Power User", "CURRENT", "UPGRADE", "ENTERPRISE") were clipped on pricing cards. Changed `overflow: hidden` to `overflow: visible` on `.billing-plan-card`, `.price-card`, and `.ind-price-card`. Added `clip-path` to shimmer pseudo-elements so they stay contained within card borders. Added `padding-top: 16px` to pricing grids so badges have visual room.
+- **Magnifying glass icon hides on focus**: Search input magnifying glass icons now fade out when the input is focused using CSS `:has()` and `focus-within` selectors. Applies to dialer search, inbox search, call panel search, and all other search inputs.
+
+### Light/Dark Theme
+- **Comprehensive light theme coverage**: Extended `body.light-theme` CSS with 200+ new selectors covering:
+  - Global scrollbar styling (width, thumb, track colors)
+  - iPhone/iOS UI elements (nav bar, thread scroll, composer, tab bar, status bar, home grid, app labels, call log, voicemail)
+  - Billing plan cards (surface bg, borders, shadows, selected state)
+  - Metallic price text (green/orange/purple gradients adapted for light backgrounds)
+  - Accent color overrides (`#00ff88` → `#059669`, `#00d9ff` → `#0284c7`)
+  - Dialer field labels/values, type badges, bar labels, score sublabels
+  - Inbox app (conversation list, thread messages, row hovers)
+  - Modals, popups, call panel, toast notifications
+  - Training cards, AI minutes cards, number management rows
+  - Smart Filter group headers (category-colored backgrounds)
+  - Context menus, tooltips, SweetAlert dialogs
+  - Transparent dark rgba backgrounds converted to subtle light equivalents
+
+### Phone Number Cart System
+- **Add to Cart button**: Search results now show a cart icon button alongside the Buy button. Numbers already in cart show a green "In Cart" badge.
+- **Cart button in header**: A shopping cart button with red count badge appears in the Numbers tab header when items are in the cart.
+- **Cart overlay**: Expandable cart panel shows all numbers with pricing breakdown. First 5 numbers are labeled FREE (based on `free_remaining` from API), subsequent numbers show per-number pricing ($0.90 local, $2.15 toll-free).
+- **Cart persistence**: Cart stored in `localStorage` — survives page reloads and navigation.
+- **Checkout flow**: Cart checkout splits items into free (provisioned immediately) and paid (routed through Stripe). Free numbers are provisioned server-side before creating the Stripe session.
+- **Stripe batch checkout**: `POST /voice/numbers/cart-checkout` creates a Stripe Checkout session with one line item per paid number. Metadata includes `purchase_type: "phone_number_cart"`, comma-separated phone numbers, and total cents.
+- **Post-payment provisioning**: After Stripe redirect, `POST /voice/numbers/complete-cart-purchase` verifies Stripe payment and provisions all paid numbers. Results shown via toast notification.
+- **Pricing model**: First 5 numbers included free with subscription. After that, $0.90/mo per local number, $2.15/mo per toll-free number. This offsets Twilio costs charged to the master account — users pay Stripe, which reimburses the platform.
+- **Backend routes added**: `POST /voice/numbers/cart-checkout`, `POST /voice/numbers/complete-cart-purchase`
 
 ---
 
