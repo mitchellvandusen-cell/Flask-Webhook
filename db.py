@@ -1876,6 +1876,101 @@ class User(UserMixin):
                 return_db_connection(conn)
 
 
+# --- Sub-account isolation cleanup ---
+
+def clean_subaccount_contamination() -> dict:
+    """
+    One-shot cleanup: clear trust_hub protection fields and A2P SID fields
+    from ALL sub-account voice_configs that lack a _sub_sid ownership tag.
+
+    This fixes contamination from the old auto-discovery that copied the master
+    account's Trust Hub / A2P data into sub-account records.  Safe to call at
+    every startup — it's a no-op once data is already clean.
+    """
+    import json as _json
+    master_sid = os.getenv("TWILIO_ACCOUNT_SID", "")
+    if not master_sid:
+        return {"skipped": True, "reason": "TWILIO_ACCOUNT_SID not set"}
+
+    conn = get_db_connection()
+    if not conn:
+        return {"skipped": True, "reason": "No DB connection"}
+
+    cleaned = 0
+    checked = 0
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT email, voice_config
+            FROM subscribers
+            WHERE voice_config IS NOT NULL
+              AND voice_config->>'twilio_sub_account_sid' IS NOT NULL
+              AND voice_config->>'twilio_sub_account_sid' != %s
+        """, (master_sid,))
+        rows = cur.fetchall()
+        cur.close()
+
+        for row in rows:
+            checked += 1
+            email = row['email']
+            vc = row['voice_config'] or {}
+            if not isinstance(vc, dict):
+                try:
+                    vc = _json.loads(vc)
+                except Exception:
+                    continue
+
+            sub_sid = vc.get('twilio_sub_account_sid', '')
+            changed = False
+
+            trust_hub = vc.get('trust_hub', {})
+            if isinstance(trust_hub, dict):
+                th_sub = trust_hub.get('_sub_sid', '')
+                if any(trust_hub.get(k) for k in ('protection_active', 'profile_sid', 'business_name')) \
+                        and th_sub != sub_sid:
+                    for k in ('protection_active', 'profile_sid', 'business_name', 'registered_at', '_sub_sid'):
+                        trust_hub.pop(k, None)
+                    vc['trust_hub'] = trust_hub
+                    changed = True
+
+            a2p = vc.get('a2p', {})
+            if isinstance(a2p, dict):
+                a2p_sub = a2p.get('_sub_sid', '')
+                if any(a2p.get(k) for k in ('brand_sid', 'campaign_sid', 'messaging_service_sid')) \
+                        and a2p_sub != sub_sid:
+                    for k in ('brand_sid', 'brand_status', 'campaign_sid', 'campaign_status',
+                              'messaging_service_sid', 'use_case', 'registered', '_sub_sid'):
+                        a2p.pop(k, None)
+                    vc['a2p'] = a2p
+                    changed = True
+
+            if changed:
+                try:
+                    upd = conn.cursor()
+                    upd.execute(
+                        "UPDATE subscribers SET voice_config = %s WHERE email = %s",
+                        (_json.dumps(vc), email)
+                    )
+                    upd.close()
+                    conn.commit()
+                    cleaned += 1
+                    logger.info(f"[startup-cleanup] Cleared contaminated voice_config for {email}")
+                except Exception as exc:
+                    logger.error(f"[startup-cleanup] Failed to clean {email}: {exc}")
+                    try: conn.rollback()
+                    except Exception: pass
+
+        result = {"checked": checked, "cleaned": cleaned}
+        if cleaned:
+            logger.warning(f"[startup-cleanup] Fixed {cleaned}/{checked} contaminated sub-account voice_configs")
+        return result
+    except Exception as e:
+        logger.error(f"[startup-cleanup] Contamination cleanup failed: {e}")
+        return {"error": str(e)}
+    finally:
+        return_db_connection(conn)
+
+
 # --- Helper Functions ---
 
 def get_subscriber_info_sql(location_id: str) -> Optional[Dict[str, Any]]:

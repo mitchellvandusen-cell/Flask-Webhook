@@ -774,70 +774,53 @@ def spam_protection_status():
 
     trust_hub = (vc or {}).get('trust_hub', {})
 
-    # Validate cached trust_hub data belongs to THIS sub-account (not stale master data)
-    cached_for_sid = trust_hub.get('_sub_sid', '')
-    if trust_hub.get('profile_sid') and cached_for_sid and cached_for_sid != sub_sid:
-        logger.info(f"Clearing stale trust_hub data (cached for {cached_for_sid}, current sub={sub_sid})")
-        trust_hub.clear()
-        vc['trust_hub'] = trust_hub
-        _save_voice_config(current_user.email, vc)
-    # Also clear if there's cached data but no _sub_sid tag (legacy data from before tagging)
-    elif trust_hub.get('profile_sid') and not cached_for_sid and not getattr(current_user, 'is_super_admin', False):
-        logger.info(f"Clearing untagged trust_hub data for sub={sub_sid} (likely stale master data)")
-        trust_hub.clear()
-        vc['trust_hub'] = trust_hub
-        _save_voice_config(current_user.email, vc)
-
-    protection_active = trust_hub.get('protection_active', False)
-    business_name = trust_hub.get('business_name', '')
-
-    # Auto-discover Trust Hub profiles from the sub-account if not locally configured
-    if not protection_active and not business_name:
-        try:
-            profiles = twilio_provisioning.discover_trust_hub_profiles(sub_sid)
-            # Find a compliant/approved profile
-            approved = [p for p in profiles if p.get('status', '').lower() in ('twilio-approved', 'compliant', 'approved')]
-            if approved:
-                best = approved[0]
-                trust_hub['protection_active'] = True
-                trust_hub['profile_sid'] = best['profile_sid']
-                trust_hub['business_name'] = best.get('friendly_name', 'Verified Business')
-                trust_hub['registered_at'] = best.get('date_created', '')
-                trust_hub['_sub_sid'] = sub_sid  # Tag which sub-account this belongs to
-                protection_active = True
-                business_name = trust_hub['business_name']
-                # Persist (handles both agency owners and regular subscribers)
-                import json as _json
-                conn = None
-                try:
-                    conn = get_db_connection()
-                    if conn:
-                        cur = conn.cursor()
-                        vc_save = vc or {}
-                        vc_save['trust_hub'] = trust_hub
-                        email = (subscriber or {}).get('email', '')
-                        is_agency = getattr(current_user, 'role', '') == 'agency_owner'
-                        if is_agency:
-                            cur.execute(
-                                "UPDATE agency_billing SET voice_config = %s::jsonb, updated_at = NOW() WHERE agency_email = %s",
-                                (_json.dumps(vc_save), email)
-                            )
-                        else:
-                            cur.execute(
-                                "UPDATE subscribers SET voice_config = %s::jsonb, updated_at = NOW() WHERE email = %s",
-                                (_json.dumps(vc_save), email)
-                            )
-                        conn.commit()
-                        cur.close()
-                except Exception:
-                    if conn:
-                        try: conn.rollback()
-                        except Exception: pass
-                finally:
-                    if conn: return_db_connection(conn)
-                logger.info(f"Auto-discovered Trust Hub profile: {best['profile_sid']}")
-        except Exception as e:
-            logger.debug(f"Trust Hub auto-discovery failed (non-fatal): {e}")
+    # ALWAYS live-query Twilio sub-account for Trust Hub profiles.
+    # This is the ONLY safe way to prevent master account data from appearing in
+    # sub-account UI — cached business_name may be stale master data from
+    # old auto-discovery, and the previous _sub_sid tag approach failed because
+    # impersonation keeps is_super_admin=True and because Trust Hub API may
+    # return parent-account profiles to sub-account clients.
+    protection_active = False
+    business_name = ''
+    try:
+        profiles = twilio_provisioning.discover_trust_hub_profiles(sub_sid)
+        approved = [p for p in profiles if p.get('status', '').lower() in ('twilio-approved', 'compliant', 'approved')]
+        if approved:
+            best = approved[0]
+            protection_active = True
+            business_name = best.get('friendly_name', '')
+            # Persist correct sub-account data to cache, keyed by sub_sid
+            trust_hub['protection_active'] = True
+            trust_hub['profile_sid'] = best['profile_sid']
+            trust_hub['business_name'] = business_name
+            trust_hub['registered_at'] = best.get('date_created', '')
+            trust_hub['_sub_sid'] = sub_sid
+            vc['trust_hub'] = trust_hub
+            _save_voice_config(current_user.email, vc)
+            logger.info(f"[spam-protection] Live Trust Hub for sub={sub_sid}: {business_name}")
+        else:
+            # No approved profiles on this sub-account — clear any stale cached data
+            stale_keys = ('protection_active', 'profile_sid', 'business_name', 'registered_at', '_sub_sid')
+            changed = any(trust_hub.get(k) for k in stale_keys)
+            if changed:
+                for k in stale_keys:
+                    trust_hub.pop(k, None)
+                vc['trust_hub'] = trust_hub
+                _save_voice_config(current_user.email, vc)
+                logger.info(f"[spam-protection] Cleared stale Trust Hub data for sub={sub_sid}")
+    except Exception as e:
+        # Twilio unreachable — fall back to cache but only show data tagged to this sub_sid
+        logger.warning(f"[spam-protection] Live Trust Hub query failed for sub={sub_sid}: {e}")
+        cached_sub_sid = trust_hub.get('_sub_sid', '')
+        if cached_sub_sid == sub_sid:
+            # Cache belongs to this sub-account — safe to use as fallback
+            protection_active = trust_hub.get('protection_active', False)
+            business_name = trust_hub.get('business_name', '')
+        else:
+            # Cache is untagged or mismatched — do not display it; show not-registered
+            protection_active = False
+            business_name = ''
+            logger.warning(f"[spam-protection] Suppressed potentially stale cache for sub={sub_sid}")
 
     # Get number details from Twilio
     status = twilio_provisioning.get_spam_protection_status(sub_sid)

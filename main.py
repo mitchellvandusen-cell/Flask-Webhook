@@ -21,7 +21,7 @@ from flask import jsonify as flask_jsonify
 from flask_login import LoginManager, current_user
 from rq import Queue
 
-from db import init_db, User
+from db import init_db, User, clean_subaccount_contamination
 from sync_subscribers import sync_subscribers
 from utils import make_json_serializable
 
@@ -114,6 +114,8 @@ ensure_redis()
 
 sync_subscribers()
 init_db()
+# One-shot cleanup: wipe stale master-account Trust Hub / A2P data from sub-account voice_configs
+clean_subaccount_contamination()
 
 from token_encryption import initialize_encryption
 initialize_encryption()
