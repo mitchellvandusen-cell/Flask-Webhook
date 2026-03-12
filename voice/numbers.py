@@ -776,6 +776,7 @@ def spam_protection_status():
         return jsonify({"error": "Voice service not provisioned"}), 400
 
     trust_hub = (vc or {}).get('trust_hub', {})
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
 
     # ── Sub-account isolation: Trust Hub scoping ──────────────────────────────
     #
@@ -841,6 +842,34 @@ def spam_protection_status():
         if trust_hub.get('_sub_sid') == sub_sid:
             protection_active = trust_hub.get('protection_active', False)
             business_name = trust_hub.get('business_name', '')
+            # One-time validation: if protection_active but we haven't confirmed the
+            # Trust Hub profile actually lives on this sub-account, do a single API
+            # check using the sub-account's own credentials.  Pre-fix registrations
+            # used master credentials → no profile exists on the sub-account → clear.
+            if protection_active and sub_auth_token and not trust_hub.get('_validated'):
+                try:
+                    profiles = twilio_provisioning.discover_trust_hub_profiles(
+                        sub_sid, sub_auth_token)
+                    approved = [p for p in profiles if p.get('status', '').lower() in
+                                ('twilio-approved', 'compliant', 'approved')]
+                    if approved:
+                        trust_hub['_validated'] = True
+                        vc['trust_hub'] = trust_hub
+                        _save_voice_config(current_user.email, vc)
+                    else:
+                        logger.warning(
+                            f"[spam-protection] No approved profiles on sub {sub_sid}; "
+                            "clearing cross-account trust_hub data"
+                        )
+                        for k in ('protection_active', 'profile_sid', 'business_name',
+                                  'registered_at', '_sub_sid', '_validated'):
+                            trust_hub.pop(k, None)
+                        vc['trust_hub'] = trust_hub
+                        _save_voice_config(current_user.email, vc)
+                        protection_active = False
+                        business_name = ''
+                except Exception as e:
+                    logger.warning(f"[spam-protection] Sub-account profile validation failed: {e}")
         else:
             protection_active = False
             business_name = ''

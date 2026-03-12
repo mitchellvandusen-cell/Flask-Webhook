@@ -98,6 +98,26 @@ def a2p_status():
                 ms_sid, sub_sid, sub_auth_token)
             registered_number_sids = [n['sid'] for n in ms_numbers]
         except Exception as e:
+            err_str = str(e)
+            if not is_master and ('404' in err_str or '20404' in err_str):
+                # MS SID doesn't exist on this sub-account — was registered on the master
+                # account before sub-account isolation was enforced.  Clear the stale data
+                # so the user can re-register using their own sub-account credentials.
+                logger.warning(
+                    f"[a2p-status] MS {ms_sid} not found on sub {sub_sid}; "
+                    "clearing cross-account A2P data"
+                )
+                fee_paid = a2p.get('a2p_fee_paid', False)
+                for k in _SID_KEYS:
+                    a2p.pop(k, None)
+                _save_a2p_to_voice_config(subscriber, vc, a2p)
+                return jsonify({
+                    "registered": False, "brand_sid": "", "brand_status": "",
+                    "campaign_sid": "", "campaign_status": "",
+                    "messaging_service_sid": "", "use_case": "", "registered_at": "",
+                    "is_sub_user": is_sub_user, "a2p_fee_paid": fee_paid,
+                    "registered_number_sids": [],
+                })
             logger.warning(f"Failed to fetch MS phone numbers (non-fatal): {e}")
 
     return jsonify({
