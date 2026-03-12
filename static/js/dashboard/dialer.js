@@ -6457,14 +6457,14 @@
                 const proSection = document.getElementById('proDialerSection');
                 if (proSection) proSection.style.display = _multiLineEnabled ? '' : 'none';
 
-                // Load predictive stats only for predictive_dialer tier
-                if (_predictiveEnabled) {
+                // Load predictive stats for pro_dialer+ (basic stats for pro, full Erlang-C for predictive)
+                if (_multiLineEnabled) {
                     multiLineLoadPredictiveStats();
                 }
 
-                // Hide predictive-only panels for non-predictive tiers
+                // Hide enterprise-only panels for non-predictive tiers (Erlang-C, TCPA, agent state, callbacks)
                 if (!_predictiveEnabled) {
-                    const ids = ['predictiveStatsPanel', 'complianceBanner', 'agentStatePanel', 'callbackQueueBanner', 'erlangCMetrics'];
+                    const ids = ['complianceBanner', 'agentStatePanel', 'callbackQueueBanner', 'erlangCMetrics'];
                     ids.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
                 }
             } catch (e) {

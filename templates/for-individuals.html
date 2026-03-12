@@ -16,7 +16,6 @@
     /* Stats */
     .ind-stats { display: flex; justify-content: center; gap: 48px; flex-wrap: wrap; margin-top: 48px; }
     .ind-stat { text-align: center; }
-    .ind-stat .num { font-size: 2.2rem; font-weight: 900; line-height: 1; }
     .ind-stat .lbl { color: #666; font-size: 0.78rem; margin-top: 4px; font-weight: 500; }
 
     /* Pillar cards */
@@ -43,7 +42,7 @@
 
     /* Capability grid */
     .icap-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: rgba(255,255,255,0.06); border-radius: 16px; overflow: hidden; }
-    .icap-item { background: #0a0a0a; padding: 28px 24px; transition: background 0.3s; }
+    .icap-item { background: rgba(10,10,10,0.85); padding: 28px 24px; transition: background 0.3s; }
     .icap-item:hover { background: rgba(255,255,255,0.03); }
     .icap-item i { font-size: 1.1rem; margin-bottom: 10px; display: block; }
     .icap-item h6 { font-weight: 700; font-size: 0.88rem; margin-bottom: 4px; color: #fff; }
@@ -103,11 +102,11 @@
         </div>
 
         <div class="ind-stats" data-aos="fade-up" data-aos-delay="200">
-            <div class="ind-stat"><div class="num" style="color: var(--accent);">270+</div><div class="lbl">Carriers Known</div></div>
-            <div class="ind-stat"><div class="num" style="color: #00d9ff;">&infin;</div><div class="lbl">Minutes Included</div></div>
-            <div class="ind-stat"><div class="num" style="color: #e91e63;">5</div><div class="lbl">Sales Frameworks</div></div>
-            <div class="ind-stat"><div class="num" style="color: #8b5cf6;">7</div><div class="lbl">CRM Integrations</div></div>
-            <div class="ind-stat"><div class="num" style="color: var(--accent);">24/7</div><div class="lbl">AI Coverage</div></div>
+            <div class="ind-stat"><div class="metallic-stat">270+</div><div class="lbl">Carriers Known</div></div>
+            <div class="ind-stat"><div class="metallic-stat metallic-stat--cyan">&infin;</div><div class="lbl">Minutes Included</div></div>
+            <div class="ind-stat"><div class="metallic-stat" style="--metallic-from:#e91e63;--metallic-to:#ff6b9d;">5</div><div class="lbl">Sales Frameworks</div></div>
+            <div class="ind-stat"><div class="metallic-stat" style="--metallic-from:#8b5cf6;--metallic-to:#a78bfa;">7</div><div class="lbl">CRM Integrations</div></div>
+            <div class="ind-stat"><div class="metallic-stat">24/7</div><div class="lbl">AI Coverage</div></div>
         </div>
     </div>
 </section>
@@ -117,47 +116,47 @@
 <section class="i-section">
     <div class="container">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h2 style="font-weight: 900; font-size: 2.2rem;">Three Products. <span style="color: var(--accent);">One Subscription.</span></h2>
-            <p style="color: #777; font-size: 0.95rem; max-width: 560px; margin: 8px auto 0;">Everything you need to run a high-volume outbound operation — AI texting, power dialing, and autonomous voice — in a single platform.</p>
+            <h2 class="mkt-h2">Three Products. <span style="color: var(--accent);">One Subscription.</span></h2>
+            <p class="mkt-body" style="max-width: 560px; margin: 8px auto 0;">Everything you need to run a high-volume outbound operation — AI texting, power dialing, and autonomous voice — in a single platform.</p>
         </div>
 
         <div class="pillar-grid" data-aos="fade-up">
             <div class="pillar-cell">
-                <div class="pillar-icon" style="background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.2);">
+                <div class="pillar-icon mkt-icon-box--accent">
                     <i class="fa-solid fa-comment-sms" style="color: var(--accent);"></i>
                 </div>
                 <h4 style="color: var(--accent);">AI Texting</h4>
                 <p>Launches outbound SMS campaigns, re-engages cold lists, pushes through objections, and books appointments — automatically, at scale. The bot texts like your best closer on a full cup of coffee.</p>
                 <div class="pillar-tags">
-                    <span class="pillar-tag" style="background: rgba(0,255,136,0.08); color: var(--accent);">Outbound Campaigns</span>
-                    <span class="pillar-tag" style="background: rgba(0,255,136,0.08); color: var(--accent);">Objection Handling</span>
-                    <span class="pillar-tag" style="background: rgba(0,255,136,0.08); color: var(--accent);">Auto-Booking</span>
-                    <span class="pillar-tag" style="background: rgba(0,255,136,0.08); color: var(--accent);">5 Sales Frameworks</span>
+                    <span class="pillar-tag mkt-tag--accent">Outbound Campaigns</span>
+                    <span class="pillar-tag mkt-tag--accent">Objection Handling</span>
+                    <span class="pillar-tag mkt-tag--accent">Auto-Booking</span>
+                    <span class="pillar-tag mkt-tag--accent">5 Sales Frameworks</span>
                 </div>
             </div>
             <div class="pillar-cell">
-                <div class="pillar-icon" style="background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2);">
+                <div class="pillar-icon mkt-icon-box--cyan">
                     <i class="fa-solid fa-phone-volume" style="color: #00d9ff;"></i>
                 </div>
                 <h4 style="color: #00d9ff;">Smart Dialer</h4>
                 <p>AI-powered outbound dialer with lead intelligence scoring, Smart Filters, and queue-based power dialing. Know who's worth your time before you even pick up the phone.</p>
                 <div class="pillar-tags">
-                    <span class="pillar-tag" style="background: rgba(0,217,255,0.08); color: #00d9ff;">Lead Scoring</span>
-                    <span class="pillar-tag" style="background: rgba(0,217,255,0.08); color: #00d9ff;">Smart Filters</span>
-                    <span class="pillar-tag" style="background: rgba(0,217,255,0.08); color: #00d9ff;">Number Rotation</span>
-                    <span class="pillar-tag" style="background: rgba(0,217,255,0.08); color: #00d9ff;">Live Intercept</span>
+                    <span class="pillar-tag mkt-tag--cyan">Lead Scoring</span>
+                    <span class="pillar-tag mkt-tag--cyan">Smart Filters</span>
+                    <span class="pillar-tag mkt-tag--cyan">Number Rotation</span>
+                    <span class="pillar-tag mkt-tag--cyan">Live Intercept</span>
                 </div>
             </div>
             <div class="pillar-cell">
-                <div class="pillar-icon" style="background: rgba(233,30,99,0.1); border: 1px solid rgba(233,30,99,0.2);">
+                <div class="pillar-icon mkt-icon-box--pink">
                     <i class="fa-solid fa-robot" style="color: #e91e63;"></i>
                 </div>
                 <h4 style="color: #e91e63;">AI Voice Agent</h4>
                 <p>Fully autonomous outbound calling powered by Grok speech-to-speech. The AI cold-calls your list, qualifies prospects, handles objections, and books — all without you lifting a finger.</p>
                 <div class="pillar-tags">
-                    <span class="pillar-tag" style="background: rgba(233,30,99,0.08); color: #e91e63;">Speech-to-Speech</span>
-                    <span class="pillar-tag" style="background: rgba(233,30,99,0.08); color: #e91e63;">7 Voices</span>
-                    <span class="pillar-tag" style="background: rgba(233,30,99,0.08); color: #e91e63;">Live Booking</span>
+                    <span class="pillar-tag mkt-tag--pink">Speech-to-Speech</span>
+                    <span class="pillar-tag mkt-tag--pink">7 Voices</span>
+                    <span class="pillar-tag mkt-tag--pink">Live Booking</span>
                 </div>
             </div>
         </div>
@@ -170,7 +169,7 @@
     <div class="container">
         <div class="ifb-grid" data-aos="fade-up">
             <div>
-                <div class="ifb-icon" style="background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2);">
+                <div class="ifb-icon mkt-icon-box--cyan">
                     <i class="fa-solid fa-crosshairs" style="color: #00d9ff;"></i>
                 </div>
                 <h2 style="font-weight: 900; font-size: 1.8rem; margin-bottom: 8px;">Dial in Priority Order. Every Time.</h2>
@@ -227,7 +226,7 @@
     <div class="container">
         <div class="ifb-grid reverse" data-aos="fade-up">
             <div>
-                <div class="ifb-icon" style="background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.2);">
+                <div class="ifb-icon mkt-icon-box--accent">
                     <i class="fa-solid fa-building-columns" style="color: var(--accent);"></i>
                 </div>
                 <h2 style="font-weight: 900; font-size: 1.8rem; margin-bottom: 8px;">Built for Insurance. Period.</h2>
@@ -278,9 +277,9 @@
 <section class="i-section">
     <div class="container">
         <div class="text-center mb-5" data-aos="fade-up">
-            <span style="color: #e91e63; font-weight: 700; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;">Voice AI Agent</span>
-            <h2 style="font-weight: 900; font-size: 2.2rem; margin-top: 8px;">The AI Dials Out. <span style="color: #e91e63;">You Take the Wheel When It's Hot.</span></h2>
-            <p style="color: #777; max-width: 640px; margin: 8px auto 0;">Powered by xAI's Grok speech-to-speech. Zero transcription delay. The AI cold-calls your list, qualifies prospects, handles objections, and books appointments on the call. You monitor live and intercept the second it's closing time.</p>
+            <span class="mkt-section-label" style="color: #e91e63;">Voice AI Agent</span>
+            <h2 class="mkt-h2" style="margin-top: 8px;">The AI Dials Out. <span style="color: #e91e63;">You Take the Wheel When It's Hot.</span></h2>
+            <p class="mkt-body" style="max-width: 640px; margin: 8px auto 0;">Powered by xAI's Grok speech-to-speech. Zero transcription delay. The AI cold-calls your list, qualifies prospects, handles objections, and books appointments on the call. You monitor live and intercept the second it's closing time.</p>
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 800px; margin: 0 auto;" data-aos="fade-up">
@@ -304,8 +303,8 @@
 <section class="i-section">
     <div class="container">
         <div class="text-center mb-5" data-aos="fade-up">
-            <span style="color: #00d9ff; font-weight: 700; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;">Dialing Engine</span>
-            <h2 style="font-weight: 900; font-size: 2.2rem; margin-top: 8px;">Load Your List. Hit Dial. <span style="color: #00d9ff;">The Machine Does the Rest.</span></h2>
+            <span class="mkt-section-label" style="color: #00d9ff;">Dialing Engine</span>
+            <h2 class="mkt-h2" style="margin-top: 8px;">Load Your List. Hit Dial. <span style="color: #00d9ff;">The Machine Does the Rest.</span></h2>
         </div>
 
         <div class="icap-grid" data-aos="fade-up">
@@ -358,8 +357,8 @@
 <section class="i-section">
     <div class="container">
         <div class="text-center mb-4" data-aos="fade-up">
-            <span style="color: var(--accent); font-weight: 700; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;">How It Works</span>
-            <h2 style="font-weight: 900; font-size: 2.2rem; margin-top: 8px;">Live in <span style="color: var(--accent);">10 Minutes</span></h2>
+            <span class="mkt-section-label">How It Works</span>
+            <h2 class="mkt-h2" style="margin-top: 8px;">Live in <span style="color: var(--accent);">10 Minutes</span></h2>
         </div>
 
         <div class="hiw-steps" data-aos="fade-up">
@@ -392,22 +391,22 @@
 <section class="i-section">
     <div class="container">
         <div class="text-center mb-5" data-aos="fade-up">
-            <span style="color: var(--accent); font-weight: 700; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;">Why Switch</span>
-            <h2 style="font-weight: 900; font-size: 2.2rem; margin-top: 8px;">Why Outbound Agents <span style="color: var(--accent);">Switch to IGB</span></h2>
+            <span class="mkt-section-label">Why Switch</span>
+            <h2 class="mkt-h2" style="margin-top: 8px;">Why Outbound Agents <span style="color: var(--accent);">Switch to IGB</span></h2>
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;" data-aos="fade-up">
-            <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 28px;">
+            <div class="mkt-glass-card">
                 <i class="fa-solid fa-inbox" style="color: var(--accent); font-size: 1.3rem; margin-bottom: 14px; display: block;"></i>
                 <h4 style="font-weight: 800; font-size: 1rem; margin-bottom: 8px;">Cold Lists Start Converting Again</h4>
                 <p style="color: #888; font-size: 0.88rem; line-height: 1.6; margin: 0;">Got hundreds of leads sitting untouched? The AI dials and texts through your entire list — re-engaging cold contacts with real conversations, not generic scripts — and books appointments you never would have gotten manually.</p>
             </div>
-            <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 28px;">
+            <div class="mkt-glass-card mkt-glass-card--purple">
                 <i class="fa-solid fa-ban" style="color: #e91e63; font-size: 1.3rem; margin-bottom: 14px; display: block;"></i>
                 <h4 style="font-weight: 800; font-size: 1rem; margin-bottom: 8px;">Stop Paying for 4 Separate Tools</h4>
                 <p style="color: #888; font-size: 0.88rem; line-height: 1.6; margin: 0;">A dialer, a text bot, a calendar tool, and a data dashboard — all on separate bills. This replaces all of them with one platform, one login, one subscription.</p>
             </div>
-            <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 28px;">
+            <div class="mkt-glass-card mkt-glass-card--cyan">
                 <i class="fa-solid fa-clock" style="color: #00d9ff; font-size: 1.3rem; margin-bottom: 14px; display: block;"></i>
                 <h4 style="font-weight: 800; font-size: 1rem; margin-bottom: 8px;">Dial 8 Hours of Leads in 90 Minutes</h4>
                 <p style="color: #888; font-size: 0.88rem; line-height: 1.6; margin: 0;">Manual dialing, leaving voicemails, sending follow-up texts — it eats your whole day. IGB runs through your list at machine speed: auto-retry, voicemail drop, AI text follow-up, and booking — while you focus on live conversations.</p>
@@ -422,14 +421,14 @@
     <div class="container">
         <div class="text-center" data-aos="fade-up">
             <p style="color: #555; font-size: 0.82rem; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 16px;">Works with your CRM</p>
-            <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 12px;">
-                <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 8px 18px; border-radius: 30px; color: #aaa; font-size: 0.82rem; font-weight: 600;"><i class="fa-solid fa-bolt" style="color: var(--accent);"></i>LeadConnector</div>
-                <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 8px 18px; border-radius: 30px; color: #aaa; font-size: 0.82rem; font-weight: 600;"><i class="fa-solid fa-cloud" style="color: #03a9f4;"></i>Salesforce</div>
-                <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 8px 18px; border-radius: 30px; color: #aaa; font-size: 0.82rem; font-weight: 600;"><i class="fa-solid fa-h" style="color: #ff5722;"></i>HubSpot</div>
-                <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 8px 18px; border-radius: 30px; color: #aaa; font-size: 0.82rem; font-weight: 600;"><i class="fa-solid fa-filter" style="color: #4caf50;"></i>Pipedrive</div>
-                <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 8px 18px; border-radius: 30px; color: #aaa; font-size: 0.82rem; font-weight: 600;"><i class="fa-solid fa-z" style="color: #ffc107;"></i>Zoho CRM</div>
-                <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 8px 18px; border-radius: 30px; color: #aaa; font-size: 0.82rem; font-weight: 600;"><i class="fa-solid fa-plug" style="color: #9c27b0;"></i>Zapier</div>
-                <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 8px 18px; border-radius: 30px; color: #aaa; font-size: 0.82rem; font-weight: 600;"><i class="fa-solid fa-shield-halved" style="color: #607d8b;"></i>Insureio</div>
+            <div class="crm-bar">
+                <div class="crm-chip"><i class="fa-solid fa-bolt" style="color: var(--accent);"></i>LeadConnector</div>
+                <div class="crm-chip"><i class="fa-solid fa-cloud" style="color: #03a9f4;"></i>Salesforce</div>
+                <div class="crm-chip"><i class="fa-solid fa-h" style="color: #ff5722;"></i>HubSpot</div>
+                <div class="crm-chip"><i class="fa-solid fa-filter" style="color: #4caf50;"></i>Pipedrive</div>
+                <div class="crm-chip"><i class="fa-solid fa-z" style="color: #ffc107;"></i>Zoho CRM</div>
+                <div class="crm-chip"><i class="fa-solid fa-plug" style="color: #9c27b0;"></i>Zapier</div>
+                <div class="crm-chip"><i class="fa-solid fa-shield-halved" style="color: #607d8b;"></i>Insureio</div>
             </div>
         </div>
     </div>
@@ -440,8 +439,8 @@
 <section id="individual-pricing" class="i-section">
     <div class="container">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h2 style="font-weight: 900; font-size: 2.2rem;">Simple <span style="color: var(--accent);">Pricing</span></h2>
-            <p style="color: #777; font-size: 0.95rem;">Everything included. No per-minute charges. No hidden fees.</p>
+            <h2 class="mkt-h2">Simple <span style="color: var(--accent);">Pricing</span></h2>
+            <p class="mkt-body">Everything included. No per-minute charges. No hidden fees.</p>
         </div>
 
         <div class="ind-price-grid" data-aos="fade-up">
@@ -482,7 +481,7 @@
                     <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Configurable dialer settings</li>
                     <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Unlimited minutes* included</li>
                 </ul>
-                <a href="/checkout/pro-dialer" class="btn w-100 py-3" style="background: linear-gradient(135deg, #ff6b35, #ff3366); color: #fff; font-weight: 700; border: none;">Start Free Trial — $249.98/mo after</a>
+                <a href="/checkout/pro-dialer" class="btn btn-gradient-orange w-100 py-3" style="font-weight: 700;">Start Free Trial — $249.98/mo after</a>
             </div>
         </div>
 
@@ -501,7 +500,7 @@
 <section class="i-section" style="padding-bottom: 100px;">
     <div class="container">
         <div class="text-center" data-aos="fade-up">
-            <div style="background: linear-gradient(135deg, rgba(0,255,136,0.06), rgba(0,217,255,0.04)); border: 1px solid rgba(0,255,136,0.15); border-radius: 24px; padding: 60px 40px; max-width: 720px; margin: 0 auto;">
+            <div class="mkt-glass-card" style="padding: 60px 40px; max-width: 720px; margin: 0 auto;">
                 <h2 style="font-weight: 900; font-size: 2rem; margin-bottom: 12px;">Start Dialing Smarter Today.</h2>
                 <p style="color: #888; font-size: 0.95rem; max-width: 480px; margin: 0 auto 24px;">
                     AI-powered outbound that dials your list, texts your leads, and books your calendar — 24/7.
