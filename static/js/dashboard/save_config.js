@@ -404,8 +404,8 @@
             if (!r.ok) { list.innerHTML = '<div style="color:#ef4444;padding:4px;">' + (d.error || 'Failed') + '</div>'; return; }
             const nums = d.numbers || [];
             if (!nums.length) { list.innerHTML = '<div style="color:#888;padding:4px;font-size:.75rem;">No numbers found. Try different filters.</div>'; return; }
-            const priceMap = { local: '$1.15', toll_free: '$2.15', mobile: '$1.15' };
-            const monthlyPrice = priceMap[numberType] || '$1.15';
+            const priceMap = { local: '$0.90', toll_free: '$2.15', mobile: '$0.90' };
+            const monthlyPrice = priceMap[numberType] || '$0.90';
             list.innerHTML = nums.map(n => {
                 const loc = [n.locality, n.region].filter(Boolean).join(', ');
                 const caps = [];

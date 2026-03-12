@@ -146,7 +146,7 @@ def get_contact_detail(contact_id):
                     "body": n.get("body", ""),
                     "dateAdded": n.get("dateAdded", ""),
                 }
-                for n in notes[:20]  # Limit to 20 most recent
+                for n in sorted(notes, key=lambda n: n.get("dateAdded", ""), reverse=True)[:20]
             ],
         }
 

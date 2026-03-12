@@ -717,8 +717,11 @@ def create_a2p_brand(sub_account_sid: str,
 
 
 def get_a2p_brand_status(brand_sid: str, sub_account_sid: str = "") -> dict:
-    """Check the vetting status of an A2P Brand."""
-    client = get_sub_account_client(sub_account_sid) if sub_account_sid else get_master_client()
+    """Check the vetting status of an A2P Brand.
+    Always uses sub-account client when sub_account_sid is provided."""
+    if not sub_account_sid:
+        raise ValueError("sub_account_sid is required for A2P brand status — do not use master account")
+    client = get_sub_account_client(sub_account_sid)
     try:
         brand = client.messaging.v1.brand_registrations(brand_sid).fetch()
         return {
@@ -786,7 +789,9 @@ def create_a2p_campaign(messaging_service_sid: str,
     This is the final step — once the campaign is approved, the number can
     send 10DLC-compliant SMS.
     """
-    client = get_sub_account_client(sub_account_sid) if sub_account_sid else get_master_client()
+    if not sub_account_sid:
+        raise ValueError("sub_account_sid is required for A2P campaign creation — do not use master account")
+    client = get_sub_account_client(sub_account_sid)
 
     if not sample_messages:
         sample_messages = [
@@ -838,7 +843,9 @@ def get_a2p_campaign_status(messaging_service_sid: str,
                              campaign_sid: str,
                              sub_account_sid: str = "") -> dict:
     """Check the approval status of an A2P Campaign."""
-    client = get_sub_account_client(sub_account_sid) if sub_account_sid else get_master_client()
+    if not sub_account_sid:
+        raise ValueError("sub_account_sid is required for A2P campaign status — do not use master account")
+    client = get_sub_account_client(sub_account_sid)
     try:
         campaign = client.messaging.v1.services(
             messaging_service_sid
@@ -881,7 +888,9 @@ def list_messaging_service_phone_numbers(messaging_service_sid: str,
     actually registered for A2P via this messaging service.
     The `sid` is the PN... IncomingPhoneNumber SID.
     """
-    client = get_sub_account_client(sub_account_sid) if sub_account_sid else get_master_client()
+    if not sub_account_sid:
+        raise ValueError("sub_account_sid is required for listing messaging service phone numbers")
+    client = get_sub_account_client(sub_account_sid)
     try:
         numbers = client.messaging.v1.services(
             messaging_service_sid
@@ -904,10 +913,12 @@ def list_messaging_service_phone_numbers(messaging_service_sid: str,
 
 def discover_a2p_brands(sub_account_sid: str = "") -> list:
     """
-    Discover all existing A2P Brand Registrations on a sub-account (or master).
+    Discover all existing A2P Brand Registrations on a sub-account.
     Returns list of {brand_sid, status, brand_score, ...} dicts.
     """
-    client = get_sub_account_client(sub_account_sid) if sub_account_sid else get_master_client()
+    if not sub_account_sid:
+        raise ValueError("sub_account_sid is required for A2P brand discovery — do not use master account")
+    client = get_sub_account_client(sub_account_sid)
     try:
         brands = client.messaging.v1.brand_registrations.list(limit=100)
         results = []
@@ -935,7 +946,9 @@ def discover_a2p_campaigns(messaging_service_sid: str,
     Discover all existing A2P campaigns on a Messaging Service.
     Returns list of {campaign_sid, campaign_status, description, use_case} dicts.
     """
-    client = get_sub_account_client(sub_account_sid) if sub_account_sid else get_master_client()
+    if not sub_account_sid:
+        raise ValueError("sub_account_sid is required for A2P campaign discovery — do not use master account")
+    client = get_sub_account_client(sub_account_sid)
     try:
         campaigns = client.messaging.v1.services(
             messaging_service_sid
@@ -959,10 +972,12 @@ def discover_a2p_campaigns(messaging_service_sid: str,
 
 def discover_trust_hub_profiles(sub_account_sid: str = "") -> list:
     """
-    Discover all Trust Hub Customer Profiles on a sub-account (or master).
+    Discover all Trust Hub Customer Profiles on a sub-account.
     Returns list of {profile_sid, status, friendly_name} dicts.
     """
-    client = get_sub_account_client(sub_account_sid) if sub_account_sid else get_master_client()
+    if not sub_account_sid:
+        raise ValueError("sub_account_sid is required for Trust Hub profile discovery — do not use master account")
+    client = get_sub_account_client(sub_account_sid)
     try:
         profiles = client.trusthub.v1.customer_profiles.list(limit=100)
         results = []

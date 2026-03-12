@@ -13,6 +13,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 
+import stripe
 import twilio_provisioning
 from db import get_db_connection, return_db_connection
 from number_health import (
@@ -27,6 +28,21 @@ from voice.helpers import _get_current_subscriber_voice, _save_voice_config
 logger = logging.getLogger("voice_bridge.numbers")
 
 numbers_bp = Blueprint('voice_numbers', __name__)
+
+YOUR_DOMAIN = os.getenv("YOUR_DOMAIN", "http://localhost:8080")
+
+# ── Phone Number Pricing ──────────────────────────────────────────────────
+FREE_NUMBERS_ALLOWANCE = 5          # First 5 numbers are included free
+NUMBER_PRICE_CENTS = 90              # $0.90 per additional number
+TOLL_FREE_PRICE_CENTS = 215          # $2.15 per toll-free number
+
+
+def _count_current_numbers(sub_sid: str) -> int:
+    """Return count of phone numbers on the sub-account."""
+    try:
+        return len(twilio_provisioning.list_phone_numbers(sub_sid))
+    except Exception:
+        return 0
 
 
 # ── Phone Number CRUD ─────────────────────────────────────────────────────
@@ -66,7 +82,13 @@ def list_voice_numbers():
                 "created_at": n.get('created_at', ''),
             })
 
-        return jsonify({"numbers": result, "total": len(result)})
+        free_remaining = max(0, FREE_NUMBERS_ALLOWANCE - len(result))
+        return jsonify({
+            "numbers": result,
+            "total": len(result),
+            "free_remaining": free_remaining,
+            "free_allowance": FREE_NUMBERS_ALLOWANCE,
+        })
 
     except Exception as e:
         logger.error(f"Failed to list numbers: {e}", exc_info=True)
@@ -107,19 +129,37 @@ def search_available_numbers():
 @numbers_bp.route('/voice/numbers/buy', methods=['POST'])
 @login_required
 def buy_voice_number():
-    """Purchase a phone number and configure it for voice."""
+    """Purchase a phone number. First 5 are free; after that requires Stripe payment."""
     subscriber, vc, sub_sid = _get_current_subscriber_voice()
     if not sub_sid:
         return jsonify({"error": "Voice service not provisioned"}), 400
 
     data = request.json or {}
     phone_number = data.get('phone_number', '')
+    number_type = data.get('number_type', 'local')
     if not phone_number:
         return jsonify({"error": "Phone number is required"}), 400
 
+    current_count = _count_current_numbers(sub_sid)
+    is_free = current_count < FREE_NUMBERS_ALLOWANCE
+
+    if not is_free:
+        # After free allowance, require Stripe checkout
+        return jsonify({
+            "payment_required": True,
+            "current_count": current_count,
+            "free_allowance": FREE_NUMBERS_ALLOWANCE,
+            "message": "Free numbers used. Complete payment to add more.",
+        }), 402
+
+    # Free number — buy directly from Twilio
+    return _provision_number(sub_sid, vc, phone_number)
+
+
+def _provision_number(sub_sid, vc, phone_number):
+    """Actually purchase and configure a phone number on Twilio."""
     twiml_app_sid = vc.get('twilio_twiml_app_sid', '')
-    host = request.host
-    webhook_base_url = f"https://{host}"
+    webhook_base_url = YOUR_DOMAIN
 
     try:
         result = twilio_provisioning.buy_phone_number(
@@ -143,6 +183,96 @@ def buy_voice_number():
     except Exception as e:
         logger.error(f"Number purchase failed: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@numbers_bp.route('/voice/numbers/checkout', methods=['POST'])
+@login_required
+def number_checkout():
+    """Create a Stripe one-time payment session for a phone number purchase ($0.90)."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    data = request.json or {}
+    phone_number = data.get('phone_number', '')
+    number_type = data.get('number_type', 'local')
+    if not phone_number:
+        return jsonify({"error": "Phone number is required"}), 400
+
+    price_cents = TOLL_FREE_PRICE_CENTS if number_type == 'toll_free' else NUMBER_PRICE_CENTS
+    price_label = f"${price_cents / 100:.2f}/mo"
+
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=["card"],
+            mode="payment",
+            customer_email=current_user.email,
+            line_items=[{
+                "price_data": {
+                    "currency": "usd",
+                    "unit_amount": price_cents,
+                    "product_data": {
+                        "name": f"Phone Number — {phone_number}",
+                        "description": f"Monthly phone number ({price_label})",
+                    },
+                },
+                "quantity": 1,
+            }],
+            metadata={
+                "purchase_type": "phone_number",
+                "user_email": current_user.email,
+                "phone_number": phone_number,
+                "number_type": number_type,
+                "price_cents": str(price_cents),
+            },
+            success_url=f"{YOUR_DOMAIN}/dashboard?number_purchased=1&phone={phone_number}",
+            cancel_url=f"{YOUR_DOMAIN}/dashboard?number_purchase_cancel=1",
+        )
+        return jsonify({"checkout_url": checkout_session.url})
+    except Exception as e:
+        logger.error(f"Number checkout error: {e}")
+        return jsonify({"error": "Unable to create checkout session."}), 500
+
+
+@numbers_bp.route('/voice/numbers/complete-purchase', methods=['POST'])
+@login_required
+def complete_number_purchase():
+    """
+    Called after Stripe redirect to actually provision the number.
+    Verifies Stripe payment before provisioning.
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    data = request.json or {}
+    phone_number = data.get('phone_number', '')
+    if not phone_number:
+        return jsonify({"error": "Phone number is required"}), 400
+
+    # Verify payment via Stripe
+    try:
+        sessions = stripe.checkout.Session.list(
+            customer_email=current_user.email,
+            limit=10,
+        )
+        verified = False
+        for sess in sessions.data:
+            meta = sess.metadata or {}
+            if (sess.payment_status == 'paid' and
+                    meta.get('purchase_type') == 'phone_number' and
+                    meta.get('phone_number') == phone_number and
+                    meta.get('user_email') == current_user.email):
+                verified = True
+                break
+
+        if not verified:
+            return jsonify({"error": "No verified payment found for this number."}), 403
+    except Exception as e:
+        logger.warning(f"Number purchase payment verification failed: {e}")
+        return jsonify({"error": "Payment verification temporarily unavailable."}), 503
+
+    return _provision_number(sub_sid, vc, phone_number)
 
 
 @numbers_bp.route('/voice/numbers/release', methods=['POST'])
@@ -260,10 +390,9 @@ def toggle_cnam(number_id):
     business_name = data.get('business_name', vc.get('trust_hub', {}).get('business_name', ''))
 
     try:
-        client = twilio_provisioning.get_master_client()
+        client = twilio_provisioning.get_sub_account_client(sub_sid)
         client.incoming_phone_numbers(number_id).update(
             friendly_name=business_name[:15] if business_name else '',
-            account_sid=sub_sid,
         )
         return jsonify({"status": "ok", "cnam_listed": bool(business_name)})
     except Exception as e:

@@ -4592,6 +4592,12 @@
                     return;
                 }
                 _numbersCache = d.numbers || [];
+                // Track free numbers remaining for the buy flow
+                if (typeof _numFreeRemaining !== 'undefined') {
+                    _numFreeRemaining = d.free_remaining ?? null;
+                } else {
+                    window._numFreeRemaining = d.free_remaining ?? null;
+                }
                 if (!_numbersCache.length) {
                     container.innerHTML = '<div style="text-align:center;padding:30px 20px;color:#888;font-size:.82rem;">' +
                         '<i class="fa-solid fa-phone-slash" style="font-size:1.5rem;display:block;margin-bottom:8px;color:#444;"></i>' +

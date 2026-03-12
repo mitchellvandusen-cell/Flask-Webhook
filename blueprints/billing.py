@@ -133,6 +133,14 @@ def stripe_webhook():
                 )
             return '', 200
 
+        # ── Phone number purchase ────────────────────────────────────────────
+        if metadata.get("purchase_type") == "phone_number" and email:
+            phone_number = metadata.get("phone_number", "")
+            price_cents = metadata.get("price_cents", "90")
+            logger.info(f"Phone number paid by {email} — {phone_number} amount=${int(price_cents)/100:.2f}")
+            # Provisioning happens via /voice/numbers/complete-purchase (user-side redirect)
+            return '', 200
+
         # ── A2P 10DLC registration fee ────────────────────────────────────────
         if metadata.get("purchase_type") == "a2p_registration" and email:
             brand_type = metadata.get("brand_type", "LOW_VOLUME")
