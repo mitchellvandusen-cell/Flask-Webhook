@@ -2171,7 +2171,9 @@ body.light-theme .ag-metric { color: var(--lt-text-secondary) !important; }
 .no-data {
     text-align: center;
     padding: 80px 20px;
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     border-radius: 16px;
     border: 1px dashed rgba(0, 255, 136, 0.3);
 }
@@ -2508,11 +2510,6 @@ body.light-theme .ag-metric { color: var(--lt-text-secondary) !important; }
     pointer-events: none;
 }
 .hero-card:hover::after { left: 150%; transition: 0.7s ease-in-out; }
-
-@keyframes shimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
-}
 
 .hero-badge {
     display: inline-block;
@@ -2989,7 +2986,7 @@ body { padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(sa
     .navbar-collapse {
         position: fixed !important; inset: 0 !important;
         width: 100% !important; height: 100vh !important; height: 100dvh !important;
-        background: #050505 !important;
+        background: var(--dark-bg) !important;
         z-index: 9998 !important; padding: 100px 24px 40px;
         display: none !important; flex-direction: column;
         overflow-y: auto; -webkit-overflow-scrolling: touch;
@@ -3141,8 +3138,8 @@ body { padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(sa
 .mobile-bottom-nav {
     display: none;
     position: fixed; bottom: 0; left: 0; right: 0;
-    background: rgba(8, 8, 14, 0.96);
-    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
     border-top: 1px solid rgba(255,255,255,0.08);
     z-index: 300;
     padding: 4px 0 env(safe-area-inset-bottom, 8px);
@@ -3170,8 +3167,8 @@ body { padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(sa
 .mobile-more-sheet {
     display: none; position: fixed; bottom: 0; left: 0; right: 0;
     z-index: 350; max-height: 70vh;
-    background: rgba(12, 12, 18, 0.98);
-    backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    background: var(--glass-bg-strong);
+    backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
     border-top-left-radius: 20px; border-top-right-radius: 20px;
     border-top: 1px solid rgba(255,255,255,0.1);
     padding: 12px 16px calc(env(safe-area-inset-bottom, 8px) + 60px);
@@ -3528,12 +3525,12 @@ body { padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(sa
     align-items: center;
     gap: 12px;
     padding: 14px 16px;
-    background: rgba(12, 12, 20, 0.95);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    background: var(--glass-bg-strong);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid rgba(0, 255, 136, 0.2);
     border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 255, 136, 0.05);
+    box-shadow: var(--glass-shadow), 0 0 0 1px rgba(0, 255, 136, 0.05);
 }
 .pwa-banner-icon { flex-shrink: 0; }
 .pwa-banner-text {

@@ -60,8 +60,8 @@
 
     /* ── Pricing ── */
     .price-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; max-width: 880px; margin: 0 auto; }
-    .price-card { border: 1px solid rgba(255,255,255,0.22); border-radius: 24px; padding: 40px 36px; position: relative; overflow: hidden; background: rgba(255,255,255,0.065); backdrop-filter: blur(40px) saturate(200%) brightness(1.07) contrast(1.04); -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.07) contrast(1.04); box-shadow: 0 32px 80px rgba(0,0,0,0.45), inset 0 1.5px 0 rgba(255,255,255,0.55), inset 1px 0 0 rgba(255,255,255,0.15), inset 0 -1px 0 rgba(255,255,255,0.07); }
-    .price-card::before { content: ''; position: absolute; top: 0; left: 6%; right: 6%; height: 55%; background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.06) 40%, rgba(255,255,255,0.01) 70%, transparent 100%); border-radius: 0 0 65% 65%; filter: blur(10px); pointer-events: none; z-index: 0; }
+    .price-card { border: 1px solid rgba(255,255,255,0.22); border-radius: 24px; padding: 40px 36px; position: relative; overflow: visible; background: rgba(255,255,255,0.065); backdrop-filter: blur(40px) saturate(200%) brightness(1.07) contrast(1.04); -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.07) contrast(1.04); box-shadow: 0 32px 80px rgba(0,0,0,0.45), inset 0 1.5px 0 rgba(255,255,255,0.55), inset 1px 0 0 rgba(255,255,255,0.15), inset 0 -1px 0 rgba(255,255,255,0.07); }
+    .price-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: 24px; overflow: hidden; background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.06) 40%, rgba(255,255,255,0.01) 70%, transparent 100%); clip-path: inset(0 round 24px); filter: blur(10px); pointer-events: none; z-index: 0; }
     .price-card::after { content: ''; position: absolute; bottom: 0; left: 8%; right: 8%; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.30) 30%, rgba(255,255,255,0.42) 50%, rgba(255,255,255,0.30) 70%, transparent); pointer-events: none; z-index: 0; }
     .price-card.featured { border-color: rgba(0,255,136,0.40); box-shadow: 0 32px 80px rgba(0,0,0,0.48), inset 0 1.5px 0 rgba(255,255,255,0.60), inset 1px 0 0 rgba(255,255,255,0.18), 0 0 60px rgba(0,255,136,0.08); }
     .price-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); padding: 4px 16px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; color: #fff; white-space: nowrap; }
@@ -293,7 +293,7 @@
             <p class="mkt-body">Everything included. No per-minute charges. No hidden fees.</p>
         </div>
 
-        <div class="price-grid" data-aos="fade-up">
+        <div class="price-grid" data-aos="fade-up" style="padding-top: 16px;">
             <!-- Power Dialer -->
             <div class="price-card featured">
                 <span class="price-badge" style="background: rgba(0,255,136,0.3); border: 1px solid #00ff88;">Starter</span>
