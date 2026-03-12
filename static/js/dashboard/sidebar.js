@@ -44,12 +44,13 @@
             if (tabId === 'logs') loadLogs();
         }
 
-        // Legacy compat — kept for any code that still calls showSidebarTab()
+        // Legacy compat — kept for any code that still calls showSidebarTab() or navTo()
         function showSidebarTab(tabId) {
             const btnId = _tabToBtn[tabId];
             const btnEl = btnId ? document.getElementById(btnId) : null;
             sidebarNavigate(tabId, btnEl);
         }
+        function navTo(tabId) { showSidebarTab(tabId); }
 
         // Sidebar collapse toggle — icon flips to show expand/collapse direction
         function toggleSidebar() {
