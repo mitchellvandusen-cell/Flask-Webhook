@@ -139,7 +139,7 @@
             if (name === 'numbers') loadNumbersTab();
             if (name === 'numberhealth') loadNumberHealth();
             if (name === 'trusthub') loadTrustHubData();
-            if (name === 'numberintegrity') loadNumberIntegrity();
+            if (name === 'numberintegrity' && typeof loadNumberIntegrity === 'function') loadNumberIntegrity();
             if (name === 'training') loadTrainingStatus();
         }
 
