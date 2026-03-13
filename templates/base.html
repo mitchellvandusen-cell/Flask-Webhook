@@ -27,10 +27,14 @@
     <script>
     document.addEventListener('click', function(e) {
         var a = e.target.closest('a[href*="/checkout"]');
-        if (!a || !window.Rewardful || !window.Rewardful.referral) return;
+        if (!a || !window.Rewardful) return;
+        var referral = window.Rewardful.referral;
+        var coupon = window.Rewardful.coupon;
+        if (!referral && !coupon) return;
         e.preventDefault();
         var url = new URL(a.href, window.location.origin);
-        url.searchParams.set('referral', window.Rewardful.referral);
+        if (referral) url.searchParams.set('referral', referral);
+        if (coupon) url.searchParams.set('coupon', coupon);
         window.location.href = url.toString();
     });
     </script>

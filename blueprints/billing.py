@@ -19,6 +19,7 @@ import os
 import json
 import uuid
 import logging
+import requests
 from datetime import datetime
 
 import stripe
@@ -76,6 +77,82 @@ _ERROR_PAGE = """
 
 def _error_page(title, msg, detail=""):
     return render_template_string(_ERROR_PAGE, title=title, msg=msg, detail=detail), 500
+
+
+# ── Rewardful helpers ──────────────────────────────────────────────────────────
+
+_REWARDFUL_API_BASE = "https://api.getrewardful.com/v1"
+
+
+def _create_rewardful_affiliate(email, first_name="", last_name=""):
+    """Create an affiliate account in Rewardful for a new subscriber.
+    Returns the affiliate dict on success, or None on failure.
+    Non-fatal — errors are logged but never surface to users.
+    """
+    api_secret = os.getenv("REWARDFUL_API_SECRET")
+    if not api_secret:
+        return None
+    try:
+        # Rewardful API requires form-encoded data (not JSON)
+        payload = {"email": email, "first_name": first_name or "", "last_name": last_name or ""}
+        resp = requests.post(
+            f"{_REWARDFUL_API_BASE}/affiliates",
+            auth=(api_secret, ""),
+            data=payload,
+            timeout=10,
+        )
+        if resp.status_code in (200, 201):
+            affiliate = resp.json()
+            link = affiliate.get("links", [{}])[0].get("url", "")
+            logger.info(f"Rewardful: created affiliate for {email} — link={link}")
+            return affiliate
+        elif resp.status_code == 422:
+            # Affiliate already exists — fetch them instead
+            existing = _get_rewardful_affiliate_by_email(email, api_secret)
+            if existing:
+                return existing
+            logger.warning(f"Rewardful: 422 creating affiliate for {email}: {resp.text}")
+        else:
+            logger.warning(f"Rewardful: error creating affiliate for {email}: {resp.status_code} {resp.text}")
+    except Exception as e:
+        logger.warning(f"Rewardful: exception creating affiliate for {email}: {e}")
+    return None
+
+
+def _get_rewardful_affiliate_by_email(email, api_secret):
+    """Look up an existing Rewardful affiliate by email."""
+    try:
+        resp = requests.get(
+            f"{_REWARDFUL_API_BASE}/affiliates",
+            auth=(api_secret, ""),
+            params={"email": email},
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            affiliates = data.get("data", []) if isinstance(data, dict) else data
+            if affiliates:
+                return affiliates[0]
+    except Exception as e:
+        logger.warning(f"Rewardful: exception fetching affiliate for {email}: {e}")
+    return None
+
+
+def _get_validated_coupon(coupon_id):
+    """Validate a Stripe coupon ID before applying it to a checkout session.
+    Returns the coupon ID if valid, None otherwise.
+    """
+    if not coupon_id:
+        return None
+    try:
+        stripe.Coupon.retrieve(coupon_id)
+        return coupon_id
+    except stripe.error.InvalidRequestError:
+        logger.warning(f"Rewardful coupon '{coupon_id}' not found in Stripe — skipping discount")
+        return None
+    except Exception as e:
+        logger.warning(f"Stripe coupon validation error for '{coupon_id}': {e}")
+        return None
 
 
 # ── Stripe Webhook ────────────────────────────────────────────────────────────
@@ -267,6 +344,26 @@ def stripe_webhook():
                     conn.commit()
                     logger.info(f"Provisioned {target_tier.upper()} {target_role} account for: {email}")
 
+                    # Auto-create Rewardful affiliate account for new subscriber (non-fatal)
+                    try:
+                        affiliate = _create_rewardful_affiliate(email)
+                        if affiliate:
+                            referral_link = affiliate.get("links", [{}])[0].get("url", "")
+                            affiliate_id = affiliate.get("id", "")
+                            if referral_link or affiliate_id:
+                                cur.execute("""
+                                    UPDATE subscribers
+                                    SET config = COALESCE(config, '{}'::jsonb) ||
+                                        jsonb_build_object(
+                                            'rewardful_affiliate_id', %s::text,
+                                            'rewardful_referral_link', %s::text
+                                        )
+                                    WHERE email = %s
+                                """, (affiliate_id, referral_link, email))
+                                conn.commit()
+                    except Exception as rw_err:
+                        logger.warning(f"Rewardful auto-affiliate skipped for {email}: {rw_err}")
+
                     # Legacy Google Sheets redundant backup (non-critical)
                     try:
                         import extensions as _ext
@@ -356,11 +453,14 @@ def checkout():
         customer_email = current_user.email if current_user.is_authenticated else None
         logger.info(f"Creating Individual checkout with price_id: {price_id}")
 
+        # Rewardful affiliate tracking
+        referral = request.args.get("referral", "").strip()
+        coupon_id = _get_validated_coupon(request.args.get("coupon", "").strip())
+
         checkout_params = dict(
             payment_method_types=["card"],
             mode="subscription",
             line_items=[{"price": price_id, "quantity": 1}],
-            allow_promotion_codes=True,
             customer_email=customer_email,
             metadata={
                 "user_email": customer_email,
@@ -380,8 +480,12 @@ def checkout():
             cancel_url=f"{YOUR_DOMAIN}/cancel",
         )
 
-        # Rewardful affiliate tracking — pass referral ID so Rewardful can attribute the conversion
-        referral = request.args.get("referral", "").strip()
+        if coupon_id:
+            # Apply Rewardful double-sided coupon (15% off first month)
+            checkout_params["discounts"] = [{"coupon": coupon_id}]
+        else:
+            checkout_params["allow_promotion_codes"] = True
+
         if referral:
             checkout_params["client_reference_id"] = referral
 
@@ -418,11 +522,13 @@ def checkout_pro_dialer():
         customer_email = current_user.email if current_user.is_authenticated else None
         logger.info(f"Creating Pro Dialer checkout with price_id: {price_id}")
 
+        referral = request.args.get("referral", "").strip()
+        coupon_id = _get_validated_coupon(request.args.get("coupon", "").strip())
+
         checkout_params = dict(
             payment_method_types=["card"],
             mode="subscription",
             line_items=[{"price": price_id, "quantity": 1}],
-            allow_promotion_codes=True,
             customer_email=customer_email,
             metadata={
                 "user_email": customer_email,
@@ -442,7 +548,11 @@ def checkout_pro_dialer():
             cancel_url=f"{YOUR_DOMAIN}/cancel",
         )
 
-        referral = request.args.get("referral", "").strip()
+        if coupon_id:
+            checkout_params["discounts"] = [{"coupon": coupon_id}]
+        else:
+            checkout_params["allow_promotion_codes"] = True
+
         if referral:
             checkout_params["client_reference_id"] = referral
 
@@ -479,11 +589,13 @@ def checkout_predictive_dialer():
         customer_email = current_user.email if current_user.is_authenticated else None
         logger.info(f"Creating Predictive Dialer checkout with price_id: {price_id}")
 
+        referral = request.args.get("referral", "").strip()
+        coupon_id = _get_validated_coupon(request.args.get("coupon", "").strip())
+
         checkout_params = dict(
             payment_method_types=["card"],
             mode="subscription",
             line_items=[{"price": price_id, "quantity": 1}],
-            allow_promotion_codes=True,
             customer_email=customer_email,
             metadata={
                 "user_email": customer_email,
@@ -503,7 +615,11 @@ def checkout_predictive_dialer():
             cancel_url=f"{YOUR_DOMAIN}/cancel",
         )
 
-        referral = request.args.get("referral", "").strip()
+        if coupon_id:
+            checkout_params["discounts"] = [{"coupon": coupon_id}]
+        else:
+            checkout_params["allow_promotion_codes"] = True
+
         if referral:
             checkout_params["client_reference_id"] = referral
 
@@ -543,12 +659,14 @@ def checkout_agency_starter():
         customer_email = current_user.email if current_user.is_authenticated else None
         logger.info(f"Creating Agency Starter checkout with price_id: {price_id}")
 
-        session = stripe.checkout.Session.create(
+        referral = request.args.get("referral", "").strip()
+        coupon_id = _get_validated_coupon(request.args.get("coupon", "").strip())
+
+        agency_starter_params = dict(
             payment_method_types=["card"],
             mode="subscription",
             customer_email=customer_email,
             line_items=[{"price": price_id, "quantity": 1}],
-            allow_promotion_codes=True,
             metadata={
                 "target_role": "agency_owner",
                 "target_tier": "agency_starter",
@@ -564,6 +682,14 @@ def checkout_agency_starter():
             success_url=f"{YOUR_DOMAIN}/success?session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{YOUR_DOMAIN}/cancel",
         )
+        if coupon_id:
+            agency_starter_params["discounts"] = [{"coupon": coupon_id}]
+        else:
+            agency_starter_params["allow_promotion_codes"] = True
+        if referral:
+            agency_starter_params["client_reference_id"] = referral
+
+        session = stripe.checkout.Session.create(**agency_starter_params)
         return redirect(session.url, code=303)
 
     except stripe.error.InvalidRequestError as e:
@@ -599,12 +725,14 @@ def checkout_agency_pro():
         customer_email = current_user.email if current_user.is_authenticated else None
         logger.info(f"Creating Agency Pro checkout with price_id: {price_id}")
 
-        session = stripe.checkout.Session.create(
+        referral = request.args.get("referral", "").strip()
+        coupon_id = _get_validated_coupon(request.args.get("coupon", "").strip())
+
+        agency_pro_params = dict(
             payment_method_types=["card"],
             mode="subscription",
             customer_email=customer_email,
             line_items=[{"price": price_id, "quantity": 1}],
-            allow_promotion_codes=True,
             custom_fields=[{
                 "key": "agency_whitelabel_domain",
                 "label": {
@@ -621,6 +749,14 @@ def checkout_agency_pro():
             success_url=f"{YOUR_DOMAIN}/success?session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{YOUR_DOMAIN}/cancel",
         )
+        if coupon_id:
+            agency_pro_params["discounts"] = [{"coupon": coupon_id}]
+        else:
+            agency_pro_params["allow_promotion_codes"] = True
+        if referral:
+            agency_pro_params["client_reference_id"] = referral
+
+        session = stripe.checkout.Session.create(**agency_pro_params)
         return redirect(session.url, code=303)
 
     except stripe.error.InvalidRequestError as e:
