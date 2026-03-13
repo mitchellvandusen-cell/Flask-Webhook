@@ -1276,7 +1276,7 @@ def submit_voice_integrity_for_review(
         # Run evaluation to validate completeness before submitting
         try:
             evaluation = client.trusthub.v1.trust_products(trust_product_sid) \
-                .trust_products_evaluations.create()
+                .trust_products_evaluations.create(policy_sid=VOICE_INTEGRITY_POLICY_SID)
             eval_status = getattr(evaluation, "status", "unknown")
             logger.info(f"[VoiceIntegrity] Evaluation for {trust_product_sid}: {eval_status}")
             if eval_status == "noncompliant":
