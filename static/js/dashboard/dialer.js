@@ -6421,8 +6421,8 @@
                 if (!r.ok) return;
                 const info = await r.json();
                 const tier = info.tier || 'individual';
-                _multiLineEnabled = (tier === 'pro_dialer' || tier === 'predictive_dialer') || info.is_admin;
-                _predictiveEnabled = (tier === 'predictive_dialer') || info.is_admin;
+                _multiLineEnabled = (tier === 'pro_dialer' || tier === 'predictive_dialer');
+                _predictiveEnabled = (tier === 'predictive_dialer');
                 // Use user-configured max_lines_setting, capped by subscription tier
                 const configuredLines = window.DASHBOARD_BOOT?.maxLinesSetting ?? 3;
                 _multiLineMaxLines = _multiLineEnabled ? Math.min(info.max_lines || 4, configuredLines) : 1;

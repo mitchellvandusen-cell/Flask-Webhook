@@ -750,8 +750,8 @@ def dial_contact():
     if not hours_ok and not bypass_hours:
         return jsonify({"error": hours_reason, "calling_hours_blocked": True}), 400
 
-    # ── Recipient timezone enforcement (compliance — applies to admins too) ──
-    if tier in ('pro_dialer', 'predictive_dialer') or is_admin:
+    # ── Recipient timezone enforcement (compliance — pro_dialer+ only) ──
+    if tier in ('pro_dialer', 'predictive_dialer'):
         tz_ok, tz_reason, recip_tz, recip_time = check_recipient_timezone(
             phone,
             voice_config.get('calling_hours_start', '08:00'),
@@ -945,7 +945,7 @@ def multi_dial():
 
     tier = subscriber.get('subscription_tier', 'individual')
     is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
-    if tier not in ('pro_dialer', 'predictive_dialer') and not is_admin:
+    if tier not in ('pro_dialer', 'predictive_dialer'):
         return jsonify({"error": "Multi-line dialer requires Pro Dialer subscription", "upgrade_required": True}), 403
 
     location_id = subscriber.get('location_id', '')
@@ -1012,9 +1012,9 @@ def multi_dial():
             finally:
                 return_db_connection(_cd_conn)
 
-    # ── Per-contact timezone enforcement (compliance — applies to admins too) ──
+    # ── Per-contact timezone enforcement (compliance — pro_dialer+ only) ──
     tz_blocked_phones = set()
-    if tier in ('pro_dialer', 'predictive_dialer') or is_admin:
+    if tier in ('pro_dialer', 'predictive_dialer'):
         calling_start = voice_config.get('calling_hours_start', '08:00')
         calling_end = voice_config.get('calling_hours_end', '21:00')
         for contact in contacts_to_dial:
@@ -1169,8 +1169,7 @@ def get_active_lines():
     finally:
         return_db_connection(conn)
 
-    is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
-    max_lines = 4 if (tier in ('pro_dialer', 'predictive_dialer') or is_admin) else 1
+    max_lines = 4 if tier in ('pro_dialer', 'predictive_dialer') else 1
 
     lines = []
     for sid, info in list(active_calls.items()):
@@ -1431,8 +1430,7 @@ def compliance_dashboard():
             return jsonify({"error": "Account not found"}), 404
 
         tier = row['subscription_tier'] or 'individual'
-        is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
-        if tier != 'predictive_dialer' and not is_admin:
+        if tier != 'predictive_dialer':
             return jsonify({"error": "Compliance dashboard requires Predictive Dialer tier",
                             "upgrade_required": True}), 403
 
@@ -1483,8 +1481,7 @@ def agent_state():
     finally:
         return_db_connection(conn)
 
-    is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
-    if tier != 'predictive_dialer' and not is_admin:
+    if tier != 'predictive_dialer':
         return jsonify({"error": "Agent state requires Predictive Dialer tier",
                         "upgrade_required": True}), 403
 
@@ -1537,8 +1534,7 @@ def callback_queue_route():
     finally:
         return_db_connection(conn)
 
-    is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
-    if tier != 'predictive_dialer' and not is_admin:
+    if tier != 'predictive_dialer':
         return jsonify({"error": "Callback queue requires Predictive Dialer tier",
                         "upgrade_required": True}), 403
 
