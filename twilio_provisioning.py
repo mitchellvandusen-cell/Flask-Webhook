@@ -1084,6 +1084,242 @@ def discover_full_a2p_status(sub_account_sid: str,
 
 
 # ──────────────────────────────────────────────────────────────
+# VOICE INTEGRITY (NUMBER INTEGRITY)
+# ──────────────────────────────────────────────────────────────
+#
+# Twilio Voice Integrity registers phone numbers with carrier spam
+# analytics engines (AT&T/Hiya, T-Mobile/CallHub, Verizon) to
+# remediate spam labels and improve call answer rates.
+#
+# Flow (ISV/sub-account):
+#   1. Create or reuse an approved Customer Profile (Business Profile)
+#   2. Create a Voice Integrity Trust Product (policy_sid specific to VI)
+#   3. Link Customer Profile → Trust Product (EntityAssignment)
+#   4. Assign phone numbers → Trust Product (ChannelEndpointAssignment)
+#   5. Submit Trust Product for review (status → pending-review)
+#   6. Twilio reviews + registers with carriers (24–48 hours)
+#
+# State stored in voice_config["number_integrity"] JSONB.
+
+# Voice Integrity uses its OWN policy SID — different from A2P/SHAKEN.
+# This is Twilio's static Voice Integrity policy (same across all accounts).
+VOICE_INTEGRITY_POLICY_SID = "RNb0d4771c2c98518d916a3d4cd70a8f8b"
+
+# Carrier analytics engines that Voice Integrity registers with
+VOICE_INTEGRITY_CARRIERS = [
+    {"key": "att", "name": "AT&T / Hiya", "icon": "fa-signal",
+     "description": "Registers with Hiya analytics to clear spam labels on AT&T devices."},
+    {"key": "tmobile", "name": "T-Mobile / CallHub", "icon": "fa-tower-cell",
+     "description": "Registers with T-Mobile CallHub for verified caller status."},
+    {"key": "verizon", "name": "Verizon", "icon": "fa-shield-halved",
+     "description": "Registers with Verizon spam analytics to prevent spam flagging."},
+]
+
+
+def create_voice_integrity_trust_product(
+    sub_account_sid: str,
+    business_name: str,
+    contact_email: str,
+    sub_account_auth_token: str = "",
+    existing_profile_sid: str = "",
+) -> dict:
+    """
+    Create a Voice Integrity Trust Product and link it to a Customer Profile.
+
+    If existing_profile_sid is provided, reuses that approved Business Profile.
+    Otherwise creates a new one.
+
+    Returns dict with trust_product_sid, profile_sid, status.
+    """
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
+
+    try:
+        # ── Step 1: Customer Profile ──
+        if existing_profile_sid:
+            profile_sid = existing_profile_sid
+            logger.info(f"[VoiceIntegrity] Reusing existing profile: {profile_sid}")
+        else:
+            profile = client.trusthub.v1.customer_profiles.create(
+                friendly_name=f"Voice Integrity: {business_name}",
+                email=contact_email,
+                policy_sid=VOICE_INTEGRITY_POLICY_SID,
+            )
+            profile_sid = profile.sid
+            logger.info(f"[VoiceIntegrity] Created Customer Profile: {profile_sid}")
+
+        # ── Step 2: Voice Integrity Trust Product ──
+        trust_product = client.trusthub.v1.trust_products.create(
+            friendly_name=f"Voice Integrity: {business_name}",
+            email=contact_email,
+            policy_sid=VOICE_INTEGRITY_POLICY_SID,
+        )
+        logger.info(f"[VoiceIntegrity] Created Trust Product: {trust_product.sid}")
+
+        # ── Step 3: Link Customer Profile → Trust Product ──
+        client.trusthub.v1.trust_products(trust_product.sid) \
+            .trust_products_entity_assignments.create(
+                object_sid=profile_sid,
+            )
+        logger.info(f"[VoiceIntegrity] Linked profile {profile_sid} → {trust_product.sid}")
+
+        return {
+            "trust_product_sid": trust_product.sid,
+            "profile_sid": profile_sid,
+            "status": "draft",
+            "business_name": business_name,
+        }
+
+    except TwilioRestException as e:
+        logger.error(f"[VoiceIntegrity] Trust Product creation failed: {e}")
+        raise
+
+
+def assign_numbers_to_voice_integrity(
+    sub_account_sid: str,
+    trust_product_sid: str,
+    phone_number_sids: list,
+    sub_account_auth_token: str = "",
+) -> dict:
+    """
+    Assign phone numbers to a Voice Integrity Trust Product.
+
+    Each number is added as a ChannelEndpointAssignment on the Trust Product.
+    Returns dict with assigned count and any failures.
+    """
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
+    assigned = 0
+    failed = []
+
+    for pn_sid in phone_number_sids:
+        try:
+            client.trusthub.v1.trust_products(trust_product_sid) \
+                .trust_products_channel_endpoint_assignment.create(
+                    channel_endpoint_type="phone-number",
+                    channel_endpoint_sid=pn_sid,
+                )
+            assigned += 1
+            logger.info(f"[VoiceIntegrity] Assigned {pn_sid} to {trust_product_sid}")
+        except TwilioRestException as e:
+            # 20409 = already assigned — treat as success
+            if e.code == 20409:
+                assigned += 1
+                logger.info(f"[VoiceIntegrity] {pn_sid} already assigned (20409)")
+            else:
+                failed.append({"sid": pn_sid, "error": str(e)})
+                logger.warning(f"[VoiceIntegrity] Failed to assign {pn_sid}: {e}")
+
+    return {"assigned": assigned, "failed": failed, "total": len(phone_number_sids)}
+
+
+def submit_voice_integrity_for_review(
+    sub_account_sid: str,
+    trust_product_sid: str,
+    sub_account_auth_token: str = "",
+) -> dict:
+    """
+    Submit the Voice Integrity Trust Product for Twilio review.
+    After approval, numbers are registered with carrier analytics (24–48h).
+    """
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
+    try:
+        tp = client.trusthub.v1.trust_products(trust_product_sid).update(
+            status="pending-review",
+        )
+        logger.info(f"[VoiceIntegrity] Submitted {trust_product_sid} for review → {tp.status}")
+        return {"trust_product_sid": tp.sid, "status": tp.status}
+    except TwilioRestException as e:
+        logger.error(f"[VoiceIntegrity] Submit for review failed: {e}")
+        raise
+
+
+def get_voice_integrity_status(
+    sub_account_sid: str,
+    trust_product_sid: str,
+    sub_account_auth_token: str = "",
+) -> dict:
+    """
+    Check the current status of a Voice Integrity Trust Product.
+    Statuses: draft, pending-review, in-review, twilio-approved, twilio-rejected.
+    """
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
+    try:
+        tp = client.trusthub.v1.trust_products(trust_product_sid).fetch()
+        # List assigned numbers
+        assigned_numbers = []
+        try:
+            assignments = client.trusthub.v1.trust_products(trust_product_sid) \
+                .trust_products_channel_endpoint_assignment.list(limit=100)
+            assigned_numbers = [a.channel_endpoint_sid for a in assignments]
+        except Exception as e:
+            logger.warning(f"[VoiceIntegrity] Could not list assigned numbers: {e}")
+
+        return {
+            "trust_product_sid": tp.sid,
+            "status": tp.status,
+            "friendly_name": getattr(tp, "friendly_name", ""),
+            "date_created": tp.date_created.isoformat() if tp.date_created else "",
+            "date_updated": tp.date_updated.isoformat() if tp.date_updated else "",
+            "assigned_numbers": assigned_numbers,
+            "assigned_count": len(assigned_numbers),
+        }
+    except TwilioRestException as e:
+        logger.error(f"[VoiceIntegrity] Status check failed: {e}")
+        raise
+
+
+def remove_number_from_voice_integrity(
+    sub_account_sid: str,
+    trust_product_sid: str,
+    phone_number_sid: str,
+    sub_account_auth_token: str = "",
+) -> bool:
+    """Remove a phone number from a Voice Integrity Trust Product."""
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
+    try:
+        assignments = client.trusthub.v1.trust_products(trust_product_sid) \
+            .trust_products_channel_endpoint_assignment.list(limit=100)
+        for a in assignments:
+            if a.channel_endpoint_sid == phone_number_sid:
+                client.trusthub.v1.trust_products(trust_product_sid) \
+                    .trust_products_channel_endpoint_assignment(a.sid).delete()
+                logger.info(f"[VoiceIntegrity] Removed {phone_number_sid} from {trust_product_sid}")
+                return True
+        logger.warning(f"[VoiceIntegrity] {phone_number_sid} not found on {trust_product_sid}")
+        return False
+    except TwilioRestException as e:
+        logger.error(f"[VoiceIntegrity] Remove number failed: {e}")
+        raise
+
+
+def discover_voice_integrity_products(
+    sub_account_sid: str,
+    sub_account_auth_token: str = "",
+) -> list:
+    """
+    Discover existing Voice Integrity Trust Products on a sub-account.
+    Returns list of {trust_product_sid, status, friendly_name} dicts.
+    """
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
+    try:
+        products = client.trusthub.v1.trust_products.list(limit=100)
+        results = []
+        for p in products:
+            fn = getattr(p, "friendly_name", "") or ""
+            if "voice integrity" in fn.lower():
+                results.append({
+                    "trust_product_sid": p.sid,
+                    "status": p.status,
+                    "friendly_name": fn,
+                    "date_created": p.date_created.isoformat() if p.date_created else "",
+                })
+        logger.info(f"[VoiceIntegrity] Discovered {len(results)} Voice Integrity products")
+        return results
+    except TwilioRestException as e:
+        logger.error(f"[VoiceIntegrity] Discovery failed: {e}")
+        return []
+
+
+# ──────────────────────────────────────────────────────────────
 # FULL PROVISIONING
 # ──────────────────────────────────────────────────────────────
 

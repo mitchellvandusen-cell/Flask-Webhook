@@ -332,6 +332,195 @@
         // Keep old function name as alias for backward compatibility
         function loadTrustHubNumbers() { loadNumbersTab(); }
 
+        // ===== NUMBER INTEGRITY (Voice Integrity) =====
+        var _niData = null; // cached status data
+        var _niSelectedSids = new Set();
+
+        async function loadNumberIntegrity() {
+            var listEl = document.getElementById('niNumbersList');
+            var bannerEl = document.getElementById('niStatusBanner');
+            var registerBtn = document.getElementById('niRegisterBtn');
+            var remediateBtn = document.getElementById('niRemediateBtn');
+            var carrierListEl = document.getElementById('niCarrierList');
+            if (listEl) listEl.innerHTML = '<div class="ni-loading"><i class="fa-solid fa-spinner fa-spin me-1"></i>Loading numbers...</div>';
+
+            try {
+                var r = await fetch('/voice/number-integrity/status');
+                var d = await r.json();
+                if (!r.ok || d.error) {
+                    if (listEl) listEl.innerHTML = '<div class="ni-error"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Failed to load') + '</div>';
+                    return;
+                }
+                _niData = d;
+
+                // Render carrier cards
+                if (carrierListEl && d.carriers) {
+                    var isActive = d.status === 'twilio-approved';
+                    var isPending = d.status === 'pending-review' || d.status === 'in-review';
+                    var carrierHtml = '';
+                    d.carriers.forEach(function(c) {
+                        var statusClass = isActive ? 'ni-carrier-active' : (isPending ? 'ni-carrier-pending' : 'ni-carrier-inactive');
+                        var statusIcon = isActive ? 'fa-circle-check' : (isPending ? 'fa-clock' : 'fa-circle-xmark');
+                        var statusLabel = isActive ? 'Registered' : (isPending ? 'Pending' : 'Not Registered');
+                        carrierHtml += '<div class="col-md-4">' +
+                            '<div class="ni-carrier-card ' + statusClass + '">' +
+                                '<div class="ni-carrier-icon"><i class="fa-solid ' + c.icon + '"></i></div>' +
+                                '<div class="ni-carrier-name">' + _esc(c.name) + '</div>' +
+                                '<div class="ni-carrier-status"><i class="fa-solid ' + statusIcon + ' me-1"></i>' + statusLabel + '</div>' +
+                                '<div class="ni-carrier-desc">' + _esc(c.description) + '</div>' +
+                            '</div>' +
+                        '</div>';
+                    });
+                    carrierListEl.innerHTML = carrierHtml;
+                }
+
+                // Show status banner if registered
+                if (bannerEl && d.status !== 'not_registered') {
+                    var disp = d.display || {};
+                    var bannerClass = 'ni-banner-' + (disp.color || 'gray');
+                    bannerEl.style.display = 'block';
+                    bannerEl.className = 'ni-status-banner ' + bannerClass + ' mb-3 p-3';
+                    bannerEl.innerHTML =
+                        '<div class="d-flex align-items-center gap-3">' +
+                            '<div class="ni-banner-icon"><i class="fa-solid ' + (disp.icon || 'fa-circle-info') + '"></i></div>' +
+                            '<div class="ni-banner-body">' +
+                                '<div class="ni-banner-title">' + _esc(disp.label || d.status) + '</div>' +
+                                '<div class="ni-banner-detail">' +
+                                    (d.business_name ? '<strong>' + _esc(d.business_name) + '</strong> &mdash; ' : '') +
+                                    d.assigned_count + ' number' + (d.assigned_count !== 1 ? 's' : '') + ' registered' +
+                                    (d.registered_at ? ' &bull; Since ' + new Date(d.registered_at).toLocaleDateString() : '') +
+                                '</div>' +
+                            '</div>' +
+                            (d.status === 'twilio-approved' || d.status === 'twilio-rejected' ?
+                                '<button onclick="niRemediate()" class="ni-banner-remediate-btn"><i class="fa-solid fa-wrench me-1"></i>Remediate</button>' : '') +
+                        '</div>';
+                } else if (bannerEl) {
+                    bannerEl.style.display = 'none';
+                }
+
+                // Render phone numbers list
+                if (listEl) {
+                    var nums = d.numbers || [];
+                    if (!nums.length) {
+                        listEl.innerHTML = '<div class="ni-empty">No numbers found. Buy a number in the Numbers tab first.</div>';
+                    } else {
+                        var html = '';
+                        nums.forEach(function(n) {
+                            var checked = n.registered ? ' checked disabled' : '';
+                            var regBadge = n.registered ? '<span class="ni-badge-registered"><i class="fa-solid fa-circle-check me-1"></i>Registered</span>' : '';
+                            html += '<label class="ni-number-row">' +
+                                '<input type="checkbox" class="ni-number-cb" data-sid="' + _esc(n.sid) + '" onchange="niUpdateSelection()"' + checked + '>' +
+                                '<span class="ni-number-phone">' + _esc(_fmtPhone(n.phone)) + '</span>' +
+                                (n.friendly_name ? '<span class="ni-number-name">' + _esc(n.friendly_name) + '</span>' : '') +
+                                regBadge +
+                            '</label>';
+                        });
+                        listEl.innerHTML = html;
+                    }
+                }
+
+                // Show/hide action buttons
+                if (registerBtn) registerBtn.style.display = (d.status === 'not_registered' || d.status === 'draft' || d.status === 'twilio-approved') ? '' : 'none';
+                if (remediateBtn) remediateBtn.style.display = (d.status === 'twilio-approved' || d.status === 'twilio-rejected') ? '' : 'none';
+
+                // Update register button text based on status
+                if (registerBtn && d.status === 'twilio-approved') {
+                    registerBtn.innerHTML = '<i class="fa-solid fa-plus me-2"></i>Add More Numbers';
+                }
+
+                _niSelectedSids.clear();
+                niUpdateSelection();
+
+            } catch(e) {
+                console.error('[NumberIntegrity] Error:', e);
+                if (listEl) listEl.innerHTML = '<div class="ni-error">Network error &mdash; check your connection</div>';
+            }
+        }
+
+        function niUpdateSelection() {
+            _niSelectedSids.clear();
+            var cbs = document.querySelectorAll('.ni-number-cb:checked:not(:disabled)');
+            cbs.forEach(function(cb) { _niSelectedSids.add(cb.dataset.sid); });
+            var countEl = document.getElementById('niSelectedCount');
+            if (countEl) countEl.textContent = _niSelectedSids.size + ' selected';
+        }
+
+        function niSelectAll() {
+            document.querySelectorAll('.ni-number-cb:not(:disabled)').forEach(function(cb) { cb.checked = true; });
+            niUpdateSelection();
+        }
+
+        function niDeselectAll() {
+            document.querySelectorAll('.ni-number-cb:not(:disabled)').forEach(function(cb) { cb.checked = false; });
+            niUpdateSelection();
+        }
+
+        async function niRegister() {
+            if (_niSelectedSids.size === 0) {
+                document.getElementById('niActionResult').innerHTML = '<span class="ni-result-error"><i class="fa-solid fa-triangle-exclamation me-1"></i>Select at least one number to register</span>';
+                return;
+            }
+            var btn = document.getElementById('niRegisterBtn');
+            var resultEl = document.getElementById('niActionResult');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Registering with carrier networks...';
+            resultEl.innerHTML = '';
+
+            var endpoint = (_niData && _niData.trust_product_sid) ? '/voice/number-integrity/add-numbers' : '/voice/number-integrity/register';
+
+            try {
+                var r = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ phone_number_sids: Array.from(_niSelectedSids) }),
+                });
+                var d = await r.json();
+                if (r.ok) {
+                    var msg = (d.numbers_assigned || 0) + ' number' + ((d.numbers_assigned || 0) !== 1 ? 's' : '') + ' submitted for carrier registration.';
+                    if (d.numbers_failed > 0) msg += ' ' + d.numbers_failed + ' failed.';
+                    msg += ' Registration takes 24–48 hours.';
+                    resultEl.innerHTML = '<span class="ni-result-success"><i class="fa-solid fa-circle-check me-1"></i>' + msg + '</span>';
+                    setTimeout(function() { loadNumberIntegrity(); }, 1000);
+                } else {
+                    resultEl.innerHTML = '<span class="ni-result-error"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Registration failed') + '</span>';
+                }
+            } catch(e) {
+                resultEl.innerHTML = '<span class="ni-result-error">Network error &mdash; check your connection</span>';
+            }
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-tower-broadcast me-2"></i>Register Selected Numbers';
+        }
+
+        async function niRemediate() {
+            var btn = document.getElementById('niRemediateBtn');
+            var resultEl = document.getElementById('niActionResult');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Submitting remediation...'; }
+            resultEl.innerHTML = '';
+
+            try {
+                var r = await fetch('/voice/number-integrity/remediate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: '{}',
+                });
+                var d = await r.json();
+                if (r.ok) {
+                    var msg = d.message || 'Remediation submitted successfully.';
+                    if (d.status === 'already_pending') {
+                        resultEl.innerHTML = '<span class="ni-result-warning"><i class="fa-solid fa-clock me-1"></i>' + _esc(msg) + '</span>';
+                    } else {
+                        resultEl.innerHTML = '<span class="ni-result-success"><i class="fa-solid fa-circle-check me-1"></i>' + _esc(msg) + '</span>';
+                    }
+                    setTimeout(function() { loadNumberIntegrity(); }, 1000);
+                } else {
+                    resultEl.innerHTML = '<span class="ni-result-error"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Remediation failed') + '</span>';
+                }
+            } catch(e) {
+                resultEl.innerHTML = '<span class="ni-result-error">Network error</span>';
+            }
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-wrench me-2"></i>Remediate Spam Labels'; }
+        }
+
         async function searchAvailableNumbers() {
             const numberType = document.getElementById('buyNumberType').value;
             const area = document.getElementById('buyAreaCode').value.trim();
