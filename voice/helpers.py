@@ -10,7 +10,8 @@ logger = logging.getLogger("voice_bridge.helpers")
 
 
 def _get_subscriber_by_phone(phone_number):
-    """Look up subscriber whose voice_config.twilio_phone_number matches the given number."""
+    """Look up subscriber whose voice_config.twilio_phone_number matches the given number.
+    Also checks location_users for seat user phone numbers."""
     conn = get_db_connection()
     if not conn:
         return None
@@ -32,8 +33,37 @@ def _get_subscriber_by_phone(phone_number):
             LIMIT 1
         """, (normalized, phone_number))
         row = cur.fetchone()
+        if row:
+            cur.close()
+            return dict(row)
+
+        # Also check seat users in location_users
+        try:
+            cur.execute("""
+                SELECT lu.*, s.access_token, s.refresh_token, s.token_expires_at,
+                       s.bot_first_name, s.timezone, s.subscription_tier, s.sms_send_via
+                FROM location_users lu
+                JOIN subscribers s ON s.location_id = lu.location_id
+                WHERE lu.voice_config IS NOT NULL
+                  AND lu.voice_activated = true
+                  AND lu.is_active = true
+                  AND (
+                      REGEXP_REPLACE(lu.voice_config->>'twilio_phone_number', '^\+?1', '') = %s
+                      OR lu.voice_config->>'twilio_phone_number' = %s
+                  )
+                LIMIT 1
+            """, (normalized, phone_number))
+            seat_row = cur.fetchone()
+            cur.close()
+            if seat_row:
+                result = dict(seat_row)
+                result['_is_seat_user'] = True
+                return result
+        except Exception:
+            pass
+
         cur.close()
-        return dict(row) if row else None
+        return None
     except Exception as e:
         logger.error(f"Error looking up subscriber by number: {e}")
         return None
@@ -60,12 +90,34 @@ def _get_subscriber_by_location(location_id):
 
 
 def _get_current_subscriber_voice():
-    """Get subscriber, voice_config, and sub_account_sid for the logged-in user."""
+    """Get subscriber, voice_config, and sub_account_sid for the logged-in user.
+    Supports both regular subscribers and seat users (location_users table)."""
     conn = get_db_connection()
     if not conn:
         return None, None, None
     try:
         cur = conn.cursor()
+
+        # Check if seat user first — they have their own voice_config
+        if getattr(current_user, 'is_seat_user', False) and getattr(current_user, 'seat_user_id', None):
+            cur.execute("""
+                SELECT lu.voice_config, lu.location_id, lu.email, lu.full_name,
+                       s.access_token, s.refresh_token, s.token_expires_at,
+                       s.bot_first_name, s.timezone, s.subscription_tier,
+                       s.sms_send_via
+                FROM location_users lu
+                JOIN subscribers s ON s.location_id = lu.location_id
+                WHERE lu.id = %s
+            """, (current_user.seat_user_id,))
+            row = cur.fetchone()
+            cur.close()
+            if not row:
+                return None, None, None
+            subscriber = dict(row)
+            vc = subscriber.get('voice_config') or {}
+            sub_sid = vc.get('twilio_sub_account_sid', '')
+            return subscriber, vc, sub_sid or None
+
         cur.execute("SELECT * FROM subscribers WHERE email = %s", (current_user.email,))
         row = cur.fetchone()
         cur.close()
@@ -97,17 +149,23 @@ def _verify_call_ownership(call_sid: str) -> bool:
     return subscriber.get('location_id', '') == call_location
 
 
-def _save_voice_config(email, voice_config):
-    """Persist voice_config JSON for a subscriber."""
+def _save_voice_config(email, voice_config, seat_user_id=None):
+    """Persist voice_config JSON for a subscriber or seat user."""
     conn = get_db_connection()
     if not conn:
         return False
     try:
         cur = conn.cursor()
-        cur.execute(
-            "UPDATE subscribers SET voice_config = %s WHERE email = %s",
-            (json.dumps(voice_config), email)
-        )
+        if seat_user_id:
+            cur.execute(
+                "UPDATE location_users SET voice_config = %s WHERE id = %s",
+                (json.dumps(voice_config), seat_user_id)
+            )
+        else:
+            cur.execute(
+                "UPDATE subscribers SET voice_config = %s WHERE email = %s",
+                (json.dumps(voice_config), email)
+            )
         conn.commit()
         cur.close()
         return True

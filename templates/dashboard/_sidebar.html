@@ -23,6 +23,7 @@
                         <i class="fa-solid fa-phone-volume"></i>
                         <span class="sb-nav-label">Dialer</span>
                     </button>
+                    {% if not current_user.is_seat_user or current_user.has_permission('can_change_bot_config') %}
                     <button class="sb-nav-item" id="sbnSmsConfig" onclick="sidebarNavigate('config', this)">
                         <i class="fa-solid fa-comment-sms"></i>
                         <span class="sb-nav-label">SMS Config</span>
@@ -31,6 +32,7 @@
                         <i class="fa-solid fa-phone"></i>
                         <span class="sb-nav-label">Voice Config</span>
                     </button>
+                    {% endif %}
                     <button class="sb-nav-item" id="sbnAiMinutes" onclick="sidebarNavigate('aiminutes', this); loadAiMinutes();">
                         <i class="fa-solid fa-clock"></i>
                         <span class="sb-nav-label">AI Minutes</span>
@@ -39,6 +41,12 @@
                         <i class="fa-solid fa-diagram-project"></i>
                         <span class="sb-nav-label">Workflows</span>
                     </button>
+                    {% if not current_user.is_seat_user %}
+                    <button class="sb-nav-item" id="sbnTeam" onclick="sidebarNavigate('team', this); teamInit();">
+                        <i class="fa-solid fa-users-gear"></i>
+                        <span class="sb-nav-label">Team</span>
+                    </button>
+                    {% endif %}
                     <a class="sb-nav-item" href="https://ai-lifeinsurance-training-production.up.railway.app/" target="_blank" rel="noopener" style="text-decoration:none;">
                         <i class="fa-solid fa-graduation-cap"></i>
                         <span class="sb-nav-label">Training</span>
@@ -83,14 +91,18 @@
                     <i class="fa-solid fa-chevron-down sb-section-chevron"></i>
                 </div>
                 <div class="sb-section-body">
+                    {% if not current_user.is_seat_user or current_user.has_permission('can_change_bot_config') %}
                     <button class="sb-nav-item" id="sbnAdvanced" onclick="sidebarNavigate('advanced', this)">
                         <i class="fa-solid fa-wand-magic-sparkles"></i>
                         <span class="sb-nav-label">Advanced Settings</span>
                     </button>
+                    {% endif %}
+                    {% if not current_user.is_seat_user or current_user.has_permission('can_view_billing') %}
                     <button class="sb-nav-item" id="sbnBilling" onclick="sidebarNavigate('billing', this)">
                         <i class="fa-solid fa-credit-card"></i>
                         <span class="sb-nav-label">Billing</span>
                     </button>
+                    {% endif %}
                     <button class="sb-nav-item" id="sbnLogs" onclick="sidebarNavigate('logs', this)">
                         <i class="fa-solid fa-list-check"></i>
                         <span class="sb-nav-label">Activity Logs</span>

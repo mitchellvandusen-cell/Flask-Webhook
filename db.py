@@ -1361,6 +1361,15 @@ def init_db() -> bool:
             conn.rollback()
             logger.debug(f"contact_cache dnd migration note: {e}")
 
+        # MIGRATION: Add assigned_to column to contact_cache for seat user filtering
+        try:
+            cur.execute("ALTER TABLE contact_cache ADD COLUMN IF NOT EXISTS assigned_to TEXT DEFAULT NULL")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_cache_assigned ON contact_cache (location_id, assigned_to)")
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"contact_cache assigned_to migration note: {e}")
+
         # ── GHL Sync Engine tables ─────────────────────────────────────────
         # Phase 1: ghl_conversations — stores ALL GHL conversation messages locally
         try:
@@ -1627,6 +1636,49 @@ def init_db() -> bool:
             conn.rollback()
             logger.debug(f"preferred_language migration note: {e}")
 
+        # 27. MIGRATION: Create location_users table for multi-user seat management
+        try:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS location_users (
+                    id SERIAL PRIMARY KEY,
+                    location_id TEXT NOT NULL REFERENCES subscribers(location_id),
+                    ghl_user_id TEXT,
+                    email TEXT UNIQUE,
+                    password_hash TEXT,
+                    full_name TEXT,
+                    role TEXT DEFAULT 'agent',
+                    permissions JSONB DEFAULT '{
+                        "can_dial": true,
+                        "can_text": true,
+                        "can_view_all_leads": false,
+                        "can_import_leads": false,
+                        "can_change_bot_config": false,
+                        "can_view_call_recordings": true,
+                        "can_manage_numbers": false,
+                        "can_view_billing": false,
+                        "can_invite_users": false
+                    }'::jsonb,
+                    voice_config JSONB DEFAULT '{}'::jsonb,
+                    voice_activated BOOLEAN DEFAULT false,
+                    invite_token TEXT,
+                    invite_sent_at TIMESTAMP,
+                    invite_claimed_at TIMESTAMP,
+                    onboarding_status TEXT DEFAULT 'pending',
+                    is_active BOOLEAN DEFAULT true,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_location_users_location ON location_users(location_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_location_users_email ON location_users(email)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_location_users_ghl ON location_users(ghl_user_id)")
+            cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_location_users_loc_ghl ON location_users(location_id, ghl_user_id)")
+            conn.commit()
+            logger.info("✅ Migration: Created location_users table for multi-user seats")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"location_users migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)
@@ -1714,6 +1766,11 @@ class User(UserMixin):
         # i18n — auto-detected from browser Accept-Language or manually overridden
         self.preferred_language = data.get('preferred_language', 'en')
 
+        # Seat user fields (location_users table)
+        self.is_seat_user = data.get('_is_seat_user', False)
+        self.seat_user_id = data.get('_seat_user_id')
+        self.permissions = data.get('permissions') or {}
+
         # Timestamps
         self.created_at = data.get('created_at')
         self.updated_at = data.get('updated_at')
@@ -1725,6 +1782,12 @@ class User(UserMixin):
     @property
     def is_super_admin(self) -> bool:
         return self.role == 'super_admin'
+
+    def has_permission(self, perm: str) -> bool:
+        """Check if seat user has a specific permission. Managers/owners always have all permissions."""
+        if not self.is_seat_user:
+            return True  # Non-seat users (managers/owners) have all permissions
+        return bool(self.permissions.get(perm, False))
    
     @staticmethod
     def get(email: str) -> Optional['User']:
@@ -1762,12 +1825,45 @@ class User(UserMixin):
                 SELECT * FROM agency_billing WHERE agency_email = %s LIMIT 1
             """, (email,))
             row = cur.fetchone()
-            
+
             if row:
                 logger.debug(f"Found user in agency_billing table")
                 return User(row)
-            
-            logger.debug(f"No match found for '{email}' in either table")
+
+            # 3. Check location_users table (seat users)
+            try:
+                cur.execute("""
+                    SELECT lu.*, s.location_id as parent_location_id,
+                           s.access_token, s.refresh_token, s.token_expires_at,
+                           s.token_type, s.bot_first_name, s.timezone,
+                           s.initial_message, s.contracted_carriers,
+                           s.bot_settings, s.crm_type, s.crm_config,
+                           s.crm_user_id as parent_crm_user_id,
+                           s.stripe_customer_id as parent_stripe_customer_id,
+                           s.subscription_tier as parent_subscription_tier,
+                           s.sms_send_via, s.calendar_id, s.calendar_name
+                    FROM location_users lu
+                    JOIN subscribers s ON s.location_id = lu.location_id
+                    WHERE lu.email = %s AND lu.is_active = true
+                    LIMIT 1
+                """, (email,))
+                seat_row = cur.fetchone()
+                if seat_row:
+                    logger.debug(f"Found seat user in location_users table")
+                    # Merge parent subscriber data with seat user data
+                    data = dict(seat_row)
+                    data['_is_seat_user'] = True
+                    data['_seat_user_id'] = data.get('id')
+                    data['location_id'] = data.get('location_id') or data.get('parent_location_id')
+                    data['role'] = 'seat_user'
+                    # Seat users inherit parent's OAuth tokens and bot config
+                    data['subscription_tier'] = data.get('parent_subscription_tier', 'individual')
+                    data['stripe_customer_id'] = data.get('parent_stripe_customer_id')
+                    return User(data)
+            except Exception as seat_err:
+                logger.debug(f"location_users check note: {seat_err}")
+
+            logger.debug(f"No match found for '{email}' in any table")
             return None
        
         except psycopg2.Error as e:
@@ -3878,33 +3974,40 @@ def delete_google_calendar_config(location_id: str) -> bool:
 #  CONTACT CACHE — persistent per-subscriber cache for fast dialer
 # ═══════════════════════════════════════════════════════════════
 
-def get_cached_contacts(location_id: str, query: str = None, limit: int = 5000) -> list:
+def get_cached_contacts(location_id: str, query: str = None, limit: int = 5000,
+                        assigned_to: str = None) -> list:
     """Fetch contacts from the local cache. Optional search filter.
+    assigned_to: if set, only return contacts assigned to this GHL user ID.
     Returns list of contact dicts or empty list if no cache."""
     conn = get_db_connection()
     if not conn:
         return []
     try:
         cur = conn.cursor()
+        conditions = ["location_id = %s"]
+        params = [location_id]
+
+        if assigned_to:
+            conditions.append("assigned_to = %s")
+            params.append(assigned_to)
+
         if query and query.strip():
             q = f"%{query.strip().lower()}%"
-            cur.execute("""
-                SELECT contact_id, name, first_name, last_name, phone, email, tags, date_added, dnd
-                FROM contact_cache
-                WHERE location_id = %s
-                  AND (lower(name) LIKE %s OR phone LIKE %s OR lower(email) LIKE %s
-                       OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(COALESCE(tags, '[]'::jsonb)) AS t WHERE lower(t) LIKE %s))
-                ORDER BY name
-                LIMIT %s
-            """, (location_id, q, q, q, q, limit))
-        else:
-            cur.execute("""
-                SELECT contact_id, name, first_name, last_name, phone, email, tags, date_added, dnd
-                FROM contact_cache
-                WHERE location_id = %s
-                ORDER BY name
-                LIMIT %s
-            """, (location_id, limit))
+            conditions.append(
+                "(lower(name) LIKE %s OR phone LIKE %s OR lower(email) LIKE %s"
+                " OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(COALESCE(tags, '[]'::jsonb)) AS t WHERE lower(t) LIKE %s))"
+            )
+            params.extend([q, q, q, q])
+
+        where_clause = " AND ".join(conditions)
+        params.append(limit)
+        cur.execute(f"""
+            SELECT contact_id, name, first_name, last_name, phone, email, tags, date_added, dnd, assigned_to
+            FROM contact_cache
+            WHERE {where_clause}
+            ORDER BY name
+            LIMIT %s
+        """, params)
         rows = cur.fetchall()
         cur.close()
         return [{
@@ -3917,6 +4020,7 @@ def get_cached_contacts(location_id: str, query: str = None, limit: int = 5000) 
             "tags": r["tags"] if r["tags"] else [],
             "dateAdded": r["date_added"] or "",
             "dnd": bool(r.get("dnd", False)),
+            "assignedTo": r.get("assigned_to") or "",
         } for r in rows]
     except Exception as e:
         logger.error(f"get_cached_contacts failed for {location_id}: {e}")
@@ -3999,6 +4103,7 @@ def upsert_contact_cache(location_id: str, contacts: list, prune_stale: bool = F
                 _json.dumps(c.get("tags", [])),
                 c.get("dateAdded", ""),
                 bool(c.get("dnd", False)),
+                c.get("assignedTo") or None,
             ))
 
         if not values:
@@ -4006,7 +4111,7 @@ def upsert_contact_cache(location_id: str, contacts: list, prune_stale: bool = F
 
         # Bulk upsert
         execute_values(cur, """
-            INSERT INTO contact_cache (location_id, contact_id, name, first_name, last_name, phone, email, tags, date_added, dnd, synced_at)
+            INSERT INTO contact_cache (location_id, contact_id, name, first_name, last_name, phone, email, tags, date_added, dnd, assigned_to, synced_at)
             VALUES %s
             ON CONFLICT (location_id, contact_id)
             DO UPDATE SET
@@ -4018,8 +4123,9 @@ def upsert_contact_cache(location_id: str, contacts: list, prune_stale: bool = F
                 tags = EXCLUDED.tags,
                 date_added = EXCLUDED.date_added,
                 dnd = EXCLUDED.dnd,
+                assigned_to = EXCLUDED.assigned_to,
                 synced_at = CURRENT_TIMESTAMP
-        """, values, template="(%s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, CURRENT_TIMESTAMP)")
+        """, values, template="(%s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, CURRENT_TIMESTAMP)")
 
         total_upserted = len(values)  # cur.rowcount only reflects last execute_values batch
 
