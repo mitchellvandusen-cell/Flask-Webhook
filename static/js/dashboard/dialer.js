@@ -7349,9 +7349,8 @@
         let _dlrExportSelectedTags = new Set();
 
         function dlrExportOpen() {
-            console.log('[IGB] dlrExportOpen called');
             const modal = document.getElementById('dlrExportModal');
-            if (!modal) { console.error('[IGB] Export modal not found in DOM'); return; }
+            if (!modal) return;
             // Move modal to body so backdrop-filter/overflow:hidden parents don't clip it
             if (modal.parentElement !== document.body) document.body.appendChild(modal);
             modal.style.display = 'flex';
@@ -7365,11 +7364,6 @@
             _dlrExportLoadTags();
         }
         window.dlrExportOpen = dlrExportOpen;
-        // Belt-and-suspenders: also bind via addEventListener in case inline onclick fails
-        document.addEventListener('DOMContentLoaded', function() {
-            var btn = document.getElementById('dlrExportOpenBtn');
-            if (btn) btn.addEventListener('click', dlrExportOpen);
-        });
 
         function dlrExportClose() {
             const modal = document.getElementById('dlrExportModal');
@@ -7435,7 +7429,7 @@
             try {
                 const resp = await fetch('/voice/contacts/export', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': typeof csrf_token !== 'undefined' ? csrf_token : '' },
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': _csrfToken },
                     body: JSON.stringify(body)
                 });
                 if (!resp.ok) {
