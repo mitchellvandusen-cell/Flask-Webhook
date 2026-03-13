@@ -201,6 +201,26 @@
                 // Show status banner if protection is active
                 if (d.protection_active && statusEl) {
                     statusEl.style.display = 'block';
+                    // Profile review status badge
+                    var reviewBadge = '';
+                    var rs = d.review_status || '';
+                    if (rs === 'twilio-approved' || rs === 'compliant') {
+                        reviewBadge = ' &bull; <span style="color:#00ff88;">Profile Approved</span>';
+                    } else if (rs === 'pending-review' || rs === 'in-review') {
+                        reviewBadge = ' &bull; <span style="color:#ffa500;">Profile Under Review</span>';
+                    } else if (rs === 'twilio-rejected' || rs === 'noncompliant') {
+                        reviewBadge = ' &bull; <span style="color:#ef4444;">Profile Needs Attention</span>';
+                    } else if (rs === 'draft') {
+                        reviewBadge = ' &bull; <span style="color:#888;">Profile Draft</span>';
+                    }
+                    // Evaluation issues
+                    var issuesHtml = '';
+                    var issues = d.evaluation_issues || [];
+                    if (issues.length > 0) {
+                        issuesHtml = '<div style="margin-top:6px;padding:6px 10px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.12);border-radius:6px;font-size:0.72rem;color:#ef4444;">' +
+                            '<i class="fa-solid fa-triangle-exclamation me-1"></i>Issues: ' + issues.map(function(i) { return _esc(i); }).join(', ') +
+                        '</div>';
+                    }
                     statusEl.innerHTML =
                         '<div class="mb-3 p-3" style="background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.2);border-radius:10px;">' +
                             '<div class="d-flex align-items-center gap-3">' +
@@ -213,8 +233,11 @@
                                         '<strong>' + _esc(d.business_name) + '</strong> &mdash; ' +
                                         d.numbers_protected + '/' + d.numbers_total + ' numbers protected' +
                                         (d.auto_cnam ? ' &bull; Auto-protect ON' : '') +
-                                        ' &bull; STIR/SHAKEN A &bull; Registered ' + (d.registered_at ? new Date(d.registered_at).toLocaleDateString() : '') +
+                                        ' &bull; STIR/SHAKEN A' +
+                                        reviewBadge +
+                                        ' &bull; Registered ' + (d.registered_at ? new Date(d.registered_at).toLocaleDateString() : '') +
                                     '</div>' +
+                                    issuesHtml +
                                 '</div>' +
                                 '<button onclick="document.getElementById(\'spamProtectionForm\').style.display=document.getElementById(\'spamProtectionForm\').style.display===\'none\'?\'block\':\'none\'" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:5px 12px;font-size:0.75rem;cursor:pointer;white-space:nowrap;">' +
                                     '<i class="fa-solid fa-pen me-1"></i>Edit' +
