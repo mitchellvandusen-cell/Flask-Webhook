@@ -461,9 +461,12 @@ def process_webhook_task(payload: dict):
                     logger.error(f"CRM adapter booking error: {adapter_err}", exc_info=True)
             else:
                 # GHL: Use existing direct code path
-                # Pass contact state + phone for timezone-aware booking
+                # Pass all contact location fields for timezone resolution fallback chain
                 contact_state = payload.get('state') or ''
                 contact_phone_tz = payload.get('phone') or payload.get('contact_phone', '')
+                contact_city = payload.get('city') or ''
+                contact_zip = payload.get('zip') or payload.get('postal_code') or ''
+                contact_address = payload.get('address') or ''
                 ghl_book_result = consolidated_calendar_op(
                     operation="book",
                     subscriber_data=subscriber,
@@ -472,6 +475,9 @@ def process_webhook_task(payload: dict):
                     selected_time=booking_time_str,
                     contact_phone=contact_phone_tz,
                     contact_state=contact_state,
+                    contact_city=contact_city,
+                    contact_zip=contact_zip,
+                    contact_address=contact_address,
                 )
 
                 if ghl_book_result:
@@ -504,14 +510,20 @@ def process_webhook_task(payload: dict):
                     logger.error(f"CRM adapter get_free_slots error: {adapter_err}")
                     calendar_slots = "let me check my calendar and get back to you with some times"
             else:
-                # GHL: Use existing direct code path (unchanged)
-                # Pass contact state + phone for timezone-aware slot display
+                # GHL: Use existing direct code path
+                # Pass all contact location fields for timezone resolution fallback chain
                 contact_state_tz = payload.get('state') or ''
                 contact_phone_tz2 = payload.get('phone') or payload.get('contact_phone', '')
+                contact_city_tz = payload.get('city') or ''
+                contact_zip_tz = payload.get('zip') or payload.get('postal_code') or ''
+                contact_address_tz = payload.get('address') or ''
                 calendar_slots = consolidated_calendar_op(
                     "fetch_slots", subscriber,
                     contact_phone=contact_phone_tz2,
                     contact_state=contact_state_tz,
+                    contact_city=contact_city_tz,
+                    contact_zip=contact_zip_tz,
+                    contact_address=contact_address_tz,
                 )
 
         context_nudge = ""
