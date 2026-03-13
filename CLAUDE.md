@@ -878,3 +878,142 @@ python worker.py website demo              # GHL sync, backfill, demo chat
 - **AI Minutes**: Add-on usage-based billing for AI voice processing
 
 Subscriptions managed via Stripe. Users without active subscriptions see a paywall on the dashboard. Plan switching between Power Dialer, Pro Dialer, and Predictive Dialer is handled via `POST /change-plan` which calls `stripe.Subscription.modify()` with proration.
+
+---
+
+## Liquid Glass Design System
+
+InsuranceGrokBot uses a unified **Liquid Glass** visual language across all UI surfaces. Every panel, card, modal, dropdown, and interactive element must adhere to these rules. Do not deviate.
+
+### Core Concept
+
+Liquid Glass simulates a physical pane of frosted glass lit from the top-left. It combines:
+- **`backdrop-filter`** for blur + saturation (the "frosted" part)
+- **Layered `rgba` backgrounds** for translucency
+- **Asymmetric borders** — top/left edges are brighter (catch the light), bottom/right are darker (in shadow)
+- **`inset` box-shadows** to simulate glass thickness and edge glow
+
+### CSS Custom Properties
+
+All glass values are defined in `:root` in `static/css/style.css`:
+
+```css
+/* Background gradients */
+--glass-bg:         linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%);
+--glass-bg-strong:  linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.04) 100%);
+
+/* Blur filter */
+--glass-blur:       blur(20px) saturate(160%) brightness(1.1);
+
+/* 3D Edge Lighting — top/left bright, bottom darker */
+--glass-border-top:    rgba(255,255,255,0.25);
+--glass-border-left:   rgba(255,255,255,0.15);
+--glass-border-bottom: rgba(255,255,255,0.05);
+--glass-border:        rgba(255,255,255,0.15);   /* legacy alias */
+
+/* Depth shadows */
+--glass-shadow:       0 16px 32px -8px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.15);
+--glass-shadow-hover: 0 24px 48px -12px rgba(0,255,136,0.15), inset 0 1px 2px rgba(255,255,255,0.25);
+
+/* Accent */
+--accent: #00ff88;
+--accent-hover: #ffffff;
+--accent-dim: rgba(0,255,136,0.12);
+```
+
+### Canonical Glass Pattern
+
+Apply this to any card, panel, dropdown, or modal:
+
+```css
+.my-glass-element {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--glass-border-top) var(--glass-border-bottom) var(--glass-border-bottom) var(--glass-border-left);
+    /* shorthand: top  right  bottom  left */
+    border-radius: 12px;
+    box-shadow: var(--glass-shadow);
+}
+.my-glass-element:hover {
+    background: var(--glass-bg-strong);
+    box-shadow: var(--glass-shadow-hover);
+}
+```
+
+### Light Theme Overrides
+
+Light theme is activated via `body.light-theme`. All glass colors and surfaces have light-mode counterparts defined with `--lt-*` variables. Re-define any glass surface inside `body.light-theme { }`:
+
+```css
+body.light-theme .my-glass-element {
+    background: rgba(255,255,255,0.85);
+    border-color: rgba(0,0,0,0.10) rgba(0,0,0,0.06) rgba(0,0,0,0.06) rgba(0,0,0,0.08);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+```
+
+### Key `--lt-*` Variables (Light Theme)
+
+```css
+--lt-bg:            #f0f2f5;
+--lt-surface:       rgba(255,255,255,0.82);
+--lt-surface-hover: rgba(255,255,255,0.95);
+--lt-border:        rgba(0,0,0,0.10);
+--lt-text-primary:  #0d0d12;
+--lt-text-secondary:#374151;
+--lt-text-muted:    #6b7280;
+--lt-text-faint:    #9ca3af;
+--lt-input-bg:      rgba(255,255,255,0.70);
+--lt-input-text:    #111827;
+--lt-accent:        #00aa5e;
+--lt-accent-bg:     rgba(0,170,94,0.10);
+```
+
+### Reference Implementation
+
+The `Choices.js` custom select overrides in `static/css/style.css` (search for `/* Choices.js */`) are the canonical gold-standard implementation of a fully-themed Liquid Glass interactive component with dark and light variants. Model any new interactive components after that section.
+
+---
+
+## ⛔ NO INLINE STYLING — Mandatory Rule
+
+**Inline styles are strictly prohibited in all Jinja2/HTML templates.**
+
+### Why This Matters
+
+Inline `style=""` attributes bypass the CSS variable system entirely. They cannot respond to `body.light-theme` toggling, causing elements to stay dark-colored in light mode. The extensive `[style*="background:#1a1a2e"]`-type attribute selectors currently in `style.css` are band-aid workarounds for exactly this problem — they prove that inline styles break theming.
+
+### The Rule
+
+> **Never write `style="..."` on any element in any `.html` template file.**
+
+Instead:
+1. Add a semantic CSS class to the element (e.g. `class="stat-card"`)
+2. Define the visual properties for that class in `static/css/style.css`
+3. Add the light-theme override inside `body.light-theme { }` in the same CSS file
+
+### Allowed Exceptions
+
+The only permitted inline style is for **JavaScript-driven dynamic values** that cannot be known at render time — e.g. a progress bar width driven by a data attribute:
+```html
+<!-- OK: value is dynamic, set by JS -->
+<div class="progress-fill" style="width: 0%"></div>
+```
+```js
+el.style.width = score + '%';  // JS sets it dynamically
+```
+
+**Everything else must use CSS classes.** If you find yourself writing `style="color:#888"` in a template, stop — add a class instead.
+
+### Migrating Existing Inline Styles
+
+When editing a template that has inline styles:
+1. Extract the inline properties into a new class in `static/css/style.css`
+2. Replace `style="..."` with `class="..."`
+3. Add corresponding `body.light-theme .your-class` overrides
+4. Remove the corresponding `[style*="..."]` band-aid selectors from `style.css`
+
+This progressively eliminates the `[style*]` hacks and reduces CSS file size.

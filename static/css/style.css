@@ -107,6 +107,10 @@ body::after {
     0%   { transform: translate(0, 0) scale(1); }
     100% { transform: translate(10vw, 5vh) scale(1.2); }
 }
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
 
 /* Headings keep Outfit's personality; UI text uses Inter's clarity */
 h1, h2, h3 { font-family: 'Outfit', sans-serif; }
@@ -181,6 +185,88 @@ h1 .text-accent, h2 .text-accent, .hero h1 span, h1 span.text-accent, h2 span.te
     box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
     transform: translateY(-2px);
 }
+
+/* =========================================
+   BOOTSTRAP DROPDOWN — Liquid Glass (dark default)
+   ========================================= */
+.dropdown-menu {
+    background: linear-gradient(160deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 100%);
+    backdrop-filter: blur(24px) saturate(160%) brightness(1.1);
+    -webkit-backdrop-filter: blur(24px) saturate(160%) brightness(1.1);
+    border-top: 1px solid rgba(255,255,255,0.20);
+    border-left: 1px solid rgba(255,255,255,0.12);
+    border-right: 1px solid rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    border-radius: 14px;
+    padding: 6px;
+    box-shadow: 0 16px 40px -8px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.12);
+    min-width: 180px;
+    color: var(--text-primary);
+}
+.dropdown-item {
+    color: var(--text-secondary);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: var(--fs-sm);
+    font-weight: 500;
+    transition: background 0.18s ease, color 0.18s ease;
+    background: transparent;
+}
+.dropdown-item:hover,
+.dropdown-item:focus {
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    outline: none;
+}
+.dropdown-item:active,
+.dropdown-item.active {
+    background: rgba(0,255,136,0.15);
+    color: var(--accent);
+}
+.dropdown-item.text-danger { color: #ff6b6b !important; }
+.dropdown-item.text-danger:hover { background: rgba(255,68,68,0.12); color: #ff4444 !important; }
+.dropdown-divider {
+    border-color: rgba(255,255,255,0.08);
+    margin: 4px 8px;
+}
+.dropdown-header {
+    color: var(--text-muted);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 6px 14px 4px;
+}
+
+/* Light theme overrides */
+body.light-theme .dropdown-menu {
+    background: rgba(255,255,255,0.88);
+    backdrop-filter: blur(24px) saturate(160%) brightness(1.05);
+    -webkit-backdrop-filter: blur(24px) saturate(160%) brightness(1.05);
+    border-top: 1px solid rgba(0,0,0,0.10);
+    border-left: 1px solid rgba(0,0,0,0.07);
+    border-right: 1px solid rgba(0,0,0,0.04);
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.95);
+    color: var(--lt-text-primary);
+}
+body.light-theme .dropdown-item {
+    color: var(--lt-text-secondary);
+}
+body.light-theme .dropdown-item:hover,
+body.light-theme .dropdown-item:focus {
+    background: rgba(0,0,0,0.05);
+    color: var(--lt-text-primary);
+}
+body.light-theme .dropdown-item:active,
+body.light-theme .dropdown-item.active {
+    background: var(--lt-accent-bg);
+    color: var(--lt-accent);
+}
+body.light-theme .dropdown-item.text-danger { color: #dc2626 !important; }
+body.light-theme .dropdown-item.text-danger:hover { background: rgba(220,38,38,0.08); }
+body.light-theme .dropdown-divider { border-color: rgba(0,0,0,0.08); }
+body.light-theme .dropdown-header { color: var(--lt-text-faint); }
 
 footer {
     border-top: 1px solid rgba(255, 255, 255, 0.18);
@@ -863,8 +949,6 @@ footer a:hover { color: var(--accent); }
 }
 .dash-user-email { font-size: var(--fs-xs); color: #888; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Tab nav in main area — removed, now in sidebar */
-.dash-tabs-top { display: none; }
 
 /* Responsive — tablet (sidebar collapses but stays visible) */
 /* Laptop: collapse topbar right items before they overlap */
@@ -1375,10 +1459,6 @@ body.light-theme .dlr-daily-bar { background: rgba(5,150,105,0.3) !important; }
 body.light-theme .dlr-daily-bar:hover { background: rgba(5,150,105,0.55) !important; }
 body.light-theme .dlr-call-badge { background: var(--lt-accent-bg) !important; border-color: var(--lt-accent-border) !important; color: var(--lt-accent) !important; }
 /* InsuranceGrokBot dialer enhancements — light theme */
-body.light-theme .igb-radar-ring { border-color: rgba(5,150,105,0.12) !important; }
-body.light-theme .igb-radar-dot { background: var(--lt-accent) !important; box-shadow: 0 0 8px var(--lt-accent) !important; }
-body.light-theme .igb-radar-beam { background: linear-gradient(to right, var(--lt-accent), transparent) !important; }
-body.light-theme .igb-radar-pulse { border-color: rgba(5,150,105,0.2) !important; }
 body.light-theme .igb-engage-dots .igb-dot { background: rgba(0,0,0,0.06) !important; border-color: rgba(0,0,0,0.1) !important; }
 body.light-theme .igb-engage-dots .igb-dot.lit { background: var(--lt-accent) !important; border-color: var(--lt-accent) !important; }
 body.light-theme .igb-engage-dots .igb-dot.lit-warm { background: #e67e00 !important; border-color: #e67e00 !important; }
@@ -1519,24 +1599,6 @@ body.light-theme .theme-toggle-btn:hover { background: rgba(0,0,0,0.08); color: 
    LIGHT THEME — Extended legibility fixes
    ═══════════════════════════════════════════════════════════════════ */
 
-/* ── Topbar dropdown (outside .tab-pane scope) ── */
-body.light-theme .dropdown-menu {
-    background: var(--lt-surface) !important;
-    border-color: var(--lt-border) !important;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.08) !important;
-}
-body.light-theme .dropdown-item {
-    color: var(--lt-text-secondary) !important;
-}
-body.light-theme .dropdown-item:hover,
-body.light-theme .dropdown-item:focus {
-    background: rgba(0,0,0,0.04) !important;
-    color: var(--lt-text-primary) !important;
-}
-body.light-theme .dropdown-item.active {
-    background: var(--lt-accent-bg) !important;
-    color: var(--lt-accent) !important;
-}
 
 /* ── Catch dark rgba(8,8,16) backgrounds anywhere on the page ── */
 body.light-theme [style*="background:rgba(8,8,16"],
