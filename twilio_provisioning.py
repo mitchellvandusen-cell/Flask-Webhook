@@ -1101,9 +1101,16 @@ def discover_full_a2p_status(sub_account_sid: str,
 #
 # State stored in voice_config["number_integrity"] JSONB.
 
-# Voice Integrity uses its OWN policy SID — different from A2P/SHAKEN.
+# Voice Integrity Trust Product policy SID — different from A2P/SHAKEN.
 # This is Twilio's static Voice Integrity policy (same across all accounts).
+# Used ONLY for TrustProducts, NOT for CustomerProfiles.
 VOICE_INTEGRITY_POLICY_SID = "RN5b3660f9598883b1df4e77f77acefba0"
+
+# Secondary Customer Profile policy SID — used when creating a profile
+# on a sub-account that links back to the master's Primary Business Profile.
+# Same across all accounts. See:
+# https://www.twilio.com/docs/trust-hub/trusthub-rest-api/api-create-secondary-customer-profile
+SECONDARY_CUSTOMER_PROFILE_POLICY_SID = "RNdfbf3fae0e1107f8aded0e7cead80bf5"
 
 # Carrier analytics engines that Voice Integrity registers with
 VOICE_INTEGRITY_CARRIERS = [
@@ -1114,6 +1121,112 @@ VOICE_INTEGRITY_CARRIERS = [
     {"key": "verizon", "name": "Verizon", "icon": "fa-shield-halved",
      "description": "Registers with Verizon spam analytics to prevent spam flagging."},
 ]
+
+
+def _find_or_create_secondary_profile(
+    client,
+    sub_account_sid: str,
+    business_name: str,
+    contact_email: str,
+    existing_profile_sid: str = "",
+    primary_profile_sid: str = "",
+) -> str:
+    """
+    Find or create a Secondary Customer Profile on the sub-account.
+
+    ISV/Subaccounts flow per Twilio docs:
+      https://www.twilio.com/docs/trust-hub/trusthub-rest-api/api-create-secondary-customer-profile
+
+    1. If existing_profile_sid provided and valid, reuse it.
+    2. Otherwise discover approved profiles on the sub-account.
+    3. If none found, create a new Secondary Profile with the correct policy
+       and link it to the Primary Business Profile on the master account.
+
+    Returns the profile SID (BU...).
+    """
+    # ── Try reusing an existing profile ──
+    if existing_profile_sid:
+        try:
+            profile = client.trusthub.v1.customer_profiles(existing_profile_sid).fetch()
+            status = getattr(profile, "status", "")
+            logger.info(f"[VoiceIntegrity] Existing profile {existing_profile_sid} status: {status}")
+            if status in ("twilio-approved", "in-review", "pending-review"):
+                return existing_profile_sid
+            logger.warning(
+                f"[VoiceIntegrity] Existing profile {existing_profile_sid} status '{status}' "
+                "is not approved; will search for another."
+            )
+        except TwilioRestException as e:
+            logger.warning(f"[VoiceIntegrity] Could not fetch profile {existing_profile_sid}: {e}")
+
+    # ── Discover approved profiles on the sub-account ──
+    try:
+        profiles = client.trusthub.v1.customer_profiles.list(
+ status="twilio-approved", limit=20)
+        if profiles:
+            best = profiles[0]
+            logger.info(
+                f"[VoiceIntegrity] Discovered approved profile: {best.sid} "
+                f"({getattr(best, 'friendly_name', '')})"
+            )
+            return best.sid
+    except Exception as e:
+        logger.warning(f"[VoiceIntegrity] Profile discovery failed: {e}")
+
+    # ── Create a new Secondary Customer Profile ──
+    # Uses the Secondary Customer Profile policy, NOT the Voice Integrity policy.
+    profile = client.trusthub.v1.customer_profiles.create(
+        friendly_name=f"Secondary Profile: {business_name}",
+        email=contact_email,
+        policy_sid=SECONDARY_CUSTOMER_PROFILE_POLICY_SID,
+    )
+    profile_sid = profile.sid
+    logger.info(f"[VoiceIntegrity] Created Secondary Customer Profile: {profile_sid}")
+
+    # ── Link to Primary Business Profile on master account ──
+    if primary_profile_sid:
+        try:
+            client.trusthub.v1.customer_profiles(profile_sid) \
+                .customer_profiles_entity_assignments.create(
+                    object_sid=primary_profile_sid,
+                )
+            logger.info(
+                f"[VoiceIntegrity] Linked Secondary {profile_sid} → "
+                f"Primary {primary_profile_sid}"
+            )
+        except TwilioRestException as e:
+            # 20409 = already assigned
+            if e.code == 20409:
+                logger.info(f"[VoiceIntegrity] Secondary already linked to Primary (20409)")
+            else:
+                logger.warning(f"[VoiceIntegrity] Could not link to Primary: {e}")
+
+    return profile_sid
+
+
+def _find_primary_profile_sid() -> str:
+    """
+    Find the Primary Business Profile SID on the master Twilio account.
+    This is created once in the Twilio Console and reused for all sub-accounts.
+    Returns the SID (BU...) or empty string if not found.
+    """
+    try:
+        master = get_master_client()
+        profiles = master.trusthub.v1.customer_profiles.list(
+            status="twilio-approved", limit=50)
+        for p in profiles:
+            # Primary profiles are typically named "Primary" or are the first approved one
+            fname = getattr(p, "friendly_name", "")
+            if "primary" in fname.lower() or "business" in fname.lower():
+                logger.info(f"[VoiceIntegrity] Found Primary Profile: {p.sid} ({fname})")
+                return p.sid
+        # Fall back to the first approved profile on master
+        if profiles:
+            logger.info(f"[VoiceIntegrity] Using first master profile as Primary: {profiles[0].sid}")
+            return profiles[0].sid
+    except Exception as e:
+        logger.warning(f"[VoiceIntegrity] Could not find Primary Profile on master: {e}")
+    return ""
 
 
 def create_voice_integrity_trust_product(
@@ -1127,16 +1240,18 @@ def create_voice_integrity_trust_product(
     use_case: str = "Lead Management",
 ) -> dict:
     """
-    Create a Voice Integrity Trust Product and link it to a Customer Profile.
+    Create a Voice Integrity Trust Product following the ISV/Subaccounts flow.
 
-    If existing_profile_sid is provided, reuses that approved Business Profile.
-    Otherwise creates a new one.
+    Per Twilio docs:
+      https://www.twilio.com/docs/voice/spam-monitoring-with-voiceintegrity/
+      voice-integrity-onboarding/voice-integrity-trust-hub-api-isvs-subaccounts
 
     Flow:
-      1. Create or reuse Customer Profile
+      1. Find or create a Secondary Customer Profile on the sub-account
+         (linked to the Primary Business Profile on the master account)
       2. Create EndUser with voice_integrity_information type
-      3. Create Voice Integrity Trust Product
-      4. Link Customer Profile → Trust Product (EntityAssignment)
+      3. Create Voice Integrity Trust Product (with VI-specific policy SID)
+      4. Link Secondary Profile → Trust Product (EntityAssignment)
       5. Link EndUser → Trust Product (EntityAssignment)
 
     Returns dict with trust_product_sid, profile_sid, end_user_sid, status.
@@ -1144,18 +1259,16 @@ def create_voice_integrity_trust_product(
     client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
 
     try:
-        # ── Step 1: Customer Profile ──
-        if existing_profile_sid:
-            profile_sid = existing_profile_sid
-            logger.info(f"[VoiceIntegrity] Reusing existing profile: {profile_sid}")
-        else:
-            profile = client.trusthub.v1.customer_profiles.create(
-                friendly_name=f"Voice Integrity: {business_name}",
-                email=contact_email,
-                policy_sid=VOICE_INTEGRITY_POLICY_SID,
-            )
-            profile_sid = profile.sid
-            logger.info(f"[VoiceIntegrity] Created Customer Profile: {profile_sid}")
+        # ── Step 1: Secondary Customer Profile ──
+        primary_sid = _find_primary_profile_sid()
+        profile_sid = _find_or_create_secondary_profile(
+            client=client,
+            sub_account_sid=sub_account_sid,
+            business_name=business_name,
+            contact_email=contact_email,
+            existing_profile_sid=existing_profile_sid,
+            primary_profile_sid=primary_sid,
+        )
 
         # ── Step 2: EndUser with voice_integrity_information ──
         end_user = client.trusthub.v1.end_users.create(
@@ -1163,9 +1276,9 @@ def create_voice_integrity_trust_product(
             type="voice_integrity_information",
             attributes={
                 "use_case": use_case,
-                "business_employee_count": business_employee_count,
-                "average_business_day_call_volume": average_call_volume,
-                "notes": f"Number Integrity registration for {business_name}",
+                "business_employee_count": str(int(business_employee_count)),
+                "average_business_day_call_volume": str(int(average_call_volume)),
+                "notes": f"Insurance agency outbound dialer for {business_name}",
             },
         )
         logger.info(f"[VoiceIntegrity] Created EndUser: {end_user.sid}")
@@ -1178,7 +1291,7 @@ def create_voice_integrity_trust_product(
         )
         logger.info(f"[VoiceIntegrity] Created Trust Product: {trust_product.sid}")
 
-        # ── Step 4: Link Customer Profile → Trust Product ──
+        # ── Step 4: Link Secondary Profile → Trust Product ──
         client.trusthub.v1.trust_products(trust_product.sid) \
             .trust_products_entity_assignments.create(
                 object_sid=profile_sid,

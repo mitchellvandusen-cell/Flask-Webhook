@@ -931,9 +931,16 @@ def register_spam_protection():
         sub_account_auth_token=sub_auth_token,
     )
 
-    # Step 3: Mark auto-protection enabled
+    # Step 3: Mark auto-protection enabled + save profile_sid
     trust_hub['protection_active'] = True
     trust_hub['_sub_sid'] = sub_sid  # Tag which sub-account this belongs to
+    # Save profile_sid so Voice Integrity can reuse this approved profile
+    profile_step = next(
+        (s for s in results.get('steps', []) if s.get('name') == 'customer_profile' and s.get('sid')),
+        None,
+    )
+    if profile_step:
+        trust_hub['profile_sid'] = profile_step['sid']
     vc['trust_hub'] = trust_hub
     _save_voice_config(current_user.email, vc)
 
