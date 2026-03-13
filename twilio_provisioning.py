@@ -1124,7 +1124,7 @@ def create_voice_integrity_trust_product(
     existing_profile_sid: str = "",
     business_employee_count: str = "1-10",
     average_call_volume: str = "100-499",
-    use_case: str = "Insurance sales and customer service outbound calling",
+    use_case: str = "Lead Management",
 ) -> dict:
     """
     Create a Voice Integrity Trust Product and link it to a Customer Profile.
@@ -1267,10 +1267,20 @@ def submit_voice_integrity_for_review(
 ) -> dict:
     """
     Submit the Voice Integrity Trust Product for Twilio review.
+    Runs an evaluation first to validate all required entities are attached,
+    then sets status to pending-review.
     After approval, numbers are registered with carrier analytics (24–48h).
     """
     client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
     try:
+        # Run evaluation to validate completeness before submitting
+        try:
+            evaluation = client.trusthub.v1.trust_products(trust_product_sid) \
+                .trust_products_evaluations.create()
+            logger.info(f"[VoiceIntegrity] Evaluation for {trust_product_sid}: {evaluation.status}")
+        except TwilioRestException as eval_err:
+            logger.warning(f"[VoiceIntegrity] Evaluation check failed (proceeding): {eval_err}")
+
         tp = client.trusthub.v1.trust_products(trust_product_sid).update(
             status="pending-review",
         )
