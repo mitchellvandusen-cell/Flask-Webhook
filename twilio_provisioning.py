@@ -1277,8 +1277,22 @@ def submit_voice_integrity_for_review(
         try:
             evaluation = client.trusthub.v1.trust_products(trust_product_sid) \
                 .trust_products_evaluations.create()
-            logger.info(f"[VoiceIntegrity] Evaluation for {trust_product_sid}: {evaluation.status}")
-        except TwilioRestException as eval_err:
+            eval_status = getattr(evaluation, "status", "unknown")
+            logger.info(f"[VoiceIntegrity] Evaluation for {trust_product_sid}: {eval_status}")
+            if eval_status == "noncompliant":
+                # Surface evaluation failures instead of proceeding to a guaranteed rejection
+                eval_results = getattr(evaluation, "results", None) or []
+                error_details = []
+                for r in eval_results:
+                    if isinstance(r, dict) and r.get("status") == "noncompliant":
+                        error_details.append(r.get("friendly_name", r.get("requirement_key", "unknown")))
+                detail_msg = ", ".join(error_details) if error_details else "evaluation returned noncompliant"
+                raise TwilioRestException(
+                    status=400, uri="", msg=f"Voice Integrity evaluation failed: {detail_msg}")
+        except TwilioRestException:
+            raise  # re-raise evaluation noncompliant errors
+        except Exception as eval_err:
+            # Non-Twilio errors during evaluation — log but allow submission attempt
             logger.warning(f"[VoiceIntegrity] Evaluation check failed (proceeding): {eval_err}")
 
         tp = client.trusthub.v1.trust_products(trust_product_sid).update(

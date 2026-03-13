@@ -1221,6 +1221,21 @@ def number_integrity_register():
             profile_sid=ni.get('profile_sid', ''),
         )
 
+        if assign_result.get('assigned', 0) == 0 and assign_result.get('failed'):
+            # All numbers failed to assign — don't submit for review
+            ni['status'] = 'draft'
+            vc['number_integrity'] = ni
+            _save_voice_config(current_user.email, vc)
+            failed_details = assign_result.get('failed', [])
+            first_err = failed_details[0]['error'] if failed_details else 'Unknown error'
+            return jsonify({"error": f"Failed to assign numbers: {first_err}"}), 500
+
+        # Persist assigned numbers list so "registered" badges work immediately
+        existing_assigned = set(ni.get('assigned_numbers', []))
+        existing_assigned.update(phone_sids)
+        ni['assigned_numbers'] = list(existing_assigned)
+        ni['assigned_count'] = len(ni['assigned_numbers'])
+
         # Step 3: Submit for review
         submit_result = twilio_provisioning.submit_voice_integrity_for_review(
             sub_account_sid=sub_sid,
@@ -1229,7 +1244,6 @@ def number_integrity_register():
         )
 
         ni['status'] = submit_result.get('status', 'pending-review')
-        ni['assigned_count'] = assign_result.get('assigned', 0)
         vc['number_integrity'] = ni
         _save_voice_config(current_user.email, vc)
 
@@ -1280,6 +1294,20 @@ def number_integrity_add_numbers():
             sub_account_auth_token=sub_auth_token,
             profile_sid=ni.get('profile_sid', ''),
         )
+
+        if result.get('assigned', 0) == 0 and result.get('failed'):
+            failed_details = result.get('failed', [])
+            first_err = failed_details[0]['error'] if failed_details else 'Unknown error'
+            return jsonify({"error": f"Failed to assign numbers: {first_err}"}), 500
+
+        # Persist updated assigned numbers list
+        existing_assigned = set(ni.get('assigned_numbers', []))
+        existing_assigned.update(phone_sids)
+        ni['assigned_numbers'] = list(existing_assigned)
+        ni['assigned_count'] = len(ni['assigned_numbers'])
+        vc['number_integrity'] = ni
+        _save_voice_config(current_user.email, vc)
+
         return jsonify({
             "status": "ok",
             "numbers_assigned": result.get('assigned', 0),
@@ -1318,6 +1346,15 @@ def number_integrity_remove_number():
             phone_number_sid=phone_sid,
             sub_account_auth_token=sub_auth_token,
         )
+        if removed:
+            # Update persisted assigned numbers list
+            assigned = ni.get('assigned_numbers', [])
+            if phone_sid in assigned:
+                assigned.remove(phone_sid)
+                ni['assigned_numbers'] = assigned
+                ni['assigned_count'] = len(assigned)
+                vc['number_integrity'] = ni
+                _save_voice_config(current_user.email, vc)
         return jsonify({"status": "ok", "removed": removed})
     except Exception as e:
         logger.error(f"[NumberIntegrity] Remove number failed: {e}", exc_info=True)
@@ -1345,16 +1382,24 @@ def number_integrity_remediate():
 
     try:
         # Check current status first
-        status = twilio_provisioning.get_voice_integrity_status(
-            sub_sid, trust_product_sid, sub_auth_token)
+        try:
+            status = twilio_provisioning.get_voice_integrity_status(
+                sub_sid, trust_product_sid, sub_auth_token)
+            current_status = status.get('status', '')
+        except Exception as status_err:
+            logger.warning(f"[NumberIntegrity] Status check failed during remediate: {status_err}")
+            current_status = ni.get('status', '')
 
-        current_status = status.get('status', '')
         if current_status in ('pending-review', 'in-review'):
             return jsonify({
-                "status": "already_pending",
-                "message": "Remediation is already in progress. Please allow 24-48 hours.",
+                "error": "Remediation is already in progress. Please allow 24-48 hours.",
                 "current_status": current_status,
-            })
+            }), 409
+
+        if current_status == 'draft':
+            return jsonify({
+                "error": "Registration has not been submitted yet. Register your numbers first.",
+            }), 400
 
         # Re-submit for review to trigger carrier re-registration
         result = twilio_provisioning.submit_voice_integrity_for_review(

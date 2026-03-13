@@ -342,26 +342,36 @@
             var registerBtn = document.getElementById('niRegisterBtn');
             var remediateBtn = document.getElementById('niRemediateBtn');
             var carrierListEl = document.getElementById('niCarrierList');
+            var resultEl = document.getElementById('niActionResult');
             if (listEl) listEl.innerHTML = '<div class="ni-loading"><i class="fa-solid fa-spinner fa-spin me-1"></i>Loading numbers...</div>';
+            if (resultEl) resultEl.innerHTML = '';
 
             try {
                 var r = await fetch('/voice/number-integrity/status');
+                if (!r.ok) {
+                    var d = {};
+                    try { d = await r.json(); } catch(_) {}
+                    if (listEl) listEl.innerHTML = '<div class="ni-error"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Failed to load (HTTP ' + r.status + ')') + '</div>';
+                    return;
+                }
                 var d = await r.json();
-                if (!r.ok || d.error) {
-                    if (listEl) listEl.innerHTML = '<div class="ni-error"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Failed to load') + '</div>';
+                if (d.error) {
+                    if (listEl) listEl.innerHTML = '<div class="ni-error"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error) + '</div>';
                     return;
                 }
                 _niData = d;
 
+                var isActive = d.status === 'twilio-approved';
+                var isPending = d.status === 'pending-review' || d.status === 'in-review';
+                var isRejected = d.status === 'twilio-rejected';
+
                 // Render carrier cards
                 if (carrierListEl && d.carriers) {
-                    var isActive = d.status === 'twilio-approved';
-                    var isPending = d.status === 'pending-review' || d.status === 'in-review';
                     var carrierHtml = '';
                     d.carriers.forEach(function(c) {
                         var statusClass = isActive ? 'ni-carrier-active' : (isPending ? 'ni-carrier-pending' : 'ni-carrier-inactive');
                         var statusIcon = isActive ? 'fa-circle-check' : (isPending ? 'fa-clock' : 'fa-circle-xmark');
-                        var statusLabel = isActive ? 'Registered' : (isPending ? 'Pending' : 'Not Registered');
+                        var statusLabel = isActive ? 'Registered' : (isPending ? 'Pending' : (isRejected ? 'Rejected' : 'Not Registered'));
                         carrierHtml += '<div class="col-md-4">' +
                             '<div class="ni-carrier-card ' + statusClass + '">' +
                                 '<div class="ni-carrier-icon"><i class="fa-solid ' + c.icon + '"></i></div>' +
@@ -380,18 +390,21 @@
                     var bannerClass = 'ni-banner-' + (disp.color || 'gray');
                     bannerEl.style.display = 'block';
                     bannerEl.className = 'ni-status-banner ' + bannerClass + ' mb-3 p-3';
+                    var detailText = d.business_name ? '<strong>' + _esc(d.business_name) + '</strong> &mdash; ' : '';
+                    if (isRejected) {
+                        detailText += 'Registration was rejected. Please review and re-submit.';
+                    } else {
+                        detailText += d.assigned_count + ' number' + (d.assigned_count !== 1 ? 's' : '') + ' registered';
+                        if (d.registered_at) detailText += ' &bull; Since ' + new Date(d.registered_at).toLocaleDateString();
+                    }
                     bannerEl.innerHTML =
                         '<div class="d-flex align-items-center gap-3">' +
                             '<div class="ni-banner-icon"><i class="fa-solid ' + (disp.icon || 'fa-circle-info') + '"></i></div>' +
                             '<div class="ni-banner-body">' +
                                 '<div class="ni-banner-title">' + _esc(disp.label || d.status) + '</div>' +
-                                '<div class="ni-banner-detail">' +
-                                    (d.business_name ? '<strong>' + _esc(d.business_name) + '</strong> &mdash; ' : '') +
-                                    d.assigned_count + ' number' + (d.assigned_count !== 1 ? 's' : '') + ' registered' +
-                                    (d.registered_at ? ' &bull; Since ' + new Date(d.registered_at).toLocaleDateString() : '') +
-                                '</div>' +
+                                '<div class="ni-banner-detail">' + detailText + '</div>' +
                             '</div>' +
-                            (d.status === 'twilio-approved' || d.status === 'twilio-rejected' ?
+                            (isActive || isRejected ?
                                 '<button onclick="niRemediate()" class="ni-banner-remediate-btn"><i class="fa-solid fa-wrench me-1"></i>Remediate</button>' : '') +
                         '</div>';
                 } else if (bannerEl) {
@@ -419,20 +432,27 @@
                     }
                 }
 
-                // Show/hide action buttons
-                if (registerBtn) registerBtn.style.display = (d.status === 'not_registered' || d.status === 'draft' || d.status === 'twilio-approved') ? '' : 'none';
-                if (remediateBtn) remediateBtn.style.display = (d.status === 'twilio-approved' || d.status === 'twilio-rejected') ? '' : 'none';
-
-                // Update register button text based on status
-                if (registerBtn && d.status === 'twilio-approved') {
-                    registerBtn.innerHTML = '<i class="fa-solid fa-plus me-2"></i>Add More Numbers';
+                // Show/hide action buttons based on status
+                // Register: show when not yet submitted, approved (add more), or rejected (re-register)
+                if (registerBtn) {
+                    var showRegister = d.status === 'not_registered' || d.status === 'draft' || isActive || isRejected;
+                    registerBtn.style.display = showRegister ? '' : 'none';
+                    if (isActive) {
+                        registerBtn.innerHTML = '<i class="fa-solid fa-plus me-2"></i>Add More Numbers';
+                    } else if (isRejected) {
+                        registerBtn.innerHTML = '<i class="fa-solid fa-redo me-2"></i>Re-Register Numbers';
+                    } else {
+                        registerBtn.innerHTML = '<i class="fa-solid fa-tower-broadcast me-2"></i>Register Selected Numbers';
+                    }
                 }
+                // Remediate: show when approved or rejected
+                if (remediateBtn) remediateBtn.style.display = (isActive || isRejected) ? '' : 'none';
 
                 _niSelectedSids.clear();
                 niUpdateSelection();
 
             } catch(e) {
-                console.error('[NumberIntegrity] Error:', e);
+                console.error('[NumberIntegrity] Load error:', e);
                 if (listEl) listEl.innerHTML = '<div class="ni-error">Network error &mdash; check your connection</div>';
             }
         }
@@ -456,17 +476,17 @@
         }
 
         async function niRegister() {
+            var resultEl = document.getElementById('niActionResult');
             if (_niSelectedSids.size === 0) {
-                document.getElementById('niActionResult').innerHTML = '<span class="ni-result-error"><i class="fa-solid fa-triangle-exclamation me-1"></i>Select at least one number to register</span>';
+                if (resultEl) resultEl.innerHTML = '<span class="ni-result-error"><i class="fa-solid fa-triangle-exclamation me-1"></i>Select at least one number to register</span>';
                 return;
             }
             var btn = document.getElementById('niRegisterBtn');
-            var resultEl = document.getElementById('niActionResult');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Registering with carrier networks...';
-            resultEl.innerHTML = '';
+            var isAddMode = _niData && _niData.trust_product_sid;
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Registering with carrier networks...'; }
+            if (resultEl) resultEl.innerHTML = '';
 
-            var endpoint = (_niData && _niData.trust_product_sid) ? '/voice/number-integrity/add-numbers' : '/voice/number-integrity/register';
+            var endpoint = isAddMode ? '/voice/number-integrity/add-numbers' : '/voice/number-integrity/register';
 
             try {
                 var r = await fetch(endpoint, {
@@ -475,27 +495,33 @@
                     body: JSON.stringify({ phone_number_sids: Array.from(_niSelectedSids) }),
                 });
                 var d = await r.json();
-                if (r.ok) {
-                    var msg = (d.numbers_assigned || 0) + ' number' + ((d.numbers_assigned || 0) !== 1 ? 's' : '') + ' submitted for carrier registration.';
+                if (r.ok && d.status === 'ok') {
+                    var count = d.numbers_assigned || 0;
+                    var msg = count + ' number' + (count !== 1 ? 's' : '') + ' submitted for carrier registration.';
                     if (d.numbers_failed > 0) msg += ' ' + d.numbers_failed + ' failed.';
-                    msg += ' Registration takes 24–48 hours.';
-                    resultEl.innerHTML = '<span class="ni-result-success"><i class="fa-solid fa-circle-check me-1"></i>' + msg + '</span>';
-                    setTimeout(function() { loadNumberIntegrity(); }, 1000);
+                    msg += ' Registration takes 24\u201348 hours.';
+                    if (resultEl) resultEl.innerHTML = '<span class="ni-result-success"><i class="fa-solid fa-circle-check me-1"></i>' + msg + '</span>';
+                    setTimeout(function() { loadNumberIntegrity(); }, 1500);
                 } else {
-                    resultEl.innerHTML = '<span class="ni-result-error"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Registration failed') + '</span>';
+                    if (resultEl) resultEl.innerHTML = '<span class="ni-result-error"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Registration failed') + '</span>';
                 }
             } catch(e) {
-                resultEl.innerHTML = '<span class="ni-result-error">Network error &mdash; check your connection</span>';
+                console.error('[NumberIntegrity] Register error:', e);
+                if (resultEl) resultEl.innerHTML = '<span class="ni-result-error">Network error &mdash; check your connection</span>';
             }
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-tower-broadcast me-2"></i>Register Selected Numbers';
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = isAddMode
+                    ? '<i class="fa-solid fa-plus me-2"></i>Add More Numbers'
+                    : '<i class="fa-solid fa-tower-broadcast me-2"></i>Register Selected Numbers';
+            }
         }
 
         async function niRemediate() {
             var btn = document.getElementById('niRemediateBtn');
             var resultEl = document.getElementById('niActionResult');
             if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Submitting remediation...'; }
-            resultEl.innerHTML = '';
+            if (resultEl) resultEl.innerHTML = '';
 
             try {
                 var r = await fetch('/voice/number-integrity/remediate', {
@@ -504,19 +530,20 @@
                     body: '{}',
                 });
                 var d = await r.json();
-                if (r.ok) {
+                if (r.ok && d.status === 'ok') {
                     var msg = d.message || 'Remediation submitted successfully.';
-                    if (d.status === 'already_pending') {
-                        resultEl.innerHTML = '<span class="ni-result-warning"><i class="fa-solid fa-clock me-1"></i>' + _esc(msg) + '</span>';
-                    } else {
-                        resultEl.innerHTML = '<span class="ni-result-success"><i class="fa-solid fa-circle-check me-1"></i>' + _esc(msg) + '</span>';
-                    }
-                    setTimeout(function() { loadNumberIntegrity(); }, 1000);
+                    if (resultEl) resultEl.innerHTML = '<span class="ni-result-success"><i class="fa-solid fa-circle-check me-1"></i>' + _esc(msg) + '</span>';
+                    setTimeout(function() { loadNumberIntegrity(); }, 1500);
                 } else {
-                    resultEl.innerHTML = '<span class="ni-result-error"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Remediation failed') + '</span>';
+                    // Covers 409 (already pending), 400 (draft), and 500 errors
+                    var errMsg = d.error || d.message || 'Remediation failed';
+                    var cssClass = r.status === 409 ? 'ni-result-warning' : 'ni-result-error';
+                    var icon = r.status === 409 ? 'fa-clock' : 'fa-triangle-exclamation';
+                    if (resultEl) resultEl.innerHTML = '<span class="' + cssClass + '"><i class="fa-solid ' + icon + ' me-1"></i>' + _esc(errMsg) + '</span>';
                 }
             } catch(e) {
-                resultEl.innerHTML = '<span class="ni-result-error">Network error</span>';
+                console.error('[NumberIntegrity] Remediate error:', e);
+                if (resultEl) resultEl.innerHTML = '<span class="ni-result-error">Network error &mdash; check your connection</span>';
             }
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-wrench me-2"></i>Remediate Spam Labels'; }
         }
