@@ -42,6 +42,9 @@
                             <button class="voice-menu-item" onclick="switchVoicePanel('trusthub')" id="vmenu-trusthub" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
                                 <i class="fa-solid fa-shield-halved" style="width:16px;text-align:center;"></i> Spam Protection
                             </button>
+                            <button class="voice-menu-item" onclick="switchVoicePanel('numberintegrity')" id="vmenu-numberintegrity" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                                <i class="fa-solid fa-tower-broadcast" style="width:16px;text-align:center;"></i> Number Integrity
+                            </button>
                             <div style="height:1px;background:rgba(255,255,255,0.06);margin:8px 6px;"></div>
                             <button class="voice-menu-item" onclick="switchVoicePanel('training')" id="vmenu-training" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
                                 <i class="fa-solid fa-graduation-cap" style="width:16px;text-align:center;"></i> Training
@@ -774,6 +777,76 @@
                         </div>
 
                     </div><!-- /vstab-panel-trusthub -->
+
+                    <!-- ══ Number Integrity sub-tab ══ -->
+                    <div id="vstab-panel-numberintegrity" class="ni-panel" style="display:none;">
+
+                        <!-- Status Banner (shown when registered) -->
+                        <div id="niStatusBanner" class="ni-status-banner" style="display:none;"></div>
+
+                        <!-- Main Content -->
+                        <div id="niMainContent">
+
+                            <!-- Header -->
+                            <div class="ni-header-card mb-3 p-3">
+                                <div class="d-flex align-items-center gap-3 mb-3">
+                                    <div class="ni-header-icon">
+                                        <i class="fa-solid fa-tower-broadcast"></i>
+                                    </div>
+                                    <div>
+                                        <div class="ni-title">Number Integrity</div>
+                                        <div class="ni-subtitle">Register your phone numbers with all 3 major carrier networks to clear spam labels and improve call answer rates. Powered by Twilio Voice Integrity.</div>
+                                    </div>
+                                </div>
+
+                                <!-- How it works -->
+                                <div class="ni-info-box mb-3 p-2">
+                                    <div class="ni-info-title"><i class="fa-solid fa-circle-info me-1"></i>How Number Integrity works:</div>
+                                    <div class="ni-info-text">
+                                        <div class="mb-1"><i class="fa-solid fa-1 ni-step-num me-2"></i>Your business identity is verified through Twilio Trust Hub</div>
+                                        <div class="mb-1"><i class="fa-solid fa-2 ni-step-num me-2"></i>Selected numbers are registered with AT&T, T-Mobile &amp; Verizon analytics</div>
+                                        <div class="mb-1"><i class="fa-solid fa-3 ni-step-num me-2"></i>Carrier spam labels are cleared within 24–48 hours</div>
+                                        <div><i class="fa-solid fa-4 ni-step-num me-2"></i>Hit <strong>Remediate</strong> anytime a number gets re-flagged</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Carrier Network Cards -->
+                            <div id="niCarrierCards" class="mb-3">
+                                <div class="ni-section-title mb-2"><i class="fa-solid fa-tower-cell me-2 ni-accent"></i>Carrier Networks</div>
+                                <div class="row g-2" id="niCarrierList">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
+
+                            <!-- Phone Numbers Selection -->
+                            <div id="niNumbersSection" class="mb-3 p-3 ni-numbers-card">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <div class="ni-section-title"><i class="fa-solid fa-phone-volume me-2 ni-accent"></i>Your Phone Numbers</div>
+                                    <div class="ni-numbers-count" id="niSelectedCount">0 selected</div>
+                                </div>
+                                <div class="ni-select-actions mb-2">
+                                    <button onclick="niSelectAll()" class="ni-link-btn"><i class="fa-solid fa-check-double me-1"></i>Select All</button>
+                                    <button onclick="niDeselectAll()" class="ni-link-btn"><i class="fa-solid fa-xmark me-1"></i>Deselect All</button>
+                                </div>
+                                <div id="niNumbersList" class="ni-numbers-list">
+                                    <div class="ni-loading"><i class="fa-solid fa-spinner fa-spin me-1"></i>Loading numbers...</div>
+                                </div>
+                            </div>
+
+                            <!-- Register / Remediate Buttons -->
+                            <div id="niActions" class="d-flex gap-2">
+                                <button id="niRegisterBtn" onclick="niRegister()" class="ni-register-btn" style="display:none;">
+                                    <i class="fa-solid fa-tower-broadcast me-2"></i>Register Selected Numbers
+                                </button>
+                                <button id="niRemediateBtn" onclick="niRemediate()" class="ni-remediate-btn" style="display:none;">
+                                    <i class="fa-solid fa-wrench me-2"></i>Remediate Spam Labels
+                                </button>
+                            </div>
+                            <div id="niActionResult" class="ni-action-result mt-2"></div>
+                        </div>
+
+                    </div><!-- /vstab-panel-numberintegrity -->
 
                     <!-- ── Training integration panel ── -->
                     <div id="vstab-panel-training" style="display:none;">

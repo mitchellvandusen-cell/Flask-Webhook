@@ -1085,3 +1085,340 @@ def spam_protection_status():
         "stir_shaken": "active",
         "auto_cnam": trust_hub.get('auto_cnam', False),
     })
+
+
+# ──────────────────────────────────────────────────────────────
+# NUMBER INTEGRITY (Voice Integrity)
+# Registers numbers with AT&T/Hiya, T-Mobile/CallHub, Verizon
+# carrier analytics to remediate spam labels & improve answer rates.
+# ──────────────────────────────────────────────────────────────
+
+
+@numbers_bp.route('/voice/number-integrity/status', methods=['GET'])
+@login_required
+def number_integrity_status():
+    """Get current Number Integrity registration status."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    ni = (vc or {}).get('number_integrity', {})
+    trust_product_sid = ni.get('trust_product_sid', '')
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
+
+    # If we have a trust product, check live status from Twilio
+    live_status = ni.get('status', 'not_registered')
+    assigned_numbers = ni.get('assigned_numbers', [])
+    assigned_count = ni.get('assigned_count', 0)
+
+    if trust_product_sid:
+        try:
+            live = twilio_provisioning.get_voice_integrity_status(
+                sub_sid, trust_product_sid, sub_auth_token)
+            live_status = live.get('status', live_status)
+            assigned_numbers = live.get('assigned_numbers', assigned_numbers)
+            assigned_count = live.get('assigned_count', assigned_count)
+            # Persist updated status
+            ni['status'] = live_status
+            ni['assigned_numbers'] = assigned_numbers
+            ni['assigned_count'] = assigned_count
+            vc['number_integrity'] = ni
+            _save_voice_config(current_user.email, vc)
+        except Exception as e:
+            logger.warning(f"[NumberIntegrity] Live status check failed, using cached: {e}")
+
+    # Get all numbers on the sub-account for the UI
+    all_numbers = []
+    try:
+        nums = twilio_provisioning.list_phone_numbers(sub_sid)
+        for n in nums:
+            pn_sid = n.get('sid', '')
+            all_numbers.append({
+                "phone": n.get('phone', ''),
+                "sid": pn_sid,
+                "friendly_name": n.get('friendly_name', ''),
+                "registered": pn_sid in assigned_numbers,
+            })
+    except Exception as e:
+        logger.warning(f"[NumberIntegrity] Could not list numbers: {e}")
+
+    # Map status to user-friendly display
+    status_map = {
+        "not_registered": {"label": "Not Registered", "color": "gray", "icon": "fa-circle-xmark"},
+        "draft": {"label": "Draft", "color": "yellow", "icon": "fa-pen"},
+        "pending-review": {"label": "Pending Review", "color": "orange", "icon": "fa-clock"},
+        "in-review": {"label": "Under Review", "color": "blue", "icon": "fa-magnifying-glass"},
+        "twilio-approved": {"label": "Approved & Active", "color": "green", "icon": "fa-circle-check"},
+        "twilio-rejected": {"label": "Rejected", "color": "red", "icon": "fa-circle-xmark"},
+    }
+    display = status_map.get(live_status, status_map["not_registered"])
+
+    return jsonify({
+        "status": live_status,
+        "display": display,
+        "trust_product_sid": trust_product_sid,
+        "profile_sid": ni.get('profile_sid', ''),
+        "business_name": ni.get('business_name', ''),
+        "registered_at": ni.get('registered_at', ''),
+        "assigned_count": assigned_count,
+        "numbers": all_numbers,
+        "carriers": twilio_provisioning.VOICE_INTEGRITY_CARRIERS,
+    })
+
+
+@numbers_bp.route('/voice/number-integrity/register', methods=['POST'])
+@login_required
+def number_integrity_register():
+    """
+    Register for Number Integrity (Voice Integrity).
+    Creates Trust Product, assigns selected numbers, submits for review.
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned. Click Activate Voice first."}), 400
+
+    data = request.json or {}
+    phone_sids = data.get('phone_number_sids', [])
+
+    if not phone_sids:
+        return jsonify({"error": "Select at least one phone number to register"}), 400
+
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
+    trust_hub = (vc or {}).get('trust_hub', {})
+    business_name = trust_hub.get('business_name', '')
+    contact_email = trust_hub.get('contact_email', '') or getattr(current_user, 'email', '')
+
+    if not business_name:
+        return jsonify({"error": "Business profile required. Register in the Spam Protection tab first."}), 400
+
+    ni = vc.get('number_integrity', {})
+    trust_product_sid = ni.get('trust_product_sid', '')
+
+    try:
+        # Step 1: Create Trust Product if we don't have one
+        if not trust_product_sid:
+            existing_profile = ni.get('profile_sid', '') or trust_hub.get('profile_sid', '')
+            result = twilio_provisioning.create_voice_integrity_trust_product(
+                sub_account_sid=sub_sid,
+                business_name=business_name,
+                contact_email=contact_email,
+                sub_account_auth_token=sub_auth_token,
+                existing_profile_sid=existing_profile,
+            )
+            trust_product_sid = result['trust_product_sid']
+            ni['trust_product_sid'] = trust_product_sid
+            ni['profile_sid'] = result['profile_sid']
+            ni['end_user_sid'] = result.get('end_user_sid', '')
+            ni['business_name'] = business_name
+            ni['registered_at'] = datetime.utcnow().isoformat()
+
+        # Step 2: Assign phone numbers (to profile first, then trust product)
+        assign_result = twilio_provisioning.assign_numbers_to_voice_integrity(
+            sub_account_sid=sub_sid,
+            trust_product_sid=trust_product_sid,
+            phone_number_sids=phone_sids,
+            sub_account_auth_token=sub_auth_token,
+            profile_sid=ni.get('profile_sid', ''),
+        )
+
+        if assign_result.get('assigned', 0) == 0 and assign_result.get('failed'):
+            # All numbers failed to assign — don't submit for review
+            ni['status'] = 'draft'
+            vc['number_integrity'] = ni
+            _save_voice_config(current_user.email, vc)
+            failed_details = assign_result.get('failed', [])
+            first_err = failed_details[0]['error'] if failed_details else 'Unknown error'
+            return jsonify({"error": f"Failed to assign numbers: {first_err}"}), 500
+
+        # Persist assigned numbers list so "registered" badges work immediately
+        existing_assigned = set(ni.get('assigned_numbers', []))
+        existing_assigned.update(phone_sids)
+        ni['assigned_numbers'] = list(existing_assigned)
+        ni['assigned_count'] = len(ni['assigned_numbers'])
+
+        # Step 3: Submit for review
+        submit_result = twilio_provisioning.submit_voice_integrity_for_review(
+            sub_account_sid=sub_sid,
+            trust_product_sid=trust_product_sid,
+            sub_account_auth_token=sub_auth_token,
+        )
+
+        ni['status'] = submit_result.get('status', 'pending-review')
+        vc['number_integrity'] = ni
+        _save_voice_config(current_user.email, vc)
+
+        return jsonify({
+            "status": "ok",
+            "trust_product_sid": trust_product_sid,
+            "review_status": ni['status'],
+            "numbers_assigned": assign_result.get('assigned', 0),
+            "numbers_failed": len(assign_result.get('failed', [])),
+            "failed_details": assign_result.get('failed', []),
+        })
+
+    except Exception as e:
+        # Save partial progress
+        if trust_product_sid:
+            ni['trust_product_sid'] = trust_product_sid
+            vc['number_integrity'] = ni
+            _save_voice_config(current_user.email, vc)
+        logger.error(f"[NumberIntegrity] Registration failed: {e}", exc_info=True)
+        return jsonify({"error": f"Registration failed: {str(e)}"}), 500
+
+
+@numbers_bp.route('/voice/number-integrity/add-numbers', methods=['POST'])
+@login_required
+def number_integrity_add_numbers():
+    """Add additional phone numbers to an existing Voice Integrity registration."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    ni = vc.get('number_integrity', {})
+    trust_product_sid = ni.get('trust_product_sid', '')
+    if not trust_product_sid:
+        return jsonify({"error": "No Number Integrity registration found. Register first."}), 400
+
+    data = request.json or {}
+    phone_sids = data.get('phone_number_sids', [])
+    if not phone_sids:
+        return jsonify({"error": "Select at least one phone number"}), 400
+
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
+
+    try:
+        result = twilio_provisioning.assign_numbers_to_voice_integrity(
+            sub_account_sid=sub_sid,
+            trust_product_sid=trust_product_sid,
+            phone_number_sids=phone_sids,
+            sub_account_auth_token=sub_auth_token,
+            profile_sid=ni.get('profile_sid', ''),
+        )
+
+        if result.get('assigned', 0) == 0 and result.get('failed'):
+            failed_details = result.get('failed', [])
+            first_err = failed_details[0]['error'] if failed_details else 'Unknown error'
+            return jsonify({"error": f"Failed to assign numbers: {first_err}"}), 500
+
+        # Persist updated assigned numbers list
+        existing_assigned = set(ni.get('assigned_numbers', []))
+        existing_assigned.update(phone_sids)
+        ni['assigned_numbers'] = list(existing_assigned)
+        ni['assigned_count'] = len(ni['assigned_numbers'])
+        vc['number_integrity'] = ni
+        _save_voice_config(current_user.email, vc)
+
+        return jsonify({
+            "status": "ok",
+            "numbers_assigned": result.get('assigned', 0),
+            "numbers_failed": len(result.get('failed', [])),
+            "failed_details": result.get('failed', []),
+        })
+    except Exception as e:
+        logger.error(f"[NumberIntegrity] Add numbers failed: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
+@numbers_bp.route('/voice/number-integrity/remove-number', methods=['POST'])
+@login_required
+def number_integrity_remove_number():
+    """Remove a phone number from Voice Integrity registration."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    ni = vc.get('number_integrity', {})
+    trust_product_sid = ni.get('trust_product_sid', '')
+    if not trust_product_sid:
+        return jsonify({"error": "No Number Integrity registration found"}), 400
+
+    data = request.json or {}
+    phone_sid = data.get('phone_number_sid', '')
+    if not phone_sid:
+        return jsonify({"error": "Phone number SID required"}), 400
+
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
+
+    try:
+        removed = twilio_provisioning.remove_number_from_voice_integrity(
+            sub_account_sid=sub_sid,
+            trust_product_sid=trust_product_sid,
+            phone_number_sid=phone_sid,
+            sub_account_auth_token=sub_auth_token,
+        )
+        if removed:
+            # Update persisted assigned numbers list
+            assigned = ni.get('assigned_numbers', [])
+            if phone_sid in assigned:
+                assigned.remove(phone_sid)
+                ni['assigned_numbers'] = assigned
+                ni['assigned_count'] = len(assigned)
+                vc['number_integrity'] = ni
+                _save_voice_config(current_user.email, vc)
+        return jsonify({"status": "ok", "removed": removed})
+    except Exception as e:
+        logger.error(f"[NumberIntegrity] Remove number failed: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
+@numbers_bp.route('/voice/number-integrity/remediate', methods=['POST'])
+@login_required
+def number_integrity_remediate():
+    """
+    Trigger remediation for numbers flagged as spam.
+    Re-submits the Trust Product to refresh carrier registrations.
+    Remediation typically takes 24-48 hours.
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    ni = vc.get('number_integrity', {})
+    trust_product_sid = ni.get('trust_product_sid', '')
+    if not trust_product_sid:
+        return jsonify({"error": "No Number Integrity registration found. Register first."}), 400
+
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
+
+    try:
+        # Check current status first
+        try:
+            status = twilio_provisioning.get_voice_integrity_status(
+                sub_sid, trust_product_sid, sub_auth_token)
+            current_status = status.get('status', '')
+        except Exception as status_err:
+            logger.warning(f"[NumberIntegrity] Status check failed during remediate: {status_err}")
+            current_status = ni.get('status', '')
+
+        if current_status in ('pending-review', 'in-review'):
+            return jsonify({
+                "error": "Remediation is already in progress. Please allow 24-48 hours.",
+                "current_status": current_status,
+            }), 409
+
+        if current_status == 'draft':
+            return jsonify({
+                "error": "Registration has not been submitted yet. Register your numbers first.",
+            }), 400
+
+        # Re-submit for review to trigger carrier re-registration
+        result = twilio_provisioning.submit_voice_integrity_for_review(
+            sub_account_sid=sub_sid,
+            trust_product_sid=trust_product_sid,
+            sub_account_auth_token=sub_auth_token,
+        )
+
+        ni['status'] = result.get('status', 'pending-review')
+        ni['last_remediation'] = datetime.utcnow().isoformat()
+        vc['number_integrity'] = ni
+        _save_voice_config(current_user.email, vc)
+
+        return jsonify({
+            "status": "ok",
+            "message": "Remediation submitted. Carrier re-registration typically takes 24-48 hours.",
+            "review_status": ni['status'],
+        })
+
+    except Exception as e:
+        logger.error(f"[NumberIntegrity] Remediation failed: {e}", exc_info=True)
+        return jsonify({"error": f"Remediation failed: {str(e)}"}), 500
