@@ -452,12 +452,17 @@ def process_webhook_task(payload: dict):
                     logger.error(f"CRM adapter booking error: {adapter_err}", exc_info=True)
             else:
                 # GHL: Use existing direct code path (unchanged)
+                # Pass contact state + phone for timezone-aware booking
+                contact_state = payload.get('state') or ''
+                contact_phone_tz = payload.get('phone') or payload.get('contact_phone', '')
                 booking_result = consolidated_calendar_op(
                     operation="book",
                     subscriber_data=subscriber,
                     contact_id=contact_id,
                     first_name=first_name,
-                    selected_time=booking_time_str
+                    selected_time=booking_time_str,
+                    contact_phone=contact_phone_tz,
+                    contact_state=contact_state,
                 )
 
                 if booking_result:
@@ -488,7 +493,14 @@ def process_webhook_task(payload: dict):
                     calendar_slots = "let me check my calendar and get back to you with some times"
             else:
                 # GHL: Use existing direct code path (unchanged)
-                calendar_slots = consolidated_calendar_op("fetch_slots", subscriber)
+                # Pass contact state + phone for timezone-aware slot display
+                contact_state_tz = payload.get('state') or ''
+                contact_phone_tz2 = payload.get('phone') or payload.get('contact_phone', '')
+                calendar_slots = consolidated_calendar_op(
+                    "fetch_slots", subscriber,
+                    contact_phone=contact_phone_tz2,
+                    contact_state=contact_state_tz,
+                )
 
         context_nudge = ""
         if message and "covered" in message.lower():

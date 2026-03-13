@@ -279,7 +279,9 @@ def consolidated_calendar_op(
     subscriber_data: dict,
     contact_id: str = None,
     first_name: str = None,
-    selected_time: str = None
+    selected_time: str = None,
+    contact_phone: str = None,
+    contact_state: str = None,
 ) -> any:
     """
     Unified calendar operation: fetch slots or book appointment.
@@ -288,6 +290,11 @@ def consolidated_calendar_op(
 
     MULTI-TENANT: All credentials come from subscriber_data (database).
     No hardcoded tokens or env vars.
+
+    TIMEZONE-AWARE: When contact_state is provided, the customer's timezone
+    is resolved from their state. Offered slots are displayed in the
+    customer's local time. Booking requests are interpreted in the customer's
+    timezone and converted to the agent's calendar timezone for GHL.
 
     ENDPOINT FALLBACK for fetch_slots:
     - Try v2 first: GET /v2/locations/{locationId}/calendars/{calendarId}/free-slots
@@ -299,6 +306,57 @@ def consolidated_calendar_op(
     crm_user_id = subscriber_data.get("crm_user_id")
     local_tz_str = subscriber_data.get("timezone", "America/Chicago")
     access_token = subscriber_data.get("access_token")
+
+    # Resolve customer timezone from their state (contact address from GHL)
+    # Primary: contact_state field from webhook payload
+    # Fallback: phone area code (less reliable — people keep numbers when they move)
+    customer_tz_str = None
+    resolved_state = None
+    if contact_state:
+        try:
+            from voice.predictive_engine import _STATE_TO_TZ
+            # Normalize: accept "FL", "fl", "Florida", etc.
+            state_upper = contact_state.strip().upper()
+            # Handle full state names → abbreviation
+            _FULL_STATE_NAMES = {
+                "ALABAMA": "AL", "ALASKA": "AK", "ARIZONA": "AZ", "ARKANSAS": "AR",
+                "CALIFORNIA": "CA", "COLORADO": "CO", "CONNECTICUT": "CT", "DELAWARE": "DE",
+                "DISTRICT OF COLUMBIA": "DC", "FLORIDA": "FL", "GEORGIA": "GA", "HAWAII": "HI",
+                "IDAHO": "ID", "ILLINOIS": "IL", "INDIANA": "IN", "IOWA": "IA",
+                "KANSAS": "KS", "KENTUCKY": "KY", "LOUISIANA": "LA", "MAINE": "ME",
+                "MARYLAND": "MD", "MASSACHUSETTS": "MA", "MICHIGAN": "MI", "MINNESOTA": "MN",
+                "MISSISSIPPI": "MS", "MISSOURI": "MO", "MONTANA": "MT", "NEBRASKA": "NE",
+                "NEVADA": "NV", "NEW HAMPSHIRE": "NH", "NEW JERSEY": "NJ", "NEW MEXICO": "NM",
+                "NEW YORK": "NY", "NORTH CAROLINA": "NC", "NORTH DAKOTA": "ND", "OHIO": "OH",
+                "OKLAHOMA": "OK", "OREGON": "OR", "PENNSYLVANIA": "PA", "RHODE ISLAND": "RI",
+                "SOUTH CAROLINA": "SC", "SOUTH DAKOTA": "SD", "TENNESSEE": "TN", "TEXAS": "TX",
+                "UTAH": "UT", "VERMONT": "VT", "VIRGINIA": "VA", "WASHINGTON": "WA",
+                "WEST VIRGINIA": "WV", "WISCONSIN": "WI", "WYOMING": "WY",
+                "PUERTO RICO": "PR", "GUAM": "GU", "VIRGIN ISLANDS": "VI",
+            }
+            state_abbr = _FULL_STATE_NAMES.get(state_upper, state_upper)
+            if len(state_abbr) == 2:
+                tz = _STATE_TO_TZ.get(state_abbr)
+                if tz:
+                    customer_tz_str = tz
+                    resolved_state = state_abbr
+                    logger.info(f"📅 CUSTOMER TIMEZONE: {customer_tz_str} (state={state_abbr}) from contact address")
+        except Exception as tz_err:
+            logger.warning(f"⚠️ Could not resolve customer timezone from state '{contact_state}': {tz_err}")
+
+    # Fallback: try phone area code if state didn't resolve
+    if not customer_tz_str and contact_phone:
+        try:
+            from voice.predictive_engine import area_code_to_timezone, area_code_to_state
+            customer_tz_str = area_code_to_timezone(contact_phone)
+            if customer_tz_str:
+                resolved_state = area_code_to_state(contact_phone) or "??"
+                logger.info(f"📅 CUSTOMER TIMEZONE: {customer_tz_str} (state={resolved_state}) from phone area code (fallback)")
+        except Exception as tz_err:
+            logger.warning(f"⚠️ Could not resolve customer timezone from phone: {tz_err}")
+
+    if not customer_tz_str:
+        customer_tz_str = local_tz_str  # Fall back to agent timezone
 
     if not cal_id:
         logger.error(f"Missing calendar_id for calendar op (loc={location_id})")
@@ -322,7 +380,11 @@ def consolidated_calendar_op(
         "Content-Type": "application/json"
     }
 
-    local_tz = ZoneInfo(local_tz_str)
+    local_tz = ZoneInfo(local_tz_str)           # Agent's timezone (for GHL API)
+    customer_tz = ZoneInfo(customer_tz_str)      # Customer's timezone (for display & interpretation)
+    tz_differ = local_tz_str != customer_tz_str
+    if tz_differ:
+        logger.info(f"📅 TIMEZONE AWARE: Customer={customer_tz_str} | Agent={local_tz_str}")
 
     # === FETCH SLOTS (with endpoint fallback) ===
     if operation in ["fetch_slots", "book"]:
@@ -332,7 +394,7 @@ def consolidated_calendar_op(
         if not slots:
             now_utc = datetime.now(timezone.utc)
             start_ts = int(now_utc.timestamp() * 1000)
-            end_ts = int((now_utc + timedelta(days=3)).timestamp() * 1000)
+            end_ts = int((now_utc + timedelta(days=14)).timestamp() * 1000)
 
             params = {
                 "startDate": start_ts,
@@ -417,7 +479,8 @@ def consolidated_calendar_op(
                     # Normalize timezone suffixes
                     if start_str.endswith("Z"):
                         start_str = start_str.replace("Z", "+00:00")
-                    dt = datetime.fromisoformat(start_str).astimezone(local_tz)
+                    # Display in CUSTOMER's timezone so times are meaningful to them
+                    dt = datetime.fromisoformat(start_str).astimezone(customer_tz)
                     if 9 <= dt.hour < 19:
                         parsed_slots.append(dt)
                 except Exception:
@@ -427,7 +490,7 @@ def consolidated_calendar_op(
                 return "let me look at my calendar"
 
             parsed_slots.sort()
-            now_local = datetime.now(local_tz)
+            now_customer = datetime.now(customer_tz)
 
             morning = [s for s in parsed_slots if 9 <= s.hour < 12]
             afternoon = [s for s in parsed_slots if 12 <= s.hour < 19]
@@ -447,7 +510,7 @@ def consolidated_calendar_op(
             afternoon_picks = pick_best(afternoon)
 
             def format_slot(dt):
-                day = "tomorrow" if dt.date() == (now_local + timedelta(days=1)).date() else dt.strftime("%A")
+                day = "tomorrow" if dt.date() == (now_customer + timedelta(days=1)).date() else dt.strftime("%A")
                 time_str = dt.strftime("%I:%M %p").lstrip("0").replace(" 0", " ")
                 return f"{time_str} {day}"
 
@@ -460,7 +523,14 @@ def consolidated_calendar_op(
             if not options:
                 return "let me look at my calendar"
 
-            return "I've got " + (", or ".join(options) if len(options) > 1 else options[0])
+            result = "I've got " + (", or ".join(options) if len(options) > 1 else options[0])
+            # Add timezone label when customer is in a different timezone than agent
+            if tz_differ:
+                # Use short timezone abbreviation (e.g., "EST", "PST", "CT")
+                tz_label = now_customer.strftime("%Z") or customer_tz_str.split("/")[-1]
+                result += f" (your time, {tz_label})"
+                logger.info(f"📅 SLOTS DISPLAYED in customer tz {customer_tz_str} (agent tz: {local_tz_str})")
+            return result
 
     # === BOOK APPOINTMENT ===
     if operation == "book" and selected_time and contact_id:
@@ -481,20 +551,83 @@ def consolidated_calendar_op(
 
         time_str = selected_time.lower().strip()
         logger.info(f"📅 BOOKING TIME PARSE | raw selected_time='{selected_time[:100]}'")
-        now_local = datetime.now(local_tz)
+        # Use customer's timezone to interpret their requested time
+        # (when they say "11am" they mean 11am in THEIR timezone)
+        now_local = datetime.now(customer_tz)
 
         # Determine target date from context
         target_date = now_local.date()
-        if "tomorrow" in time_str:
+
+        # Day abbreviation map for matching "tues", "thurs", etc.
+        day_abbrevs = {
+            "mon": "monday", "tue": "tuesday", "tues": "tuesday",
+            "wed": "wednesday", "thu": "thursday", "thurs": "thursday",
+            "fri": "friday", "sat": "saturday", "sun": "sunday",
+        }
+        # Expand abbreviations in time_str for matching
+        time_str_expanded = time_str
+        for abbr, full in sorted(day_abbrevs.items(), key=lambda x: -len(x[0])):
+            # Word-boundary replacement to avoid partial matches
+            time_str_expanded = re.sub(r'\b' + abbr + r'\b', full, time_str_expanded)
+
+        # "next week" flag — shifts matching to 7+ days out
+        next_week = "next week" in time_str_expanded
+
+        if "tomorrow" in time_str_expanded:
             target_date = (now_local + timedelta(days=1)).date()
         else:
-            # Check for day names
-            for day_offset in range(0, 4):
-                check_date = (now_local + timedelta(days=day_offset)).date()
-                day_name = check_date.strftime("%A").lower()
-                if day_name in time_str:
-                    target_date = check_date
-                    break
+            # Check for ordinal date like "the 17th", "march 17"
+            ordinal_match = re.search(r'(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)', time_str_expanded)
+            month_date_match = re.search(
+                r'(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?'
+                r'|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)'
+                r'\s+(\d{1,2})', time_str_expanded)
+
+            if month_date_match:
+                # Explicit month + day like "march 17"
+                month_names = {
+                    "jan": 1, "january": 1, "feb": 2, "february": 2, "mar": 3, "march": 3,
+                    "apr": 4, "april": 4, "may": 5, "jun": 6, "june": 6,
+                    "jul": 7, "july": 7, "aug": 8, "august": 8, "sep": 9, "september": 9,
+                    "oct": 10, "october": 10, "nov": 11, "november": 11, "dec": 12, "december": 12,
+                }
+                m_name = month_date_match.group(1).lower()
+                m_num = month_names.get(m_name, now_local.month)
+                d_num = int(month_date_match.group(2))
+                try:
+                    candidate = now_local.date().replace(month=m_num, day=d_num)
+                    if candidate < now_local.date():
+                        candidate = candidate.replace(year=candidate.year + 1)
+                    target_date = candidate
+                except ValueError:
+                    pass  # Invalid date, fall through to day-name matching
+                logger.info(f"📅 DATE PARSED (month+day): {target_date} from '{month_date_match.group()}'")
+            elif ordinal_match:
+                # "the 17th" — find next occurrence of that day-of-month
+                target_day = int(ordinal_match.group(1))
+                for offset in range(0, 32):
+                    candidate = (now_local + timedelta(days=offset)).date()
+                    if candidate.day == target_day:
+                        target_date = candidate
+                        break
+                logger.info(f"📅 DATE PARSED (ordinal): {target_date} from '{ordinal_match.group()}'")
+            else:
+                # Check for day names (search up to 14 days ahead)
+                search_range = 14
+                # If "next week", start searching from next Monday
+                start_offset = 0
+                if next_week:
+                    days_until_monday = (7 - now_local.weekday()) % 7
+                    if days_until_monday == 0:
+                        days_until_monday = 7  # If today is Monday, "next week" = next Monday
+                    start_offset = days_until_monday
+
+                for day_offset in range(start_offset, search_range):
+                    check_date = (now_local + timedelta(days=day_offset)).date()
+                    day_name = check_date.strftime("%A").lower()
+                    if day_name in time_str_expanded:
+                        target_date = check_date
+                        break
 
         # Parse time - try pattern WITH am/pm first (most reliable)
         hour, minute = None, 0
@@ -534,7 +667,8 @@ def consolidated_calendar_op(
 
         hour = max(9, min(19, hour))
 
-        start_dt = datetime.combine(target_date, time(hour, minute), tzinfo=local_tz)
+        # Build start_dt in CUSTOMER's timezone (they said "11am" meaning their 11am)
+        start_dt = datetime.combine(target_date, time(hour, minute), tzinfo=customer_tz)
         end_dt = start_dt + timedelta(minutes=30)
 
         # --- SLOT VALIDATION: Cross-reference against actual available slots ---
@@ -550,7 +684,8 @@ def consolidated_calendar_op(
                         continue
                     if ss.endswith("Z"):
                         ss = ss.replace("Z", "+00:00")
-                    parsed_avail.append(datetime.fromisoformat(ss).astimezone(local_tz))
+                    # Parse slots into customer's timezone for apples-to-apples comparison
+                    parsed_avail.append(datetime.fromisoformat(ss).astimezone(customer_tz))
                 except Exception:
                     continue
 
@@ -593,12 +728,19 @@ def consolidated_calendar_op(
         if not slot_matched and start_dt <= now_local:
             logger.warning(f"📅 TIME IN PAST: {start_dt} has already passed, shifting to tomorrow")
             target_date = (now_local + timedelta(days=1)).date()
-            start_dt = datetime.combine(target_date, time(hour, minute), tzinfo=local_tz)
+            start_dt = datetime.combine(target_date, time(hour, minute), tzinfo=customer_tz)
             end_dt = start_dt + timedelta(minutes=30)
 
-        if start_dt.date() > (now_local + timedelta(days=3)).date():
-            logger.error(f"🚨 BOOKING BLOCKED: Time more than 3 days ahead | requested={start_dt} | contact={contact_id}")
+        if start_dt.date() > (now_local + timedelta(days=14)).date():
+            logger.error(f"🚨 BOOKING BLOCKED: Time more than 14 days ahead | requested={start_dt} | contact={contact_id}")
             return False
+
+        # Convert from customer timezone to agent timezone for GHL calendar API
+        # GHL books in the agent's calendar timezone, so we must convert
+        start_dt_agent = start_dt.astimezone(local_tz)
+        end_dt_agent = end_dt.astimezone(local_tz)
+        if tz_differ:
+            logger.info(f"📅 TIMEZONE CONVERT: Customer {start_dt.strftime('%I:%M %p %Z')} → Agent {start_dt_agent.strftime('%I:%M %p %Z')}")
 
         # Both PIT and OAuth use the same booking endpoint
         booking_url = GHL_BOOK_URL  # Same URL for all token types
@@ -606,8 +748,8 @@ def consolidated_calendar_op(
             "calendarId": cal_id,
             "locationId": location_id,
             "contactId": contact_id,
-            "startTime": start_dt.isoformat(),
-            "endTime": end_dt.isoformat(),
+            "startTime": start_dt_agent.isoformat(),
+            "endTime": end_dt_agent.isoformat(),
             "title": f"Life Insurance Review {first_name or 'Lead'}",
             "appointmentStatus": "confirmed",
             "selectedTimezone": local_tz_str,
@@ -625,7 +767,7 @@ def consolidated_calendar_op(
             try:
                 logger.info(f"📅 BOOKING ATTEMPT {attempt}/{max_attempts} ({token_version})")
                 logger.info(f"   Contact: {contact_id}")
-                logger.info(f"   Time: {start_dt}")
+                logger.info(f"   Customer time: {start_dt.strftime('%Y-%m-%d %I:%M %p %Z')} | Agent/GHL time: {start_dt_agent.strftime('%Y-%m-%d %I:%M %p %Z')}")
                 logger.info(f"   URL: {booking_url}")
                 logger.info(f"   Payload: {payload}")
 
