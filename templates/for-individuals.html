@@ -3,86 +3,6 @@
 {% block title %}For Individual Agents — InsuranceGrokBot{% endblock %}
 
 {% block content %}
-<style>
-    .ind-hero { padding: 150px 0 80px; position: relative; overflow: hidden; }
-    .ind-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 25% 30%, rgba(0,255,136,0.07) 0%, transparent 55%), radial-gradient(ellipse at 75% 70%, rgba(233,30,99,0.05) 0%, transparent 50%); pointer-events: none; }
-    .ind-tag { display: inline-block; background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.25); color: var(--accent); padding: 6px 20px; border-radius: 24px; font-size: 0.78rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 20px; }
-    .ind-h1 { font-size: clamp(2.4rem, 5vw, 3.6rem); font-weight: 900; line-height: 1.08; margin-bottom: 20px; }
-    .ind-h1 span { background: linear-gradient(135deg, var(--accent), #00d9ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .ind-sub { color: #999; font-size: 1.1rem; max-width: 640px; margin: 0 auto 32px; line-height: 1.65; }
-    .i-section { padding: 80px 0; }
-    .i-section + .i-section { padding-top: 0; }
-
-    /* Stats */
-    .ind-stats { display: flex; justify-content: center; gap: 48px; flex-wrap: wrap; margin-top: 48px; }
-    .ind-stat { text-align: center; }
-    .ind-stat .lbl { color: #666; font-size: 0.78rem; margin-top: 4px; font-weight: 500; }
-
-    /* Pillar cards */
-    .pillar-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border: 1px solid rgba(255,255,255,0.06); border-radius: 20px; overflow: hidden; background: rgba(255,255,255,0.02); }
-    .pillar-cell { padding: 40px 32px; border-right: 1px solid rgba(255,255,255,0.06); transition: background 0.3s; }
-    .pillar-cell:last-child { border-right: none; }
-    .pillar-cell:hover { background: rgba(255,255,255,0.03); }
-    .pillar-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; font-size: 1.2rem; }
-    .pillar-cell h4 { font-weight: 800; font-size: 1.1rem; margin-bottom: 8px; }
-    .pillar-cell p { color: #888; font-size: 0.88rem; line-height: 1.6; margin-bottom: 12px; }
-    .pillar-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-    .pillar-tag { font-size: 0.72rem; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
-    @media (max-width: 991px) { .pillar-grid { grid-template-columns: 1fr; } .pillar-cell { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); } .pillar-cell:last-child { border-bottom: none; } }
-
-    /* Feature blocks */
-    .ifb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
-    .ifb-grid.reverse { direction: rtl; }
-    .ifb-grid.reverse > * { direction: ltr; }
-    @media (max-width: 991px) { .ifb-grid, .ifb-grid.reverse { grid-template-columns: 1fr; direction: ltr; } }
-    .ifb-icon { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; margin-bottom: 16px; }
-    .ifb-list { list-style: none; padding: 0; margin: 16px 0 0; }
-    .ifb-list li { padding: 6px 0; color: #bbb; font-size: 0.9rem; }
-    .ifb-list li i { margin-right: 10px; font-size: 0.8rem; }
-
-    /* Capability grid */
-    .icap-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: rgba(255,255,255,0.06); border-radius: 16px; overflow: hidden; }
-    .icap-item { background: rgba(10,10,10,0.85); padding: 28px 24px; transition: background 0.3s; }
-    .icap-item:hover { background: rgba(255,255,255,0.03); }
-    .icap-item i { font-size: 1.1rem; margin-bottom: 10px; display: block; }
-    .icap-item h6 { font-weight: 700; font-size: 0.88rem; margin-bottom: 4px; color: #fff; }
-    .icap-item p { color: #666; font-size: 0.78rem; margin: 0; line-height: 1.5; }
-    @media (max-width: 991px) { .icap-grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 575px) { .icap-grid { grid-template-columns: 1fr; } }
-
-    /* Pricing */
-    .ind-price-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; max-width: 760px; margin: 0 auto; }
-    .ind-price-card { border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 40px 36px; position: relative; background: rgba(255,255,255,0.02); }
-    .ind-price-card.featured { border-color: rgba(0,255,136,0.3); }
-    .ind-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); padding: 4px 16px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; color: #fff; white-space: nowrap; }
-    .ind-price-card h4 { font-weight: 800; font-size: 1.15rem; margin-bottom: 6px; }
-    .ind-price-amt { font-size: 2.6rem; font-weight: 900; line-height: 1; }
-    .ind-price-feat { list-style: none; padding: 0; margin: 20px 0; }
-    .ind-price-feat li { padding: 5px 0; color: #bbb; font-size: 0.85rem; }
-    .ind-price-feat li i { margin-right: 8px; }
-    @media (max-width: 767px) { .ind-price-grid { grid-template-columns: 1fr; } }
-
-    /* Proof cards */
-    .ind-proof-scroll { display: flex; gap: 24px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding-bottom: 8px; scrollbar-width: none; }
-    .ind-proof-scroll::-webkit-scrollbar { display: none; }
-    .ind-proof-card { min-width: 340px; max-width: 380px; flex-shrink: 0; scroll-snap-align: start; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 28px; }
-    .ind-proof-card .quote { color: #bbb; font-size: 0.9rem; line-height: 1.65; margin-bottom: 16px; font-style: italic; }
-    .ind-proof-card .author { display: flex; align-items: center; gap: 12px; }
-    .ind-proof-card .avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem; }
-    .ind-proof-card .name { color: #fff; font-weight: 700; font-size: 0.85rem; }
-    .ind-proof-card .role { color: #666; font-size: 0.75rem; }
-    .ind-proof-card .stats-row { display: flex; gap: 16px; margin-bottom: 16px; }
-    .ind-proof-card .mini-stat { text-align: center; flex: 1; padding: 10px 0; border-radius: 10px; }
-    .ind-proof-card .mini-stat .val { font-size: 1.4rem; font-weight: 900; line-height: 1; }
-    .ind-proof-card .mini-stat .desc { font-size: 0.75rem; color: #777; margin-top: 2px; }
-
-    /* How it works */
-    .hiw-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-    .hiw-step { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 24px; }
-    .hiw-num { width: 32px; height: 32px; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: var(--accent); font-size: 0.85rem; margin-bottom: 12px; }
-    @media (max-width: 767px) { .hiw-steps { grid-template-columns: 1fr 1fr; } }
-    @media (max-width: 575px) { .hiw-steps { grid-template-columns: 1fr; } }
-</style>
 
 
 <!-- ═══ HERO ═══ -->
@@ -186,33 +106,33 @@
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Cached after first analysis — repeat views cost zero</li>
                 </ul>
             </div>
-            <div style="background: rgba(0,217,255,0.02); border: 1px solid rgba(0,217,255,0.1); border-radius: 16px; padding: 28px;">
-                <div style="font-size: 0.78rem; font-weight: 700; color: #fff; margin-bottom: 14px;"><i class="fa-solid fa-filter me-2" style="color: #00d9ff;"></i>Smart Filters</div>
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <div style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px 14px;">
-                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444;"></span>
-                        <span style="font-size: 0.82rem; font-weight: 600; color: #ef4444;">Should Respond</span>
-                        <span style="margin-left: auto; font-size: 0.78rem; color: #888;">3 contacts</span>
+            <div class="mock-panel mock-panel--cyan">
+                <div class="mock-fw-name mb-3"><i class="fa-solid fa-filter me-2 text-cyan"></i>Smart Filters</div>
+                <div class="d-flex flex-column gap-2">
+                    <div class="mock-row d-flex align-items-center gap-2">
+                        <span class="mock-dot" style="background:#ef4444;"></span>
+                        <span class="mock-fw-name" style="color:#ef4444;">Should Respond</span>
+                        <span class="mock-fw-desc ms-auto">3 contacts</span>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px 14px;">
-                        <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent);"></span>
-                        <span style="font-size: 0.82rem; font-weight: 600; color: var(--accent);">Hot Leads</span>
-                        <span style="margin-left: auto; font-size: 0.78rem; color: #888;">7 contacts</span>
+                    <div class="mock-row d-flex align-items-center gap-2">
+                        <span class="mock-dot" style="background:var(--accent);"></span>
+                        <span class="mock-fw-name" style="color:var(--accent);">Hot Leads</span>
+                        <span class="mock-fw-desc ms-auto">7 contacts</span>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px 14px;">
-                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #ff6b35;"></span>
-                        <span style="font-size: 0.82rem; font-weight: 600; color: #ff6b35;">Warm Leads</span>
-                        <span style="margin-left: auto; font-size: 0.78rem; color: #888;">12 contacts</span>
+                    <div class="mock-row d-flex align-items-center gap-2">
+                        <span class="mock-dot" style="background:#ff6b35;"></span>
+                        <span class="mock-fw-name" style="color:#ff6b35;">Warm Leads</span>
+                        <span class="mock-fw-desc ms-auto">12 contacts</span>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px 14px;">
-                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #3b82f6;"></span>
-                        <span style="font-size: 0.82rem; font-weight: 600; color: #3b82f6;">Cool</span>
-                        <span style="margin-left: auto; font-size: 0.78rem; color: #888;">18 contacts</span>
+                    <div class="mock-row d-flex align-items-center gap-2">
+                        <span class="mock-dot" style="background:#3b82f6;"></span>
+                        <span class="mock-fw-name" style="color:#3b82f6;">Cool</span>
+                        <span class="mock-fw-desc ms-auto">18 contacts</span>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px 14px;">
-                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #666;"></span>
-                        <span style="font-size: 0.82rem; font-weight: 600; color: #888;">Cold</span>
-                        <span style="margin-left: auto; font-size: 0.78rem; color: #888;">24 contacts</span>
+                    <div class="mock-row d-flex align-items-center gap-2">
+                        <span class="mock-dot" style="background:#666;"></span>
+                        <span class="mock-fw-name" style="color:#888;">Cold</span>
+                        <span class="mock-fw-desc ms-auto">24 contacts</span>
                     </div>
                 </div>
             </div>
@@ -243,29 +163,14 @@
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Contact memory across every conversation</li>
                 </ul>
             </div>
-            <div style="background: rgba(0,255,136,0.02); border: 1px solid rgba(0,255,136,0.1); border-radius: 16px; padding: 28px;">
-                <div style="font-size: 0.78rem; font-weight: 700; color: #fff; margin-bottom: 14px;"><i class="fa-solid fa-bolt me-2" style="color: var(--accent);"></i>Sales Frameworks Built In</div>
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 12px 14px;">
-                        <div style="font-size: 0.82rem; font-weight: 700; color: #fff;">NEPQ</div>
-                        <div style="font-size: 0.72rem; color: #666;">Neuro-Emotional Persuasion Questions</div>
-                    </div>
-                    <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 12px 14px;">
-                        <div style="font-size: 0.82rem; font-weight: 700; color: #fff;">Gap Selling</div>
-                        <div style="font-size: 0.72rem; color: #666;">Problem-centric discovery</div>
-                    </div>
-                    <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 12px 14px;">
-                        <div style="font-size: 0.82rem; font-weight: 700; color: #fff;">Chris Voss</div>
-                        <div style="font-size: 0.72rem; color: #666;">Tactical empathy and mirroring</div>
-                    </div>
-                    <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 12px 14px;">
-                        <div style="font-size: 0.82rem; font-weight: 700; color: #fff;">Sandler</div>
-                        <div style="font-size: 0.72rem; color: #666;">Pain-based qualification</div>
-                    </div>
-                    <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 12px 14px;">
-                        <div style="font-size: 0.82rem; font-weight: 700; color: #fff;">Challenger</div>
-                        <div style="font-size: 0.72rem; color: #666;">Teach, tailor, take control</div>
-                    </div>
+            <div class="mock-panel mock-panel--accent">
+                <div class="mock-fw-name mb-3"><i class="fa-solid fa-bolt me-2" style="color:var(--accent);"></i>Sales Frameworks Built In</div>
+                <div class="d-flex flex-column gap-2">
+                    <div class="mock-fw-row"><div class="mock-fw-name">NEPQ</div><div class="mock-fw-desc">Neuro-Emotional Persuasion Questions</div></div>
+                    <div class="mock-fw-row"><div class="mock-fw-name">Gap Selling</div><div class="mock-fw-desc">Problem-centric discovery</div></div>
+                    <div class="mock-fw-row"><div class="mock-fw-name">Chris Voss</div><div class="mock-fw-desc">Tactical empathy and mirroring</div></div>
+                    <div class="mock-fw-row"><div class="mock-fw-name">Sandler</div><div class="mock-fw-desc">Pain-based qualification</div></div>
+                    <div class="mock-fw-row"><div class="mock-fw-name">Challenger</div><div class="mock-fw-desc">Teach, tailor, take control</div></div>
                 </div>
             </div>
         </div>
@@ -282,14 +187,14 @@
             <p class="mkt-body" style="max-width: 640px; margin: 8px auto 0;">Powered by xAI's Grok speech-to-speech. Zero transcription delay. The AI cold-calls your list, qualifies prospects, handles objections, and books appointments on the call. You monitor live and intercept the second it's closing time.</p>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 800px; margin: 0 auto;" data-aos="fade-up">
-            <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 28px;">
-                <h5 style="font-weight: 700; color: #e91e63; margin-bottom: 8px;"><i class="fa-solid fa-robot me-2"></i>AI Mode</h5>
-                <p style="color: #888; font-size: 0.88rem; line-height: 1.6; margin: 0;">The AI dials the call, qualifies the prospect, handles objections, and books — all autonomously. You monitor live and intercept with one click the moment it's time to close.</p>
+        <div class="d-grid gap-3" style="grid-template-columns:1fr 1fr; max-width:800px; margin:0 auto; display:grid;" data-aos="fade-up">
+            <div class="mock-panel">
+                <h5 class="text-pink fw-bold mb-2"><i class="fa-solid fa-robot me-2"></i>AI Mode</h5>
+                <p class="mkt-feat-sub mb-0" style="font-size:0.88rem;">The AI dials the call, qualifies the prospect, handles objections, and books — all autonomously. You monitor live and intercept with one click the moment it's time to close.</p>
             </div>
-            <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 28px;">
-                <h5 style="font-weight: 700; color: #00d9ff; margin-bottom: 8px;"><i class="fa-solid fa-user me-2"></i>Human Mode</h5>
-                <p style="color: #888; font-size: 0.88rem; line-height: 1.6; margin: 0;">Take every call yourself via browser VoIP or phone transfer. The AI stays out of the way — but the dialer still auto-retries and tracks everything.</p>
+            <div class="mock-panel">
+                <h5 class="text-cyan fw-bold mb-2"><i class="fa-solid fa-user me-2"></i>Human Mode</h5>
+                <p class="mkt-feat-sub mb-0" style="font-size:0.88rem;">Take every call yourself via browser VoIP or phone transfer. The AI stays out of the way — but the dialer still auto-retries and tracks everything.</p>
             </div>
         </div>
         <div class="text-center mt-3" data-aos="fade-up">
@@ -461,7 +366,7 @@
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> 5 elite sales frameworks</li>
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Unlimited minutes* included</li>
                 </ul>
-                <a href="/checkout" class="btn btn-primary w-100 py-3" style="font-weight: 700;">Start Free Trial — $149.98/mo after</a>
+                <a href="/checkout" class="btn btn-primary w-100 py-3" style="font-weight: 700;">Start Free Trial</a>
             </div>
 
             <!-- Pro Dialer -->
@@ -481,7 +386,7 @@
                     <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Configurable dialer settings</li>
                     <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Unlimited minutes* included</li>
                 </ul>
-                <a href="/checkout/pro-dialer" class="btn btn-gradient-orange w-100 py-3" style="font-weight: 700;">Start Free Trial — $224.98/mo after</a>
+                <a href="/checkout/pro-dialer" class="btn btn-gradient-orange w-100 py-3" style="font-weight: 700;">Start Free Trial</a>
             </div>
         </div>
 
