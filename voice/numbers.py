@@ -1464,7 +1464,20 @@ def number_integrity_register():
         if need_new_product:
             if trust_product_sid and old_status == 'twilio-rejected':
                 logger.info(f"[NumberIntegrity] Old Trust Product {trust_product_sid} was rejected, creating new one")
+                # Unassign numbers from old rejected Trust Product first —
+                # Twilio only allows a number on one Trust Product at a time (409 otherwise)
+                old_assigned = ni.get('assigned_numbers', [])
+                if old_assigned:
+                    logger.info(f"[NumberIntegrity] Unassigning {len(old_assigned)} numbers from old TP {trust_product_sid}")
+                    twilio_provisioning.unassign_numbers_from_trust_product(
+                        sub_account_sid=sub_sid,
+                        trust_product_sid=trust_product_sid,
+                        phone_number_sids=old_assigned,
+                        sub_account_auth_token=sub_auth_token,
+                    )
                 ni['old_trust_product_sid'] = trust_product_sid
+                ni['assigned_numbers'] = []  # clear stale assignments
+                ni['assigned_count'] = 0
                 trust_product_sid = ''  # force creation of new product
             existing_profile = ni.get('profile_sid', '') or trust_hub.get('profile_sid', '')
             result = twilio_provisioning.create_voice_integrity_trust_product(
