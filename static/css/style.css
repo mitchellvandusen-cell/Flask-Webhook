@@ -4533,6 +4533,10 @@ body.light-theme .cnam-stat-info { background: rgba(0,100,180,0.08); color: #006
     background: rgba(0,255,136,0.08); color: #00ff88;
     padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;
 }
+.ni-badge-rejected {
+    background: rgba(255,77,77,0.10); color: #ff4d4d;
+    padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;
+}
 
 /* Status banner */
 .ni-status-banner {
@@ -4720,6 +4724,9 @@ body.light-theme .ni-number-row { border-bottom-color: rgba(0,0,0,0.04); }
 
 body.light-theme .ni-badge-registered {
     background: rgba(0,170,94,0.08); color: #00aa5e;
+}
+body.light-theme .ni-badge-rejected {
+    background: rgba(220,38,38,0.08); color: #dc2626;
 }
 
 body.light-theme .ni-banner-green  { background: rgba(0,170,94,0.06); border-color: rgba(0,170,94,0.15); }
