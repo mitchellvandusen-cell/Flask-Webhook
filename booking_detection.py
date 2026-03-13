@@ -323,6 +323,22 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
 
     # === DECISION LOGIC ===
 
+    # Case 0: Lead provides BOTH a specific day AND a specific time unprompted
+    # e.g., "Next week tues at 11:00am please", "Thursday at 2pm", "Monday 9:30 am"
+    # This is a strong booking signal regardless of what the bot offered.
+    day_name_pattern = (
+        r'\b(tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday'
+        r'|mon|tues|tue|wed|thurs|thu|fri|sat|sun)\b'
+    )
+    # Also match ordinal dates like "the 17th", "march 17", "on the 20th"
+    ordinal_date_pattern = r'\b(?:the\s+)?\d{1,2}(?:st|nd|rd|th)\b|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{1,2}\b'
+    has_day_reference = bool(re.search(day_name_pattern, msg_lower)) or bool(re.search(ordinal_date_pattern, msg_lower))
+
+    if has_day_reference and has_time_reference:
+        resolved = _resolve_time_with_context(message)
+        logger.info(f"BOOKING CASE 0: Day + Time reference (unprompted) | msg='{message[:80]}' | resolved='{resolved}'")
+        return True, resolved
+
     # Case 1: Explicit booking request with time (always book)
     if has_explicit_intent and has_time_reference:
         resolved = _resolve_time_with_context(message)

@@ -332,7 +332,7 @@ def consolidated_calendar_op(
         if not slots:
             now_utc = datetime.now(timezone.utc)
             start_ts = int(now_utc.timestamp() * 1000)
-            end_ts = int((now_utc + timedelta(days=3)).timestamp() * 1000)
+            end_ts = int((now_utc + timedelta(days=14)).timestamp() * 1000)
 
             params = {
                 "startDate": start_ts,
@@ -485,16 +485,77 @@ def consolidated_calendar_op(
 
         # Determine target date from context
         target_date = now_local.date()
-        if "tomorrow" in time_str:
+
+        # Day abbreviation map for matching "tues", "thurs", etc.
+        day_abbrevs = {
+            "mon": "monday", "tue": "tuesday", "tues": "tuesday",
+            "wed": "wednesday", "thu": "thursday", "thurs": "thursday",
+            "fri": "friday", "sat": "saturday", "sun": "sunday",
+        }
+        # Expand abbreviations in time_str for matching
+        time_str_expanded = time_str
+        for abbr, full in sorted(day_abbrevs.items(), key=lambda x: -len(x[0])):
+            # Word-boundary replacement to avoid partial matches
+            time_str_expanded = re.sub(r'\b' + abbr + r'\b', full, time_str_expanded)
+
+        # "next week" flag — shifts matching to 7+ days out
+        next_week = "next week" in time_str_expanded
+
+        if "tomorrow" in time_str_expanded:
             target_date = (now_local + timedelta(days=1)).date()
         else:
-            # Check for day names
-            for day_offset in range(0, 4):
-                check_date = (now_local + timedelta(days=day_offset)).date()
-                day_name = check_date.strftime("%A").lower()
-                if day_name in time_str:
-                    target_date = check_date
-                    break
+            # Check for ordinal date like "the 17th", "march 17"
+            ordinal_match = re.search(r'(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)', time_str_expanded)
+            month_date_match = re.search(
+                r'(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?'
+                r'|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)'
+                r'\s+(\d{1,2})', time_str_expanded)
+
+            if month_date_match:
+                # Explicit month + day like "march 17"
+                month_names = {
+                    "jan": 1, "january": 1, "feb": 2, "february": 2, "mar": 3, "march": 3,
+                    "apr": 4, "april": 4, "may": 5, "jun": 6, "june": 6,
+                    "jul": 7, "july": 7, "aug": 8, "august": 8, "sep": 9, "september": 9,
+                    "oct": 10, "october": 10, "nov": 11, "november": 11, "dec": 12, "december": 12,
+                }
+                m_name = month_date_match.group(1).lower()
+                m_num = month_names.get(m_name, now_local.month)
+                d_num = int(month_date_match.group(2))
+                try:
+                    candidate = now_local.date().replace(month=m_num, day=d_num)
+                    if candidate < now_local.date():
+                        candidate = candidate.replace(year=candidate.year + 1)
+                    target_date = candidate
+                except ValueError:
+                    pass  # Invalid date, fall through to day-name matching
+                logger.info(f"📅 DATE PARSED (month+day): {target_date} from '{month_date_match.group()}'")
+            elif ordinal_match:
+                # "the 17th" — find next occurrence of that day-of-month
+                target_day = int(ordinal_match.group(1))
+                for offset in range(0, 32):
+                    candidate = (now_local + timedelta(days=offset)).date()
+                    if candidate.day == target_day:
+                        target_date = candidate
+                        break
+                logger.info(f"📅 DATE PARSED (ordinal): {target_date} from '{ordinal_match.group()}'")
+            else:
+                # Check for day names (search up to 14 days ahead)
+                search_range = 14
+                # If "next week", start searching from next Monday
+                start_offset = 0
+                if next_week:
+                    days_until_monday = (7 - now_local.weekday()) % 7
+                    if days_until_monday == 0:
+                        days_until_monday = 7  # If today is Monday, "next week" = next Monday
+                    start_offset = days_until_monday
+
+                for day_offset in range(start_offset, search_range):
+                    check_date = (now_local + timedelta(days=day_offset)).date()
+                    day_name = check_date.strftime("%A").lower()
+                    if day_name in time_str_expanded:
+                        target_date = check_date
+                        break
 
         # Parse time - try pattern WITH am/pm first (most reliable)
         hour, minute = None, 0
@@ -596,8 +657,8 @@ def consolidated_calendar_op(
             start_dt = datetime.combine(target_date, time(hour, minute), tzinfo=local_tz)
             end_dt = start_dt + timedelta(minutes=30)
 
-        if start_dt.date() > (now_local + timedelta(days=3)).date():
-            logger.error(f"🚨 BOOKING BLOCKED: Time more than 3 days ahead | requested={start_dt} | contact={contact_id}")
+        if start_dt.date() > (now_local + timedelta(days=14)).date():
+            logger.error(f"🚨 BOOKING BLOCKED: Time more than 14 days ahead | requested={start_dt} | contact={contact_id}")
             return False
 
         # Both PIT and OAuth use the same booking endpoint
