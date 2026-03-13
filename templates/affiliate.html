@@ -3,17 +3,17 @@
 {% block title %}Become an Affiliate | InsuranceGrokBot{% endblock %}
 
 {% block content %}
-<div class="container" style="padding-top: 120px; padding-bottom: 80px;">
+<div class="container page-top-pad">
 
     <!-- Header -->
     <div class="text-center mb-5" data-aos="fade-down">
-        <span style="background: rgba(0,255,136,0.15); border: 1px solid rgba(0,255,136,0.3); padding: 6px 18px; border-radius: 20px; font-size: 0.82rem; font-weight: 700; color: var(--accent); display: inline-block; margin-bottom: 16px;">
+        <span class="aff-hero-label">
             <i class="fa-solid fa-handshake me-1"></i> Affiliate Program
         </span>
-        <h1 style="font-weight: 900; font-size: clamp(2.2rem, 5vw, 3.2rem); margin-bottom: 12px;">
+        <h1 class="aff-h1">
             Earn <span class="text-accent">20% Forever</span> on Every Referral
         </h1>
-        <p style="color: #aaa; font-size: 1.1rem; max-width: 640px; margin: 0 auto;">
+        <p class="aff-hero-sub">
             Refer insurance agents to InsuranceGrokBot and earn 20% on every payment — for the entire lifetime of their subscription. Plus, your referrals get 15% off their first month automatically.
         </p>
     </div>
@@ -21,26 +21,26 @@
     <!-- Double-Sided Coupon Banner -->
     <div class="row justify-content-center mb-5" data-aos="fade-up">
         <div class="col-lg-8">
-            <div class="glass-card p-4" style="border: 1px solid rgba(0,255,136,0.3); background: rgba(0,255,136,0.04);">
+            <div class="glass-card p-4 aff-coupon-card">
                 <div class="row g-4 align-items-center text-center">
                     <div class="col-md-5">
-                        <div style="font-size: 0.75rem; font-weight: 700; color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px;">You Earn</div>
-                        <div style="font-size: 2.4rem; font-weight: 900; color: #fff; line-height: 1;">20%</div>
-                        <div style="color: #888; font-size: 0.85rem; margin-top: 4px;">recurring commission on all payments, forever</div>
+                        <div class="aff-coupon-label">You Earn</div>
+                        <div class="aff-coupon-val">20%</div>
+                        <div class="aff-coupon-desc">recurring commission on all payments, forever</div>
                     </div>
                     <div class="col-md-2 d-flex justify-content-center align-items-center">
-                        <div style="width: 40px; height: 40px; border: 2px dashed rgba(255,255,255,0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                            <i class="fa-solid fa-plus" style="color: #555; font-size: 0.85rem;"></i>
+                        <div class="aff-divider">
+                            <i class="fa-solid fa-plus"></i>
                         </div>
                     </div>
                     <div class="col-md-5">
-                        <div style="font-size: 0.75rem; font-weight: 700; color: #00d9ff; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px;">Your Referral Gets</div>
-                        <div style="font-size: 2.4rem; font-weight: 900; color: #fff; line-height: 1;">15% Off</div>
-                        <div style="color: #888; font-size: 0.85rem; margin-top: 4px;">their first month — applied automatically at checkout</div>
+                        <div class="aff-coupon-label-blue">Your Referral Gets</div>
+                        <div class="aff-coupon-val">15% Off</div>
+                        <div class="aff-coupon-desc">their first month — applied automatically at checkout</div>
                     </div>
                 </div>
-                <div style="text-align: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.06);">
-                    <span style="color: #666; font-size: 0.8rem;"><i class="fa-solid fa-circle-check me-1" style="color: var(--accent);"></i>Double-sided deal — wins for you AND the agents you refer</span>
+                <div class="aff-footer-sep">
+                    <span><i class="fa-solid fa-circle-check me-1" style="color: var(--accent);"></i>Double-sided deal — wins for you AND the agents you refer</span>
                 </div>
             </div>
         </div>
@@ -52,29 +52,29 @@
             <div class="row g-4">
                 <div class="col-md-4">
                     <div class="glass-card p-4 h-100 text-center">
-                        <div style="width: 56px; height: 56px; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.2); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                        <div class="aff-icon-box aff-icon-box--accent">
                             <i class="fa-solid fa-user-plus" style="font-size: 1.4rem; color: var(--accent);"></i>
                         </div>
-                        <h4 style="font-weight: 800; color: #fff; font-size: 1.1rem; margin-bottom: 8px;">1. Sign Up</h4>
-                        <p style="color: #888; font-size: 0.88rem; margin: 0;">Create your free affiliate account in under a minute. No approval wait — start sharing immediately.</p>
+                        <h4 class="aff-step-title">1. Sign Up</h4>
+                        <p class="aff-step-body">Create your free affiliate account in under a minute. No approval wait — start sharing immediately.</p>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="glass-card p-4 h-100 text-center">
-                        <div style="width: 56px; height: 56px; background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                        <div class="aff-icon-box aff-icon-box--cyan">
                             <i class="fa-solid fa-share-nodes" style="font-size: 1.4rem; color: #00d9ff;"></i>
                         </div>
-                        <h4 style="font-weight: 800; color: #fff; font-size: 1.1rem; margin-bottom: 8px;">2. Share Your Link</h4>
-                        <p style="color: #888; font-size: 0.88rem; margin: 0;">Share your unique referral link. Your referred agents get 15% off their first month automatically — making it an easy yes.</p>
+                        <h4 class="aff-step-title">2. Share Your Link</h4>
+                        <p class="aff-step-body">Share your unique referral link. Your referred agents get 15% off their first month automatically — making it an easy yes.</p>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="glass-card p-4 h-100 text-center">
-                        <div style="width: 56px; height: 56px; background: rgba(233,30,99,0.1); border: 1px solid rgba(233,30,99,0.2); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                        <div class="aff-icon-box aff-icon-box--pink">
                             <i class="fa-solid fa-sack-dollar" style="font-size: 1.4rem; color: #e91e63;"></i>
                         </div>
-                        <h4 style="font-weight: 800; color: #fff; font-size: 1.1rem; margin-bottom: 8px;">3. Get Paid Forever</h4>
-                        <p style="color: #888; font-size: 0.88rem; margin: 0;">Earn 20% on every payment your referrals make — month after month, year after year, for as long as they stay.</p>
+                        <h4 class="aff-step-title">3. Get Paid Forever</h4>
+                        <p class="aff-step-body">Earn 20% on every payment your referrals make — month after month, year after year, for as long as they stay.</p>
                     </div>
                 </div>
             </div>
@@ -85,29 +85,29 @@
     <div class="row justify-content-center mb-5" data-aos="fade-up">
         <div class="col-lg-10">
             <div class="glass-card p-4" style="border-color: rgba(0,255,136,0.15);">
-                <h3 style="font-weight: 700; color: #fff; margin-bottom: 8px; text-align: center;">
+                <h3 class="mkt-feat-title text-center mb-2" style="font-size: 1.3rem;">
                     <i class="fa-solid fa-calculator me-2" style="color: var(--accent);"></i>What Your Earnings Look Like
                 </h3>
-                <p style="color: #666; font-size: 0.85rem; text-align: center; margin-bottom: 24px;">Based on the $149.99/mo Power Dialer plan at 20% commission</p>
+                <p class="aff-calc-footer mb-4" style="margin: 0;">Based on the $149.99/mo Power Dialer plan at 20% commission</p>
                 <div class="row g-4 text-center">
                     <div class="col-md-3 col-6">
-                        <div style="font-size: 1.8rem; font-weight: 900; color: var(--accent); margin-bottom: 4px;">$30</div>
-                        <div style="color: #888; font-size: 0.82rem;">per referral / month</div>
+                        <div class="aff-calc-val--green">$30</div>
+                        <div class="aff-calc-lbl">per referral / month</div>
                     </div>
                     <div class="col-md-3 col-6">
-                        <div style="font-size: 1.8rem; font-weight: 900; color: #00d9ff; margin-bottom: 4px;">$360</div>
-                        <div style="color: #888; font-size: 0.82rem;">per referral / year</div>
+                        <div class="aff-calc-val--cyan">$360</div>
+                        <div class="aff-calc-lbl">per referral / year</div>
                     </div>
                     <div class="col-md-3 col-6">
-                        <div style="font-size: 1.8rem; font-weight: 900; color: #e91e63; margin-bottom: 4px;">$300</div>
-                        <div style="color: #888; font-size: 0.82rem;">with 10 referrals / mo</div>
+                        <div class="aff-calc-val--pink">$300</div>
+                        <div class="aff-calc-lbl">with 10 referrals / mo</div>
                     </div>
                     <div class="col-md-3 col-6">
-                        <div style="font-size: 1.8rem; font-weight: 900; color: #ffd700; margin-bottom: 4px;">$3,600</div>
-                        <div style="color: #888; font-size: 0.82rem;">with 10 referrals / year</div>
+                        <div class="aff-calc-val--gold">$3,600</div>
+                        <div class="aff-calc-lbl">with 10 referrals / year</div>
                     </div>
                 </div>
-                <p style="color: #555; font-size: 0.82rem; text-align: center; margin: 20px 0 0;">
+                <p class="aff-calc-footer">
                     Commissions are recurring — your earnings grow as long as your referrals stay subscribed.
                 </p>
             </div>
@@ -117,21 +117,21 @@
     <!-- CTA: Rewardful signup -->
     <div class="text-center" data-aos="fade-up">
         <div class="glass-card p-5 d-inline-block" style="border: 2px solid rgba(0,255,136,0.3); max-width: 540px; width: 100%;">
-            <div style="width: 64px; height: 64px; background: var(--accent); border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
-                <i class="fa-solid fa-rocket" style="font-size: 1.6rem; color: #000;"></i>
+            <div class="aff-cta-rocket">
+                <i class="fa-solid fa-rocket" style="font-size: 1.6rem;"></i>
             </div>
-            <h3 style="font-weight: 800; color: #fff; margin-bottom: 8px;">Ready to Start Earning?</h3>
-            <p style="color: #888; font-size: 0.92rem; margin-bottom: 8px;">
+            <h3 class="aff-step-title" style="font-size: 1.4rem; margin-bottom: 8px;">Ready to Start Earning?</h3>
+            <p class="aff-step-body mb-2">
                 Sign up free. No minimum referrals, no hoops.
             </p>
-            <p style="color: #666; font-size: 0.85rem; margin-bottom: 24px;">
+            <p class="aff-step-body mb-4">
                 <i class="fa-solid fa-gift me-1" style="color: var(--accent);"></i>
-                Your referrals automatically get <strong style="color: #fff;">15% off their first month</strong> — making it easy for them to say yes.
+                Your referrals automatically get <strong style="color: var(--text-primary);">15% off their first month</strong> — making it easy for them to say yes.
             </p>
             <a href="https://insurancegrokbot.getrewardful.com/signup" target="_blank" rel="noopener noreferrer" class="btn btn-primary py-3 px-5" style="font-weight: 700; font-size: 1.05rem;">
                 Become an Affiliate <i class="fa-solid fa-arrow-right ms-2"></i>
             </a>
-            <p style="color: #555; font-size: 0.78rem; margin-top: 16px; margin-bottom: 0;">
+            <p class="aff-disclaimer">
                 Powered by Rewardful. You'll get your own dashboard to track clicks, referrals, and payouts.
             </p>
         </div>
