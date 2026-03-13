@@ -4594,6 +4594,84 @@ body.light-theme .cnam-stat-info { background: rgba(0,100,180,0.08); color: #006
 .ni-result-success { color: #00ff88; }
 .ni-result-error   { color: #ef4444; }
 .ni-result-warning { color: #ffa500; }
+.ni-result-info    { color: #00d9ff; }
+
+/* Rejection reasons (inside banner) */
+.ni-rejection-reasons {
+    margin-top: 8px; padding: 8px 10px; border-radius: 6px;
+    background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.12);
+}
+.ni-rejection-reasons-title {
+    font-size: 0.75rem; font-weight: 700; color: #ef4444; margin-bottom: 4px;
+}
+.ni-rejection-reasons-list {
+    margin: 0; padding-left: 18px; font-size: 0.75rem; color: #ccc; line-height: 1.7;
+}
+.ni-rejection-reasons-hint {
+    font-size: 0.75rem; color: #888; padding: 4px 0;
+}
+
+/* Rejection action buttons (inside banner) */
+.ni-rejection-actions {
+    display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;
+}
+.ni-rejection-edit-btn {
+    background: rgba(0,217,255,0.08); border: 1px solid rgba(0,217,255,0.2);
+    color: #00d9ff; border-radius: 8px; padding: 7px 16px;
+    font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: all 0.15s;
+}
+.ni-rejection-edit-btn:hover { background: rgba(0,217,255,0.15); color: #fff; }
+.ni-rejection-resubmit-btn {
+    background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.2);
+    color: #00ff88; border-radius: 8px; padding: 7px 16px;
+    font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: all 0.15s;
+}
+.ni-rejection-resubmit-btn:hover { background: rgba(0,255,136,0.15); color: #fff; }
+
+/* Carrier rejected state */
+.ni-carrier-rejected .ni-carrier-status { color: #ef4444; }
+
+/* Edit & Resubmit form */
+.ni-edit-form {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-width: 1px; border-style: solid;
+    border-color: rgba(0,217,255,0.2) rgba(0,217,255,0.1) rgba(0,217,255,0.1) rgba(0,217,255,0.15);
+    border-radius: 12px;
+    box-shadow: var(--glass-shadow);
+}
+.ni-edit-form-title {
+    font-weight: 700; font-size: 0.9rem; color: #00d9ff;
+}
+.ni-edit-close-btn {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    color: #888; border-radius: 6px; width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.15s; font-size: 0.8rem;
+}
+.ni-edit-close-btn:hover { background: rgba(239,68,68,0.1); color: #ef4444; border-color: rgba(239,68,68,0.2); }
+.ni-edit-form-hint {
+    font-size: 0.78rem; color: #888; line-height: 1.5;
+}
+.ni-edit-label {
+    display: block; font-size: 0.75rem; font-weight: 600; color: #aaa; margin-bottom: 4px;
+}
+.ni-edit-input {
+    width: 100%; background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1); color: #fff;
+    padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; outline: none;
+}
+.ni-edit-input:focus {
+    border-color: rgba(0,217,255,0.4); box-shadow: 0 0 0 2px rgba(0,217,255,0.1);
+}
+.ni-edit-submit-btn {
+    background: linear-gradient(135deg, #00d9ff, #0088ff); border: none;
+    color: #fff; border-radius: 10px; padding: 10px 24px; width: 100%;
+    font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: opacity 0.2s;
+}
+.ni-edit-submit-btn:hover { opacity: 0.85; }
+.ni-edit-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Loading / empty states */
 .ni-loading { text-align: center; padding: 20px; color: #555; font-size: 0.78rem; }
@@ -4663,6 +4741,32 @@ body.light-theme .ni-remediate-btn { background: linear-gradient(135deg, #ff8c00
 body.light-theme .ni-result-success { color: #00aa5e; }
 body.light-theme .ni-result-error   { color: #dc2626; }
 body.light-theme .ni-result-warning { color: #cc6600; }
+body.light-theme .ni-result-info    { color: #0066cc; }
 body.light-theme .ni-accent { color: #0066cc; }
 body.light-theme .ni-empty { color: var(--lt-text-muted); }
+
+/* Rejection reasons — light theme */
+body.light-theme .ni-rejection-reasons { background: rgba(220,38,38,0.04); border-color: rgba(220,38,38,0.10); }
+body.light-theme .ni-rejection-reasons-title { color: #dc2626; }
+body.light-theme .ni-rejection-reasons-list { color: var(--lt-text-secondary); }
+body.light-theme .ni-rejection-reasons-hint { color: var(--lt-text-muted); }
+body.light-theme .ni-rejection-edit-btn { background: rgba(0,100,180,0.06); border-color: rgba(0,100,180,0.15); color: #0064b4; }
+body.light-theme .ni-rejection-edit-btn:hover { background: rgba(0,100,180,0.12); color: var(--lt-text-primary); }
+body.light-theme .ni-rejection-resubmit-btn { background: rgba(0,170,94,0.06); border-color: rgba(0,170,94,0.15); color: #00875a; }
+body.light-theme .ni-rejection-resubmit-btn:hover { background: rgba(0,170,94,0.12); color: var(--lt-text-primary); }
+body.light-theme .ni-carrier-rejected .ni-carrier-status { color: #dc2626; }
+
+/* Edit form — light theme */
+body.light-theme .ni-edit-form {
+    background: var(--lt-surface); border-color: rgba(0,100,180,0.15);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+body.light-theme .ni-edit-form-title { color: #0064b4; }
+body.light-theme .ni-edit-close-btn { background: rgba(0,0,0,0.03); border-color: var(--lt-border); color: var(--lt-text-muted); }
+body.light-theme .ni-edit-close-btn:hover { background: rgba(220,38,38,0.08); color: #dc2626; }
+body.light-theme .ni-edit-form-hint { color: var(--lt-text-muted); }
+body.light-theme .ni-edit-label { color: var(--lt-text-secondary); }
+body.light-theme .ni-edit-input { background: var(--lt-input-bg); border-color: var(--lt-border); color: var(--lt-input-text); }
+body.light-theme .ni-edit-input:focus { border-color: rgba(0,100,180,0.4); box-shadow: 0 0 0 2px rgba(0,100,180,0.1); }
+body.light-theme .ni-edit-submit-btn { background: linear-gradient(135deg, #0088ff, #0066cc); }
 @media (max-width: 575px) { .articles-grid { grid-template-columns: 1fr; } }

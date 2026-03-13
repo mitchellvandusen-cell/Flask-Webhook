@@ -648,7 +648,7 @@
                 if (carrierListEl && d.carriers) {
                     var carrierHtml = '';
                     d.carriers.forEach(function(c) {
-                        var statusClass = isActive ? 'ni-carrier-active' : (isPending ? 'ni-carrier-pending' : 'ni-carrier-inactive');
+                        var statusClass = isActive ? 'ni-carrier-active' : (isPending ? 'ni-carrier-pending' : (isRejected ? 'ni-carrier-rejected' : 'ni-carrier-inactive'));
                         var statusIcon = isActive ? 'fa-circle-check' : (isPending ? 'fa-clock' : 'fa-circle-xmark');
                         var statusLabel = isActive ? 'Registered' : (isPending ? 'Pending' : (isRejected ? 'Rejected' : 'Not Registered'));
                         carrierHtml += '<div class="col-md-4">' +
@@ -670,25 +670,63 @@
                     bannerEl.style.display = 'block';
                     bannerEl.className = 'ni-status-banner ' + bannerClass + ' mb-3 p-3';
                     var detailText = d.business_name ? '<strong>' + _esc(d.business_name) + '</strong> &mdash; ' : '';
+
                     if (isRejected) {
-                        detailText += 'Registration was rejected. Please review and re-submit.';
+                        // Build rejection banner with reasons + action buttons
+                        detailText += 'Registration was rejected by Twilio.';
+                        var failureReasons = d.failure_reasons || [];
+                        var bannerHtml =
+                            '<div class="d-flex align-items-start gap-3">' +
+                                '<div class="ni-banner-icon"><i class="fa-solid ' + (disp.icon || 'fa-circle-xmark') + '"></i></div>' +
+                                '<div class="ni-banner-body" style="flex:1;">' +
+                                    '<div class="ni-banner-title">' + _esc(disp.label || 'Rejected') + '</div>' +
+                                    '<div class="ni-banner-detail">' + detailText + '</div>';
+
+                        // Show failure reasons if available
+                        if (failureReasons.length > 0) {
+                            bannerHtml += '<div class="ni-rejection-reasons">' +
+                                '<div class="ni-rejection-reasons-title"><i class="fa-solid fa-circle-exclamation me-1"></i>Rejection reasons:</div>' +
+                                '<ul class="ni-rejection-reasons-list">';
+                            failureReasons.forEach(function(reason) {
+                                bannerHtml += '<li>' + _esc(reason) + '</li>';
+                            });
+                            bannerHtml += '</ul></div>';
+                        } else {
+                            bannerHtml += '<div class="ni-rejection-reasons">' +
+                                '<div class="ni-rejection-reasons-hint"><i class="fa-solid fa-info-circle me-1"></i>No specific reason available. Try editing your info and resubmitting.</div>' +
+                            '</div>';
+                        }
+
+                        // Action buttons for rejection
+                        bannerHtml += '<div class="ni-rejection-actions">' +
+                                '<button onclick="niShowEditForm()" class="ni-rejection-edit-btn"><i class="fa-solid fa-pen-to-square me-1"></i>Edit & Resubmit</button>' +
+                                '<button onclick="niResubmit()" class="ni-rejection-resubmit-btn"><i class="fa-solid fa-rotate-right me-1"></i>Resubmit As-Is</button>' +
+                            '</div>' +
+                            '</div>' +  // close ni-banner-body
+                        '</div>';      // close flex container
+
+                        bannerEl.innerHTML = bannerHtml;
                     } else {
                         detailText += d.assigned_count + ' number' + (d.assigned_count !== 1 ? 's' : '') + ' registered';
                         if (d.registered_at) detailText += ' &bull; Since ' + new Date(d.registered_at).toLocaleDateString();
+                        bannerEl.innerHTML =
+                            '<div class="d-flex align-items-center gap-3">' +
+                                '<div class="ni-banner-icon"><i class="fa-solid ' + (disp.icon || 'fa-circle-info') + '"></i></div>' +
+                                '<div class="ni-banner-body">' +
+                                    '<div class="ni-banner-title">' + _esc(disp.label || d.status) + '</div>' +
+                                    '<div class="ni-banner-detail">' + detailText + '</div>' +
+                                '</div>' +
+                                (isActive ?
+                                    '<button onclick="niRemediate()" class="ni-banner-remediate-btn"><i class="fa-solid fa-wrench me-1"></i>Remediate</button>' : '') +
+                            '</div>';
                     }
-                    bannerEl.innerHTML =
-                        '<div class="d-flex align-items-center gap-3">' +
-                            '<div class="ni-banner-icon"><i class="fa-solid ' + (disp.icon || 'fa-circle-info') + '"></i></div>' +
-                            '<div class="ni-banner-body">' +
-                                '<div class="ni-banner-title">' + _esc(disp.label || d.status) + '</div>' +
-                                '<div class="ni-banner-detail">' + detailText + '</div>' +
-                            '</div>' +
-                            (isActive || isRejected ?
-                                '<button onclick="niRemediate()" class="ni-banner-remediate-btn"><i class="fa-solid fa-wrench me-1"></i>Remediate</button>' : '') +
-                        '</div>';
                 } else if (bannerEl) {
                     bannerEl.style.display = 'none';
                 }
+
+                // Show/hide edit form (hidden by default, shown when user clicks Edit & Resubmit)
+                var editFormEl = document.getElementById('niEditForm');
+                if (editFormEl) editFormEl.style.display = 'none';
 
                 // Render phone numbers list
                 if (listEl) {
@@ -712,20 +750,20 @@
                 }
 
                 // Show/hide action buttons based on status
-                // Register: show when not yet submitted, approved (add more), or rejected (re-register)
+                // Register: show when not yet submitted, approved (add more), or rejected (re-register with new numbers)
                 if (registerBtn) {
                     var showRegister = d.status === 'not_registered' || d.status === 'draft' || isActive || isRejected;
                     registerBtn.style.display = showRegister ? '' : 'none';
                     if (isActive) {
                         registerBtn.innerHTML = '<i class="fa-solid fa-plus me-2"></i>Add More Numbers';
                     } else if (isRejected) {
-                        registerBtn.innerHTML = '<i class="fa-solid fa-redo me-2"></i>Re-Register Numbers';
+                        registerBtn.innerHTML = '<i class="fa-solid fa-plus me-2"></i>Add Numbers';
                     } else {
                         registerBtn.innerHTML = '<i class="fa-solid fa-tower-broadcast me-2"></i>Register Selected Numbers';
                     }
                 }
-                // Remediate: show when approved or rejected
-                if (remediateBtn) remediateBtn.style.display = (isActive || isRejected) ? '' : 'none';
+                // Remediate: only show when approved (rejected uses Resubmit flow instead)
+                if (remediateBtn) remediateBtn.style.display = isActive ? '' : 'none';
 
                 _niSelectedSids.clear();
                 niUpdateSelection();
@@ -825,6 +863,100 @@
                 if (resultEl) resultEl.innerHTML = '<span class="ni-result-error">Network error &mdash; check your connection</span>';
             }
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-wrench me-2"></i>Remediate Spam Labels'; }
+        }
+
+        async function niResubmit() {
+            var resultEl = document.getElementById('niActionResult');
+            if (resultEl) resultEl.innerHTML = '<span class="ni-result-info"><i class="fa-solid fa-spinner fa-spin me-1"></i>Resubmitting for review...</span>';
+
+            try {
+                var r = await fetch('/voice/number-integrity/resubmit', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: '{}',
+                });
+                var d = await r.json();
+                if (r.ok && d.status === 'ok') {
+                    var msg = d.message || 'Resubmitted successfully.';
+                    if (resultEl) resultEl.innerHTML = '<span class="ni-result-success"><i class="fa-solid fa-circle-check me-1"></i>' + _esc(msg) + '</span>';
+                    setTimeout(function() { loadNumberIntegrity(); }, 1500);
+                } else {
+                    var errMsg = d.error || 'Resubmit failed';
+                    var cssClass = r.status === 409 ? 'ni-result-warning' : 'ni-result-error';
+                    var icon = r.status === 409 ? 'fa-clock' : 'fa-triangle-exclamation';
+                    if (resultEl) resultEl.innerHTML = '<span class="' + cssClass + '"><i class="fa-solid ' + icon + ' me-1"></i>' + _esc(errMsg) + '</span>';
+                }
+            } catch(e) {
+                console.error('[NumberIntegrity] Resubmit error:', e);
+                if (resultEl) resultEl.innerHTML = '<span class="ni-result-error">Network error</span>';
+            }
+        }
+
+        function niShowEditForm() {
+            var editFormEl = document.getElementById('niEditForm');
+            if (editFormEl) editFormEl.style.display = 'block';
+            // Scroll to the edit form
+            if (editFormEl) editFormEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function niHideEditForm() {
+            var editFormEl = document.getElementById('niEditForm');
+            if (editFormEl) editFormEl.style.display = 'none';
+        }
+
+        async function niUpdateAndResubmit() {
+            var empCount = (document.getElementById('niEmployeeCount') || {}).value || '';
+            var callVol = (document.getElementById('niCallVolume') || {}).value || '';
+            var resultEl = document.getElementById('niEditResult');
+            var btn = document.getElementById('niEditSubmitBtn');
+
+            // Validate
+            if (empCount && (!/^\d+$/.test(empCount) || parseInt(empCount) < 1)) {
+                if (resultEl) resultEl.innerHTML = '<span class="ni-result-error">Employee count must be a positive number</span>';
+                return;
+            }
+            if (callVol && (!/^\d+$/.test(callVol) || parseInt(callVol) < 1)) {
+                if (resultEl) resultEl.innerHTML = '<span class="ni-result-error">Call volume must be a positive number</span>';
+                return;
+            }
+
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Updating & resubmitting...'; }
+            if (resultEl) resultEl.innerHTML = '';
+
+            try {
+                // Step 1: Update EndUser info if provided
+                if (empCount || callVol) {
+                    var updateR = await fetch('/voice/number-integrity/update-info', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ employee_count: empCount, call_volume: callVol }),
+                    });
+                    var updateD = await updateR.json();
+                    if (!updateR.ok) {
+                        if (resultEl) resultEl.innerHTML = '<span class="ni-result-error"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(updateD.error || 'Update failed') + '</span>';
+                        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-paper-plane me-1"></i>Update & Resubmit'; }
+                        return;
+                    }
+                }
+
+                // Step 2: Resubmit
+                var r = await fetch('/voice/number-integrity/resubmit', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: '{}',
+                });
+                var d = await r.json();
+                if (r.ok && d.status === 'ok') {
+                    if (resultEl) resultEl.innerHTML = '<span class="ni-result-success"><i class="fa-solid fa-circle-check me-1"></i>' + _esc(d.message || 'Resubmitted!') + '</span>';
+                    setTimeout(function() { niHideEditForm(); loadNumberIntegrity(); }, 1500);
+                } else {
+                    if (resultEl) resultEl.innerHTML = '<span class="ni-result-error"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Resubmit failed') + '</span>';
+                }
+            } catch(e) {
+                console.error('[NumberIntegrity] Update+Resubmit error:', e);
+                if (resultEl) resultEl.innerHTML = '<span class="ni-result-error">Network error</span>';
+            }
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-paper-plane me-1"></i>Update & Resubmit'; }
         }
 
         async function searchAvailableNumbers() {

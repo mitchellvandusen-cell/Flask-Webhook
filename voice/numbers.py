@@ -1344,16 +1344,32 @@ def number_integrity_status():
     }
     display = status_map.get(live_status, status_map["not_registered"])
 
+    # Collect failure reasons if rejected
+    failure_reasons = ni.get('failure_reasons', [])
+    if live_status == 'twilio-rejected' and trust_product_sid:
+        try:
+            live = twilio_provisioning.get_voice_integrity_status(
+                sub_sid, trust_product_sid, sub_auth_token)
+            failure_reasons = live.get('failure_reasons', failure_reasons)
+            if failure_reasons:
+                ni['failure_reasons'] = failure_reasons
+                vc['number_integrity'] = ni
+                _save_voice_config(current_user.email, vc)
+        except Exception:
+            pass  # use cached failure_reasons
+
     return jsonify({
         "status": live_status,
         "display": display,
         "trust_product_sid": trust_product_sid,
         "profile_sid": ni.get('profile_sid', ''),
+        "end_user_sid": ni.get('end_user_sid', ''),
         "business_name": ni.get('business_name', ''),
         "registered_at": ni.get('registered_at', ''),
         "assigned_count": assigned_count,
         "numbers": all_numbers,
         "carriers": twilio_provisioning.VOICE_INTEGRITY_CARRIERS,
+        "failure_reasons": failure_reasons if live_status == 'twilio-rejected' else [],
     })
 
 
@@ -1625,3 +1641,113 @@ def number_integrity_remediate():
     except Exception as e:
         logger.error(f"[NumberIntegrity] Remediation failed: {e}", exc_info=True)
         return jsonify({"error": f"Remediation failed: {str(e)}"}), 500
+
+
+@numbers_bp.route('/voice/number-integrity/resubmit', methods=['POST'])
+@login_required
+def number_integrity_resubmit():
+    """
+    Resubmit a rejected Voice Integrity registration.
+    Resets the Trust Product to draft, then re-submits for review.
+    Use after fixing issues that caused the original rejection.
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    ni = vc.get('number_integrity', {})
+    trust_product_sid = ni.get('trust_product_sid', '')
+    if not trust_product_sid:
+        return jsonify({"error": "No Number Integrity registration found. Register first."}), 400
+
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
+
+    try:
+        # Check current status
+        try:
+            status = twilio_provisioning.get_voice_integrity_status(
+                sub_sid, trust_product_sid, sub_auth_token)
+            current_status = status.get('status', '')
+        except Exception:
+            current_status = ni.get('status', '')
+
+        if current_status in ('pending-review', 'in-review'):
+            return jsonify({
+                "error": "Registration is already under review. Please allow 24-48 hours.",
+                "current_status": current_status,
+            }), 409
+
+        if current_status not in ('twilio-rejected', 'draft'):
+            return jsonify({
+                "error": f"Resubmit is only available for rejected registrations (current: {current_status}).",
+            }), 400
+
+        # Resubmit: reset to draft then submit
+        result = twilio_provisioning.resubmit_voice_integrity(
+            sub_account_sid=sub_sid,
+            trust_product_sid=trust_product_sid,
+            sub_account_auth_token=sub_auth_token,
+        )
+
+        ni['status'] = result.get('status', 'pending-review')
+        ni['last_resubmit'] = datetime.utcnow().isoformat()
+        ni.pop('failure_reasons', None)  # Clear old failure reasons
+        vc['number_integrity'] = ni
+        _save_voice_config(current_user.email, vc)
+
+        return jsonify({
+            "status": "ok",
+            "message": "Registration resubmitted for review. Carrier registration typically takes 24-48 hours.",
+            "review_status": ni['status'],
+        })
+
+    except Exception as e:
+        logger.error(f"[NumberIntegrity] Resubmit failed: {e}", exc_info=True)
+        return jsonify({"error": f"Resubmit failed: {str(e)}"}), 500
+
+
+@numbers_bp.route('/voice/number-integrity/update-info', methods=['POST'])
+@login_required
+def number_integrity_update_info():
+    """
+    Update Voice Integrity EndUser attributes before resubmitting.
+    Allows correcting employee count and call volume after rejection.
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    ni = vc.get('number_integrity', {})
+    end_user_sid = ni.get('end_user_sid', '')
+    if not end_user_sid:
+        return jsonify({"error": "No EndUser found. Register first."}), 400
+
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
+    data = request.json or {}
+
+    employee_count = data.get('employee_count', '').strip()
+    call_volume = data.get('call_volume', '').strip()
+
+    # Validate: must be positive integers as strings
+    for val, name in [(employee_count, 'employee_count'), (call_volume, 'call_volume')]:
+        if val and (not val.isdigit() or int(val) < 1):
+            return jsonify({"error": f"{name} must be a positive integer"}), 400
+
+    try:
+        result = twilio_provisioning.update_voice_integrity_end_user(
+            sub_account_sid=sub_sid,
+            end_user_sid=end_user_sid,
+            sub_account_auth_token=sub_auth_token,
+            business_employee_count=employee_count,
+            average_call_volume=call_volume,
+        )
+
+        return jsonify({
+            "status": "ok",
+            "message": "Business information updated. You can now resubmit.",
+            "attributes": result.get('attributes', {}),
+        })
+
+    except Exception as e:
+        logger.error(f"[NumberIntegrity] Update info failed: {e}", exc_info=True)
+        return jsonify({"error": f"Update failed: {str(e)}"}), 500
