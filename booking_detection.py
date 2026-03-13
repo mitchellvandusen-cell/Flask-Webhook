@@ -1,15 +1,225 @@
-# booking_detection.py — Calendar booking intent detection
+# booking_detection.py — Enterprise Calendar Booking Detection (LLM-Powered)
 #
-# Detects when a lead wants to book an appointment based on their message,
-# recent conversation context, and conversation stage. Extracts time references
-# and cross-references them against times the bot offered.
+# Architecture:
+#   Tier 1: Fast regex pre-filter — eliminates ~90% of non-booking messages (no LLM cost)
+#   Tier 2: LLM micro-prompt (grok-4-1-fast) — precise intent classification + time extraction
+#   Tier 3: Regex fallback — if LLM unavailable (API down, no key, timeout)
+#
+# Why LLM instead of regex:
+#   Regex failed on "Next week tues at 11:00am please" because the bot hadn't offered
+#   specific times. Regex can't understand conversational context. An LLM reads the
+#   conversation and naturally understands "I want to meet Tuesday at 11" is a booking
+#   request regardless of what the bot said.
+#
+# Cost: ~$0.001 per classification (~200 input tokens, ~60 output tokens)
+# Latency: ~500-1000ms (only when pre-filter passes, ~10-20% of messages)
+# Model: grok-4-1-fast-non-reasoning (same as lead_intelligence.py)
 
+import dataclasses
+import json
 import logging
+import os
 import re
-from typing import Tuple, Optional
+from datetime import datetime
+from typing import Optional
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
 
+# xAI client (same pattern as lead_intelligence.py)
+XAI_API_KEY = os.getenv("XAI_API_KEY")
+BOOKING_MODEL = "grok-4-1-fast-non-reasoning"
+
+_client = None
+if XAI_API_KEY:
+    try:
+        from openai import OpenAI
+        _client = OpenAI(api_key=XAI_API_KEY, base_url="https://api.x.ai/v1")
+    except Exception:
+        pass
+
+
+@dataclasses.dataclass
+class BookingDetectionResult:
+    """Result of booking intent detection."""
+    action: str  # "book" | "offer_slots" | "none"
+    time_string: Optional[str] = None  # Parseable time for ghl_calendar.py (e.g., "11:00 am tuesday march 17")
+    reason: str = ""
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TIER 1: FAST PRE-FILTER (regex, ~0ms)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _has_scheduling_signals(message: str, recent_exchanges: list, stage: str) -> bool:
+    """
+    Fast pre-filter. Returns True if the message MIGHT be booking-related.
+    Intentionally generous (high recall) — the LLM handles precision.
+    False positives here just cost one cheap LLM call (~$0.001).
+    """
+    if not message:
+        return False
+
+    msg = message.lower()
+
+    # Stage is already booking/booked — always check
+    if stage in ("booking", "booked"):
+        return True
+
+    # Strong scheduling signals — always trigger
+    strong_signals = [
+        "book", "schedule", "appointment", "calendar", "available",
+        "slot", "meet", "tomorrow", "today",
+        "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+        "mon ", "tues", "tue ", "wed ", "thurs", "thu ", "fri ", "sat ", "sun ",
+        "next week", "this week",
+        "morning", "afternoon", "evening",
+        "o'clock", "oclock",
+        "works for me", "sounds good", "that works",
+        "set up", "sign me up", "lock it in", "lock me in",
+        "let's do", "lets do", "put me down",
+    ]
+    if any(w in msg for w in strong_signals):
+        return True
+
+    # Time patterns (9am, 2:30pm, etc.) — always trigger
+    if re.search(r'\d{1,2}\s*(?:am|pm|a\.m\.|p\.m\.)\b', msg):
+        return True
+
+    # Bare time with colon (2:30, 11:00) — always trigger
+    if re.search(r'\d{1,2}:\d{2}', msg):
+        return True
+
+    # Ordinal dates (the 17th, march 15, 1st) — always trigger
+    if re.search(r'\d{1,2}(?:st|nd|rd|th)\b', msg):
+        return True
+
+    # Check if bot's last message had time offers — any response could be acceptance
+    bot_msgs = [m for m in recent_exchanges if m['role'] == 'assistant']
+    if bot_msgs:
+        last_bot = bot_msgs[-1]['text'].lower()
+        bot_had_times = bool(re.search(r'\d{1,2}\s*(?:am|pm)', last_bot)) or \
+                        bool(re.search(r'\d{1,2}:\d{2}', last_bot))
+        if bot_had_times:
+            # Bot offered times — even simple acceptance words should trigger
+            acceptance_words = [
+                "yes", "yeah", "sure", "ok", "okay", "yep", "yup",
+                "perfect", "great", "fine", "cool", "bet", "alright",
+                "please", "absolutely", "definitely",
+            ]
+            if any(re.search(r'\b' + re.escape(w) + r'\b', msg) for w in acceptance_words):
+                return True
+
+    return False
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TIER 2: LLM CLASSIFICATION (grok-4-1-fast, ~$0.001/call)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _format_exchanges_for_llm(recent_exchanges: list, message: str, max_exchanges: int = 6) -> str:
+    """Format recent conversation for the LLM prompt."""
+    lines = []
+    recent = recent_exchanges[-max_exchanges:] if len(recent_exchanges) > max_exchanges else recent_exchanges
+    for ex in recent:
+        role = "Agent" if ex['role'] == 'assistant' else "Customer"
+        lines.append(f"{role}: {ex['text']}")
+    lines.append(f"Customer: {message}")
+    return "\n".join(lines)
+
+
+def _llm_classify_booking(message: str, recent_exchanges: list, timezone: str) -> Optional[BookingDetectionResult]:
+    """
+    Tier 2: Use LLM to classify booking intent with full conversational context.
+    Returns BookingDetectionResult or None (signal to fall back to regex).
+    """
+    if not _client:
+        logger.warning("⚠️ BOOKING LLM: No xAI client — falling back to regex")
+        return None
+
+    try:
+        now = datetime.now(ZoneInfo(timezone))
+    except Exception:
+        now = datetime.now()
+    today_str = now.strftime("%A, %B %d, %Y")
+
+    conversation = _format_exchanges_for_llm(recent_exchanges, message)
+
+    prompt = f"""You are a booking intent classifier for an insurance agent's AI texting bot.
+
+TODAY: {today_str}
+TIMEZONE: {timezone}
+
+CONVERSATION:
+{conversation}
+
+Analyze the customer's LATEST message. Return ONLY valid JSON:
+{{"action": "book" | "offer_slots" | "none", "time_string": "<date and time>" or null, "reason": "<one sentence>"}}
+
+DEFINITIONS:
+- "book": Customer gave a specific DAY/DATE **AND** TIME for an appointment.
+  Examples: "Tuesday at 2pm", "tomorrow 11am", "the 17th at 9:30", "next week wednesday at 4".
+  ALSO "book" when the agent offered specific times and the customer clearly accepted:
+  - If agent offered ONE time and customer said "yes"/"sure"/"ok" → book that time
+  - If customer said a specific time like "4pm" or "the second one" → book that time
+  - If agent offered MULTIPLE times and customer said "yes" without specifying which → use "offer_slots" to clarify
+- "offer_slots": Customer wants to schedule but didn't give both day AND time.
+  Examples: "sometime next week", "Thursday works", "what times do you have?", "when are you free?", "afternoon works".
+  Also use when it's ambiguous which offered time the customer accepted.
+- "none": Not about scheduling at all. Actively declining. General conversation.
+  Examples: "can't do that time", "how much is it?", "I have 2 kids", "not interested", "I work until 5".
+
+TIME STRING FORMAT (only for "book"):
+Include day AND time: "11:00 am tuesday" or "2:00 pm march 17" or "9:30 am tomorrow".
+If customer accepted an agent-offered time, extract THAT time from the agent's message.
+NEVER guess a time. If unsure of the exact time, use "offer_slots"."""
+
+    try:
+        resp = _client.chat.completions.create(
+            model=BOOKING_MODEL,
+            messages=[
+                {"role": "system", "content": "Return ONLY valid JSON. No markdown, no explanation."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0,
+            max_tokens=150,
+            timeout=8,
+        )
+
+        raw = (resp.choices[0].message.content or "").strip()
+        # Strip markdown code fences if present (same pattern as lead_intelligence.py)
+        raw = re.sub(r'^```(?:json)?\s*', '', raw)
+        raw = re.sub(r'\s*```$', '', raw)
+
+        result = json.loads(raw)
+        action = result.get("action", "none")
+        time_string = result.get("time_string")
+        reason = result.get("reason", "")
+
+        # Validate action
+        if action not in ("book", "offer_slots", "none"):
+            logger.warning(f"⚠️ BOOKING LLM: Invalid action '{action}' — defaulting to none")
+            action = "none"
+
+        # Safety: "book" without a time string → downgrade to offer_slots
+        if action == "book" and not time_string:
+            logger.warning("⚠️ BOOKING LLM: action=book but no time_string — downgrading to offer_slots")
+            action = "offer_slots"
+
+        logger.info(f"📅 BOOKING LLM | action={action} | time={time_string} | reason={reason} | msg='{message[:60]}'")
+        return BookingDetectionResult(action=action, time_string=time_string, reason=reason)
+
+    except json.JSONDecodeError as e:
+        logger.warning(f"⚠️ BOOKING LLM: JSON parse error: {e}")
+        return None  # Fall back to regex
+    except Exception as e:
+        logger.warning(f"⚠️ BOOKING LLM: API error: {e}")
+        return None  # Fall back to regex
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TIER 3: REGEX FALLBACK (if LLM unavailable)
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def _extract_times_from_text(text: str) -> list:
     """
@@ -27,13 +237,12 @@ def _extract_times_from_text(text: str) -> list:
     for match in re.finditer(time_pattern, text_lower):
         h = int(match.group(1))
         m = int(match.group(2) or 0)
-        period = match.group(3).lower().replace(".", "")  # "p.m." -> "pm"
+        period = match.group(3).lower().replace(".", "")
         if "pm" in period and h != 12:
             h += 12
         elif "am" in period and h == 12:
             h = 0
 
-        # Look for day context near this match (within 30 chars)
         context_start = max(0, match.start() - 30)
         context_end = min(len(text_lower), match.end() + 30)
         context = text_lower[context_start:context_end]
@@ -46,28 +255,20 @@ def _extract_times_from_text(text: str) -> list:
                 break
 
         results.append({
-            "hour": h,
-            "minute": m,
-            "original": match.group().strip(),
-            "day_hint": day_hint
+            "hour": h, "minute": m,
+            "original": match.group().strip(), "day_hint": day_hint
         })
 
-    # Pass 2: Match times WITHOUT am/pm like "7:30", "at about 7:30"
-    # Negative lookahead avoids re-matching times already caught with AM/PM
+    # Pass 2: bare times like "7:30" without AM/PM
     bare_time_pattern = r'(\d{1,2}):(\d{2})(?!\s*(?:pm|p\.m\.|am|a\.m\.))'
     for match in re.finditer(bare_time_pattern, text_lower):
         h = int(match.group(1))
         m = int(match.group(2))
-
-        # Infer AM/PM from business hours context
-        # Insurance sales calls typically happen during business hours
         if 1 <= h <= 7:
-            h += 12  # Assume PM (1:00-7:59 -> 13:00-19:59)
+            h += 12
         elif h == 12:
-            h = 12  # Noon
-        # 8-11 stays as-is (morning hours)
+            h = 12
 
-        # Look for day context near this match (within 30 chars)
         context_start = max(0, match.start() - 30)
         context_end = min(len(text_lower), match.end() + 30)
         context = text_lower[context_start:context_end]
@@ -80,79 +281,59 @@ def _extract_times_from_text(text: str) -> list:
                 break
 
         results.append({
-            "hour": h,
-            "minute": m,
-            "original": match.group().strip(),
-            "day_hint": day_hint
+            "hour": h, "minute": m,
+            "original": match.group().strip(), "day_hint": day_hint
         })
 
     return results
 
 
 def _match_lead_time_to_bot_times(lead_msg: str, bot_msg: str) -> Optional[str]:
-    """
-    When the lead says a time like "2pm", "4", or "the 2 one", find the matching
-    time from the bot's offered times and return a full time string WITH the day.
-
-    This is critical: if bot said "Tuesday at 2pm or Wednesday at 10am" and lead
-    says "2pm", we need to return "2:00 pm tuesday" so the booking code books
-    the right date, not today.
-
-    Returns a formatted time string like "4:00 pm tuesday" or None if no match.
-    """
+    """Cross-reference lead's time against bot's offered times to get full time+day string."""
     if not lead_msg or not bot_msg:
         return None
 
     lead_lower = lead_msg.lower().strip()
     bot_times = _extract_times_from_text(bot_msg)
-
     if not bot_times:
         return None
 
-    # --- Step 1: Parse the lead's time (with or without AM/PM) ---
     lead_times = _extract_times_from_text(lead_msg)
     lead_hour = None
     lead_minute = 0
 
     if lead_times:
-        # Lead gave explicit time like "2pm" or "4:30 pm"
         lead_hour = lead_times[0]["hour"]
         lead_minute = lead_times[0]["minute"]
     else:
-        # Try bare number like "4" or "the 2 one"
         bare_num_match = re.search(r'\b(\d{1,2})\b', lead_lower)
         if bare_num_match:
             lead_num = int(bare_num_match.group(1))
-            # Infer AM/PM from bot's offered context
             if 1 <= lead_num <= 7:
-                lead_hour = lead_num + 12  # assume PM for business hours
+                lead_hour = lead_num + 12
             elif 8 <= lead_num <= 11:
-                lead_hour = lead_num  # assume AM
+                lead_hour = lead_num
             elif lead_num == 12:
-                lead_hour = 12  # noon
+                lead_hour = 12
             else:
                 lead_hour = lead_num
 
     if lead_hour is None:
         return None
 
-    # --- Step 2: Match against bot's offered times ---
+    # Exact match
     for bt in bot_times:
-        # Match hour: compare both 24h and 12h representations
         bot_hour_12 = bt["hour"] % 12 or 12
         lead_hour_12 = lead_hour % 12 or 12
         hour_match = (lead_hour == bt["hour"]) or (lead_hour_12 == bot_hour_12)
         minute_match = (lead_minute == bt["minute"]) or (lead_minute == 0 and bt["minute"] == 0)
-
         if hour_match and minute_match:
             period = "am" if bt["hour"] < 12 else "pm"
             minute_str = f":{bt['minute']:02d}" if bt["minute"] else ":00"
             day_part = f" {bt['day_hint']}" if bt.get("day_hint") else ""
-            result = f"{bot_hour_12}{minute_str} {period}{day_part}"
-            logger.info(f"📅 TIME MATCH: Lead said '{lead_msg}' -> matched to bot's '{bt['original']}' (day={bt.get('day_hint','none')}) -> booking '{result}'")
-            return result
+            return f"{bot_hour_12}{minute_str} {period}{day_part}"
 
-    # --- Step 3: Fuzzy match (within 30 min) ---
+    # Fuzzy match (within 30 min)
     for bt in bot_times:
         diff = abs(bt["hour"] * 60 + bt["minute"] - (lead_hour * 60 + lead_minute))
         if diff <= 30:
@@ -160,73 +341,46 @@ def _match_lead_time_to_bot_times(lead_msg: str, bot_msg: str) -> Optional[str]:
             period = "am" if bt["hour"] < 12 else "pm"
             minute_str = f":{bt['minute']:02d}" if bt["minute"] else ":00"
             day_part = f" {bt['day_hint']}" if bt.get("day_hint") else ""
-            result = f"{bot_hour_12}{minute_str} {period}{day_part}"
-            logger.info(f"📅 TIME FUZZY MATCH: Lead said '{lead_msg}' -> close to bot's '{bt['original']}' -> booking '{result}'")
-            return result
+            return f"{bot_hour_12}{minute_str} {period}{day_part}"
 
-    # --- Step 4: No match but lead gave valid time — carry forward first bot day_hint ---
+    # Day inherit: lead gave time, bot gave day context
     if lead_times:
-        # Lead said "2pm" but no bot time matched — still use bot's day context
-        # if the lead didn't mention their own day
         lead_has_day = lead_times[0].get("day_hint", "")
         if not lead_has_day and bot_times:
-            # Use the day_hint from the closest bot time
             first_day = bot_times[0].get("day_hint", "")
             if first_day:
                 h12 = lead_hour % 12 or 12
                 period = "am" if lead_hour < 12 else "pm"
-                result = f"{h12}:{lead_minute:02d} {period} {first_day}"
-                logger.info(f"📅 TIME DAY INHERIT: Lead said '{lead_msg}' -> no exact match, inheriting day '{first_day}' -> booking '{result}'")
-                return result
+                return f"{h12}:{lead_minute:02d} {period} {first_day}"
 
     return None
 
 
-def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> Tuple[bool, Optional[str]]:
+def _regex_fallback(message: str, recent_exchanges: list, stage: str) -> BookingDetectionResult:
     """
-    Context-aware booking detection.
-    Returns (is_booking_request, extracted_time_string)
-
-    Key insight: If bot just offered times and lead responds with ANY acceptance,
-    that's a booking request even without explicit "book" keywords.
+    Tier 3: Regex-based fallback when LLM is unavailable.
+    Preserves the original detection logic for graceful degradation.
     """
-    logger.info(f"🔍 BOOKING DETECTION START | message='{message}' | stage='{stage}' | exchanges_count={len(recent_exchanges)}")
-
-    if not message:
-        logger.warning("🚫 BOOKING DETECTION: No message provided")
-        return False, None
-
     msg_lower = message.lower().strip()
 
-    # === CONTEXT CHECK: Did bot just offer time slots? ===
     bot_msgs = [m for m in recent_exchanges if m['role'] == 'assistant']
     last_bot_msg = bot_msgs[-1]['text'].lower() if bot_msgs else ""
     last_bot_msg_original = bot_msgs[-1]['text'] if bot_msgs else ""
 
-    logger.debug(f"🔍 BOOKING CONTEXT | last_bot_msg_preview='{last_bot_msg[:100]}'...")
-
-    # Detect if bot offered ACTUAL appointment times in last message
-    # First: extract structured times (e.g., "2:00 pm", "9 am") - strongest signal
     bot_time_structs = _extract_times_from_text(last_bot_msg_original)
-
-    # If structured times found, bot definitely offered times
-    # If not, check for strong time-offering phrases (NOT loose words like "am", "does", "work")
     if bot_time_structs:
         bot_offered_times = True
     else:
-        # Only match phrases that clearly indicate time slot offers
         strong_time_phrases = [
             "i've got", "how about", "works for you", "free at", "open at",
             "available at", "slot", "what time works", "when works",
             "schedule for", "book for", "set up for"
         ]
-        # Also match day+time combos (e.g., "tomorrow morning", "friday afternoon")
         day_words = ["tomorrow", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
         time_words = ["morning", "afternoon", "evening"]
         has_day_time = any(d in last_bot_msg for d in day_words) and any(t in last_bot_msg for t in time_words)
         bot_offered_times = has_day_time or any(phrase in last_bot_msg for phrase in strong_time_phrases)
 
-    # === EXPLICIT BOOKING KEYWORDS (works anytime) ===
     explicit_booking_keywords = [
         "book", "schedule", "set up", "setup", "appointment",
         "let's do", "lets do", "i'll take", "ill take",
@@ -234,29 +388,16 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
     ]
     has_explicit_intent = any(kw in msg_lower for kw in explicit_booking_keywords)
 
-    # === TIME PATTERNS ===
     time_patterns = [
-        r'\d{1,2}:\d{2}\s*(am|pm|a\.m\.|p\.m\.)?',  # 9:00 am, 2:30pm
-        r'\d{1,2}\s*(am|pm|a\.m\.|p\.m\.)',          # 9am, 2pm
-        r'\b\d{1,2}\b(?=\s|$|,|\.|!)',               # Just "2" or "9" (when context is clear)
-        r'tomorrow',
-        r'today',
+        r'\d{1,2}:\d{2}\s*(am|pm|a\.m\.|p\.m\.)?',
+        r'\d{1,2}\s*(am|pm|a\.m\.|p\.m\.)',
+        r'\b\d{1,2}\b(?=\s|$|,|\.|!)',
+        r'tomorrow', r'today',
         r'monday|tuesday|wednesday|thursday|friday|saturday|sunday',
         r'morning|afternoon|evening',
     ]
+    has_time_reference = any(re.search(p, msg_lower) for p in time_patterns)
 
-    time_match = None
-    for pattern in time_patterns:
-        match = re.search(pattern, msg_lower)
-        if match:
-            time_match = match.group()
-            break
-
-    has_time_reference = time_match is not None
-
-    # === ACCEPTANCE PHRASES (only valid if bot offered times) ===
-    # IMPORTANT: Use word-boundary regex to prevent substring false positives
-    # e.g., "k" in "think" was causing false bookings on hostile messages
     acceptance_phrases = [
         r"\byes\b", r"\byeah\b", r"\byep\b", r"\byup\b", r"\bsure\b",
         r"\bok\b", r"\bokay\b", r"\bsounds good\b", r"\bperfect\b",
@@ -266,120 +407,110 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
         r"\bfine\b", r"\bcool\b", r"\bbet\b", r"\balright\b"
     ]
     is_acceptance = any(re.search(phrase, msg_lower) for phrase in acceptance_phrases)
-
-    # Additional guard: long messages with question marks are NOT simple acceptance
-    # Real acceptance is short ("yes", "sounds good", "ok cool")
-    is_hostile_or_question = len(msg_lower) > 60 or msg_lower.count("?") >= 1
-    if is_acceptance and is_hostile_or_question:
-        logger.info(f"🔍 ACCEPTANCE OVERRIDDEN: Message too long ({len(msg_lower)} chars) or has questions ({msg_lower.count('?')}q) | msg='{message[:80]}'")
+    if is_acceptance and (len(msg_lower) > 60 or msg_lower.count("?") >= 1):
         is_acceptance = False
 
-    # Log detection signals
-    logger.info(f"🔍 BOOKING SIGNALS | bot_offered_times={bot_offered_times} | has_explicit_intent={has_explicit_intent} | has_time_reference={has_time_reference} | is_acceptance={is_acceptance}")
-
-    # === NEGATIVE TIME REJECTION ===
-    # "I can't do 2pm" or "2pm doesn't work" should NOT trigger booking at that time.
-    # The lead is declining, not accepting. Let the LLM handle the response naturally.
     rejection_phrases = [
-        "can't do", "cant do", "cannot do",
-        "won't work", "wont work", "will not work",
+        "can't do", "cant do", "cannot do", "won't work", "wont work",
         "doesn't work", "doesnt work", "does not work",
         "not available", "not free", "unavailable",
         "can't make", "cant make", "cannot make",
-        "won't be able", "wont be able",
-        "busy then", "busy at",
-        "no good", "not going to work", "not gonna work",
+        "busy then", "busy at", "no good", "not going to work",
     ]
-    has_rejection = any(phrase in msg_lower for phrase in rejection_phrases)
+    if any(phrase in msg_lower for phrase in rejection_phrases) and not is_acceptance and not has_explicit_intent:
+        return BookingDetectionResult(action="none", reason="Rejection detected (regex)")
 
-    if has_rejection and not is_acceptance and not has_explicit_intent:
-        logger.info(f"🚫 BOOKING REJECTION: Lead declined time/availability | msg='{message[:50]}'")
-        return False, None
-
-    # === HELPER: Resolve time string using bot context ===
-    def _resolve_time_with_context(lead_message: str, use_bot_first: bool = False) -> str:
-        """
-        Resolve a booking time string by cross-referencing lead's message with bot's offered times.
-        If use_bot_first=True, extract the first time from bot's message (for simple acceptance).
-        """
+    def _resolve(use_bot_first=False):
         if use_bot_first and bot_time_structs:
-            # Simple acceptance: pick the first time the bot offered
             bt = bot_time_structs[0]
             h12 = bt["hour"] % 12 or 12
             period = "am" if bt["hour"] < 12 else "pm"
             day_part = f" {bt['day_hint']}" if bt.get("day_hint") else ""
-            resolved = f"{h12}:{bt['minute']:02d} {period}{day_part}"
-            logger.info(f"📅 RESOLVED (first offered): '{resolved}' from bot times")
-            return resolved
-
-        # Try to match lead's bare number against bot's offered times
+            return f"{h12}:{bt['minute']:02d} {period}{day_part}"
         if bot_time_structs:
-            matched = _match_lead_time_to_bot_times(lead_message, last_bot_msg_original)
+            matched = _match_lead_time_to_bot_times(message, last_bot_msg_original)
             if matched:
                 return matched
+        return message
 
-        # Fallback: return the lead's message as-is for ghl_calendar to parse
-        return lead_message
-
-    # === DECISION LOGIC ===
-
-    # Case 0: Lead provides BOTH a specific day AND a specific time unprompted
-    # e.g., "Next week tues at 11:00am please", "Thursday at 2pm", "Monday 9:30 am"
-    # This is a strong booking signal regardless of what the bot offered.
+    # Day + Time unprompted
     day_name_pattern = (
         r'\b(tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday'
         r'|mon|tues|tue|wed|thurs|thu|fri|sat|sun)\b'
     )
-    # Also match ordinal dates like "the 17th", "march 17", "on the 20th"
     ordinal_date_pattern = r'\b(?:the\s+)?\d{1,2}(?:st|nd|rd|th)\b|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{1,2}\b'
-    has_day_reference = bool(re.search(day_name_pattern, msg_lower)) or bool(re.search(ordinal_date_pattern, msg_lower))
+    has_day_ref = bool(re.search(day_name_pattern, msg_lower)) or bool(re.search(ordinal_date_pattern, msg_lower))
 
-    if has_day_reference and has_time_reference:
-        resolved = _resolve_time_with_context(message)
-        logger.info(f"BOOKING CASE 0: Day + Time reference (unprompted) | msg='{message[:80]}' | resolved='{resolved}'")
-        return True, resolved
+    if has_day_ref and has_time_reference:
+        return BookingDetectionResult(action="book", time_string=_resolve(), reason="Day+Time (regex fallback)")
 
-    # Case 1: Explicit booking request with time (always book)
     if has_explicit_intent and has_time_reference:
-        resolved = _resolve_time_with_context(message)
-        logger.info(f"BOOKING CASE 1: Explicit + Time | msg='{message[:50]}' | resolved='{resolved}'")
-        return True, resolved
+        return BookingDetectionResult(action="book", time_string=_resolve(), reason="Explicit+Time (regex fallback)")
 
-    # Case 2: Bot offered times + lead mentions time reference
     if bot_offered_times and has_time_reference:
-        resolved = _resolve_time_with_context(message)
-        logger.info(f"BOOKING CASE 2: Bot offered + Time reference | msg='{message[:50]}' | resolved='{resolved}'")
-        return True, resolved
+        return BookingDetectionResult(action="book", time_string=_resolve(), reason="Bot offered+Time (regex fallback)")
 
-    # Case 3: Bot offered times + simple acceptance (grab FIRST time from bot's msg)
-    # GUARD: Only trigger if bot actually had PARSEABLE times (not just vague phrases)
-    # AND the lead's message is genuinely a short acceptance (not a hostile question)
-    if bot_offered_times and is_acceptance and not has_time_reference:
-        if not bot_time_structs:
-            logger.info(f"🚫 BOOKING CASE 3 SKIPPED: bot_offered_times=True but no parseable times in bot msg | msg='{message[:60]}'")
-        else:
-            resolved = _resolve_time_with_context(message, use_bot_first=True)
-            logger.info(f"BOOKING CASE 3: Bot offered + Simple acceptance | resolved='{resolved}'")
-            return True, resolved
+    if bot_offered_times and is_acceptance and bot_time_structs:
+        return BookingDetectionResult(action="book", time_string=_resolve(use_bot_first=True), reason="Bot offered+Acceptance (regex fallback)")
 
-    # Case 4: Stage is BOOKING + acceptance — ONLY if bot offered specific times recently
-    # This prevents random messages from triggering bookings just because stage is "booking"
-    # e.g., "Back to work I go" should never book just because conversation was in booking stage
     if stage == "booking" and is_acceptance and bot_offered_times:
-        if has_time_reference:
-            resolved = _resolve_time_with_context(message)
-        else:
-            resolved = _resolve_time_with_context(message, use_bot_first=True)
-        logger.info(f"BOOKING CASE 4: Booking stage + Bot offered times + Acceptance | resolved='{resolved}'")
-        return True, resolved
+        ts = _resolve() if has_time_reference else _resolve(use_bot_first=True)
+        return BookingDetectionResult(action="book", time_string=ts, reason="Stage booking+Acceptance (regex fallback)")
 
-    # Case 5: Explicit "that time works" / "works for me"
-    time_acceptance_phrases = ["that time", "that works", "works for me", "good time", "that's fine"]
-    if bot_offered_times and any(phrase in msg_lower for phrase in time_acceptance_phrases):
-        resolved = _resolve_time_with_context(message, use_bot_first=True)
-        logger.info(f"BOOKING CASE 5: Time acceptance phrase | resolved='{resolved}'")
-        return True, resolved
+    time_accept = ["that time", "that works", "works for me", "good time", "that's fine"]
+    if bot_offered_times and any(phrase in msg_lower for phrase in time_accept):
+        return BookingDetectionResult(action="book", time_string=_resolve(use_bot_first=True), reason="Time acceptance (regex fallback)")
 
-    logger.info(f"🚫 BOOKING DETECTION: No cases matched | msg='{message}'")
-    logger.debug(f"   Reasons: bot_offered={bot_offered_times}, explicit={has_explicit_intent}, time_ref={has_time_reference}, acceptance={is_acceptance}, stage={stage}")
-    return False, None
+    # Check for offer_slots signals (wants to schedule but no specific time)
+    scheduling_interest = [
+        "what times", "when are you", "when do you", "when can we",
+        "what days", "are you available", "are you free",
+        "sometime", "let me check", "next week", "this week",
+    ]
+    if any(phrase in msg_lower for phrase in scheduling_interest):
+        return BookingDetectionResult(action="offer_slots", reason="Scheduling interest (regex fallback)")
+
+    if has_explicit_intent and not has_time_reference:
+        return BookingDetectionResult(action="offer_slots", reason="Explicit intent, no time (regex fallback)")
+
+    return BookingDetectionResult(action="none", reason="No booking signals (regex fallback)")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAIN ENTRY POINT
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def detect_booking_request(
+    message: str,
+    recent_exchanges: list,
+    stage: str,
+    timezone: str = "America/Chicago",
+) -> BookingDetectionResult:
+    """
+    Enterprise booking detection with 3-tier architecture.
+
+    Returns BookingDetectionResult:
+      action="book"        → Execute booking with time_string
+      action="offer_slots" → Fetch and offer calendar slots
+      action="none"        → Not a booking request
+    """
+    if not message:
+        return BookingDetectionResult(action="none", reason="No message")
+
+    logger.info(f"📅 BOOKING DETECT START | msg='{message[:80]}' | stage={stage}")
+
+    # Tier 1: Fast pre-filter
+    if not _has_scheduling_signals(message, recent_exchanges, stage):
+        logger.info(f"📅 BOOKING PREFILTER: No scheduling signals | msg='{message[:60]}'")
+        return BookingDetectionResult(action="none", reason="No scheduling signals")
+
+    logger.info(f"📅 BOOKING PREFILTER PASSED — sending to LLM | msg='{message[:60]}'")
+
+    # Tier 2: LLM classification
+    llm_result = _llm_classify_booking(message, recent_exchanges, timezone)
+    if llm_result is not None:
+        return llm_result
+
+    # Tier 3: Regex fallback (LLM unavailable)
+    logger.info("📅 BOOKING REGEX FALLBACK (LLM unavailable)")
+    return _regex_fallback(message, recent_exchanges, stage)

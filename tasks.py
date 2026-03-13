@@ -17,7 +17,7 @@ from llm_caller import generate_clean_reply
 from ghl_calendar import consolidated_calendar_op
 from ghl_api import fetch_targeted_ghl_history, get_valid_token, get_valid_token_with_status, fetch_contact_data_from_ghl
 from contact_validator import validate_and_resolve_contact
-from booking_detection import detect_booking_request
+from booking_detection import detect_booking_request, BookingDetectionResult
 from message_utils import collect_unanswered_lead_messages as _collect_unanswered_lead_messages
 
 logger = logging.getLogger('rq.worker')
@@ -408,11 +408,16 @@ def process_webhook_task(payload: dict):
         # BOOKING DETECTION & EXECUTION
         # ============================================================
         booking_made = False
-        is_booking_request, booking_time_str = detect_booking_request(
+        booking_result = detect_booking_request(
             message=message,
             recent_exchanges=recent_exchanges,
-            stage=director_output["stage"]
+            stage=director_output["stage"],
+            timezone=subscriber.get("timezone", "America/Chicago"),
         )
+        is_booking_request = booking_result.action == "book"
+        booking_time_str = booking_result.time_string
+        wants_slots = booking_result.action == "offer_slots"
+        logger.info(f"📅 Booking detection: action={booking_result.action} time={booking_result.time_string} reason={booking_result.reason} | contact={contact_id}")
         
         # Determine CRM type for adapter routing
         crm_type = subscriber.get("crm_type", "ghl") or "ghl"
@@ -479,7 +484,8 @@ def process_webhook_task(payload: dict):
 
         # === Calendar fetch logic (for offering slots - only if NOT already booking) ===
         calendar_slots = ""
-        if director_output["stage"] == "booking" and not booking_made:
+        booking_attempted_and_failed = is_booking_request and booking_time_str and not booking_made
+        if (director_output["stage"] == "booking" or wants_slots or booking_attempted_and_failed) and not booking_made:
             if is_demo:
                 calendar_slots = "Tomorrow at 2:00 PM, Tomorrow at 4:30 PM, or Friday at 10:00 AM"
             elif use_crm_adapter:
@@ -515,6 +521,13 @@ Confirm the specific time that was booked. Let them know a calendar invite is co
 
 Do not continue the sales conversation. The appointment is booked. Confirm it in your own words and end warmly."""
             logger.info(f"✅ BOOKING CONFIRMATION ADDED TO PROMPT | contact={contact_id}")
+        elif booking_attempted_and_failed:
+            # Booking was attempted but the API call failed — give the AI specific guidance
+            context_nudge += f"""
+⚠️ CRITICAL: The lead requested an appointment at {booking_time_str}, but the system COULD NOT book it (the slot may be unavailable or there was a technical issue).
+Do NOT tell the lead they are booked. Do NOT confirm an appointment.
+Instead, apologize that the requested time isn't available and offer the available slots listed below. Be natural — say something like "That time isn't available, but I have these openings:" and list the slots."""
+            logger.warning(f"⚠️ BOOKING ATTEMPTED BUT FAILED — offering alternative slots | contact={contact_id} | requested={booking_time_str}")
         else:
             # CRITICAL: Prevent AI from hallucinating bookings
             context_nudge += "\n⚠️ CRITICAL: NO APPOINTMENT HAS BEEN BOOKED YET. Do NOT tell the lead they are booked. Do NOT confirm an appointment. Only offer times or ask which time works best."
