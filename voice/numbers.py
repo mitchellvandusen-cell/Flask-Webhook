@@ -1457,28 +1457,46 @@ def number_integrity_register():
     employee_count = str(user_count)
 
     try:
-        # Step 1: Create Trust Product if we don't have one, or if the old one was rejected
-        # Rejected Trust Products cannot be reused — Twilio requires a new one.
-        old_status = ni.get('status', '')
-        need_new_product = not trust_product_sid or old_status == 'twilio-rejected'
-        if need_new_product:
-            if trust_product_sid and old_status == 'twilio-rejected':
-                logger.info(f"[NumberIntegrity] Old Trust Product {trust_product_sid} was rejected, creating new one")
-                # Unassign numbers from old rejected Trust Product first —
-                # Twilio only allows a number on one Trust Product at a time (409 otherwise)
-                old_assigned = ni.get('assigned_numbers', [])
-                if old_assigned:
-                    logger.info(f"[NumberIntegrity] Unassigning {len(old_assigned)} numbers from old TP {trust_product_sid}")
-                    twilio_provisioning.unassign_numbers_from_trust_product(
-                        sub_account_sid=sub_sid,
-                        trust_product_sid=trust_product_sid,
-                        phone_number_sids=old_assigned,
-                        sub_account_auth_token=sub_auth_token,
-                    )
-                ni['old_trust_product_sid'] = trust_product_sid
-                ni['assigned_numbers'] = []  # clear stale assignments
-                ni['assigned_count'] = 0
-                trust_product_sid = ''  # force creation of new product
+        # Step 1: Create Trust Product if we don't have one, or if the old one is rejected/failed.
+        # ALWAYS check live Twilio status — cached status may be stale (e.g. still says
+        # "pending-review" after Twilio rejected it asynchronously).
+        old_tp_sid = trust_product_sid
+        need_new_product = not trust_product_sid
+
+        if trust_product_sid:
+            # Live-check the existing Trust Product status from Twilio
+            try:
+                live = twilio_provisioning.get_voice_integrity_status(
+                    sub_sid, trust_product_sid, sub_auth_token)
+                live_status = live.get('status', '')
+                logger.info(f"[NumberIntegrity] Existing TP {trust_product_sid} live status: {live_status}")
+                if live_status == 'twilio-rejected':
+                    need_new_product = True
+            except Exception as e:
+                logger.warning(f"[NumberIntegrity] Could not check TP status, using cached: {e}")
+                # Fall back to cached status
+                if ni.get('status', '') == 'twilio-rejected':
+                    need_new_product = True
+
+        if need_new_product and old_tp_sid:
+            logger.info(f"[NumberIntegrity] Old Trust Product {old_tp_sid} needs replacement, unassigning all numbers")
+            # Unassign ALL numbers from old Trust Product — pass empty list to unassign everything
+            # found on Twilio, not just what's in our cached assigned_numbers list
+            unassign_result = twilio_provisioning.unassign_numbers_from_trust_product(
+                sub_account_sid=sub_sid,
+                trust_product_sid=old_tp_sid,
+                phone_number_sids=[],  # empty = unassign ALL found on TP
+                sub_account_auth_token=sub_auth_token,
+            )
+            logger.info(f"[NumberIntegrity] Unassigned {unassign_result.get('removed', 0)} numbers from old TP {old_tp_sid}")
+            if unassign_result.get('failed'):
+                logger.warning(f"[NumberIntegrity] Some unassigns failed: {unassign_result['failed']}")
+            ni['old_trust_product_sid'] = old_tp_sid
+            ni['assigned_numbers'] = []
+            ni['assigned_count'] = 0
+            trust_product_sid = ''  # force creation of new product
+
+        if not trust_product_sid:
             existing_profile = ni.get('profile_sid', '') or trust_hub.get('profile_sid', '')
             result = twilio_provisioning.create_voice_integrity_trust_product(
                 sub_account_sid=sub_sid,

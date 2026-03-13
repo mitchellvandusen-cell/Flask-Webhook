@@ -1391,6 +1391,18 @@ VOICE_INTEGRITY_POLICY_SID = "RN5b3660f9598883b1df4e77f77acefba0"
 # https://www.twilio.com/docs/trust-hub/trusthub-rest-api/api-create-secondary-customer-profile
 SECONDARY_CUSTOMER_PROFILE_POLICY_SID = "RNdfbf3fae0e1107f8aded0e7cead80bf5"
 
+
+def is_master_account(sub_account_sid: str) -> bool:
+    """
+    Detect if a subscriber is using the master Twilio account directly
+    (i.e., the platform owner's own business) vs a sub-account (ISV customer).
+
+    Master account: uses Primary Business Profile for Voice Integrity (direct customer flow).
+    Sub-account:    uses Secondary Customer Profile linked to Primary (ISV flow).
+    """
+    return sub_account_sid == TWILIO_ACCOUNT_SID
+
+
 # Carrier analytics engines that Voice Integrity registers with
 VOICE_INTEGRITY_CARRIERS = [
     {"key": "att", "name": "AT&T / Hiya", "icon": "fa-signal",
@@ -1424,31 +1436,53 @@ def _find_or_create_secondary_profile(
     Returns the profile SID (BU...).
     """
     # ── Try reusing an existing profile ──
-    if existing_profile_sid:
+    # IMPORTANT: Never reuse the Primary Business Profile as a Secondary Profile.
+    # The Primary is on the master account and has a different policy. Twilio
+    # evaluations will reject Trust Products linked to the wrong profile type.
+    if existing_profile_sid and existing_profile_sid != primary_profile_sid:
         try:
             profile = client.trusthub.v1.customer_profiles(existing_profile_sid).fetch()
             status = getattr(profile, "status", "")
-            logger.info(f"[VoiceIntegrity] Existing profile {existing_profile_sid} status: {status}")
+            policy = getattr(profile, "policy_sid", "")
+            logger.info(f"[VoiceIntegrity] Existing profile {existing_profile_sid} status: {status}, policy: {policy}")
             if status in ("twilio-approved", "in-review", "pending-review"):
-                return existing_profile_sid
-            logger.warning(
-                f"[VoiceIntegrity] Existing profile {existing_profile_sid} status '{status}' "
-                "is not approved; will search for another."
-            )
+                # Verify it's actually a Secondary profile (correct policy), not a Primary
+                if policy and policy != SECONDARY_CUSTOMER_PROFILE_POLICY_SID:
+                    logger.warning(
+                        f"[VoiceIntegrity] Profile {existing_profile_sid} has policy {policy}, "
+                        f"expected Secondary policy {SECONDARY_CUSTOMER_PROFILE_POLICY_SID}. Skipping."
+                    )
+                else:
+                    return existing_profile_sid
+            else:
+                logger.warning(
+                    f"[VoiceIntegrity] Existing profile {existing_profile_sid} status '{status}' "
+                    "is not approved; will search for another."
+                )
         except TwilioRestException as e:
             logger.warning(f"[VoiceIntegrity] Could not fetch profile {existing_profile_sid}: {e}")
+    elif existing_profile_sid == primary_profile_sid:
+        logger.info(f"[VoiceIntegrity] Skipping existing_profile_sid — it's the Primary Business Profile")
 
-    # ── Discover approved profiles on the sub-account ──
+    # ── Discover approved Secondary profiles on the sub-account ──
+    # Skip the Primary Business Profile and any profiles with the wrong policy.
     try:
         profiles = client.trusthub.v1.customer_profiles.list(
- status="twilio-approved", limit=20)
-        if profiles:
-            best = profiles[0]
+            status="twilio-approved", limit=20)
+        for p in profiles:
+            # Skip the Primary Business Profile
+            if p.sid == primary_profile_sid:
+                continue
+            # Prefer profiles with the Secondary Customer Profile policy
+            policy = getattr(p, "policy_sid", "")
+            if policy and policy != SECONDARY_CUSTOMER_PROFILE_POLICY_SID:
+                logger.info(f"[VoiceIntegrity] Skipping profile {p.sid} (policy={policy}, not Secondary)")
+                continue
             logger.info(
-                f"[VoiceIntegrity] Discovered approved profile: {best.sid} "
-                f"({getattr(best, 'friendly_name', '')})"
+                f"[VoiceIntegrity] Discovered approved Secondary profile: {p.sid} "
+                f"({getattr(p, 'friendly_name', '')})"
             )
-            return best.sid
+            return p.sid
     except Exception as e:
         logger.warning(f"[VoiceIntegrity] Profile discovery failed: {e}")
 
@@ -1519,35 +1553,50 @@ def create_voice_integrity_trust_product(
     use_case: str = "Lead Management",
 ) -> dict:
     """
-    Create a Voice Integrity Trust Product following the ISV/Subaccounts flow.
+    Create a Voice Integrity Trust Product.
 
-    Per Twilio docs:
+    Two distinct flows based on whether this is the master account or a sub-account:
+
+    **Master account (direct customer):**
+      Uses the Primary Business Profile directly.
+      https://www.twilio.com/docs/voice/spam-monitoring-with-voiceintegrity/
+      voice-integrity-onboarding/voice-integrity-trust-hub-api-direct-customers
+
+    **Sub-account (ISV customer):**
+      Creates a Secondary Customer Profile linked to the master's Primary.
       https://www.twilio.com/docs/voice/spam-monitoring-with-voiceintegrity/
       voice-integrity-onboarding/voice-integrity-trust-hub-api-isvs-subaccounts
 
-    Flow:
-      1. Find or create a Secondary Customer Profile on the sub-account
-         (linked to the Primary Business Profile on the master account)
-      2. Create EndUser with voice_integrity_information type
-      3. Create Voice Integrity Trust Product (with VI-specific policy SID)
-      4. Link Secondary Profile → Trust Product (EntityAssignment)
-      5. Link EndUser → Trust Product (EntityAssignment)
-
+    Both flows share steps 2-5 (EndUser, Trust Product, EntityAssignments).
     Returns dict with trust_product_sid, profile_sid, end_user_sid, status.
     """
     client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
+    on_master = is_master_account(sub_account_sid)
 
     try:
-        # ── Step 1: Secondary Customer Profile ──
-        primary_sid = _find_primary_profile_sid()
-        profile_sid = _find_or_create_secondary_profile(
-            client=client,
-            sub_account_sid=sub_account_sid,
-            business_name=business_name,
-            contact_email=contact_email,
-            existing_profile_sid=existing_profile_sid,
-            primary_profile_sid=primary_sid,
-        )
+        # ── Step 1: Customer Profile ──
+        if on_master:
+            # Direct customer flow: use the Primary Business Profile directly.
+            # The master account's own business uses its approved Primary Profile.
+            profile_sid = _find_primary_profile_sid()
+            if not profile_sid:
+                raise ValueError(
+                    "Primary Business Profile not found on master account. "
+                    "Create one in the Twilio Console under Trust Hub > Customer Profiles."
+                )
+            logger.info(f"[VoiceIntegrity] Master account — using Primary Profile: {profile_sid}")
+        else:
+            # ISV flow: find or create a Secondary Customer Profile on the sub-account,
+            # linked to the master's Primary Business Profile.
+            primary_sid = _find_primary_profile_sid()
+            profile_sid = _find_or_create_secondary_profile(
+                client=client,
+                sub_account_sid=sub_account_sid,
+                business_name=business_name,
+                contact_email=contact_email,
+                existing_profile_sid=existing_profile_sid,
+                primary_profile_sid=primary_sid,
+            )
 
         # ── Step 2: EndUser with voice_integrity_information ──
         end_user = client.trusthub.v1.end_users.create(
@@ -1570,7 +1619,7 @@ def create_voice_integrity_trust_product(
         )
         logger.info(f"[VoiceIntegrity] Created Trust Product: {trust_product.sid}")
 
-        # ── Step 4: Link Secondary Profile → Trust Product ──
+        # ── Step 4: Link Profile → Trust Product ──
         client.trusthub.v1.trust_products(trust_product.sid) \
             .trust_products_entity_assignments.create(
                 object_sid=profile_sid,
@@ -1590,6 +1639,7 @@ def create_voice_integrity_trust_product(
             "end_user_sid": end_user.sid,
             "status": "draft",
             "business_name": business_name,
+            "is_master": on_master,
         }
 
     except TwilioRestException as e:
@@ -1673,8 +1723,9 @@ def assign_numbers_to_voice_integrity(
                         )
                     logger.info(f"[VoiceIntegrity] Assigned {pn_sid} to profile {profile_sid}")
                 except TwilioRestException as e:
-                    if e.code == 20409:
-                        logger.info(f"[VoiceIntegrity] {pn_sid} already on profile (20409)")
+                    # 20409 or HTTP 409 (code 70003) = already assigned to this profile — fine
+                    if e.code == 20409 or e.status == 409:
+                        logger.info(f"[VoiceIntegrity] {pn_sid} already on profile (code={e.code}, status={e.status})")
                     else:
                         raise
 
@@ -1687,10 +1738,44 @@ def assign_numbers_to_voice_integrity(
             assigned += 1
             logger.info(f"[VoiceIntegrity] Assigned {pn_sid} to {trust_product_sid}")
         except TwilioRestException as e:
-            # 20409 = already assigned — treat as success
-            if e.code == 20409:
-                assigned += 1
-                logger.info(f"[VoiceIntegrity] {pn_sid} already assigned (20409)")
+            # 20409 or HTTP 409 (code 70003) = already assigned to a Trust Product.
+            # If it's assigned to THIS TP, treat as success.
+            # If it's assigned to ANOTHER TP (e.g. old rejected one), unassign and retry.
+            if e.code == 20409 or (e.status == 409 and "already assigned" in str(e).lower()):
+                # Extract the conflicting BU SID from the error message
+                import re as _re
+                conflict_match = _re.search(r'already assigned to (BU[a-f0-9A-F]+)', str(e))
+                conflict_sid = conflict_match.group(1) if conflict_match else None
+
+                if conflict_sid and conflict_sid == trust_product_sid:
+                    # Already assigned to our target — treat as success
+                    assigned += 1
+                    logger.info(f"[VoiceIntegrity] {pn_sid} already assigned to target TP (ok)")
+                elif conflict_sid and conflict_sid != trust_product_sid:
+                    # Assigned to a different Trust Product — unassign from it and retry
+                    logger.info(f"[VoiceIntegrity] {pn_sid} stuck on {conflict_sid}, unassigning and retrying")
+                    try:
+                        unassign_numbers_from_trust_product(
+                            sub_account_sid, conflict_sid, [pn_sid], sub_account_auth_token)
+                        # Retry assignment to our target TP
+                        client.trusthub.v1.trust_products(trust_product_sid) \
+                            .trust_products_channel_endpoint_assignment.create(
+                                channel_endpoint_type="phone-number",
+                                channel_endpoint_sid=pn_sid,
+                            )
+                        assigned += 1
+                        logger.info(f"[VoiceIntegrity] Retry succeeded: {pn_sid} → {trust_product_sid}")
+                    except TwilioRestException as retry_err:
+                        failed.append({"sid": pn_sid, "error": str(retry_err)})
+                        logger.warning(f"[VoiceIntegrity] Retry failed for {pn_sid}: {retry_err}")
+                else:
+                    # Can't determine conflict — treat 20409 as success, others as failure
+                    if e.code == 20409:
+                        assigned += 1
+                        logger.info(f"[VoiceIntegrity] {pn_sid} already assigned (20409)")
+                    else:
+                        failed.append({"sid": pn_sid, "error": str(e)})
+                        logger.warning(f"[VoiceIntegrity] Failed to assign {pn_sid}: {e}")
             else:
                 failed.append({"sid": pn_sid, "error": str(e)})
                 logger.warning(f"[VoiceIntegrity] Failed to assign {pn_sid}: {e}")
