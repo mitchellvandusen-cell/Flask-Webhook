@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 team_bp = Blueprint('team', __name__)
 
 YOUR_DOMAIN = os.getenv('YOUR_DOMAIN', 'http://localhost:8080')
-SEAT_PRICE_CENTS = 4900  # $49/month per seat
+SEAT_PRICE_CENTS = 5000  # $50/month per seat
 MAX_SEATS = 10
 
 # ── Roles ─────────────────────────────────────────────────────────────────────

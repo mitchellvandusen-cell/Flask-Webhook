@@ -824,7 +824,7 @@ def change_plan():
 
         tier_names = {
             "individual": "Power Dialer ($149.98/mo)",
-            "pro_dialer": "Pro Dialer ($249.98/mo)",
+            "pro_dialer": "Pro Dialer ($224.98/mo)",
             "predictive_dialer": "Predictive Dialer ($349.98/mo)",
         }
         return flask_jsonify({
@@ -857,7 +857,7 @@ def subscription_info():
         },
         "pro_dialer": {
             "name": "Pro Dialer",
-            "price": "$249.98/mo",
+            "price": "$224.98/mo",
             "max_lines": 4,
             "features": ["Multi-line dialing (up to 4)", "Predictive dialer", "AI Texting", "AI Voice Agent", "Smart Filters", "Lead Intelligence", "Priority queue"],
         },
