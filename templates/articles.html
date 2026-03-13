@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Articles & Insights - InsuranceGrokBot{% endblock %}
+
+{% block content %}
+<div class="container page-top-pad">
+
+    <div class="text-center mb-5" data-aos="fade-down">
+        <span class="aff-hero-label">
+            <i class="fa-solid fa-newspaper me-1"></i> Articles & Insights
+        </span>
+        <h1 class="about-h1">Resources for <span class="text-accent">Insurance Agents</span></h1>
+        <p class="about-hero-sub">Deep dives, cost calculators, and honest comparisons to help you sell smarter.</p>
+    </div>
+
+    <div class="articles-grid" data-aos="fade-up">
+
+        <!-- Article: Text Drip Cost -->
+        <a href="/comparison/text-drip" class="article-card glass-card text-decoration-none">
+            <div class="article-card-badge article-badge--red">
+                <i class="fa-solid fa-fire me-1"></i> Cost Analysis
+            </div>
+            <h2 class="article-card-title">Your Text Drip Campaign Is Bleeding Money</h2>
+            <p class="article-card-body">
+                Every day you rely on generic text drips, you're losing thousands in opportunity cost. We break down the brutal math — how 40 minutes a day adds up to $96K–$384K/yr in wasted agent time, and why AI changes everything.
+            </p>
+            <div class="article-card-footer">
+                <span class="article-tag">Cost Calculator</span>
+                <span class="article-tag">Text Drip</span>
+                <span class="article-tag">ROI</span>
+                <span class="article-read-more">Read Article <i class="fa-solid fa-arrow-right ms-1"></i></span>
+            </div>
+        </a>
+
+        <!-- Article: Why Not Just Use WAVV/Mojo/PhoneBurner -->
+        <a href="/comparison/dialers" class="article-card glass-card text-decoration-none">
+            <div class="article-card-badge article-badge--cyan">
+                <i class="fa-solid fa-phone-volume me-1"></i> Honest Comparison
+            </div>
+            <h2 class="article-card-title">"Why Not Just Use WAVV, Mojo, or PhoneBurner?"</h2>
+            <p class="article-card-body">
+                Power dialers dial faster — but they can't think. InsuranceGrokBot isn't a dialer with AI bolted on. It's an AI sales system with a dialer built in. Here's the honest breakdown of why this isn't a fair comparison.
+            </p>
+            <div class="article-card-footer">
+                <span class="article-tag">WAVV</span>
+                <span class="article-tag">Mojo Dialer</span>
+                <span class="article-tag">PhoneBurner</span>
+                <span class="article-read-more">Read Article <i class="fa-solid fa-arrow-right ms-1"></i></span>
+            </div>
+        </a>
+
+    </div>
+
+</div>
+{% endblock %}

@@ -69,6 +69,11 @@ def a2p_guide():
     return render_template('a2p-guide.html')
 
 
+@public_bp.route("/articles")
+def articles():
+    return render_template('articles.html')
+
+
 @public_bp.route("/about")
 def about():
     return render_template('about.html')
