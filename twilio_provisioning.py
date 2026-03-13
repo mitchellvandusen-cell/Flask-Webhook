@@ -1103,7 +1103,7 @@ def discover_full_a2p_status(sub_account_sid: str,
 
 # Voice Integrity uses its OWN policy SID — different from A2P/SHAKEN.
 # This is Twilio's static Voice Integrity policy (same across all accounts).
-VOICE_INTEGRITY_POLICY_SID = "RNb0d4771c2c98518d916a3d4cd70a8f8b"
+VOICE_INTEGRITY_POLICY_SID = "RN5b3660f9598883b1df4e77f77acefba0"
 
 # Carrier analytics engines that Voice Integrity registers with
 VOICE_INTEGRITY_CARRIERS = [
@@ -1122,6 +1122,9 @@ def create_voice_integrity_trust_product(
     contact_email: str,
     sub_account_auth_token: str = "",
     existing_profile_sid: str = "",
+    business_employee_count: str = "1-10",
+    average_call_volume: str = "100-499",
+    use_case: str = "Insurance sales and customer service outbound calling",
 ) -> dict:
     """
     Create a Voice Integrity Trust Product and link it to a Customer Profile.
@@ -1129,7 +1132,14 @@ def create_voice_integrity_trust_product(
     If existing_profile_sid is provided, reuses that approved Business Profile.
     Otherwise creates a new one.
 
-    Returns dict with trust_product_sid, profile_sid, status.
+    Flow:
+      1. Create or reuse Customer Profile
+      2. Create EndUser with voice_integrity_information type
+      3. Create Voice Integrity Trust Product
+      4. Link Customer Profile → Trust Product (EntityAssignment)
+      5. Link EndUser → Trust Product (EntityAssignment)
+
+    Returns dict with trust_product_sid, profile_sid, end_user_sid, status.
     """
     client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
 
@@ -1147,7 +1157,20 @@ def create_voice_integrity_trust_product(
             profile_sid = profile.sid
             logger.info(f"[VoiceIntegrity] Created Customer Profile: {profile_sid}")
 
-        # ── Step 2: Voice Integrity Trust Product ──
+        # ── Step 2: EndUser with voice_integrity_information ──
+        end_user = client.trusthub.v1.end_users.create(
+            friendly_name=f"Voice Integrity EndUser: {business_name}",
+            type="voice_integrity_information",
+            attributes={
+                "use_case": use_case,
+                "business_employee_count": business_employee_count,
+                "average_business_day_call_volume": average_call_volume,
+                "notes": f"Number Integrity registration for {business_name}",
+            },
+        )
+        logger.info(f"[VoiceIntegrity] Created EndUser: {end_user.sid}")
+
+        # ── Step 3: Voice Integrity Trust Product ──
         trust_product = client.trusthub.v1.trust_products.create(
             friendly_name=f"Voice Integrity: {business_name}",
             email=contact_email,
@@ -1155,16 +1178,24 @@ def create_voice_integrity_trust_product(
         )
         logger.info(f"[VoiceIntegrity] Created Trust Product: {trust_product.sid}")
 
-        # ── Step 3: Link Customer Profile → Trust Product ──
+        # ── Step 4: Link Customer Profile → Trust Product ──
         client.trusthub.v1.trust_products(trust_product.sid) \
             .trust_products_entity_assignments.create(
                 object_sid=profile_sid,
             )
         logger.info(f"[VoiceIntegrity] Linked profile {profile_sid} → {trust_product.sid}")
 
+        # ── Step 5: Link EndUser → Trust Product ──
+        client.trusthub.v1.trust_products(trust_product.sid) \
+            .trust_products_entity_assignments.create(
+                object_sid=end_user.sid,
+            )
+        logger.info(f"[VoiceIntegrity] Linked EndUser {end_user.sid} → {trust_product.sid}")
+
         return {
             "trust_product_sid": trust_product.sid,
             "profile_sid": profile_sid,
+            "end_user_sid": end_user.sid,
             "status": "draft",
             "business_name": business_name,
         }
@@ -1179,11 +1210,13 @@ def assign_numbers_to_voice_integrity(
     trust_product_sid: str,
     phone_number_sids: list,
     sub_account_auth_token: str = "",
+    profile_sid: str = "",
 ) -> dict:
     """
     Assign phone numbers to a Voice Integrity Trust Product.
 
-    Each number is added as a ChannelEndpointAssignment on the Trust Product.
+    If profile_sid is provided, numbers are first assigned to the Customer Profile
+    (required by Twilio for proper carrier registration), then to the Trust Product.
     Returns dict with assigned count and any failures.
     """
     client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
@@ -1192,6 +1225,22 @@ def assign_numbers_to_voice_integrity(
 
     for pn_sid in phone_number_sids:
         try:
+            # Assign to Customer Profile first (if provided)
+            if profile_sid:
+                try:
+                    client.trusthub.v1.customer_profiles(profile_sid) \
+                        .customer_profiles_channel_endpoint_assignment.create(
+                            channel_endpoint_type="phone-number",
+                            channel_endpoint_sid=pn_sid,
+                        )
+                    logger.info(f"[VoiceIntegrity] Assigned {pn_sid} to profile {profile_sid}")
+                except TwilioRestException as e:
+                    if e.code == 20409:
+                        logger.info(f"[VoiceIntegrity] {pn_sid} already on profile (20409)")
+                    else:
+                        raise
+
+            # Then assign to Trust Product
             client.trusthub.v1.trust_products(trust_product_sid) \
                 .trust_products_channel_endpoint_assignment.create(
                     channel_endpoint_type="phone-number",

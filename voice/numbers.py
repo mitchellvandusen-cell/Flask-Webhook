@@ -1208,15 +1208,17 @@ def number_integrity_register():
             trust_product_sid = result['trust_product_sid']
             ni['trust_product_sid'] = trust_product_sid
             ni['profile_sid'] = result['profile_sid']
+            ni['end_user_sid'] = result.get('end_user_sid', '')
             ni['business_name'] = business_name
             ni['registered_at'] = datetime.utcnow().isoformat()
 
-        # Step 2: Assign phone numbers
+        # Step 2: Assign phone numbers (to profile first, then trust product)
         assign_result = twilio_provisioning.assign_numbers_to_voice_integrity(
             sub_account_sid=sub_sid,
             trust_product_sid=trust_product_sid,
             phone_number_sids=phone_sids,
             sub_account_auth_token=sub_auth_token,
+            profile_sid=ni.get('profile_sid', ''),
         )
 
         # Step 3: Submit for review
@@ -1276,6 +1278,7 @@ def number_integrity_add_numbers():
             trust_product_sid=trust_product_sid,
             phone_number_sids=phone_sids,
             sub_account_auth_token=sub_auth_token,
+            profile_sid=ni.get('profile_sid', ''),
         )
         return jsonify({
             "status": "ok",
