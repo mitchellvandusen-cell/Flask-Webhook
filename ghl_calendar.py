@@ -660,10 +660,10 @@ def consolidated_calendar_op(
                 hour, minute = h, m
                 logger.info(f"📅 TIME PARSED (inferred): {hour}:{minute:02d} from '{match_bare.group()}'")
 
-        # Fallback: default to 2 PM if nothing parsed
+        # If no time could be parsed, ABORT booking — never guess a time
         if hour is None:
-            hour, minute = 14, 0
-            logger.warning(f"📅 TIME FALLBACK: No time found in '{time_str[:60]}', defaulting to 2:00 PM")
+            logger.error(f"🚨 BOOKING ABORTED: Could not parse any time from '{time_str[:60]}' — refusing to guess")
+            return False
 
         hour = max(9, min(19, hour))
 
@@ -716,14 +716,9 @@ def consolidated_calendar_op(
                     slot_matched = True
                     logger.info(f"📅 SLOT REMAP: Nearest matching slot found at {start_dt} (originally requested {target_date} {hour}:{minute:02d})")
                 else:
-                    # No time-matching slot found — pick the absolute nearest future slot
-                    future_slots = [s for s in parsed_avail if s > now_local]
-                    if future_slots:
-                        future_slots.sort()
-                        start_dt = future_slots[0]
-                        end_dt = start_dt + timedelta(minutes=30)
-                        slot_matched = True
-                        logger.info(f"📅 SLOT NEAREST: No {hour}:{minute:02d} match, using nearest available slot at {start_dt}")
+                    # No matching slot found — ABORT rather than silently booking a random time
+                    logger.warning(f"📅 SLOT MISMATCH ABORT: No slot near {hour}:{minute:02d} on {target_date} — refusing to book a different time")
+                    return False
 
         if not slot_matched and start_dt <= now_local:
             logger.warning(f"📅 TIME IN PAST: {start_dt} has already passed, shifting to tomorrow")
@@ -785,16 +780,19 @@ def consolidated_calendar_op(
                         event_id = result_data.get('id') or result_data.get('event', {}).get('id')
                         logger.debug(f"   Parsed event_id: {event_id}")
 
+                        # Return the actual booked time (in customer's timezone) so the LLM can confirm it
+                        booked_time_str = start_dt.strftime("%I:%M %p on %A, %B %-d").lstrip("0")
                         if event_id:
                             logger.info(f"✅ BOOKING CONFIRMED ({token_version}) | contact={contact_id} | time={start_dt} | event_id={event_id}")
-                            return True
+                            return booked_time_str
                         else:
                             logger.warning(f"⚠️ BOOKING CREATED BUT NO EVENT ID | contact={contact_id} | response={resp.text[:200]}")
-                            return True  # Assume success if 200/201 even without event_id
+                            return booked_time_str  # Assume success if 200/201 even without event_id
                     except Exception as parse_err:
                         logger.warning(f"⚠️ BOOKING CREATED BUT PARSE FAILED | contact={contact_id} | error={parse_err}")
                         logger.debug(f"   Raw response: {resp.text[:500]}")
-                        return True  # Assume success if 200/201 even if parse fails
+                        booked_time_str = start_dt.strftime("%I:%M %p on %A, %B %-d").lstrip("0")
+                        return booked_time_str  # Assume success if 200/201 even if parse fails
 
                 else:
                     error_details = {

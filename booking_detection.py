@@ -78,6 +78,8 @@ def _has_scheduling_signals(message: str, recent_exchanges: list, stage: str) ->
         "works for me", "sounds good", "that works",
         "set up", "sign me up", "lock it in", "lock me in",
         "let's do", "lets do", "put me down",
+        "what time", "what day", "when can", "when do", "when are",
+        "are you free", "are you available",
     ]
     if any(w in msg for w in strong_signals):
         return True
@@ -220,6 +222,44 @@ NEVER guess a time. If unsure of the exact time, use "offer_slots"."""
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 3: REGEX FALLBACK (if LLM unavailable)
 # ═══════════════════════════════════════════════════════════════════════════════
+
+def _extract_time_portion(message: str) -> Optional[str]:
+    """
+    Extract only the scheduling-relevant portion from a conversational message.
+    E.g., "yeah that works lets do tuesday at 11" → "tuesday at 11"
+    Returns None if no time-relevant content found.
+    """
+    msg = message.lower().strip()
+    # Pattern: day reference + optional "at" + time
+    day_time = re.search(
+        r'((?:next\s+(?:week\s+)?)?'
+        r'(?:tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday'
+        r'|mon|tues?|wed|thurs?|fri|sat|sun)'
+        r'(?:\s+(?:the\s+)?\d{1,2}(?:st|nd|rd|th)?)?'  # optional ordinal
+        r'(?:\s+(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?)?)',
+        msg
+    )
+    # Pattern: time reference like "11:00 am", "2pm"
+    time_only = re.search(
+        r'(\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.))',
+        msg
+    )
+    # Pattern: month + day like "march 17"
+    month_day = re.search(
+        r'((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{1,2})',
+        msg
+    )
+
+    parts = []
+    if day_time:
+        parts.append(day_time.group(1).strip())
+    if month_day and (not day_time or month_day.group(1) not in day_time.group(1)):
+        parts.append(month_day.group(1).strip())
+    if time_only and not any(time_only.group(1) in p for p in parts):
+        parts.append(time_only.group(1).strip())
+
+    return " ".join(parts) if parts else None
+
 
 def _extract_times_from_text(text: str) -> list:
     """
@@ -431,7 +471,11 @@ def _regex_fallback(message: str, recent_exchanges: list, stage: str) -> Booking
             matched = _match_lead_time_to_bot_times(message, last_bot_msg_original)
             if matched:
                 return matched
-        return message
+        # Extract only the time-relevant portion from the message, not the whole thing.
+        # This prevents ghl_calendar.py from receiving conversational text like
+        # "yeah that works lets do tuesday at 11" as a time_string.
+        time_extract = _extract_time_portion(message)
+        return time_extract if time_extract else message
 
     # Day + Time unprompted
     day_name_pattern = (
