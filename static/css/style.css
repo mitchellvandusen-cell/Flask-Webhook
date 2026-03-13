@@ -1459,10 +1459,6 @@ body.light-theme .dlr-daily-bar { background: rgba(5,150,105,0.3) !important; }
 body.light-theme .dlr-daily-bar:hover { background: rgba(5,150,105,0.55) !important; }
 body.light-theme .dlr-call-badge { background: var(--lt-accent-bg) !important; border-color: var(--lt-accent-border) !important; color: var(--lt-accent) !important; }
 /* InsuranceGrokBot dialer enhancements — light theme */
-body.light-theme .igb-radar-ring { border-color: rgba(5,150,105,0.12) !important; }
-body.light-theme .igb-radar-dot { background: var(--lt-accent) !important; box-shadow: 0 0 8px var(--lt-accent) !important; }
-body.light-theme .igb-radar-beam { background: linear-gradient(to right, var(--lt-accent), transparent) !important; }
-body.light-theme .igb-radar-pulse { border-color: rgba(5,150,105,0.2) !important; }
 body.light-theme .igb-engage-dots .igb-dot { background: rgba(0,0,0,0.06) !important; border-color: rgba(0,0,0,0.1) !important; }
 body.light-theme .igb-engage-dots .igb-dot.lit { background: var(--lt-accent) !important; border-color: var(--lt-accent) !important; }
 body.light-theme .igb-engage-dots .igb-dot.lit-warm { background: #e67e00 !important; border-color: #e67e00 !important; }

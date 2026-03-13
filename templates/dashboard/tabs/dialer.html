@@ -111,23 +111,6 @@
                        InsuranceGrokBot Dialer Enhancements
                        ═══════════════════════════════════════════════ */
 
-                    /* ── Radar Sweep Empty State ── */
-                    @keyframes igbRadarSweep {
-                        0% { transform: rotate(0deg); }
-                        100% { transform: rotate(360deg); }
-                    }
-                    @keyframes igbRadarPulse {
-                        0% { transform: scale(0.3); opacity: 0.6; }
-                        100% { transform: scale(1); opacity: 0; }
-                    }
-                    .igb-radar-wrap { position:relative; width:120px; height:120px; margin:0 auto 16px; }
-                    .igb-radar-ring { position:absolute; inset:0; border-radius:50%; border:1px solid rgba(0,217,255,0.12); }
-                    .igb-radar-ring:nth-child(2) { inset:15px; border-color:rgba(0,217,255,0.18); }
-                    .igb-radar-ring:nth-child(3) { inset:30px; border-color:rgba(0,217,255,0.25); }
-                    .igb-radar-dot { position:absolute; top:50%; left:50%; width:8px; height:8px; margin:-4px 0 0 -4px; border-radius:50%; background:#00d9ff; box-shadow:0 0 8px #00d9ff; }
-                    .igb-radar-beam { position:absolute; top:50%; left:50%; width:50%; height:2px; transform-origin:left center; background:linear-gradient(to right,#00d9ff,transparent); animation:igbRadarSweep 2.5s linear infinite; }
-                    .igb-radar-pulse { position:absolute; inset:0; border-radius:50%; border:1px solid rgba(0,217,255,0.3); animation:igbRadarPulse 2s ease-out infinite; }
-
                     /* ── 3-Dot Engagement Indicator ── */
                     .igb-engage-dots { display:inline-flex; gap:3px; flex-shrink:0; margin-left:4px; }
                     .igb-engage-dots .igb-dot { width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); transition:all .3s; }
@@ -586,9 +569,6 @@
                         .imsg-time { font-size: clamp(0.65rem, 0.46vw, 0.95rem); }
                         .imsg-filter-pill { font-size: clamp(0.7rem, 0.5vw, 1.05rem); padding: clamp(5px, 0.32vw, 9px) clamp(14px, 0.8vw, 24px); }
                         .imsg-bubble { font-size: clamp(0.8rem, 0.57vw, 1.18rem); padding: clamp(9px, 0.55vw, 16px) clamp(14px, 0.8vw, 24px); }
-
-                        /* Radar empty state */
-                        .igb-radar-wrap { width: clamp(120px, 6.8vw, 200px); height: clamp(120px, 6.8vw, 200px); }
 
                         /* Dialer search & pipeline filter */
                         #dialerSearch { font-size: clamp(0.92rem, 0.65vw, 1.35rem) !important; padding: clamp(6px, 0.38vw, 11px) clamp(8px, 0.5vw, 15px) clamp(6px, 0.38vw, 11px) clamp(28px, 1.6vw, 48px) !important; }
@@ -1305,17 +1285,12 @@
                         </div>
                         <!-- Contact List -->
                         <div id="dialerContactList" class="dlr-col-body">
-                            <div style="text-align:center;padding:30px 16px;color:#444;font-size:0.82rem;">
-                                <div class="igb-radar-wrap">
-                                    <div class="igb-radar-ring"></div>
-                                    <div class="igb-radar-ring"></div>
-                                    <div class="igb-radar-ring"></div>
-                                    <div class="igb-radar-dot"></div>
-                                    <div class="igb-radar-beam"></div>
-                                    <div class="igb-radar-pulse"></div>
+                            <div style="text-align:center;padding:30px 16px;">
+                                <div style="width:52px;height:52px;margin:0 auto 14px;background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.12);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                                    <i class="fa-solid fa-address-book" style="font-size:1.4rem;color:rgba(0,255,136,0.45);"></i>
                                 </div>
-                                <div style="font-weight:600;color:#888;margin-bottom:4px;">Scan Your CRM</div>
-                                <div>Click <strong style="color:#00d9ff;">Get Contacts</strong> to lock onto leads</div>
+                                <div style="font-weight:600;color:#777;font-size:0.82rem;margin-bottom:5px;">No contacts loaded</div>
+                                <div style="font-size:0.75rem;color:#505050;">Click <strong style="color:var(--accent);font-weight:600;">Get Contacts</strong> to load your pipeline</div>
                             </div>
                         </div>
                     </div>
@@ -1328,16 +1303,11 @@
                             </div>
                         </div>
                         <div id="dlrDetailContent" class="dlr-col-body" style="padding:16px;">
-                            <div style="text-align:center;padding:40px 20px;color:#333;">
-                                <div class="igb-radar-wrap" style="width:80px;height:80px;">
-                                    <div class="igb-radar-ring"></div>
-                                    <div class="igb-radar-ring"></div>
-                                    <div class="igb-radar-ring"></div>
-                                    <div class="igb-radar-dot" style="width:6px;height:6px;margin:-3px 0 0 -3px;"></div>
-                                    <div class="igb-radar-beam" style="animation-duration:3s;"></div>
+                            <div style="text-align:center;padding:40px 20px;">
+                                <div style="width:44px;height:44px;margin:0 auto 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                                    <i class="fa-solid fa-file-lines" style="font-size:1.2rem;color:rgba(255,255,255,0.18);"></i>
                                 </div>
-                                <div style="color:#555;font-size:0.82rem;">Select a contact to view intel</div>
-                                <div style="font-size:.75rem;color:#333;margin-top:6px;">Powered by InsuranceGrokBot</div>
+                                <div style="color:#555;font-size:0.8rem;font-weight:500;">Select a contact to review their profile</div>
                             </div>
                         </div>
                     </div>
