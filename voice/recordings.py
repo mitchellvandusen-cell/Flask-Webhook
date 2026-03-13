@@ -8,6 +8,7 @@ import requests as http_requests
 import httpx
 
 import twilio_provisioning
+from blueprints.team import require_permission
 from db import get_db_connection, return_db_connection
 from openai import OpenAI
 from voice.audio import XAI_API_KEY
@@ -100,6 +101,7 @@ def transcription_webhook():
 
 @recordings_bp.route('/voice/recording/<recording_sid>', methods=['GET'])
 @login_required
+@require_permission('can_view_call_recordings')
 def stream_recording(recording_sid):
     """
     Proxy a Twilio recording as an MP3 download. Fetches with Twilio auth

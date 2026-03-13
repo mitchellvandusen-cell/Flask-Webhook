@@ -7343,6 +7343,118 @@
             }
         }
 
+        /* ═══════════════════════════════════════════════════════════
+         *  EXPORT CONTACTS — CSV Download with Filters
+         * ═══════════════════════════════════════════════════════════ */
+        let _dlrExportSelectedTags = new Set();
+
+        function dlrExportOpen() {
+            const modal = document.getElementById('dlrExportModal');
+            if (!modal) return;
+            modal.style.display = 'flex';
+            _dlrExportSelectedTags.clear();
+            // Reset filters
+            const s = document.getElementById('dlrExportSearch'); if (s) s.value = '';
+            const df = document.getElementById('dlrExportDateFrom'); if (df) df.value = '';
+            const dt = document.getElementById('dlrExportDateTo'); if (dt) dt.value = '';
+            const dnd = document.getElementById('dlrExportDnd'); if (dnd) dnd.value = '';
+            // Load tags
+            _dlrExportLoadTags();
+        }
+        window.dlrExportOpen = dlrExportOpen;
+
+        function dlrExportClose() {
+            const modal = document.getElementById('dlrExportModal');
+            if (modal) modal.style.display = 'none';
+        }
+        window.dlrExportClose = dlrExportClose;
+
+        async function _dlrExportLoadTags() {
+            const container = document.getElementById('dlrExportTags');
+            if (!container) return;
+            try {
+                const resp = await fetch('/voice/contacts/tags');
+                const data = await resp.json();
+                const tags = data.tags || [];
+                if (!tags.length) {
+                    container.innerHTML = '<span style="color:#555;font-size:0.75rem;">No tags found</span>';
+                    return;
+                }
+                container.innerHTML = tags.map(t => {
+                    const esc = t.replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                    return `<button class="dlr-export-tag-chip" data-tag="${esc}" onclick="dlrExportToggleTag(this)" style="padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:#aaa;transition:all 0.15s;">${esc}</button>`;
+                }).join('');
+            } catch (e) {
+                container.innerHTML = '<span style="color:#f44;font-size:0.75rem;">Failed to load tags</span>';
+            }
+        }
+
+        function dlrExportToggleTag(btn) {
+            const tag = btn.dataset.tag;
+            if (_dlrExportSelectedTags.has(tag)) {
+                _dlrExportSelectedTags.delete(tag);
+                btn.style.background = 'rgba(255,255,255,0.04)';
+                btn.style.borderColor = 'rgba(255,255,255,0.1)';
+                btn.style.color = '#aaa';
+            } else {
+                _dlrExportSelectedTags.add(tag);
+                btn.style.background = 'rgba(0,217,255,0.15)';
+                btn.style.borderColor = '#00d9ff';
+                btn.style.color = '#00d9ff';
+            }
+        }
+        window.dlrExportToggleTag = dlrExportToggleTag;
+
+        async function dlrExportDownload() {
+            const btn = document.getElementById('dlrExportBtn');
+            if (!btn) return;
+            const origHTML = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Exporting...';
+
+            const body = {};
+            const search = (document.getElementById('dlrExportSearch') || {}).value || '';
+            if (search.trim()) body.search = search.trim();
+            const dateFrom = (document.getElementById('dlrExportDateFrom') || {}).value || '';
+            if (dateFrom) body.date_from = dateFrom;
+            const dateTo = (document.getElementById('dlrExportDateTo') || {}).value || '';
+            if (dateTo) body.date_to = dateTo;
+            const dndVal = (document.getElementById('dlrExportDnd') || {}).value || '';
+            if (dndVal === 'true') body.dnd = true;
+            else if (dndVal === 'false') body.dnd = false;
+            if (_dlrExportSelectedTags.size > 0) body.tags = [..._dlrExportSelectedTags];
+
+            try {
+                const resp = await fetch('/voice/contacts/export', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': _csrfToken },
+                    body: JSON.stringify(body)
+                });
+                if (!resp.ok) {
+                    const errData = await resp.json().catch(() => ({}));
+                    throw new Error(errData.error || `HTTP ${resp.status}`);
+                }
+                // Download the CSV blob
+                const blob = await resp.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = resp.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || 'contacts-export.csv';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+                if (typeof _showDashToast === 'function') _showDashToast(true, 'Contacts exported successfully');
+                dlrExportClose();
+            } catch (e) {
+                if (typeof _showDashToast === 'function') _showDashToast(false, 'Export failed: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = origHTML;
+            }
+        }
+        window.dlrExportDownload = dlrExportDownload;
+
         // Auto-init on page load
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => { multiLineInit(); billingLoadPlanInfo(); dialerLoadKpiBanner(); });

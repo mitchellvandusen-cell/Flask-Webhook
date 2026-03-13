@@ -8,6 +8,7 @@ import requests as http_requests
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 
+from blueprints.team import require_permission
 from db import (
     get_db_connection,
     return_db_connection,
@@ -413,6 +414,7 @@ def get_contact_messages(contact_id):
 
 @contacts_bp.route('/voice/contact/<contact_id>/send-sms', methods=['POST'])
 @login_required
+@require_permission('can_text')
 def send_contact_sms(contact_id):
     """Send an SMS to a contact via GHL or Twilio (A2P 10DLC), based on 'channel' param."""
     data = request.json or {}

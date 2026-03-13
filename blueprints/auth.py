@@ -148,6 +148,12 @@ def login():
             return render_template("login.html", form=form)
 
         login_user(user, remember=form.remember.data)
+
+        # Track login time for seat users (used for session revocation)
+        if getattr(user, 'is_seat_user', False):
+            from datetime import datetime as _dt
+            session['_seat_login_at'] = _dt.utcnow().isoformat()
+
         role     = (user.role or 'individual').lower()
         is_admin = user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
 

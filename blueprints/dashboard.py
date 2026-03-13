@@ -44,6 +44,7 @@ from db import (
 )
 from forms import ConfigForm
 from carrier_list import CARRIER_LIST, validate_carrier_keys
+from blueprints.team import require_permission
 from crm_adapters.factory import (CRM_CONFIG_FIELDS, CRM_DISPLAY_NAMES,
                                    CRM_REGISTRY, get_crm_adapter)
 from translations import SUPPORTED_LANGUAGES
@@ -390,6 +391,7 @@ def get_voice_config():
 
 @dashboard_bp.route("/api/voice-config", methods=["POST"])
 @login_required
+@require_permission('can_change_bot_config')
 def save_voice_config():
     data = request.get_json()
     if not data:
@@ -577,6 +579,7 @@ def get_carriers():
 
 @dashboard_bp.route("/api/carriers", methods=["POST"])
 @login_required
+@require_permission('can_change_bot_config')
 def save_carriers():
     data = request.get_json()
     if not data or "carriers" not in data:
@@ -599,6 +602,7 @@ def get_bot_settings_api():
 
 @dashboard_bp.route("/api/bot-settings", methods=["POST"])
 @login_required
+@require_permission('can_change_bot_config')
 def save_bot_settings_api():
     data = request.get_json()
     if not data or "settings" not in data:
@@ -708,6 +712,7 @@ def api_status_endpoint():
 
 @dashboard_bp.route("/api/save-config", methods=["POST"])
 @login_required
+@require_permission('can_change_bot_config')
 def api_save_config():
     """Save bot configuration via AJAX — returns JSON for overlay feedback."""
     data = request.get_json()

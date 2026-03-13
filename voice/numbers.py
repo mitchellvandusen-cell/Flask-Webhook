@@ -24,6 +24,7 @@ from number_health import (
     ensure_number_health_records,
 )
 from voice.helpers import _get_current_subscriber_voice, _save_voice_config
+from blueprints.team import require_permission
 
 logger = logging.getLogger("voice_bridge.numbers")
 
@@ -140,6 +141,7 @@ def search_available_numbers():
 
 @numbers_bp.route('/voice/numbers/buy', methods=['POST'])
 @login_required
+@require_permission('can_manage_numbers')
 def buy_voice_number():
     """Purchase a phone number. First 5 are free; after that requires Stripe payment."""
     subscriber, vc, sub_sid = _get_current_subscriber_voice()
@@ -465,6 +467,7 @@ def complete_cart_purchase():
 
 @numbers_bp.route('/voice/numbers/release', methods=['POST'])
 @login_required
+@require_permission('can_manage_numbers')
 def release_voice_number():
     """Release a phone number from the sub-account."""
     subscriber, vc, sub_sid = _get_current_subscriber_voice()
