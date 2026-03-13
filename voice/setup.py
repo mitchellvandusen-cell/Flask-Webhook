@@ -74,7 +74,8 @@ def automate_voice_setup():
         # Save all provisioned IDs to voice_config
         vc.update(result)
         vc['enabled'] = True
-        _save_voice_config(current_user.email, vc)
+        seat_id = getattr(current_user, 'seat_user_id', None) if getattr(current_user, 'is_seat_user', False) else None
+        _save_voice_config(current_user.email, vc, seat_user_id=seat_id)
 
         logger.info(f"Voice activated for {current_user.email}: sub={result.get('twilio_sub_account_sid')}")
 

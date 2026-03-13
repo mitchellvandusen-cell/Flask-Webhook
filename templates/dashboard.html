@@ -62,6 +62,9 @@
             {% include "dashboard/tabs/dialer.html" %}
             {% include "dashboard/tabs/aiminutes.html" %}
             {% include "dashboard/tabs/billing.html" %}
+            {% if not current_user.is_seat_user %}
+            {% include "dashboard/tabs/team.html" %}
+            {% endif %}
         </div>
 
         {% endif %}
@@ -183,6 +186,7 @@
         maxAbandonRatePct:       {{ (voice_config.get('max_abandon_rate_pct', 3.0)|float) if voice_config is defined else 3.0 }},
         bypassCallingHours:      {{ 'true' if voice_config is defined and voice_config.get('bypass_calling_hours') else 'false' }},
         quietHoursEnabled:       {{ 'true' if voice_config is defined and voice_config.get('quiet_hours_enabled') else 'false' }},
+        isSeatUser:              {{ 'true' if current_user.is_seat_user else 'false' }},
     };
     </script>
 
@@ -246,6 +250,7 @@
     <script src="{{ url_for('static', filename='js/dashboard/discord.js') }}?v={{ _sv }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard/slack.js') }}?v={{ _sv }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard/tutorial.js') }}?v={{ _sv }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard/team.js') }}?v={{ _sv }}"></script>
 
     <!-- ── PWA: Service Worker Registration + Install Prompt ── -->
     <script src="{{ url_for('static', filename='js/dashboard/pwa.js') }}?v={{ _sv }}"></script>

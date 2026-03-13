@@ -1,0 +1,125 @@
+<!-- Team Management Tab -->
+<div class="tab-pane fade" id="team" role="tabpanel">
+    <div class="glass-panel" style="padding:28px 32px;border-radius:20px;margin-bottom:24px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px;">
+            <div>
+                <h4 style="font-weight:700;margin:0;color:#fff;">
+                    <i class="fa-solid fa-users-gear me-2" style="color:var(--accent);"></i>Team Management
+                </h4>
+                <p style="color:#888;font-size:0.85rem;margin:4px 0 0;">
+                    Manage seat users for your location. Each seat is $49/month with their own Twilio account.
+                </p>
+            </div>
+            <button class="btn" onclick="teamShowInviteModal()" style="background:var(--accent);color:#000;font-weight:700;padding:10px 20px;border-radius:10px;font-size:0.88rem;border:none;">
+                <i class="fa-solid fa-user-plus me-2"></i>Invite User
+            </button>
+        </div>
+
+        <!-- Team Stats Bar -->
+        <div id="teamStatsBar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:24px;">
+            <div class="glass-panel" style="padding:14px 16px;border-radius:12px;text-align:center;">
+                <div style="font-size:1.6rem;font-weight:800;color:var(--accent);" id="teamStatActive">0</div>
+                <div style="font-size:0.75rem;color:#888;text-transform:uppercase;letter-spacing:1px;">Active</div>
+            </div>
+            <div class="glass-panel" style="padding:14px 16px;border-radius:12px;text-align:center;">
+                <div style="font-size:1.6rem;font-weight:800;color:#facc15;" id="teamStatPending">0</div>
+                <div style="font-size:0.75rem;color:#888;text-transform:uppercase;letter-spacing:1px;">Pending</div>
+            </div>
+            <div class="glass-panel" style="padding:14px 16px;border-radius:12px;text-align:center;">
+                <div style="font-size:1.6rem;font-weight:800;color:#00d9ff;" id="teamStatVoice">0</div>
+                <div style="font-size:0.75rem;color:#888;text-transform:uppercase;letter-spacing:1px;">Voice Active</div>
+            </div>
+            <div class="glass-panel" style="padding:14px 16px;border-radius:12px;text-align:center;">
+                <div style="font-size:1.6rem;font-weight:800;color:#f87171;" id="teamStatInactive">0</div>
+                <div style="font-size:0.75rem;color:#888;text-transform:uppercase;letter-spacing:1px;">Inactive</div>
+            </div>
+        </div>
+
+        <!-- GHL Users Detection Banner -->
+        <div id="teamGhlBanner" style="display:none;background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.18);border-radius:12px;padding:14px 18px;margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <i class="fa-solid fa-users" style="color:#00d9ff;font-size:1.1rem;"></i>
+                <span style="font-size:0.88rem;color:#ccc;" id="teamGhlBannerText"></span>
+                <button onclick="teamSyncGhlUsers()" class="btn btn-sm" style="background:rgba(0,217,255,0.15);color:#00d9ff;border:1px solid rgba(0,217,255,0.3);border-radius:8px;font-size:0.78rem;padding:4px 12px;margin-left:auto;">
+                    <i class="fa-solid fa-sync me-1"></i>Sync Users
+                </button>
+            </div>
+        </div>
+
+        <!-- Members List -->
+        <div id="teamMembersList" style="display:flex;flex-direction:column;gap:10px;">
+            <div style="text-align:center;padding:40px;color:#555;">
+                <i class="fa-solid fa-spinner fa-spin" style="font-size:1.5rem;"></i>
+                <p style="margin-top:12px;font-size:0.88rem;">Loading team members...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invite Modal -->
+    <div id="teamInviteModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
+        <div style="background:var(--glass-bg-strong, rgba(12,12,18,0.98));border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:32px;max-width:480px;width:90%;max-height:90vh;overflow-y:auto;backdrop-filter:var(--glass-blur, blur(40px));">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+                <h5 style="font-weight:700;margin:0;color:#fff;"><i class="fa-solid fa-user-plus me-2" style="color:var(--accent);"></i>Invite Team Member</h5>
+                <button onclick="teamCloseInviteModal()" style="background:none;border:none;color:#888;font-size:1.2rem;cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <!-- GHL Users Dropdown (auto-populated if available) -->
+            <div id="teamGhlUserPicker" style="display:none;margin-bottom:16px;">
+                <label style="font-size:0.82rem;color:#aaa;margin-bottom:6px;display:block;">Select from GHL Users</label>
+                <select id="teamGhlSelect" onchange="teamFillFromGhl()" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:0.88rem;">
+                    <option value="">-- Choose a GHL user or enter manually --</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom:14px;">
+                <label style="font-size:0.82rem;color:#aaa;margin-bottom:6px;display:block;">Email Address *</label>
+                <input type="email" id="teamInviteEmail" placeholder="agent@example.com" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:0.88rem;">
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="font-size:0.82rem;color:#aaa;margin-bottom:6px;display:block;">Full Name</label>
+                <input type="text" id="teamInviteName" placeholder="John Smith" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:0.88rem;">
+            </div>
+            <input type="hidden" id="teamInviteGhlId">
+
+            <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:14px;margin-bottom:20px;">
+                <div style="font-size:0.8rem;color:#888;margin-bottom:8px;font-weight:600;">What they get:</div>
+                <div style="display:flex;flex-direction:column;gap:6px;font-size:0.82rem;color:#aaa;">
+                    <div><i class="fa-solid fa-check" style="color:var(--accent);margin-right:8px;"></i>Own Twilio sub-account & phone number</div>
+                    <div><i class="fa-solid fa-check" style="color:var(--accent);margin-right:8px;"></i>Access to dialer with assigned leads</div>
+                    <div><i class="fa-solid fa-check" style="color:var(--accent);margin-right:8px;"></i>AI texting & voice on their leads</div>
+                    <div><i class="fa-solid fa-check" style="color:var(--accent);margin-right:8px;"></i>Own call history & recordings</div>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:10px;">
+                <button onclick="teamCloseInviteModal()" style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#aaa;padding:10px;border-radius:10px;font-size:0.88rem;cursor:pointer;">Cancel</button>
+                <button onclick="teamSendInvite()" id="teamInviteBtn" style="flex:2;background:var(--accent);color:#000;font-weight:700;padding:10px;border-radius:10px;font-size:0.88rem;border:none;cursor:pointer;">
+                    <i class="fa-solid fa-paper-plane me-2"></i>Send Invite
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Permissions Modal -->
+    <div id="teamPermsModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
+        <div style="background:var(--glass-bg-strong, rgba(12,12,18,0.98));border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:32px;max-width:480px;width:90%;backdrop-filter:var(--glass-blur, blur(40px));">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+                <h5 style="font-weight:700;margin:0;color:#fff;"><i class="fa-solid fa-shield-halved me-2" style="color:#facc15;"></i>Permissions</h5>
+                <button onclick="teamClosePermsModal()" style="background:none;border:none;color:#888;font-size:1.2rem;cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div style="font-size:0.85rem;color:#aaa;margin-bottom:16px;" id="teamPermsName"></div>
+            <input type="hidden" id="teamPermsMemberId">
+
+            <div style="display:flex;flex-direction:column;gap:10px;" id="teamPermsChecks">
+                <!-- Populated by JS -->
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:20px;">
+                <button onclick="teamClosePermsModal()" style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#aaa;padding:10px;border-radius:10px;font-size:0.88rem;cursor:pointer;">Cancel</button>
+                <button onclick="teamSavePerms()" style="flex:2;background:#facc15;color:#000;font-weight:700;padding:10px;border-radius:10px;font-size:0.88rem;border:none;cursor:pointer;">
+                    <i class="fa-solid fa-floppy-disk me-2"></i>Save Permissions
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

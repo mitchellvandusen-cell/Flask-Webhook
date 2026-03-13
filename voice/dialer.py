@@ -530,17 +530,35 @@ def fetch_contacts():
     stage_id = request.args.get('stage', '').strip()
     force_refresh = request.args.get('refresh', '').strip() == '1'
 
+    # Resolve location_id (seat users use location_users table)
+    _assigned_to_filter = None
     conn = get_db_connection()
     if not conn:
         return jsonify({"error": "Database error"}), 500
     try:
         cur = conn.cursor()
-        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
-        row = cur.fetchone()
+        if getattr(current_user, 'is_seat_user', False) and getattr(current_user, 'seat_user_id', None):
+            cur.execute("""
+                SELECT lu.location_id, lu.ghl_user_id, lu.permissions
+                FROM location_users lu WHERE lu.id = %s
+            """, (current_user.seat_user_id,))
+            row = cur.fetchone()
+            if row and row.get('location_id'):
+                location_id = row['location_id']
+                perms = row.get('permissions') or {}
+                if not perms.get('can_view_all_leads', False) and row.get('ghl_user_id'):
+                    _assigned_to_filter = row['ghl_user_id']
+            else:
+                cur.close()
+                return jsonify({"error": "No location configured"}), 400
+        else:
+            cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+            row = cur.fetchone()
+            if not row or not row['location_id']:
+                cur.close()
+                return jsonify({"error": "No location configured"}), 400
+            location_id = row['location_id']
         cur.close()
-        if not row or not row['location_id']:
-            return jsonify({"error": "No location configured"}), 400
-        location_id = row['location_id']
     finally:
         return_db_connection(conn)
 
@@ -599,7 +617,7 @@ def fetch_contacts():
     # If cache exists and not force-refresh → serve instantly, refresh in bg if stale
     if has_cache and not force_refresh:
         age_secs = (datetime.datetime.utcnow() - cache_age).total_seconds()
-        result = get_cached_contacts(location_id, query)
+        result = get_cached_contacts(location_id, query, assigned_to=_assigned_to_filter)
         resp_data = {
             "contacts": result,
             "total": len(result),
@@ -616,7 +634,7 @@ def fetch_contacts():
 
     # If cache exists but force_refresh → serve stale cache NOW, refresh in bg
     if has_cache and force_refresh:
-        result = get_cached_contacts(location_id, query)
+        result = get_cached_contacts(location_id, query, assigned_to=_assigned_to_filter)
         _background_contact_sync(location_id)
         return jsonify({
             "contacts": result,
@@ -638,6 +656,10 @@ def fetch_contacts():
         # Persist to DB cache — only prune stale contacts if fetch was complete
         if result:
             upsert_contact_cache(location_id, result, prune_stale=fetch_complete)
+
+        # Filter by assigned_to for seat users
+        if _assigned_to_filter:
+            result = [c for c in result if c.get("assignedTo") == _assigned_to_filter]
 
         # Apply search filter
         if query:
@@ -664,7 +686,11 @@ def sync_contacts_cache():
         return jsonify({"error": "Database error"}), 500
     try:
         cur = conn.cursor()
-        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        # Support seat users
+        if getattr(current_user, 'is_seat_user', False) and getattr(current_user, 'seat_user_id', None):
+            cur.execute("SELECT location_id FROM location_users WHERE id = %s", (current_user.seat_user_id,))
+        else:
+            cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
         row = cur.fetchone()
         cur.close()
         if not row or not row['location_id']:
