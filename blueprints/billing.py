@@ -93,15 +93,12 @@ def _create_rewardful_affiliate(email, first_name="", last_name=""):
     if not api_secret:
         return None
     try:
-        payload = {"email": email}
-        if first_name:
-            payload["first_name"] = first_name
-        if last_name:
-            payload["last_name"] = last_name
+        # Rewardful API requires form-encoded data (not JSON)
+        payload = {"email": email, "first_name": first_name or "", "last_name": last_name or ""}
         resp = requests.post(
             f"{_REWARDFUL_API_BASE}/affiliates",
             auth=(api_secret, ""),
-            json=payload,
+            data=payload,
             timeout=10,
         )
         if resp.status_code in (200, 201):
@@ -349,7 +346,21 @@ def stripe_webhook():
 
                     # Auto-create Rewardful affiliate account for new subscriber (non-fatal)
                     try:
-                        _create_rewardful_affiliate(email)
+                        affiliate = _create_rewardful_affiliate(email)
+                        if affiliate:
+                            referral_link = affiliate.get("links", [{}])[0].get("url", "")
+                            affiliate_id = affiliate.get("id", "")
+                            if referral_link or affiliate_id:
+                                cur.execute("""
+                                    UPDATE subscribers
+                                    SET config = COALESCE(config, '{}'::jsonb) ||
+                                        jsonb_build_object(
+                                            'rewardful_affiliate_id', %s::text,
+                                            'rewardful_referral_link', %s::text
+                                        )
+                                    WHERE email = %s
+                                """, (affiliate_id, referral_link, email))
+                                conn.commit()
                     except Exception as rw_err:
                         logger.warning(f"Rewardful auto-affiliate skipped for {email}: {rw_err}")
 
