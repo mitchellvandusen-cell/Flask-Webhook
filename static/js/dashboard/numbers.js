@@ -759,13 +759,21 @@
                     } else {
                         var html = '';
                         nums.forEach(function(n) {
+                            // Only lock checkboxes when truly registered (approved/pending Trust Product)
                             var checked = n.registered ? ' checked disabled' : '';
-                            var regBadge = n.registered ? '<span class="ni-badge-registered"><i class="fa-solid fa-circle-check me-1"></i>Registered</span>' : '';
+                            var badge = '';
+                            if (n.registered) {
+                                badge = '<span class="ni-badge-registered"><i class="fa-solid fa-circle-check me-1"></i>Registered</span>';
+                            } else if (n.assigned && isRejected) {
+                                // Was submitted but Trust Product was rejected — show as failed, keep selectable
+                                checked = ' checked';
+                                badge = '<span class="ni-badge-rejected"><i class="fa-solid fa-circle-xmark me-1"></i>Not Registered</span>';
+                            }
                             html += '<label class="ni-number-row">' +
                                 '<input type="checkbox" class="ni-number-cb" data-sid="' + _esc(n.sid) + '" onchange="niUpdateSelection()"' + checked + '>' +
                                 '<span class="ni-number-phone">' + _esc(_fmtPhone(n.phone)) + '</span>' +
                                 (n.friendly_name ? '<span class="ni-number-name">' + _esc(n.friendly_name) + '</span>' : '') +
-                                regBadge +
+                                badge +
                             '</label>';
                         });
                         listEl.innerHTML = html;
@@ -822,7 +830,10 @@
                 return;
             }
             var btn = document.getElementById('niRegisterBtn');
-            var isAddMode = _niData && _niData.trust_product_sid;
+            // Add mode only if trust product exists and is NOT rejected
+            // Rejected = need fresh trust product via /register, not /add-numbers
+            var isRejectedState = _niData && _niData.status === 'twilio-rejected';
+            var isAddMode = _niData && _niData.trust_product_sid && !isRejectedState;
             if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Registering with carrier networks...'; }
             if (resultEl) resultEl.innerHTML = '';
 

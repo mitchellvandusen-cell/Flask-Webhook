@@ -1359,6 +1359,10 @@ def number_integrity_status():
             logger.warning(f"[NumberIntegrity] Live status check failed, using cached: {e}")
 
     # Get all numbers on the sub-account for the UI
+    # A number is only truly "registered" if it's assigned to an APPROVED Trust Product.
+    # If the Trust Product is rejected/draft/not_registered, numbers are NOT registered
+    # even if they were previously submitted — the assignment is meaningless without approval.
+    is_truly_registered = live_status in ('twilio-approved', 'pending-review', 'in-review')
     all_numbers = []
     try:
         nums = twilio_provisioning.list_phone_numbers(sub_sid)
@@ -1368,7 +1372,8 @@ def number_integrity_status():
                 "phone": n.get('phone', ''),
                 "sid": pn_sid,
                 "friendly_name": n.get('friendly_name', ''),
-                "registered": pn_sid in assigned_numbers,
+                "registered": is_truly_registered and pn_sid in assigned_numbers,
+                "assigned": pn_sid in assigned_numbers,  # was submitted (may or may not be approved)
             })
     except Exception as e:
         logger.warning(f"[NumberIntegrity] Could not list numbers: {e}")
@@ -1452,8 +1457,15 @@ def number_integrity_register():
     employee_count = str(user_count)
 
     try:
-        # Step 1: Create Trust Product if we don't have one
-        if not trust_product_sid:
+        # Step 1: Create Trust Product if we don't have one, or if the old one was rejected
+        # Rejected Trust Products cannot be reused — Twilio requires a new one.
+        old_status = ni.get('status', '')
+        need_new_product = not trust_product_sid or old_status == 'twilio-rejected'
+        if need_new_product:
+            if trust_product_sid and old_status == 'twilio-rejected':
+                logger.info(f"[NumberIntegrity] Old Trust Product {trust_product_sid} was rejected, creating new one")
+                ni['old_trust_product_sid'] = trust_product_sid
+                trust_product_sid = ''  # force creation of new product
             existing_profile = ni.get('profile_sid', '') or trust_hub.get('profile_sid', '')
             result = twilio_provisioning.create_voice_integrity_trust_product(
                 sub_account_sid=sub_sid,
