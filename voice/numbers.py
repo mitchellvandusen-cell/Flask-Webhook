@@ -915,7 +915,7 @@ def register_spam_protection():
     vc['trust_hub'] = trust_hub
     _save_voice_config(current_user.email, vc)
 
-    # Step 2: Register with Twilio Trust Hub + set CNAM on all numbers
+    # Step 2: Register with Twilio Trust Hub (Customer Profile)
     sub_auth_token = (vc or {}).get('twilio_auth_token', '')
     results = twilio_provisioning.register_business_profile(
         sub_account_sid=sub_sid,
@@ -935,8 +935,7 @@ def register_spam_protection():
     trust_hub['protection_active'] = True
     trust_hub['_sub_sid'] = sub_sid  # Tag which sub-account this belongs to
 
-    # Save profile_sid so Voice Integrity can reuse this approved profile
-    # New flow returns profile_sid directly; legacy flow used steps list
+    # Save profile_sid so Voice Integrity / CNAM can reuse this approved profile
     if results.get('profile_sid'):
         trust_hub['profile_sid'] = results['profile_sid']
     else:
@@ -964,15 +963,92 @@ def register_spam_protection():
     vc['trust_hub'] = trust_hub
     _save_voice_config(current_user.email, vc)
 
-    cnam_name = business_name[:15].strip()
-    cnam_step = next((s for s in results.get('steps', []) if s.get('name') == 'cnam_all_numbers'), {})
+    # Step 4: Create CNAM Trust Product for proper carrier registration
+    # This is the real CNAM — not just setting friendly_name on numbers.
+    cnam_display_name = data.get('cnam_display_name', '').strip()
+    if not cnam_display_name:
+        cnam_display_name = business_name[:15].strip()
+
+    cnam_result = {"status": "skipped"}
+    profile_sid = trust_hub.get('profile_sid', '')
+    if profile_sid:
+        try:
+            # Validate display name
+            valid, validation_msg = twilio_provisioning.validate_cnam_display_name(cnam_display_name)
+            if not valid:
+                cnam_result = {"status": "error", "error": validation_msg}
+            else:
+                # Create CNAM Trust Product
+                cnam_tp = twilio_provisioning.create_cnam_trust_product(
+                    sub_account_sid=sub_sid,
+                    business_name=business_name,
+                    cnam_display_name=cnam_display_name,
+                    contact_email=contact_email or current_user.email,
+                    sub_account_auth_token=sub_auth_token,
+                    existing_profile_sid=profile_sid,
+                )
+
+                # Assign all phone numbers to CNAM Trust Product
+                client = twilio_provisioning.get_sub_account_client(sub_sid)
+                numbers = client.incoming_phone_numbers.list()
+                pn_sids = [n.sid for n in numbers]
+
+                if pn_sids:
+                    assign_result = twilio_provisioning.assign_numbers_to_cnam(
+                        sub_account_sid=sub_sid,
+                        trust_product_sid=cnam_tp['trust_product_sid'],
+                        phone_number_sids=pn_sids,
+                        sub_account_auth_token=sub_auth_token,
+                        profile_sid=profile_sid,
+                    )
+                else:
+                    assign_result = {"assigned": 0, "failed": [], "total": 0}
+
+                # Submit for review
+                try:
+                    submit_result = twilio_provisioning.submit_cnam_for_review(
+                        sub_account_sid=sub_sid,
+                        trust_product_sid=cnam_tp['trust_product_sid'],
+                        sub_account_auth_token=sub_auth_token,
+                    )
+                    cnam_status = submit_result.get('status', 'draft')
+                except Exception as submit_err:
+                    logger.warning(f"[CNAM] Submit for review failed: {submit_err}")
+                    cnam_status = 'draft'
+
+                # Save CNAM state to voice_config
+                cnam_data = vc.get('cnam', {})
+                cnam_data.update({
+                    'trust_product_sid': cnam_tp['trust_product_sid'],
+                    'profile_sid': cnam_tp['profile_sid'],
+                    'end_user_sid': cnam_tp['end_user_sid'],
+                    'cnam_display_name': cnam_tp['cnam_display_name'],
+                    'status': cnam_status,
+                    'assigned_numbers': pn_sids,
+                    'assigned_count': assign_result.get('assigned', 0),
+                    'registered_at': datetime.utcnow().isoformat(),
+                    '_sub_sid': sub_sid,
+                })
+                vc['cnam'] = cnam_data
+                _save_voice_config(current_user.email, vc)
+
+                cnam_result = {
+                    "status": "ok",
+                    "trust_product_sid": cnam_tp['trust_product_sid'],
+                    "cnam_display_name": cnam_tp['cnam_display_name'],
+                    "numbers_assigned": assign_result.get('assigned', 0),
+                    "review_status": cnam_status,
+                }
+
+        except Exception as cnam_err:
+            logger.error(f"[CNAM] Trust Product registration failed: {cnam_err}")
+            cnam_result = {"status": "error", "error": str(cnam_err)}
 
     return jsonify({
         "status": "ok" if not results.get("errors") else "partial",
         "results": results,
-        "cnam_name": cnam_name,
-        "numbers_protected": cnam_step.get('enabled', 0),
-        "numbers_failed": cnam_step.get('total', 0) - cnam_step.get('enabled', 0),
+        "cnam": cnam_result,
+        "cnam_display_name": cnam_display_name,
     })
 
 
@@ -1112,6 +1188,16 @@ def spam_protection_status():
         except Exception as e:
             logger.warning(f"[spam-protection] Could not check live profile status: {e}")
 
+    # Include CNAM Trust Product status
+    cnam = (vc or {}).get('cnam', {})
+    cnam_info = {
+        "registered": bool(cnam.get('trust_product_sid')),
+        "status": cnam.get('status', 'not_registered'),
+        "cnam_display_name": cnam.get('cnam_display_name', ''),
+        "trust_product_sid": cnam.get('trust_product_sid', ''),
+        "assigned_count": cnam.get('assigned_count', 0),
+    }
+
     return jsonify({
         "protection_active": protection_active,
         "business_name": business_name,
@@ -1132,6 +1218,7 @@ def spam_protection_status():
         "profile_sid": profile_sid,
         "review_status": profile_review_status,
         "evaluation_issues": trust_hub.get('evaluation_issues', []),
+        "cnam": cnam_info,
     })
 
 
@@ -1155,36 +1242,47 @@ def cnam_monitor():
 
     trust_hub = (vc or {}).get('trust_hub', {})
     business_name = trust_hub.get('business_name', '')
+    cnam = (vc or {}).get('cnam', {})
+    cnam_display_name = cnam.get('cnam_display_name', business_name[:15].strip() if business_name else '')
 
     numbers = twilio_provisioning.get_cnam_monitor(sub_sid)
 
-    # Enrich with local nicknames
+    # Enrich with local nicknames and CNAM Trust Product assignment status
     nicknames = (vc or {}).get('number_nicknames', {})
+    assigned_to_tp = set(cnam.get('assigned_numbers', []))
 
     result = []
     for n in numbers:
         phone = n.get('phone', '')
         friendly = n.get('friendly_name', '')
+        sid = n.get('sid', '')
         result.append({
             "phone": phone,
-            "sid": n.get('sid', ''),
+            "sid": sid,
             "cnam_name": friendly,
             "cnam_enabled": n.get('cnam_enabled', False),
             "cnam_matches_business": (
-                friendly.strip().lower() == business_name[:15].strip().lower()
-                if friendly and business_name else False
+                friendly.strip().lower() == cnam_display_name.strip().lower()
+                if friendly and cnam_display_name else False
             ),
+            "assigned_to_trust_product": sid in assigned_to_tp,
             "nickname": nicknames.get(phone, ''),
             "date_created": n.get('date_created', ''),
         })
 
     return jsonify({
         "business_name": business_name,
-        "cnam_display_name": business_name[:15].strip() if business_name else "",
+        "cnam_display_name": cnam_display_name,
         "numbers": result,
         "total": len(result),
         "cnam_set": sum(1 for n in result if n['cnam_enabled']),
         "cnam_matching": sum(1 for n in result if n['cnam_matches_business']),
+        "trust_product": {
+            "registered": bool(cnam.get('trust_product_sid')),
+            "status": cnam.get('status', 'not_registered'),
+            "trust_product_sid": cnam.get('trust_product_sid', ''),
+            "assigned_count": sum(1 for n in result if n['assigned_to_trust_product']),
+        },
     })
 
 
@@ -1316,6 +1414,188 @@ def cnam_lookup_own():
         "total": len(results),
         "propagated": sum(1 for r in results if r.get('propagated')),
     })
+
+
+# ──────────────────────────────────────────────────────────────
+# CNAM TRUST PRODUCT — STATUS & MANAGEMENT
+# Poll CNAM registration status, add numbers to existing
+# registration, and re-register after rejection.
+# ──────────────────────────────────────────────────────────────
+
+
+@numbers_bp.route('/voice/cnam/status', methods=['GET'])
+@login_required
+def cnam_trust_product_status():
+    """
+    Get current CNAM Trust Product registration status.
+    Polls Twilio for live status and updates voice_config.
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    cnam = (vc or {}).get('cnam', {})
+    trust_product_sid = cnam.get('trust_product_sid', '')
+
+    if not trust_product_sid:
+        return jsonify({
+            "registered": False,
+            "status": "not_registered",
+            "cnam_display_name": "",
+        })
+
+    # Only show data tagged to this sub-account
+    if cnam.get('_sub_sid', '') and cnam['_sub_sid'] != sub_sid:
+        return jsonify({
+            "registered": False,
+            "status": "not_registered",
+            "cnam_display_name": "",
+        })
+
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
+    try:
+        live_status = twilio_provisioning.get_cnam_trust_product_status(
+            sub_account_sid=sub_sid,
+            trust_product_sid=trust_product_sid,
+            sub_account_auth_token=sub_auth_token,
+        )
+
+        # Persist updated status
+        old_status = cnam.get('status', '')
+        new_status = live_status.get('status', old_status)
+        if new_status != old_status:
+            cnam['status'] = new_status
+            if new_status == 'twilio-rejected':
+                cnam['failure_reasons'] = live_status.get('failure_reasons', [])
+            vc['cnam'] = cnam
+            _save_voice_config(current_user.email, vc)
+
+        return jsonify({
+            "registered": True,
+            "status": new_status,
+            "cnam_display_name": cnam.get('cnam_display_name', ''),
+            "trust_product_sid": trust_product_sid,
+            "assigned_count": live_status.get('assigned_count', 0),
+            "assigned_numbers": live_status.get('assigned_numbers', []),
+            "date_created": live_status.get('date_created', ''),
+            "failure_reasons": live_status.get('failure_reasons', cnam.get('failure_reasons', [])),
+        })
+    except Exception as e:
+        logger.error(f"[CNAM] Status check failed: {e}")
+        return jsonify({
+            "registered": True,
+            "status": cnam.get('status', 'unknown'),
+            "cnam_display_name": cnam.get('cnam_display_name', ''),
+            "trust_product_sid": trust_product_sid,
+            "error": str(e),
+        })
+
+
+@numbers_bp.route('/voice/cnam/add-numbers', methods=['POST'])
+@login_required
+def cnam_add_numbers():
+    """
+    Add phone numbers to an existing CNAM Trust Product.
+    Used when new numbers are purchased after initial registration.
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    cnam = (vc or {}).get('cnam', {})
+    trust_product_sid = cnam.get('trust_product_sid', '')
+    profile_sid = cnam.get('profile_sid', '')
+
+    if not trust_product_sid:
+        return jsonify({"error": "No CNAM registration found. Complete Spam Protection first."}), 400
+
+    data = request.json or {}
+    phone_number_sids = data.get('phone_number_sids', [])
+
+    if not phone_number_sids:
+        # Default: add all numbers not yet assigned
+        client = twilio_provisioning.get_sub_account_client(sub_sid)
+        numbers = client.incoming_phone_numbers.list()
+        already_assigned = set(cnam.get('assigned_numbers', []))
+        phone_number_sids = [n.sid for n in numbers if n.sid not in already_assigned]
+
+    if not phone_number_sids:
+        return jsonify({"status": "ok", "message": "All numbers already assigned", "added": 0})
+
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
+    try:
+        result = twilio_provisioning.assign_numbers_to_cnam(
+            sub_account_sid=sub_sid,
+            trust_product_sid=trust_product_sid,
+            phone_number_sids=phone_number_sids,
+            sub_account_auth_token=sub_auth_token,
+            profile_sid=profile_sid,
+        )
+
+        # Update saved state
+        existing = set(cnam.get('assigned_numbers', []))
+        existing.update(phone_number_sids)
+        cnam['assigned_numbers'] = list(existing)
+        cnam['assigned_count'] = len(existing)
+        vc['cnam'] = cnam
+        _save_voice_config(current_user.email, vc)
+
+        return jsonify({
+            "status": "ok",
+            "added": result.get('assigned', 0),
+            "failed": result.get('failed', []),
+            "total_assigned": len(existing),
+        })
+    except Exception as e:
+        logger.error(f"[CNAM] Add numbers failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@numbers_bp.route('/voice/cnam/remove-number', methods=['POST'])
+@login_required
+def cnam_remove_number():
+    """Remove a phone number from the CNAM Trust Product."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    cnam = (vc or {}).get('cnam', {})
+    trust_product_sid = cnam.get('trust_product_sid', '')
+
+    if not trust_product_sid:
+        return jsonify({"error": "No CNAM registration found"}), 400
+
+    data = request.json or {}
+    phone_number_sid = data.get('phone_number_sid', '').strip()
+    if not phone_number_sid:
+        return jsonify({"error": "phone_number_sid is required"}), 400
+
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
+    try:
+        result = twilio_provisioning.unassign_numbers_from_trust_product(
+            sub_account_sid=sub_sid,
+            trust_product_sid=trust_product_sid,
+            phone_number_sids=[phone_number_sid],
+            sub_account_auth_token=sub_auth_token,
+        )
+
+        # Update saved state
+        assigned = cnam.get('assigned_numbers', [])
+        if phone_number_sid in assigned:
+            assigned.remove(phone_number_sid)
+            cnam['assigned_numbers'] = assigned
+            cnam['assigned_count'] = len(assigned)
+            vc['cnam'] = cnam
+            _save_voice_config(current_user.email, vc)
+
+        return jsonify({
+            "status": "ok",
+            "removed": result.get('removed', 0),
+            "total_assigned": len(assigned),
+        })
+    except Exception as e:
+        logger.error(f"[CNAM] Remove number failed: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 # ──────────────────────────────────────────────────────────────
