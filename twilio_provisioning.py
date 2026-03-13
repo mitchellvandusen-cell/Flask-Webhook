@@ -1391,6 +1391,18 @@ VOICE_INTEGRITY_POLICY_SID = "RN5b3660f9598883b1df4e77f77acefba0"
 # https://www.twilio.com/docs/trust-hub/trusthub-rest-api/api-create-secondary-customer-profile
 SECONDARY_CUSTOMER_PROFILE_POLICY_SID = "RNdfbf3fae0e1107f8aded0e7cead80bf5"
 
+
+def is_master_account(sub_account_sid: str) -> bool:
+    """
+    Detect if a subscriber is using the master Twilio account directly
+    (i.e., the platform owner's own business) vs a sub-account (ISV customer).
+
+    Master account: uses Primary Business Profile for Voice Integrity (direct customer flow).
+    Sub-account:    uses Secondary Customer Profile linked to Primary (ISV flow).
+    """
+    return sub_account_sid == TWILIO_ACCOUNT_SID
+
+
 # Carrier analytics engines that Voice Integrity registers with
 VOICE_INTEGRITY_CARRIERS = [
     {"key": "att", "name": "AT&T / Hiya", "icon": "fa-signal",
@@ -1541,35 +1553,50 @@ def create_voice_integrity_trust_product(
     use_case: str = "Lead Management",
 ) -> dict:
     """
-    Create a Voice Integrity Trust Product following the ISV/Subaccounts flow.
+    Create a Voice Integrity Trust Product.
 
-    Per Twilio docs:
+    Two distinct flows based on whether this is the master account or a sub-account:
+
+    **Master account (direct customer):**
+      Uses the Primary Business Profile directly.
+      https://www.twilio.com/docs/voice/spam-monitoring-with-voiceintegrity/
+      voice-integrity-onboarding/voice-integrity-trust-hub-api-direct-customers
+
+    **Sub-account (ISV customer):**
+      Creates a Secondary Customer Profile linked to the master's Primary.
       https://www.twilio.com/docs/voice/spam-monitoring-with-voiceintegrity/
       voice-integrity-onboarding/voice-integrity-trust-hub-api-isvs-subaccounts
 
-    Flow:
-      1. Find or create a Secondary Customer Profile on the sub-account
-         (linked to the Primary Business Profile on the master account)
-      2. Create EndUser with voice_integrity_information type
-      3. Create Voice Integrity Trust Product (with VI-specific policy SID)
-      4. Link Secondary Profile → Trust Product (EntityAssignment)
-      5. Link EndUser → Trust Product (EntityAssignment)
-
+    Both flows share steps 2-5 (EndUser, Trust Product, EntityAssignments).
     Returns dict with trust_product_sid, profile_sid, end_user_sid, status.
     """
     client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
+    on_master = is_master_account(sub_account_sid)
 
     try:
-        # ── Step 1: Secondary Customer Profile ──
-        primary_sid = _find_primary_profile_sid()
-        profile_sid = _find_or_create_secondary_profile(
-            client=client,
-            sub_account_sid=sub_account_sid,
-            business_name=business_name,
-            contact_email=contact_email,
-            existing_profile_sid=existing_profile_sid,
-            primary_profile_sid=primary_sid,
-        )
+        # ── Step 1: Customer Profile ──
+        if on_master:
+            # Direct customer flow: use the Primary Business Profile directly.
+            # The master account's own business uses its approved Primary Profile.
+            profile_sid = _find_primary_profile_sid()
+            if not profile_sid:
+                raise ValueError(
+                    "Primary Business Profile not found on master account. "
+                    "Create one in the Twilio Console under Trust Hub > Customer Profiles."
+                )
+            logger.info(f"[VoiceIntegrity] Master account — using Primary Profile: {profile_sid}")
+        else:
+            # ISV flow: find or create a Secondary Customer Profile on the sub-account,
+            # linked to the master's Primary Business Profile.
+            primary_sid = _find_primary_profile_sid()
+            profile_sid = _find_or_create_secondary_profile(
+                client=client,
+                sub_account_sid=sub_account_sid,
+                business_name=business_name,
+                contact_email=contact_email,
+                existing_profile_sid=existing_profile_sid,
+                primary_profile_sid=primary_sid,
+            )
 
         # ── Step 2: EndUser with voice_integrity_information ──
         end_user = client.trusthub.v1.end_users.create(
@@ -1592,7 +1619,7 @@ def create_voice_integrity_trust_product(
         )
         logger.info(f"[VoiceIntegrity] Created Trust Product: {trust_product.sid}")
 
-        # ── Step 4: Link Secondary Profile → Trust Product ──
+        # ── Step 4: Link Profile → Trust Product ──
         client.trusthub.v1.trust_products(trust_product.sid) \
             .trust_products_entity_assignments.create(
                 object_sid=profile_sid,
@@ -1612,6 +1639,7 @@ def create_voice_integrity_trust_product(
             "end_user_sid": end_user.sid,
             "status": "draft",
             "business_name": business_name,
+            "is_master": on_master,
         }
 
     except TwilioRestException as e:
