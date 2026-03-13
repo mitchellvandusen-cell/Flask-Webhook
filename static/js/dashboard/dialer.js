@@ -7382,7 +7382,7 @@
                 }
                 container.innerHTML = tags.map(t => {
                     const esc = t.replace(/"/g, '&quot;').replace(/</g, '&lt;');
-                    return `<button class="dlr-export-tag-chip" data-tag="${esc}" onclick="dlrExportToggleTag(this)" style="padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:#aaa;transition:all 0.15s;">${esc}</button>`;
+                    return `<button class="dlr-export-tag-chip" data-tag="${esc}" onclick="dlrExportToggleTag(this)">${esc}</button>`;
                 }).join('');
             } catch (e) {
                 container.innerHTML = '<span style="color:#f44;font-size:0.75rem;">Failed to load tags</span>';
@@ -7393,14 +7393,10 @@
             const tag = btn.dataset.tag;
             if (_dlrExportSelectedTags.has(tag)) {
                 _dlrExportSelectedTags.delete(tag);
-                btn.style.background = 'rgba(255,255,255,0.04)';
-                btn.style.borderColor = 'rgba(255,255,255,0.1)';
-                btn.style.color = '#aaa';
+                btn.classList.remove('active');
             } else {
                 _dlrExportSelectedTags.add(tag);
-                btn.style.background = 'rgba(0,217,255,0.15)';
-                btn.style.borderColor = '#00d9ff';
-                btn.style.color = '#00d9ff';
+                btn.classList.add('active');
             }
         }
         window.dlrExportToggleTag = dlrExportToggleTag;

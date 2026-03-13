@@ -799,6 +799,52 @@
                     body.light-theme .dlr-contact-row { border-bottom-color: rgba(0,0,0,0.03) !important; }
                     body.light-theme .dlr-contact-row:hover { background: rgba(0,0,0,0.02) !important; }
                     body.light-theme .dlr-contact-row.active { background: rgba(5,150,105,0.06) !important; border-left-color: var(--lt-accent) !important; }
+
+                    /* ── Export Modal — Dark (glassmorphism) ── */
+                    .dlr-export-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); z-index:10000; align-items:center; justify-content:center; }
+                    .dlr-export-card { background:linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%); backdrop-filter:blur(20px) saturate(160%) brightness(1.1); -webkit-backdrop-filter:blur(20px) saturate(160%) brightness(1.1); border:1px solid rgba(255,255,255,0.15); border-top-color:rgba(255,255,255,0.25); border-left-color:rgba(255,255,255,0.18); border-radius:20px; max-width:540px; width:92%; max-height:85vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 32px 80px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.15); }
+                    .dlr-export-hdr { padding:16px 20px; border-bottom:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:space-between; }
+                    .dlr-export-hdr h5 { margin:0; font-weight:700; color:#fff; }
+                    .dlr-export-hdr .dlr-export-close { background:none; border:none; color:#666; cursor:pointer; font-size:1.2rem; transition:color 0.2s; }
+                    .dlr-export-hdr .dlr-export-close:hover { color:#fff; }
+                    .dlr-export-body { padding:16px 20px; overflow-y:auto; flex:1; }
+                    .dlr-export-label { font-size:0.75rem; font-weight:600; color:#aaa; margin-bottom:4px; display:block; }
+                    .dlr-export-input { width:100%; padding:8px 12px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:10px; color:#eee; font-size:0.85rem; transition:border-color 0.2s; }
+                    .dlr-export-input:focus { outline:none; border-color:rgba(0,217,255,0.4); }
+                    .dlr-export-input::placeholder { color:#555; }
+                    .dlr-export-tags-wrap { display:flex; flex-wrap:wrap; gap:6px; min-height:32px; padding:8px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-radius:10px; }
+                    .dlr-export-tag-chip { padding:3px 10px; border-radius:20px; font-size:0.72rem; font-weight:600; cursor:pointer; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.04); color:#aaa; transition:all 0.15s; }
+                    .dlr-export-tag-chip:hover { background:rgba(255,255,255,0.08); }
+                    .dlr-export-tag-chip.active { background:rgba(0,217,255,0.15) !important; border-color:#00d9ff !important; color:#00d9ff !important; }
+                    .dlr-export-info { padding:10px 14px; background:rgba(0,217,255,0.06); border:1px solid rgba(0,217,255,0.12); border-radius:10px; }
+                    .dlr-export-info span { color:#00d9ff; font-size:0.8rem; font-weight:600; }
+                    .dlr-export-footer { padding:14px 20px; border-top:1px solid rgba(255,255,255,0.08); display:flex; justify-content:flex-end; gap:8px; }
+                    .dlr-export-cancel { padding:8px 16px; border-radius:10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#aaa; font-size:0.85rem; cursor:pointer; transition:all 0.2s; }
+                    .dlr-export-cancel:hover { background:rgba(255,255,255,0.1); color:#fff; }
+                    .dlr-export-submit { padding:8px 20px; border-radius:10px; background:linear-gradient(135deg,#00d9ff,#0099cc); border:none; color:#000; font-weight:700; font-size:0.85rem; cursor:pointer; transition:transform 0.15s, box-shadow 0.15s; }
+                    .dlr-export-submit:hover { transform:translateY(-1px); box-shadow:0 4px 16px rgba(0,217,255,0.3); }
+
+                    /* ── Export Modal — Light theme ── */
+                    body.light-theme .dlr-export-overlay { background:rgba(0,0,0,0.25); }
+                    body.light-theme .dlr-export-card { background:linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.72) 100%); backdrop-filter:blur(24px) saturate(180%) brightness(1.05); -webkit-backdrop-filter:blur(24px) saturate(180%) brightness(1.05); border-color:rgba(0,0,0,0.08); border-top-color:rgba(255,255,255,0.9); border-left-color:rgba(255,255,255,0.6); box-shadow:0 32px 80px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.8); }
+                    body.light-theme .dlr-export-hdr { border-bottom-color:rgba(0,0,0,0.08); }
+                    body.light-theme .dlr-export-hdr h5 { color:#1a1a2e; }
+                    body.light-theme .dlr-export-hdr .dlr-export-close { color:#a0aec0; }
+                    body.light-theme .dlr-export-hdr .dlr-export-close:hover { color:#1a1a2e; }
+                    body.light-theme .dlr-export-label { color:#4a5568; }
+                    body.light-theme .dlr-export-input { background:rgba(0,0,0,0.03); border-color:rgba(0,0,0,0.1); color:#1a1a2e; }
+                    body.light-theme .dlr-export-input:focus { border-color:rgba(0,150,200,0.4); }
+                    body.light-theme .dlr-export-input::placeholder { color:#a0aec0; }
+                    body.light-theme .dlr-export-tags-wrap { background:rgba(0,0,0,0.02); border-color:rgba(0,0,0,0.08); }
+                    body.light-theme .dlr-export-tag-chip { background:rgba(0,0,0,0.04) !important; border-color:rgba(0,0,0,0.1) !important; color:#4a5568 !important; }
+                    body.light-theme .dlr-export-tag-chip:hover { background:rgba(0,0,0,0.07) !important; }
+                    body.light-theme .dlr-export-tag-chip.active { background:rgba(0,150,200,0.12) !important; border-color:#0099cc !important; color:#0077aa !important; }
+                    body.light-theme .dlr-export-info { background:rgba(0,150,200,0.06); border-color:rgba(0,150,200,0.12); }
+                    body.light-theme .dlr-export-info span { color:#0077aa; }
+                    body.light-theme .dlr-export-footer { border-top-color:rgba(0,0,0,0.08); }
+                    body.light-theme .dlr-export-cancel { background:rgba(0,0,0,0.04); border-color:rgba(0,0,0,0.1); color:#4a5568; }
+                    body.light-theme .dlr-export-cancel:hover { background:rgba(0,0,0,0.08); color:#1a1a2e; }
+                    body.light-theme .dlr-export-select { background:rgba(0,0,0,0.03); border-color:rgba(0,0,0,0.1); color:#1a1a2e; }
                 </style>
 
                 <!-- Top Bar -->
@@ -2200,54 +2246,54 @@
                 </div>
 
                 <!-- ═══ EXPORT CONTACTS MODAL ═══ -->
-                <div id="dlrExportModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);z-index:10000;align-items:center;justify-content:center;" onclick="if(event.target===this)dlrExportClose()">
-                    <div style="background:rgba(12,12,12,0.95);border:1px solid rgba(255,255,255,0.1);border-radius:16px;max-width:540px;width:92%;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;">
-                        <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;">
-                            <h5 style="margin:0;font-weight:700;"><i class="fa-solid fa-file-export me-2" style="color:#00d9ff;"></i>Export Contacts</h5>
-                            <button onclick="dlrExportClose()" style="background:none;border:none;color:#888;cursor:pointer;font-size:1.2rem;"><i class="fa-solid fa-xmark"></i></button>
+                <div id="dlrExportModal" class="dlr-export-overlay" onclick="if(event.target===this)dlrExportClose()">
+                    <div class="dlr-export-card">
+                        <div class="dlr-export-hdr">
+                            <h5><i class="fa-solid fa-file-export me-2" style="color:#00d9ff;"></i>Export Contacts</h5>
+                            <button class="dlr-export-close" onclick="dlrExportClose()"><i class="fa-solid fa-xmark"></i></button>
                         </div>
-                        <div style="padding:16px 20px;overflow-y:auto;flex:1;">
+                        <div class="dlr-export-body">
                             <!-- Search filter -->
                             <div style="margin-bottom:14px;">
-                                <label style="font-size:0.75rem;font-weight:600;color:#aaa;margin-bottom:4px;display:block;">Search</label>
-                                <input type="text" id="dlrExportSearch" placeholder="Filter by name, phone, or email..." style="width:100%;padding:8px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;color:#eee;font-size:0.85rem;">
+                                <label class="dlr-export-label">Search</label>
+                                <input type="text" id="dlrExportSearch" class="dlr-export-input" placeholder="Filter by name, phone, or email...">
                             </div>
                             <!-- Tags filter -->
                             <div style="margin-bottom:14px;">
-                                <label style="font-size:0.75rem;font-weight:600;color:#aaa;margin-bottom:4px;display:block;">Tags</label>
-                                <div id="dlrExportTags" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;padding:6px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px;">
+                                <label class="dlr-export-label">Tags</label>
+                                <div id="dlrExportTags" class="dlr-export-tags-wrap">
                                     <span style="color:#555;font-size:0.75rem;">Loading tags...</span>
                                 </div>
                             </div>
                             <!-- Date range -->
                             <div style="display:flex;gap:10px;margin-bottom:14px;">
                                 <div style="flex:1;">
-                                    <label style="font-size:0.75rem;font-weight:600;color:#aaa;margin-bottom:4px;display:block;">Date From</label>
-                                    <input type="date" id="dlrExportDateFrom" style="width:100%;padding:7px 10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;color:#eee;font-size:0.85rem;">
+                                    <label class="dlr-export-label">Date From</label>
+                                    <input type="date" id="dlrExportDateFrom" class="dlr-export-input">
                                 </div>
                                 <div style="flex:1;">
-                                    <label style="font-size:0.75rem;font-weight:600;color:#aaa;margin-bottom:4px;display:block;">Date To</label>
-                                    <input type="date" id="dlrExportDateTo" style="width:100%;padding:7px 10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;color:#eee;font-size:0.85rem;">
+                                    <label class="dlr-export-label">Date To</label>
+                                    <input type="date" id="dlrExportDateTo" class="dlr-export-input">
                                 </div>
                             </div>
                             <!-- DND filter -->
                             <div style="margin-bottom:14px;">
-                                <label style="font-size:0.75rem;font-weight:600;color:#aaa;margin-bottom:4px;display:block;">Do Not Disturb</label>
-                                <select id="dlrExportDnd" style="width:100%;padding:7px 10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;color:#eee;font-size:0.85rem;">
+                                <label class="dlr-export-label">Do Not Disturb</label>
+                                <select id="dlrExportDnd" class="dlr-export-input dlr-export-select">
                                     <option value="">All Contacts</option>
                                     <option value="false">Exclude DND</option>
                                     <option value="true">Only DND</option>
                                 </select>
                             </div>
                             <!-- Preview / count -->
-                            <div id="dlrExportPreview" style="padding:10px;background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.1);border-radius:8px;margin-bottom:14px;">
-                                <span style="color:#00d9ff;font-size:0.8rem;font-weight:600;"><i class="fa-solid fa-info-circle me-1"></i>All cached contacts will be exported with selected filters.</span>
+                            <div id="dlrExportPreview" class="dlr-export-info" style="margin-bottom:14px;">
+                                <span><i class="fa-solid fa-info-circle me-1"></i>All cached contacts will be exported with selected filters.</span>
                             </div>
                         </div>
                         <!-- Footer -->
-                        <div style="padding:14px 20px;border-top:1px solid rgba(255,255,255,0.06);display:flex;justify-content:flex-end;gap:8px;">
-                            <button onclick="dlrExportClose()" style="padding:8px 16px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;font-size:0.85rem;cursor:pointer;">Cancel</button>
-                            <button id="dlrExportBtn" onclick="dlrExportDownload()" style="padding:8px 20px;border-radius:8px;background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;font-weight:700;font-size:0.85rem;cursor:pointer;">
+                        <div class="dlr-export-footer">
+                            <button class="dlr-export-cancel" onclick="dlrExportClose()">Cancel</button>
+                            <button id="dlrExportBtn" class="dlr-export-submit" onclick="dlrExportDownload()">
                                 <i class="fa-solid fa-download me-1"></i>Export CSV
                             </button>
                         </div>
