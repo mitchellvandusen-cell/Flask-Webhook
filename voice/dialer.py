@@ -18,6 +18,7 @@ from voice.audio import XAI_API_KEY, VOICE_OPTIONS, DEFAULT_VOICE, _generate_voi
 from voice.call_state import active_calls, transfer_requests, _twilio_hangup
 from voice.helpers import _get_subscriber_by_location, _get_current_subscriber_voice
 from voice.call_history_helpers import save_call_to_history, update_call_history_status
+from blueprints.team import require_permission
 from voice.predictive_engine import (
     calculate_optimal_dial_ratio, tcpa_tracker, agent_state_manager,
     callback_queue, check_recipient_timezone, is_two_party_consent_state,
@@ -703,8 +704,170 @@ def sync_contacts_cache():
     return jsonify({"status": "sync_started"})
 
 
+@dialer_bp.route('/voice/contacts/tags', methods=['GET'])
+@login_required
+def get_contact_tags():
+    """Return all unique tags across contacts for export filter UI."""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        if getattr(current_user, 'is_seat_user', False) and getattr(current_user, 'seat_user_id', None):
+            cur.execute("SELECT location_id FROM location_users WHERE id = %s", (current_user.seat_user_id,))
+        else:
+            cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        if not row or not row.get('location_id'):
+            cur.close()
+            return jsonify({"tags": []})
+        location_id = row['location_id']
+        cur.execute("""
+            SELECT DISTINCT tag FROM contact_cache, jsonb_array_elements_text(tags) AS tag
+            WHERE location_id = %s ORDER BY tag
+        """, (location_id,))
+        tags = [r['tag'] for r in cur.fetchall()]
+        cur.close()
+        return jsonify({"tags": tags})
+    except Exception as e:
+        logger.error(f"get_contact_tags error: {e}")
+        return jsonify({"tags": []})
+    finally:
+        return_db_connection(conn)
+
+
+@dialer_bp.route('/voice/contacts/export', methods=['POST'])
+@login_required
+def export_contacts():
+    """
+    Export contacts from cache as CSV with optional filters.
+    Body: { tags: [], date_from: "YYYY-MM-DD", date_to: "YYYY-MM-DD",
+            search: "", dnd: null|true|false, include_fields: [] }
+    """
+    import csv
+    import io
+
+    data = request.get_json(silent=True) or {}
+    filter_tags = data.get('tags') or []
+    date_from = (data.get('date_from') or '').strip()
+    date_to = (data.get('date_to') or '').strip()
+    search = (data.get('search') or '').strip()
+    dnd_filter = data.get('dnd')  # null=all, true=only DND, false=exclude DND
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        # Resolve location_id + seat user filtering
+        _assigned_to = None
+        if getattr(current_user, 'is_seat_user', False) and getattr(current_user, 'seat_user_id', None):
+            cur.execute("""
+                SELECT lu.location_id, lu.ghl_user_id, lu.permissions
+                FROM location_users lu WHERE lu.id = %s
+            """, (current_user.seat_user_id,))
+            row = cur.fetchone()
+            if not row or not row.get('location_id'):
+                return jsonify({"error": "No location configured"}), 400
+            location_id = row['location_id']
+            perms = row.get('permissions') or {}
+            if not perms.get('can_view_all_leads', False) and row.get('ghl_user_id'):
+                _assigned_to = row['ghl_user_id']
+        else:
+            cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+            row = cur.fetchone()
+            if not row or not row.get('location_id'):
+                return jsonify({"error": "No location configured"}), 400
+            location_id = row['location_id']
+
+        # Build query with filters
+        where = ["location_id = %s"]
+        params = [location_id]
+
+        if _assigned_to:
+            where.append("assigned_to = %s")
+            params.append(_assigned_to)
+
+        if search:
+            where.append("(LOWER(name) LIKE %s OR LOWER(phone) LIKE %s OR LOWER(email) LIKE %s)")
+            s = f"%{search.lower()}%"
+            params.extend([s, s, s])
+
+        if dnd_filter is True:
+            where.append("dnd = true")
+        elif dnd_filter is False:
+            where.append("(dnd = false OR dnd IS NULL)")
+
+        if date_from:
+            where.append("date_added >= %s")
+            params.append(date_from)
+        if date_to:
+            where.append("date_added <= %s")
+            params.append(date_to + "T23:59:59")
+
+        if filter_tags:
+            where.append("tags ?| %s")
+            params.append(filter_tags)
+
+        sql = f"""
+            SELECT contact_id, name, first_name, last_name, phone, email,
+                   tags, date_added, dnd, assigned_to
+            FROM contact_cache
+            WHERE {' AND '.join(where)}
+            ORDER BY name ASC
+        """
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+        cur.close()
+
+        # Generate CSV
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow([
+            'Contact ID', 'Full Name', 'First Name', 'Last Name',
+            'Phone', 'Email', 'Tags', 'Date Added', 'Do Not Disturb', 'Assigned To'
+        ])
+        for r in rows:
+            tags_val = r.get('tags') or []
+            if isinstance(tags_val, str):
+                try:
+                    tags_val = json.loads(tags_val)
+                except Exception:
+                    tags_val = []
+            writer.writerow([
+                r.get('contact_id', ''),
+                r.get('name', ''),
+                r.get('first_name', ''),
+                r.get('last_name', ''),
+                r.get('phone', ''),
+                r.get('email', ''),
+                '; '.join(tags_val) if isinstance(tags_val, list) else str(tags_val),
+                r.get('date_added', ''),
+                'Yes' if r.get('dnd') else 'No',
+                r.get('assigned_to', ''),
+            ])
+
+        csv_content = output.getvalue()
+        output.close()
+
+        return Response(
+            csv_content,
+            mimetype='text/csv',
+            headers={
+                'Content-Disposition': f'attachment; filename="contacts-export-{datetime.now().strftime("%Y%m%d-%H%M%S")}.csv"'
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"export_contacts error: {e}")
+        return jsonify({"error": f"Export failed: {str(e)}"}), 500
+    finally:
+        return_db_connection(conn)
+
+
 @dialer_bp.route('/voice/dial', methods=['POST'])
 @login_required
+@require_permission('can_dial')
 def dial_contact():
     """
     Initiate an outbound call to a specific contact via Twilio.
@@ -932,6 +1095,7 @@ def dial_contact():
 
 @dialer_bp.route('/voice/multi-dial', methods=['POST'])
 @login_required
+@require_permission('can_dial')
 def multi_dial():
     """
     Multi-line dialer: initiate up to N concurrent calls.

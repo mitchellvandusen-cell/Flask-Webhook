@@ -185,6 +185,51 @@ def stripe_webhook():
                 logger.error(f"A2P fee webhook error: {e}")
             return '', 200
 
+        # ── Seat user subscription ─────────────────────────────────────────
+        if metadata.get("purchase_type") == "seat_user" and email:
+            loc_id = metadata.get("location_id", "")
+            sub_id = session.subscription  # Stripe subscription ID
+            logger.info(f"Seat subscription paid by {email} — location={loc_id} subscription={sub_id}")
+            try:
+                conn = get_db_connection()
+                if conn:
+                    cur = None
+                    try:
+                        cur = conn.cursor()
+                        # Store subscription ID for lifecycle tracking
+                        # Associate with next unpaid seat user at this location
+                        cur.execute("""
+                            UPDATE location_users
+                            SET stripe_seat_subscription_id = %s, updated_at = NOW()
+                            WHERE location_id = %s
+                              AND stripe_seat_subscription_id IS NULL
+                              AND is_active = true
+                            ORDER BY created_at DESC
+                            LIMIT 1
+                        """, (sub_id, loc_id))
+                        conn.commit()
+                    except Exception as e:
+                        logger.error(f"Failed to link seat subscription: {e}")
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
+                    finally:
+                        if cur:
+                            try:
+                                cur.close()
+                            except Exception:
+                                pass
+                        return_db_connection(conn)
+            except Exception as e:
+                logger.error(f"Seat subscription webhook error: {e}")
+            return '', 200
+
+        # ── Phone number cart purchase ────────────────────────────────────────
+        if metadata.get("purchase_type") == "phone_number_cart" and email:
+            logger.info(f"Phone number cart paid by {email}")
+            return '', 200
+
         # ── Subscription checkout ─────────────────────────────────────────────
         target_role = metadata.get("target_role", "individual")
         target_tier = metadata.get("target_tier", "individual")
@@ -239,6 +284,57 @@ def stripe_webhook():
                 finally:
                     cur.close()
                     return_db_connection(conn)
+
+    # ── Subscription cancelled / deleted — handle seat deactivation ──────
+    elif event["type"] in ("customer.subscription.deleted", "customer.subscription.updated"):
+        subscription = event["data"]["object"]
+        sub_id = subscription.id
+        status = subscription.status  # 'canceled', 'unpaid', 'past_due', etc.
+
+        if status in ('canceled', 'unpaid', 'incomplete_expired'):
+            # Check if this is a seat subscription
+            try:
+                conn = get_db_connection()
+                if conn:
+                    cur = None
+                    try:
+                        cur = conn.cursor(cursor_factory=RealDictCursor)
+                        cur.execute("""
+                            SELECT id, email, location_id FROM location_users
+                            WHERE stripe_seat_subscription_id = %s
+                        """, (sub_id,))
+                        seat = cur.fetchone()
+                        if seat:
+                            cur.execute("""
+                                UPDATE location_users
+                                SET is_active = false, updated_at = NOW()
+                                WHERE id = %s
+                            """, (seat['id'],))
+                            conn.commit()
+                            logger.info(f"Seat user {seat['email']} deactivated — subscription {sub_id} {status}")
+
+                            # Revoke sessions
+                            cur.execute("""
+                                UPDATE location_users
+                                SET session_revoked_at = NOW()
+                                WHERE id = %s
+                            """, (seat['id'],))
+                            conn.commit()
+                    except Exception as e:
+                        logger.error(f"Seat deactivation on subscription cancel failed: {e}")
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
+                    finally:
+                        if cur:
+                            try:
+                                cur.close()
+                            except Exception:
+                                pass
+                        return_db_connection(conn)
+            except Exception as e:
+                logger.error(f"Seat subscription lifecycle error: {e}")
 
     return '', 200
 

@@ -1153,6 +1153,9 @@
                                 <button id="dialerSyncBtn" onclick="dialerSyncContacts()" title="Sync contacts from CRM" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:4px 7px;cursor:pointer;color:#888;font-size:.75rem;">
                                     <i class="fa-solid fa-rotate" id="dialerSyncIcon"></i>
                                 </button>
+                                <button onclick="dlrExportOpen()" title="Export contacts to CSV" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:4px 7px;cursor:pointer;color:#888;font-size:.75rem;">
+                                    <i class="fa-solid fa-file-export"></i>
+                                </button>
                                 <button id="dialerGetContactsBtn" onclick="dialerFetchContacts(true)" style="background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;border:none;border-radius:6px;padding:4px 10px;font-weight:700;font-size:0.85rem;cursor:pointer;">
                                     <i class="fa-solid fa-download me-1"></i>Get Contacts
                                 </button>
@@ -2193,6 +2196,61 @@
                             <button onclick="closeTranscriptModal()" style="background:none;border:none;color:#888;cursor:pointer;font-size:1.2rem;"><i class="fa-solid fa-xmark"></i></button>
                         </div>
                         <div id="transcriptContent" style="padding:16px 20px;overflow-y:auto;flex:1;"></div>
+                    </div>
+                </div>
+
+                <!-- ═══ EXPORT CONTACTS MODAL ═══ -->
+                <div id="dlrExportModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);z-index:10000;align-items:center;justify-content:center;" onclick="if(event.target===this)dlrExportClose()">
+                    <div style="background:rgba(12,12,12,0.95);border:1px solid rgba(255,255,255,0.1);border-radius:16px;max-width:540px;width:92%;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;">
+                        <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;">
+                            <h5 style="margin:0;font-weight:700;"><i class="fa-solid fa-file-export me-2" style="color:#00d9ff;"></i>Export Contacts</h5>
+                            <button onclick="dlrExportClose()" style="background:none;border:none;color:#888;cursor:pointer;font-size:1.2rem;"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div style="padding:16px 20px;overflow-y:auto;flex:1;">
+                            <!-- Search filter -->
+                            <div style="margin-bottom:14px;">
+                                <label style="font-size:0.75rem;font-weight:600;color:#aaa;margin-bottom:4px;display:block;">Search</label>
+                                <input type="text" id="dlrExportSearch" placeholder="Filter by name, phone, or email..." style="width:100%;padding:8px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;color:#eee;font-size:0.85rem;">
+                            </div>
+                            <!-- Tags filter -->
+                            <div style="margin-bottom:14px;">
+                                <label style="font-size:0.75rem;font-weight:600;color:#aaa;margin-bottom:4px;display:block;">Tags</label>
+                                <div id="dlrExportTags" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;padding:6px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px;">
+                                    <span style="color:#555;font-size:0.75rem;">Loading tags...</span>
+                                </div>
+                            </div>
+                            <!-- Date range -->
+                            <div style="display:flex;gap:10px;margin-bottom:14px;">
+                                <div style="flex:1;">
+                                    <label style="font-size:0.75rem;font-weight:600;color:#aaa;margin-bottom:4px;display:block;">Date From</label>
+                                    <input type="date" id="dlrExportDateFrom" style="width:100%;padding:7px 10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;color:#eee;font-size:0.85rem;">
+                                </div>
+                                <div style="flex:1;">
+                                    <label style="font-size:0.75rem;font-weight:600;color:#aaa;margin-bottom:4px;display:block;">Date To</label>
+                                    <input type="date" id="dlrExportDateTo" style="width:100%;padding:7px 10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;color:#eee;font-size:0.85rem;">
+                                </div>
+                            </div>
+                            <!-- DND filter -->
+                            <div style="margin-bottom:14px;">
+                                <label style="font-size:0.75rem;font-weight:600;color:#aaa;margin-bottom:4px;display:block;">Do Not Disturb</label>
+                                <select id="dlrExportDnd" style="width:100%;padding:7px 10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;color:#eee;font-size:0.85rem;">
+                                    <option value="">All Contacts</option>
+                                    <option value="false">Exclude DND</option>
+                                    <option value="true">Only DND</option>
+                                </select>
+                            </div>
+                            <!-- Preview / count -->
+                            <div id="dlrExportPreview" style="padding:10px;background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.1);border-radius:8px;margin-bottom:14px;">
+                                <span style="color:#00d9ff;font-size:0.8rem;font-weight:600;"><i class="fa-solid fa-info-circle me-1"></i>All cached contacts will be exported with selected filters.</span>
+                            </div>
+                        </div>
+                        <!-- Footer -->
+                        <div style="padding:14px 20px;border-top:1px solid rgba(255,255,255,0.06);display:flex;justify-content:flex-end;gap:8px;">
+                            <button onclick="dlrExportClose()" style="padding:8px 16px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;font-size:0.85rem;cursor:pointer;">Cancel</button>
+                            <button id="dlrExportBtn" onclick="dlrExportDownload()" style="padding:8px 20px;border-radius:8px;background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;font-weight:700;font-size:0.85rem;cursor:pointer;">
+                                <i class="fa-solid fa-download me-1"></i>Export CSV
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

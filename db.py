@@ -1679,6 +1679,36 @@ def init_db() -> bool:
             conn.rollback()
             logger.debug(f"location_users migration note: {e}")
 
+        # 28. MIGRATION: Add session_revoked_at and stripe_seat_subscription_id to location_users
+        try:
+            cur.execute("ALTER TABLE location_users ADD COLUMN IF NOT EXISTS session_revoked_at TIMESTAMP")
+            cur.execute("ALTER TABLE location_users ADD COLUMN IF NOT EXISTS stripe_seat_subscription_id TEXT")
+            conn.commit()
+            logger.info("✅ Migration: Added session_revoked_at + stripe columns to location_users")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"location_users session columns migration note: {e}")
+
+        # 29. MIGRATION: Create team_audit_log table
+        try:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS team_audit_log (
+                    id SERIAL PRIMARY KEY,
+                    location_id TEXT NOT NULL,
+                    actor_email TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    target_email TEXT,
+                    details JSONB,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_team_audit_location ON team_audit_log(location_id, created_at DESC)")
+            conn.commit()
+            logger.info("✅ Migration: Created team_audit_log table")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"team_audit_log migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)
@@ -1849,14 +1879,26 @@ class User(UserMixin):
                 """, (email,))
                 seat_row = cur.fetchone()
                 if seat_row:
+                    # Check session revocation — if session was created before revocation, deny
+                    if seat_row.get('session_revoked_at'):
+                        from flask import session as flask_session
+                        login_time = flask_session.get('_seat_login_at')
+                        if login_time:
+                            from datetime import datetime as _dt
+                            try:
+                                lt = _dt.fromisoformat(login_time) if isinstance(login_time, str) else login_time
+                                if lt < seat_row['session_revoked_at']:
+                                    logger.info(f"Seat user {email} session revoked")
+                                    return None
+                            except Exception:
+                                pass
+
                     logger.debug(f"Found seat user in location_users table")
-                    # Merge parent subscriber data with seat user data
                     data = dict(seat_row)
                     data['_is_seat_user'] = True
                     data['_seat_user_id'] = data.get('id')
                     data['location_id'] = data.get('location_id') or data.get('parent_location_id')
-                    data['role'] = 'seat_user'
-                    # Seat users inherit parent's OAuth tokens and bot config
+                    data['role'] = data.get('role', 'agent')  # Preserve seat user role
                     data['subscription_tier'] = data.get('parent_subscription_tier', 'individual')
                     data['stripe_customer_id'] = data.get('parent_stripe_customer_id')
                     return User(data)

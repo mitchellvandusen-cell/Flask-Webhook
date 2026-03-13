@@ -9,6 +9,8 @@ import json
 import os
 import secrets
 import logging
+from datetime import datetime, timedelta
+from functools import wraps
 
 import stripe
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
@@ -27,32 +29,161 @@ team_bp = Blueprint('team', __name__)
 
 YOUR_DOMAIN = os.getenv('YOUR_DOMAIN', 'http://localhost:8080')
 SEAT_PRICE_CENTS = 4900  # $49/month per seat
+MAX_SEATS = 10
 
-# ── Default permissions for new seat users ────────────────────────────────────
+# ── Roles ─────────────────────────────────────────────────────────────────────
 
-DEFAULT_PERMISSIONS = {
-    "can_dial": True,
-    "can_text": True,
-    "can_view_all_leads": False,
-    "can_import_leads": False,
-    "can_change_bot_config": False,
-    "can_view_call_recordings": True,
-    "can_manage_numbers": False,
-    "can_view_billing": False,
-    "can_invite_users": False,
+ROLES = {
+    'admin':   'Full access — can manage team, billing, config, and all leads',
+    'manager': 'Can manage agents, view all leads, and view KPIs',
+    'agent':   'Can dial and text assigned leads only',
 }
+
+# ── Default permissions by role ───────────────────────────────────────────────
+
+ROLE_DEFAULTS = {
+    'admin': {
+        "can_dial": True,
+        "can_text": True,
+        "can_view_all_leads": True,
+        "can_import_leads": True,
+        "can_change_bot_config": True,
+        "can_view_call_recordings": True,
+        "can_manage_numbers": True,
+        "can_view_billing": True,
+        "can_invite_users": True,
+    },
+    'manager': {
+        "can_dial": True,
+        "can_text": True,
+        "can_view_all_leads": True,
+        "can_import_leads": True,
+        "can_change_bot_config": False,
+        "can_view_call_recordings": True,
+        "can_manage_numbers": False,
+        "can_view_billing": False,
+        "can_invite_users": True,
+    },
+    'agent': {
+        "can_dial": True,
+        "can_text": True,
+        "can_view_all_leads": False,
+        "can_import_leads": False,
+        "can_change_bot_config": False,
+        "can_view_call_recordings": True,
+        "can_manage_numbers": False,
+        "can_view_billing": False,
+        "can_invite_users": False,
+    },
+}
+
+DEFAULT_PERMISSIONS = ROLE_DEFAULTS['agent']
+
+
+# ── Permission Enforcement Decorator ─────────────────────────────────────────
+
+def require_permission(perm):
+    """Decorator that enforces a specific permission on seat users.
+    Non-seat users (managers/owners) always pass.
+    Returns 403 JSON if seat user lacks the permission."""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if getattr(current_user, 'is_seat_user', False):
+                if not current_user.has_permission(perm):
+                    return jsonify({"error": f"Permission denied: {perm}"}), 403
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+
+# ── Audit Logging ─────────────────────────────────────────────────────────────
+
+def _audit_log(location_id, actor_email, action, target_email=None, details=None):
+    """Log a team management action to the team_audit_log table."""
+    conn = get_db_connection()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO team_audit_log (location_id, actor_email, action, target_email, details)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (location_id, actor_email, action, target_email,
+              json.dumps(details) if details else None))
+        conn.commit()
+        cur.close()
+    except Exception as e:
+        logger.error(f"Audit log write failed: {e}")
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+    finally:
+        return_db_connection(conn)
+
+
+# ── Session Revocation ────────────────────────────────────────────────────────
+
+def _revoke_seat_sessions(seat_email):
+    """Invalidate all Flask sessions for a seat user by bumping their session version.
+    Uses a simple approach: set a revocation timestamp that User.get checks."""
+    conn = get_db_connection()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE location_users
+            SET session_revoked_at = NOW(), updated_at = NOW()
+            WHERE email = %s
+        """, (seat_email,))
+        conn.commit()
+        cur.close()
+    except Exception as e:
+        logger.error(f"Session revocation failed: {e}")
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+    finally:
+        return_db_connection(conn)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _require_manager():
-    """Verify current user is a location manager (subscriber), not a seat user."""
+    """Verify current user is a location manager (subscriber), not a seat user.
+    Seat users with 'can_invite_users' permission can also manage team."""
     if getattr(current_user, 'is_seat_user', False):
+        # Seat admins/managers with invite permission can manage
+        if current_user.has_permission('can_invite_users'):
+            return True
         return False
     if current_user.role in ('individual', 'agency_owner', 'super_admin',
                               'agency_sub_account_user'):
         return True
     return False
+
+
+def _get_active_seat_count(location_id):
+    """Get count of active seats for a location."""
+    conn = get_db_connection()
+    if not conn:
+        return 0
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT COUNT(*) FROM location_users
+            WHERE location_id = %s AND is_active = true
+        """, (location_id,))
+        count = cur.fetchone()[0]
+        cur.close()
+        return count
+    except Exception:
+        return 0
+    finally:
+        return_db_connection(conn)
 
 
 def _get_ghl_users(location_id, access_token):
@@ -128,14 +259,15 @@ def list_members():
             SELECT id, email, full_name, ghl_user_id, role, permissions,
                    voice_activated, onboarding_status, is_active,
                    voice_config->>'twilio_phone_number' as phone_number,
-                   created_at, invite_sent_at, invite_claimed_at
+                   created_at, invite_sent_at, invite_claimed_at,
+                   stripe_seat_subscription_id
             FROM location_users
             WHERE location_id = %s
             ORDER BY created_at DESC
         """, (current_user.location_id,))
         members = cur.fetchall()
 
-        # Convert to serializable
+        now = datetime.now()
         result = []
         for m in members:
             row = dict(m)
@@ -143,11 +275,29 @@ def list_members():
                 row['created_at'] = row['created_at'].isoformat()
             if row.get('invite_sent_at'):
                 row['invite_sent_at'] = row['invite_sent_at'].isoformat()
+                # Calculate expiry countdown
+                expiry = m['invite_sent_at'] + timedelta(days=7)
+                remaining = expiry - now
+                if remaining.total_seconds() > 0:
+                    row['invite_expires_in_hours'] = round(remaining.total_seconds() / 3600, 1)
+                    row['invite_expired'] = False
+                else:
+                    row['invite_expires_in_hours'] = 0
+                    row['invite_expired'] = True
             if row.get('invite_claimed_at'):
                 row['invite_claimed_at'] = row['invite_claimed_at'].isoformat()
+            row['has_paid_seat'] = bool(row.get('stripe_seat_subscription_id'))
             result.append(row)
 
-        return jsonify({"members": result})
+        # Also return seat limit info
+        active_count = sum(1 for m in result if m.get('is_active'))
+
+        return jsonify({
+            "members": result,
+            "max_seats": MAX_SEATS,
+            "active_seats": active_count,
+            "seats_remaining": max(0, MAX_SEATS - active_count),
+        })
 
     except Exception as e:
         logger.error(f"List members error: {e}")
@@ -162,7 +312,7 @@ def list_members():
 @team_bp.route('/api/team/invite', methods=['POST'])
 @login_required
 def invite_member():
-    """Invite a new seat user to the location."""
+    """Invite a new seat user to the location. Enforces 10-seat maximum."""
     if not _require_manager():
         return jsonify({"error": "Access denied"}), 403
 
@@ -170,9 +320,20 @@ def invite_member():
     email = (data.get('email') or '').strip().lower()
     full_name = (data.get('full_name') or '').strip()
     ghl_user_id = (data.get('ghl_user_id') or '').strip()
+    role = (data.get('role') or 'agent').strip()
+
+    if role not in ROLES:
+        return jsonify({"error": f"Invalid role. Must be one of: {', '.join(ROLES.keys())}"}), 400
 
     if not email:
         return jsonify({"error": "Email is required"}), 400
+
+    # Enforce seat limit
+    active_count = _get_active_seat_count(current_user.location_id)
+    if active_count >= MAX_SEATS:
+        return jsonify({
+            "error": f"Seat limit reached ({MAX_SEATS} max). Deactivate an existing user or contact support to increase your limit."
+        }), 403
 
     conn = get_db_connection()
     if not conn:
@@ -191,17 +352,27 @@ def invite_member():
             return jsonify({"error": "This email is already a seat user"}), 409
 
         invite_token = secrets.token_urlsafe(32)
+        permissions = ROLE_DEFAULTS.get(role, DEFAULT_PERMISSIONS)
 
         cur.execute("""
             INSERT INTO location_users (location_id, email, full_name, ghl_user_id,
                                          role, permissions, invite_token, invite_sent_at,
                                          onboarding_status)
-            VALUES (%s, %s, %s, %s, 'agent', %s, %s, NOW(), 'invited')
+            VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), 'invited')
             RETURNING id
         """, (current_user.location_id, email, full_name, ghl_user_id or None,
-              json.dumps(DEFAULT_PERMISSIONS), invite_token))
+              role, json.dumps(permissions), invite_token))
         new_id = cur.fetchone()['id']
         conn.commit()
+
+        # Audit log
+        _audit_log(
+            location_id=current_user.location_id,
+            actor_email=current_user.email,
+            action='invite_sent',
+            target_email=email,
+            details={'role': role, 'full_name': full_name, 'ghl_user_id': ghl_user_id or None}
+        )
 
         invite_url = f"{YOUR_DOMAIN}/claim-seat?token={invite_token}"
         email_sent = _send_seat_invite_email(
@@ -267,6 +438,9 @@ def resend_invite():
         """, (invite_token, member_id))
         conn.commit()
 
+        _audit_log(current_user.location_id, current_user.email,
+                   'invite_resent', member['email'])
+
         invite_url = f"{YOUR_DOMAIN}/claim-seat?token={invite_token}"
         _send_seat_invite_email(
             to_email=member['email'],
@@ -291,8 +465,6 @@ def resend_invite():
 @team_bp.route('/claim-seat', methods=['GET', 'POST'])
 def claim_seat():
     """Seat user claims their account using the invite token."""
-    from datetime import datetime, timedelta
-
     token = request.args.get('token') or request.form.get('token')
     if not token:
         flash("Invalid or missing invite link.", "danger")
@@ -365,6 +537,9 @@ def claim_seat():
         """, (password_hash, seat['id']))
         conn.commit()
 
+        _audit_log(seat['location_id'], seat['email'],
+                   'account_claimed', seat['email'])
+
         logger.info(f"Seat account claimed: {seat['email']} for location {seat['location_id']}")
         flash("Account activated! You can now log in.", "success")
         return redirect(url_for('auth.login'))
@@ -399,22 +574,36 @@ def update_permissions():
     valid_keys = set(DEFAULT_PERMISSIONS.keys())
     filtered = {k: bool(v) for k, v in permissions.items() if k in valid_keys}
 
+    # Seat users with invite permission cannot grant can_invite_users to others
+    if getattr(current_user, 'is_seat_user', False):
+        filtered.pop('can_invite_users', None)
+
     conn = get_db_connection()
     if not conn:
         return jsonify({"error": "Database unavailable"}), 500
 
     try:
-        cur = conn.cursor()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Get old permissions for audit
+        cur.execute("SELECT email, permissions FROM location_users WHERE id = %s AND location_id = %s",
+                    (member_id, current_user.location_id))
+        old = cur.fetchone()
+        if not old:
+            return jsonify({"error": "Member not found"}), 404
+
         cur.execute("""
             UPDATE location_users
             SET permissions = %s, updated_at = NOW()
             WHERE id = %s AND location_id = %s
         """, (json.dumps(filtered), member_id, current_user.location_id))
 
-        if cur.rowcount == 0:
-            return jsonify({"error": "Member not found"}), 404
-
         conn.commit()
+
+        _audit_log(current_user.location_id, current_user.email,
+                   'permissions_changed', old['email'],
+                   {'old': old.get('permissions'), 'new': filtered})
+
         return jsonify({"status": "success", "permissions": filtered})
 
     except Exception as e:
@@ -426,12 +615,68 @@ def update_permissions():
         return_db_connection(conn)
 
 
+# ── Update Role ───────────────────────────────────────────────────────────────
+
+@team_bp.route('/api/team/role', methods=['POST'])
+@login_required
+def update_role():
+    """Update a seat user's role (admin/manager/agent). Auto-sets permissions."""
+    if not _require_manager():
+        return jsonify({"error": "Access denied"}), 403
+
+    # Only non-seat users (location owners) can change roles
+    if getattr(current_user, 'is_seat_user', False):
+        return jsonify({"error": "Only the account owner can change roles"}), 403
+
+    data = request.get_json()
+    member_id = data.get('member_id')
+    new_role = (data.get('role') or '').strip()
+
+    if not member_id or new_role not in ROLES:
+        return jsonify({"error": f"Valid role required: {', '.join(ROLES.keys())}"}), 400
+
+    permissions = ROLE_DEFAULTS.get(new_role, DEFAULT_PERMISSIONS)
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT email, role FROM location_users WHERE id = %s AND location_id = %s",
+                    (member_id, current_user.location_id))
+        old = cur.fetchone()
+        if not old:
+            return jsonify({"error": "Member not found"}), 404
+
+        cur.execute("""
+            UPDATE location_users
+            SET role = %s, permissions = %s, updated_at = NOW()
+            WHERE id = %s AND location_id = %s
+        """, (new_role, json.dumps(permissions), member_id, current_user.location_id))
+        conn.commit()
+
+        _audit_log(current_user.location_id, current_user.email,
+                   'role_changed', old['email'],
+                   {'old_role': old['role'], 'new_role': new_role})
+
+        return jsonify({"status": "success", "role": new_role, "permissions": permissions})
+
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Update role error: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cur.close()
+        return_db_connection(conn)
+
+
 # ── Deactivate / Reactivate Seat User ─────────────────────────────────────────
 
 @team_bp.route('/api/team/toggle-active', methods=['POST'])
 @login_required
 def toggle_active():
-    """Activate or deactivate a seat user."""
+    """Activate or deactivate a seat user. Deactivation revokes sessions."""
     if not _require_manager():
         return jsonify({"error": "Access denied"}), 403
 
@@ -442,23 +687,40 @@ def toggle_active():
     if not member_id:
         return jsonify({"error": "member_id required"}), 400
 
+    # Enforce seat limit on reactivation
+    if is_active:
+        active_count = _get_active_seat_count(current_user.location_id)
+        if active_count >= MAX_SEATS:
+            return jsonify({"error": f"Cannot reactivate — seat limit reached ({MAX_SEATS} max)"}), 403
+
     conn = get_db_connection()
     if not conn:
         return jsonify({"error": "Database unavailable"}), 500
 
     try:
-        cur = conn.cursor()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT email FROM location_users WHERE id = %s AND location_id = %s",
+                    (member_id, current_user.location_id))
+        member = cur.fetchone()
+        if not member:
+            return jsonify({"error": "Member not found"}), 404
+
         cur.execute("""
             UPDATE location_users
             SET is_active = %s, updated_at = NOW()
             WHERE id = %s AND location_id = %s
         """, (bool(is_active), member_id, current_user.location_id))
-
-        if cur.rowcount == 0:
-            return jsonify({"error": "Member not found"}), 404
-
         conn.commit()
+
         action = "activated" if is_active else "deactivated"
+
+        # Revoke sessions on deactivation
+        if not is_active:
+            _revoke_seat_sessions(member['email'])
+
+        _audit_log(current_user.location_id, current_user.email,
+                   f'user_{action}', member['email'])
+
         return jsonify({"status": "success", "message": f"User {action}"})
 
     except Exception as e:
@@ -475,10 +737,7 @@ def toggle_active():
 @team_bp.route('/api/team/activate-voice', methods=['POST'])
 @login_required
 def activate_seat_voice():
-    """
-    Activate voice for a seat user — creates their own Twilio sub-account.
-    Can be called by manager for a specific member, or by seat user for themselves.
-    """
+    """Activate voice for a seat user — creates their own Twilio sub-account."""
     data = request.get_json() or {}
 
     conn = get_db_connection()
@@ -489,22 +748,17 @@ def activate_seat_voice():
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
         if getattr(current_user, 'is_seat_user', False):
-            # Seat user activating their own voice
             member_id = current_user.seat_user_id
-            cur.execute("""
-                SELECT * FROM location_users WHERE id = %s AND is_active = true
-            """, (member_id,))
+            cur.execute("SELECT * FROM location_users WHERE id = %s AND is_active = true",
+                        (member_id,))
         else:
-            # Manager activating for a seat user
             if not _require_manager():
                 return jsonify({"error": "Access denied"}), 403
             member_id = data.get('member_id')
             if not member_id:
                 return jsonify({"error": "member_id required"}), 400
-            cur.execute("""
-                SELECT * FROM location_users
-                WHERE id = %s AND location_id = %s AND is_active = true
-            """, (member_id, current_user.location_id))
+            cur.execute("SELECT * FROM location_users WHERE id = %s AND location_id = %s AND is_active = true",
+                        (member_id, current_user.location_id))
 
         member = cur.fetchone()
         if not member:
@@ -518,7 +772,6 @@ def activate_seat_voice():
                 "twilio_phone_number": vc.get('twilio_phone_number', ''),
             })
 
-        # Create Twilio sub-account for the seat user
         host = request.host
         webhook_base_url = f"https://{host}"
 
@@ -538,6 +791,10 @@ def activate_seat_voice():
         """, (json.dumps(vc), member['id']))
         conn.commit()
 
+        _audit_log(member['location_id'], current_user.email,
+                   'voice_activated', member['email'],
+                   {'sub_account_sid': result.get('twilio_sub_account_sid')})
+
         logger.info(f"Voice activated for seat user {member['email']}: sub={result.get('twilio_sub_account_sid')}")
 
         return jsonify({
@@ -555,7 +812,93 @@ def activate_seat_voice():
         return_db_connection(conn)
 
 
-# ── Team Stats (for manager's Team tab) ───────────────────────────────────────
+# ── Per-Agent KPIs ────────────────────────────────────────────────────────────
+
+@team_bp.route('/api/team/agent-kpis', methods=['GET'])
+@login_required
+def agent_kpis():
+    """Per-agent KPIs: connect rate, talk time, dials/day, messages sent."""
+    if not _require_manager():
+        return jsonify({"error": "Access denied"}), 403
+
+    period = request.args.get('period', 'week')
+    period_map = {
+        'today': "INTERVAL '1 day'",
+        'week':  "INTERVAL '7 days'",
+        'month': "INTERVAL '30 days'",
+        'all':   "INTERVAL '365 days'",
+    }
+    interval = period_map.get(period, period_map['week'])
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Get all active seat users
+        cur.execute("""
+            SELECT id, email, full_name, role,
+                   voice_config->>'twilio_phone_number' as phone_number,
+                   voice_activated, created_at
+            FROM location_users
+            WHERE location_id = %s AND is_active = true
+            ORDER BY full_name
+        """, (current_user.location_id,))
+        members = [dict(r) for r in cur.fetchall()]
+
+        # Get call stats per member using their Twilio phone number
+        for member in members:
+            phone = member.get('phone_number', '')
+            if phone:
+                cur.execute(f"""
+                    SELECT COUNT(*) as total_calls,
+                           COUNT(*) FILTER (WHERE status = 'completed') as connected_calls,
+                           COALESCE(SUM(duration), 0) as total_talk_time,
+                           COALESCE(AVG(duration) FILTER (WHERE status = 'completed'), 0) as avg_talk_time,
+                           COUNT(DISTINCT DATE(created_at)) as active_days,
+                           MAX(created_at) as last_call
+                    FROM call_history
+                    WHERE location_id = %s
+                      AND from_number = %s
+                      AND created_at >= NOW() - {interval}
+                """, (current_user.location_id, phone))
+                stats = dict(cur.fetchone())
+
+                member['total_calls'] = stats['total_calls']
+                member['connected_calls'] = stats['connected_calls']
+                member['connect_rate'] = round(
+                    (stats['connected_calls'] / stats['total_calls'] * 100)
+                    if stats['total_calls'] > 0 else 0, 1
+                )
+                member['total_talk_time'] = int(stats['total_talk_time'] or 0)
+                member['avg_talk_time'] = round(float(stats['avg_talk_time'] or 0), 1)
+                member['dials_per_day'] = round(
+                    stats['total_calls'] / max(stats['active_days'], 1), 1
+                )
+                member['last_call'] = stats['last_call'].isoformat() if stats.get('last_call') else None
+            else:
+                member.update({
+                    'total_calls': 0, 'connected_calls': 0, 'connect_rate': 0,
+                    'total_talk_time': 0, 'avg_talk_time': 0, 'dials_per_day': 0,
+                    'last_call': None,
+                })
+
+            if member.get('created_at'):
+                member['created_at'] = member['created_at'].isoformat()
+
+        return jsonify({"agents": members, "period": period})
+
+    except Exception as e:
+        logger.error(f"Agent KPIs error: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cur.close()
+        return_db_connection(conn)
+
+
+# ── Team Stats ────────────────────────────────────────────────────────────────
 
 @team_bp.route('/api/team/stats', methods=['GET'])
 @login_required
@@ -571,7 +914,6 @@ def team_stats():
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
-        # Count seat users
         cur.execute("""
             SELECT
                 COUNT(*) FILTER (WHERE is_active = true) as active_seats,
@@ -583,28 +925,140 @@ def team_stats():
             WHERE location_id = %s
         """, (current_user.location_id,))
         counts = dict(cur.fetchone())
+        counts['max_seats'] = MAX_SEATS
 
-        # Get per-member call stats from call_history
-        cur.execute("""
-            SELECT lu.id, lu.email, lu.full_name,
-                   COUNT(ch.id) as total_calls,
-                   COUNT(ch.id) FILTER (WHERE ch.status = 'completed') as connected_calls,
-                   COALESCE(SUM(ch.duration), 0) as total_duration
-            FROM location_users lu
-            LEFT JOIN call_history ch ON ch.location_id = lu.location_id
-                AND ch.phone = (lu.voice_config->>'twilio_phone_number')
-            WHERE lu.location_id = %s AND lu.is_active = true
-            GROUP BY lu.id, lu.email, lu.full_name
-        """, (current_user.location_id,))
-        member_stats = [dict(r) for r in cur.fetchall()]
-
-        return jsonify({
-            "counts": counts,
-            "member_stats": member_stats,
-        })
+        return jsonify({"counts": counts})
 
     except Exception as e:
         logger.error(f"Team stats error: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cur.close()
+        return_db_connection(conn)
+
+
+# ── Audit Log Viewer ──────────────────────────────────────────────────────────
+
+@team_bp.route('/api/team/audit-log', methods=['GET'])
+@login_required
+def get_audit_log():
+    """Fetch team audit log entries. Manager only."""
+    if not _require_manager():
+        return jsonify({"error": "Access denied"}), 403
+
+    limit = min(int(request.args.get('limit', 50)), 200)
+    offset = int(request.args.get('offset', 0))
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""
+            SELECT id, actor_email, action, target_email, details, created_at
+            FROM team_audit_log
+            WHERE location_id = %s
+            ORDER BY created_at DESC
+            LIMIT %s OFFSET %s
+        """, (current_user.location_id, limit, offset))
+        entries = []
+        for r in cur.fetchall():
+            row = dict(r)
+            row['created_at'] = row['created_at'].isoformat() if row.get('created_at') else None
+            entries.append(row)
+
+        return jsonify({"entries": entries})
+
+    except Exception as e:
+        logger.error(f"Audit log error: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cur.close()
+        return_db_connection(conn)
+
+
+# ── Seat Onboarding Status ───────────────────────────────────────────────────
+
+@team_bp.route('/api/team/onboarding-status', methods=['GET'])
+@login_required
+def seat_onboarding_status():
+    """Return onboarding checklist for the current seat user."""
+    if not getattr(current_user, 'is_seat_user', False):
+        return jsonify({"error": "Not a seat user"}), 400
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""
+            SELECT voice_activated, voice_config, full_name, onboarding_status,
+                   invite_claimed_at
+            FROM location_users WHERE id = %s
+        """, (current_user.seat_user_id,))
+        seat = cur.fetchone()
+
+        if not seat:
+            return jsonify({"error": "Account not found"}), 404
+
+        vc = seat.get('voice_config') or {}
+
+        checklist = [
+            {
+                "id": "account_claimed",
+                "label": "Account activated",
+                "done": seat['onboarding_status'] == 'claimed',
+                "icon": "fa-user-check",
+            },
+            {
+                "id": "voice_setup",
+                "label": "Voice account created",
+                "done": seat['voice_activated'],
+                "icon": "fa-phone",
+                "action": "Activate Voice" if not seat['voice_activated'] else None,
+                "action_url": "/voice/automate-setup" if not seat['voice_activated'] else None,
+            },
+            {
+                "id": "phone_number",
+                "label": "Phone number purchased",
+                "done": bool(vc.get('twilio_phone_number')),
+                "icon": "fa-hashtag",
+                "action": "Buy Number" if not vc.get('twilio_phone_number') else None,
+                "action_tab": "numbers" if not vc.get('twilio_phone_number') else None,
+            },
+            {
+                "id": "first_call",
+                "label": "Made your first call",
+                "done": False,  # Will check call_history
+                "icon": "fa-phone-volume",
+            },
+        ]
+
+        # Check if they've made a call
+        if vc.get('twilio_phone_number'):
+            cur.execute("""
+                SELECT EXISTS(
+                    SELECT 1 FROM call_history
+                    WHERE location_id = %s AND from_number = %s
+                    LIMIT 1
+                )
+            """, (seat.get('location_id', current_user.location_id),
+                  vc['twilio_phone_number']))
+            checklist[3]['done'] = cur.fetchone()[0]
+
+        completed = sum(1 for c in checklist if c['done'])
+
+        return jsonify({
+            "checklist": checklist,
+            "completed": completed,
+            "total": len(checklist),
+            "all_done": completed == len(checklist),
+        })
+
+    except Exception as e:
+        logger.error(f"Onboarding status error: {e}")
         return jsonify({"error": str(e)}), 500
     finally:
         cur.close()
@@ -630,17 +1084,24 @@ def remove_member():
         return jsonify({"error": "Database unavailable"}), 500
 
     try:
-        cur = conn.cursor()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT email FROM location_users WHERE id = %s AND location_id = %s",
+                    (member_id, current_user.location_id))
+        member = cur.fetchone()
+        if not member:
+            return jsonify({"error": "Member not found"}), 404
+
         cur.execute("""
             UPDATE location_users
             SET is_active = false, updated_at = NOW()
             WHERE id = %s AND location_id = %s
         """, (member_id, current_user.location_id))
-
-        if cur.rowcount == 0:
-            return jsonify({"error": "Member not found"}), 404
-
         conn.commit()
+
+        _revoke_seat_sessions(member['email'])
+        _audit_log(current_user.location_id, current_user.email,
+                   'user_removed', member['email'])
+
         return jsonify({"status": "success", "message": "Member removed"})
 
     except Exception as e:
@@ -657,16 +1118,19 @@ def remove_member():
 @team_bp.route('/api/team/checkout', methods=['POST'])
 @login_required
 def seat_checkout():
-    """Create a Stripe checkout session for adding a seat ($49/month).
-    After payment, the manager can invite the seat user."""
+    """Create a Stripe checkout session for adding a seat ($49/month)."""
     if not _require_manager():
         return jsonify({"error": "Access denied"}), 403
+
+    # Enforce seat limit
+    active_count = _get_active_seat_count(current_user.location_id)
+    if active_count >= MAX_SEATS:
+        return jsonify({"error": f"Seat limit reached ({MAX_SEATS} max)"}), 403
 
     seat_price_id = os.getenv('STRIPE_SEAT_PRICE_ID', '')
 
     try:
         if seat_price_id:
-            # Use a pre-configured recurring price in Stripe
             session = stripe.checkout.Session.create(
                 payment_method_types=["card"],
                 mode="subscription",
@@ -681,14 +1145,14 @@ def seat_checkout():
                 cancel_url=f"{YOUR_DOMAIN}/dashboard?tab=team",
             )
         else:
-            # Fallback: one-time payment if no recurring price ID configured
             session = stripe.checkout.Session.create(
                 payment_method_types=["card"],
-                mode="payment",
+                mode="subscription",
                 line_items=[{
                     "price_data": {
                         "currency": "usd",
                         "unit_amount": SEAT_PRICE_CENTS,
+                        "recurring": {"interval": "month"},
                         "product_data": {
                             "name": "Additional Seat User",
                             "description": "Monthly seat for an additional team member on InsuranceGrokBot",
@@ -706,6 +1170,9 @@ def seat_checkout():
                 cancel_url=f"{YOUR_DOMAIN}/dashboard?tab=team",
             )
 
+        _audit_log(current_user.location_id, current_user.email,
+                   'seat_checkout_started', details={'stripe_session': session.id})
+
         return jsonify({"checkout_url": session.url})
 
     except Exception as e:
@@ -713,7 +1180,7 @@ def seat_checkout():
         return jsonify({"error": str(e)}), 500
 
 
-# ── Seat Count for Billing Display ────────────────────────────────────────────
+# ── Billing Info ──────────────────────────────────────────────────────────────
 
 @team_bp.route('/api/team/billing-info', methods=['GET'])
 @login_required
@@ -730,7 +1197,8 @@ def seat_billing_info():
         cur = conn.cursor(cursor_factory=RealDictCursor)
         cur.execute("""
             SELECT COUNT(*) as total_seats,
-                   COUNT(*) FILTER (WHERE is_active = true) as active_seats
+                   COUNT(*) FILTER (WHERE is_active = true) as active_seats,
+                   COUNT(*) FILTER (WHERE stripe_seat_subscription_id IS NOT NULL) as paid_seats
             FROM location_users
             WHERE location_id = %s
         """, (current_user.location_id,))
@@ -739,6 +1207,8 @@ def seat_billing_info():
         return jsonify({
             "total_seats": row['total_seats'],
             "active_seats": row['active_seats'],
+            "paid_seats": row['paid_seats'],
+            "max_seats": MAX_SEATS,
             "price_per_seat": SEAT_PRICE_CENTS / 100,
             "monthly_cost": (row['active_seats'] * SEAT_PRICE_CENTS) / 100,
         })
@@ -749,3 +1219,15 @@ def seat_billing_info():
     finally:
         cur.close()
         return_db_connection(conn)
+
+
+# ── Available Roles List ──────────────────────────────────────────────────────
+
+@team_bp.route('/api/team/roles', methods=['GET'])
+@login_required
+def get_roles():
+    """Return available roles and their descriptions."""
+    return jsonify({"roles": [
+        {"key": k, "label": k.capitalize(), "description": v}
+        for k, v in ROLES.items()
+    ]})
