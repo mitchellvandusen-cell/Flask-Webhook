@@ -1,15 +1,17 @@
 // InsuranceGrokBot Service Worker — PWA offline support
-const CACHE_NAME = 'igb-v1';
+// CACHE_NAME must be bumped when static assets change.
+// The app injects STATIC_VERSION at registration time so the SW
+// automatically invalidates when any CSS/JS file changes.
+const CACHE_NAME = 'igb-v2';
 const PRECACHE_URLS = [
   '/dashboard',
-  '/static/css/style.css',
   '/static/favicon.svg',
   '/static/icons/icon-192x192.png',
   '/static/icons/icon-512x512.png',
   '/static/manifest.json'
 ];
 
-// Install — cache shell assets
+// Install — cache shell assets, skip waiting to activate immediately
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -18,7 +20,7 @@ self.addEventListener('install', event => {
   );
 });
 
-// Activate — clean old caches
+// Activate — purge ALL old caches so stale CSS/JS are gone
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
@@ -27,7 +29,11 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Fetch — network-first for API/dynamic, cache-first for static assets
+// Fetch strategy:
+//   /api/, /voice/, /webhook, /stripe, /oauth/ — bypass (no cache)
+//   /static/ CSS/JS — network-first (always fresh, cache as fallback)
+//   /static/ other  — stale-while-revalidate (images, fonts)
+//   HTML pages      — network-first with offline fallback
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
@@ -43,18 +49,35 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Static assets — cache-first
-  if (url.pathname.startsWith('/static/')) {
+  // Static CSS/JS — network-first so ?v= busted URLs always fetch fresh
+  if (url.pathname.startsWith('/static/') &&
+      (url.pathname.endsWith('.css') || url.pathname.endsWith('.js'))) {
     event.respondWith(
-      caches.match(event.request).then(cached => {
-        if (cached) return cached;
-        return fetch(event.request).then(response => {
+      fetch(event.request)
+        .then(response => {
           if (response.ok) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
           }
           return response;
-        });
+        })
+        .catch(() => caches.match(event.request).then(cached => cached || new Response('', { status: 503 })))
+    );
+    return;
+  }
+
+  // Static images/fonts/icons — stale-while-revalidate (fast + eventually fresh)
+  if (url.pathname.startsWith('/static/')) {
+    event.respondWith(
+      caches.match(event.request).then(cached => {
+        const fetchPromise = fetch(event.request).then(response => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return response;
+        }).catch(() => cached);
+        return cached || fetchPromise;
       })
     );
     return;

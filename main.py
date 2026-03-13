@@ -9,6 +9,8 @@ import logging
 import re
 import os
 import json
+import hashlib
+import glob as globmod
 from datetime import timedelta
 import redis
 import stripe
@@ -29,6 +31,25 @@ from utils import make_json_serializable
 load_dotenv()
 
 app = Flask(__name__)
+
+# ── Automatic Cache Busting ──────────────────────────────────────────────────
+# Hash static CSS/JS files at startup. Changes to any file produce a new hash,
+# forcing browsers to fetch fresh assets without manual version bumps.
+
+def _compute_static_version():
+    """Hash mtime of all CSS/JS files in static/ to produce a short cache-bust string."""
+    h = hashlib.md5()
+    static_dir = os.path.join(os.path.dirname(__file__), 'static')
+    for fp in sorted(globmod.glob(os.path.join(static_dir, '**', '*'), recursive=True)):
+        if fp.endswith(('.css', '.js')):
+            try:
+                h.update(f"{fp}:{os.path.getmtime(fp)}".encode())
+            except OSError:
+                pass
+    return h.hexdigest()[:10]
+
+STATIC_VERSION = _compute_static_version()
+app.jinja_env.globals['_sv'] = STATIC_VERSION
 
 # ── PII Redaction Filter for Production Logs ─────────────────────────────────
 
