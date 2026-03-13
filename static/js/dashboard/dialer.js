@@ -5456,6 +5456,10 @@
         let _inboxOffset = 0;
         let _inboxHasMore = false;
         let _inboxLoading = false;
+        // Track which contact IDs have truly-new unread messages since last opened
+        let _inboxUnreadIds = new Set();
+        // Background refresh interval (fallback for messages that don't hit webhook)
+        let _inboxBgRefreshTimer = null;
 
         function inboxRefresh() {
             _inboxOffset = 0;
@@ -5465,6 +5469,50 @@
             _inboxFetch(false).finally(() => {
                 if (icon) icon.classList.remove('fa-spin');
             });
+        }
+
+        function _inboxStartBgRefresh() {
+            if (_inboxBgRefreshTimer) return;
+            // Silent background refresh every 30s as fallback for any missed SSE events
+            _inboxBgRefreshTimer = setInterval(() => {
+                _inboxSilentRefresh();
+            }, 30000);
+        }
+
+        function _inboxStopBgRefresh() {
+            if (_inboxBgRefreshTimer) { clearInterval(_inboxBgRefreshTimer); _inboxBgRefreshTimer = null; }
+        }
+
+        async function _inboxSilentRefresh() {
+            // Fetch latest conversations without showing a spinner or clobbering state
+            if (_inboxLoading) return;
+            const search = (document.getElementById('inboxSearchInput') || {}).value || '';
+            if (search.trim()) return; // don't clobber search results
+            try {
+                const r = await fetch('/api/inbox/conversations?limit=50&offset=0');
+                const data = await r.json();
+                const convos = data.conversations || [];
+                // Merge: if any contact_id in new data isn't in current list, or timestamp changed — update
+                let changed = false;
+                const existingMap = {};
+                _inboxAllData.forEach(c => { existingMap[c.contact_id] = c; });
+                convos.forEach(c => {
+                    const old = existingMap[c.contact_id];
+                    if (!old || old.date !== c.date || old.last_message !== c.last_message) {
+                        changed = true;
+                        // Mark as unread if new inbound message arrived
+                        if (!old || (c.last_direction === 'inbound' && (!old.last_message || old.date !== c.date))) {
+                            if (c.contact_id !== _inboxThreadContactId) {
+                                _inboxUnreadIds.add(c.contact_id);
+                            }
+                        }
+                    }
+                });
+                if (changed) {
+                    _inboxAllData = convos;
+                    _inboxApplyFilter();
+                }
+            } catch(e) {}
         }
 
         async function _inboxFetch(append) {
@@ -5568,24 +5616,25 @@
                 const cNameSafe = dialerEsc(cName);
                 const initials = cName.split(' ').map(w => (w||'')[0]).join('').slice(0, 2).toUpperCase();
                 const isInbound = c.last_direction === 'inbound';
+                const isUnread = _inboxUnreadIds.has(c.contact_id);
                 const timeStr = _inboxFormatTime(c.date);
                 const preview = c.last_message || 'No messages yet';
                 // Color hash for avatar
                 const hue = _inboxNameHue(cName);
 
-                html += '<div class="imsg-convo-row" onclick="inboxOpenThread(\'' + c.contact_id + '\', \'' + cNameSafe.replace(/'/g, "&#39;") + '\', \'' + (c.contact_phone || '').replace(/'/g, '') + '\')">' +
+                html += '<div class="imsg-convo-row' + (isUnread ? ' imsg-convo-unread' : '') + '" onclick="inboxOpenThread(\'' + c.contact_id + '\', \'' + cNameSafe.replace(/'/g, "&#39;") + '\', \'' + (c.contact_phone || '').replace(/'/g, '') + '\')">' +
                     '<div class="imsg-avatar" style="background:linear-gradient(135deg,hsl(' + hue + ',55%,45%),hsl(' + (hue+30) + ',60%,35%));">' + dialerEsc(initials) + '</div>' +
                     '<div style="flex:1;min-width:0;">' +
                         '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">' +
-                            '<span class="imsg-name"' + (isInbound ? ' style="font-weight:700;"' : '') + '>' + cNameSafe + '</span>' +
+                            '<span class="imsg-name"' + (isUnread || isInbound ? ' style="font-weight:700;"' : '') + '>' + cNameSafe + '</span>' +
                             '<div style="display:flex;align-items:center;gap:4px;">' +
-                                '<span class="imsg-time">' + timeStr + '</span>' +
+                                '<span class="imsg-time"' + (isUnread ? ' style="color:#007AFF;font-weight:700;"' : '') + '>' + timeStr + '</span>' +
                                 '<i class="fa-solid fa-chevron-right imsg-chevron"></i>' +
                             '</div>' +
                         '</div>' +
-                        '<div class="imsg-preview">' + (isInbound ? '' : '<span style="color:#8E8E93;">You: </span>') + preview.replace(/</g,'&lt;') + '</div>' +
+                        '<div class="imsg-preview"' + (isUnread ? ' style="color:#fff;font-weight:600;"' : '') + '>' + (isInbound ? '' : '<span style="color:#8E8E93;">You: </span>') + preview.replace(/</g,'&lt;') + '</div>' +
                     '</div>' +
-                    (isInbound ? '<div class="imsg-unread-dot"></div>' : '') +
+                    (isUnread ? '<div class="imsg-unread-dot" style="background:#007AFF;animation:imsgPulse 1.5s ease-in-out infinite;"></div>' : (isInbound ? '<div class="imsg-unread-dot"></div>' : '')) +
                 '</div>';
             });
 
@@ -5635,6 +5684,12 @@
             _inboxThreadContactId = contactId;
             _inboxThreadContactName = contactName || '';
             _inboxThreadContactPhone = contactPhone || '';
+
+            // Clear unread state for this contact and re-render the list row
+            if (_inboxUnreadIds.has(contactId)) {
+                _inboxUnreadIds.delete(contactId);
+                _renderInboxList();
+            }
 
             const threadView = document.getElementById('inboxThreadView');
             const threadName = document.getElementById('inboxThreadName');
@@ -5951,8 +6006,15 @@
                     try {
                         const data = JSON.parse(event.data);
                         if (data.type === 'heartbeat' || data.type === 'connected') return;
-                        if (data.type === 'webhook_received') {
-                            _showIosNotification(data);
+
+                        if (data.type === 'new_inbound_message') {
+                            _inboxHandleLiveMessage(data);
+                        } else if (data.type === 'ghl_sync_complete') {
+                            // Sync just finished — silently refresh the list to pick up any new messages
+                            _inboxSilentRefresh();
+                        } else if (data.type === 'webhook_received') {
+                            // Legacy: show notification only (no contact info available)
+                            _showIosNotification({ contact_name: 'Contact', message_preview: 'New message received' });
                         }
                     } catch (e) {}
                 };
@@ -5976,8 +6038,11 @@
             const body = document.getElementById('iosNotifBody');
             const time = document.getElementById('iosNotifTime');
 
-            if (title) title.textContent = 'Messages';
-            if (body) body.textContent = data.details || 'New activity on your account';
+            const senderName = data.contact_name || 'Messages';
+            const preview = data.message_preview || 'New message received';
+
+            if (title) title.textContent = senderName;
+            if (body) body.textContent = preview;
             if (time) time.textContent = 'now';
 
             // Slide in
@@ -6011,16 +6076,86 @@
             }
         }
 
-        // Start SSE when dialer tab is active
+        function _inboxHandleLiveMessage(data) {
+            // Called when SSE delivers a new_inbound_message event.
+            // Updates the conversation list in-place and appends to the open thread if relevant.
+            const contactId = data.contact_id;
+            const contactName = data.contact_name || '';
+            const preview = data.message_preview || '';
+            const direction = data.direction || 'inbound';
+            const now = new Date().toISOString();
+
+            // 1. Mark as unread (only if not the thread currently open)
+            if (direction === 'inbound' && contactId && contactId !== _inboxThreadContactId) {
+                _inboxUnreadIds.add(contactId);
+            }
+
+            // 2. Move/update this contact to the top of the conversation list
+            if (contactId && _inboxAllData.length) {
+                const idx = _inboxAllData.findIndex(c => c.contact_id === contactId);
+                if (idx !== -1) {
+                    const updated = Object.assign({}, _inboxAllData[idx], {
+                        last_message: preview || _inboxAllData[idx].last_message,
+                        last_direction: direction,
+                        date: now,
+                    });
+                    _inboxAllData.splice(idx, 1);
+                    _inboxAllData.unshift(updated);
+                } else if (contactName) {
+                    // New contact not yet in list — prepend a stub so it shows immediately
+                    _inboxAllData.unshift({
+                        contact_id: contactId,
+                        contact_name: contactName,
+                        contact_phone: '',
+                        last_message: preview,
+                        last_direction: direction,
+                        date: now,
+                        source: 'live',
+                    });
+                }
+                _inboxApplyFilter();
+            } else if (contactId) {
+                // List not loaded yet — trigger a full fetch
+                _inboxFetch(false);
+            }
+
+            // 3. If this contact's thread is open, append the message bubble live
+            if (contactId && contactId === _inboxThreadContactId) {
+                const msgContainer = document.getElementById('inboxThreadMessages');
+                if (msgContainer && preview) {
+                    const bubble = document.createElement('div');
+                    bubble.className = 'imsg-bubble ' + (direction === 'inbound' ? 'inbound' : 'outbound');
+                    const timeStr = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                    bubble.innerHTML = preview.replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+                        '<div class="imsg-bubble-time">' + timeStr + '</div>';
+                    msgContainer.appendChild(bubble);
+                    msgContainer.scrollTop = msgContainer.scrollHeight;
+                }
+            }
+
+            // 4. Show notification banner (only for inbound, and only if not already in that thread)
+            if (direction === 'inbound' && contactId !== _inboxThreadContactId) {
+                _showIosNotification(data);
+            }
+        }
+
+        // Start SSE when dialer tab is active; also start background refresh
         document.addEventListener('DOMContentLoaded', function() {
             const dialerTab = document.querySelector('[data-bs-target="#dialer"]') || document.querySelector('[href="#dialer"]');
             if (dialerTab) {
-                dialerTab.addEventListener('shown.bs.tab', _initSSENotifications);
-                dialerTab.addEventListener('click', function() { setTimeout(_initSSENotifications, 500); });
+                dialerTab.addEventListener('shown.bs.tab', function() {
+                    _initSSENotifications();
+                    _inboxStartBgRefresh();
+                });
+                dialerTab.addEventListener('click', function() {
+                    setTimeout(_initSSENotifications, 500);
+                    setTimeout(_inboxStartBgRefresh, 500);
+                });
             }
             const dialerPane = document.getElementById('voicedialer');
             if (dialerPane && dialerPane.classList.contains('active')) {
                 setTimeout(_initSSENotifications, 1000);
+                setTimeout(_inboxStartBgRefresh, 1000);
             }
         });
 

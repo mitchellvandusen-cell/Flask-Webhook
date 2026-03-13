@@ -330,6 +330,18 @@ def process_webhook_task(payload: dict):
 
         if message:
             save_message(contact_id, message, "lead")
+            # Fire rich event so SSE stream can push a live inbox update to the dashboard
+            _contact_name = payload.get('first_name') or payload.get('name') or 'Contact'
+            log_webhook_event(
+                location_id, "new_inbound_message", "info",
+                f"Message from {_contact_name}",
+                contact_id=contact_id,
+                details={
+                    "contact_name": _contact_name,
+                    "message_preview": message[:80],
+                    "direction": "inbound",
+                }
+            )
 
         # === TCPA STOP WORD CHECK ===
         # If the lead says stop/unsubscribe/blocked/leave me alone/etc, we MUST stop messaging.

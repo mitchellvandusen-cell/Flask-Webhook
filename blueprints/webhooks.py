@@ -95,6 +95,15 @@ def _handle_conversation_provider_outbound(payload: dict):
             log_webhook_event(location_id, "cp_outbound_sms", "success",
                               f"GHL CP SMS sent to {contact_id} ({len(message)} chars)",
                               contact_id=contact_id)
+            # Fire live inbox update event so dashboard refreshes instantly
+            log_webhook_event(location_id, "new_inbound_message", "info",
+                              f"Message to {contact_id}",
+                              contact_id=contact_id,
+                              details={
+                                  "contact_name": "",
+                                  "message_preview": message[:80],
+                                  "direction": "outbound",
+                              })
             return safe_jsonify({"status": "sent", "messageId": message_id}), 200
         else:
             logger.error(f"CP outbound SMS failed ({fail_reason}) for {contact_id}")

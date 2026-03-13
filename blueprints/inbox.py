@@ -288,18 +288,22 @@ def api_stream_notifications():
                         FROM webhook_logs
                         WHERE location_id = %s
                           AND created_at > %s
-                          AND event_type IN ('message_sent', 'webhook_received', 'ghl_sync_complete')
+                          AND event_type IN ('message_sent', 'webhook_received',
+                                             'ghl_sync_complete', 'new_inbound_message')
                         ORDER BY created_at ASC
-                        LIMIT 10
+                        LIMIT 20
                     """, (location_id, last_check))
                     rows = cur.fetchall()
                     cur.close()
 
                     for row in rows:
+                        details = row['details'] or {}
                         event = {
                             "type": row['event_type'],
-                            "details": row['details'],
                             "contact_id": row.get('contact_id'),
+                            "contact_name": details.get('contact_name', ''),
+                            "message_preview": details.get('message_preview', ''),
+                            "direction": details.get('direction', 'inbound'),
                             "time": row['created_at'].isoformat() if row.get('created_at') else None,
                         }
                         yield f"data: {json.dumps(event)}\n\n"
