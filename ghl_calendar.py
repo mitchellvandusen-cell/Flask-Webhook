@@ -279,7 +279,8 @@ def consolidated_calendar_op(
     subscriber_data: dict,
     contact_id: str = None,
     first_name: str = None,
-    selected_time: str = None
+    selected_time: str = None,
+    contact_phone: str = None,
 ) -> any:
     """
     Unified calendar operation: fetch slots or book appointment.
@@ -288,6 +289,11 @@ def consolidated_calendar_op(
 
     MULTI-TENANT: All credentials come from subscriber_data (database).
     No hardcoded tokens or env vars.
+
+    TIMEZONE-AWARE: When contact_phone is provided, the customer's timezone
+    is resolved from their area code. Offered slots are displayed in the
+    customer's local time. Booking requests are interpreted in the customer's
+    timezone and converted to the agent's calendar timezone for GHL.
 
     ENDPOINT FALLBACK for fetch_slots:
     - Try v2 first: GET /v2/locations/{locationId}/calendars/{calendarId}/free-slots
@@ -299,6 +305,20 @@ def consolidated_calendar_op(
     crm_user_id = subscriber_data.get("crm_user_id")
     local_tz_str = subscriber_data.get("timezone", "America/Chicago")
     access_token = subscriber_data.get("access_token")
+
+    # Resolve customer timezone from phone area code (falls back to agent tz)
+    customer_tz_str = None
+    if contact_phone:
+        try:
+            from voice.predictive_engine import area_code_to_timezone, area_code_to_state
+            customer_tz_str = area_code_to_timezone(contact_phone)
+            if customer_tz_str:
+                customer_state = area_code_to_state(contact_phone) or "??"
+                logger.info(f"📅 CUSTOMER TIMEZONE: {customer_tz_str} (state={customer_state}) from phone")
+        except Exception as tz_err:
+            logger.warning(f"⚠️ Could not resolve customer timezone from phone: {tz_err}")
+    if not customer_tz_str:
+        customer_tz_str = local_tz_str  # Fall back to agent timezone
 
     if not cal_id:
         logger.error(f"Missing calendar_id for calendar op (loc={location_id})")
@@ -322,7 +342,11 @@ def consolidated_calendar_op(
         "Content-Type": "application/json"
     }
 
-    local_tz = ZoneInfo(local_tz_str)
+    local_tz = ZoneInfo(local_tz_str)           # Agent's timezone (for GHL API)
+    customer_tz = ZoneInfo(customer_tz_str)      # Customer's timezone (for display & interpretation)
+    tz_differ = local_tz_str != customer_tz_str
+    if tz_differ:
+        logger.info(f"📅 TIMEZONE AWARE: Customer={customer_tz_str} | Agent={local_tz_str}")
 
     # === FETCH SLOTS (with endpoint fallback) ===
     if operation in ["fetch_slots", "book"]:
@@ -417,7 +441,8 @@ def consolidated_calendar_op(
                     # Normalize timezone suffixes
                     if start_str.endswith("Z"):
                         start_str = start_str.replace("Z", "+00:00")
-                    dt = datetime.fromisoformat(start_str).astimezone(local_tz)
+                    # Display in CUSTOMER's timezone so times are meaningful to them
+                    dt = datetime.fromisoformat(start_str).astimezone(customer_tz)
                     if 9 <= dt.hour < 19:
                         parsed_slots.append(dt)
                 except Exception:
@@ -427,7 +452,7 @@ def consolidated_calendar_op(
                 return "let me look at my calendar"
 
             parsed_slots.sort()
-            now_local = datetime.now(local_tz)
+            now_customer = datetime.now(customer_tz)
 
             morning = [s for s in parsed_slots if 9 <= s.hour < 12]
             afternoon = [s for s in parsed_slots if 12 <= s.hour < 19]
@@ -447,7 +472,7 @@ def consolidated_calendar_op(
             afternoon_picks = pick_best(afternoon)
 
             def format_slot(dt):
-                day = "tomorrow" if dt.date() == (now_local + timedelta(days=1)).date() else dt.strftime("%A")
+                day = "tomorrow" if dt.date() == (now_customer + timedelta(days=1)).date() else dt.strftime("%A")
                 time_str = dt.strftime("%I:%M %p").lstrip("0").replace(" 0", " ")
                 return f"{time_str} {day}"
 
@@ -460,7 +485,14 @@ def consolidated_calendar_op(
             if not options:
                 return "let me look at my calendar"
 
-            return "I've got " + (", or ".join(options) if len(options) > 1 else options[0])
+            result = "I've got " + (", or ".join(options) if len(options) > 1 else options[0])
+            # Add timezone label when customer is in a different timezone than agent
+            if tz_differ:
+                # Use short timezone abbreviation (e.g., "EST", "PST", "CT")
+                tz_label = now_customer.strftime("%Z") or customer_tz_str.split("/")[-1]
+                result += f" (your time, {tz_label})"
+                logger.info(f"📅 SLOTS DISPLAYED in customer tz {customer_tz_str} (agent tz: {local_tz_str})")
+            return result
 
     # === BOOK APPOINTMENT ===
     if operation == "book" and selected_time and contact_id:
@@ -481,7 +513,9 @@ def consolidated_calendar_op(
 
         time_str = selected_time.lower().strip()
         logger.info(f"📅 BOOKING TIME PARSE | raw selected_time='{selected_time[:100]}'")
-        now_local = datetime.now(local_tz)
+        # Use customer's timezone to interpret their requested time
+        # (when they say "11am" they mean 11am in THEIR timezone)
+        now_local = datetime.now(customer_tz)
 
         # Determine target date from context
         target_date = now_local.date()
@@ -595,7 +629,8 @@ def consolidated_calendar_op(
 
         hour = max(9, min(19, hour))
 
-        start_dt = datetime.combine(target_date, time(hour, minute), tzinfo=local_tz)
+        # Build start_dt in CUSTOMER's timezone (they said "11am" meaning their 11am)
+        start_dt = datetime.combine(target_date, time(hour, minute), tzinfo=customer_tz)
         end_dt = start_dt + timedelta(minutes=30)
 
         # --- SLOT VALIDATION: Cross-reference against actual available slots ---
@@ -611,7 +646,8 @@ def consolidated_calendar_op(
                         continue
                     if ss.endswith("Z"):
                         ss = ss.replace("Z", "+00:00")
-                    parsed_avail.append(datetime.fromisoformat(ss).astimezone(local_tz))
+                    # Parse slots into customer's timezone for apples-to-apples comparison
+                    parsed_avail.append(datetime.fromisoformat(ss).astimezone(customer_tz))
                 except Exception:
                     continue
 
@@ -654,12 +690,19 @@ def consolidated_calendar_op(
         if not slot_matched and start_dt <= now_local:
             logger.warning(f"📅 TIME IN PAST: {start_dt} has already passed, shifting to tomorrow")
             target_date = (now_local + timedelta(days=1)).date()
-            start_dt = datetime.combine(target_date, time(hour, minute), tzinfo=local_tz)
+            start_dt = datetime.combine(target_date, time(hour, minute), tzinfo=customer_tz)
             end_dt = start_dt + timedelta(minutes=30)
 
         if start_dt.date() > (now_local + timedelta(days=14)).date():
             logger.error(f"🚨 BOOKING BLOCKED: Time more than 14 days ahead | requested={start_dt} | contact={contact_id}")
             return False
+
+        # Convert from customer timezone to agent timezone for GHL calendar API
+        # GHL books in the agent's calendar timezone, so we must convert
+        start_dt_agent = start_dt.astimezone(local_tz)
+        end_dt_agent = end_dt.astimezone(local_tz)
+        if tz_differ:
+            logger.info(f"📅 TIMEZONE CONVERT: Customer {start_dt.strftime('%I:%M %p %Z')} → Agent {start_dt_agent.strftime('%I:%M %p %Z')}")
 
         # Both PIT and OAuth use the same booking endpoint
         booking_url = GHL_BOOK_URL  # Same URL for all token types
@@ -667,8 +710,8 @@ def consolidated_calendar_op(
             "calendarId": cal_id,
             "locationId": location_id,
             "contactId": contact_id,
-            "startTime": start_dt.isoformat(),
-            "endTime": end_dt.isoformat(),
+            "startTime": start_dt_agent.isoformat(),
+            "endTime": end_dt_agent.isoformat(),
             "title": f"Life Insurance Review {first_name or 'Lead'}",
             "appointmentStatus": "confirmed",
             "selectedTimezone": local_tz_str,
@@ -686,7 +729,7 @@ def consolidated_calendar_op(
             try:
                 logger.info(f"📅 BOOKING ATTEMPT {attempt}/{max_attempts} ({token_version})")
                 logger.info(f"   Contact: {contact_id}")
-                logger.info(f"   Time: {start_dt}")
+                logger.info(f"   Customer time: {start_dt.strftime('%Y-%m-%d %I:%M %p %Z')} | Agent/GHL time: {start_dt_agent.strftime('%Y-%m-%d %I:%M %p %Z')}")
                 logger.info(f"   URL: {booking_url}")
                 logger.info(f"   Payload: {payload}")
 
