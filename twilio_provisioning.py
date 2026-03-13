@@ -1122,8 +1122,8 @@ def create_voice_integrity_trust_product(
     contact_email: str,
     sub_account_auth_token: str = "",
     existing_profile_sid: str = "",
-    business_employee_count: str = "10",
-    average_call_volume: str = "100",
+    business_employee_count: str = "1",
+    average_call_volume: str = "500",
     use_case: str = "Lead Management",
 ) -> dict:
     """

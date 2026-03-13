@@ -25,6 +25,7 @@ from number_health import (
 )
 from voice.helpers import _get_current_subscriber_voice, _save_voice_config
 from blueprints.team import require_permission
+from ghl_sync import sync_ghl_users
 
 logger = logging.getLogger("voice_bridge.numbers")
 
@@ -1194,6 +1195,16 @@ def number_integrity_register():
     ni = vc.get('number_integrity', {})
     trust_product_sid = ni.get('trust_product_sid', '')
 
+    # Fetch location user count for Voice Integrity attributes
+    location_id = subscriber.get('location_id', '')
+    try:
+        ghl_users = sync_ghl_users(location_id) if location_id else []
+    except Exception:
+        ghl_users = []
+    user_count = max(len(ghl_users), 1)
+    avg_call_volume = str(user_count * 500)
+    employee_count = str(user_count)
+
     try:
         # Step 1: Create Trust Product if we don't have one
         if not trust_product_sid:
@@ -1204,6 +1215,8 @@ def number_integrity_register():
                 contact_email=contact_email,
                 sub_account_auth_token=sub_auth_token,
                 existing_profile_sid=existing_profile,
+                business_employee_count=employee_count,
+                average_call_volume=avg_call_volume,
             )
             trust_product_sid = result['trust_product_sid']
             ni['trust_product_sid'] = trust_product_sid
