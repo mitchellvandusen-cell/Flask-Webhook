@@ -7351,8 +7351,6 @@
         function dlrExportOpen() {
             const modal = document.getElementById('dlrExportModal');
             if (!modal) return;
-            // Move modal to body so backdrop-filter/overflow:hidden parents don't clip it
-            if (modal.parentElement !== document.body) document.body.appendChild(modal);
             modal.style.display = 'flex';
             _dlrExportSelectedTags.clear();
             // Reset filters
