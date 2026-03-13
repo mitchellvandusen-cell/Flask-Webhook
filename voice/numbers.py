@@ -1618,23 +1618,54 @@ def number_integrity_status():
     sub_auth_token = (vc or {}).get('twilio_auth_token', '')
 
     # If we have a trust product, check live status from Twilio
-    live_status = ni.get('status', 'not_registered')
+    cached_status = ni.get('status', 'not_registered')
+    live_status = cached_status
     assigned_numbers = ni.get('assigned_numbers', [])
     assigned_count = ni.get('assigned_count', 0)
+
+    # Status progression order — never regress to an earlier status.
+    # Twilio's Trust Hub API has eventual consistency: a .fetch() right after
+    # .update(status="pending-review") may still return "draft". Guard against
+    # overwriting a more-advanced cached status with a stale live read.
+    _STATUS_ORDER = {
+        'not_registered': 0,
+        'draft': 1,
+        'pending-review': 2,
+        'in-review': 3,
+        'twilio-approved': 4,
+        'twilio-rejected': 4,  # same rank as approved (terminal state)
+    }
 
     if trust_product_sid:
         try:
             live = twilio_provisioning.get_voice_integrity_status(
                 sub_sid, trust_product_sid, sub_auth_token)
-            live_status = live.get('status', live_status)
+            twilio_status = live.get('status', '')
             assigned_numbers = live.get('assigned_numbers', assigned_numbers)
             assigned_count = live.get('assigned_count', assigned_count)
-            # Persist updated status
-            ni['status'] = live_status
-            ni['assigned_numbers'] = assigned_numbers
-            ni['assigned_count'] = assigned_count
-            vc['number_integrity'] = ni
-            _save_voice_config(current_user.email, vc)
+
+            # Only update status if the live status is at least as advanced as cached,
+            # OR if live says rejected (terminal — always trust Twilio's rejection).
+            twilio_rank = _STATUS_ORDER.get(twilio_status, -1)
+            cached_rank = _STATUS_ORDER.get(cached_status, -1)
+            if twilio_rank >= cached_rank:
+                live_status = twilio_status
+            else:
+                logger.info(
+                    f"[NumberIntegrity] Ignoring stale Twilio status '{twilio_status}' "
+                    f"(cached='{cached_status}') — eventual consistency"
+                )
+                live_status = cached_status
+
+            # Persist if status actually changed
+            if live_status != cached_status or ni.get('assigned_count') != assigned_count:
+                ni['status'] = live_status
+                ni['assigned_numbers'] = assigned_numbers
+                ni['assigned_count'] = assigned_count
+                if live_status == 'twilio-rejected':
+                    ni['failure_reasons'] = live.get('failure_reasons', ni.get('failure_reasons', []))
+                vc['number_integrity'] = ni
+                _save_voice_config(current_user.email, vc)
         except Exception as e:
             logger.warning(f"[NumberIntegrity] Live status check failed, using cached: {e}")
 
