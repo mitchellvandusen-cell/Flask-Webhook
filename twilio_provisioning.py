@@ -530,32 +530,228 @@ def register_business_profile(sub_account_sid: str, business_name: str,
                                 contact_phone: str,
                                 sub_account_auth_token: str = "") -> dict:
     """
-    Register a business profile for CNAM / caller ID on Twilio.
-    This creates a Trust Hub Customer Profile for the sub-account.
+    Register a business profile for CNAM / spam protection on a Twilio sub-account.
+
+    ISV/Subaccounts flow:
+      1. Find or create a Secondary Customer Profile (correct ISV policy)
+      2. Create EndUser (customer_profile_business_information) with biz details
+      3. Create Authorized Representative EndUser
+      4. Create Address on the sub-account
+      5. Assign all entities to the Secondary Profile (EntityAssignments)
+      6. Link Secondary Profile to Primary Business Profile on master account
+      7. Assign phone numbers to the profile
+      8. Run evaluation and submit for review
+      9. Set CNAM (friendly_name) on all numbers as immediate visual improvement
+
+    The Secondary Profile is reusable across A2P, Voice Integrity, SHAKEN/STIR.
     """
     client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
     results = {"steps": [], "errors": []}
+    profile_sid = ""
 
+    # ── Step 1: Find or create Secondary Customer Profile ──
     try:
-        # Step 1: Create a Customer Profile (Trust Hub)
-        customer_profile = client.trusthub.v1.customer_profiles.create(
-            friendly_name=business_name,
-            email=contact_email,
-            policy_sid="RNb0d4771c2c98518d916a3d4cd70a8f8b",  # Twilio's Business Profile Policy SID
-            status_callback=None,
+        primary_profile_sid = _find_primary_profile_sid()
+        profile_sid = _find_or_create_secondary_profile(
+            client=client,
+            sub_account_sid=sub_account_sid,
+            business_name=business_name,
+            contact_email=contact_email,
+            primary_profile_sid=primary_profile_sid,
         )
-        results["steps"].append({"name": "customer_profile", "status": "ok", "sid": customer_profile.sid})
-        logger.info(f"Created Trust Hub customer profile: {customer_profile.sid}")
+        results["steps"].append({
+            "name": "secondary_profile",
+            "status": "ok",
+            "sid": profile_sid,
+        })
+        logger.info(f"[SpamProtection] Secondary Profile: {profile_sid}")
+    except Exception as e:
+        logger.error(f"[SpamProtection] Secondary Profile creation failed: {e}")
+        results["errors"].append(f"Secondary Profile: {e}")
+        # Can't proceed without a profile — still do CNAM at minimum
 
-    except TwilioRestException as e:
-        logger.error(f"Trust Hub registration failed: {e}")
-        results["errors"].append(str(e))
-        # Non-fatal — CNAM can still work without full Trust Hub
+    # ── Step 2: Create EndUser (business info) ──
+    end_user_sid = ""
+    if profile_sid:
+        try:
+            # Normalize state to 2-letter abbreviation
+            state_upper = (state or "").strip().upper()
+            if len(state_upper) > 2:
+                state_upper = US_STATE_ABBREVS.get(state_upper.lower(), state_upper[:2])
 
+            end_user = client.trusthub.v1.end_users.create(
+                friendly_name=f"Business: {business_name}",
+                type="customer_profile_business_information",
+                attributes={
+                    "business_name": business_name,
+                    "business_identity": "direct_customer",
+                    "business_type": "Partnership" if not ein else "Corporation",
+                    "business_industry": "INSURANCE",
+                    "business_registration_identifier": "EIN",
+                    "business_registration_number": ein,
+                    "business_regions_of_operation": "USA_AND_CANADA",
+                    "website_url": "",
+                    "social_media_profile_urls": "",
+                },
+            )
+            end_user_sid = end_user.sid
+            results["steps"].append({
+                "name": "end_user_business",
+                "status": "ok",
+                "sid": end_user_sid,
+            })
+            logger.info(f"[SpamProtection] Created business EndUser: {end_user_sid}")
+        except TwilioRestException as e:
+            logger.error(f"[SpamProtection] Business EndUser creation failed: {e}")
+            results["errors"].append(f"Business EndUser: {e}")
+
+    # ── Step 3: Create Authorized Representative EndUser ──
+    auth_rep_sid = ""
+    if profile_sid and contact_name:
+        try:
+            # Split contact name into first/last
+            name_parts = contact_name.strip().split(None, 1)
+            first_name = name_parts[0] if name_parts else contact_name
+            last_name = name_parts[1] if len(name_parts) > 1 else ""
+
+            auth_rep = client.trusthub.v1.end_users.create(
+                friendly_name=f"Auth Rep: {contact_name}",
+                type="authorized_representative_1",
+                attributes={
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "email": contact_email,
+                    "phone_number": contact_phone,
+                    "business_title": "Owner",
+                    "job_position": "Director",
+                },
+            )
+            auth_rep_sid = auth_rep.sid
+            results["steps"].append({
+                "name": "auth_representative",
+                "status": "ok",
+                "sid": auth_rep_sid,
+            })
+            logger.info(f"[SpamProtection] Created Auth Rep: {auth_rep_sid}")
+        except TwilioRestException as e:
+            logger.error(f"[SpamProtection] Auth Rep creation failed: {e}")
+            results["errors"].append(f"Auth Rep: {e}")
+
+    # ── Step 4: Create Address ──
+    address_sid = ""
+    if profile_sid and street:
+        try:
+            address = client.addresses.create(
+                friendly_name=f"{business_name} Address",
+                customer_name=business_name,
+                street=street,
+                city=city,
+                region=state_upper if 'state_upper' in dir() else state,
+                postal_code=zip_code,
+                iso_country="US",
+            )
+            address_sid = address.sid
+            results["steps"].append({
+                "name": "address",
+                "status": "ok",
+                "sid": address_sid,
+            })
+            logger.info(f"[SpamProtection] Created Address: {address_sid}")
+        except TwilioRestException as e:
+            logger.error(f"[SpamProtection] Address creation failed: {e}")
+            results["errors"].append(f"Address: {e}")
+
+    # ── Step 5: EntityAssignments — link entities to profile ──
+    if profile_sid:
+        for entity_name, entity_sid in [
+            ("end_user_business", end_user_sid),
+            ("auth_representative", auth_rep_sid),
+            ("address", address_sid),
+        ]:
+            if not entity_sid:
+                continue
+            try:
+                client.trusthub.v1.customer_profiles(profile_sid) \
+                    .customer_profiles_entity_assignments.create(
+                        object_sid=entity_sid,
+                    )
+                logger.info(f"[SpamProtection] Assigned {entity_name} ({entity_sid}) → profile {profile_sid}")
+            except TwilioRestException as e:
+                if e.code == 20409:
+                    logger.info(f"[SpamProtection] {entity_name} already assigned (20409)")
+                else:
+                    logger.warning(f"[SpamProtection] EntityAssignment for {entity_name} failed: {e}")
+                    results["errors"].append(f"Assign {entity_name}: {e}")
+
+    # ── Step 6: Assign phone numbers to profile ──
+    if profile_sid:
+        try:
+            numbers = client.incoming_phone_numbers.list()
+            nums_assigned = 0
+            for num in numbers:
+                try:
+                    client.trusthub.v1.customer_profiles(profile_sid) \
+                        .customer_profiles_channel_endpoint_assignment.create(
+                            channel_endpoint_type="phone-number",
+                            channel_endpoint_sid=num.sid,
+                        )
+                    nums_assigned += 1
+                except TwilioRestException as e:
+                    if e.code == 20409:
+                        nums_assigned += 1  # already assigned
+                    else:
+                        logger.warning(f"[SpamProtection] Number assign failed {num.phone_number}: {e}")
+            results["steps"].append({
+                "name": "assign_numbers",
+                "status": "ok",
+                "assigned": nums_assigned,
+                "total": len(numbers),
+            })
+        except Exception as e:
+            logger.error(f"[SpamProtection] Number assignment failed: {e}")
+            results["errors"].append(f"Number assignment: {e}")
+
+    # ── Step 7: Evaluate and submit for review ──
+    if profile_sid:
+        try:
+            # Run evaluation first
+            eval_result = client.trusthub.v1.customer_profiles(profile_sid) \
+                .customer_profiles_evaluations.create(
+                    policy_sid=SECONDARY_CUSTOMER_PROFILE_POLICY_SID,
+                )
+            eval_status = getattr(eval_result, "status", "unknown")
+            logger.info(f"[SpamProtection] Evaluation: {eval_status}")
+
+            if eval_status == "noncompliant":
+                eval_results = getattr(eval_result, "results", None) or []
+                noncompliant = [r.get("friendly_name", "unknown")
+                                for r in eval_results
+                                if isinstance(r, dict) and r.get("status") == "noncompliant"]
+                results["steps"].append({
+                    "name": "evaluation",
+                    "status": "noncompliant",
+                    "issues": noncompliant,
+                })
+                logger.warning(f"[SpamProtection] Evaluation noncompliant: {noncompliant}")
+                # Still proceed — CNAM via friendly_name will work regardless
+            else:
+                # Submit for review
+                client.trusthub.v1.customer_profiles(profile_sid).update(
+                    status="pending-review",
+                )
+                results["steps"].append({
+                    "name": "submit_review",
+                    "status": "ok",
+                })
+                logger.info(f"[SpamProtection] Submitted profile {profile_sid} for review")
+        except TwilioRestException as e:
+            logger.warning(f"[SpamProtection] Evaluation/submit failed: {e}")
+            results["errors"].append(f"Submit for review: {e}")
+
+    # ── Step 8: Set CNAM (friendly_name) on all numbers ──
+    # This is immediate — carriers will show the friendly_name while the
+    # profile review is pending.
     try:
-        # Step 2: Register CNAM for numbers (Twilio handles CNAM through the
-        # Outgoing Caller ID, which is auto-set with verified business profiles)
-        # For now, set the friendly name on all numbers as a proxy for CNAM
         numbers = client.incoming_phone_numbers.list()
         cnam_success = 0
         for num in numbers:
@@ -577,6 +773,12 @@ def register_business_profile(sub_account_sid: str, business_name: str,
     except TwilioRestException as e:
         logger.error(f"CNAM registration failed: {e}")
         results["errors"].append(str(e))
+
+    # Add profile_sid to results for caller to save
+    if profile_sid:
+        results["profile_sid"] = profile_sid
+    if end_user_sid:
+        results["end_user_sid"] = end_user_sid
 
     return results
 
@@ -1594,48 +1796,114 @@ def resubmit_voice_integrity(
     sub_account_sid: str,
     trust_product_sid: str,
     sub_account_auth_token: str = "",
+    business_name: str = "",
+    contact_email: str = "",
+    existing_profile_sid: str = "",
+    business_employee_count: str = "1",
+    average_call_volume: str = "500",
 ) -> dict:
     """
-    Reset a rejected Voice Integrity Trust Product to draft, then resubmit.
-    Twilio requires rejected products to go back to draft before resubmission.
+    Resubmit a rejected Voice Integrity registration.
+
+    Twilio does NOT allow resetting a twilio-rejected Trust Product back to draft.
+    The correct approach is to create a brand new Trust Product, re-link all the
+    existing entities (Secondary Profile, EndUser, numbers), and submit fresh.
+
+    The old rejected Trust Product is abandoned (Twilio doesn't allow deletion).
     """
     client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
+
+    # ── Step 1: Gather existing entities from the old Trust Product ──
+    old_assigned_numbers = []
+    old_entity_sids = []
     try:
-        # Step 1: Reset to draft (required for rejected products)
-        tp = client.trusthub.v1.trust_products(trust_product_sid).update(
-            status="draft",
-        )
-        logger.info(f"[VoiceIntegrity] Reset {trust_product_sid} to draft")
+        # Get assigned phone numbers
+        assignments = client.trusthub.v1.trust_products(trust_product_sid) \
+            .trust_products_channel_endpoint_assignment.list(limit=100)
+        old_assigned_numbers = [a.channel_endpoint_sid for a in assignments]
+        logger.info(f"[VoiceIntegrity] Old product has {len(old_assigned_numbers)} numbers")
 
-        # Step 2: Re-submit for review
-        # Run evaluation first
-        try:
-            evaluation = client.trusthub.v1.trust_products(trust_product_sid) \
-                .trust_products_evaluations.create(policy_sid=VOICE_INTEGRITY_POLICY_SID)
-            eval_status = getattr(evaluation, "status", "unknown")
-            logger.info(f"[VoiceIntegrity] Re-evaluation for {trust_product_sid}: {eval_status}")
-            if eval_status == "noncompliant":
-                eval_results = getattr(evaluation, "results", None) or []
-                error_details = []
-                for r in eval_results:
-                    if isinstance(r, dict) and r.get("status") == "noncompliant":
-                        error_details.append(r.get("friendly_name", r.get("requirement_key", "unknown")))
-                detail_msg = ", ".join(error_details) if error_details else "evaluation returned noncompliant"
-                raise TwilioRestException(
-                    status=400, uri="", msg=f"Voice Integrity evaluation failed: {detail_msg}")
-        except TwilioRestException:
-            raise
-        except Exception as eval_err:
-            logger.warning(f"[VoiceIntegrity] Re-evaluation check failed (proceeding): {eval_err}")
+        # Get entity assignments (profile, end_user)
+        entity_assignments = client.trusthub.v1.trust_products(trust_product_sid) \
+            .trust_products_entity_assignments.list(limit=100)
+        old_entity_sids = [ea.object_sid for ea in entity_assignments]
+        logger.info(f"[VoiceIntegrity] Old product has {len(old_entity_sids)} entity assignments")
+    except Exception as e:
+        logger.warning(f"[VoiceIntegrity] Could not read old product entities: {e}")
 
-        tp = client.trusthub.v1.trust_products(trust_product_sid).update(
-            status="pending-review",
+    # ── Step 2: Create a new Trust Product ──
+    try:
+        new_tp = client.trusthub.v1.trust_products.create(
+            friendly_name=f"Voice Integrity: {business_name or sub_account_sid}",
+            policy_sid=VOICE_INTEGRITY_POLICY_SID,
+            email=contact_email or "support@insurancegrokbot.com",
         )
-        logger.info(f"[VoiceIntegrity] Resubmitted {trust_product_sid} → {tp.status}")
-        return {"trust_product_sid": tp.sid, "status": tp.status}
+        new_tp_sid = new_tp.sid
+        logger.info(f"[VoiceIntegrity] Created new Trust Product: {new_tp_sid} (replacing {trust_product_sid})")
     except TwilioRestException as e:
-        logger.error(f"[VoiceIntegrity] Resubmit failed: {e}")
+        logger.error(f"[VoiceIntegrity] New Trust Product creation failed: {e}")
         raise
+
+    # ── Step 3: Re-link existing entities to the new Trust Product ──
+    for entity_sid in old_entity_sids:
+        try:
+            client.trusthub.v1.trust_products(new_tp_sid) \
+                .trust_products_entity_assignments.create(object_sid=entity_sid)
+            logger.info(f"[VoiceIntegrity] Re-linked entity {entity_sid} → {new_tp_sid}")
+        except TwilioRestException as e:
+            if e.code == 20409:
+                logger.info(f"[VoiceIntegrity] Entity {entity_sid} already linked (20409)")
+            else:
+                logger.warning(f"[VoiceIntegrity] Entity re-link failed for {entity_sid}: {e}")
+
+    # ── Step 4: Re-assign phone numbers ──
+    for pn_sid in old_assigned_numbers:
+        try:
+            client.trusthub.v1.trust_products(new_tp_sid) \
+                .trust_products_channel_endpoint_assignment.create(
+                    channel_endpoint_type="phone-number",
+                    channel_endpoint_sid=pn_sid,
+                )
+            logger.info(f"[VoiceIntegrity] Re-assigned number {pn_sid} → {new_tp_sid}")
+        except TwilioRestException as e:
+            if e.code == 20409:
+                logger.info(f"[VoiceIntegrity] Number {pn_sid} already assigned (20409)")
+            else:
+                logger.warning(f"[VoiceIntegrity] Number re-assign failed for {pn_sid}: {e}")
+
+    # ── Step 5: Evaluate and submit ──
+    try:
+        evaluation = client.trusthub.v1.trust_products(new_tp_sid) \
+            .trust_products_evaluations.create(policy_sid=VOICE_INTEGRITY_POLICY_SID)
+        eval_status = getattr(evaluation, "status", "unknown")
+        logger.info(f"[VoiceIntegrity] New product evaluation: {eval_status}")
+
+        if eval_status == "noncompliant":
+            eval_results = getattr(evaluation, "results", None) or []
+            error_details = []
+            for r in eval_results:
+                if isinstance(r, dict) and r.get("status") == "noncompliant":
+                    error_details.append(r.get("friendly_name", r.get("requirement_key", "unknown")))
+            detail_msg = ", ".join(error_details) if error_details else "evaluation returned noncompliant"
+            raise TwilioRestException(
+                status=400, uri="",
+                msg=f"Voice Integrity evaluation failed on new product: {detail_msg}. "
+                    f"New product SID: {new_tp_sid}")
+    except TwilioRestException:
+        raise
+    except Exception as eval_err:
+        logger.warning(f"[VoiceIntegrity] Evaluation check failed (proceeding): {eval_err}")
+
+    tp = client.trusthub.v1.trust_products(new_tp_sid).update(
+        status="pending-review",
+    )
+    logger.info(f"[VoiceIntegrity] Submitted new product {new_tp_sid} for review → {tp.status}")
+    return {
+        "trust_product_sid": new_tp_sid,
+        "old_trust_product_sid": trust_product_sid,
+        "status": tp.status,
+        "assigned_numbers": old_assigned_numbers,
+    }
 
 
 def remove_number_from_voice_integrity(

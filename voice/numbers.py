@@ -934,13 +934,33 @@ def register_spam_protection():
     # Step 3: Mark auto-protection enabled + save profile_sid
     trust_hub['protection_active'] = True
     trust_hub['_sub_sid'] = sub_sid  # Tag which sub-account this belongs to
+
     # Save profile_sid so Voice Integrity can reuse this approved profile
-    profile_step = next(
-        (s for s in results.get('steps', []) if s.get('name') == 'customer_profile' and s.get('sid')),
-        None,
-    )
-    if profile_step:
-        trust_hub['profile_sid'] = profile_step['sid']
+    # New flow returns profile_sid directly; legacy flow used steps list
+    if results.get('profile_sid'):
+        trust_hub['profile_sid'] = results['profile_sid']
+    else:
+        profile_step = next(
+            (s for s in results.get('steps', []) if s.get('name') in ('secondary_profile', 'customer_profile') and s.get('sid')),
+            None,
+        )
+        if profile_step:
+            trust_hub['profile_sid'] = profile_step['sid']
+
+    # Save end_user_sid for reuse
+    if results.get('end_user_sid'):
+        trust_hub['end_user_sid'] = results['end_user_sid']
+
+    # Check if profile was submitted for review or had evaluation issues
+    eval_step = next((s for s in results.get('steps', []) if s.get('name') == 'evaluation'), None)
+    submit_step = next((s for s in results.get('steps', []) if s.get('name') == 'submit_review'), None)
+    if submit_step:
+        trust_hub['review_status'] = 'pending-review'
+    elif eval_step and eval_step.get('status') == 'noncompliant':
+        trust_hub['review_status'] = 'noncompliant'
+        trust_hub['evaluation_issues'] = eval_step.get('issues', [])
+    trust_hub['_validated'] = True
+
     vc['trust_hub'] = trust_hub
     _save_voice_config(current_user.email, vc)
 
@@ -1075,6 +1095,23 @@ def spam_protection_status():
         for n in status.get('numbers', [])
     ]
 
+    # Check live profile status from Twilio if we have a profile_sid
+    profile_review_status = trust_hub.get('review_status', '')
+    profile_sid = trust_hub.get('profile_sid', '')
+    if profile_sid and protection_active:
+        sub_auth_token_val = (vc or {}).get('twilio_auth_token', '')
+        try:
+            client = twilio_provisioning.get_sub_account_client_native(sub_sid, sub_auth_token_val)
+            profile = client.trusthub.v1.customer_profiles(profile_sid).fetch()
+            profile_review_status = getattr(profile, 'status', profile_review_status)
+            # Persist
+            if profile_review_status != trust_hub.get('review_status', ''):
+                trust_hub['review_status'] = profile_review_status
+                vc['trust_hub'] = trust_hub
+                _save_voice_config(current_user.email, vc)
+        except Exception as e:
+            logger.warning(f"[spam-protection] Could not check live profile status: {e}")
+
     return jsonify({
         "protection_active": protection_active,
         "business_name": business_name,
@@ -1092,6 +1129,9 @@ def spam_protection_status():
         "numbers": numbers_detail,
         "stir_shaken": "active",
         "auto_cnam": trust_hub.get('auto_cnam', False),
+        "profile_sid": profile_sid,
+        "review_status": profile_review_status,
+        "evaluation_issues": trust_hub.get('evaluation_issues', []),
     })
 
 
@@ -1682,14 +1722,23 @@ def number_integrity_resubmit():
                 "error": f"Resubmit is only available for rejected registrations (current: {current_status}).",
             }), 400
 
-        # Resubmit: reset to draft then submit
+        # Resubmit: create new Trust Product (can't recycle rejected ones)
+        trust_hub = (vc or {}).get('trust_hub', {})
         result = twilio_provisioning.resubmit_voice_integrity(
             sub_account_sid=sub_sid,
             trust_product_sid=trust_product_sid,
             sub_account_auth_token=sub_auth_token,
+            business_name=ni.get('business_name', trust_hub.get('business_name', '')),
+            contact_email=trust_hub.get('contact_email', '') or getattr(current_user, 'email', ''),
+            existing_profile_sid=ni.get('profile_sid', ''),
         )
 
+        # Update to new Trust Product SID
+        ni['trust_product_sid'] = result.get('trust_product_sid', trust_product_sid)
+        ni['old_trust_product_sid'] = trust_product_sid  # Keep reference
         ni['status'] = result.get('status', 'pending-review')
+        ni['assigned_numbers'] = result.get('assigned_numbers', ni.get('assigned_numbers', []))
+        ni['assigned_count'] = len(ni['assigned_numbers'])
         ni['last_resubmit'] = datetime.utcnow().isoformat()
         ni.pop('failure_reasons', None)  # Clear old failure reasons
         vc['number_integrity'] = ni
