@@ -1741,10 +1741,15 @@ def assign_numbers_to_voice_integrity(
             # 20409 or HTTP 409 (code 70003) = already assigned to a Trust Product.
             # If it's assigned to THIS TP, treat as success.
             # If it's assigned to ANOTHER TP (e.g. old rejected one), unassign and retry.
-            if e.code == 20409 or (e.status == 409 and "already assigned" in str(e).lower()):
+            if e.code == 20409 or e.status == 409:
                 # Extract the conflicting BU SID from the error message
+                # Twilio may say "already assigned to BU..." or "already mapped to a trust_product_sid: BU..."
                 import re as _re
-                conflict_match = _re.search(r'already assigned to (BU[a-f0-9A-F]+)', str(e))
+                err_str = str(e)
+                conflict_match = _re.search(r'(?:already (?:assigned|mapped) to (?:a trust_product_sid: )?)(BU[a-f0-9A-F]+)', err_str)
+                if not conflict_match:
+                    # Fallback: find any BU SID in the error message
+                    conflict_match = _re.search(r'(BU[a-f0-9]{32})', err_str)
                 conflict_sid = conflict_match.group(1) if conflict_match else None
 
                 if conflict_sid and conflict_sid == trust_product_sid:
