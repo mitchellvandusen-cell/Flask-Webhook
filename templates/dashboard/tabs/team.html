@@ -7,12 +7,17 @@
                     <i class="fa-solid fa-users-gear me-2" style="color:var(--accent);"></i>Team Management
                 </h4>
                 <p style="color:#888;font-size:0.85rem;margin:4px 0 0;">
-                    Manage seat users for your location. <span style="color:var(--accent);font-weight:600;" id="teamSeatLimit">0 / 10</span> seats used &middot; $49/seat/month
+                    Manage seat users for your location. <span style="color:var(--accent);font-weight:600;" id="teamSeatLimit">0 / 10</span> seats used
                 </p>
             </div>
-            <button class="btn" onclick="teamShowInviteModal()" style="background:var(--accent);color:#000;font-weight:700;padding:10px 20px;border-radius:10px;font-size:0.88rem;border:none;">
-                <i class="fa-solid fa-user-plus me-2"></i>Invite User
-            </button>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <button class="btn" onclick="teamAddSeat()" style="background:var(--accent);color:#000;font-weight:700;padding:10px 20px;border-radius:10px;font-size:0.88rem;border:none;">
+                    <i class="fa-solid fa-plus me-2"></i>Add Seat &mdash; $50/mo
+                </button>
+                <button class="btn" onclick="teamShowInviteModal()" id="teamInviteUserBtn" style="background:rgba(255,255,255,0.06);color:#ccc;font-weight:600;padding:10px 16px;border-radius:10px;font-size:0.85rem;border:1px solid rgba(255,255,255,0.1);display:none;">
+                    <i class="fa-solid fa-paper-plane me-2"></i>Invite User
+                </button>
+            </div>
         </div>
 
         <!-- Sub-panels: Members | KPIs | Audit Log -->

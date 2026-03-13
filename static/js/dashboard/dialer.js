@@ -4331,7 +4331,7 @@
                 }
 
                 // Step 4: Create Device instance (V2 SDK — constructor-based)
-                _showVoipStatus('Connecting to Twilio…');
+                _showVoipStatus('Connecting to voice server…');
 
                 // Destroy previous device if any
                 if (voipDevice) {

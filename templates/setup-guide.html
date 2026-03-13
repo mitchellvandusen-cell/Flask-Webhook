@@ -59,7 +59,7 @@
                 <div class="col-md-4 col-6">
                     <a href="#step-7" class="d-block glass-card p-2 text-decoration-none text-center" style="border-color: rgba(0,255,136,0.1);">
                         <small style="color: var(--accent); font-weight: 700;">Step 7</small>
-                        <div style="color: #ccc; font-size: 0.8rem;">Twilio SMS (Optional)</div>
+                        <div style="color: #ccc; font-size: 0.8rem;">Direct SMS (Optional)</div>
                     </a>
                 </div>
                 <div class="col-md-4 col-6">
@@ -335,7 +335,7 @@
                 <div class="tab-pane fade" id="setup-sf" role="tabpanel">
                     <div class="glass-card p-4" style="border-color: rgba(0,217,255,0.15);">
                         <h5 style="color: #00d9ff; font-weight: 700;"><i class="fa-solid fa-cloud me-2"></i>Salesforce</h5>
-                        <p style="color: #888; font-size: 0.9rem;">OAuth 2.0 integration. Requires a Connected App in Salesforce. SMS goes through Twilio.</p>
+                        <p style="color: #888; font-size: 0.9rem;">OAuth 2.0 integration. Requires a Connected App in Salesforce. SMS is built in.</p>
 
                         <h6 style="color: #fff; font-weight: 700; margin-top: 20px;">Step 4a: Create a Connected App in Salesforce</h6>
                         <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
@@ -398,7 +398,7 @@
                 <div class="tab-pane fade" id="setup-hs" role="tabpanel">
                     <div class="glass-card p-4" style="border-color: rgba(0,217,255,0.15);">
                         <h5 style="color: #00d9ff; font-weight: 700;"><i class="fa-solid fa-h me-2"></i>HubSpot</h5>
-                        <p style="color: #888; font-size: 0.9rem;">Private App integration. Simple token-based auth. SMS goes through Twilio.</p>
+                        <p style="color: #888; font-size: 0.9rem;">Private App integration. Simple token-based auth. SMS is built in.</p>
 
                         <h6 style="color: #fff; font-weight: 700; margin-top: 20px;">Step 4a: Create a Private App</h6>
                         <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
@@ -438,7 +438,7 @@
                 <div class="tab-pane fade" id="setup-pd" role="tabpanel">
                     <div class="glass-card p-4" style="border-color: rgba(0,217,255,0.15);">
                         <h5 style="color: #00d9ff; font-weight: 700;"><i class="fa-solid fa-handshake me-2"></i>Pipedrive</h5>
-                        <p style="color: #888; font-size: 0.9rem;">API token integration. New contacts automatically get a deal created. SMS goes through Twilio.</p>
+                        <p style="color: #888; font-size: 0.9rem;">API token integration. New contacts automatically get a deal created. SMS is built in.</p>
 
                         <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
                             <li>Log into Pipedrive and go to <strong>Settings</strong> (gear icon in top right).</li>
@@ -524,7 +524,7 @@
                 <div class="tab-pane fade" id="setup-insureio" role="tabpanel">
                     <div class="glass-card p-4" style="border-color: rgba(0,217,255,0.15);">
                         <h5 style="color: #00d9ff; font-weight: 700;"><i class="fa-solid fa-shield-halved me-2"></i>Insureio</h5>
-                        <p style="color: #888; font-size: 0.9rem;">Insurance-specific CRM integration. API key based. SMS goes through Twilio.</p>
+                        <p style="color: #888; font-size: 0.9rem;">Insurance-specific CRM integration. API key based. SMS is built in.</p>
 
                         <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
                             <li>Log into your Insureio account.</li>
@@ -677,13 +677,13 @@
     </div>
 
     <!-- ============================================================ -->
-    <!-- STEP 7: TWILIO SMS (OPTIONAL) -->
+    <!-- STEP 7: DIRECT SMS (OPTIONAL) -->
     <!-- ============================================================ -->
     <div id="step-7" class="card glass-card mb-4" data-aos="fade-up">
         <div class="card-body p-4">
             <div class="d-flex align-items-center mb-3">
                 <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--accent); margin-right: 14px; flex-shrink: 0;">7</div>
-                <h3 style="font-weight: 700; color: #fff; margin: 0;">Set Up Twilio SMS <small style="color: #888; font-size: 0.7em;">(Non-LeadConnector users only)</small></h3>
+                <h3 style="font-weight: 700; color: #fff; margin: 0;">Set Up Direct SMS <small style="color: #888; font-size: 0.7em;">(Non-LeadConnector users only)</small></h3>
             </div>
 
             <div class="alert alert-info mb-4" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
@@ -691,31 +691,22 @@
             </div>
 
             <ol style="color: #ccc; font-size: 0.95rem; line-height: 2.2;">
-                <li>Go to <a href="https://www.twilio.com/try-twilio" style="color: var(--accent);" target="_blank">twilio.com</a> and create a free account (or log in if you have one).</li>
-                <li>Complete the account verification process (phone number verification, email confirmation).</li>
-                <li>From the <strong>Twilio Console Dashboard</strong>, copy your:
+                <li>Your SMS credentials are automatically provisioned when you connect your account.</li>
+                <li>Go to your InsuranceGrokBot <a href="/dashboard" style="color: var(--accent);">Dashboard</a> &rarr; <strong>Connect</strong> tab.</li>
+                <li>In the integration configuration section, enter your:
                     <ul style="color: #888;">
                         <li><strong>Account SID</strong> &mdash; starts with "AC..."</li>
                         <li><strong>Auth Token</strong> &mdash; click the eye icon to reveal it</li>
                     </ul>
                 </li>
-                <li>Go to <strong>Phone Numbers &rarr; Manage &rarr; Buy a Number</strong>.</li>
+                <li>Go to the <strong>Numbers</strong> tab in your dashboard to purchase a phone number.</li>
                 <li>Search for a number with <strong>SMS capability</strong> in your area code.</li>
-                <li>Purchase the number. Your first 5 numbers are free, then $0.90/month per additional number.</li>
-                <li>Copy the phone number in <strong>+1XXXXXXXXXX</strong> format (include the +1 country code).</li>
-                <li>Go to your InsuranceGrokBot <a href="/dashboard" style="color: var(--accent);">Dashboard</a> &rarr; <strong>Connect</strong> tab.</li>
-                <li>In the integration configuration section, enter:
-                    <ul style="color: #888;">
-                        <li><strong>Twilio Account SID</strong></li>
-                        <li><strong>Twilio Auth Token</strong></li>
-                        <li><strong>Twilio Phone Number</strong> (in +1XXXXXXXXXX format)</li>
-                    </ul>
-                </li>
-                <li>Click <strong>Save Configuration</strong>. The bot will now send all outbound SMS through your Twilio number.</li>
+                <li>Your first 5 numbers are free, then $0.90/month per additional number.</li>
+                <li>Click <strong>Save Configuration</strong>. The bot will now send all outbound SMS through your dedicated number.</li>
             </ol>
 
             <div class="alert alert-warning mt-3" style="background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); border-radius: 8px; font-size: 0.9rem;">
-                <i class="fa-solid fa-exclamation-triangle me-1"></i> Make sure your Twilio account has a <strong>billing method</strong> set up. Without it, SMS sending will fail after the trial credits run out. You can add a payment method under <strong>Billing &rarr; Payment Methods</strong> in the Twilio console.
+                <i class="fa-solid fa-exclamation-triangle me-1"></i> Make sure your account has a <strong>billing method</strong> set up. Without it, SMS sending will fail. You can manage payment methods from the <strong>Billing</strong> tab in your dashboard.
             </div>
         </div>
     </div>
@@ -804,19 +795,19 @@
 
             <div class="alert mb-4" style="background: rgba(0,217,255,0.05); border: 1px solid rgba(0,217,255,0.15); border-radius: 10px; color: #aaa; font-size: 0.9rem;">
                 <strong style="color: #00d9ff;"><i class="fa-solid fa-info-circle me-1"></i> How It Works:</strong>
-                Your leads call a dedicated Twilio phone number (or the AI calls them). Audio streams to our server, where XAI's Grok processes speech in real-time and responds naturally. It uses the same sales intelligence, prompt, and calendar as your text bot.
+                Your leads call a dedicated phone number (or the AI calls them). Audio streams to our server, where XAI's Grok processes speech in real-time and responds naturally. It uses the same sales intelligence, prompt, and calendar as your text bot.
             </div>
 
-            <h5 style="color: #00d9ff; font-weight: 700; margin-top: 24px;">9.1 &mdash; Get a Twilio Account</h5>
+            <h5 style="color: #00d9ff; font-weight: 700; margin-top: 24px;">9.1 &mdash; Voice Setup</h5>
             <ol style="color: #ccc; font-size: 0.9rem; line-height: 2.2;">
-                <li>Go to <a href="https://www.twilio.com" target="_blank" style="color: var(--accent);">twilio.com</a> and create an account (free trial available).</li>
-                <li>Verify your phone number and email during signup.</li>
-                <li>Once in your Twilio Console, note your <strong>Account SID</strong> and <strong>Auth Token</strong> (found on the main dashboard).</li>
+                <li>Voice is automatically provisioned when you subscribe. Your account and phone numbers are set up for you.</li>
+                <li>Go to your <a href="/dashboard" style="color: var(--accent);">Dashboard</a> &rarr; <strong>Numbers</strong> tab to manage your phone numbers.</li>
+                <li>Your <strong>Account SID</strong> and <strong>Auth Token</strong> are handled automatically behind the scenes.</li>
             </ol>
 
-            <h5 style="color: #00d9ff; font-weight: 700; margin-top: 24px;">9.2 &mdash; Buy a Phone Number</h5>
+            <h5 style="color: #00d9ff; font-weight: 700; margin-top: 24px;">9.2 &mdash; Get a Phone Number</h5>
             <ol style="color: #ccc; font-size: 0.9rem; line-height: 2.2;">
-                <li>In Twilio Console, go to <strong>Phone Numbers &rarr; Buy a Number</strong>.</li>
+                <li>In your Dashboard, go to the <strong>Numbers</strong> tab.</li>
                 <li>Search for a number in your area code. Make sure <strong>Voice</strong> capability is checked.</li>
                 <li>Purchase the number (first 5 free, then $0.90/month).</li>
                 <li>Copy the full number in E.164 format (e.g., <code>+15551234567</code>).</li>
@@ -825,17 +816,16 @@
             <h5 style="color: #00d9ff; font-weight: 700; margin-top: 24px;">9.3 &mdash; Configure in Dashboard</h5>
             <ol style="color: #ccc; font-size: 0.9rem; line-height: 2.2;">
                 <li>Go to your InsuranceGrokBot <a href="/dashboard" style="color: var(--accent);">Dashboard</a> &rarr; <strong>Voice</strong> tab.</li>
-                <li>Paste your <strong>Account SID</strong>, <strong>Auth Token</strong>, and <strong>Phone Number</strong>.</li>
                 <li>Choose an AI voice (Ara, Eve, Leo, Rex, Sal, Mika, or Vale).</li>
                 <li>Optionally customize the greeting and voice instructions.</li>
                 <li>Enable the toggle and click <strong>Save Voice Settings</strong>.</li>
-                <li>Click <strong>Configure Number</strong> — this automatically points your Twilio number to our AI voice server.</li>
-                <li>Click <strong>Test Connection</strong> to verify both XAI and Twilio are working.</li>
+                <li>Click <strong>Configure Number</strong> — this automatically points your number to our AI voice server.</li>
+                <li>Click <strong>Test Connection</strong> to verify everything is working.</li>
             </ol>
 
             <h5 style="color: #00d9ff; font-weight: 700; margin-top: 24px;">9.4 &mdash; Test a Call</h5>
             <ol style="color: #ccc; font-size: 0.9rem; line-height: 2.2;">
-                <li><strong>Inbound test:</strong> Call your new Twilio number from your phone. The AI should answer and start a conversation.</li>
+                <li><strong>Inbound test:</strong> Call your new number from your phone. The AI should answer and start a conversation.</li>
                 <li><strong>Outbound test:</strong> Use the outbound endpoint to trigger a call to your own phone:
                     <pre style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px; margin-top: 6px; color: #ccc; font-size: 0.82rem;">curl -X POST https://insurancegrokbot.click/voice/outbound-call \
   -H "Content-Type: application/json" \
@@ -868,7 +858,7 @@
 
             <div class="mt-3 p-3" style="background: rgba(255,165,0,0.04); border: 1px solid rgba(255,165,0,0.1); border-radius: 10px;">
                 <p style="color:#aaa; font-size:0.82rem; margin:0;"><i class="fa-solid fa-coins me-1" style="color:#ffa500;"></i>
-                    <strong>Cost:</strong> XAI Voice at $0.07/min + Twilio at ~$0.014/min. A typical 5-minute qualification call costs about $0.42.
+                    <strong>Cost:</strong> AI Voice at $0.07/min + telephony at ~$0.014/min. A typical 5-minute qualification call costs about $0.42.
                 </p>
             </div>
         </div>

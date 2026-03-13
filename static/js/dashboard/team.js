@@ -43,6 +43,14 @@ function teamLoadMembers() {
             if (limitEl) {
                 limitEl.textContent = (data.active_seats || 0) + ' / ' + (data.max_seats || 10);
             }
+            // Show invite button if there are paid seats with no invite sent yet
+            var paidCount = _teamMembers.filter(function(m) { return m.has_paid_seat; }).length;
+            var invitedCount = _teamMembers.filter(function(m) { return m.is_active; }).length;
+            var invBtn = document.getElementById('teamInviteUserBtn');
+            if (invBtn) {
+                // Show invite button if they already have seats (to invite pending ones)
+                invBtn.style.display = _teamMembers.length > 0 ? '' : 'none';
+            }
         })
         .catch(function(e) { console.error('Team load error:', e); });
 }
@@ -68,9 +76,16 @@ function teamRenderMembers() {
 
     if (_teamMembers.length === 0) {
         container.innerHTML =
-            '<div style="text-align:center;padding:40px;color:#555;">' +
-            '<i class="fa-solid fa-user-group" style="font-size:2rem;margin-bottom:12px;display:block;"></i>' +
-            '<p style="margin:0;font-size:0.9rem;">No team members yet. Invite your first agent!</p>' +
+            '<div style="text-align:center;padding:40px;">' +
+            '<i class="fa-solid fa-user-group" style="font-size:2.5rem;margin-bottom:16px;display:block;color:var(--accent);opacity:0.5;"></i>' +
+            '<h5 style="color:#fff;font-weight:700;margin-bottom:8px;">Build Your Team</h5>' +
+            '<p style="color:#888;font-size:0.88rem;margin-bottom:20px;max-width:360px;margin-left:auto;margin-right:auto;">Add seat users so your agents can dial, text, and manage leads from their own dashboard. Each seat gets their own phone number, call history, and permissions.</p>' +
+            '<div style="display:inline-flex;align-items:center;gap:8px;background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.15);border-radius:12px;padding:12px 24px;margin-bottom:20px;">' +
+            '<span style="font-size:1.8rem;font-weight:800;color:var(--accent);">$50</span>' +
+            '<span style="color:#aaa;font-size:0.82rem;line-height:1.3;">/seat<br>per month</span>' +
+            '</div><br>' +
+            '<button onclick="teamAddSeat()" style="background:var(--accent);color:#000;font-weight:700;padding:12px 28px;border-radius:10px;font-size:0.92rem;border:none;cursor:pointer;">' +
+            '<i class="fa-solid fa-plus me-2"></i>Add Your First Seat</button>' +
             '</div>';
         return;
     }
@@ -195,6 +210,30 @@ function teamFillFromGhl() {
 function teamSyncGhlUsers() {
     teamCheckGhlUsers();
     if (typeof _showDashToast === 'function') _showDashToast(true, 'Syncing GHL users...');
+}
+
+// ── Add Seat (Stripe Checkout) ──────────────────────────────────────────────
+
+function teamAddSeat() {
+    if (typeof _showDashToast === 'function') _showDashToast(true, 'Redirecting to checkout...');
+    fetch('/api/team/checkout', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.error) {
+            if (typeof _showDashToast === 'function') _showDashToast(false, data.error);
+            return;
+        }
+        if (data.checkout_url) {
+            window.location.href = data.checkout_url;
+        }
+    })
+    .catch(function(e) {
+        if (typeof _showDashToast === 'function') _showDashToast(false, 'Failed to start checkout');
+    });
 }
 
 // ── Invite Modal ─────────────────────────────────────────────────────────────
@@ -392,7 +431,7 @@ function teamToggleActive(memberId, activate) {
 // ── Activate Voice ───────────────────────────────────────────────────────────
 
 function teamActivateVoice(memberId) {
-    if (!confirm('This will create a Twilio sub-account for this user. Continue?')) return;
+    if (!confirm('This will provision a voice account for this user. Continue?')) return;
 
     fetch('/api/team/activate-voice', {
         method: 'POST',
@@ -584,6 +623,19 @@ function teamInit() {
     // Load onboarding for seat users
     if (window.DASHBOARD_BOOT?.isSeatUser) {
         teamLoadOnboarding();
+    }
+
+    // Auto-open invite modal after Stripe seat purchase
+    var params = new URLSearchParams(window.location.search);
+    if (params.get('seat_added') === '1') {
+        setTimeout(function() {
+            teamShowInviteModal();
+            if (typeof _showDashToast === 'function') _showDashToast(true, 'Seat purchased! Now invite your team member.');
+        }, 500);
+        // Clean URL
+        var url = new URL(window.location);
+        url.searchParams.delete('seat_added');
+        window.history.replaceState({}, '', url);
     }
 }
 
