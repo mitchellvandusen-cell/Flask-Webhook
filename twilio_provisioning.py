@@ -608,6 +608,81 @@ def get_spam_protection_status(sub_account_sid: str) -> dict:
         return {"numbers_total": 0, "numbers_protected": 0}
 
 
+def get_cnam_monitor(sub_account_sid: str) -> list:
+    """
+    Get CNAM status for all numbers on a sub-account.
+    Returns a list of dicts with phone, sid, friendly_name (the CNAM we set),
+    and cnam_enabled flag.
+    """
+    client = get_sub_account_client(sub_account_sid)
+    try:
+        numbers = client.incoming_phone_numbers.list()
+        result = []
+        for n in numbers:
+            result.append({
+                "phone": n.phone_number,
+                "sid": n.sid,
+                "friendly_name": n.friendly_name or "",
+                "cnam_enabled": bool(n.friendly_name and len(n.friendly_name.strip()) > 0),
+                "date_created": str(n.date_created) if n.date_created else "",
+            })
+        return result
+    except TwilioRestException as e:
+        logger.error(f"CNAM monitor failed for {sub_account_sid}: {e}")
+        return []
+
+
+def update_cnam_for_number(sub_account_sid: str, number_sid: str,
+                           business_name: str) -> dict:
+    """Update CNAM (friendly_name) for a single phone number."""
+    client = get_sub_account_client(sub_account_sid)
+    try:
+        cnam_name = business_name[:15].strip() if business_name else ""
+        updated = client.incoming_phone_numbers(number_sid).update(
+            friendly_name=cnam_name,
+        )
+        return {
+            "status": "ok",
+            "phone": updated.phone_number,
+            "sid": updated.sid,
+            "friendly_name": updated.friendly_name,
+        }
+    except TwilioRestException as e:
+        logger.error(f"CNAM update failed for {number_sid}: {e}")
+        return {"status": "error", "error": str(e)}
+
+
+def cnam_lookup(phone_number: str) -> dict:
+    """
+    Look up CNAM (caller name) for a phone number using Twilio Lookup API v2.
+    This queries what carriers see as the caller name for a given number.
+    Uses master account credentials (lookup is not sub-account scoped).
+    """
+    client = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+    try:
+        result = client.lookups.v2.phone_numbers(phone_number).fetch(
+            fields="caller_name"
+        )
+        caller_name_info = result.caller_name or {}
+        return {
+            "phone": result.phone_number or phone_number,
+            "caller_name": caller_name_info.get("caller_name", ""),
+            "caller_type": caller_name_info.get("caller_type", ""),
+            "error_code": caller_name_info.get("error_code"),
+            "valid": result.valid if hasattr(result, 'valid') else True,
+            "national_format": getattr(result, 'national_format', ''),
+        }
+    except TwilioRestException as e:
+        logger.error(f"CNAM lookup failed for {phone_number}: {e}")
+        return {
+            "phone": phone_number,
+            "caller_name": "",
+            "caller_type": "",
+            "error_code": e.code if hasattr(e, 'code') else None,
+            "error": str(e),
+        }
+
+
 # ──────────────────────────────────────────────────────────────
 # A2P 10DLC — BRAND & CAMPAIGN REGISTRATION
 # ──────────────────────────────────────────────────────────────

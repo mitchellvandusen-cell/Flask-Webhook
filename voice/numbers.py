@@ -1096,6 +1096,189 @@ def spam_protection_status():
 
 
 # ──────────────────────────────────────────────────────────────
+# CNAM MONITOR & LOOKUP
+# Monitor CNAM status across all numbers and look up what
+# carriers see as the caller name for any phone number.
+# ──────────────────────────────────────────────────────────────
+
+
+@numbers_bp.route('/voice/cnam/monitor', methods=['GET'])
+@login_required
+def cnam_monitor():
+    """
+    CNAM Status Monitor — shows each number's current CNAM name,
+    propagation status, and allows inline editing.
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    trust_hub = (vc or {}).get('trust_hub', {})
+    business_name = trust_hub.get('business_name', '')
+
+    numbers = twilio_provisioning.get_cnam_monitor(sub_sid)
+
+    # Enrich with local nicknames
+    nicknames = (vc or {}).get('number_nicknames', {})
+
+    result = []
+    for n in numbers:
+        phone = n.get('phone', '')
+        friendly = n.get('friendly_name', '')
+        result.append({
+            "phone": phone,
+            "sid": n.get('sid', ''),
+            "cnam_name": friendly,
+            "cnam_enabled": n.get('cnam_enabled', False),
+            "cnam_matches_business": (
+                friendly.strip().lower() == business_name[:15].strip().lower()
+                if friendly and business_name else False
+            ),
+            "nickname": nicknames.get(phone, ''),
+            "date_created": n.get('date_created', ''),
+        })
+
+    return jsonify({
+        "business_name": business_name,
+        "cnam_display_name": business_name[:15].strip() if business_name else "",
+        "numbers": result,
+        "total": len(result),
+        "cnam_set": sum(1 for n in result if n['cnam_enabled']),
+        "cnam_matching": sum(1 for n in result if n['cnam_matches_business']),
+    })
+
+
+@numbers_bp.route('/voice/cnam/update', methods=['POST'])
+@login_required
+def cnam_update():
+    """Update CNAM name for a specific phone number."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    data = request.json or {}
+    number_sid = data.get('number_sid', '').strip()
+    cnam_name = data.get('cnam_name', '').strip()
+
+    if not number_sid:
+        return jsonify({"error": "number_sid is required"}), 400
+
+    # If no name provided, fall back to business name from trust_hub
+    if not cnam_name:
+        cnam_name = (vc or {}).get('trust_hub', {}).get('business_name', '')
+
+    if not cnam_name:
+        return jsonify({"error": "No CNAM name provided and no business name registered"}), 400
+
+    result = twilio_provisioning.update_cnam_for_number(sub_sid, number_sid, cnam_name)
+    if result.get('status') == 'ok':
+        return jsonify(result)
+    return jsonify(result), 500
+
+
+@numbers_bp.route('/voice/cnam/update-all', methods=['POST'])
+@login_required
+def cnam_update_all():
+    """Apply CNAM to all numbers that don't have it set or have a mismatched name."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    trust_hub = (vc or {}).get('trust_hub', {})
+    business_name = trust_hub.get('business_name', '')
+
+    if not business_name:
+        return jsonify({"error": "No business name registered. Complete Spam Protection first."}), 400
+
+    cnam_name = business_name[:15].strip()
+
+    numbers = twilio_provisioning.get_cnam_monitor(sub_sid)
+    updated = 0
+    failed = 0
+    for n in numbers:
+        current = (n.get('friendly_name') or '').strip()
+        if current.lower() != cnam_name.lower():
+            r = twilio_provisioning.update_cnam_for_number(sub_sid, n['sid'], cnam_name)
+            if r.get('status') == 'ok':
+                updated += 1
+            else:
+                failed += 1
+
+    return jsonify({
+        "status": "ok",
+        "cnam_name": cnam_name,
+        "updated": updated,
+        "failed": failed,
+        "already_set": len(numbers) - updated - failed,
+    })
+
+
+@numbers_bp.route('/voice/cnam/lookup', methods=['POST'])
+@login_required
+def cnam_lookup():
+    """
+    Look up what carriers see as the caller name for a phone number.
+    Uses Twilio Lookup API v2 with caller_name field.
+    """
+    data = request.json or {}
+    phone = (data.get('phone') or '').strip()
+
+    if not phone:
+        return jsonify({"error": "Phone number is required"}), 400
+
+    # Normalize: ensure E.164 format
+    digits = ''.join(c for c in phone if c.isdigit())
+    if len(digits) == 10:
+        digits = '1' + digits
+    if len(digits) == 11 and digits[0] == '1':
+        phone_e164 = '+' + digits
+    else:
+        phone_e164 = '+' + digits
+
+    result = twilio_provisioning.cnam_lookup(phone_e164)
+    return jsonify(result)
+
+
+@numbers_bp.route('/voice/cnam/lookup-own', methods=['GET'])
+@login_required
+def cnam_lookup_own():
+    """
+    Look up CNAM for all of the subscriber's own phone numbers.
+    Shows what carriers actually see (may differ from what's set via friendly_name).
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    numbers = twilio_provisioning.get_cnam_monitor(sub_sid)
+    results = []
+    for n in numbers:
+        phone = n.get('phone', '')
+        if phone:
+            lookup = twilio_provisioning.cnam_lookup(phone)
+            results.append({
+                "phone": phone,
+                "sid": n.get('sid', ''),
+                "set_name": n.get('friendly_name', ''),
+                "carrier_name": lookup.get('caller_name', ''),
+                "caller_type": lookup.get('caller_type', ''),
+                "propagated": (
+                    lookup.get('caller_name', '').strip().lower() ==
+                    (n.get('friendly_name') or '').strip().lower()
+                    if lookup.get('caller_name') and n.get('friendly_name')
+                    else False
+                ),
+                "error": lookup.get('error', ''),
+            })
+
+    return jsonify({
+        "numbers": results,
+        "total": len(results),
+        "propagated": sum(1 for r in results if r.get('propagated')),
+    })
+
+
+# ──────────────────────────────────────────────────────────────
 # NUMBER INTEGRITY (Voice Integrity)
 # Registers numbers with AT&T/Hiya, T-Mobile/CallHub, Verizon
 # carrier analytics to remediate spam labels & improve answer rates.
