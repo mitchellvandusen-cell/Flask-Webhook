@@ -1673,8 +1673,9 @@ def assign_numbers_to_voice_integrity(
                         )
                     logger.info(f"[VoiceIntegrity] Assigned {pn_sid} to profile {profile_sid}")
                 except TwilioRestException as e:
-                    if e.code == 20409:
-                        logger.info(f"[VoiceIntegrity] {pn_sid} already on profile (20409)")
+                    # 20409 or HTTP 409 (code 70003) = already assigned to this profile — fine
+                    if e.code == 20409 or e.status == 409:
+                        logger.info(f"[VoiceIntegrity] {pn_sid} already on profile (code={e.code}, status={e.status})")
                     else:
                         raise
 
@@ -1687,10 +1688,44 @@ def assign_numbers_to_voice_integrity(
             assigned += 1
             logger.info(f"[VoiceIntegrity] Assigned {pn_sid} to {trust_product_sid}")
         except TwilioRestException as e:
-            # 20409 = already assigned — treat as success
-            if e.code == 20409:
-                assigned += 1
-                logger.info(f"[VoiceIntegrity] {pn_sid} already assigned (20409)")
+            # 20409 or HTTP 409 (code 70003) = already assigned to a Trust Product.
+            # If it's assigned to THIS TP, treat as success.
+            # If it's assigned to ANOTHER TP (e.g. old rejected one), unassign and retry.
+            if e.code == 20409 or (e.status == 409 and "already assigned" in str(e).lower()):
+                # Extract the conflicting BU SID from the error message
+                import re as _re
+                conflict_match = _re.search(r'already assigned to (BU[a-f0-9A-F]+)', str(e))
+                conflict_sid = conflict_match.group(1) if conflict_match else None
+
+                if conflict_sid and conflict_sid == trust_product_sid:
+                    # Already assigned to our target — treat as success
+                    assigned += 1
+                    logger.info(f"[VoiceIntegrity] {pn_sid} already assigned to target TP (ok)")
+                elif conflict_sid and conflict_sid != trust_product_sid:
+                    # Assigned to a different Trust Product — unassign from it and retry
+                    logger.info(f"[VoiceIntegrity] {pn_sid} stuck on {conflict_sid}, unassigning and retrying")
+                    try:
+                        unassign_numbers_from_trust_product(
+                            sub_account_sid, conflict_sid, [pn_sid], sub_account_auth_token)
+                        # Retry assignment to our target TP
+                        client.trusthub.v1.trust_products(trust_product_sid) \
+                            .trust_products_channel_endpoint_assignment.create(
+                                channel_endpoint_type="phone-number",
+                                channel_endpoint_sid=pn_sid,
+                            )
+                        assigned += 1
+                        logger.info(f"[VoiceIntegrity] Retry succeeded: {pn_sid} → {trust_product_sid}")
+                    except TwilioRestException as retry_err:
+                        failed.append({"sid": pn_sid, "error": str(retry_err)})
+                        logger.warning(f"[VoiceIntegrity] Retry failed for {pn_sid}: {retry_err}")
+                else:
+                    # Can't determine conflict — treat 20409 as success, others as failure
+                    if e.code == 20409:
+                        assigned += 1
+                        logger.info(f"[VoiceIntegrity] {pn_sid} already assigned (20409)")
+                    else:
+                        failed.append({"sid": pn_sid, "error": str(e)})
+                        logger.warning(f"[VoiceIntegrity] Failed to assign {pn_sid}: {e}")
             else:
                 failed.append({"sid": pn_sid, "error": str(e)})
                 logger.warning(f"[VoiceIntegrity] Failed to assign {pn_sid}: {e}")
