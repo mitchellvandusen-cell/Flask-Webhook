@@ -1501,6 +1501,7 @@ def get_voice_integrity_status(
     """
     Check the current status of a Voice Integrity Trust Product.
     Statuses: draft, pending-review, in-review, twilio-approved, twilio-rejected.
+    When rejected, attempts to fetch the evaluation failure reasons.
     """
     client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
     try:
@@ -1514,7 +1515,7 @@ def get_voice_integrity_status(
         except Exception as e:
             logger.warning(f"[VoiceIntegrity] Could not list assigned numbers: {e}")
 
-        return {
+        result = {
             "trust_product_sid": tp.sid,
             "status": tp.status,
             "friendly_name": getattr(tp, "friendly_name", ""),
@@ -1523,8 +1524,117 @@ def get_voice_integrity_status(
             "assigned_numbers": assigned_numbers,
             "assigned_count": len(assigned_numbers),
         }
+
+        # If rejected, try to fetch evaluation failure reasons
+        if tp.status == "twilio-rejected":
+            try:
+                evals = client.trusthub.v1.trust_products(trust_product_sid) \
+                    .trust_products_evaluations.list(limit=5)
+                if evals:
+                    latest = evals[0]
+                    eval_results = getattr(latest, "results", None) or []
+                    failure_reasons = []
+                    for r in eval_results:
+                        if isinstance(r, dict) and r.get("status") in ("noncompliant", "failed"):
+                            reason = r.get("friendly_name") or r.get("requirement_key") or "Unknown"
+                            failure_reasons.append(reason)
+                    result["failure_reasons"] = failure_reasons
+                    result["evaluation_status"] = getattr(latest, "status", "")
+            except Exception as eval_err:
+                logger.warning(f"[VoiceIntegrity] Could not fetch rejection reasons: {eval_err}")
+
+        return result
     except TwilioRestException as e:
         logger.error(f"[VoiceIntegrity] Status check failed: {e}")
+        raise
+
+
+def update_voice_integrity_end_user(
+    sub_account_sid: str,
+    end_user_sid: str,
+    sub_account_auth_token: str = "",
+    business_employee_count: str = "",
+    average_call_volume: str = "",
+) -> dict:
+    """
+    Update the EndUser attributes on a Voice Integrity Trust Product.
+    Useful for correcting data after a rejection.
+    """
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
+    try:
+        attrs = {}
+        if business_employee_count:
+            attrs["business_employee_count"] = str(business_employee_count)
+        if average_call_volume:
+            attrs["average_business_day_call_volume"] = str(average_call_volume)
+
+        if not attrs:
+            return {"status": "ok", "message": "No attributes to update"}
+
+        # Fetch current attributes and merge
+        end_user = client.trusthub.v1.end_users(end_user_sid).fetch()
+        current_attrs = getattr(end_user, "attributes", {}) or {}
+        current_attrs.update(attrs)
+
+        updated = client.trusthub.v1.end_users(end_user_sid).update(
+            attributes=current_attrs,
+        )
+        logger.info(f"[VoiceIntegrity] Updated EndUser {end_user_sid}: {attrs}")
+        return {
+            "status": "ok",
+            "end_user_sid": updated.sid,
+            "attributes": getattr(updated, "attributes", {}),
+        }
+    except TwilioRestException as e:
+        logger.error(f"[VoiceIntegrity] EndUser update failed: {e}")
+        raise
+
+
+def resubmit_voice_integrity(
+    sub_account_sid: str,
+    trust_product_sid: str,
+    sub_account_auth_token: str = "",
+) -> dict:
+    """
+    Reset a rejected Voice Integrity Trust Product to draft, then resubmit.
+    Twilio requires rejected products to go back to draft before resubmission.
+    """
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
+    try:
+        # Step 1: Reset to draft (required for rejected products)
+        tp = client.trusthub.v1.trust_products(trust_product_sid).update(
+            status="draft",
+        )
+        logger.info(f"[VoiceIntegrity] Reset {trust_product_sid} to draft")
+
+        # Step 2: Re-submit for review
+        # Run evaluation first
+        try:
+            evaluation = client.trusthub.v1.trust_products(trust_product_sid) \
+                .trust_products_evaluations.create(policy_sid=VOICE_INTEGRITY_POLICY_SID)
+            eval_status = getattr(evaluation, "status", "unknown")
+            logger.info(f"[VoiceIntegrity] Re-evaluation for {trust_product_sid}: {eval_status}")
+            if eval_status == "noncompliant":
+                eval_results = getattr(evaluation, "results", None) or []
+                error_details = []
+                for r in eval_results:
+                    if isinstance(r, dict) and r.get("status") == "noncompliant":
+                        error_details.append(r.get("friendly_name", r.get("requirement_key", "unknown")))
+                detail_msg = ", ".join(error_details) if error_details else "evaluation returned noncompliant"
+                raise TwilioRestException(
+                    status=400, uri="", msg=f"Voice Integrity evaluation failed: {detail_msg}")
+        except TwilioRestException:
+            raise
+        except Exception as eval_err:
+            logger.warning(f"[VoiceIntegrity] Re-evaluation check failed (proceeding): {eval_err}")
+
+        tp = client.trusthub.v1.trust_products(trust_product_sid).update(
+            status="pending-review",
+        )
+        logger.info(f"[VoiceIntegrity] Resubmitted {trust_product_sid} → {tp.status}")
+        return {"trust_product_sid": tp.sid, "status": tp.status}
+    except TwilioRestException as e:
+        logger.error(f"[VoiceIntegrity] Resubmit failed: {e}")
         raise
 
 

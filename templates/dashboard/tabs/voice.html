@@ -858,6 +858,35 @@
                         <!-- Status Banner (shown when registered) -->
                         <div id="niStatusBanner" class="ni-status-banner" style="display:none;"></div>
 
+                        <!-- Edit & Resubmit Form (shown on rejection) -->
+                        <div id="niEditForm" class="ni-edit-form mb-3 p-3" style="display:none;">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <div class="ni-edit-form-title">
+                                    <i class="fa-solid fa-pen-to-square me-2"></i>Edit Registration Info
+                                </div>
+                                <button onclick="niHideEditForm()" class="ni-edit-close-btn">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                            <div class="ni-edit-form-hint mb-3">
+                                Update the information below and resubmit. Twilio requires employee count and call volume to be positive whole numbers.
+                            </div>
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-6">
+                                    <label class="ni-edit-label">Employee Count</label>
+                                    <input type="number" id="niEmployeeCount" min="1" placeholder="e.g. 5" class="ni-edit-input">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="ni-edit-label">Avg. Daily Call Volume</label>
+                                    <input type="number" id="niCallVolume" min="1" placeholder="e.g. 500" class="ni-edit-input">
+                                </div>
+                            </div>
+                            <button id="niEditSubmitBtn" onclick="niUpdateAndResubmit()" class="ni-edit-submit-btn">
+                                <i class="fa-solid fa-paper-plane me-1"></i>Update & Resubmit
+                            </button>
+                            <div id="niEditResult" class="mt-2"></div>
+                        </div>
+
                         <!-- Main Content -->
                         <div id="niMainContent">
 
