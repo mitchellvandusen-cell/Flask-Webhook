@@ -281,6 +281,7 @@ def consolidated_calendar_op(
     first_name: str = None,
     selected_time: str = None,
     contact_phone: str = None,
+    contact_state: str = None,
 ) -> any:
     """
     Unified calendar operation: fetch slots or book appointment.
@@ -290,8 +291,8 @@ def consolidated_calendar_op(
     MULTI-TENANT: All credentials come from subscriber_data (database).
     No hardcoded tokens or env vars.
 
-    TIMEZONE-AWARE: When contact_phone is provided, the customer's timezone
-    is resolved from their area code. Offered slots are displayed in the
+    TIMEZONE-AWARE: When contact_state is provided, the customer's timezone
+    is resolved from their state. Offered slots are displayed in the
     customer's local time. Booking requests are interpreted in the customer's
     timezone and converted to the agent's calendar timezone for GHL.
 
@@ -306,17 +307,54 @@ def consolidated_calendar_op(
     local_tz_str = subscriber_data.get("timezone", "America/Chicago")
     access_token = subscriber_data.get("access_token")
 
-    # Resolve customer timezone from phone area code (falls back to agent tz)
+    # Resolve customer timezone from their state (contact address from GHL)
+    # Primary: contact_state field from webhook payload
+    # Fallback: phone area code (less reliable — people keep numbers when they move)
     customer_tz_str = None
-    if contact_phone:
+    resolved_state = None
+    if contact_state:
+        try:
+            from voice.predictive_engine import _STATE_TO_TZ
+            # Normalize: accept "FL", "fl", "Florida", etc.
+            state_upper = contact_state.strip().upper()
+            # Handle full state names → abbreviation
+            _FULL_STATE_NAMES = {
+                "ALABAMA": "AL", "ALASKA": "AK", "ARIZONA": "AZ", "ARKANSAS": "AR",
+                "CALIFORNIA": "CA", "COLORADO": "CO", "CONNECTICUT": "CT", "DELAWARE": "DE",
+                "DISTRICT OF COLUMBIA": "DC", "FLORIDA": "FL", "GEORGIA": "GA", "HAWAII": "HI",
+                "IDAHO": "ID", "ILLINOIS": "IL", "INDIANA": "IN", "IOWA": "IA",
+                "KANSAS": "KS", "KENTUCKY": "KY", "LOUISIANA": "LA", "MAINE": "ME",
+                "MARYLAND": "MD", "MASSACHUSETTS": "MA", "MICHIGAN": "MI", "MINNESOTA": "MN",
+                "MISSISSIPPI": "MS", "MISSOURI": "MO", "MONTANA": "MT", "NEBRASKA": "NE",
+                "NEVADA": "NV", "NEW HAMPSHIRE": "NH", "NEW JERSEY": "NJ", "NEW MEXICO": "NM",
+                "NEW YORK": "NY", "NORTH CAROLINA": "NC", "NORTH DAKOTA": "ND", "OHIO": "OH",
+                "OKLAHOMA": "OK", "OREGON": "OR", "PENNSYLVANIA": "PA", "RHODE ISLAND": "RI",
+                "SOUTH CAROLINA": "SC", "SOUTH DAKOTA": "SD", "TENNESSEE": "TN", "TEXAS": "TX",
+                "UTAH": "UT", "VERMONT": "VT", "VIRGINIA": "VA", "WASHINGTON": "WA",
+                "WEST VIRGINIA": "WV", "WISCONSIN": "WI", "WYOMING": "WY",
+                "PUERTO RICO": "PR", "GUAM": "GU", "VIRGIN ISLANDS": "VI",
+            }
+            state_abbr = _FULL_STATE_NAMES.get(state_upper, state_upper)
+            if len(state_abbr) == 2:
+                tz = _STATE_TO_TZ.get(state_abbr)
+                if tz:
+                    customer_tz_str = tz
+                    resolved_state = state_abbr
+                    logger.info(f"📅 CUSTOMER TIMEZONE: {customer_tz_str} (state={state_abbr}) from contact address")
+        except Exception as tz_err:
+            logger.warning(f"⚠️ Could not resolve customer timezone from state '{contact_state}': {tz_err}")
+
+    # Fallback: try phone area code if state didn't resolve
+    if not customer_tz_str and contact_phone:
         try:
             from voice.predictive_engine import area_code_to_timezone, area_code_to_state
             customer_tz_str = area_code_to_timezone(contact_phone)
             if customer_tz_str:
-                customer_state = area_code_to_state(contact_phone) or "??"
-                logger.info(f"📅 CUSTOMER TIMEZONE: {customer_tz_str} (state={customer_state}) from phone")
+                resolved_state = area_code_to_state(contact_phone) or "??"
+                logger.info(f"📅 CUSTOMER TIMEZONE: {customer_tz_str} (state={resolved_state}) from phone area code (fallback)")
         except Exception as tz_err:
             logger.warning(f"⚠️ Could not resolve customer timezone from phone: {tz_err}")
+
     if not customer_tz_str:
         customer_tz_str = local_tz_str  # Fall back to agent timezone
 
