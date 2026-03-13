@@ -408,6 +408,7 @@ def process_webhook_task(payload: dict):
         # BOOKING DETECTION & EXECUTION
         # ============================================================
         booking_made = False
+        actual_booked_time = ""  # Populated with the real booked time from calendar API
         booking_result = detect_booking_request(
             message=message,
             recent_exchanges=recent_exchanges,
@@ -432,22 +433,25 @@ def process_webhook_task(payload: dict):
             if is_demo:
                 logger.info(f"📅 DEMO MODE: Simulating booking for {contact_id}")
                 booking_made = True
+                actual_booked_time = booking_time_str
             elif use_crm_adapter:
                 # Non-GHL CRM: Use adapter system
                 try:
                     from crm_adapters.factory import get_adapter_for_subscriber
                     adapter = get_adapter_for_subscriber(subscriber)
-                    booking_result = adapter.book_appointment(
+                    crm_book_result = adapter.book_appointment(
                         contact_id=contact_id,
                         first_name=first_name,
                         selected_time=booking_time_str
                     )
-                    if booking_result:
+                    if crm_book_result:
                         logger.info(f"✅ APPOINTMENT BOOKED via {adapter.CRM_NAME} for {contact_id}")
                         booking_made = True
+                        # Use actual booked time if adapter returned it, else fall back to requested time
+                        actual_booked_time = crm_book_result if isinstance(crm_book_result, str) else booking_time_str
                         log_webhook_event(location_id, "booking_success", "success",
-                                          f"Booked via {adapter.CRM_NAME}: {booking_time_str}",
-                                          contact_id=contact_id, details={"crm": adapter.CRM_NAME, "time": booking_time_str})
+                                          f"Booked via {adapter.CRM_NAME}: {actual_booked_time}",
+                                          contact_id=contact_id, details={"crm": adapter.CRM_NAME, "time": actual_booked_time})
                     else:
                         logger.warning(f"⚠️ BOOKING FAILED via {adapter.CRM_NAME} for {contact_id}")
                         log_webhook_event(location_id, "booking_failed", "error",
@@ -456,11 +460,11 @@ def process_webhook_task(payload: dict):
                 except Exception as adapter_err:
                     logger.error(f"CRM adapter booking error: {adapter_err}", exc_info=True)
             else:
-                # GHL: Use existing direct code path (unchanged)
+                # GHL: Use existing direct code path
                 # Pass contact state + phone for timezone-aware booking
                 contact_state = payload.get('state') or ''
                 contact_phone_tz = payload.get('phone') or payload.get('contact_phone', '')
-                booking_result = consolidated_calendar_op(
+                ghl_book_result = consolidated_calendar_op(
                     operation="book",
                     subscriber_data=subscriber,
                     contact_id=contact_id,
@@ -470,12 +474,14 @@ def process_webhook_task(payload: dict):
                     contact_state=contact_state,
                 )
 
-                if booking_result:
+                if ghl_book_result:
                     logger.info(f"✅ APPOINTMENT BOOKED for {contact_id}")
                     booking_made = True
+                    # ghl_book_result is now the actual booked time string (e.g., "11:00 AM on Tuesday, March 17")
+                    actual_booked_time = ghl_book_result if isinstance(ghl_book_result, str) else booking_time_str
                     log_webhook_event(location_id, "booking_success", "success",
-                                      f"Booked via LeadConnector: {booking_time_str}",
-                                      contact_id=contact_id, details={"crm": "LeadConnector", "time": booking_time_str})
+                                      f"Booked via LeadConnector: {actual_booked_time}",
+                                      contact_id=contact_id, details={"crm": "LeadConnector", "time": actual_booked_time})
                 else:
                     logger.warning(f"⚠️ BOOKING FAILED for {contact_id} - Grok will handle response")
                     log_webhook_event(location_id, "booking_failed", "error",
@@ -514,13 +520,15 @@ def process_webhook_task(payload: dict):
 
         # Add booking context
         if booking_made:
-            context_nudge += """
-⚠️ APPOINTMENT JUST BOOKED SUCCESSFULLY.
+            # Use the actual booked time from the calendar API (not the raw customer request)
+            booked_display = actual_booked_time or booking_time_str
+            context_nudge += f"""
+⚠️ APPOINTMENT JUST BOOKED SUCCESSFULLY for {booked_display}.
 
-Confirm the specific time that was booked. Let them know a calendar invite is coming. Stop selling immediately. Do not ask for phone number, email, or any contact info. You already have it. You are texting them.
+Confirm the EXACT time: {booked_display}. Let them know a calendar invite is coming. Stop selling immediately. Do not ask for phone number, email, or any contact info. You already have it. You are texting them.
 
-Do not continue the sales conversation. The appointment is booked. Confirm it in your own words and end warmly."""
-            logger.info(f"✅ BOOKING CONFIRMATION ADDED TO PROMPT | contact={contact_id}")
+Do not continue the sales conversation. The appointment is booked at {booked_display}. Confirm it in your own words and end warmly."""
+            logger.info(f"✅ BOOKING CONFIRMATION ADDED TO PROMPT | contact={contact_id} | booked_time={booked_display}")
         elif booking_attempted_and_failed:
             # Booking was attempted but the API call failed — give the AI specific guidance
             context_nudge += f"""
