@@ -282,6 +282,9 @@ def consolidated_calendar_op(
     selected_time: str = None,
     contact_phone: str = None,
     contact_state: str = None,
+    contact_city: str = None,
+    contact_zip: str = None,
+    contact_address: str = None,
 ) -> any:
     """
     Unified calendar operation: fetch slots or book appointment.
@@ -307,56 +310,186 @@ def consolidated_calendar_op(
     local_tz_str = subscriber_data.get("timezone", "America/Chicago")
     access_token = subscriber_data.get("access_token")
 
-    # Resolve customer timezone from their state (contact address from GHL)
-    # Primary: contact_state field from webhook payload
-    # Fallback: phone area code (less reliable — people keep numbers when they move)
+    # Resolve customer timezone with multi-level fallback chain:
+    #   1. State field (most reliable — from contact address)
+    #   2. City field → state lookup (major US cities)
+    #   3. Zip code prefix → timezone (US zip code ranges)
+    #   4. Address field → parse state from full address string
+    #   5. Phone area code (least reliable — people keep numbers when they move)
+    #   6. Agent timezone (absolute last resort)
     customer_tz_str = None
     resolved_state = None
+    tz_source = None
+
+    _FULL_STATE_NAMES = {
+        "ALABAMA": "AL", "ALASKA": "AK", "ARIZONA": "AZ", "ARKANSAS": "AR",
+        "CALIFORNIA": "CA", "COLORADO": "CO", "CONNECTICUT": "CT", "DELAWARE": "DE",
+        "DISTRICT OF COLUMBIA": "DC", "FLORIDA": "FL", "GEORGIA": "GA", "HAWAII": "HI",
+        "IDAHO": "ID", "ILLINOIS": "IL", "INDIANA": "IN", "IOWA": "IA",
+        "KANSAS": "KS", "KENTUCKY": "KY", "LOUISIANA": "LA", "MAINE": "ME",
+        "MARYLAND": "MD", "MASSACHUSETTS": "MA", "MICHIGAN": "MI", "MINNESOTA": "MN",
+        "MISSISSIPPI": "MS", "MISSOURI": "MO", "MONTANA": "MT", "NEBRASKA": "NE",
+        "NEVADA": "NV", "NEW HAMPSHIRE": "NH", "NEW JERSEY": "NJ", "NEW MEXICO": "NM",
+        "NEW YORK": "NY", "NORTH CAROLINA": "NC", "NORTH DAKOTA": "ND", "OHIO": "OH",
+        "OKLAHOMA": "OK", "OREGON": "OR", "PENNSYLVANIA": "PA", "RHODE ISLAND": "RI",
+        "SOUTH CAROLINA": "SC", "SOUTH DAKOTA": "SD", "TENNESSEE": "TN", "TEXAS": "TX",
+        "UTAH": "UT", "VERMONT": "VT", "VIRGINIA": "VA", "WASHINGTON": "WA",
+        "WEST VIRGINIA": "WV", "WISCONSIN": "WI", "WYOMING": "WY",
+        "PUERTO RICO": "PR", "GUAM": "GU", "VIRGIN ISLANDS": "VI",
+    }
+
+    def _state_str_to_tz(state_str):
+        """Convert state string (abbrev or full name) to (tz_str, state_abbr) or (None, None)."""
+        if not state_str:
+            return None, None
+        from voice.predictive_engine import _STATE_TO_TZ
+        s = state_str.strip().upper()
+        abbr = _FULL_STATE_NAMES.get(s, s)
+        if len(abbr) == 2:
+            tz = _STATE_TO_TZ.get(abbr)
+            if tz:
+                return tz, abbr
+        return None, None
+
+    # --- Fallback 1: State field ---
     if contact_state:
         try:
-            from voice.predictive_engine import _STATE_TO_TZ
-            # Normalize: accept "FL", "fl", "Florida", etc.
-            state_upper = contact_state.strip().upper()
-            # Handle full state names → abbreviation
-            _FULL_STATE_NAMES = {
-                "ALABAMA": "AL", "ALASKA": "AK", "ARIZONA": "AZ", "ARKANSAS": "AR",
-                "CALIFORNIA": "CA", "COLORADO": "CO", "CONNECTICUT": "CT", "DELAWARE": "DE",
-                "DISTRICT OF COLUMBIA": "DC", "FLORIDA": "FL", "GEORGIA": "GA", "HAWAII": "HI",
-                "IDAHO": "ID", "ILLINOIS": "IL", "INDIANA": "IN", "IOWA": "IA",
-                "KANSAS": "KS", "KENTUCKY": "KY", "LOUISIANA": "LA", "MAINE": "ME",
-                "MARYLAND": "MD", "MASSACHUSETTS": "MA", "MICHIGAN": "MI", "MINNESOTA": "MN",
-                "MISSISSIPPI": "MS", "MISSOURI": "MO", "MONTANA": "MT", "NEBRASKA": "NE",
-                "NEVADA": "NV", "NEW HAMPSHIRE": "NH", "NEW JERSEY": "NJ", "NEW MEXICO": "NM",
-                "NEW YORK": "NY", "NORTH CAROLINA": "NC", "NORTH DAKOTA": "ND", "OHIO": "OH",
-                "OKLAHOMA": "OK", "OREGON": "OR", "PENNSYLVANIA": "PA", "RHODE ISLAND": "RI",
-                "SOUTH CAROLINA": "SC", "SOUTH DAKOTA": "SD", "TENNESSEE": "TN", "TEXAS": "TX",
-                "UTAH": "UT", "VERMONT": "VT", "VIRGINIA": "VA", "WASHINGTON": "WA",
-                "WEST VIRGINIA": "WV", "WISCONSIN": "WI", "WYOMING": "WY",
-                "PUERTO RICO": "PR", "GUAM": "GU", "VIRGIN ISLANDS": "VI",
-            }
-            state_abbr = _FULL_STATE_NAMES.get(state_upper, state_upper)
-            if len(state_abbr) == 2:
-                tz = _STATE_TO_TZ.get(state_abbr)
-                if tz:
-                    customer_tz_str = tz
-                    resolved_state = state_abbr
-                    logger.info(f"📅 CUSTOMER TIMEZONE: {customer_tz_str} (state={state_abbr}) from contact address")
-        except Exception as tz_err:
-            logger.warning(f"⚠️ Could not resolve customer timezone from state '{contact_state}': {tz_err}")
+            customer_tz_str, resolved_state = _state_str_to_tz(contact_state)
+            if customer_tz_str:
+                tz_source = f"state field ({resolved_state})"
+        except Exception:
+            pass
 
-    # Fallback: try phone area code if state didn't resolve
+    # --- Fallback 2: City → state (top ~120 US cities) ---
+    if not customer_tz_str and contact_city:
+        try:
+            _CITY_TO_STATE = {
+                "NEW YORK": "NY", "LOS ANGELES": "CA", "CHICAGO": "IL", "HOUSTON": "TX",
+                "PHOENIX": "AZ", "PHILADELPHIA": "PA", "SAN ANTONIO": "TX", "SAN DIEGO": "CA",
+                "DALLAS": "TX", "SAN JOSE": "CA", "AUSTIN": "TX", "JACKSONVILLE": "FL",
+                "FORT WORTH": "TX", "COLUMBUS": "OH", "CHARLOTTE": "NC", "SAN FRANCISCO": "CA",
+                "INDIANAPOLIS": "IN", "SEATTLE": "WA", "DENVER": "CO", "WASHINGTON": "DC",
+                "NASHVILLE": "TN", "OKLAHOMA CITY": "OK", "EL PASO": "TX", "BOSTON": "MA",
+                "PORTLAND": "OR", "LAS VEGAS": "NV", "MEMPHIS": "TN", "LOUISVILLE": "KY",
+                "BALTIMORE": "MD", "MILWAUKEE": "WI", "ALBUQUERQUE": "NM", "TUCSON": "AZ",
+                "FRESNO": "CA", "MESA": "AZ", "SACRAMENTO": "CA", "ATLANTA": "GA",
+                "KANSAS CITY": "MO", "COLORADO SPRINGS": "CO", "OMAHA": "NE", "RALEIGH": "NC",
+                "MIAMI": "FL", "LONG BEACH": "CA", "VIRGINIA BEACH": "VA", "OAKLAND": "CA",
+                "MINNEAPOLIS": "MN", "TULSA": "OK", "TAMPA": "FL", "ARLINGTON": "TX",
+                "NEW ORLEANS": "LA", "CLEVELAND": "OH", "BAKERSFIELD": "CA",
+                "AURORA": "CO", "ANAHEIM": "CA", "HONOLULU": "HI", "SANTA ANA": "CA",
+                "RIVERSIDE": "CA", "CORPUS CHRISTI": "TX", "LEXINGTON": "KY",
+                "PITTSBURGH": "PA", "ANCHORAGE": "AK", "STOCKTON": "CA", "CINCINNATI": "OH",
+                "ST PAUL": "MN", "SAINT PAUL": "MN", "TOLEDO": "OH", "GREENSBORO": "NC",
+                "NEWARK": "NJ", "PLANO": "TX", "HENDERSON": "NV", "LINCOLN": "NE",
+                "BUFFALO": "NY", "JERSEY CITY": "NJ", "CHULA VISTA": "CA",
+                "FORT WAYNE": "IN", "ORLANDO": "FL", "ST PETERSBURG": "FL",
+                "SAINT PETERSBURG": "FL", "CHANDLER": "AZ", "LAREDO": "TX",
+                "NORFOLK": "VA", "DURHAM": "NC", "MADISON": "WI", "LUBBOCK": "TX",
+                "IRVINE": "CA", "WINSTON SALEM": "NC", "GLENDALE": "AZ", "GARLAND": "TX",
+                "HIALEAH": "FL", "RENO": "NV", "CHESAPEAKE": "VA", "IRVING": "TX",
+                "SCOTTSDALE": "AZ", "BATON ROUGE": "LA", "RICHMOND": "VA", "SPOKANE": "WA",
+                "FREMONT": "CA", "BOISE": "ID", "SALT LAKE CITY": "UT", "DES MOINES": "IA",
+                "BIRMINGHAM": "AL", "ROCHESTER": "NY", "MODESTO": "CA", "LITTLE ROCK": "AR",
+                "TACOMA": "WA", "OXNARD": "CA", "KNOXVILLE": "TN", "AKRON": "OH",
+                "SHREVEPORT": "LA", "MOBILE": "AL", "MONTGOMERY": "AL", "HUNTSVILLE": "AL",
+                "GRAND RAPIDS": "MI", "AUGUSTA": "GA", "SAVANNAH": "GA",
+                "CHARLESTON": "SC", "COLUMBIA": "SC", "JACKSON": "MS",
+                "TALLAHASSEE": "FL", "PENSACOLA": "FL", "NAPLES": "FL",
+                "FORT LAUDERDALE": "FL", "WEST PALM BEACH": "FL", "SARASOTA": "FL",
+            }
+            city_upper = contact_city.strip().upper()
+            state_from_city = _CITY_TO_STATE.get(city_upper)
+            if state_from_city:
+                customer_tz_str, resolved_state = _state_str_to_tz(state_from_city)
+                if customer_tz_str:
+                    tz_source = f"city ({contact_city} -> {resolved_state})"
+        except Exception:
+            pass
+
+    # --- Fallback 3: Zip code prefix → timezone ---
+    if not customer_tz_str and contact_zip:
+        try:
+            zip_digits = ''.join(c for c in contact_zip if c.isdigit())
+            if len(zip_digits) >= 3:
+                prefix = int(zip_digits[:3])
+                # US zip prefix → timezone (USPS zip ranges, covers ~95% of contacts)
+                if prefix < 5:
+                    customer_tz_str = "America/Puerto_Rico"  # 000-004: PR
+                elif prefix < 10:
+                    customer_tz_str = "America/New_York"     # 005-009: NY/MA
+                elif prefix < 27:
+                    customer_tz_str = "America/New_York"     # 010-269: Northeast/Mid-Atlantic
+                elif prefix < 35:
+                    customer_tz_str = "America/New_York"     # 270-349: NC/SC/GA/FL (Eastern)
+                elif prefix < 37:
+                    customer_tz_str = "America/Chicago"      # 350-369: AL
+                elif prefix < 39:
+                    customer_tz_str = "America/Chicago"      # 370-389: TN/MS
+                elif prefix < 40:
+                    customer_tz_str = "America/New_York"     # 390-399: GA
+                elif prefix < 48:
+                    customer_tz_str = "America/New_York"     # 400-479: KY/OH/IN
+                elif prefix < 50:
+                    customer_tz_str = "America/Detroit"      # 480-499: MI
+                elif prefix < 60:
+                    customer_tz_str = "America/Chicago"      # 500-599: IA/WI/MN/SD/ND/MT
+                elif prefix < 70:
+                    customer_tz_str = "America/Chicago"      # 600-699: IL/MO/KS/NE
+                elif prefix < 80:
+                    customer_tz_str = "America/Chicago"      # 700-799: LA/AR/OK/TX
+                elif prefix < 85:
+                    customer_tz_str = "America/Denver"       # 800-849: CO/WY/ID/UT
+                elif prefix < 86:
+                    customer_tz_str = "America/Phoenix"      # 850-859: AZ
+                elif prefix < 90:
+                    customer_tz_str = "America/Denver"       # 860-899: AZ/NM/NV
+                elif prefix < 97:
+                    customer_tz_str = "America/Los_Angeles"  # 900-969: CA/HI
+                else:
+                    customer_tz_str = "America/Los_Angeles"  # 970-999: OR/WA/AK
+                if customer_tz_str:
+                    tz_source = f"zip code ({contact_zip})"
+        except Exception:
+            pass
+
+    # --- Fallback 4: Parse state from full address string ---
+    if not customer_tz_str and contact_address:
+        try:
+            addr_upper = contact_address.strip().upper()
+            # Pattern: "FL 33602" or "Florida 33602" (state before zip)
+            state_match = re.search(r'\b([A-Z]{2})\s+\d{5}', addr_upper)
+            if state_match:
+                customer_tz_str, resolved_state = _state_str_to_tz(state_match.group(1))
+                if customer_tz_str:
+                    tz_source = f"address ({resolved_state})"
+            # Pattern: ", Florida" or ", FL" at end
+            if not customer_tz_str:
+                state_match = re.search(r',\s*([A-Za-z ]+?)(?:\s+\d{5}|\s*$)', contact_address)
+                if state_match:
+                    customer_tz_str, resolved_state = _state_str_to_tz(state_match.group(1).strip())
+                    if customer_tz_str:
+                        tz_source = f"address ({resolved_state})"
+        except Exception:
+            pass
+
+    # --- Fallback 5: Phone area code ---
     if not customer_tz_str and contact_phone:
         try:
             from voice.predictive_engine import area_code_to_timezone, area_code_to_state
             customer_tz_str = area_code_to_timezone(contact_phone)
             if customer_tz_str:
                 resolved_state = area_code_to_state(contact_phone) or "??"
-                logger.info(f"📅 CUSTOMER TIMEZONE: {customer_tz_str} (state={resolved_state}) from phone area code (fallback)")
-        except Exception as tz_err:
-            logger.warning(f"⚠️ Could not resolve customer timezone from phone: {tz_err}")
+                tz_source = f"phone area code ({resolved_state})"
+        except Exception:
+            pass
 
+    # --- Fallback 6: Agent timezone ---
     if not customer_tz_str:
-        customer_tz_str = local_tz_str  # Fall back to agent timezone
+        customer_tz_str = local_tz_str
+        tz_source = "agent timezone (last resort)"
+
+    logger.info(f"📅 CUSTOMER TIMEZONE: {customer_tz_str} via {tz_source}")
 
     if not cal_id:
         logger.error(f"Missing calendar_id for calendar op (loc={location_id})")

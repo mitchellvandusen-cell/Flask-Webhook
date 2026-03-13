@@ -61,6 +61,29 @@ def normalize_payload_universal(payload: dict) -> dict:
         if value is not None:
             normalized[field] = value
 
+    # GHL-specific field aliases (GHL uses camelCase names that don't match snake_case variations)
+    _GHL_ALIASES = {
+        "zip": ["postalCode", "postal_code", "zipCode", "zip_code"],
+        "address": ["address1", "streetAddress", "street_address"],
+    }
+    for target_field, aliases in _GHL_ALIASES.items():
+        if target_field not in normalized:
+            for alias in aliases:
+                val = payload.get(alias)
+                if val and str(val).strip():
+                    normalized[target_field] = val
+                    break
+                # Also search nested structures
+                for nk in ("contact", "data", "extras", "location"):
+                    nested = payload.get(nk)
+                    if isinstance(nested, dict):
+                        val = nested.get(alias)
+                        if val and str(val).strip():
+                            normalized[target_field] = val
+                            break
+                if target_field in normalized:
+                    break
+
     # Extract tags (array field)
     tags = None
     for tags_key in ("tags", "Tags", "TAGS"):
