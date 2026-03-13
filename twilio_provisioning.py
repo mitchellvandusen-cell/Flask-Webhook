@@ -942,13 +942,15 @@ def create_a2p_brand(sub_account_sid: str,
     # MUST use sub-account's own credentials for TrustHub/Messaging APIs.
     client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
     try:
-        # ── Step 1: Secondary Customer Profile ──
-        profile = client.trusthub.v1.customer_profiles.create(
-            friendly_name=f"A2P Brand: {business_name}",
-            email=contact_email,
-            policy_sid="RNb0d4771c2c98518d916a3d4cd70a8f8b",
+        # ── Step 1: Secondary Customer Profile (ISV pattern) ──
+        # Reuse existing approved Secondary Profile or create new one with
+        # correct policy SID and linkage to Primary Business Profile.
+        primary_sid = _find_primary_profile_sid()
+        profile_sid = _find_or_create_secondary_profile(
+            client, sub_account_sid, business_name, contact_email,
+            primary_profile_sid=primary_sid,
         )
-        logger.info(f"Created A2P Customer Profile: {profile.sid}")
+        logger.info(f"Created/reused A2P Secondary Customer Profile: {profile_sid}")
 
         # ── Step 2: EndUser with business information ──
         end_user = client.trusthub.v1.end_users.create(
@@ -991,7 +993,7 @@ def create_a2p_brand(sub_account_sid: str,
         # ── Step 5: Attach CustomerProfile → TrustProduct ──
         client.trusthub.v1.trust_products(trust_product.sid) \
             .trust_products_entity_assignments.create(
-                object_sid=profile.sid,
+                object_sid=profile_sid,
             )
 
         # ── Step 6: Submit TrustProduct for evaluation ──
@@ -1004,7 +1006,7 @@ def create_a2p_brand(sub_account_sid: str,
         # customer_profile_bundle_sid = Customer Profile SID (BU...)
         # a2p_profile_bundle_sid      = TrustProduct SID (BU...)  ← NOT the profile!
         brand = client.messaging.v1.brand_registrations.create(
-            customer_profile_bundle_sid=profile.sid,
+            customer_profile_bundle_sid=profile_sid,
             a2p_profile_bundle_sid=trust_product.sid,
         )
 
@@ -1012,7 +1014,7 @@ def create_a2p_brand(sub_account_sid: str,
         return {
             "brand_sid": brand.sid,
             "status": brand.status,
-            "profile_sid": profile.sid,
+            "profile_sid": profile_sid,
             "trust_product_sid": trust_product.sid,
             "end_user_sid": end_user.sid,
             "business_name": business_name,
