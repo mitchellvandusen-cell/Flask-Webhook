@@ -42,6 +42,9 @@
                             <button class="voice-menu-item" onclick="switchVoicePanel('trusthub')" id="vmenu-trusthub" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
                                 <i class="fa-solid fa-shield-halved" style="width:16px;text-align:center;"></i> Spam Protection
                             </button>
+                            <button class="voice-menu-item" onclick="switchVoicePanel('cnam')" id="vmenu-cnam" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                                <i class="fa-solid fa-id-card" style="width:16px;text-align:center;"></i> CNAM Monitor
+                            </button>
                             <button class="voice-menu-item" onclick="switchVoicePanel('numberintegrity')" id="vmenu-numberintegrity" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
                                 <i class="fa-solid fa-tower-broadcast" style="width:16px;text-align:center;"></i> Number Integrity
                             </button>
@@ -777,6 +780,77 @@
                         </div>
 
                     </div><!-- /vstab-panel-trusthub -->
+
+                    <!-- ══ CNAM Monitor & Lookup sub-tab ══ -->
+                    <div id="vstab-panel-cnam" style="display:none;">
+
+                        <!-- CNAM Monitor Section -->
+                        <div class="cnam-header-card mb-3 p-3">
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <div class="cnam-header-icon">
+                                    <i class="fa-solid fa-id-card"></i>
+                                </div>
+                                <div>
+                                    <div class="cnam-title">CNAM Monitor</div>
+                                    <div class="cnam-subtitle">View and manage the Caller ID Name (CNAM) displayed on each of your phone numbers. CNAM is truncated to 15 characters by carriers.</div>
+                                </div>
+                            </div>
+
+                            <!-- Summary banner -->
+                            <div id="cnamSummaryBanner" class="cnam-summary-banner mb-3 p-2">
+                                <div class="cnam-summary-loading"><i class="fa-solid fa-spinner fa-spin me-1"></i>Loading CNAM status...</div>
+                            </div>
+
+                            <!-- Sync All button -->
+                            <div class="d-flex align-items-center gap-2 mb-3">
+                                <button id="cnamSyncAllBtn" onclick="cnamSyncAll()" class="cnam-sync-all-btn">
+                                    <i class="fa-solid fa-arrows-rotate me-1"></i>Sync All to Business Name
+                                </button>
+                                <button onclick="loadCnamMonitor()" class="cnam-refresh-btn">
+                                    <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
+                                </button>
+                            </div>
+
+                            <!-- Numbers list -->
+                            <div id="cnamNumbersList" class="cnam-numbers-list">
+                                <div class="cnam-loading"><i class="fa-solid fa-spinner fa-spin me-1"></i>Loading numbers...</div>
+                            </div>
+                        </div>
+
+                        <!-- CNAM Lookup Section -->
+                        <div class="cnam-header-card mb-3 p-3">
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <div class="cnam-lookup-icon">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                </div>
+                                <div>
+                                    <div class="cnam-title">CNAM Lookup</div>
+                                    <div class="cnam-subtitle">Look up what carriers see as the Caller ID Name for any US phone number. This queries the national CNAM database.</div>
+                                </div>
+                            </div>
+
+                            <div class="row g-2 mb-2">
+                                <div class="col">
+                                    <input type="tel" id="cnamLookupPhone" placeholder="(555) 123-4567 or +15551234567" class="cnam-input">
+                                </div>
+                                <div class="col-auto">
+                                    <button id="cnamLookupBtn" onclick="cnamLookup()" class="cnam-lookup-btn">
+                                        <i class="fa-solid fa-magnifying-glass me-1"></i>Lookup
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="cnamLookupResult" class="cnam-lookup-result"></div>
+
+                            <!-- Lookup own numbers button -->
+                            <div class="mt-3">
+                                <button id="cnamLookupOwnBtn" onclick="cnamLookupOwn()" class="cnam-lookup-own-btn">
+                                    <i class="fa-solid fa-list-check me-1"></i>Check All My Numbers Against Carrier Database
+                                </button>
+                                <div id="cnamLookupOwnResult" class="mt-2"></div>
+                            </div>
+                        </div>
+
+                    </div><!-- /vstab-panel-cnam -->
 
                     <!-- ══ Number Integrity sub-tab ══ -->
                     <div id="vstab-panel-numberintegrity" class="ni-panel" style="display:none;">

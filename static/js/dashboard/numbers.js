@@ -332,6 +332,285 @@
         // Keep old function name as alias for backward compatibility
         function loadTrustHubNumbers() { loadNumbersTab(); }
 
+        // ===== CNAM MONITOR & LOOKUP =====
+
+        async function loadCnamMonitor() {
+            var listEl = document.getElementById('cnamNumbersList');
+            var bannerEl = document.getElementById('cnamSummaryBanner');
+            if (listEl) listEl.innerHTML = '<div class="cnam-loading"><i class="fa-solid fa-spinner fa-spin me-1"></i>Loading numbers...</div>';
+
+            try {
+                var r = await fetch('/voice/cnam/monitor');
+                if (!r.ok) {
+                    var d = {};
+                    try { d = await r.json(); } catch(_) {}
+                    if (listEl) listEl.innerHTML = '<div class="cnam-error"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Failed to load') + '</div>';
+                    return;
+                }
+                var d = await r.json();
+
+                // Summary banner
+                if (bannerEl) {
+                    var total = d.total || 0;
+                    var cnamSet = d.cnam_set || 0;
+                    var matching = d.cnam_matching || 0;
+                    var displayName = d.cnam_display_name || '';
+                    var allGood = cnamSet === total && matching === total && total > 0;
+
+                    bannerEl.innerHTML =
+                        '<div class="d-flex align-items-center gap-2 flex-wrap">' +
+                            '<div class="cnam-stat-pill ' + (allGood ? 'cnam-stat-good' : 'cnam-stat-warn') + '">' +
+                                '<i class="fa-solid ' + (allGood ? 'fa-circle-check' : 'fa-triangle-exclamation') + ' me-1"></i>' +
+                                cnamSet + '/' + total + ' CNAM set' +
+                            '</div>' +
+                            (displayName ?
+                                '<div class="cnam-stat-pill cnam-stat-info">' +
+                                    '<i class="fa-solid fa-id-card me-1"></i>Display: <strong>' + _esc(displayName) + '</strong>' +
+                                '</div>' : '') +
+                            (matching < cnamSet ?
+                                '<div class="cnam-stat-pill cnam-stat-warn">' +
+                                    '<i class="fa-solid fa-exclamation me-1"></i>' + (cnamSet - matching) + ' mismatched' +
+                                '</div>' : '') +
+                        '</div>';
+                }
+
+                // Numbers list
+                if (listEl) {
+                    var nums = d.numbers || [];
+                    if (!nums.length) {
+                        listEl.innerHTML = '<div class="cnam-empty">No numbers found. Buy a number in the Numbers tab first.</div>';
+                        return;
+                    }
+
+                    var html = '<div class="cnam-table-header">' +
+                        '<div class="cnam-col-phone">Phone</div>' +
+                        '<div class="cnam-col-name">CNAM Name</div>' +
+                        '<div class="cnam-col-status">Status</div>' +
+                        '<div class="cnam-col-actions">Actions</div>' +
+                    '</div>';
+
+                    nums.forEach(function(n) {
+                        var enabled = n.cnam_enabled;
+                        var matches = n.cnam_matches_business;
+                        var statusIcon, statusLabel, statusClass;
+
+                        if (!enabled) {
+                            statusIcon = 'fa-circle-xmark';
+                            statusLabel = 'Not Set';
+                            statusClass = 'cnam-status-off';
+                        } else if (matches) {
+                            statusIcon = 'fa-circle-check';
+                            statusLabel = 'Active';
+                            statusClass = 'cnam-status-ok';
+                        } else {
+                            statusIcon = 'fa-triangle-exclamation';
+                            statusLabel = 'Mismatched';
+                            statusClass = 'cnam-status-warn';
+                        }
+
+                        html += '<div class="cnam-row">' +
+                            '<div class="cnam-col-phone">' + _esc(_fmtPhone(n.phone)) + '</div>' +
+                            '<div class="cnam-col-name">' +
+                                '<span class="cnam-name-display" id="cnam-name-' + n.sid + '">' + _esc(n.cnam_name || '—') + '</span>' +
+                            '</div>' +
+                            '<div class="cnam-col-status">' +
+                                '<span class="cnam-status-badge ' + statusClass + '">' +
+                                    '<i class="fa-solid ' + statusIcon + ' me-1"></i>' + statusLabel +
+                                '</span>' +
+                            '</div>' +
+                            '<div class="cnam-col-actions">' +
+                                '<button onclick="cnamEditInline(\'' + n.sid + '\', \'' + _esc(n.cnam_name || '') + '\')" class="cnam-action-btn" title="Edit CNAM">' +
+                                    '<i class="fa-solid fa-pen"></i>' +
+                                '</button>' +
+                                (!enabled ?
+                                    '<button onclick="cnamQuickSet(\'' + n.sid + '\')" class="cnam-action-btn cnam-action-set" title="Set to business name">' +
+                                        '<i class="fa-solid fa-bolt"></i>' +
+                                    '</button>' : '') +
+                            '</div>' +
+                        '</div>';
+                    });
+
+                    listEl.innerHTML = html;
+                }
+            } catch(e) {
+                console.error('[CNAM Monitor]', e);
+                if (listEl) listEl.innerHTML = '<div class="cnam-error">Network error</div>';
+            }
+        }
+
+        async function cnamEditInline(sid, currentName) {
+            var el = document.getElementById('cnam-name-' + sid);
+            if (!el) return;
+            var newName = prompt('Enter CNAM name (max 15 characters):', currentName);
+            if (newName === null) return;
+            newName = newName.trim().substring(0, 15);
+
+            el.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            try {
+                var r = await fetch('/voice/cnam/update', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ number_sid: sid, cnam_name: newName }),
+                });
+                var d = await r.json();
+                if (r.ok && d.status === 'ok') {
+                    if (typeof _showDashToast === 'function') _showDashToast(true, 'CNAM updated');
+                    loadCnamMonitor();
+                } else {
+                    alert(d.error || 'Update failed');
+                    el.textContent = currentName || '—';
+                }
+            } catch(e) {
+                alert('Network error');
+                el.textContent = currentName || '—';
+            }
+        }
+
+        async function cnamQuickSet(sid) {
+            var el = document.getElementById('cnam-name-' + sid);
+            if (el) el.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            try {
+                var r = await fetch('/voice/cnam/update', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ number_sid: sid, cnam_name: '' }), // empty = use business name
+                });
+                if (r.ok) {
+                    if (typeof _showDashToast === 'function') _showDashToast(true, 'CNAM set');
+                    loadCnamMonitor();
+                } else {
+                    var d = await r.json();
+                    alert(d.error || 'Failed');
+                }
+            } catch(e) { alert('Network error'); }
+        }
+
+        async function cnamSyncAll() {
+            var btn = document.getElementById('cnamSyncAllBtn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Syncing...'; }
+            try {
+                var r = await fetch('/voice/cnam/update-all', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                });
+                var d = await r.json();
+                if (r.ok) {
+                    if (typeof _showDashToast === 'function') {
+                        _showDashToast(true, d.updated + ' updated, ' + d.already_set + ' already set' + (d.failed > 0 ? ', ' + d.failed + ' failed' : ''));
+                    }
+                    loadCnamMonitor();
+                } else {
+                    alert(d.error || 'Sync failed');
+                }
+            } catch(e) { alert('Network error'); }
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-arrows-rotate me-1"></i>Sync All to Business Name'; }
+        }
+
+        async function cnamLookup() {
+            var phone = (document.getElementById('cnamLookupPhone') || {}).value || '';
+            var resultEl = document.getElementById('cnamLookupResult');
+            var btn = document.getElementById('cnamLookupBtn');
+            if (!phone.trim()) { if (resultEl) resultEl.innerHTML = '<div class="cnam-error">Enter a phone number</div>'; return; }
+
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Looking up...'; }
+            if (resultEl) resultEl.innerHTML = '';
+
+            try {
+                var r = await fetch('/voice/cnam/lookup', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ phone: phone.trim() }),
+                });
+                var d = await r.json();
+                if (d.error && !d.caller_name) {
+                    resultEl.innerHTML = '<div class="cnam-lookup-card cnam-lookup-error">' +
+                        '<i class="fa-solid fa-triangle-exclamation me-2"></i>Lookup failed: ' + _esc(d.error) +
+                    '</div>';
+                } else {
+                    var callerName = d.caller_name || 'Not available';
+                    var callerType = d.caller_type || 'Unknown';
+                    var typeIcon = callerType === 'BUSINESS' ? 'fa-building' : callerType === 'CONSUMER' ? 'fa-user' : 'fa-question';
+
+                    resultEl.innerHTML = '<div class="cnam-lookup-card">' +
+                        '<div class="cnam-lookup-row">' +
+                            '<span class="cnam-lookup-label">Phone</span>' +
+                            '<span class="cnam-lookup-value">' + _esc(_fmtPhone(d.phone || phone)) + '</span>' +
+                        '</div>' +
+                        '<div class="cnam-lookup-row">' +
+                            '<span class="cnam-lookup-label">Caller Name</span>' +
+                            '<span class="cnam-lookup-value cnam-lookup-name">' + _esc(callerName) + '</span>' +
+                        '</div>' +
+                        '<div class="cnam-lookup-row">' +
+                            '<span class="cnam-lookup-label">Type</span>' +
+                            '<span class="cnam-lookup-value"><i class="fa-solid ' + typeIcon + ' me-1"></i>' + _esc(callerType) + '</span>' +
+                        '</div>' +
+                    '</div>';
+                }
+            } catch(e) {
+                if (resultEl) resultEl.innerHTML = '<div class="cnam-lookup-card cnam-lookup-error"><i class="fa-solid fa-wifi me-2"></i>Network error</div>';
+            }
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass me-1"></i>Lookup'; }
+        }
+
+        async function cnamLookupOwn() {
+            var resultEl = document.getElementById('cnamLookupOwnResult');
+            var btn = document.getElementById('cnamLookupOwnBtn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Checking all numbers...'; }
+            if (resultEl) resultEl.innerHTML = '';
+
+            try {
+                var r = await fetch('/voice/cnam/lookup-own');
+                var d = await r.json();
+                if (!r.ok || d.error) {
+                    resultEl.innerHTML = '<div class="cnam-error">' + _esc(d.error || 'Failed') + '</div>';
+                    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-list-check me-1"></i>Check All My Numbers Against Carrier Database'; }
+                    return;
+                }
+
+                var nums = d.numbers || [];
+                if (!nums.length) {
+                    resultEl.innerHTML = '<div class="cnam-empty">No numbers to check.</div>';
+                    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-list-check me-1"></i>Check All My Numbers Against Carrier Database'; }
+                    return;
+                }
+
+                var html = '<div class="cnam-propagation-summary mb-2">' +
+                    '<span class="cnam-stat-pill ' + (d.propagated === d.total ? 'cnam-stat-good' : 'cnam-stat-warn') + '">' +
+                        d.propagated + '/' + d.total + ' propagated to carriers' +
+                    '</span>' +
+                '</div>';
+
+                html += '<div class="cnam-table-header">' +
+                    '<div class="cnam-col-phone">Phone</div>' +
+                    '<div class="cnam-col-name">Set As</div>' +
+                    '<div class="cnam-col-name">Carrier Sees</div>' +
+                    '<div class="cnam-col-status">Match</div>' +
+                '</div>';
+
+                nums.forEach(function(n) {
+                    var propClass = n.propagated ? 'cnam-status-ok' : (n.error ? 'cnam-status-off' : 'cnam-status-warn');
+                    var propIcon = n.propagated ? 'fa-circle-check' : (n.error ? 'fa-circle-xmark' : 'fa-triangle-exclamation');
+                    var propLabel = n.propagated ? 'Match' : (n.error ? 'Error' : 'Mismatch');
+
+                    html += '<div class="cnam-row">' +
+                        '<div class="cnam-col-phone">' + _esc(_fmtPhone(n.phone)) + '</div>' +
+                        '<div class="cnam-col-name">' + _esc(n.set_name || '—') + '</div>' +
+                        '<div class="cnam-col-name">' + _esc(n.carrier_name || '—') + '</div>' +
+                        '<div class="cnam-col-status">' +
+                            '<span class="cnam-status-badge ' + propClass + '">' +
+                                '<i class="fa-solid ' + propIcon + ' me-1"></i>' + propLabel +
+                            '</span>' +
+                        '</div>' +
+                    '</div>';
+                });
+
+                resultEl.innerHTML = html;
+            } catch(e) {
+                if (resultEl) resultEl.innerHTML = '<div class="cnam-error">Network error</div>';
+            }
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-list-check me-1"></i>Check All My Numbers Against Carrier Database'; }
+        }
+
         // ===== NUMBER INTEGRITY (Voice Integrity) =====
         var _niData = null; // cached status data
         var _niSelectedSids = new Set();

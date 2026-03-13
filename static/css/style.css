@@ -4215,6 +4215,196 @@ body.light-theme .article-tag {
 }
 
 /* ══════════════════════════════════════════════════════════════
+   CNAM MONITOR & LOOKUP — Liquid Glass UI
+   ══════════════════════════════════════════════════════════════ */
+
+/* Header card */
+.cnam-header-card {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--glass-border-top) var(--glass-border-bottom) var(--glass-border-bottom) var(--glass-border-left);
+    border-radius: 12px;
+    box-shadow: var(--glass-shadow);
+}
+.cnam-header-icon {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: rgba(0,217,255,0.12); border: 1px solid rgba(0,217,255,0.25);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    color: #00d9ff; font-size: 1rem;
+}
+.cnam-lookup-icon {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: rgba(168,139,250,0.12); border: 1px solid rgba(168,139,250,0.25);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    color: #a78bfa; font-size: 1rem;
+}
+.cnam-title { font-weight: 700; font-size: 1rem; color: #fff; }
+.cnam-subtitle { font-size: 0.78rem; color: #888; }
+
+/* Summary banner */
+.cnam-summary-banner {
+    background: rgba(0,217,255,0.04); border: 1px solid rgba(0,217,255,0.10);
+    border-radius: 8px;
+}
+.cnam-summary-loading { font-size: 0.78rem; color: #888; text-align: center; padding: 4px; }
+.cnam-stat-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
+}
+.cnam-stat-good { background: rgba(0,255,136,0.08); color: #00ff88; border: 1px solid rgba(0,255,136,0.15); }
+.cnam-stat-warn { background: rgba(255,165,0,0.08); color: #ffa500; border: 1px solid rgba(255,165,0,0.15); }
+.cnam-stat-info { background: rgba(0,217,255,0.08); color: #00d9ff; border: 1px solid rgba(0,217,255,0.15); }
+
+/* Buttons */
+.cnam-sync-all-btn {
+    background: linear-gradient(135deg, #00ff88, #00cc6a); border: none;
+    color: #000; border-radius: 8px; padding: 8px 18px;
+    font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: opacity .2s;
+}
+.cnam-sync-all-btn:hover { opacity: 0.85; }
+.cnam-sync-all-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.cnam-refresh-btn {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    color: #aaa; border-radius: 8px; padding: 8px 14px;
+    font-size: 0.8rem; cursor: pointer; transition: all .15s;
+}
+.cnam-refresh-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+
+/* Numbers table */
+.cnam-table-header {
+    display: grid; grid-template-columns: 1.2fr 1.5fr 0.8fr 0.6fr;
+    padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 0.72rem; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.cnam-row {
+    display: grid; grid-template-columns: 1.2fr 1.5fr 0.8fr 0.6fr;
+    padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.03);
+    align-items: center; font-size: 0.82rem;
+}
+.cnam-row:hover { background: rgba(255,255,255,0.02); }
+.cnam-col-phone { color: #ccc; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem; }
+.cnam-col-name { color: #aaa; }
+.cnam-col-status { }
+.cnam-col-actions { display: flex; gap: 6px; }
+.cnam-name-display { color: #ddd; }
+
+/* Status badges */
+.cnam-status-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 3px 8px; border-radius: 12px; font-size: 0.72rem; font-weight: 600;
+}
+.cnam-status-ok { background: rgba(0,255,136,0.08); color: #00ff88; }
+.cnam-status-warn { background: rgba(255,165,0,0.08); color: #ffa500; }
+.cnam-status-off { background: rgba(255,255,255,0.04); color: #666; }
+
+/* Action buttons */
+.cnam-action-btn {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    color: #888; cursor: pointer; font-size: 0.72rem;
+    display: flex; align-items: center; justify-content: center; transition: all .15s;
+}
+.cnam-action-btn:hover { background: rgba(0,217,255,0.1); color: #00d9ff; border-color: rgba(0,217,255,0.2); }
+.cnam-action-set { color: #00ff88; }
+.cnam-action-set:hover { background: rgba(0,255,136,0.1); color: #00ff88; border-color: rgba(0,255,136,0.2); }
+
+/* Input */
+.cnam-input {
+    width: 100%; background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1); color: #fff;
+    padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; outline: none;
+}
+.cnam-input:focus { border-color: rgba(168,139,250,0.4); box-shadow: 0 0 0 2px rgba(168,139,250,0.1); }
+
+/* Lookup button */
+.cnam-lookup-btn {
+    background: rgba(168,139,250,0.12); border: 1px solid rgba(168,139,250,0.25);
+    color: #a78bfa; border-radius: 8px; padding: 10px 18px;
+    font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.cnam-lookup-btn:hover { background: rgba(168,139,250,0.2); color: #c4b5fd; }
+.cnam-lookup-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.cnam-lookup-own-btn {
+    background: rgba(0,217,255,0.08); border: 1px solid rgba(0,217,255,0.15);
+    color: #00d9ff; border-radius: 8px; padding: 10px 18px; width: 100%;
+    font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all .15s;
+}
+.cnam-lookup-own-btn:hover { background: rgba(0,217,255,0.15); }
+.cnam-lookup-own-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Lookup result card */
+.cnam-lookup-card {
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px; padding: 12px; margin-top: 8px;
+}
+.cnam-lookup-error { border-color: rgba(239,68,68,0.2); color: #ef4444; font-size: 0.82rem; }
+.cnam-lookup-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.cnam-lookup-row:last-child { border-bottom: none; }
+.cnam-lookup-label { font-size: 0.75rem; color: #888; font-weight: 600; }
+.cnam-lookup-value { font-size: 0.85rem; color: #ccc; }
+.cnam-lookup-name { color: #00ff88; font-weight: 700; }
+
+/* Propagation summary */
+.cnam-propagation-summary { font-size: 0.8rem; }
+
+/* Empty / error / loading states */
+.cnam-empty { color: #888; text-align: center; padding: 20px; font-size: 0.82rem; }
+.cnam-error { color: #ef4444; font-size: 0.78rem; padding: 8px; }
+.cnam-loading { color: #888; text-align: center; padding: 16px; font-size: 0.82rem; }
+
+/* ── Light theme ── */
+body.light-theme .cnam-header-card {
+    background: var(--lt-surface);
+    border-color: var(--lt-border);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+body.light-theme .cnam-title { color: var(--lt-text-primary); }
+body.light-theme .cnam-subtitle { color: var(--lt-text-muted); }
+body.light-theme .cnam-summary-banner { background: rgba(0,100,180,0.04); border-color: rgba(0,100,180,0.10); }
+body.light-theme .cnam-summary-loading { color: var(--lt-text-muted); }
+body.light-theme .cnam-table-header { color: var(--lt-text-muted); border-bottom-color: var(--lt-border); }
+body.light-theme .cnam-row { border-bottom-color: rgba(0,0,0,0.04); }
+body.light-theme .cnam-row:hover { background: rgba(0,0,0,0.02); }
+body.light-theme .cnam-col-phone { color: var(--lt-text-primary); }
+body.light-theme .cnam-col-name { color: var(--lt-text-secondary); }
+body.light-theme .cnam-name-display { color: var(--lt-text-primary); }
+body.light-theme .cnam-status-ok { background: rgba(0,170,94,0.08); color: #00875a; }
+body.light-theme .cnam-status-warn { background: rgba(200,120,0,0.08); color: #b47800; }
+body.light-theme .cnam-status-off { background: rgba(0,0,0,0.04); color: var(--lt-text-muted); }
+body.light-theme .cnam-action-btn { background: rgba(0,0,0,0.03); border-color: var(--lt-border); color: var(--lt-text-muted); }
+body.light-theme .cnam-action-btn:hover { background: rgba(0,100,180,0.08); color: #0064b4; border-color: rgba(0,100,180,0.2); }
+body.light-theme .cnam-input { background: var(--lt-input-bg); border-color: var(--lt-border); color: var(--lt-input-text); }
+body.light-theme .cnam-input:focus { border-color: rgba(100,70,200,0.4); box-shadow: 0 0 0 2px rgba(100,70,200,0.1); }
+body.light-theme .cnam-sync-all-btn { background: linear-gradient(135deg, #00aa5e, #009950); color: #fff; }
+body.light-theme .cnam-refresh-btn { background: rgba(0,0,0,0.04); border-color: var(--lt-border); color: var(--lt-text-secondary); }
+body.light-theme .cnam-lookup-btn { background: rgba(100,70,200,0.08); border-color: rgba(100,70,200,0.2); color: #6446c8; }
+body.light-theme .cnam-lookup-own-btn { background: rgba(0,100,180,0.06); border-color: rgba(0,100,180,0.12); color: #0064b4; }
+body.light-theme .cnam-lookup-card { background: rgba(0,0,0,0.02); border-color: var(--lt-border); }
+body.light-theme .cnam-lookup-label { color: var(--lt-text-muted); }
+body.light-theme .cnam-lookup-value { color: var(--lt-text-primary); }
+body.light-theme .cnam-lookup-name { color: #00875a; }
+body.light-theme .cnam-empty { color: var(--lt-text-muted); }
+body.light-theme .cnam-error { color: #dc2626; }
+body.light-theme .cnam-loading { color: var(--lt-text-muted); }
+body.light-theme .cnam-stat-good { background: rgba(0,170,94,0.08); color: #00875a; border-color: rgba(0,170,94,0.15); }
+body.light-theme .cnam-stat-warn { background: rgba(200,120,0,0.08); color: #b47800; border-color: rgba(200,120,0,0.15); }
+body.light-theme .cnam-stat-info { background: rgba(0,100,180,0.08); color: #0064b4; border-color: rgba(0,100,180,0.15); }
+
+/* Responsive */
+@media (max-width: 768px) {
+    .cnam-table-header { grid-template-columns: 1fr 1fr 0.6fr; }
+    .cnam-row { grid-template-columns: 1fr 1fr 0.6fr; }
+    .cnam-col-actions { display: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════
    NUMBER INTEGRITY — Liquid Glass UI
    ══════════════════════════════════════════════════════════════ */
 
