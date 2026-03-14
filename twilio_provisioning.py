@@ -57,6 +57,51 @@ TWILIO_API_KEY_SECRET = os.getenv("TWILIO_API_KEY_SECRET", "")
 _master_client = None
 
 
+def _trusthub_update_status(
+    resource_type: str,
+    resource_sid: str,
+    target_status: str,
+    account_sid: str = "",
+    auth_token: str = "",
+) -> dict:
+    """
+    Update a TrustHub resource status via direct HTTP POST.
+
+    Bypasses the twilio-python SDK's .update() method which has known issues
+    with TrustHub status enums — the SDK can silently drop the Status parameter,
+    causing the resource to stay in 'draft' while returning HTTP 200.
+
+    Args:
+        resource_type: "TrustProducts" or "CustomerProfiles"
+        resource_sid: The BU... SID of the resource
+        target_status: Status to set (e.g. "pending-review")
+        account_sid: Account SID for auth (defaults to master)
+        auth_token: Auth token for auth (defaults to master)
+
+    Returns:
+        dict: Full JSON response from Twilio API
+    """
+    import requests as _requests
+    url = f"https://trusthub.twilio.com/v1/{resource_type}/{resource_sid}"
+    sid = account_sid or TWILIO_ACCOUNT_SID
+    token = auth_token or TWILIO_AUTH_TOKEN
+    resp = _requests.post(
+        url,
+        data={"Status": target_status},
+        auth=(sid, token),
+    )
+    logger.info(
+        f"[TrustHub] POST {url} Status={target_status} → "
+        f"HTTP {resp.status_code}: {resp.text[:500]}"
+    )
+    if resp.status_code not in (200, 201):
+        raise TwilioRestException(
+            status=resp.status_code, uri=url,
+            msg=f"TrustHub status update failed: HTTP {resp.status_code} — {resp.text[:300]}"
+        )
+    return resp.json()
+
+
 def get_master_client() -> TwilioClient:
     """Get or create the master Twilio client."""
     global _master_client
@@ -737,15 +782,20 @@ def register_business_profile(sub_account_sid: str, business_name: str,
                 logger.warning(f"[SpamProtection] Evaluation noncompliant: {noncompliant}")
                 # Still proceed — CNAM via friendly_name will work regardless
             else:
-                # Submit for review
-                client.trusthub.v1.customer_profiles(profile_sid).update(
-                    status="pending-review",
+                # Submit for review — use direct HTTP to bypass SDK enum issues
+                profile_resp = _trusthub_update_status(
+                    "CustomerProfiles", profile_sid, "pending-review",
+                    sub_account_sid, sub_account_auth_token,
                 )
                 results["steps"].append({
                     "name": "submit_review",
                     "status": "ok",
+                    "profile_status": profile_resp.get("status", "unknown"),
                 })
-                logger.info(f"[SpamProtection] Submitted profile {profile_sid} for review")
+                logger.info(
+                    f"[SpamProtection] Submitted profile {profile_sid} for review → "
+                    f"{profile_resp.get('status', 'unknown')}"
+                )
         except TwilioRestException as e:
             logger.warning(f"[SpamProtection] Evaluation/submit failed: {e}")
             results["errors"].append(f"Submit for review: {e}")
@@ -1165,11 +1215,15 @@ def submit_cnam_for_review(
         except Exception as eval_err:
             logger.warning(f"[CNAM] Evaluation check failed (proceeding): {eval_err}")
 
-        tp = client.trusthub.v1.trust_products(trust_product_sid).update(
-            status="pending-review",
+        auth_sid = sub_account_sid or TWILIO_ACCOUNT_SID
+        auth_token = sub_account_auth_token or TWILIO_AUTH_TOKEN
+        resp_data = _trusthub_update_status(
+            "TrustProducts", trust_product_sid, "pending-review",
+            auth_sid, auth_token,
         )
-        logger.info(f"[CNAM] Submitted {trust_product_sid} for review → {tp.status}")
-        return {"trust_product_sid": tp.sid, "status": tp.status}
+        tp_status = resp_data.get("status", "unknown")
+        logger.info(f"[CNAM] Submitted {trust_product_sid} for review → {tp_status}")
+        return {"trust_product_sid": resp_data.get("sid", trust_product_sid), "status": tp_status}
     except TwilioRestException as e:
         logger.error(f"[CNAM] Submit for review failed: {e}")
         raise
@@ -1343,8 +1397,9 @@ def create_a2p_brand(sub_account_sid: str,
             )
 
         # ── Step 6: Submit TrustProduct for evaluation ──
-        client.trusthub.v1.trust_products(trust_product.sid).update(
-            status="pending-review",
+        _trusthub_update_status(
+            "TrustProducts", trust_product.sid, "pending-review",
+            sub_account_sid, sub_account_auth_token,
         )
         logger.info(f"Submitted TrustProduct {trust_product.sid} for review")
 
@@ -1886,12 +1941,13 @@ def _find_or_create_secondary_profile(
         except Exception as eval_err:
             logger.warning(f"[VoiceIntegrity] Secondary Profile evaluation failed: {eval_err}")
 
-        updated = client.trusthub.v1.customer_profiles(profile_sid).update(
-            status="pending-review",
+        profile_resp = _trusthub_update_status(
+            "CustomerProfiles", profile_sid, "pending-review",
+            sub_account_sid, "",  # use sub-account SID, empty token falls back to master
         )
         logger.info(
             f"[VoiceIntegrity] Submitted Secondary Profile {profile_sid} for review → "
-            f"{updated.status}"
+            f"{profile_resp.get('status', 'unknown')}"
         )
     except TwilioRestException as e:
         # Profile submission failed — log but don't block entirely,
@@ -2207,12 +2263,15 @@ def submit_voice_integrity_for_review(
                                 f"[VoiceIntegrity] Profile {obj_sid} still in draft, "
                                 "submitting for review first"
                             )
-                            updated_profile = client.trusthub.v1.customer_profiles(obj_sid).update(
-                                status="pending-review",
+                            p_auth_sid = sub_account_sid or TWILIO_ACCOUNT_SID
+                            p_auth_token = sub_account_auth_token or TWILIO_AUTH_TOKEN
+                            profile_resp = _trusthub_update_status(
+                                "CustomerProfiles", obj_sid, "pending-review",
+                                p_auth_sid, p_auth_token,
                             )
                             logger.info(
                                 f"[VoiceIntegrity] Profile {obj_sid} submitted → "
-                                f"{updated_profile.status}"
+                                f"{profile_resp.get('status', 'unknown')}"
                             )
                     except TwilioRestException as profile_err:
                         logger.warning(
@@ -2256,30 +2315,35 @@ def submit_voice_integrity_for_review(
             logger.warning(f"[VoiceIntegrity] Evaluation check failed (proceeding): {eval_err}")
 
         # ── Submit for review ──
-        tp = client.trusthub.v1.trust_products(trust_product_sid).update(
-            status="pending-review",
+        # Use direct HTTP POST instead of SDK .update() — the twilio-python SDK
+        # has casing issues with TrustHub status enums that silently drop the
+        # Status parameter, leaving the Trust Product in 'draft'.
+        auth_sid = sub_account_sid or TWILIO_ACCOUNT_SID
+        auth_token = sub_account_auth_token or TWILIO_AUTH_TOKEN
+        resp_data = _trusthub_update_status(
+            "TrustProducts", trust_product_sid, "pending-review",
+            auth_sid, auth_token,
         )
-        logger.info(f"[VoiceIntegrity] Submitted {trust_product_sid} for review → {tp.status}")
+        tp_status = resp_data.get("status", "unknown")
+        tp_sid = resp_data.get("sid", trust_product_sid)
+        logger.info(f"[VoiceIntegrity] Submitted {trust_product_sid} for review → {tp_status}")
 
         # ── Verify the status actually changed ──
-        # Twilio's .update() can silently fail — accepting the API call but
-        # returning the object still in "draft" if prerequisites aren't met
-        # (e.g., linked profile not approved). Detect this and surface the error.
-        if tp.status == "draft":
+        if tp_status == "draft":
             logger.error(
                 f"[VoiceIntegrity] Trust Product {trust_product_sid} STILL in draft after "
-                f".update(status='pending-review'). Evaluation was: "
+                f"POST Status=pending-review. Evaluation was: "
                 f"{'compliant' if eval_compliant else 'not confirmed compliant'}. "
-                "Likely cause: linked Secondary Customer Profile is not yet approved."
+                f"Full response: {resp_data}"
             )
             raise TwilioRestException(
                 status=400, uri="",
-                msg="Voice Integrity submission failed: Trust Product remained in 'draft' status. "
-                    "This usually means the linked Customer Profile hasn't been approved yet by Twilio. "
-                    "Please wait for profile approval (check Spam Protection status) and try again."
+                msg="Voice Integrity submission failed: Trust Product remained in 'draft' status "
+                    "after API submission. Please check the Twilio Console for details or "
+                    "contact support."
             )
 
-        return {"trust_product_sid": tp.sid, "status": tp.status}
+        return {"trust_product_sid": tp_sid, "status": tp_status}
     except TwilioRestException as e:
         logger.error(f"[VoiceIntegrity] Submit for review failed: {e}")
         raise
@@ -2470,7 +2534,10 @@ def resubmit_voice_integrity(
                 logger.info(f"[VoiceIntegrity] Linked profile {entity_sid} status: {profile_status}")
                 if profile_status == "draft":
                     logger.warning(f"[VoiceIntegrity] Profile {entity_sid} in draft, submitting first")
-                    client.trusthub.v1.customer_profiles(entity_sid).update(status="pending-review")
+                    _trusthub_update_status(
+                        "CustomerProfiles", entity_sid, "pending-review",
+                        sub_account_sid, sub_account_auth_token,
+                    )
             except Exception as pe:
                 logger.warning(f"[VoiceIntegrity] Profile check/submit failed for {entity_sid}: {pe}")
 
@@ -2499,28 +2566,32 @@ def resubmit_voice_integrity(
     except Exception as eval_err:
         logger.warning(f"[VoiceIntegrity] Evaluation check failed (proceeding): {eval_err}")
 
-    tp = client.trusthub.v1.trust_products(new_tp_sid).update(
-        status="pending-review",
+    # Direct HTTP POST to bypass SDK enum/serialization issues with Status
+    auth_sid = sub_account_sid or TWILIO_ACCOUNT_SID
+    auth_token = sub_account_auth_token or TWILIO_AUTH_TOKEN
+    resp_data = _trusthub_update_status(
+        "TrustProducts", new_tp_sid, "pending-review",
+        auth_sid, auth_token,
     )
-    logger.info(f"[VoiceIntegrity] Submitted new product {new_tp_sid} for review → {tp.status}")
+    tp_status = resp_data.get("status", "unknown")
+    logger.info(f"[VoiceIntegrity] Submitted new product {new_tp_sid} for review → {tp_status}")
 
     # Verify status actually changed
-    if tp.status == "draft":
+    if tp_status == "draft":
         logger.error(
-            f"[VoiceIntegrity] New Trust Product {new_tp_sid} STILL in draft after submission. "
-            "Linked Customer Profile may not be approved yet."
+            f"[VoiceIntegrity] New Trust Product {new_tp_sid} STILL in draft after "
+            f"POST Status=pending-review. Full response: {resp_data}"
         )
         raise TwilioRestException(
             status=400, uri="",
             msg="Voice Integrity submission failed: Trust Product remained in 'draft' status. "
-                "The linked Customer Profile may not be approved yet. "
-                "Please wait for profile approval and try again."
+                "Please check the Twilio Console for details or contact support."
         )
 
     return {
         "trust_product_sid": new_tp_sid,
         "old_trust_product_sid": trust_product_sid,
-        "status": tp.status,
+        "status": tp_status,
         "assigned_numbers": old_assigned_numbers,
     }
 
