@@ -1860,6 +1860,44 @@ def _find_or_create_secondary_profile(
             else:
                 logger.warning(f"[VoiceIntegrity] Could not link to Primary: {e}")
 
+    # ── Submit the Secondary Profile for review ──
+    # Per Twilio ISV docs Step 2: the Secondary Business Profile must be
+    # submitted for review before the Trust Product can transition from draft.
+    # https://www.twilio.com/docs/voice/spam-monitoring-with-voiceintegrity/
+    # voice-integrity-onboarding/voice-integrity-trust-hub-api-isvs-subaccounts
+    try:
+        # Run evaluation first
+        try:
+            eval_result = client.trusthub.v1.customer_profiles(profile_sid) \
+                .customer_profiles_evaluations.create(
+                    policy_sid=SECONDARY_CUSTOMER_PROFILE_POLICY_SID,
+                )
+            eval_status = getattr(eval_result, "status", "unknown")
+            logger.info(f"[VoiceIntegrity] Secondary Profile evaluation: {eval_status}")
+            if eval_status == "noncompliant":
+                eval_results = getattr(eval_result, "results", None) or []
+                noncompliant = [
+                    r.get("friendly_name", r.get("requirement_key", "unknown"))
+                    for r in eval_results
+                    if isinstance(r, dict) and r.get("status") == "noncompliant"
+                ]
+                logger.warning(f"[VoiceIntegrity] Secondary Profile evaluation noncompliant: {noncompliant}")
+                # Proceed anyway — Twilio may still allow review submission
+        except Exception as eval_err:
+            logger.warning(f"[VoiceIntegrity] Secondary Profile evaluation failed: {eval_err}")
+
+        updated = client.trusthub.v1.customer_profiles(profile_sid).update(
+            status="pending-review",
+        )
+        logger.info(
+            f"[VoiceIntegrity] Submitted Secondary Profile {profile_sid} for review → "
+            f"{updated.status}"
+        )
+    except TwilioRestException as e:
+        # Profile submission failed — log but don't block entirely,
+        # the Trust Product submission will surface the real error.
+        logger.warning(f"[VoiceIntegrity] Secondary Profile review submission failed: {e}")
+
     return profile_sid
 
 
@@ -2147,15 +2185,58 @@ def submit_voice_integrity_for_review(
     """
     client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
     try:
-        # Run evaluation to validate completeness before submitting
+        # ── Check linked Customer Profile status first ──
+        # Per Twilio ISV docs, the Secondary Customer Profile must be approved
+        # (or at least submitted) before the Trust Product can transition.
+        try:
+            assignments = client.trusthub.v1.trust_products(trust_product_sid) \
+                .trust_products_entity_assignments.list(limit=20)
+            for a in assignments:
+                obj_sid = getattr(a, "object_sid", "")
+                if obj_sid.startswith("BU"):
+                    # This is the linked Customer Profile — check its status
+                    try:
+                        profile = client.trusthub.v1.customer_profiles(obj_sid).fetch()
+                        profile_status = getattr(profile, "status", "unknown")
+                        logger.info(
+                            f"[VoiceIntegrity] Linked profile {obj_sid} status: {profile_status}"
+                        )
+                        if profile_status == "draft":
+                            # Profile was never submitted — submit it now
+                            logger.warning(
+                                f"[VoiceIntegrity] Profile {obj_sid} still in draft, "
+                                "submitting for review first"
+                            )
+                            updated_profile = client.trusthub.v1.customer_profiles(obj_sid).update(
+                                status="pending-review",
+                            )
+                            logger.info(
+                                f"[VoiceIntegrity] Profile {obj_sid} submitted → "
+                                f"{updated_profile.status}"
+                            )
+                    except TwilioRestException as profile_err:
+                        logger.warning(
+                            f"[VoiceIntegrity] Could not check/submit profile {obj_sid}: "
+                            f"{profile_err}"
+                        )
+        except Exception as assign_err:
+            logger.warning(f"[VoiceIntegrity] Could not check profile status: {assign_err}")
+
+        # ── Run evaluation to validate completeness before submitting ──
+        eval_compliant = False
         try:
             evaluation = client.trusthub.v1.trust_products(trust_product_sid) \
                 .trust_products_evaluations.create(policy_sid=VOICE_INTEGRITY_POLICY_SID)
             eval_status = getattr(evaluation, "status", "unknown")
-            logger.info(f"[VoiceIntegrity] Evaluation for {trust_product_sid}: {eval_status}")
-            if eval_status == "noncompliant":
+            eval_results = getattr(evaluation, "results", None) or []
+            logger.info(
+                f"[VoiceIntegrity] Evaluation for {trust_product_sid}: "
+                f"status={eval_status}, results={eval_results}"
+            )
+            if eval_status == "compliant":
+                eval_compliant = True
+            elif eval_status == "noncompliant":
                 # Surface evaluation failures instead of proceeding to a guaranteed rejection
-                eval_results = getattr(evaluation, "results", None) or []
                 error_details = []
                 for r in eval_results:
                     if isinstance(r, dict) and r.get("status") == "noncompliant":
@@ -2163,16 +2244,41 @@ def submit_voice_integrity_for_review(
                 detail_msg = ", ".join(error_details) if error_details else "evaluation returned noncompliant"
                 raise TwilioRestException(
                     status=400, uri="", msg=f"Voice Integrity evaluation failed: {detail_msg}")
+            else:
+                logger.warning(
+                    f"[VoiceIntegrity] Unexpected evaluation status '{eval_status}' — "
+                    "attempting submission anyway"
+                )
         except TwilioRestException:
             raise  # re-raise evaluation noncompliant errors
         except Exception as eval_err:
             # Non-Twilio errors during evaluation — log but allow submission attempt
             logger.warning(f"[VoiceIntegrity] Evaluation check failed (proceeding): {eval_err}")
 
+        # ── Submit for review ──
         tp = client.trusthub.v1.trust_products(trust_product_sid).update(
             status="pending-review",
         )
         logger.info(f"[VoiceIntegrity] Submitted {trust_product_sid} for review → {tp.status}")
+
+        # ── Verify the status actually changed ──
+        # Twilio's .update() can silently fail — accepting the API call but
+        # returning the object still in "draft" if prerequisites aren't met
+        # (e.g., linked profile not approved). Detect this and surface the error.
+        if tp.status == "draft":
+            logger.error(
+                f"[VoiceIntegrity] Trust Product {trust_product_sid} STILL in draft after "
+                f".update(status='pending-review'). Evaluation was: "
+                f"{'compliant' if eval_compliant else 'not confirmed compliant'}. "
+                "Likely cause: linked Secondary Customer Profile is not yet approved."
+            )
+            raise TwilioRestException(
+                status=400, uri="",
+                msg="Voice Integrity submission failed: Trust Product remained in 'draft' status. "
+                    "This usually means the linked Customer Profile hasn't been approved yet by Twilio. "
+                    "Please wait for profile approval (check Spam Protection status) and try again."
+            )
+
         return {"trust_product_sid": tp.sid, "status": tp.status}
     except TwilioRestException as e:
         logger.error(f"[VoiceIntegrity] Submit for review failed: {e}")
@@ -2355,15 +2461,30 @@ def resubmit_voice_integrity(
             else:
                 logger.warning(f"[VoiceIntegrity] Number re-assign failed for {pn_sid}: {e}")
 
-    # ── Step 5: Evaluate and submit ──
+    # ── Step 5: Check linked profile status ──
+    for entity_sid in old_entity_sids:
+        if entity_sid.startswith("BU"):
+            try:
+                profile = client.trusthub.v1.customer_profiles(entity_sid).fetch()
+                profile_status = getattr(profile, "status", "unknown")
+                logger.info(f"[VoiceIntegrity] Linked profile {entity_sid} status: {profile_status}")
+                if profile_status == "draft":
+                    logger.warning(f"[VoiceIntegrity] Profile {entity_sid} in draft, submitting first")
+                    client.trusthub.v1.customer_profiles(entity_sid).update(status="pending-review")
+            except Exception as pe:
+                logger.warning(f"[VoiceIntegrity] Profile check/submit failed for {entity_sid}: {pe}")
+
+    # ── Step 6: Evaluate and submit ──
     try:
         evaluation = client.trusthub.v1.trust_products(new_tp_sid) \
             .trust_products_evaluations.create(policy_sid=VOICE_INTEGRITY_POLICY_SID)
         eval_status = getattr(evaluation, "status", "unknown")
-        logger.info(f"[VoiceIntegrity] New product evaluation: {eval_status}")
+        eval_results = getattr(evaluation, "results", None) or []
+        logger.info(
+            f"[VoiceIntegrity] New product evaluation: status={eval_status}, results={eval_results}"
+        )
 
         if eval_status == "noncompliant":
-            eval_results = getattr(evaluation, "results", None) or []
             error_details = []
             for r in eval_results:
                 if isinstance(r, dict) and r.get("status") == "noncompliant":
@@ -2382,6 +2503,20 @@ def resubmit_voice_integrity(
         status="pending-review",
     )
     logger.info(f"[VoiceIntegrity] Submitted new product {new_tp_sid} for review → {tp.status}")
+
+    # Verify status actually changed
+    if tp.status == "draft":
+        logger.error(
+            f"[VoiceIntegrity] New Trust Product {new_tp_sid} STILL in draft after submission. "
+            "Linked Customer Profile may not be approved yet."
+        )
+        raise TwilioRestException(
+            status=400, uri="",
+            msg="Voice Integrity submission failed: Trust Product remained in 'draft' status. "
+                "The linked Customer Profile may not be approved yet. "
+                "Please wait for profile approval and try again."
+        )
+
     return {
         "trust_product_sid": new_tp_sid,
         "old_trust_product_sid": trust_product_sid,
