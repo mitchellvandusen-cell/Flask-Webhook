@@ -1478,8 +1478,8 @@ body.light-theme .igb-tl-line { background: rgba(0,0,0,0.06) !important; }
 body.light-theme .igb-tl-line.completed { background: linear-gradient(to right, #059669, var(--lt-accent)) !important; }
 body.light-theme .igb-tl-label { color: var(--lt-text-muted) !important; }
 body.light-theme .igb-summary-card { background: var(--lt-accent-bg) !important; border-color: var(--lt-accent-border) !important; }
-body.light-theme .igb-summary-hdr i { color: var(--lt-accent) !important; }
-body.light-theme .igb-summary-hdr span { color: var(--lt-accent) !important; }
+body.light-theme .igb-summary-hdr i { color: #0369a1 !important; }
+body.light-theme .igb-summary-hdr span { color: #0369a1 !important; }
 body.light-theme .igb-summary-body { color: var(--lt-text-secondary) !important; }
 body.light-theme .igb-facts-list li { color: var(--lt-text-secondary) !important; border-color: var(--lt-border) !important; }
 body.light-theme .igb-facts-list li::before { color: #059669 !important; }
@@ -1487,6 +1487,14 @@ body.light-theme .igb-action-btn.act-call { background: linear-gradient(135deg, 
 body.light-theme .igb-action-btn.act-sms { background: var(--lt-accent-bg) !important; border-color: var(--lt-accent-border) !important; color: var(--lt-accent) !important; }
 body.light-theme .igb-action-btn.act-queue { background: var(--lt-surface-hover) !important; border-color: var(--lt-border) !important; color: var(--lt-text-secondary) !important; }
 body.light-theme .igb-live-dot { border-color: var(--lt-surface) !important; }
+body.light-theme .igb-live-dot.live-call { background: #16a34a !important; }
+body.light-theme .igb-live-dot.has-callback { background: #d97706 !important; }
+body.light-theme .igb-live-dot.idle { background: #9ca3af !important; }
+/* Score ring & number */
+body.light-theme .igb-score-num { color: var(--lt-text-primary) !important; }
+body.light-theme .igb-score-label { color: var(--lt-text-primary) !important; }
+/* Action button: schedule */
+body.light-theme .igb-action-btn.act-schedule { background: rgba(220,38,38,0.08) !important; border-color: rgba(220,38,38,0.20) !important; color: #dc2626 !important; }
 body.light-theme #dialerStatsToggle { background: var(--lt-surface-hover) !important; border-color: var(--lt-border-strong) !important; color: var(--lt-text-muted) !important; }
 body.light-theme #dialerStatsToggle:hover { border-color: var(--lt-accent-border) !important; color: var(--lt-accent) !important; }
 /* Call history and recording rows (dynamically rendered, override inline dark text) */
@@ -1498,6 +1506,138 @@ body.light-theme #dialerRecordingsList > div:hover { background: rgba(0,0,0,0.02
 body.light-theme #transcriptModal > div { background: var(--lt-surface) !important; border-color: var(--lt-border) !important; }
 body.light-theme .dlr-msg-bubble.dlr-msg-lead { background: #f0f2f5 !important; border-color: #e2e5ea !important; color: var(--lt-text-primary) !important; }
 body.light-theme .dlr-msg-bubble.dlr-msg-bot { background: var(--lt-accent-bg) !important; border-color: var(--lt-accent-border) !important; color: #064e3b !important; }
+
+/* ── Dialer icons & buttons — comprehensive light theme visibility ── */
+/* Headings (all dlr-heading-* are color:#fff in dark, need dark text in light) */
+body.light-theme .dlr-heading,
+body.light-theme .dlr-heading-2,
+body.light-theme .dlr-heading-3,
+body.light-theme .dlr-heading-4,
+body.light-theme .dlr-heading-5,
+body.light-theme .dlr-heading-6,
+body.light-theme .dlr-heading-7,
+body.light-theme .dlr-heading-8,
+body.light-theme .dlr-heading-9,
+body.light-theme .dlr-heading-10,
+body.light-theme .dlr-heading-11,
+body.light-theme .dlr-heading-12 { color: var(--lt-text-primary) !important; }
+
+/* AI/Human mode toggle — inactive button needs stronger contrast */
+body.light-theme .dlr-btn-mode-off { background: transparent !important; color: #374151 !important; }
+body.light-theme .dlr-btn-mode-off:hover { background: rgba(0,0,0,0.04) !important; color: #111827 !important; }
+body.light-theme .dlr-btn-mode-off i { color: #374151 !important; }
+/* Active AI button icon should stay white */
+body.light-theme .dlr-btn-cyan-3 i { color: #f0f2f5 !important; }
+/* Mode toggle container */
+body.light-theme .dlr-panel-2 { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.08) !important; }
+
+/* Ghost icon buttons (chart, gear, sync/refresh, export) — stronger text */
+body.light-theme .dlr-btn-ghost-2 { background: rgba(0,0,0,0.04) !important; border: 1px solid rgba(0,0,0,0.10) !important; color: #374151 !important; }
+body.light-theme .dlr-btn-ghost-2:hover { background: rgba(0,0,0,0.07) !important; color: #111827 !important; border-color: rgba(0,0,0,0.15) !important; }
+body.light-theme .dlr-btn-ghost-6 { background: rgba(0,0,0,0.04) !important; border: 1px solid rgba(0,0,0,0.10) !important; color: #374151 !important; }
+body.light-theme .dlr-btn-ghost-6:hover { background: rgba(0,0,0,0.07) !important; color: #111827 !important; border-color: rgba(0,0,0,0.15) !important; }
+body.light-theme .dlr-btn-2 { background: rgba(0,0,0,0.04) !important; border: 1px solid rgba(0,0,0,0.10) !important; color: #374151 !important; }
+body.light-theme .dlr-btn-2:hover { background: rgba(0,0,0,0.07) !important; color: #111827 !important; }
+body.light-theme .dlr-btn-ghost-5 { color: #374151 !important; }
+body.light-theme .dlr-btn-ghost-5:hover { color: #111827 !important; }
+
+/* Settings toggle (gear) — match chart button */
+body.light-theme #dialerSettingsToggle { background: var(--lt-surface-hover) !important; border-color: var(--lt-border-strong) !important; color: var(--lt-text-secondary) !important; }
+body.light-theme #dialerSettingsToggle:hover { border-color: var(--lt-accent-border) !important; color: var(--lt-accent) !important; }
+
+/* Get Contacts button — ensure strong contrast */
+body.light-theme .dlr-btn-cyan-5 { background: linear-gradient(135deg, #0078b8, #006a8e) !important; color: #fff !important; }
+body.light-theme .dlr-btn-cyan-5 i { color: #fff !important; }
+
+/* Dial button — green gradient with white text/icon */
+body.light-theme .dlr-btn-accent { background: linear-gradient(135deg, #059669, #047857) !important; color: #fff !important; }
+body.light-theme .dlr-btn-accent i { color: #fff !important; }
+body.light-theme .dlr-btn-accent-2 { background: linear-gradient(135deg, #059669, #047857) !important; color: #fff !important; }
+body.light-theme .dlr-btn-accent-2 i { color: #fff !important; }
+
+/* Queue button */
+body.light-theme .dlr-btn-cyan-outline-3 { background: rgba(0,120,184,0.10) !important; border: 1px solid rgba(0,120,184,0.25) !important; color: #0369a1 !important; }
+body.light-theme .dlr-btn-cyan-outline-3 i { color: #0369a1 !important; }
+body.light-theme .dlr-btn-cyan-outline-3:hover { background: rgba(0,120,184,0.16) !important; }
+
+/* VoIP Ready badge — icon must be visible */
+body.light-theme .dlr-panel-5 { background: rgba(5,150,105,0.10) !important; border: 1px solid rgba(5,150,105,0.25) !important; color: #059669 !important; }
+body.light-theme .dlr-panel-5 i { color: #059669 !important; }
+
+/* Keypad keys */
+body.light-theme .dlr-kbd-key { background: rgba(0,0,0,0.03) !important; border: 1px solid rgba(0,0,0,0.10) !important; color: #111827 !important; }
+body.light-theme .dlr-kbd-key:hover { background: rgba(0,120,184,0.08) !important; border-color: rgba(0,120,184,0.20) !important; color: #0369a1 !important; }
+body.light-theme .dlr-kbd-key sub { color: #6b7280 !important; }
+body.light-theme .dlr-kbd-key span { color: #111827 !important; }
+
+/* Section header icons — Queue, Campaign History, Smart Filters */
+body.light-theme .dlr-icon-c555 { color: #374151 !important; }
+body.light-theme .dlr-icon-c555-2 { color: #374151 !important; }
+body.light-theme .dlr-text-cyan { color: #0369a1 !important; }
+body.light-theme .dlr-text-ca78bfa { color: #6d28d9 !important; }
+
+/* Contact list section icons & text (search icon, cache status, filter icons) */
+body.light-theme .dlr-label-2 { color: #6b7280 !important; }
+
+/* Dialer call action icons in the active call banner */
+body.light-theme .dlr-banner-info i { color: inherit !important; }
+
+/* All generic FontAwesome icons inside dialer columns — ensure visible in light */
+body.light-theme .dlr-col-hdr h6 i { color: var(--lt-accent) !important; }
+
+/* Select All label */
+body.light-theme .dlr-label-light { color: #111827 !important; }
+body.light-theme .dlr-label-light-2 { color: #111827 !important; }
+body.light-theme .dlr-label-light-3 { color: #111827 !important; }
+
+/* Call badge Dials: count */
+body.light-theme .dlr-call-badge i { color: inherit !important; }
+
+/* Mobile tab switcher icons */
+body.light-theme .dlr-mobile-tab { color: #6b7280 !important; }
+body.light-theme .dlr-mobile-tab.active { color: var(--lt-accent) !important; }
+body.light-theme .dlr-mobile-tab i { color: inherit !important; }
+
+/* Dialer dismiss/close buttons */
+body.light-theme .dlr-btn-dismiss { color: #6b7280 !important; }
+body.light-theme .dlr-btn-dismiss:hover { color: #111827 !important; }
+body.light-theme .dlr-btn-dismiss-2 { color: #6b7280 !important; }
+body.light-theme .dlr-btn-dismiss-2:hover { color: #111827 !important; }
+body.light-theme .dlr-btn-dismiss-3 { color: #6b7280 !important; }
+body.light-theme .dlr-btn-dismiss-3:hover { color: #111827 !important; }
+
+/* Char count colors */
+body.light-theme .dlr-char-ok { color: #6b7280 !important; }
+
+/* Stats bar track */
+body.light-theme .dlr-bar-track { background: rgba(0,0,0,0.06) !important; }
+
+/* In-call control icons (listen, mute, intercept, transfer, hang up) */
+body.light-theme .dlr-banner-info button { color: inherit !important; }
+
+/* Dialer smart filter section icons in template <style> block — these use #00d9ff in dark mode */
+body.light-theme .igb-filter-hdr .igb-filter-icon { color: inherit !important; }
+body.light-theme .igb-summary-hdr i { color: #0369a1 !important; }
+body.light-theme .igb-summary-hdr span { color: #0369a1 !important; }
+
+/* Jump-to-Contact pill (floating bottom pill during active call) */
+body.light-theme #jtcPill { background: linear-gradient(135deg, rgba(0,120,184,0.12), rgba(0,170,94,0.08)) !important; border-color: rgba(0,120,184,0.30) !important; }
+body.light-theme #jtcPill .jtc-dot { background: #0369a1 !important; }
+body.light-theme #jtcPill .jtc-name { color: var(--lt-text-primary) !important; }
+body.light-theme #jtcPill .jtc-status { color: #0369a1 !important; }
+body.light-theme #jtcPill .jtc-icon { color: #0369a1 !important; }
+
+/* Accordion body status check icons — keep colors but adapt for light bg */
+body.light-theme .sm-accordion-body [style*="color:#00ff88"] { color: var(--lt-accent) !important; }
+body.light-theme .sm-accordion-body [style*="color:#444"] { color: var(--lt-text-faint) !important; }
+body.light-theme .sm-accordion-body [style*="color:#888"] { color: var(--lt-text-muted) !important; }
+body.light-theme .sm-accordion-body [style*="color:#555"] { color: var(--lt-text-faint) !important; }
+body.light-theme .sm-accordion-body [style*="color:#a78bfa"] { color: #6d28d9 !important; }
+body.light-theme .sm-accordion-body [style*="color:#ffa500"] { color: #c77c00 !important; }
+body.light-theme .sm-accordion-body [style*="color:#fbbf24"] { color: #d97706 !important; }
+
+/* Loading spinners in CNAM/NI/voice sections */
+body.light-theme .sm-accordion-body .fa-spinner { color: #0369a1 !important; }
 
 /* ── Voice config side-menu buttons in light mode ── */
 body.light-theme .voice-menu-item,
@@ -1520,6 +1660,13 @@ body.light-theme .conn-menu-item.active {
     border-color: var(--lt-accent-border) !important;
     color: var(--lt-accent) !important;
 }
+/* Voice/config/connect menu icons must inherit parent color */
+body.light-theme .voice-menu-item i,
+body.light-theme .cfg-menu-item i,
+body.light-theme .conn-menu-item i { color: inherit !important; }
+/* Separator line between menu items */
+body.light-theme #voiceSettingsMenu div[style*="background:rgba(255,255,255"],
+body.light-theme #voiceSettingsMenu div[style*="background: rgba(255,255,255"] { background: rgba(0,0,0,0.08) !important; }
 /* Side menu container */
 body.light-theme #voiceSettingsMenu,
 body.light-theme #configSettingsMenu,
@@ -1563,6 +1710,21 @@ body.light-theme .tab-pane [style*="color:#555"] { color: var(--lt-text-faint) !
 body.light-theme .tab-pane [style*="color: #555"] { color: var(--lt-text-faint) !important; }
 body.light-theme .tab-pane [style*="color:#444"] { color: var(--lt-text-faint) !important; }
 body.light-theme .tab-pane [style*="color: #444"] { color: var(--lt-text-faint) !important; }
+/* Inline ddd text */
+body.light-theme .tab-pane [style*="color:#ddd"] { color: var(--lt-text-secondary) !important; }
+body.light-theme .tab-pane [style*="color: #ddd"] { color: var(--lt-text-secondary) !important; }
+/* Inline e0e0e0 text */
+body.light-theme .tab-pane [style*="color:#e0e0e0"] { color: var(--lt-text-secondary) !important; }
+body.light-theme .tab-pane [style*="color: #e0e0e0"] { color: var(--lt-text-secondary) !important; }
+/* Active green check icons — keep green but use lt-accent for better contrast */
+body.light-theme .tab-pane [style*="color:#00ff88"] { color: var(--lt-accent) !important; }
+body.light-theme .tab-pane [style*="color: #00ff88"] { color: var(--lt-accent) !important; }
+/* Cyan icons/text — map to lt-accent or darker blue */
+body.light-theme .tab-pane [style*="color:#00d9ff"] { color: #0369a1 !important; }
+body.light-theme .tab-pane [style*="color: #00d9ff"] { color: #0369a1 !important; }
+/* Cyan background icon boxes in voice panel */
+body.light-theme .tab-pane [style*="background:rgba(0,217,255"] { background: rgba(0,120,184,0.08) !important; }
+body.light-theme .tab-pane [style*="background: rgba(0,217,255"] { background: rgba(0,120,184,0.08) !important; }
 
 /* ── iPhone frame: light theme handled in dialer.html inline styles ── */
 /* ── Skeleton shimmer in light mode ── */
