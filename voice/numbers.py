@@ -797,6 +797,13 @@ def get_number_health():
             "ring_rate": round(h['total_ring_confirmed'] / h['total_calls'] * 100, 1) if h.get('total_calls') and h.get('total_ring_confirmed') else 0,
             "connect_rate": round(h['total_connected'] / h['total_calls'] * 100, 1) if h.get('total_calls') else 0,
             "daily_connect_rate": round(h['daily_connected'] / h['daily_calls_today'] * 100, 1) if h.get('daily_calls_today') else 0,
+            "block_rate": round(h['total_carrier_blocked'] / h['total_calls'] * 100, 2) if h.get('total_calls') and h.get('total_carrier_blocked') else 0,
+            # Voice Insights signals
+            "avg_pdd_ms": round(float(h.get('avg_pdd_ms') or 0), 0) if h.get('avg_pdd_ms') else None,
+            "pdd_trend": round(float(h.get('recent_pdd_trend') or 0), 0) if h.get('recent_pdd_trend') else None,
+            "quality_issues": int(h.get('insights_quality_issues') or 0),
+            "stir_a_rate": round(float(h.get('stir_a_rate') or 0), 1) if h.get('stir_a_rate') else None,
+            "block_velocity": round(float(h.get('carrier_block_velocity') or 0), 1),
             "rest_until": str(h.get('rest_until', '')) if h.get('rest_until') else '',
             "last_used_at": str(h.get('last_used_at', '')),
             "created_at": str(h.get('created_at', '')),

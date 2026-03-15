@@ -350,100 +350,348 @@ def get_contact_state_distribution(location_id):
 
 
 # ── Health Score Calculator ────────────────────────────────────────────────
+#
+# Industry-grade scoring for high-volume outbound insurance dialing.
+#
+# 8 signal dimensions, weighted for cold outbound reality (10% pickup normal):
+#
+#   Dimension                    Weight   Source                  Signal Type
+#   ─────────────────────────────────────────────────────────────────────────
+#   1. Carrier block rate        -25 max  number_health counters  Penalty
+#   2. Carrier block velocity    -15 max  number_health column    Penalty (acceleration)
+#   3. Ring confirmation rate    +15 max  number_health counters  Carrier trust signal
+#   4. Post-dial delay (PDD)     ±10      number_health avg_pdd   Network routing signal
+#   5. Voice Insights quality    -10 max  number_health issues    Quality degradation
+#   6. STIR/SHAKEN A-rate        +10 max  number_health stir      Authentication signal
+#   7. Call quality (duration)   +15 max  number_health duration  Conversation quality
+#   8. Maturity                  +10 max  number_health stage     Trust over time
+#   ─────────────────────────────────────────────────────────────────────────
+#   Baseline:                     40
+#   Theoretical max:             100 (40 + 60 bonus)
+#   Theoretical min:               0 (40 - 50 penalty, floored at 0)
+#
+# Key principles:
+#   - Cold outbound insurance = 10% pickup is NORMAL. No-answers are NOT failures.
+#   - Carrier blocks (SIP 403/603/607/608) are the #1 signal of spam flagging.
+#   - Ring confirmation (SIP 180) proves the carrier is routing your calls through.
+#   - PDD spikes mean carriers are deprioritizing or analytics-routing your calls.
+#   - Voice Insights quality tags (high_jitter, silence, high_pdd) from Twilio's
+#     carrier-edge analytics are objective carrier-level measurements.
+#   - STIR/SHAKEN A attestation means Twilio verified the caller owns the number.
+#   - Numbers with < 75 calls or < 2 days get a confident healthy score (no signal yet).
+#   - Carrier block velocity (acceleration) detects a number getting flagged in real time.
 
 def calculate_health_score(total_calls, connected_calls, no_answers, failed_calls,
-                           avg_duration, warmup_stage, days_active):
+                           avg_duration, warmup_stage, days_active,
+                           # New signals — all optional for backward compatibility
+                           carrier_blocked=0, ring_confirmed=0,
+                           avg_pdd_ms=None, recent_pdd_trend=None,
+                           insights_quality_issues=0, stir_a_rate=None,
+                           carrier_block_velocity=0.0):
     """
-    Calculate a 0-100 health score for a phone number based on call metrics.
+    Calculate a 0-100 health score for an outbound phone number.
 
-    Calibrated for cold outbound insurance dialing where 10% pickup rate is
-    normal and expected. Numbers should NOT be penalized for low connection
-    rates — only for truly anomalous signals like high hard-failure rates
-    (network errors, carrier blocks) vs normal no-answers.
+    Designed for high-volume cold outbound insurance dialing where:
+    - 10% pickup rate is the industry norm (no penalty for low connect)
+    - 85-90% no-answers are expected and normal
+    - Carrier blocks (SIP 403/603/607/608) are the primary spam signal
+    - Ring confirmation (SIP 180) proves carrier trust
+    - Voice Insights provides carrier-level quality measurements
 
-    Key principle: numbers with insufficient data (under 100 lifetime calls
-    OR under 3 days active) always score 75+ ("healthy"). We refuse to
-    downgrade numbers that simply haven't been used enough yet — there's no
-    statistical signal in 0/50 dials showing 0% connect.
+    Args:
+        total_calls:             Lifetime total calls placed from this number
+        connected_calls:         Lifetime calls answered (status=completed, duration>0)
+        no_answers:              Lifetime no-answer count (normal, not penalized)
+        failed_calls:            Lifetime hard failures (network errors + carrier blocks)
+        avg_duration:            Average call duration in seconds when connected
+        warmup_stage:            Current warm-up stage (0-4)
+        days_active:             Days since number was added to the pool
+        carrier_blocked:         Lifetime carrier block count (SIP 403/603/607/608)
+        ring_confirmed:          Lifetime SIP 180 ring confirmation count
+        avg_pdd_ms:              Average post-dial delay in milliseconds (from Voice Insights)
+        recent_pdd_trend:        PDD trend: positive = getting slower (bad), negative = improving
+        insights_quality_issues: Count of calls with Voice Insights quality tags
+        stir_a_rate:             Percentage of calls getting STIR/SHAKEN A attestation (0-100)
+        carrier_block_velocity:  Carrier blocks per hour in last 24h (acceleration signal)
 
-    Scoring breakdown:
-      - Baseline:            50 points (every active number starts healthy)
-      - Hard failure penalty: -20 points max (carrier blocks, network errors — NOT no-answers)
-      - Call quality bonus:   20 points (avg duration when connected)
-      - Connection bonus:     15 points (rewards above-average connect rates)
-      - Maturity bonus:       15 points (warm-up stage + days active)
+    Returns:
+        float: Health score 0.0 - 100.0
     """
-    # ── Insufficient data: return a confident healthy score ──
-    # Under 100 lifetime calls or under 3 days of data — there is no
-    # meaningful signal yet. Don't scare users with red scores on day 1.
-    MIN_CALLS_FOR_SCORING = 100
-    MIN_DAYS_FOR_SCORING = 3
+    # ── Insufficient data: confident healthy score ──
+    # Under 75 calls or under 2 days — not enough signal to score.
+    # Exception: if we already see carrier blocks in early data, honor that.
+    MIN_CALLS = 75
+    MIN_DAYS = 2
 
-    if total_calls < MIN_CALLS_FOR_SCORING or days_active < MIN_DAYS_FOR_SCORING:
-        # Start at 80 (solid green), give small bonuses for early good signals
+    if total_calls < MIN_CALLS or days_active < MIN_DAYS:
         score = 80.0
+        # Early good signs
         if connected_calls > 0 and avg_duration >= 30:
-            score += 5.0  # Some calls connected and had real conversations
+            score += 5.0
         if connected_calls > 5:
-            score += 5.0  # Multiple connections — great early sign
-        # Only penalize if there's an extremely high hard-fail rate even in early data
-        if total_calls >= 20:
-            hard_fail_rate = failed_calls / total_calls
-            if hard_fail_rate > 0.50:
-                score -= 15.0  # More than half failing = something is clearly wrong
-        return round(min(100, max(50, score)), 1)
+            score += 5.0
+        # Early carrier block detection — don't wait for 100+ calls
+        if total_calls >= 10 and carrier_blocked > 0:
+            block_rate = carrier_blocked / total_calls
+            if block_rate > 0.20:
+                score -= 25.0  # 20%+ blocked even in small sample = serious
+            elif block_rate > 0.10:
+                score -= 15.0
+        # Early velocity detection — blocks accelerating even with few calls
+        if carrier_block_velocity >= 3.0:
+            score -= 15.0  # 3+ blocks/hour = actively being flagged
+        return round(min(100, max(20, score)), 1)
 
-    # ── Full scoring: only applied with 100+ calls AND 3+ days of data ──
-    score = 50.0  # Baseline — numbers are healthy until proven otherwise
+    # ═══════════════════════════════════════════════════════════════════════
+    # FULL 8-DIMENSIONAL SCORING — 75+ calls AND 2+ days of data
+    # ═══════════════════════════════════════════════════════════════════════
+    score = 40.0  # Baseline
 
-    # 1. Hard failure penalty (up to -20 points)
-    # Only penalize actual failures (busy, network error, carrier block).
-    # No-answers are NORMAL for cold outbound — they are NOT failures.
-    if total_calls > 0:
-        hard_fail_rate = failed_calls / total_calls
-        if hard_fail_rate <= 0.05:
-            pass  # No penalty — under 5% hard failure is fine
-        elif hard_fail_rate <= 0.15:
-            score -= (hard_fail_rate - 0.05) / 0.10 * 10.0  # Up to -10
-        elif hard_fail_rate <= 0.30:
-            score -= 10.0 + (hard_fail_rate - 0.15) / 0.15 * 10.0  # Up to -20
+    # ── 1. CARRIER BLOCK RATE — penalty up to -25 ──
+    # THE strongest signal. SIP 403/603/607/608 = carrier is actively blocking.
+    # Separate from generic "failed" calls because carrier blocks are deliberate
+    # spam filtering, while generic failures can be network issues.
+    if total_calls > 0 and carrier_blocked > 0:
+        block_rate = carrier_blocked / total_calls
+        if block_rate <= 0.01:
+            pass  # Under 1% = noise, no penalty
+        elif block_rate <= 0.05:
+            # 1-5% — mild concern, small penalty
+            score -= (block_rate - 0.01) / 0.04 * 8.0  # Up to -8
+        elif block_rate <= 0.15:
+            # 5-15% — this number is getting flagged
+            score -= 8.0 + (block_rate - 0.05) / 0.10 * 10.0  # Up to -18
         else:
-            score -= 20.0  # Max penalty
+            # 15%+ — this number is burned
+            score -= 25.0
 
-    # 2. Call quality bonus (up to +20 points)
-    # Rewards numbers that produce real conversations when connected
-    if avg_duration >= 120:   # 2+ min avg = excellent
-        score += 20.0
-    elif avg_duration >= 60:  # 1+ min = good
-        score += 12.0 + (avg_duration - 60) / 60.0 * 8.0
-    elif avg_duration >= 20:  # 20s+ = decent
-        score += 5.0 + (avg_duration - 20) / 40.0 * 7.0
+    # Also penalize non-block hard failures (network errors, etc.) — lighter weight
+    non_block_failures = max(0, failed_calls - carrier_blocked)
+    if total_calls > 0 and non_block_failures > 0:
+        non_block_rate = non_block_failures / total_calls
+        if non_block_rate > 0.05:
+            score -= min(5.0, (non_block_rate - 0.05) / 0.15 * 5.0)  # Up to -5
+
+    # ── 2. CARRIER BLOCK VELOCITY — penalty up to -15 ──
+    # Detects a number getting flagged in real-time. A number with 0.5% lifetime
+    # block rate but 5 blocks in the last hour is being actively flagged NOW.
+    # This is the "smoke detector" — reacts before lifetime stats catch up.
+    if carrier_block_velocity > 0:
+        if carrier_block_velocity >= 5.0:
+            score -= 15.0  # 5+ blocks/hour = emergency, number is being killed
+        elif carrier_block_velocity >= 3.0:
+            score -= 10.0  # 3-5/hour = serious, carriers are flagging in real-time
+        elif carrier_block_velocity >= 1.5:
+            score -= 5.0   # 1.5-3/hour = elevated, worth watching
+        elif carrier_block_velocity >= 0.5:
+            score -= 2.0   # 0.5-1.5/hour = slightly elevated
+
+    # ── 3. RING CONFIRMATION RATE — bonus up to +15 ──
+    # SIP 180 = the carrier routed the call and the lead's phone is ringing.
+    # High ring rate = carriers trust this number and are delivering calls.
+    # Low ring rate = calls are being silently dropped or sent to voicemail
+    # before ringing (carrier-side spam filtering).
+    #
+    # For outbound insurance: expect 60-80% ring rate on clean numbers.
+    # Under 30% ring rate on 100+ calls = carriers are filtering.
+    if total_calls >= 50 and ring_confirmed > 0:
+        ring_rate = ring_confirmed / total_calls
+        if ring_rate >= 0.75:
+            score += 15.0   # Excellent — carriers are delivering nearly every call
+        elif ring_rate >= 0.60:
+            score += 10.0 + (ring_rate - 0.60) / 0.15 * 5.0  # 10-15
+        elif ring_rate >= 0.40:
+            score += 5.0 + (ring_rate - 0.40) / 0.20 * 5.0   # 5-10
+        elif ring_rate >= 0.20:
+            score += (ring_rate - 0.20) / 0.20 * 5.0          # 0-5
+        # Under 20% = no bonus, carrier is filtering hard
+    elif total_calls >= 50:
+        # No ring data at all (ring_confirmed tracking may not be active)
+        # Give a neutral partial bonus — don't penalize missing data
+        score += 5.0
+
+    # ── 4. POST-DIAL DELAY (PDD) — ±10 ──
+    # PDD = time from SIP INVITE to first 180/183 response.
+    # Normal: 2000-4000ms. Excellent: under 2000ms.
+    # High PDD (6000+ms) means carriers are routing through analytics engines
+    # (spam scoring), adding delay. Very high PDD = you're being scrutinized.
+    # PDD TREND is even more telling — rising PDD means degrading reputation.
+    if avg_pdd_ms is not None and avg_pdd_ms > 0:
+        if avg_pdd_ms <= 2000:
+            score += 10.0   # Excellent — fast routing, carrier trusts this number
+        elif avg_pdd_ms <= 3500:
+            score += 6.0 + (3500 - avg_pdd_ms) / 1500 * 4.0  # 6-10
+        elif avg_pdd_ms <= 5000:
+            score += 2.0 + (5000 - avg_pdd_ms) / 1500 * 4.0  # 2-6
+        elif avg_pdd_ms <= 7000:
+            # High PDD — carrier is analytics-routing
+            score -= (avg_pdd_ms - 5000) / 2000 * 5.0  # 0 to -5
+        else:
+            # Very high PDD — significant carrier scrutiny
+            score -= 5.0 + min(5.0, (avg_pdd_ms - 7000) / 3000 * 5.0)  # -5 to -10
+
+    # PDD trend penalty: if PDD is rising, reputation is degrading
+    if recent_pdd_trend is not None and recent_pdd_trend > 500:
+        # PDD increased by 500ms+ recently — bad trend
+        trend_penalty = min(5.0, recent_pdd_trend / 2000 * 5.0)
+        score -= trend_penalty
+
+    # ── 5. VOICE INSIGHTS QUALITY ISSUES — penalty up to -10 ──
+    # Twilio Voice Insights tags calls with quality issues detected at the
+    # carrier edge: high_jitter, high_packet_loss, silence, high_pdd, etc.
+    # A high rate of quality issues on a specific number suggests the carrier
+    # is routing it through degraded paths (spam treatment).
+    if total_calls >= 50 and insights_quality_issues > 0:
+        issue_rate = insights_quality_issues / total_calls
+        if issue_rate <= 0.05:
+            pass  # Under 5% = normal network variance
+        elif issue_rate <= 0.15:
+            score -= (issue_rate - 0.05) / 0.10 * 5.0  # Up to -5
+        elif issue_rate <= 0.30:
+            score -= 5.0 + (issue_rate - 0.15) / 0.15 * 5.0  # Up to -10
+        else:
+            score -= 10.0  # 30%+ quality issues = carrier is degrading this number
+
+    # ── 6. STIR/SHAKEN A-ATTESTATION RATE — bonus up to +10 ──
+    # STIR/SHAKEN A = "Full Attestation" — Twilio verified you own this number
+    # and are authorized to use it. Carriers trust A-attested calls more.
+    # B = partial (account verified, number not), C = gateway (unverified).
+    # High A-rate is a strong trust signal. Low A-rate may indicate config issues.
+    if stir_a_rate is not None:
+        if stir_a_rate >= 95:
+            score += 10.0   # Nearly all calls getting A attestation
+        elif stir_a_rate >= 80:
+            score += 6.0 + (stir_a_rate - 80) / 15 * 4.0  # 6-10
+        elif stir_a_rate >= 50:
+            score += (stir_a_rate - 50) / 30 * 6.0         # 0-6
+        # Below 50% A-rate = no bonus (but STIR is managed by Twilio,
+        # so low rate usually means config issue, not number reputation)
+
+    # ── 7. CALL QUALITY (DURATION) — bonus up to +15 ──
+    # When this number DOES connect, are they real conversations?
+    # Long avg duration = leads are engaging, number is trusted.
+    # Short avg duration = possible spam pickup-and-hangup pattern.
+    if avg_duration >= 120:
+        score += 15.0   # 2+ min avg = real conversations happening
+    elif avg_duration >= 60:
+        score += 9.0 + (avg_duration - 60) / 60.0 * 6.0   # 9-15
+    elif avg_duration >= 20:
+        score += 3.0 + (avg_duration - 20) / 40.0 * 6.0   # 3-9
     elif avg_duration > 0:
-        score += avg_duration / 20.0 * 5.0
+        score += avg_duration / 20.0 * 3.0                 # 0-3
     else:
-        score += 10.0  # Neutral — no duration data yet
+        score += 5.0  # No duration data — neutral
 
-    # 3. Connection rate bonus (up to +15 points)
-    # This is a BONUS for above-average rates, not a penalty for normal ones.
-    # 10% connect rate is the industry norm for cold outbound — no penalty.
-    if total_calls > 0:
-        connect_rate = connected_calls / total_calls
-        if connect_rate >= 0.25:
-            score += 15.0   # Exceptional
-        elif connect_rate >= 0.15:
-            score += 8.0 + (connect_rate - 0.15) / 0.10 * 7.0
-        elif connect_rate >= 0.08:
-            score += (connect_rate - 0.08) / 0.07 * 8.0
-        # Below 8% = no bonus (but no penalty either)
-    else:
-        score += 8.0  # Neutral
-
-    # 4. Maturity bonus (up to +15 points)
-    stage_bonus = min(warmup_stage, 4) * 2.5  # 0-10 points
-    age_bonus = min(days_active / 30.0, 1.0) * 5.0  # 0-5 points over 30 days
+    # ── 8. MATURITY — bonus up to +10 ──
+    # Older numbers with clean histories are more trusted by carriers.
+    # Warm-up stage progression proves the number has been used responsibly.
+    stage_bonus = min(warmup_stage, 4) * 1.5   # 0-6 points
+    age_bonus = min(days_active / 60.0, 1.0) * 4.0  # 0-4 points over 60 days
     score += stage_bonus + age_bonus
 
     return round(min(100, max(0, score)), 1)
+
+
+def aggregate_insights_for_number(location_id, phone):
+    """
+    Query call_history to aggregate Voice Insights signals for a specific
+    outbound caller ID number. Returns signals for health score calculation.
+
+    This is called periodically (not on every call) to avoid DB pressure.
+    The results are cached on the number_health row.
+
+    Aggregates from the last 7 days of calls placed FROM this number:
+    - Average PDD (post-dial delay)
+    - PDD trend (comparing last 2 days vs prior 5 days)
+    - Count of calls with Voice Insights quality tags
+    - STIR/SHAKEN A attestation rate
+    - Carrier block velocity (blocks per hour in last 24h)
+    """
+    conn = get_db_connection()
+    if not conn:
+        return {}
+    try:
+        cur = conn.cursor()
+        now = datetime.utcnow()
+        seven_days_ago = now - timedelta(days=7)
+        two_days_ago = now - timedelta(days=2)
+        one_day_ago = now - timedelta(days=1)
+
+        # 1. Average PDD + quality tag count (last 7 days)
+        cur.execute("""
+            SELECT
+                AVG(pdd_ms) FILTER (WHERE pdd_ms IS NOT NULL)    AS avg_pdd,
+                COUNT(*) FILTER (WHERE quality_tags IS NOT NULL
+                    AND array_length(quality_tags, 1) > 0)       AS quality_issues
+            FROM call_history
+            WHERE from_number = %s AND location_id = %s
+              AND created_at >= %s AND direction = 'outbound'
+        """, (phone, location_id, seven_days_ago))
+        row = cur.fetchone()
+        avg_pdd = float(row['avg_pdd']) if row and row['avg_pdd'] else None
+        quality_issues = int(row['quality_issues']) if row else 0
+
+        # 2. PDD trend: last 2 days vs prior 5 days
+        recent_pdd_trend = None
+        cur.execute("""
+            SELECT
+                AVG(pdd_ms) FILTER (WHERE created_at >= %s)  AS recent_pdd,
+                AVG(pdd_ms) FILTER (WHERE created_at < %s)   AS older_pdd
+            FROM call_history
+            WHERE from_number = %s AND location_id = %s
+              AND created_at >= %s AND direction = 'outbound'
+              AND pdd_ms IS NOT NULL
+        """, (two_days_ago, two_days_ago, phone, location_id, seven_days_ago))
+        trend_row = cur.fetchone()
+        if trend_row and trend_row['recent_pdd'] and trend_row['older_pdd']:
+            recent_pdd_trend = float(trend_row['recent_pdd']) - float(trend_row['older_pdd'])
+
+        # 3. STIR/SHAKEN A attestation rate (last 7 days)
+        stir_a_rate = None
+        cur.execute("""
+            SELECT
+                COUNT(*) FILTER (WHERE stir_status IS NOT NULL) AS stir_total,
+                COUNT(*) FILTER (WHERE stir_status = 'A')       AS stir_a
+            FROM call_history
+            WHERE from_number = %s AND location_id = %s
+              AND created_at >= %s AND direction = 'outbound'
+        """, (phone, location_id, seven_days_ago))
+        stir_row = cur.fetchone()
+        if stir_row and stir_row['stir_total'] and int(stir_row['stir_total']) >= 10:
+            stir_a_rate = float(stir_row['stir_a']) / float(stir_row['stir_total']) * 100
+
+        # 4. Carrier block velocity: blocks per hour in last 24h
+        # Uses the number_health carrier_blocked daily counter is already tracked,
+        # but we want per-hour velocity from call_history for precision
+        carrier_block_velocity = 0.0
+        cur.execute("""
+            SELECT COUNT(*) AS blocks
+            FROM call_history
+            WHERE from_number = %s AND location_id = %s
+              AND created_at >= %s AND direction = 'outbound'
+              AND status = 'failed'
+              AND insights IS NOT NULL
+              AND (insights->'_last_sip_response')::text IN ('"403"', '"603"', '"607"', '"608"')
+        """, (phone, location_id, one_day_ago))
+        block_row = cur.fetchone()
+        if block_row and block_row['blocks']:
+            hours_elapsed = max(1, (now - one_day_ago).total_seconds() / 3600)
+            carrier_block_velocity = float(block_row['blocks']) / hours_elapsed
+
+        cur.close()
+
+        return {
+            "avg_pdd_ms": avg_pdd,
+            "recent_pdd_trend": recent_pdd_trend,
+            "insights_quality_issues": quality_issues,
+            "stir_a_rate": stir_a_rate,
+            "carrier_block_velocity": carrier_block_velocity,
+        }
+    except Exception as e:
+        logger.error(f"Failed to aggregate insights for {phone}: {e}")
+        return {}
+    finally:
+        return_db_connection(conn)
 
 
 # ── Smart Number Selection ─────────────────────────────────────────────────
@@ -638,6 +886,12 @@ def update_number_health(location_id, phone, call_status, duration=0, sip_code=N
     Called from /voice/status callback for terminal statuses:
     completed, busy, no-answer, failed, canceled.
 
+    This is the hot path — called on EVERY call completion. It:
+    1. Increments counters (daily + lifetime)
+    2. Periodically aggregates Voice Insights signals (every 25 calls)
+    3. Runs the full 8-dimensional health score calculation
+    4. Triggers auto-rest/freeze based on multiple signal dimensions
+
     sip_code: Twilio's SipResponseCode (int or None). Codes 403/603/607/608
     indicate the carrier blocked the call vs a normal no-answer.
     ring_confirmed: True if Twilio fired a 'ringing' callback (SIP 180),
@@ -677,7 +931,6 @@ def update_number_health(location_id, phone, call_status, duration=0, sip_code=N
                 pass
 
         # Determine which counters to increment
-        # Twilio "completed" means the call was answered, even if duration=0
         is_connected = call_status == "completed"
         is_no_answer = call_status in ("no-answer", "canceled")
         is_failed = call_status == "failed"
@@ -693,7 +946,6 @@ def update_number_health(location_id, phone, call_status, duration=0, sip_code=N
         if is_carrier_blocked:
             sets.append("daily_carrier_blocked = daily_carrier_blocked + 1")
             sets.append("total_carrier_blocked = total_carrier_blocked + 1")
-            # Also count as failed for health score purposes
             sets.append("daily_failed = daily_failed + 1")
             sets.append("total_failed = total_failed + 1")
             logger.warning(f"Carrier-blocked call detected: {phone} SIP={sip_code}")
@@ -713,7 +965,6 @@ def update_number_health(location_id, phone, call_status, duration=0, sip_code=N
             sets.append("daily_busy = daily_busy + 1")
             sets.append("total_busy = total_busy + 1")
 
-        # SIP 180 ring confirmation — lead's phone legitimately rang
         if ring_confirmed:
             sets.append("daily_ring_confirmed = daily_ring_confirmed + 1")
             sets.append("total_ring_confirmed = total_ring_confirmed + 1")
@@ -724,10 +975,13 @@ def update_number_health(location_id, phone, call_status, duration=0, sip_code=N
             params
         )
 
-        # Re-calculate health score
+        # Re-calculate health score with all signal dimensions
         cur.execute("""
             SELECT total_calls, total_connected, total_no_answer, total_failed,
-                   total_duration_secs, warmup_stage, created_at
+                   total_duration_secs, total_carrier_blocked, total_ring_confirmed,
+                   warmup_stage, created_at,
+                   avg_pdd_ms, recent_pdd_trend, insights_quality_issues,
+                   stir_a_rate, carrier_block_velocity
             FROM number_health
             WHERE location_id = %s AND phone = %s
         """, (location_id, phone))
@@ -736,6 +990,47 @@ def update_number_health(location_id, phone, call_status, duration=0, sip_code=N
             tc = row["total_calls"] or 0
             days_active = max(1, (now - row["created_at"]).days) if row["created_at"] else 1
             avg_dur = (row["total_duration_secs"] / row["total_connected"]) if row["total_connected"] else 0
+            t_blocked = row["total_carrier_blocked"] or 0
+            t_ring = row["total_ring_confirmed"] or 0
+
+            # Aggregate Voice Insights signals every 25 calls (not on every call
+            # to avoid DB pressure — insights data is delayed ~90s anyway)
+            insights_signals = {}
+            if tc > 0 and tc % 25 == 0:
+                insights_signals = aggregate_insights_for_number(location_id, phone)
+                # Cache the aggregated signals on the number_health row
+                if insights_signals:
+                    insight_sets = []
+                    insight_params = []
+                    for key in ('avg_pdd_ms', 'recent_pdd_trend', 'insights_quality_issues',
+                                'stir_a_rate', 'carrier_block_velocity'):
+                        val = insights_signals.get(key)
+                        if val is not None:
+                            insight_sets.append(f"{key} = %s")
+                            insight_params.append(val)
+                    if insight_sets:
+                        insight_params.extend([location_id, phone])
+                        cur.execute(
+                            f"UPDATE number_health SET {', '.join(insight_sets)} "
+                            "WHERE location_id = %s AND phone = %s",
+                            insight_params
+                        )
+
+            # Compute carrier block velocity from daily data (fast approximation)
+            # when we don't have fresh insights data
+            block_velocity = float(row.get("carrier_block_velocity") or 0)
+            if is_carrier_blocked:
+                # Quick velocity update: blocks today / hours elapsed today
+                daily_blocks = (row.get("daily_carrier_blocked") or 0) + 1
+                # Estimate hours elapsed today (rough — daily reset happens at midnight)
+                hours_today = max(1, now.hour + now.minute / 60.0)
+                block_velocity = daily_blocks / hours_today
+                cur.execute(
+                    "UPDATE number_health SET carrier_block_velocity = %s "
+                    "WHERE location_id = %s AND phone = %s",
+                    (round(block_velocity, 2), location_id, phone)
+                )
+
             new_score = calculate_health_score(
                 total_calls=tc,
                 connected_calls=row["total_connected"] or 0,
@@ -744,35 +1039,104 @@ def update_number_health(location_id, phone, call_status, duration=0, sip_code=N
                 avg_duration=avg_dur,
                 warmup_stage=row["warmup_stage"] or 0,
                 days_active=days_active,
+                carrier_blocked=t_blocked,
+                ring_confirmed=t_ring,
+                avg_pdd_ms=insights_signals.get("avg_pdd_ms") or (float(row["avg_pdd_ms"]) if row.get("avg_pdd_ms") else None),
+                recent_pdd_trend=insights_signals.get("recent_pdd_trend") or (float(row["recent_pdd_trend"]) if row.get("recent_pdd_trend") else None),
+                insights_quality_issues=insights_signals.get("insights_quality_issues") or (int(row["insights_quality_issues"]) if row.get("insights_quality_issues") else 0),
+                stir_a_rate=insights_signals.get("stir_a_rate") or (float(row["stir_a_rate"]) if row.get("stir_a_rate") else None),
+                carrier_block_velocity=block_velocity,
             )
             cur.execute(
                 "UPDATE number_health SET health_score = %s WHERE location_id = %s AND phone = %s",
                 (new_score, location_id, phone)
             )
 
-            # Auto-rest only when a number is clearly blocked by carriers:
-            # 300+ dials AND under 2% connection rate. Normal cold outbound
-            # is ~10% pickup — only flag genuinely burned numbers.
+            # ── Multi-signal auto-rest/freeze ──────────────────────────────
+            # These triggers use MULTIPLE signals, not just connection rate.
+            # A number can be auto-rested by any of these independent triggers.
+
             cc = row["total_connected"] or 0
             connect_pct = (cc / tc * 100) if tc > 0 else 100
-            if tc >= 300 and connect_pct < 2.0:
-                rest_until = now + timedelta(hours=DEFAULT_REST_HOURS)
-                cur.execute("""
-                    UPDATE number_health
-                    SET status = %s, rest_until = %s
-                    WHERE location_id = %s AND phone = %s AND status != %s
-                """, (STATUS_RESTING, rest_until, location_id, phone, STATUS_FROZEN))
-                logger.warning(f"Number {phone} auto-rested (health={new_score}, connect={connect_pct:.1f}%, dials={tc}) until {rest_until}")
+            block_rate = (t_blocked / tc * 100) if tc > 0 else 0
 
-            # Auto-freeze: same criteria but even worse — 500+ dials, under 1%
+            triggered_rest = False
+            triggered_freeze = False
+            trigger_reason = ""
+
+            # Trigger 1: Classic — high volume + very low connect rate
+            if tc >= 300 and connect_pct < 2.0:
+                triggered_rest = True
+                trigger_reason = f"connect={connect_pct:.1f}%"
+
+            # Trigger 2: Carrier block rate — lower threshold because blocks
+            # are a much stronger signal than low connect rate
+            if tc >= 100 and block_rate > 10.0:
+                triggered_rest = True
+                trigger_reason = f"block_rate={block_rate:.1f}%"
+            if tc >= 100 and block_rate > 20.0:
+                triggered_freeze = True
+                trigger_reason = f"block_rate={block_rate:.1f}%"
+
+            # Trigger 3: Carrier block velocity — real-time emergency brake
+            # 5+ blocks/hour = this number is being killed right now
+            if block_velocity >= 5.0:
+                triggered_freeze = True
+                trigger_reason = f"block_velocity={block_velocity:.1f}/hr"
+            elif block_velocity >= 3.0:
+                triggered_rest = True
+                trigger_reason = f"block_velocity={block_velocity:.1f}/hr"
+
+            # Trigger 4: Ring confirmation collapse — if ring rate drops below
+            # 15% on a number with 200+ calls, carriers are silently filtering
+            if tc >= 200 and t_ring > 0:
+                ring_rate = t_ring / tc
+                if ring_rate < 0.10:
+                    triggered_freeze = True
+                    trigger_reason = f"ring_rate={ring_rate*100:.1f}%"
+                elif ring_rate < 0.15:
+                    triggered_rest = True
+                    trigger_reason = f"ring_rate={ring_rate*100:.1f}%"
+
+            # Trigger 5: Health score itself — if the composite score drops
+            # below critical thresholds, rest/freeze regardless of individual signals
+            if new_score <= HEALTH_FROZEN:
+                triggered_freeze = True
+                trigger_reason = f"health_score={new_score}"
+            elif new_score <= HEALTH_CRITICAL:
+                triggered_rest = True
+                trigger_reason = f"health_score={new_score}"
+
+            # Legacy threshold — still honored as a backstop
             if tc >= 500 and connect_pct < 1.0:
+                triggered_freeze = True
+                trigger_reason = f"connect={connect_pct:.1f}%(500+dials)"
+
+            # Apply rest/freeze
+            if triggered_freeze:
                 freeze_until = now + timedelta(hours=DEFAULT_FREEZE_HOURS)
                 cur.execute("""
                     UPDATE number_health
                     SET status = %s, rest_until = %s
                     WHERE location_id = %s AND phone = %s
                 """, (STATUS_FROZEN, freeze_until, location_id, phone))
-                logger.warning(f"Number {phone} auto-FROZEN (health={new_score}, connect={connect_pct:.1f}%, dials={tc}) until {freeze_until}")
+                logger.warning(
+                    f"Number {phone} auto-FROZEN [{trigger_reason}] "
+                    f"(health={new_score}, blocks={t_blocked}, ring={t_ring}, "
+                    f"connect={connect_pct:.1f}%, dials={tc}) until {freeze_until}"
+                )
+            elif triggered_rest:
+                rest_until = now + timedelta(hours=DEFAULT_REST_HOURS)
+                cur.execute("""
+                    UPDATE number_health
+                    SET status = %s, rest_until = %s
+                    WHERE location_id = %s AND phone = %s AND status != %s
+                """, (STATUS_RESTING, rest_until, location_id, phone, STATUS_FROZEN))
+                logger.warning(
+                    f"Number {phone} auto-rested [{trigger_reason}] "
+                    f"(health={new_score}, blocks={t_blocked}, ring={t_ring}, "
+                    f"connect={connect_pct:.1f}%, dials={tc}) until {rest_until}"
+                )
 
         conn.commit()
         cur.close()
@@ -854,6 +1218,7 @@ def reset_daily_metrics():
                 daily_carrier_blocked = 0,
                 daily_ring_confirmed = 0,
                 daily_duration_secs = 0,
+                carrier_block_velocity = 0,
                 updated_at = NOW()
         """)
         count = cur.rowcount
@@ -1001,7 +1366,7 @@ def set_number_status(location_id, phone, status, rest_hours=None):
 def get_number_health_summary(location_id):
     """
     Get a summary overview of number health for the dashboard.
-    Returns aggregate stats across all numbers.
+    Returns aggregate stats across all numbers including Voice Insights signals.
     """
     conn = get_db_connection()
     if not conn:
@@ -1021,7 +1386,15 @@ def get_number_health_summary(location_id):
                 COALESCE(SUM(daily_calls_today), 0) AS total_daily_calls,
                 COALESCE(SUM(daily_connected), 0) AS total_daily_connected,
                 COALESCE(SUM(total_calls), 0) AS total_lifetime_calls,
-                COALESCE(SUM(total_connected), 0) AS total_lifetime_connected
+                COALESCE(SUM(total_connected), 0) AS total_lifetime_connected,
+                -- Advanced signal aggregates
+                COALESCE(SUM(total_carrier_blocked), 0) AS total_carrier_blocked,
+                COALESCE(SUM(total_ring_confirmed), 0) AS total_ring_confirmed,
+                COALESCE(AVG(avg_pdd_ms) FILTER (WHERE avg_pdd_ms IS NOT NULL), 0) AS fleet_avg_pdd,
+                COALESCE(MAX(carrier_block_velocity), 0) AS max_block_velocity,
+                COUNT(*) FILTER (WHERE carrier_block_velocity >= 3.0) AS numbers_under_attack,
+                COUNT(*) FILTER (WHERE health_score < 40) AS numbers_critical,
+                COALESCE(AVG(stir_a_rate) FILTER (WHERE stir_a_rate IS NOT NULL), 0) AS fleet_stir_a_rate
             FROM number_health
             WHERE location_id = %s
         """, (location_id,))
@@ -1034,6 +1407,8 @@ def get_number_health_summary(location_id):
         connected_daily = int(row["total_daily_connected"] or 0)
         total_lifetime = int(row["total_lifetime_calls"] or 0)
         connected_lifetime = int(row["total_lifetime_connected"] or 0)
+        total_blocked = int(row["total_carrier_blocked"] or 0)
+        total_ring = int(row["total_ring_confirmed"] or 0)
 
         return {
             "total_numbers": row["total_numbers"],
@@ -1050,6 +1425,16 @@ def get_number_health_summary(location_id):
             "lifetime_calls": total_lifetime,
             "lifetime_connected": connected_lifetime,
             "lifetime_connect_rate": round(connected_lifetime / total_lifetime * 100, 1) if total_lifetime else 0,
+            # Advanced signals
+            "lifetime_carrier_blocked": total_blocked,
+            "lifetime_block_rate": round(total_blocked / total_lifetime * 100, 2) if total_lifetime else 0,
+            "lifetime_ring_confirmed": total_ring,
+            "lifetime_ring_rate": round(total_ring / total_lifetime * 100, 1) if total_lifetime else 0,
+            "fleet_avg_pdd_ms": round(float(row["fleet_avg_pdd"] or 0), 0),
+            "max_block_velocity": round(float(row["max_block_velocity"] or 0), 1),
+            "numbers_under_attack": int(row["numbers_under_attack"] or 0),
+            "numbers_critical": int(row["numbers_critical"] or 0),
+            "fleet_stir_a_rate": round(float(row["fleet_stir_a_rate"] or 0), 1),
         }
     except Exception as e:
         logger.error(f"Failed to get number health summary: {e}")

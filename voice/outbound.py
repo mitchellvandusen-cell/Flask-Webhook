@@ -155,7 +155,8 @@ def trigger_outbound_call():
             contact_id=contact_id,
             contact_name=lead_name,
             direction='outbound',
-            status='initiated'
+            status='initiated',
+            from_number=from_number,
         )
 
         try:

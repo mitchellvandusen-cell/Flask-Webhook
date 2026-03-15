@@ -7,8 +7,14 @@ logger = logging.getLogger("voice_bridge.call_history_helpers")
 
 
 def save_call_to_history(location_id, call_sid, phone, contact_id=None,
-                         contact_name=None, direction='outbound', status='initiated'):
-    """Save a new call record to the call_history table."""
+                         contact_name=None, direction='outbound', status='initiated',
+                         from_number=None):
+    """Save a new call record to the call_history table.
+
+    Args:
+        from_number: The outbound caller ID (our number). Critical for tracking
+                     Voice Insights signals per caller ID in number_health scoring.
+    """
     conn = get_db_connection()
     if not conn:
         return
@@ -16,10 +22,11 @@ def save_call_to_history(location_id, call_sid, phone, contact_id=None,
         cur = conn.cursor()
         cur.execute("""
             INSERT INTO call_history (location_id, contact_id, contact_name, phone,
-                                      direction, call_sid, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                                      direction, call_sid, status, from_number)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (call_sid) DO NOTHING
-        """, (location_id, contact_id, contact_name, phone, direction, call_sid, status))
+        """, (location_id, contact_id, contact_name, phone, direction, call_sid, status,
+              from_number))
         conn.commit()
         cur.close()
     except Exception as e:
