@@ -417,31 +417,30 @@
                 if (bannerEl) {
                     var total = d.total || 0;
                     var cnamSet = d.cnam_set || 0;
-                    var matching = d.cnam_matching || 0;
+                    var compliant = d.cnam_compliant || 0;
                     var displayName = d.cnam_display_name || '';
-                    var allGood = cnamSet === total && matching === total && total > 0;
+                    var allGood = compliant === total && total > 0;
 
                     bannerEl.innerHTML =
                         '<div class="d-flex align-items-center gap-2 flex-wrap">' +
                             '<div class="cnam-stat-pill ' + (allGood ? 'cnam-stat-good' : 'cnam-stat-warn') + '">' +
                                 '<i class="fa-solid ' + (allGood ? 'fa-circle-check' : 'fa-triangle-exclamation') + ' me-1"></i>' +
-                                cnamSet + '/' + total + ' CNAM set' +
+                                compliant + '/' + total + ' CNAM compliant' +
                             '</div>' +
                             (displayName ?
                                 '<div class="cnam-stat-pill cnam-stat-info">' +
-                                    '<i class="fa-solid fa-id-card me-1"></i>Display: <strong>' + _esc(displayName) + '</strong>' +
+                                    '<i class="fa-solid fa-id-card me-1"></i>Registered: <strong>' + _esc(displayName) + '</strong>' +
                                 '</div>' : '') +
-                            (matching < cnamSet ?
+                            (total - compliant > 0 && total > 0 ?
                                 '<div class="cnam-stat-pill cnam-stat-warn">' +
-                                    '<i class="fa-solid fa-exclamation me-1"></i>' + (cnamSet - matching) + ' mismatched' +
+                                    '<i class="fa-solid fa-exclamation me-1"></i>' + (total - compliant) + ' non-compliant' +
                                 '</div>' : '') +
                         '</div>';
                     // Update accordion badge
                     var cBadge = document.getElementById('smBadgeCnam');
                     if (cBadge) {
-                        var allGoodB = cnamSet === total && matching === total && total > 0;
-                        cBadge.textContent = cnamSet + '/' + total + ' set';
-                        cBadge.style.cssText = 'display:inline-block;background:' + (allGoodB ? 'rgba(0,255,136,0.12);color:#00ff88' : 'rgba(255,165,0,0.12);color:#ffa500') + ';font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
+                        cBadge.textContent = compliant + '/' + total + ' compliant';
+                        cBadge.style.cssText = 'display:inline-block;background:' + (allGood ? 'rgba(0,255,136,0.12);color:#00ff88' : 'rgba(255,165,0,0.12);color:#ffa500') + ';font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
                     }
                 }
 
@@ -461,22 +460,21 @@
                     '</div>';
 
                     nums.forEach(function(n) {
-                        var enabled = n.cnam_enabled;
-                        var matches = n.cnam_matches_business;
+                        var compliant = n.cnam_compliant;
                         var statusIcon, statusLabel, statusClass;
 
-                        if (!enabled) {
-                            statusIcon = 'fa-circle-xmark';
-                            statusLabel = 'Not Set';
-                            statusClass = 'cnam-status-off';
-                        } else if (matches) {
+                        if (compliant) {
                             statusIcon = 'fa-circle-check';
-                            statusLabel = 'Active';
+                            statusLabel = 'Compliant';
                             statusClass = 'cnam-status-ok';
-                        } else {
-                            statusIcon = 'fa-triangle-exclamation';
-                            statusLabel = 'Mismatched';
+                        } else if (n.assigned_to_trust_product) {
+                            statusIcon = 'fa-clock';
+                            statusLabel = 'Pending';
                             statusClass = 'cnam-status-warn';
+                        } else {
+                            statusIcon = 'fa-circle-xmark';
+                            statusLabel = 'Non-Compliant';
+                            statusClass = 'cnam-status-off';
                         }
 
                         html += '<div class="cnam-row">' +
@@ -493,8 +491,8 @@
                                 '<button onclick="cnamEditInline(\'' + n.sid + '\', \'' + _esc(n.cnam_name || '') + '\')" class="cnam-action-btn" title="Edit CNAM">' +
                                     '<i class="fa-solid fa-pen"></i>' +
                                 '</button>' +
-                                (!enabled ?
-                                    '<button onclick="cnamQuickSet(\'' + n.sid + '\')" class="cnam-action-btn cnam-action-set" title="Set to business name">' +
+                                (!n.cnam_name ?
+                                    '<button onclick="cnamQuickSet(\'' + n.sid + '\')" class="cnam-action-btn cnam-action-set" title="Set caller ID name">' +
                                         '<i class="fa-solid fa-bolt"></i>' +
                                     '</button>' : '') +
                             '</div>' +
@@ -661,7 +659,7 @@
                 nums.forEach(function(n) {
                     var propClass = n.propagated ? 'cnam-status-ok' : (n.error ? 'cnam-status-off' : 'cnam-status-warn');
                     var propIcon = n.propagated ? 'fa-circle-check' : (n.error ? 'fa-circle-xmark' : 'fa-triangle-exclamation');
-                    var propLabel = n.propagated ? 'Match' : (n.error ? 'Error' : 'Mismatch');
+                    var propLabel = n.propagated ? 'Propagated' : (n.error ? 'Error' : 'Not Propagated');
 
                     html += '<div class="cnam-row">' +
                         '<div class="cnam-col-phone">' + _esc(_fmtPhone(n.phone)) + '</div>' +

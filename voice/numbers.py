@@ -1482,21 +1482,24 @@ def cnam_monitor():
     nicknames = (vc or {}).get('number_nicknames', {})
     assigned_to_tp = set(cnam.get('assigned_numbers', []))
 
+    # CNAM Trust Product status determines compliance
+    cnam_tp_approved = cnam.get('status', '') in ('twilio-approved', 'approved')
+
     result = []
     for n in numbers:
         phone = n.get('phone', '')
         friendly = n.get('friendly_name', '')
         sid = n.get('sid', '')
+        in_tp = sid in assigned_to_tp
+        # Compliant = assigned to an approved CNAM Trust Product
+        compliant = in_tp and cnam_tp_approved
         result.append({
             "phone": phone,
             "sid": sid,
             "cnam_name": friendly,
             "cnam_enabled": n.get('cnam_enabled', False),
-            "cnam_matches_business": (
-                friendly.strip().lower() == cnam_display_name.strip().lower()
-                if friendly and cnam_display_name else False
-            ),
-            "assigned_to_trust_product": sid in assigned_to_tp,
+            "cnam_compliant": compliant,
+            "assigned_to_trust_product": in_tp,
             "nickname": nicknames.get(phone, ''),
             "date_created": n.get('date_created', ''),
         })
@@ -1507,7 +1510,7 @@ def cnam_monitor():
         "numbers": result,
         "total": len(result),
         "cnam_set": sum(1 for n in result if n['cnam_enabled']),
-        "cnam_matching": sum(1 for n in result if n['cnam_matches_business']),
+        "cnam_compliant": sum(1 for n in result if n['cnam_compliant']),
         "trust_product": {
             "registered": bool(cnam.get('trust_product_sid')),
             "status": cnam.get('status', 'not_registered'),
@@ -1555,7 +1558,7 @@ def cnam_update():
 @numbers_bp.route('/voice/cnam/update-all', methods=['POST'])
 @login_required
 def cnam_update_all():
-    """Apply CNAM to all numbers that don't have it set or have a mismatched name."""
+    """Apply CNAM business name to numbers that don't have any friendly name set."""
     subscriber, vc, sub_sid = _get_current_subscriber_voice()
     if not sub_sid:
         return jsonify({"error": "Voice service not provisioned"}), 400
