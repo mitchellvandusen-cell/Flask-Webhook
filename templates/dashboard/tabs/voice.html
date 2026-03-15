@@ -24,9 +24,6 @@
                             <button class="voice-menu-item active" onclick="switchVoicePanel('activation')" id="vmenu-activation" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.15);border-radius:8px;color:#00d9ff;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
                                 <i class="fa-solid fa-wand-magic-sparkles" style="width:16px;text-align:center;"></i> Activate Voice
                             </button>
-                            <button class="voice-menu-item" onclick="switchVoicePanel('enable')" id="vmenu-enable" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
-                                <i class="fa-solid fa-toggle-on" style="width:16px;text-align:center;"></i> Enable Voice
-                            </button>
                             <button class="voice-menu-item" onclick="switchVoicePanel('settings')" id="vmenu-settings" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
                                 <i class="fa-solid fa-microphone" style="width:16px;text-align:center;"></i> Voice AI
                             </button>
@@ -36,17 +33,8 @@
                             <button class="voice-menu-item" onclick="switchVoicePanel('dialer')" id="vmenu-dialer" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
                                 <i class="fa-solid fa-sliders" style="width:16px;text-align:center;"></i> Dialer Settings
                             </button>
-                            <button class="voice-menu-item" onclick="switchVoicePanel('numberhealth')" id="vmenu-numberhealth" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
-                                <i class="fa-solid fa-heart-pulse" style="width:16px;text-align:center;"></i> Number Health
-                            </button>
-                            <button class="voice-menu-item" onclick="switchVoicePanel('trusthub')" id="vmenu-trusthub" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
-                                <i class="fa-solid fa-shield-halved" style="width:16px;text-align:center;"></i> Spam Protection
-                            </button>
-                            <button class="voice-menu-item" onclick="switchVoicePanel('cnam')" id="vmenu-cnam" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
-                                <i class="fa-solid fa-id-card" style="width:16px;text-align:center;"></i> CNAM Monitor
-                            </button>
-                            <button class="voice-menu-item" onclick="switchVoicePanel('numberintegrity')" id="vmenu-numberintegrity" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
-                                <i class="fa-solid fa-tower-broadcast" style="width:16px;text-align:center;"></i> Number Integrity
+                            <button class="voice-menu-item" onclick="switchVoicePanel('spammonitoring')" id="vmenu-spammonitoring" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                                <i class="fa-solid fa-shield-halved" style="width:16px;text-align:center;"></i> Spam Monitoring
                             </button>
                             <div style="height:1px;background:rgba(255,255,255,0.06);margin:8px 6px;"></div>
                             <button class="voice-menu-item" onclick="switchVoicePanel('training')" id="vmenu-training" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
@@ -108,40 +96,29 @@
                         </div>
                     </div>
 
-                    <!-- ── Enable Voice panel ── -->
-                    <div id="vstab-panel-enable" style="display:none;">
-                        <div class="p-4" style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.15);border-radius:14px;">
-                            <div class="d-flex align-items-center gap-3 mb-3">
-                                <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,255,136,0.12);border:1px solid rgba(0,255,136,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                    <i class="fa-solid fa-toggle-on" style="color:#00ff88;"></i>
-                                </div>
-                                <div>
-                                    <h6 style="margin:0;font-weight:700;color:#fff;">Enable Voice AI Agent</h6>
-                                    <p style="margin:0;color:#888;font-size:0.8rem;">Requires an active voice account and phone number (set up in Activate Voice first)</p>
-                                </div>
-                            </div>
-                            {% if not voice_config.get('twilio_sub_account_sid') %}
-                            <div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:0.82rem;color:#fbbf24;">
-                                <i class="fa-solid fa-triangle-exclamation me-2"></i>Complete <strong>Activate Voice</strong> first to provision your voice account and phone number.
-                            </div>
-                            {% endif %}
-                            <div class="form-check form-switch d-flex align-items-center gap-3 mb-2" style="margin:0;">
-                                <input class="form-check-input" type="checkbox" id="voiceEnabled" {% if voice_config.get('enabled') %}checked{% endif %}
-                                    {% if not voice_config.get('twilio_sub_account_sid') %}disabled{% endif %}
-                                    style="width: 3em; height: 1.5em; cursor: pointer;">
-                                <label class="form-check-label" for="voiceEnabled" style="color: #fff; font-weight: 600; font-size: 1rem;">
-                                    Enable Voice AI Agent
-                                </label>
-                                <span id="voiceEnabledStatus" style="font-size:0.8rem;color:{% if voice_config.get('enabled') %}#00ff88{% else %}#666{% endif %};">
-                                    {% if voice_config.get('enabled') %}Active{% else %}Inactive{% endif %}
-                                </span>
-                            </div>
-                            <p style="color:#777; font-size:0.8rem; margin: 0 0 0 3.5em;">When enabled, your phone number handles inbound calls with AI and you can trigger outbound calls via webhook.</p>
-                        </div>
-                    </div>
-
                     <!-- ── Voice AI settings panel ── -->
                     <div id="vstab-panel-settings" style="display:none;">
+
+                    <!-- Enable Voice Toggle -->
+                    <div class="mb-4 p-3" style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.12);border-radius:12px;">
+                        {% if not voice_config.get('twilio_sub_account_sid') %}
+                        <div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:0.82rem;color:#fbbf24;">
+                            <i class="fa-solid fa-triangle-exclamation me-2"></i>Complete <strong>Activate Voice</strong> first to provision your voice account and phone number.
+                        </div>
+                        {% endif %}
+                        <div class="form-check form-switch d-flex align-items-center gap-3" style="margin:0;">
+                            <input class="form-check-input" type="checkbox" id="voiceEnabled" {% if voice_config.get('enabled') %}checked{% endif %}
+                                {% if not voice_config.get('twilio_sub_account_sid') %}disabled{% endif %}
+                                style="width: 3em; height: 1.5em; cursor: pointer;">
+                            <label class="form-check-label" for="voiceEnabled" style="color: #fff; font-weight: 600; font-size: 0.95rem;">
+                                Enable Voice AI Agent
+                            </label>
+                            <span id="voiceEnabledStatus" style="font-size:0.8rem;color:{% if voice_config.get('enabled') %}#00ff88{% else %}#666{% endif %};">
+                                {% if voice_config.get('enabled') %}Active{% else %}Inactive{% endif %}
+                            </span>
+                        </div>
+                        <p style="color:#777; font-size:0.78rem; margin: 6px 0 0 3.5em;">When enabled, your phone number handles inbound calls with AI and you can trigger outbound calls via webhook.</p>
+                    </div>
 
                     <!-- AI Voice -->
                     <div class="row g-3 mb-4">
@@ -669,29 +646,21 @@
                         </div>
                     </div><!-- /vstab-panel-dialer -->
 
-                    <!-- ══ Number Health sub-tab ══ -->
-                    <div id="vstab-panel-numberhealth" style="display:none;">
-                        <div id="numberHealthPanel">
-                            <div id="numberHealthContent"></div>
-                        </div>
-                    </div><!-- /vstab-panel-numberhealth -->
+                    <!-- ══ Spam Monitoring (consolidated) ══ -->
+                    <div id="vstab-panel-spammonitoring" style="display:none;">
 
-                    <!-- ══ Spam Protection sub-tab ══ -->
-                    <div id="vstab-panel-trusthub" style="display:none;">
-
-                        <!-- Status Banner (shown after registration) -->
+                        <!-- ─── Section 1: Business Profile ─── -->
                         <div id="spamProtectionStatus" style="display:none;"></div>
 
-                        <!-- Registration Form -->
                         <div id="spamProtectionForm">
                             <div class="mb-3 p-3" style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.12);border-radius:12px;">
                                 <div class="d-flex align-items-center gap-3 mb-3">
                                     <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,255,136,0.12);border:1px solid rgba(0,255,136,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                        <i class="fa-solid fa-shield-halved" style="color:#00ff88;"></i>
+                                        <i class="fa-solid fa-building" style="color:#00ff88;"></i>
                                     </div>
                                     <div>
-                                        <div style="font-weight:700;font-size:1rem;color:#fff;">Spam Protection</div>
-                                        <div style="font-size:0.78rem;color:#888;">Fill out your business details once. We'll automatically register your business identity, enable caller ID (CNAM) on all your numbers, and protect any future numbers you buy.</div>
+                                        <div style="font-weight:700;font-size:1rem;color:#fff;">Business Profile</div>
+                                        <div style="font-size:0.78rem;color:#888;">Register your business identity with Twilio Trust Hub. This is the foundation for CNAM, Voice Integrity, and spam protection on all your numbers.</div>
                                     </div>
                                 </div>
 
@@ -700,7 +669,7 @@
                                     <div style="font-size:0.75rem;color:#00d9ff;font-weight:600;margin-bottom:6px;"><i class="fa-solid fa-wand-magic-sparkles me-1"></i>What happens when you register:</div>
                                     <div style="font-size:0.75rem;color:#999;line-height:1.6;">
                                         <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> STIR/SHAKEN Full (A) attestation — already active<br>
-                                        <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> Business identity registered<br>
+                                        <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> Business identity registered with Twilio Trust Hub<br>
                                         <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> CNAM (Caller ID Name) enabled on all your numbers<br>
                                         <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> Future number purchases auto-protected
                                     </div>
@@ -766,7 +735,7 @@
                             </div>
                         </div>
 
-                        <!-- Protected Numbers List (always visible) -->
+                        <!-- ─── Section 2: Number Protection Status ─── -->
                         <div id="spNumbersList" class="mt-3 p-3" style="background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:10px;">
                             <div class="d-flex align-items-center justify-content-between mb-2">
                                 <div style="font-weight:700;font-size:0.9rem;color:#fff;"><i class="fa-solid fa-phone-volume me-2" style="color:#00d9ff;"></i>Number Protection Status</div>
@@ -779,13 +748,8 @@
                             </div>
                         </div>
 
-                    </div><!-- /vstab-panel-trusthub -->
-
-                    <!-- ══ CNAM Monitor & Lookup sub-tab ══ -->
-                    <div id="vstab-panel-cnam" style="display:none;">
-
-                        <!-- CNAM Monitor Section -->
-                        <div class="cnam-header-card mb-3 p-3">
+                        <!-- ─── Section 3: CNAM Monitor ─── -->
+                        <div class="cnam-header-card mt-4 mb-3 p-3">
                             <div class="d-flex align-items-center gap-3 mb-3">
                                 <div class="cnam-header-icon">
                                     <i class="fa-solid fa-id-card"></i>
@@ -850,10 +814,8 @@
                             </div>
                         </div>
 
-                    </div><!-- /vstab-panel-cnam -->
-
-                    <!-- ══ Number Integrity sub-tab ══ -->
-                    <div id="vstab-panel-numberintegrity" class="ni-panel" style="display:none;">
+                        <!-- ─── Section 4: Voice Integrity ─── -->
+                        <div class="ni-panel">
 
                         <!-- Status Banner (shown when registered) -->
                         <div id="niStatusBanner" class="ni-status-banner" style="display:none;"></div>
@@ -891,20 +853,20 @@
                         <div id="niMainContent">
 
                             <!-- Header -->
-                            <div class="ni-header-card mb-3 p-3">
+                            <div class="ni-header-card mt-4 mb-3 p-3">
                                 <div class="d-flex align-items-center gap-3 mb-3">
                                     <div class="ni-header-icon">
                                         <i class="fa-solid fa-tower-broadcast"></i>
                                     </div>
                                     <div>
-                                        <div class="ni-title">Number Integrity</div>
+                                        <div class="ni-title">Voice Integrity</div>
                                         <div class="ni-subtitle">Register your phone numbers with all 3 major carrier networks to clear spam labels and improve call answer rates. Powered by Twilio Voice Integrity.</div>
                                     </div>
                                 </div>
 
                                 <!-- How it works -->
                                 <div class="ni-info-box mb-3 p-2">
-                                    <div class="ni-info-title"><i class="fa-solid fa-circle-info me-1"></i>How Number Integrity works:</div>
+                                    <div class="ni-info-title"><i class="fa-solid fa-circle-info me-1"></i>How Voice Integrity works:</div>
                                     <div class="ni-info-text">
                                         <div class="mb-1"><i class="fa-solid fa-1 ni-step-num me-2"></i>Your business identity is verified through Twilio Trust Hub</div>
                                         <div class="mb-1"><i class="fa-solid fa-2 ni-step-num me-2"></i>Selected numbers are registered with AT&T, T-Mobile &amp; Verizon analytics</div>
@@ -949,7 +911,14 @@
                             <div id="niActionResult" class="ni-action-result mt-2"></div>
                         </div>
 
-                    </div><!-- /vstab-panel-numberintegrity -->
+                        </div><!-- /ni-panel -->
+
+                        <!-- ─── Section 5: Number Health ─── -->
+                        <div class="mt-4" id="numberHealthPanel">
+                            <div id="numberHealthContent"></div>
+                        </div>
+
+                    </div><!-- /vstab-panel-spammonitoring -->
 
                     <!-- ── Training integration panel ── -->
                     <div id="vstab-panel-training" style="display:none;">

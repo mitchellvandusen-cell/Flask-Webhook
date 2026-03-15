@@ -814,8 +814,8 @@
         steps.push({ element: '#vmenu-numbers',
             popover: { title: 'Phone Numbers & Number Health', description: 'Manage your voice phone numbers and monitor their health. <strong>Buy additional numbers</strong> (local, toll-free, or mobile), view <strong>health scores</strong> (0–100) per number, set rotation strategies (weighted health, round robin), enable <strong>state geo-routing</strong> to match caller ID to lead\'s area code, and select your <strong>States Licensed In</strong> for coverage recommendations.', side: 'bottom' }
         });
-        steps.push({ element: '#vmenu-trusthub',
-            popover: { title: 'Spam Protection', description: 'Register your business with the Trust Hub to <strong>reduce spam flagging</strong>. Enter your business name, EIN, and address. Protected numbers show your real business name on caller ID.', side: 'bottom' }
+        steps.push({ element: '#vmenu-spammonitoring',
+            popover: { title: 'Spam Monitoring', description: 'Register your business profile, manage <strong>CNAM caller ID</strong>, <strong>Voice Integrity</strong> with carriers, <strong>number protection status</strong>, and <strong>number health</strong> — all in one place. Protected numbers show your real business name on caller ID.', side: 'bottom' }
         });
         steps.push({ element: '#vmenu-a2p',
             popover: { title: '10DLC Registration', description: 'Register for <strong>A2P 10DLC compliance</strong> — required by carriers for business SMS over standard phone numbers. Two paths available: <strong>Register New</strong> (brand + campaign from scratch) or <strong>Import Existing</strong> (bring your approved brand/campaign from GHL or another provider). Without registration, your messages may be filtered or blocked by carriers.', side: 'bottom' }
