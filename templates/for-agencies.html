@@ -4,10 +4,22 @@
 
 {% block content %}
 
+<!-- ── Side Dots Navigation ── -->
+<nav class="ios-section-dots" id="iosSectionDots">
+    <div class="ios-section-dot active" data-section="0" title="Hero"></div>
+    <div class="ios-section-dot" data-section="1" title="Command Center"></div>
+    <div class="ios-section-dot" data-section="2" title="Multi-Tenant"></div>
+    <div class="ios-section-dot" data-section="3" title="Predictive Dialer"></div>
+    <div class="ios-section-dot" data-section="4" title="Multi-Line Dialer"></div>
+    <div class="ios-section-dot" data-section="5" title="AI Features"></div>
+    <div class="ios-section-dot" data-section="6" title="Why Switch"></div>
+    <div class="ios-section-dot" data-section="7" title="Pricing"></div>
+</nav>
 
-<!-- ═══ HERO ═══ -->
-<section class="agency-hero">
-    <div class="container" style="position: relative; z-index: 2;">
+
+<!-- ═══ SECTION 0: HERO ═══ -->
+<section class="ios-snap-section ios-hero" id="iosSection0">
+    <div class="container" style="position: relative; z-index: 2; width: 100%;">
         <div class="text-center" data-aos="fade-up">
             <span class="agency-tag">Built for Agency Owners</span>
             <h1 class="agency-h1">Scale Your Agency with<br><span>AI-Powered Intelligence.</span></h1>
@@ -19,7 +31,7 @@
                 <a href="https://api.leadconnectorhq.com/widget/booking/S4knucFaXO769HDFlRtv" target="_blank" rel="noopener noreferrer" class="btn btn-lg btn-gradient-cyan" style="font-weight: 700;">
                     <i class="fa-solid fa-calendar-check me-2"></i>Book a Demo
                 </a>
-                <a href="#agency-pricing" class="btn btn-outline-accent btn-lg">See Pricing</a>
+                <a href="#iosSection7" class="btn btn-outline-accent btn-lg">See Pricing</a>
             </div>
         </div>
 
@@ -45,21 +57,19 @@
 </section>
 
 
-<!-- ═══ AGENCY COMMAND CENTER ═══ -->
-<section class="a-section">
-    <div class="container">
-        <div class="fb-grid" data-aos="fade-up">
+<!-- ═══ SECTION 1: AGENCY COMMAND CENTER ═══ -->
+<section class="ios-snap-section" id="iosSection1">
+    <div class="container" style="width: 100%;">
+        <div class="ios-feat-grid" data-aos="fade-up">
             <div>
-                <div class="fb-icon-box mkt-icon-box--cyan">
-                    <i class="fa-solid fa-chart-line" style="color: #00d9ff;"></i>
-                </div>
-                <h2 style="font-weight: 900; font-size: 1.8rem; margin-bottom: 8px;">Agency Command Center</h2>
+                <span class="ios-section-label">Command Center</span>
+                <h2 class="ios-section-h2">Agency Command <span>Center</span></h2>
                 <p style="color: #888; font-size: 0.95rem; line-height: 1.7;">
                     Real-time visibility into every agent, every call, and every lead — without hovering
                     over anyone's shoulder. Your dashboard shows live KPIs, per-agent performance,
                     and daily volume trends so you can coach smarter, not harder.
                 </p>
-                <ul class="fb-list">
+                <ul class="ios-feat-list">
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Total calls, connected rate, talk hours, messages — all live</li>
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Per-agent stats: calls, rate, talk time, avg duration</li>
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Daily volume chart + hourly heatmap visualization</li>
@@ -86,21 +96,19 @@
 </section>
 
 
-<!-- ═══ MULTI-TENANT MANAGEMENT ═══ -->
-<section class="a-section">
-    <div class="container">
-        <div class="fb-grid reverse" data-aos="fade-up">
+<!-- ═══ SECTION 2: MULTI-TENANT MANAGEMENT ═══ -->
+<section class="ios-snap-section" id="iosSection2">
+    <div class="container" style="width: 100%;">
+        <div class="ios-feat-grid reverse" data-aos="fade-up">
             <div>
-                <div class="fb-icon-box mkt-icon-box--accent">
-                    <i class="fa-solid fa-users-gear" style="color: var(--accent);"></i>
-                </div>
-                <h2 style="font-weight: 900; font-size: 1.8rem; margin-bottom: 8px;">Multi-Tenant Agent Management</h2>
+                <span class="ios-section-label ios-section-label--accent">Team Management</span>
+                <h2 class="ios-section-h2">Multi-Tenant Agent <span>Management</span></h2>
                 <p style="color: #888; font-size: 0.95rem; line-height: 1.7;">
                     Each agent gets their own isolated environment — their own phone numbers,
                     carrier list, AI configuration, and conversation history. No cross-contamination,
                     total autonomy for agents, total visibility for you.
                 </p>
-                <ul class="fb-list">
+                <ul class="ios-feat-list">
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Email-based invite system with one-click claim</li>
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Each agent gets their own CRM connection and config</li>
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Per-agent phone numbers and carrier selection</li>
@@ -139,13 +147,13 @@
 </section>
 
 
-<!-- ═══ PREDICTIVE DIALER DEEP DIVE ═══ -->
-<section class="a-section">
-    <div class="container">
+<!-- ═══ SECTION 3: PREDICTIVE DIALER DEEP DIVE ═══ -->
+<section class="ios-snap-section auto-height" id="iosSection3">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <span class="mkt-section-label" style="color: #8b5cf6;">Enterprise-Grade Dialing</span>
-            <h2 class="mkt-h2" style="margin-top: 8px;">The Predictive Dialer That <span style="color: #8b5cf6;">Actually Predicts.</span></h2>
-            <p class="mkt-body" style="max-width: 640px; margin: 8px auto 0;">
+            <span class="ios-section-label ios-section-label--purple">Enterprise-Grade Dialing</span>
+            <h2 class="ios-section-h2">The Predictive Dialer That <span style="background: linear-gradient(135deg, #8b5cf6, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Actually Predicts.</span></h2>
+            <p class="ios-section-sub" style="max-width: 640px; margin: 8px auto 0;">
                 Not just multi-line calling. The system learns your connect rates, automatically adjusts how many lines to dial,
                 and keeps you compliant with TCPA regulations — no spreadsheets, no manual tracking, no guesswork.
             </p>
@@ -162,7 +170,7 @@
                         average handle time, and agent availability to calculate exactly how many lines
                         to dial — maximizing conversations while keeping abandonment below the 3% safe harbor.
                     </p>
-                    <ul class="fb-list">
+                    <ul class="ios-feat-list">
                         <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Learns from your team's actual call data</li>
                         <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Factors in connect rate, handle time, and wrap-up</li>
                         <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Auto-adjusts recommended lines (1-4) continuously</li>
@@ -179,7 +187,7 @@
                         When your rate approaches the limit, it automatically
                         reduces the dial ratio — no manual intervention needed.
                     </p>
-                    <ul class="fb-list">
+                    <ul class="ios-feat-list">
                         <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Rolling 30-day abandon rate tracking</li>
                         <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Auto-throttle before you hit the 3% limit</li>
                         <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Real-time monitoring — not end-of-day reports</li>
@@ -190,23 +198,23 @@
         </div>
 
         <!-- Compliance grid -->
-        <div class="compliance-grid mt-4" data-aos="fade-up" data-aos-delay="100">
-            <div class="comp-item">
+        <div class="ios-cap-grid mt-4" data-aos="fade-up" data-aos-delay="100">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-clock" style="color: #8b5cf6;"></i>
                 <h6>Recipient Timezone Enforcement</h6>
                 <p>Every contact's area code is mapped to their timezone. Calls are blocked if outside 8am-9pm in the recipient's local time — not just yours.</p>
             </div>
-            <div class="comp-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-microphone-slash" style="color: #e91e63;"></i>
                 <h6>Recording Consent Tracking</h6>
                 <p>12 two-party consent states (CA, CT, FL, IL, etc.) auto-detected by area code. Consent requirements flagged before the call connects.</p>
             </div>
-            <div class="comp-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-user-shield" style="color: var(--accent);"></i>
                 <h6>Agent State Machine</h6>
                 <p>Track every agent's status — Ready, Not Ready, On Call, Wrap-Up, Break. The dialer knows who's available and adjusts pacing automatically.</p>
             </div>
-            <div class="comp-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-phone-missed" style="color: #00d9ff;"></i>
                 <h6>Callback Queue</h6>
                 <p>Busy, no-answer, and voicemail contacts are automatically queued for re-dial. Duplicate prevention. 24-hour auto-cleanup.</p>
@@ -230,21 +238,19 @@
 </section>
 
 
-<!-- ═══ MULTI-LINE DIALER ═══ -->
-<section class="a-section">
-    <div class="container">
-        <div class="fb-grid" data-aos="fade-up">
+<!-- ═══ SECTION 4: MULTI-LINE DIALER ═══ -->
+<section class="ios-snap-section" id="iosSection4">
+    <div class="container" style="width: 100%;">
+        <div class="ios-feat-grid" data-aos="fade-up">
             <div>
-                <div class="fb-icon-box mkt-icon-box--orange">
-                    <i class="fa-solid fa-layer-group" style="color: #ff6b35;"></i>
-                </div>
-                <h2 style="font-weight: 900; font-size: 1.8rem; margin-bottom: 8px;">Multi-Line Power Dialer</h2>
+                <span class="ios-section-label ios-section-label--orange">Power Dialing</span>
+                <h2 class="ios-section-h2">Multi-Line <span>Power Dialer</span></h2>
                 <p style="color: #888; font-size: 0.95rem; line-height: 1.7;">
                     Dial up to 4 contacts simultaneously. The first person to pick up gets connected to the agent —
                     the rest are released cleanly. Smart number rotation, DnD enforcement, and cooldown
                     protection are all enforced server-side so agents can't accidentally break compliance.
                 </p>
-                <ul class="fb-list">
+                <ul class="ios-feat-list">
                     <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Up to 4 concurrent outbound lines</li>
                     <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Answering Machine Detection (AMD)</li>
                     <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Smart number rotation with geo-routing</li>
@@ -289,54 +295,55 @@
 </section>
 
 
-<!-- ═══ AI FEATURES FOR AGENCIES ═══ -->
-<section class="a-section">
-    <div class="container">
+<!-- ═══ SECTION 5: AI FEATURES FOR AGENCIES ═══ -->
+<section class="ios-snap-section" id="iosSection5">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h2 class="mkt-h2">Every Agent Gets <span style="color: var(--accent);">Full AI Power</span></h2>
-            <p class="mkt-body" style="max-width: 560px; margin: 8px auto 0;">
+            <span class="ios-section-label ios-section-label--pink">AI Platform</span>
+            <h2 class="ios-section-h2">Every Agent Gets <span>Full AI Power</span></h2>
+            <p class="ios-section-sub" style="max-width: 560px; margin: 8px auto 0;">
                 Each agent on your team gets the complete platform — AI texting, AI voice, lead intelligence,
                 Smart Filters, and 270+ carrier recognition.
             </p>
         </div>
 
-        <div class="compliance-grid" data-aos="fade-up">
-            <div class="comp-item">
+        <div class="ios-cap-grid" data-aos="fade-up">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-comment-sms" style="color: var(--accent);"></i>
                 <h6>AI Texting</h6>
                 <p>Automated outbound + inbound SMS with objection handling, 5 sales frameworks, and auto-booking.</p>
             </div>
-            <div class="comp-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-robot" style="color: #e91e63;"></i>
                 <h6>AI Voice Agent</h6>
                 <p>Autonomous phone calls powered by Grok. Qualifies leads, handles objections, books appointments.</p>
             </div>
-            <div class="comp-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-crosshairs" style="color: #00d9ff;"></i>
                 <h6>Lead Intelligence</h6>
                 <p>AI scores every contact 0-100. Temperature rating, engagement level, and next-best-actions.</p>
             </div>
-            <div class="comp-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-filter" style="color: #8b5cf6;"></i>
                 <h6>Smart Filters</h6>
                 <p>AI-powered grouping: Hot, Warm, Cool, Cold, Should Respond, Do Not Contact. Not rules — real AI.</p>
             </div>
-            <div class="comp-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-building-columns" style="color: var(--accent);"></i>
                 <h6>270+ Carriers</h6>
                 <p>Bot knows carriers, product types, underwriting rules. Each agent picks their own carriers.</p>
             </div>
-            <div class="comp-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-calendar-check" style="color: #e91e63;"></i>
                 <h6>Auto-Booking</h6>
                 <p>Books to each agent's personal calendar during text or voice conversations.</p>
             </div>
-            <div class="comp-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-microphone-lines" style="color: #00d9ff;"></i>
                 <h6>Call Recording</h6>
                 <p>Every call recorded. On-demand AI transcription. Training-ready audio export via API.</p>
             </div>
-            <div class="comp-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-graduation-cap" style="color: #8b5cf6;"></i>
                 <h6>Training API</h6>
                 <p>Export recordings + transcripts via API. Build agent training libraries from real calls.</p>
@@ -346,12 +353,13 @@
 </section>
 
 
-<!-- ═══ WHY SWITCH SECTION ═══ -->
-<section class="a-section">
-    <div class="container">
+<!-- ═══ SECTION 6: WHY SWITCH + WHY AGENCIES CHOOSE ═══ -->
+<section class="ios-snap-section" id="iosSection6">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-4" data-aos="fade-up">
-            <h2 class="mkt-h2">Stop Paying for <span style="color: #00d9ff;">4 Platforms.</span></h2>
-            <p class="mkt-body" style="max-width: 600px; margin: 8px auto 0;">
+            <span class="ios-section-label">Why Switch</span>
+            <h2 class="ios-section-h2">Stop Paying for <span>4 Platforms.</span></h2>
+            <p class="ios-section-sub" style="max-width: 600px; margin: 8px auto 0;">
                 Most agencies run a separate dialer, text bot, team chat tool, and data dashboard. This replaces all of them.
             </p>
         </div>
@@ -370,15 +378,9 @@
                 <div class="roi-lbl">Multi-line dialing reaches more contacts per hour than single-line</div>
             </div>
         </div>
-    </div>
-</section>
 
-
-<!-- ═══ WHY AGENCIES CHOOSE THIS ═══ -->
-<section class="a-section">
-    <div class="container">
-        <div class="text-center mb-4" data-aos="fade-up">
-            <h2 class="mkt-h2">Built for <span style="color: var(--accent);">Agency Problems.</span></h2>
+        <div class="text-center mb-4 mt-5" data-aos="fade-up">
+            <h2 class="ios-section-h2">Built for <span>Agency Problems.</span></h2>
         </div>
 
         <div class="agency-proof" data-aos="fade-up">
@@ -402,12 +404,13 @@
 </section>
 
 
-<!-- ═══ PRICING ═══ -->
-<section id="agency-pricing" class="a-section">
-    <div class="container">
+<!-- ═══ SECTION 7: PRICING + CTA ═══ -->
+<section class="ios-snap-section auto-height" id="iosSection7" style="padding-bottom: 60px;">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h2 class="mkt-h2">Agency <span style="color: #00d9ff;">Pricing</span></h2>
-            <p class="mkt-body">Every plan includes the full platform. Scale your team without scaling your costs.</p>
+            <span class="ios-section-label ios-section-label--accent">Pricing</span>
+            <h2 class="ios-section-h2">Agency <span>Pricing</span></h2>
+            <p class="ios-section-sub">Every plan includes the full platform. Scale your team without scaling your costs.</p>
         </div>
 
         <div style="max-width: 480px; margin: 0 auto; padding-top: 16px;" data-aos="fade-up">
@@ -445,14 +448,9 @@
             </p>
             <a href="/for-individuals" style="color: var(--accent); font-weight: 600; font-size: 0.88rem; margin-top: 12px; display: inline-block;">Solo agent? See individual plans <i class="fa-solid fa-arrow-right ms-1" style="font-size: 0.75rem;"></i></a>
         </div>
-    </div>
-</section>
 
-
-<!-- ═══ CTA ═══ -->
-<section class="a-section" style="padding-bottom: 100px;">
-    <div class="container">
-        <div class="text-center" data-aos="fade-up">
+        <!-- Final CTA -->
+        <div class="text-center mt-5" data-aos="fade-up">
             <div class="mkt-glass-card mkt-glass-card--cyan" style="padding: 60px 40px; max-width: 720px; margin: 0 auto;">
                 <h2 style="font-weight: 900; font-size: 2rem; margin-bottom: 12px;">Ready to Scale?</h2>
                 <p style="color: #888; font-size: 0.95rem; max-width: 480px; margin: 0 auto 24px;">
@@ -469,4 +467,34 @@
         </div>
     </div>
 </section>
+
+<script>
+(function() {
+    var dots = document.querySelectorAll('.ios-section-dot');
+    var sections = [];
+    dots.forEach(function(d) {
+        var idx = d.getAttribute('data-section');
+        var sec = document.getElementById('iosSection' + idx);
+        if (sec) sections.push(sec);
+        d.addEventListener('click', function() {
+            var target = document.getElementById('iosSection' + idx);
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+
+    function updateDots() {
+        var scrollTop = window.scrollY + window.innerHeight * 0.35;
+        var activeIdx = 0;
+        sections.forEach(function(s, i) {
+            if (s.offsetTop <= scrollTop) activeIdx = i;
+        });
+        dots.forEach(function(d, i) {
+            d.classList.toggle('active', i === activeIdx);
+        });
+    }
+
+    window.addEventListener('scroll', updateDots, { passive: true });
+    updateDots();
+})();
+</script>
 {% endblock %}

@@ -5,8 +5,8 @@
 {% block content %}
 <style>
     /* ── Hero ── */
-    .igb-hero { padding: 150px 0 100px; position: relative; overflow: hidden; }
-    .igb-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 25% 30%, rgba(0,255,136,0.06) 0%, transparent 55%), radial-gradient(ellipse at 75% 70%, rgba(0,217,255,0.04) 0%, transparent 50%); pointer-events: none; }
+    .igb-hero-inner { position: relative; z-index: 2; width: 100%; }
+    .igb-hero-bg::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 25% 30%, rgba(0,255,136,0.06) 0%, transparent 55%), radial-gradient(ellipse at 75% 70%, rgba(0,217,255,0.04) 0%, transparent 50%); pointer-events: none; }
     .hero-tag { display: inline-block; background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.25); color: var(--accent); padding: 6px 20px; border-radius: 24px; font-size: 0.78rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 20px; }
     .hero-h1 { font-size: clamp(2.6rem, 5vw, 4rem); font-weight: 900; line-height: 1.08; margin-bottom: 20px; }
     .hero-h1 span { background: linear-gradient(135deg, var(--accent), #00d9ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
@@ -28,10 +28,6 @@
     .ps-tags { display: flex; flex-wrap: wrap; gap: 6px; }
     .ps-tag { font-size: 0.72rem; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
     @media (max-width: 991px) { .platform-strip { grid-template-columns: 1fr; } .ps-cell { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); } .ps-cell:last-child { border-bottom: none; } }
-
-    /* ── Section spacing ── */
-    .hp-section { padding: 80px 0; }
-    .hp-section + .hp-section { padding-top: 0; }
 
     /* ── Audience cards ── */
     .audience-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 860px; margin: 0 auto; }
@@ -103,17 +99,58 @@
     .founder-result .fr-attr { color: #666; font-size: 0.82rem; margin-top: 16px; }
     @media (max-width: 575px) { .founder-result { padding: 28px 24px; } }
 
+    /* ── Why-switch grid ── */
+    .hp-why-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    @media (max-width: 991px) { .hp-why-grid { grid-template-columns: 1fr; } }
+
+    /* ── ROI cap items ── */
+    .hp-roi-label { color: #888; font-size: 0.82rem; line-height: 1.5; }
+    .hp-roi-sublabel { color: #555; }
+
     /* ── Closing CTA ── */
-    .closing-cta { text-align: center; padding: 100px 0 80px; position: relative; }
-    .closing-cta::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 60%, rgba(0,255,136,0.05) 0%, transparent 60%); pointer-events: none; }
-    .closing-cta h2 { font-size: clamp(2rem, 4vw, 3rem); font-weight: 900; margin-bottom: 16px; }
-    .closing-cta h2 span { background: linear-gradient(135deg, var(--accent), #00d9ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .closing-cta p { color: #888; font-size: 1.05rem; max-width: 520px; margin: 0 auto 32px; line-height: 1.6; }
+    .closing-cta-inner { position: relative; }
+    .closing-cta-inner::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 60%, rgba(0,255,136,0.05) 0%, transparent 60%); pointer-events: none; }
+    .closing-cta-inner h2 { font-size: clamp(2rem, 4vw, 3rem); font-weight: 900; margin-bottom: 16px; }
+    .closing-cta-inner h2 span { background: linear-gradient(135deg, var(--accent), #00d9ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .closing-cta-inner p { color: #888; font-size: 1.05rem; max-width: 520px; margin: 0 auto 32px; line-height: 1.6; }
+
+    /* ── CRM label ── */
+    .hp-crm-label { color: #555; font-size: 0.82rem; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 16px; }
+
+    /* ── Pricing footnote ── */
+    .hp-pricing-footnote { color: #555; font-size: 0.78rem; max-width: 600px; margin: 0 auto; }
+    .hp-pricing-footnote a { color: var(--accent); }
+    .hp-agency-link { color: #8b5cf6; font-weight: 600; font-size: 0.88rem; margin-top: 12px; display: inline-block; }
+    .hp-agency-link i { font-size: 0.75rem; }
+
+    /* ── Price card text helpers ── */
+    .hp-price-subtitle-green { color: var(--accent); font-weight: 600; font-size: 0.85rem; margin-top: 8px; }
+    .hp-price-trial { color: #00ff88; font-weight: 700; font-size: 0.82rem; margin: 4px 0; }
+    .hp-price-subtitle-orange { color: #ff6b35; font-weight: 600; font-size: 0.85rem; margin-top: 8px; }
+    .hp-price-see-all { color: #888; font-size: 0.78rem; }
+    .hp-price-see-all i { font-size: 0.65rem; }
+
+    /* ── GHL Marketplace button ── */
+    .btn-ghl-marketplace { display: inline-flex; align-items: center; gap: 8px; }
 </style>
 
-<!-- ═══════════════ HERO ═══════════════ -->
-<section class="igb-hero">
-    <div class="container" style="position: relative; z-index: 2;">
+<!-- ── Side Dots Navigation ── -->
+<nav class="ios-section-dots" id="iosSectionDots">
+    <div class="ios-section-dot active" data-section="0" title="Hero"></div>
+    <div class="ios-section-dot" data-section="1" title="How It Works"></div>
+    <div class="ios-section-dot" data-section="2" title="Three Products"></div>
+    <div class="ios-section-dot" data-section="3" title="Real Results"></div>
+    <div class="ios-section-dot" data-section="4" title="Why Switch"></div>
+    <div class="ios-section-dot" data-section="5" title="The Math"></div>
+    <div class="ios-section-dot" data-section="6" title="Built For You"></div>
+    <div class="ios-section-dot" data-section="7" title="Pricing"></div>
+    <div class="ios-section-dot" data-section="8" title="Get Started"></div>
+</nav>
+
+
+<!-- ═══════════════ SECTION 0: HERO ═══════════════ -->
+<section class="ios-snap-section ios-hero igb-hero-bg" id="iosSection0">
+    <div class="container igb-hero-inner">
         <div class="text-center" data-aos="fade-up">
             <span class="hero-tag">Built Exclusively for Insurance</span>
             <h1 class="hero-h1">Stop Chasing Leads.<br><span>Let AI Close Them.</span></h1>
@@ -126,8 +163,7 @@
                 <a href="/demo-chat" class="btn btn-outline-accent btn-lg">Try the AI Live</a>
                 <a href="https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&redirect_uri=https%3A%2F%2Finsurancegrokbot.click%2Foauth%2Fcallback&client_id=695e99698a5ae81dbb426515-mkaz316h&scope=calendars.readonly+calendars%2Fevents.readonly+calendars%2Fevents.write+conversations%2Fmessage.write+conversations%2Fmessage.readonly+contacts.readonly+locations%2FcustomFields.readonly+locations%2FcustomValues.readonly+calendars%2Fgroups.readonly+conversations.readonly+conversations.write+locations%2Ftags.readonly+oauth.readonly+locations.readonly+users.readonly+opportunities.readonly+workflows.readonly+twilioaccount.read+contacts.write+locations%2Ftags.write+locations%2FcustomFields.write+phonenumbers.read&version_id=69a20babaec7c63e20613b09"
                    target="_blank" rel="noopener noreferrer"
-                   class="btn btn-lg btn-gradient-blue"
-                   style="display:inline-flex;align-items:center;gap:8px;">
+                   class="btn btn-lg btn-gradient-blue btn-ghl-marketplace">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2ZM12 3c1.66 0 3 1.34 3 3v2H9V6c0-1.66 1.34-3 3-3Zm6 17H6V10h12v10Zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2Z" fill="currentColor"/></svg>
                     GHL Marketplace
                 </a>
@@ -145,31 +181,31 @@
 </section>
 
 
-<!-- ═══════════════ HOW IT WORKS ═══════════════ -->
-<section class="hp-section">
-    <div class="container">
+<!-- ═══════════════ SECTION 1: HOW IT WORKS ═══════════════ -->
+<section class="ios-snap-section" id="iosSection1">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <span class="mkt-section-label">How It Works</span>
-            <h2 class="mkt-h2" style="margin-top: 8px;">Live in <span style="color: var(--accent);">Under 10 Minutes</span></h2>
-            <p class="mkt-body" style="max-width: 520px; margin: 8px auto 0;">Connect your CRM, import your leads, and let the AI start working them immediately.</p>
+            <span class="ios-section-label ios-section-label--accent">How It Works</span>
+            <h2 class="ios-section-h2"><span>Live in Under 10 Minutes</span></h2>
+            <p class="ios-section-sub">Connect your CRM, import your leads, and let the AI start working them immediately.</p>
         </div>
 
         <div class="hiw-grid" data-aos="fade-up">
             <div class="hiw-step">
                 <div class="hiw-num" style="background: rgba(0,255,136,0.1); color: var(--accent);">1</div>
-                <h4 style="color: #fff;">Connect Your CRM</h4>
+                <h4 class="text-white">Connect Your CRM</h4>
                 <p>One-click OAuth with GoHighLevel. Also works with Salesforce, HubSpot, Pipedrive, Zoho, and more.</p>
                 <span class="hiw-arrow"><i class="fa-solid fa-chevron-right"></i></span>
             </div>
             <div class="hiw-step">
                 <div class="hiw-num" style="background: rgba(0,217,255,0.1); color: #00d9ff;">2</div>
-                <h4 style="color: #fff;">AI Learns Your Book</h4>
+                <h4 class="text-white">AI Learns Your Book</h4>
                 <p>Select your contracted carriers, set your tone, and the AI configures itself around your insurance products.</p>
                 <span class="hiw-arrow"><i class="fa-solid fa-chevron-right"></i></span>
             </div>
             <div class="hiw-step">
                 <div class="hiw-num" style="background: rgba(233,30,99,0.1); color: #e91e63;">3</div>
-                <h4 style="color: #fff;">Leads Get Worked</h4>
+                <h4 class="text-white">Leads Get Worked</h4>
                 <p>The AI texts, calls, qualifies, overcomes objections, and books appointments — automatically, 24/7.</p>
             </div>
         </div>
@@ -177,12 +213,13 @@
 </section>
 
 
-<!-- ═══════════════ THREE PILLARS ═══════════════ -->
-<section class="hp-section">
-    <div class="container">
+<!-- ═══════════════ SECTION 2: THREE PILLARS ═══════════════ -->
+<section class="ios-snap-section" id="iosSection2">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h2 class="mkt-h2">Three Products. <span style="color: var(--accent);">One Subscription.</span></h2>
-            <p class="mkt-body" style="max-width: 560px; margin: 8px auto 0;">Everything you need to work leads — texting, calling, and voice AI — built into a single platform.</p>
+            <span class="ios-section-label ios-section-label--pink">The Platform</span>
+            <h2 class="ios-section-h2">Three Products. <span>One Subscription.</span></h2>
+            <p class="ios-section-sub">Everything you need to work leads — texting, calling, and voice AI — built into a single platform.</p>
         </div>
 
         <div class="platform-strip" data-aos="fade-up">
@@ -233,12 +270,12 @@
 </section>
 
 
-<!-- ═══════════════ REAL RESULT ═══════════════ -->
-<section class="hp-section">
-    <div class="container">
+<!-- ═══════════════ SECTION 3: REAL RESULT ═══════════════ -->
+<section class="ios-snap-section" id="iosSection3">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-4" data-aos="fade-up">
-            <span class="mkt-section-label">Real Results</span>
-            <h2 class="mkt-h2" style="margin-top: 8px;">From the <span style="color: var(--accent);">Founder's Desk</span></h2>
+            <span class="ios-section-label ios-section-label--accent">Real Results</span>
+            <h2 class="ios-section-h2">From the <span>Founder's Desk</span></h2>
         </div>
 
         <div class="founder-result" data-aos="fade-up">
@@ -269,15 +306,15 @@
 </section>
 
 
-<!-- ═══════════════ WHY AGENTS SWITCH ═══════════════ -->
-<section class="hp-section">
-    <div class="container">
+<!-- ═══════════════ SECTION 4: WHY AGENTS SWITCH ═══════════════ -->
+<section class="ios-snap-section" id="iosSection4">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <span class="mkt-section-label">Why Switch</span>
-            <h2 class="mkt-h2" style="margin-top: 8px;">What Makes This <span style="color: var(--accent);">Different</span></h2>
+            <span class="ios-section-label ios-section-label--purple">Why Switch</span>
+            <h2 class="ios-section-h2">What Makes This <span>Different</span></h2>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;" data-aos="fade-up">
+        <div class="hp-why-grid" data-aos="fade-up">
             <div class="mkt-glass-card">
                 <i class="fa-solid fa-ban" style="color: var(--accent); font-size: 1.3rem; margin-bottom: 14px; display: block;"></i>
                 <h4 style="font-weight: 800; font-size: 1rem; margin-bottom: 8px;">Kill 4 Subscriptions</h4>
@@ -298,42 +335,43 @@
 </section>
 
 
-<!-- ═══════════════ ROI MATH ═══════════════ -->
-<section class="hp-section">
-    <div class="container">
+<!-- ═══════════════ SECTION 5: ROI MATH ═══════════════ -->
+<section class="ios-snap-section" id="iosSection5">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <span class="mkt-section-label">The Math</span>
-            <h2 class="mkt-h2" style="margin-top: 8px;">What <span style="color: var(--accent);">$149.98/mo</span> Actually Gets You</h2>
+            <span class="ios-section-label ios-section-label--orange">The Math</span>
+            <h2 class="ios-section-h2">What <span>$149.98/mo</span> Actually Gets You</h2>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: rgba(255,255,255,0.06); border-radius: 16px; overflow: hidden; max-width: 960px; margin: 0 auto;" data-aos="fade-up">
-            <div style="background: rgba(10,10,10,0.85); padding: 32px 24px; text-align: center;">
+        <div class="ios-cap-grid" data-aos="fade-up">
+            <div class="ios-cap-item" style="text-align: center;">
                 <div class="metallic-stat" style="font-size: 2rem; margin-bottom: 8px;">4</div>
-                <div style="color: #888; font-size: 0.82rem; line-height: 1.5;">Tools replaced<br><span style="color: #555;">dialer + texter + CRM inbox + calendar</span></div>
+                <div class="hp-roi-label">Tools replaced<br><span class="hp-roi-sublabel">dialer + texter + CRM inbox + calendar</span></div>
             </div>
-            <div style="background: rgba(10,10,10,0.85); padding: 32px 24px; text-align: center;">
+            <div class="ios-cap-item" style="text-align: center;">
                 <div class="metallic-stat metallic-stat--cyan" style="font-size: 2rem; margin-bottom: 8px;">24/7</div>
-                <div style="color: #888; font-size: 0.82rem; line-height: 1.5;">Lead response<br><span style="color: #555;">AI never sleeps, never calls in sick</span></div>
+                <div class="hp-roi-label">Lead response<br><span class="hp-roi-sublabel">AI never sleeps, never calls in sick</span></div>
             </div>
-            <div style="background: rgba(10,10,10,0.85); padding: 32px 24px; text-align: center;">
+            <div class="ios-cap-item" style="text-align: center;">
                 <div class="metallic-stat" style="font-size: 2rem; margin-bottom: 8px;">270+</div>
-                <div style="color: #888; font-size: 0.82rem; line-height: 1.5;">Carriers recognized<br><span style="color: #555;">only quotes your contracted book</span></div>
+                <div class="hp-roi-label">Carriers recognized<br><span class="hp-roi-sublabel">only quotes your contracted book</span></div>
             </div>
-            <div style="background: rgba(10,10,10,0.85); padding: 32px 24px; text-align: center;">
+            <div class="ios-cap-item" style="text-align: center;">
                 <div class="metallic-stat" style="font-size: 2rem; margin-bottom: 8px; background: linear-gradient(135deg, #e91e63, #ff6b35); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">5</div>
-                <div style="color: #888; font-size: 0.82rem; line-height: 1.5;">Sales frameworks<br><span style="color: #555;">SPIN, Challenger, Sandler, and more</span></div>
+                <div class="hp-roi-label">Sales frameworks<br><span class="hp-roi-sublabel">SPIN, Challenger, Sandler, and more</span></div>
             </div>
         </div>
     </div>
 </section>
 
 
-<!-- ═══════════════ AUDIENCE SPLIT ═══════════════ -->
-<section class="hp-section">
-    <div class="container">
+<!-- ═══════════════ SECTION 6: AUDIENCE SPLIT + CRM ═══════════════ -->
+<section class="ios-snap-section auto-height" id="iosSection6">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h2 class="mkt-h2">Built for <span style="color: var(--accent);">How You Work</span></h2>
-            <p class="mkt-body" style="max-width: 560px; margin: 8px auto 0;">Whether you're a solo agent or running a team, the platform scales with you.</p>
+            <span class="ios-section-label">Built For You</span>
+            <h2 class="ios-section-h2">Built for <span>How You Work</span></h2>
+            <p class="ios-section-sub">Whether you're a solo agent or running a team, the platform scales with you.</p>
         </div>
 
         <div class="audience-grid" data-aos="fade-up">
@@ -363,15 +401,10 @@
                 <a href="/for-agencies" class="btn btn-gradient-cyan w-100 py-3" style="font-weight: 700;">See Agency Plans <i class="fa-solid fa-arrow-right ms-2"></i></a>
             </div>
         </div>
-    </div>
-</section>
 
-
-<!-- ═══════════════ CRM BAR ═══════════════ -->
-<section class="hp-section" style="padding-top: 0;">
-    <div class="container">
-        <div class="text-center" data-aos="fade-up">
-            <p style="color: #555; font-size: 0.82rem; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 16px;">Works with your CRM</p>
+        <!-- CRM Bar -->
+        <div class="text-center mt-5" data-aos="fade-up">
+            <p class="hp-crm-label">Works with your CRM</p>
             <div class="crm-bar">
                 <div class="crm-chip"><i class="fa-solid fa-bolt" style="color: var(--accent);"></i>LeadConnector</div>
                 <div class="crm-chip"><i class="fa-solid fa-cloud" style="color: #03a9f4;"></i>Salesforce</div>
@@ -386,22 +419,23 @@
 </section>
 
 
-<!-- ═══════════════ PRICING ═══════════════ -->
-<section id="pricing" class="hp-section">
-    <div class="container">
+<!-- ═══════════════ SECTION 7: PRICING ═══════════════ -->
+<section class="ios-snap-section auto-height" id="iosSection7">
+    <div class="container" id="pricing" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h2 class="mkt-h2">Simple <span style="color: var(--accent);">Pricing</span></h2>
-            <p class="mkt-body">Everything included. No per-minute charges. No hidden fees.</p>
+            <span class="ios-section-label ios-section-label--accent">Pricing</span>
+            <h2 class="ios-section-h2">Simple <span>Pricing</span></h2>
+            <p class="ios-section-sub">Everything included. No per-minute charges. No hidden fees.</p>
         </div>
 
         <div class="price-grid" data-aos="fade-up" style="padding-top: 16px;">
             <!-- Power Dialer -->
             <div class="price-card featured">
                 <span class="price-badge" style="background: rgba(0,255,136,0.3); border: 1px solid #00ff88;">Most Popular</span>
-                <h4 style="color: #fff; margin-top: 8px;">Power Dialer</h4>
+                <h4 class="text-white" style="margin-top: 8px;">Power Dialer</h4>
                 <div><span class="price-amount metallic-price--green" style="font-size:2.4rem; font-weight:900;">$149.98</span><span style="color: #888;">/mo</span></div>
-                <p style="color: var(--accent); font-weight: 600; font-size: 0.85rem; margin-top: 8px;">AI texting + dialer + voice agent. All-in-one.</p>
-                <p style="color: #00ff88; font-weight: 700; font-size: 0.82rem; margin: 4px 0;">7-day free trial. Cancel anytime.</p>
+                <p class="hp-price-subtitle-green">AI texting + dialer + voice agent. All-in-one.</p>
+                <p class="hp-price-trial">7-day free trial. Cancel anytime.</p>
 
                 <ul class="price-features carved-features">
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> <strong>Single-line power dialer</strong></li>
@@ -414,16 +448,16 @@
                 </ul>
 
                 <a href="/checkout" class="btn btn-primary w-100 py-3" style="font-weight: 700;">Start Free Trial</a>
-                <div class="text-center mt-2"><a href="/for-individuals" style="color: #888; font-size: 0.78rem;">See all features <i class="fa-solid fa-arrow-right ms-1" style="font-size: 0.65rem;"></i></a></div>
+                <div class="text-center mt-2"><a href="/for-individuals" class="hp-price-see-all">See all features <i class="fa-solid fa-arrow-right ms-1"></i></a></div>
             </div>
 
             <!-- Pro Dialer -->
             <div class="price-card" style="border-color: rgba(255,107,53,0.3);">
                 <span class="price-badge" style="background: linear-gradient(135deg, #ff6b35, #ff3366); border: none;">Power User</span>
-                <h4 style="color: #fff; margin-top: 8px;">Pro Dialer</h4>
+                <h4 class="text-white" style="margin-top: 8px;">Pro Dialer</h4>
                 <div><span class="price-amount metallic-price--orange" style="font-size:2.4rem; font-weight:900;">$224.98</span><span style="color: #888;">/mo</span></div>
-                <p style="color: #ff6b35; font-weight: 600; font-size: 0.85rem; margin-top: 8px;">Multi-line power + predictive dialing.</p>
-                <p style="color: #00ff88; font-weight: 700; font-size: 0.82rem; margin: 4px 0;">7-day free trial. Cancel anytime.</p>
+                <p class="hp-price-subtitle-orange">Multi-line power + predictive dialing.</p>
+                <p class="hp-price-trial">7-day free trial. Cancel anytime.</p>
 
                 <ul class="price-features carved-features">
                     <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> <strong>Multi-line dialer (up to 4 lines)</strong></li>
@@ -436,30 +470,62 @@
                 </ul>
 
                 <a href="/checkout/pro-dialer" class="btn btn-gradient-orange w-100 py-3" style="font-weight: 700;">Start Free Trial</a>
-                <div class="text-center mt-2"><a href="/for-individuals" style="color: #888; font-size: 0.78rem;">See all features <i class="fa-solid fa-arrow-right ms-1" style="font-size: 0.65rem;"></i></a></div>
+                <div class="text-center mt-2"><a href="/for-individuals" class="hp-price-see-all">See all features <i class="fa-solid fa-arrow-right ms-1"></i></a></div>
             </div>
         </div>
 
         <div class="text-center mt-4" data-aos="fade-up">
-            <p style="color: #555; font-size: 0.78rem; max-width: 600px; margin: 0 auto;">
-                *Unlimited minutes subject to fair use policy, and only with human to human dialing. AI Dialing requires purchased minutes in the <a href="/ai-minutes" style="color: var(--accent);">AI Minute Marketplace</a>.
-                See <a href="/terms" style="color: var(--accent);">Terms of Service</a> for details.
+            <p class="hp-pricing-footnote">
+                *Unlimited minutes subject to fair use policy, and only with human to human dialing. AI Dialing requires purchased minutes in the <a href="/ai-minutes">AI Minute Marketplace</a>.
+                See <a href="/terms">Terms of Service</a> for details.
             </p>
-            <a href="/for-agencies" style="color: #8b5cf6; font-weight: 600; font-size: 0.88rem; margin-top: 12px; display: inline-block;">Agency with 5+ agents? See Enterprise Predictive Dialer <i class="fa-solid fa-arrow-right ms-1" style="font-size: 0.75rem;"></i></a>
+            <a href="/for-agencies" class="hp-agency-link">Agency with 5+ agents? See Enterprise Predictive Dialer <i class="fa-solid fa-arrow-right ms-1"></i></a>
         </div>
     </div>
 </section>
 
 
-<!-- ═══════════════ CLOSING CTA ═══════════════ -->
-<section class="closing-cta">
-    <div class="container" style="position: relative; z-index: 2;" data-aos="fade-up">
-        <h2>Your Leads Are Already Responding.<br><span>Is Anyone Answering?</span></h2>
-        <p>Every hour without AI is leads going cold, appointments not booked, and premium left on the table. Start your free trial today.</p>
-        <div class="d-flex justify-content-center gap-3 flex-wrap">
-            <a href="#pricing" class="btn btn-primary btn-lg" style="font-weight: 700;">Start 7-Day Free Trial</a>
-            <a href="/demo-chat" class="btn btn-outline-accent btn-lg">Talk to the AI First</a>
+<!-- ═══════════════ SECTION 8: CLOSING CTA ═══════════════ -->
+<section class="ios-snap-section" id="iosSection8">
+    <div class="container closing-cta-inner" data-aos="fade-up">
+        <div class="text-center">
+            <h2>Your Leads Are Already Responding.<br><span>Is Anyone Answering?</span></h2>
+            <p>Every hour without AI is leads going cold, appointments not booked, and premium left on the table. Start your free trial today.</p>
+            <div class="d-flex justify-content-center gap-3 flex-wrap">
+                <a href="#pricing" class="btn btn-primary btn-lg" style="font-weight: 700;">Start 7-Day Free Trial</a>
+                <a href="/demo-chat" class="btn btn-outline-accent btn-lg">Talk to the AI First</a>
+            </div>
         </div>
     </div>
 </section>
+
+<script>
+(function() {
+    var dots = document.querySelectorAll('.ios-section-dot');
+    var sections = [];
+    dots.forEach(function(d) {
+        var idx = d.getAttribute('data-section');
+        var sec = document.getElementById('iosSection' + idx);
+        if (sec) sections.push(sec);
+        d.addEventListener('click', function() {
+            var target = document.getElementById('iosSection' + idx);
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+
+    function updateDots() {
+        var scrollTop = window.scrollY + window.innerHeight * 0.35;
+        var activeIdx = 0;
+        sections.forEach(function(s, i) {
+            if (s.offsetTop <= scrollTop) activeIdx = i;
+        });
+        dots.forEach(function(d, i) {
+            d.classList.toggle('active', i === activeIdx);
+        });
+    }
+
+    window.addEventListener('scroll', updateDots, { passive: true });
+    updateDots();
+})();
+</script>
 {% endblock %}

@@ -10,8 +10,6 @@
     .sp-h1 { font-size: clamp(2.4rem, 4.5vw, 3.6rem); font-weight: 900; line-height: 1.08; margin-bottom: 20px; }
     .sp-h1 span { background: linear-gradient(135deg, var(--accent), #00d9ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .sp-sub { color: #999; font-size: 1.1rem; max-width: 700px; margin: 0 auto 36px; line-height: 1.65; }
-    .sp-section { padding: 80px 0; }
-    .sp-section + .sp-section { padding-top: 0; }
 
     /* Stats bar */
     .sp-stats { display: flex; justify-content: center; gap: 48px; flex-wrap: wrap; margin-top: 48px; }
@@ -27,15 +25,6 @@
     .sp-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
     @media (max-width: 991px) { .sp-grid-4 { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 575px) { .sp-grid-4 { grid-template-columns: 1fr; } }
-
-    /* Two-col feature blocks */
-    .sp-fb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
-    .sp-fb-grid.reverse { direction: rtl; }
-    .sp-fb-grid.reverse > * { direction: ltr; }
-    @media (max-width: 991px) { .sp-fb-grid, .sp-fb-grid.reverse { grid-template-columns: 1fr; direction: ltr; } }
-    .sp-fb-list { list-style: none; padding: 0; margin: 20px 0 0; }
-    .sp-fb-list li { padding: 7px 0; color: #bbb; font-size: 0.9rem; }
-    .sp-fb-list li i { margin-right: 10px; font-size: 0.8rem; }
 
     /* Carrier badges */
     .sp-carrier-row { display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; margin-top: 40px; }
@@ -61,9 +50,25 @@
 </style>
 
 
-<!-- ═══ HERO ═══ -->
-<section class="sp-hero">
-    <div class="container" style="position: relative; z-index: 2;">
+<!-- ── Side Dots Navigation ── -->
+<nav class="ios-section-dots" id="iosSectionDots">
+    <div class="ios-section-dot active" data-section="0" title="Hero"></div>
+    <div class="ios-section-dot" data-section="1" title="The Problem"></div>
+    <div class="ios-section-dot" data-section="2" title="Carrier Registration"></div>
+    <div class="ios-section-dot" data-section="3" title="Number Rotation"></div>
+    <div class="ios-section-dot" data-section="4" title="Health Scoring"></div>
+    <div class="ios-section-dot" data-section="5" title="How It Works"></div>
+    <div class="ios-section-dot" data-section="6" title="Call Intelligence"></div>
+    <div class="ios-section-dot" data-section="7" title="Auto-Remediation"></div>
+    <div class="ios-section-dot" data-section="8" title="Built for Insurance"></div>
+    <div class="ios-section-dot" data-section="9" title="Why Us"></div>
+    <div class="ios-section-dot" data-section="10" title="Get Started"></div>
+</nav>
+
+
+<!-- ═══ SECTION 0: HERO ═══ -->
+<section class="ios-snap-section ios-hero" id="iosSection0">
+    <div class="container" style="position: relative; z-index: 2; width: 100%;">
         <div class="text-center" data-aos="fade-up">
             <span class="sp-tag"><i class="fa-solid fa-shield-halved me-2"></i>Spam Protection</span>
             <h1 class="sp-h1">Your Numbers Ring.<br><span>Not Get Flagged.</span></h1>
@@ -89,12 +94,13 @@
 </section>
 
 
-<!-- ═══ THE PROBLEM ═══ -->
-<section class="sp-section">
-    <div class="container">
+<!-- ═══ SECTION 1: THE PROBLEM ═══ -->
+<section class="ios-snap-section" id="iosSection1">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h2 class="mkt-h2">The Hidden Killer of <span style="color: #ef4444;">Outbound Insurance Sales</span></h2>
-            <p class="mkt-body" style="max-width: 640px; margin: 8px auto 0;">
+            <span class="ios-section-label ios-section-label--red">The Problem</span>
+            <h2 class="ios-section-h2">The Hidden Killer of <span>Outbound Insurance Sales</span></h2>
+            <p class="ios-section-sub">
                 You're dialing 200+ calls a day. Your numbers are burning through carrier trust faster than you realize.
                 By the time you see "Spam Likely" on your dashboard, the damage is already done.
             </p>
@@ -127,12 +133,13 @@
 </section>
 
 
-<!-- ═══ CARRIER REGISTRATION ═══ -->
-<section class="sp-section">
-    <div class="container">
+<!-- ═══ SECTION 2: CARRIER REGISTRATION ═══ -->
+<section class="ios-snap-section auto-height" id="iosSection2">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h2 class="mkt-h2">Registered With <span>All Three Major Carriers</span></h2>
-            <p class="mkt-body" style="max-width: 640px; margin: 8px auto 0;">
+            <span class="ios-section-label">Carrier Registration</span>
+            <h2 class="ios-section-h2">Registered With <span>All Three Major Carriers</span></h2>
+            <p class="ios-section-sub">
                 We register your business identity and phone numbers directly with the spam analytics engines
                 at AT&T, T-Mobile, and Verizon. When carriers know who you are, they trust your calls.
             </p>
@@ -156,7 +163,7 @@
             </div>
         </div>
 
-        <div class="sp-fb-grid" style="margin-top: 64px;" data-aos="fade-up">
+        <div class="ios-feat-grid" style="margin-top: 64px;" data-aos="fade-up">
             <div>
                 <div class="mkt-icon-box mkt-icon-box--cyan" style="margin-bottom: 16px;">
                     <i class="fa-solid fa-user-shield"></i>
@@ -167,7 +174,7 @@
                     instead of an anonymous number. Your calls display your business identity — building
                     trust before the prospect even picks up.
                 </p>
-                <ul class="sp-fb-list">
+                <ul class="ios-feat-list">
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Business name displayed on caller ID (CNAM)</li>
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> STIR/SHAKEN attestation for maximum trust</li>
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Verified caller — not "Spam Likely"</li>
@@ -190,11 +197,12 @@
 </section>
 
 
-<!-- ═══ INTELLIGENT NUMBER ROTATION ═══ -->
-<section class="sp-section">
-    <div class="container">
-        <div class="sp-fb-grid reverse" data-aos="fade-up">
+<!-- ═══ SECTION 3: INTELLIGENT NUMBER ROTATION ═══ -->
+<section class="ios-snap-section" id="iosSection3">
+    <div class="container" style="width: 100%;">
+        <div class="ios-feat-grid reverse" data-aos="fade-up">
             <div>
+                <span class="ios-section-label ios-section-label--accent">Smart Rotation</span>
                 <div class="mkt-icon-box mkt-icon-box--accent" style="margin-bottom: 16px;">
                     <i class="fa-solid fa-rotate"></i>
                 </div>
@@ -205,7 +213,7 @@
                     number bears the brunt. When a number shows early signs of stress, it gets pulled
                     from rotation and rested — before carriers take notice.
                 </p>
-                <ul class="sp-fb-list">
+                <ul class="ios-feat-list">
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Automatic rotation across your entire number fleet</li>
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Stressed numbers rest automatically — no manual babysitting</li>
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Numbers recover during rest and return to active duty</li>
@@ -247,19 +255,20 @@
 </section>
 
 
-<!-- ═══ 8-DIMENSIONAL HEALTH SCORING ═══ -->
-<section class="sp-section">
-    <div class="container">
+<!-- ═══ SECTION 4: 8-DIMENSIONAL HEALTH SCORING ═══ -->
+<section class="ios-snap-section auto-height" id="iosSection4">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h2 class="mkt-h2">The Industry's Most Advanced <span>Number Health Scoring</span></h2>
-            <p class="mkt-body" style="max-width: 660px; margin: 8px auto 0;">
+            <span class="ios-section-label ios-section-label--purple">Health Scoring</span>
+            <h2 class="ios-section-h2">The Industry's Most Advanced <span>Number Health Scoring</span></h2>
+            <p class="ios-section-sub">
                 Most platforms give you a simple connect rate and call it "health." We score every number across
                 <span class="sp-metric">8 independent dimensions</span> — built specifically for high-volume
                 outbound insurance dialing where carrier trust is everything.
             </p>
         </div>
 
-        <div class="sp-fb-grid" data-aos="fade-up">
+        <div class="ios-feat-grid" data-aos="fade-up">
             <div>
                 <h3 style="font-weight: 800; font-size: 1.3rem; margin-bottom: 12px; color: #fff;">Know Exactly Where Every Number Stands</h3>
                 <p class="mkt-body" style="line-height: 1.7; margin-bottom: 16px;">
@@ -348,12 +357,13 @@
 </section>
 
 
-<!-- ═══ HOW IT WORKS ═══ -->
-<section class="sp-section">
-    <div class="container">
+<!-- ═══ SECTION 5: HOW IT WORKS ═══ -->
+<section class="ios-snap-section" id="iosSection5">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h2 class="mkt-h2">How It Works — <span>Fully Automated</span></h2>
-            <p class="mkt-body" style="max-width: 600px; margin: 8px auto 0;">
+            <span class="ios-section-label ios-section-label--accent">Getting Started</span>
+            <h2 class="ios-section-h2">How It Works — <span>Fully Automated</span></h2>
+            <p class="ios-section-sub">
                 Protection that runs in the background while you focus on selling. No manual monitoring. No spreadsheets. No guesswork.
             </p>
         </div>
@@ -386,11 +396,12 @@
 </section>
 
 
-<!-- ═══ CALL-LEVEL INTELLIGENCE ═══ -->
-<section class="sp-section">
-    <div class="container">
-        <div class="sp-fb-grid reverse" data-aos="fade-up">
+<!-- ═══ SECTION 6: CALL-LEVEL INTELLIGENCE ═══ -->
+<section class="ios-snap-section" id="iosSection6">
+    <div class="container" style="width: 100%;">
+        <div class="ios-feat-grid reverse" data-aos="fade-up">
             <div>
+                <span class="ios-section-label ios-section-label--purple">Call Intelligence</span>
                 <div class="mkt-icon-box mkt-icon-box--purple" style="margin-bottom: 16px;">
                     <i class="fa-solid fa-microscope"></i>
                 </div>
@@ -401,7 +412,7 @@
                     authentication was verified, and what happened after connection. This data feeds directly
                     into your number health scores.
                 </p>
-                <ul class="sp-fb-list">
+                <ul class="ios-feat-list">
                     <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> SIP-level carrier response analysis per call</li>
                     <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Post-dial delay tracking — millisecond precision</li>
                     <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Ring confirmation verification with carriers</li>
@@ -439,12 +450,13 @@
 </section>
 
 
-<!-- ═══ AUTO-REMEDIATION ═══ -->
-<section class="sp-section">
-    <div class="container">
+<!-- ═══ SECTION 7: AUTO-REMEDIATION ═══ -->
+<section class="ios-snap-section" id="iosSection7">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h2 class="mkt-h2">Instant Remediation. <span>No Tickets. No Waiting.</span></h2>
-            <p class="mkt-body" style="max-width: 640px; margin: 8px auto 0;">
+            <span class="ios-section-label ios-section-label--orange">Auto-Remediation</span>
+            <h2 class="ios-section-h2">Instant Remediation. <span>No Tickets. No Waiting.</span></h2>
+            <p class="ios-section-sub">
                 When a number shows signs of trouble, you don't need to call your provider and wait 72 hours.
                 Our system acts immediately — resting stressed numbers, rotating healthy ones in, and giving
                 you one-click tools to resolve issues yourself.
@@ -478,11 +490,12 @@
 </section>
 
 
-<!-- ═══ BUILT FOR INSURANCE ═══ -->
-<section class="sp-section">
-    <div class="container">
-        <div class="sp-fb-grid" data-aos="fade-up">
+<!-- ═══ SECTION 8: BUILT FOR INSURANCE ═══ -->
+<section class="ios-snap-section" id="iosSection8">
+    <div class="container" style="width: 100%;">
+        <div class="ios-feat-grid" data-aos="fade-up">
             <div>
+                <span class="ios-section-label">Insurance-Built</span>
                 <div class="mkt-icon-box mkt-icon-box--cyan" style="margin-bottom: 16px;">
                     <i class="fa-solid fa-bullseye"></i>
                 </div>
@@ -493,7 +506,7 @@
                     don't understand the stress patterns of cold outbound dialing. Our system was designed
                     from day one for agents who dial 200+ calls every single day.
                 </p>
-                <ul class="sp-fb-list">
+                <ul class="ios-feat-list">
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Tuned for cold outbound call patterns, not inbound or low-volume</li>
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Multi-line dialer integration — protects across 1-4 concurrent lines</li>
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Calling hours enforcement with recipient timezone awareness</li>
@@ -527,12 +540,13 @@
 </section>
 
 
-<!-- ═══ WHY US ═══ -->
-<section class="sp-section">
-    <div class="container">
+<!-- ═══ SECTION 9: WHY US ═══ -->
+<section class="ios-snap-section" id="iosSection9">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h2 class="mkt-h2">Why Agents Switch to <span>InsuranceGrokBot</span></h2>
-            <p class="mkt-body" style="max-width: 640px; margin: 8px auto 0;">
+            <span class="ios-section-label ios-section-label--accent">Why Switch</span>
+            <h2 class="ios-section-h2">Why Agents Switch to <span>InsuranceGrokBot</span></h2>
+            <p class="ios-section-sub">
                 Other platforms either ignore number health entirely or give you a basic connect-rate
                 percentage and call it done. Here's what you actually get with us.
             </p>
@@ -565,9 +579,9 @@
 </section>
 
 
-<!-- ═══ CTA ═══ -->
-<section class="sp-section">
-    <div class="container">
+<!-- ═══ SECTION 10: CTA ═══ -->
+<section class="ios-snap-section auto-height" id="iosSection10">
+    <div class="container" style="width: 100%;">
         <div class="mkt-glass-card sp-cta" data-aos="fade-up">
             <h2 style="font-weight: 900; font-size: 2rem; margin-bottom: 12px;">Stop Losing Leads to Spam Labels</h2>
             <p class="mkt-body" style="font-size: 1.05rem; max-width: 560px; margin: 0 auto 28px; line-height: 1.65;">
@@ -583,4 +597,33 @@
     </div>
 </section>
 
+<script>
+(function() {
+    var dots = document.querySelectorAll('.ios-section-dot');
+    var sections = [];
+    dots.forEach(function(d) {
+        var idx = d.getAttribute('data-section');
+        var sec = document.getElementById('iosSection' + idx);
+        if (sec) sections.push(sec);
+        d.addEventListener('click', function() {
+            var target = document.getElementById('iosSection' + idx);
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+
+    function updateDots() {
+        var scrollTop = window.scrollY + window.innerHeight * 0.35;
+        var activeIdx = 0;
+        sections.forEach(function(s, i) {
+            if (s.offsetTop <= scrollTop) activeIdx = i;
+        });
+        dots.forEach(function(d, i) {
+            d.classList.toggle('active', i === activeIdx);
+        });
+    }
+
+    window.addEventListener('scroll', updateDots, { passive: true });
+    updateDots();
+})();
+</script>
 {% endblock %}
