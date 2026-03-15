@@ -7300,6 +7300,7 @@ body.light-theme .car-save-btn {
 /* Light theme: Logs Tab */
 body.light-theme .log-loading { color: #6b7280; }
 body.light-theme .log-page-info { color: #6b7280; }
+
 /* ══ Dialer Tab Theme Classes ══ */
 
 .dlr-icon-box-cyan { background:rgba(0,217,255,0.1); border:1px solid rgba(0,217,255,0.2); }
@@ -7771,7 +7772,10 @@ body.light-theme .dlr-modal-overlay { background:rgba(0,0,0,0.4); }
 body.light-theme .dlr-icon-box-neutral-2 { background:rgba(255,255,255,0.97); border:1px solid rgba(0,0,0,0.10); }
 body.light-theme .dlr-misc-34 { border-bottom:1px solid rgba(0,0,0,0.06); }
 body.light-theme .dlr-btn-ghost-10 { color:#6b7280; }
-body.light-theme .dlr-icon-c555-2 { color:#6b7280; }.dlr-btn-3:hover { background:rgba(255,255,255,0.12); }
+body.light-theme .dlr-icon-c555-2 { color:#6b7280; }
+
+/* ── Dialer Tab Hover States ── */
+.dlr-btn-3:hover { background:rgba(255,255,255,0.12); }
 .dlr-btn-ios-delete:hover { background:rgba(255,59,48,0.25); }
 body.light-theme .dlr-btn-3:hover { background:rgba(0,0,0,0.10); }
 body.light-theme .dlr-btn-ios-delete:hover { background:rgba(220,38,38,0.25); }
