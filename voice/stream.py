@@ -661,6 +661,14 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [short paus
             cur_status = active_calls[call_sid].get('status', '')
             if cur_status in ('ringing', 'queued', 'initiated', 'in-progress'):
                 active_calls[call_sid]['status'] = 'completed'
+        # Push None sentinel to all listener queues so run_listen_stream
+        # detects call end instantly (instead of waiting 2s for queue timeout)
+        if call_sid and call_sid in call_listeners:
+            for lq in call_listeners[call_sid]:
+                try:
+                    lq.put_nowait(None)
+                except Exception:
+                    pass
         # Clean up any leftover transfer request and listener queues
         if call_sid:
             transfer_requests.pop(call_sid, None)
@@ -749,7 +757,7 @@ def run_listen_stream(ws):
 
         call_status = active_calls.get(call_sid, {}).get('status', '')
         logger.info(f"Listen stream: {call_sid[:16]} status={call_status}")
-        if call_status in ('completed', 'failed', 'canceled', 'transferred', 'no-answer'):
+        if call_status in ('completed', 'failed', 'canceled', 'transferred', 'no-answer', 'busy'):
             logger.warning(f"Listen stream: {call_sid[:16]} already in terminal state {call_status}")
             try:
                 ws.send(json.dumps({"error": f"Call already ended ({call_status})"}))
@@ -766,11 +774,22 @@ def run_listen_stream(ws):
         ws.send(json.dumps({"status": "listening", "call_sid": call_sid}))
 
         # Forward audio chunks to browser
+        _LISTEN_TERMINAL = frozenset(
+            ('completed', 'failed', 'canceled', 'transferred', 'no-answer', 'busy')
+        )
         chunks_sent = 0
         while True:
             try:
                 # Block for up to 2 seconds waiting for audio
                 chunk = listener_queue.get(timeout=2)
+                # None sentinel = stream ended, exit immediately
+                if chunk is None:
+                    logger.info(f"Listen stream: sentinel received for {call_sid[:16]}, closing")
+                    try:
+                        ws.send(json.dumps({"status": "call_ended"}))
+                    except Exception:
+                        pass
+                    break
                 ws.send(json.dumps({"audio": chunk}))
                 chunks_sent += 1
                 if chunks_sent == 1:
@@ -778,7 +797,7 @@ def run_listen_stream(ws):
             except _queue_module.Empty:
                 # Check if call is still active
                 cur_status = active_calls.get(call_sid, {}).get('status', '')
-                if call_sid not in active_calls or cur_status in ('completed', 'failed', 'canceled', 'transferred'):
+                if call_sid not in active_calls or cur_status in _LISTEN_TERMINAL:
                     logger.info(f"Listen stream: call {call_sid[:16]} ended (status={cur_status}), closing")
                     try:
                         ws.send(json.dumps({"status": "call_ended"}))
