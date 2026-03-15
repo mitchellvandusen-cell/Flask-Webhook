@@ -995,6 +995,17 @@ def dial_contact():
     if dial_mode == 'ai' and not voice_config.get('enabled'):
         return jsonify({"error": "Voice AI is not enabled. Enable it in the Voice tab."}), 400
 
+    # ── AI Minutes balance check: block AI calls when balance is 0 ──
+    if dial_mode == 'ai' and not is_admin:
+        try:
+            from db import get_ai_minute_balance
+            bal = get_ai_minute_balance(current_user.email)
+            if bal.get('total_purchased', 0) > 0 and bal.get('balance_minutes', 0) <= 0:
+                return jsonify({"error": "You're out of AI minutes. Purchase more to continue making AI calls.",
+                                "minutes_required": True}), 402
+        except Exception as e:
+            logger.warning(f"AI minutes check failed (non-fatal): {e}")
+
     sub_sid      = voice_config.get('twilio_sub_account_sid', '')
     from_number  = voice_config.get('twilio_phone_number', '')
 

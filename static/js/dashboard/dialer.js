@@ -19,6 +19,10 @@
         let dialerPollTimer = null;
         let _dialerCallConnected = false;
 
+        // ── AI Minutes Balance State ──
+        let _aiMinutesBalance = null;  // null = not loaded yet, number = current balance
+        let _aiMinutesHasPurchased = false;  // true if user has ever purchased minutes
+
         // ── Multi-Line Dialer State ──
         // Map<call_sid, {contact_id, phone, name, status, duration, dial_mode, attempt, line_index}>
         let _multiLineActive = new Map();
@@ -2875,6 +2879,13 @@
                 return;
             }
             _isDialing = true;
+            // Pre-call AI minutes check: block if balance is 0 (AI mode only)
+            if (dialerMode === 'ai' && _aiMinutesHasPurchased && _aiMinutesBalance !== null && _aiMinutesBalance <= 0) {
+                _isDialing = false;
+                _dialerShowOutOfMinutes();
+                if (dialerQueueRunning) { dialerStopQueue(); }
+                return;
+            }
             // Validate phone before attempting
             if (!phone || phone.replace(/[^0-9+]/g, '').length < 10) {
                 _isDialing = false;
@@ -2899,6 +2910,14 @@
                 if (!r.ok) {
                     _isDialing = false;
                     _hangupPending = false;  // Clear stale hangup flag on dial failure
+                    // Handle 402 AI minutes required — show modal and stop queue
+                    if (r.status === 402 && d.minutes_required) {
+                        _aiMinutesBalance = 0;
+                        _dialerUpdateMinutesChip();
+                        _dialerShowOutOfMinutes();
+                        if (dialerQueueRunning) dialerStopQueue();
+                        return;
+                    }
                     // Mark queue item as failed so advance() handles it correctly (retry or skip)
                     if (dialerQueueRunning && dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
                         dialerQueue[dialerCallIdx].status = 'failed';
@@ -3083,6 +3102,17 @@
                         _dialerClearCallDurationTimer();
                         // Refresh KPI banner so today's numbers update after each call
                         setTimeout(dialerLoadKpiBanner, 2000);
+                        // Refresh AI minutes balance after AI call ends
+                        if (dialerMode === 'ai' && _aiMinutesHasPurchased) {
+                            setTimeout(() => {
+                                _dialerFetchMinutes().then(() => {
+                                    if (_aiMinutesBalance !== null && _aiMinutesBalance <= 0) {
+                                        _dialerShowOutOfMinutes();
+                                        if (dialerQueueRunning) dialerStopQueue();
+                                    }
+                                });
+                            }, 2000);
+                        }
                         // ── Auto-speaker cleanup ──
                         _stopRingTone();
                         if (_autoListenActive) { _stopListenStream(); _resetListenBtn(); _autoListenActive = false; }
@@ -3278,6 +3308,7 @@
         let _listenWs = null;
         let _listenAudioCtx = null;
         let _listenReconnects = 0;
+        let _listenReconnectTimer = null;  // prevent duplicate reconnect timers
         const _LISTEN_MAX_RECONNECTS = 5;
 
         async function dialerToggleListen() {
@@ -3354,17 +3385,21 @@
                 }
             }, 8000);
 
-            _listenWs.onopen = () => {
+            const ws = _listenWs;  // capture reference for stale socket guards
+
+            ws.onopen = () => {
+                if (ws !== _listenWs) return;  // stale socket — ignore
                 console.log('[Listen] WebSocket connected, subscribing to', listenCallSid);
                 if (!listenCallSid) {
                     console.error('[Listen] No call SID available — closing');
-                    _listenWs.close();
+                    ws.close();
                     return;
                 }
-                _listenWs.send(JSON.stringify({ call_sid: listenCallSid }));
+                ws.send(JSON.stringify({ call_sid: listenCallSid }));
             };
 
-            _listenWs.onmessage = (evt) => {
+            ws.onmessage = (evt) => {
+                if (ws !== _listenWs) return;  // stale socket — ignore
                 try {
                     const msg = JSON.parse(evt.data);
                     if (msg.status === 'listening') {
@@ -3389,15 +3424,18 @@
                 } catch(e) { console.error('[Listen] Message parse error:', e); }
             };
 
-            _listenWs.onclose = () => {
+            ws.onclose = () => {
                 clearTimeout(connectTimeout);
+                if (ws === _listenWs) _listenWs = null;  // clear immediately
                 console.log('[Listen] WebSocket closed');
-                // Auto-reconnect with limit
+                // Auto-reconnect with limit (prevent duplicate timers)
+                if (_listenReconnectTimer) { clearTimeout(_listenReconnectTimer); _listenReconnectTimer = null; }
                 if (_dialerListening && dialerCallSid && _listenReconnects < _LISTEN_MAX_RECONNECTS) {
                     _listenReconnects++;
                     const delay = Math.min(1500 * _listenReconnects, 5000);
                     console.log(`[Listen] Auto-reconnecting in ${delay}ms (attempt ${_listenReconnects}/${_LISTEN_MAX_RECONNECTS})...`);
-                    setTimeout(() => {
+                    _listenReconnectTimer = setTimeout(() => {
+                        _listenReconnectTimer = null;
                         if (_dialerListening && dialerCallSid) {
                             _startListenStream();
                         } else {
@@ -3412,14 +3450,16 @@
                 }
             };
 
-            _listenWs.onerror = (err) => {
+            ws.onerror = (err) => {
+                if (ws !== _listenWs) return;  // stale socket — ignore
                 console.error('[Listen] WebSocket error:', err);
             };
         }
 
         function _stopListenStream() {
             _listenConnected = false;
-            if (_listenWs) { try { _listenWs.close(); } catch(e) {} _listenWs = null; }
+            if (_listenReconnectTimer) { clearTimeout(_listenReconnectTimer); _listenReconnectTimer = null; }
+            if (_listenWs) { try { _listenWs.onclose = null; _listenWs.close(); } catch(e) {} _listenWs = null; }
             if (_listenAudioCtx) { try { _listenAudioCtx.close(); } catch(e) {} _listenAudioCtx = null; }
             _listenNextTime = 0;
         }
@@ -3565,7 +3605,7 @@
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ call_sid: takeoverCallSid, use_voip: useVoip })
-                }, { retries: 1, timeout: 15000, label: 'takeover' });
+                }, { retries: 0, timeout: 15000, label: 'takeover' });
                 const d = await r.json();
                 if (r.ok) {
                     const isStopped = d.status === 'stopped';
@@ -3584,6 +3624,8 @@
                             statusEl.style.color = 'var(--accent)';
                         }
                     }
+                    // Stop listen stream on successful intercept (agent is now on the call)
+                    if (_dialerListening) { _stopListenStream(); _resetListenBtn(); _autoListenActive = false; }
                     // Enable mic mute button now (only for live intercept, not stop)
                     if (!isStopped) {
                         const muteMicBtn = document.getElementById('dialerMuteMicBtn');
@@ -3592,9 +3634,20 @@
                 } else {
                     _takingOver = false;
                     const errMsg = d.error || 'Intercept failed';
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-hand"></i><span>Intercept</span>';
-                    if (statusEl) { statusEl.textContent = errMsg; statusEl.style.color = '#ef4444'; }
+                    // Detect "call already ended" from server (400 + Twilio 21220 or status message)
+                    const callEnded = r.status === 400 && /already ended|not in-progress|21220/i.test(errMsg);
+                    if (callEnded) {
+                        btn.disabled = true;
+                        btn.innerHTML = '<i class="fa-solid fa-phone-slash"></i><span>Call Ended</span>';
+                        btn.style.color = '#888';
+                        btn.style.borderColor = 'rgba(255,255,255,0.08)';
+                        btn.style.background = 'rgba(255,255,255,0.03)';
+                        if (statusEl) { statusEl.textContent = errMsg; statusEl.style.color = '#888'; }
+                    } else {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fa-solid fa-hand"></i><span>Intercept</span>';
+                        if (statusEl) { statusEl.textContent = errMsg; statusEl.style.color = '#ef4444'; }
+                    }
                     console.error('[Intercept] Failed:', errMsg);
                 }
             } catch(e) {
@@ -4172,6 +4225,62 @@
                 _showDashToast(false, 'Network error — transcription failed');
             }
         }
+
+        // ===== AI MINUTES BALANCE (Dialer Integration) =====
+        async function _dialerFetchMinutes() {
+            try {
+                const r = await fetch('/ai-minutes/balance');
+                if (!r.ok) return;
+                const d = await r.json();
+                _aiMinutesBalance = d.balance_minutes || 0;
+                _aiMinutesHasPurchased = (d.total_purchased || 0) > 0;
+                _dialerUpdateMinutesChip();
+            } catch(e) { console.debug('[AI Minutes] Fetch failed:', e); }
+        }
+
+        function _dialerUpdateMinutesChip() {
+            const chip = document.getElementById('dialerMinutesChip');
+            if (!chip) return;
+            // Only show chip if user has purchased minutes before
+            if (!_aiMinutesHasPurchased) { chip.style.display = 'none'; return; }
+            chip.style.display = 'inline-flex';
+            const bal = _aiMinutesBalance || 0;
+            chip.textContent = bal + ' min';
+            if (bal <= 0) {
+                chip.style.background = 'rgba(239,68,68,0.15)';
+                chip.style.color = '#ef4444';
+            } else if (bal <= 25) {
+                chip.style.background = 'rgba(255,165,0,0.15)';
+                chip.style.color = '#ffa500';
+            } else {
+                chip.style.background = 'rgba(0,217,255,0.12)';
+                chip.style.color = '#00d9ff';
+            }
+        }
+
+        function _dialerShowOutOfMinutes() {
+            const existing = document.getElementById('dialerOutOfMinutesModal');
+            if (existing) { existing.style.display = 'flex'; return; }
+            const modal = document.createElement('div');
+            modal.id = 'dialerOutOfMinutesModal';
+            modal.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6)';
+            modal.innerHTML = `
+                <div style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:32px;max-width:400px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5)">
+                    <div style="font-size:48px;margin-bottom:12px">⏱️</div>
+                    <h3 style="color:#fff;margin:0 0 8px">Out of AI Minutes</h3>
+                    <p style="color:#aaa;margin:0 0 20px;font-size:14px">Purchase more minutes to continue making AI-powered calls.</p>
+                    <div style="display:flex;gap:12px;justify-content:center">
+                        <button onclick="document.getElementById('dialerOutOfMinutesModal').style.display='none'"
+                            style="padding:10px 20px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#aaa;cursor:pointer">Close</button>
+                        <button onclick="document.getElementById('dialerOutOfMinutesModal').style.display='none';document.querySelector('[data-tab=\\'aiminutes\\']')?.click()"
+                            style="padding:10px 20px;border-radius:8px;border:none;background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;font-weight:600;cursor:pointer">Buy Minutes</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+        }
+
+        // Fetch balance on dialer tab show + 2s after page load
+        setTimeout(_dialerFetchMinutes, 2000);
 
         // ===== CALL MODE MANAGEMENT =====
         let dialerMode = 'ai';

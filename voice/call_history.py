@@ -178,8 +178,25 @@ def voice_takeover():
     if call_location and call_location != location_id:
         return jsonify({"error": "Call not found or already ended"}), 404
 
-    if call_info.get('status') in ('completed', 'failed', 'transferred', 'no-answer'):
-        return jsonify({"error": f"Call already in terminal state: {call_info.get('status')}"}), 400
+    if call_info.get('status') in ('completed', 'failed', 'transferred', 'no-answer', 'busy'):
+        return jsonify({"error": f"Call already ended ({call_info.get('status')})"}), 400
+
+    # Guard 2: Pre-verify with Twilio that call is still in-progress.
+    # The in-memory status can be stale (stream closed but status callback not yet arrived).
+    try:
+        pre_client = twilio_provisioning.get_sub_account_client(sub_sid)
+        live_call = pre_client.calls(call_sid).fetch()
+        live_status = live_call.status  # queued/ringing/in-progress/completed/busy/no-answer/canceled/failed
+        if live_status not in ('queued', 'ringing', 'in-progress'):
+            # Sync local state so future checks don't hit Twilio again
+            active_calls[call_sid]['status'] = live_status
+            return jsonify({"error": f"Call already ended ({live_status})"}), 400
+    except Exception as pre_err:
+        err_str = str(pre_err)
+        if '21220' in err_str or 'not in-progress' in err_str.lower():
+            active_calls[call_sid]['status'] = 'completed'
+            return jsonify({"error": "Call already ended"}), 400
+        logger.warning(f"Takeover pre-verify failed (proceeding): {pre_err}")
 
     host = request.host
 

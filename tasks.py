@@ -6,16 +6,15 @@ import time
 import json
 from datetime import timedelta
 from openai import OpenAI
-from db import get_subscriber_info_hybrid, get_db_connection, return_db_connection, get_message_count, sync_messages_to_db, log_webhook_event, get_bot_settings_by_location, BOT_SETTINGS_DEFAULTS, save_persistent_alert, get_auth_failed_messages, mark_webhook_log_retried, mark_webhook_log_backfill_retried, save_failed_webhook_payload, get_unretried_failed_webhooks, mark_failed_webhook_retried, get_token_failed_webhook_logs
+from db import get_subscriber_info_hybrid, get_db_connection, return_db_connection, get_message_count, sync_messages_to_db, log_webhook_event, get_bot_settings_by_location, save_persistent_alert, get_auth_failed_messages, mark_webhook_log_retried, mark_webhook_log_backfill_retried, save_failed_webhook_payload, get_unretried_failed_webhooks, mark_failed_webhook_retried, get_token_failed_webhook_logs
 from memory import save_message, save_new_facts
 from sales_director import generate_strategic_directive
 from age import calculate_age_from_dob
 from prompt import build_system_prompt
 from ghl_message import send_sms_via_ghl
-from reply_sanitizer import sanitize_reply
 from llm_caller import generate_clean_reply
 from ghl_calendar import consolidated_calendar_op
-from ghl_api import fetch_targeted_ghl_history, get_valid_token, get_valid_token_with_status, fetch_contact_data_from_ghl
+from ghl_api import fetch_targeted_ghl_history, get_valid_token, get_valid_token_with_status
 from contact_validator import validate_and_resolve_contact
 from booking_detection import detect_booking_request, BookingDetectionResult
 from message_utils import collect_unanswered_lead_messages as _collect_unanswered_lead_messages
@@ -583,7 +582,7 @@ Instead, apologize that the requested time isn't available and offer the availab
         # If re-engagement is disabled and this is a follow-up (no inbound message),
         # skip responding entirely — let the lead come to us.
         if not message and not bot_settings.get("lead_reengagement", True):
-            bot_msgs = [m for m in recent_exchanges if m['role'] == 'assistant']
+            bot_msgs = [m for m in recent_exchanges if m.get('role') == 'assistant']
             if len(bot_msgs) >= 1:
                 logger.info(f"🚫 RE-ENGAGEMENT DISABLED | Skipping follow-up for {contact_id}")
                 return {"status": "skipped", "reason": "lead_reengagement disabled", "contact_id": contact_id}
@@ -601,7 +600,7 @@ Instead, apologize that the requested time isn't available and offer the availab
         elif not message and outbound_msgs:
             # Custom outbound drip: check how many bot messages have been sent,
             # send the next custom template if available
-            bot_msgs_sent = len([m for m in recent_exchanges if m['role'] == 'assistant'])
+            bot_msgs_sent = len([m for m in recent_exchanges if m.get('role') == 'assistant'])
             # The initial_message counts as message 0, custom drip starts at index 0
             # after the initial message. If no initial_message, drip starts immediately.
             drip_index = bot_msgs_sent - (1 if initial_msg else 0)

@@ -7509,6 +7509,9 @@ body.light-theme .log-page-info { color: #6b7280; }
 
 .dlr-icon-box-cyan { background:rgba(0,217,255,0.1); border:1px solid rgba(0,217,255,0.2); }
 .dlr-icon-cyan { color:#00d9ff; }
+.dialer-minutes-chip { font-variant-numeric:tabular-nums; letter-spacing:0.02em; }
+.dialer-minutes-chip:hover { filter:brightness(1.2); }
+body.light-theme .dialer-minutes-chip { opacity:0.9; }
 .dlr-panel { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); }
 .dlr-btn-cyan-outline { background:rgba(0,217,255,0.15); color:#00d9ff; }
 .dlr-btn-tab-off { background:transparent; color:#666; }
