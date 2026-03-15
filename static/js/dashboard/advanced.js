@@ -9,9 +9,6 @@
     function selectResponseLength(val) {
         document.querySelectorAll('.resp-len-btn').forEach(btn => {
             const isActive = btn.dataset.value === val;
-            btn.style.border = isActive ? '1px solid ' + _tc.accent : '1px solid ' + _tc.border;
-            btn.style.background = isActive ? _tc.accentBg : _tc.surface;
-            btn.style.color = isActive ? _tc.accent : _tc.textMut;
             if (isActive) btn.classList.add('active'); else btn.classList.remove('active');
         });
     }

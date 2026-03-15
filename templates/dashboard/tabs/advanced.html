@@ -52,11 +52,7 @@
                             <div style="display: flex; gap: 8px;">
                                 {% for val, label, desc in [('short', 'Short', '1-2 sentences'), ('balanced', 'Balanced', '2-4 sentences'), ('detailed', 'Detailed', 'Full explanations')] %}
                                 <button type="button" class="resp-len-btn {{ 'active' if bot_settings.response_length|default('balanced') == val }}"
-                                        data-value="{{ val }}" onclick="selectResponseLength('{{ val }}')"
-                                        style="flex: 1; padding: 10px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
-                                               border: 1px solid {{ 'var(--accent)' if bot_settings.response_length|default('balanced') == val else 'rgba(255,255,255,0.1)' }};
-                                               background: {{ 'rgba(0,255,136,0.1)' if bot_settings.response_length|default('balanced') == val else 'rgba(255,255,255,0.03)' }};
-                                               color: {{ 'var(--accent)' if bot_settings.response_length|default('balanced') == val else '#aaa' }};">
+                                        data-value="{{ val }}" onclick="selectResponseLength('{{ val }}')">
                                     {{ label }}<br><span class="adv-resp-len-desc">{{ desc }}</span>
                                 </button>
                                 {% endfor %}

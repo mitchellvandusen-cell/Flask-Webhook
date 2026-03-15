@@ -6433,6 +6433,23 @@ body.light-theme .cfg-a2p-status-title-icon { color: #7c3aed; }
     font-weight: 400;
     font-size: 0.75rem;
 }
+.resp-len-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.03);
+    color: #aaa;
+}
+.resp-len-btn.active {
+    border-color: var(--accent);
+    background: rgba(0,255,136,0.1);
+    color: var(--accent);
+}
 
 /* Light theme: Advanced Tab */
 body.light-theme .adv-section-card {
@@ -6499,6 +6516,16 @@ body.light-theme .adv-reset-btn:hover {
 body.light-theme .adv-save-btn {
     background: var(--lt-accent);
     color: #fff;
+}
+body.light-theme .resp-len-btn {
+    border-color: var(--lt-border);
+    background: var(--lt-surface);
+    color: #6b7280;
+}
+body.light-theme .resp-len-btn.active {
+    border-color: var(--lt-accent);
+    background: rgba(0,170,94,0.1);
+    color: var(--lt-accent);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -7158,6 +7185,17 @@ body.light-theme .wf-multitag-desc strong { color: #374151; }
    AI Minutes Tab Theme Classes (aim-)
    ══════════════════════════════════════════════════════════════════════════════ */
 
+.aim-balance-banner {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 24px 30px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(0,255,136,0.08), rgba(0,153,255,0.08));
+    border: 1px solid rgba(0,255,136,0.15);
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+}
 .aim-stat-label {
     font-size: 0.85rem;
     color: #aaa;
@@ -7193,6 +7231,10 @@ body.light-theme .wf-multitag-desc strong { color: #374151; }
 }
 
 /* Light theme: AI Minutes Tab */
+body.light-theme .aim-balance-banner {
+    background: linear-gradient(135deg, rgba(0,170,94,0.06), rgba(0,120,184,0.06));
+    border-color: rgba(0,170,94,0.12);
+}
 body.light-theme .aim-stat-label { color: #6b7280; }
 body.light-theme .aim-balance-val { color: var(--lt-text-primary); }
 body.light-theme .aim-sub-label { color: #6b7280; }
