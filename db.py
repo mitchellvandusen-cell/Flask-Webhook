@@ -1558,6 +1558,23 @@ def init_db() -> bool:
             conn.rollback()
             logger.debug(f"ring_confirmed/insights migration note: {e}")
 
+        # Phase 6b: from_number tracking + advanced number health signals
+        try:
+            # Track which caller ID was used for each outbound call
+            cur.execute("ALTER TABLE call_history ADD COLUMN IF NOT EXISTS from_number TEXT DEFAULT NULL")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_call_history_from_number ON call_history(from_number) WHERE from_number IS NOT NULL")
+            # Voice Insights aggregate signals on number_health
+            cur.execute("ALTER TABLE number_health ADD COLUMN IF NOT EXISTS avg_pdd_ms NUMERIC(8,1) DEFAULT NULL")
+            cur.execute("ALTER TABLE number_health ADD COLUMN IF NOT EXISTS recent_pdd_trend NUMERIC(8,1) DEFAULT NULL")
+            cur.execute("ALTER TABLE number_health ADD COLUMN IF NOT EXISTS insights_quality_issues INTEGER DEFAULT 0")
+            cur.execute("ALTER TABLE number_health ADD COLUMN IF NOT EXISTS stir_a_rate NUMERIC(5,2) DEFAULT NULL")
+            cur.execute("ALTER TABLE number_health ADD COLUMN IF NOT EXISTS carrier_block_velocity NUMERIC(5,2) DEFAULT 0")
+            conn.commit()
+            logger.info("✅ Migration: Added from_number + advanced health signal columns")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"from_number/advanced health migration note: {e}")
+
         # Phase 6: Google Calendar integration config
         try:
             cur.execute("""

@@ -1082,7 +1082,8 @@ def dial_contact():
             contact_id=contact_id,
             contact_name=first_name,
             direction='outbound',
-            status='initiated'
+            status='initiated',
+            from_number=from_number,
         )
 
         logger.info(f"Dialer call [{dial_mode}]: {from_number} -> {phone} ({first_name}) attempt={dial_attempt} sid={call_sid}")
@@ -1323,7 +1324,8 @@ def multi_dial():
                 contact_id=c_id,
                 contact_name=c_name,
                 direction='outbound',
-                status='initiated'
+                status='initiated',
+                from_number=call_from,
             )
 
             logger.info(f"Multi-dial [{dial_mode}]: {call_from} -> {c_phone} ({c_name}) attempt={c_attempt} sid={call_sid}")
