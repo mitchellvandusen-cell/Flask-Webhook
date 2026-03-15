@@ -835,28 +835,38 @@ def register_business_profile(sub_account_sid: str, business_name: str,
     # NOTE: This sets the Twilio-internal label only. Real CNAM registration
     # with carriers requires a separate CNAM Trust Product (see create_cnam_trust_product).
     # friendly_name does NOT propagate to carrier CNAM databases.
-    try:
-        numbers = client.incoming_phone_numbers.list()
-        cnam_success = 0
-        for num in numbers:
-            try:
-                client.incoming_phone_numbers(num.sid).update(
-                    friendly_name=business_name[:15],
-                )
-                cnam_success += 1
-            except Exception as e:
-                logger.warning(f"CNAM update failed for {num.phone_number}: {e}")
+    # ONLY set friendly_name if a profile was actually created — otherwise
+    # the label gives a false impression of "protection" in the dashboard.
+    if profile_sid:
+        try:
+            numbers = client.incoming_phone_numbers.list()
+            cnam_success = 0
+            for num in numbers:
+                try:
+                    client.incoming_phone_numbers(num.sid).update(
+                        friendly_name=business_name[:15],
+                    )
+                    cnam_success += 1
+                except Exception as e:
+                    logger.warning(f"CNAM update failed for {num.phone_number}: {e}")
 
+            results["steps"].append({
+                "name": "cnam_all_numbers",
+                "status": "ok",
+                "enabled": cnam_success,
+                "total": len(numbers),
+            })
+
+        except TwilioRestException as e:
+            logger.error(f"CNAM registration failed: {e}")
+            results["errors"].append(str(e))
+    else:
+        logger.warning("[SpamProtection] Skipping friendly_name update — no profile created")
         results["steps"].append({
             "name": "cnam_all_numbers",
-            "status": "ok",
-            "enabled": cnam_success,
-            "total": len(numbers),
+            "status": "skipped",
+            "reason": "No Customer Profile created — cannot set CNAM labels",
         })
-
-    except TwilioRestException as e:
-        logger.error(f"CNAM registration failed: {e}")
-        results["errors"].append(str(e))
 
     # Add profile_sid to results for caller to save
     if profile_sid:
@@ -868,26 +878,38 @@ def register_business_profile(sub_account_sid: str, business_name: str,
 
 
 def get_spam_protection_status(sub_account_sid: str) -> dict:
-    """Get current spam/CNAM protection status for a sub-account."""
+    """Get current spam/CNAM protection status for a sub-account.
+
+    Note: 'protected' count only includes numbers whose friendly_name was
+    explicitly set to a business/personal CNAM name — NOT numbers that still
+    have Twilio's default friendly_name (which is the phone number itself).
+    Setting friendly_name does NOT constitute real CNAM registration.
+    """
     client = get_sub_account_client(sub_account_sid)
     try:
         numbers = client.incoming_phone_numbers.list()
         total = len(numbers)
-        protected = sum(1 for n in numbers if n.friendly_name and len(n.friendly_name) > 0)
+        nums_list = []
+        protected = 0
+        for n in numbers:
+            fn = (n.friendly_name or "").strip()
+            phone = n.phone_number or ""
+            # A number has a CNAM name only if friendly_name is not the phone number default
+            is_cnam = bool(fn) and fn != phone and not fn.startswith('+')
+            if is_cnam:
+                protected += 1
+            nums_list.append({
+                "phone": phone,
+                "sid": n.sid,
+                "friendly_name": fn,
+                "status": "active",
+            })
 
         return {
             "numbers_total": total,
             "numbers_protected": protected,
             "stir_shaken": "active",  # Twilio auto-manages STIR/SHAKEN
-            "numbers": [
-                {
-                    "phone": n.phone_number,
-                    "sid": n.sid,
-                    "friendly_name": n.friendly_name,
-                    "status": "active",
-                }
-                for n in numbers
-            ],
+            "numbers": nums_list,
         }
     except TwilioRestException as e:
         logger.error(f"Failed to get spam protection status: {e}")
@@ -899,17 +921,27 @@ def get_cnam_monitor(sub_account_sid: str) -> list:
     Get CNAM status for all numbers on a sub-account.
     Returns a list of dicts with phone, sid, friendly_name (the CNAM we set),
     and cnam_enabled flag.
+
+    Note: friendly_name is just a Twilio-internal label. It does NOT mean
+    the number has real CNAM registration with carriers. A number's
+    friendly_name is always set (Twilio defaults it to the phone number).
+    cnam_enabled is True only if the friendly_name was explicitly set to
+    a business/personal name (not the phone number default).
     """
     client = get_sub_account_client(sub_account_sid)
     try:
         numbers = client.incoming_phone_numbers.list()
         result = []
         for n in numbers:
+            fn = (n.friendly_name or "").strip()
+            phone = n.phone_number or ""
+            # friendly_name is a real CNAM name only if it's not the phone number itself
+            is_cnam = bool(fn) and fn != phone and not fn.startswith('+')
             result.append({
-                "phone": n.phone_number,
+                "phone": phone,
                 "sid": n.sid,
-                "friendly_name": n.friendly_name or "",
-                "cnam_enabled": bool(n.friendly_name and len(n.friendly_name.strip()) > 0),
+                "friendly_name": fn,
+                "cnam_enabled": is_cnam,
                 "date_created": str(n.date_created) if n.date_created else "",
             })
         return result

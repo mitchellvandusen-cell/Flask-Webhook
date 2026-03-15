@@ -1189,20 +1189,26 @@ def spam_protection_status():
 
     # Get number details from Twilio
     status = twilio_provisioning.get_spam_protection_status(sub_sid)
-    # A number is "protected" only if its friendly_name was explicitly set
-    # to a business/personal CNAM name — NOT just the default phone number label.
-    # Twilio sets friendly_name to the phone number by default, so checking
-    # bool(friendly_name) is always True and gives false "Protected" status.
+
+    # A number is truly "protected" only when ALL of these are true:
+    #   1. A Customer Profile exists on the sub-account (protection_active + _validated)
+    #   2. A CNAM Trust Product has been submitted (status != not_registered/draft)
+    #   3. The number is assigned to the CNAM Trust Product
+    # Setting friendly_name alone does NOT protect the number — it's just a label.
+    cnam = (vc or {}).get('cnam', {})
+    cnam_tp_submitted = cnam.get('status', '') in ('pending-review', 'in-review', 'twilio-approved', 'approved')
+    cnam_assigned_sids = set(cnam.get('assigned_numbers', []))
+    profile_validated = protection_active and trust_hub.get('_validated', False)
+
     numbers_detail = []
     for n in status.get('numbers', []):
-        fn = (n.get('friendly_name') or '').strip()
         phone = n.get('phone', '')
-        # friendly_name is "protected" only if it's not empty, not the phone number itself,
-        # and not a default Twilio label
-        is_protected = bool(fn) and fn != phone and not fn.startswith('+')
+        sid = n.get('sid', '')
+        # Number is protected only if profile exists, CNAM TP submitted, and number assigned to TP
+        is_protected = profile_validated and cnam_tp_submitted and sid in cnam_assigned_sids
         numbers_detail.append({
             "phone": phone,
-            "id": n.get('sid', ''),
+            "id": sid,
             "cnam_enabled": is_protected,
             "status": n.get('status', 'active'),
         })
