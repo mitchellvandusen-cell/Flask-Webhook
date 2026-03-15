@@ -308,6 +308,24 @@ def a2p_register_brand():
             "payment_required": True,
         }), 402
 
+    # ── Gate: Require approved Secondary Customer Profile ──
+    # Per Twilio ISV docs, A2P brand registration requires an approved
+    # Secondary Profile. Without it, the brand Trust Product will fail evaluation.
+    trust_hub = (vc or {}).get('trust_hub', {})
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
+    profile_sid = trust_hub.get('profile_sid', '') or a2p.get('profile_sid', '')
+    profile_check = twilio_provisioning.check_secondary_profile_status(
+        sub_account_sid=sub_sid,
+        sub_account_auth_token=sub_auth_token,
+        profile_sid=profile_sid,
+    )
+    if not profile_check['approved']:
+        return jsonify({
+            "error": profile_check['message'],
+            "profile_status": profile_check['status'],
+            "profile_pending": profile_check['status'] in ('in-review', 'pending-review'),
+        }), 409
+
     data = request.get_json() or {}
 
     # Validate required fields

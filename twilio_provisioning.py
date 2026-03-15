@@ -1858,6 +1858,106 @@ VOICE_INTEGRITY_POLICY_SID = "RN5b3660f9598883b1df4e77f77acefba0"
 SECONDARY_CUSTOMER_PROFILE_POLICY_SID = "RNdfbf3fae0e1107f8aded0e7cead80bf5"
 
 
+def check_secondary_profile_status(
+    sub_account_sid: str,
+    sub_account_auth_token: str,
+    profile_sid: str = "",
+) -> dict:
+    """
+    Check the approval status of the Secondary Customer Profile on a sub-account.
+
+    ISV Trust Hub requires an approved Secondary Customer Profile before
+    Trust Products (Voice Integrity, CNAM, A2P) can be submitted. This function
+    verifies the profile exists and is approved, preventing wasted API calls
+    and stuck Trust Products.
+
+    Returns:
+        dict with keys:
+            - approved (bool): True if profile is twilio-approved
+            - status (str): Current profile status
+            - profile_sid (str): The checked profile SID
+            - message (str): Human-readable status message
+    """
+    if is_master_account(sub_account_sid):
+        # Master account uses Primary Business Profile directly — no Secondary needed
+        return {
+            "approved": True,
+            "status": "twilio-approved",
+            "profile_sid": "",
+            "message": "Master account uses Primary Business Profile (direct customer).",
+        }
+
+    if not profile_sid:
+        return {
+            "approved": False,
+            "status": "missing",
+            "profile_sid": "",
+            "message": "No Secondary Customer Profile found. Register in Spam Protection first.",
+        }
+
+    try:
+        client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
+        profile = client.trusthub.v1.customer_profiles(profile_sid).fetch()
+        status = getattr(profile, "status", "unknown")
+        logger.info(f"[TrustHub] Secondary Profile {profile_sid} status: {status}")
+
+        if status == "twilio-approved":
+            return {
+                "approved": True,
+                "status": status,
+                "profile_sid": profile_sid,
+                "message": "Secondary Customer Profile approved.",
+            }
+        elif status in ("in-review", "pending-review"):
+            return {
+                "approved": False,
+                "status": status,
+                "profile_sid": profile_sid,
+                "message": "Your business profile is still under review by Twilio. "
+                           "This typically takes 1-3 business days. You can proceed "
+                           "with other registrations once it's approved.",
+            }
+        elif status == "twilio-rejected":
+            # Get rejection reasons if available
+            reasons = []
+            try:
+                evals = client.trusthub.v1.customer_profiles(profile_sid) \
+                    .customer_profiles_evaluations.list(limit=1)
+                if evals:
+                    results = getattr(evals[0], "results", []) or []
+                    reasons = [
+                        r.get("friendly_name", r.get("requirement_key", "unknown"))
+                        for r in results
+                        if isinstance(r, dict) and r.get("status") == "noncompliant"
+                    ]
+            except Exception:
+                pass
+            reason_str = f" Reasons: {', '.join(reasons)}" if reasons else ""
+            return {
+                "approved": False,
+                "status": status,
+                "profile_sid": profile_sid,
+                "message": f"Your business profile was rejected by Twilio.{reason_str} "
+                           "Please update your Spam Protection registration and resubmit.",
+            }
+        else:
+            return {
+                "approved": False,
+                "status": status,
+                "profile_sid": profile_sid,
+                "message": f"Your business profile is in '{status}' state. "
+                           "Please complete Spam Protection registration first.",
+            }
+    except TwilioRestException as e:
+        logger.warning(f"[TrustHub] Could not fetch profile {profile_sid}: {e}")
+        return {
+            "approved": False,
+            "status": "error",
+            "profile_sid": profile_sid,
+            "message": f"Could not verify profile status: {str(e)}",
+        }
+
+
 def is_master_account(sub_account_sid: str) -> bool:
     """
     Detect if a subscriber is using the master Twilio account directly
