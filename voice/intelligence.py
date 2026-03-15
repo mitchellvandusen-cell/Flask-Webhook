@@ -260,9 +260,12 @@ def post_contact_intelligence_analyze():
     finally:
         return_db_connection(conn)
 
-    # Enqueue to production queue — fast worker, not blocked by long GHL syncs
-    from extensions import ensure_redis, q_production
-    if not ensure_redis() or not q_production:
+    # Enqueue to dedicated intelligence queue — doesn't block webhook processing
+    from extensions import ensure_redis, q_intelligence, q_production
+    if not ensure_redis():
+        return jsonify({"queued": 0, "error": "queue_unavailable"}), 503
+    target_queue = q_intelligence or q_production
+    if not target_queue:
         return jsonify({"queued": 0, "error": "queue_unavailable"}), 503
 
     from tasks import analyze_contacts_batch_task
@@ -271,7 +274,7 @@ def post_contact_intelligence_analyze():
     for i in range(0, len(contact_ids), BATCH):
         batch = contact_ids[i:i + BATCH]
         try:
-            q_production.enqueue(
+            target_queue.enqueue(
                 analyze_contacts_batch_task,
                 location_id,
                 batch,
