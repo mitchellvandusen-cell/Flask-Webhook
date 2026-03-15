@@ -1373,6 +1373,7 @@ def get_active_lines():
                 "status": info.get("status"),
                 "duration": info.get("duration", 0),
                 "dial_mode": info.get("dial_mode"),
+                "ring_confirmed": info.get("_ring_confirmed", False),
             })
 
     return jsonify({
@@ -1485,6 +1486,7 @@ def multi_call_status():
             # Normalize internal keys for client consumption
             if '_amd_result' in entry:
                 entry['amd_result'] = entry['_amd_result']
+            entry['ring_confirmed'] = entry.get('_ring_confirmed', False)
             statuses[sid] = entry
         else:
             statuses[sid] = {"status": "unknown"}

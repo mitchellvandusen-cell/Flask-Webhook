@@ -173,3 +173,37 @@ def generate_voice_token():
     except Exception as e:
         logger.error(f"[voice/token] Token generation failed: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+
+
+# ── Voice Insights Advanced Features ──
+
+@setup_bp.route('/voice/insights/enable', methods=['POST'])
+@login_required
+def enable_voice_insights():
+    """Enable Voice Insights Advanced Features on the user's sub-account."""
+    subscriber, vc, _ = _get_current_subscriber_voice()
+    if not vc:
+        return jsonify({"error": "Voice config not found"}), 400
+    sub_sid = vc.get('twilio_sub_account_sid', '')
+    if not sub_sid:
+        return jsonify({"error": "No Twilio sub-account"}), 400
+
+    ok = twilio_provisioning.enable_voice_insights_advanced(sub_sid)
+    if ok:
+        return jsonify({"success": True, "message": "Voice Insights Advanced enabled"})
+    return jsonify({"error": "Failed to enable — check Twilio Console"}), 500
+
+
+@setup_bp.route('/voice/insights/status', methods=['GET'])
+@login_required
+def voice_insights_status():
+    """Check Voice Insights Advanced Features status for the user's sub-account."""
+    subscriber, vc, _ = _get_current_subscriber_voice()
+    if not vc:
+        return jsonify({"error": "Voice config not found"}), 400
+    sub_sid = vc.get('twilio_sub_account_sid', '')
+    if not sub_sid:
+        return jsonify({"advanced_features": False})
+
+    settings = twilio_provisioning.get_voice_insights_settings(sub_sid)
+    return jsonify(settings)

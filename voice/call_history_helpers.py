@@ -62,6 +62,26 @@ def update_call_history_status(call_sid, status, duration=0, stir_status=None):
         return_db_connection(conn)
 
 
+def mark_ring_confirmed(call_sid):
+    """Mark a call as ring-confirmed (SIP 180 received — lead's phone is legitimately ringing)."""
+    conn = get_db_connection()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE call_history SET ring_confirmed = TRUE WHERE call_sid = %s", (call_sid,))
+        conn.commit()
+        cur.close()
+    except Exception as e:
+        logger.debug(f"Failed to mark ring_confirmed for {call_sid}: {e}")
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+    finally:
+        return_db_connection(conn)
+
+
 def save_call_transcript(call_sid, transcript):
     """Save transcript JSON to call_history."""
     conn = get_db_connection()
