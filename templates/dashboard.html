@@ -10,26 +10,26 @@
         {% include "dashboard/_alerts.html" %}
 
         {% if needs_subscription %}
-        <div class="alert alert-warning mb-5" style="border-radius: 16px; border: 2px solid #ffc107; background: linear-gradient(135deg, rgba(255,193,7,0.1) 0%, rgba(255,193,7,0.05) 100%); padding: 30px;">
+        <div class="alert alert-warning mb-5 paywall-card">
             <div class="text-center">
-                <i class="fa-solid fa-exclamation-triangle" style="font-size: 3rem; color: #ffc107; margin-bottom: 20px;"></i>
-                <h3 style="font-weight: 700; margin-bottom: 15px;">{{ _t('paywall.title', lang) }}</h3>
-                <p style="font-size: 1.1rem; color: var(--text-secondary); margin-bottom: 25px;">
+                <i class="fa-solid fa-exclamation-triangle paywall-icon"></i>
+                <h3 class="paywall-title">{{ _t('paywall.title', lang) }}</h3>
+                <p class="paywall-body">
                     {{ _t('paywall.body', lang) }}
                 </p>
                 <div class="mb-4">
-                    <h2 style="font-weight: 900; color: var(--accent);">${{ subscription_price }}<span style="font-size: 1rem; font-weight: 400; color: var(--text-secondary);">/month</span></h2>
+                    <h2 class="paywall-price">${{ subscription_price }}<span class="paywall-price-period">/month</span></h2>
                 </div>
-                <a href="/checkout" class="btn btn-primary btn-lg" style="padding: 15px 40px; font-size: 1.1rem; border-radius: 12px;">
+                <a href="/checkout" class="btn btn-primary btn-lg paywall-subscribe-btn">
                     <i class="fa-solid fa-credit-card me-2"></i>{{ _t('paywall.subscribe_btn', lang) }}
                 </a>
-                <p class="mt-3 small" style="color:#aaa;">{{ _t('paywall.cancel_note', lang) }}</p>
+                <p class="mt-3 small paywall-cancel-note">{{ _t('paywall.cancel_note', lang) }}</p>
             </div>
         </div>
         {% else %}
 
         <!-- Hidden Bootstrap tab triggers (driven by sidebar JS) -->
-        <ul class="nav nav-tabs" id="dashTabs" role="tablist" style="display:none!important;" aria-hidden="true">
+        <ul class="nav nav-tabs dash-tabs-hidden" id="dashTabs" role="tablist" aria-hidden="true">
             <li class="nav-item"><button class="nav-link active" id="tbDialer"  data-bs-toggle="tab" data-bs-target="#voicedialer" type="button" tabindex="-1"></button></li>
             <li class="nav-item"><button class="nav-link"        id="tbConfig"  data-bs-toggle="tab" data-bs-target="#config"      type="button" tabindex="-1"></button></li>
             <li class="nav-item"><button class="nav-link"        id="tbVoice"   data-bs-toggle="tab" data-bs-target="#voice"       type="button" tabindex="-1"></button></li>
@@ -37,16 +37,16 @@
 
         <!-- ── Onboarding banners ── -->
         {% if not voice_config.get('twilio_sub_account_sid') %}
-        <div class="d-flex align-items-center gap-3 mb-3 px-3 py-2" style="background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.18);border-radius:12px;cursor:pointer;" onclick="navTo('voice');setTimeout(()=>switchVoicePanel('activation'),100);">
-            <i class="fa-solid fa-wand-magic-sparkles" style="color:#00d9ff;font-size:1rem;flex-shrink:0;"></i>
-            <span style="font-size:0.82rem;color:#ccc;">Get started: <strong style="color:#00d9ff;">Activate Voice</strong> to enable your AI phone agent and dialer.</span>
-            <i class="fa-solid fa-arrow-right ms-auto" style="color:#00d9ff;font-size:0.8rem;flex-shrink:0;"></i>
+        <div class="d-flex align-items-center gap-3 mb-3 px-3 py-2 onboard-banner-voice" onclick="navTo('voice');setTimeout(()=>switchVoicePanel('activation'),100);">
+            <i class="fa-solid fa-wand-magic-sparkles onboard-icon-voice"></i>
+            <span class="onboard-text-voice">Get started: <strong>Activate Voice</strong> to enable your AI phone agent and dialer.</span>
+            <i class="fa-solid fa-arrow-right ms-auto onboard-arrow-voice"></i>
         </div>
         {% elif not voice_config.get('bot_phone_number') and not sub.bot_first_name %}
-        <div class="d-flex align-items-center gap-3 mb-3 px-3 py-2" style="background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.15);border-radius:12px;cursor:pointer;" onclick="navTo('config');">
-            <i class="fa-solid fa-comments" style="color:#00ff88;font-size:1rem;flex-shrink:0;"></i>
-            <span style="font-size:0.82rem;color:#ccc;">Almost there: <strong style="color:#00ff88;">Configure your SMS bot</strong> to start responding to leads automatically.</span>
-            <i class="fa-solid fa-arrow-right ms-auto" style="color:#00ff88;font-size:0.8rem;flex-shrink:0;"></i>
+        <div class="d-flex align-items-center gap-3 mb-3 px-3 py-2 onboard-banner-sms" onclick="navTo('config');">
+            <i class="fa-solid fa-comments onboard-icon-sms"></i>
+            <span class="onboard-text-sms">Almost there: <strong>Configure your SMS bot</strong> to start responding to leads automatically.</span>
+            <i class="fa-solid fa-arrow-right ms-auto onboard-arrow-sms"></i>
         </div>
         {% endif %}
 
@@ -122,23 +122,23 @@
         </button>
         <div class="mobile-sheet-divider"></div>
         <button class="mobile-sheet-item" onclick="mobileNav('voicedialer', null); mobileCloseMoreSheet(); setTimeout(function(){ if(typeof iosOpenApp==='function') iosOpenApp('discord'); }, 300);">
-            <i class="fa-brands fa-discord" style="color:#5865f2;"></i> <span>Discord</span>
+            <i class="fa-brands fa-discord icon-discord-brand"></i> <span>Discord</span>
         </button>
         <button class="mobile-sheet-item" onclick="mobileNav('voicedialer', null); mobileCloseMoreSheet(); setTimeout(function(){ if(typeof iosOpenApp==='function') iosOpenApp('slack'); }, 300);">
-            <i class="fa-brands fa-slack" style="color:#611f69;"></i> <span>Slack</span>
+            <i class="fa-brands fa-slack icon-slack-brand"></i> <span>Slack</span>
         </button>
         <div class="mobile-sheet-divider"></div>
-        <a href="/onboarding-status" class="mobile-sheet-item" style="text-decoration:none;">
+        <a href="/onboarding-status" class="mobile-sheet-item mobile-sheet-link">
             <i class="fa-solid fa-circle-check"></i> <span>Setup Progress</span>
         </a>
-        <a href="/support" class="mobile-sheet-item" style="text-decoration:none;">
+        <a href="/support" class="mobile-sheet-item mobile-sheet-link">
             <i class="fa-solid fa-circle-question"></i> <span>Support</span>
         </a>
-        <a href="/" class="mobile-sheet-item" style="text-decoration:none;">
+        <a href="/" class="mobile-sheet-item mobile-sheet-link">
             <i class="fa-solid fa-house"></i> <span>Homepage</span>
         </a>
-        <a href="/logout" class="mobile-sheet-item" style="text-decoration:none;color:#ef4444;">
-            <i class="fa-solid fa-right-from-bracket" style="color:#ef4444;"></i> <span>Sign Out</span>
+        <a href="/logout" class="mobile-sheet-item mobile-sheet-logout">
+            <i class="fa-solid fa-right-from-bracket mobile-sheet-logout-icon"></i> <span>Sign Out</span>
         </a>
     </div>
 

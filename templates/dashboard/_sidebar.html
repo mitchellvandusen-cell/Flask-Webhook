@@ -47,7 +47,7 @@
                         <span class="sb-nav-label">Team</span>
                     </button>
                     {% endif %}
-                    <a class="sb-nav-item" href="https://ai-lifeinsurance-training-production.up.railway.app/" target="_blank" rel="noopener" style="text-decoration:none;">
+                    <a class="sb-nav-item sb-nav-link-plain" href="https://ai-lifeinsurance-training-production.up.railway.app/" target="_blank" rel="noopener">
                         <i class="fa-solid fa-graduation-cap"></i>
                         <span class="sb-nav-label">Training</span>
                     </a>
@@ -133,67 +133,65 @@
             <!-- ── SYSTEM PARAMS (collapsible) ── -->
             <div class="sb-params">
                 <div class="sb-params-header" onclick="toggleSbParams()">
-                    <i class="fa-solid fa-microchip" style="font-size:0.75rem;"></i>
+                    <i class="fa-solid fa-microchip sb-params-icon"></i>
                     <span>System Params</span>
-                    <i class="fa-solid fa-chevron-down" id="sbParamsChevron" style="margin-left:auto;font-size:0.75rem;transition:transform 0.2s;"></i>
+                    <i class="fa-solid fa-chevron-down sb-params-chevron" id="sbParamsChevron"></i>
                 </div>
                 <div class="sb-params-body" id="sbParamsBody">
-                    <div style="padding:0 4px 8px;">
+                    <div class="sb-params-content">
                         <div class="tech-readout {% if missing_fields is defined and 'location_id' in missing_fields %}field-needs-attention{% endif %}">
-                            <span class="tech-label" style="font-size:0.75rem;color:#555;display:block;margin-bottom:3px;">LOCATION ID</span>
-                            <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
-                                <span class="tech-value" style="font-size:0.75rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ form.location_id.data or 'Not set' }}</span>
-                                <button onclick="copyToClipboard('{{ form.location_id.data }}')" title="Copy" style="background:none;border:none;color:#555;cursor:pointer;flex-shrink:0;padding:2px;">
-                                    <i class="fa-solid fa-copy" style="font-size:0.75rem;"></i>
+                            <span class="tech-label sb-params-label">LOCATION ID</span>
+                            <div class="sb-params-row">
+                                <span class="tech-value sb-params-value">{{ form.location_id.data or 'Not set' }}</span>
+                                <button onclick="copyToClipboard('{{ form.location_id.data }}')" title="Copy" class="sb-params-copy-btn">
+                                    <i class="fa-solid fa-copy sb-params-icon-sm"></i>
                                 </button>
                             </div>
                         </div>
                         <div class="tech-readout no-select">
-                            <span class="tech-label" style="font-size:0.75rem;color:#555;display:block;margin-bottom:3px;">ACCESS TOKEN</span>
-                            <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
-                                <input type="text" name="manual_access_token" value="{{ access_token_display }}" placeholder="Paste Token..." form="main-config-form" class="tech-value token-locked" style="background:rgba(0,0,0,0.2);border:none;border-top:1px solid rgba(0,0,0,0.4);border-bottom:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:3px 6px;box-shadow:inset 0 2px 6px rgba(0,0,0,0.3);width:100%;color:inherit;font-size:0.75rem;font-family:'JetBrains Mono',monospace;" {{ token_readonly }}>
-                                {% if token_readonly == 'readonly' %}<i class="fa-solid fa-lock" style="color:#555;font-size:0.75rem;flex-shrink:0;"></i>{% else %}<i class="fa-solid fa-pen" style="color:#555;font-size:0.75rem;flex-shrink:0;"></i>{% endif %}
+                            <span class="tech-label sb-params-label">ACCESS TOKEN</span>
+                            <div class="sb-params-row">
+                                <input type="text" name="manual_access_token" value="{{ access_token_display }}" placeholder="Paste Token..." form="main-config-form" class="tech-value token-locked sb-params-token-input" {{ token_readonly }}>
+                                {% if token_readonly == 'readonly' %}<i class="fa-solid fa-lock sb-params-lock-icon"></i>{% else %}<i class="fa-solid fa-pen sb-params-lock-icon"></i>{% endif %}
                             </div>
-                            <div style="font-size:0.75rem;color:#444;margin-top:3px;">{{ expires_in_str }}</div>
+                            <div class="sb-params-expiry">{{ expires_in_str }}</div>
                         </div>
                         <div class="tech-readout no-select">
-                            <span class="tech-label" style="font-size:0.75rem;color:#555;display:block;margin-bottom:3px;">REFRESH TOKEN</span>
-                            <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
-                                <input type="text" name="manual_refresh_token" value="{{ refresh_token_display }}" placeholder="Paste Token..." form="main-config-form" class="tech-value token-locked" style="background:rgba(0,0,0,0.2);border:none;border-top:1px solid rgba(0,0,0,0.4);border-bottom:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:3px 6px;box-shadow:inset 0 2px 6px rgba(0,0,0,0.3);width:100%;color:inherit;font-size:0.75rem;font-family:'JetBrains Mono',monospace;" {{ token_readonly }}>
-                                {% if token_readonly == 'readonly' %}<i class="fa-solid fa-lock" style="color:#555;font-size:0.75rem;flex-shrink:0;"></i>{% else %}<i class="fa-solid fa-pen" style="color:#555;font-size:0.75rem;flex-shrink:0;"></i>{% endif %}
+                            <span class="tech-label sb-params-label">REFRESH TOKEN</span>
+                            <div class="sb-params-row">
+                                <input type="text" name="manual_refresh_token" value="{{ refresh_token_display }}" placeholder="Paste Token..." form="main-config-form" class="tech-value token-locked sb-params-token-input" {{ token_readonly }}>
+                                {% if token_readonly == 'readonly' %}<i class="fa-solid fa-lock sb-params-lock-icon"></i>{% else %}<i class="fa-solid fa-pen sb-params-lock-icon"></i>{% endif %}
                             </div>
                         </div>
                         {% if needs_oauth is defined and needs_oauth %}
-                        <a href="/oauth/initiate" class="connect-btn-pulse" id="connectBtn" target="_top" style="display:block;background:linear-gradient(135deg,#00c853,#00a843);color:#000;font-weight:700;padding:8px 12px;border-radius:8px;text-align:center;text-decoration:none;font-size:0.8rem;margin-top:6px;">
+                        <a href="/oauth/initiate" class="connect-btn-pulse sb-params-connect-btn" id="connectBtn" target="_top">
                             <i class="fa-solid fa-link me-1"></i>Connect CRM
                         </a>
                         {% elif not access_token_display or access_token_display == '' %}
-                        <a href="/oauth/initiate" class="connect-btn-pulse" target="_top" style="display:block;background:linear-gradient(135deg,#00c853,#00a843);color:#000;font-weight:700;padding:8px 12px;border-radius:8px;text-align:center;text-decoration:none;font-size:0.8rem;margin-top:6px;">
+                        <a href="/oauth/initiate" class="connect-btn-pulse sb-params-connect-btn" target="_top">
                             <i class="fa-solid fa-link me-1"></i>Connect CRM
                         </a>
                         {% else %}
-                        <a href="/oauth/initiate" target="_top" style="display:block;background:rgba(0,180,255,0.08);border:1px solid rgba(0,180,255,0.2);color:#00b4ff;font-weight:600;padding:7px 12px;border-radius:8px;text-align:center;text-decoration:none;font-size:0.75rem;margin-top:6px;">
+                        <a href="/oauth/initiate" target="_top" class="sb-params-reauth-btn">
                             <i class="fa-solid fa-rotate me-1"></i>Reauthorize CRM
                         </a>
                         {% endif %}
                         <a href="https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&redirect_uri=https%3A%2F%2Finsurancegrokbot.click%2Foauth%2Fcallback&client_id=695e99698a5ae81dbb426515-mkaz316h&scope=calendars.readonly+calendars%2Fevents.readonly+calendars%2Fevents.write+conversations%2Fmessage.write+conversations%2Fmessage.readonly+contacts.readonly+locations%2FcustomFields.readonly+locations%2FcustomValues.readonly+calendars%2Fgroups.readonly+conversations.readonly+conversations.write+locations%2Ftags.readonly+oauth.readonly+locations.readonly+users.readonly+opportunities.readonly+workflows.readonly+twilioaccount.read+contacts.write+locations%2Ftags.write+locations%2FcustomFields.write+phonenumbers.read&version_id=69a20babaec7c63e20613b09"
                            target="_blank" rel="noopener noreferrer"
-                           style="display:flex;align-items:center;justify-content:center;gap:6px;background:linear-gradient(135deg,rgba(59,130,246,0.15),rgba(99,102,241,0.1));border:1px solid rgba(59,130,246,0.25);color:#93b4f8;font-weight:600;padding:7px 12px;border-radius:8px;text-align:center;text-decoration:none;font-size:0.75rem;margin-top:5px;transition:all .15s;"
-                           onmouseover="this.style.background='linear-gradient(135deg,rgba(59,130,246,0.25),rgba(99,102,241,0.18))';this.style.color='#b8d0ff';"
-                           onmouseout="this.style.background='linear-gradient(135deg,rgba(59,130,246,0.15),rgba(99,102,241,0.1))';this.style.color='#93b4f8';">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;">
+                           class="sb-params-marketplace-link">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2ZM12 3c1.66 0 3 1.34 3 3v2H9V6c0-1.66 1.34-3 3-3Zm6 17H6V10h12v10Zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2Z" fill="currentColor"/>
                             </svg>
                             <span class="sb-nav-label">Marketplace</span>
                         </a>
 
                         <!-- Operator Profile (hidden in collapsed sidebar) -->
-                        <div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.05);">
-                            <div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:#444;margin-bottom:8px;font-weight:700;">Profile</div>
-                            <input type="text" id="user_name" placeholder="Full Name" value="{{ profile.full_name }}" style="background:rgba(0,0,0,0.2);border:none;border-top:1px solid rgba(0,0,0,0.4);border-bottom:1px solid rgba(255,255,255,0.1);border-radius:6px;box-shadow:inset 0 2px 6px rgba(0,0,0,0.3);color:#ccc;width:100%;padding:5px 8px;margin-bottom:8px;font-size:0.82rem;outline:none;">
+                        <div class="sb-params-profile">
+                            <div class="sb-params-profile-label">Profile</div>
+                            <input type="text" id="user_name" placeholder="Full Name" value="{{ profile.full_name }}" class="sb-params-profile-input">
                             <input type="hidden" id="phone" value="{{ profile.phone or '' }}">
-                            <textarea id="bio" rows="2" placeholder="Agent notes..." style="background:rgba(0,0,0,0.2);border:none;border-top:1px solid rgba(0,0,0,0.4);border-bottom:1px solid rgba(255,255,255,0.1);border-radius:6px;box-shadow:inset 0 2px 6px rgba(0,0,0,0.3);color:#ccc;width:100%;padding:5px 8px;margin-bottom:8px;font-size:0.82rem;outline:none;resize:none;">{{ profile.bio }}</textarea>
-                            <button onclick="saveProfile()" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);color:#888;border-radius:6px;padding:5px;font-size:0.75rem;cursor:pointer;">
+                            <textarea id="bio" rows="2" placeholder="Agent notes..." class="sb-params-profile-input">{{ profile.bio }}</textarea>
+                            <button onclick="saveProfile()" class="sb-params-save-btn">
                                 <i class="fa-solid fa-floppy-disk me-1"></i>Save Profile
                             </button>
                         </div>
@@ -208,8 +206,8 @@
             <!-- Discord/Slack moved to phone UI apps -->
             <span id="discordFooterBadge" style="display:none;"></span>
             <span id="slackFooterBadge" style="display:none;"></span>
-            <button class="sb-footer-item" id="sbnTutorial" onclick="startDashboardTutorial()" title="Replay interactive tutorial" style="border:none;cursor:pointer;background:none;width:100%;text-align:left;display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:0.9rem;color:#00d9ff;transition:background 0.15s,color 0.15s;">
-                <i class="fa-solid fa-graduation-cap" style="width:18px;text-align:center;flex-shrink:0;font-size:0.9rem;"></i>
+            <button class="sb-footer-item sb-footer-tutorial" id="sbnTutorial" onclick="startDashboardTutorial()" title="Replay interactive tutorial">
+                <i class="fa-solid fa-graduation-cap sb-footer-tutorial-icon"></i>
                 <span class="sb-nav-label">Tutorial</span>
             </button>
             <a href="/support" class="sb-footer-item">
@@ -220,7 +218,7 @@
                 <i class="fa-solid fa-house"></i>
                 <span>Homepage</span>
             </a>
-            <a href="/logout" class="sb-footer-item" style="color:#ef4444;">
+            <a href="/logout" class="sb-footer-item sb-footer-signout">
                 <i class="fa-solid fa-right-from-bracket"></i>
                 <span>Sign Out</span>
             </a>

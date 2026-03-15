@@ -1651,5 +1651,420 @@
                 border-radius: clamp(10px, 0.65vw, 18px) !important;
             }
         }
+
+        /* ═══════════════════════════════════════════════
+           LIGHT THEME OVERRIDES — _head.html components
+           ═══════════════════════════════════════════════ */
+
+        /* ── Congrats overlay ── */
+        body.light-theme .congrats-close { color: #9ca3af; }
+        body.light-theme .congrats-close:hover { color: #111827; }
+
+        /* ── Save overlay ── */
+        body.light-theme .save-text { color: var(--lt-text-primary); }
+
+        /* ── Workflow tabs ── */
+        body.light-theme .workflow-tab-btn {
+            background: rgba(0,0,0,0.03);
+            border-color: rgba(0,0,0,0.10);
+            color: #6b7280;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+        }
+        body.light-theme .workflow-tab-btn:hover {
+            border-color: rgba(0,0,0,0.18);
+            color: #374151;
+            background: rgba(0,0,0,0.05);
+        }
+        body.light-theme .workflow-tab-btn.active {
+            background: var(--lt-accent-bg);
+            border-color: rgba(0,170,94,0.3);
+            color: var(--lt-accent);
+        }
+
+        /* ── Workflow steps ── */
+        body.light-theme .wf-step {
+            background: rgba(0,0,0,0.02);
+            border-color: rgba(0,0,0,0.08);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 8px rgba(0,0,0,0.06);
+        }
+        body.light-theme .wf-step-num {
+            background: var(--lt-accent-bg);
+            border-color: rgba(0,170,94,0.2);
+            color: var(--lt-accent);
+        }
+        body.light-theme .wf-step-text { color: #374151; }
+        body.light-theme .wf-step-text strong { color: #111827; }
+
+        /* ── Workflow tag cards ── */
+        body.light-theme .wf-tag-card {
+            background: rgba(255,255,255,0.85);
+            border-color: rgba(0,0,0,0.08);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+        }
+        body.light-theme .wf-tag-fresh .wf-tag-header { color: var(--lt-accent); }
+        body.light-theme .wf-tag-fresh { border-color: rgba(0,170,94,0.15); }
+        body.light-theme .wf-tag-aged .wf-tag-header { color: #c77c00; }
+        body.light-theme .wf-tag-aged { border-color: rgba(199,124,0,0.15); }
+        body.light-theme .wf-tag-reengage .wf-tag-header { color: #1a73e8; }
+        body.light-theme .wf-tag-reengage { border-color: rgba(26,115,232,0.15); }
+        body.light-theme .wf-tag-desc { color: #6b7280; }
+        body.light-theme .wf-tag-detail-row { background: rgba(0,0,0,0.03); }
+        body.light-theme .wf-tag-detail-label { color: #6b7280; }
+        body.light-theme .wf-tag-detail-val { color: #374151; }
+        body.light-theme .wf-tag-detail-val.wf-tag-yes { color: var(--lt-accent); }
+        body.light-theme .wf-tag-detail-val.wf-tag-warn { color: #c77c00; }
+        body.light-theme .wf-date-pill { background: rgba(0,0,0,0.03); }
+        body.light-theme .wf-date-range { color: #6b7280; }
+        body.light-theme .wf-cf-chip {
+            background: rgba(156,39,176,0.06);
+            border-color: rgba(156,39,176,0.15);
+            color: #7b1fa2;
+        }
+
+        /* ── Logs ── */
+        body.light-theme .log-row { border-bottom-color: rgba(0,0,0,0.06); }
+        body.light-theme .log-row:hover { background: rgba(0,0,0,0.02); }
+        body.light-theme .log-badge.success { background: rgba(0,170,94,0.10); color: var(--lt-accent); }
+        body.light-theme .log-badge.error { background: rgba(220,38,38,0.10); color: #dc2626; }
+        body.light-theme .log-badge.warning { background: rgba(212,160,0,0.10); color: #b8860b; }
+        body.light-theme .log-badge.info { background: rgba(37,99,235,0.10); color: #2563eb; }
+        body.light-theme .log-time { color: #6b7280; }
+        body.light-theme .log-event { color: #6b7280; }
+        body.light-theme .log-summary { color: #374151; }
+        body.light-theme .log-contact { color: #6b7280; }
+
+        /* ── Connect tab (CRM select) ── */
+        body.light-theme .crm-select-btn {
+            background: rgba(0,0,0,0.02);
+            border-color: rgba(0,0,0,0.10);
+            color: #6b7280;
+        }
+        body.light-theme .crm-select-btn:hover {
+            border-color: var(--lt-accent);
+            color: #111827;
+            background: var(--lt-accent-bg);
+        }
+        body.light-theme .crm-select-btn.active {
+            border-color: var(--lt-accent);
+            color: var(--lt-accent);
+            background: var(--lt-accent-bg);
+        }
+
+        /* ── Persistent alerts ── */
+        body.light-theme .persistent-alert.alert-warning-persistent {
+            background: rgba(255,193,7,0.06);
+            border-color: rgba(255,193,7,0.25);
+        }
+        body.light-theme .persistent-alert.alert-error-persistent {
+            background: rgba(220,38,38,0.06);
+            border-color: rgba(220,38,38,0.25);
+        }
+        body.light-theme .persistent-alert.alert-info-persistent {
+            background: rgba(37,99,235,0.06);
+            border-color: rgba(37,99,235,0.25);
+        }
+        body.light-theme .alert-warning-persistent .pa-icon { color: #d4a000; }
+        body.light-theme .alert-error-persistent .pa-icon { color: #dc2626; }
+        body.light-theme .alert-info-persistent .pa-icon { color: #2563eb; }
+        body.light-theme .alert-warning-persistent .pa-title { color: #92600a; }
+        body.light-theme .alert-error-persistent .pa-title { color: #dc2626; }
+        body.light-theme .alert-info-persistent .pa-title { color: #2563eb; }
+        body.light-theme .persistent-alert .pa-message { color: #374151; }
+        body.light-theme .persistent-alert .pa-dismiss { color: #9ca3af; }
+        body.light-theme .persistent-alert .pa-dismiss:hover { color: #111827; }
+        body.light-theme .persistent-alert .pa-time { color: #9ca3af; }
+
+        /* ── Onboarding banner ── */
+        body.light-theme .onboarding-banner {
+            background: linear-gradient(135deg, rgba(234,152,25,0.08) 0%, rgba(255,193,7,0.05) 100%);
+            border-color: rgba(234,152,25,0.25);
+        }
+        body.light-theme .onboarding-banner .banner-icon { color: #d4880a; }
+        body.light-theme .onboarding-banner .banner-body h4 { color: #92600a; }
+        body.light-theme .onboarding-banner .banner-body p { color: #374151; }
+        body.light-theme .onboarding-banner .banner-link {
+            background: rgba(234,152,25,0.08);
+            border-color: rgba(234,152,25,0.25);
+            color: #b8720a;
+        }
+        body.light-theme .onboarding-banner .banner-link:hover {
+            background: rgba(234,152,25,0.15);
+            color: #92600a;
+        }
+        body.light-theme .onboarding-banner .banner-dismiss { color: #9ca3af; }
+        body.light-theme .onboarding-banner .banner-dismiss:hover { color: #111827; }
+
+        /* ── Carrier chips ── */
+        body.light-theme .carrier-chip {
+            background: rgba(0,0,0,0.02);
+            border-color: rgba(0,0,0,0.10);
+        }
+        body.light-theme .carrier-chip:hover {
+            border-color: rgba(0,0,0,0.20);
+            background: rgba(0,0,0,0.04);
+        }
+        body.light-theme .carrier-chip.selected {
+            background: var(--lt-accent-bg);
+            border-color: var(--lt-accent);
+        }
+        body.light-theme .carrier-chip .carrier-check { border-color: rgba(0,0,0,0.15); }
+        body.light-theme .carrier-chip .carrier-name { color: #374151; }
+        body.light-theme .carrier-chip.selected .carrier-name { color: #111827; }
+
+        /* ── Discord integration ── */
+        body.light-theme .discord-connect-btn {
+            background: rgba(88,101,242,0.08);
+            border-color: rgba(88,101,242,0.2);
+            color: #4752c4;
+        }
+        body.light-theme .discord-connect-btn:hover {
+            background: rgba(88,101,242,0.15);
+            color: #3b42a0;
+        }
+        body.light-theme .discord-server-header {
+            background: transparent;
+            color: #374151;
+        }
+        body.light-theme .discord-server-header:hover {
+            background: rgba(0,0,0,0.03);
+            color: #111827;
+        }
+        body.light-theme .discord-server-icon {
+            background: rgba(88,101,242,0.08);
+            color: #4752c4;
+        }
+        body.light-theme .discord-server-chevron { color: #9ca3af; }
+        body.light-theme .discord-server-item.open .discord-server-header {
+            color: #111827;
+            background: rgba(0,0,0,0.02);
+        }
+        body.light-theme .discord-bell-btn {
+            background: rgba(0,0,0,0.03);
+            border-color: rgba(0,0,0,0.08);
+            color: #6b7280;
+        }
+        body.light-theme .discord-bell-btn:hover {
+            background: rgba(0,0,0,0.06);
+            color: #374151;
+        }
+        body.light-theme .discord-bell-btn.has-unread {
+            color: #4752c4;
+            border-color: rgba(88,101,242,0.3);
+        }
+        body.light-theme .discord-bell-badge {
+            border-color: var(--lt-bg, #f0f2f5);
+        }
+        body.light-theme .discord-channel-btn { color: #6b7280; }
+        body.light-theme .discord-channel-btn:hover {
+            background: rgba(0,0,0,0.04);
+            color: #111827;
+        }
+        body.light-theme .discord-channel-btn.active-channel {
+            background: rgba(88,101,242,0.08);
+            color: #4752c4;
+        }
+        body.light-theme .discord-channel-btn .ch-hash { color: #9ca3af; }
+        body.light-theme .discord-channel-btn:hover .ch-hash,
+        body.light-theme .discord-channel-btn.active-channel .ch-hash { color: #6b7280; }
+        body.light-theme .discord-panel-header {
+            background: rgba(0,0,0,0.02);
+            border-bottom-color: rgba(0,0,0,0.06);
+        }
+        body.light-theme .discord-panel-header .ch-server-name { color: #6b7280; }
+        body.light-theme .discord-panel-close { color: #9ca3af; }
+        body.light-theme .discord-panel-close:hover {
+            color: #111827;
+            background: rgba(0,0,0,0.06);
+        }
+        body.light-theme .discord-msg:hover { background: rgba(0,0,0,0.02); }
+        body.light-theme .discord-msg-avatar { background: rgba(88,101,242,0.10); color: #4752c4; }
+        body.light-theme .discord-msg-author { color: #111827; }
+        body.light-theme .discord-msg-time { color: #9ca3af; }
+        body.light-theme .discord-msg-text { color: #374151; }
+        body.light-theme .discord-new-divider { color: #dc2626; }
+        body.light-theme .discord-new-divider::before,
+        body.light-theme .discord-new-divider::after { background: rgba(220,38,38,0.2); }
+        body.light-theme #discordMessages::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
+        body.light-theme .discord-composer { background: rgba(0,0,0,0.02); }
+        body.light-theme .discord-composer-inner {
+            background: rgba(255,255,255,0.9);
+            border-color: rgba(0,0,0,0.12);
+        }
+        body.light-theme .discord-composer-inner:focus-within {
+            border-color: rgba(88,101,242,0.4);
+            box-shadow: 0 0 0 2px rgba(88,101,242,0.1);
+        }
+        body.light-theme #discordReplyText { color: #111827; }
+        body.light-theme #discordReplyText::placeholder { color: #9ca3af; }
+        body.light-theme .discord-emoji-btn { color: #9ca3af; }
+        body.light-theme .discord-composer-hint { color: #9ca3af; }
+        body.light-theme .discord-send-btn:disabled { background: #d1d5db; }
+        body.light-theme .discord-state-msg { color: #6b7280; }
+        body.light-theme .discord-state-msg .state-icon {
+            background: rgba(88,101,242,0.06);
+            border-color: rgba(88,101,242,0.15);
+            color: #4752c4;
+        }
+        body.light-theme .discord-state-msg .state-title { color: #374151; }
+        body.light-theme .discord-state-msg .state-sub { color: #6b7280; }
+
+        /* ── Discord server modal ── */
+        body.light-theme #discordServerModal { background: rgba(0,0,0,0.3); }
+        body.light-theme .discord-modal-card {
+            background: rgba(255,255,255,0.95);
+            border-color: rgba(0,0,0,0.10);
+            box-shadow: 0 16px 48px rgba(0,0,0,0.15);
+        }
+        body.light-theme .discord-modal-title { color: #111827; }
+        body.light-theme .discord-modal-sub { color: #6b7280; }
+        body.light-theme .discord-guild-row {
+            background: rgba(0,0,0,0.02);
+            border-color: rgba(0,0,0,0.06);
+        }
+        body.light-theme .discord-guild-row:hover {
+            border-color: rgba(88,101,242,0.3);
+            background: rgba(88,101,242,0.04);
+        }
+        body.light-theme .discord-guild-row.selected {
+            border-color: rgba(88,101,242,0.5);
+            background: rgba(88,101,242,0.06);
+        }
+        body.light-theme .discord-guild-icon { background: rgba(88,101,242,0.08); color: #4752c4; }
+        body.light-theme .discord-guild-name { color: #374151; }
+        body.light-theme .discord-guild-check { border-color: rgba(0,0,0,0.15); }
+
+        /* ── Slack integration ── */
+        body.light-theme .slack-connect-btn {
+            background: rgba(54,197,240,0.08);
+            border-color: rgba(54,197,240,0.2);
+            color: #0d8aac;
+        }
+        body.light-theme .slack-connect-btn:hover {
+            background: rgba(54,197,240,0.15);
+            color: #096b87;
+        }
+        body.light-theme .slack-bell-btn {
+            background: rgba(0,0,0,0.03);
+            border-color: rgba(0,0,0,0.08);
+            color: #6b7280;
+        }
+        body.light-theme .slack-bell-btn:hover {
+            background: rgba(0,0,0,0.06);
+            color: #374151;
+        }
+        body.light-theme .slack-bell-btn.has-unread {
+            color: #0d8aac;
+            border-color: rgba(54,197,240,0.3);
+        }
+        body.light-theme .slack-bell-badge {
+            border-color: var(--lt-bg, #f0f2f5);
+        }
+        body.light-theme .slack-channel-btn { color: #6b7280; }
+        body.light-theme .slack-channel-btn:hover {
+            background: rgba(0,0,0,0.04);
+            color: #111827;
+        }
+        body.light-theme .slack-channel-btn.active-channel {
+            background: rgba(54,197,240,0.08);
+            color: #0d8aac;
+        }
+        body.light-theme .slack-channel-btn .ch-hash { color: #9ca3af; }
+        body.light-theme .slack-channel-btn:hover .ch-hash,
+        body.light-theme .slack-channel-btn.active-channel .ch-hash { color: #6b7280; }
+        body.light-theme .slack-panel-header {
+            background: rgba(0,0,0,0.02);
+            border-bottom-color: rgba(0,0,0,0.06);
+        }
+        body.light-theme .slack-panel-header .ch-server-name { color: #6b7280; }
+        body.light-theme .slack-panel-close { color: #9ca3af; }
+        body.light-theme .slack-panel-close:hover {
+            color: #111827;
+            background: rgba(0,0,0,0.06);
+        }
+        body.light-theme .slack-msg:hover { background: rgba(0,0,0,0.02); }
+        body.light-theme .slack-msg-avatar { background: rgba(54,197,240,0.10); color: #0d8aac; }
+        body.light-theme .slack-msg-author { color: #111827; }
+        body.light-theme .slack-msg-time { color: #9ca3af; }
+        body.light-theme .slack-msg-text { color: #374151; }
+        body.light-theme #slackMessages::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
+        body.light-theme .slack-composer { background: rgba(0,0,0,0.02); }
+        body.light-theme .slack-composer-inner {
+            background: rgba(255,255,255,0.9);
+            border-color: rgba(0,0,0,0.12);
+        }
+        body.light-theme .slack-composer-inner:focus-within {
+            border-color: rgba(54,197,240,0.4);
+            box-shadow: 0 0 0 2px rgba(54,197,240,0.1);
+        }
+        body.light-theme #slackReplyText { color: #111827; }
+        body.light-theme #slackReplyText::placeholder { color: #9ca3af; }
+        body.light-theme .slack-send-btn:disabled { background: #d1d5db; }
+        body.light-theme .slack-composer-hint { color: #9ca3af; }
+        body.light-theme .slack-state-msg { color: #6b7280; }
+        body.light-theme .slack-state-msg .state-icon {
+            background: rgba(54,197,240,0.06);
+            border-color: rgba(54,197,240,0.15);
+            color: #0d8aac;
+        }
+        body.light-theme .slack-state-msg .state-title { color: #374151; }
+        body.light-theme .slack-state-msg .state-sub { color: #6b7280; }
+
+        /* ── Slack markdown ── */
+        body.light-theme .slk-code-block {
+            background: rgba(0,0,0,0.04);
+            border-color: rgba(0,0,0,0.08);
+            color: #374151;
+        }
+        body.light-theme .slk-inline-code {
+            background: rgba(0,0,0,0.06);
+            border-color: rgba(0,0,0,0.08);
+        }
+        body.light-theme .slk-blockquote { border-left-color: #d1d5db; color: #6b7280; }
+        body.light-theme .slk-link { color: #0d8aac; }
+        body.light-theme .slk-reaction {
+            background: rgba(0,0,0,0.04);
+            border-color: rgba(0,0,0,0.08);
+        }
+        body.light-theme .slk-reaction-count { color: #6b7280; }
+        body.light-theme .slk-attachment-file {
+            background: rgba(0,0,0,0.03);
+            border-color: rgba(0,0,0,0.08);
+            color: #374151;
+        }
+
+        /* ── Discord markdown ── */
+        body.light-theme .dc-code-block {
+            background: rgba(0,0,0,0.04);
+            border-color: rgba(0,0,0,0.08);
+            color: #374151;
+        }
+        body.light-theme .dc-inline-code {
+            background: rgba(0,0,0,0.06);
+            color: #374151;
+        }
+        body.light-theme .dc-blockquote { border-left-color: #d1d5db; color: #6b7280; }
+        body.light-theme .dc-link { color: #2563eb; }
+        body.light-theme .dc-spoiler { background: #d1d5db; color: #d1d5db; }
+        body.light-theme .dc-spoiler.revealed { background: rgba(0,0,0,0.06); color: #374151; }
+        body.light-theme .dc-reply-ref { color: #6b7280; }
+        body.light-theme .dc-reply-ref strong { color: #374151; }
+        body.light-theme .dc-reaction {
+            background: rgba(0,0,0,0.04);
+            border-color: rgba(0,0,0,0.08);
+        }
+        body.light-theme .dc-reaction:hover { background: rgba(0,0,0,0.07); }
+        body.light-theme .dc-reaction-count { color: #6b7280; }
+        body.light-theme .dc-attachment-img { background: rgba(0,0,0,0.02); }
+        body.light-theme .dc-attachment-file {
+            background: rgba(0,0,0,0.03);
+            border-color: rgba(0,0,0,0.08);
+            color: #374151;
+        }
+        body.light-theme .dc-ch-error { color: #6b7280; }
+        body.light-theme .dc-bot-hint { color: #6b7280; }
+        body.light-theme .dc-bot-hint code {
+            background: rgba(0,0,0,0.05);
+            color: #374151;
+        }
     </style>
 </head>

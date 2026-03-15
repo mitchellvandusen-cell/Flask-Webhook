@@ -4777,6 +4777,273 @@ body.light-theme .ni-edit-input { background: var(--lt-input-bg); border-color: 
 body.light-theme .ni-edit-input:focus { border-color: rgba(0,100,180,0.4); box-shadow: 0 0 0 2px rgba(0,100,180,0.1); }
 body.light-theme .ni-edit-submit-btn { background: linear-gradient(135deg, #0088ff, #0066cc); }
 
+/* ══ Dashboard Layout Theme Classes ══ */
+
+/* Paywall warning card */
+.paywall-card {
+    border-radius: 16px;
+    border: 2px solid #ffc107;
+    background: linear-gradient(135deg, rgba(255,193,7,0.1) 0%, rgba(255,193,7,0.05) 100%);
+    padding: 30px;
+}
+.paywall-icon {
+    font-size: 3rem;
+    color: #ffc107;
+    margin-bottom: 20px;
+}
+.paywall-title {
+    font-weight: 700;
+    margin-bottom: 15px;
+}
+.paywall-body {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    margin-bottom: 25px;
+}
+.paywall-price {
+    font-weight: 900;
+    color: var(--accent);
+}
+.paywall-price-period {
+    font-size: 1rem;
+    font-weight: 400;
+    color: var(--text-secondary);
+}
+.paywall-subscribe-btn {
+    padding: 15px 40px;
+    font-size: 1.1rem;
+    border-radius: 12px;
+}
+.paywall-cancel-note {
+    color: #aaa;
+}
+
+/* Onboarding banners */
+.onboard-banner-voice {
+    background: rgba(0,217,255,0.06);
+    border: 1px solid rgba(0,217,255,0.18);
+    border-radius: 12px;
+    cursor: pointer;
+}
+.onboard-banner-sms {
+    background: rgba(0,255,136,0.05);
+    border: 1px solid rgba(0,255,136,0.15);
+    border-radius: 12px;
+    cursor: pointer;
+}
+.onboard-icon-voice {
+    color: #00d9ff;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+.onboard-icon-sms {
+    color: #00ff88;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+.onboard-text-voice {
+    font-size: 0.82rem;
+    color: #ccc;
+}
+.onboard-text-voice strong {
+    color: #00d9ff;
+}
+.onboard-text-sms {
+    font-size: 0.82rem;
+    color: #ccc;
+}
+.onboard-text-sms strong {
+    color: #00ff88;
+}
+.onboard-arrow-voice {
+    color: #00d9ff;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+.onboard-arrow-sms {
+    color: #00ff88;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+
+/* Mobile sheet brand icons */
+.icon-discord-brand { color: #5865f2; }
+.icon-slack-brand { color: #611f69; }
+
+/* Mobile sheet links */
+.mobile-sheet-link { text-decoration: none; }
+.mobile-sheet-logout {
+    text-decoration: none;
+    color: #ef4444;
+}
+.mobile-sheet-logout-icon { color: #ef4444; }
+
+/* ══ Topbar & Alerts Theme Classes ══ */
+
+/* ── Language Picker (Topbar) ── */
+.lang-picker { display: inline-block; }
+
+.lang-label {
+    font-size: 0.7rem;
+    margin-left: 2px;
+    font-weight: 700;
+}
+
+.lang-dropdown-menu {
+    min-width: 140px;
+    padding: 8px;
+}
+
+.lang-dropdown-item {
+    color: #ccc;
+    font-size: 0.85rem;
+}
+.lang-dropdown-item.active {
+    background: rgba(0, 255, 136, 0.15);
+    color: #00ff88;
+}
+
+body.light-theme .lang-dropdown-item {
+    color: var(--lt-text-secondary);
+}
+body.light-theme .lang-dropdown-item:hover,
+body.light-theme .lang-dropdown-item:focus {
+    color: var(--lt-text-primary);
+}
+body.light-theme .lang-dropdown-item.active {
+    background: var(--lt-accent-bg);
+    color: var(--lt-accent);
+}
+
+/* ── Flash Alerts ── */
+.flash-alert {
+    border-radius: 12px;
+}
+
+.alert-close-dark {
+    filter: invert(1);
+    opacity: 0.6;
+}
+
+body.light-theme .alert-close-dark {
+    filter: none;
+    opacity: 0.5;
+}
+
+/* ── Ghost Mode Banner (Admin Impersonation) ── */
+.ghost-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    background: linear-gradient(135deg, #7c3aed, #4f46e5);
+    color: #fff;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    box-shadow: 0 2px 12px rgba(124, 58, 237, 0.5);
+    font-size: 0.82rem;
+}
+
+body.light-theme .ghost-banner {
+    background: linear-gradient(135deg, #8b5cf6, #6366f1);
+    box-shadow: 0 2px 12px rgba(124, 58, 237, 0.3);
+}
+
+.ghost-banner-inner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ghost-banner-icon {
+    font-size: 1rem;
+    opacity: 0.9;
+}
+
+.ghost-banner-form {
+    margin: 0;
+}
+
+.ghost-exit-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: #fff;
+    padding: 4px 14px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.ghost-exit-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.ghost-banner-spacer {
+    height: 38px;
+    flex-shrink: 0;
+}
+
+/* ── Setup Alerts (dynamic server-side colors) ── */
+.setup-alert {
+    border-radius: 12px;
+}
+
+.setup-alert-btn {
+    color: #000;
+    font-weight: 700;
+    border-radius: 8px;
+}
+
+body.light-theme .setup-alert {
+    color: var(--lt-text-primary);
+}
+body.light-theme .setup-alert .alert-close-dark {
+    filter: none;
+    opacity: 0.5;
+}
+
+/* Hidden tab list (functional) */
+.dash-tabs-hidden { display: none !important; }
+
+/* ── Light theme overrides ── */
+body.light-theme .paywall-card {
+    border-color: #d4a000;
+    background: linear-gradient(135deg, rgba(212,160,0,0.08) 0%, rgba(212,160,0,0.03) 100%);
+}
+body.light-theme .paywall-icon { color: #d4a000; }
+body.light-theme .paywall-body { color: var(--lt-text-secondary); }
+body.light-theme .paywall-price { color: var(--lt-accent, #00884a); }
+body.light-theme .paywall-price-period { color: var(--lt-text-secondary); }
+body.light-theme .paywall-cancel-note { color: var(--lt-text-muted); }
+
+body.light-theme .onboard-banner-voice {
+    background: rgba(0,136,204,0.06);
+    border-color: rgba(0,136,204,0.18);
+}
+body.light-theme .onboard-banner-sms {
+    background: rgba(0,136,74,0.05);
+    border-color: rgba(0,136,74,0.15);
+}
+body.light-theme .onboard-icon-voice { color: #0088cc; }
+body.light-theme .onboard-icon-sms { color: var(--lt-accent, #00884a); }
+body.light-theme .onboard-text-voice { color: var(--lt-text-secondary); }
+body.light-theme .onboard-text-voice strong { color: #0088cc; }
+body.light-theme .onboard-text-sms { color: var(--lt-text-secondary); }
+body.light-theme .onboard-text-sms strong { color: var(--lt-accent, #00884a); }
+body.light-theme .onboard-arrow-voice { color: #0088cc; }
+body.light-theme .onboard-arrow-sms { color: var(--lt-accent, #00884a); }
+
+body.light-theme .icon-discord-brand { color: #4752c4; }
+body.light-theme .icon-slack-brand { color: #4a154b; }
+
+body.light-theme .mobile-sheet-logout { color: #dc2626; }
+body.light-theme .mobile-sheet-logout-icon { color: #dc2626; }
+
 /* ══ Spam Monitoring Accordion (Liquid Glass) ══ */
 .sm-accordion-item {
     margin-bottom: 8px;
@@ -4875,3 +5142,267 @@ body.light-theme .sm-accordion-icon {
     color: #1a1a1a;
 }
 @media (max-width: 575px) { .articles-grid { grid-template-columns: 1fr; } }
+
+/* ══ Sidebar System Params Theme Classes ══ */
+
+/* Microchip icon in params header */
+.sb-params-icon { font-size: 0.75rem; }
+
+/* Chevron in params header */
+.sb-params-chevron { margin-left: auto; font-size: 0.75rem; transition: transform 0.2s; }
+
+/* Wrapper inside params body */
+.sb-params-content { padding: 0 4px 8px; }
+
+/* "LOCATION ID", "ACCESS TOKEN", "REFRESH TOKEN" labels */
+.sb-params-label {
+    font-size: 0.75rem;
+    color: #555;
+    display: block;
+    margin-bottom: 3px;
+}
+
+/* Flex row for value + copy/lock icon */
+.sb-params-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Truncated tech value text */
+.sb-params-value {
+    font-size: 0.75rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Copy button next to location ID */
+.sb-params-copy-btn {
+    background: none;
+    border: none;
+    color: #555;
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 2px;
+}
+
+/* Small icon (copy, lock, pen) inside params */
+.sb-params-icon-sm { font-size: 0.75rem; }
+
+/* Lock/pen icon next to token inputs */
+.sb-params-lock-icon {
+    color: #555;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+}
+
+/* Token input fields (access token, refresh token) */
+.sb-params-token-input {
+    background: rgba(0,0,0,0.2);
+    border: none;
+    border-top: 1px solid rgba(0,0,0,0.4);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    padding: 3px 6px;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.3);
+    width: 100%;
+    color: inherit;
+    font-size: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Token expiry text */
+.sb-params-expiry {
+    font-size: 0.75rem;
+    color: #444;
+    margin-top: 3px;
+}
+
+/* Connect CRM button (green gradient) */
+.sb-params-connect-btn {
+    display: block;
+    background: linear-gradient(135deg, #00c853, #00a843);
+    color: #000;
+    font-weight: 700;
+    padding: 8px 12px;
+    border-radius: 8px;
+    text-align: center;
+    text-decoration: none;
+    font-size: 0.8rem;
+    margin-top: 6px;
+}
+
+/* Reauthorize CRM button (blue outline) */
+.sb-params-reauth-btn {
+    display: block;
+    background: rgba(0,180,255,0.08);
+    border: 1px solid rgba(0,180,255,0.2);
+    color: #00b4ff;
+    font-weight: 600;
+    padding: 7px 12px;
+    border-radius: 8px;
+    text-align: center;
+    text-decoration: none;
+    font-size: 0.75rem;
+    margin-top: 6px;
+}
+
+/* Marketplace link (blue/indigo gradient) */
+.sb-params-marketplace-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(99,102,241,0.1));
+    border: 1px solid rgba(59,130,246,0.25);
+    color: #93b4f8;
+    font-weight: 600;
+    padding: 7px 12px;
+    border-radius: 8px;
+    text-align: center;
+    text-decoration: none;
+    font-size: 0.75rem;
+    margin-top: 5px;
+    transition: all .15s;
+}
+.sb-params-marketplace-link:hover {
+    background: linear-gradient(135deg, rgba(59,130,246,0.25), rgba(99,102,241,0.18));
+    color: #b8d0ff;
+}
+.sb-params-marketplace-link svg { flex-shrink: 0; }
+
+/* Profile section wrapper */
+.sb-params-profile {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+/* Profile section heading */
+.sb-params-profile-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #444;
+    margin-bottom: 8px;
+    font-weight: 700;
+}
+
+/* Profile name input and bio textarea */
+.sb-params-profile-input {
+    background: rgba(0,0,0,0.2);
+    border: none;
+    border-top: 1px solid rgba(0,0,0,0.4);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.3);
+    color: #ccc;
+    width: 100%;
+    padding: 5px 8px;
+    margin-bottom: 8px;
+    font-size: 0.82rem;
+    outline: none;
+}
+textarea.sb-params-profile-input { resize: none; }
+
+/* Save Profile button */
+.sb-params-save-btn {
+    width: 100%;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #888;
+    border-radius: 6px;
+    padding: 5px;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+.sb-params-save-btn:hover {
+    background: rgba(255,255,255,0.08);
+    color: #aaa;
+}
+
+/* Tutorial button in sidebar footer */
+.sb-footer-tutorial {
+    border: none;
+    cursor: pointer;
+    background: none;
+    width: 100%;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    color: #00d9ff;
+    transition: background 0.15s, color 0.15s;
+}
+
+/* Tutorial icon */
+.sb-footer-tutorial-icon {
+    width: 18px;
+    text-align: center;
+    flex-shrink: 0;
+    font-size: 0.9rem;
+}
+
+/* Sign Out link */
+.sb-footer-signout { color: #ef4444; }
+
+/* Training link */
+.sb-nav-link-plain { text-decoration: none; }
+
+/* ── Sidebar System Params Light Theme ── */
+body.light-theme .sb-params-label { color: #6b7280; }
+body.light-theme .sb-params-copy-btn { color: #6b7280; }
+body.light-theme .sb-params-lock-icon { color: #6b7280; }
+body.light-theme .sb-params-expiry { color: #374151; }
+body.light-theme .sb-params-token-input {
+    background: rgba(0,0,0,0.04);
+    border-top: 1px solid rgba(0,0,0,0.08);
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.06);
+    color: #111827;
+}
+body.light-theme .sb-params-connect-btn {
+    background: linear-gradient(135deg, #00884a, #006e3c);
+    color: #fff;
+}
+body.light-theme .sb-params-reauth-btn {
+    background: rgba(0,112,184,0.08);
+    border-color: rgba(0,112,184,0.2);
+    color: #0070b8;
+}
+body.light-theme .sb-params-marketplace-link {
+    background: linear-gradient(135deg, rgba(59,130,246,0.10), rgba(99,102,241,0.06));
+    border-color: rgba(59,130,246,0.18);
+    color: #3b6fd4;
+}
+body.light-theme .sb-params-marketplace-link:hover {
+    background: linear-gradient(135deg, rgba(59,130,246,0.18), rgba(99,102,241,0.12));
+    color: #2a5ab8;
+}
+body.light-theme .sb-params-profile {
+    border-top-color: rgba(0,0,0,0.08);
+}
+body.light-theme .sb-params-profile-label { color: #374151; }
+body.light-theme .sb-params-profile-input {
+    background: rgba(0,0,0,0.04);
+    border-top: 1px solid rgba(0,0,0,0.08);
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.06);
+    color: #111827;
+}
+body.light-theme .sb-params-save-btn {
+    background: rgba(0,0,0,0.04);
+    border-color: rgba(0,0,0,0.08);
+    color: #6b7280;
+}
+body.light-theme .sb-params-save-btn:hover {
+    background: rgba(0,0,0,0.07);
+    color: #374151;
+}
+body.light-theme .sb-footer-tutorial { color: #0078b8; }
+body.light-theme .sb-footer-signout { color: #dc2626; }
