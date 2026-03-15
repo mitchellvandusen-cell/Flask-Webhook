@@ -1302,6 +1302,88 @@ def submit_cnam_for_review(
         raise
 
 
+def discover_cnam_trust_product(
+    sub_account_sid: str,
+    sub_account_auth_token: str = "",
+) -> dict | None:
+    """
+    Discover an existing CNAM Trust Product on the account by scanning
+    Trust Hub for products matching the CNAM policy SID.
+    Returns dict with trust_product_sid, status, friendly_name, cnam_display_name,
+    assigned_numbers, or None if no CNAM product exists.
+    """
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
+    try:
+        products = client.trusthub.v1.trust_products.list(
+            policy_sid=CNAM_TRUST_PRODUCT_POLICY_SID, limit=10
+        )
+        if not products:
+            return None
+
+        # Find the best product — prefer twilio-approved, then any non-draft
+        best = None
+        for tp in products:
+            if tp.status == "twilio-approved":
+                best = tp
+                break
+            if best is None or tp.status != "draft":
+                best = tp
+        if not best:
+            return None
+
+        # Fetch assigned numbers
+        assigned_numbers = []
+        try:
+            assignments = client.trusthub.v1.trust_products(best.sid) \
+                .trust_products_channel_endpoint_assignment.list(limit=100)
+            assigned_numbers = [a.channel_endpoint_sid for a in assignments]
+        except Exception as e:
+            logger.warning(f"[CNAM] Could not list assigned numbers during discovery: {e}")
+
+        # Extract CNAM display name from the friendly_name (format: "CNAM US ...")
+        # or from EndUser attributes if available
+        cnam_display_name = ""
+        try:
+            entity_assignments = client.trusthub.v1.trust_products(best.sid) \
+                .trust_products_entity_assignments.list(limit=20)
+            for ea in entity_assignments:
+                obj_sid = ea.object_sid
+                if obj_sid and obj_sid.startswith("IT"):
+                    try:
+                        eu = client.trusthub.v1.end_users(obj_sid).fetch()
+                        attrs = eu.attributes or {}
+                        if attrs.get("cnam_display_name"):
+                            cnam_display_name = attrs["cnam_display_name"]
+                            break
+                    except Exception:
+                        pass
+        except Exception as e:
+            logger.debug(f"[CNAM] Could not read EndUser for display name: {e}")
+
+        # Fallback: extract from friendly_name
+        if not cnam_display_name:
+            fn = getattr(best, "friendly_name", "") or ""
+            if fn.startswith("CNAM:"):
+                cnam_display_name = fn[5:].strip()[:15]
+
+        logger.info(
+            f"[CNAM] Discovered Trust Product {best.sid} (status={best.status}, "
+            f"display_name={cnam_display_name!r}, {len(assigned_numbers)} numbers)"
+        )
+        return {
+            "trust_product_sid": best.sid,
+            "status": best.status,
+            "friendly_name": getattr(best, "friendly_name", ""),
+            "cnam_display_name": cnam_display_name,
+            "assigned_numbers": assigned_numbers,
+            "assigned_count": len(assigned_numbers),
+            "date_created": best.date_created.isoformat() if best.date_created else "",
+        }
+    except TwilioRestException as e:
+        logger.error(f"[CNAM] Discovery failed for {sub_account_sid}: {e}")
+        return None
+
+
 def get_cnam_trust_product_status(
     sub_account_sid: str,
     trust_product_sid: str,

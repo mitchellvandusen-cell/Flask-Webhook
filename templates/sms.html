@@ -10,28 +10,6 @@
     .sms-h1 { font-size: clamp(2.4rem, 4.5vw, 3.6rem); font-weight: 900; line-height: 1.08; margin-bottom: 20px; }
     .sms-h1 span { background: linear-gradient(135deg, var(--accent), #00d9ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .sms-sub { color: #999; font-size: 1.1rem; max-width: 660px; margin: 0 auto 32px; line-height: 1.65; }
-    .s-section { padding: 80px 0; }
-    .s-section + .s-section { padding-top: 0; }
-
-    /* Feature blocks */
-    .sfb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
-    .sfb-grid.reverse { direction: rtl; }
-    .sfb-grid.reverse > * { direction: ltr; }
-    @media (max-width: 991px) { .sfb-grid, .sfb-grid.reverse { grid-template-columns: 1fr; direction: ltr; } }
-    .sfb-icon { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; margin-bottom: 16px; }
-    .sfb-list { list-style: none; padding: 0; margin: 16px 0 0; }
-    .sfb-list li { padding: 6px 0; color: #bbb; font-size: 0.9rem; }
-    .sfb-list li i { margin-right: 10px; font-size: 0.8rem; }
-
-    /* Capability grid */
-    .scap-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: rgba(255,255,255,0.06); border-radius: 16px; overflow: hidden; }
-    .scap-item { background: #0a0a0a; padding: 28px 24px; transition: background 0.3s; }
-    .scap-item:hover { background: rgba(255,255,255,0.03); }
-    .scap-item i { font-size: 1.1rem; margin-bottom: 10px; display: block; }
-    .scap-item h6 { font-weight: 700; font-size: 0.88rem; margin-bottom: 4px; color: #fff; }
-    .scap-item p { color: #666; font-size: 0.78rem; margin: 0; line-height: 1.5; }
-    @media (max-width: 991px) { .scap-grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 575px) { .scap-grid { grid-template-columns: 1fr; } }
 
     /* Conversation mockup */
     .sms-mock { max-width: 380px; margin: 0 auto; }
@@ -68,10 +46,6 @@
     .lt-card h6 { font-weight: 700; font-size: 0.88rem; margin-bottom: 6px; color: #fff; }
     .lt-card p { color: #888; font-size: 0.78rem; line-height: 1.5; margin: 0; }
 
-    /* Problem cards */
-    .ps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-    @media (max-width: 767px) { .ps-grid { grid-template-columns: 1fr; } }
-
     /* Age bracket grid */
     .age-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: rgba(255,255,255,0.06); border-radius: 16px; overflow: hidden; }
     .age-cell { background: #0a0a0a; padding: 24px 20px; }
@@ -84,8 +58,24 @@
 </style>
 
 
-<!-- ═══ HERO ═══ -->
-<section class="sms-hero">
+<!-- ── Side Dots Navigation ── -->
+<nav class="ios-section-dots" id="iosSectionDots">
+    <div class="ios-section-dot active" data-section="0" title="Hero"></div>
+    <div class="ios-section-dot" data-section="1" title="Conversation Pipeline"></div>
+    <div class="ios-section-dot" data-section="2" title="Reads the Room"></div>
+    <div class="ios-section-dot" data-section="3" title="Objection Engine"></div>
+    <div class="ios-section-dot" data-section="4" title="Lead Types"></div>
+    <div class="ios-section-dot" data-section="5" title="Individual Profile"></div>
+    <div class="ios-section-dot" data-section="6" title="Product Intelligence"></div>
+    <div class="ios-section-dot" data-section="7" title="Sales Frameworks"></div>
+    <div class="ios-section-dot" data-section="8" title="Follow-Up Intelligence"></div>
+    <div class="ios-section-dot" data-section="9" title="Everything Else"></div>
+    <div class="ios-section-dot" data-section="10" title="Get Started"></div>
+</nav>
+
+
+<!-- ═══ SECTION 0: HERO ═══ -->
+<section class="ios-snap-section ios-hero sms-hero" id="iosSection0">
     <div class="container" style="position: relative; z-index: 2;">
         <div class="text-center" data-aos="fade-up">
             <span class="sms-tag">AI-Powered SMS</span>
@@ -104,13 +94,13 @@
 </section>
 
 
-<!-- ═══ CONVERSATION PIPELINE ═══ -->
-<section class="s-section">
-    <div class="container">
+<!-- ═══ SECTION 1: CONVERSATION PIPELINE ═══ -->
+<section class="ios-snap-section" id="iosSection1">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <span style="color: var(--accent); font-weight: 700; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;">Conversation Pipeline</span>
-            <h2 style="font-weight: 900; font-size: 2.2rem; margin-top: 8px;">Every Text Moves Through a <span style="color: var(--accent);">5-Stage Pipeline</span></h2>
-            <p style="color: #777; max-width: 620px; margin: 8px auto 0;">The AI classifies every message and knows exactly which stage the conversation is in. No guessing. No generic replies. Every text is strategically chosen.</p>
+            <span class="ios-section-label ios-section-label--accent">Conversation Pipeline</span>
+            <h2 class="ios-section-h2">Every Text Moves Through a <span>5-Stage Pipeline</span></h2>
+            <p class="ios-section-sub">The AI classifies every message and knows exactly which stage the conversation is in. No guessing. No generic replies. Every text is strategically chosen.</p>
         </div>
 
         <div class="pipeline" data-aos="fade-up">
@@ -139,22 +129,20 @@
 </section>
 
 
-<!-- ═══ CONVERSATION MOCKUP ═══ -->
-<section class="s-section">
-    <div class="container">
-        <div class="sfb-grid" data-aos="fade-up">
+<!-- ═══ SECTION 2: CONVERSATION MOCKUP ═══ -->
+<section class="ios-snap-section" id="iosSection2">
+    <div class="container" style="width: 100%;">
+        <div class="ios-feat-grid" data-aos="fade-up">
             <div>
-                <div class="sfb-icon" style="background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.2);">
-                    <i class="fa-solid fa-brain" style="color: var(--accent);"></i>
-                </div>
-                <h2 style="font-weight: 900; font-size: 1.8rem; margin-bottom: 8px;">It Doesn't Just Reply. It <em>Reads</em> the Room.</h2>
+                <span class="ios-section-label">Reads the Room</span>
+                <h2 class="ios-section-h2">It Doesn't Just Reply. <span>It Reads the Room.</span></h2>
                 <p style="color: #888; font-size: 0.95rem; line-height: 1.7;">
                     Before every reply, the AI runs a full analysis: What stage is this conversation?
                     Is there an active objection? What buying signals are present? What do we know about
                     this person? What product is appropriate for their age? Then it generates one strategic
                     message designed to move the conversation forward.
                 </p>
-                <ul class="sfb-list">
+                <ul class="ios-feat-list">
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Builds a character profile from every known fact about the lead</li>
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Detects 6 buying signals: price questions, coverage requests, comparisons</li>
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Tracks goal + obstacle + impact — books only when all three are present</li>
@@ -181,13 +169,13 @@
 </section>
 
 
-<!-- ═══ OBJECTION HANDLING ═══ -->
-<section class="s-section">
-    <div class="container">
+<!-- ═══ SECTION 3: OBJECTION HANDLING ═══ -->
+<section class="ios-snap-section auto-height" id="iosSection3">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <span style="color: #e91e63; font-weight: 700; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;">Objection Engine</span>
-            <h2 style="font-weight: 900; font-size: 2.2rem; margin-top: 8px;">6 Objection Types. <span style="color: #e91e63;">Each Handled Differently.</span></h2>
-            <p style="color: #777; max-width: 640px; margin: 8px auto 0;">The AI classifies every objection by type <em>and</em> nature (fear-based vs logistical). Fear-based objections get empathy and questions. Logistical ones get practical solutions. No scripted rebuttals — the AI reads the full history and picks a new angle every time.</p>
+            <span class="ios-section-label ios-section-label--pink">Objection Engine</span>
+            <h2 class="ios-section-h2">6 Objection Types. <span style="background: linear-gradient(135deg, #e91e63, #ff6b9d); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Each Handled Differently.</span></h2>
+            <p class="ios-section-sub">The AI classifies every objection by type <em>and</em> nature (fear-based vs logistical). Fear-based objections get empathy and questions. Logistical ones get practical solutions. No scripted rebuttals — the AI reads the full history and picks a new angle every time.</p>
         </div>
 
         <div class="obj-grid" data-aos="fade-up">
@@ -236,13 +224,13 @@
 </section>
 
 
-<!-- ═══ LEAD TYPE AWARENESS ═══ -->
-<section class="s-section">
-    <div class="container">
+<!-- ═══ SECTION 4: LEAD TYPE AWARENESS ═══ -->
+<section class="ios-snap-section" id="iosSection4">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <span style="color: #00d9ff; font-weight: 700; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;">Lead Type Awareness</span>
-            <h2 style="font-weight: 900; font-size: 2.2rem; margin-top: 8px;">Different Leads. <span style="color: #00d9ff;">Different First Messages.</span></h2>
-            <p style="color: #777; max-width: 640px; margin: 8px auto 0;">The AI knows the difference between a lead that just filled out a form 5 minutes ago and one that's been sitting in your CRM for 6 months. The opener changes completely.</p>
+            <span class="ios-section-label" style="background: rgba(0,217,255,0.08); border-color: rgba(0,217,255,0.25); color: #00d9ff;">Lead Type Awareness</span>
+            <h2 class="ios-section-h2">Different Leads. <span style="background: linear-gradient(135deg, #00d9ff, #00ff88); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Different First Messages.</span></h2>
+            <p class="ios-section-sub">The AI knows the difference between a lead that just filled out a form 5 minutes ago and one that's been sitting in your CRM for 6 months. The opener changes completely.</p>
         </div>
 
         <div class="lt-grid" data-aos="fade-up">
@@ -267,21 +255,19 @@
 </section>
 
 
-<!-- ═══ INDIVIDUAL PROFILE ═══ -->
-<section class="s-section">
-    <div class="container">
-        <div class="sfb-grid reverse" data-aos="fade-up">
+<!-- ═══ SECTION 5: INDIVIDUAL PROFILE ═══ -->
+<section class="ios-snap-section" id="iosSection5">
+    <div class="container" style="width: 100%;">
+        <div class="ios-feat-grid reverse" data-aos="fade-up">
             <div>
-                <div class="sfb-icon" style="background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.2);">
-                    <i class="fa-solid fa-id-card" style="color: #8b5cf6;"></i>
-                </div>
-                <h2 style="font-weight: 900; font-size: 1.8rem; margin-bottom: 8px;">A Character Sheet for Every Lead</h2>
+                <span class="ios-section-label ios-section-label--purple">Individual Profile</span>
+                <h2 class="ios-section-h2">A Character Sheet <span>for Every Lead</span></h2>
                 <p style="color: #888; font-size: 0.95rem; line-height: 1.7;">
                     The AI doesn't just read messages — it builds a person dossier. Family situation, coverage gaps,
                     health mentions, personality, what drives them. This profile updates with every conversation and
                     stays forever. The AI never asks what it already knows.
                 </p>
-                <ul class="sfb-list">
+                <ul class="ios-feat-list">
                     <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> NLP fact extraction (spaCy) from every message</li>
                     <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> AI-generated narrative summary of the relationship</li>
                     <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Health/underwriting risk flags: diabetes, cancer, heart, smoker</li>
@@ -315,13 +301,13 @@
 </section>
 
 
-<!-- ═══ AGE-BASED PRODUCT INTELLIGENCE ═══ -->
-<section class="s-section">
-    <div class="container">
+<!-- ═══ SECTION 6: AGE-BASED PRODUCT INTELLIGENCE ═══ -->
+<section class="ios-snap-section" id="iosSection6">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <span style="color: #ff6b35; font-weight: 700; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;">Product Intelligence</span>
-            <h2 style="font-weight: 900; font-size: 2.2rem; margin-top: 8px;">The AI Knows What to Sell — <span style="color: #ff6b35;">By Age.</span></h2>
-            <p style="color: #777; max-width: 640px; margin: 8px auto 0;">Hardcoded product rules based on age bracket. Not suggestions — mandatory guardrails. The AI will never pitch a 72-year-old on an IUL or suggest final expense to a 35-year-old.</p>
+            <span class="ios-section-label ios-section-label--orange">Product Intelligence</span>
+            <h2 class="ios-section-h2">The AI Knows What to Sell — <span style="background: linear-gradient(135deg, #ff6b35, #ff3366); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">By Age.</span></h2>
+            <p class="ios-section-sub">Hardcoded product rules based on age bracket. Not suggestions — mandatory guardrails. The AI will never pitch a 72-year-old on an IUL or suggest final expense to a 35-year-old.</p>
         </div>
 
         <div class="age-grid" data-aos="fade-up">
@@ -358,21 +344,19 @@
 </section>
 
 
-<!-- ═══ SALES FRAMEWORKS ═══ -->
-<section class="s-section">
-    <div class="container">
-        <div class="sfb-grid" data-aos="fade-up">
+<!-- ═══ SECTION 7: SALES FRAMEWORKS ═══ -->
+<section class="ios-snap-section" id="iosSection7">
+    <div class="container" style="width: 100%;">
+        <div class="ios-feat-grid" data-aos="fade-up">
             <div>
-                <div class="sfb-icon" style="background: rgba(233,30,99,0.1); border: 1px solid rgba(233,30,99,0.2);">
-                    <i class="fa-solid fa-bullseye" style="color: #e91e63;"></i>
-                </div>
-                <h2 style="font-weight: 900; font-size: 1.8rem; margin-bottom: 8px;">5 Sales Frameworks Built In</h2>
+                <span class="ios-section-label ios-section-label--pink">Sales Frameworks</span>
+                <h2 class="ios-section-h2">5 Sales Frameworks <span>Built In</span></h2>
                 <p style="color: #888; font-size: 0.95rem; line-height: 1.7;">
                     The AI uses proven sales methodologies to guide conversations. Each framework changes
                     how the bot qualifies, handles objections, and moves toward booking. You pick the
                     framework — the AI adapts its approach.
                 </p>
-                <ul class="sfb-list">
+                <ul class="ios-feat-list">
                     <li><i class="fa-solid fa-check" style="color: #e91e63;"></i> <strong>NEPQ</strong> — Neuro-Emotional Persuasion Questions</li>
                     <li><i class="fa-solid fa-check" style="color: #e91e63;"></i> <strong>Gap Selling</strong> — Problem-centric discovery</li>
                     <li><i class="fa-solid fa-check" style="color: #e91e63;"></i> <strong>Chris Voss</strong> — Tactical empathy and mirroring</li>
@@ -427,21 +411,19 @@
 </section>
 
 
-<!-- ═══ FOLLOW-UP INTELLIGENCE ═══ -->
-<section class="s-section">
-    <div class="container">
-        <div class="sfb-grid reverse" data-aos="fade-up">
+<!-- ═══ SECTION 8: FOLLOW-UP INTELLIGENCE ═══ -->
+<section class="ios-snap-section" id="iosSection8">
+    <div class="container" style="width: 100%;">
+        <div class="ios-feat-grid reverse" data-aos="fade-up">
             <div>
-                <div class="sfb-icon" style="background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2);">
-                    <i class="fa-solid fa-arrows-spin" style="color: #00d9ff;"></i>
-                </div>
-                <h2 style="font-weight: 900; font-size: 1.8rem; margin-bottom: 8px;">Follow-Ups That Actually Work</h2>
+                <span class="ios-section-label" style="background: rgba(0,217,255,0.08); border-color: rgba(0,217,255,0.25); color: #00d9ff;">Follow-Up Intelligence</span>
+                <h2 class="ios-section-h2">Follow-Ups That <span style="background: linear-gradient(135deg, #00d9ff, #00ff88); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Actually Work</span></h2>
                 <p style="color: #888; font-size: 0.95rem; line-height: 1.7;">
                     The AI tracks how many consecutive messages it has sent without a reply.
                     Each follow-up is completely different from the last — different angle, different tone,
                     different approach. It reads its own history and does the opposite of what already failed.
                 </p>
-                <ul class="sfb-list">
+                <ul class="ios-feat-list">
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Tracks consecutive unanswered messages</li>
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Every follow-up uses a completely different approach</li>
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> After 5+ attempts: AI goes unconventional — humor, curiosity, unexpected angles</li>
@@ -466,50 +448,51 @@
 </section>
 
 
-<!-- ═══ EVERYTHING ELSE ═══ -->
-<section class="s-section">
-    <div class="container">
+<!-- ═══ SECTION 9: EVERYTHING ELSE ═══ -->
+<section class="ios-snap-section auto-height" id="iosSection9">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h2 style="font-weight: 900; font-size: 2.2rem;">Everything Else <span style="color: var(--accent);">Included</span></h2>
+            <span class="ios-section-label ios-section-label--accent">Capabilities</span>
+            <h2 class="ios-section-h2">Everything Else <span>Included</span></h2>
         </div>
 
-        <div class="scap-grid" data-aos="fade-up">
-            <div class="scap-item">
+        <div class="ios-cap-grid" data-aos="fade-up">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-building-columns" style="color: var(--accent);"></i>
                 <h6>270+ Carriers</h6>
                 <p>Recognizes carrier names, aliases, and product types. Only references the ones you're contracted with.</p>
             </div>
-            <div class="scap-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-stethoscope" style="color: #00d9ff;"></i>
                 <h6>Underwriting Awareness</h6>
                 <p>When health comes up, the AI pulls live underwriting rules. Knows which carriers accept what conditions.</p>
             </div>
-            <div class="scap-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-shield-halved" style="color: #e91e63;"></i>
                 <h6>A2P 10DLC Compliant</h6>
                 <p>Full brand + campaign registration built in. No carrier filtering or blocked messages.</p>
             </div>
-            <div class="scap-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-toggle-on" style="color: #8b5cf6;"></i>
                 <h6>White-Label SMS</h6>
                 <p>Messages come from your own dedicated number. Leads never see third-party branding.</p>
             </div>
-            <div class="scap-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-plug" style="color: var(--accent);"></i>
                 <h6>7 CRM Integrations</h6>
                 <p>Messages sync to GoHighLevel, HubSpot, Salesforce, Pipedrive, Zoho, Insureio, and Zapier.</p>
             </div>
-            <div class="scap-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-calendar-check" style="color: #00d9ff;"></i>
                 <h6>Auto-Booking</h6>
                 <p>Books directly to your calendar mid-conversation. Offers specific time slots. No manual follow-up.</p>
             </div>
-            <div class="scap-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-heart-pulse" style="color: #e91e63;"></i>
                 <h6>Empathy Detection</h6>
                 <p>Cancer, divorce, job loss, fear — the AI detects vulnerable situations and responds with empathy first, sales second.</p>
             </div>
-            <div class="scap-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-lock" style="color: #8b5cf6;"></i>
                 <h6>Hard Pricing Rule</h6>
                 <p>AI never quotes specific dollar amounts over text. Pricing questions always redirect to a licensed advisor call.</p>
@@ -519,9 +502,9 @@
 </section>
 
 
-<!-- ═══ CTA ═══ -->
-<section class="s-section" style="padding-bottom: 100px;">
-    <div class="container">
+<!-- ═══ SECTION 10: CTA ═══ -->
+<section class="ios-snap-section auto-height" id="iosSection10" style="padding-bottom: 100px;">
+    <div class="container" style="width: 100%;">
         <div class="text-center" data-aos="fade-up">
             <div style="background: linear-gradient(135deg, rgba(0,255,136,0.06), rgba(0,217,255,0.04)); border: 1px solid rgba(0,255,136,0.15); border-radius: 24px; padding: 60px 40px; max-width: 720px; margin: 0 auto;">
                 <h2 style="font-weight: 900; font-size: 2rem; margin-bottom: 12px;">Let the AI Sell for You.</h2>
@@ -537,4 +520,34 @@
         </div>
     </div>
 </section>
+
+<script>
+(function() {
+    var dots = document.querySelectorAll('.ios-section-dot');
+    var sections = [];
+    dots.forEach(function(d) {
+        var idx = d.getAttribute('data-section');
+        var sec = document.getElementById('iosSection' + idx);
+        if (sec) sections.push(sec);
+        d.addEventListener('click', function() {
+            var target = document.getElementById('iosSection' + idx);
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+
+    function updateDots() {
+        var scrollTop = window.scrollY + window.innerHeight * 0.35;
+        var activeIdx = 0;
+        sections.forEach(function(s, i) {
+            if (s.offsetTop <= scrollTop) activeIdx = i;
+        });
+        dots.forEach(function(d, i) {
+            d.classList.toggle('active', i === activeIdx);
+        });
+    }
+
+    window.addEventListener('scroll', updateDots, { passive: true });
+    updateDots();
+})();
+</script>
 {% endblock %}

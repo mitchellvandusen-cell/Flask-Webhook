@@ -3,16 +3,34 @@
 {% block title %}InsuranceGrokBot vs. The Rest - Advanced AI Architecture{% endblock %}
 
 {% block content %}
-<div class="container" style="padding-top: 120px; padding-bottom: 80px;">
+<nav class="ios-section-dots" id="iosSectionDots">
+    <div class="ios-section-dot active" data-section="0" title="Hero"></div>
+    <div class="ios-section-dot" data-section="1" title="Feature Table"></div>
+    <div class="ios-section-dot" data-section="2" title="Platform Deep Dive"></div>
+    <div class="ios-section-dot" data-section="3" title="Architecture"></div>
+    <div class="ios-section-dot" data-section="4" title="Competition"></div>
+    <div class="ios-section-dot" data-section="5" title="Voice AI"></div>
+    <div class="ios-section-dot" data-section="6" title="Get Started"></div>
+</nav>
 
-    <div class="main-header" data-aos="fade-down">
-        <h1 class="main-title">Not Just AI. <span style="color: #00d9ff;">Engineered Intelligence.</span></h1>
-        <p class="subtitle">See the technical difference between a purpose-built sales system and generic chatbots.</p>
+<!-- Section 0: Hero -->
+<section class="ios-snap-section ios-hero" id="iosSection0">
+    <div class="container">
+        <div class="main-header" data-aos="fade-down" style="text-align: center;">
+            <span class="ios-section-label">Comparison</span>
+            <h1 class="ios-section-h2" style="font-size: 3rem;">Not Just AI. <span>Engineered Intelligence.</span></h1>
+            <p class="ios-section-sub">See the technical difference between a purpose-built sales system and generic chatbots.</p>
+        </div>
     </div>
+</section>
 
-
-    <!-- Detailed Comparison Table -->
-    <h3 class="competitor-section-title" data-aos="fade-up" style="margin-top: 60px;">Feature-by-Feature Breakdown</h3>
+<!-- Section 1: Feature-by-Feature Table (auto-height -- table is too tall for 100vh) -->
+<section class="ios-snap-section auto-height" id="iosSection1">
+    <div class="container">
+        <div class="text-center" data-aos="fade-up" style="margin-bottom: 32px;">
+            <span class="ios-section-label ios-section-label--accent">Feature Comparison</span>
+            <h2 class="ios-section-h2">Feature-by-Feature <span>Breakdown</span></h2>
+        </div>
 
     <div class="mkt-inset-glass" data-aos="fade-up" style="overflow-x: auto; padding: 0;">
         <table style="width: 100%; border-collapse: collapse; min-width: 1400px;">
@@ -174,6 +192,17 @@
             </tbody>
         </table>
     </div>
+
+    </div>
+</section>
+
+<!-- Section 2: Platform Deep Dive (auto-height -- has many feature cards + screenshots) -->
+<section class="ios-snap-section auto-height" id="iosSection2">
+    <div class="container">
+        <div class="text-center" data-aos="fade-up" style="margin-bottom: 32px;">
+            <span class="ios-section-label ios-section-label--pink">Platform Deep Dive</span>
+            <h2 class="ios-section-h2">InsuranceGrokBot <span>Under the Hood</span></h2>
+        </div>
 
     <!-- Hero Card - InsuranceGrokBot -->
     <div class="hero-card" data-aos="zoom-in">
@@ -450,13 +479,18 @@
         </div>
     </div>
 
-    <!-- Technical Architecture Overview -->
-    <div class="glass-card" data-aos="fade-up" style="margin-bottom: 40px; padding: 40px;">
-        <div style="text-align: center; margin-bottom: 30px;">
-            <span style="background: linear-gradient(135deg, #00d9ff, #0066ff); padding: 8px 20px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; letter-spacing: 0.5px;">PRODUCTION-GRADE ARCHITECTURE</span>
-        </div>
-        <h2 style="text-align: center; margin-bottom: 40px; font-size: 2rem;">Built for Scale, Reliability & Results</h2>
+    </div>
+</section>
 
+<!-- Section 3: Architecture / Built for Scale -->
+<section class="ios-snap-section" id="iosSection3">
+    <div class="container">
+        <div class="text-center" style="margin-bottom: 32px;">
+            <span class="ios-section-label ios-section-label--purple">Architecture</span>
+            <h2 class="ios-section-h2">Built for Scale, <span>Reliability & Results</span></h2>
+        </div>
+
+        <div class="glass-card" data-aos="fade-up" style="padding: 40px;">
         <div class="row">
             <div class="col-md-4 mb-4">
                 <div style="text-align: center;">
@@ -488,7 +522,18 @@
                 </div>
             </div>
         </div>
+        </div>
     </div>
+</section>
+
+<!-- Section 4: The Competition (auto-height -- multiple carousel rows) -->
+<section class="ios-snap-section auto-height" id="iosSection4">
+    <div class="container">
+        <div class="text-center" data-aos="fade-up" style="margin-bottom: 32px;">
+            <span class="ios-section-label ios-section-label--orange">The Competition</span>
+            <h2 class="ios-section-h2">How the Competition <span>Stacks Up</span></h2>
+            <p class="ios-section-sub">Spoiler: nobody does it all.</p>
+        </div>
 
     <!-- The Competition -->
     <h3 class="competitor-section-title" data-aos="fade-up" style="margin-top: 60px;">
@@ -731,6 +776,12 @@
         </div>
     </div>
 
+    </div>
+</section>
+
+<!-- Section 5: Voice AI Agent -->
+<section class="ios-snap-section auto-height" id="iosSection5">
+    <div class="container">
     <!-- Voice AI Comparison Section -->
     <div class="glass-card" data-aos="fade-up" style="margin-top: 60px; margin-bottom: 40px; padding: 40px;">
         <div style="text-align: center; margin-bottom: 30px;">
@@ -854,6 +905,12 @@
         </div>
     </div>
 
+    </div>
+</section>
+
+<!-- Section 6: The 1-of-1 + CTA -->
+<section class="ios-snap-section" id="iosSection6">
+    <div class="container">
     <!-- The 1-of-1 Statement -->
     <div class="mkt-glass-card" data-aos="zoom-in" style="margin-top: 50px; text-align: center; padding: 40px; border: 2px solid rgba(0,255,136,0.3);">
         <div style="font-size: 3rem; margin-bottom: 15px;">
@@ -899,7 +956,8 @@
         * Technical specifications and comparison data as of March 2026. InsuranceGrokBot uses Grok-4.1 Fast Reasoning as the base model with specialized insurance training and production infrastructure. Unlimited minutes apply to human-to-human dialing only (5,000 connected minutes/month fair-use; overage at $0.02/min). AI Voice Agent calls require AI Minutes purchased separately.
     </p>
 
-</div>
+    </div>
+</section>
 
 <style>
 /* Enhanced styles for comparison page */
@@ -1163,8 +1221,38 @@
     document.addEventListener('DOMContentLoaded', function() {
         initCompCarousel('carousel-ai-platforms', 4000);
         initCompCarousel('carousel-insurance-tools', 5000);
+        initCompCarousel('carousel-dialers', 4500);
         initCompCarousel('carousel-sales-tools', 4500);
     });
+})();
+
+/* iOS scroll-snap dot navigation */
+(function() {
+    var dots = document.querySelectorAll('.ios-section-dot');
+    var sections = [];
+    dots.forEach(function(d) {
+        var idx = d.getAttribute('data-section');
+        var sec = document.getElementById('iosSection' + idx);
+        if (sec) sections.push(sec);
+        d.addEventListener('click', function() {
+            var target = document.getElementById('iosSection' + idx);
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+
+    function updateDots() {
+        var scrollTop = window.scrollY + window.innerHeight * 0.35;
+        var activeIdx = 0;
+        sections.forEach(function(s, i) {
+            if (s.offsetTop <= scrollTop) activeIdx = i;
+        });
+        dots.forEach(function(d, i) {
+            d.classList.toggle('active', i === activeIdx);
+        });
+    }
+
+    window.addEventListener('scroll', updateDots, { passive: true });
+    updateDots();
 })();
 </script>
 {% endblock %}

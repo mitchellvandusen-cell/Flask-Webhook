@@ -1476,6 +1476,8 @@ def cnam_monitor():
     """
     CNAM Status Monitor — shows each number's current CNAM name,
     propagation status, and allows inline editing.
+
+    Auto-discovers CNAM Trust Product from Twilio if not in local DB.
     """
     subscriber, vc, sub_sid = _get_current_subscriber_voice()
     if not sub_sid:
@@ -1484,6 +1486,28 @@ def cnam_monitor():
     trust_hub = (vc or {}).get('trust_hub', {})
     business_name = trust_hub.get('business_name', '')
     cnam = (vc or {}).get('cnam', {})
+
+    # ── Auto-discover: if no trust_product_sid in local DB, check Twilio ──
+    if not cnam.get('trust_product_sid'):
+        sub_auth_token = (vc or {}).get('twilio_auth_token', '')
+        try:
+            discovered = twilio_provisioning.discover_cnam_trust_product(
+                sub_account_sid=sub_sid,
+                sub_account_auth_token=sub_auth_token,
+            )
+            if discovered:
+                cnam['trust_product_sid'] = discovered['trust_product_sid']
+                cnam['status'] = discovered['status']
+                cnam['assigned_numbers'] = discovered.get('assigned_numbers', [])
+                cnam['_sub_sid'] = sub_sid
+                if discovered.get('cnam_display_name'):
+                    cnam['cnam_display_name'] = discovered['cnam_display_name']
+                vc['cnam'] = cnam
+                _save_voice_config(current_user.email, vc)
+                logger.info(f"[CNAM] Auto-discovered and synced Trust Product {discovered['trust_product_sid']}")
+        except Exception as e:
+            logger.warning(f"[CNAM] Auto-discovery failed: {e}")
+
     cnam_display_name = cnam.get('cnam_display_name', business_name[:15].strip() if business_name else '')
 
     numbers = twilio_provisioning.get_cnam_monitor(sub_sid)
@@ -1492,7 +1516,7 @@ def cnam_monitor():
     nicknames = (vc or {}).get('number_nicknames', {})
     assigned_to_tp = set(cnam.get('assigned_numbers', []))
 
-    # CNAM Trust Product status determines compliance
+    # CNAM Trust Product status determines registration
     cnam_tp_approved = cnam.get('status', '') in ('twilio-approved', 'approved')
 
     result = []
@@ -1501,7 +1525,7 @@ def cnam_monitor():
         friendly = n.get('friendly_name', '')
         sid = n.get('sid', '')
         in_tp = sid in assigned_to_tp
-        # Compliant = assigned to an approved CNAM Trust Product
+        # Registered = assigned to an approved CNAM Trust Product
         compliant = in_tp and cnam_tp_approved
         result.append({
             "phone": phone,

@@ -4,10 +4,23 @@
 
 {% block content %}
 
+<!-- ── Side Dots Navigation ── -->
+<nav class="ios-section-dots" id="iosSectionDots">
+    <div class="ios-section-dot active" data-section="0" title="Hero"></div>
+    <div class="ios-section-dot" data-section="1" title="Three Products"></div>
+    <div class="ios-section-dot" data-section="2" title="Lead Intelligence"></div>
+    <div class="ios-section-dot" data-section="3" title="Insurance Intelligence"></div>
+    <div class="ios-section-dot" data-section="4" title="Voice AI"></div>
+    <div class="ios-section-dot" data-section="5" title="Dialing Engine"></div>
+    <div class="ios-section-dot" data-section="6" title="How It Works"></div>
+    <div class="ios-section-dot" data-section="7" title="Why Switch"></div>
+    <div class="ios-section-dot" data-section="8" title="Pricing"></div>
+</nav>
 
-<!-- ═══ HERO ═══ -->
-<section class="ind-hero">
-    <div class="container" style="position: relative; z-index: 2;">
+
+<!-- ═══ SECTION 0: HERO ═══ -->
+<section class="ios-snap-section ios-hero" id="iosSection0">
+    <div class="container" style="position: relative; z-index: 2; width: 100%;">
         <div class="text-center" data-aos="fade-up">
             <span class="ind-tag">Built for Solo Agents</span>
             <h1 class="ind-h1">Your Outbound AI Engine.<br><span>Dials. Texts. Books.</span></h1>
@@ -23,7 +36,7 @@
 
         <div class="ind-stats" data-aos="fade-up" data-aos-delay="200">
             <div class="ind-stat"><div class="metallic-stat">270+</div><div class="lbl">Carriers Known</div></div>
-            <div class="ind-stat"><div class="metallic-stat metallic-stat--cyan">&infin;</div><div class="lbl">Minutes Included</div></div>
+            <div class="ind-stat"><div class="metallic-stat metallic-stat--cyan">&infin;</div><div class="lbl">Human Dialing Minutes</div></div>
             <div class="ind-stat"><div class="metallic-stat" style="--metallic-from:#e91e63;--metallic-to:#ff6b9d;">5</div><div class="lbl">Sales Frameworks</div></div>
             <div class="ind-stat"><div class="metallic-stat" style="--metallic-from:#8b5cf6;--metallic-to:#a78bfa;">7</div><div class="lbl">CRM Integrations</div></div>
             <div class="ind-stat"><div class="metallic-stat">24/7</div><div class="lbl">AI Coverage</div></div>
@@ -32,12 +45,13 @@
 </section>
 
 
-<!-- ═══ THREE PILLARS ═══ -->
-<section class="i-section">
-    <div class="container">
+<!-- ═══ SECTION 1: THREE PILLARS ═══ -->
+<section class="ios-snap-section" id="iosSection1">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h2 class="mkt-h2">Three Products. <span style="color: var(--accent);">One Subscription.</span></h2>
-            <p class="mkt-body" style="max-width: 560px; margin: 8px auto 0;">Everything you need to run a high-volume outbound operation — AI texting, power dialing, and autonomous voice — in a single platform.</p>
+            <span class="ios-section-label ios-section-label--accent">The Platform</span>
+            <h2 class="ios-section-h2">Three Products. <span>One Subscription.</span></h2>
+            <p class="ios-section-sub">Everything you need to run a high-volume outbound operation — AI texting, power dialing, and autonomous voice — in a single platform.</p>
         </div>
 
         <div class="pillar-grid" data-aos="fade-up">
@@ -84,21 +98,19 @@
 </section>
 
 
-<!-- ═══ LEAD INTELLIGENCE ═══ -->
-<section class="i-section">
-    <div class="container">
-        <div class="ifb-grid" data-aos="fade-up">
+<!-- ═══ SECTION 2: LEAD INTELLIGENCE ═══ -->
+<section class="ios-snap-section" id="iosSection2">
+    <div class="container" style="width: 100%;">
+        <div class="ios-feat-grid" data-aos="fade-up">
             <div>
-                <div class="ifb-icon mkt-icon-box--cyan">
-                    <i class="fa-solid fa-crosshairs" style="color: #00d9ff;"></i>
-                </div>
-                <h2 style="font-weight: 900; font-size: 1.8rem; margin-bottom: 8px;">Dial in Priority Order. Every Time.</h2>
+                <span class="ios-section-label">Lead Intelligence</span>
+                <h2 class="ios-section-h2">Dial in Priority Order. <span>Every Time.</span></h2>
                 <p style="color: #888; font-size: 0.95rem; line-height: 1.7;">
                     Every contact in your outbound list gets an AI-powered intelligence score before you dial.
                     The AI reads the full conversation history and tells you exactly who's hot, who's worth
                     calling back today, and who to skip — so you spend your dial time on contacts that convert.
                 </p>
-                <ul class="ifb-list">
+                <ul class="ios-feat-list">
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> AI scores every contact 0-100</li>
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Temperature rating: Hot, Warm, Cool, Cold</li>
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> "Should Respond" flag — who's waiting for you</li>
@@ -141,21 +153,19 @@
 </section>
 
 
-<!-- ═══ INSURANCE INTELLIGENCE ═══ -->
-<section class="i-section">
-    <div class="container">
-        <div class="ifb-grid reverse" data-aos="fade-up">
+<!-- ═══ SECTION 3: INSURANCE INTELLIGENCE ═══ -->
+<section class="ios-snap-section" id="iosSection3">
+    <div class="container" style="width: 100%;">
+        <div class="ios-feat-grid reverse" data-aos="fade-up">
             <div>
-                <div class="ifb-icon mkt-icon-box--accent">
-                    <i class="fa-solid fa-building-columns" style="color: var(--accent);"></i>
-                </div>
-                <h2 style="font-weight: 900; font-size: 1.8rem; margin-bottom: 8px;">Built for Insurance. Period.</h2>
+                <span class="ios-section-label ios-section-label--accent">Insurance Intelligence</span>
+                <h2 class="ios-section-h2">Built for Insurance. <span>Period.</span></h2>
                 <p style="color: #888; font-size: 0.95rem; line-height: 1.7;">
                     This isn't a generic chatbot with an insurance template. The AI knows 270+ carriers,
                     understands term, whole, IUL, final expense, and knows underwriting rules.
                     It only references the carriers you're contracted with.
                 </p>
-                <ul class="ifb-list">
+                <ul class="ios-feat-list">
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> 270+ carrier names + aliases recognized</li>
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Deep product knowledge: term, whole, IUL, FE</li>
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Live underwriting rules from carrier data</li>
@@ -178,77 +188,79 @@
 </section>
 
 
-<!-- ═══ VOICE AI AGENT ═══ -->
-<section class="i-section">
-    <div class="container">
+<!-- ═══ SECTION 4: VOICE AI ═══ -->
+<section class="ios-snap-section" id="iosSection4">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <span class="mkt-section-label" style="color: #e91e63;">Voice AI Agent</span>
-            <h2 class="mkt-h2" style="margin-top: 8px;">The AI Dials Out. <span style="color: #e91e63;">You Take the Wheel When It's Hot.</span></h2>
-            <p class="mkt-body" style="max-width: 640px; margin: 8px auto 0;">Powered by xAI's Grok speech-to-speech. Zero transcription delay. The AI cold-calls your list, qualifies prospects, handles objections, and books appointments on the call. You monitor live and intercept the second it's closing time.</p>
+            <span class="ios-section-label ios-section-label--pink">Voice AI Agent</span>
+            <h2 class="ios-section-h2">The AI Dials Out. <span style="background: linear-gradient(135deg, #e91e63, #ff6b9d); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">You Take the Wheel When It's Hot.</span></h2>
+            <p class="ios-section-sub">Powered by xAI's Grok speech-to-speech. Zero transcription delay. The AI cold-calls your list, qualifies prospects, handles objections, and books appointments on the call. You monitor live and intercept the second it's closing time.</p>
         </div>
 
         <div class="d-grid gap-3" style="grid-template-columns:1fr 1fr; max-width:800px; margin:0 auto; display:grid;" data-aos="fade-up">
-            <div class="mock-panel">
-                <h5 class="text-pink fw-bold mb-2"><i class="fa-solid fa-robot me-2"></i>AI Mode</h5>
-                <p class="mkt-feat-sub mb-0" style="font-size:0.88rem;">The AI dials the call, qualifies the prospect, handles objections, and books — all autonomously. You monitor live and intercept with one click the moment it's time to close.</p>
+            <div class="mkt-glass-card" style="text-align: center;">
+                <i class="fa-solid fa-robot" style="color: #e91e63; font-size: 1.6rem; margin-bottom: 12px; display: block;"></i>
+                <h5 style="color: #e91e63; font-weight: 800; margin-bottom: 8px;">AI Mode</h5>
+                <p class="mkt-body" style="font-size: 0.88rem;">The AI dials the call, qualifies the prospect, handles objections, and books — all autonomously. You monitor live and intercept with one click the moment it's time to close.</p>
             </div>
-            <div class="mock-panel">
-                <h5 class="text-cyan fw-bold mb-2"><i class="fa-solid fa-user me-2"></i>Human Mode</h5>
-                <p class="mkt-feat-sub mb-0" style="font-size:0.88rem;">Take every call yourself via browser VoIP or phone transfer. The AI stays out of the way — but the dialer still auto-retries and tracks everything.</p>
+            <div class="mkt-glass-card mkt-glass-card--cyan" style="text-align: center;">
+                <i class="fa-solid fa-headset" style="color: #00d9ff; font-size: 1.6rem; margin-bottom: 12px; display: block;"></i>
+                <h5 style="color: #00d9ff; font-weight: 800; margin-bottom: 8px;">Human Mode</h5>
+                <p class="mkt-body" style="font-size: 0.88rem;">Take every call yourself via browser VoIP or phone transfer. The AI stays out of the way — but the dialer still auto-retries and tracks everything.</p>
             </div>
         </div>
-        <div class="text-center mt-3" data-aos="fade-up">
-            <p style="color: #666; font-size: 0.85rem;"><strong>7 voice personalities</strong> &bull; Outbound-First &bull; Unlimited minutes included</p>
+        <div class="text-center mt-4" data-aos="fade-up">
+            <p style="color: #666; font-size: 0.85rem;"><strong>7 voice personalities</strong> &bull; Outbound-First &bull; Unlimited minutes included for Human to Human dialing</p>
         </div>
     </div>
 </section>
 
 
-<!-- ═══ DIALING ENGINE ═══ -->
-<section class="i-section">
-    <div class="container">
+<!-- ═══ SECTION 5: DIALING ENGINE ═══ -->
+<section class="ios-snap-section" id="iosSection5">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <span class="mkt-section-label" style="color: #00d9ff;">Dialing Engine</span>
-            <h2 class="mkt-h2" style="margin-top: 8px;">Load Your List. Hit Dial. <span style="color: #00d9ff;">The Machine Does the Rest.</span></h2>
+            <span class="ios-section-label">Dialing Engine</span>
+            <h2 class="ios-section-h2">Load Your List. Hit Dial. <span>The Machine Does the Rest.</span></h2>
         </div>
 
-        <div class="icap-grid" data-aos="fade-up">
-            <div class="icap-item">
+        <div class="ios-cap-grid" data-aos="fade-up">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-layer-group" style="color: #00d9ff;"></i>
                 <h6>Queue Dialing</h6>
                 <p>Add one contact, a batch, or your entire list. Auto-advances with configurable retry.</p>
             </div>
-            <div class="icap-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-rotate-right" style="color: var(--accent);"></i>
                 <h6>Auto-Retry</h6>
                 <p>No answer? The dialer redials up to 3x automatically with voicemail detection.</p>
             </div>
-            <div class="icap-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-voicemail" style="color: #e91e63;"></i>
                 <h6>Voicemail Detection</h6>
                 <p>AI-based detection catches voicemail instantly on first word. Skips and moves on.</p>
             </div>
-            <div class="icap-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-microphone-lines" style="color: #00d9ff;"></i>
                 <h6>Recording + Transcription</h6>
                 <p>Every call recorded. On-demand AI transcription via Whisper.</p>
             </div>
-            <div class="icap-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-shuffle" style="color: var(--accent);"></i>
                 <h6>Smart Number Rotation</h6>
                 <p>Per-number health scores, geo-routing, auto-rest for burned numbers.</p>
             </div>
-            <div class="icap-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-map-location-dot" style="color: #00d9ff;"></i>
                 <h6>State Geo-Routing</h6>
                 <p>Calls route through matching local presence numbers by area code.</p>
             </div>
-            <div class="icap-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-calendar-check" style="color: #e91e63;"></i>
                 <h6>Live Calendar Booking</h6>
                 <p>The AI books directly to your calendar mid-call. Confirmed while they're on the phone.</p>
             </div>
-            <div class="icap-item">
+            <div class="ios-cap-item">
                 <i class="fa-solid fa-infinity" style="color: var(--accent);"></i>
                 <h6>Unlimited Minutes*</h6>
                 <p>Unlimited human-to-human dialing. AI calls use AI Minutes.</p>
@@ -258,46 +270,63 @@
 </section>
 
 
-<!-- ═══ HOW IT WORKS ═══ -->
-<section class="i-section">
-    <div class="container">
-        <div class="text-center mb-4" data-aos="fade-up">
-            <span class="mkt-section-label">How It Works</span>
-            <h2 class="mkt-h2" style="margin-top: 8px;">Live in <span style="color: var(--accent);">10 Minutes</span></h2>
+<!-- ═══ SECTION 6: HOW IT WORKS ═══ -->
+<section class="ios-snap-section" id="iosSection6">
+    <div class="container" style="width: 100%;">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <span class="ios-section-label ios-section-label--accent">Getting Started</span>
+            <h2 class="ios-section-h2">Live in <span>10 Minutes</span></h2>
+            <p class="ios-section-sub">No onboarding calls. No 30-day implementation. Subscribe, connect, configure, go.</p>
         </div>
 
-        <div class="hiw-steps" data-aos="fade-up">
-            <div class="hiw-step">
-                <div class="hiw-num">1</div>
-                <h6 style="font-weight: 700; color: #fff; margin-bottom: 4px;">Subscribe</h6>
-                <p style="color: #777; font-size: 0.82rem; margin: 0;">Complete checkout. Your account is created instantly.</p>
+        <div class="mkt-inset-glass" style="padding: 0;" data-aos="fade-up">
+            <div class="hiw-steps" style="gap: 1px; background: rgba(255,255,255,0.06); border-radius: 16px; overflow: hidden;">
+                <div class="hiw-step" style="border: none; border-radius: 0; background: #0a0a0a;">
+                    <div class="hiw-num">1</div>
+                    <h6 style="font-weight: 700; color: #fff; margin-bottom: 4px;">Subscribe</h6>
+                    <p style="color: #777; font-size: 0.82rem; margin: 0;">Complete checkout. Your account is created instantly.</p>
+                </div>
+                <div class="hiw-step" style="border: none; border-radius: 0; background: #0a0a0a;">
+                    <div class="hiw-num">2</div>
+                    <h6 style="font-weight: 700; color: #fff; margin-bottom: 4px;">Connect CRM</h6>
+                    <p style="color: #777; font-size: 0.82rem; margin: 0;">One-click OAuth for LeadConnector. API keys for 6 more CRMs.</p>
+                </div>
+                <div class="hiw-step" style="border: none; border-radius: 0; background: #0a0a0a;">
+                    <div class="hiw-num">3</div>
+                    <h6 style="font-weight: 700; color: #fff; margin-bottom: 4px;">Configure</h6>
+                    <p style="color: #777; font-size: 0.82rem; margin: 0;">Pick your carriers, tone, and calendar. The AI adapts to you.</p>
+                </div>
+                <div class="hiw-step" style="border: none; border-radius: 0; background: #0a0a0a;">
+                    <div class="hiw-num">4</div>
+                    <h6 style="font-weight: 700; color: #fff; margin-bottom: 4px;">You're Live</h6>
+                    <p style="color: #777; font-size: 0.82rem; margin: 0;">AI starts handling leads. Text, call, book — automatically.</p>
+                </div>
             </div>
-            <div class="hiw-step">
-                <div class="hiw-num">2</div>
-                <h6 style="font-weight: 700; color: #fff; margin-bottom: 4px;">Connect CRM</h6>
-                <p style="color: #777; font-size: 0.82rem; margin: 0;">One-click OAuth for LeadConnector. API keys for 6 more CRMs.</p>
-            </div>
-            <div class="hiw-step">
-                <div class="hiw-num">3</div>
-                <h6 style="font-weight: 700; color: #fff; margin-bottom: 4px;">Configure</h6>
-                <p style="color: #777; font-size: 0.82rem; margin: 0;">Pick your carriers, tone, and calendar. The AI adapts to you.</p>
-            </div>
-            <div class="hiw-step">
-                <div class="hiw-num">4</div>
-                <h6 style="font-weight: 700; color: #fff; margin-bottom: 4px;">You're Live</h6>
-                <p style="color: #777; font-size: 0.82rem; margin: 0;">AI starts handling leads. Text, call, book — automatically.</p>
+        </div>
+
+        <!-- CRM Bar -->
+        <div class="text-center mt-5" data-aos="fade-up">
+            <p style="color: #555; font-size: 0.82rem; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 16px;">Works with your CRM</p>
+            <div class="crm-bar">
+                <div class="crm-chip"><i class="fa-solid fa-bolt" style="color: var(--accent);"></i>LeadConnector</div>
+                <div class="crm-chip"><i class="fa-solid fa-cloud" style="color: #03a9f4;"></i>Salesforce</div>
+                <div class="crm-chip"><i class="fa-solid fa-h" style="color: #ff5722;"></i>HubSpot</div>
+                <div class="crm-chip"><i class="fa-solid fa-filter" style="color: #4caf50;"></i>Pipedrive</div>
+                <div class="crm-chip"><i class="fa-solid fa-z" style="color: #ffc107;"></i>Zoho CRM</div>
+                <div class="crm-chip"><i class="fa-solid fa-plug" style="color: #9c27b0;"></i>Zapier</div>
+                <div class="crm-chip"><i class="fa-solid fa-shield-halved" style="color: #607d8b;"></i>Insureio</div>
             </div>
         </div>
     </div>
 </section>
 
 
-<!-- ═══ WHY AGENTS SWITCH ═══ -->
-<section class="i-section">
-    <div class="container">
+<!-- ═══ SECTION 7: WHY SWITCH ═══ -->
+<section class="ios-snap-section" id="iosSection7">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <span class="mkt-section-label">Why Switch</span>
-            <h2 class="mkt-h2" style="margin-top: 8px;">Why Outbound Agents <span style="color: var(--accent);">Switch to IGB</span></h2>
+            <span class="ios-section-label ios-section-label--purple">Why Switch</span>
+            <h2 class="ios-section-h2">Why Outbound Agents <span>Switch to IGB</span></h2>
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;" data-aos="fade-up">
@@ -321,31 +350,13 @@
 </section>
 
 
-<!-- ═══ CRM BAR ═══ -->
-<section class="i-section" style="padding-bottom: 40px;">
-    <div class="container">
-        <div class="text-center" data-aos="fade-up">
-            <p style="color: #555; font-size: 0.82rem; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 16px;">Works with your CRM</p>
-            <div class="crm-bar">
-                <div class="crm-chip"><i class="fa-solid fa-bolt" style="color: var(--accent);"></i>LeadConnector</div>
-                <div class="crm-chip"><i class="fa-solid fa-cloud" style="color: #03a9f4;"></i>Salesforce</div>
-                <div class="crm-chip"><i class="fa-solid fa-h" style="color: #ff5722;"></i>HubSpot</div>
-                <div class="crm-chip"><i class="fa-solid fa-filter" style="color: #4caf50;"></i>Pipedrive</div>
-                <div class="crm-chip"><i class="fa-solid fa-z" style="color: #ffc107;"></i>Zoho CRM</div>
-                <div class="crm-chip"><i class="fa-solid fa-plug" style="color: #9c27b0;"></i>Zapier</div>
-                <div class="crm-chip"><i class="fa-solid fa-shield-halved" style="color: #607d8b;"></i>Insureio</div>
-            </div>
-        </div>
-    </div>
-</section>
-
-
-<!-- ═══ PRICING ═══ -->
-<section id="individual-pricing" class="i-section">
-    <div class="container">
+<!-- ═══ SECTION 8: PRICING ═══ -->
+<section class="ios-snap-section auto-height" id="iosSection8" style="padding-bottom: 60px;">
+    <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h2 class="mkt-h2">Simple <span style="color: var(--accent);">Pricing</span></h2>
-            <p class="mkt-body">Everything included. No per-minute charges. No hidden fees.</p>
+            <span class="ios-section-label ios-section-label--accent">Pricing</span>
+            <h2 class="ios-section-h2">Simple <span>Pricing</span></h2>
+            <p class="ios-section-sub">Everything included. No per-minute charges. No hidden fees.</p>
         </div>
 
         <div class="ind-price-grid" data-aos="fade-up" style="padding-top: 16px;">
@@ -364,7 +375,7 @@
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Number rotation & geo-routing</li>
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> 270+ carrier recognition</li>
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> 5 elite sales frameworks</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Unlimited minutes* included</li>
+                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Unlimited human-to-human minutes*</li>
                 </ul>
                 <a href="/checkout" class="btn btn-primary w-100 py-3" style="font-weight: 700;">Start Free Trial</a>
             </div>
@@ -384,7 +395,7 @@
                     <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Multi-call status dashboard</li>
                     <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Priority queue processing</li>
                     <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Configurable dialer settings</li>
-                    <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Unlimited minutes* included</li>
+                    <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Unlimited human-to-human minutes*</li>
                 </ul>
                 <a href="/checkout/pro-dialer" class="btn btn-gradient-orange w-100 py-3" style="font-weight: 700;">Start Free Trial</a>
             </div>
@@ -397,15 +408,10 @@
             </p>
             <a href="/for-agencies" style="color: #00d9ff; font-weight: 600; font-size: 0.88rem; margin-top: 12px; display: inline-block;">Managing a team? See Agency Plans <i class="fa-solid fa-arrow-right ms-1" style="font-size: 0.75rem;"></i></a>
         </div>
-    </div>
-</section>
 
-
-<!-- ═══ CTA ═══ -->
-<section class="i-section" style="padding-bottom: 100px;">
-    <div class="container">
-        <div class="text-center" data-aos="fade-up">
-            <div class="mkt-glass-card" style="padding: 60px 40px; max-width: 720px; margin: 0 auto;">
+        <!-- Final CTA -->
+        <div class="text-center mt-5" data-aos="fade-up">
+            <div class="mkt-glass-card" style="padding: 56px 40px; max-width: 720px; margin: 0 auto;">
                 <h2 style="font-weight: 900; font-size: 2rem; margin-bottom: 12px;">Start Dialing Smarter Today.</h2>
                 <p style="color: #888; font-size: 0.95rem; max-width: 480px; margin: 0 auto 24px;">
                     AI-powered outbound that dials your list, texts your leads, and books your calendar — 24/7.
@@ -418,4 +424,34 @@
         </div>
     </div>
 </section>
+
+<script>
+(function() {
+    var dots = document.querySelectorAll('.ios-section-dot');
+    var sections = [];
+    dots.forEach(function(d) {
+        var idx = d.getAttribute('data-section');
+        var sec = document.getElementById('iosSection' + idx);
+        if (sec) sections.push(sec);
+        d.addEventListener('click', function() {
+            var target = document.getElementById('iosSection' + idx);
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+
+    function updateDots() {
+        var scrollTop = window.scrollY + window.innerHeight * 0.35;
+        var activeIdx = 0;
+        sections.forEach(function(s, i) {
+            if (s.offsetTop <= scrollTop) activeIdx = i;
+        });
+        dots.forEach(function(d, i) {
+            d.classList.toggle('active', i === activeIdx);
+        });
+    }
+
+    window.addEventListener('scroll', updateDots, { passive: true });
+    updateDots();
+})();
+</script>
 {% endblock %}
