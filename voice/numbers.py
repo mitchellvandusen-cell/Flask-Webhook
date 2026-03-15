@@ -48,6 +48,40 @@ def _count_current_numbers(sub_sid: str) -> int:
         return 0
 
 
+def _location_for_sub(sub_sid: str) -> str:
+    """Look up location_id for a Twilio sub-account SID. Best-effort."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT location_id FROM subscribers WHERE voice_config->>'twilio_sub_account_sid' = %s LIMIT 1",
+                (sub_sid,),
+            )
+            row = cur.fetchone()
+            return row[0] if row else ""
+    except Exception:
+        return ""
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
+def _log_number_event(sub_sid, event_type, status, summary, details=None):
+    """Log a voice/number operation to webhook_logs with best-effort location_id."""
+    try:
+        location_id = _location_for_sub(sub_sid)
+        log_webhook_event(
+            location_id=location_id,
+            event_type=event_type,
+            status=status,
+            summary=summary,
+            details=details or {},
+        )
+    except Exception as e:
+        logger.warning(f"Failed to log {event_type}: {e}")
+
+
 # ── Phone Number CRUD ─────────────────────────────────────────────────────
 
 
@@ -198,6 +232,11 @@ def _provision_number(sub_sid, vc, phone_number):
         from number_health import invalidate_live_numbers_cache
         invalidate_live_numbers_cache(sub_sid)
 
+        # Log successful purchase
+        _log_number_event(sub_sid, "phone_number_purchased", "success",
+                          f"Phone number purchased: {purchased_phone}",
+                          {"phone": purchased_phone, "sid": purchased_sid})
+
         return jsonify({
             "status": "purchased",
             "phone": purchased_phone,
@@ -206,6 +245,15 @@ def _provision_number(sub_sid, vc, phone_number):
 
     except Exception as e:
         logger.error(f"Number purchase failed: {e}")
+        _log_number_event(sub_sid, "phone_number_purchased", "error",
+                          f"Phone number purchase failed: {phone_number}",
+                          {"phone": phone_number, "error": str(e)})
+        save_persistent_alert(
+            email=current_user.email, location_id=_location_for_sub(sub_sid),
+            alert_type="phone_purchase_failed", severity="error",
+            title="Phone Number Purchase Failed",
+            message=f"Failed to purchase {phone_number}. Please try again or contact support.",
+        )
         return jsonify({"error": str(e)}), 500
 
 
@@ -460,6 +508,16 @@ def complete_cart_purchase():
             errors.append(f"{phone}: {str(e)}")
 
     logger.info(f"Cart purchase complete: {provisioned} provisioned, {len(errors)} errors for {current_user.email}")
+    _log_number_event(sub_sid, "phone_number_cart_purchased", "success" if not errors else "partial",
+                      f"Cart purchase: {provisioned} purchased, {len(errors)} failed",
+                      {"provisioned": provisioned, "errors": errors})
+    if errors:
+        save_persistent_alert(
+            email=current_user.email, location_id=_location_for_sub(sub_sid),
+            alert_type="phone_purchase_failed", severity="warning",
+            title="Some Numbers Failed to Purchase",
+            message=f"{provisioned} numbers purchased, {len(errors)} failed. Check your Logs for details.",
+        )
     return jsonify({
         "provisioned": provisioned,
         "errors": errors,
@@ -488,11 +546,20 @@ def release_voice_number():
             # Invalidate live numbers cache so smart rotation stops using this number
             from number_health import invalidate_live_numbers_cache
             invalidate_live_numbers_cache(sub_sid)
+            _log_number_event(sub_sid, "phone_number_released", "success",
+                              f"Phone number released: {phone_sid}",
+                              {"sid": phone_sid})
             return jsonify({"status": "released"})
+        _log_number_event(sub_sid, "phone_number_released", "error",
+                          f"Phone number release failed: {phone_sid}",
+                          {"sid": phone_sid, "error": "Release returned false"})
         return jsonify({"error": "Release failed"}), 400
 
     except Exception as e:
         logger.error(f"Number release failed: {e}")
+        _log_number_event(sub_sid, "phone_number_released", "error",
+                          f"Phone number release failed: {phone_sid}",
+                          {"sid": phone_sid, "error": str(e)})
         return jsonify({"error": str(e)}), 500
 
 
@@ -1436,7 +1503,14 @@ def cnam_update():
 
     result = twilio_provisioning.update_cnam_for_number(sub_sid, number_sid, cnam_name)
     if result.get('status') == 'ok':
+        _log_number_event(sub_sid, "cnam_updated", "success",
+                          f"Caller ID updated: {cnam_name}",
+                          {"number_sid": number_sid, "cnam_name": cnam_name})
         return jsonify(result)
+    _log_number_event(sub_sid, "cnam_updated", "error",
+                      f"Caller ID update failed for {number_sid}",
+                      {"number_sid": number_sid, "cnam_name": cnam_name,
+                       "error": result.get('error', 'Unknown')})
     return jsonify(result), 500
 
 
@@ -1468,6 +1542,10 @@ def cnam_update_all():
             else:
                 failed += 1
 
+    _log_number_event(sub_sid, "cnam_update_all", "success" if not failed else "partial",
+                      f"Caller ID bulk update: {updated} updated, {failed} failed",
+                      {"cnam_name": cnam_name, "updated": updated, "failed": failed,
+                       "already_set": len(numbers) - updated - failed})
     return jsonify({
         "status": "ok",
         "cnam_name": cnam_name,
@@ -1666,6 +1744,12 @@ def cnam_add_numbers():
         vc['cnam'] = cnam
         _save_voice_config(current_user.email, vc)
 
+        _log_number_event(sub_sid, "cnam_numbers_added", "success",
+                          f"Caller ID: {result.get('assigned', 0)} numbers added",
+                          {"assigned": result.get('assigned', 0),
+                           "failed_count": len(result.get('failed', [])),
+                           "total": len(existing)})
+
         return jsonify({
             "status": "ok",
             "added": result.get('assigned', 0),
@@ -1674,6 +1758,9 @@ def cnam_add_numbers():
         })
     except Exception as e:
         logger.error(f"[CNAM] Add numbers failed: {e}")
+        _log_number_event(sub_sid, "cnam_numbers_added", "error",
+                          f"Caller ID: failed to add numbers",
+                          {"error": str(e)})
         return jsonify({"error": str(e)}), 500
 
 
@@ -1714,6 +1801,10 @@ def cnam_remove_number():
             vc['cnam'] = cnam
             _save_voice_config(current_user.email, vc)
 
+        _log_number_event(sub_sid, "cnam_number_removed", "success",
+                          f"Caller ID: number removed",
+                          {"phone_sid": phone_number_sid, "total": len(assigned)})
+
         return jsonify({
             "status": "ok",
             "removed": result.get('removed', 0),
@@ -1721,6 +1812,9 @@ def cnam_remove_number():
         })
     except Exception as e:
         logger.error(f"[CNAM] Remove number failed: {e}")
+        _log_number_event(sub_sid, "cnam_number_removed", "error",
+                          f"Caller ID: failed to remove number",
+                          {"phone_sid": phone_number_sid, "error": str(e)})
         return jsonify({"error": str(e)}), 500
 
 
@@ -2076,6 +2170,12 @@ def number_integrity_add_numbers():
         vc['number_integrity'] = ni
         _save_voice_config(current_user.email, vc)
 
+        _log_number_event(sub_sid, "voice_integrity_numbers_added", "success",
+                          f"Voice Integrity: {result.get('assigned', 0)} numbers added",
+                          {"assigned": result.get('assigned', 0),
+                           "failed": len(result.get('failed', [])),
+                           "trust_product_sid": trust_product_sid})
+
         return jsonify({
             "status": "ok",
             "numbers_assigned": result.get('assigned', 0),
@@ -2084,6 +2184,9 @@ def number_integrity_add_numbers():
         })
     except Exception as e:
         logger.error(f"[NumberIntegrity] Add numbers failed: {e}", exc_info=True)
+        _log_number_event(sub_sid, "voice_integrity_numbers_added", "error",
+                          f"Voice Integrity: failed to add numbers",
+                          {"error": str(e), "trust_product_sid": trust_product_sid})
         return jsonify({"error": str(e)}), 500
 
 
@@ -2123,9 +2226,16 @@ def number_integrity_remove_number():
                 ni['assigned_count'] = len(assigned)
                 vc['number_integrity'] = ni
                 _save_voice_config(current_user.email, vc)
+        _log_number_event(sub_sid, "voice_integrity_number_removed",
+                          "success" if removed else "warning",
+                          f"Voice Integrity: number {'removed' if removed else 'not found'}",
+                          {"phone_sid": phone_sid, "removed": removed})
         return jsonify({"status": "ok", "removed": removed})
     except Exception as e:
         logger.error(f"[NumberIntegrity] Remove number failed: {e}", exc_info=True)
+        _log_number_event(sub_sid, "voice_integrity_number_removed", "error",
+                          f"Voice Integrity: failed to remove number",
+                          {"phone_sid": phone_sid, "error": str(e)})
         return jsonify({"error": str(e)}), 500
 
 

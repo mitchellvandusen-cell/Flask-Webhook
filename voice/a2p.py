@@ -7,7 +7,7 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 
 import twilio_provisioning
-from db import get_db_connection, return_db_connection
+from db import get_db_connection, return_db_connection, log_webhook_event, save_persistent_alert
 from voice.helpers import _get_current_subscriber_voice, _save_voice_config
 
 logger = logging.getLogger("voice_bridge.a2p")
@@ -15,6 +15,36 @@ logger = logging.getLogger("voice_bridge.a2p")
 a2p_bp = Blueprint('voice_a2p', __name__)
 
 TWILIO_MASTER_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
+
+
+def _log_a2p_event(sub_sid, event_type, status, summary, details=None):
+    """Log an A2P operation to webhook_logs with best-effort location_id."""
+    try:
+        conn = None
+        location_id = ""
+        try:
+            conn = get_db_connection()
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT location_id FROM subscribers WHERE voice_config->>'twilio_sub_account_sid' = %s LIMIT 1",
+                    (sub_sid,),
+                )
+                row = cur.fetchone()
+                location_id = row[0] if row else ""
+        except Exception:
+            pass
+        finally:
+            if conn:
+                return_db_connection(conn)
+        log_webhook_event(
+            location_id=location_id,
+            event_type=event_type,
+            status=status,
+            summary=summary,
+            details=details or {},
+        )
+    except Exception as e:
+        logger.warning(f"Failed to log {event_type}: {e}")
 
 
 # ──────────────────────────────────────────────────────────────
@@ -333,6 +363,11 @@ def a2p_register_brand():
         vc['a2p'] = a2p
         _save_voice_config(current_user.email, vc)
 
+        _log_a2p_event(sub_sid, "a2p_brand_registered", "success",
+                       f"SMS brand registered: {business_name}",
+                       {"brand_sid": result["brand_sid"], "status": result["status"],
+                        "business_name": business_name, "brand_type": brand_type})
+
         return jsonify({
             "brand_sid": result["brand_sid"],
             "status": result["status"],
@@ -340,6 +375,15 @@ def a2p_register_brand():
         })
     except Exception as e:
         logger.error(f"A2P brand registration error: {e}", exc_info=True)
+        _log_a2p_event(sub_sid, "a2p_brand_registered", "error",
+                       f"SMS brand registration failed: {business_name}",
+                       {"business_name": business_name, "error": str(e)})
+        save_persistent_alert(
+            email=current_user.email, location_id="",
+            alert_type="a2p_registration_failed", severity="error",
+            title="SMS Brand Registration Failed",
+            message=f"Failed to register brand '{business_name}'. Please try again or contact support.",
+        )
         return jsonify({"error": f"Brand registration failed: {str(e)}"}), 500
 
 
@@ -446,6 +490,12 @@ def a2p_create_campaign():
         vc['a2p'] = a2p
         _save_voice_config(current_user.email, vc)
 
+        _log_a2p_event(sub_sid, "a2p_campaign_created", "success",
+                       f"SMS campaign submitted for approval",
+                       {"campaign_sid": campaign_result["campaign_sid"],
+                        "campaign_status": campaign_result["campaign_status"],
+                        "messaging_service_sid": ms_sid, "use_case": use_case})
+
         return jsonify({
             "campaign_sid": campaign_result["campaign_sid"],
             "campaign_status": campaign_result["campaign_status"],
@@ -454,6 +504,15 @@ def a2p_create_campaign():
         })
     except Exception as e:
         logger.error(f"A2P campaign creation error: {e}", exc_info=True)
+        _log_a2p_event(sub_sid, "a2p_campaign_created", "error",
+                       f"SMS campaign creation failed",
+                       {"brand_sid": brand_sid, "use_case": use_case, "error": str(e)})
+        save_persistent_alert(
+            email=current_user.email, location_id="",
+            alert_type="a2p_campaign_failed", severity="error",
+            title="SMS Campaign Creation Failed",
+            message="Failed to create SMS campaign. Please try again or contact support.",
+        )
         return jsonify({"error": f"Campaign creation failed: {str(e)}"}), 500
 
 
