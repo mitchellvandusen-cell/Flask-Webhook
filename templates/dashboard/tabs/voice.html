@@ -690,6 +690,25 @@
                                                     style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
                                             </div>
                                         </div>
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-md-6">
+                                                <label style="color:#aaa;font-size:0.75rem;font-weight:600;display:block;margin-bottom:3px;">Business Type</label>
+                                                <select id="spBizType"
+                                                    style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                                    <option value="">Select business type...</option>
+                                                    <option value="Corporation">Corporation</option>
+                                                    <option value="Limited Liability Company">LLC</option>
+                                                    <option value="Partnership">Partnership</option>
+                                                    <option value="Sole Proprietorship">Sole Proprietorship</option>
+                                                    <option value="Non-profit Corporation">Non-Profit</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label style="color:#aaa;font-size:0.75rem;font-weight:600;display:block;margin-bottom:3px;">Business Website</label>
+                                                <input type="url" id="spWebsite" placeholder="https://www.yourinsurance.com"
+                                                    style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                            </div>
+                                        </div>
 
                                         <div style="font-weight:600;font-size:0.82rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-location-dot me-1" style="color:#ffa500;"></i> Business Address</div>
                                         <div class="row g-2 mb-3">
@@ -711,17 +730,21 @@
                                             </div>
                                         </div>
 
-                                        <div style="font-weight:600;font-size:0.82rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-user me-1" style="color:#00d9ff;"></i> Contact Info</div>
+                                        <div style="font-weight:600;font-size:0.82rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-user me-1" style="color:#00d9ff;"></i> Authorized Representative</div>
                                         <div class="row g-2 mb-3">
                                             <div class="col-md-4">
                                                 <input type="text" id="spContactName" placeholder="Full Name"
                                                     style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-3">
+                                                <input type="text" id="spContactTitle" placeholder="Job Title (e.g. Owner)"
+                                                    style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                            </div>
+                                            <div class="col-md-3">
                                                 <input type="email" id="spContactEmail" placeholder="Email"
                                                     style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-2">
                                                 <input type="tel" id="spContactPhone" placeholder="Phone"
                                                     style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
                                             </div>

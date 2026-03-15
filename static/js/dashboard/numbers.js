@@ -328,16 +328,20 @@
             const payload = {
                 business_name: document.getElementById('spBizName')?.value?.trim() || '',
                 ein: document.getElementById('spEIN')?.value?.trim() || '',
+                business_type: document.getElementById('spBizType')?.value || '',
+                website: document.getElementById('spWebsite')?.value?.trim() || '',
                 street: document.getElementById('spStreet')?.value?.trim() || '',
                 city: document.getElementById('spCity')?.value?.trim() || '',
                 state: document.getElementById('spState')?.value?.trim() || '',
                 zip: document.getElementById('spZip')?.value?.trim() || '',
                 contact_name: document.getElementById('spContactName')?.value?.trim() || '',
+                contact_title: document.getElementById('spContactTitle')?.value?.trim() || '',
                 contact_email: document.getElementById('spContactEmail')?.value?.trim() || '',
                 contact_phone: document.getElementById('spContactPhone')?.value?.trim() || '',
             };
             if (!payload.business_name) { result.innerHTML = '<span style="color:#ef4444;">Business name is required</span>'; return; }
             if (!payload.ein) { result.innerHTML = '<span style="color:#ef4444;">EIN is required</span>'; return; }
+            if (!payload.business_type) { result.innerHTML = '<span style="color:#ef4444;">Business type is required</span>'; return; }
 
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Registering & protecting numbers...';

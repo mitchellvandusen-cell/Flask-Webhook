@@ -995,7 +995,10 @@ def register_spam_protection():
     city = (data.get('city') or '').strip()
     state = (data.get('state') or '').strip()
     zip_code = (data.get('zip') or '').strip()
+    business_type = (data.get('business_type') or '').strip()
+    website = (data.get('website') or '').strip()
     contact_name = (data.get('contact_name') or '').strip()
+    contact_title = (data.get('contact_title') or '').strip()
     contact_email = (data.get('contact_email') or '').strip()
     contact_phone = (data.get('contact_phone') or '').strip()
 
@@ -1003,17 +1006,22 @@ def register_spam_protection():
         return jsonify({"error": "Business name is required"}), 400
     if not ein:
         return jsonify({"error": "EIN is required"}), 400
+    if not business_type:
+        return jsonify({"error": "Business type is required"}), 400
 
     # Step 1: Save business profile to voice_config
     trust_hub = vc.get('trust_hub', {})
     trust_hub.update({
         'business_name': business_name,
         'ein': ein,
+        'business_type': business_type,
+        'website': website,
         'street': street,
         'city': city,
         'state': state,
         'zip': zip_code,
         'contact_name': contact_name,
+        'contact_title': contact_title,
         'contact_email': contact_email,
         'contact_phone': contact_phone,
         'registered_at': datetime.utcnow().isoformat(),
@@ -1028,11 +1036,14 @@ def register_spam_protection():
         sub_account_sid=sub_sid,
         business_name=business_name,
         ein=ein,
+        business_type=business_type,
+        website=website,
         street=street,
         city=city,
         state=state,
         zip_code=zip_code,
         contact_name=contact_name,
+        contact_title=contact_title,
         contact_email=contact_email or current_user.email,
         contact_phone=contact_phone,
         sub_account_auth_token=sub_auth_token,

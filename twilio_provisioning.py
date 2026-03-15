@@ -574,7 +574,10 @@ def register_business_profile(sub_account_sid: str, business_name: str,
                                 state: str, zip_code: str,
                                 contact_name: str, contact_email: str,
                                 contact_phone: str,
-                                sub_account_auth_token: str = "") -> dict:
+                                sub_account_auth_token: str = "",
+                                business_type: str = "",
+                                website: str = "",
+                                contact_title: str = "") -> dict:
     """
     Register a business profile for CNAM / spam protection on a Twilio sub-account.
 
@@ -645,18 +648,21 @@ def register_business_profile(sub_account_sid: str, business_name: str,
             if len(state_upper) > 2:
                 state_upper = US_STATE_ABBREVS.get(state_upper.lower(), state_upper[:2])
 
+            # Use user-provided business_type, fallback to inference from EIN
+            resolved_biz_type = business_type or ("Corporation" if ein else "Partnership")
+
             end_user = client.trusthub.v1.end_users.create(
                 friendly_name=f"Business: {business_name}",
                 type="customer_profile_business_information",
                 attributes={
                     "business_name": business_name,
                     "business_identity": "direct_customer",
-                    "business_type": "Partnership" if not ein else "Corporation",
+                    "business_type": resolved_biz_type,
                     "business_industry": "INSURANCE",
                     "business_registration_identifier": "EIN",
                     "business_registration_number": ein,
                     "business_regions_of_operation": "USA_AND_CANADA",
-                    "website_url": "",
+                    "website_url": website or "",
                     "social_media_profile_urls": "",
                 },
             )
@@ -680,6 +686,9 @@ def register_business_profile(sub_account_sid: str, business_name: str,
             first_name = name_parts[0] if name_parts else contact_name
             last_name = name_parts[1] if len(name_parts) > 1 else ""
 
+            # Use user-provided title, fallback to "Owner"
+            resolved_title = contact_title or "Owner"
+
             auth_rep = client.trusthub.v1.end_users.create(
                 friendly_name=f"Auth Rep: {contact_name}",
                 type="authorized_representative_1",
@@ -688,8 +697,8 @@ def register_business_profile(sub_account_sid: str, business_name: str,
                     "last_name": last_name,
                     "email": contact_email,
                     "phone_number": contact_phone,
-                    "business_title": "Owner",
-                    "job_position": "Director",
+                    "business_title": resolved_title,
+                    "job_position": resolved_title,
                 },
             )
             auth_rep_sid = auth_rep.sid
