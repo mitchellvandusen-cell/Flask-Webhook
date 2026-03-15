@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!--
+    AT&T Globe logo — horizontal stripes forming a sphere silhouette.
+    The stripes are thicker in the center and taper at top/bottom.
+    Color: #00a8e0 (AT&T light blue). Stripes on transparent bg.
+  -->
+  <defs>
+    <clipPath id="gc">
+      <circle cx="100" cy="100" r="90"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#gc)" fill="none" stroke="#00a8e0" stroke-linecap="round">
+    <!-- Horizontal latitude bands curving around sphere -->
+    <path d="M12,38 C50,28 150,28 188,38" stroke-width="6"/>
+    <path d="M10,56 C45,48 155,48 190,56" stroke-width="7"/>
+    <path d="M10,73 C45,67 155,67 190,73" stroke-width="7.5"/>
+    <path d="M10,90 C45,86 155,86 190,90" stroke-width="8"/>
+    <path d="M10,107 C45,111 155,111 190,107" stroke-width="8"/>
+    <path d="M10,124 C45,130 155,130 190,124" stroke-width="7.5"/>
+    <path d="M10,141 C45,149 155,149 190,141" stroke-width="7"/>
+    <path d="M12,158 C50,168 150,168 188,158" stroke-width="6"/>
+    <!-- Vertical longitude meridians -->
+    <path d="M100,10 L100,190" stroke-width="6"/>
+    <path d="M100,10 C70,40 58,70 56,100 C58,130 70,160 100,190" stroke-width="6"/>
+    <path d="M100,10 C130,40 142,70 144,100 C142,130 130,160 100,190" stroke-width="6"/>
+  </g>
+</svg>

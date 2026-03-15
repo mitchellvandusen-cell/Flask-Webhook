@@ -28,6 +28,7 @@
 
     /* Carrier badges */
     .sp-carrier-row { display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; margin-top: 40px; }
+    .sp-carrier-logo { height: 40px; margin-bottom: 12px; object-fit: contain; }
 
     /* How it works steps */
     .sp-step-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; overflow: hidden; }
@@ -123,7 +124,7 @@
             </div>
             <div class="mkt-glass-card mkt-glass-card--purple">
                 <div class="mkt-icon-box mkt-icon-box--purple" style="margin-bottom: 16px;">
-                    <i class="fa-solid fa-chart-line-down"></i>
+                    <i class="fa-solid fa-arrow-trend-down"></i>
                 </div>
                 <h4 style="font-weight: 800; font-size: 1.05rem; margin-bottom: 8px;">Connect Rates Crater</h4>
                 <p class="mkt-body">Industry average connect rates for flagged numbers drop below 2%. That means 98 out of 100 dials are wasted effort, wasted time, wasted leads.</p>
@@ -147,17 +148,17 @@
 
         <div class="sp-carrier-row" data-aos="fade-up">
             <div class="mkt-glass-card mkt-glass-card--cyan" style="min-width: 200px; text-align: center; padding: 32px;">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/AT%26T_logo_2016.svg/200px-AT%26T_logo_2016.svg.png" alt="AT&T" class="sp-carrier-logo">
+                <img src="{{ url_for('static', filename='img/carriers/att.svg') }}" alt="AT&T" class="sp-carrier-logo">
                 <h5 style="font-weight: 800; font-size: 1rem; margin-bottom: 4px;">AT&T / Hiya</h5>
                 <p class="mkt-body" style="font-size: 0.78rem; margin: 0;">Identity verified with Hiya's reputation engine</p>
             </div>
             <div class="mkt-glass-card" style="min-width: 200px; text-align: center; padding: 32px;">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/T-Mobile_logo2.svg/200px-T-Mobile_logo2.svg.png" alt="T-Mobile" class="sp-carrier-logo">
+                <img src="{{ url_for('static', filename='img/carriers/tmobile.svg') }}" alt="T-Mobile" class="sp-carrier-logo">
                 <h5 style="font-weight: 800; font-size: 1rem; margin-bottom: 4px;">T-Mobile / CallHub</h5>
                 <p class="mkt-body" style="font-size: 0.78rem; margin: 0;">Business registered in Scam Shield database</p>
             </div>
             <div class="mkt-glass-card mkt-glass-card--purple" style="min-width: 200px; text-align: center; padding: 32px;">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Verizon_2015_logo_-vector.svg/200px-Verizon_2015_logo_-vector.svg.png" alt="Verizon" class="sp-carrier-logo">
+                <img src="{{ url_for('static', filename='img/carriers/verizon.svg') }}" alt="Verizon" class="sp-carrier-logo">
                 <h5 style="font-weight: 800; font-size: 1rem; margin-bottom: 4px;">Verizon</h5>
                 <p class="mkt-body" style="font-size: 0.78rem; margin: 0;">Authenticated via carrier trust framework</p>
             </div>
