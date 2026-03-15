@@ -1,7 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-  <!--
-    Verizon checkmark logo — thick red check/V shape.
-    Official brand color: #cd040b (Verizon red).
-  -->
-  <path d="M20 95 L72 170 L180 25" fill="none" stroke="#cd040b" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>
+<svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>Verizon</title><path fill="#CD040B" d="M18.302 0H22v.003L10.674 24H7.662L2 12h3.727l3.449 7.337z"/></svg>
