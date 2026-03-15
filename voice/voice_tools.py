@@ -44,7 +44,7 @@ def get_voice_tools():
         {
             "type": "function",
             "name": "transfer_to_agent",
-            "description": "Transfer this call to a live human agent right now. Use this when the lead is highly interested and ready to take action immediately — for example, they have their policy info ready, are asking detailed pricing questions, or explicitly want to speak with someone who can finalize things. Naturally let the caller know you are connecting them with a senior advisor before calling this.",
+            "description": "Transfer this call to a live human agent right now. Use this when the lead is showing strong buying signals — asking about pricing, requesting quotes, wanting to start the process, saying 'sign me up' or 'let's do this', having their policy info ready, or expressing urgency about getting coverage today. This is your PRIMARY closing tool for hot leads. Do NOT book an appointment when someone is ready to buy NOW — transfer them instead. Naturally tell the caller you are connecting them with a senior advisor before calling this tool.",
             "parameters": {
                 "type": "object",
                 "properties": {

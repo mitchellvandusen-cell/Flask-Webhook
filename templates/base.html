@@ -73,8 +73,8 @@
             </button>
             <div id="navbarNav" class="navbar-collapse">
                 <ul class="navbar-nav mx-auto align-items-center justify-content-lg-evenly w-100" style="gap: 0;">
-                    <li class="nav-item"><a class="nav-link" href="/for-individuals">For Agents</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/for-agencies">For Agencies</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/for-individuals">Agents</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/for-agencies">Agencies</a></li>
                     <li class="nav-item nav-dropdown">
                         <a class="nav-link nav-dropdown-toggle" href="#" role="button" aria-expanded="false">
                             Features <svg class="nav-chevron" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -89,9 +89,8 @@
                     <li class="nav-item"><a class="nav-link" href="/demo-chat">Demo</a></li>
                     <li class="nav-item"><a class="nav-link" href="/support">Support</a></li>
                     {% if current_user.is_authenticated and current_user.is_super_admin %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="/admin/god-mode" title="Super Admin Dashboard"
-                           style="color: #ffd700 !important; font-weight: 700;">
+                    <li class="nav-item d-flex align-items-center">
+                        <a class="nav-link god-mode-link" href="/admin/god-mode" title="Super Admin Dashboard">
                             ⚡ God Mode
                         </a>
                     </li>
