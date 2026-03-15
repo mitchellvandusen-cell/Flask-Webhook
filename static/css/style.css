@@ -154,6 +154,27 @@ h1 .text-accent, h2 .text-accent, .hero h1 span, h1 span.text-accent, h2 span.te
 }
 .nav-link:hover { color: var(--accent) !important; }
 
+/* God Mode nav link */
+.god-mode-link {
+    color: #ffd700 !important;
+    font-weight: 700;
+}
+
+/* Carrier logos on spam-protection page */
+.sp-carrier-logo {
+    height: 2rem;
+    width: auto;
+    margin-bottom: 12px;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
+}
+body.light-theme .sp-carrier-logo {
+    filter: none;
+}
+
 /* Buttons — professional planes, not pill capsules */
 .btn { border-radius: 8px; font-weight: 600; padding: 0.6rem 1.5rem; transition: var(--transition); }
 .nav-btn { min-width: 140px; text-align: center; }
@@ -1670,19 +1691,35 @@ body.light-theme .dlr-btn-cyan-3 i { color: #f0f2f5 !important; }
 /* Mode toggle container */
 body.light-theme .dlr-panel-2 { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.08) !important; }
 
-/* Ghost icon buttons (chart, gear, sync/refresh, export) — stronger text */
-body.light-theme .dlr-btn-ghost-2 { background: rgba(0,0,0,0.04) !important; border: 1px solid rgba(0,0,0,0.10) !important; color: #374151 !important; }
-body.light-theme .dlr-btn-ghost-2:hover { background: rgba(0,0,0,0.07) !important; color: #111827 !important; border-color: rgba(0,0,0,0.15) !important; }
-body.light-theme .dlr-btn-ghost-6 { background: rgba(0,0,0,0.04) !important; border: 1px solid rgba(0,0,0,0.10) !important; color: #374151 !important; }
-body.light-theme .dlr-btn-ghost-6:hover { background: rgba(0,0,0,0.07) !important; color: #111827 !important; border-color: rgba(0,0,0,0.15) !important; }
-body.light-theme .dlr-btn-2 { background: rgba(0,0,0,0.04) !important; border: 1px solid rgba(0,0,0,0.10) !important; color: #374151 !important; }
-body.light-theme .dlr-btn-2:hover { background: rgba(0,0,0,0.07) !important; color: #111827 !important; }
-body.light-theme .dlr-btn-ghost-5 { color: #374151 !important; }
+/* Ghost icon buttons (chart, gear, sync/refresh, export) — dark text + icons in light theme */
+body.light-theme .dlr-btn-ghost-2,
+body.light-theme .dlr-btn-ghost-6 { background: rgba(0,0,0,0.06) !important; border: 1px solid rgba(0,0,0,0.15) !important; color: #1f2937 !important; }
+body.light-theme .dlr-btn-ghost-2 i,
+body.light-theme .dlr-btn-ghost-6 i { color: #1f2937 !important; }
+body.light-theme .dlr-btn-ghost-2:hover,
+body.light-theme .dlr-btn-ghost-6:hover { background: rgba(0,0,0,0.10) !important; color: #111827 !important; border-color: rgba(0,0,0,0.20) !important; }
+body.light-theme .dlr-btn-ghost-2:hover i,
+body.light-theme .dlr-btn-ghost-6:hover i { color: #111827 !important; }
+body.light-theme .dlr-btn-2 { background: rgba(0,0,0,0.06) !important; border: 1px solid rgba(0,0,0,0.15) !important; color: #1f2937 !important; }
+body.light-theme .dlr-btn-2 i { color: #1f2937 !important; }
+body.light-theme .dlr-btn-2:hover { background: rgba(0,0,0,0.10) !important; color: #111827 !important; }
+body.light-theme .dlr-btn-ghost-5 { color: #1f2937 !important; }
+body.light-theme .dlr-btn-ghost-5 i { color: #1f2937 !important; }
 body.light-theme .dlr-btn-ghost-5:hover { color: #111827 !important; }
 
-/* Settings toggle (gear) — match chart button */
-body.light-theme #dialerSettingsToggle { background: var(--lt-surface-hover) !important; border-color: var(--lt-border-strong) !important; color: var(--lt-text-secondary) !important; }
-body.light-theme #dialerSettingsToggle:hover { border-color: var(--lt-accent-border) !important; color: var(--lt-accent) !important; }
+/* Settings toggle (gear) — explicit icon targeting */
+body.light-theme #dialerSettingsToggle { background: rgba(0,0,0,0.06) !important; border: 1px solid rgba(0,0,0,0.15) !important; color: #1f2937 !important; }
+body.light-theme #dialerSettingsToggle i { color: #1f2937 !important; }
+body.light-theme #dialerSettingsToggle:hover { background: rgba(0,0,0,0.10) !important; border-color: rgba(0,0,0,0.20) !important; color: #111827 !important; }
+
+/* Stats toggle (chart) — explicit icon targeting */
+body.light-theme #dialerStatsToggle { background: rgba(0,0,0,0.06) !important; border: 1px solid rgba(0,0,0,0.15) !important; color: #1f2937 !important; }
+body.light-theme #dialerStatsToggle i { color: #1f2937 !important; }
+body.light-theme #dialerStatsToggle:hover { background: rgba(0,0,0,0.10) !important; border-color: rgba(0,0,0,0.20) !important; color: #111827 !important; }
+
+/* Sync/Refresh button — explicit icon targeting */
+body.light-theme #dialerSyncBtn { background: rgba(0,0,0,0.06) !important; border: 1px solid rgba(0,0,0,0.15) !important; color: #1f2937 !important; }
+body.light-theme #dialerSyncBtn i { color: #1f2937 !important; }
 
 /* Get Contacts button — ensure strong contrast */
 body.light-theme .dlr-btn-cyan-5 { background: linear-gradient(135deg, #0078b8, #006a8e) !important; color: #fff !important; }
@@ -7955,7 +7992,7 @@ body.light-theme .dlr-panel-3 { background:linear-gradient(135deg,#e85d2c,#dc265
 body.light-theme .dlr-label-muted { color:#6b7280; }
 body.light-theme .dlr-panel-4 { background:rgba(0,0,0,0.04); border:1px solid rgba(0,0,0,0.10); color:#111827; }
 body.light-theme .dlr-panel-5 { background:rgba(22,163,74,0.1); border:1px solid rgba(22,163,74,0.2); color:var(--accent); }
-body.light-theme .dlr-btn-ghost-2 { background:rgba(0,0,0,0.03); border:1px solid rgba(0,0,0,0.08); color:#6b7280; }
+/* duplicate removed — see !important definition at line ~1695 */
 body.light-theme .dlr-banner-warning { background:rgba(199,124,0,0.06); border:1px solid rgba(199,124,0,0.15); }
 body.light-theme .dlr-text-orange { color:#c77c00; }
 body.light-theme .dlr-text-muted { color:#6b7280; }
@@ -8025,8 +8062,7 @@ body.light-theme .dlr-misc-6 { background:rgba(0,120,184,0.04); border:1px solid
 body.light-theme .dlr-icon-box-cyan-3 { background:rgba(0,120,184,0.1); border:1px solid rgba(0,120,184,0.2); }
 body.light-theme .dlr-label-muted-7 { color:#6b7280; }
 body.light-theme .dlr-btn-cyan-4 { background:linear-gradient(135deg,#0078b8,#006a8e); color:#f0f2f5; }
-body.light-theme .dlr-btn-ghost-6 { background:rgba(0,0,0,0.03); border:1px solid rgba(0,0,0,0.08); color:#6b7280; }
-body.light-theme .dlr-btn-cyan-5 { background:linear-gradient(135deg,#0078b8,#006a8e); color:#f0f2f5; }
+/* duplicates removed — see !important definitions at line ~1697 */
 body.light-theme .dlr-misc-7 { border-bottom:1px solid rgba(0,0,0,0.03); }
 body.light-theme .dlr-label-2 { color:#9ca3af; }
 body.light-theme .dlr-text-dim { color:#6b7280; }
