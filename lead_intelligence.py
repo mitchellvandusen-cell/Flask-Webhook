@@ -856,6 +856,48 @@ def _save_analysis_cache(contact_id, location_id, analysis):
         return_db_connection(conn)
 
 
+def get_cached_temperature(contact_id: str) -> dict:
+    """
+    Lightweight cache read for the live SMS pipeline.
+    Returns cached temperature, score, and engagement_level if available.
+    Zero AI cost — reads DB only.
+
+    Returns: {"temperature": str, "score": int, "engagement_level": int} or None
+    """
+    conn = get_db_connection()
+    if not conn:
+        return None
+
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT analysis FROM contact_intelligence
+            WHERE contact_id = %s
+        """, (contact_id,))
+        row = cur.fetchone()
+        cur.close()
+
+        if not row:
+            return None
+
+        analysis = row.get('analysis') if isinstance(row, dict) else row[0]
+        if isinstance(analysis, str):
+            analysis = json.loads(analysis)
+
+        if not analysis:
+            return None
+
+        return {
+            "temperature": analysis.get("temperature", ""),
+            "score": analysis.get("score", 0),
+            "engagement_level": analysis.get("engagement_level", 0),
+        }
+    except Exception:
+        return None
+    finally:
+        return_db_connection(conn)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # ═══ BULK API — Fetch cached AI classifications for Smart Filters ════════════
 # ═══════════════════════════════════════════════════════════════════════════════

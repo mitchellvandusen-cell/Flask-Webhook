@@ -187,6 +187,47 @@ def get_known_facts(contact_id: str) -> List[str]:
             cur.close()
         return_db_connection(conn)
 
+
+def get_known_facts_with_age(contact_id: str) -> List[Dict[str, any]]:
+    """
+    Return all known facts with their age in days.
+    Used by individual_profile.py for temporal relevance weighting.
+    Returns list of {'text': str, 'days_ago': int}.
+    """
+    if not contact_id:
+        return []
+
+    conn = get_db_connection()
+    if not conn:
+        logger.error("DB connection failed in get_known_facts_with_age")
+        return []
+
+    cur = None
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT fact_text,
+                   EXTRACT(DAY FROM (CURRENT_TIMESTAMP - created_at))::int AS days_ago
+            FROM contact_facts
+            WHERE contact_id = %s
+            ORDER BY created_at
+        """, (contact_id,))
+        rows = cur.fetchall()
+        result = []
+        for row in rows:
+            if isinstance(row, tuple):
+                result.append({"text": row[0], "days_ago": row[1] or 0})
+            else:
+                result.append({"text": row['fact_text'], "days_ago": row.get('days_ago', 0)})
+        return result
+    except Exception as e:
+        logger.error(f"get_known_facts_with_age failed for {contact_id}: {e}")
+        return []
+    finally:
+        if cur:
+            cur.close()
+        return_db_connection(conn)
+
 # ===================================
 # NARRATIVE OBSERVER (Evolving Story)
 # ===================================
@@ -266,14 +307,19 @@ def run_narrative_observer(contact_id: str, lead_message: str, recent_messages: 
     LEFT BRAIN — The Conversation Recap.
 
     Reads the previous recap plus RECENT messages and produces:
-    1. An updated narrative recap of the full conversation.
+    1. An updated narrative recap with three layers:
+       - SITUATION: Current snapshot of where things stand (what to do next)
+       - EMOTIONAL_ARC: Key emotional moments that must never be forgotten
+       - OBJECTION_LOG: Every objection raised and the angle used to handle it
     2. Discrete facts extracted from what the lead said.
 
     The narrative prevents looping. If Grok reads "Bot already asked about coverage
     and lead said he has something through work", Grok won't ask again.
+    The emotional arc preserves WHY this person is looking into coverage.
+    The objection log prevents repeating the same handling angle twice.
 
     Returns dict with:
-        - "narrative": conversation recap string
+        - "narrative": full structured narrative string
         - "new_facts": list of newly extracted fact strings
     """
     result = {"narrative": "", "new_facts": []}
@@ -301,7 +347,7 @@ def run_narrative_observer(contact_id: str, lead_message: str, recent_messages: 
 
     existing_str = "\n".join(f"- {f}" for f in existing_facts) if existing_facts else "None yet."
 
-    observer_prompt = f"""You are a conversation note-taker. Read the previous recap and the recent messages, then write an updated summary and extract any new facts.
+    observer_prompt = f"""You are a conversation note-taker for a life insurance sales conversation. Read the previous recap and the recent messages, then write an updated structured summary and extract any new facts.
 
 PREVIOUS RECAP:
 {current_story}
@@ -312,10 +358,16 @@ ALREADY KNOWN FACTS:
 RECENT MESSAGES:
 {conversation_context}
 
-Output EXACTLY two sections, nothing else. No reasoning, no thinking, no commentary. No labels. No instructions. Just the raw content for each section.
+Output EXACTLY four sections, nothing else. No reasoning, no thinking, no commentary. Just the raw content for each section.
 
-RECAP:
-Write a 1-2 sentence summary of where this conversation stands right now. Maximum 30 words total. Focus on: what the lead wants, any objections, and current status. Do NOT retell the conversation chronologically. Just the current snapshot.
+SITUATION:
+Write 2-3 sentences about where this conversation stands RIGHT NOW. What does the lead want. What stage are we at. What should happen next. What questions have been answered and what is still unknown. Maximum 60 words.
+
+EMOTIONAL_ARC:
+Preserve every emotionally significant moment from the conversation. If the lead mentioned grief, family loss, fear, health scares, financial stress, divorce, kids they are worried about, a dying parent, or ANY personal vulnerability, capture it here with the exact context. Also capture strong positive moments: excitement about coverage, relief at finding help, gratitude. If the previous recap already has emotional arc entries, carry them forward and add any new ones. One line per moment, maximum 15 words each. If no emotional moments exist, write NONE.
+
+OBJECTION_LOG:
+List every objection the lead has raised AND how the bot responded to it. Format: "Objection: [what they said] > Angle: [how bot handled it]". This prevents repeating the same approach. If the previous recap already has objection entries, carry them forward and add new ones. If no objections, write NONE.
 
 FACTS:
 List any NEW facts about the lead. One fact per line. Maximum 10 words per fact. Short fragments only (e.g. "Has 2 kids", "Works at FedEx", "Wants term life"). Do not repeat facts from ALREADY KNOWN FACTS. If no new facts, write NONE."""
@@ -329,7 +381,7 @@ List any NEW facts about the lead. One fact per line. Maximum 10 words per fact.
             model="grok-4-1-fast-reasoning",
             messages=[{"role": "system", "content": observer_prompt}],
             temperature=0.3,
-            max_tokens=300,
+            max_tokens=600,
             timeout=15.0
         )
         raw_output = response.choices[0].message.content.strip()
@@ -337,20 +389,23 @@ List any NEW facts about the lead. One fact per line. Maximum 10 words per fact.
         # Strip reasoning model artifacts (<thinking> tags, etc.)
         raw_output = _clean_llm_output(raw_output)
 
-        # Parse the two sections
+        # Parse the four sections
         narrative_part = raw_output
         facts_part = ""
 
+        # Extract FACTS section first (always last)
         if "FACTS:" in raw_output:
             parts = raw_output.split("FACTS:", 1)
             narrative_part = parts[0].strip()
             facts_part = parts[1].strip()
 
-        # Clean narrative (remove the "RECAP:" label if present)
+        # Clean section labels from narrative — keep the structure intact
+        # The sections (SITUATION:, EMOTIONAL_ARC:, OBJECTION_LOG:) are the structure
+        # Just remove the RECAP: label if present (legacy format)
         if narrative_part.startswith("RECAP:"):
             narrative_part = narrative_part[len("RECAP:"):].strip()
 
-        # Update narrative if valid
+        # Validate: must have at least the SITUATION section
         if len(narrative_part) >= 20:
             if update_narrative(contact_id, narrative_part):
                 logger.info(f"Narrative updated for {contact_id} ({len(narrative_part)} chars)")
@@ -372,7 +427,7 @@ List any NEW facts about the lead. One fact per line. Maximum 10 words per fact.
             if new_facts:
                 saved = save_new_facts(contact_id, new_facts)
                 if saved > 0:
-                    logger.info(f"📝 Extracted {saved} new facts for {contact_id}: {new_facts}")
+                    logger.info(f"Extracted {saved} new facts for {contact_id}: {new_facts}")
                 result["new_facts"] = new_facts
 
         return result

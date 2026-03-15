@@ -67,6 +67,11 @@ CONTAMINATION_MARKERS = [
     "lead intent:",
     "no details on current coverage",
     "no responses yet",
+    "emotional_arc:",
+    "objection_log:",
+    "conversation memory",
+    "lead temperature:",
+    "angles already tried",
     # Bot self-reference as character
     "personality: ",
     "i'm playing the role",
@@ -174,12 +179,16 @@ def is_safe_to_send(message: str) -> bool:
         "the instructions say",
         "my output should",
         "conversation so far ===",
+        "conversation memory ===",
         "recent conversation:",
         "current stage:",
         "no inbound message",
         "=== ",
         "recap:",
         "facts:",
+        "emotional_arc:",
+        "objection_log:",
+        "lead temperature:",
     ]
 
     for block in HARD_BLOCKS:
