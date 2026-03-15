@@ -657,6 +657,68 @@ footer a:hover { color: var(--accent); }
     border-bottom: none;
 }
 
+/* CRM Grid (for-individuals "Works with your CRM") */
+.crm-grid-label {
+    color: #555;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+}
+.crm-grid-wrap {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    max-width: 640px;
+    margin: 0 auto;
+}
+.crm-grid-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 16px 8px;
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--glass-border-top) var(--glass-border-bottom) var(--glass-border-bottom) var(--glass-border-left);
+    border-radius: 12px;
+    transition: all 0.25s ease;
+}
+.crm-grid-item:hover {
+    background: var(--glass-bg-strong);
+    transform: translateY(-2px);
+    box-shadow: var(--glass-shadow-hover);
+}
+.crm-grid-item i { font-size: 1.3rem; }
+.crm-grid-item span { font-size: 0.72rem; font-weight: 600; color: #bbb; }
+.crm-grid-item--accent i { color: var(--accent); }
+.crm-grid-item--blue i { color: #03a9f4; }
+.crm-grid-item--orange i { color: #ff5722; }
+.crm-grid-item--green i { color: #4caf50; }
+.crm-grid-item--yellow i { color: #ffc107; }
+.crm-grid-item--purple i { color: #9c27b0; }
+.crm-grid-item--slate i { color: #607d8b; }
+/* Offset last row (3 items) to center */
+.crm-grid-wrap .crm-grid-item:nth-child(5) { grid-column-start: 2; }
+@media (max-width: 575px) {
+    .crm-grid-wrap { grid-template-columns: repeat(2, 1fr); }
+    .crm-grid-wrap .crm-grid-item:nth-child(5) { grid-column-start: auto; }
+    .crm-grid-wrap .crm-grid-item:last-child { grid-column: 1 / -1; max-width: 50%; justify-self: center; }
+}
+
+/* Light theme */
+body.light-theme .crm-grid-label { color: var(--lt-text-muted); }
+body.light-theme .crm-grid-item {
+    background: rgba(255,255,255,0.85);
+    border-color: rgba(0,0,0,0.10) rgba(0,0,0,0.06) rgba(0,0,0,0.06) rgba(0,0,0,0.08);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+body.light-theme .crm-grid-item span { color: var(--lt-text-secondary); }
+
 /* Pricing page cards (home, for-individuals) */
 .price-card, .ind-price-card {
     background: var(--glass-bg);
