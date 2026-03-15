@@ -88,8 +88,10 @@
     .hiw-arrow { position: absolute; top: 62px; right: -12px; color: rgba(255,255,255,0.15); font-size: 1.2rem; }
     @media (max-width: 767px) { .hiw-grid { grid-template-columns: 1fr; gap: 16px; } .hiw-arrow { display: none; } }
 
-    /* ── Founder result ── */
-    .founder-result { max-width: 720px; margin: 0 auto; border: 1px solid rgba(0,255,136,0.15); border-radius: 20px; padding: 40px 44px; background: rgba(0,255,136,0.02); position: relative; }
+    /* ── Testimonials ── */
+    .testimonial-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 960px; margin: 0 auto; }
+    @media (max-width: 767px) { .testimonial-grid { grid-template-columns: 1fr; } }
+    .founder-result { border: 1px solid rgba(0,255,136,0.15); border-radius: 20px; padding: 40px 44px; background: rgba(0,255,136,0.02); position: relative; }
     .founder-result::before { content: '\201C'; position: absolute; top: 16px; left: 24px; font-size: 4rem; line-height: 1; color: rgba(0,255,136,0.12); font-family: Georgia, serif; }
     .founder-result blockquote { color: #ccc; font-size: 1.05rem; line-height: 1.7; margin: 0 0 20px; font-style: italic; padding-left: 12px; }
     .founder-result .fr-stats { display: flex; gap: 32px; flex-wrap: wrap; }
@@ -275,32 +277,51 @@
     <div class="container" style="width: 100%;">
         <div class="text-center mb-4" data-aos="fade-up">
             <span class="ios-section-label ios-section-label--accent">Real Results</span>
-            <h2 class="ios-section-h2">From the <span>Founder's Desk</span></h2>
+            <h2 class="ios-section-h2">What Agents Are <span>Saying</span></h2>
         </div>
 
-        <div class="founder-result" data-aos="fade-up">
-            <blockquote>
-                "It booked me 3 appointments in 2 hours of first launch and I wrote $3,895.72 AP — on 6-month-old leads I thought were dead."
-            </blockquote>
-            <div class="fr-stats">
-                <div class="fr-stat">
-                    <div class="val" style="color: var(--accent);">3</div>
-                    <div class="desc">Appointments Booked</div>
+        <div class="testimonial-grid">
+            <div class="founder-result" data-aos="fade-up">
+                <blockquote>
+                    "It booked me 3 appointments in 2 hours of first launch and I wrote $3,895.72 AP — on 6-month-old leads I thought were dead."
+                </blockquote>
+                <div class="fr-stats">
+                    <div class="fr-stat">
+                        <div class="val" style="color: var(--accent);">3</div>
+                        <div class="desc">Appointments Booked</div>
+                    </div>
+                    <div class="fr-stat">
+                        <div class="val" style="color: #00d9ff;">2 hrs</div>
+                        <div class="desc">Time to First Results</div>
+                    </div>
+                    <div class="fr-stat">
+                        <div class="val" style="color: #e91e63;">$3,895.72</div>
+                        <div class="desc">Annual Premium Written</div>
+                    </div>
+                    <div class="fr-stat">
+                        <div class="val" style="color: #ff6b35;">6 mo</div>
+                        <div class="desc">Age of "Dead" Leads</div>
+                    </div>
                 </div>
-                <div class="fr-stat">
-                    <div class="val" style="color: #00d9ff;">2 hrs</div>
-                    <div class="desc">Time to First Results</div>
-                </div>
-                <div class="fr-stat">
-                    <div class="val" style="color: #e91e63;">$3,895.72</div>
-                    <div class="desc">Annual Premium Written</div>
-                </div>
-                <div class="fr-stat">
-                    <div class="val" style="color: #ff6b35;">6 mo</div>
-                    <div class="desc">Age of "Dead" Leads</div>
-                </div>
+                <p class="fr-attr">— Mitchell, InsuranceGrokBot Founder &amp; Licensed Agent</p>
             </div>
-            <p class="fr-attr">— Mitchell, InsuranceGrokBot Founder &amp; Licensed Agent</p>
+
+            <div class="founder-result" data-aos="fade-up" data-aos-delay="100">
+                <blockquote>
+                    "Running an agency is busy. Wanted something that could create more time for me. I downloaded InsuranceGrokBot and within 2 hours it booked me an appointment from start to finish."
+                </blockquote>
+                <div class="fr-stats">
+                    <div class="fr-stat">
+                        <div class="val" style="color: var(--accent);">1</div>
+                        <div class="desc">Appointment Booked</div>
+                    </div>
+                    <div class="fr-stat">
+                        <div class="val" style="color: #00d9ff;">2 hrs</div>
+                        <div class="desc">Start to Finish</div>
+                    </div>
+                </div>
+                <p class="fr-attr">— Devon Tyerman, Agency Owner at Family First Life</p>
+            </div>
         </div>
     </div>
 </section>
