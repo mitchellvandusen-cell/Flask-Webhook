@@ -1612,6 +1612,25 @@ body.light-theme .igb-filter-hdr .igb-filter-icon { color: inherit !important; }
 body.light-theme .igb-summary-hdr i { color: #0369a1 !important; }
 body.light-theme .igb-summary-hdr span { color: #0369a1 !important; }
 
+/* Jump-to-Contact pill (floating bottom pill during active call) */
+body.light-theme #jtcPill { background: linear-gradient(135deg, rgba(0,120,184,0.12), rgba(0,170,94,0.08)) !important; border-color: rgba(0,120,184,0.30) !important; }
+body.light-theme #jtcPill .jtc-dot { background: #0369a1 !important; }
+body.light-theme #jtcPill .jtc-name { color: var(--lt-text-primary) !important; }
+body.light-theme #jtcPill .jtc-status { color: #0369a1 !important; }
+body.light-theme #jtcPill .jtc-icon { color: #0369a1 !important; }
+
+/* Accordion body status check icons — keep colors but adapt for light bg */
+body.light-theme .sm-accordion-body [style*="color:#00ff88"] { color: var(--lt-accent) !important; }
+body.light-theme .sm-accordion-body [style*="color:#444"] { color: var(--lt-text-faint) !important; }
+body.light-theme .sm-accordion-body [style*="color:#888"] { color: var(--lt-text-muted) !important; }
+body.light-theme .sm-accordion-body [style*="color:#555"] { color: var(--lt-text-faint) !important; }
+body.light-theme .sm-accordion-body [style*="color:#a78bfa"] { color: #6d28d9 !important; }
+body.light-theme .sm-accordion-body [style*="color:#ffa500"] { color: #c77c00 !important; }
+body.light-theme .sm-accordion-body [style*="color:#fbbf24"] { color: #d97706 !important; }
+
+/* Loading spinners in CNAM/NI/voice sections */
+body.light-theme .sm-accordion-body .fa-spinner { color: #0369a1 !important; }
+
 /* ── Voice config side-menu buttons in light mode ── */
 body.light-theme .voice-menu-item,
 body.light-theme .cfg-menu-item,
