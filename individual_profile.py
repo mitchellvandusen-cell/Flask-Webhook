@@ -4,13 +4,30 @@
 
 import re
 import logging
-from typing import List, Optional, Dict, Tuple
+from typing import List, Optional, Dict, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
+# Situational facts that go stale — these describe temporary states, not identity
+SITUATIONAL_KEYWORDS = [
+    "busy", "slammed", "swamped", "traveling", "vacation", "out of town",
+    "laid off", "just got", "just started", "looking for work", "between jobs",
+    "moving", "just moved", "switching", "this week", "this month",
+    "pregnant", "expecting", "due in", "recovering", "surgery",
+]
+
+# Durable facts that never go stale — these describe who the person IS
+DURABLE_KEYWORDS = [
+    "kids", "children", "wife", "husband", "spouse", "married", "divorced",
+    "veteran", "retired", "self-employed", "business owner", "works at",
+    "diabetic", "diabetes", "cancer", "smoker", "non-smoker",
+    "home owner", "homeowner", "mortgage", "rents",
+]
+
+
 def build_comprehensive_profile(
     story_narrative: str,
-    known_facts: List[str],
+    known_facts: Union[List[str], List[Dict]],
     first_name: Optional[str] = None,
     age: Optional[str] = None,
     address: Optional[str] = None
@@ -29,8 +46,13 @@ def build_comprehensive_profile(
     This is a CHARACTER SHEET — everything we know about the human.
     """
     narrative_safe = (story_narrative or "").strip()
-    facts_safe = [f.strip() for f in known_facts if f and f.strip()]
-    full_text = " ".join(facts_safe + [narrative_safe]).lower()
+    # Handle both plain string lists and temporal dict lists
+    if known_facts and isinstance(known_facts[0], dict):
+        facts_safe = [f for f in known_facts if f and f.get("text", "").strip()]
+        full_text = " ".join([f.get("text", "") for f in facts_safe] + [narrative_safe]).lower()
+    else:
+        facts_safe = [f.strip() for f in known_facts if f and f.strip()]
+        full_text = " ".join(facts_safe + [narrative_safe]).lower()
 
     # ─── 1. Profile Context Dict (for sales_director routing) ───
     profile_context: Dict[str, any] = {
@@ -115,9 +137,22 @@ def build_comprehensive_profile(
             "and not burdening family with funeral/final costs."
         )
 
-    # Format facts as the core of the dossier
+    # Format facts as the core of the dossier, with temporal relevance
     if facts_safe:
-        facts_block = "\n".join(f"- {f}" for f in facts_safe)
+        # Check if we received temporal facts (dicts with 'text' and 'days_ago')
+        if facts_safe and isinstance(facts_safe[0], dict):
+            fact_lines = []
+            for f in facts_safe:
+                text = f.get("text", f) if isinstance(f, dict) else f
+                days = f.get("days_ago", 0) if isinstance(f, dict) else 0
+                is_situational = any(kw in text.lower() for kw in SITUATIONAL_KEYWORDS)
+                if is_situational and days > 30:
+                    fact_lines.append(f"- {text} (learned {days}d ago, may be outdated)")
+                else:
+                    fact_lines.append(f"- {text}")
+            facts_block = "\n".join(fact_lines)
+        else:
+            facts_block = "\n".join(f"- {f}" for f in facts_safe)
     else:
         facts_block = "Nothing confirmed yet. Still learning about this person."
 

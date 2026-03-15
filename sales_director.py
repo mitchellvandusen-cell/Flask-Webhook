@@ -14,9 +14,11 @@ from conversation_engine import (
 from individual_profile import build_comprehensive_profile
 from underwriting import get_underwriting_context
 from insurance_companies import find_company_in_message, normalize_company_name, get_company_context
+from lead_intelligence import get_cached_temperature
 from memory import (
     get_recent_messages,
     get_known_facts,
+    get_known_facts_with_age,
     get_narrative,
     run_narrative_observer
 )
@@ -62,6 +64,7 @@ def generate_strategic_directive(
     observer = run_narrative_observer(contact_id, message, all_msgs)
     narrative = observer["narrative"] or ""
     known_facts = get_known_facts(contact_id)
+    known_facts_temporal = get_known_facts_with_age(contact_id)
 
     # ─── 3. ANALYZE LOGIC FLOW (now includes message context + objection detection) ───
     logic: LogicSignal = analyze_logic_flow(recent_exchanges, message=message, age=age_int)
@@ -78,8 +81,9 @@ def generate_strategic_directive(
         logger.info(f"Director insurance_ctx | {contact_id} | {logic.insurance_context.guidance_note[:200]}")
 
     # ─── 4. BUILD PROFILE ───
+    # Pass temporal facts for staleness awareness; profile builder handles both formats
     profile_str, _ = build_comprehensive_profile(
-        narrative, known_facts, first_name, age, address
+        narrative, known_facts_temporal or known_facts, first_name, age, address
     )
 
     # ─── 5. CONTEXTUAL INTELLIGENCE (Underwriting & Carriers) ───
@@ -119,14 +123,55 @@ def generate_strategic_directive(
     if any(kw in f.lower() for f in known_facts for kw in ["booked", "appointment at", "calendar"]):
         stage_value = ConversationStage.BOOKED.value
 
+    # ─── 6b. EXTRACT OBJECTION LOG FROM NARRATIVE ───
+    # The narrative observer now captures every objection + the angle used.
+    # Extract it so we can inject it structurally into tactical guidance.
+    objection_log = _extract_objection_log(narrative)
+
     # ─── 7. GENERATE TACTICAL DIRECTIVE ───
-    tactical = _build_tactical_guidance(logic, stage_value, first_name, full_lower, bot_settings or {}, lead_type=lead_type)
+    tactical = _build_tactical_guidance(logic, stage_value, first_name, full_lower, bot_settings or {}, lead_type=lead_type, objection_log=objection_log)
 
     # ─── 7b. INJECT AGE-BASED PRODUCT DIRECTIVE ───
     # Hardcoded — not a soft hint. This overrides any generic product assumptions.
     age_directive = _build_age_directive(age_int)
     if age_directive:
         tactical = tactical + "\n" + age_directive
+
+    # ─── 7c. INJECT LEAD TEMPERATURE CONTEXT ───
+    # Read cached AI temperature from lead_intelligence (zero AI cost, DB read only).
+    # This tells the bot whether the lead is warming or cooling so it can adjust intensity.
+    temperature_ctx = ""
+    try:
+        cached = get_cached_temperature(contact_id)
+        if cached and cached.get("temperature"):
+            temp = cached["temperature"]
+            score = cached.get("score", 0)
+            eng = cached.get("engagement_level", 0)
+            if temp in ("hot", "warm"):
+                temperature_ctx = (
+                    f"\nLEAD TEMPERATURE: {temp.upper()} (score {score}/100, engagement {eng}/3). "
+                    f"This lead is showing real interest. Maintain momentum. "
+                    f"Do not slow down the conversation or over-qualify. "
+                    f"Move toward booking when the moment is right."
+                )
+            elif temp == "cool":
+                temperature_ctx = (
+                    f"\nLEAD TEMPERATURE: COOL (score {score}/100, engagement {eng}/3). "
+                    f"Interest is fading. This lead is drifting. "
+                    f"Try a different angle or bring fresh energy. "
+                    f"Do not repeat what you have already tried."
+                )
+            elif temp == "cold":
+                temperature_ctx = (
+                    f"\nLEAD TEMPERATURE: COLD (score {score}/100, engagement {eng}/3). "
+                    f"This lead has shown little or no interest. "
+                    f"Be respectful of their position. A completely unexpected angle "
+                    f"is your best shot. If they have explicitly said stop, respect it."
+                )
+            if temperature_ctx:
+                tactical = tactical + temperature_ctx
+    except Exception as e:
+        logger.debug(f"Temperature context unavailable for {contact_id}: {e}")
 
     # ─── 8. FINAL OUTPUT ───
     return {
@@ -139,6 +184,40 @@ def generate_strategic_directive(
         "story_narrative": narrative.strip(),
         "recent_exchanges": recent_exchanges,
     }
+
+
+# ═══════════════════════════════════════════════════
+# OBJECTION LOG EXTRACTION
+# ═══════════════════════════════════════════════════
+
+def _extract_objection_log(narrative: str) -> List[str]:
+    """
+    Extract the OBJECTION_LOG section from the structured narrative.
+    Returns list of "Objection: X > Angle: Y" strings.
+    Returns empty list if no objection log found or narrative uses legacy format.
+    """
+    if not narrative or "OBJECTION_LOG:" not in narrative:
+        return []
+
+    try:
+        log_section = narrative.split("OBJECTION_LOG:", 1)[1]
+        # Stop at the next section header if one exists
+        for marker in ["FACTS:", "SITUATION:", "EMOTIONAL_ARC:"]:
+            if marker in log_section:
+                log_section = log_section.split(marker, 1)[0]
+        log_section = log_section.strip()
+
+        if log_section.upper() == "NONE":
+            return []
+
+        entries = []
+        for line in log_section.split("\n"):
+            line = line.strip().lstrip("-•* ")
+            if line and len(line) > 5 and line.upper() != "NONE":
+                entries.append(line)
+        return entries
+    except Exception:
+        return []
 
 
 # ═══════════════════════════════════════════════════
@@ -206,10 +285,10 @@ def _build_age_directive(age_int: int) -> str:
 # TACTICAL GUIDANCE BUILDER
 # ═══════════════════════════════════════════════════
 
-def _build_tactical_guidance(logic: LogicSignal, stage_value: str, first_name: str, full_lower: str, bot_settings: dict = None, lead_type: str = "default") -> str:
+def _build_tactical_guidance(logic: LogicSignal, stage_value: str, first_name: str, full_lower: str, bot_settings: dict = None, lead_type: str = "default", objection_log: List[str] = None) -> str:
     """
     Build the tactical narrative that tells the LLM what to do right now.
-    Uses message context, stage, objection signals, and lead type.
+    Uses message context, stage, objection signals, lead type, and objection history.
     """
 
     # ═══════════════════════════════════════════════════
@@ -276,7 +355,7 @@ def _build_tactical_guidance(logic: LogicSignal, stage_value: str, first_name: s
 
     # --- OBJECTION HANDLING ---
     if stage_value == ConversationStage.OBJECTION_HANDLING.value:
-        return _build_objection_guidance(logic, bot_settings or {})
+        return _build_objection_guidance(logic, bot_settings or {}, objection_log=objection_log or [])
 
     # --- QUALIFYING / DISCOVERY ---
     return _build_qualifying_guidance(logic, first_name, full_lower)
@@ -399,17 +478,22 @@ def _build_followup_guidance(logic: LogicSignal, bot_settings: dict = None) -> s
 # OBJECTION HANDLING GUIDANCE
 # ═══════════════════════════════════════════════════
 
-def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None) -> str:
+def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, objection_log: List[str] = None) -> str:
     """
     Build tactical guidance for handling the detected objection.
     Pure situational context — no angle playbooks, no scripted approaches.
     The LLM has the psychology frameworks in its system prompt and the
     conversation history. It can figure out what angle to take.
+
+    objection_log: Structural record of every past objection + angle used,
+    extracted from the narrative observer. This is NOT a prompt hint — the LLM
+    MUST read this list and choose a different angle every time.
     """
     obj = logic.objection_type
     nature = logic.objection_nature
     settings = bot_settings or {}
     persistence = settings.get("objection_persistence", 3)
+    log = objection_log or []
 
     persistence_note = ""
     if persistence <= 2:
@@ -423,11 +507,23 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None) -> 
             f"multiple objections. Only exit after {persistence}+ distinct attempts.\n"
         )
 
+    # Build structural objection history block
+    history_block = ""
+    if log:
+        history_block = (
+            "\n=== OBJECTION HISTORY (ANGLES ALREADY TRIED — DO NOT REPEAT) ===\n"
+            + "\n".join(f"  {i+1}. {entry}" for i, entry in enumerate(log))
+            + f"\n\nThis is attempt #{len(log) + 1}. You MUST use a completely different "
+            f"angle from the {len(log)} listed above. If you repeat any of these approaches, "
+            f"even rephrased, the lead will disengage.\n"
+        )
+
     header = (
         "OBJECTION DETECTED.\n\n"
         "Read the conversation history. Know what angles you already tried. "
         "Never repeat an approach. Every response must come from a different direction.\n"
-        f"{persistence_note}\n"
+        f"{persistence_note}"
+        f"{history_block}\n"
     )
 
     if nature == ObjectionNature.FEAR_BASED:

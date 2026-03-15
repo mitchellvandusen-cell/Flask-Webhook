@@ -358,9 +358,28 @@ def build_system_prompt(
     # No separate facts section — the profile IS the dossier.
 
     # LEFT BRAIN: What has happened in this conversation
+    # The narrative observer produces structured sections:
+    #   SITUATION: current snapshot (what to do next)
+    #   EMOTIONAL_ARC: key emotional moments (grief, fear, hope — never forget these)
+    #   OBJECTION_LOG: every objection + angle used (never repeat)
+    # Legacy narratives without sections are also supported.
     story_str = ""
     if story_narrative and story_narrative.strip():
-        story_str = f"\n=== CONVERSATION SO FAR (what has been discussed, what was answered, where things stand) ===\n{story_narrative.strip()}"
+        sn = story_narrative.strip()
+        if "SITUATION:" in sn or "EMOTIONAL_ARC:" in sn:
+            # Structured narrative — present sections with clear headers for the LLM
+            story_str = f"\n=== CONVERSATION MEMORY ===\n{sn}"
+            story_str += (
+                "\n\nINSTRUCTIONS FOR USING CONVERSATION MEMORY:\n"
+                "- SITUATION tells you where things stand. Do not re-ask anything answered there.\n"
+                "- EMOTIONAL_ARC contains moments that matter deeply to this person. If they shared grief, fear, "
+                "or vulnerability, you REMEMBER it. Reference it naturally when relevant. Never dismiss or forget it.\n"
+                "- OBJECTION_LOG lists every objection and the angle you already used. You MUST use a completely "
+                "different approach each time. If you repeat an angle from this log, the lead will disengage."
+            )
+        else:
+            # Legacy format — single recap string
+            story_str = f"\n=== CONVERSATION SO FAR (what has been discussed, what was answered, where things stand) ===\n{sn}"
 
     calendar_str = f"\nAvailable slots:\n{calendar_slots}" if calendar_slots else ""
     nudge_str = f"\nNote: {context_nudge}" if context_nudge else ""
