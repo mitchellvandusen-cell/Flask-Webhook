@@ -148,31 +148,17 @@
 
         <div class="sp-carrier-row" data-aos="fade-up">
             <div class="mkt-glass-card mkt-glass-card--cyan" style="min-width: 200px; text-align: center; padding: 32px;">
-                <svg class="sp-carrier-logo" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="16" cy="20" r="14" stroke="#00a8e0" stroke-width="2" fill="none"/>
-                    <path d="M16 6C16 6 8 14 8 20s4 10 8 14" stroke="#00a8e0" stroke-width="1.5" fill="none"/>
-                    <path d="M16 6C16 6 24 14 24 20s-4 10-8 14" stroke="#00a8e0" stroke-width="1.5" fill="none"/>
-                    <line x1="2" y1="17" x2="30" y2="17" stroke="#00a8e0" stroke-width="1.5"/>
-                    <line x1="2" y1="23" x2="30" y2="23" stroke="#00a8e0" stroke-width="1.5"/>
-                    <text x="38" y="26" fill="white" font-family="Arial,sans-serif" font-weight="800" font-size="18">AT&amp;T</text>
-                </svg>
+                <img src="{{ url_for('static', filename='img/carriers/att.svg') }}" alt="AT&T" class="sp-carrier-logo">
                 <h5 style="font-weight: 800; font-size: 1rem; margin-bottom: 4px;">AT&T / Hiya</h5>
                 <p class="mkt-body" style="font-size: 0.78rem; margin: 0;">Identity verified with Hiya's reputation engine</p>
             </div>
             <div class="mkt-glass-card" style="min-width: 200px; text-align: center; padding: 32px;">
-                <svg class="sp-carrier-logo" viewBox="0 0 140 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <text x="0" y="28" fill="#e20074" font-family="Arial,sans-serif" font-weight="900" font-size="22">T</text>
-                    <rect x="3" y="2" width="10" height="4" rx="1" fill="#e20074"/>
-                    <text x="18" y="28" fill="white" font-family="Arial,sans-serif" font-weight="800" font-size="18">T-Mobile</text>
-                </svg>
+                <img src="{{ url_for('static', filename='img/carriers/tmobile.svg') }}" alt="T-Mobile" class="sp-carrier-logo">
                 <h5 style="font-weight: 800; font-size: 1rem; margin-bottom: 4px;">T-Mobile / CallHub</h5>
                 <p class="mkt-body" style="font-size: 0.78rem; margin: 0;">Business registered in Scam Shield database</p>
             </div>
             <div class="mkt-glass-card mkt-glass-card--purple" style="min-width: 200px; text-align: center; padding: 32px;">
-                <svg class="sp-carrier-logo" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M4 20L14 32L30 4" stroke="#cd040b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-                    <text x="38" y="26" fill="white" font-family="Arial,sans-serif" font-weight="800" font-size="18">Verizon</text>
-                </svg>
+                <img src="{{ url_for('static', filename='img/carriers/verizon.svg') }}" alt="Verizon" class="sp-carrier-logo">
                 <h5 style="font-weight: 800; font-size: 1rem; margin-bottom: 4px;">Verizon</h5>
                 <p class="mkt-body" style="font-size: 0.78rem; margin: 0;">Authenticated via carrier trust framework</p>
             </div>
