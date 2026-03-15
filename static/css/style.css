@@ -4819,9 +4819,9 @@ body.light-theme .ni-edit-submit-btn { background: linear-gradient(135deg, #0088
     justify-content: center;
     font-size: 0.85rem;
     flex-shrink: 0;
-    background: rgba(0,217,255,0.1);
-    border: 1px solid rgba(0,217,255,0.2);
-    color: #00d9ff;
+    background: rgba(0,255,136,0.1);
+    border: 1px solid rgba(0,255,136,0.2);
+    color: #00ff88;
 }
 .sm-accordion-title {
     font-weight: 700;
@@ -4870,8 +4870,8 @@ body.light-theme .sm-accordion-chevron {
     color: var(--lt-text-muted);
 }
 body.light-theme .sm-accordion-icon {
-    background: rgba(0,140,200,0.08);
-    border-color: rgba(0,140,200,0.2);
-    color: #0078b8;
+    background: rgba(0,0,0,0.05);
+    border-color: rgba(0,0,0,0.12);
+    color: #1a1a1a;
 }
 @media (max-width: 575px) { .articles-grid { grid-template-columns: 1fr; } }
