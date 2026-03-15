@@ -14,13 +14,13 @@
             if (status) url += `&status=${status}`;
 
             const container = document.getElementById('logsContainer');
-            container.innerHTML = '<div class="text-center py-4" style="color:#888;"><i class="fa-solid fa-spinner fa-spin me-2"></i> Loading...</div>';
+            container.innerHTML = '<div class="text-center py-4" style="color:' + _tc.textMut + ';"><i class="fa-solid fa-spinner fa-spin me-2"></i> Loading...</div>';
 
             fetch(url)
                 .then(r => r.json())
                 .then(data => {
                     if (!data.logs || data.logs.length === 0) {
-                        container.innerHTML = '<div class="text-center py-5" style="color:#666;"><i class="fa-solid fa-inbox" style="font-size:2rem; margin-bottom:12px; display:block;"></i>No logs yet. Logs appear here when your webhook receives messages.</div>';
+                        container.innerHTML = '<div class="text-center py-5" style="color:' + _tc.textFaint + ';"><i class="fa-solid fa-inbox" style="font-size:2rem; margin-bottom:12px; display:block;"></i>No logs yet. Logs appear here when your webhook receives messages.</div>';
                         document.getElementById('logsPagination').style.display = 'none';
                         return;
                     }
@@ -47,7 +47,7 @@
                     document.getElementById('logsOlder').disabled = data.logs.length < LOGS_PER_PAGE;
                 })
                 .catch(e => {
-                    container.innerHTML = '<div class="text-center py-4" style="color:#ef4444;"><i class="fa-solid fa-exclamation-triangle me-2"></i> Failed to load logs</div>';
+                    container.innerHTML = '<div class="text-center py-4" style="color:' + _tc.red + ';"><i class="fa-solid fa-exclamation-triangle me-2"></i> Failed to load logs</div>';
                 });
         }
 

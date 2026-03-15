@@ -38,18 +38,18 @@
 
                     <!-- Header -->
                     <div class="d-flex align-items-center mb-4 gap-3">
-                        <div style="width:50px; height:50px; background:rgba(0,217,255,0.08); border:1px solid rgba(0,217,255,0.15); border-radius:12px; display:flex; align-items:center; justify-content:center;">
-                            <i class="fa-solid fa-graduation-cap" style="font-size:1.3rem; color:#00d9ff;"></i>
+                        <div class="trn-header-icon">
+                            <i class="fa-solid fa-graduation-cap"></i>
                         </div>
                         <div>
                             <h3 class="m-0" style="font-weight:700;">Training Center</h3>
-                            <p class="m-0" style="color:#888; font-size:0.85rem;">Learn how to get the most out of InsuranceGrokBot</p>
+                            <p class="m-0 trn-subtitle">Learn how to get the most out of InsuranceGrokBot</p>
                         </div>
                     </div>
 
                     <!-- Quick Start Checklist -->
                     <div class="trn-section-hdr"><i class="fa-solid fa-rocket me-2"></i>Quick Start Checklist</div>
-                    <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:12px; margin-bottom:24px; overflow:hidden;">
+                    <div class="trn-checklist-wrap">
                         <ol class="trn-checklist">
                             <li><span class="trn-step-num">1</span> Connect your GoHighLevel CRM via OAuth</li>
                             <li><span class="trn-step-num">2</span> Select your contracted insurance carriers</li>
@@ -82,57 +82,57 @@
                     <div class="trn-grid">
 
                         <div class="trn-card" onclick="sidebarNavigate('config', document.getElementById('sbnSmsConfig'))">
-                            <div class="trn-card-icon" style="background:rgba(0,217,255,0.08); border:1px solid rgba(0,217,255,0.15); color:#00d9ff;">
+                            <div class="trn-card-icon trn-icon-cyan">
                                 <i class="fa-solid fa-comment-sms"></i>
                             </div>
                             <h4>SMS Bot Configuration</h4>
                             <p>Customize your AI bot's personality, response style, and behavior rules. Set greeting messages, objection handling, and appointment booking prompts.</p>
-                            <span class="trn-tag" style="background:rgba(0,217,255,0.08); color:#00d9ff;">Go to SMS Config</span>
+                            <span class="trn-tag trn-tag-cyan">Go to SMS Config</span>
                         </div>
 
                         <div class="trn-card" onclick="sidebarNavigate('voice', document.getElementById('sbnVoiceConfig'))">
-                            <div class="trn-card-icon" style="background:rgba(167,139,250,0.08); border:1px solid rgba(167,139,250,0.15); color:#a78bfa;">
+                            <div class="trn-card-icon trn-icon-purple">
                                 <i class="fa-solid fa-phone"></i>
                             </div>
                             <h4>Voice AI Setup</h4>
                             <p>Configure your AI voice agent, select phone numbers, set up call transfer rules, and manage A2P 10DLC registration for compliant messaging.</p>
-                            <span class="trn-tag" style="background:rgba(167,139,250,0.08); color:#a78bfa;">Go to Voice Config</span>
+                            <span class="trn-tag trn-tag-purple">Go to Voice Config</span>
                         </div>
 
                         <div class="trn-card" onclick="sidebarNavigate('voicedialer', document.getElementById('sbnDialer'))">
-                            <div class="trn-card-icon" style="background:rgba(74,222,128,0.08); border:1px solid rgba(74,222,128,0.15); color:#4ade80;">
+                            <div class="trn-card-icon trn-icon-green">
                                 <i class="fa-solid fa-phone-volume"></i>
                             </div>
                             <h4>Power Dialer</h4>
                             <p>Use the built-in dialer to call leads directly from your dashboard. View lead intelligence, call history, and AI-generated contact summaries.</p>
-                            <span class="trn-tag" style="background:rgba(74,222,128,0.08); color:#4ade80;">Go to Dialer</span>
+                            <span class="trn-tag trn-tag-green">Go to Dialer</span>
                         </div>
 
                         <div class="trn-card" onclick="sidebarNavigate('workflows', document.getElementById('sbnWorkflows'))">
-                            <div class="trn-card-icon" style="background:rgba(251,191,36,0.08); border:1px solid rgba(251,191,36,0.15); color:#fbbf24;">
+                            <div class="trn-card-icon trn-icon-yellow">
                                 <i class="fa-solid fa-diagram-project"></i>
                             </div>
                             <h4>GHL Workflows</h4>
                             <p>Set up webhook workflows in GoHighLevel to automatically send new leads and inbound messages to InsuranceGrokBot for AI processing.</p>
-                            <span class="trn-tag" style="background:rgba(251,191,36,0.08); color:#fbbf24;">Go to Workflows</span>
+                            <span class="trn-tag trn-tag-yellow">Go to Workflows</span>
                         </div>
 
                         <div class="trn-card" onclick="sidebarNavigate('carriers', document.getElementById('sbnCarriers'))">
-                            <div class="trn-card-icon" style="background:rgba(244,114,182,0.08); border:1px solid rgba(244,114,182,0.15); color:#f472b6;">
+                            <div class="trn-card-icon trn-icon-pink">
                                 <i class="fa-solid fa-building-columns"></i>
                             </div>
                             <h4>Carrier Selection</h4>
                             <p>Select the insurance carriers you're contracted with. The AI will only reference these carriers when speaking with leads, ensuring accuracy.</p>
-                            <span class="trn-tag" style="background:rgba(244,114,182,0.08); color:#f472b6;">Go to Carriers</span>
+                            <span class="trn-tag trn-tag-pink">Go to Carriers</span>
                         </div>
 
                         <div class="trn-card" onclick="sidebarNavigate('connect', document.getElementById('sbnConnect'))">
-                            <div class="trn-card-icon" style="background:rgba(56,189,248,0.08); border:1px solid rgba(56,189,248,0.15); color:#38bdf8;">
+                            <div class="trn-card-icon trn-icon-sky">
                                 <i class="fa-solid fa-plug"></i>
                             </div>
                             <h4>CRM Integration</h4>
                             <p>Connect your GoHighLevel account via OAuth. The bot reads your contacts and conversations to provide context-aware AI responses.</p>
-                            <span class="trn-tag" style="background:rgba(56,189,248,0.08); color:#38bdf8;">Go to Connect</span>
+                            <span class="trn-tag trn-tag-sky">Go to Connect</span>
                         </div>
 
                     </div>
@@ -141,29 +141,29 @@
                     <div style="margin-top:24px;">
                         <div class="trn-section-hdr"><i class="fa-solid fa-lightbulb me-2"></i>Tips & Best Practices</div>
                         <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:12px;">
-                            <div style="background:rgba(74,222,128,0.04); border:1px solid rgba(74,222,128,0.1); border-radius:10px; padding:14px 16px;">
-                                <div style="font-size:.8rem; font-weight:700; color:#4ade80; margin-bottom:6px;"><i class="fa-solid fa-bolt me-1"></i>Speed to Lead</div>
-                                <div style="font-size:.78rem; color:#999; line-height:1.45;">Responding within the first 5 minutes increases contact rates by 10x. Make sure your webhook workflow is active so the bot responds instantly.</div>
+                            <div class="trn-tip-green">
+                                <div class="trn-tip-title-green"><i class="fa-solid fa-bolt me-1"></i>Speed to Lead</div>
+                                <div class="trn-tip-body">Responding within the first 5 minutes increases contact rates by 10x. Make sure your webhook workflow is active so the bot responds instantly.</div>
                             </div>
-                            <div style="background:rgba(0,217,255,0.04); border:1px solid rgba(0,217,255,0.1); border-radius:10px; padding:14px 16px;">
-                                <div style="font-size:.8rem; font-weight:700; color:#00d9ff; margin-bottom:6px;"><i class="fa-solid fa-user-check me-1"></i>Personalize Your Bot</div>
-                                <div style="font-size:.78rem; color:#999; line-height:1.45;">Set your operator name and bio in the sidebar. The AI uses this to introduce itself naturally and build rapport with your leads.</div>
+                            <div class="trn-tip-cyan">
+                                <div class="trn-tip-title-cyan"><i class="fa-solid fa-user-check me-1"></i>Personalize Your Bot</div>
+                                <div class="trn-tip-body">Set your operator name and bio in the sidebar. The AI uses this to introduce itself naturally and build rapport with your leads.</div>
                             </div>
-                            <div style="background:rgba(167,139,250,0.04); border:1px solid rgba(167,139,250,0.1); border-radius:10px; padding:14px 16px;">
-                                <div style="font-size:.8rem; font-weight:700; color:#a78bfa; margin-bottom:6px;"><i class="fa-solid fa-phone-volume me-1"></i>Warm Call After SMS</div>
-                                <div style="font-size:.78rem; color:#999; line-height:1.45;">Let the SMS bot qualify the lead first, then use the dialer to call. The AI summary gives you context before you even pick up the phone.</div>
+                            <div class="trn-tip-purple">
+                                <div class="trn-tip-title-purple"><i class="fa-solid fa-phone-volume me-1"></i>Warm Call After SMS</div>
+                                <div class="trn-tip-body">Let the SMS bot qualify the lead first, then use the dialer to call. The AI summary gives you context before you even pick up the phone.</div>
                             </div>
-                            <div style="background:rgba(251,191,36,0.04); border:1px solid rgba(251,191,36,0.1); border-radius:10px; padding:14px 16px;">
-                                <div style="font-size:.8rem; font-weight:700; color:#fbbf24; margin-bottom:6px;"><i class="fa-solid fa-shield-halved me-1"></i>A2P Compliance</div>
-                                <div style="font-size:.78rem; color:#999; line-height:1.45;">Register for A2P 10DLC in Voice Config to prevent carrier filtering. Unregistered numbers may have messages blocked or delayed.</div>
+                            <div class="trn-tip-yellow">
+                                <div class="trn-tip-title-yellow"><i class="fa-solid fa-shield-halved me-1"></i>A2P Compliance</div>
+                                <div class="trn-tip-body">Register for A2P 10DLC in Voice Config to prevent carrier filtering. Unregistered numbers may have messages blocked or delayed.</div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Help Footer -->
-                    <div style="margin-top:28px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.04); text-align:center;">
-                        <p style="font-size:.8rem; color:#555; margin-bottom:10px;">Need help? Our team is here for you.</p>
-                        <a href="/support" style="display:inline-flex; align-items:center; gap:6px; background:rgba(0,217,255,0.08); border:1px solid rgba(0,217,255,0.15); color:#00d9ff; padding:8px 20px; border-radius:8px; text-decoration:none; font-size:.82rem; font-weight:600;">
+                    <div class="trn-help-footer">
+                        <p class="trn-help-text">Need help? Our team is here for you.</p>
+                        <a href="/support" class="trn-support-link">
                             <i class="fa-solid fa-headset"></i> Contact Support
                         </a>
                     </div>

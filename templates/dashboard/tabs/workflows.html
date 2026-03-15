@@ -2,12 +2,12 @@
             <div class="tab-pane fade" id="workflows" role="tabpanel">
                 <div class="glass-panel" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px; padding: 40px;">
                     <div class="d-flex align-items-center mb-4 gap-3">
-                        <div style="width:50px; height:50px; background:rgba(0, 255, 136, 0.08); border:1px solid rgba(0, 255, 136, 0.15); border-radius:12px; display:flex; align-items:center; justify-content:center;">
+                        <div class="wf-header-icon">
                             <i class="fa-solid fa-diagram-project" style="font-size:1.3rem; color:var(--accent);"></i>
                         </div>
                         <div>
                             <h3 class="m-0" style="font-weight:700;">Create a Workflow</h3>
-                            <p class="m-0" style="color: #888; font-size: 0.85rem;">Set up automation in your Lead Connector account</p>
+                            <p class="m-0 wf-subtitle">Set up automation in your Lead Connector account</p>
                         </div>
                     </div>
 
@@ -93,7 +93,7 @@
                             <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); font-weight: 700;">Smart Tag Intelligence</span>
                         </div>
 
-                        <p style="color: #999; font-size: 0.88rem; line-height: 1.6; margin-bottom: 20px;">
+                        <p class="wf-smart-desc" style="margin-bottom: 20px;">
                             Tags tell the AI what kind of lead it's talking to. The AI cross-references your tags with the contact's import date to verify accuracy. A "fresh" tag on a 90-day-old contact gets overridden automatically.
                         </p>
 
@@ -175,41 +175,41 @@
                         </div>
 
                         <!-- Date Intelligence -->
-                        <div style="margin-top: 28px; padding: 20px; background: rgba(0, 180, 255, 0.04); border: 1px solid rgba(0, 180, 255, 0.12); border-radius: 14px;">
+                        <div class="wf-date-intel-box" style="margin-top: 28px;">
                             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-                                <i class="fa-solid fa-calendar-check" style="color: #00b4ff; font-size: 1rem;"></i>
+                                <i class="fa-solid fa-calendar-check wf-date-intel-icon"></i>
                                 <span style="font-weight: 700; font-size: 0.95rem;">Date Intelligence</span>
                             </div>
-                            <p style="color: #999; font-size: 0.85rem; line-height: 1.6; margin: 0 0 12px;">
-                                The AI automatically reads the contact's <strong style="color:#ccc;">Date Added</strong> or <strong style="color:#ccc;">Date Created</strong> from your CRM. Even without tags, it can infer lead freshness:
+                            <p class="wf-date-intel-desc" style="margin: 0 0 12px;">
+                                The AI automatically reads the contact's <strong>Date Added</strong> or <strong>Date Created</strong> from your CRM. Even without tags, it can infer lead freshness:
                             </p>
                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
                                 <div class="wf-date-pill">
                                     <span class="wf-date-range">0-3 days</span>
-                                    <span class="wf-date-type" style="color: #00ff88;">Inferred fresh</span>
+                                    <span class="wf-date-type wf-date-fresh">Inferred fresh</span>
                                 </div>
                                 <div class="wf-date-pill">
                                     <span class="wf-date-range">4-30 days</span>
-                                    <span class="wf-date-type" style="color: #aaa;">Ambiguous</span>
+                                    <span class="wf-date-type wf-date-ambiguous">Ambiguous</span>
                                 </div>
                                 <div class="wf-date-pill">
                                     <span class="wf-date-range">31-90 days</span>
-                                    <span class="wf-date-type" style="color: #ffa726;">Inferred aged</span>
+                                    <span class="wf-date-type wf-date-aged">Inferred aged</span>
                                 </div>
                                 <div class="wf-date-pill">
                                     <span class="wf-date-range">90+ days</span>
-                                    <span class="wf-date-type" style="color: #ef5350;">Very old</span>
+                                    <span class="wf-date-type wf-date-old">Very old</span>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Lead Vendor Custom Field -->
-                        <div style="margin-top: 20px; padding: 20px; background: rgba(156, 39, 176, 0.04); border: 1px solid rgba(156, 39, 176, 0.12); border-radius: 14px;">
+                        <div class="wf-vendor-box" style="margin-top: 20px;">
                             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-                                <i class="fa-solid fa-store" style="color: #ce93d8; font-size: 1rem;"></i>
+                                <i class="fa-solid fa-store wf-vendor-icon"></i>
                                 <span style="font-weight: 700; font-size: 0.95rem;">Lead Vendor (Custom Field)</span>
                             </div>
-                            <p style="color: #999; font-size: 0.85rem; line-height: 1.6; margin: 0 0 12px;">
+                            <p class="wf-vendor-desc" style="margin: 0 0 12px;">
                                 If you have a custom field in your CRM named any of the following, the AI will automatically extract the lead vendor and include it in the contact's profile:
                             </p>
                             <div style="display: flex; flex-wrap: wrap; gap: 6px;">
@@ -218,19 +218,19 @@
                                 <code class="wf-cf-chip">lead_provider</code>
                                 <code class="wf-cf-chip">vendor</code>
                             </div>
-                            <p style="color: #666; font-size: 0.78rem; margin: 10px 0 0; line-height: 1.5;">
+                            <p class="wf-vendor-hint">
                                 This helps the AI understand where the lead came from (QuoteWizard, MediaAlpha, etc.) and adjust its approach.
                             </p>
                         </div>
 
                         <!-- Multiple Tags Warning -->
-                        <div style="margin-top: 20px; padding: 20px; background: rgba(255, 167, 38, 0.04); border: 1px solid rgba(255, 167, 38, 0.12); border-radius: 14px;">
+                        <div class="wf-multitag-box" style="margin-top: 20px;">
                             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-                                <i class="fa-solid fa-tags" style="color: #ffa726; font-size: 1rem;"></i>
+                                <i class="fa-solid fa-tags wf-multitag-icon"></i>
                                 <span style="font-weight: 700; font-size: 0.95rem;">Multiple Tags</span>
                             </div>
-                            <p style="color: #999; font-size: 0.85rem; line-height: 1.6; margin: 0;">
-                                If a contact has conflicting tags (e.g. both "fresh" and "aged"), the AI uses this priority: <strong style="color:#ccc;">re-engage</strong> wins over <strong style="color:#ccc;">fresh</strong>, which wins over <strong style="color:#ccc;">aged</strong>. The import date is then used to verify whichever tag won. Stale tags get overridden automatically.
+                            <p class="wf-multitag-desc" style="margin: 0;">
+                                If a contact has conflicting tags (e.g. both "fresh" and "aged"), the AI uses this priority: <strong>re-engage</strong> wins over <strong>fresh</strong>, which wins over <strong>aged</strong>. The import date is then used to verify whichever tag won. Stale tags get overridden automatically.
                             </p>
                         </div>
 

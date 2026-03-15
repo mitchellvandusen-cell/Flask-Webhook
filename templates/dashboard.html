@@ -221,6 +221,37 @@
         }
     })();
 
+    // Theme-aware color palette — returns correct color for current theme
+    function _themeColor(darkVal, lightVal) {
+        return document.body.classList.contains('light-theme') ? lightVal : darkVal;
+    }
+    // Common theme colors used across JS modules
+    var _tc = {
+        get text()     { return _themeColor('#fff', '#111827'); },
+        get textSec()  { return _themeColor('#ccc', '#374151'); },
+        get textMut()  { return _themeColor('#888', '#6b7280'); },
+        get textFaint(){ return _themeColor('#666', '#9ca3af'); },
+        get textDim()  { return _themeColor('#555', '#9ca3af'); },
+        get accent()   { return _themeColor('#00ff88', '#00884a'); },
+        get accentBg() { return _themeColor('rgba(0,255,136,0.08)', 'rgba(0,170,94,0.08)'); },
+        get cyan()     { return _themeColor('#00d9ff', '#0078b8'); },
+        get cyanBg()   { return _themeColor('rgba(0,217,255,0.08)', 'rgba(0,120,184,0.08)'); },
+        get red()      { return _themeColor('#ef4444', '#dc2626'); },
+        get redBg()    { return _themeColor('rgba(239,68,68,0.08)', 'rgba(220,38,38,0.08)'); },
+        get orange()   { return _themeColor('#ffa500', '#c77c00'); },
+        get orangeBg() { return _themeColor('rgba(255,165,0,0.08)', 'rgba(199,124,0,0.08)'); },
+        get yellow()   { return _themeColor('#ffc107', '#a16207'); },
+        get blue()     { return _themeColor('#3b82f6', '#2563eb'); },
+        get blueBg()   { return _themeColor('rgba(59,130,246,0.08)', 'rgba(37,99,235,0.08)'); },
+        get green()    { return _themeColor('#4ade80', '#16a34a'); },
+        get greenBg()  { return _themeColor('rgba(74,222,128,0.08)', 'rgba(22,163,74,0.08)'); },
+        get surface()  { return _themeColor('rgba(255,255,255,0.04)', 'rgba(0,0,0,0.03)'); },
+        get surfHov()  { return _themeColor('rgba(255,255,255,0.08)', 'rgba(0,0,0,0.05)'); },
+        get border()   { return _themeColor('rgba(255,255,255,0.08)', 'rgba(0,0,0,0.08)'); },
+        get borderStr(){ return _themeColor('rgba(255,255,255,0.15)', 'rgba(0,0,0,0.12)'); },
+        get panelBg()  { return _themeColor('rgba(30,30,30,0.95)', 'rgba(255,255,255,0.97)'); },
+    };
+
     // Language picker — saves preference and reloads page
     function setLanguage(code) {
         fetch('/api/set-language', {

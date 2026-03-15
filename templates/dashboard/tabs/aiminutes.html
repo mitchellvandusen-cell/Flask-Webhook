@@ -4,19 +4,19 @@
                     <!-- Balance Banner -->
                     <div id="aimBalanceBanner" style="display:flex; align-items:center; gap:24px; padding:24px 30px; border-radius:16px; background:linear-gradient(135deg, rgba(0,255,136,0.08), rgba(0,153,255,0.08)); border:1px solid rgba(0,255,136,0.15); margin-bottom:32px; flex-wrap:wrap;">
                         <div style="flex:1; min-width:200px;">
-                            <div style="font-size:0.85rem; color:#aaa; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Available Balance</div>
-                            <div style="font-size:2.4rem; font-weight:900; color:#fff;" id="aimBalanceValue">
-                                <i class="fa-solid fa-spinner fa-spin" style="font-size:1.2rem; color:#555;"></i>
+                            <div class="aim-stat-label">Available Balance</div>
+                            <div class="aim-balance-val" id="aimBalanceValue">
+                                <i class="fa-solid fa-spinner fa-spin aim-loading-spinner" style="font-size:1.2rem;"></i>
                             </div>
                         </div>
                         <div style="display:flex; gap:24px; flex-wrap:wrap;">
                             <div style="text-align:center;">
-                                <div style="font-size:0.75rem; color:#888; text-transform:uppercase; letter-spacing:0.5px;">Purchased</div>
+                                <div class="aim-sub-label">Purchased</div>
                                 <div style="font-size:1.3rem; font-weight:700; color:var(--accent);" id="aimTotalPurchased">—</div>
                             </div>
                             <div style="text-align:center;">
-                                <div style="font-size:0.75rem; color:#888; text-transform:uppercase; letter-spacing:0.5px;">Used</div>
-                                <div style="font-size:1.3rem; font-weight:700; color:#ff6b6b;" id="aimTotalUsed">—</div>
+                                <div class="aim-sub-label">Used</div>
+                                <div class="aim-used-val" id="aimTotalUsed">—</div>
                             </div>
                         </div>
                     </div>
@@ -25,8 +25,8 @@
                     <h5 style="font-weight:700; margin-bottom:20px;"><i class="fa-solid fa-cart-shopping me-2" style="color:var(--accent);"></i>Purchase AI Minutes</h5>
                     <div class="row g-3 mb-4" id="aimPackages">
                         <div class="col-12 text-center py-3">
-                            <i class="fa-solid fa-spinner fa-spin" style="color:#555;"></i>
-                            <span style="color:#888; margin-left:8px;">Loading packages...</span>
+                            <i class="fa-solid fa-spinner fa-spin aim-loading-spinner"></i>
+                            <span class="aim-loading-text">Loading packages...</span>
                         </div>
                     </div>
 
@@ -41,7 +41,7 @@
                         </div>
 
                         <div id="aimHistoryContent" style="max-height:400px; overflow-y:auto;">
-                            <div class="text-center py-4" style="color:#888;">
+                            <div class="text-center py-4 aim-history-loading">
                                 <i class="fa-solid fa-spinner fa-spin"></i> Loading...
                             </div>
                         </div>
