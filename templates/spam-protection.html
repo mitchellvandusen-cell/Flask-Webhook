@@ -1,0 +1,586 @@
+{% extends "base.html" %}
+
+{% block title %}Spam Protection & Number Health — InsuranceGrokBot{% endblock %}
+
+{% block content %}
+<style>
+    .sp-hero { padding: 150px 0 80px; position: relative; overflow: hidden; }
+    .sp-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 30% 20%, rgba(0,217,255,0.08) 0%, transparent 55%), radial-gradient(ellipse at 70% 80%, rgba(0,255,136,0.05) 0%, transparent 50%); pointer-events: none; }
+    .sp-tag { display: inline-block; background: rgba(0,217,255,0.08); border: 1px solid rgba(0,217,255,0.25); color: #00d9ff; padding: 6px 20px; border-radius: 24px; font-size: 0.78rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 20px; }
+    .sp-h1 { font-size: clamp(2.4rem, 4.5vw, 3.6rem); font-weight: 900; line-height: 1.08; margin-bottom: 20px; }
+    .sp-h1 span { background: linear-gradient(135deg, var(--accent), #00d9ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .sp-sub { color: #999; font-size: 1.1rem; max-width: 700px; margin: 0 auto 36px; line-height: 1.65; }
+    .sp-section { padding: 80px 0; }
+    .sp-section + .sp-section { padding-top: 0; }
+
+    /* Stats bar */
+    .sp-stats { display: flex; justify-content: center; gap: 48px; flex-wrap: wrap; margin-top: 48px; }
+    .sp-stat { text-align: center; }
+    .sp-stat-num { font-size: 2.2rem; font-weight: 900; background: linear-gradient(135deg, #00d9ff, var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .sp-stat-lbl { font-size: 0.78rem; color: #777; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+    /* Grid layouts */
+    .sp-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    @media (max-width: 991px) { .sp-grid-3 { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 575px) { .sp-grid-3 { grid-template-columns: 1fr; } }
+
+    .sp-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    @media (max-width: 991px) { .sp-grid-4 { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 575px) { .sp-grid-4 { grid-template-columns: 1fr; } }
+
+    /* Two-col feature blocks */
+    .sp-fb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+    .sp-fb-grid.reverse { direction: rtl; }
+    .sp-fb-grid.reverse > * { direction: ltr; }
+    @media (max-width: 991px) { .sp-fb-grid, .sp-fb-grid.reverse { grid-template-columns: 1fr; direction: ltr; } }
+    .sp-fb-list { list-style: none; padding: 0; margin: 20px 0 0; }
+    .sp-fb-list li { padding: 7px 0; color: #bbb; font-size: 0.9rem; }
+    .sp-fb-list li i { margin-right: 10px; font-size: 0.8rem; }
+
+    /* Carrier badges */
+    .sp-carrier-row { display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; margin-top: 40px; }
+
+    /* How it works steps */
+    .sp-step-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; overflow: hidden; }
+    @media (max-width: 991px) { .sp-step-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 575px) { .sp-step-grid { grid-template-columns: 1fr; } }
+    .sp-step-num { font-size: 2rem; font-weight: 900; background: linear-gradient(135deg, #00d9ff, var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; }
+
+    /* Health score mockup */
+    .sp-health-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .sp-health-row:last-child { border-bottom: none; }
+    .sp-health-phone { color: #ddd; font-size: 0.88rem; font-weight: 600; font-family: monospace; }
+    .sp-health-bar { flex: 1; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+    .sp-health-fill { height: 100%; border-radius: 3px; }
+    .sp-health-score { font-weight: 800; font-size: 0.85rem; min-width: 32px; text-align: right; }
+
+    .sp-metric { font-weight: 900; color: #00d9ff; }
+
+    /* CTA section */
+    .sp-cta { text-align: center; padding: 56px 40px; }
+</style>
+
+
+<!-- ═══ HERO ═══ -->
+<section class="sp-hero">
+    <div class="container" style="position: relative; z-index: 2;">
+        <div class="text-center" data-aos="fade-up">
+            <span class="sp-tag"><i class="fa-solid fa-shield-halved me-2"></i>Spam Protection</span>
+            <h1 class="sp-h1">Your Numbers Ring.<br><span>Not Get Flagged.</span></h1>
+            <p class="sp-sub">
+                In high-volume outbound insurance dialing, your phone numbers are your lifeline.
+                One spam label and your connect rates collapse overnight.
+                InsuranceGrokBot protects every number you own with carrier-level registration, real-time health monitoring,
+                and intelligent rotation — so your calls always get answered.
+            </p>
+            <div class="d-flex justify-content-center gap-3 flex-wrap">
+                <a href="/checkout" class="btn btn-primary btn-lg">Get Protected Now</a>
+                <a href="/for-individuals" class="btn btn-outline-accent btn-lg">See All Features</a>
+            </div>
+        </div>
+
+        <div class="sp-stats" data-aos="fade-up" data-aos-delay="200">
+            <div class="sp-stat"><div class="sp-stat-num">3</div><div class="sp-stat-lbl">Major Carriers Registered</div></div>
+            <div class="sp-stat"><div class="sp-stat-num">8</div><div class="sp-stat-lbl">Health Score Dimensions</div></div>
+            <div class="sp-stat"><div class="sp-stat-num">24/7</div><div class="sp-stat-lbl">Real-Time Monitoring</div></div>
+            <div class="sp-stat"><div class="sp-stat-num">1-Click</div><div class="sp-stat-lbl">Remediation</div></div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══ THE PROBLEM ═══ -->
+<section class="sp-section">
+    <div class="container">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <h2 class="mkt-h2">The Hidden Killer of <span style="color: #ef4444;">Outbound Insurance Sales</span></h2>
+            <p class="mkt-body" style="max-width: 640px; margin: 8px auto 0;">
+                You're dialing 200+ calls a day. Your numbers are burning through carrier trust faster than you realize.
+                By the time you see "Spam Likely" on your dashboard, the damage is already done.
+            </p>
+        </div>
+
+        <div class="sp-grid-3" data-aos="fade-up">
+            <div class="mkt-glass-card">
+                <div class="mkt-icon-box mkt-icon-box--orange" style="margin-bottom: 16px;">
+                    <i class="fa-solid fa-phone-slash"></i>
+                </div>
+                <h4 style="font-weight: 800; font-size: 1.05rem; margin-bottom: 8px;">Calls Go Unanswered</h4>
+                <p class="mkt-body">When AT&T, T-Mobile, or Verizon flag your number as spam, prospects never even see your call. Your leads are there — they just can't hear you.</p>
+            </div>
+            <div class="mkt-glass-card mkt-glass-card--orange">
+                <div class="mkt-icon-box" style="background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2); color: #f59e0b; margin-bottom: 16px;">
+                    <i class="fa-solid fa-fire-flame-curved"></i>
+                </div>
+                <h4 style="font-weight: 800; font-size: 1.05rem; margin-bottom: 8px;">Numbers Burn Fast</h4>
+                <p class="mkt-body">High-volume insurance dialing puts extreme stress on phone numbers. Without protection, a number can go from clean to flagged in days — not weeks.</p>
+            </div>
+            <div class="mkt-glass-card mkt-glass-card--purple">
+                <div class="mkt-icon-box mkt-icon-box--purple" style="margin-bottom: 16px;">
+                    <i class="fa-solid fa-chart-line-down"></i>
+                </div>
+                <h4 style="font-weight: 800; font-size: 1.05rem; margin-bottom: 8px;">Connect Rates Crater</h4>
+                <p class="mkt-body">Industry average connect rates for flagged numbers drop below 2%. That means 98 out of 100 dials are wasted effort, wasted time, wasted leads.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══ CARRIER REGISTRATION ═══ -->
+<section class="sp-section">
+    <div class="container">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <h2 class="mkt-h2">Registered With <span>All Three Major Carriers</span></h2>
+            <p class="mkt-body" style="max-width: 640px; margin: 8px auto 0;">
+                We register your business identity and phone numbers directly with the spam analytics engines
+                at AT&T, T-Mobile, and Verizon. When carriers know who you are, they trust your calls.
+            </p>
+        </div>
+
+        <div class="sp-carrier-row" data-aos="fade-up">
+            <div class="mkt-glass-card mkt-glass-card--cyan" style="min-width: 200px; text-align: center; padding: 32px;">
+                <i class="fa-solid fa-tower-cell" style="font-size: 2rem; color: #00d9ff; margin-bottom: 12px; display: block;"></i>
+                <h5 style="font-weight: 800; font-size: 1rem; margin-bottom: 4px;">AT&T / Hiya</h5>
+                <p class="mkt-body" style="font-size: 0.78rem; margin: 0;">Identity verified with Hiya's reputation engine</p>
+            </div>
+            <div class="mkt-glass-card" style="min-width: 200px; text-align: center; padding: 32px;">
+                <i class="fa-solid fa-signal" style="font-size: 2rem; color: var(--accent); margin-bottom: 12px; display: block;"></i>
+                <h5 style="font-weight: 800; font-size: 1rem; margin-bottom: 4px;">T-Mobile / CallHub</h5>
+                <p class="mkt-body" style="font-size: 0.78rem; margin: 0;">Business registered in Scam Shield database</p>
+            </div>
+            <div class="mkt-glass-card mkt-glass-card--purple" style="min-width: 200px; text-align: center; padding: 32px;">
+                <i class="fa-solid fa-satellite-dish" style="font-size: 2rem; color: #8b5cf6; margin-bottom: 12px; display: block;"></i>
+                <h5 style="font-weight: 800; font-size: 1rem; margin-bottom: 4px;">Verizon</h5>
+                <p class="mkt-body" style="font-size: 0.78rem; margin: 0;">Authenticated via carrier trust framework</p>
+            </div>
+        </div>
+
+        <div class="sp-fb-grid" style="margin-top: 64px;" data-aos="fade-up">
+            <div>
+                <div class="mkt-icon-box mkt-icon-box--cyan" style="margin-bottom: 16px;">
+                    <i class="fa-solid fa-user-shield"></i>
+                </div>
+                <h2 style="font-weight: 900; font-size: 1.8rem; margin-bottom: 8px;">Your Business Identity, Verified</h2>
+                <p class="mkt-body" style="line-height: 1.7;">
+                    When you register through InsuranceGrokBot, carriers see your legitimate business name
+                    instead of an anonymous number. Your calls display your business identity — building
+                    trust before the prospect even picks up.
+                </p>
+                <ul class="sp-fb-list">
+                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Business name displayed on caller ID (CNAM)</li>
+                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> STIR/SHAKEN attestation for maximum trust</li>
+                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Verified caller — not "Spam Likely"</li>
+                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> One-click registration — no paperwork, no waiting</li>
+                </ul>
+            </div>
+            <div class="text-center">
+                <div class="mkt-inset-glass" style="padding: 32px; max-width: 360px; margin: 0 auto;">
+                    <div style="margin-bottom: 20px;">
+                        <i class="fa-solid fa-shield-check" style="font-size: 3rem; color: var(--accent);"></i>
+                    </div>
+                    <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 12px;">Incoming Call</div>
+                    <div style="font-size: 1.3rem; font-weight: 800; color: #fff; margin-bottom: 4px;">Acme Insurance Agency</div>
+                    <div style="font-size: 0.85rem; color: var(--accent); font-weight: 600; margin-bottom: 4px;"><i class="fa-solid fa-circle-check me-1"></i> Verified Business</div>
+                    <div style="font-size: 0.82rem; color: #777; font-family: monospace;">(555) 123-4567</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══ INTELLIGENT NUMBER ROTATION ═══ -->
+<section class="sp-section">
+    <div class="container">
+        <div class="sp-fb-grid reverse" data-aos="fade-up">
+            <div>
+                <div class="mkt-icon-box mkt-icon-box--accent" style="margin-bottom: 16px;">
+                    <i class="fa-solid fa-rotate"></i>
+                </div>
+                <h2 style="font-weight: 900; font-size: 1.8rem; margin-bottom: 8px;">Smart Number Rotation That Protects Your Fleet</h2>
+                <p class="mkt-body" style="line-height: 1.7;">
+                    Hammering the same number 200 times a day is how numbers die. InsuranceGrokBot
+                    automatically rotates through your fleet, distributing call volume evenly so no single
+                    number bears the brunt. When a number shows early signs of stress, it gets pulled
+                    from rotation and rested — before carriers take notice.
+                </p>
+                <ul class="sp-fb-list">
+                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Automatic rotation across your entire number fleet</li>
+                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Stressed numbers rest automatically — no manual babysitting</li>
+                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Numbers recover during rest and return to active duty</li>
+                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Warmup mode for new numbers — build reputation gradually</li>
+                </ul>
+            </div>
+            <div class="text-center">
+                <div class="mkt-inset-glass" style="padding: 28px; max-width: 380px; margin: 0 auto;">
+                    <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 16px;"><i class="fa-solid fa-shield-halved me-2" style="color: var(--accent);"></i>Number Fleet Status</div>
+                    <div class="d-flex align-items-center gap-2 mb-2" style="font-size: 0.82rem;">
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: inline-block;"></span>
+                        <span style="color: #bbb; font-family: monospace;">(555) 100-0001</span>
+                        <span class="ms-auto" style="color: var(--accent); font-size: 0.75rem; font-weight: 700;">Active</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mb-2" style="font-size: 0.82rem;">
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: inline-block;"></span>
+                        <span style="color: #bbb; font-family: monospace;">(555) 100-0002</span>
+                        <span class="ms-auto" style="color: var(--accent); font-size: 0.75rem; font-weight: 700;">Active</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mb-2" style="font-size: 0.82rem;">
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; display: inline-block;"></span>
+                        <span style="color: #bbb; font-family: monospace;">(555) 100-0003</span>
+                        <span class="ms-auto" style="color: #f59e0b; font-size: 0.75rem; font-weight: 700;">Resting</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mb-2" style="font-size: 0.82rem;">
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #00d9ff; display: inline-block;"></span>
+                        <span style="color: #bbb; font-family: monospace;">(555) 100-0004</span>
+                        <span class="ms-auto" style="color: #00d9ff; font-size: 0.75rem; font-weight: 700;">Warmup</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2" style="font-size: 0.82rem;">
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: inline-block;"></span>
+                        <span style="color: #bbb; font-family: monospace;">(555) 100-0005</span>
+                        <span class="ms-auto" style="color: var(--accent); font-size: 0.75rem; font-weight: 700;">Active</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══ 8-DIMENSIONAL HEALTH SCORING ═══ -->
+<section class="sp-section">
+    <div class="container">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <h2 class="mkt-h2">The Industry's Most Advanced <span>Number Health Scoring</span></h2>
+            <p class="mkt-body" style="max-width: 660px; margin: 8px auto 0;">
+                Most platforms give you a simple connect rate and call it "health." We score every number across
+                <span class="sp-metric">8 independent dimensions</span> — built specifically for high-volume
+                outbound insurance dialing where carrier trust is everything.
+            </p>
+        </div>
+
+        <div class="sp-fb-grid" data-aos="fade-up">
+            <div>
+                <h3 style="font-weight: 800; font-size: 1.3rem; margin-bottom: 12px; color: #fff;">Know Exactly Where Every Number Stands</h3>
+                <p class="mkt-body" style="line-height: 1.7; margin-bottom: 16px;">
+                    Each phone number gets a real-time composite health score from 0-100. But unlike competitors
+                    who rely on a single metric, our system analyzes call-level data from every dial — carrier responses,
+                    ring behavior, connection patterns, authentication levels, and call quality — to give you a score
+                    you can actually trust.
+                </p>
+                <p class="mkt-body" style="line-height: 1.7;">
+                    When a number starts degrading, you'll know exactly <em>why</em> — not just that it's "bad."
+                    Is it being blocked by AT&T? Are carriers refusing to ring it? Is call quality dropping?
+                    Our scoring tells you the root cause so you can act, not guess.
+                </p>
+            </div>
+            <div>
+                <div class="mkt-inset-glass" style="padding: 28px; max-width: 420px; margin: 0 auto;">
+                    <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 16px;"><i class="fa-solid fa-heart-pulse me-2" style="color: var(--accent);"></i>Number Health Dashboard</div>
+                    <div class="sp-health-row">
+                        <span class="sp-health-phone">(555) 200-0001</span>
+                        <div class="sp-health-bar"><div class="sp-health-fill" style="width: 92%; background: linear-gradient(90deg, var(--accent), #00d9ff);"></div></div>
+                        <span class="sp-health-score" style="color: var(--accent);">92</span>
+                    </div>
+                    <div class="sp-health-row">
+                        <span class="sp-health-phone">(555) 200-0002</span>
+                        <div class="sp-health-bar"><div class="sp-health-fill" style="width: 78%; background: linear-gradient(90deg, #00d9ff, #8b5cf6);"></div></div>
+                        <span class="sp-health-score" style="color: #00d9ff;">78</span>
+                    </div>
+                    <div class="sp-health-row">
+                        <span class="sp-health-phone">(555) 200-0003</span>
+                        <div class="sp-health-bar"><div class="sp-health-fill" style="width: 45%; background: linear-gradient(90deg, #f59e0b, #ef4444);"></div></div>
+                        <span class="sp-health-score" style="color: #f59e0b;">45</span>
+                    </div>
+                    <div class="sp-health-row">
+                        <span class="sp-health-phone">(555) 200-0004</span>
+                        <div class="sp-health-bar"><div class="sp-health-fill" style="width: 15%; background: #ef4444;"></div></div>
+                        <span class="sp-health-score" style="color: #ef4444;">15</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 8 Dimensions -->
+        <div class="sp-grid-4" data-aos="fade-up" style="margin-top: 40px;">
+            <div class="mkt-glass-card" style="text-align: center; padding: 20px 16px;">
+                <i class="fa-solid fa-ban" style="font-size: 1.1rem; color: #ef4444; margin-bottom: 8px; display: block;"></i>
+                <h6 style="font-weight: 700; font-size: 0.82rem; margin-bottom: 2px;">Carrier Block Rate</h6>
+                <p class="mkt-body" style="font-size: 0.72rem;">Tracks which carriers are rejecting your calls</p>
+            </div>
+            <div class="mkt-glass-card mkt-glass-card--orange" style="text-align: center; padding: 20px 16px;">
+                <i class="fa-solid fa-bolt" style="font-size: 1.1rem; color: #f59e0b; margin-bottom: 8px; display: block;"></i>
+                <h6 style="font-weight: 700; font-size: 0.82rem; margin-bottom: 2px;">Block Velocity</h6>
+                <p class="mkt-body" style="font-size: 0.72rem;">Detects sudden spikes before they snowball</p>
+            </div>
+            <div class="mkt-glass-card mkt-glass-card--cyan" style="text-align: center; padding: 20px 16px;">
+                <i class="fa-solid fa-bell" style="font-size: 1.1rem; color: #00d9ff; margin-bottom: 8px; display: block;"></i>
+                <h6 style="font-weight: 700; font-size: 0.82rem; margin-bottom: 2px;">Ring Confirmation</h6>
+                <p class="mkt-body" style="font-size: 0.72rem;">Verifies carriers ring your calls through</p>
+            </div>
+            <div class="mkt-glass-card" style="text-align: center; padding: 20px 16px;">
+                <i class="fa-solid fa-stopwatch" style="font-size: 1.1rem; color: var(--accent); margin-bottom: 8px; display: block;"></i>
+                <h6 style="font-weight: 700; font-size: 0.82rem; margin-bottom: 2px;">Post-Dial Delay</h6>
+                <p class="mkt-body" style="font-size: 0.72rem;">Monitors how quickly carriers connect</p>
+            </div>
+            <div class="mkt-glass-card mkt-glass-card--purple" style="text-align: center; padding: 20px 16px;">
+                <i class="fa-solid fa-wave-square" style="font-size: 1.1rem; color: #8b5cf6; margin-bottom: 8px; display: block;"></i>
+                <h6 style="font-weight: 700; font-size: 0.82rem; margin-bottom: 2px;">Call Quality</h6>
+                <p class="mkt-body" style="font-size: 0.72rem;">Catches jitter, packet loss, and audio issues</p>
+            </div>
+            <div class="mkt-glass-card mkt-glass-card--orange" style="text-align: center; padding: 20px 16px;">
+                <i class="fa-solid fa-certificate" style="font-size: 1.1rem; color: #e91e63; margin-bottom: 8px; display: block;"></i>
+                <h6 style="font-weight: 700; font-size: 0.82rem; margin-bottom: 2px;">Authentication</h6>
+                <p class="mkt-body" style="font-size: 0.72rem;">STIR/SHAKEN attestation per call</p>
+            </div>
+            <div class="mkt-glass-card mkt-glass-card--cyan" style="text-align: center; padding: 20px 16px;">
+                <i class="fa-solid fa-phone-volume" style="font-size: 1.1rem; color: #06b6d4; margin-bottom: 8px; display: block;"></i>
+                <h6 style="font-weight: 700; font-size: 0.82rem; margin-bottom: 2px;">Connect Quality</h6>
+                <p class="mkt-body" style="font-size: 0.72rem;">Meaningful conversations vs. dead air</p>
+            </div>
+            <div class="mkt-glass-card" style="text-align: center; padding: 20px 16px;">
+                <i class="fa-solid fa-seedling" style="font-size: 1.1rem; color: #84cc16; margin-bottom: 8px; display: block;"></i>
+                <h6 style="font-weight: 700; font-size: 0.82rem; margin-bottom: 2px;">Number Maturity</h6>
+                <p class="mkt-body" style="font-size: 0.72rem;">Age and warmup factored into trust baseline</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══ HOW IT WORKS ═══ -->
+<section class="sp-section">
+    <div class="container">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <h2 class="mkt-h2">How It Works — <span>Fully Automated</span></h2>
+            <p class="mkt-body" style="max-width: 600px; margin: 8px auto 0;">
+                Protection that runs in the background while you focus on selling. No manual monitoring. No spreadsheets. No guesswork.
+            </p>
+        </div>
+
+        <div class="mkt-inset-glass" style="padding: 0;" data-aos="fade-up">
+            <div class="sp-step-grid">
+                <div style="padding: 32px 24px; text-align: center;">
+                    <div class="sp-step-num">01</div>
+                    <h6 style="font-weight: 700; font-size: 0.92rem; margin-bottom: 6px;">Register Your Numbers</h6>
+                    <p class="mkt-body" style="font-size: 0.8rem;">One click registers your business and numbers with all three major carriers. Your identity is verified and your calls are marked as legitimate.</p>
+                </div>
+                <div style="padding: 32px 24px; text-align: center;">
+                    <div class="sp-step-num">02</div>
+                    <h6 style="font-weight: 700; font-size: 0.92rem; margin-bottom: 6px;">Every Call Is Analyzed</h6>
+                    <p class="mkt-body" style="font-size: 0.8rem;">After each outbound call, we capture detailed signals — carrier response codes, ring behavior, connection quality, and authentication results.</p>
+                </div>
+                <div style="padding: 32px 24px; text-align: center;">
+                    <div class="sp-step-num">03</div>
+                    <h6 style="font-weight: 700; font-size: 0.92rem; margin-bottom: 6px;">Health Scores Update Live</h6>
+                    <p class="mkt-body" style="font-size: 0.8rem;">Our 8-dimension scoring engine continuously recalculates each number's health. You always see current, accurate data — not yesterday's snapshot.</p>
+                </div>
+                <div style="padding: 32px 24px; text-align: center;">
+                    <div class="sp-step-num">04</div>
+                    <h6 style="font-weight: 700; font-size: 0.92rem; margin-bottom: 6px;">Auto-Protect & Rotate</h6>
+                    <p class="mkt-body" style="font-size: 0.8rem;">Numbers showing degradation are automatically rested or frozen. Healthy numbers rotate in. Your fleet stays clean without you lifting a finger.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══ CALL-LEVEL INTELLIGENCE ═══ -->
+<section class="sp-section">
+    <div class="container">
+        <div class="sp-fb-grid reverse" data-aos="fade-up">
+            <div>
+                <div class="mkt-icon-box mkt-icon-box--purple" style="margin-bottom: 16px;">
+                    <i class="fa-solid fa-microscope"></i>
+                </div>
+                <h2 style="font-weight: 900; font-size: 1.8rem; margin-bottom: 8px;">Call-Level Intelligence on Every Dial</h2>
+                <p class="mkt-body" style="line-height: 1.7;">
+                    Most platforms only track whether a call connected. We analyze every outbound call at a
+                    signal level — capturing the carrier's response, how long it took to ring, whether the
+                    authentication was verified, and what happened after connection. This data feeds directly
+                    into your number health scores.
+                </p>
+                <ul class="sp-fb-list">
+                    <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> SIP-level carrier response analysis per call</li>
+                    <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Post-dial delay tracking — millisecond precision</li>
+                    <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Ring confirmation verification with carriers</li>
+                    <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Authentication attestation level per call</li>
+                    <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Quality tags: jitter, packet loss, silence detection</li>
+                </ul>
+            </div>
+            <div class="text-center">
+                <div class="mkt-inset-glass" style="padding: 28px; max-width: 360px; margin: 0 auto;">
+                    <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 16px;"><i class="fa-solid fa-chart-bar me-2" style="color: #8b5cf6;"></i>Call Analysis</div>
+                    <div class="d-flex justify-content-between mb-2" style="font-size: 0.8rem; color: #888;">
+                        <span>Carrier Response</span>
+                        <span style="color: var(--accent); font-weight: 700;">200 OK — Connected</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2" style="font-size: 0.8rem; color: #888;">
+                        <span>Ring Confirmed</span>
+                        <span style="color: var(--accent); font-weight: 700;"><i class="fa-solid fa-circle-check"></i> Yes</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2" style="font-size: 0.8rem; color: #888;">
+                        <span>Post-Dial Delay</span>
+                        <span style="color: #00d9ff; font-weight: 700;">1,240ms</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2" style="font-size: 0.8rem; color: #888;">
+                        <span>Authentication</span>
+                        <span style="color: var(--accent); font-weight: 700;">STIR/SHAKEN A</span>
+                    </div>
+                    <div class="d-flex justify-content-between" style="font-size: 0.8rem; color: #888;">
+                        <span>Quality Issues</span>
+                        <span style="color: var(--accent); font-weight: 700;">None Detected</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══ AUTO-REMEDIATION ═══ -->
+<section class="sp-section">
+    <div class="container">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <h2 class="mkt-h2">Instant Remediation. <span>No Tickets. No Waiting.</span></h2>
+            <p class="mkt-body" style="max-width: 640px; margin: 8px auto 0;">
+                When a number shows signs of trouble, you don't need to call your provider and wait 72 hours.
+                Our system acts immediately — resting stressed numbers, rotating healthy ones in, and giving
+                you one-click tools to resolve issues yourself.
+            </p>
+        </div>
+
+        <div class="sp-grid-3" data-aos="fade-up">
+            <div class="mkt-glass-card">
+                <div class="mkt-icon-box mkt-icon-box--accent" style="margin-bottom: 16px;">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </div>
+                <h4 style="font-weight: 800; font-size: 1.05rem; margin-bottom: 8px;">Automatic Number Resting</h4>
+                <p class="mkt-body">Numbers showing early degradation signals are automatically pulled from rotation and rested. They recover naturally and return to active service — no manual intervention needed.</p>
+            </div>
+            <div class="mkt-glass-card mkt-glass-card--cyan">
+                <div class="mkt-icon-box mkt-icon-box--cyan" style="margin-bottom: 16px;">
+                    <i class="fa-solid fa-snowflake"></i>
+                </div>
+                <h4 style="font-weight: 800; font-size: 1.05rem; margin-bottom: 8px;">Emergency Freeze Protection</h4>
+                <p class="mkt-body">If a number gets hit hard — high block velocity, multiple carrier rejections — the system freezes it immediately to prevent permanent reputation damage. Better safe than blacklisted.</p>
+            </div>
+            <div class="mkt-glass-card mkt-glass-card--purple">
+                <div class="mkt-icon-box mkt-icon-box--purple" style="margin-bottom: 16px;">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                </div>
+                <h4 style="font-weight: 800; font-size: 1.05rem; margin-bottom: 8px;">Seamless Fleet Continuity</h4>
+                <p class="mkt-body">When numbers rest or freeze, your dialing never stops. Healthy numbers automatically fill the gap, so your call volume stays consistent and your leads keep getting worked.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══ BUILT FOR INSURANCE ═══ -->
+<section class="sp-section">
+    <div class="container">
+        <div class="sp-fb-grid" data-aos="fade-up">
+            <div>
+                <div class="mkt-icon-box mkt-icon-box--cyan" style="margin-bottom: 16px;">
+                    <i class="fa-solid fa-bullseye"></i>
+                </div>
+                <h2 style="font-weight: 900; font-size: 1.8rem; margin-bottom: 8px;">Built for High-Volume Insurance Dialing</h2>
+                <p class="mkt-body" style="line-height: 1.7;">
+                    Insurance agents make more outbound calls per day than almost any other industry.
+                    Generic spam protection tools built for appointment reminders and low-volume businesses
+                    don't understand the stress patterns of cold outbound dialing. Our system was designed
+                    from day one for agents who dial 200+ calls every single day.
+                </p>
+                <ul class="sp-fb-list">
+                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Tuned for cold outbound call patterns, not inbound or low-volume</li>
+                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Multi-line dialer integration — protects across 1-4 concurrent lines</li>
+                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Calling hours enforcement with recipient timezone awareness</li>
+                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Same-number cooldown prevents carrier flag triggers</li>
+                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Daily per-contact limits keep your reputation clean</li>
+                </ul>
+            </div>
+            <div class="text-center">
+                <div class="mkt-inset-glass" style="padding: 32px; max-width: 380px; margin: 0 auto;">
+                    <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 16px;"><i class="fa-solid fa-gauge-high me-2" style="color: #00d9ff;"></i>Fleet Overview</div>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span style="color: #888; font-size: 0.82rem;">Active Numbers</span>
+                        <span style="color: var(--accent); font-weight: 800; font-size: 1.4rem;">4 / 5</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span style="color: #888; font-size: 0.82rem;">Fleet Health Score</span>
+                        <span style="color: var(--accent); font-weight: 800; font-size: 1.4rem;">87</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span style="color: #888; font-size: 0.82rem;">Numbers Under Attack</span>
+                        <span style="color: var(--accent); font-weight: 800; font-size: 1.4rem;">0</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span style="color: #888; font-size: 0.82rem;">STIR/SHAKEN A-Rate</span>
+                        <span style="color: var(--accent); font-weight: 800; font-size: 1.4rem;">98%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══ WHY US ═══ -->
+<section class="sp-section">
+    <div class="container">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <h2 class="mkt-h2">Why Agents Switch to <span>InsuranceGrokBot</span></h2>
+            <p class="mkt-body" style="max-width: 640px; margin: 8px auto 0;">
+                Other platforms either ignore number health entirely or give you a basic connect-rate
+                percentage and call it done. Here's what you actually get with us.
+            </p>
+        </div>
+
+        <div class="sp-grid-3" data-aos="fade-up">
+            <div class="mkt-glass-card mkt-glass-card--orange">
+                <div class="mkt-icon-box mkt-icon-box--orange" style="margin-bottom: 16px;">
+                    <i class="fa-solid fa-circle-xmark"></i>
+                </div>
+                <h4 style="font-weight: 800; font-size: 1.05rem; margin-bottom: 8px;">What Others Offer</h4>
+                <p class="mkt-body">A single connect-rate metric. Maybe a "spam detected" flag. No carrier registration. No real-time monitoring. No automatic protection. You find out your numbers are burned after your pipeline already dried up.</p>
+            </div>
+            <div class="mkt-glass-card mkt-glass-card--cyan">
+                <div class="mkt-icon-box mkt-icon-box--cyan" style="margin-bottom: 16px;">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+                <h4 style="font-weight: 800; font-size: 1.05rem; margin-bottom: 8px;">What We Deliver</h4>
+                <p class="mkt-body">8-dimension health scoring. Three-carrier registration. Call-level signal analysis. Automatic rest/freeze protection. Fleet-wide dashboards. Real-time block velocity detection. Numbers that stay clean, calls that get answered.</p>
+            </div>
+            <div class="mkt-glass-card">
+                <div class="mkt-icon-box mkt-icon-box--accent" style="margin-bottom: 16px;">
+                    <i class="fa-solid fa-trophy"></i>
+                </div>
+                <h4 style="font-weight: 800; font-size: 1.05rem; margin-bottom: 8px;">The Result</h4>
+                <p class="mkt-body">Higher connect rates. Longer number lifespan. Fewer wasted dials. More conversations. More appointments. More revenue. Your numbers work harder because they stay healthy longer.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══ CTA ═══ -->
+<section class="sp-section">
+    <div class="container">
+        <div class="mkt-glass-card sp-cta" data-aos="fade-up">
+            <h2 style="font-weight: 900; font-size: 2rem; margin-bottom: 12px;">Stop Losing Leads to Spam Labels</h2>
+            <p class="mkt-body" style="font-size: 1.05rem; max-width: 560px; margin: 0 auto 28px; line-height: 1.65;">
+                Every call that goes to voicemail because of a spam flag is a lead you paid for and never reached.
+                Protect your numbers. Protect your pipeline. Start dialing with confidence.
+            </p>
+            <div class="d-flex justify-content-center gap-3 flex-wrap">
+                <a href="/checkout" class="btn btn-primary btn-lg">Start for $149.98/mo</a>
+                <a href="/demo-chat" class="btn btn-outline-accent btn-lg">Try the Demo</a>
+            </div>
+            <p style="color: #555; font-size: 0.78rem; margin-top: 16px;">Spam protection included with every plan. No contracts. Cancel anytime.</p>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

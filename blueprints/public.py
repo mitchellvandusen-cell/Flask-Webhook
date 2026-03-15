@@ -79,6 +79,11 @@ def about():
     return render_template('about.html')
 
 
+@public_bp.route("/spam-protection")
+def spam_protection():
+    return render_template('spam-protection.html')
+
+
 @public_bp.route("/affiliate")
 def affiliate():
     return render_template('affiliate.html')

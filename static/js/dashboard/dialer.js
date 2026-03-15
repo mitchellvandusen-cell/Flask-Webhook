@@ -5345,7 +5345,10 @@
             if (!isOpen) dialerLoadStats();
             // Update button highlight
             const btn = document.getElementById('dialerStatsToggle');
-            if (btn) btn.style.color = isOpen ? '#aaa' : '#00d9ff';
+            if (btn) {
+                btn.classList.toggle('dlr-stats-active', !isOpen);
+                btn.style.color = '';  // Clear inline — let CSS handle theme
+            }
         }
 
         function dialerSetStatsPeriod(period) {
@@ -6002,20 +6005,26 @@
             if (btn) btn.disabled = true;
             if (label) label.textContent = 'Thinking…';
 
-            fetch('/voice/contact/' + _inboxThreadContactId + '/ai-draft')
+            fetch('/voice/contact/' + encodeURIComponent(_inboxThreadContactId) + '/ai-suggest', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({})
+            })
                 .then(r => r.json())
                 .then(d => {
-                    if (d.draft) {
+                    if (d.suggestion) {
                         const textEl = document.getElementById('inboxSmsText');
                         if (textEl) {
-                            textEl.value = d.draft;
+                            textEl.value = d.suggestion;
                             inboxAutoGrow(textEl);
-                            inboxUpdateCharCount(d.draft);
+                            inboxUpdateCharCount(d.suggestion);
                             textEl.focus();
                         }
+                    } else if (d.error) {
+                        _showDashToast(false, d.error);
                     }
                 })
-                .catch(() => {})
+                .catch(() => { _showDashToast(false, 'AI Reply failed'); })
                 .finally(() => {
                     if (btn) btn.disabled = false;
                     if (label) label.textContent = 'AI Reply';

@@ -261,6 +261,7 @@ All tables created in `db.py`'s `init_db()` function:
 - `GET /reviews` — Reviews page (POST submits review)
 - `GET /contact`, `/privacy`, `/terms`, `/disclaimers`
 - `GET /faq`, `/integrations`, `/support`, `/setup-guide`
+- `GET /spam-protection` — Spam monitoring & number health marketing page
 - `GET /demo-chat` — Demo chatbot UI
 
 ### Authentication
