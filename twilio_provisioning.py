@@ -2899,6 +2899,12 @@ def provision_subscriber(subscriber_email: str, location_id: str,
     # 3. Create API Key on the sub-account (required for valid AccessTokens)
     api_key = create_api_key(sub_sid)
 
+    # 4. Enable Voice Insights Advanced Features (non-fatal if fails)
+    try:
+        enable_voice_insights_advanced(sub_sid)
+    except Exception as e:
+        logger.warning(f"Voice Insights enable failed (non-fatal): {e}")
+
     result = {
         "twilio_sub_account_sid": sub_sid,
         "twilio_auth_token": sub_account["auth_token"],
@@ -2911,3 +2917,151 @@ def provision_subscriber(subscriber_email: str, location_id: str,
 
     logger.info(f"Subscriber provisioned: {subscriber_email} -> sub_account={sub_sid} (no number — user buys their own)")
     return result
+
+
+# ──────────────────────────────────────────────────────────────
+# VOICE INSIGHTS ADVANCED FEATURES
+# ──────────────────────────────────────────────────────────────
+
+def enable_voice_insights_advanced(sub_account_sid: str) -> bool:
+    """
+    Enable Voice Insights Advanced Features on a sub-account.
+
+    Uses the master account credentials with SubaccountSid parameter,
+    as documented at:
+    https://www.twilio.com/docs/voice/voice-insights/api/call/voice-insights-settings-resource
+
+    Advanced Features ($0.0025/min) unlock:
+    - Call Summary API (PDD, SIP codes, carrier info, quality tags)
+    - Call Events API (SIP signaling timeline)
+    - Call Metrics API (jitter, packet loss, MOS time-series)
+    - Event Streams integration
+    """
+    client = get_master_client()
+    try:
+        settings = client.insights.v1.settings().update(
+            advanced_features=True,
+            subaccount_sid=sub_account_sid,
+        )
+        logger.info(f"Voice Insights Advanced enabled for {sub_account_sid}: advanced={settings.advanced_features}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to enable Voice Insights Advanced for {sub_account_sid}: {e}")
+        return False
+
+
+def get_voice_insights_settings(sub_account_sid: str = None) -> dict:
+    """Check Voice Insights settings for an account."""
+    client = get_master_client()
+    try:
+        kwargs = {}
+        if sub_account_sid:
+            kwargs['subaccount_sid'] = sub_account_sid
+        settings = client.insights.v1.settings().fetch(**kwargs)
+        return {
+            "advanced_features": settings.advanced_features,
+            "voice_trace": settings.voice_trace,
+        }
+    except Exception as e:
+        logger.warning(f"Failed to fetch Voice Insights settings: {e}")
+        return {"advanced_features": False, "voice_trace": False}
+
+
+def fetch_call_insights_summary(call_sid: str, sub_account_sid: str = None,
+                                 sub_account_auth_token: str = None) -> dict:
+    """
+    Fetch the Voice Insights Call Summary for a completed call.
+
+    Returns the full summary including:
+    - properties.pdd_ms (post-dial delay)
+    - properties.last_sip_response_num
+    - carrier_edge metrics (jitter, packet loss)
+    - call_state, call_type, tags
+    - from/to carrier info
+    - trust data (branded calling, verified caller)
+
+    API: GET https://insights.twilio.com/v1/Voice/{CallSid}/Summary
+
+    The summary is partial within ~10 min of call end, complete within ~30 min.
+    """
+    if sub_account_sid and sub_account_auth_token:
+        client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
+    elif sub_account_sid:
+        client = get_sub_account_client(sub_account_sid)
+    else:
+        client = get_master_client()
+
+    try:
+        summary = client.insights.v1.calls(call_sid).summary().fetch()
+
+        # Extract the key fields from the summary object
+        result = {
+            "call_sid": summary.call_sid,
+            "call_type": summary.call_type,
+            "call_state": summary.call_state,
+            "processing_state": summary.processing_state,
+            "duration": summary.duration,
+            "connect_duration": summary.connect_duration,
+            "start_time": str(summary.start_time) if summary.start_time else None,
+            "end_time": str(summary.end_time) if summary.end_time else None,
+            "tags": summary.tags or [],
+            "attributes": summary.attributes or {},
+            "properties": summary.properties or {},
+            "carrier_edge": summary.carrier_edge or {},
+            "client_edge": summary.client_edge or {},
+            "sdk_edge": summary.sdk_edge or {},
+            "sip_edge": summary.sip_edge or {},
+            "trust": getattr(summary, 'trust', None) or {},
+            "from_info": getattr(summary, 'from_', None) or {},
+            "to_info": getattr(summary, 'to', None) or {},
+            "annotation": summary.annotation or {},
+        }
+
+        # Extract commonly-accessed fields for quick lookups
+        props = result["properties"] or {}
+        result["_pdd_ms"] = props.get("pdd_ms")
+        result["_last_sip_response"] = props.get("last_sip_response_num")
+        result["_disconnected_by"] = props.get("disconnected_by")
+
+        return result
+    except Exception as e:
+        logger.warning(f"Failed to fetch call insights for {call_sid}: {e}")
+        return {}
+
+
+def fetch_call_insights_events(call_sid: str, sub_account_sid: str = None,
+                                sub_account_auth_token: str = None,
+                                edge: str = None) -> list:
+    """
+    Fetch Call Insights Events (SIP signaling timeline) for a call.
+
+    API: GET https://insights.twilio.com/v1/Voice/{CallSid}/Events
+
+    Returns list of events with: edge, group, level, name, timestamp.
+    Optional edge filter: carrier_edge, sip_edge, sdk_edge, client_edge.
+    """
+    if sub_account_sid and sub_account_auth_token:
+        client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
+    elif sub_account_sid:
+        client = get_sub_account_client(sub_account_sid)
+    else:
+        client = get_master_client()
+
+    try:
+        kwargs = {}
+        if edge:
+            kwargs['edge'] = edge
+        events = client.insights.v1.calls(call_sid).events.list(**kwargs)
+        return [
+            {
+                "edge": e.edge,
+                "group": e.group,
+                "level": e.level,
+                "name": e.name,
+                "timestamp": str(e.timestamp) if e.timestamp else None,
+            }
+            for e in events
+        ]
+    except Exception as e:
+        logger.warning(f"Failed to fetch call events for {call_sid}: {e}")
+        return []

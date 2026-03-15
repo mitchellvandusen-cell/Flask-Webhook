@@ -71,7 +71,12 @@ def get_dialer_stats():
                 COUNT(*) FILTER (WHERE duration >= 120)                       AS over_2min,
                 COUNT(*) FILTER (WHERE duration >= 300)                       AS over_5min,
                 COUNT(*) FILTER (WHERE duration >= 600)                       AS over_10min,
-                COUNT(DISTINCT contact_id)                                    AS unique_contacts
+                COUNT(DISTINCT contact_id)                                    AS unique_contacts,
+                -- Voice Insights Advanced metrics
+                COALESCE(AVG(pdd_ms) FILTER (WHERE pdd_ms IS NOT NULL), 0)    AS avg_pdd_ms,
+                COUNT(*) FILTER (WHERE pdd_ms IS NOT NULL)                    AS calls_with_insights,
+                COUNT(*) FILTER (WHERE pdd_ms > 6000)                         AS high_pdd_calls,
+                COUNT(*) FILTER (WHERE quality_tags IS NOT NULL AND array_length(quality_tags, 1) > 0) AS tagged_calls
             FROM call_history
             WHERE location_id = %s AND created_at >= %s
         """, (location_id, start_date_utc))
@@ -81,6 +86,10 @@ def get_dialer_stats():
         inbound         = r['inbound_calls'] or 0
         connected       = r['connected_calls'] or 0
         ring_confirmed  = r['ring_confirmed_calls'] or 0
+        avg_pdd_ms      = float(r['avg_pdd_ms'] or 0)
+        calls_with_insights = r['calls_with_insights'] or 0
+        high_pdd_calls  = r['high_pdd_calls'] or 0
+        tagged_calls    = r['tagged_calls'] or 0
         avg_dur         = float(r['avg_duration'] or 0)
         total_dur       = int(r['total_duration'] or 0)
         over_6s         = r['over_6s'] or 0
@@ -221,6 +230,23 @@ def get_dialer_stats():
             except Exception:
                 pass
 
+        # Voice Insights quality tag breakdown
+        quality_tag_breakdown = {}
+        try:
+            cur.execute("""
+                SELECT tag, COUNT(*) AS cnt
+                FROM call_history, unnest(quality_tags) AS tag
+                WHERE location_id = %s AND created_at >= %s
+                  AND quality_tags IS NOT NULL
+                GROUP BY tag ORDER BY cnt DESC
+            """, (location_id, start_date_utc))
+            quality_tag_breakdown = {row['tag']: row['cnt'] for row in cur.fetchall()}
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+
         # Source breakdown from synced GHL conversations
         source_breakdown = {"dialer": total, "ghl_native": 0, "wavv": 0, "unknown": 0}
         try:
@@ -270,6 +296,14 @@ def get_dialer_stats():
             "dispositions":    dispositions,
             "stir_attestation": stir_stats,
             "source_breakdown": source_breakdown,
+            # Voice Insights Advanced metrics
+            "voice_insights": {
+                "avg_pdd_ms":         round(avg_pdd_ms, 0),
+                "high_pdd_calls":     high_pdd_calls,
+                "calls_with_insights": calls_with_insights,
+                "tagged_calls":       tagged_calls,
+                "quality_tags":       quality_tag_breakdown,
+            },
         })
     except Exception as e:
         logger.error(f"get_dialer_stats failed: {e}")

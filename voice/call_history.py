@@ -559,7 +559,9 @@ def get_call_history():
                    status, duration, recording_url, recording_sid, transcript,
                    started_at, ended_at, created_at,
                    COALESCE(disposition, '') as disposition,
-                   COALESCE(stir_status, '') as stir_status
+                   COALESCE(stir_status, '') as stir_status,
+                   COALESCE(ring_confirmed, FALSE) as ring_confirmed,
+                   pdd_ms, quality_tags
             FROM call_history
             WHERE location_id = %s
             ORDER BY created_at DESC
@@ -670,3 +672,43 @@ def get_voicemails():
         return jsonify({"error": str(e)}), 500
     finally:
         return_db_connection(conn)
+
+
+# ── Voice Insights per-call detail ──
+
+@call_history_bp.route('/voice/call-insights/<call_sid>', methods=['GET'])
+@login_required
+def get_call_insights_detail(call_sid):
+    """
+    Return Voice Insights data for a specific call.
+
+    Includes: PDD, SIP response, carrier edge metrics, quality tags,
+    call state/type, from/to carrier info, trust data.
+
+    Returns {} if insights not yet available (fetched ~90s after call ends).
+    """
+    if not _verify_call_ownership(call_sid):
+        return jsonify({"error": "Not found"}), 404
+
+    from voice.insights import get_call_insights
+    data = get_call_insights(call_sid)
+    if not data:
+        return jsonify({})
+
+    # Return the full insights + extracted fields
+    insights = data.get('insights') or {}
+    return jsonify({
+        "call_sid": call_sid,
+        "pdd_ms": data.get('pdd_ms'),
+        "quality_tags": data.get('quality_tags', []),
+        "call_state": insights.get('call_state'),
+        "call_type": insights.get('call_type'),
+        "last_sip_response": insights.get('_last_sip_response'),
+        "disconnected_by": insights.get('_disconnected_by'),
+        "carrier_edge": insights.get('carrier_edge', {}),
+        "from_carrier": (insights.get('from_info') or {}).get('carrier'),
+        "to_carrier": (insights.get('to_info') or {}).get('carrier'),
+        "trust": insights.get('trust', {}),
+        "properties": insights.get('properties', {}),
+        "tags": insights.get('tags', []),
+    })

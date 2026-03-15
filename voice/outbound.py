@@ -408,4 +408,44 @@ def voice_status():
             except Exception as ghl_call_err:
                 logger.debug(f"GHL call log skipped for {call_sid}: {ghl_call_err}")
 
+    # ── Voice Insights: queue background fetch of Call Summary ──
+    if call_status in terminal_statuses and call_sid and call_sid in active_calls:
+        _queue_insights_fetch(call_sid, active_calls.get(call_sid, {}))
+
     return '', 204
+
+
+def _queue_insights_fetch(call_sid, call_info):
+    """Queue a background thread to fetch Voice Insights Call Summary ~90s after call ends."""
+    sub_sid = call_info.get('_sub_sid', '')
+    location_id = call_info.get('_location_id', '')
+    from_number = call_info.get('_from_number', '')
+
+    if not sub_sid:
+        return
+
+    # Look up sub-account auth token for Insights API access
+    auth_token = None
+    try:
+        subscriber = _get_subscriber_by_location(location_id)
+        if subscriber:
+            vc = subscriber.get('voice_config') or {}
+            auth_token = vc.get('twilio_auth_token', '')
+    except Exception:
+        pass
+
+    def _fetch():
+        try:
+            from voice.insights import fetch_and_store_call_insights
+            fetch_and_store_call_insights(
+                call_sid=call_sid,
+                sub_account_sid=sub_sid,
+                sub_account_auth_token=auth_token,
+                location_id=location_id,
+                from_number=from_number,
+            )
+        except Exception as e:
+            logger.debug(f"Insights fetch failed for {call_sid}: {e}")
+
+    t = threading.Thread(target=_fetch, daemon=True, name=f"insights-{call_sid[:12]}")
+    t.start()
