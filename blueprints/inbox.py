@@ -233,8 +233,19 @@ def api_inbox_thread(contact_id):
             if fp not in ghl_fingerprints:
                 messages.append(lm)
 
-        # Sort merged result by date
-        messages.sort(key=lambda m: str(m.get('date') or ''))
+        # Sort merged result by date — parse as actual datetimes (not strings)
+        # because ghl_conversations stores ISO format ("2026-03-15T14:30:00Z")
+        # while contact_messages::text produces "2026-03-15 14:30:00"
+        def _parse_msg_date(msg):
+            d = msg.get('date') or ''
+            if not d:
+                return datetime.min
+            try:
+                # Handle ISO "T" separator, PostgreSQL space separator, and "Z" suffix
+                return datetime.fromisoformat(d.replace('Z', '+00:00').replace(' ', 'T').split('+')[0])
+            except (ValueError, TypeError):
+                return datetime.min
+        messages.sort(key=_parse_msg_date)
 
         cur.close()
 

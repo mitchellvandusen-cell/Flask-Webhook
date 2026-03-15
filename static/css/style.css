@@ -1497,6 +1497,8 @@ body.light-theme .igb-score-label { color: var(--lt-text-primary) !important; }
 body.light-theme .igb-action-btn.act-schedule { background: rgba(220,38,38,0.08) !important; border-color: rgba(220,38,38,0.20) !important; color: #dc2626 !important; }
 body.light-theme #dialerStatsToggle { background: var(--lt-surface-hover) !important; border-color: var(--lt-border-strong) !important; color: var(--lt-text-muted) !important; }
 body.light-theme #dialerStatsToggle:hover { border-color: var(--lt-accent-border) !important; color: var(--lt-accent) !important; }
+#dialerStatsToggle.dlr-stats-active { color: #00d9ff !important; }
+body.light-theme #dialerStatsToggle.dlr-stats-active { color: var(--lt-accent) !important; border-color: var(--lt-accent-border) !important; }
 /* Call history and recording rows (dynamically rendered, override inline dark text) */
 body.light-theme #dialerHistoryList > div,
 body.light-theme #dialerRecordingsList > div { color: var(--lt-text-secondary) !important; border-bottom-color: var(--lt-border) !important; }
