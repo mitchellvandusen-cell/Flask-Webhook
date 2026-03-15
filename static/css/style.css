@@ -4776,4 +4776,102 @@ body.light-theme .ni-edit-label { color: var(--lt-text-secondary); }
 body.light-theme .ni-edit-input { background: var(--lt-input-bg); border-color: var(--lt-border); color: var(--lt-input-text); }
 body.light-theme .ni-edit-input:focus { border-color: rgba(0,100,180,0.4); box-shadow: 0 0 0 2px rgba(0,100,180,0.1); }
 body.light-theme .ni-edit-submit-btn { background: linear-gradient(135deg, #0088ff, #0066cc); }
+
+/* ══ Spam Monitoring Accordion (Liquid Glass) ══ */
+.sm-accordion-item {
+    margin-bottom: 8px;
+    border-radius: 12px;
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--glass-border-top) var(--glass-border-bottom) var(--glass-border-bottom) var(--glass-border-left);
+    box-shadow: var(--glass-shadow);
+    overflow: hidden;
+}
+.sm-accordion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 14px 18px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s;
+    color: inherit;
+}
+.sm-accordion-header:hover {
+    background: rgba(255,255,255,0.03);
+}
+.sm-accordion-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.sm-accordion-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    background: rgba(0,255,136,0.1);
+    border: 1px solid rgba(0,255,136,0.2);
+    color: #00ff88;
+}
+.sm-accordion-title {
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: #fff;
+}
+.sm-accordion-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    display: none; /* shown by JS when status known */
+}
+.sm-accordion-chevron {
+    color: #555;
+    font-size: 0.7rem;
+    transition: transform 0.25s ease;
+}
+.sm-accordion-item.open .sm-accordion-chevron {
+    transform: rotate(180deg);
+}
+.sm-accordion-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.35s ease, padding 0.25s ease;
+    padding: 0 18px;
+}
+.sm-accordion-item.open .sm-accordion-body {
+    max-height: 3000px; /* generous max for content */
+    padding: 0 18px 18px;
+}
+
+/* Light theme overrides */
+body.light-theme .sm-accordion-item {
+    background: rgba(255,255,255,0.85);
+    border-color: rgba(0,0,0,0.10) rgba(0,0,0,0.06) rgba(0,0,0,0.06) rgba(0,0,0,0.08);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+body.light-theme .sm-accordion-header:hover {
+    background: rgba(0,0,0,0.02);
+}
+body.light-theme .sm-accordion-title {
+    color: var(--lt-text-primary);
+}
+body.light-theme .sm-accordion-chevron {
+    color: var(--lt-text-muted);
+}
+body.light-theme .sm-accordion-icon {
+    background: rgba(0,0,0,0.05);
+    border-color: rgba(0,0,0,0.12);
+    color: #1a1a1a;
+}
 @media (max-width: 575px) { .articles-grid { grid-template-columns: 1fr; } }
