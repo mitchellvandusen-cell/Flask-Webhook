@@ -32,7 +32,7 @@ Gunicorn (4 threads) ──► Flask app (main.py, ~6700 lines)
 ```
 Deployment (Render / Railway):
   Flask-Webhook:  gunicorn main:app --worker-class gthread --threads 40 --timeout 14400
-  worker:         python worker.py production        (webhook processing + AI intelligence)
+  worker:         python worker.py --workers=2 production intelligence   (webhooks + AI intelligence, 2 processes)
   worker-bg:      python worker.py website demo      (GHL sync, backfill, demo chat)
   Redis:          managed Redis instance
 ```
@@ -41,11 +41,12 @@ Deployment (Render / Railway):
 
 | Queue | Worker | Purpose | Tasks |
 |-------|--------|---------|-------|
-| `production` | `worker` | Fast webhook processing + AI analysis | `process_webhook_task` (120s), `analyze_contact_intelligence_task` (30s), `analyze_contacts_batch_task` (600s) |
+| `production` | `worker` | Fast webhook processing | `process_webhook_task` (120s) |
+| `intelligence` | `worker` | AI lead intelligence (separate from webhooks) | `analyze_contact_intelligence_task` (30s), `analyze_contacts_batch_task` (300s) |
 | `website` | `worker-bg` | Long-running GHL sync + recovery | `run_incremental_sync_all` (30m), `deep_sync_conversations` (2h), `backfill_failed_webhooks` (10m) |
 | `demo` | `worker-bg` | Demo chat isolation | `process_webhook_task` for demo contacts (120s) |
 
-All queues are defined in `extensions.py` and initialized via `ensure_redis()`. Worker startup: `python worker.py <queue1> [queue2] ...` (defaults to `production` if no args).
+All queues are defined in `extensions.py` and initialized via `ensure_redis()`. Worker startup: `python worker.py <queue1> [queue2] ...` (defaults to `production` if no args). Use `--workers=N` to fork multiple worker processes on the same server.
 
 ### Twilio ISV Sub-Account Model
 
