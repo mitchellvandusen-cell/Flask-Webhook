@@ -1478,8 +1478,8 @@ body.light-theme .igb-tl-line { background: rgba(0,0,0,0.06) !important; }
 body.light-theme .igb-tl-line.completed { background: linear-gradient(to right, #059669, var(--lt-accent)) !important; }
 body.light-theme .igb-tl-label { color: var(--lt-text-muted) !important; }
 body.light-theme .igb-summary-card { background: var(--lt-accent-bg) !important; border-color: var(--lt-accent-border) !important; }
-body.light-theme .igb-summary-hdr i { color: var(--lt-accent) !important; }
-body.light-theme .igb-summary-hdr span { color: var(--lt-accent) !important; }
+body.light-theme .igb-summary-hdr i { color: #0369a1 !important; }
+body.light-theme .igb-summary-hdr span { color: #0369a1 !important; }
 body.light-theme .igb-summary-body { color: var(--lt-text-secondary) !important; }
 body.light-theme .igb-facts-list li { color: var(--lt-text-secondary) !important; border-color: var(--lt-border) !important; }
 body.light-theme .igb-facts-list li::before { color: #059669 !important; }
@@ -1487,6 +1487,14 @@ body.light-theme .igb-action-btn.act-call { background: linear-gradient(135deg, 
 body.light-theme .igb-action-btn.act-sms { background: var(--lt-accent-bg) !important; border-color: var(--lt-accent-border) !important; color: var(--lt-accent) !important; }
 body.light-theme .igb-action-btn.act-queue { background: var(--lt-surface-hover) !important; border-color: var(--lt-border) !important; color: var(--lt-text-secondary) !important; }
 body.light-theme .igb-live-dot { border-color: var(--lt-surface) !important; }
+body.light-theme .igb-live-dot.live-call { background: #16a34a !important; }
+body.light-theme .igb-live-dot.has-callback { background: #d97706 !important; }
+body.light-theme .igb-live-dot.idle { background: #9ca3af !important; }
+/* Score ring & number */
+body.light-theme .igb-score-num { color: var(--lt-text-primary) !important; }
+body.light-theme .igb-score-label { color: var(--lt-text-primary) !important; }
+/* Action button: schedule */
+body.light-theme .igb-action-btn.act-schedule { background: rgba(220,38,38,0.08) !important; border-color: rgba(220,38,38,0.20) !important; color: #dc2626 !important; }
 body.light-theme #dialerStatsToggle { background: var(--lt-surface-hover) !important; border-color: var(--lt-border-strong) !important; color: var(--lt-text-muted) !important; }
 body.light-theme #dialerStatsToggle:hover { border-color: var(--lt-accent-border) !important; color: var(--lt-accent) !important; }
 /* Call history and recording rows (dynamically rendered, override inline dark text) */
