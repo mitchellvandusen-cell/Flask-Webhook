@@ -732,7 +732,7 @@ Two providers are registered in the GHL Marketplace App under Modules > Conversa
 
 - **Single micro-prompt**: Gathers all contact context (messages, facts, pipeline, calls, tags, narrative) and sends one prompt to `grok-4-1-fast-non-reasoning`.
 - **AI returns JSON**: summary (2-sentence snapshot), temperature (hot/warm/cool/cold + reason), score (0-100), and 2-4 next-best-actions with priority and FontAwesome icon.
-- **Persistent caching**: Results cached in `contact_intelligence` table (JSONB). Cache invalidated ONLY when new messages arrive after the analysis (no time-based expiry). Once analyzed, classification persists until conversation changes. Repeat views cost zero.
+- **24-hour cache**: Results cached in `contact_intelligence` table (JSONB) with 24h TTL. Cache also invalidated when new messages arrive after analysis. On every dialer load, ALL contacts are queued for fresh analysis — server skips contacts with fresh cache (<24h, no new messages). ~1000 contacts analyzed in ~30 seconds.
 - **Cost**: ~$0.001-0.003 per analysis (~200 output tokens).
 - **Frontend**: Loading shimmer → temperature pill badge (fire/thermometer/snowflake icons) + score + AI summary + recommended actions panel.
 - **Pipeline injection**: `tasks.py` injects pipeline stage into AI system prompt via `get_contact_pipeline_stage()`.
@@ -765,11 +765,11 @@ The dialer's Smart Filters use AI intelligence to classify contacts — NOT simp
 
 **Data flow**:
 1. Dialer loads → bulk engagement data fetched (`/voice/contact-engagement`)
-2. Bulk AI intelligence fetched from cache (`/voice/contact-intelligence-bulk`) — zero AI cost
+2. Bulk AI intelligence fetched from cache (`/voice/contact-intelligence-bulk`) — shows cached data instantly
 3. Contacts grouped by AI temperature into Smart Filter categories
-4. Uncached contacts queued to RQ workers via `POST /voice/contact-intelligence-analyze` (batches of 10)
-5. Frontend polls bulk endpoint every 4s — as workers complete analysis, contacts move from "Analyzing..." into correct group
-6. Subsequent dialer loads are instant from cache (no time-based expiry)
+4. ALL contacts queued to RQ workers via `POST /voice/contact-intelligence-analyze` — server skips fresh cache (<24h)
+5. Frontend polls bulk endpoint every 2s — as workers complete analysis, contacts update in real time
+6. Cache has 24h TTL; stale contacts re-analyzed automatically on next dialer load
 7. When webhook processes a new message, `analyze_contact_intelligence_task` auto-queues to RQ — classification stays fresh
 
 ---
@@ -953,7 +953,7 @@ python worker.py website demo              # GHL sync, backfill, demo chat
 - `_showDashToast(ok, msg)` global utility injected by `dashboard.html` before all JS modules — used by all save functions for consistent bottom-right toast feedback
 - On-demand recording transcription via `POST /voice/transcribe-recording` — downloads MP3 from Twilio, transcribes via xAI Whisper, saves to `call_history.transcript`
 - `ghl_sync.py` uses `_api_get()` with exponential backoff + 429/401 handling for all GHL API calls
-- `lead_intelligence.py` fires one AI micro-prompt per contact returning temperature, score, should_respond, engagement_level, summary, and actions; caches in `contact_intelligence` table; cache invalidated ONLY when new messages arrive (no time-based expiry). Bulk cache reads power Smart Filters; batch analysis auto-runs for uncached contacts
+- `lead_intelligence.py` fires one AI micro-prompt per contact returning temperature, score, should_respond, engagement_level, summary, and actions; caches in `contact_intelligence` table with 24h TTL + message-based invalidation. On every dialer load, ALL contacts are queued for fresh analysis — server skips fresh cache. ~1000 contacts in ~30 seconds via bulk LLM (25 per call, 10 concurrent)
 - SMS routing: `tasks.py` checks `sms_send_via` column — `'ghl'` routes through GHL API, `'+1...'` routes through `twilio_sms.py` direct sender
 - Dialer uses iPhone-style app paradigm: `iosOpenApp()` / `iosGoHome()` for Messages, Calls, Voicemail, and Inbox apps
 - `_loadContactIntelligence(contactId)` async-loads AI intelligence into `#igb-ai-summary`, `#igb-nba-section`, `#igb-pipeline-badge` placeholders in contact detail panel; also updates `_igbIntelCache` so Smart Filter groups re-render in real time

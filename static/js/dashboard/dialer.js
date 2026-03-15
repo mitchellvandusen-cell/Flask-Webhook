@@ -6,12 +6,8 @@
         // InsuranceGrokBot engagement data cache: contactId → { messages, calls }
         let _igbEngagementCache = {};
         // InsuranceGrokBot AI intelligence cache: contactId → { temperature, score, summary }
-        // Persisted in sessionStorage so page refreshes don't reset to "Analyzing..."
+        // Populated fresh on every dialer load from server cache (24h TTL).
         let _igbIntelCache = {};
-        try {
-            const stored = sessionStorage.getItem('_igbIntelCache');
-            if (stored) _igbIntelCache = JSON.parse(stored);
-        } catch(e) { console.warn('[IGB] sessionStorage parse error, starting fresh:', e); _igbIntelCache = {}; }
         // Contacts that need AI analysis (no cached intelligence)
         let _igbUncachedIds = [];
         // Whether batch AI analysis is currently running
@@ -2195,7 +2191,6 @@
                         should_respond: intel.should_respond || false,
                         under_contract: intel.under_contract || false,
                     };
-                    try { sessionStorage.setItem('_igbIntelCache', JSON.stringify(_igbIntelCache)); } catch(e) {}
                     dialerRenderContacts();
                 }
 
@@ -4978,8 +4973,8 @@
         }
 
         // ── InsuranceGrokBot: Bulk AI Intelligence Fetch ──
-        // Fetches cached AI classifications (zero cost), then triggers batch
-        // analysis for contacts without cache.
+        // Fetches cached AI data (24h TTL), shows it immediately, then queues
+        // ALL contacts for fresh analysis. Server skips contacts with fresh cache.
         async function igbFetchBulkIntelligence() {
             if (!dialerContacts.length) return;
             const CHUNK = 300;
@@ -4994,10 +4989,9 @@
                     const r = await _bulkPost('/voice/contact-intelligence-bulk', ids);
                     if (!r.ok) continue;
                     const data = await r.json();
-                    // Merge cached AI data
+                    // Merge cached AI data (show immediately while fresh analysis runs)
                     if (data.cached) {
                         Object.assign(_igbIntelCache, data.cached);
-                        try { sessionStorage.setItem('_igbIntelCache', JSON.stringify(_igbIntelCache)); } catch(e) {}
                     }
                     // Track uncached contacts for batch analysis
                     if (data.uncached) _igbUncachedIds.push(...data.uncached);
@@ -5006,18 +5000,22 @@
                 }
             }
 
-            // Re-render with AI-powered Smart Filters
+            // Re-render with whatever cache we have
             dialerRenderContacts();
 
-            // Auto-trigger batch analysis for uncached contacts
-            if (_igbUncachedIds.length > 0 && !_igbAnalyzing) {
+            // Queue ALL contacts for fresh analysis on startup.
+            // The server checks 24h TTL — contacts with fresh cache are skipped,
+            // stale/uncached contacts get re-analyzed. ~1000 contacts in ~30s.
+            const allValidIds = validContacts.map(c => c.id);
+            if (allValidIds.length > 0 && !_igbAnalyzing) {
+                _igbUncachedIds = allValidIds;
                 igbRunBatchAnalysis();
             }
         }
 
         // ── InsuranceGrokBot: Background Batch Analysis (RQ-backed) ──
-        // Queues all uncached contacts to RQ workers via one POST,
-        // then polls the bulk endpoint for results as workers complete.
+        // Queues all contacts to RQ workers via one POST. Server skips fresh cache.
+        // Polls the bulk endpoint for results as workers complete.
         let _igbPollTimer = null;
         async function igbRunBatchAnalysis() {
             if (_igbAnalyzing || !_igbUncachedIds.length) return;
@@ -5076,8 +5074,7 @@
                                 if (!_igbIntelCache[cid]) totalNewResults++;
                                 _igbIntelCache[cid] = intel;
                             });
-                            try { sessionStorage.setItem('_igbIntelCache', JSON.stringify(_igbIntelCache)); } catch(e) {}
-                        }
+                                }
                     }
                     // Remove newly cached from pending
                     pendingIds = pendingIds.filter(function(id) { return !_igbIntelCache[id]; });

@@ -1135,8 +1135,13 @@ def _get_cached_analysis(contact_id, last_message_at):
             if lm > analyzed_at:
                 return None
 
-        # No time-based expiry — cache persists until new messages arrive.
-        # This matches CLAUDE.md: "no time-based expiry."
+        # 24-hour TTL — cache expires after 24 hours regardless of messages.
+        # The bulk analysis engine can process 1000 contacts in ~30s, so
+        # keeping stale classifications indefinitely is unnecessary.
+        from datetime import timedelta
+        age = datetime.utcnow() - analyzed_at
+        if age > timedelta(hours=24):
+            return None
 
         analysis = row.get('analysis')
         if isinstance(analysis, str):
@@ -1243,9 +1248,9 @@ def get_cached_temperature(contact_id: str) -> dict:
 def get_bulk_cached_intelligence(location_id, contact_ids):
     """
     Fetch cached AI intelligence for multiple contacts in one DB query.
-    Returns only contacts with fresh cache (< 6 hours old AND no new messages
-    since analysis). This is the zero-cost path used by Smart Filters on every
-    dialer load — no AI calls, just a single SQL query.
+    Returns only contacts with fresh cache (<24h old AND no new messages
+    since analysis). Stale contacts appear as 'uncached' so they get
+    re-analyzed on next dialer load. Zero AI cost — single SQL query.
 
     Returns: {contact_id: {temperature, score, summary, temperature_reason}}
     """
@@ -1259,7 +1264,7 @@ def get_bulk_cached_intelligence(location_id, contact_ids):
     try:
         cur = conn.cursor()
         # LEFT JOIN is faster than correlated subquery at scale (300+ contacts).
-        # No time-based expiry — cache persists until new messages invalidate it.
+        # 24-hour TTL — stale cache is excluded so uncached contacts get re-analyzed.
         cur.execute("""
             SELECT ci.contact_id, ci.analysis, ci.analyzed_at, lm.last_msg_at
             FROM contact_intelligence ci
@@ -1270,6 +1275,7 @@ def get_bulk_cached_intelligence(location_id, contact_ids):
             ) lm ON TRUE
             WHERE ci.location_id = %s
               AND ci.contact_id = ANY(%s)
+              AND ci.analyzed_at > NOW() - INTERVAL '24 hours'
         """, (location_id, contact_ids))
 
         results = {}
