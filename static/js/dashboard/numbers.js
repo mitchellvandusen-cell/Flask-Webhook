@@ -319,13 +319,32 @@
                     body: JSON.stringify(payload),
                 });
                 const d = await r.json();
-                if (r.ok) {
-                    result.innerHTML = '<span style="color:#00ff88;"><i class="fa-solid fa-circle-check me-1"></i>' +
-                        (d.numbers_protected || 0) + ' number' + ((d.numbers_protected || 0) !== 1 ? 's' : '') + ' protected! ' +
-                        (d.numbers_failed > 0 ? '<span style="color:#ffa500;">(' + d.numbers_failed + ' failed)</span>' : '') +
-                        '</span>';
-                    // Reload status to show active badge
+                if (r.ok && d.has_profile) {
+                    // Build step-by-step result display
+                    var stepsHtml = '';
+                    (d.results?.steps || []).forEach(function(s) {
+                        var label = {'customer_profile':'Business Profile','secondary_profile':'Business Profile',
+                            'end_user_business':'Business Identity','auth_representative':'Authorized Contact',
+                            'address':'Business Address','assign_numbers':'Number Assignment',
+                            'evaluation':'Profile Evaluation','submit_review':'Submit for Review',
+                            'cnam_all_numbers':'Caller ID Labels'}[s.name] || s.name;
+                        var icon = s.status === 'ok' ? '<i class="fa-solid fa-circle-check" style="color:#00ff88;"></i>' :
+                                   s.status === 'skipped' ? '<i class="fa-solid fa-forward" style="color:#888;"></i>' :
+                                   '<i class="fa-solid fa-triangle-exclamation" style="color:#ffa500;"></i>';
+                        stepsHtml += '<div style="font-size:.75rem;color:#ccc;padding:2px 0;">' + icon + ' ' + _esc(label) + '</div>';
+                    });
+                    var cnamMsg = d.cnam?.status === 'ok' ? '<div style="color:#00ff88;font-size:.78rem;margin-top:4px;"><i class="fa-solid fa-circle-check me-1"></i>Caller ID: ' + _esc(d.cnam_display_name || '') + '</div>' :
+                                  d.cnam?.status === 'error' ? '<div style="color:#ffa500;font-size:.78rem;margin-top:4px;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Caller ID: ' + _esc(d.cnam.error || 'Failed') + '</div>' : '';
+                    result.innerHTML = '<div style="color:#00ff88;font-weight:600;margin-bottom:4px;"><i class="fa-solid fa-circle-check me-1"></i>Registration submitted!</div>' + stepsHtml + cnamMsg;
                     setTimeout(() => loadSpamProtectionStatus(), 500);
+                } else if (r.ok && !d.has_profile) {
+                    // Profile creation failed — show detailed errors
+                    var errList = (d.errors || []).map(function(e) { return '<div style="color:#ef4444;font-size:.75rem;padding:2px 0;"><i class="fa-solid fa-xmark me-1"></i>' + _esc(e) + '</div>'; }).join('');
+                    result.innerHTML = '<div style="color:#ef4444;font-weight:600;margin-bottom:4px;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Registration failed</div>' +
+                        '<div style="font-size:.78rem;color:#ccc;margin-bottom:4px;">Business Profile could not be created. Check your details and try again.</div>' +
+                        errList +
+                        '<div style="font-size:.72rem;color:#888;margin-top:6px;">If this persists, contact support with the error details above.</div>';
+                    if (typeof _showDashToast === 'function') _showDashToast(false, 'Spam Protection setup failed — see details');
                 } else {
                     result.innerHTML = '<span style="color:#ef4444;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Registration failed') + '</span>';
                 }

@@ -15,7 +15,7 @@ from flask_login import login_required, current_user
 
 import stripe
 import twilio_provisioning
-from db import get_db_connection, return_db_connection
+from db import get_db_connection, return_db_connection, log_webhook_event, save_persistent_alert
 from number_health import (
     get_number_health_batch,
     get_all_number_health,
@@ -1072,11 +1072,95 @@ def register_spam_protection():
             logger.error(f"[CNAM] Trust Product registration failed: {cnam_err}")
             cnam_result = {"status": "error", "error": str(cnam_err)}
 
+    # ── Log the registration attempt to webhook_logs ──
+    # User-facing logs use "Voice Protection" terminology (not "Twilio")
+    location_id = getattr(current_user, 'location_id', '')
+    reg_errors = results.get('errors', [])
+    step_summary = []
+    for s in results.get('steps', []):
+        name = s.get('name', '')
+        label = {
+            'customer_profile': 'Business Profile',
+            'secondary_profile': 'Business Profile',
+            'end_user_business': 'Business Identity',
+            'auth_representative': 'Authorized Contact',
+            'address': 'Business Address',
+            'assign_numbers': 'Number Assignment',
+            'evaluation': 'Profile Evaluation',
+            'submit_review': 'Submit for Review',
+            'cnam_all_numbers': 'Caller ID Labels',
+        }.get(name, name)
+        status = s.get('status', 'unknown')
+        step_summary.append(f"{label}: {status}")
+
+    if has_profile and not reg_errors:
+        log_webhook_event(
+            location_id=location_id,
+            event_type="voice_protection",
+            status="success",
+            summary=f"Spam Protection registered — {business_name}",
+            details={
+                "steps": step_summary,
+                "profile_sid": trust_hub.get('profile_sid', ''),
+                "cnam": cnam_result.get('status', 'skipped'),
+                "cnam_display_name": cnam_display_name,
+            },
+        )
+    else:
+        # Log failure with details
+        error_detail = "; ".join(str(e) for e in reg_errors) if reg_errors else "Business Profile creation failed"
+        log_webhook_event(
+            location_id=location_id,
+            event_type="voice_protection",
+            status="error",
+            summary=f"Spam Protection registration failed — {error_detail[:200]}",
+            details={
+                "steps": step_summary,
+                "errors": [str(e)[:200] for e in reg_errors],
+                "cnam": cnam_result.get('status', 'skipped'),
+            },
+        )
+        # Create dismissable persistent alert so user sees the failure
+        save_persistent_alert(
+            email=current_user.email,
+            alert_type="voice_protection_failed",
+            title="Spam Protection Setup Incomplete",
+            message=(
+                f"Business Profile registration could not be completed. "
+                f"{'Errors: ' + error_detail[:200] if reg_errors else 'Please try again or contact support.'}"
+            ),
+            severity="error",
+            location_id=location_id,
+        )
+
+    # Also log CNAM result if it was attempted
+    if cnam_result.get('status') == 'error':
+        log_webhook_event(
+            location_id=location_id,
+            event_type="voice_protection",
+            status="error",
+            summary=f"Caller ID (CNAM) registration failed — {cnam_result.get('error', 'Unknown')[:200]}",
+            details={"cnam_error": cnam_result.get('error', '')},
+        )
+    elif cnam_result.get('status') == 'ok':
+        log_webhook_event(
+            location_id=location_id,
+            event_type="voice_protection",
+            status="success",
+            summary=f"Caller ID registered as '{cnam_result.get('cnam_display_name', '')}' — {cnam_result.get('numbers_assigned', 0)} numbers assigned",
+            details={
+                "trust_product_sid": cnam_result.get('trust_product_sid', ''),
+                "review_status": cnam_result.get('review_status', ''),
+            },
+        )
+
     return jsonify({
-        "status": "ok" if not results.get("errors") else "partial",
+        "status": "ok" if has_profile and not reg_errors else "partial",
         "results": results,
         "cnam": cnam_result,
         "cnam_display_name": cnam_display_name,
+        "has_profile": has_profile,
+        "errors": reg_errors,
     })
 
 
@@ -1902,6 +1986,18 @@ def number_integrity_register():
         vc['number_integrity'] = ni
         _save_voice_config(current_user.email, vc)
 
+        log_webhook_event(
+            location_id=location_id,
+            event_type="voice_protection",
+            status="success",
+            summary=f"Number Integrity registered — {assign_result.get('assigned', 0)} numbers submitted for carrier review",
+            details={
+                "trust_product_sid": trust_product_sid,
+                "review_status": ni['status'],
+                "numbers_assigned": assign_result.get('assigned', 0),
+            },
+        )
+
         return jsonify({
             "status": "ok",
             "trust_product_sid": trust_product_sid,
@@ -1918,6 +2014,23 @@ def number_integrity_register():
             vc['number_integrity'] = ni
             _save_voice_config(current_user.email, vc)
         logger.error(f"[NumberIntegrity] Registration failed: {e}", exc_info=True)
+
+        log_webhook_event(
+            location_id=location_id,
+            event_type="voice_protection",
+            status="error",
+            summary=f"Number Integrity registration failed — {str(e)[:200]}",
+            details={"error": str(e)[:500]},
+        )
+        save_persistent_alert(
+            email=current_user.email,
+            alert_type="voice_integrity_failed",
+            title="Number Integrity Registration Failed",
+            message=f"Could not register numbers for carrier spam protection. Error: {str(e)[:200]}",
+            severity="error",
+            location_id=location_id,
+        )
+
         return jsonify({"error": f"Registration failed: {str(e)}"}), 500
 
 
