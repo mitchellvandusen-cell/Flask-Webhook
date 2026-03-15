@@ -46,22 +46,22 @@
             } else {
                 spinner.style.display = 'none';
                 text.textContent = 'Error: ' + (resp.error || 'Save failed');
-                text.style.color = '#ef4444';
+                text.style.color = _tc.red;
                 setTimeout(() => {
                     overlay.classList.remove('active');
                     btn.disabled = false;
-                    text.style.color = '#fff';
+                    text.style.color = _tc.text;
                 }, 2500);
             }
         })
         .catch(err => {
             spinner.style.display = 'none';
             text.textContent = 'Network error. Please try again.';
-            text.style.color = '#ef4444';
+            text.style.color = _tc.red;
             setTimeout(() => {
                 overlay.classList.remove('active');
                 btn.disabled = false;
-                text.style.color = '#fff';
+                text.style.color = _tc.text;
             }, 2500);
         });
     }
@@ -133,7 +133,7 @@
 
                 const el = document.createElement('label');
                 el.className = 'sms-channel-option';
-                el.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;cursor:pointer;transition:all .15s;' + (isChecked ? 'border-color:rgba(0,255,136,0.3);background:rgba(0,255,136,0.04);' : '') + (isDisabled ? 'opacity:0.4;cursor:not-allowed;' : '');
+                el.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 16px;background:' + _tc.surface + ';border:1px solid ' + _tc.border + ';border-radius:10px;cursor:pointer;transition:all .15s;' + (isChecked ? 'border-color:' + _themeColor('rgba(0,255,136,0.3)', 'rgba(0,136,74,0.3)') + ';background:' + _tc.accentBg + ';' : '') + (isDisabled ? 'opacity:0.4;cursor:not-allowed;' : '');
 
                 const desc = num.label && num.label !== num.number ? num.label : (num.source === 'ghl' ? 'GoHighLevel / LeadConnector number' : 'InsuranceGrokBot number');
 
@@ -147,20 +147,20 @@
                         style="accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;">
                     ${iconHtml}
                     <div style="flex:1;min-width:0;">
-                        <div style="font-size:0.85rem;font-weight:600;color:#fff;">${_formatPhone(num.number)}</div>
-                        <div style="font-size:0.75rem;color:#888;">${desc}${isDisabled ? ' (no SMS capability)' : ''}</div>
+                        <div style="font-size:0.85rem;font-weight:600;color:${_tc.text};">${_formatPhone(num.number)}</div>
+                        <div style="font-size:0.75rem;color:${_tc.textMut};">${desc}${isDisabled ? ' (no SMS capability)' : ''}</div>
                     </div>
                 `;
 
                 // Highlight selected option
                 el.querySelector('input').addEventListener('change', function() {
                     document.querySelectorAll('.sms-channel-option').forEach(opt => {
-                        opt.style.borderColor = 'rgba(255,255,255,0.08)';
-                        opt.style.background = 'rgba(255,255,255,0.03)';
+                        opt.style.borderColor = _tc.border;
+                        opt.style.background = _tc.surface;
                     });
                     if (this.checked) {
-                        el.style.borderColor = 'rgba(0,255,136,0.3)';
-                        el.style.background = 'rgba(0,255,136,0.04)';
+                        el.style.borderColor = _themeColor('rgba(0,255,136,0.3)', 'rgba(0,136,74,0.3)');
+                        el.style.background = _tc.accentBg;
                     }
                 });
 
@@ -172,12 +172,12 @@
             if (ghlDefault) {
                 ghlDefault.addEventListener('change', function() {
                     document.querySelectorAll('.sms-channel-option').forEach(opt => {
-                        opt.style.borderColor = 'rgba(255,255,255,0.08)';
-                        opt.style.background = 'rgba(255,255,255,0.03)';
+                        opt.style.borderColor = _tc.border;
+                        opt.style.background = _tc.surface;
                     });
                     if (this.checked) {
-                        this.closest('.sms-channel-option').style.borderColor = 'rgba(0,255,136,0.3)';
-                        this.closest('.sms-channel-option').style.background = 'rgba(0,255,136,0.04)';
+                        this.closest('.sms-channel-option').style.borderColor = _themeColor('rgba(0,255,136,0.3)', 'rgba(0,136,74,0.3)');
+                        this.closest('.sms-channel-option').style.background = _tc.accentBg;
                     }
                 });
             }
@@ -223,7 +223,7 @@
     async function smsLoadNumbers() {
         const container = document.getElementById('smsNumbersListContainer');
         if (!container) return;
-        container.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.2rem;"></i><div style="color:#888;font-size:.78rem;margin-top:6px;">Loading numbers &amp; A2P status...</div></div>';
+        container.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin" style="color:' + _tc.cyan + ';font-size:1.2rem;"></i><div style="color:' + _tc.textMut + ';font-size:.78rem;margin-top:6px;">Loading numbers &amp; A2P status...</div></div>';
 
         try {
             // Fetch numbers and A2P status in parallel
@@ -234,9 +234,9 @@
 
             _smsNumbersCache = numRes.numbers || [];
             if (!_smsNumbersCache.length) {
-                container.innerHTML = '<div style="text-align:center;padding:30px 20px;color:#888;font-size:.82rem;">' +
-                    '<i class="fa-solid fa-phone-slash" style="font-size:1.5rem;display:block;margin-bottom:8px;color:#444;"></i>' +
-                    'No numbers found on your account.<br>Click <strong style="color:#00d9ff;">Buy Number</strong> above to get started.</div>';
+                container.innerHTML = '<div style="text-align:center;padding:30px 20px;color:' + _tc.textMut + ';font-size:.82rem;">' +
+                    '<i class="fa-solid fa-phone-slash" style="font-size:1.5rem;display:block;margin-bottom:8px;color:' + _tc.textDim + ';"></i>' +
+                    'No numbers found on your account.<br>Click <strong style="color:' + _tc.cyan + ';">Buy Number</strong> above to get started.</div>';
                 return;
             }
 
@@ -244,7 +244,7 @@
             _renderSmsA2pSummary(a2pRes);
         } catch (e) {
             console.error('[SmsNumbers] Error:', e);
-            container.innerHTML = '<div style="padding:16px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:8px;color:#ef4444;font-size:.82rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Network error loading numbers.</div>';
+            container.innerHTML = '<div style="padding:16px;background:' + _tc.redBg + ';border:1px solid ' + _themeColor('rgba(239,68,68,0.2)', 'rgba(220,38,38,0.2)') + ';border-radius:8px;color:' + _tc.red + ';font-size:.82rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Network error loading numbers.</div>';
         }
     }
 
@@ -257,10 +257,10 @@
         const registeredSids = a2p.registered_number_sids || [];
         const registeredSet = new Set(registeredSids);
 
-        const hdrStyle = 'padding:8px 10px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px;';
-        const cellStyle = 'padding:8px 10px;border-top:1px solid rgba(255,255,255,0.04);';
+        const hdrStyle = 'padding:8px 10px;background:' + _tc.surface + ';font-weight:700;color:' + _tc.textMut + ';font-size:.75rem;text-transform:uppercase;letter-spacing:.5px;';
+        const cellStyle = 'padding:8px 10px;border-top:1px solid ' + _tc.border + ';';
 
-        let html = '<div style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;overflow:visible;">';
+        let html = '<div style="border:1px solid ' + _tc.border + ';border-radius:8px;overflow:visible;">';
         // Header
         html += '<div style="display:grid;grid-template-columns:1fr 80px 100px 140px;gap:0;">';
         html += '<div style="' + hdrStyle + '">Number</div>';
@@ -274,13 +274,13 @@
             const hasSms = n.capabilities?.sms;
             const smsIcon = hasSms
                 ? '<i class="fa-solid fa-circle-check" style="color:#4ade80;"></i>'
-                : '<i class="fa-solid fa-circle-xmark" style="color:#444;"></i>';
+                : '<i class="fa-solid fa-circle-xmark" style="color:' + _tc.textDim + ';"></i>';
 
             // Per-number A2P status — check if this number's SID is in the messaging service
             const numberInMs = registeredSet.has(n.sid);
             let a2pBadge;
             if (!hasSms) {
-                a2pBadge = '<span style="color:#555;font-size:.75rem;">N/A</span>';
+                a2pBadge = '<span style="color:' + _tc.textDim + ';font-size:.75rem;">N/A</span>';
             } else if (isRegistered && numberInMs) {
                 a2pBadge = '<span style="background:rgba(74,222,128,0.12);color:#4ade80;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;"><i class="fa-solid fa-shield-halved me-1"></i>Registered</span>';
             } else if (isRegistered && !numberInMs) {
@@ -304,11 +304,11 @@
                 actions = '<button onclick="switchConfigPanel(\'a2p\')" style="background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.25);color:#a78bfa;border-radius:5px;padding:3px 10px;font-size:.75rem;font-weight:600;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-certificate me-1"></i>Register A2P</button>';
             }
 
-            const nickname = n.nickname ? '<span style="color:#888;font-size:.75rem;margin-left:4px;">(' + (typeof _esc === 'function' ? _esc(n.nickname) : n.nickname) + ')</span>' : '';
-            const primaryBadge = n.is_primary ? '<span style="background:rgba(0,217,255,0.15);color:#00d9ff;padding:1px 6px;border-radius:3px;font-size:.75rem;font-weight:700;margin-left:6px;">PRIMARY</span>' : '';
+            const nickname = n.nickname ? '<span style="color:' + _tc.textMut + ';font-size:.75rem;margin-left:4px;">(' + (typeof _esc === 'function' ? _esc(n.nickname) : n.nickname) + ')</span>' : '';
+            const primaryBadge = n.is_primary ? '<span style="background:' + _tc.cyanBg + ';color:' + _tc.cyan + ';padding:1px 6px;border-radius:3px;font-size:.75rem;font-weight:700;margin-left:6px;">PRIMARY</span>' : '';
 
             html += '<div style="display:grid;grid-template-columns:1fr 80px 100px 140px;gap:0;align-items:center;">';
-            html += '<div style="' + cellStyle + 'color:#fff;font-size:.8rem;">' + _formatPhone(n.phone) + primaryBadge + nickname + '<br><span style="color:#555;font-size:.75rem;">' + (n.number_type || 'local') + '</span></div>';
+            html += '<div style="' + cellStyle + 'color:' + _tc.text + ';font-size:.8rem;">' + _formatPhone(n.phone) + primaryBadge + nickname + '<br><span style="color:' + _tc.textDim + ';font-size:.75rem;">' + (n.number_type || 'local') + '</span></div>';
             html += '<div style="' + cellStyle + 'text-align:center;">' + smsIcon + '</div>';
             html += '<div style="' + cellStyle + 'text-align:center;">' + a2pBadge + '</div>';
             html += '<div style="' + cellStyle + 'text-align:center;">' + actions + '</div>';
@@ -339,9 +339,9 @@
                     '<div class="d-flex align-items-center gap-2 mb-1">' +
                         '<i class="fa-solid fa-shield-halved" style="color:#4ade80;"></i>' +
                         '<span style="font-weight:700;color:#4ade80;font-size:.88rem;">A2P 10DLC Registered</span>' +
-                        '<span style="font-size:.75rem;color:#aaa;margin-left:4px;">' + registeredCount + '/' + totalSms + ' numbers</span>' +
+                        '<span style="font-size:.75rem;color:' + _tc.textMut + ';margin-left:4px;">' + registeredCount + '/' + totalSms + ' numbers</span>' +
                     '</div>' +
-                    '<div style="font-size:.75rem;color:#aaa;line-height:1.6;">' +
+                    '<div style="font-size:.75rem;color:' + _tc.textMut + ';line-height:1.6;">' +
                         'All SMS numbers are registered for A2P 10DLC compliance. Messages are delivered at full throughput without carrier filtering.' +
                     '</div></div>';
             } else {
@@ -352,7 +352,7 @@
                         '<i class="fa-solid fa-triangle-exclamation" style="color:#ffa500;"></i>' +
                         '<span style="font-weight:700;color:#ffa500;font-size:.88rem;">' + unregisteredCount + ' Number' + (unregisteredCount !== 1 ? 's' : '') + ' Not A2P Registered</span>' +
                     '</div>' +
-                    '<div style="font-size:.75rem;color:#aaa;line-height:1.6;">' +
+                    '<div style="font-size:.75rem;color:' + _tc.textMut + ';line-height:1.6;">' +
                         'Your A2P brand and campaign are approved, but <strong style="color:#ffa500;">' + unregisteredCount + ' of ' + totalSms + '</strong> SMS numbers are not yet added to the messaging service. ' +
                         'Click <strong style="color:#00ff88;">Add to A2P</strong> next to each unregistered number to register it. Unregistered numbers may have messages filtered by carriers.' +
                     '</div></div>';
@@ -364,7 +364,7 @@
                     '<i class="fa-solid fa-clock" style="color:#ffa500;"></i>' +
                     '<span style="font-weight:700;color:#ffa500;font-size:.88rem;">A2P Registration In Progress</span>' +
                 '</div>' +
-                '<div style="font-size:.75rem;color:#aaa;line-height:1.6;">' +
+                '<div style="font-size:.75rem;color:' + _tc.textMut + ';line-height:1.6;">' +
                     'Brand: ' + brandStatus + (campaignStatus ? ' &bull; Campaign: ' + campaignStatus : '') +
                     '. Check the <strong style="color:#a78bfa;cursor:pointer;" onclick="switchConfigPanel(\'a2p\')">A2P 10DLC</strong> tab for details.' +
                 '</div></div>';
@@ -375,7 +375,7 @@
                     '<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i>' +
                     '<span style="font-weight:700;color:#ef4444;font-size:.88rem;">A2P Registration Required</span>' +
                 '</div>' +
-                '<div style="font-size:.75rem;color:#aaa;line-height:1.6;">' +
+                '<div style="font-size:.75rem;color:' + _tc.textMut + ';line-height:1.6;">' +
                     'Your numbers are not registered for A2P 10DLC. Without registration, SMS messages may be filtered or blocked by carriers. ' +
                     '<strong style="color:#a78bfa;cursor:pointer;" onclick="switchConfigPanel(\'a2p\')">Register now &rarr;</strong>' +
                 '</div></div>';
@@ -390,7 +390,7 @@
         const zip = document.getElementById('smsBuyZip').value.trim();
         const contains = document.getElementById('smsBuyContains').value.trim();
         const list = document.getElementById('smsAvailableNumbersList');
-        list.innerHTML = '<div style="text-align:center;padding:8px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i></div>';
+        list.innerHTML = '<div style="text-align:center;padding:8px;"><i class="fa-solid fa-spinner fa-spin" style="color:' + _tc.cyan + ';"></i></div>';
         try {
             const params = new URLSearchParams();
             params.set('number_type', numberType);
@@ -401,9 +401,9 @@
             if (contains) params.set('contains', contains);
             const r = await fetch('/voice/numbers/search?' + params.toString());
             const d = await r.json();
-            if (!r.ok) { list.innerHTML = '<div style="color:#ef4444;padding:4px;">' + (d.error || 'Failed') + '</div>'; return; }
+            if (!r.ok) { list.innerHTML = '<div style="color:' + _tc.red + ';padding:4px;">' + (d.error || 'Failed') + '</div>'; return; }
             const nums = d.numbers || [];
-            if (!nums.length) { list.innerHTML = '<div style="color:#888;padding:4px;font-size:.75rem;">No numbers found. Try different filters.</div>'; return; }
+            if (!nums.length) { list.innerHTML = '<div style="color:' + _tc.textMut + ';padding:4px;font-size:.75rem;">No numbers found. Try different filters.</div>'; return; }
             const priceMap = { local: '$0.90', toll_free: '$2.15', mobile: '$0.90' };
             const monthlyPrice = priceMap[numberType] || '$0.90';
             list.innerHTML = nums.map(n => {
@@ -412,19 +412,19 @@
                 if (n.capabilities && n.capabilities.voice) caps.push('Voice');
                 if (n.capabilities && n.capabilities.sms) caps.push('SMS');
                 if (n.capabilities && n.capabilities.mms) caps.push('MMS');
-                return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 4px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.78rem;">' +
+                return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 4px;border-bottom:1px solid ' + _tc.border + ';font-size:.78rem;">' +
                     '<div style="flex:1;min-width:0;">' +
-                        '<span style="color:#fff;font-weight:600;">' + _formatPhone(n.phone) + '</span>' +
-                        (loc ? '<span style="color:#666;font-size:.75rem;margin-left:6px;">' + loc + '</span>' : '') +
-                        '<div style="margin-top:2px;">' + caps.map(c => '<span style="background:rgba(0,217,255,0.08);color:#00d9ff;padding:1px 6px;border-radius:4px;font-size:.75rem;margin-right:3px;">' + c + '</span>').join('') + '</div>' +
+                        '<span style="color:' + _tc.text + ';font-weight:600;">' + _formatPhone(n.phone) + '</span>' +
+                        (loc ? '<span style="color:' + _tc.textFaint + ';font-size:.75rem;margin-left:6px;">' + loc + '</span>' : '') +
+                        '<div style="margin-top:2px;">' + caps.map(c => '<span style="background:' + _tc.cyanBg + ';color:' + _tc.cyan + ';padding:1px 6px;border-radius:4px;font-size:.75rem;margin-right:3px;">' + c + '</span>').join('') + '</div>' +
                     '</div>' +
                     '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">' +
-                        '<span style="color:#00ff88;font-size:.75rem;font-weight:600;">' + monthlyPrice + '/mo</span>' +
+                        '<span style="color:' + _tc.accent + ';font-size:.75rem;font-weight:600;">' + monthlyPrice + '/mo</span>' +
                         '<button onclick="smsBuyNumber(\'' + n.phone + '\')" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:4px;padding:3px 10px;font-size:.75rem;font-weight:700;cursor:pointer;">Buy</button>' +
                     '</div>' +
                 '</div>';
             }).join('');
-        } catch(e) { list.innerHTML = '<div style="color:#ef4444;">Network error</div>'; }
+        } catch(e) { list.innerHTML = '<div style="color:' + _tc.red + ';">Network error</div>'; }
     }
 
     async function smsBuyNumber(phone) {

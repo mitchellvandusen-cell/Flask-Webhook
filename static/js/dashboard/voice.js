@@ -23,7 +23,7 @@
             btn.disabled = true;
             status.textContent = 'Generating voice sample...';
             status.style.display = 'block';
-            status.style.color = '#3b82f6';
+            status.style.color = _tc.blue;
 
             try {
                 const r = await fetch('/voice/preview/' + voice);
@@ -45,7 +45,7 @@
                 status.style.color = 'var(--accent)';
             } catch(e) {
                 status.textContent = e.message;
-                status.style.color = '#ef4444';
+                status.style.color = _tc.red;
                 btn.innerHTML = '<i class="fa-solid fa-volume-high me-1"></i> Preview';
             } finally {
                 btn.disabled = false;
@@ -64,7 +64,7 @@
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Activating…';
             res.style.display = 'block';
-            res.innerHTML = '<span style="color:#888;">Creating your voice account…</span>';
+            res.innerHTML = '<span style="color:' + _tc.textMut + ';">Creating your voice account…</span>';
             try {
                 const r = await fetch('/voice/automate-setup', {
                     method: 'POST',
@@ -73,22 +73,22 @@
                 });
                 const d = await r.json();
                 if (d.status === 'success') {
-                    res.innerHTML = '<span style="color:#00ff88;"><i class="fa-solid fa-circle-check me-1"></i>' + d.message + '</span>';
+                    res.innerHTML = '<span style="color:' + _tc.accent + ';"><i class="fa-solid fa-circle-check me-1"></i>' + d.message + '</span>';
                     // Flash the status badges green without a reload
                     document.querySelectorAll('#vstab-panel-settings .fa-circle-xmark').forEach(el => {
                         el.className = 'fa-solid fa-circle-check';
-                        el.style.color = '#00ff88';
-                        if (el.nextElementSibling) el.nextElementSibling.style.color = '#ccc';
+                        el.style.color = _tc.accent;
+                        if (el.nextElementSibling) el.nextElementSibling.style.color = _tc.textSec;
                     });
                     // Refresh the Numbers / Trust Hub lists so they populate immediately
                     if (typeof loadTrustHubNumbers === 'function') loadTrustHubNumbers();
                     // Reload page after short delay to show new provisioned state
                     setTimeout(() => location.reload(), 2000);
                 } else {
-                    res.innerHTML = '<span style="color:#ef4444;"><i class="fa-solid fa-times-circle me-1"></i>' + (d.error || 'Activation failed') + '</span>';
+                    res.innerHTML = '<span style="color:' + _tc.red + ';"><i class="fa-solid fa-times-circle me-1"></i>' + (d.error || 'Activation failed') + '</span>';
                 }
             } catch(e) {
-                res.innerHTML = '<span style="color:#ef4444;">Network error — check your connection and try again</span>';
+                res.innerHTML = '<span style="color:' + _tc.red + ';">Network error — check your connection and try again</span>';
             }
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles me-2"></i>Activate Voice';
@@ -97,7 +97,7 @@
         function saveVoiceConfig() {
             const resultDiv = document.getElementById('voiceTestResult');
             resultDiv.style.display = 'block';
-            resultDiv.innerHTML = '<span style="color:#3b82f6;"><i class="fa-solid fa-spinner fa-spin me-1"></i> Saving voice settings...</span>';
+            resultDiv.innerHTML = '<span style="color:' + _tc.blue + ';"><i class="fa-solid fa-spinner fa-spin me-1"></i> Saving voice settings...</span>';
 
             const config = {
                 enabled: document.getElementById('voiceEnabled').checked,
@@ -170,24 +170,24 @@
                     // Update badge
                     const badge = document.getElementById('voiceStatusBadge');
                     if (config.enabled) {
-                        badge.style.background = 'rgba(0,255,136,0.15)';
-                        badge.style.color = '#00ff88';
-                        badge.style.border = '1px solid rgba(0,255,136,0.3)';
+                        badge.style.background = _tc.accentBg;
+                        badge.style.color = _tc.accent;
+                        badge.style.border = '1px solid ' + _themeColor('rgba(0,255,136,0.3)', 'rgba(0,136,74,0.3)');
                         badge.innerHTML = '<i class="fa-solid fa-circle me-1" style="font-size:0.75rem; vertical-align:middle;"></i> Active';
                     } else {
-                        badge.style.background = 'rgba(255,255,255,0.06)';
-                        badge.style.color = '#666';
-                        badge.style.border = '1px solid rgba(255,255,255,0.08)';
+                        badge.style.background = _tc.surface;
+                        badge.style.color = _tc.textFaint;
+                        badge.style.border = '1px solid ' + _tc.border;
                         badge.innerHTML = 'Inactive';
                     }
                 } else {
-                    resultDiv.innerHTML = '<span style="color:#ef4444;"><i class="fa-solid fa-times-circle me-1"></i> ' + (d.error || 'Failed to save') + '</span>';
+                    resultDiv.innerHTML = '<span style="color:' + _tc.red + ';"><i class="fa-solid fa-times-circle me-1"></i> ' + (d.error || 'Failed to save') + '</span>';
                     _showDashToast(false, d.error || 'Failed to save voice settings');
                 }
                 setTimeout(() => { resultDiv.style.display = 'none'; }, 5000);
             }).catch(e => {
                 console.error('[Settings] Save failed:', e);
-                resultDiv.innerHTML = '<span style="color:#ef4444;">Network error saving voice config — please try again</span>';
+                resultDiv.innerHTML = '<span style="color:' + _tc.red + ';">Network error saving voice config — please try again</span>';
                 _showDashToast(false, 'Network error saving voice settings');
             });
         }
@@ -195,7 +195,7 @@
         function testVoiceConnection() {
             const resultDiv = document.getElementById('voiceTestResult');
             resultDiv.style.display = 'block';
-            resultDiv.innerHTML = '<span style="color:#3b82f6;"><i class="fa-solid fa-spinner fa-spin me-1"></i> Testing connections...</span>';
+            resultDiv.innerHTML = '<span style="color:' + _tc.blue + ';"><i class="fa-solid fa-spinner fa-spin me-1"></i> Testing connections...</span>';
 
             fetch('/voice/test', {
                 method: 'POST',
@@ -203,20 +203,20 @@
                 body: JSON.stringify({ location_id: (window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.locationId) || '' })
             }).then(r => r.json()).then(d => {
                 let html = '<div style="font-size:0.85rem;">';
-                html += '<div style="margin-bottom:6px;"><strong style="color:#ccc;">XAI Realtime API:</strong> ';
-                html += d.xai ? '<span style="color:var(--accent);"><i class="fa-solid fa-check me-1"></i>Connected</span>' : '<span style="color:#ef4444;"><i class="fa-solid fa-times me-1"></i>Failed</span>';
+                html += '<div style="margin-bottom:6px;"><strong style="color:' + _tc.textSec + ';">XAI Realtime API:</strong> ';
+                html += d.xai ? '<span style="color:' + _tc.accent + ';"><i class="fa-solid fa-check me-1"></i>Connected</span>' : '<span style="color:' + _tc.red + ';"><i class="fa-solid fa-times me-1"></i>Failed</span>';
                 html += '</div>';
-                html += '<div style="margin-bottom:6px;"><strong style="color:#ccc;">Voice Service:</strong> ';
-                html += d.voice_service ? '<span style="color:var(--accent);"><i class="fa-solid fa-check me-1"></i>Active</span>' : '<span style="color:#ef4444;"><i class="fa-solid fa-times me-1"></i>Not provisioned — click Activate Voice</span>';
+                html += '<div style="margin-bottom:6px;"><strong style="color:' + _tc.textSec + ';">Voice Service:</strong> ';
+                html += d.voice_service ? '<span style="color:' + _tc.accent + ';"><i class="fa-solid fa-check me-1"></i>Active</span>' : '<span style="color:' + _tc.red + ';"><i class="fa-solid fa-times me-1"></i>Not provisioned — click Activate Voice</span>';
                 html += '</div>';
                 if (d.errors && d.errors.length > 0) {
-                    html += '<div style="color:#ffa500; margin-top:8px; font-size:0.8rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + d.errors.join('<br>') + '</div>';
+                    html += '<div style="color:' + _tc.orange + '; margin-top:8px; font-size:0.8rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + d.errors.join('<br>') + '</div>';
                 }
                 html += '</div>';
                 resultDiv.innerHTML = html;
                 setTimeout(() => { resultDiv.style.display = 'none'; }, 10000);
             }).catch(e => {
-                resultDiv.innerHTML = '<span style="color:#ef4444;">Network error</span>';
+                resultDiv.innerHTML = '<span style="color:' + _tc.red + ';">Network error</span>';
             });
         }
 
@@ -261,26 +261,26 @@
                     const now = new Date();
                     document.getElementById('trainingTokenCreated').textContent = 'Created ' + now.toLocaleDateString() + ' at ' + now.toLocaleTimeString();
                     statusMsg.style.display = 'block';
-                    statusMsg.style.background = 'rgba(0,255,136,0.06)';
-                    statusMsg.style.border = '1px solid rgba(0,255,136,0.15)';
-                    statusMsg.style.color = '#00ff88';
+                    statusMsg.style.background = _tc.accentBg;
+                    statusMsg.style.border = '1px solid ' + _themeColor('rgba(0,255,136,0.15)', 'rgba(0,136,74,0.15)');
+                    statusMsg.style.color = _tc.accent;
                     statusMsg.innerHTML = '<i class="fa-solid fa-check-circle me-1"></i> Training code generated! Copy it and paste into InsuranceGrokBot Training.';
                     _showDashToast(true, 'Training code generated!');
                     setTimeout(() => { statusMsg.style.display = 'none'; }, 6000);
                 } else {
                     statusMsg.style.display = 'block';
-                    statusMsg.style.background = 'rgba(239,68,68,0.06)';
-                    statusMsg.style.border = '1px solid rgba(239,68,68,0.15)';
-                    statusMsg.style.color = '#ef4444';
+                    statusMsg.style.background = _tc.redBg;
+                    statusMsg.style.border = '1px solid ' + _themeColor('rgba(239,68,68,0.15)', 'rgba(220,38,38,0.15)');
+                    statusMsg.style.color = _tc.red;
                     statusMsg.innerHTML = '<i class="fa-solid fa-times-circle me-1"></i> ' + (data.error || 'Failed to generate code');
                     _showDashToast(false, data.error || 'Failed to generate training code');
                 }
             })
             .catch(() => {
                 statusMsg.style.display = 'block';
-                statusMsg.style.background = 'rgba(239,68,68,0.06)';
-                statusMsg.style.border = '1px solid rgba(239,68,68,0.15)';
-                statusMsg.style.color = '#ef4444';
+                statusMsg.style.background = _tc.redBg;
+                statusMsg.style.border = '1px solid ' + _themeColor('rgba(239,68,68,0.15)', 'rgba(220,38,38,0.15)');
+                statusMsg.style.color = _tc.red;
                 statusMsg.innerHTML = '<i class="fa-solid fa-times-circle me-1"></i> Network error — please try again';
                 _showDashToast(false, 'Network error generating training code');
             })
@@ -309,9 +309,9 @@
                     document.getElementById('trainingNoToken').style.display = 'block';
                     document.getElementById('trainingHasToken').style.display = 'none';
                     statusMsg.style.display = 'block';
-                    statusMsg.style.background = 'rgba(239,68,68,0.06)';
-                    statusMsg.style.border = '1px solid rgba(239,68,68,0.15)';
-                    statusMsg.style.color = '#ef4444';
+                    statusMsg.style.background = _tc.redBg;
+                    statusMsg.style.border = '1px solid ' + _themeColor('rgba(239,68,68,0.15)', 'rgba(220,38,38,0.15)');
+                    statusMsg.style.color = _tc.red;
                     statusMsg.innerHTML = '<i class="fa-solid fa-check-circle me-1"></i> Training code revoked.';
                     _showDashToast(true, 'Training code revoked');
                     setTimeout(() => { statusMsg.style.display = 'none'; }, 5000);

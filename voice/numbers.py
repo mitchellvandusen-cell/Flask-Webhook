@@ -637,6 +637,33 @@ def get_trust_hub_status():
         return jsonify({"error": str(e)}), 500
 
 
+@numbers_bp.route('/voice/profile-status', methods=['GET'])
+@login_required
+def get_profile_status():
+    """
+    Check Secondary Customer Profile approval status.
+
+    Frontend can call this to determine whether Voice Integrity, A2P, and
+    other Trust Products are allowed to proceed. Returns approval state and
+    a human-readable message.
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    trust_hub = (vc or {}).get('trust_hub', {})
+    a2p = (vc or {}).get('a2p', {})
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
+    profile_sid = trust_hub.get('profile_sid', '') or a2p.get('profile_sid', '')
+
+    result = twilio_provisioning.check_secondary_profile_status(
+        sub_account_sid=sub_sid,
+        sub_account_auth_token=sub_auth_token,
+        profile_sid=profile_sid,
+    )
+    return jsonify(result)
+
+
 @numbers_bp.route('/voice/numbers/<number_id>/cnam', methods=['POST'])
 @login_required
 def toggle_cnam(number_id):
@@ -968,7 +995,10 @@ def register_spam_protection():
     city = (data.get('city') or '').strip()
     state = (data.get('state') or '').strip()
     zip_code = (data.get('zip') or '').strip()
+    business_type = (data.get('business_type') or '').strip()
+    website = (data.get('website') or '').strip()
     contact_name = (data.get('contact_name') or '').strip()
+    contact_title = (data.get('contact_title') or '').strip()
     contact_email = (data.get('contact_email') or '').strip()
     contact_phone = (data.get('contact_phone') or '').strip()
 
@@ -976,17 +1006,22 @@ def register_spam_protection():
         return jsonify({"error": "Business name is required"}), 400
     if not ein:
         return jsonify({"error": "EIN is required"}), 400
+    if not business_type:
+        return jsonify({"error": "Business type is required"}), 400
 
     # Step 1: Save business profile to voice_config
     trust_hub = vc.get('trust_hub', {})
     trust_hub.update({
         'business_name': business_name,
         'ein': ein,
+        'business_type': business_type,
+        'website': website,
         'street': street,
         'city': city,
         'state': state,
         'zip': zip_code,
         'contact_name': contact_name,
+        'contact_title': contact_title,
         'contact_email': contact_email,
         'contact_phone': contact_phone,
         'registered_at': datetime.utcnow().isoformat(),
@@ -1001,11 +1036,14 @@ def register_spam_protection():
         sub_account_sid=sub_sid,
         business_name=business_name,
         ein=ein,
+        business_type=business_type,
+        website=website,
         street=street,
         city=city,
         state=state,
         zip_code=zip_code,
         contact_name=contact_name,
+        contact_title=contact_title,
         contact_email=contact_email or current_user.email,
         contact_phone=contact_phone,
         sub_account_auth_token=sub_auth_token,
@@ -1973,6 +2011,23 @@ def number_integrity_register():
 
     if not business_name:
         return jsonify({"error": "Business profile required. Register in the Spam Protection tab first."}), 400
+
+    # ── Gate: Require approved Secondary Customer Profile ──
+    # Per Twilio ISV docs, Trust Products (Voice Integrity) linked to an
+    # unapproved Secondary Profile will get stuck in "draft" and cannot
+    # be submitted for review. Gate here to prevent wasted API calls.
+    profile_sid = trust_hub.get('profile_sid', '')
+    profile_check = twilio_provisioning.check_secondary_profile_status(
+        sub_account_sid=sub_sid,
+        sub_account_auth_token=sub_auth_token,
+        profile_sid=profile_sid,
+    )
+    if not profile_check['approved']:
+        return jsonify({
+            "error": profile_check['message'],
+            "profile_status": profile_check['status'],
+            "profile_pending": profile_check['status'] in ('in-review', 'pending-review'),
+        }), 409
 
     ni = vc.get('number_integrity', {})
     trust_product_sid = ni.get('trust_product_sid', '')

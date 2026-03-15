@@ -1,14 +1,14 @@
             <div class="tab-pane fade" id="config" role="tabpanel">
-                <div class="glass-panel p-4" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px;">
+                <div class="glass-panel p-4 cfg-panel-outer">
 
                     <!-- Header -->
                     <div class="d-flex align-items-center mb-4">
-                        <div style="width:48px;height:48px;border-radius:12px;background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.2);display:flex;align-items:center;justify-content:center;margin-right:16px;">
-                            <i class="fa-solid fa-sliders" style="color:var(--accent);font-size:1.2rem;"></i>
+                        <div class="cfg-header-icon-box">
+                            <i class="fa-solid fa-sliders cfg-header-icon"></i>
                         </div>
                         <div>
-                            <h4 style="margin:0;font-weight:700;">Bot Configuration</h4>
-                            <p style="margin:0;color:#888;font-size:0.85rem;">Set up your AI agent's identity, calendar, and CRM connection</p>
+                            <h4 class="cfg-header-title">Bot Configuration</h4>
+                            <p class="cfg-header-subtitle">Set up your AI agent's identity, calendar, and CRM connection</p>
                         </div>
                     </div>
 
@@ -19,33 +19,28 @@
                         <div class="tab-two-col" style="display:flex;gap:16px;min-height:360px;">
 
                             <!-- Left column: settings categories -->
-                            <div id="configSettingsMenu" style="width:220px;flex-shrink:0;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:8px;">
-                                <button type="button" class="cfg-menu-item active" onclick="switchConfigPanel('identity')" id="cmenu-identity"
-                                    style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.15);border-radius:8px;color:var(--accent);font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
-                                    <i class="fa-solid fa-robot" style="width:16px;text-align:center;"></i> Bot Identity
+                            <div id="configSettingsMenu" class="cfg-settings-menu">
+                                <button type="button" class="cfg-menu-item active" onclick="switchConfigPanel('identity')" id="cmenu-identity">
+                                    <i class="fa-solid fa-robot cfg-menu-icon"></i> Bot Identity
                                 </button>
-                                <button type="button" class="cfg-menu-item" onclick="switchConfigPanel('calendar')" id="cmenu-calendar"
-                                    style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
-                                    <i class="fa-solid fa-calendar-check" style="width:16px;text-align:center;"></i> Calendar & CRM
+                                <button type="button" class="cfg-menu-item" onclick="switchConfigPanel('calendar')" id="cmenu-calendar">
+                                    <i class="fa-solid fa-calendar-check cfg-menu-icon"></i> Calendar & CRM
                                 </button>
-                                <button type="button" class="cfg-menu-item" onclick="switchConfigPanel('smsnumbers')" id="cmenu-smsnumbers"
-                                    style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
-                                    <i class="fa-solid fa-phone-volume" style="width:16px;text-align:center;"></i> Numbers & A2P
+                                <button type="button" class="cfg-menu-item" onclick="switchConfigPanel('smsnumbers')" id="cmenu-smsnumbers">
+                                    <i class="fa-solid fa-phone-volume cfg-menu-icon"></i> Numbers & A2P
                                 </button>
-                                <button type="button" class="cfg-menu-item" onclick="switchConfigPanel('a2p')" id="cmenu-a2p"
-                                    style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
-                                    <i class="fa-solid fa-certificate" style="width:16px;text-align:center;"></i> A2P 10DLC
+                                <button type="button" class="cfg-menu-item" onclick="switchConfigPanel('a2p')" id="cmenu-a2p">
+                                    <i class="fa-solid fa-certificate cfg-menu-icon"></i> A2P 10DLC
                                 </button>
                                 {% if current_user.role == 'agency_owner' %}
-                                <button type="button" class="cfg-menu-item" onclick="switchConfigPanel('agency')" id="cmenu-agency"
-                                    style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
-                                    <i class="fa-solid fa-users-cog" style="width:16px;text-align:center;"></i> Agency
+                                <button type="button" class="cfg-menu-item" onclick="switchConfigPanel('agency')" id="cmenu-agency">
+                                    <i class="fa-solid fa-users-cog cfg-menu-icon"></i> Agency
                                 </button>
                                 {% endif %}
                             </div>
 
                             <!-- Right column: panel content -->
-                            <div style="flex:1;min-width:0;">
+                            <div class="cfg-right-col">
 
                                 <!-- ── Bot Identity panel ── -->
                                 <div id="cfgtab-panel-identity">
@@ -69,59 +64,56 @@
                                         <!-- ── SMS Channel Selection ── -->
                                         <div class="col-12" style="margin-top:12px;">
                                             <label class="form-label d-flex align-items-center gap-2">
-                                                <i class="fa-solid fa-paper-plane" style="color:var(--accent);font-size:0.85rem;"></i>
+                                                <i class="fa-solid fa-paper-plane cfg-sms-channel-label-icon"></i>
                                                 Send SMS Via
                                             </label>
-                                            <div id="sms-channel-picker" data-saved="{{ current_user.sms_send_via or 'ghl' }}" style="display:flex;flex-direction:column;gap:8px;">
+                                            <div id="sms-channel-picker" data-saved="{{ current_user.sms_send_via or 'ghl' }}" class="cfg-sms-picker">
 
                                                 <!-- GHL Default Option -->
-                                                <label class="sms-channel-option" style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;cursor:pointer;transition:all .15s;">
+                                                <label class="sms-channel-option cfg-sms-option">
                                                     <input type="radio" name="sms_send_via" value="ghl"
                                                         {% if not current_user.sms_send_via or current_user.sms_send_via == 'ghl' %}checked{% endif %}
-                                                        style="accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;">
+                                                        class="cfg-sms-radio">
                                                     <img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/WDJNKXKiQj2XODO7jYzV/media/66be66f4b5e9ba05e7a7c191.png" alt="LC" style="width:22px;height:22px;border-radius:4px;flex-shrink:0;" onerror="this.style.display='none'">
-                                                    <div style="flex:1;min-width:0;">
-                                                        <div style="font-size:0.85rem;font-weight:600;color:#fff;">Via GoHighLevel</div>
-                                                        <div style="font-size:0.75rem;color:#888;">Default — sends through your GHL/LeadConnector account</div>
+                                                    <div class="cfg-sms-option-body">
+                                                        <div class="cfg-sms-option-title">Via GoHighLevel</div>
+                                                        <div class="cfg-sms-option-desc">Default — sends through your GHL/LeadConnector account</div>
                                                     </div>
-                                                    <span style="font-size:0.75rem;background:rgba(0,255,136,0.12);color:var(--accent);padding:2px 8px;border-radius:6px;font-weight:600;flex-shrink:0;">DEFAULT</span>
+                                                    <span class="cfg-sms-default-badge">DEFAULT</span>
                                                 </label>
 
                                                 <!-- Last Number Used Option -->
-                                                <label class="sms-channel-option" style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;cursor:pointer;transition:all .15s;">
+                                                <label class="sms-channel-option cfg-sms-option">
                                                     <input type="radio" name="sms_send_via" value="last_used"
                                                         {% if current_user.sms_send_via == 'last_used' %}checked{% endif %}
-                                                        style="accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;">
-                                                    <i class="fa-solid fa-arrow-rotate-left" style="color:#a78bfa;font-size:1rem;flex-shrink:0;width:22px;text-align:center;"></i>
-                                                    <div style="flex:1;min-width:0;">
-                                                        <div style="font-size:0.85rem;font-weight:600;color:#fff;">Last Number Used</div>
-                                                        <div style="font-size:0.75rem;color:#888;">Reply from the same number that last contacted this lead (via call or SMS)</div>
+                                                        class="cfg-sms-radio">
+                                                    <i class="fa-solid fa-arrow-rotate-left cfg-sms-last-used-icon"></i>
+                                                    <div class="cfg-sms-option-body">
+                                                        <div class="cfg-sms-option-title">Last Number Used</div>
+                                                        <div class="cfg-sms-option-desc">Reply from the same number that last contacted this lead (via call or SMS)</div>
                                                     </div>
                                                 </label>
 
                                                 <!-- Phone Number Options (populated by Look Up) -->
-                                                <div id="sms-number-options" style="display:flex;flex-direction:column;gap:8px;">
+                                                <div id="sms-number-options" class="cfg-sms-number-options">
                                                     <!-- Populated by JS -->
                                                 </div>
 
-                                                <div id="sms-channel-loading" style="display:none;padding:8px 16px;color:#666;font-size:0.8rem;">
+                                                <div id="sms-channel-loading" class="cfg-sms-loading">
                                                     <i class="fa-solid fa-spinner fa-spin me-2"></i>Looking up your numbers...
                                                 </div>
 
-                                                <div id="sms-no-numbers" style="display:none;padding:12px 16px;background:rgba(255,255,255,0.02);border:1px dashed rgba(255,255,255,0.08);border-radius:10px;color:#666;font-size:0.8rem;text-align:center;">
+                                                <div id="sms-no-numbers" class="cfg-sms-no-numbers">
                                                     <i class="fa-solid fa-info-circle me-1"></i>
                                                     No phone numbers found. Make sure your GHL account is connected.
                                                 </div>
 
-                                                <button type="button" id="sms-lookup-btn" onclick="loadSmsChannelNumbers()"
-                                                    style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:10px 16px;background:rgba(255,255,255,0.03);border:1px dashed rgba(255,255,255,0.12);border-radius:10px;color:#888;font-size:0.82rem;font-weight:500;cursor:pointer;transition:all .15s;"
-                                                    onmouseover="this.style.borderColor='rgba(0,255,136,0.3)';this.style.color='var(--accent)';"
-                                                    onmouseout="this.style.borderColor='rgba(255,255,255,0.12)';this.style.color='#888';">
+                                                <button type="button" id="sms-lookup-btn" onclick="loadSmsChannelNumbers()" class="cfg-sms-lookup-btn">
                                                     <i class="fa-solid fa-magnifying-glass"></i>Look Up My Numbers
                                                 </button>
 
                                             </div>
-                                            <small class="text-muted" style="margin-top:6px;display:block;">
+                                            <small class="text-muted cfg-sms-hint">
                                                 Choose how the bot sends SMS replies. Default uses your GHL account — or look up your numbers to send from a specific one.
                                             </small>
                                         </div>
@@ -168,18 +160,18 @@
                                 {% if current_user.role == 'agency_owner' %}
                                 <!-- ── Agency panel ── -->
                                 <div id="cfgtab-panel-agency" style="display:none;">
-                                    <div class="p-4" style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.12);border-radius:14px;">
+                                    <div class="cfg-agency-box p-4">
                                         <div class="d-flex align-items-center gap-3 mb-3">
-                                            <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,255,136,0.12);border:1px solid rgba(0,255,136,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                                <i class="fa-solid fa-users-cog" style="color:var(--accent);"></i>
+                                            <div class="cfg-agency-icon-box">
+                                                <i class="fa-solid fa-users-cog cfg-agency-icon"></i>
                                             </div>
                                             <div>
-                                                <h6 style="margin:0;font-weight:700;color:#fff;">Agency Dashboard</h6>
-                                                <p style="margin:0;color:#888;font-size:0.8rem;">Manage your sub-accounts and team members</p>
+                                                <h6 class="cfg-agency-title">Agency Dashboard</h6>
+                                                <p class="cfg-agency-subtitle">Manage your sub-accounts and team members</p>
                                             </div>
                                         </div>
-                                        <p style="color:#aaa;font-size:0.85rem;margin-bottom:16px;">
-                                            You currently have <strong style="color:var(--accent);">{{ agency_seats_count }} {{ 'seat' if agency_seats_count == 1 else 'seats' }}</strong> under your agency plan.
+                                        <p class="cfg-agency-desc">
+                                            You currently have <strong class="cfg-agency-accent">{{ agency_seats_count }} {{ 'seat' if agency_seats_count == 1 else 'seats' }}</strong> under your agency plan.
                                             Visit the agency dashboard to invite sub-users, manage their configurations, and view their activity logs.
                                         </p>
                                         <a href="/agency-dashboard" class="btn btn-outline-accent px-4">
@@ -194,60 +186,53 @@
                                 <div id="cfgtab-panel-smsnumbers" style="display:none;">
                                     <div class="d-flex align-items-center justify-content-between mb-3">
                                         <div class="d-flex align-items-center gap-3">
-                                            <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                                <i class="fa-solid fa-phone-volume" style="color:#00d9ff;"></i>
+                                            <div class="cfg-numbers-icon-box">
+                                                <i class="fa-solid fa-phone-volume cfg-numbers-icon"></i>
                                             </div>
                                             <div>
-                                                <div style="font-weight:700;font-size:1rem;color:#fff;">Your SMS Numbers</div>
-                                                <div style="font-size:0.78rem;color:#888;">Manage numbers and A2P 10DLC compliance for SMS messaging.</div>
+                                                <div class="cfg-numbers-title">Your SMS Numbers</div>
+                                                <div class="cfg-numbers-subtitle">Manage numbers and A2P 10DLC compliance for SMS messaging.</div>
                                             </div>
                                         </div>
                                         <div class="d-flex gap-2">
-                                            <button onclick="smsLoadNumbers()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:5px 12px;font-size:0.78rem;cursor:pointer;">
+                                            <button onclick="smsLoadNumbers()" class="cfg-refresh-btn">
                                                 <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
                                             </button>
                                             <button onclick="document.getElementById('smsBuyPanel').style.display=document.getElementById('smsBuyPanel').style.display==='none'?'block':'none'"
-                                                style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:6px;padding:5px 14px;font-size:0.78rem;font-weight:700;cursor:pointer;">
+                                                class="cfg-buy-btn">
                                                 <i class="fa-solid fa-plus me-1"></i>Buy Number
                                             </button>
                                         </div>
                                     </div>
 
                                     <!-- Buy panel -->
-                                    <div id="smsBuyPanel" style="display:none;margin-bottom:16px;padding:16px;background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.12);border-radius:10px;">
-                                        <h6 style="color:#00d9ff;font-weight:700;margin-bottom:4px;font-size:0.88rem;"><i class="fa-solid fa-magnifying-glass me-1"></i>Search Available Numbers</h6>
-                                        <div style="margin-bottom:10px;font-size:.75rem;color:#888;">First 5 numbers <span style="color:#00ff88;font-weight:700;">FREE</span> &bull; Then: <span style="color:#00ff88;">Local $0.90/mo</span> &bull; <span style="color:#00ff88;">Toll-Free $2.15/mo</span> &bull; <span style="color:#00ff88;">Mobile $0.90/mo</span></div>
+                                    <div id="smsBuyPanel" class="cfg-buy-panel">
+                                        <h6 class="cfg-buy-heading"><i class="fa-solid fa-magnifying-glass me-1"></i>Search Available Numbers</h6>
+                                        <div class="cfg-buy-pricing">First 5 numbers <span class="cfg-buy-pricing-accent">FREE</span> &bull; Then: <span class="cfg-buy-pricing-value">Local $0.90/mo</span> &bull; <span class="cfg-buy-pricing-value">Toll-Free $2.15/mo</span> &bull; <span class="cfg-buy-pricing-value">Mobile $0.90/mo</span></div>
                                         <div class="d-flex gap-2 mb-2 flex-wrap">
-                                            <select id="smsBuyNumberType"
-                                                style="width:120px;background:#2a2a35;border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
-                                                <option value="local" style="background:#2a2a35;color:#fff;">Local</option>
-                                                <option value="toll_free" style="background:#2a2a35;color:#fff;">Toll-Free</option>
-                                                <option value="mobile" style="background:#2a2a35;color:#fff;">Mobile</option>
+                                            <select id="smsBuyNumberType" class="cfg-buy-select">
+                                                <option value="local">Local</option>
+                                                <option value="toll_free">Toll-Free</option>
+                                                <option value="mobile">Mobile</option>
                                             </select>
-                                            <input type="text" id="smsBuyAreaCode" placeholder="Area code (e.g. 512)"
-                                                style="width:140px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
-                                            <input type="text" id="smsBuyState" placeholder="State (e.g. TX)"
-                                                style="width:110px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
-                                            <input type="text" id="smsBuyCity" placeholder="City"
-                                                style="width:120px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
+                                            <input type="text" id="smsBuyAreaCode" placeholder="Area code (e.g. 512)" class="cfg-buy-input cfg-buy-input-area">
+                                            <input type="text" id="smsBuyState" placeholder="State (e.g. TX)" class="cfg-buy-input cfg-buy-input-state">
+                                            <input type="text" id="smsBuyCity" placeholder="City" class="cfg-buy-input cfg-buy-input-city">
                                         </div>
                                         <div class="d-flex gap-2 mb-3 flex-wrap">
-                                            <input type="text" id="smsBuyZip" placeholder="Zip code"
-                                                style="width:110px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
-                                            <input type="text" id="smsBuyContains" placeholder="Contains (e.g. 555)"
-                                                style="width:160px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
-                                            <button onclick="smsSearchNumbers()"
-                                                style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:8px;padding:7px 18px;font-size:0.82rem;font-weight:700;cursor:pointer;">
+                                            <input type="text" id="smsBuyZip" placeholder="Zip code" class="cfg-buy-input cfg-buy-input-zip">
+                                            <input type="text" id="smsBuyContains" placeholder="Contains (e.g. 555)" class="cfg-buy-input cfg-buy-input-contains">
+                                            <button onclick="smsSearchNumbers()" class="cfg-buy-search-btn">
                                                 <i class="fa-solid fa-magnifying-glass me-1"></i>Search
                                             </button>
                                         </div>
-                                        <div id="smsAvailableNumbersList" style="max-height:280px;overflow-y:auto;font-size:0.82rem;"></div>
+                                        <div id="smsAvailableNumbersList" class="cfg-buy-results"></div>
                                     </div>
 
                                     <!-- Numbers list with A2P status -->
-                                    <div id="smsNumbersListContainer" style="font-size:0.82rem;">
-                                        <div style="text-align:center;padding:30px 20px;color:#555;">
-                                            <i class="fa-solid fa-spinner fa-spin" style="font-size:1.2rem;color:#00d9ff;display:block;margin-bottom:8px;"></i>
+                                    <div id="smsNumbersListContainer" class="cfg-numbers-list">
+                                        <div class="cfg-numbers-loading">
+                                            <i class="fa-solid fa-spinner fa-spin cfg-numbers-spinner"></i>
                                             Loading numbers...
                                         </div>
                                     </div>
@@ -264,63 +249,62 @@
 
                                     <!-- Tab selector: Import vs Register New -->
                                     <div class="d-flex align-items-center gap-3 mb-3">
-                                        <div style="width:40px;height:40px;border-radius:10px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                            <i class="fa-solid fa-certificate" style="color:#a78bfa;"></i>
+                                        <div class="cfg-a2p-icon-box">
+                                            <i class="fa-solid fa-certificate cfg-a2p-icon"></i>
                                         </div>
-                                        <div style="flex:1;">
-                                            <div style="font-weight:700;font-size:1rem;color:#fff;">A2P 10DLC Compliance</div>
-                                            <div style="font-size:0.78rem;color:#888;">Register your brand and campaign for compliant SMS messaging.</div>
+                                        <div class="cfg-a2p-flex-body">
+                                            <div class="cfg-a2p-title">A2P 10DLC Compliance</div>
+                                            <div class="cfg-a2p-subtitle">Register your brand and campaign for compliant SMS messaging.</div>
                                         </div>
                                     </div>
 
                                     <!-- Info box -->
-                                    <div class="mb-3 p-2" style="background:rgba(167,139,250,0.04);border:1px solid rgba(167,139,250,0.12);border-radius:8px;">
-                                        <div style="font-size:0.75rem;color:#a78bfa;font-weight:600;margin-bottom:4px;"><i class="fa-solid fa-circle-info me-1"></i>What is A2P 10DLC?</div>
-                                        <div style="font-size:0.75rem;color:#999;line-height:1.6;">
-                                            A2P (Application-to-Person) 10DLC is a US carrier requirement for business SMS on local numbers. Without registration, messages may be filtered or blocked. Registration involves two steps: <strong style="color:#ccc;">Brand vetting</strong> (business identity, 1-7 days) and <strong style="color:#ccc;">Campaign approval</strong> (message use-case, 24-48 hours).
+                                    <div class="mb-3 p-2 cfg-a2p-info-box">
+                                        <div class="cfg-a2p-info-heading"><i class="fa-solid fa-circle-info me-1"></i>What is A2P 10DLC?</div>
+                                        <div class="cfg-a2p-info-text">
+                                            A2P (Application-to-Person) 10DLC is a US carrier requirement for business SMS on local numbers. Without registration, messages may be filtered or blocked. Registration involves two steps: <strong class="cfg-a2p-info-strong">Brand vetting</strong> (business identity, 1-7 days) and <strong class="cfg-a2p-info-strong">Campaign approval</strong> (message use-case, 24-48 hours).
                                         </div>
                                     </div>
 
                                     <!-- Helpful tips link -->
-                                    <div class="mb-3 p-2" style="background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.12);border-radius:8px;">
+                                    <div class="mb-3 p-2 cfg-a2p-tips-box">
                                         <div class="d-flex align-items-center gap-2">
-                                            <i class="fa-solid fa-lightbulb" style="color:#00ff88;font-size:0.85rem;"></i>
-                                            <a href="/a2p-guide" target="_blank" style="font-size:0.78rem;color:#00ff88;font-weight:600;text-decoration:none;">
-                                                Helpful recommendations on getting A2P 10DLC approval <i class="fa-solid fa-arrow-up-right-from-square ms-1" style="font-size:0.75rem;"></i>
+                                            <i class="fa-solid fa-lightbulb cfg-a2p-tips-icon"></i>
+                                            <a href="/a2p-guide" target="_blank" class="cfg-a2p-tips-link">
+                                                Helpful recommendations on getting A2P 10DLC approval <i class="fa-solid fa-arrow-up-right-from-square ms-1 cfg-a2p-tips-arrow"></i>
                                             </a>
                                         </div>
-                                        <div style="font-size:0.75rem;color:#777;margin-top:3px;margin-left:22px;">Step-by-step guide: branded email setup, sample messages, campaign descriptions, and tips to maximize approval.</div>
+                                        <div class="cfg-a2p-tips-desc">Step-by-step guide: branded email setup, sample messages, campaign descriptions, and tips to maximize approval.</div>
                                     </div>
 
                                     <!-- Sub-user payment gate (shown via JS if needed) -->
                                     <div id="a2pPaymentGate" style="display:none;" class="mb-3 p-3" >
-                                        <div style="background:rgba(255,165,0,0.06);border:1px solid rgba(255,165,0,0.2);border-radius:12px;padding:16px;">
+                                        <div class="cfg-a2p-pay-box">
                                             <div class="d-flex align-items-center gap-2 mb-2">
-                                                <i class="fa-solid fa-credit-card" style="color:#ffa500;"></i>
-                                                <span style="font-weight:700;color:#fff;">Registration Fee Required</span>
+                                                <i class="fa-solid fa-credit-card cfg-a2p-pay-icon"></i>
+                                                <span class="cfg-a2p-pay-heading">Registration Fee Required</span>
                                             </div>
-                                            <p style="font-size:0.78rem;color:#aaa;margin:0 0 10px;">A2P 10DLC registration incurs a one-time fee charged by carriers. The fee depends on your brand registration type. Select your brand type and complete payment to proceed.</p>
+                                            <p class="cfg-a2p-pay-desc">A2P 10DLC registration incurs a one-time fee charged by carriers. The fee depends on your brand registration type. Select your brand type and complete payment to proceed.</p>
 
                                             <div class="mb-3">
-                                                <label style="color:#aaa;font-size:0.75rem;font-weight:600;display:block;margin-bottom:4px;">Brand Type</label>
+                                                <label class="cfg-a2p-field-label">Brand Type</label>
                                                 <select id="a2pPayBrandType" onchange="a2pUpdatePaymentPrice()"
-                                                    style="width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;margin-bottom:8px;">
+                                                    class="cfg-a2p-select cfg-a2p-select-spacing">
                                                     <option value="LOW_VOLUME">Low Volume Standard — $4.50 brand + $15 campaign = $19.50</option>
                                                     <option value="SOLE_PROPRIETOR">Sole Proprietor — $4.50 brand + $15 campaign = $19.50 (SSN required)</option>
                                                     <option value="STANDARD">Standard — $46 brand + $15 campaign = $61.00</option>
                                                 </select>
-                                                <div style="font-size:0.75rem;color:#666;line-height:1.4;">
-                                                    <strong style="color:#aaa;">Low Volume Standard:</strong> EIN required, up to 2,000 msgs/day to T-Mobile, lowest cost.<br>
-                                                    <strong style="color:#aaa;">Sole Proprietor:</strong> No EIN required, 1 phone number limit, 1 campaign limit.<br>
-                                                    <strong style="color:#aaa;">Standard:</strong> EIN required, highest throughput (6,000+ msgs/day), includes secondary vetting.
+                                                <div class="cfg-a2p-brand-info">
+                                                    <strong class="cfg-a2p-brand-info-label">Low Volume Standard:</strong> EIN required, up to 2,000 msgs/day to T-Mobile, lowest cost.<br>
+                                                    <strong class="cfg-a2p-brand-info-label">Sole Proprietor:</strong> No EIN required, 1 phone number limit, 1 campaign limit.<br>
+                                                    <strong class="cfg-a2p-brand-info-label">Standard:</strong> EIN required, highest throughput (6,000+ msgs/day), includes secondary vetting.
                                                 </div>
                                             </div>
 
-                                            <button id="a2pPayFeeBtn" onclick="a2pPayFee()"
-                                                style="background:linear-gradient(135deg,#ffa500,#cc8400);border:none;color:#000;border-radius:10px;padding:10px 24px;font-size:0.85rem;font-weight:700;cursor:pointer;width:100%;">
+                                            <button id="a2pPayFeeBtn" onclick="a2pPayFee()" class="cfg-a2p-pay-btn">
                                                 <i class="fa-solid fa-lock me-2"></i><span id="a2pPayBtnLabel">Pay Registration Fee — $19.50</span>
                                             </button>
-                                            <div id="a2pPayResult" style="margin-top:8px;font-size:0.78rem;"></div>
+                                            <div id="a2pPayResult" class="cfg-a2p-result"></div>
                                         </div>
                                     </div>
 
@@ -329,175 +313,171 @@
 
                                         <!-- Step indicator -->
                                         <div id="a2pStepIndicator" class="d-flex gap-2 mb-3">
-                                            <div id="a2pStep1Pill" style="flex:1;padding:8px 12px;background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.25);border-radius:8px;text-align:center;font-size:0.75rem;font-weight:700;color:#a78bfa;">
+                                            <div id="a2pStep1Pill" class="cfg-a2p-step-active">
                                                 <i class="fa-solid fa-1 me-1"></i>Brand Registration
                                             </div>
-                                            <div id="a2pStep2Pill" style="flex:1;padding:8px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px;text-align:center;font-size:0.75rem;font-weight:700;color:#555;">
+                                            <div id="a2pStep2Pill" class="cfg-a2p-step-inactive">
                                                 <i class="fa-solid fa-2 me-1"></i>Campaign Setup
                                             </div>
                                         </div>
 
                                         <!-- STEP 1: Brand Registration -->
-                                        <div id="a2pBrandForm" class="p-3" style="background:rgba(167,139,250,0.03);border:1px solid rgba(167,139,250,0.10);border-radius:12px;">
-                                            <div style="font-weight:700;font-size:0.9rem;color:#fff;margin-bottom:4px;"><i class="fa-solid fa-building me-2" style="color:#a78bfa;"></i>Brand Registration</div>
-                                            <p style="font-size:0.75rem;color:#888;margin-bottom:12px;">Register your business identity with The Campaign Registry (TCR). Takes 1-7 business days.</p>
+                                        <div id="a2pBrandForm" class="p-3 cfg-a2p-brand-form">
+                                            <div class="cfg-a2p-form-title"><i class="fa-solid fa-building me-2 cfg-a2p-form-title-icon"></i>Brand Registration</div>
+                                            <p class="cfg-a2p-form-desc">Register your business identity with The Campaign Registry (TCR). Takes 1-7 business days.</p>
 
                                             <!-- Brand type selector -->
                                             <div class="mb-3">
-                                                <label style="color:#aaa;font-size:0.75rem;font-weight:600;display:block;margin-bottom:4px;">Brand Type</label>
-                                                <select id="a2pBrandType" onchange="a2pUpdateBrandFeeDisplay()"
-                                                    style="width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                                <label class="cfg-a2p-field-label">Brand Type</label>
+                                                <select id="a2pBrandType" onchange="a2pUpdateBrandFeeDisplay()" class="cfg-a2p-select">
                                                     <option value="LOW_VOLUME">Low Volume Standard — $4.50 brand fee (EIN required, up to 2K msgs/day)</option>
                                                     <option value="SOLE_PROPRIETOR">Sole Proprietor — $4.50 brand fee (SSN required, 1 number limit)</option>
                                                     <option value="STANDARD">Standard — $46.00 brand fee (EIN required, 6K+ msgs/day, includes vetting)</option>
                                                 </select>
-                                                <div id="a2pBrandFeeNote" style="font-size:0.75rem;color:#00ff88;margin-top:4px;font-weight:600;">
+                                                <div id="a2pBrandFeeNote" class="cfg-a2p-fee-note">
                                                     One-time brand fee: $4.50 + $15.00 campaign vetting = $19.50 total
                                                 </div>
                                             </div>
 
-                                            <div style="font-weight:600;font-size:0.82rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-building me-1" style="color:#a78bfa;"></i> Business Details</div>
+                                            <div class="cfg-a2p-section-title"><i class="fa-solid fa-building me-1 cfg-a2p-section-icon-purple"></i> Business Details</div>
                                             <div class="row g-2 mb-3">
                                                 <div class="col-md-8">
-                                                    <label style="color:#aaa;font-size:0.75rem;font-weight:600;display:block;margin-bottom:3px;">Business Name (must match IRS/EIN docs)</label>
+                                                    <label class="cfg-a2p-label">Business Name (must match IRS/EIN docs)</label>
                                                     <input type="text" id="a2pBizName" placeholder="ACME Insurance LLC"
                                                         value="{{ (voice_config.get('trust_hub') or {}).get('business_name', '') }}"
-                                                        style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                                        class="cfg-a2p-input">
                                                 </div>
                                                 <div class="col-md-4">
-                                                    <label id="a2pEINLabel" style="color:#aaa;font-size:0.75rem;font-weight:600;display:block;margin-bottom:3px;">EIN (Tax ID)</label>
+                                                    <label id="a2pEINLabel" class="cfg-a2p-label">EIN (Tax ID)</label>
                                                     <input type="text" id="a2pEIN" placeholder="XX-XXXXXXX"
                                                         value="{{ (voice_config.get('trust_hub') or {}).get('ein', '') }}"
-                                                        style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                                        class="cfg-a2p-input">
                                                 </div>
                                             </div>
 
-                                            <div style="font-weight:600;font-size:0.82rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-location-dot me-1" style="color:#ffa500;"></i> Business Address</div>
+                                            <div class="cfg-a2p-section-title"><i class="fa-solid fa-location-dot me-1 cfg-a2p-section-icon-orange"></i> Business Address</div>
                                             <div class="row g-2 mb-3">
                                                 <div class="col-12">
                                                     <input type="text" id="a2pStreet" placeholder="123 Main Street, Suite 100"
                                                         value="{{ (voice_config.get('trust_hub') or {}).get('street', '') }}"
-                                                        style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                                        class="cfg-a2p-input">
                                                 </div>
                                                 <div class="col-md-5">
                                                     <input type="text" id="a2pCity" placeholder="City"
                                                         value="{{ (voice_config.get('trust_hub') or {}).get('city', '') }}"
-                                                        style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                                        class="cfg-a2p-input">
                                                 </div>
                                                 <div class="col-md-3">
                                                     <input type="text" id="a2pState" placeholder="State" maxlength="2"
                                                         value="{{ (voice_config.get('trust_hub') or {}).get('state', '') }}"
-                                                        style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;text-transform:uppercase;">
+                                                        class="cfg-a2p-input cfg-a2p-input-state">
                                                 </div>
                                                 <div class="col-md-4">
                                                     <input type="text" id="a2pZip" placeholder="ZIP Code"
                                                         value="{{ (voice_config.get('trust_hub') or {}).get('zip', '') }}"
-                                                        style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                                        class="cfg-a2p-input">
                                                 </div>
                                             </div>
 
-                                            <div style="font-weight:600;font-size:0.82rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-user me-1" style="color:#00d9ff;"></i> Contact Info</div>
+                                            <div class="cfg-a2p-section-title"><i class="fa-solid fa-user me-1 cfg-a2p-section-icon-cyan"></i> Contact Info</div>
                                             <div class="row g-2 mb-3">
                                                 <div class="col-md-6">
                                                     <input type="email" id="a2pContactEmail" placeholder="Email"
                                                         value="{{ (voice_config.get('trust_hub') or {}).get('contact_email', '') }}"
-                                                        style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                                        class="cfg-a2p-input">
                                                 </div>
                                                 <div class="col-md-6">
                                                     <input type="tel" id="a2pContactPhone" placeholder="Phone (+1XXXXXXXXXX)"
                                                         value="{{ (voice_config.get('trust_hub') or {}).get('contact_phone', '') }}"
-                                                        style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                                        class="cfg-a2p-input">
                                                 </div>
                                             </div>
                                             <div class="mb-3">
-                                                <label style="color:#aaa;font-size:0.75rem;font-weight:600;display:block;margin-bottom:3px;">Website (optional, improves vetting score)</label>
+                                                <label class="cfg-a2p-label">Website (optional, improves vetting score)</label>
                                                 <input type="url" id="a2pWebsite" placeholder="https://youragency.com"
-                                                    style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                                    class="cfg-a2p-input">
                                             </div>
 
-                                            <button id="a2pRegisterBrandBtn" onclick="a2pRegisterBrand()"
-                                                style="background:linear-gradient(135deg,#a78bfa,#7c5fcf);border:none;color:#fff;border-radius:10px;padding:10px 24px;font-size:0.85rem;font-weight:700;cursor:pointer;width:100%;transition:opacity .2s;">
+                                            <button id="a2pRegisterBrandBtn" onclick="a2pRegisterBrand()" class="cfg-a2p-submit-brand">
                                                 <i class="fa-solid fa-paper-plane me-2"></i>Submit Brand for Vetting
                                             </button>
-                                            <div id="a2pBrandResult" style="margin-top:8px;font-size:0.78rem;text-align:center;"></div>
+                                            <div id="a2pBrandResult" class="cfg-a2p-form-result"></div>
                                         </div>
 
                                         <!-- STEP 2: Campaign Setup (shown after brand approved) -->
                                         <div id="a2pCampaignForm" style="display:none;" class="p-3 mt-3">
-                                            <div style="background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.10);border-radius:12px;padding:16px;">
-                                                <div style="font-weight:700;font-size:0.9rem;color:#fff;margin-bottom:4px;"><i class="fa-solid fa-bullhorn me-2" style="color:#00d9ff;"></i>Campaign Registration</div>
-                                                <p style="font-size:0.75rem;color:#888;margin-bottom:12px;">Define your messaging use case. Campaigns are typically approved within 24-48 hours. Campaign fee: <span style="color:#00ff88;font-weight:600;">$15</span>.</p>
+                                            <div class="cfg-a2p-campaign-box">
+                                                <div class="cfg-a2p-campaign-title"><i class="fa-solid fa-bullhorn me-2 cfg-a2p-campaign-title-icon"></i>Campaign Registration</div>
+                                                <p class="cfg-a2p-campaign-desc">Define your messaging use case. Campaigns are typically approved within 24-48 hours. Campaign fee: <span class="cfg-a2p-campaign-fee">$15</span>.</p>
 
                                                 <div class="row g-2 mb-3">
                                                     <div class="col-md-6">
-                                                        <label style="color:#aaa;font-size:0.75rem;font-weight:600;display:block;margin-bottom:3px;">Use Case</label>
-                                                        <select id="a2pUseCase"
-                                                            style="width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
-                                                            <option value="LOW_VOLUME" style="background:#1a1a2e;color:#fff;">Low Volume Mixed — $1.50/mo</option>
-                                                            <option value="MIXED" style="background:#1a1a2e;color:#fff;">Mixed — $10/mo</option>
-                                                            <option value="MARKETING" style="background:#1a1a2e;color:#fff;">Marketing — $10/mo</option>
-                                                            <option value="CUSTOMER_CARE" style="background:#1a1a2e;color:#fff;">Customer Care — $2/mo</option>
-                                                            <option value="ACCOUNT_NOTIFICATION" style="background:#1a1a2e;color:#fff;">Account Notification — $2/mo</option>
-                                                            <option value="SOLE_PROPRIETOR" style="background:#1a1a2e;color:#fff;">Sole Proprietor — $2/mo</option>
+                                                        <label class="cfg-a2p-label">Use Case</label>
+                                                        <select id="a2pUseCase" class="cfg-a2p-select">
+                                                            <option value="LOW_VOLUME">Low Volume Mixed — $1.50/mo</option>
+                                                            <option value="MIXED">Mixed — $10/mo</option>
+                                                            <option value="MARKETING">Marketing — $10/mo</option>
+                                                            <option value="CUSTOMER_CARE">Customer Care — $2/mo</option>
+                                                            <option value="ACCOUNT_NOTIFICATION">Account Notification — $2/mo</option>
+                                                            <option value="SOLE_PROPRIETOR">Sole Proprietor — $2/mo</option>
                                                         </select>
                                                     </div>
                                                 </div>
 
                                                 <div class="mb-3">
-                                                    <label style="color:#aaa;font-size:0.75rem;font-weight:600;display:block;margin-bottom:3px;">Campaign Description <span style="color:#555;">(min 40 chars)</span></label>
+                                                    <label class="cfg-a2p-label">Campaign Description <span class="cfg-a2p-hint-text">(min 40 chars)</span></label>
                                                     <textarea id="a2pDescription" rows="2" placeholder="Insurance agent follow-up messaging — agents respond to inbound lead inquiries via SMS to schedule consultations and provide coverage information."
-                                                        style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;resize:vertical;">Insurance agent follow-up messaging — agents respond to inbound lead inquiries via SMS to schedule consultations and provide coverage information.</textarea>
+                                                        class="cfg-a2p-textarea">Insurance agent follow-up messaging — agents respond to inbound lead inquiries via SMS to schedule consultations and provide coverage information.</textarea>
                                                 </div>
 
                                                 <div class="mb-3">
-                                                    <label style="color:#aaa;font-size:0.75rem;font-weight:600;display:block;margin-bottom:3px;">Sample Messages <span style="color:#555;">(2 minimum, one per line, min 20 chars each)</span></label>
+                                                    <label class="cfg-a2p-label">Sample Messages <span class="cfg-a2p-hint-text">(2 minimum, one per line, min 20 chars each)</span></label>
                                                     <textarea id="a2pSampleMessages" rows="3" placeholder="Hi {name}, this is {agent} from {agency}. I wanted to follow up on your insurance inquiry.&#10;Thanks for your interest! I have a few options that might work for you. When is a good time to chat?"
-                                                        style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;resize:vertical;">Hi {name}, this is {agent} from {agency}. I wanted to follow up on your insurance inquiry.
+                                                        class="cfg-a2p-textarea">Hi {name}, this is {agent} from {agency}. I wanted to follow up on your insurance inquiry.
 Thanks for your interest! I have a few options that might work for you. When is a good time to chat?</textarea>
                                                 </div>
 
                                                 <div class="mb-3">
-                                                    <label style="color:#aaa;font-size:0.75rem;font-weight:600;display:block;margin-bottom:3px;">Message Flow / Opt-in Method <span style="color:#555;">(min 40 chars)</span></label>
+                                                    <label class="cfg-a2p-label">Message Flow / Opt-in Method <span class="cfg-a2p-hint-text">(min 40 chars)</span></label>
                                                     <textarea id="a2pMessageFlow" rows="2" placeholder="Consumers opt-in by filling out an online form requesting an insurance quote. An agent replies via SMS to schedule a consultation."
-                                                        style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;resize:vertical;">Consumers opt-in by filling out an online form requesting an insurance quote. An agent replies via SMS to schedule a consultation.</textarea>
+                                                        class="cfg-a2p-textarea">Consumers opt-in by filling out an online form requesting an insurance quote. An agent replies via SMS to schedule a consultation.</textarea>
                                                 </div>
 
                                                 <div class="d-flex gap-3 mb-3">
-                                                    <label class="d-flex align-items-center gap-2" style="font-size:0.78rem;color:#ccc;cursor:pointer;">
-                                                        <input type="checkbox" id="a2pEmbeddedLinks" style="accent-color:#00d9ff;"> Messages contain URLs
+                                                    <label class="d-flex align-items-center gap-2 cfg-a2p-checkbox-label">
+                                                        <input type="checkbox" id="a2pEmbeddedLinks" class="cfg-a2p-checkbox"> Messages contain URLs
                                                     </label>
-                                                    <label class="d-flex align-items-center gap-2" style="font-size:0.78rem;color:#ccc;cursor:pointer;">
+                                                    <label class="d-flex align-items-center gap-2 cfg-a2p-checkbox-label">
                                                         <input type="checkbox" id="a2pEmbeddedPhone"> Messages contain phone numbers
                                                     </label>
                                                 </div>
 
                                                 <!-- Phone number selection for campaign -->
                                                 <div class="mb-3">
-                                                    <label style="color:#aaa;font-size:0.75rem;font-weight:600;display:block;margin-bottom:4px;">Link Phone Numbers to Campaign</label>
-                                                    <div id="a2pCampaignNumbersList" style="max-height:140px;overflow-y:auto;font-size:0.78rem;">
-                                                        <span style="color:#555;">Loading numbers...</span>
+                                                    <label class="cfg-a2p-field-label">Link Phone Numbers to Campaign</label>
+                                                    <div id="a2pCampaignNumbersList" class="cfg-a2p-numbers-list">
+                                                        <span class="cfg-a2p-numbers-loading">Loading numbers...</span>
                                                     </div>
                                                 </div>
 
-                                                <button id="a2pCreateCampaignBtn" onclick="a2pCreateCampaign()"
-                                                    style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:10px;padding:10px 24px;font-size:0.85rem;font-weight:700;cursor:pointer;width:100%;transition:opacity .2s;">
+                                                <button id="a2pCreateCampaignBtn" onclick="a2pCreateCampaign()" class="cfg-a2p-submit-campaign">
                                                     <i class="fa-solid fa-bullhorn me-2"></i>Submit Campaign for Approval
                                                 </button>
-                                                <div id="a2pCampaignResult" style="margin-top:8px;font-size:0.78rem;text-align:center;"></div>
+                                                <div id="a2pCampaignResult" class="cfg-a2p-form-result"></div>
                                             </div>
                                         </div>
 
                                     </div><!-- /a2pRegisterPanel -->
 
                                     <!-- Brand Status Polling (always visible if brand exists) -->
-                                    <div id="a2pBrandStatusPanel" class="mt-3 p-3" style="display:none;background:rgba(167,139,250,0.03);border:1px solid rgba(167,139,250,0.08);border-radius:10px;">
+                                    <div id="a2pBrandStatusPanel" class="mt-3 p-3 cfg-a2p-status-panel" style="display:none;">
                                         <div class="d-flex align-items-center justify-content-between mb-2">
-                                            <div style="font-weight:700;font-size:0.9rem;color:#fff;"><i class="fa-solid fa-certificate me-2" style="color:#a78bfa;"></i>Registration Status</div>
-                                            <button onclick="a2pRefreshStatus()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer;">
+                                            <div class="cfg-a2p-status-title"><i class="fa-solid fa-certificate me-2 cfg-a2p-status-title-icon"></i>Registration Status</div>
+                                            <button onclick="a2pRefreshStatus()" class="cfg-refresh-btn">
                                                 <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
                                             </button>
                                         </div>
-                                        <div id="a2pBrandStatusContent" style="font-size:0.78rem;"></div>
+                                        <div id="a2pBrandStatusContent" class="cfg-a2p-status-content"></div>
                                     </div>
 
                                 </div><!-- /cfgtab-panel-a2p -->
@@ -521,12 +501,9 @@ Thanks for your interest! I have a few options that might work for you. When is 
             function switchConfigPanel(name) {
                 // Hide all panels
                 document.querySelectorAll('[id^="cfgtab-panel-"]').forEach(p => p.style.display = 'none');
-                // Deactivate all menu items (toggle active class for mobile CSS + inline for desktop)
+                // Deactivate all menu items (toggle active class — styles handled by CSS)
                 document.querySelectorAll('.cfg-menu-item').forEach(btn => {
                     btn.classList.remove('active');
-                    btn.style.background = 'transparent';
-                    btn.style.border = '1px solid transparent';
-                    btn.style.color = '#888';
                 });
                 // Show target panel
                 const panel = document.getElementById('cfgtab-panel-' + name);
@@ -535,9 +512,6 @@ Thanks for your interest! I have a few options that might work for you. When is 
                 const activeBtn = document.getElementById('cmenu-' + name);
                 if (activeBtn) {
                     activeBtn.classList.add('active');
-                    activeBtn.style.background = 'rgba(0,255,136,0.08)';
-                    activeBtn.style.border = '1px solid rgba(0,255,136,0.15)';
-                    activeBtn.style.color = 'var(--accent)';
                 }
                 // Load A2P status when switching to A2P panel
                 if (name === 'a2p' && typeof a2pLoadStatus === 'function') a2pLoadStatus();

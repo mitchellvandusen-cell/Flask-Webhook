@@ -11,16 +11,15 @@
                 <div class="status-badge"><div class="dot"></div> <span>Active</span></div>
 
                 <!-- Language Picker -->
-                <div class="dropdown" style="display:inline-block;">
+                <div class="dropdown lang-picker">
                     <button class="theme-toggle-btn" data-bs-toggle="dropdown" aria-expanded="false" title="Language">
                         <i class="fa-solid fa-globe"></i>
-                        <span style="font-size:0.7rem;margin-left:2px;font-weight:700;">{{ lang|upper }}</span>
+                        <span class="lang-label">{{ lang|upper }}</span>
                     </button>
-                    <ul class="dropdown-menu dropdown-menu-end glass-panel" style="min-width:140px;padding:8px;">
+                    <ul class="dropdown-menu dropdown-menu-end glass-panel lang-dropdown-menu">
                         {% for code, name in SUPPORTED_LANGUAGES.items() %}
                         <li>
-                            <a class="dropdown-item{% if code == lang %} active{% endif %}" href="#"
-                               style="color:#ccc;font-size:0.85rem;{% if code == lang %}background:rgba(0,255,136,0.15);color:#00ff88;{% endif %}"
+                            <a class="dropdown-item lang-dropdown-item{% if code == lang %} active{% endif %}" href="#"
                                onclick="setLanguage('{{ code }}');return false;">
                                 {{ name }}
                             </a>

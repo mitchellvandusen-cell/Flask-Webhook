@@ -1,9 +1,9 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-danger' }} mb-4 alert-dismissible fade show" style="border-radius:12px;" role="alert">
+                    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-danger' }} mb-4 alert-dismissible fade show flash-alert" role="alert">
                         <i class="fa-solid fa-info-circle me-2"></i> {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="filter:invert(1);opacity:0.6;"></button>
+                        <button type="button" class="btn-close alert-close-dark" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 {% endfor %}
             {% endif %}
@@ -11,19 +11,19 @@
 
         {# ── Ghost Mode Banner — shown when admin is impersonating a user ── #}
         {% if session.get('original_admin_email') and session.get('impersonating_as') %}
-        <div style="position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;padding:8px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 2px 12px rgba(124,58,237,0.5);font-size:0.82rem;">
-            <div style="display:flex;align-items:center;gap:10px;">
-                <i class="fa-solid fa-ghost" style="font-size:1rem;opacity:0.9;"></i>
+        <div class="ghost-banner">
+            <div class="ghost-banner-inner">
+                <i class="fa-solid fa-ghost ghost-banner-icon"></i>
                 <span><strong>GHOST MODE</strong> — You are viewing <strong>{{ session.get('impersonating_as') }}</strong>'s account. All data shown is from their sub-account only. Your master account data is hidden.</span>
             </div>
-            <form method="POST" action="/admin/revert" style="margin:0;">
+            <form method="POST" action="/admin/revert" class="ghost-banner-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:#fff;padding:4px 14px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+                <button type="submit" class="ghost-exit-btn">
                     <i class="fa-solid fa-arrow-left me-1"></i> Exit Ghost Mode
                 </button>
             </form>
         </div>
-        <div style="height:38px;flex-shrink:0;"></div>
+        <div class="ghost-banner-spacer"></div>
         {% endif %}
 
         <!-- Persistent Alerts (DB-backed, survive page reloads) -->
@@ -67,12 +67,12 @@
 
         {% if setup_alerts is defined and setup_alerts %}
         {% for sa in setup_alerts %}
-        <div class="alert mb-3 alert-dismissible fade show" role="alert"
-             style="border-radius:12px; background:{{ sa.bg }}; border:1px solid {{ sa.border }}; color:#fff;">
+        <div class="alert mb-3 alert-dismissible fade show setup-alert" role="alert"
+             style="background:{{ sa.bg }}; border:1px solid {{ sa.border }};">
             <i class="{{ sa.icon }} me-2" style="color:{{ sa.accent }};"></i>
             <strong>{{ sa.title }}</strong> &mdash; {{ sa.msg }}
-            <a href="{{ sa.url }}" {% if sa.onclick is defined and sa.onclick %}onclick="{{ sa.onclick }};return false;"{% endif %} class="btn btn-sm ms-3" style="background:{{ sa.accent }}; color:#000; font-weight:700; border-radius:8px;">{{ sa.btn }}</a>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="filter:invert(1);opacity:0.6;"></button>
+            <a href="{{ sa.url }}" {% if sa.onclick is defined and sa.onclick %}onclick="{{ sa.onclick }};return false;"{% endif %} class="btn btn-sm ms-3 setup-alert-btn" style="background:{{ sa.accent }};">{{ sa.btn }}</a>
+            <button type="button" class="btn-close alert-close-dark" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
         {% endfor %}
         {% endif %}

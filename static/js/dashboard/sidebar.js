@@ -135,9 +135,9 @@
                 if (menuBtn) {
                     // Toggle active class for mobile CSS !important rules
                     if (active) { menuBtn.classList.add('active'); } else { menuBtn.classList.remove('active'); }
-                    menuBtn.style.background = active ? 'rgba(0,217,255,0.08)' : 'transparent';
-                    menuBtn.style.border = active ? '1px solid rgba(0,217,255,0.15)' : '1px solid transparent';
-                    menuBtn.style.color = active ? '#00d9ff' : '#888';
+                    menuBtn.style.background = active ? _tc.cyanBg : 'transparent';
+                    menuBtn.style.border = active ? '1px solid ' + _themeColor('rgba(0,217,255,0.15)', 'rgba(0,120,184,0.15)') : '1px solid transparent';
+                    menuBtn.style.color = active ? _tc.cyan : _tc.textMut;
                 }
             });
             if (name === 'numbers') loadNumbersTab();

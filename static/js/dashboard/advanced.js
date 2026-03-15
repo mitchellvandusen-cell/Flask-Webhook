@@ -9,9 +9,6 @@
     function selectResponseLength(val) {
         document.querySelectorAll('.resp-len-btn').forEach(btn => {
             const isActive = btn.dataset.value === val;
-            btn.style.border = isActive ? '1px solid var(--accent)' : '1px solid rgba(255,255,255,0.1)';
-            btn.style.background = isActive ? 'rgba(0,255,136,0.1)' : 'rgba(255,255,255,0.03)';
-            btn.style.color = isActive ? 'var(--accent)' : '#aaa';
             if (isActive) btn.classList.add('active'); else btn.classList.remove('active');
         });
     }
@@ -23,11 +20,9 @@
         row.className = 'outbound-msg-row';
         row.style = 'display: flex; gap: 8px; margin-bottom: 8px;';
         row.innerHTML = `
-            <span style="color: var(--accent); font-weight: 700; min-width: 24px; padding-top: 10px;">${idx}.</span>
-            <textarea class="outbound-msg-input" rows="2" placeholder="Type your outbound message..."
-                      style="flex: 1; padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: #fff; font-size: 0.9rem; resize: vertical;">${prefill || ''}</textarea>
-            <button type="button" onclick="removeOutboundMsg(this)"
-                    style="background: rgba(255,80,80,0.1); border: 1px solid rgba(255,80,80,0.2); color: #ff5050; width: 36px; height: 36px; border-radius: 8px; cursor: pointer; margin-top: 4px; font-size: 0.9rem;">
+            <span class="adv-outbound-num">${idx}.</span>
+            <textarea class="outbound-msg-input adv-outbound-textarea" rows="2" placeholder="Type your outbound message...">${prefill || ''}</textarea>
+            <button type="button" onclick="removeOutboundMsg(this)" class="adv-remove-btn">
                 <i class="fa-solid fa-xmark"></i>
             </button>`;
         container.appendChild(row);

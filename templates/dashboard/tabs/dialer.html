@@ -832,35 +832,35 @@
 
                 <!-- Top Bar -->
                 <div class="dlr-top-bar glass-panel" style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:12px 16px;border-radius:14px;">
-                    <div style="width:36px;height:36px;border-radius:10px;background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);display:flex;align-items:center;justify-content:center;">
-                        <i class="fa-solid fa-phone-volume" style="color:#00d9ff;font-size:1rem;"></i>
+                    <div class="dlr-icon-box-cyan" style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center">
+                        <i class="fa-solid fa-phone-volume dlr-icon-cyan" style="font-size:1rem"></i>
                     </div>
                     <div style="flex:1;display:flex;align-items:center;gap:10px;">
                         <h5 style="margin:0;font-weight:700;font-size:1.4rem;white-space:nowrap;">Power Dialer</h5>
                         <!-- Inline Quick Dial -->
                         <div class="quick-dial-group" style="display:flex;flex-direction:column;gap:4px;flex:1;max-width:300px;position:relative;">
                             <!-- View toggle tabs -->
-                            <div style="display:flex;gap:2px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:2px;width:fit-content;">
+                            <div class="dlr-panel" style="display:flex;gap:2px;border-radius:6px;padding:2px;width:fit-content">
                                 <button id="dialKbdTabType" onclick="dialerSetInputMode('type')"
-                                    style="padding:2px 10px;border-radius:4px;border:none;background:rgba(0,217,255,0.15);color:#00d9ff;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all .15s;">
+                                    class="dlr-btn-cyan-outline" style="padding:2px 10px;border-radius:4px;border:none;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all .15s">
                                     <i class="fa-solid fa-keyboard me-1" style="font-size:0.75rem;"></i>Type
                                 </button>
                                 <button id="dialKbdTabKeypad" onclick="dialerSetInputMode('keypad')"
-                                    style="padding:2px 10px;border-radius:4px;border:none;background:transparent;color:#666;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all .15s;">
+                                    class="dlr-btn-tab-off" style="padding:2px 10px;border-radius:4px;border:none;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all .15s">
                                     <i class="fa-solid fa-grid-2 me-1" style="font-size:0.75rem;"></i>Keypad
                                 </button>
                             </div>
                             <!-- Type mode -->
                             <div id="dialModeType" style="display:flex;gap:4px;">
                                 <input type="text" id="dialerManualPhone" placeholder="+1 (555) 123-4567" onkeydown="if(event.key==='Enter')dialerManualCall()"
-                                    style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(0,217,255,0.15);color:#fff;padding:5px 10px;border-radius:6px;font-size:0.88rem;outline:none;min-width:120px;">
-                                <button onclick="dialerManualCall()" style="padding:5px 12px;border-radius:6px;border:none;background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;font-weight:700;font-size:0.88rem;cursor:pointer;white-space:nowrap;">
+                                    class="dlr-input" style="flex:1;padding:5px 10px;border-radius:6px;font-size:0.88rem;outline:none;min-width:120px">
+                                <button onclick="dialerManualCall()" class="dlr-btn-cyan" style="padding:5px 12px;border-radius:6px;border:none;font-weight:700;font-size:0.88rem;cursor:pointer;white-space:nowrap">
                                     <i class="fa-solid fa-phone"></i>
                                 </button>
                             </div>
                             <!-- Keypad mode (hidden by default) -->
-                            <div id="dialModeKeypad" style="display:none;flex-direction:column;gap:3px;background:rgba(0,0,0,0.3);border:1px solid rgba(0,217,255,0.1);border-radius:8px;padding:8px;">
-                                <div id="dialKbdDisplay" style="background:rgba(255,255,255,0.04);border:1px solid rgba(0,217,255,0.15);color:#fff;padding:6px 10px;border-radius:6px;font-size:1rem;font-family:'JetBrains Mono',monospace;text-align:center;min-height:32px;letter-spacing:2px;">&#8203;</div>
+                            <div id="dialModeKeypad" class="dlr-panel-cyan" style="display:none;flex-direction:column;gap:3px;border-radius:8px;padding:8px">
+                                <div id="dialKbdDisplay" class="dlr-panel-cyan-2" style="padding:6px 10px;border-radius:6px;font-size:1rem;font-family:'JetBrains Mono',monospace;text-align:center;min-height:32px;letter-spacing:2px">&#8203;</div>
                                 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:2px;">
                                     <button class="dlr-kbd-key" onclick="dialKbdPress('1')"><span>1</span></button>
                                     <button class="dlr-kbd-key" onclick="dialKbdPress('2')"><span>2</span><sub>ABC</sub></button>
@@ -876,27 +876,27 @@
                                     <button class="dlr-kbd-key" onclick="dialKbdPress('#')"><span>#</span></button>
                                 </div>
                                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:2px;">
-                                    <button onclick="dialKbdBackspace()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:8px;padding:7px;font-size:0.8rem;cursor:pointer;"><i class="fa-solid fa-delete-left"></i></button>
-                                    <button onclick="dialerManualCall()" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:8px;padding:7px;font-size:0.85rem;font-weight:700;cursor:pointer;"><i class="fa-solid fa-phone"></i></button>
+                                    <button onclick="dialKbdBackspace()" class="dlr-btn-ghost" style="border-radius:8px;padding:7px;font-size:0.8rem;cursor:pointer"><i class="fa-solid fa-delete-left"></i></button>
+                                    <button onclick="dialerManualCall()" class="dlr-btn-cyan-2" style="border:none;border-radius:8px;padding:7px;font-size:0.85rem;font-weight:700;cursor:pointer"><i class="fa-solid fa-phone"></i></button>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <!-- Mode Toggle -->
-                    <div style="display:flex;gap:2px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:2px;">
-                        <button id="modeAiBtn" onclick="setDialerMode('ai')" style="padding:6px 14px;border-radius:6px;border:none;background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;font-weight:700;font-size:0.88rem;cursor:pointer;transition:all .2s;">
+                    <div class="dlr-panel-2" style="display:flex;gap:2px;border-radius:8px;padding:2px">
+                        <button id="modeAiBtn" onclick="setDialerMode('ai')" class="dlr-btn-cyan-3" style="padding:6px 14px;border-radius:6px;border:none;font-weight:700;font-size:0.88rem;cursor:pointer;transition:all .2s">
                             <i class="fa-solid fa-robot me-1"></i>AI
                         </button>
-                        <button id="modeHumanBtn" onclick="setDialerMode('human')" style="padding:6px 14px;border-radius:6px;border:none;background:transparent;color:#888;font-weight:700;font-size:0.88rem;cursor:pointer;transition:all .2s;">
+                        <button id="modeHumanBtn" onclick="setDialerMode('human')" class="dlr-btn-mode-off" style="padding:6px 14px;border-radius:6px;border:none;font-weight:700;font-size:0.88rem;cursor:pointer;transition:all .2s">
                             <i class="fa-solid fa-headset me-1"></i>Human
                         </button>
                     </div>
                     <!-- Multi-Line Badge (shown for pro_dialer tier) -->
-                    <span id="multiLineBadge" style="display:none;background:linear-gradient(135deg,#ff6b35,#ff3366);color:#fff;font-size:0.68rem;font-weight:800;padding:3px 8px;border-radius:5px;letter-spacing:0.5px;">PRO</span>
+                    <span id="multiLineBadge" class="dlr-panel-3" style="display:none;font-size:0.68rem;font-weight:800;padding:3px 8px;border-radius:5px;letter-spacing:0.5px">PRO</span>
                     <!-- Multi-Line Toggle (shown for pro_dialer tier) -->
                     <div id="multiLineToggle" style="display:none;align-items:center;gap:6px;">
-                        <span style="font-size:0.78rem;color:#888;">Lines:</span>
-                        <select id="multiLineCount" onchange="_multiLineMaxLines=parseInt(this.value)" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:5px;padding:2px 6px;font-size:0.82rem;font-weight:700;">
+                        <span class="dlr-label-muted" style="font-size:0.78rem">Lines:</span>
+                        <select id="multiLineCount" onchange="_multiLineMaxLines=parseInt(this.value)" class="dlr-panel-4" style="border-radius:5px;padding:2px 6px;font-size:0.82rem;font-weight:700">
                             <option value="1">1</option>
                             <option value="2">2</option>
                             <option value="3" selected>3</option>
@@ -905,104 +905,104 @@
                     </div>
                     <!-- AI Call Timer -->
                     <div id="dialerAiTimer" style="display:none;font-family:monospace;font-size:1rem;color:var(--accent);font-weight:700;">00:00</div>
-                    <div id="voipStatus" style="display:none;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);border-radius:6px;padding:3px 8px;font-size:0.82rem;color:var(--accent);font-weight:600;">
+                    <div id="voipStatus" class="dlr-panel-5" style="display:none;border-radius:6px;padding:3px 8px;font-size:0.82rem;font-weight:600">
                         <i class="fa-solid fa-circle me-1" style="font-size:0.4rem;vertical-align:middle;"></i>Ready
                     </div>
                     <!-- Stats button -->
-                    <button id="dialerStatsToggle" onclick="dialerToggleStats()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:8px;padding:6px 12px;font-size:0.88rem;font-weight:600;cursor:pointer;transition:all .2s;" title="Call Statistics">
+                    <button id="dialerStatsToggle" onclick="dialerToggleStats()" class="dlr-btn-ghost-2" style="border-radius:8px;padding:6px 12px;font-size:0.88rem;font-weight:600;cursor:pointer;transition:all .2s" title="Call Statistics">
                         <i class="fa-solid fa-chart-bar"></i>
                     </button>
                     <!-- Settings toggle -->
-                    <button id="dialerSettingsToggle" onclick="navTo('voice');setTimeout(()=>switchVoicePanel('dialer'),100);" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:8px;padding:6px 12px;font-size:0.88rem;font-weight:600;cursor:pointer;transition:all .2s;" title="Dialer Settings">
+                    <button id="dialerSettingsToggle" onclick="navTo('voice');setTimeout(()=>switchVoicePanel('dialer'),100);" class="dlr-btn-ghost-2" style="border-radius:8px;padding:6px 12px;font-size:0.88rem;font-weight:600;cursor:pointer;transition:all .2s" title="Dialer Settings">
                         <i class="fa-solid fa-gear"></i>
                     </button>
                 </div>
 
                 <!-- VoIP Setup Banner -->
-                <div id="voipSetupBanner" style="display:none;background:rgba(255,165,0,0.06);border:1px solid rgba(255,165,0,0.15);border-radius:10px;padding:10px 14px;margin-bottom:10px;">
+                <div id="voipSetupBanner" class="dlr-banner-warning" style="display:none;border-radius:10px;padding:10px 14px;margin-bottom:10px">
                     <div class="d-flex align-items-center gap-3">
-                        <i class="fa-solid fa-triangle-exclamation" style="color:#ffa500;"></i>
+                        <i class="fa-solid fa-triangle-exclamation dlr-text-orange" ></i>
                         <div style="flex:1;">
-                            <div style="font-size:0.82rem;"><strong>Browser calling requires one-time setup</strong> <span style="color:#888;">— creates a secure credential for VoIP</span></div>
-                            <div id="voipSetupStatus" style="font-size:0.75rem;color:#888;margin-top:4px;display:none;"></div>
+                            <div style="font-size:0.82rem;"><strong>Browser calling requires one-time setup</strong> <span class="dlr-text-muted">— creates a secure credential for VoIP</span></div>
+                            <div id="voipSetupStatus" class="dlr-label-muted-2" style="font-size:0.75rem;margin-top:4px;display:none"></div>
                         </div>
-                        <button onclick="setupVoIP()" id="voipSetupBtn" style="background:linear-gradient(135deg,#ffa500,#cc8400);border:none;color:#000;border-radius:6px;padding:5px 14px;font-weight:700;font-size:0.78rem;cursor:pointer;white-space:nowrap;">
+                        <button onclick="setupVoIP()" id="voipSetupBtn" class="dlr-btn-orange" style="border:none;border-radius:6px;padding:5px 14px;font-weight:700;font-size:0.78rem;cursor:pointer;white-space:nowrap">
                             <i class="fa-solid fa-gear me-1"></i>Setup VoIP
                         </button>
                     </div>
                 </div>
 
                 <!-- Active Call Banner (AI mode) -->
-                <div id="dialerCallBanner" style="display:none;background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.2);border-radius:10px;padding:10px 14px;margin-bottom:10px;">
+                <div id="dialerCallBanner" class="dlr-banner-info" style="display:none;border-radius:10px;padding:10px 14px;margin-bottom:10px">
                     <div style="display:flex;align-items:center;gap:10px;">
-                        <div id="dialerCallDot" style="width:10px;height:10px;border-radius:50%;background:#00d9ff;animation:dialerPulse 1.5s infinite;flex-shrink:0;"></div>
+                        <div id="dialerCallDot" class="dlr-misc" style="width:10px;height:10px;border-radius:50%;animation:dialerPulse 1.5s infinite;flex-shrink:0"></div>
                         <div style="flex:1;">
                             <div id="dialerCallName" onclick="dialerJumpToContact()" style="font-weight:700;font-size:1rem;cursor:pointer;" title="Jump to this contact">-</div>
-                            <div id="dialerCallStatus" style="font-size:0.88rem;color:#00d9ff;">Connecting...</div>
+                            <div id="dialerCallStatus" class="dlr-label-cyan" style="font-size:0.88rem">Connecting...</div>
                         </div>
                         <div id="dialerBannerTimer" style="font-family:monospace;font-size:0.88rem;color:var(--accent);font-weight:700;display:none;">00:00</div>
-                        <button onclick="dialerStopQueue()" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:#ef4444;border-radius:6px;padding:4px 10px;font-size:0.75rem;font-weight:600;cursor:pointer;">
+                        <button onclick="dialerStopQueue()" class="dlr-btn-red" style="border-radius:6px;padding:4px 10px;font-size:0.75rem;font-weight:600;cursor:pointer">
                             <i class="fa-solid fa-phone-slash me-1"></i>Hang Up
                         </button>
                     </div>
                     <!-- In-call controls: always visible, disabled until connected -->
-                    <div id="dialerCallControls" style="display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);">
+                    <div id="dialerCallControls" class="dlr-misc-2" style="display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:8px">
                         <!-- Live Listen -->
-                        <button id="dialerListenBtn" onclick="dialerToggleListen()" disabled class="dialer-ctrl-btn" style="display:flex;align-items:center;gap:4px;width:auto;height:32px;border-radius:6px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:#444;cursor:not-allowed;font-size:0.85rem;padding:0 10px;transition:all .2s;" title="Live Listen">
+                        <button id="dialerListenBtn" onclick="dialerToggleListen()" disabled class="dialer-ctrl-btn dlr-panel-6" style="display:flex;align-items:center;gap:4px;width:auto;height:32px;border-radius:6px;cursor:not-allowed;font-size:0.85rem;padding:0 10px;transition:all .2s" title="Live Listen">
                             <i class="fa-solid fa-volume-high"></i><span>Listen</span>
                         </button>
                         <!-- Mute AI (mutes call audio you hear) -->
-                        <button id="dialerMuteBtn" onclick="dialerToggleMuteAI()" disabled class="dialer-ctrl-btn" style="display:flex;align-items:center;gap:4px;width:auto;height:32px;border-radius:6px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:#444;cursor:not-allowed;font-size:0.85rem;padding:0 10px;transition:all .2s;" title="Mute call audio (what you hear)">
+                        <button id="dialerMuteBtn" onclick="dialerToggleMuteAI()" disabled class="dialer-ctrl-btn dlr-panel-6" style="display:flex;align-items:center;gap:4px;width:auto;height:32px;border-radius:6px;cursor:not-allowed;font-size:0.85rem;padding:0 10px;transition:all .2s" title="Mute call audio (what you hear)">
                             <i class="fa-solid fa-volume-xmark"></i><span>Mute AI</span>
                         </button>
                         <!-- Mute Mic (mutes your microphone after intercept) -->
-                        <button id="dialerMuteMicBtn" onclick="dialerToggleMuteMic()" disabled class="dialer-ctrl-btn" style="display:flex;align-items:center;gap:4px;width:auto;height:32px;border-radius:6px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:#444;cursor:not-allowed;font-size:0.85rem;padding:0 10px;transition:all .2s;" title="Mute your microphone (after intercept)">
+                        <button id="dialerMuteMicBtn" onclick="dialerToggleMuteMic()" disabled class="dialer-ctrl-btn dlr-panel-6" style="display:flex;align-items:center;gap:4px;width:auto;height:32px;border-radius:6px;cursor:not-allowed;font-size:0.85rem;padding:0 10px;transition:all .2s" title="Mute your microphone (after intercept)">
                             <i class="fa-solid fa-microphone"></i><span>Mute Mic</span>
                         </button>
                         <!-- Takeover / Human Intercept -->
-                        <button id="dialerTakeoverBtn" onclick="dialerTakeover()" disabled class="dialer-ctrl-btn" style="display:flex;align-items:center;gap:4px;width:auto;height:32px;border-radius:6px;background:rgba(255,165,0,0.05);border:1px solid rgba(255,165,0,0.1);color:#664400;cursor:not-allowed;font-size:0.85rem;font-weight:600;padding:0 10px;transition:all .2s;" title="Take over this AI call (Human Intercept)">
+                        <button id="dialerTakeoverBtn" onclick="dialerTakeover()" disabled class="dialer-ctrl-btn dlr-panel-orange" style="display:flex;align-items:center;gap:4px;width:auto;height:32px;border-radius:6px;cursor:not-allowed;font-size:0.85rem;font-weight:600;padding:0 10px;transition:all .2s" title="Take over this AI call (Human Intercept)">
                             <i class="fa-solid fa-hand"></i><span>Intercept</span>
                         </button>
                         <!-- Live Transfer -->
-                        <button id="dialerTransferBtn" onclick="dialerTransfer()" disabled class="dialer-ctrl-btn" style="display:flex;align-items:center;gap:4px;width:auto;height:32px;border-radius:6px;background:rgba(0,217,255,0.05);border:1px solid rgba(0,217,255,0.1);color:#004466;cursor:not-allowed;font-size:0.85rem;font-weight:600;padding:0 10px;transition:all .2s;" title="Transfer call to another number">
+                        <button id="dialerTransferBtn" onclick="dialerTransfer()" disabled class="dialer-ctrl-btn dlr-panel-cyan-3" style="display:flex;align-items:center;gap:4px;width:auto;height:32px;border-radius:6px;cursor:not-allowed;font-size:0.85rem;font-weight:600;padding:0 10px;transition:all .2s" title="Transfer call to another number">
                             <i class="fa-solid fa-arrow-right-arrow-left"></i><span>Transfer</span>
                         </button>
                     </div>
                 </div>
                 <!-- Call Disposition (shown after call ends) -->
-                <div id="dialerDisposition" style="display:none;background:rgba(255,165,0,0.04);border:1px solid rgba(255,165,0,0.12);border-radius:10px;padding:10px 14px;margin-bottom:10px;">
+                <div id="dialerDisposition" class="dlr-banner-warning-2" style="display:none;border-radius:10px;padding:10px 14px;margin-bottom:10px">
                     <div class="d-flex align-items-center gap-3">
-                        <span style="font-size:0.88rem;font-weight:600;color:#aaa;white-space:nowrap;">Disposition:</span>
+                        <span class="dlr-label-subtle" style="font-size:0.88rem;font-weight:600;white-space:nowrap">Disposition:</span>
                         <div style="display:flex;gap:4px;flex-wrap:wrap;flex:1;">
-                            <button onclick="dialerSetDisposition('interested')" class="disp-btn" style="background:rgba(74,222,128,0.06);border:1px solid rgba(74,222,128,0.15);color:#4ade80;border-radius:5px;padding:3px 10px;font-size:0.85rem;cursor:pointer;"><i class="fa-solid fa-thumbs-up me-1" style="font-size:.75rem;"></i>Interested</button>
-                            <button onclick="dialerSetDisposition('callback')" class="disp-btn" style="background:rgba(0,122,255,0.06);border:1px solid rgba(0,122,255,0.15);color:#007AFF;border-radius:5px;padding:3px 10px;font-size:0.85rem;cursor:pointer;"><i class="fa-solid fa-phone-arrow-down-left me-1" style="font-size:.75rem;"></i>Callback</button>
-                            <button onclick="dialerSetDisposition('not_interested')" class="disp-btn" style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);color:#ef4444;border-radius:5px;padding:3px 10px;font-size:0.85rem;cursor:pointer;"><i class="fa-solid fa-thumbs-down me-1" style="font-size:.75rem;"></i>Not Interested</button>
-                            <button onclick="dialerSetDisposition('not_answered')" class="disp-btn" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#ccc;border-radius:5px;padding:3px 10px;font-size:0.85rem;cursor:pointer;">No Answer</button>
-                            <button onclick="dialerSetDisposition('left_voicemail')" class="disp-btn" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#ccc;border-radius:5px;padding:3px 10px;font-size:0.85rem;cursor:pointer;">Left VM</button>
-                            <button onclick="dialerSetDisposition('hung_up')" class="disp-btn" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#ccc;border-radius:5px;padding:3px 10px;font-size:0.85rem;cursor:pointer;">Hung Up</button>
+                            <button onclick="dialerSetDisposition('interested')" class="disp-btn dlr-btn-green" style="border-radius:5px;padding:3px 10px;font-size:0.85rem;cursor:pointer"><i class="fa-solid fa-thumbs-up me-1" style="font-size:.75rem;"></i>Interested</button>
+                            <button onclick="dialerSetDisposition('callback')" class="disp-btn dlr-btn-blue" style="border-radius:5px;padding:3px 10px;font-size:0.85rem;cursor:pointer"><i class="fa-solid fa-phone-arrow-down-left me-1" style="font-size:.75rem;"></i>Callback</button>
+                            <button onclick="dialerSetDisposition('not_interested')" class="disp-btn dlr-btn-red-2" style="border-radius:5px;padding:3px 10px;font-size:0.85rem;cursor:pointer"><i class="fa-solid fa-thumbs-down me-1" style="font-size:.75rem;"></i>Not Interested</button>
+                            <button onclick="dialerSetDisposition('not_answered')" class="disp-btn dlr-btn-ghost-3" style="border-radius:5px;padding:3px 10px;font-size:0.85rem;cursor:pointer">No Answer</button>
+                            <button onclick="dialerSetDisposition('left_voicemail')" class="disp-btn dlr-btn-ghost-3" style="border-radius:5px;padding:3px 10px;font-size:0.85rem;cursor:pointer">Left VM</button>
+                            <button onclick="dialerSetDisposition('hung_up')" class="disp-btn dlr-btn-ghost-3" style="border-radius:5px;padding:3px 10px;font-size:0.85rem;cursor:pointer">Hung Up</button>
                         </div>
-                        <button onclick="dialerDismissDisposition()" style="background:none;border:none;color:#555;cursor:pointer;font-size:0.75rem;"><i class="fa-solid fa-xmark"></i></button>
+                        <button onclick="dialerDismissDisposition()" class="dlr-btn-dismiss" style="background:none;border:none;cursor:pointer;font-size:0.75rem"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                 </div>
 
                 <!-- Multi-Line Dialer Banner -->
-                <div id="multiLineBanner" style="display:none;background:rgba(255,107,53,0.04);border:1px solid rgba(255,107,53,0.15);border-radius:10px;padding:10px 14px;margin-bottom:10px;"></div>
+                <div id="multiLineBanner" class="dlr-banner-pro" style="display:none;border-radius:10px;padding:10px 14px;margin-bottom:10px"></div>
 
                 <!-- Predictive Dialer Stats Panel -->
-                <div id="predictiveStatsPanel" style="display:none;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:10px 14px;margin-bottom:10px;">
+                <div id="predictiveStatsPanel" class="dlr-banner" style="display:none;border-radius:10px;padding:10px 14px;margin-bottom:10px">
                     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-                        <div style="font-size:0.78rem;font-weight:700;color:#ff6b35;"><i class="fa-solid fa-chart-line me-1"></i>Predictive</div>
-                        <div style="font-size:0.75rem;color:#aaa;">Connect Rate: <span id="predictiveConnectRate" style="color:#fff;font-weight:700;">--</span></div>
-                        <div style="font-size:0.75rem;color:#aaa;">AI Lines: <span id="predictiveRecommendedLines" style="color:#ff6b35;font-weight:700;">--</span></div>
-                        <div style="font-size:0.75rem;color:#aaa;">Ratio: <span id="predictiveDialRatio" style="color:#fff;font-weight:700;">--</span></div>
-                        <div id="predictiveAlgorithm" style="display:none;font-size:0.7rem;color:#555;"></div>
+                        <div class="dlr-label-pro" style="font-size:0.78rem;font-weight:700"><i class="fa-solid fa-chart-line me-1"></i>Predictive</div>
+                        <div class="dlr-label-subtle-2" style="font-size:0.75rem">Connect Rate: <span id="predictiveConnectRate" class="dlr-heading" style="font-weight:700">--</span></div>
+                        <div class="dlr-label-subtle-2" style="font-size:0.75rem">AI Lines: <span id="predictiveRecommendedLines" class="dlr-label-pro-2" style="font-weight:700">--</span></div>
+                        <div class="dlr-label-subtle-2" style="font-size:0.75rem">Ratio: <span id="predictiveDialRatio" class="dlr-heading" style="font-weight:700">--</span></div>
+                        <div id="predictiveAlgorithm" class="dlr-label-faint" style="display:none;font-size:0.7rem"></div>
                     </div>
                     <!-- Erlang-C extended metrics (predictive_dialer tier only) -->
-                    <div id="erlangCMetrics" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04);">
+                    <div id="erlangCMetrics" class="dlr-misc-3" style="display:none;margin-top:8px;padding-top:8px">
                         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-                            <div style="font-size:0.72rem;color:#888;">Abandon Rate: <span id="predictiveAbandonRate" style="font-weight:700;">--</span></div>
-                            <div style="font-size:0.72rem;color:#888;">Erlang-C P(wait): <span id="predictiveErlangC" style="color:#aaa;font-weight:700;">--</span></div>
-                            <div id="predictiveThrottleTag" style="display:none;font-size:0.68rem;padding:2px 8px;border-radius:8px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#ef4444;font-weight:700;">THROTTLED</div>
+                            <div class="dlr-label-muted-3" style="font-size:0.72rem">Abandon Rate: <span id="predictiveAbandonRate" style="font-weight:700;">--</span></div>
+                            <div class="dlr-label-muted-3" style="font-size:0.72rem">Erlang-C P(wait): <span id="predictiveErlangC" class="dlr-label-subtle-3" style="font-weight:700">--</span></div>
+                            <div id="predictiveThrottleTag" class="dlr-panel-red" style="display:none;font-size:0.68rem;padding:2px 8px;border-radius:8px;font-weight:700">THROTTLED</div>
                         </div>
                     </div>
                 </div>
@@ -1012,44 +1012,44 @@
                     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                         <span id="complianceIcon" style="font-size:1rem;"></span>
                         <span id="complianceLabel" style="font-size:0.78rem;font-weight:700;"></span>
-                        <span id="complianceRate" style="font-size:0.75rem;color:#aaa;"></span>
+                        <span id="complianceRate" class="dlr-label-subtle-2" style="font-size:0.75rem"></span>
                         <span id="complianceScore" style="font-size:0.72rem;margin-left:auto;"></span>
                     </div>
                 </div>
 
                 <!-- Agent State Selector (predictive_dialer tier only) -->
-                <div id="agentStatePanel" style="display:none;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:8px 12px;margin-bottom:10px;">
+                <div id="agentStatePanel" class="dlr-banner-2" style="display:none;border-radius:10px;padding:8px 12px;margin-bottom:10px">
                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                        <span style="font-size:0.75rem;color:#888;font-weight:600;"><i class="fa-solid fa-user-clock me-1"></i>Status:</span>
-                        <select id="agentStateSelect" onchange="pdSetAgentState(this.value)" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:6px;padding:4px 8px;font-size:0.78rem;">
-                            <option value="ready" style="background:#111;">Ready</option>
-                            <option value="not_ready" style="background:#111;">Not Ready</option>
-                            <option value="break" style="background:#111;">Break</option>
-                            <option value="extended_away" style="background:#111;">Extended Away</option>
+                        <span class="dlr-label-muted-4" style="font-size:0.75rem;font-weight:600"><i class="fa-solid fa-user-clock me-1"></i>Status:</span>
+                        <select id="agentStateSelect" onchange="pdSetAgentState(this.value)" class="dlr-panel-7" style="border-radius:6px;padding:4px 8px;font-size:0.78rem">
+                            <option value="ready" class="dlr-bg-option">Ready</option>
+                            <option value="not_ready" class="dlr-bg-option">Not Ready</option>
+                            <option value="break" class="dlr-bg-option">Break</option>
+                            <option value="extended_away" class="dlr-bg-option">Extended Away</option>
                         </select>
-                        <span id="agentStateDot" style="width:8px;height:8px;border-radius:50%;background:#4ade80;"></span>
-                        <span id="agentStateDuration" style="font-size:0.72rem;color:#555;font-family:monospace;"></span>
-                        <span id="agentWrapUpTimer" style="display:none;font-size:0.72rem;color:#ff6b35;font-family:monospace;font-weight:700;"></span>
+                        <span id="agentStateDot" class="dlr-misc-4" style="width:8px;height:8px;border-radius:50%"></span>
+                        <span id="agentStateDuration" class="dlr-label-faint-2" style="font-size:0.72rem;font-family:monospace"></span>
+                        <span id="agentWrapUpTimer" class="dlr-label-pro-3" style="display:none;font-size:0.72rem;font-family:monospace;font-weight:700"></span>
                     </div>
                 </div>
 
                 <!-- Callback Queue Badge (predictive_dialer tier only) -->
-                <div id="callbackQueueBanner" style="display:none;background:rgba(139,92,246,0.04);border:1px solid rgba(139,92,246,0.15);border-radius:10px;padding:8px 14px;margin-bottom:10px;cursor:pointer;" onclick="pdShowCallbackQueue()">
+                <div id="callbackQueueBanner" class="dlr-btn" style="display:none;border-radius:10px;padding:8px 14px;margin-bottom:10px;cursor:pointer" onclick="pdShowCallbackQueue()">
                     <div style="display:flex;align-items:center;gap:8px;">
-                        <i class="fa-solid fa-clock-rotate-left" style="color:#8b5cf6;"></i>
-                        <span style="font-size:0.78rem;color:#aaa;">Callback Queue:</span>
-                        <span id="callbackQueueCount" style="font-size:0.82rem;font-weight:700;color:#8b5cf6;">0</span>
-                        <span id="callbackDueCount" style="display:none;font-size:0.68rem;padding:2px 8px;border-radius:8px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#ef4444;font-weight:700;">0 due</span>
-                        <i class="fa-solid fa-chevron-right ms-auto" style="font-size:0.7rem;color:#555;"></i>
+                        <i class="fa-solid fa-clock-rotate-left dlr-text-violet" ></i>
+                        <span class="dlr-label-subtle-4" style="font-size:0.78rem">Callback Queue:</span>
+                        <span id="callbackQueueCount" class="dlr-label-violet" style="font-size:0.82rem;font-weight:700">0</span>
+                        <span id="callbackDueCount" class="dlr-panel-red" style="display:none;font-size:0.68rem;padding:2px 8px;border-radius:8px;font-weight:700">0 due</span>
+                        <i class="fa-solid fa-chevron-right ms-auto dlr-label-faint-3" style="font-size:0.7rem"></i>
                     </div>
                 </div>
 
                 <!-- Recording Consent Warning (shown before calls to 2-party states) -->
-                <div id="recordingConsentBanner" style="display:none;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2);border-radius:10px;padding:8px 14px;margin-bottom:10px;">
+                <div id="recordingConsentBanner" class="dlr-banner-amber" style="display:none;border-radius:10px;padding:8px 14px;margin-bottom:10px">
                     <div style="display:flex;align-items:center;gap:8px;">
-                        <i class="fa-solid fa-shield-halved" style="color:#fbbf24;"></i>
-                        <span style="font-size:0.78rem;color:#ddd;"><strong>Two-Party Consent:</strong> <span id="consentStateName">--</span> requires all-party recording consent.</span>
-                        <button onclick="document.getElementById('recordingConsentBanner').style.display='none'" style="background:none;border:none;color:#555;cursor:pointer;margin-left:auto;"><i class="fa-solid fa-xmark"></i></button>
+                        <i class="fa-solid fa-shield-halved dlr-text-yellow" ></i>
+                        <span class="dlr-label-text" style="font-size:0.78rem"><strong>Two-Party Consent:</strong> <span id="consentStateName">--</span> requires all-party recording consent.</span>
+                        <button onclick="document.getElementById('recordingConsentBanner').style.display='none'" class="dlr-btn-dismiss-2" style="background:none;border:none;cursor:pointer;margin-left:auto"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                 </div>
 
@@ -1062,23 +1062,23 @@
                 </div>
 
                 <!-- VoIP In-Call Bar -->
-                <div id="voipCallPanel" style="display:none;background:rgba(74,222,128,0.04);border:1px solid rgba(74,222,128,0.12);border-radius:10px;padding:10px 14px;margin-bottom:10px;">
+                <div id="voipCallPanel" class="dlr-banner-success" style="display:none;border-radius:10px;padding:10px 14px;margin-bottom:10px">
                     <div class="d-flex align-items-center gap-3">
-                        <div style="width:36px;height:36px;border-radius:50%;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);display:flex;align-items:center;justify-content:center;">
+                        <div class="dlr-icon-box-green" style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center">
                             <i class="fa-solid fa-phone" style="color:var(--accent);animation:dialerPulse 1.5s infinite;"></i>
                         </div>
                         <div style="flex:1;">
                             <div id="voipCallName" style="font-weight:700;font-size:0.88rem;">-</div>
-                            <div id="voipCallPhone" style="font-size:0.75rem;color:#888;">-</div>
+                            <div id="voipCallPhone" class="dlr-label-muted-5" style="font-size:0.75rem">-</div>
                         </div>
                         <div id="voipCallTimer" style="font-family:monospace;font-size:1rem;color:var(--accent);font-weight:700;">00:00</div>
-                        <button id="voipMuteBtn" onclick="voipToggleMute()" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#ccc;cursor:pointer;font-size:0.8rem;" title="Mute">
+                        <button id="voipMuteBtn" onclick="voipToggleMute()" class="dlr-btn-ghost-4" style="width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:0.8rem" title="Mute">
                             <i class="fa-solid fa-microphone"></i>
                         </button>
-                        <button onclick="voipToggleKeypad()" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#ccc;cursor:pointer;font-size:0.8rem;" title="Keypad">
+                        <button onclick="voipToggleKeypad()" class="dlr-btn-ghost-4" style="width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:0.8rem" title="Keypad">
                             <i class="fa-solid fa-grip"></i>
                         </button>
-                        <button onclick="voipHangup()" style="width:44px;height:36px;border-radius:18px;background:linear-gradient(135deg,#ef4444,#cc2222);border:none;color:#fff;cursor:pointer;font-size:0.8rem;font-weight:700;" title="End Call">
+                        <button onclick="voipHangup()" class="dlr-btn-danger" style="width:44px;height:36px;border-radius:18px;border:none;cursor:pointer;font-size:0.8rem;font-weight:700" title="End Call">
                             <i class="fa-solid fa-phone-slash"></i>
                         </button>
                     </div>
@@ -1094,19 +1094,19 @@
                 </div>
 
                 <!-- ═══ Number Rotation Feature Banner ═══ -->
-                <div id="numberRotationBanner" style="display:none;background:linear-gradient(135deg,rgba(0,217,255,0.04),rgba(0,255,136,0.03));border:1px solid rgba(0,217,255,0.12);border-radius:10px;padding:12px 16px;margin-bottom:10px;">
+                <div id="numberRotationBanner" class="dlr-banner-info-2" style="display:none;border-radius:10px;padding:12px 16px;margin-bottom:10px">
                     <div class="d-flex align-items-center gap-3">
-                        <div style="width:36px;height:36px;border-radius:10px;background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                            <i class="fa-solid fa-shuffle" style="color:#00d9ff;font-size:0.9rem;"></i>
+                        <div class="dlr-icon-box-cyan-2" style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                            <i class="fa-solid fa-shuffle dlr-icon-cyan-2" style="font-size:0.9rem"></i>
                         </div>
                         <div style="flex:1;">
-                            <div style="font-size:0.85rem;font-weight:700;color:#fff;">Smart Number Rotation is here</div>
-                            <div style="font-size:0.75rem;color:#888;margin-top:2px;">Health scoring, auto-rest, state geo-routing, and warm-up stages — all automatic. Enable it in <strong style="color:#00d9ff;">Numbers</strong> tab.</div>
+                            <div class="dlr-heading-2" style="font-size:0.85rem;font-weight:700">Smart Number Rotation is here</div>
+                            <div class="dlr-label-muted-6" style="font-size:0.75rem;margin-top:2px">Health scoring, auto-rest, state geo-routing, and warm-up stages — all automatic. Enable it in <strong class="dlr-text-cyan">Numbers</strong> tab.</div>
                         </div>
-                        <a href="#" onclick="event.preventDefault();sidebarNavigate('voice',document.getElementById('sbnVoiceConfig'));switchVoicePanel('numbers');" style="padding:5px 14px;border-radius:6px;background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;font-weight:700;font-size:0.75rem;text-decoration:none;white-space:nowrap;">
+                        <a href="#" onclick="event.preventDefault();sidebarNavigate('voice',document.getElementById('sbnVoiceConfig'));switchVoicePanel('numbers');" class="dlr-panel-cyan-4" style="padding:5px 14px;border-radius:6px;font-weight:700;font-size:0.75rem;text-decoration:none;white-space:nowrap">
                             <i class="fa-solid fa-gear me-1"></i>Configure
                         </a>
-                        <button onclick="this.closest('#numberRotationBanner').style.display='none';localStorage.setItem('nr_banner_dismissed','1');" style="background:none;border:none;color:#555;cursor:pointer;font-size:0.75rem;padding:4px;"><i class="fa-solid fa-xmark"></i></button>
+                        <button onclick="this.closest('#numberRotationBanner').style.display='none';localStorage.setItem('nr_banner_dismissed','1');" class="dlr-btn-dismiss-3" style="background:none;border:none;cursor:pointer;font-size:0.75rem;padding:4px"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                 </div>
                 <script>
@@ -1116,40 +1116,40 @@
                 <!-- ═══ Dialer Statistics Panel ═══ -->
                 <div id="dialerStatsPanel" class="glass-panel" style="display:none;border-radius:12px;padding:20px 24px;margin-bottom:12px;">
                     <div class="d-flex align-items-center justify-content-between mb-3">
-                        <h6 style="margin:0;font-weight:700;color:#fff;font-size:1.1rem;"><i class="fa-solid fa-chart-bar me-2" style="color:#00d9ff;"></i>Call Statistics</h6>
+                        <h6 class="dlr-heading-3" style="margin:0;font-weight:700;font-size:1.1rem"><i class="fa-solid fa-chart-bar me-2 dlr-text-cyan" ></i>Call Statistics</h6>
                         <div style="display:flex;align-items:center;gap:8px;">
                             <!-- Period selector -->
-                            <div style="display:flex;gap:2px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:2px;">
-                                <button class="dlr-stat-period active" data-period="today"  onclick="dialerSetStatsPeriod('today')"  style="padding:4px 10px;border-radius:6px;border:none;background:rgba(0,217,255,0.15);color:#00d9ff;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all .15s;">Today</button>
-                                <button class="dlr-stat-period"        data-period="week"   onclick="dialerSetStatsPeriod('week')"   style="padding:4px 10px;border-radius:6px;border:none;background:transparent;color:#666;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all .15s;">7 Days</button>
-                                <button class="dlr-stat-period"        data-period="month"  onclick="dialerSetStatsPeriod('month')"  style="padding:4px 10px;border-radius:6px;border:none;background:transparent;color:#666;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all .15s;">30 Days</button>
-                                <button class="dlr-stat-period"        data-period="all"    onclick="dialerSetStatsPeriod('all')"    style="padding:4px 10px;border-radius:6px;border:none;background:transparent;color:#666;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all .15s;">All Time</button>
+                            <div class="dlr-panel-2" style="display:flex;gap:2px;border-radius:8px;padding:2px">
+                                <button class="dlr-stat-period active dlr-btn-cyan-outline-2" data-period="today"  onclick="dialerSetStatsPeriod('today')"  style="padding:4px 10px;border-radius:6px;border:none;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all .15s">Today</button>
+                                <button class="dlr-stat-period dlr-btn-tab-off-2"        data-period="week"   onclick="dialerSetStatsPeriod('week')"   style="padding:4px 10px;border-radius:6px;border:none;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all .15s">7 Days</button>
+                                <button class="dlr-stat-period dlr-btn-tab-off-2"        data-period="month"  onclick="dialerSetStatsPeriod('month')"  style="padding:4px 10px;border-radius:6px;border:none;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all .15s">30 Days</button>
+                                <button class="dlr-stat-period dlr-btn-tab-off-2"        data-period="all"    onclick="dialerSetStatsPeriod('all')"    style="padding:4px 10px;border-radius:6px;border:none;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all .15s">All Time</button>
                             </div>
-                            <button onclick="dialerLoadStats()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#666;border-radius:6px;padding:4px 8px;font-size:0.78rem;cursor:pointer;" title="Refresh"><i class="fa-solid fa-arrows-rotate"></i></button>
-                            <button onclick="dialerToggleStats()" style="background:none;border:none;color:#888;cursor:pointer;font-size:1rem;"><i class="fa-solid fa-xmark"></i></button>
+                            <button onclick="dialerLoadStats()" class="dlr-btn-2" style="border-radius:6px;padding:4px 8px;font-size:0.78rem;cursor:pointer" title="Refresh"><i class="fa-solid fa-arrows-rotate"></i></button>
+                            <button onclick="dialerToggleStats()" class="dlr-btn-ghost-5" style="background:none;border:none;cursor:pointer;font-size:1rem"><i class="fa-solid fa-xmark"></i></button>
                         </div>
                     </div>
                     <div id="dialerStatsContent">
-                        <div style="text-align:center;padding:40px;color:#555;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.4rem;"></i></div>
+                        <div class="dlr-misc-5" style="text-align:center;padding:40px"><i class="fa-solid fa-spinner fa-spin dlr-icon-cyan-3" style="font-size:1.4rem"></i></div>
                     </div>
                 </div>
 
                 <!-- ═══ Dialer Settings Panel (redirects to Voice Config) ═══ -->
-                <div id="dialerSettingsPanel" style="display:none;background:rgba(8,8,16,0.6);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:20px;margin-bottom:12px;">
+                <div id="dialerSettingsPanel" class="dlr-panel-8" style="display:none;border-radius:12px;padding:20px;margin-bottom:12px">
                     <div class="d-flex align-items-center justify-content-between mb-3">
-                        <h6 style="margin:0;font-weight:700;color:#fff;font-size:1rem;"><i class="fa-solid fa-sliders me-2" style="color:var(--accent);"></i>Dialer Settings</h6>
-                        <button onclick="toggleDialerSettings()" style="background:none;border:none;color:#888;cursor:pointer;font-size:1rem;"><i class="fa-solid fa-xmark"></i></button>
+                        <h6 class="dlr-heading-4" style="margin:0;font-weight:700;font-size:1rem"><i class="fa-solid fa-sliders me-2" style="color:var(--accent);"></i>Dialer Settings</h6>
+                        <button onclick="toggleDialerSettings()" class="dlr-btn-ghost-5" style="background:none;border:none;cursor:pointer;font-size:1rem"><i class="fa-solid fa-xmark"></i></button>
                     </div>
-                    <div class="d-flex align-items-center gap-3 p-3" style="background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.12);border-radius:10px;">
-                        <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                            <i class="fa-solid fa-arrow-right" style="color:#00d9ff;"></i>
+                    <div class="d-flex align-items-center gap-3 p-3 dlr-misc-6" style="border-radius:10px">
+                        <div class="dlr-icon-box-cyan-3" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                            <i class="fa-solid fa-arrow-right dlr-text-cyan" ></i>
                         </div>
                         <div style="flex:1;">
-                            <div style="color:#fff;font-weight:600;font-size:0.88rem;">All dialer settings have moved to Voice Config</div>
-                            <div style="color:#888;font-size:0.78rem;margin-top:2px;">Dial attempts, recording, ring timeout, voicemail, VoIP setup, and more</div>
+                            <div class="dlr-label" style="font-weight:600;font-size:0.88rem">All dialer settings have moved to Voice Config</div>
+                            <div class="dlr-label-muted-7" style="font-size:0.78rem;margin-top:2px">Dial attempts, recording, ring timeout, voicemail, VoIP setup, and more</div>
                         </div>
                         <button onclick="toggleDialerSettings();navTo('voice');setTimeout(()=>switchVoicePanel('dialer'),100);"
-                            style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:8px;padding:7px 16px;font-weight:700;font-size:0.82rem;cursor:pointer;white-space:nowrap;">
+                            class="dlr-btn-cyan-4" style="border:none;border-radius:8px;padding:7px 16px;font-weight:700;font-size:0.82rem;cursor:pointer;white-space:nowrap">
                             <i class="fa-solid fa-sliders me-1"></i>Open Settings
                         </button>
                     </div>
@@ -1179,90 +1179,90 @@
                         <div class="dlr-col-hdr">
                             <h6><i class="fa-solid fa-address-book me-1"></i>Contacts</h6>
                             <div style="display:flex;align-items:center;gap:4px;">
-                                <button id="dialerSyncBtn" onclick="dialerSyncContacts()" title="Sync contacts from CRM" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:4px 7px;cursor:pointer;color:#888;font-size:.75rem;">
+                                <button id="dialerSyncBtn" onclick="dialerSyncContacts()" title="Sync contacts from CRM" class="dlr-btn-ghost-6" style="border-radius:6px;padding:4px 7px;cursor:pointer;font-size:.75rem">
                                     <i class="fa-solid fa-rotate" id="dialerSyncIcon"></i>
                                 </button>
-                                <button onclick="dlrExportOpen()" title="Export contacts to CSV" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:4px 7px;cursor:pointer;color:#888;font-size:.75rem;">
+                                <button onclick="dlrExportOpen()" title="Export contacts to CSV" class="dlr-btn-ghost-6" style="border-radius:6px;padding:4px 7px;cursor:pointer;font-size:.75rem">
                                     <i class="fa-solid fa-file-export"></i>
                                 </button>
-                                <button id="dialerGetContactsBtn" onclick="dialerFetchContacts(true)" style="background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;border:none;border-radius:6px;padding:4px 10px;font-weight:700;font-size:0.85rem;cursor:pointer;">
+                                <button id="dialerGetContactsBtn" onclick="dialerFetchContacts(true)" class="dlr-btn-cyan-5" style="border:none;border-radius:6px;padding:4px 10px;font-weight:700;font-size:0.85rem;cursor:pointer">
                                     <i class="fa-solid fa-download me-1"></i>Get Contacts
                                 </button>
                             </div>
                         </div>
                         <!-- Quick Dial moved to header -->
                         <!-- Search + Filters -->
-                        <div id="dialerFilterWrap" style="padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.04);flex-shrink:0;">
+                        <div id="dialerFilterWrap" class="dlr-misc-7" style="padding:8px 12px;flex-shrink:0">
                             <div style="position:relative;margin-bottom:6px;">
-                                <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#444;font-size:0.75rem;pointer-events:none;"></i>
+                                <i class="fa-solid fa-magnifying-glass dlr-label-2" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:0.75rem;pointer-events:none"></i>
                                 <input type="text" id="dialerSearch" class="form-control" placeholder="Search contacts..." oninput="dialerDebounceSearch()"
                                     style="width:100%;padding:8px 10px 8px 30px;font-size:0.85rem;">
                             </div>
                             <select id="dialerPipelineFilter" class="form-select" onchange="dialerOnPipelineChange()" style="width:100%;padding:5px 8px;font-size:0.85rem;margin-bottom:4px;">
                                 <option value="">All Contacts</option>
-                                <option value="" disabled style="color:#555;">Loading pipelines...</option>
+                                <option value="" disabled class="dlr-text-dim">Loading pipelines...</option>
                             </select>
                             <!-- Fallback: shown when opportunities.readonly scope is pending approval -->
                             <div id="dialerPipelineManual" style="display:none;margin-bottom:4px;">
                                 <input type="text" id="dialerPipelineManualInput" class="form-control" placeholder="Paste Pipeline ID from LeadConnector URL..."
                                     oninput="dialerOnManualPipelineInput()"
-                                    style="width:100%;padding:5px 8px;font-size:0.75rem;border-bottom-color:rgba(255,165,0,0.35)!important;">
-                                <div style="color:#f59e0b;font-size:0.75rem;margin-top:3px;line-height:1.3;">
+                                    class="dlr-label-3" style="width:100%;padding:5px 8px;font-size:0.75rem">
+                                <div class="dlr-label-amber" style="font-size:0.75rem;margin-top:3px;line-height:1.3">
                                     <i class="fa-solid fa-clock me-1"></i>Pipeline scope pending approval (~10 days).
-                                    Find your Pipeline ID in LeadConnector &rarr; Opportunities &rarr; copy the <code style="background:rgba(255,255,255,0.08);padding:0 3px;border-radius:3px;">pipelineId=</code> value from the URL.
+                                    Find your Pipeline ID in LeadConnector &rarr; Opportunities &rarr; copy the <code class="dlr-panel-9" style="padding:0 3px;border-radius:3px">pipelineId=</code> value from the URL.
                                 </div>
                             </div>
                             <select id="dialerStageFilter" class="form-select" onchange="dialerFetchContacts()" style="width:100%;padding:5px 8px;font-size:0.75rem;" disabled>
                                 <option value="">All Stages (select a pipeline first)</option>
                             </select>
                             <!-- Cache status indicator -->
-                            <div id="dialerCacheStatus" style="display:none;font-size:.75rem;color:#555;padding:2px 0;display:flex;align-items:center;gap:4px;">
+                            <div id="dialerCacheStatus" class="dlr-label-faint-4" style="display:none;font-size:.75rem;padding:2px 0;display:flex;align-items:center;gap:4px">
                             </div>
                         </div>
                         <!-- Select Actions -->
-                        <div id="dialerActionsBar" style="display:none;padding:6px 12px;border-bottom:1px solid rgba(255,255,255,0.04);flex-shrink:0;">
+                        <div id="dialerActionsBar" class="dlr-misc-8" style="display:none;padding:6px 12px;flex-shrink:0">
                             <div class="d-flex align-items-center justify-content-between">
-                                <label style="color:#ccc;font-size:0.75rem;cursor:pointer;display:flex;align-items:center;gap:4px;">
-                                    <input type="checkbox" id="dialerSelectAll" onchange="dialerToggleSelectAll()" style="accent-color:#00d9ff;width:14px;height:14px;cursor:pointer;">
-                                    All <span id="dialerSelectedCount" style="color:#00d9ff;font-weight:600;"></span>
+                                <label class="dlr-label-light" style="font-size:0.75rem;cursor:pointer;display:flex;align-items:center;gap:4px">
+                                    <input type="checkbox" id="dialerSelectAll" onchange="dialerToggleSelectAll()" class="dlr-misc-9" style="width:14px;height:14px;cursor:pointer">
+                                    All <span id="dialerSelectedCount" class="dlr-label-cyan-2" style="font-weight:600"></span>
                                 </label>
                                 <div class="d-flex gap-2">
-                                    <button id="dialerAddSelectedBtn" onclick="dialerAddSelectedToQueue()" style="background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;border-radius:4px;padding:2px 8px;font-size:0.75rem;font-weight:600;cursor:pointer;" disabled>
+                                    <button id="dialerAddSelectedBtn" onclick="dialerAddSelectedToQueue()" class="dlr-btn-cyan-outline-3" style="border-radius:4px;padding:2px 8px;font-size:0.75rem;font-weight:600;cursor:pointer" disabled>
                                         <i class="fa-solid fa-plus me-1"></i>Queue
                                     </button>
-                                    <button id="dialerCallSelectedBtn" onclick="dialerCallSelected()" style="background:linear-gradient(135deg,var(--accent),#00b36b);border:none;color:#000;border-radius:4px;padding:2px 8px;font-size:0.75rem;font-weight:700;cursor:pointer;" disabled>
+                                    <button id="dialerCallSelectedBtn" onclick="dialerCallSelected()" class="dlr-btn-accent" style="border:none;border-radius:4px;padding:2px 8px;font-size:0.75rem;font-weight:700;cursor:pointer" disabled>
                                         <i class="fa-solid fa-phone me-1"></i>Dial
                                     </button>
                                 </div>
                             </div>
                         </div>
                         <!-- Queue (above contacts) -->
-                        <div id="dialerQueueWrap" style="border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
+                        <div id="dialerQueueWrap" class="dlr-misc-10" style="flex-shrink:0">
                             <div style="padding:6px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="document.getElementById('dialerQueueBody').style.display=document.getElementById('dialerQueueBody').style.display==='none'?'block':'none'">
-                                <span style="font-size:0.75rem;font-weight:700;color:var(--accent);"><i class="fa-solid fa-list-ol me-1"></i>Queue <span id="dialerQueueCount" style="color:#00d9ff;">0</span></span>
-                                <i class="fa-solid fa-chevron-down" style="color:#555;font-size:0.7rem;"></i>
+                                <span style="font-size:0.75rem;font-weight:700;color:var(--accent);"><i class="fa-solid fa-list-ol me-1 dlr-text-cyan"></i>Queue <span id="dialerQueueCount" >0</span></span>
+                                <i class="fa-solid fa-chevron-down dlr-icon-c555" style="font-size:0.7rem"></i>
                             </div>
-                            <div id="dialerQueueBody" style="display:none;border-top:1px solid rgba(255,255,255,0.04);">
+                            <div id="dialerQueueBody" class="dlr-misc-11" style="display:none">
                                 <div id="dialerQueueList" style="max-height:160px;overflow-y:auto;padding:4px 8px;">
-                                    <div style="text-align:center;padding:10px;color:#555;font-size:0.75rem;">Empty queue</div>
+                                    <div class="dlr-label-faint-5" style="text-align:center;padding:10px;font-size:0.75rem">Empty queue</div>
                                 </div>
                                 <div style="display:flex;gap:4px;padding:6px 8px;">
-                                    <button id="dialerStartBtn" onclick="dialerToggleQueue()" disabled style="flex:1;padding:6px;border-radius:6px;border:none;background:linear-gradient(135deg,var(--accent),#00b36b);color:#000;font-weight:700;font-size:0.75rem;cursor:pointer;">
+                                    <button id="dialerStartBtn" onclick="dialerToggleQueue()" disabled class="dlr-btn-accent-2" style="flex:1;padding:6px;border-radius:6px;border:none;font-weight:700;font-size:0.75rem;cursor:pointer">
                                         <i class="fa-solid fa-play me-1"></i>Auto-Dial
                                     </button>
-                                    <button onclick="dialerClearQueue()" style="padding:6px 10px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);color:#888;font-weight:600;font-size:0.75rem;cursor:pointer;">Clear</button>
+                                    <button onclick="dialerClearQueue()" class="dlr-btn-ghost-7" style="padding:6px 10px;border-radius:6px;font-weight:600;font-size:0.75rem;cursor:pointer">Clear</button>
                                 </div>
                             </div>
                         </div>
                         <!-- Campaign History -->
-                        <div id="dlrCampaignWrap" style="border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
+                        <div id="dlrCampaignWrap" class="dlr-misc-10" style="flex-shrink:0">
                             <div style="padding:6px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="var b=document.getElementById('dlrCampaignBody');b.style.display=b.style.display==='none'?'block':'none';_campaignRenderHistory();">
-                                <span style="font-size:0.75rem;font-weight:700;color:#888;"><i class="fa-solid fa-clock-rotate-left me-1" style="color:#a78bfa;"></i>Campaign History</span>
-                                <i class="fa-solid fa-chevron-down" style="color:#555;font-size:0.7rem;"></i>
+                                <span class="dlr-label-muted-8" style="font-size:0.75rem;font-weight:700"><i class="fa-solid fa-clock-rotate-left me-1 dlr-text-ca78bfa" ></i>Campaign History</span>
+                                <i class="fa-solid fa-chevron-down dlr-icon-c555" style="font-size:0.7rem"></i>
                             </div>
-                            <div id="dlrCampaignBody" style="display:none;border-top:1px solid rgba(255,255,255,0.04);">
+                            <div id="dlrCampaignBody" class="dlr-misc-11" style="display:none">
                                 <div id="dlrCampaignHistory" style="max-height:180px;overflow-y:auto;padding:4px 8px;">
-                                    <div style="text-align:center;padding:10px;color:#555;font-size:0.75rem;">No campaigns yet</div>
+                                    <div class="dlr-label-faint-5" style="text-align:center;padding:10px;font-size:0.75rem">No campaigns yet</div>
                                 </div>
                             </div>
                         </div>
@@ -1279,7 +1279,7 @@
                                 <span class="dlr-mob-tool-badge" id="dlrMobQueueBadge" style="display:none;">0</span>
                             </button>
                             <div style="flex:1;"></div>
-                            <div id="dlrMobCacheStatus" style="font-size:0.65rem;color:#555;display:flex;align-items:center;gap:3px;"></div>
+                            <div id="dlrMobCacheStatus" class="dlr-label-faint-6" style="font-size:0.65rem;display:flex;align-items:center;gap:3px"></div>
                         </div>
                         <!-- Mobile Search Popup -->
                         <div class="dlr-mob-search-popup" id="dlrMobSearchPopup">
@@ -1300,23 +1300,23 @@
                                 <span style="font-size:0.75rem;font-weight:700;color:var(--accent);"><i class="fa-solid fa-list-ol me-1"></i>Queue <span id="dlrMobQueueCount">0</span></span>
                             </div>
                             <div id="dlrMobQueueList" style="max-height:160px;overflow-y:auto;padding:4px 8px;">
-                                <div style="text-align:center;padding:10px;color:#555;font-size:0.75rem;">Empty queue</div>
+                                <div class="dlr-label-faint-5" style="text-align:center;padding:10px;font-size:0.75rem">Empty queue</div>
                             </div>
                             <div style="display:flex;gap:4px;padding:6px 8px;">
-                                <button onclick="dialerToggleQueue()" style="flex:1;padding:6px;border-radius:6px;border:none;background:linear-gradient(135deg,var(--accent),#00b36b);color:#000;font-weight:700;font-size:0.75rem;cursor:pointer;">
+                                <button onclick="dialerToggleQueue()" class="dlr-btn-accent-2" style="flex:1;padding:6px;border-radius:6px;border:none;font-weight:700;font-size:0.75rem;cursor:pointer">
                                     <i class="fa-solid fa-play me-1"></i>Auto-Dial
                                 </button>
-                                <button onclick="dialerClearQueue()" style="padding:6px 10px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);color:#888;font-weight:600;font-size:0.75rem;cursor:pointer;">Clear</button>
+                                <button onclick="dialerClearQueue()" class="dlr-btn-ghost-7" style="padding:6px 10px;border-radius:6px;font-weight:600;font-size:0.75rem;cursor:pointer">Clear</button>
                             </div>
                         </div>
                         <!-- Contact List -->
                         <div id="dialerContactList" class="dlr-col-body">
                             <div style="text-align:center;padding:30px 16px;">
-                                <div style="width:52px;height:52px;margin:0 auto 14px;background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.12);border-radius:12px;display:flex;align-items:center;justify-content:center;">
-                                    <i class="fa-solid fa-address-book" style="font-size:1.4rem;color:rgba(0,255,136,0.45);"></i>
+                                <div class="dlr-icon-box-accent" style="width:52px;height:52px;margin:0 auto 14px;border-radius:12px;display:flex;align-items:center;justify-content:center">
+                                    <i class="fa-solid fa-address-book dlr-label-4" style="font-size:1.4rem"></i>
                                 </div>
-                                <div style="font-weight:600;color:#777;font-size:0.82rem;margin-bottom:5px;">No contacts loaded</div>
-                                <div style="font-size:0.75rem;color:#505050;">Click <strong style="color:var(--accent);font-weight:600;">Get Contacts</strong> to load your pipeline</div>
+                                <div class="dlr-label-gray" style="font-weight:600;font-size:0.82rem;margin-bottom:5px">No contacts loaded</div>
+                                <div class="dlr-label-dark" style="font-size:0.75rem">Click <strong style="color:var(--accent);font-weight:600;">Get Contacts</strong> to load your pipeline</div>
                             </div>
                         </div>
                     </div>
@@ -1330,10 +1330,10 @@
                         </div>
                         <div id="dlrDetailContent" class="dlr-col-body" style="padding:16px;">
                             <div style="text-align:center;padding:40px 20px;">
-                                <div style="width:44px;height:44px;margin:0 auto 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;display:flex;align-items:center;justify-content:center;">
-                                    <i class="fa-solid fa-file-lines" style="font-size:1.2rem;color:rgba(255,255,255,0.18);"></i>
+                                <div class="dlr-icon-box-neutral" style="width:44px;height:44px;margin:0 auto 12px;border-radius:10px;display:flex;align-items:center;justify-content:center">
+                                    <i class="fa-solid fa-file-lines dlr-label-5" style="font-size:1.2rem"></i>
                                 </div>
-                                <div style="color:#555;font-size:0.8rem;font-weight:500;">Select a contact to review their profile</div>
+                                <div class="dlr-label-faint-7" style="font-size:0.8rem;font-weight:500">Select a contact to review their profile</div>
                             </div>
                         </div>
                     </div>
@@ -1383,7 +1383,7 @@
                                             </button>
                                             <!-- Voicemail App -->
                                             <button class="ios-app-icon" onclick="iosOpenApp('voicemail')">
-                                                <div class="ios-icon" style="background:linear-gradient(180deg,#FF9500 0%,#FF6B00 100%);">
+                                                <div class="ios-icon dlr-bg-ios-orange" >
                                                     <i class="fa-solid fa-voicemail"></i>
                                                 </div>
                                                 <span class="ios-app-label">Voicemail</span>
@@ -1399,7 +1399,7 @@
                                             </button>
                                             <!-- Inbox App (iMessage-style Conversations) -->
                                             <button class="ios-app-icon" onclick="iosOpenApp('inbox')">
-                                                <div class="ios-icon" style="background:linear-gradient(180deg,#5856D6 0%,#AF52DE 100%);">
+                                                <div class="ios-icon dlr-bg-ios-purple" >
                                                     <i class="fa-solid fa-inbox"></i>
                                                 </div>
                                                 <span class="ios-app-label">Conversations</span>
@@ -1407,7 +1407,7 @@
                                             </button>
                                             <!-- Calendar App (LeadConnector Appointments) -->
                                             <button class="ios-app-icon" onclick="iosOpenApp('calendar')">
-                                                <div class="ios-icon" style="background:linear-gradient(180deg,#FF3B30 0%,#FF2D55 100%);">
+                                                <div class="ios-icon dlr-bg-ios-red" >
                                                     <div style="display:flex;flex-direction:column;align-items:center;line-height:1;">
                                                         <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;opacity:0.9;" id="iosCalIconDay"></span>
                                                         <span style="font-size:1.4rem;font-weight:300;margin-top:-2px;" id="iosCalIconDate"></span>
@@ -1417,7 +1417,7 @@
                                             </button>
                                             <!-- Discord App -->
                                             <button class="ios-app-icon" onclick="iosOpenApp('discord')">
-                                                <div class="ios-icon" style="background:linear-gradient(180deg,#5865f2 0%,#4752c4 100%);">
+                                                <div class="ios-icon dlr-bg-discord" >
                                                     <i class="fa-brands fa-discord"></i>
                                                 </div>
                                                 <span class="ios-app-label">Discord</span>
@@ -1425,7 +1425,7 @@
                                             </button>
                                             <!-- Slack App -->
                                             <button class="ios-app-icon" onclick="iosOpenApp('slack')">
-                                                <div class="ios-icon" style="background:linear-gradient(180deg,#611f69 0%,#4a154b 100%);">
+                                                <div class="ios-icon dlr-bg-slack" >
                                                     <i class="fa-brands fa-slack"></i>
                                                 </div>
                                                 <span class="ios-app-label">Slack</span>
@@ -1525,7 +1525,7 @@
                                                 <div style="font-weight:700;font-size:0.95rem;">Recents</div>
                                             </div>
                                             <div style="display:flex;gap:4px;">
-                                                <button id="dialerCallsViewAllBtn" onclick="dialerToggleCallHistoryScope()" class="ios-nav-action" style="font-size:0.75rem;padding:3px 8px;border-radius:12px;background:rgba(0,122,255,0.12);color:#007AFF;">
+                                                <button id="dialerCallsViewAllBtn" onclick="dialerToggleCallHistoryScope()" class="ios-nav-action dlr-panel-10" style="font-size:0.75rem;padding:3px 8px;border-radius:12px">
                                                     <span id="dialerCallsLabel" style="font-weight:600;">All</span>
                                                 </button>
                                                 <button onclick="dialerLoadAllCallHistory()" class="ios-nav-action" title="Refresh">
@@ -1536,8 +1536,8 @@
                                         <div id="dlrHistoryCalls" class="ios-call-log-scroll">
                                             <div id="dialerHistoryList" style="padding:0;">
                                                 <div class="ios-empty-state" style="padding-top:60px;">
-                                                    <div class="ios-empty-icon" style="background:rgba(52,199,89,0.08);border-color:rgba(52,199,89,0.15);">
-                                                        <i class="fa-solid fa-phone" style="color:#34C759;"></i>
+                                                    <div class="ios-empty-icon dlr-bg-bordered" >
+                                                        <i class="fa-solid fa-phone dlr-text-c34c759" ></i>
                                                     </div>
                                                     <div class="ios-empty-title">No Recent Calls</div>
                                                     <div class="ios-empty-sub">Your call history will appear here</div>
@@ -1557,7 +1557,7 @@
                                                 <div style="font-weight:700;font-size:0.95rem;">Voicemail</div>
                                             </div>
                                             <div style="display:flex;gap:4px;">
-                                                <button id="dialerRecsViewAllBtn" onclick="dialerToggleRecordingsScope()" class="ios-nav-action" style="font-size:0.75rem;padding:3px 8px;border-radius:12px;background:rgba(0,122,255,0.12);color:#007AFF;">
+                                                <button id="dialerRecsViewAllBtn" onclick="dialerToggleRecordingsScope()" class="ios-nav-action dlr-panel-10" style="font-size:0.75rem;padding:3px 8px;border-radius:12px">
                                                     <span id="dialerRecordingsLabel" style="font-weight:600;">All</span>
                                                 </button>
                                                 <button onclick="dialerLoadRecordings()" class="ios-nav-action" title="Refresh">
@@ -1568,8 +1568,8 @@
                                         <div id="dlrHistoryRecordings" class="ios-voicemail-scroll">
                                             <div id="dialerRecordingsList" style="padding:0;">
                                                 <div class="ios-empty-state" style="padding-top:60px;">
-                                                    <div class="ios-empty-icon" style="background:rgba(255,149,0,0.08);border-color:rgba(255,149,0,0.15);">
-                                                        <i class="fa-solid fa-voicemail" style="color:#FF9500;"></i>
+                                                    <div class="ios-empty-icon dlr-vm-unread" >
+                                                        <i class="fa-solid fa-voicemail dlr-text-ios-orange" ></i>
                                                     </div>
                                                     <div class="ios-empty-title">No Voicemail</div>
                                                     <div class="ios-empty-sub">Recorded calls will appear here</div>
@@ -1581,7 +1581,7 @@
 
                                     <!-- ═══ VOICEMAIL APP (iPhone-style) ═══ -->
                                     <div class="ios-app-view" id="iosAppVoicemail" style="display:none;">
-                                        <div class="ios-nav-bar" style="background:rgba(255,149,0,0.04);border-bottom:1px solid rgba(255,149,0,0.1);">
+                                        <div class="ios-nav-bar dlr-misc-12" >
                                             <button class="ios-back-btn" onclick="iosGoHome()">
                                                 <i class="fa-solid fa-chevron-left"></i>
                                             </button>
@@ -1597,8 +1597,8 @@
                                         <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;">
                                             <div id="vmList" style="padding:0;">
                                                 <div class="ios-empty-state" style="padding-top:60px;">
-                                                    <div class="ios-empty-icon" style="background:rgba(255,149,0,0.08);border-color:rgba(255,149,0,0.15);">
-                                                        <i class="fa-solid fa-voicemail" style="color:#FF9500;"></i>
+                                                    <div class="ios-empty-icon dlr-vm-unread" >
+                                                        <i class="fa-solid fa-voicemail dlr-text-ios-orange" ></i>
                                                     </div>
                                                     <div class="ios-empty-title">No Voicemail</div>
                                                     <div class="ios-empty-sub">Missed calls with messages will appear here</div>
@@ -1606,7 +1606,7 @@
                                             </div>
                                         </div>
                                         <!-- Audio player bar (hidden by default) -->
-                                        <div id="vmPlayerBar" style="display:none;padding:10px 14px;background:rgba(255,149,0,0.06);border-top:1px solid rgba(255,149,0,0.1);flex-shrink:0;">
+                                        <div id="vmPlayerBar" class="dlr-misc-13" style="display:none;padding:10px 14px;flex-shrink:0">
                                             <div id="vmPlayerContent"></div>
                                             <audio id="vmAudioPlayer" style="display:none;"></audio>
                                         </div>
@@ -1616,21 +1616,21 @@
                                     <!-- ═══ INBOX APP (Unified Conversations) ═══ -->
                                     <div class="ios-app-view" id="iosAppInbox" style="display:none;">
                                         <!-- iMessage-style header -->
-                                        <div style="padding:66px 16px 0;background:#000;flex-shrink:0;">
+                                        <div class="dlr-misc-14" style="padding:66px 16px 0;flex-shrink:0">
                                             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
                                                 <button class="ios-back-btn" onclick="iosGoHome()" style="margin:0;">
                                                     <i class="fa-solid fa-chevron-left"></i>
                                                 </button>
-                                                <div style="font-weight:800;font-size:1.15rem;color:#fff;letter-spacing:-0.3px;">Conversations</div>
+                                                <div class="dlr-label-6" style="font-weight:800;font-size:1.15rem;letter-spacing:-0.3px">Conversations</div>
                                                 <button onclick="inboxRefresh()" class="ios-nav-action" title="Refresh" style="margin:0;">
                                                     <i class="fa-solid fa-arrows-rotate" id="inboxRefreshIcon"></i>
                                                 </button>
                                             </div>
                                             <!-- Search bar -->
                                             <div style="position:relative;margin-bottom:8px;">
-                                                <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#666;font-size:0.75rem;"></i>
+                                                <i class="fa-solid fa-magnifying-glass dlr-label-dim" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:0.75rem"></i>
                                                 <input type="text" id="inboxSearchInput" placeholder="Search" oninput="inboxDebounceSearch()"
-                                                    style="width:100%;box-sizing:border-box;padding:8px 10px 8px 30px;background:rgba(255,255,255,0.07);border:none;border-radius:10px;color:#fff;font-size:0.8rem;outline:none;">
+                                                    class="dlr-input-2" style="width:100%;box-sizing:border-box;padding:8px 10px 8px 30px;border:none;border-radius:10px;font-size:0.8rem;outline:none">
                                             </div>
                                             <!-- Filter pills -->
                                             <div style="display:flex;gap:4px;padding-bottom:8px;" id="inboxFilterRow">
@@ -1641,27 +1641,27 @@
                                             </div>
                                         </div>
                                         <!-- Conversation list -->
-                                        <div id="inboxConversationList" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#000;padding:0;">
+                                        <div id="inboxConversationList" class="dlr-misc-15" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0">
                                             <div class="ios-empty-state" style="padding-top:50px;">
-                                                <div class="ios-empty-icon" style="background:rgba(88,86,214,0.08);border-color:rgba(88,86,214,0.15);">
-                                                    <i class="fa-solid fa-inbox" style="color:#5856D6;"></i>
+                                                <div class="ios-empty-icon dlr-bg-bordered-2" >
+                                                    <i class="fa-solid fa-inbox dlr-text-purple" ></i>
                                                 </div>
                                                 <div class="ios-empty-title">No Conversations</div>
                                                 <div class="ios-empty-sub">Conversations will appear here</div>
                                             </div>
                                         </div>
                                         <!-- Inbox Thread View (slide-in from right) -->
-                                        <div id="inboxThreadView" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:#000;z-index:2;flex-direction:column;">
-                                            <div style="display:flex;align-items:center;gap:8px;padding:66px 12px 10px;background:rgba(255,255,255,0.03);border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
-                                                <button onclick="inboxBackToList()" style="background:none;border:none;color:#007AFF;font-size:0.85rem;cursor:pointer;padding:4px;display:flex;align-items:center;gap:4px;">
+                                        <div id="inboxThreadView" class="dlr-misc-16" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;flex-direction:column">
+                                            <div class="dlr-misc-17" style="display:flex;align-items:center;gap:8px;padding:66px 12px 10px;flex-shrink:0">
+                                                <button onclick="inboxBackToList()" class="dlr-btn-blue-2" style="background:none;border:none;font-size:0.85rem;cursor:pointer;padding:4px;display:flex;align-items:center;gap:4px">
                                                     <i class="fa-solid fa-chevron-left"></i>
                                                     <span style="font-size:0.75rem;">Back</span>
                                                 </button>
                                                 <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;">
-                                                    <div id="inboxThreadAvatar" style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#5B7FFF,#3B5FE0);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:#fff;flex-shrink:0;">?</div>
+                                                    <div id="inboxThreadAvatar" class="dlr-icon-box-blue" style="width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;flex-shrink:0">?</div>
                                                     <div style="text-align:center;">
-                                                        <div id="inboxThreadName" style="font-weight:700;font-size:0.82rem;color:#fff;">Contact</div>
-                                                        <div id="inboxThreadPhone" style="font-size:0.7rem;color:#8E8E93;"></div>
+                                                        <div id="inboxThreadName" class="dlr-heading-5" style="font-weight:700;font-size:0.82rem">Contact</div>
+                                                        <div id="inboxThreadPhone" class="dlr-label-ios" style="font-size:0.7rem"></div>
                                                     </div>
                                                 </div>
                                                 <span id="inboxThreadBadge" style="display:none;font-size:0.7rem;padding:2px 6px;border-radius:6px;font-weight:600;"></span>
@@ -1714,7 +1714,7 @@
 
                                     <!-- ═══ CALENDAR APP (LeadConnector Appointments) ═══ -->
                                     <div class="ios-app-view" id="iosAppCalendar" style="display:none;">
-                                        <div class="ios-nav-bar" style="background:rgba(255,59,48,0.06);border-bottom:1px solid rgba(255,59,48,0.1);">
+                                        <div class="ios-nav-bar dlr-misc-18" >
                                             <button class="ios-back-btn" onclick="iosGoHome()">
                                                 <i class="fa-solid fa-chevron-left"></i>
                                             </button>
@@ -1722,13 +1722,13 @@
                                                 <div style="font-weight:700;font-size:0.95rem;">Calendar</div>
                                             </div>
                                             <div style="display:flex;gap:4px;align-items:center;">
-                                                <select id="iosCalendarPicker" onchange="calendarSwitchCalendar()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;font-size:0.75rem;padding:3px 6px;border-radius:6px;max-width:100px;outline:none;">
+                                                <select id="iosCalendarPicker" onchange="calendarSwitchCalendar()" class="dlr-input-3" style="font-size:0.75rem;padding:3px 6px;border-radius:6px;max-width:100px;outline:none">
                                                     <option value="">Loading...</option>
                                                 </select>
-                                                <button id="iosCalGoogleBtn" title="Connect Google Calendar" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#666;font-size:0.75rem;padding:4px 7px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.12)'" onmouseout="this.style.background='rgba(255,255,255,0.06)'">
+                                                <button id="iosCalGoogleBtn" title="Connect Google Calendar" class="dlr-btn-3" style="font-size:0.75rem;padding:4px 7px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s">
                                                     <i class="fa-brands fa-google"></i>
                                                 </button>
-                                                <button id="iosCalAddBtn" title="Add Event" onclick="calendarShowCreateForm()" style="background:rgba(255,59,48,0.15);border:1px solid rgba(255,59,48,0.3);color:#FF3B30;font-size:0.75rem;padding:4px 7px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='rgba(255,59,48,0.25)'" onmouseout="this.style.background='rgba(255,59,48,0.15)'">
+                                                <button id="iosCalAddBtn" title="Add Event" onclick="calendarShowCreateForm()" class="dlr-btn-ios-delete" style="font-size:0.75rem;padding:4px 7px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s">
                                                     <i class="fa-solid fa-plus"></i>
                                                 </button>
                                             </div>
@@ -1736,20 +1736,20 @@
 
                                         <!-- Month Header -->
                                         <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px 4px;flex-shrink:0;">
-                                            <button onclick="calendarPrevMonth()" style="background:none;border:none;color:#FF3B30;font-size:0.85rem;cursor:pointer;padding:4px 8px;"><i class="fa-solid fa-chevron-left"></i></button>
-                                            <div id="iosCalMonthTitle" style="font-size:0.9rem;font-weight:700;color:#fff;"></div>
-                                            <button onclick="calendarNextMonth()" style="background:none;border:none;color:#FF3B30;font-size:0.85rem;cursor:pointer;padding:4px 8px;"><i class="fa-solid fa-chevron-right"></i></button>
+                                            <button onclick="calendarPrevMonth()" class="dlr-btn-ios-delete-2" style="background:none;border:none;font-size:0.85rem;cursor:pointer;padding:4px 8px"><i class="fa-solid fa-chevron-left"></i></button>
+                                            <div id="iosCalMonthTitle" class="dlr-heading-6" style="font-size:0.9rem;font-weight:700"></div>
+                                            <button onclick="calendarNextMonth()" class="dlr-btn-ios-delete-2" style="background:none;border:none;font-size:0.85rem;cursor:pointer;padding:4px 8px"><i class="fa-solid fa-chevron-right"></i></button>
                                         </div>
 
                                         <!-- Day-of-week headers -->
                                         <div style="display:grid;grid-template-columns:repeat(7,1fr);padding:2px 12px;flex-shrink:0;">
-                                            <div style="text-align:center;font-size:0.7rem;color:#666;font-weight:600;">SUN</div>
-                                            <div style="text-align:center;font-size:0.7rem;color:#666;font-weight:600;">MON</div>
-                                            <div style="text-align:center;font-size:0.7rem;color:#666;font-weight:600;">TUE</div>
-                                            <div style="text-align:center;font-size:0.7rem;color:#666;font-weight:600;">WED</div>
-                                            <div style="text-align:center;font-size:0.7rem;color:#666;font-weight:600;">THU</div>
-                                            <div style="text-align:center;font-size:0.7rem;color:#666;font-weight:600;">FRI</div>
-                                            <div style="text-align:center;font-size:0.7rem;color:#666;font-weight:600;">SAT</div>
+                                            <div class="dlr-label-dim-2" style="text-align:center;font-size:0.7rem;font-weight:600">SUN</div>
+                                            <div class="dlr-label-dim-2" style="text-align:center;font-size:0.7rem;font-weight:600">MON</div>
+                                            <div class="dlr-label-dim-2" style="text-align:center;font-size:0.7rem;font-weight:600">TUE</div>
+                                            <div class="dlr-label-dim-2" style="text-align:center;font-size:0.7rem;font-weight:600">WED</div>
+                                            <div class="dlr-label-dim-2" style="text-align:center;font-size:0.7rem;font-weight:600">THU</div>
+                                            <div class="dlr-label-dim-2" style="text-align:center;font-size:0.7rem;font-weight:600">FRI</div>
+                                            <div class="dlr-label-dim-2" style="text-align:center;font-size:0.7rem;font-weight:600">SAT</div>
                                         </div>
 
                                         <!-- Month grid -->
@@ -1758,72 +1758,72 @@
                                         <!-- Slot list (scrollable) -->
                                         <div style="flex:1;overflow-y:auto;padding:0 16px 8px;" id="iosCalSlotArea">
                                             <!-- Selected date header -->
-                                            <div id="iosCalDateHeader" style="display:none;padding:8px 0 6px;border-top:1px solid rgba(255,255,255,0.06);">
-                                                <div style="font-size:0.75rem;font-weight:700;color:#FF3B30;text-transform:uppercase;letter-spacing:0.3px;" id="iosCalDateLabel"></div>
+                                            <div id="iosCalDateHeader" class="dlr-misc-19" style="display:none;padding:8px 0 6px">
+                                                <div class="dlr-label-red" style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.3px" id="iosCalDateLabel"></div>
                                             </div>
                                             <!-- Slot list -->
                                             <div id="iosCalSlots"></div>
                                             <!-- Empty state -->
                                             <div id="iosCalEmpty" class="ios-empty-state" style="padding-top:24px;">
-                                                <div class="ios-empty-icon" style="background:rgba(255,59,48,0.08);border-color:rgba(255,59,48,0.15);">
-                                                    <i class="fa-solid fa-calendar-day" style="color:#FF3B30;"></i>
+                                                <div class="ios-empty-icon dlr-bg-bordered-3" >
+                                                    <i class="fa-solid fa-calendar-day dlr-text-ios-red" ></i>
                                                 </div>
                                                 <div class="ios-empty-title">Select a Date</div>
-                                                <div class="ios-empty-sub">Tap any date to see events and available times<br><span style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;font-size:0.75rem;"><span style="width:6px;height:6px;border-radius:50%;background:#34C759;display:inline-block;"></span> Appointments <span style="width:6px;height:6px;border-radius:50%;background:#4285F4;display:inline-block;margin-left:6px;"></span> Google <span style="width:6px;height:6px;border-radius:50%;background:#FF3B30;display:inline-block;margin-left:6px;"></span> Open slots</span></div>
+                                                <div class="ios-empty-sub dlr-misc-22 dlr-misc-21 dlr-misc-20">Tap any date to see events and available times<br><span style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;fostyle="width:6px;height:6px;border-radius:50%;display:inline-block"9;display:inline-block;"></span> Appointstyle="width:6px;height:6px;border-radius:50%;display:inline-block;margin-left:6px"n-left:6px;"></span> Google <span style="width:6px;height:6px;border-radius:50%;display:inline-block;margin-left:6px"></span> Open slots</span></div>
                                             </div>
                                         </div>
 
                                         <!-- Calendar overlay (booking confirm + event detail + success/error) -->
-                                        <div id="iosCalConfirm" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.92);z-index:10;flex-direction:column;align-items:center;justify-content:center;padding:24px;">
+                                        <div id="iosCalConfirm" class="dlr-misc-23" style="display:none;position:absolute;inset:0;z-index:10;flex-direction:column;align-items:center;justify-content:center;padding:24px">
                                             <!-- Booking confirm state -->
                                             <div id="iosCalConfirmContent">
                                                 <div style="text-align:center;margin-bottom:20px;">
-                                                    <div style="width:56px;height:56px;border-radius:50%;background:rgba(255,59,48,0.12);border:1px solid rgba(255,59,48,0.2);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
-                                                        <i class="fa-solid fa-calendar-check" style="color:#FF3B30;font-size:1.3rem;"></i>
+                                                    <div class="dlr-icon-box-red" style="width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+                                                        <i class="fa-solid fa-calendar-check dlr-icon-ios-red" style="font-size:1.3rem"></i>
                                                     </div>
-                                                    <div style="font-size:0.95rem;font-weight:700;color:#fff;">Confirm Appointment</div>
+                                                    <div class="dlr-heading-7" style="font-size:0.95rem;font-weight:700">Confirm Appointment</div>
                                                 </div>
-                                                <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px;margin-bottom:20px;">
+                                                <div class="dlr-panel-11" style="border-radius:12px;padding:14px;margin-bottom:20px">
                                                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                                                        <i class="fa-solid fa-user" style="color:#888;font-size:0.75rem;width:14px;text-align:center;"></i>
-                                                        <span id="iosCalConfirmName" style="font-size:0.82rem;color:#ccc;"></span>
+                                                        <i class="fa-solid fa-user dlr-label-muted-9" style="font-size:0.75rem;width:14px;text-align:center"></i>
+                                                        <span id="iosCalConfirmName" class="dlr-label-light-2" style="font-size:0.82rem"></span>
                                                     </div>
                                                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                                                        <i class="fa-solid fa-calendar" style="color:#888;font-size:0.75rem;width:14px;text-align:center;"></i>
-                                                        <span id="iosCalConfirmDate" style="font-size:0.82rem;color:#ccc;"></span>
+                                                        <i class="fa-solid fa-calendar dlr-label-muted-9" style="font-size:0.75rem;width:14px;text-align:center"></i>
+                                                        <span id="iosCalConfirmDate" class="dlr-label-light-2" style="font-size:0.82rem"></span>
                                                     </div>
                                                     <div style="display:flex;align-items:center;gap:8px;">
-                                                        <i class="fa-solid fa-clock" style="color:#888;font-size:0.75rem;width:14px;text-align:center;"></i>
-                                                        <span id="iosCalConfirmTime" style="font-size:0.82rem;color:#ccc;"></span>
+                                                        <i class="fa-solid fa-clock dlr-label-muted-9" style="font-size:0.75rem;width:14px;text-align:center"></i>
+                                                        <span id="iosCalConfirmTime" class="dlr-label-light-2" style="font-size:0.82rem"></span>
                                                     </div>
                                                 </div>
-                                                <button id="iosCalConfirmBtn" onclick="calendarConfirmBooking()" style="width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#FF3B30,#FF2D55);color:#fff;font-weight:700;font-size:0.88rem;cursor:pointer;transition:all 0.15s;">
+                                                <button id="iosCalConfirmBtn" onclick="calendarConfirmBooking()" class="dlr-btn-ios-red" style="width:100%;padding:12px;border:none;border-radius:10px;font-weight:700;font-size:0.88rem;cursor:pointer;transition:all 0.15s">
                                                     <i class="fa-solid fa-check me-1"></i> Book Appointment
                                                 </button>
-                                                <button onclick="calendarDismissConfirm()" style="width:100%;padding:10px;border:none;background:none;color:#888;font-size:0.78rem;cursor:pointer;margin-top:8px;">Cancel</button>
+                                                <button onclick="calendarDismissConfirm()" class="dlr-btn-ghost-8" style="width:100%;padding:10px;border:none;background:none;font-size:0.78rem;cursor:pointer;margin-top:8px">Cancel</button>
                                             </div>
                                             <!-- Event detail/edit state -->
                                             <div id="iosCalEventDetail" style="display:none;width:100%;max-width:320px;">
                                                 <div style="text-align:center;margin-bottom:16px;">
-                                                    <div style="width:56px;height:56px;border-radius:50%;background:rgba(52,199,89,0.12);border:1px solid rgba(52,199,89,0.2);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
-                                                        <i class="fa-solid fa-calendar-day" style="color:#34C759;font-size:1.3rem;"></i>
+                                                    <div class="dlr-icon-box" style="width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+                                                        <i class="fa-solid fa-calendar-day dlr-icon-c34c759" style="font-size:1.3rem"></i>
                                                     </div>
-                                                    <div id="iosCalEvTitle" style="font-size:0.95rem;font-weight:700;color:#fff;"></div>
+                                                    <div id="iosCalEvTitle" class="dlr-heading-7" style="font-size:0.95rem;font-weight:700"></div>
                                                 </div>
-                                                <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px;margin-bottom:16px;">
+                                                <div class="dlr-panel-12" style="border-radius:12px;padding:14px;margin-bottom:16px">
                                                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                                                        <i class="fa-solid fa-calendar" style="color:#888;font-size:0.75rem;width:14px;text-align:center;"></i>
-                                                        <span id="iosCalEvDate" style="font-size:0.82rem;color:#ccc;"></span>
+                                                        <i class="fa-solid fa-calendar dlr-label-muted-9" style="font-size:0.75rem;width:14px;text-align:center"></i>
+                                                        <span id="iosCalEvDate" class="dlr-label-light-2" style="font-size:0.82rem"></span>
                                                     </div>
                                                     <div style="display:flex;align-items:center;gap:8px;">
-                                                        <i class="fa-solid fa-clock" style="color:#888;font-size:0.75rem;width:14px;text-align:center;"></i>
-                                                        <span id="iosCalEvTime" style="font-size:0.82rem;color:#ccc;"></span>
+                                                        <i class="fa-solid fa-clock dlr-label-muted-9" style="font-size:0.75rem;width:14px;text-align:center"></i>
+                                                        <span id="iosCalEvTime" class="dlr-label-light-2" style="font-size:0.82rem"></span>
                                                     </div>
                                                 </div>
                                                 <!-- Editable fields -->
                                                 <div style="margin-bottom:12px;">
-                                                    <label style="font-size:0.75rem;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:4px;">Status</label>
-                                                    <select id="iosCalEvStatus" style="width:100%;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;font-size:0.82rem;outline:none;">
+                                                    <label class="dlr-label-muted-10" style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:4px">Status</label>
+                                                    <select id="iosCalEvStatus" class="dlr-input-4" style="width:100%;padding:10px 12px;border-radius:8px;font-size:0.82rem;outline:none">
                                                         <option value="new">New</option>
                                                         <option value="confirmed">Confirmed</option>
                                                         <option value="showed">Showed</option>
@@ -1832,78 +1832,78 @@
                                                     </select>
                                                 </div>
                                                 <div style="margin-bottom:16px;">
-                                                    <label style="font-size:0.75rem;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:4px;">Notes</label>
-                                                    <textarea id="iosCalEvNotes" rows="3" placeholder="Add notes..." style="width:100%;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;font-size:0.82rem;resize:none;outline:none;font-family:inherit;box-sizing:border-box;"></textarea>
+                                                    <label class="dlr-label-muted-10" style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:4px">Notes</label>
+                                                    <textarea id="iosCalEvNotes" rows="3" placeholder="Add notes..." class="dlr-input-5" style="width:100%;padding:10px 12px;border-radius:8px;font-size:0.82rem;resize:none;outline:none;font-family:inherit;box-sizing:border-box"></textarea>
                                                 </div>
                                                 <!-- Action buttons -->
                                                 <div style="display:flex;gap:8px;">
-                                                    <button id="iosCalEvSaveBtn" onclick="calendarSaveEvent()" style="flex:1;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#34C759,#30B350);color:#fff;font-weight:700;font-size:0.84rem;cursor:pointer;">
+                                                    <button id="iosCalEvSaveBtn" onclick="calendarSaveEvent()" class="dlr-btn-4" style="flex:1;padding:12px;border:none;border-radius:10px;font-weight:700;font-size:0.84rem;cursor:pointer">
                                                         <i class="fa-solid fa-check me-1"></i> Save Changes
                                                     </button>
-                                                    <button id="iosCalEvDeleteBtn" onclick="calendarDeleteEvent()" style="padding:12px 14px;border:none;border-radius:10px;background:rgba(255,59,48,0.12);border:1px solid rgba(255,59,48,0.2);color:#FF3B30;font-weight:700;font-size:0.84rem;cursor:pointer;">
+                                                    <button id="iosCalEvDeleteBtn" onclick="calendarDeleteEvent()" class="dlr-btn-ios-delete-3" style="padding:12px 14px;border:none;border-radius:10px;font-weight:700;font-size:0.84rem;cursor:pointer">
                                                         <i class="fa-solid fa-trash"></i>
                                                     </button>
                                                 </div>
-                                                <button onclick="calendarDismissConfirm()" style="width:100%;padding:10px;border:none;background:none;color:#888;font-size:0.78rem;cursor:pointer;margin-top:8px;">Close</button>
+                                                <button onclick="calendarDismissConfirm()" class="dlr-btn-ghost-8" style="width:100%;padding:10px;border:none;background:none;font-size:0.78rem;cursor:pointer;margin-top:8px">Close</button>
                                             </div>
                                             <!-- Success state -->
                                             <div id="iosCalSuccessContent" style="display:none;text-align:center;">
-                                                <div style="width:64px;height:64px;border-radius:50%;background:rgba(52,199,89,0.12);border:1px solid rgba(52,199,89,0.25);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
-                                                    <i class="fa-solid fa-check" style="color:#34C759;font-size:1.5rem;"></i>
+                                                <div class="dlr-icon-box-2" style="width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+                                                    <i class="fa-solid fa-check dlr-icon-c34c759-2" style="font-size:1.5rem"></i>
                                                 </div>
-                                                <div style="font-size:1rem;font-weight:700;color:#fff;margin-bottom:4px;">Booked!</div>
-                                                <div id="iosCalSuccessMsg" style="font-size:0.82rem;color:#888;margin-bottom:20px;"></div>
-                                                <button onclick="calendarDismissConfirm()" style="padding:10px 24px;border:none;border-radius:8px;background:rgba(52,199,89,0.15);border:1px solid rgba(52,199,89,0.2);color:#34C759;font-weight:600;font-size:0.82rem;cursor:pointer;">Done</button>
+                                                <div class="dlr-heading-8" style="font-size:1rem;font-weight:700;margin-bottom:4px">Booked!</div>
+                                                <div id="iosCalSuccessMsg" class="dlr-label-muted-11" style="font-size:0.82rem;margin-bottom:20px"></div>
+                                                <button onclick="calendarDismissConfirm()" class="dlr-btn-5" style="padding:10px 24px;border:none;border-radius:8px;font-weight:600;font-size:0.82rem;cursor:pointer">Done</button>
                                             </div>
                                             <!-- Error state -->
                                             <div id="iosCalErrorContent" style="display:none;text-align:center;">
-                                                <div style="width:64px;height:64px;border-radius:50%;background:rgba(255,59,48,0.12);border:1px solid rgba(255,59,48,0.25);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
-                                                    <i class="fa-solid fa-xmark" style="color:#FF3B30;font-size:1.5rem;"></i>
+                                                <div class="dlr-icon-box-red-2" style="width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+                                                    <i class="fa-solid fa-xmark dlr-icon-ios-red-2" style="font-size:1.5rem"></i>
                                                 </div>
-                                                <div style="font-size:1rem;font-weight:700;color:#fff;margin-bottom:4px;">Booking Failed</div>
-                                                <div id="iosCalErrorMsg" style="font-size:0.82rem;color:#888;margin-bottom:20px;"></div>
-                                                <button onclick="calendarDismissConfirm()" style="padding:10px 24px;border:none;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#aaa;font-weight:600;font-size:0.82rem;cursor:pointer;">Close</button>
+                                                <div class="dlr-heading-8" style="font-size:1rem;font-weight:700;margin-bottom:4px">Booking Failed</div>
+                                                <div id="iosCalErrorMsg" class="dlr-label-muted-11" style="font-size:0.82rem;margin-bottom:20px"></div>
+                                                <button onclick="calendarDismissConfirm()" class="dlr-btn-ghost-9" style="padding:10px 24px;border:none;border-radius:8px;font-weight:600;font-size:0.82rem;cursor:pointer">Close</button>
                                             </div>
                                             <!-- Create Event Form -->
                                             <div id="iosCalCreateForm" style="display:none;width:100%;max-width:320px;">
                                                 <div style="text-align:center;margin-bottom:16px;">
-                                                    <div style="width:56px;height:56px;border-radius:50%;background:rgba(255,59,48,0.12);border:1px solid rgba(255,59,48,0.2);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
-                                                        <i class="fa-solid fa-calendar-plus" style="color:#FF3B30;font-size:1.3rem;"></i>
+                                                    <div class="dlr-icon-box-red" style="width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+                                                        <i class="fa-solid fa-calendar-plus dlr-icon-ios-red" style="font-size:1.3rem"></i>
                                                     </div>
-                                                    <div style="font-size:0.95rem;font-weight:700;color:#fff;">New Event</div>
+                                                    <div class="dlr-heading-7" style="font-size:0.95rem;font-weight:700">New Event</div>
                                                 </div>
                                                 <div style="display:flex;flex-direction:column;gap:12px;">
                                                     <div>
-                                                        <label style="font-size:0.75rem;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:4px;">Title</label>
-                                                        <input id="iosCalCreateTitle" type="text" placeholder="Event title" style="width:100%;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;font-size:0.82rem;outline:none;box-sizing:border-box;">
+                                                        <label class="dlr-label-muted-10" style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:4px">Title</label>
+                                                        <input id="iosCalCreateTitle" type="text" placeholder="Event title" class="dlr-input-6" style="width:100%;padding:10px 12px;border-radius:8px;font-size:0.82rem;outline:none;box-sizing:border-box">
                                                     </div>
                                                     <div>
-                                                        <label style="font-size:0.75rem;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:4px;">Contact</label>
-                                                        <div id="iosCalCreateContact" style="padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#ccc;font-size:0.82rem;"></div>
+                                                        <label class="dlr-label-muted-10" style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:4px">Contact</label>
+                                                        <div id="iosCalCreateContact" class="dlr-panel-13" style="padding:10px 12px;border-radius:8px;font-size:0.82rem"></div>
                                                     </div>
                                                     <div>
-                                                        <label style="font-size:0.75rem;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:4px;">Date</label>
-                                                        <input id="iosCalCreateDate" type="date" style="width:100%;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;font-size:0.82rem;outline:none;box-sizing:border-box;">
+                                                        <label class="dlr-label-muted-10" style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:4px">Date</label>
+                                                        <input id="iosCalCreateDate" type="date" class="dlr-input-6" style="width:100%;padding:10px 12px;border-radius:8px;font-size:0.82rem;outline:none;box-sizing:border-box">
                                                     </div>
                                                     <div style="display:flex;gap:8px;">
                                                         <div style="flex:1;">
-                                                            <label style="font-size:0.75rem;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:4px;">Start Time</label>
-                                                            <input id="iosCalCreateStart" type="time" style="width:100%;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;font-size:0.82rem;outline:none;box-sizing:border-box;">
+                                                            <label class="dlr-label-muted-10" style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:4px">Start Time</label>
+                                                            <input id="iosCalCreateStart" type="time" class="dlr-input-6" style="width:100%;padding:10px 12px;border-radius:8px;font-size:0.82rem;outline:none;box-sizing:border-box">
                                                         </div>
                                                         <div style="flex:1;">
-                                                            <label style="font-size:0.75rem;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:4px;">End Time</label>
-                                                            <input id="iosCalCreateEnd" type="time" style="width:100%;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;font-size:0.82rem;outline:none;box-sizing:border-box;">
+                                                            <label class="dlr-label-muted-10" style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:4px">End Time</label>
+                                                            <input id="iosCalCreateEnd" type="time" class="dlr-input-6" style="width:100%;padding:10px 12px;border-radius:8px;font-size:0.82rem;outline:none;box-sizing:border-box">
                                                         </div>
                                                     </div>
                                                     <div>
-                                                        <label style="font-size:0.75rem;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:4px;">Notes</label>
-                                                        <textarea id="iosCalCreateNotes" rows="2" placeholder="Optional notes..." style="width:100%;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;font-size:0.82rem;resize:none;outline:none;font-family:inherit;box-sizing:border-box;"></textarea>
+                                                        <label class="dlr-label-muted-10" style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:4px">Notes</label>
+                                                        <textarea id="iosCalCreateNotes" rows="2" placeholder="Optional notes..." class="dlr-input-5" style="width:100%;padding:10px 12px;border-radius:8px;font-size:0.82rem;resize:none;outline:none;font-family:inherit;box-sizing:border-box"></textarea>
                                                     </div>
                                                 </div>
-                                                <button id="iosCalCreateBtn" onclick="calendarCreateEvent()" style="width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#FF3B30,#FF2D55);color:#fff;font-weight:700;font-size:0.88rem;cursor:pointer;margin-top:16px;transition:all 0.15s;">
+                                                <button id="iosCalCreateBtn" onclick="calendarCreateEvent()" class="dlr-btn-ios-red-2" style="width:100%;padding:12px;border:none;border-radius:10px;font-weight:700;font-size:0.88rem;cursor:pointer;margin-top:16px;transition:all 0.15s">
                                                     <i class="fa-solid fa-plus me-1"></i> Create Event
                                                 </button>
-                                                <button onclick="calendarDismissConfirm()" style="width:100%;padding:10px;border:none;background:none;color:#888;font-size:0.78rem;cursor:pointer;margin-top:8px;">Cancel</button>
+                                                <button onclick="calendarDismissConfirm()" class="dlr-btn-ghost-8" style="width:100%;padding:10px;border:none;background:none;font-size:0.78rem;cursor:pointer;margin-top:8px">Cancel</button>
                                             </div>
                                         </div>
 
@@ -1912,36 +1912,36 @@
 
                                     <!-- ═══ DISCORD APP ═══ -->
                                     <div class="ios-app-view" id="iosAppDiscord" style="display:none;">
-                                        <div style="padding:66px 0 0;background:#36393f;flex-shrink:0;">
-                                            <div style="display:flex;align-items:center;gap:10px;padding:0 16px 10px;border-bottom:1px solid rgba(255,255,255,0.06);">
-                                                <button class="ios-back-btn" onclick="_iosDiscordActiveChannel ? _iosDiscordBackToServers() : iosGoHome()" style="margin:0;color:#b9bbbe;">
+                                        <div class="dlr-misc-24" style="padding:66px 0 0;flex-shrink:0">
+                                            <div class="dlr-misc-25" style="display:flex;align-items:center;gap:10px;padding:0 16px 10px">
+                                                <button class="ios-back-btn dlr-misc-26" onclick="_iosDiscordActiveChannel ? _iosDiscordBackToServers() : iosGoHome()" style="margin:0">
                                                     <i class="fa-solid fa-chevron-left"></i>
                                                 </button>
-                                                <i class="fa-solid fa-hashtag" style="color:#72767d;font-size:0.85rem;"></i>
-                                                <span id="iosDiscordChannelName" style="font-weight:700;font-size:0.95rem;color:#fff;flex:1;">Discord</span>
-                                                <span id="iosDiscordServerName" style="font-size:0.75rem;color:#72767d;"></span>
+                                                <i class="fa-solid fa-hashtag dlr-icon-c72767d" style="font-size:0.85rem"></i>
+                                                <span id="iosDiscordChannelName" class="dlr-heading-9" style="font-weight:700;font-size:0.95rem;flex:1">Discord</span>
+                                                <span id="iosDiscordServerName" class="dlr-label-7" style="font-size:0.75rem"></span>
                                             </div>
                                         </div>
                                         <!-- Discord content area -->
-                                        <div id="iosDiscordContent" style="flex:1;overflow-y:auto;background:#36393f;display:flex;flex-direction:column;">
+                                        <div id="iosDiscordContent" class="dlr-misc-27" style="flex:1;overflow-y:auto;display:flex;flex-direction:column">
                                             <!-- Not connected state -->
                                             <div id="iosDiscordNotConnected" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;">
-                                                <div style="width:64px;height:64px;border-radius:50%;background:rgba(88,101,242,0.12);display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
-                                                    <i class="fa-brands fa-discord" style="font-size:1.6rem;color:#5865f2;"></i>
+                                                <div class="dlr-icon-box-3" style="width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:16px">
+                                                    <i class="fa-brands fa-discord dlr-label-8" style="font-size:1.6rem"></i>
                                                 </div>
-                                                <div style="font-weight:700;font-size:0.95rem;color:#fff;margin-bottom:6px;">Connect Discord</div>
-                                                <div style="font-size:0.78rem;color:#72767d;margin-bottom:16px;line-height:1.4;">Link your Discord account to read and reply to team messages.</div>
-                                                <a href="/discord/connect" target="_top" style="padding:10px 24px;border-radius:8px;background:#5865f2;color:#fff;font-weight:700;font-size:0.82rem;text-decoration:none;display:inline-block;">
+                                                <div class="dlr-heading-10" style="font-weight:700;font-size:0.95rem;margin-bottom:6px">Connect Discord</div>
+                                                <div class="dlr-label-9" style="font-size:0.78rem;margin-bottom:16px;line-height:1.4">Link your Discord account to read and reply to team messages.</div>
+                                                <a href="/discord/connect" target="_top" class="dlr-panel-14" style="padding:10px 24px;border-radius:8px;font-weight:700;font-size:0.82rem;text-decoration:none;display:inline-block">
                                                     <i class="fa-brands fa-discord me-1"></i> Connect
                                                 </a>
                                             </div>
                                             <!-- Connected: server/channel picker -->
                                             <div id="iosDiscordConnected" style="display:none;flex:1;flex-direction:column;overflow-y:auto;">
                                                 <!-- Server selector -->
-                                                <div id="iosDiscordServerPicker" style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.06);">
+                                                <div id="iosDiscordServerPicker" class="dlr-misc-28" style="padding:12px 16px">
                                                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-                                                        <span style="font-size:0.75rem;color:#72767d;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Servers</span>
-                                                        <button onclick="openServerModal()" style="background:rgba(88,101,242,0.15);border:1px solid rgba(88,101,242,0.3);color:#5865f2;border-radius:6px;padding:3px 8px;font-size:0.7rem;cursor:pointer;font-weight:600;">
+                                                        <span class="dlr-label-10" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Servers</span>
+                                                        <button onclick="openServerModal()" class="dlr-btn-6" style="border-radius:6px;padding:3px 8px;font-size:0.7rem;cursor:pointer;font-weight:600">
                                                             <i class="fa-solid fa-plus"></i> Add
                                                         </button>
                                                     </div>
@@ -1953,91 +1953,91 @@
                                             <!-- Chat view (shown when a channel is selected) -->
                                             <div id="iosDiscordChat" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
                                                 <div id="iosDiscordMessages" style="flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:2px;"></div>
-                                                <div style="padding:8px 12px;border-top:1px solid rgba(255,255,255,0.06);background:#40444b;">
+                                                <div class="dlr-misc-29" style="padding:8px 12px">
                                                     <div style="display:flex;gap:8px;align-items:flex-end;">
-                                                        <textarea id="iosDiscordReplyText" rows="1" placeholder="Message #channel" style="flex:1;background:rgba(255,255,255,0.06);border:none;border-radius:8px;padding:8px 12px;color:#dcddde;font-size:0.8rem;resize:none;outline:none;font-family:inherit;max-height:80px;" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();iosDiscordSend();}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px';"></textarea>
-                                                        <button onclick="iosDiscordSend()" style="background:#5865f2;border:none;border-radius:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;">
-                                                            <i class="fa-solid fa-paper-plane" style="color:#fff;font-size:0.75rem;"></i>
+                                                        <textarea id="iosDiscordReplyText" rows="1" placeholder="Message #channel" class="dlr-input-7" style="flex:1;border:none;border-radius:8px;padding:8px 12px;font-size:0.8rem;resize:none;outline:none;font-family:inherit;max-height:80px" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();iosDiscordSend();}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px';"></textarea>
+                                                        <button onclick="iosDiscordSend()" class="dlr-btn-7" style="border:none;border-radius:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">
+                                                            <i class="fa-solid fa-paper-plane dlr-icon-cfff" style="font-size:0.75rem"></i>
                                                         </button>
                                                     </div>
-                                                    <div style="font-size:0.65rem;color:#72767d;margin-top:4px;">Ctrl+Enter to send</div>
+                                                    <div class="dlr-label-11" style="font-size:0.65rem;margin-top:4px">Ctrl+Enter to send</div>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="ios-home-indicator-bar" style="background:#36393f;"><div class="ios-home-indicator" style="background:rgba(255,255,255,0.3);"></div></div>
+                                        <div class="ios-home-indicator-bar dclass="dlr-bg"kground:#36393f;"><div class="ios-home-indicator" ></div></div>
                                     </div>
 
                                     <!-- ═══ SLACK APP ═══ -->
                                     <div class="ios-app-view" id="iosAppSlack" style="display:none;">
-                                        <div style="padding:66px 0 0;background:#1a1d21;flex-shrink:0;">
-                                            <div style="display:flex;align-items:center;gap:10px;padding:0 16px 10px;border-bottom:1px solid rgba(255,255,255,0.06);">
-                                                <button class="ios-back-btn" onclick="_iosSlackActiveChannel ? _iosSlackBackToChannels() : iosGoHome()" style="margin:0;color:#ababad;">
+                                        <div class="dlr-misc-30" style="padding:66px 0 0;flex-shrink:0">
+                                            <div class="dlr-misc-25" style="display:flex;align-items:center;gap:10px;padding:0 16px 10px">
+                                                <button class="ios-back-btn dlr-misc-31" onclick="_iosSlackActiveChannel ? _iosSlackBackToChannels() : iosGoHome()" style="margin:0">
                                                     <i class="fa-solid fa-chevron-left"></i>
                                                 </button>
-                                                <i class="fa-solid fa-hashtag" style="color:#ababad;font-size:0.85rem;"></i>
-                                                <span id="iosSlackChannelName" style="font-weight:700;font-size:0.95rem;color:#fff;flex:1;">Slack</span>
-                                                <span id="iosSlackWorkspaceName" style="font-size:0.75rem;color:#ababad;"></span>
+                                                <i class="fa-solid fa-hashtag dlr-icon-cababad" style="font-size:0.85rem"></i>
+                                                <span id="iosSlackChannelName" class="dlr-heading-9" style="font-weight:700;font-size:0.95rem;flex:1">Slack</span>
+                                                <span id="iosSlackWorkspaceName" class="dlr-label-ios-2" style="font-size:0.75rem"></span>
                                             </div>
                                         </div>
                                         <!-- Slack content area -->
-                                        <div id="iosSlackContent" style="flex:1;overflow-y:auto;background:#1a1d21;display:flex;flex-direction:column;">
+                                        <div id="iosSlackContent" class="dlr-misc-32" style="flex:1;overflow-y:auto;display:flex;flex-direction:column">
                                             <!-- Not connected state -->
                                             <div id="iosSlackNotConnected" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;">
-                                                <div style="width:64px;height:64px;border-radius:50%;background:rgba(54,197,240,0.12);display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
-                                                    <i class="fa-brands fa-slack" style="font-size:1.6rem;color:#36c5f0;"></i>
+                                                <div class="dlr-icon-box-slack" style="width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:16px">
+                                                    <i class="fa-brands fa-slack dlr-label-12" style="font-size:1.6rem"></i>
                                                 </div>
-                                                <div style="font-weight:700;font-size:0.95rem;color:#fff;margin-bottom:6px;">Connect Slack</div>
-                                                <div style="font-size:0.78rem;color:#ababad;margin-bottom:16px;line-height:1.4;">Link your Slack workspace to read and reply to team messages.</div>
-                                                <a href="/slack/connect" target="_top" style="padding:10px 24px;border-radius:8px;background:#4A154B;color:#fff;font-weight:700;font-size:0.82rem;text-decoration:none;display:inline-block;">
+                                                <div class="dlr-heading-10" style="font-weight:700;font-size:0.95rem;margin-bottom:6px">Connect Slack</div>
+                                                <div class="dlr-label-ios-3" style="font-size:0.78rem;margin-bottom:16px;line-height:1.4">Link your Slack workspace to read and reply to team messages.</div>
+                                                <a href="/slack/connect" target="_top" class="dlr-panel-15" style="padding:10px 24px;border-radius:8px;font-weight:700;font-size:0.82rem;text-decoration:none;display:inline-block">
                                                     <i class="fa-brands fa-slack me-1"></i> Connect
                                                 </a>
                                             </div>
                                             <!-- Connected: channel picker -->
                                             <div id="iosSlackConnected" style="display:none;flex:1;flex-direction:column;overflow-y:auto;">
                                                 <!-- Workspace header -->
-                                                <div id="iosSlackWorkspaceHeader" style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.06);">
+                                                <div id="iosSlackWorkspaceHeader" class="dlr-misc-28" style="padding:12px 16px">
                                                     <div style="display:flex;align-items:center;gap:8px;">
-                                                        <div id="iosSlackWorkspaceIcon" style="width:28px;height:28px;border-radius:6px;background:rgba(54,197,240,0.15);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;color:#36c5f0;flex-shrink:0;"></div>
+                                                        <div id="iosSlackWorkspaceIcon" class="dlr-icon-box-slack-2" style="width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;flex-shrink:0"></div>
                                                         <div style="flex:1;">
-                                                            <div id="iosSlackTeamDisplay" style="font-weight:700;font-size:0.85rem;color:#fff;"></div>
-                                                            <div id="iosSlackUserDisplay" style="font-size:0.72rem;color:#ababad;"></div>
+                                                            <div id="iosSlackTeamDisplay" class="dlr-heading-11" style="font-weight:700;font-size:0.85rem"></div>
+                                                            <div id="iosSlackUserDisplay" class="dlr-label-ios-4" style="font-size:0.72rem"></div>
                                                         </div>
                                                     </div>
                                                 </div>
                                                 <!-- Channel list -->
                                                 <div id="iosSlackChannels" style="padding:8px 16px;flex:1;overflow-y:auto;">
-                                                    <div style="font-size:0.72rem;color:#ababad;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;padding:8px 0 4px;">Channels</div>
+                                                    <div class="dlr-label-ios-5" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;padding:8px 0 4px">Channels</div>
                                                     <div id="iosSlackChannelList" style="display:flex;flex-direction:column;gap:2px;"></div>
                                                 </div>
                                             </div>
                                             <!-- Chat view -->
                                             <div id="iosSlackChat" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
                                                 <div id="iosSlackMessages" style="flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:2px;"></div>
-                                                <div style="padding:8px 12px;border-top:1px solid rgba(255,255,255,0.06);background:#222529;">
+                                                <div class="dlr-misc-33" style="padding:8px 12px">
                                                     <div style="display:flex;gap:8px;align-items:flex-end;">
-                                                        <textarea id="iosSlackReplyText" rows="1" placeholder="Message #channel" style="flex:1;background:rgba(255,255,255,0.06);border:none;border-radius:8px;padding:8px 12px;color:#d1d2d3;font-size:0.8rem;resize:none;outline:none;font-family:inherit;max-height:80px;" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();iosSlackSend();}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px';"></textarea>
-                                                        <button onclick="iosSlackSend()" style="background:#007a5a;border:none;border-radius:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;">
-                                                            <i class="fa-solid fa-paper-plane" style="color:#fff;font-size:0.75rem;"></i>
+                                                        <textarea id="iosSlackReplyText" rows="1" placeholder="Message #channel" class="dlr-input-8" style="flex:1;border:none;border-radius:8px;padding:8px 12px;font-size:0.8rem;resize:none;outline:none;font-family:inherit;max-height:80px" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();iosSlackSend();}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px';"></textarea>
+                                                        <button onclick="iosSlackSend()" class="dlr-btn-slack-send" style="border:none;border-radius:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">
+                                                            <i class="fa-solid fa-paper-plane dlr-icon-cfff" style="font-size:0.75rem"></i>
                                                         </button>
                                                     </div>
-                                                    <div style="font-size:0.65rem;color:#ababad;margin-top:4px;">Ctrl+Enter to send</div>
+                                                    <div class="dlr-label-ios-6" style="font-size:0.65rem;margin-top:4px">Ctrl+Enter to send</div>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="ios-home-indicator-bar" style="background:#1a1d21;"><div class="ios-home-indicator" style="background:rgba(255,255,255,0.3);"></div></div>
+                                        <div class="ios-home-indicator-bar dclass="dlr-bg-slack-dark"kground:#1a1d21;"><div class="ios-home-indicator" ></div></div>
                                     </div>
 
                                     <!-- ═══ NOTIFICATION BANNER ═══ -->
-                                    <div id="iosNotificationBanner" style="display:none;position:absolute;top:48px;left:8px;right:8px;z-index:100;background:rgba(30,30,40,0.95);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:12px 16px;cursor:pointer;transition:all 0.3s ease;opacity:0;transform:translateY(-20px);">
+                                    <div id="iosNotificationBanner" class="dlr-btn-8" style="display:none;position:absolute;top:48px;left:8px;right:8px;z-index:100;backdrop-filter:blur(20px);border-radius:14px;padding:12px 16px;cursor:pointer;transition:all 0.3s ease;opacity:0;transform:translateY(-20px)">
                                         <div style="display:flex;align-items:center;gap:10px;">
-                                            <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(180deg,#65D66A,#34C759);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                                <i class="fa-solid fa-message" style="color:#fff;font-size:0.8rem;"></i>
+                                            <div class="dlr-icon-box-notif" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                                                <i class="fa-solid fa-message dlr-icon-cfff-2" style="font-size:0.8rem"></i>
                                             </div>
                                             <div style="flex:1;min-width:0;">
-                                                <div id="iosNotifTitle" style="font-size:0.75rem;font-weight:700;color:#fff;">Messages</div>
-                                                <div id="iosNotifBody" style="font-size:0.75rem;color:#aaa;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+                                                <div id="iosNotifTitle" class="dlr-heading-12" style="font-size:0.75rem;font-weight:700">Messages</div>
+                                                <div id="iosNotifBody" class="dlr-label-subtle-5" style="font-size:0.75rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
                                             </div>
-                                            <span id="iosNotifTime" style="font-size:0.7rem;color:#666;flex-shrink:0;">now</span>
+                                            <span id="iosNotifTime" class="dlr-label-dim-3" style="font-size:0.7rem;flex-shrink:0">now</span>
                                         </div>
                                     </div>
 
@@ -2071,40 +2071,40 @@
                 <div class="dlr-mobile-apps-overlay" id="dlrMobileAppsOverlay" onclick="dlrMobileToggleApps()"></div>
                 <div class="dlr-mobile-apps-popup" id="dlrMobileAppsPopup">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 4px;">
-                        <span style="font-size:0.82rem;font-weight:700;color:#ccc;">Apps</span>
-                        <button onclick="dlrMobileToggleApps()" style="background:none;border:none;color:#666;cursor:pointer;font-size:1rem;"><i class="fa-solid fa-xmark"></i></button>
+                        <span class="dlr-label-light-3" style="font-size:0.82rem;font-weight:700">Apps</span>
+                        <button onclick="dlrMobileToggleApps()" class="dlr-btn-9" style="background:none;border:none;cursor:pointer;font-size:1rem"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                     <div class="dlr-mobile-apps-popup-grid">
                         <button class="dlr-mobile-apps-popup-item" onclick="dlrMobileOpenApp('messages')">
-                            <div class="dlr-mapp-icon" style="background:linear-gradient(180deg,#65D66A,#34C759);"><i class="fa-solid fa-comment-dots"></i></div>
+                            <div class="dlr-mapp-icon dlr-bg-ios-green" ><i class="fa-solid fa-comment-dots"></i></div>
                             <span class="dlr-mapp-label">Messages</span>
                         </button>
                         <button class="dlr-mobile-apps-popup-item" onclick="dlrMobileOpenApp('calls')">
-                            <div class="dlr-mapp-icon" style="background:linear-gradient(180deg,#65D66A,#34C759);"><i class="fa-solid fa-phone"></i></div>
+                            <div class="dlr-mapp-icon dlr-bg-ios-green" ><i class="fa-solid fa-phone"></i></div>
                             <span class="dlr-mapp-label">Call History</span>
                         </button>
                         <button class="dlr-mobile-apps-popup-item" onclick="dlrMobileOpenApp('voicemail')">
-                            <div class="dlr-mapp-icon" style="background:linear-gradient(180deg,#FF9500,#FF6B00);"><i class="fa-solid fa-voicemail"></i></div>
+                            <div class="dlr-mapp-icon dlr-bg-ios-orange-2" ><i class="fa-solid fa-voicemail"></i></div>
                             <span class="dlr-mapp-label">Voicemail</span>
                         </button>
                         <button class="dlr-mobile-apps-popup-item" onclick="dlrMobileOpenApp('recordings')">
-                            <div class="dlr-mapp-icon" style="background:linear-gradient(180deg,#FF9500,#FF6B00);"><i class="fa-solid fa-record-vinyl"></i></div>
+                            <div class="dlr-mapp-icon dlr-bg-ios-orange-2" ><i class="fa-solid fa-record-vinyl"></i></div>
                             <span class="dlr-mapp-label">Recordings</span>
                         </button>
                         <button class="dlr-mobile-apps-popup-item" onclick="dlrMobileOpenApp('inbox')">
-                            <div class="dlr-mapp-icon" style="background:linear-gradient(180deg,#5856D6,#AF52DE);"><i class="fa-solid fa-inbox"></i></div>
+                            <div class="dlr-mapp-icon dlr-bg-ios-purple-2" ><i class="fa-solid fa-inbox"></i></div>
                             <span class="dlr-mapp-label">Inbox</span>
                         </button>
                         <button class="dlr-mobile-apps-popup-item" onclick="dlrMobileOpenApp('calendar')">
-                            <div class="dlr-mapp-icon" style="background:linear-gradient(180deg,#FF3B30,#FF2D55);"><i class="fa-solid fa-calendar"></i></div>
+                            <div class="dlr-mapp-icon dlr-bg-ios-red-2" ><i class="fa-solid fa-calendar"></i></div>
                             <span class="dlr-mapp-label">Calendar</span>
                         </button>
                         <button class="dlr-mobile-apps-popup-item dlr-mob-hide-app" id="dlrMobAppDiscord" onclick="dlrMobileOpenApp('discord')">
-                            <div class="dlr-mapp-icon" style="background:linear-gradient(180deg,#5865f2,#4752c4);"><i class="fa-brands fa-discord"></i></div>
+                            <div class="dlr-mapp-icon dlr-bg-discord-2" ><i class="fa-brands fa-discord"></i></div>
                             <span class="dlr-mapp-label">Discord</span>
                         </button>
                         <button class="dlr-mobile-apps-popup-item dlr-mob-hide-app" id="dlrMobAppSlack" onclick="dlrMobileOpenApp('slack')">
-                            <div class="dlr-mapp-icon" style="background:linear-gradient(180deg,#611f69,#4a154b);"><i class="fa-brands fa-slack"></i></div>
+                            <div class="dlr-mapp-icon dlr-bg-slack-2" ><i class="fa-brands fa-slack"></i></div>
                             <span class="dlr-mapp-label">Slack</span>
                         </button>
                     </div>
@@ -2208,11 +2208,11 @@
                 </script>
 
                 <!-- Transcript Modal -->
-                <div id="transcriptModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);z-index:10000;align-items:center;justify-content:center;">
-                    <div style="background:rgba(12,12,12,0.95);border:1px solid rgba(255,255,255,0.1);border-radius:16px;max-width:600px;width:90%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;">
-                        <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;">
-                            <h5 style="margin:0;font-weight:700;"><i class="fa-solid fa-file-lines me-2" style="color:#00d9ff;"></i>Call Transcript</h5>
-                            <button onclick="closeTranscriptModal()" style="background:none;border:none;color:#888;cursor:pointer;font-size:1.2rem;"><i class="fa-solid fa-xmark"></i></button>
+                <div id="transcriptModal" class="dlr-modal-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;backdrop-filter:blur(8px);z-index:10000;align-items:center;justify-content:center">
+                    <div class="dlr-icon-box-neutral-2" style="border-radius:16px;max-width:600px;width:90%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column">
+                        <div class="dlr-misc-34" style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between">
+                            <h5 style="margin:0;font-weight:700;"><i class="fa-solid fa-file-lines me-2 dlr-text-cyan" ></i>Call Transcript</h5>
+                            <button onclick="closeTranscriptModal()" class="dlr-btn-ghost-10" style="background:none;border:none;cursor:pointer;font-size:1.2rem"><i class="fa-solid fa-xmark"></i></button>
                         </div>
                         <div id="transcriptContent" style="padding:16px 20px;overflow-y:auto;flex:1;"></div>
                     </div>
@@ -2222,7 +2222,7 @@
                 <div id="dlrExportModal" class="dlr-export-overlay" onclick="if(event.target===this)dlrExportClose()">
                     <div class="dlr-export-card">
                         <div class="dlr-export-hdr">
-                            <h5><i class="fa-solid fa-file-export me-2" style="color:#00d9ff;"></i>Export Contacts</h5>
+                            <h5><i class="fa-solid fa-file-export me-2 dlr-text-cyan" ></i>Export Contacts</h5>
                             <button class="dlr-export-close" onclick="dlrExportClose()"><i class="fa-solid fa-xmark"></i></button>
                         </div>
                         <div class="dlr-export-body">
@@ -2235,7 +2235,7 @@
                             <div style="margin-bottom:14px;">
                                 <label class="dlr-export-label">Tags</label>
                                 <div id="dlrExportTags" class="dlr-export-tags-wrap">
-                                    <span style="color:#555;font-size:0.75rem;">Loading tags...</span>
+                                    <span class="dlr-icon-c555-2" style="font-size:0.75rem">Loading tags...</span>
                                 </div>
                             </div>
                             <!-- Date range -->

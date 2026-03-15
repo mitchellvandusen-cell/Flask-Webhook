@@ -3,16 +3,16 @@
 
                     <!-- Header -->
                     <div class="d-flex align-items-center mb-4">
-                        <div style="width:48px;height:48px;border-radius:12px;background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.2);display:flex;align-items:center;justify-content:center;margin-right:16px;">
+                        <div class="conn-header-icon">
                             <i class="fa-solid fa-plug" style="color:var(--accent);font-size:1.2rem;"></i>
                         </div>
                         <div>
                             <h4 style="margin:0;font-weight:700;">Connect Your CRM</h4>
-                            <p style="margin:0;color:#888;font-size:0.85rem;">Set up your webhook, connect your CRM, and enable API access</p>
+                            <p class="conn-subtitle" style="margin:0;">Set up your webhook, connect your CRM, and enable API access</p>
                         </div>
                         {% if sub and sub.crm_type %}
                         <div class="ms-auto">
-                            <span class="badge" style="background:rgba(0,255,136,0.15);color:#00ff88;border:1px solid rgba(0,255,136,0.3);padding:6px 14px;border-radius:20px;font-size:0.8rem;">
+                            <span class="badge conn-badge">
                                 <i class="fa-solid fa-circle-check me-1"></i> {{ sub.crm_type|upper }} Connected
                             </span>
                         </div>
@@ -20,38 +20,34 @@
                     </div>
 
                     <!-- Webhook URL — always visible above the panels -->
-                    <div style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.25);border-radius:12px;padding:14px 18px;margin-bottom:20px;">
+                    <div class="conn-webhook-box">
                         <label style="color:var(--accent);font-weight:700;font-size:0.78rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;display:block;">
                             <i class="fa-solid fa-link me-1"></i> Your Webhook URL
                         </label>
                         <div class="d-flex align-items-center gap-2">
-                            <code id="webhookUrl" style="color:#fff;font-size:0.9rem;word-break:break-all;flex:1;">{{ request.host_url }}webhook</code>
+                            <code id="webhookUrl" class="conn-webhook-code">{{ request.host_url }}webhook</code>
                             <button class="btn btn-sm btn-outline-light" onclick="copyToClipboard(document.getElementById('webhookUrl').textContent)" title="Copy webhook URL">
                                 <i class="fa-solid fa-copy"></i>
                             </button>
                         </div>
-                        <small style="color:#888;margin-top:5px;display:block;">Paste this into your CRM's webhook or automation settings to receive inbound messages.</small>
+                        <small class="conn-webhook-hint">Paste this into your CRM's webhook or automation settings to receive inbound messages.</small>
                     </div>
 
                     <!-- ══ Connect: Two-column settings menu ══ -->
                     <div class="tab-two-col" style="display:flex;gap:16px;min-height:400px;">
 
                         <!-- Left column: integration categories -->
-                        <div id="connectSettingsMenu" style="width:220px;flex-shrink:0;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:8px;">
-                            <button type="button" class="conn-menu-item active" onclick="switchConnectPanel('ghl')" id="cnmenu-ghl"
-                                style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.15);border-radius:8px;color:var(--accent);font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                        <div id="connectSettingsMenu" class="conn-settings-menu">
+                            <button type="button" class="conn-menu-item active" onclick="switchConnectPanel('ghl')" id="cnmenu-ghl">
                                 <i class="fa-solid fa-bolt" style="width:16px;text-align:center;"></i> LeadConnector
                             </button>
-                            <button type="button" class="conn-menu-item" onclick="switchConnectPanel('other-crms')" id="cnmenu-other-crms"
-                                style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                            <button type="button" class="conn-menu-item" onclick="switchConnectPanel('other-crms')" id="cnmenu-other-crms">
                                 <i class="fa-solid fa-database" style="width:16px;text-align:center;"></i> Other CRMs
                             </button>
-                            <button type="button" class="conn-menu-item" onclick="switchConnectPanel('api')" id="cnmenu-api"
-                                style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                            <button type="button" class="conn-menu-item" onclick="switchConnectPanel('api')" id="cnmenu-api">
                                 <i class="fa-solid fa-code" style="width:16px;text-align:center;"></i> API Access
                             </button>
-                            <button type="button" class="conn-menu-item" onclick="switchConnectPanel('outbound')" id="cnmenu-outbound"
-                                style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                            <button type="button" class="conn-menu-item" onclick="switchConnectPanel('outbound')" id="cnmenu-outbound">
                                 <i class="fa-solid fa-arrow-right-from-bracket" style="width:16px;text-align:center;"></i> Outbound Calls
                             </button>
                         </div>
@@ -67,16 +63,14 @@
                                     </h5>
 
                                     <!-- Download from Marketplace CTA -->
-                                    <div style="background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(99,102,241,0.08));border:1px solid rgba(59,130,246,0.3);border-radius:14px;padding:18px 20px;margin-bottom:20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                                    <div class="conn-marketplace-cta">
                                         <div style="flex:1;min-width:200px;">
-                                            <div style="font-weight:700;color:#fff;font-size:0.95rem;margin-bottom:4px;">Get the App</div>
-                                            <div style="color:#94a3b8;font-size:0.82rem;">Install the app from the Marketplace to connect your CRM automatically.</div>
+                                            <div class="conn-cta-title">Get the App</div>
+                                            <div class="conn-cta-desc">Install the app from the Marketplace to connect your CRM automatically.</div>
                                         </div>
                                         <a href="https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&redirect_uri=https%3A%2F%2Finsurancegrokbot.click%2Foauth%2Fcallback&client_id=695e99698a5ae81dbb426515-mkaz316h&scope=calendars.readonly+calendars%2Fevents.readonly+calendars%2Fevents.write+conversations%2Fmessage.write+conversations%2Fmessage.readonly+contacts.readonly+locations%2FcustomFields.readonly+locations%2FcustomValues.readonly+calendars%2Fgroups.readonly+conversations.readonly+conversations.write+locations%2Ftags.readonly+oauth.readonly+locations.readonly+users.readonly+opportunities.readonly+workflows.readonly+twilioaccount.read+contacts.write+locations%2Ftags.write+locations%2FcustomFields.write+phonenumbers.read&version_id=69a20babaec7c63e20613b09"
                                            target="_blank" rel="noopener noreferrer"
-                                           style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#3b82f6,#6366f1);color:#fff;font-weight:700;padding:10px 22px;border-radius:10px;text-decoration:none;font-size:0.85rem;white-space:nowrap;transition:transform 0.15s,box-shadow 0.15s;box-shadow:0 2px 12px rgba(59,130,246,0.3);"
-                                           onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 20px rgba(59,130,246,0.45)';"
-                                           onmouseout="this.style.transform='';this.style.boxShadow='0 2px 12px rgba(59,130,246,0.3)';">
+                                           class="conn-marketplace-link">
                                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                                 <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2ZM12 3c1.66 0 3 1.34 3 3v2H9V6c0-1.66 1.34-3 3-3Zm6 17H6V10h12v10Zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2Z" fill="currentColor"/>
                                             </svg>
@@ -94,10 +88,10 @@
                                 </div>
 
                                 {% if sub and sub.crm_type == 'ghl' %}
-                                <div class="mt-3 p-3" style="background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.15);border-radius:10px;">
+                                <div class="mt-3 p-3 conn-success-box">
                                     <div class="d-flex justify-content-between align-items-center">
                                         <small style="color:var(--accent);"><i class="fa-solid fa-circle-check me-1"></i> LeadConnector connected successfully</small>
-                                        <a href="/oauth/initiate" target="_top" class="btn btn-sm" style="background:rgba(0,180,255,0.1);border:1px solid rgba(0,180,255,0.25);color:#00b4ff;font-weight:600;font-size:0.75rem;border-radius:6px;padding:4px 12px;">
+                                        <a href="/oauth/initiate" target="_top" class="btn btn-sm conn-reauth-btn">
                                             <i class="fa-solid fa-rotate me-1"></i>Reauthorize
                                         </a>
                                     </div>
@@ -109,19 +103,19 @@
                             <div id="cntab-panel-other-crms" style="display:none;">
 
                                 <!-- Quick Connect: auto-detect CRM from API key -->
-                                <div style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.12);border-radius:12px;padding:16px;margin-bottom:20px;">
+                                <div class="conn-quick-connect">
                                     <label style="color:var(--accent);font-weight:700;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;display:block;">
                                         <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Quick Connect
                                     </label>
                                     <div class="d-flex gap-2">
-                                        <input type="password" id="quickConnectKey" class="form-control form-control-sm" placeholder="Paste your CRM API key here — we'll detect which CRM it belongs to"
-                                               style="background:rgba(255,255,255,0.05);border-color:rgba(0,255,136,0.15);color:#fff;flex:1;">
-                                        <button class="btn btn-sm" onclick="detectCRM()" style="background:rgba(0,255,136,0.1);color:var(--accent);border:1px solid rgba(0,255,136,0.2);border-radius:8px;white-space:nowrap;font-weight:600;">
+                                        <input type="password" id="quickConnectKey" class="form-control form-control-sm conn-input-dark" placeholder="Paste your CRM API key here — we'll detect which CRM it belongs to"
+                                               style="flex:1;">
+                                        <button class="btn btn-sm conn-detect-btn" onclick="detectCRM()">
                                             <i class="fa-solid fa-magnifying-glass me-1"></i> Detect
                                         </button>
                                     </div>
                                     <div id="quickConnectResult" style="margin-top:8px;font-size:0.82rem;min-height:20px;"></div>
-                                    <small style="color:#666;display:block;margin-top:4px;">Works with HubSpot and Pipedrive API keys. For OAuth CRMs (Salesforce, Zoho), select manually below.</small>
+                                    <small class="conn-detect-hint">Works with HubSpot and Pipedrive API keys. For OAuth CRMs (Salesforce, Zoho), select manually below.</small>
                                 </div>
 
                                 <!-- CRM selection buttons (6 non-GHL CRMs) -->
@@ -224,7 +218,7 @@
                                 </div>
 
                                 {% if sub and sub.crm_type and sub.crm_type != 'ghl' %}
-                                <div class="mt-3 p-3" style="background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.15);border-radius:10px;">
+                                <div class="mt-3 p-3 conn-success-box">
                                     <small style="color:var(--accent);"><i class="fa-solid fa-circle-check me-1"></i> Currently connected: <strong>{{ sub.crm_type|upper }}</strong></small>
                                 </div>
                                 {% endif %}
@@ -233,17 +227,17 @@
                             <!-- ── Panel: API Access ── -->
                             <div id="cntab-panel-api" style="display:none;">
                                 <h5 style="font-weight:700;margin-bottom:4px;"><i class="fa-solid fa-code me-2" style="color:var(--accent);"></i>API Access</h5>
-                                <p style="color:#999;font-size:0.85rem;margin-bottom:16px;">
+                                <p class="conn-api-desc" style="margin-bottom:16px;">
                                     Integrate any system using our OpenAI-compatible API.
                                     Send messages to <code>/api/v1/chat/completions</code> and receive bot replies via webhook.
                                 </p>
 
                                 <div id="apiKeySection">
-                                    <div id="apiKeyStatus" style="padding:14px;background:rgba(255,255,255,0.03);border:1px solid var(--glass-border);border-radius:12px;">
+                                    <div id="apiKeyStatus" class="conn-api-status">
                                         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
                                             <div>
-                                                <strong style="color:#fff;">API Key:</strong>
-                                                <span id="apiKeyDisplay" style="color:#888;font-family:monospace;font-size:0.85rem;margin-left:8px;">Loading...</span>
+                                                <strong class="conn-api-key-label">API Key:</strong>
+                                                <span id="apiKeyDisplay" class="conn-api-key-val">Loading...</span>
                                             </div>
                                             <div class="d-flex gap-2">
                                                 <button class="btn btn-sm btn-outline-success" onclick="generateApiKey()" id="btnGenKey">
@@ -259,10 +253,9 @@
                                     <!-- Outbound Webhook URL -->
                                     <div style="margin-top:14px;display:flex;gap:10px;align-items:end;flex-wrap:wrap;">
                                         <div style="flex:1;min-width:250px;">
-                                            <label style="color:#bbb;font-size:0.8rem;margin-bottom:4px;display:block;">Outbound Webhook URL (HTTPS)</label>
-                                            <input type="url" id="apiWebhookUrl" class="form-control form-control-sm"
-                                                   placeholder="https://your-app.com/webhook/grokbot"
-                                                   style="background:rgba(255,255,255,0.05);border-color:var(--glass-border);color:#fff;">
+                                            <label class="conn-webhook-url-label">Outbound Webhook URL (HTTPS)</label>
+                                            <input type="url" id="apiWebhookUrl" class="form-control form-control-sm conn-api-input"
+                                                   placeholder="https://your-app.com/webhook/grokbot">
                                         </div>
                                         <button class="btn btn-sm btn-primary" onclick="saveWebhookUrl()" style="height:31px;">
                                             <i class="fa-solid fa-floppy-disk me-1"></i> Save
@@ -270,16 +263,16 @@
                                     </div>
 
                                     <div style="margin-top:8px;">
-                                        <small style="color:#888;">
+                                        <small class="conn-webhook-secret-hint">
                                             <i class="fa-solid fa-shield-halved me-1"></i> Webhook Secret:
-                                            <span id="webhookSecretPreview" style="font-family:monospace;color:#666;">—</span>
+                                            <span id="webhookSecretPreview" class="conn-webhook-secret-val">—</span>
                                         </small>
                                     </div>
 
                                     <!-- Quick start code -->
-                                    <div style="margin-top:16px;padding:14px;background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.1);border-radius:10px;">
+                                    <div class="conn-quickstart-box" style="margin-top:16px;">
                                         <strong style="color:var(--accent);font-size:0.85rem;">Quick Start</strong>
-                                        <pre style="color:#ccc;font-size:0.75rem;margin:8px 0 0;white-space:pre-wrap;background:rgba(0,0,0,0.3);padding:10px;border-radius:6px;overflow-x:auto;">curl -X POST {{ request.host_url }}api/v1/chat/completions \
+                                        <pre class="conn-quickstart-pre">curl -X POST {{ request.host_url }}api/v1/chat/completions \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -294,27 +287,26 @@
                             <!-- ── Panel: Outbound Calls ── -->
                             <div id="cntab-panel-outbound" style="display:none;">
                                 <h5 style="font-weight:700;margin-bottom:4px;"><i class="fa-solid fa-arrow-right-from-bracket me-2" style="color:var(--accent);"></i>Outbound Call Trigger</h5>
-                                <p style="color:#999;font-size:0.85rem;margin-bottom:16px;">Trigger an AI outbound call from your CRM or automation by sending a POST request to this endpoint.</p>
-                                <div class="p-3" style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;">
+                                <p class="conn-api-desc" style="margin-bottom:16px;">Trigger an AI outbound call from your CRM or automation by sending a POST request to this endpoint.</p>
+                                <div class="p-3 conn-outbound-panel">
                                     <div class="d-flex align-items-center gap-2">
-                                        <code style="background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.15);padding:8px 14px;border-radius:8px;color:var(--accent);font-size:0.85rem;flex:1;word-break:break-all;">
+                                        <code class="conn-outbound-code">
                                             POST https://{{ request.host }}/voice/outbound-call
                                         </code>
-                                        <button class="btn btn-sm" onclick="copyToClipboard('https://{{ request.host }}/voice/outbound-call')"
-                                            style="background:rgba(0,255,136,0.1);color:var(--accent);border:1px solid rgba(0,255,136,0.2);border-radius:8px;white-space:nowrap;">
+                                        <button class="btn btn-sm conn-copy-btn" onclick="copyToClipboard('https://{{ request.host }}/voice/outbound-call')">
                                             <i class="fa-solid fa-copy"></i>
                                         </button>
                                     </div>
-                                    <div class="mt-3" style="font-size:0.8rem;color:#777;">
-                                        <strong style="color:#aaa;">JSON Body:</strong>
-                                        <pre style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:10px;margin-top:6px;color:#ccc;font-size:0.78rem;overflow-x:auto;">{ "location_id": "{{ sub.location_id or 'your_location_id' }}", "phone": "+15551234567", "first_name": "John", "contact_id": "contact_abc123" }</pre>
+                                    <div class="mt-3 conn-outbound-text">
+                                        <strong class="conn-outbound-body-label">JSON Body:</strong>
+                                        <pre class="conn-outbound-pre">{ "location_id": "{{ sub.location_id or 'your_location_id' }}", "phone": "+15551234567", "first_name": "John", "contact_id": "contact_abc123" }</pre>
                                     </div>
                                 </div>
 
-                                <div class="mt-3 p-3" style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:10px;font-size:0.82rem;color:#888;">
-                                    <i class="fa-solid fa-circle-info me-1" style="color:#888;"></i>
+                                <div class="mt-3 p-3 conn-outbound-hint">
+                                    <i class="fa-solid fa-circle-info me-1"></i>
                                     Voice must be activated and a phone number must be provisioned before outbound calls will work.
-                                    Go to the <strong style="color:#ccc;">Voice</strong> tab to activate and provision a number.
+                                    Go to the <strong>Voice</strong> tab to activate and provision a number.
                                 </div>
                             </div>
 
@@ -330,18 +322,12 @@
                 document.querySelectorAll('[id^="cntab-panel-"]').forEach(p => p.style.display = 'none');
                 document.querySelectorAll('.conn-menu-item').forEach(btn => {
                     btn.classList.remove('active');
-                    btn.style.background = 'transparent';
-                    btn.style.border = '1px solid transparent';
-                    btn.style.color = '#888';
                 });
                 const panel = document.getElementById('cntab-panel-' + name);
                 if (panel) panel.style.display = '';
                 const activeBtn = document.getElementById('cnmenu-' + name);
                 if (activeBtn) {
                     activeBtn.classList.add('active');
-                    activeBtn.style.background = 'rgba(0,255,136,0.08)';
-                    activeBtn.style.border = '1px solid rgba(0,255,136,0.15)';
-                    activeBtn.style.color = 'var(--accent)';
                 }
             }
             </script>

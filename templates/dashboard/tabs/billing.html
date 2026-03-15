@@ -1,93 +1,93 @@
             <div class="tab-pane fade" id="billing" role="tabpanel">
                 <div class="glass-panel py-4 px-4" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px;">
                     <div class="text-center" style="margin-bottom: 24px;">
-                        <div style="font-size:2.5rem; color:var(--accent); margin-bottom:12px;"><i class="fa-solid fa-credit-card"></i></div>
+                        <div class="billing-header-icon"><i class="fa-solid fa-credit-card"></i></div>
                         <h3 class="mb-2">Subscription Management</h3>
-                        <p style="color:#888; font-size:0.88rem;" id="billingCurrentPlan">Loading plan info...</p>
+                        <p class="billing-current-plan-text" id="billingCurrentPlan">Loading plan info...</p>
                     </div>
 
                     {% if current_user.stripe_customer_id %}
                     <!-- Plan Selector -->
-                    <div id="billingPlanCards" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:16px; max-width:960px; margin:0 auto 24px; padding-top:16px;">
+                    <div id="billingPlanCards" class="billing-plan-grid">
                         <!-- Power Dialer (Individual) -->
                         <div id="billingPlanIndividual" class="billing-plan-card" onclick="billingSelectPlan('individual')">
-                            <div style="font-weight:800; font-size:1rem; color:#fff; margin-bottom:4px;">Power Dialer</div>
+                            <div class="billing-plan-title">Power Dialer</div>
                             <div style="margin-bottom:10px;">
-                                <span class="metallic-price--green" style="font-size:1.8rem; font-weight:900;">$149.98</span>
-                                <span style="color:#888; font-size:0.85rem;">/mo</span>
+                                <span class="metallic-price--green billing-price-amount">$149.98</span>
+                                <span class="billing-price-period">/mo</span>
                             </div>
                             <ul class="carved-features">
-                                <li><i class="fa-solid fa-check" style="color:var(--accent); margin-right:6px;"></i>Single-line dialing</li>
-                                <li><i class="fa-solid fa-check" style="color:var(--accent); margin-right:6px;"></i>AI Texting & Voice Agent</li>
-                                <li><i class="fa-solid fa-check" style="color:var(--accent); margin-right:6px;"></i>Smart Filters & Lead Intel</li>
-                                <li><i class="fa-solid fa-check" style="color:var(--accent); margin-right:6px;"></i>Unlimited minutes*</li>
+                                <li><i class="fa-solid fa-check billing-check-accent"></i>Single-line dialing</li>
+                                <li><i class="fa-solid fa-check billing-check-accent"></i>AI Texting & Voice Agent</li>
+                                <li><i class="fa-solid fa-check billing-check-accent"></i>Smart Filters & Lead Intel</li>
+                                <li><i class="fa-solid fa-check billing-check-accent"></i>Unlimited minutes*</li>
                             </ul>
-                            <div id="billingBadgeIndividual" style="display:none; position:absolute; top:-8px; right:12px; background:var(--accent); color:#000; font-size:0.72rem; font-weight:700; padding:2px 10px; border-radius:10px;">CURRENT</div>
+                            <div id="billingBadgeIndividual" class="billing-badge-current" style="display:none;">CURRENT</div>
                         </div>
 
                         <!-- Pro Dialer -->
                         <div id="billingPlanProDialer" class="billing-plan-card" onclick="billingSelectPlan('pro_dialer')">
-                            <div style="position:absolute; top:-8px; left:12px; background:linear-gradient(135deg,#ff6b35,#ff3366); color:#fff; font-size:0.68rem; font-weight:700; padding:2px 10px; border-radius:10px; letter-spacing:0.5px;">UPGRADE</div>
-                            <div style="font-weight:800; font-size:1rem; color:#fff; margin-bottom:4px;">Pro Dialer</div>
+                            <div class="billing-tier-badge billing-tier-badge--upgrade">UPGRADE</div>
+                            <div class="billing-plan-title">Pro Dialer</div>
                             <div style="margin-bottom:10px;">
-                                <span class="metallic-price--orange" style="font-size:1.8rem; font-weight:900;">$224.98</span>
-                                <span style="color:#888; font-size:0.85rem;">/mo</span>
+                                <span class="metallic-price--orange billing-price-amount">$224.98</span>
+                                <span class="billing-price-period">/mo</span>
                             </div>
                             <ul class="carved-features">
-                                <li><i class="fa-solid fa-check" style="color:#ff6b35; margin-right:6px;"></i><strong>Multi-line dialing (up to 4)</strong></li>
-                                <li><i class="fa-solid fa-check" style="color:#ff6b35; margin-right:6px;"></i><strong>Predictive dialer</strong></li>
-                                <li><i class="fa-solid fa-check" style="color:#ff6b35; margin-right:6px;"></i>Everything in Power Dialer</li>
-                                <li><i class="fa-solid fa-check" style="color:#ff6b35; margin-right:6px;"></i>Priority queue</li>
+                                <li><i class="fa-solid fa-check billing-check-orange"></i><strong>Multi-line dialing (up to 4)</strong></li>
+                                <li><i class="fa-solid fa-check billing-check-orange"></i><strong>Predictive dialer</strong></li>
+                                <li><i class="fa-solid fa-check billing-check-orange"></i>Everything in Power Dialer</li>
+                                <li><i class="fa-solid fa-check billing-check-orange"></i>Priority queue</li>
                             </ul>
-                            <div id="billingBadgeProDialer" style="display:none; position:absolute; top:-8px; right:12px; background:#ff6b35; color:#fff; font-size:0.72rem; font-weight:700; padding:2px 10px; border-radius:10px;">CURRENT</div>
+                            <div id="billingBadgeProDialer" class="billing-badge-current billing-badge-current--orange" style="display:none;">CURRENT</div>
                         </div>
 
                         <!-- Predictive Dialer -->
                         <div id="billingPlanPredictiveDialer" class="billing-plan-card" onclick="billingSelectPlan('predictive_dialer')">
-                            <div style="position:absolute; top:-8px; left:12px; background:linear-gradient(135deg,#8b5cf6,#6366f1); color:#fff; font-size:0.68rem; font-weight:700; padding:2px 10px; border-radius:10px; letter-spacing:0.5px;">ENTERPRISE</div>
-                            <div style="font-weight:800; font-size:1rem; color:#fff; margin-bottom:4px;">Predictive Dialer</div>
+                            <div class="billing-tier-badge billing-tier-badge--enterprise">ENTERPRISE</div>
+                            <div class="billing-plan-title">Predictive Dialer</div>
                             <div style="margin-bottom:10px;">
-                                <span class="metallic-price--purple" style="font-size:1.8rem; font-weight:900;">$349.98</span>
-                                <span style="color:#888; font-size:0.85rem;">/mo</span>
+                                <span class="metallic-price--purple billing-price-amount">$349.98</span>
+                                <span class="billing-price-period">/mo</span>
                             </div>
                             <ul class="carved-features">
-                                <li><i class="fa-solid fa-check" style="color:#8b5cf6; margin-right:6px;"></i><strong>Erlang-C predictive pacing</strong></li>
-                                <li><i class="fa-solid fa-check" style="color:#8b5cf6; margin-right:6px;"></i><strong>TCPA auto-throttle (3%)</strong></li>
-                                <li><i class="fa-solid fa-check" style="color:#8b5cf6; margin-right:6px;"></i><strong>Recipient timezone enforcement</strong></li>
-                                <li><i class="fa-solid fa-check" style="color:#8b5cf6; margin-right:6px;"></i><strong>Compliance dashboard</strong></li>
-                                <li><i class="fa-solid fa-check" style="color:#8b5cf6; margin-right:6px;"></i><strong>Recording consent tracking</strong></li>
-                                <li><i class="fa-solid fa-check" style="color:#8b5cf6; margin-right:6px;"></i><strong>Callback queue + re-dials</strong></li>
-                                <li><i class="fa-solid fa-check" style="color:#8b5cf6; margin-right:6px;"></i><strong>Agent state machine</strong></li>
-                                <li><i class="fa-solid fa-check" style="color:#8b5cf6; margin-right:6px;"></i>Everything in Pro Dialer</li>
+                                <li><i class="fa-solid fa-check billing-check-purple"></i><strong>Erlang-C predictive pacing</strong></li>
+                                <li><i class="fa-solid fa-check billing-check-purple"></i><strong>TCPA auto-throttle (3%)</strong></li>
+                                <li><i class="fa-solid fa-check billing-check-purple"></i><strong>Recipient timezone enforcement</strong></li>
+                                <li><i class="fa-solid fa-check billing-check-purple"></i><strong>Compliance dashboard</strong></li>
+                                <li><i class="fa-solid fa-check billing-check-purple"></i><strong>Recording consent tracking</strong></li>
+                                <li><i class="fa-solid fa-check billing-check-purple"></i><strong>Callback queue + re-dials</strong></li>
+                                <li><i class="fa-solid fa-check billing-check-purple"></i><strong>Agent state machine</strong></li>
+                                <li><i class="fa-solid fa-check billing-check-purple"></i>Everything in Pro Dialer</li>
                             </ul>
-                            <div id="billingBadgePredictiveDialer" style="display:none; position:absolute; top:-8px; right:12px; background:#8b5cf6; color:#fff; font-size:0.72rem; font-weight:700; padding:2px 10px; border-radius:10px;">CURRENT</div>
+                            <div id="billingBadgePredictiveDialer" class="billing-badge-current billing-badge-current--purple" style="display:none;">CURRENT</div>
                         </div>
                     </div>
 
                     <div class="text-center" style="margin-bottom:16px;">
-                        <button id="billingChangePlanBtn" onclick="billingChangePlan()" class="btn px-5 py-2" style="background:linear-gradient(135deg,#ff6b35,#ff3366); color:#fff; font-weight:700; border:none; border-radius:10px; display:none;">
+                        <button id="billingChangePlanBtn" onclick="billingChangePlan()" class="btn px-5 py-2 billing-change-plan-btn" style="display:none;">
                             <i class="fa-solid fa-arrows-rotate me-2"></i>Change Plan
                         </button>
                     </div>
 
                     <!-- Team Seats Add-on -->
-                    <div style="max-width:960px;margin:0 auto 24px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);">
-                        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:20px;background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.1);border-radius:14px;">
-                            <div style="display:flex;align-items:center;gap:14px;">
-                                <div style="width:44px;height:44px;border-radius:12px;background:rgba(0,255,136,0.1);display:flex;align-items:center;justify-content:center;">
-                                    <i class="fa-solid fa-users" style="color:var(--accent);font-size:1.1rem;"></i>
+                    <div class="billing-seats-wrapper">
+                        <div class="billing-seats-card">
+                            <div class="billing-seats-info">
+                                <div class="billing-seats-icon-box">
+                                    <i class="fa-solid fa-users billing-seats-icon"></i>
                                 </div>
                                 <div>
-                                    <div style="font-weight:700;color:#fff;font-size:0.95rem;">Team Seats</div>
-                                    <div style="color:#888;font-size:0.82rem;">Add team members who get their own dialer, numbers, and permissions</div>
+                                    <div class="billing-seats-title">Team Seats</div>
+                                    <div class="billing-seats-desc">Add team members who get their own dialer, numbers, and permissions</div>
                                 </div>
                             </div>
-                            <div style="display:flex;align-items:center;gap:14px;">
+                            <div class="billing-seats-action">
                                 <div style="text-align:right;">
-                                    <span style="font-size:1.3rem;font-weight:800;color:var(--accent);">$50</span>
-                                    <span style="color:#888;font-size:0.8rem;">/seat/mo</span>
+                                    <span class="billing-seats-price">$50</span>
+                                    <span class="billing-seats-price-period">/seat/mo</span>
                                 </div>
-                                <a href="/dashboard?tab=team" style="background:var(--accent);color:#000;font-weight:700;padding:8px 18px;border-radius:8px;text-decoration:none;font-size:0.85rem;white-space:nowrap;">
+                                <a href="/dashboard?tab=team" class="billing-seats-add-btn">
                                     <i class="fa-solid fa-plus me-1"></i>Add Seats
                                 </a>
                             </div>
@@ -103,8 +103,8 @@
                     </div>
                     {% else %}
                         <div class="text-center">
-                            <p style="color:#aaa; margin-bottom:1.5rem;">You do not have an active Stripe subscription.</p>
-                            <p style="color:#aaa; max-width:500px; margin:0 auto;">
+                            <p class="billing-no-sub-text" style="margin-bottom:1.5rem;">You do not have an active Stripe subscription.</p>
+                            <p class="billing-no-sub-hint" style="max-width:500px; margin:0 auto;">
                                 If you installed via Marketplace, manage your subscription from within your Lead Connector account's Marketplace tab.
                             </p>
                         </div>
