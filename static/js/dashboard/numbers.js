@@ -425,21 +425,21 @@
                         '<div class="d-flex align-items-center gap-2 flex-wrap">' +
                             '<div class="cnam-stat-pill ' + (allGood ? 'cnam-stat-good' : 'cnam-stat-warn') + '">' +
                                 '<i class="fa-solid ' + (allGood ? 'fa-circle-check' : 'fa-triangle-exclamation') + ' me-1"></i>' +
-                                compliant + '/' + total + ' CNAM compliant' +
+                                compliant + '/' + total + ' CNAM registered' +
                             '</div>' +
                             (displayName ?
                                 '<div class="cnam-stat-pill cnam-stat-info">' +
-                                    '<i class="fa-solid fa-id-card me-1"></i>Registered: <strong>' + _esc(displayName) + '</strong>' +
+                                    '<i class="fa-solid fa-id-card me-1"></i>Display Name: <strong>' + _esc(displayName) + '</strong>' +
                                 '</div>' : '') +
                             (total - compliant > 0 && total > 0 ?
                                 '<div class="cnam-stat-pill cnam-stat-warn">' +
-                                    '<i class="fa-solid fa-exclamation me-1"></i>' + (total - compliant) + ' non-compliant' +
+                                    '<i class="fa-solid fa-exclamation me-1"></i>' + (total - compliant) + ' not registered' +
                                 '</div>' : '') +
                         '</div>';
                     // Update accordion badge
                     var cBadge = document.getElementById('smBadgeCnam');
                     if (cBadge) {
-                        cBadge.textContent = compliant + '/' + total + ' compliant';
+                        cBadge.textContent = compliant + '/' + total + ' registered';
                         cBadge.style.cssText = 'display:inline-block;background:' + (allGood ? 'rgba(0,255,136,0.12);color:#00ff88' : 'rgba(255,165,0,0.12);color:#ffa500') + ';font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
                     }
                 }
@@ -465,15 +465,15 @@
 
                         if (compliant) {
                             statusIcon = 'fa-circle-check';
-                            statusLabel = 'Compliant';
+                            statusLabel = 'Registered';
                             statusClass = 'cnam-status-ok';
                         } else if (n.assigned_to_trust_product) {
                             statusIcon = 'fa-clock';
-                            statusLabel = 'Pending';
+                            statusLabel = 'Pending Review';
                             statusClass = 'cnam-status-warn';
                         } else {
-                            statusIcon = 'fa-circle-xmark';
-                            statusLabel = 'Non-Compliant';
+                            statusIcon = 'fa-circle-minus';
+                            statusLabel = 'Not Registered';
                             statusClass = 'cnam-status-off';
                         }
 

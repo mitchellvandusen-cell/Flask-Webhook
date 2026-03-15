@@ -4241,8 +4241,8 @@
         function _dialerUpdateMinutesChip() {
             const chip = document.getElementById('dialerMinutesChip');
             if (!chip) return;
-            // Only show chip if user has purchased minutes before
-            if (!_aiMinutesHasPurchased) { chip.style.display = 'none'; return; }
+            // Only show chip if user has purchased minutes AND mode is AI
+            if (!_aiMinutesHasPurchased || dialerMode !== 'ai') { chip.style.display = 'none'; return; }
             chip.style.display = 'inline-flex';
             const bal = _aiMinutesBalance || 0;
             chip.textContent = bal + ' min';
@@ -4319,6 +4319,8 @@
                     initVoIPDevice();
                 }
             }
+            // Show/hide AI minutes chip based on mode
+            _dialerUpdateMinutesChip();
         }
 
         // Show VoIP status messages (visible in banner and setup areas)
