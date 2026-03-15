@@ -894,6 +894,7 @@ def agency_call_log():
             SELECT ch.call_sid, ch.location_id, ch.contact_id, ch.contact_name,
                    ch.direction, ch.status, ch.duration, ch.from_number, ch.to_number,
                    ch.created_at, ch.recording_url, ch.transcript,
+                   COALESCE(ch.stir_status, '') AS stir_status,
                    s.full_name AS agent_name, s.email AS agent_email
             FROM call_history ch
             LEFT JOIN subscribers s ON ch.location_id = s.location_id
@@ -917,6 +918,7 @@ def agency_call_log():
                 "created_at": row['created_at'].isoformat() + "Z" if row['created_at'] else None,
                 "has_recording": bool(row['recording_url']),
                 "has_transcript": bool(row['transcript']),
+                "stir_status": row['stir_status'] or '',
             })
 
         # Total count

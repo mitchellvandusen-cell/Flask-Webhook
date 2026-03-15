@@ -199,6 +199,26 @@ def get_dialer_stats():
             for row in cur.fetchall()
         ]
 
+        # STIR/SHAKEN attestation breakdown
+        stir_stats = {"A": 0, "B": 0, "C": 0, "none": 0}
+        try:
+            cur.execute("""
+                SELECT COALESCE(NULLIF(TRIM(stir_status), ''), 'none') AS level,
+                       COUNT(*) AS cnt
+                FROM call_history
+                WHERE location_id = %s AND created_at >= %s
+                  AND direction = 'outbound'
+                GROUP BY level
+            """, (location_id, start_date_utc))
+            for row in cur.fetchall():
+                lvl = row['level'].upper() if row['level'] != 'none' else 'none'
+                stir_stats[lvl] = stir_stats.get(lvl, 0) + row['cnt']
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+
         # Source breakdown from synced GHL conversations
         source_breakdown = {"dialer": total, "ghl_native": 0, "wavv": 0, "unknown": 0}
         try:
@@ -244,6 +264,7 @@ def get_dialer_stats():
             "top_contacts":    top_contacts,
             "prior":           prior,
             "dispositions":    dispositions,
+            "stir_attestation": stir_stats,
             "source_breakdown": source_breakdown,
         })
     except Exception as e:

@@ -191,8 +191,12 @@ def voice_status():
     call_status = request.values.get('CallStatus', '')
     duration    = request.values.get('CallDuration', '0')
     sip_code    = request.values.get('SipResponseCode', '')
+    stir_status = request.values.get('StirStatus', '')  # STIR/SHAKEN attestation (A/B/C) for outbound
+    # For inbound calls, StirVerstat was captured at webhook time and stored in active_calls
+    if not stir_status and call_sid in active_calls:
+        stir_status = active_calls[call_sid].get('_stir_verstat', '') or ''
 
-    logger.info(f"📞 Call status: SID={call_sid} status={call_status} duration={duration}s sip={sip_code}")
+    logger.info(f"📞 Call status: SID={call_sid} status={call_status} duration={duration}s sip={sip_code} stir={stir_status or 'n/a'}")
 
     # Track status in memory for dialer queue polling
     # Twilio can deliver callbacks out of order (e.g. 'ringing' after 'in-progress'),
@@ -231,7 +235,8 @@ def voice_status():
     # Persist to call_history DB
     if call_sid:
         try:
-            update_call_history_status(call_sid, call_status, duration)
+            update_call_history_status(call_sid, call_status, duration,
+                                       stir_status=stir_status or None)
         except Exception as e:
             logger.warning(f"call_history update failed for {call_sid}: {e}")
 

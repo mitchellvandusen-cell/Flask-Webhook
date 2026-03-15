@@ -1155,6 +1155,8 @@ def init_db() -> bool:
             cur_calls.execute("ALTER TABLE call_history ADD COLUMN IF NOT EXISTS disposition TEXT DEFAULT NULL")
             # Add callback_at for AI auto-callback scheduling
             cur_calls.execute("ALTER TABLE call_history ADD COLUMN IF NOT EXISTS callback_at TIMESTAMP DEFAULT NULL")
+            # Add STIR/SHAKEN attestation tracking
+            cur_calls.execute("ALTER TABLE call_history ADD COLUMN IF NOT EXISTS stir_status TEXT DEFAULT NULL")
             conn.commit()
             cur_calls.close()
             logger.info("✅ Migration: Created call_history table")

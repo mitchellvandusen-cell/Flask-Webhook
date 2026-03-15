@@ -27,12 +27,13 @@ def voice_inbound():
     - True inbound calls → <Connect><Stream> to AI bridge
     - Browser VoIP calls (From=client:xxx) → <Dial><Number> to connect agent to lead
     """
-    call_sid    = request.values.get('CallSid', '')
-    caller      = request.values.get('From', '')
-    called      = request.values.get('To', '')
-    call_status = request.values.get('CallStatus', '')
+    call_sid      = request.values.get('CallSid', '')
+    caller        = request.values.get('From', '')
+    called        = request.values.get('To', '')
+    call_status   = request.values.get('CallStatus', '')
+    stir_verstat  = request.values.get('StirVerstat', '')  # STIR/SHAKEN verification for inbound
 
-    logger.info(f"Voice inbound: CallSid={call_sid[:16] if call_sid else 'none'} From={caller} To={called}")
+    logger.info(f"Voice inbound: CallSid={call_sid[:16] if call_sid else 'none'} From={caller} To={called} stir_verstat={stir_verstat or 'n/a'}")
 
     # Browser VoIP call: From=client:agent_xxx, To=+1234567890
     if caller.startswith('client:'):
@@ -145,6 +146,7 @@ def voice_inbound():
         "_host": host,
         "_location_id": subscriber.get('location_id', ''),
         "_from_number": called,  # The number that received the inbound call
+        "_stir_verstat": stir_verstat or None,  # STIR/SHAKEN verification result
     }
 
     # Respond with TwiML to connect the media stream to AI bridge

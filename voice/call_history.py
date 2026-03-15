@@ -558,7 +558,8 @@ def get_call_history():
             SELECT id, contact_id, contact_name, phone, direction, call_sid,
                    status, duration, recording_url, recording_sid, transcript,
                    started_at, ended_at, created_at,
-                   COALESCE(disposition, '') as disposition
+                   COALESCE(disposition, '') as disposition,
+                   COALESCE(stir_status, '') as stir_status
             FROM call_history
             WHERE location_id = %s
             ORDER BY created_at DESC
@@ -610,7 +611,8 @@ def get_voicemails():
             SELECT id, contact_id, contact_name, phone, direction, call_sid,
                    status, duration, recording_url, recording_sid, transcript,
                    started_at, ended_at, created_at,
-                   COALESCE(disposition, '') as disposition
+                   COALESCE(disposition, '') as disposition,
+                   COALESCE(stir_status, '') as stir_status
             FROM call_history
             WHERE location_id = %s
               AND recording_url IS NOT NULL
