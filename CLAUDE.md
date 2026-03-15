@@ -47,41 +47,68 @@ Deployment (Render / Railway):
 
 All queues are defined in `extensions.py` and initialized via `ensure_redis()`. Worker startup: `python worker.py <queue1> [queue2] ...` (defaults to `production` if no args).
 
-### Twilio ISV Sub-Account Model
+### Twilio Dual Architecture: Direct Customer + ISV Sub-Accounts
+
+This platform operates two distinct Twilio patterns simultaneously:
+
+1. **Master Account (platform owner) = Direct Customer**
+   - The platform owner's own Twilio account
+   - Uses the Primary Business Profile directly (already approved in Twilio Console)
+   - No Secondary profiles needed — uses Primary for CNAM, Voice Integrity, A2P
+   - Detected via `is_master_account(sub_account_sid)` (compares to `TWILIO_ACCOUNT_SID`)
+
+2. **Subscriber Sub-Accounts = ISV/Reseller with Sub-Accounts**
+   - Each subscribing agency gets their own Twilio sub-account
+   - Sub-accounts are fully independent: own Account SID + Auth Token
+   - Must create Secondary Customer Profile linked to master's Primary
+   - All Trust Hub operations use sub-account's own credentials
 
 ```
-Master Twilio Account (platform owner)
+Master Twilio Account (platform owner — DIRECT CUSTOMER)
 ├── Primary Business Profile (created once in Console, twilio-approved)
+├── Own CNAM Trust Product → linked to Primary Profile
+├── Own Voice Integrity Trust Product → linked to Primary Profile
 │
-├── Sub-Account: Agency A
+├── Sub-Account: Agency A (ISV CUSTOMER)
+│   ├── Own Account SID + Auth Token (fully independent credentials)
 │   ├── Secondary Customer Profile → linked to Primary via EntityAssignment
 │   ├── Phone Numbers (purchased on sub-account)
-│   ├── A2P Brand + Campaign (registered under sub-account)
+│   ├── CNAM Trust Product → linked to Secondary Profile
 │   ├── Voice Integrity Trust Product → linked to Secondary Profile
+│   ├── A2P Brand + Campaign (registered under sub-account)
 │   └── TwiML App (webhook routing)
 │
-├── Sub-Account: Agency B
-│   └── (same structure)
+├── Sub-Account: Agency B (ISV CUSTOMER)
+│   └── (same structure — fully independent from Agency A)
 └── ...
 ```
 
-**This app is a Twilio ISV/Reseller using sub-accounts.** Every Twilio API integration must follow the ISV/sub-account pattern:
-
-- **Authentication**: TrustHub and Messaging APIs MUST use `get_sub_account_client_native()` (sub-account's own SID + auth token). Using master credentials returns master-account resources, causing cross-account contamination.
-- **Primary Business Profile**: Created ONCE on the master account via the Twilio Console. All sub-account Secondary Profiles link back to this. SID discovered at runtime via `_find_primary_profile_sid()`.
-- **Secondary Customer Profiles**: Created on each sub-account with `policy_sid=RNdfbf3fae0e1107f8aded0e7cead80bf5`. Must be linked to the Primary Profile via EntityAssignment. Reused across A2P, Voice Integrity, SHAKEN/STIR, and CNAM.
-- **Trust Products** (A2P, Voice Integrity, etc.): Created on the sub-account, linked to the Secondary Profile via EntityAssignment.
+**Sub-Account Independence Rules:**
+- **Authentication**: TrustHub and Messaging APIs MUST use `get_sub_account_client_native(sub_account_sid, sub_account_auth_token)` — the sub-account's OWN SID + auth token. Using master credentials returns master-account resources, causing cross-account contamination.
+- **Every sub-account is independent**: Each has its own Customer Profile, Trust Products, EndUsers, Phone Numbers. Nothing is shared between sub-accounts except the linkage back to the master's Primary Business Profile.
+- **Primary Business Profile**: Created ONCE on the master account via the Twilio Console. All sub-account Secondary Profiles link back to this via EntityAssignment. SID discovered at runtime via `_find_primary_profile_sid()`.
+- **Secondary Customer Profiles**: Created on each sub-account using `get_sub_account_client_native()` with `policy_sid=RNdfbf3fae0e1107f8aded0e7cead80bf5`. Must be linked to the Primary Profile via EntityAssignment. Reused across A2P, Voice Integrity, SHAKEN/STIR, and CNAM on that sub-account.
+- **Trust Products** (CNAM, Voice Integrity, A2P): Created on the sub-account using sub-account credentials, linked to the Secondary Profile via EntityAssignment.
 - **Phone Numbers**: Purchased and managed on each sub-account, assigned to both the Secondary Profile and any Trust Products.
+
+**All Twilio SDK calls for sub-accounts use `get_sub_account_client_native()`.** The SDK handles evaluation, entity creation, assignments. The only exception is status transitions (`pending-review`) which use `_trusthub_update_status()` (direct HTTP POST) to work around a known Twilio SDK bug where `.update(status=...)` silently drops the Status parameter.
 
 **Key Policy SIDs** (static across all Twilio accounts — never change these):
 
 | Policy | SID | Used For |
 |--------|-----|----------|
 | Secondary Customer Profile | `RNdfbf3fae0e1107f8aded0e7cead80bf5` | `customer_profiles.create()` on sub-accounts |
-| Business Profile (legacy) | `RNb0d4771c2c98518d916a3d4cd70a8f8b` | `customer_profiles.create()` for CNAM/A2P |
+| CNAM Trust Product | `RNf3db3cd1fe25fcfd3c3ded065c8fea53` | `trust_products.create()` for CNAM |
 | Voice Integrity Trust Product | `RN5b3660f9598883b1df4e77f77acefba0` | `trust_products.create()` for Voice Integrity |
+| A2P 10DLC Brand | `RNb0d4771c2c98518d916a3d4cd70a8f8b` | `trust_products.create()` for A2P brand registration |
 
-**Twilio ISV documentation references**:
+**Twilio documentation references** (always use the correct guide for the account type):
+
+*Direct Customer (master account):*
+- Voice Integrity Direct: https://www.twilio.com/docs/voice/spam-monitoring-with-voiceintegrity/voice-integrity-onboarding/voice-integrity-trust-hub-api-direct-customer
+- CNAM: https://www.twilio.com/docs/voice/brand-your-calls-using-cnam
+
+*ISV/Reseller with Sub-Accounts (subscriber accounts):*
 - Voice Integrity ISV/Subaccounts: https://www.twilio.com/docs/voice/spam-monitoring-with-voiceintegrity/voice-integrity-onboarding/voice-integrity-trust-hub-api-isvs-subaccounts
 - Secondary Customer Profile API: https://www.twilio.com/docs/trust-hub/trusthub-rest-api/api-create-secondary-customer-profile
 - A2P 10DLC ISV Onboarding: https://www.twilio.com/docs/messaging/compliance/a2p-10dlc/onboarding-isv-api
@@ -1118,29 +1145,44 @@ This progressively eliminates the `[style*]` hacks and reduces CSS file size.
 
 ---
 
-## ⛔ TWILIO ISV/SUB-ACCOUNT PROTOCOL — Mandatory Rule
+## ⛔ TWILIO DUAL ARCHITECTURE PROTOCOL — Mandatory Rule
 
-**All Twilio code MUST follow the ISV/Reseller with Sub-Accounts pattern. Never use the Direct Customer pattern.**
+**This platform uses TWO Twilio patterns. Use the correct one based on the account type.**
+
+### The Two Patterns
+
+1. **Master Account = Direct Customer** — The platform owner's own account. Uses the Primary Business Profile directly. No Secondary profiles. Detected via `is_master_account(sub_account_sid)`.
+
+2. **Subscriber Sub-Accounts = ISV/Reseller with Sub-Accounts** — Each subscribing agency. Uses Secondary Customer Profile linked to master's Primary. All Trust Hub operations use the sub-account's own credentials (`get_sub_account_client_native()`).
 
 ### Why This Matters
 
-InsuranceGrokBot operates as a Twilio ISV. One master Twilio account (the platform) creates sub-accounts for each subscribing insurance agency. Twilio's Trust Hub, Messaging, A2P, Voice Integrity, SHAKEN/STIR, and CNAM APIs all have ISV-specific flows that differ significantly from the direct customer flows. Using the wrong flow causes bundle rejections, cross-account contamination, and compliance failures.
+Twilio's Trust Hub, Messaging, A2P, Voice Integrity, SHAKEN/STIR, and CNAM APIs all have distinct flows for Direct Customers vs ISV sub-accounts. Using the wrong flow causes bundle rejections, cross-account contamination, and compliance failures. The master account IS a Direct Customer. Sub-accounts ARE ISV customers.
 
 ### The Rules
 
-> 1. **Always use `get_sub_account_client_native(sub_account_sid, sub_account_auth_token)`** for TrustHub and Messaging API calls. Never use master credentials for sub-account resources.
-> 2. **Customer Profiles on sub-accounts are SECONDARY profiles** — create with `policy_sid=RNdfbf3fae0e1107f8aded0e7cead80bf5` and link to the Primary Business Profile on the master account via EntityAssignment.
-> 3. **Trust Products use their own policy SIDs** — Voice Integrity uses `RN5b3660f9598883b1df4e77f77acefba0`, A2P uses `RNb0d4771c2c98518d916a3d4cd70a8f8b`. Never use a Trust Product policy SID when creating a Customer Profile.
-> 4. **Reuse existing approved Secondary Profiles** across A2P, Voice Integrity, SHAKEN/STIR, and CNAM. Don't create a new profile for each product. Use `_find_or_create_secondary_profile()` or `discover_trust_hub_profiles()`.
-> 5. **EndUser attributes must be strings of positive integers** — `business_employee_count` and `average_business_day_call_volume` must be string representations of positive integers (e.g. `"10"`, `"500"`), never `"0"`, never ranges, never empty.
-> 6. **Phone numbers must be assigned to BOTH the Secondary Profile AND the Trust Product** — Twilio requires numbers on the profile before they can be assigned to a Trust Product.
-> 7. **Always consult Twilio's ISV/sub-account documentation** — not the direct customer docs. The flows have different steps, different policy SIDs, and different EntityAssignment requirements.
+> 1. **Check `is_master_account()` first** — every Trust Hub function must branch: Direct Customer flow for master, ISV flow for sub-accounts.
+> 2. **Sub-accounts use `get_sub_account_client_native(sub_account_sid, sub_account_auth_token)`** for ALL TrustHub and Messaging API calls. Sub-accounts have their own SID + auth token and are fully independent. Never use master credentials for sub-account resources.
+> 3. **Master account uses the Primary Business Profile directly** — no Secondary profile needed. The Primary is already approved in the Twilio Console.
+> 4. **Sub-account Customer Profiles are SECONDARY profiles** — create with `policy_sid=RNdfbf3fae0e1107f8aded0e7cead80bf5` and link to the Primary Business Profile on the master account via EntityAssignment.
+> 5. **Trust Products use their own policy SIDs** — CNAM uses `RNf3db3cd1fe25fcfd3c3ded065c8fea53`, Voice Integrity uses `RN5b3660f9598883b1df4e77f77acefba0`, A2P uses `RNb0d4771c2c98518d916a3d4cd70a8f8b`. Never use a Trust Product policy SID when creating a Customer Profile.
+> 6. **Reuse existing approved Secondary Profiles** across A2P, Voice Integrity, SHAKEN/STIR, and CNAM on the same sub-account. Use `_find_or_create_secondary_profile()`.
+> 7. **EndUser attributes must be strings of positive integers** — `business_employee_count` and `average_business_day_call_volume` must be `"10"`, `"500"`, etc. Never `"0"`, never ranges, never empty.
+> 8. **Phone numbers must be assigned to BOTH the Customer Profile AND the Trust Product** — Twilio requires numbers on the profile before they can be assigned to a Trust Product.
+> 9. **Use the Twilio SDK for all operations EXCEPT status transitions** — Evaluation, entity creation, assignments all use the SDK. Status transitions (`pending-review`) use `_trusthub_update_status()` (direct HTTP POST) to work around a known SDK bug where `.update(status=...)` silently drops the Status parameter.
+> 10. **UI must reflect actual Twilio state** — Never mark numbers as "protected" based on local DB flags alone. Verify the profile/Trust Product actually exists on the correct account.
 
 ### Reference Documentation
 
-Before writing or modifying any Twilio Trust Hub code, consult the correct ISV guide:
-- **Voice Integrity**: https://www.twilio.com/docs/voice/spam-monitoring-with-voiceintegrity/voice-integrity-onboarding/voice-integrity-trust-hub-api-isvs-subaccounts
-- **A2P 10DLC**: https://www.twilio.com/docs/messaging/compliance/a2p-10dlc/onboarding-isv-api
-- **SHAKEN/STIR**: https://www.twilio.com/docs/voice/trusted-calling-with-shakenstir/shakenstir-onboarding/shaken-stir-trust-hub-api-isvs-subaccounts
+Before writing or modifying any Twilio Trust Hub code, consult the correct guide for the account type:
+
+**Direct Customer (master account):**
+- **Voice Integrity Direct**: https://www.twilio.com/docs/voice/spam-monitoring-with-voiceintegrity/voice-integrity-onboarding/voice-integrity-trust-hub-api-direct-customer
+- **CNAM**: https://www.twilio.com/docs/voice/brand-your-calls-using-cnam
+
+**ISV/Reseller with Sub-Accounts (subscriber accounts):**
+- **Voice Integrity ISV**: https://www.twilio.com/docs/voice/spam-monitoring-with-voiceintegrity/voice-integrity-onboarding/voice-integrity-trust-hub-api-isvs-subaccounts
+- **A2P 10DLC ISV**: https://www.twilio.com/docs/messaging/compliance/a2p-10dlc/onboarding-isv-api
+- **SHAKEN/STIR ISV**: https://www.twilio.com/docs/voice/trusted-calling-with-shakenstir/shakenstir-onboarding/shaken-stir-trust-hub-api-isvs-subaccounts
 - **Secondary Customer Profile**: https://www.twilio.com/docs/trust-hub/trusthub-rest-api/api-create-secondary-customer-profile
 - **Trust Product Evaluations**: https://www.twilio.com/docs/trust-hub/trusthub-rest-api/trust-products/evaluations-tp

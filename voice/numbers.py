@@ -707,10 +707,23 @@ def get_number_health():
             "state_name": nh.STATE_NAMES.get(state, '') if state else '',
         })
 
-    # A2P / STIR-SHAKEN spam protection status
+    # Spam protection: requires Trust Hub profile + CNAM or A2P actually approved
+    trust_hub = vc.get('trust_hub', {})
+    cnam_info = vc.get('cnam', {})
     a2p_info = vc.get('a2p', {})
-    a2p_registered = (a2p_info.get('brand_status', '').upper() == 'APPROVED' and
-                      a2p_info.get('campaign_status', '').upper() in ('VERIFIED', 'APPROVED'))
+
+    # A2P fully approved (brand + campaign)
+    a2p_approved = (a2p_info.get('brand_status', '').upper() == 'APPROVED' and
+                    a2p_info.get('campaign_status', '').upper() in ('VERIFIED', 'APPROVED'))
+
+    # Trust Hub profile validated on this sub-account + CNAM Trust Product submitted
+    trust_hub_valid = (trust_hub.get('_validated', False) and
+                       trust_hub.get('protection_active', False))
+    cnam_submitted = bool(cnam_info.get('trust_product_sid')) and \
+        cnam_info.get('status', '') in ('pending-review', 'twilio-approved', 'approved')
+
+    # Protected = A2P approved OR (Trust Hub validated AND CNAM submitted)
+    a2p_registered = a2p_approved or (trust_hub_valid and cnam_submitted)
 
     # Summary stats
     summary = nh.get_number_health_summary(location_id)
@@ -931,8 +944,19 @@ def register_spam_protection():
         sub_account_auth_token=sub_auth_token,
     )
 
-    # Step 3: Mark auto-protection enabled + save profile_sid
-    trust_hub['protection_active'] = True
+    # Step 3: Only mark protection active if a profile was actually created
+    has_profile = bool(results.get('profile_sid'))
+    if not has_profile:
+        # Try to find profile_sid in the steps
+        profile_step = next(
+            (s for s in results.get('steps', []) if s.get('name') in ('secondary_profile', 'customer_profile') and s.get('sid')),
+            None,
+        )
+        if profile_step:
+            has_profile = True
+            results['profile_sid'] = profile_step['sid']
+
+    trust_hub['protection_active'] = has_profile
     trust_hub['_sub_sid'] = sub_sid  # Tag which sub-account this belongs to
 
     # Save profile_sid so Voice Integrity / CNAM can reuse this approved profile
@@ -958,7 +982,11 @@ def register_spam_protection():
     elif eval_step and eval_step.get('status') == 'noncompliant':
         trust_hub['review_status'] = 'noncompliant'
         trust_hub['evaluation_issues'] = eval_step.get('issues', [])
-    trust_hub['_validated'] = True
+    if has_profile:
+        trust_hub['_validated'] = True
+    else:
+        trust_hub['_validated'] = False
+        logger.warning(f"[SpamProtection] No profile created for {sub_sid} — protection_active=False")
 
     vc['trust_hub'] = trust_hub
     _save_voice_config(current_user.email, vc)
@@ -1161,15 +1189,23 @@ def spam_protection_status():
 
     # Get number details from Twilio
     status = twilio_provisioning.get_spam_protection_status(sub_sid)
-    numbers_detail = [
-        {
-            "phone": n.get('phone', ''),
+    # A number is "protected" only if its friendly_name was explicitly set
+    # to a business/personal CNAM name — NOT just the default phone number label.
+    # Twilio sets friendly_name to the phone number by default, so checking
+    # bool(friendly_name) is always True and gives false "Protected" status.
+    numbers_detail = []
+    for n in status.get('numbers', []):
+        fn = (n.get('friendly_name') or '').strip()
+        phone = n.get('phone', '')
+        # friendly_name is "protected" only if it's not empty, not the phone number itself,
+        # and not a default Twilio label
+        is_protected = bool(fn) and fn != phone and not fn.startswith('+')
+        numbers_detail.append({
+            "phone": phone,
             "id": n.get('sid', ''),
-            "cnam_enabled": bool(n.get('friendly_name')),
+            "cnam_enabled": is_protected,
             "status": n.get('status', 'active'),
-        }
-        for n in status.get('numbers', [])
-    ]
+        })
 
     # Check live profile status from Twilio if we have a profile_sid
     profile_review_status = trust_hub.get('review_status', '')
