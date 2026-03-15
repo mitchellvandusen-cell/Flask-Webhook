@@ -7821,3 +7821,48 @@ body.light-theme .dlr-icon-c555-2 { color:#6b7280; }
 .dlr-btn-ios-delete:hover { background:rgba(255,59,48,0.25); }
 body.light-theme .dlr-btn-3:hover { background:rgba(0,0,0,0.10); }
 body.light-theme .dlr-btn-ios-delete:hover { background:rgba(220,38,38,0.25); }
+
+/* ── STIR/SHAKEN Attestation Badges ── */
+.call-history-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    font-size: .88rem;
+    cursor: pointer;
+}
+.call-history-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.stir-badge {
+    font-size: .65rem;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+    line-height: 1.4;
+}
+.stir-badge-a {
+    background: rgba(0,255,136,0.12);
+    color: #00ff88;
+    border: 1px solid rgba(0,255,136,0.25);
+}
+.stir-badge-b {
+    background: rgba(255,180,0,0.10);
+    color: #ffb400;
+    border: 1px solid rgba(255,180,0,0.20);
+}
+.stir-badge-c {
+    background: rgba(239,68,68,0.10);
+    color: #ef4444;
+    border: 1px solid rgba(239,68,68,0.20);
+}
+body.light-theme .call-history-row { border-bottom-color: rgba(0,0,0,0.06); }
+body.light-theme .stir-badge-a { background: rgba(0,170,94,0.10); color: #00884d; border-color: rgba(0,170,94,0.25); }
+body.light-theme .stir-badge-b { background: rgba(217,119,6,0.10); color: #b45309; border-color: rgba(217,119,6,0.25); }
+body.light-theme .stir-badge-c { background: rgba(220,38,38,0.10); color: #dc2626; border-color: rgba(220,38,38,0.25); }

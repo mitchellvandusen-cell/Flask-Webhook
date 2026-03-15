@@ -3747,12 +3747,14 @@
                     const hasRec = !!c.recording_url;
                     const hasTx = c.transcript && c.transcript.length > 0;
                     const disp = c.disposition ? ' <span style="color:#888;font-size:.75rem;">(' + c.disposition.replace(/_/g,' ') + ')</span>' : '';
-                    return '<div style="display:flex;align-items:center;gap:6px;padding:7px 8px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.88rem;cursor:pointer;" onclick="dialerHistoryClickContact(\'' + (c.contact_id||'') + '\')">' +
-                        '<div style="width:6px;height:6px;border-radius:50%;background:' + sc + ';flex-shrink:0;"></div>' +
+                    const stirBadge = c.stir_status ? '<span class="stir-badge stir-badge-' + dialerEsc(c.stir_status).toLowerCase() + '" title="STIR/SHAKEN Attestation ' + dialerEsc(c.stir_status) + '">' + dialerEsc(c.stir_status) + '</span>' : '';
+                    return '<div class="call-history-row" onclick="dialerHistoryClickContact(\'' + (c.contact_id||'') + '\')">' +
+                        '<div class="call-history-dot" style="background:' + sc + ';"></div>' +
                         '<div style="flex:1;min-width:0;">' +
                             '<div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(c.contact_name || c.phone || 'Unknown') + disp + '</div>' +
                             '<div style="font-size:.78rem;color:#555;">' + (c.direction||'outbound') + ' &middot; ' + dt + '</div>' +
                         '</div>' +
+                        stirBadge +
                         '<div style="color:' + sc + ';font-size:.78rem;font-weight:600;white-space:nowrap;">' + (c.status||'').replace(/-/g,' ') + '</div>' +
                         '<div style="color:#888;font-size:.82rem;font-family:monospace;">' + dur + '</div>' +
                         (hasRec ? '<button onclick="event.stopPropagation();playRecording(\'' + dialerEsc(c.recording_url) + '\')" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:4px;padding:2px 6px;font-size:.75rem;cursor:pointer;" title="Play"><i class="fa-solid fa-play"></i></button>' : '') +

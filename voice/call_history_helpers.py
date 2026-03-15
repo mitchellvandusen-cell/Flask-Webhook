@@ -32,19 +32,24 @@ def save_call_to_history(location_id, call_sid, phone, contact_id=None,
         return_db_connection(conn)
 
 
-def update_call_history_status(call_sid, status, duration=0):
-    """Update call status and duration in call_history."""
+def update_call_history_status(call_sid, status, duration=0, stir_status=None):
+    """Update call status, duration, and STIR/SHAKEN attestation in call_history."""
     conn = get_db_connection()
     if not conn:
         return
     try:
         cur = conn.cursor()
         ended_clause = ", ended_at = NOW()" if status in ('completed', 'busy', 'no-answer', 'failed', 'canceled') else ""
+        stir_clause = ", stir_status = %s" if stir_status else ""
+        params = [status, int(duration or 0)]
+        if stir_status:
+            params.append(stir_status)
+        params.append(call_sid)
         cur.execute(f"""
             UPDATE call_history
-            SET status = %s, duration = %s{ended_clause}
+            SET status = %s, duration = %s{stir_clause}{ended_clause}
             WHERE call_sid = %s
-        """, (status, int(duration or 0), call_sid))
+        """, params)
         conn.commit()
         cur.close()
     except Exception as e:
