@@ -1,3 +1,10 @@
+        // ===== SPAM MONITORING ACCORDION =====
+        function toggleSmAccordion(id) {
+            const item = document.getElementById(id);
+            if (!item) return;
+            item.classList.toggle('open');
+        }
+
         // ===== LOCAL UTILITIES =====
         function _esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
         function _fmtPhone(p) {
@@ -285,6 +292,30 @@
                         numsEl.innerHTML = html;
                     }
                 }
+                // Update accordion badges
+                var bpBadge = document.getElementById('smBadgeBizProfile');
+                var prBadge = document.getElementById('smBadgeProtection');
+                if (bpBadge) {
+                    var rs = d.review_status || '';
+                    if (d.protection_active && (rs === 'twilio-approved' || rs === 'compliant')) {
+                        bpBadge.textContent = 'Approved';
+                        bpBadge.style.cssText = 'display:inline-block;background:rgba(0,255,136,0.12);color:#00ff88;font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
+                    } else if (rs === 'pending-review' || rs === 'in-review') {
+                        bpBadge.textContent = 'Under Review';
+                        bpBadge.style.cssText = 'display:inline-block;background:rgba(255,165,0,0.12);color:#ffa500;font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
+                    } else if (rs === 'twilio-rejected' || rs === 'noncompliant') {
+                        bpBadge.textContent = 'Needs Attention';
+                        bpBadge.style.cssText = 'display:inline-block;background:rgba(239,68,68,0.12);color:#ef4444;font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
+                    } else if (!d.protection_active) {
+                        bpBadge.textContent = 'Not registered';
+                        bpBadge.style.cssText = 'display:inline-block;background:rgba(255,255,255,0.06);color:#888;font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
+                    }
+                }
+                if (prBadge && d.numbers_total > 0) {
+                    prBadge.textContent = d.numbers_protected + '/' + d.numbers_total + ' protected';
+                    var allProtected = d.numbers_protected === d.numbers_total;
+                    prBadge.style.cssText = 'display:inline-block;background:' + (allProtected ? 'rgba(0,255,136,0.12);color:#00ff88' : 'rgba(255,165,0,0.12);color:#ffa500') + ';font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
+                }
             } catch(e) {
                 console.error('[SpamProtection] Error:', e);
                 if (numsEl) numsEl.innerHTML = '<div style="color:#ef4444;font-size:.78rem;padding:8px;">Network error</div>';
@@ -401,6 +432,13 @@
                                     '<i class="fa-solid fa-exclamation me-1"></i>' + (cnamSet - matching) + ' mismatched' +
                                 '</div>' : '') +
                         '</div>';
+                    // Update accordion badge
+                    var cBadge = document.getElementById('smBadgeCnam');
+                    if (cBadge) {
+                        var allGoodB = cnamSet === total && matching === total && total > 0;
+                        cBadge.textContent = cnamSet + '/' + total + ' set';
+                        cBadge.style.cssText = 'display:inline-block;background:' + (allGoodB ? 'rgba(0,255,136,0.12);color:#00ff88' : 'rgba(255,165,0,0.12);color:#ffa500') + ';font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
+                    }
                 }
 
                 // Numbers list
@@ -751,6 +789,24 @@
                     }
                 } else if (bannerEl) {
                     bannerEl.style.display = 'none';
+                }
+
+                // Update accordion badge
+                var niBadge = document.getElementById('smBadgeVoiceIntegrity');
+                if (niBadge) {
+                    if (isActive) {
+                        niBadge.textContent = 'Active';
+                        niBadge.style.cssText = 'display:inline-block;background:rgba(0,255,136,0.12);color:#00ff88;font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
+                    } else if (isPending) {
+                        niBadge.textContent = 'Pending';
+                        niBadge.style.cssText = 'display:inline-block;background:rgba(255,165,0,0.12);color:#ffa500;font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
+                    } else if (isRejected) {
+                        niBadge.textContent = 'Rejected';
+                        niBadge.style.cssText = 'display:inline-block;background:rgba(239,68,68,0.12);color:#ef4444;font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
+                    } else {
+                        niBadge.textContent = 'Not registered';
+                        niBadge.style.cssText = 'display:inline-block;background:rgba(255,255,255,0.06);color:#888;font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
+                    }
                 }
 
                 // Show/hide edit form (hidden by default, shown when user clicks Edit & Resubmit)

@@ -646,276 +646,255 @@
                         </div>
                     </div><!-- /vstab-panel-dialer -->
 
-                    <!-- ══ Spam Monitoring (consolidated) ══ -->
+
+                    <!-- ══ Spam Monitoring (accordion layout) ══ -->
                     <div id="vstab-panel-spammonitoring" style="display:none;">
 
-                        <!-- ─── Section 1: Business Profile ─── -->
+                        <!-- Top-level status banner (populated by JS — hidden until profile approved) -->
                         <div id="spamProtectionStatus" style="display:none;"></div>
 
-                        <div id="spamProtectionForm">
-                            <div class="mb-3 p-3" style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.12);border-radius:12px;">
-                                <div class="d-flex align-items-center gap-3 mb-3">
-                                    <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,255,136,0.12);border:1px solid rgba(0,255,136,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                        <i class="fa-solid fa-building" style="color:#00ff88;"></i>
-                                    </div>
-                                    <div>
-                                        <div style="font-weight:700;font-size:1rem;color:#fff;">Business Profile</div>
-                                        <div style="font-size:0.78rem;color:#888;">Register your business identity with Twilio Trust Hub. This is the foundation for CNAM, Voice Integrity, and spam protection on all your numbers.</div>
-                                    </div>
+                        <!-- ─── Accordion: Business Profile ─── -->
+                        <div class="sm-accordion-item" id="smAccBizProfile">
+                            <button class="sm-accordion-header" onclick="toggleSmAccordion('smAccBizProfile')">
+                                <div class="sm-accordion-header-left">
+                                    <i class="fa-solid fa-building sm-accordion-icon sm-icon-green"></i>
+                                    <span class="sm-accordion-title">Business Profile</span>
+                                    <span class="sm-accordion-badge" id="smBadgeBizProfile"></span>
                                 </div>
-
-                                <!-- What happens -->
-                                <div class="mb-3 p-2" style="background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.08);border-radius:8px;">
-                                    <div style="font-size:0.75rem;color:#00d9ff;font-weight:600;margin-bottom:6px;"><i class="fa-solid fa-wand-magic-sparkles me-1"></i>What happens when you register:</div>
-                                    <div style="font-size:0.75rem;color:#999;line-height:1.6;">
-                                        <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> STIR/SHAKEN Full (A) attestation — already active<br>
-                                        <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> Business identity registered with Twilio Trust Hub<br>
-                                        <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> CNAM (Caller ID Name) enabled on all your numbers<br>
-                                        <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> Future number purchases auto-protected
-                                    </div>
-                                </div>
-
-                                <!-- Form fields -->
-                                <div style="font-weight:600;font-size:0.82rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-building me-1" style="color:#a78bfa;"></i> Business Details</div>
-                                <div class="row g-2 mb-3">
-                                    <div class="col-md-8">
-                                        <label style="color:#aaa;font-size:0.75rem;font-weight:600;display:block;margin-bottom:3px;">Business Name (must match IRS docs)</label>
-                                        <input type="text" id="spBizName" placeholder="ACME Insurance LLC"
-                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label style="color:#aaa;font-size:0.75rem;font-weight:600;display:block;margin-bottom:3px;">EIN (Tax ID)</label>
-                                        <input type="text" id="spEIN" placeholder="XX-XXXXXXX"
-                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
-                                    </div>
-                                </div>
-
-                                <div style="font-weight:600;font-size:0.82rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-location-dot me-1" style="color:#ffa500;"></i> Business Address</div>
-                                <div class="row g-2 mb-3">
-                                    <div class="col-12">
-                                        <input type="text" id="spStreet" placeholder="123 Main Street, Suite 100"
-                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
-                                    </div>
-                                    <div class="col-md-5">
-                                        <input type="text" id="spCity" placeholder="City"
-                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
-                                    </div>
-                                    <div class="col-md-3">
-                                        <input type="text" id="spState" placeholder="State" maxlength="2"
-                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;text-transform:uppercase;">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <input type="text" id="spZip" placeholder="ZIP Code"
-                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
-                                    </div>
-                                </div>
-
-                                <div style="font-weight:600;font-size:0.82rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-user me-1" style="color:#00d9ff;"></i> Contact Info</div>
-                                <div class="row g-2 mb-3">
-                                    <div class="col-md-4">
-                                        <input type="text" id="spContactName" placeholder="Full Name"
-                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <input type="email" id="spContactEmail" placeholder="Email"
-                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <input type="tel" id="spContactPhone" placeholder="Phone"
-                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
-                                    </div>
-                                </div>
-
-                                <!-- Register button -->
-                                <button id="spRegisterBtn" onclick="registerSpamProtection()"
-                                    style="background:linear-gradient(135deg,#00ff88,#00cc6a);border:none;color:#000;border-radius:10px;padding:12px 28px;font-size:0.9rem;font-weight:700;cursor:pointer;width:100%;transition:opacity .2s;">
-                                    <i class="fa-solid fa-shield-halved me-2"></i>Register & Protect All Numbers
-                                </button>
-                                <div id="spRegisterResult" style="margin-top:10px;font-size:0.78rem;text-align:center;"></div>
-                            </div>
-                        </div>
-
-                        <!-- ─── Section 2: Number Protection Status ─── -->
-                        <div id="spNumbersList" class="mt-3 p-3" style="background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:10px;">
-                            <div class="d-flex align-items-center justify-content-between mb-2">
-                                <div style="font-weight:700;font-size:0.9rem;color:#fff;"><i class="fa-solid fa-phone-volume me-2" style="color:#00d9ff;"></i>Number Protection Status</div>
-                                <button onclick="loadSpamProtectionStatus()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer;">
-                                    <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
-                                </button>
-                            </div>
-                            <div id="spNumbersContent" style="font-size:0.78rem;">
-                                <div style="text-align:center;padding:12px;color:#555;"><i class="fa-solid fa-spinner fa-spin me-1" style="color:#00d9ff;"></i>Loading...</div>
-                            </div>
-                        </div>
-
-                        <!-- ─── Section 3: CNAM Monitor ─── -->
-                        <div class="cnam-header-card mt-4 mb-3 p-3">
-                            <div class="d-flex align-items-center gap-3 mb-3">
-                                <div class="cnam-header-icon">
-                                    <i class="fa-solid fa-id-card"></i>
-                                </div>
-                                <div>
-                                    <div class="cnam-title">CNAM Monitor</div>
-                                    <div class="cnam-subtitle">View and manage the Caller ID Name (CNAM) displayed on each of your phone numbers. CNAM is truncated to 15 characters by carriers.</div>
-                                </div>
-                            </div>
-
-                            <!-- Summary banner -->
-                            <div id="cnamSummaryBanner" class="cnam-summary-banner mb-3 p-2">
-                                <div class="cnam-summary-loading"><i class="fa-solid fa-spinner fa-spin me-1"></i>Loading CNAM status...</div>
-                            </div>
-
-                            <!-- Sync All button -->
-                            <div class="d-flex align-items-center gap-2 mb-3">
-                                <button id="cnamSyncAllBtn" onclick="cnamSyncAll()" class="cnam-sync-all-btn">
-                                    <i class="fa-solid fa-arrows-rotate me-1"></i>Sync All to Business Name
-                                </button>
-                                <button onclick="loadCnamMonitor()" class="cnam-refresh-btn">
-                                    <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
-                                </button>
-                            </div>
-
-                            <!-- Numbers list -->
-                            <div id="cnamNumbersList" class="cnam-numbers-list">
-                                <div class="cnam-loading"><i class="fa-solid fa-spinner fa-spin me-1"></i>Loading numbers...</div>
-                            </div>
-                        </div>
-
-                        <!-- CNAM Lookup Section -->
-                        <div class="cnam-header-card mb-3 p-3">
-                            <div class="d-flex align-items-center gap-3 mb-3">
-                                <div class="cnam-lookup-icon">
-                                    <i class="fa-solid fa-magnifying-glass"></i>
-                                </div>
-                                <div>
-                                    <div class="cnam-title">CNAM Lookup</div>
-                                    <div class="cnam-subtitle">Look up what carriers see as the Caller ID Name for any US phone number. This queries the national CNAM database.</div>
-                                </div>
-                            </div>
-
-                            <div class="row g-2 mb-2">
-                                <div class="col">
-                                    <input type="tel" id="cnamLookupPhone" placeholder="(555) 123-4567 or +15551234567" class="cnam-input">
-                                </div>
-                                <div class="col-auto">
-                                    <button id="cnamLookupBtn" onclick="cnamLookup()" class="cnam-lookup-btn">
-                                        <i class="fa-solid fa-magnifying-glass me-1"></i>Lookup
-                                    </button>
-                                </div>
-                            </div>
-                            <div id="cnamLookupResult" class="cnam-lookup-result"></div>
-
-                            <!-- Lookup own numbers button -->
-                            <div class="mt-3">
-                                <button id="cnamLookupOwnBtn" onclick="cnamLookupOwn()" class="cnam-lookup-own-btn">
-                                    <i class="fa-solid fa-list-check me-1"></i>Check All My Numbers Against Carrier Database
-                                </button>
-                                <div id="cnamLookupOwnResult" class="mt-2"></div>
-                            </div>
-                        </div>
-
-                        <!-- ─── Section 4: Voice Integrity ─── -->
-                        <div class="ni-panel">
-
-                        <!-- Status Banner (shown when registered) -->
-                        <div id="niStatusBanner" class="ni-status-banner" style="display:none;"></div>
-
-                        <!-- Edit & Resubmit Form (shown on rejection) -->
-                        <div id="niEditForm" class="ni-edit-form mb-3 p-3" style="display:none;">
-                            <div class="d-flex align-items-center justify-content-between mb-3">
-                                <div class="ni-edit-form-title">
-                                    <i class="fa-solid fa-pen-to-square me-2"></i>Edit Registration Info
-                                </div>
-                                <button onclick="niHideEditForm()" class="ni-edit-close-btn">
-                                    <i class="fa-solid fa-xmark"></i>
-                                </button>
-                            </div>
-                            <div class="ni-edit-form-hint mb-3">
-                                Update the information below and resubmit. Twilio requires employee count and call volume to be positive whole numbers.
-                            </div>
-                            <div class="row g-2 mb-3">
-                                <div class="col-md-6">
-                                    <label class="ni-edit-label">Employee Count</label>
-                                    <input type="number" id="niEmployeeCount" min="1" placeholder="e.g. 5" class="ni-edit-input">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="ni-edit-label">Avg. Daily Call Volume</label>
-                                    <input type="number" id="niCallVolume" min="1" placeholder="e.g. 500" class="ni-edit-input">
-                                </div>
-                            </div>
-                            <button id="niEditSubmitBtn" onclick="niUpdateAndResubmit()" class="ni-edit-submit-btn">
-                                <i class="fa-solid fa-paper-plane me-1"></i>Update & Resubmit
+                                <i class="fa-solid fa-chevron-down sm-accordion-chevron"></i>
                             </button>
-                            <div id="niEditResult" class="mt-2"></div>
+                            <div class="sm-accordion-body">
+                                <div id="spamProtectionForm">
+                                    <div class="p-3" style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.12);border-radius:10px;">
+                                        <!-- What happens -->
+                                        <div class="mb-3 p-2" style="background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.08);border-radius:8px;">
+                                            <div style="font-size:0.75rem;color:#00d9ff;font-weight:600;margin-bottom:6px;"><i class="fa-solid fa-wand-magic-sparkles me-1"></i>What happens when you register:</div>
+                                            <div style="font-size:0.75rem;color:#999;line-height:1.6;">
+                                                <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> STIR/SHAKEN Full (A) attestation — already active<br>
+                                                <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> Business identity registered with Twilio Trust Hub<br>
+                                                <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> CNAM (Caller ID Name) enabled on all your numbers<br>
+                                                <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> Future number purchases auto-protected
+                                            </div>
+                                        </div>
+
+                                        <div style="font-weight:600;font-size:0.82rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-building me-1" style="color:#a78bfa;"></i> Business Details</div>
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-md-8">
+                                                <label style="color:#aaa;font-size:0.75rem;font-weight:600;display:block;margin-bottom:3px;">Business Name (must match IRS docs)</label>
+                                                <input type="text" id="spBizName" placeholder="ACME Insurance LLC"
+                                                    style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label style="color:#aaa;font-size:0.75rem;font-weight:600;display:block;margin-bottom:3px;">EIN (Tax ID)</label>
+                                                <input type="text" id="spEIN" placeholder="XX-XXXXXXX"
+                                                    style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                            </div>
+                                        </div>
+
+                                        <div style="font-weight:600;font-size:0.82rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-location-dot me-1" style="color:#ffa500;"></i> Business Address</div>
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-12">
+                                                <input type="text" id="spStreet" placeholder="123 Main Street, Suite 100"
+                                                    style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                            </div>
+                                            <div class="col-md-5">
+                                                <input type="text" id="spCity" placeholder="City"
+                                                    style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <input type="text" id="spState" placeholder="State" maxlength="2"
+                                                    style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;text-transform:uppercase;">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <input type="text" id="spZip" placeholder="ZIP Code"
+                                                    style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                            </div>
+                                        </div>
+
+                                        <div style="font-weight:600;font-size:0.82rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-user me-1" style="color:#00d9ff;"></i> Contact Info</div>
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-md-4">
+                                                <input type="text" id="spContactName" placeholder="Full Name"
+                                                    style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <input type="email" id="spContactEmail" placeholder="Email"
+                                                    style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <input type="tel" id="spContactPhone" placeholder="Phone"
+                                                    style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                            </div>
+                                        </div>
+
+                                        <button id="spRegisterBtn" onclick="registerSpamProtection()"
+                                            style="background:linear-gradient(135deg,#00ff88,#00cc6a);border:none;color:#000;border-radius:10px;padding:12px 28px;font-size:0.9rem;font-weight:700;cursor:pointer;width:100%;transition:opacity .2s;">
+                                            <i class="fa-solid fa-shield-halved me-2"></i>Register & Protect All Numbers
+                                        </button>
+                                        <div id="spRegisterResult" style="margin-top:10px;font-size:0.78rem;text-align:center;"></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        <!-- Main Content -->
-                        <div id="niMainContent">
-
-                            <!-- Header -->
-                            <div class="ni-header-card mt-4 mb-3 p-3">
-                                <div class="d-flex align-items-center gap-3 mb-3">
-                                    <div class="ni-header-icon">
-                                        <i class="fa-solid fa-tower-broadcast"></i>
-                                    </div>
-                                    <div>
-                                        <div class="ni-title">Voice Integrity</div>
-                                        <div class="ni-subtitle">Register your phone numbers with all 3 major carrier networks to clear spam labels and improve call answer rates. Powered by Twilio Voice Integrity.</div>
-                                    </div>
+                        <!-- ─── Accordion: Number Protection ─── -->
+                        <div class="sm-accordion-item" id="smAccProtection">
+                            <button class="sm-accordion-header" onclick="toggleSmAccordion('smAccProtection')">
+                                <div class="sm-accordion-header-left">
+                                    <i class="fa-solid fa-shield-halved sm-accordion-icon sm-icon-cyan"></i>
+                                    <span class="sm-accordion-title">Number Protection</span>
+                                    <span class="sm-accordion-badge" id="smBadgeProtection"></span>
                                 </div>
-
-                                <!-- How it works -->
-                                <div class="ni-info-box mb-3 p-2">
-                                    <div class="ni-info-title"><i class="fa-solid fa-circle-info me-1"></i>How Voice Integrity works:</div>
-                                    <div class="ni-info-text">
-                                        <div class="mb-1"><i class="fa-solid fa-1 ni-step-num me-2"></i>Your business identity is verified through Twilio Trust Hub</div>
-                                        <div class="mb-1"><i class="fa-solid fa-2 ni-step-num me-2"></i>Selected numbers are registered with AT&T, T-Mobile &amp; Verizon analytics</div>
-                                        <div class="mb-1"><i class="fa-solid fa-3 ni-step-num me-2"></i>Carrier spam labels are cleared within 24–48 hours</div>
-                                        <div><i class="fa-solid fa-4 ni-step-num me-2"></i>Hit <strong>Remediate</strong> anytime a number gets re-flagged</div>
+                                <i class="fa-solid fa-chevron-down sm-accordion-chevron"></i>
+                            </button>
+                            <div class="sm-accordion-body">
+                                <div id="spNumbersList" class="p-3" style="background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:10px;">
+                                    <div class="d-flex align-items-center justify-content-end mb-2">
+                                        <button onclick="loadSpamProtectionStatus()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer;">
+                                            <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
+                                        </button>
+                                    </div>
+                                    <div id="spNumbersContent" style="font-size:0.78rem;">
+                                        <div style="text-align:center;padding:12px;color:#555;"><i class="fa-solid fa-spinner fa-spin me-1" style="color:#00d9ff;"></i>Loading...</div>
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- Carrier Network Cards -->
-                            <div id="niCarrierCards" class="mb-3">
-                                <div class="ni-section-title mb-2"><i class="fa-solid fa-tower-cell me-2 ni-accent"></i>Carrier Networks</div>
-                                <div class="row g-2" id="niCarrierList">
-                                    <!-- Populated by JS -->
-                                </div>
-                            </div>
-
-                            <!-- Phone Numbers Selection -->
-                            <div id="niNumbersSection" class="mb-3 p-3 ni-numbers-card">
-                                <div class="d-flex align-items-center justify-content-between mb-2">
-                                    <div class="ni-section-title"><i class="fa-solid fa-phone-volume me-2 ni-accent"></i>Your Phone Numbers</div>
-                                    <div class="ni-numbers-count" id="niSelectedCount">0 selected</div>
-                                </div>
-                                <div class="ni-select-actions mb-2">
-                                    <button onclick="niSelectAll()" class="ni-link-btn"><i class="fa-solid fa-check-double me-1"></i>Select All</button>
-                                    <button onclick="niDeselectAll()" class="ni-link-btn"><i class="fa-solid fa-xmark me-1"></i>Deselect All</button>
-                                </div>
-                                <div id="niNumbersList" class="ni-numbers-list">
-                                    <div class="ni-loading"><i class="fa-solid fa-spinner fa-spin me-1"></i>Loading numbers...</div>
-                                </div>
-                            </div>
-
-                            <!-- Register / Remediate Buttons -->
-                            <div id="niActions" class="d-flex gap-2">
-                                <button id="niRegisterBtn" onclick="niRegister()" class="ni-register-btn" style="display:none;">
-                                    <i class="fa-solid fa-tower-broadcast me-2"></i>Register Selected Numbers
-                                </button>
-                                <button id="niRemediateBtn" onclick="niRemediate()" class="ni-remediate-btn" style="display:none;">
-                                    <i class="fa-solid fa-wrench me-2"></i>Remediate Spam Labels
-                                </button>
-                            </div>
-                            <div id="niActionResult" class="ni-action-result mt-2"></div>
                         </div>
 
-                        </div><!-- /ni-panel -->
+                        <!-- ─── Accordion: Caller ID (CNAM) ─── -->
+                        <div class="sm-accordion-item" id="smAccCnam">
+                            <button class="sm-accordion-header" onclick="toggleSmAccordion('smAccCnam')">
+                                <div class="sm-accordion-header-left">
+                                    <i class="fa-solid fa-id-card sm-accordion-icon sm-icon-cyan"></i>
+                                    <span class="sm-accordion-title">Caller ID (CNAM)</span>
+                                    <span class="sm-accordion-badge" id="smBadgeCnam"></span>
+                                </div>
+                                <i class="fa-solid fa-chevron-down sm-accordion-chevron"></i>
+                            </button>
+                            <div class="sm-accordion-body">
+                                <div class="cnam-header-card mb-3 p-3">
+                                    <div id="cnamSummaryBanner" class="cnam-summary-banner mb-3 p-2">
+                                        <div class="cnam-summary-loading"><i class="fa-solid fa-spinner fa-spin me-1"></i>Loading CNAM status...</div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 mb-3">
+                                        <button id="cnamSyncAllBtn" onclick="cnamSyncAll()" class="cnam-sync-all-btn">
+                                            <i class="fa-solid fa-arrows-rotate me-1"></i>Sync All to Business Name
+                                        </button>
+                                        <button onclick="loadCnamMonitor()" class="cnam-refresh-btn">
+                                            <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
+                                        </button>
+                                    </div>
+                                    <div id="cnamNumbersList" class="cnam-numbers-list">
+                                        <div class="cnam-loading"><i class="fa-solid fa-spinner fa-spin me-1"></i>Loading numbers...</div>
+                                    </div>
+                                </div>
+                                <div class="cnam-header-card p-3">
+                                    <div style="font-weight:600;font-size:0.85rem;color:#fff;margin-bottom:10px;"><i class="fa-solid fa-magnifying-glass me-2" style="color:#00d9ff;"></i>CNAM Lookup</div>
+                                    <div class="row g-2 mb-2">
+                                        <div class="col">
+                                            <input type="tel" id="cnamLookupPhone" placeholder="(555) 123-4567 or +15551234567" class="cnam-input">
+                                        </div>
+                                        <div class="col-auto">
+                                            <button id="cnamLookupBtn" onclick="cnamLookup()" class="cnam-lookup-btn">
+                                                <i class="fa-solid fa-magnifying-glass me-1"></i>Lookup
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div id="cnamLookupResult" class="cnam-lookup-result"></div>
+                                    <div class="mt-3">
+                                        <button id="cnamLookupOwnBtn" onclick="cnamLookupOwn()" class="cnam-lookup-own-btn">
+                                            <i class="fa-solid fa-list-check me-1"></i>Check All My Numbers Against Carrier Database
+                                        </button>
+                                        <div id="cnamLookupOwnResult" class="mt-2"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
-                        <!-- ─── Section 5: Number Health ─── -->
-                        <div class="mt-4" id="numberHealthPanel">
-                            <div id="numberHealthContent"></div>
+                        <!-- ─── Accordion: Voice Integrity ─── -->
+                        <div class="sm-accordion-item" id="smAccVoiceIntegrity">
+                            <button class="sm-accordion-header" onclick="toggleSmAccordion('smAccVoiceIntegrity')">
+                                <div class="sm-accordion-header-left">
+                                    <i class="fa-solid fa-tower-broadcast sm-accordion-icon sm-icon-orange"></i>
+                                    <span class="sm-accordion-title">Voice Integrity</span>
+                                    <span class="sm-accordion-badge" id="smBadgeVoiceIntegrity"></span>
+                                </div>
+                                <i class="fa-solid fa-chevron-down sm-accordion-chevron"></i>
+                            </button>
+                            <div class="sm-accordion-body">
+                                <div class="ni-panel">
+                                    <div id="niStatusBanner" class="ni-status-banner" style="display:none;"></div>
+                                    <div id="niEditForm" class="ni-edit-form mb-3 p-3" style="display:none;">
+                                        <div class="d-flex align-items-center justify-content-between mb-3">
+                                            <div class="ni-edit-form-title"><i class="fa-solid fa-pen-to-square me-2"></i>Edit Registration Info</div>
+                                            <button onclick="niHideEditForm()" class="ni-edit-close-btn"><i class="fa-solid fa-xmark"></i></button>
+                                        </div>
+                                        <div class="ni-edit-form-hint mb-3">Update the information below and resubmit. Twilio requires employee count and call volume to be positive whole numbers.</div>
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-md-6">
+                                                <label class="ni-edit-label">Employee Count</label>
+                                                <input type="number" id="niEmployeeCount" min="1" placeholder="e.g. 5" class="ni-edit-input">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="ni-edit-label">Avg. Daily Call Volume</label>
+                                                <input type="number" id="niCallVolume" min="1" placeholder="e.g. 500" class="ni-edit-input">
+                                            </div>
+                                        </div>
+                                        <button id="niEditSubmitBtn" onclick="niUpdateAndResubmit()" class="ni-edit-submit-btn"><i class="fa-solid fa-paper-plane me-1"></i>Update & Resubmit</button>
+                                        <div id="niEditResult" class="mt-2"></div>
+                                    </div>
+                                    <div id="niMainContent">
+                                        <div class="ni-info-box mb-3 p-2">
+                                            <div class="ni-info-title"><i class="fa-solid fa-circle-info me-1"></i>How Voice Integrity works:</div>
+                                            <div class="ni-info-text">
+                                                <div class="mb-1"><i class="fa-solid fa-1 ni-step-num me-2"></i>Your business identity is verified through Twilio Trust Hub</div>
+                                                <div class="mb-1"><i class="fa-solid fa-2 ni-step-num me-2"></i>Selected numbers are registered with AT&amp;T, T-Mobile &amp; Verizon analytics</div>
+                                                <div class="mb-1"><i class="fa-solid fa-3 ni-step-num me-2"></i>Carrier spam labels are cleared within 24–48 hours</div>
+                                                <div><i class="fa-solid fa-4 ni-step-num me-2"></i>Hit <strong>Remediate</strong> anytime a number gets re-flagged</div>
+                                            </div>
+                                        </div>
+                                        <div id="niCarrierCards" class="mb-3">
+                                            <div class="ni-section-title mb-2"><i class="fa-solid fa-tower-cell me-2 ni-accent"></i>Carrier Networks</div>
+                                            <div class="row g-2" id="niCarrierList"></div>
+                                        </div>
+                                        <div id="niNumbersSection" class="mb-3 p-3 ni-numbers-card">
+                                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                                <div class="ni-section-title"><i class="fa-solid fa-phone-volume me-2 ni-accent"></i>Your Phone Numbers</div>
+                                                <div class="ni-numbers-count" id="niSelectedCount">0 selected</div>
+                                            </div>
+                                            <div class="ni-select-actions mb-2">
+                                                <button onclick="niSelectAll()" class="ni-link-btn"><i class="fa-solid fa-check-double me-1"></i>Select All</button>
+                                                <button onclick="niDeselectAll()" class="ni-link-btn"><i class="fa-solid fa-xmark me-1"></i>Deselect All</button>
+                                            </div>
+                                            <div id="niNumbersList" class="ni-numbers-list">
+                                                <div class="ni-loading"><i class="fa-solid fa-spinner fa-spin me-1"></i>Loading numbers...</div>
+                                            </div>
+                                        </div>
+                                        <div id="niActions" class="d-flex gap-2">
+                                            <button id="niRegisterBtn" onclick="niRegister()" class="ni-register-btn" style="display:none;"><i class="fa-solid fa-tower-broadcast me-2"></i>Register Selected Numbers</button>
+                                            <button id="niRemediateBtn" onclick="niRemediate()" class="ni-remediate-btn" style="display:none;"><i class="fa-solid fa-wrench me-2"></i>Remediate Spam Labels</button>
+                                        </div>
+                                        <div id="niActionResult" class="ni-action-result mt-2"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ─── Accordion: Number Health ─── -->
+                        <div class="sm-accordion-item" id="smAccNumberHealth">
+                            <button class="sm-accordion-header" onclick="toggleSmAccordion('smAccNumberHealth')">
+                                <div class="sm-accordion-header-left">
+                                    <i class="fa-solid fa-heart-pulse sm-accordion-icon sm-icon-red"></i>
+                                    <span class="sm-accordion-title">Number Health</span>
+                                    <span class="sm-accordion-badge" id="smBadgeNumberHealth"></span>
+                                </div>
+                                <i class="fa-solid fa-chevron-down sm-accordion-chevron"></i>
+                            </button>
+                            <div class="sm-accordion-body">
+                                <div id="numberHealthPanel">
+                                    <div id="numberHealthContent"></div>
+                                </div>
+                            </div>
                         </div>
 
                     </div><!-- /vstab-panel-spammonitoring -->
