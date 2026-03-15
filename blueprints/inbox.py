@@ -406,7 +406,8 @@ def api_sync_deep_pull():
                     return_db_connection(rc)
 
         # Queue background job (long-running, up to 2 hours)
-        ensure_redis()
+        if not ensure_redis() or q_website is None:
+            return safe_jsonify({"error": "Background queue unavailable — Redis may be down"}), 503
         job = q_website.enqueue(
             deep_sync_conversations,
             location_id,
@@ -485,6 +486,8 @@ def api_sync_deep_pull_reset():
         except Exception:
             pass
 
+        if not ensure_redis() or q_website is None:
+            return safe_jsonify({"error": "Background queue unavailable — Redis may be down"}), 503
         job = q_website.enqueue(
             deep_sync_conversations,
             location_id,

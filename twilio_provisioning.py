@@ -595,26 +595,45 @@ def register_business_profile(sub_account_sid: str, business_name: str,
     client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
     results = {"steps": [], "errors": []}
     profile_sid = ""
+    on_master = is_master_account(sub_account_sid)
 
-    # ── Step 1: Find or create Secondary Customer Profile ──
+    # ── Step 1: Customer Profile ──
+    # Master account (direct customer): use the existing Primary Business Profile.
+    # Sub-account (ISV customer): find or create a Secondary Customer Profile.
     try:
         primary_profile_sid = _find_primary_profile_sid()
-        profile_sid = _find_or_create_secondary_profile(
-            client=client,
-            sub_account_sid=sub_account_sid,
-            business_name=business_name,
-            contact_email=contact_email,
-            primary_profile_sid=primary_profile_sid,
-        )
-        results["steps"].append({
-            "name": "secondary_profile",
-            "status": "ok",
-            "sid": profile_sid,
-        })
-        logger.info(f"[SpamProtection] Secondary Profile: {profile_sid}")
+        if on_master:
+            if not primary_profile_sid:
+                raise ValueError(
+                    "Primary Business Profile not found on master account. "
+                    "Create one in the Twilio Console under Trust Hub > Customer Profiles."
+                )
+            profile_sid = primary_profile_sid
+            results["steps"].append({
+                "name": "customer_profile",
+                "status": "ok",
+                "sid": profile_sid,
+                "flow": "direct_customer",
+            })
+            logger.info(f"[SpamProtection] Master account — using Primary Profile: {profile_sid}")
+        else:
+            profile_sid = _find_or_create_secondary_profile(
+                client=client,
+                sub_account_sid=sub_account_sid,
+                business_name=business_name,
+                contact_email=contact_email,
+                primary_profile_sid=primary_profile_sid,
+                sub_account_auth_token=sub_account_auth_token,
+            )
+            results["steps"].append({
+                "name": "secondary_profile",
+                "status": "ok",
+                "sid": profile_sid,
+            })
+            logger.info(f"[SpamProtection] Secondary Profile: {profile_sid}")
     except Exception as e:
-        logger.error(f"[SpamProtection] Secondary Profile creation failed: {e}")
-        results["errors"].append(f"Secondary Profile: {e}")
+        logger.error(f"[SpamProtection] Customer Profile failed: {e}")
+        results["errors"].append(f"Customer Profile: {e}")
         # Can't proceed without a profile — still do CNAM at minimum
 
     # ── Step 2: Create EndUser (business info) ──
@@ -759,7 +778,10 @@ def register_business_profile(sub_account_sid: str, business_name: str,
             results["errors"].append(f"Number assignment: {e}")
 
     # ── Step 7: Evaluate and submit for review ──
-    if profile_sid:
+    # Master account (direct customer): Primary Business Profile is already
+    # approved in the Console — skip evaluation and submission entirely.
+    # Sub-account (ISV): evaluate with Secondary policy and submit for review.
+    if profile_sid and not on_master:
         try:
             # Run evaluation first
             eval_result = client.trusthub.v1.customer_profiles(profile_sid) \
@@ -799,6 +821,15 @@ def register_business_profile(sub_account_sid: str, business_name: str,
         except TwilioRestException as e:
             logger.warning(f"[SpamProtection] Evaluation/submit failed: {e}")
             results["errors"].append(f"Submit for review: {e}")
+    elif profile_sid and on_master:
+        # Primary Profile already approved — just log and move on
+        results["steps"].append({
+            "name": "submit_review",
+            "status": "ok",
+            "profile_status": "twilio-approved",
+            "note": "Primary Business Profile already approved on master account",
+        })
+        logger.info(f"[SpamProtection] Master account — Primary Profile already approved, skipping eval/submit")
 
     # ── Step 8: Set friendly_name on all numbers ──
     # NOTE: This sets the Twilio-internal label only. Real CNAM registration
@@ -1047,6 +1078,7 @@ def create_cnam_trust_product(
                 contact_email=contact_email,
                 existing_profile_sid=existing_profile_sid,
                 primary_profile_sid=primary_sid,
+                sub_account_auth_token=sub_account_auth_token,
             )
 
         # ── Step 2: CNAM Trust Product ──
@@ -1349,6 +1381,7 @@ def create_a2p_brand(sub_account_sid: str,
         profile_sid = _find_or_create_secondary_profile(
             client, sub_account_sid, business_name, contact_email,
             primary_profile_sid=primary_sid,
+            sub_account_auth_token=sub_account_auth_token,
         )
         logger.info(f"Created/reused A2P Secondary Customer Profile: {profile_sid}")
 
@@ -1822,6 +1855,7 @@ def _find_or_create_secondary_profile(
     contact_email: str,
     existing_profile_sid: str = "",
     primary_profile_sid: str = "",
+    sub_account_auth_token: str = "",
 ) -> str:
     """
     Find or create a Secondary Customer Profile on the sub-account.
@@ -1943,7 +1977,7 @@ def _find_or_create_secondary_profile(
 
         profile_resp = _trusthub_update_status(
             "CustomerProfiles", profile_sid, "pending-review",
-            sub_account_sid, "",  # use sub-account SID, empty token falls back to master
+            sub_account_sid, sub_account_auth_token,
         )
         logger.info(
             f"[VoiceIntegrity] Submitted Secondary Profile {profile_sid} for review → "
@@ -2036,6 +2070,7 @@ def create_voice_integrity_trust_product(
                 contact_email=contact_email,
                 existing_profile_sid=existing_profile_sid,
                 primary_profile_sid=primary_sid,
+                sub_account_auth_token=sub_account_auth_token,
             )
 
         # ── Step 2: EndUser with voice_integrity_information ──
