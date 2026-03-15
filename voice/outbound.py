@@ -18,7 +18,7 @@ from db import get_db_connection, return_db_connection, log_webhook_event, deduc
 from number_health import select_outbound_number, update_number_health
 from voice.call_state import active_calls, transfer_requests
 from voice.helpers import _get_subscriber_by_location
-from voice.call_history_helpers import save_call_to_history, update_call_history_status
+from voice.call_history_helpers import save_call_to_history, update_call_history_status, mark_ring_confirmed
 from voice.predictive_engine import tcpa_tracker, agent_state_manager, callback_queue, AgentState
 
 logger = logging.getLogger("voice_bridge.outbound")
@@ -224,6 +224,15 @@ def voice_status():
             logger.info(f"📞 Ignoring out-of-order status '{effective_status}' for {call_sid[:16]} (current='{current_status}')")
         active_calls[call_sid]["duration"] = int(duration or 0)
 
+    # ── SIP 180 Ring Confirmation ──
+    # When Twilio fires 'ringing', it means the carrier returned a SIP 180/183 —
+    # the lead's phone is legitimately ringing (not fake ringback or immediate VM).
+    if call_status == 'ringing' and call_sid in active_calls:
+        if not active_calls[call_sid].get('_ring_confirmed'):
+            active_calls[call_sid]['_ring_confirmed'] = True
+            logger.info(f"📞 Ring confirmed (SIP 180): {call_sid[:16]}")
+            mark_ring_confirmed(call_sid)
+
     # ── Agent state machine: auto-transition to ON_CALL when call goes in-progress ──
     if call_status == 'in-progress' and call_sid in active_calls:
         asm_info = active_calls[call_sid]
@@ -306,9 +315,11 @@ def voice_status():
         nh_location = call_info.get('_location_id', '')
         nh_from = call_info.get('_from_number', '')
         nh_effective = call_info.get('_amd_result', call_status)  # Use AMD result if available
+        nh_ring_confirmed = call_info.get('_ring_confirmed', False)
         if nh_location and nh_from:
             try:
-                update_number_health(nh_location, nh_from, nh_effective, int(duration or 0), sip_code=sip_code)
+                update_number_health(nh_location, nh_from, nh_effective, int(duration or 0),
+                                     sip_code=sip_code, ring_confirmed=nh_ring_confirmed)
             except Exception as e:
                 logger.warning(f"Number health update failed for {nh_from}: {e}")
 

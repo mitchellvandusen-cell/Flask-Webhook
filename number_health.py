@@ -631,7 +631,7 @@ def select_outbound_number(location_id, voice_config, dest_phone=None):
 CARRIER_BLOCK_SIP_CODES = {403, 603, 607, 608}
 
 
-def update_number_health(location_id, phone, call_status, duration=0, sip_code=None):
+def update_number_health(location_id, phone, call_status, duration=0, sip_code=None, ring_confirmed=False):
     """
     Update health metrics for a phone number after a call completes.
 
@@ -640,6 +640,8 @@ def update_number_health(location_id, phone, call_status, duration=0, sip_code=N
 
     sip_code: Twilio's SipResponseCode (int or None). Codes 403/603/607/608
     indicate the carrier blocked the call vs a normal no-answer.
+    ring_confirmed: True if Twilio fired a 'ringing' callback (SIP 180),
+    meaning the lead's phone legitimately rang.
     """
     if not phone or not location_id:
         return
@@ -710,6 +712,11 @@ def update_number_health(location_id, phone, call_status, duration=0, sip_code=N
         elif is_busy:
             sets.append("daily_busy = daily_busy + 1")
             sets.append("total_busy = total_busy + 1")
+
+        # SIP 180 ring confirmation — lead's phone legitimately rang
+        if ring_confirmed:
+            sets.append("daily_ring_confirmed = daily_ring_confirmed + 1")
+            sets.append("total_ring_confirmed = total_ring_confirmed + 1")
 
         params.extend([location_id, phone])
         cur.execute(
@@ -845,6 +852,7 @@ def reset_daily_metrics():
                 daily_failed = 0,
                 daily_busy = 0,
                 daily_carrier_blocked = 0,
+                daily_ring_confirmed = 0,
                 daily_duration_secs = 0,
                 updated_at = NOW()
         """)

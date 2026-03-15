@@ -63,6 +63,7 @@ def get_dialer_stats():
                 COUNT(*) FILTER (WHERE direction = 'outbound')                AS outbound_calls,
                 COUNT(*) FILTER (WHERE direction = 'inbound')                 AS inbound_calls,
                 COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) AS connected_calls,
+                COUNT(*) FILTER (WHERE ring_confirmed = TRUE)                 AS ring_confirmed_calls,
                 COALESCE(AVG(duration) FILTER (WHERE duration > 0), 0)        AS avg_duration,
                 COALESCE(SUM(duration), 0)                                    AS total_duration,
                 COUNT(*) FILTER (WHERE duration >   6)                        AS over_6s,
@@ -79,6 +80,7 @@ def get_dialer_stats():
         outbound        = r['outbound_calls'] or 0
         inbound         = r['inbound_calls'] or 0
         connected       = r['connected_calls'] or 0
+        ring_confirmed  = r['ring_confirmed_calls'] or 0
         avg_dur         = float(r['avg_duration'] or 0)
         total_dur       = int(r['total_duration'] or 0)
         over_6s         = r['over_6s'] or 0
@@ -249,6 +251,8 @@ def get_dialer_stats():
             "outbound_calls":  outbound,
             "inbound_calls":   inbound,
             "connected_calls": connected,
+            "ring_confirmed":  ring_confirmed,
+            "ring_rate":       round(ring_confirmed / total * 100, 1) if total else 0.0,
             "connect_rate":    connect_rate,
             "avg_duration":    round(avg_dur, 1),
             "total_duration":  total_dur,

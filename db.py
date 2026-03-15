@@ -1544,6 +1544,26 @@ def init_db() -> bool:
             conn.rollback()
             logger.debug(f"carrier_blocked migration note: {e}")
 
+        # Phase 6a: SIP 180 ring confirmation tracking
+        try:
+            cur.execute("""
+                ALTER TABLE call_history
+                ADD COLUMN IF NOT EXISTS ring_confirmed BOOLEAN DEFAULT FALSE
+            """)
+            cur.execute("""
+                ALTER TABLE number_health
+                ADD COLUMN IF NOT EXISTS daily_ring_confirmed INTEGER DEFAULT 0
+            """)
+            cur.execute("""
+                ALTER TABLE number_health
+                ADD COLUMN IF NOT EXISTS total_ring_confirmed INTEGER DEFAULT 0
+            """)
+            conn.commit()
+            logger.info("✅ Migration: Added ring_confirmed columns")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"ring_confirmed migration note: {e}")
+
         # Phase 6: Google Calendar integration config
         try:
             cur.execute("""
