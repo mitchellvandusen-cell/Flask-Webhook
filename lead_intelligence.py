@@ -31,17 +31,20 @@ if XAI_API_KEY:
 def _gather_contact_context(location_id, contact_id):
     """
     Pull all available context for a contact from DB.
-    Returns a dict with conversation, facts, pipeline, calls, tags.
-    Also returns the timestamp of the most recent message (for cache freshness).
+    Returns a dict with conversation, facts, pipeline, calls, tags,
+    message timing signals, and response patterns.
     """
     ctx = {
         "messages": [],
+        "messages_with_time": [],  # (role, text, created_at) for timing analysis
         "facts": [],
         "pipeline": None,
         "calls": {"total": 0, "agent_called": 0, "lead_called": 0, "answered": 0, "unanswered": 0, "long_calls": 0, "last_call": None},
+        "call_transcripts": [],  # Recent call transcripts for content awareness
         "tags": [],
         "narrative": None,
         "last_message_at": None,
+        "timing": {},  # Computed timing signals
     }
 
     conn = get_db_connection()
@@ -51,7 +54,7 @@ def _gather_contact_context(location_id, contact_id):
     try:
         cur = conn.cursor()
 
-        # Recent messages (last 30 for context)
+        # Recent messages (last 30 for context) — WITH timestamps for timing
         try:
             cur.execute("""
                 SELECT message_type, message_text, created_at
@@ -66,6 +69,11 @@ def _gather_contact_context(location_id, contact_id):
                 for r in reversed(rows):
                     role = "Lead" if r['message_type'] == 'lead' else "Bot"
                     ctx["messages"].append(f"{role}: {r['message_text']}")
+                    ctx["messages_with_time"].append({
+                        "role": role,
+                        "text": r['message_text'],
+                        "at": r['created_at'],
+                    })
         except Exception:
             pass
 
@@ -123,6 +131,31 @@ def _gather_contact_context(location_id, contact_id):
         except Exception:
             pass
 
+        # Call transcripts — last 3 calls with transcripts for content awareness
+        try:
+            cur.execute("""
+                SELECT direction, duration, transcript, created_at
+                FROM call_history
+                WHERE location_id = %s AND contact_id = %s
+                  AND transcript IS NOT NULL AND transcript != ''
+                ORDER BY created_at DESC
+                LIMIT 3
+            """, (location_id, contact_id))
+            for r in cur.fetchall():
+                # Truncate long transcripts to ~300 chars to stay within token budget
+                transcript = (r.get('transcript') or '')[:300]
+                if transcript:
+                    direction = r.get('direction', 'unknown')
+                    duration = r.get('duration', 0) or 0
+                    ctx["call_transcripts"].append({
+                        "direction": direction,
+                        "duration": duration,
+                        "transcript": transcript,
+                        "at": str(r['created_at'])[:10] if r.get('created_at') else '',
+                    })
+        except Exception:
+            pass
+
         # Tags
         try:
             cur.execute("""
@@ -160,12 +193,201 @@ def _gather_contact_context(location_id, contact_id):
     finally:
         return_db_connection(conn)
 
+    # ── Compute timing & behavioral signals from message timestamps ──
+    ctx["timing"] = _compute_timing_signals(ctx["messages_with_time"])
+
     return ctx
+
+
+def _compute_timing_signals(messages_with_time):
+    """
+    Analyze message timestamps to produce timing and behavioral signals.
+    This gives the AI temporal awareness that raw message text cannot provide.
+
+    Returns dict with:
+      - who_spoke_last: "Lead" or "Bot"
+      - consecutive_unanswered_bot: int (how many bot messages with no lead reply at end)
+      - lead_last_message_age: str (human-readable like "3 hours ago", "5 days ago")
+      - first_message_age: str (how long ago conversation started)
+      - lead_response_times: list of response gaps in hours (lead replied to bot)
+      - avg_lead_response_hours: float or None
+      - lead_message_lengths: list of character counts (is lead writing more or less?)
+      - velocity_trend: "warming" | "cooling" | "steady" | "unknown"
+    """
+    signals = {
+        "who_spoke_last": "unknown",
+        "consecutive_unanswered_bot": 0,
+        "lead_last_message_age": "unknown",
+        "first_message_age": "unknown",
+        "avg_lead_response_hours": None,
+        "velocity_trend": "unknown",
+    }
+
+    if not messages_with_time:
+        return signals
+
+    now = datetime.utcnow()
+
+    # Who spoke last + consecutive unanswered bot messages
+    signals["who_spoke_last"] = messages_with_time[-1]["role"]
+    consecutive = 0
+    for msg in reversed(messages_with_time):
+        if msg["role"] == "Bot":
+            consecutive += 1
+        else:
+            break
+    signals["consecutive_unanswered_bot"] = consecutive
+
+    # First message age
+    first_at = messages_with_time[0].get("at")
+    if first_at:
+        if isinstance(first_at, str):
+            try:
+                first_at = datetime.fromisoformat(first_at.replace('Z', '+00:00')).replace(tzinfo=None)
+            except Exception:
+                first_at = None
+        elif hasattr(first_at, 'tzinfo') and first_at.tzinfo:
+            first_at = first_at.replace(tzinfo=None)
+        if first_at:
+            signals["first_message_age"] = _humanize_delta(now - first_at)
+
+    # Lead's last message age
+    for msg in reversed(messages_with_time):
+        if msg["role"] == "Lead":
+            lead_at = msg["at"]
+            if isinstance(lead_at, str):
+                try:
+                    lead_at = datetime.fromisoformat(lead_at.replace('Z', '+00:00')).replace(tzinfo=None)
+                except Exception:
+                    lead_at = None
+            elif hasattr(lead_at, 'tzinfo') and lead_at.tzinfo:
+                lead_at = lead_at.replace(tzinfo=None)
+            if lead_at:
+                signals["lead_last_message_age"] = _humanize_delta(now - lead_at)
+            break
+
+    # Response gap analysis + velocity trend
+    # Track: how fast does the lead reply to bot messages? Are replies getting faster/slower?
+    lead_response_gaps = []
+    lead_message_lengths = []
+    last_bot_at = None
+    for msg in messages_with_time:
+        msg_at = msg["at"]
+        if isinstance(msg_at, str):
+            try:
+                msg_at = datetime.fromisoformat(msg_at.replace('Z', '+00:00')).replace(tzinfo=None)
+            except Exception:
+                msg_at = None
+        elif hasattr(msg_at, 'tzinfo') and msg_at.tzinfo:
+            msg_at = msg_at.replace(tzinfo=None)
+
+        if msg["role"] == "Bot":
+            last_bot_at = msg_at
+        elif msg["role"] == "Lead":
+            lead_message_lengths.append(len(msg.get("text", "")))
+            if last_bot_at and msg_at:
+                gap_hours = (msg_at - last_bot_at).total_seconds() / 3600
+                if gap_hours >= 0:
+                    lead_response_gaps.append(gap_hours)
+            last_bot_at = None  # Reset — only count first lead reply per bot message
+
+    if lead_response_gaps:
+        signals["avg_lead_response_hours"] = round(sum(lead_response_gaps) / len(lead_response_gaps), 1)
+
+    # Velocity trend: compare first half vs second half of response times + message lengths
+    if len(lead_response_gaps) >= 4:
+        mid = len(lead_response_gaps) // 2
+        first_half_avg = sum(lead_response_gaps[:mid]) / mid
+        second_half_avg = sum(lead_response_gaps[mid:]) / (len(lead_response_gaps) - mid)
+        # Also factor in message length trend
+        if len(lead_message_lengths) >= 4:
+            mid_l = len(lead_message_lengths) // 2
+            first_len = sum(lead_message_lengths[:mid_l]) / mid_l
+            second_len = sum(lead_message_lengths[mid_l:]) / (len(lead_message_lengths) - mid_l)
+        else:
+            first_len = second_len = 1
+
+        # Warming = responding faster AND/OR writing more
+        # Cooling = responding slower AND/OR writing less
+        speed_ratio = first_half_avg / max(second_half_avg, 0.1)  # >1 = getting faster
+        length_ratio = second_len / max(first_len, 1)  # >1 = writing more
+
+        if speed_ratio > 1.5 or (speed_ratio > 1.2 and length_ratio > 1.3):
+            signals["velocity_trend"] = "warming"
+        elif speed_ratio < 0.6 or (speed_ratio < 0.8 and length_ratio < 0.7):
+            signals["velocity_trend"] = "cooling"
+        else:
+            signals["velocity_trend"] = "steady"
+
+    return signals
+
+
+def _humanize_delta(delta):
+    """Convert a timedelta to a human-readable string."""
+    total_seconds = int(delta.total_seconds())
+    if total_seconds < 0:
+        return "just now"
+    if total_seconds < 60:
+        return "just now"
+    if total_seconds < 3600:
+        mins = total_seconds // 60
+        return f"{mins} minute{'s' if mins != 1 else ''} ago"
+    if total_seconds < 86400:
+        hours = total_seconds // 3600
+        return f"{hours} hour{'s' if hours != 1 else ''} ago"
+    days = total_seconds // 86400
+    if days == 1:
+        return "1 day ago"
+    if days < 30:
+        return f"{days} days ago"
+    months = days // 30
+    return f"{months} month{'s' if months != 1 else ''} ago"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # ═══ AI MICRO-PROMPT — Single call generates everything ═════════════════════
 # ═══════════════════════════════════════════════════════════════════════════════
+
+def _build_timing_block(timing):
+    """Build the timing/behavioral signals block for the AI prompt."""
+    if not timing or timing.get("who_spoke_last") == "unknown":
+        return ""
+
+    lines = ["TIMING & BEHAVIORAL SIGNALS:"]
+
+    who = timing.get("who_spoke_last", "unknown")
+    lines.append(f"- Who spoke last: {who}")
+
+    consec = timing.get("consecutive_unanswered_bot", 0)
+    if consec > 0:
+        lines.append(f"- Consecutive bot messages with no lead reply: {consec}")
+
+    lead_age = timing.get("lead_last_message_age", "unknown")
+    if lead_age != "unknown":
+        lines.append(f"- Lead's last message: {lead_age}")
+
+    first_age = timing.get("first_message_age", "unknown")
+    if first_age != "unknown":
+        lines.append(f"- Conversation started: {first_age}")
+
+    avg_resp = timing.get("avg_lead_response_hours")
+    if avg_resp is not None:
+        if avg_resp < 1:
+            lines.append(f"- Lead's avg response time: {int(avg_resp * 60)} minutes")
+        else:
+            lines.append(f"- Lead's avg response time: {avg_resp} hours")
+
+    velocity = timing.get("velocity_trend", "unknown")
+    if velocity != "unknown":
+        label = {
+            "warming": "WARMING (responding faster, writing more)",
+            "cooling": "COOLING (responding slower, writing less)",
+            "steady": "Steady (consistent response pattern)",
+        }.get(velocity, velocity)
+        lines.append(f"- Velocity trend: {label}")
+
+    return "\n".join(lines)
+
 
 def _run_ai_analysis(location_id, contact_id, ctx):
     """
@@ -194,9 +416,25 @@ def _run_ai_analysis(location_id, contact_id, ctx):
     if c['last_call']:
         calls_str += f", last call: {c['last_call']}"
 
+    # Call transcripts — what was actually discussed on calls
+    transcript_str = ""
+    if ctx.get("call_transcripts"):
+        transcript_lines = []
+        for t in ctx["call_transcripts"]:
+            direction = t.get("direction", "?")
+            dur = t.get("duration", 0)
+            date = t.get("at", "?")
+            text = t.get("transcript", "")
+            transcript_lines.append(f"[{date} {direction} {dur}s] {text}")
+        transcript_str = "\nCALL TRANSCRIPTS (most recent calls with recordings):\n" + "\n".join(transcript_lines)
+
     narrative_str = ctx.get("narrative") or "No prior narrative."
 
-    prompt = f"""You are an AI sales coach analyzing an insurance lead for an agent. Read ALL the data below carefully and produce a JSON intelligence report. Your classification MUST be based on what the lead ACTUALLY SAID, not just whether they responded.
+    # Timing and behavioral signals
+    timing = ctx.get("timing", {})
+    timing_str = _build_timing_block(timing)
+
+    prompt = f"""You are an AI sales coach analyzing an insurance lead for an agent. Read ALL the data below carefully and produce a JSON intelligence report. Your classification MUST be based on what the lead ACTUALLY SAID AND DID, not just whether they responded.
 
 CRITICAL — READ CONVERSATIONS IN CONTEXT:
 Messages are a back-and-forth thread between "Bot" (the agent's AI assistant) and "Lead" (the prospect). You MUST read each Lead reply as a RESPONSE TO THE PRECEDING Bot message. Short or single-word Lead replies ONLY make sense in context of what the Bot just said.
@@ -207,7 +445,7 @@ Examples of contextual reading:
 - Bot: "Let me know if you want to stop talking" → Lead: "want" = WANTS TO STOP (completing the Bot's sentence)
 - Bot: "I can help with term or whole life — which interests you?" → Lead: "term" = INTERESTED IN TERM LIFE (not a one-word dismissal)
 - Bot: "Great! When works best for a call?" → Lead: "never" = REJECTING (not scheduling)
-Never classify a message in isolation. A "yes", "no", "ok", "sure", "want", "stop", etc. can mean completely different things depending on what the Bot asked.
+Never classify a message in isolation. A "yes", "no", "ok", "sure", "want", "stop", etc. can mean completely different things depending on what the Bot just said.
 
 CONVERSATION HISTORY:
 {convo}
@@ -215,53 +453,61 @@ CONVERSATION HISTORY:
 KNOWN FACTS ABOUT LEAD: {facts}
 TAGS: {tags}
 {pipeline_str}
-CALL HISTORY: {calls_str}
+CALL HISTORY: {calls_str}{transcript_str}
 PRIOR NARRATIVE: {narrative_str}
+{timing_str}
 CURRENT DATE: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}
 
 Respond with ONLY valid JSON (no markdown, no code fences, no explanation). Use this exact structure:
-{{
-  "summary": "2-sentence situational snapshot. What does the agent need to know RIGHT NOW about this lead? Be specific — reference actual conversation details, names, products, objections.",
+{{{{
+  "summary": "2-sentence situational snapshot. What does the agent need to know RIGHT NOW about this lead? Be specific — reference actual conversation details, names, products, objections. Include timing context (e.g. 'Last replied 3 days ago' or 'Responded within minutes').",
   "temperature": "hot | warm | cool | cold",
-  "temperature_reason": "One sentence explaining why this temperature rating based on what the lead said.",
+  "temperature_reason": "One sentence explaining why, referencing BOTH what they said AND their behavioral pattern (timing, responsiveness, message depth).",
   "score": 0-100,
   "should_respond": true or false,
   "should_respond_reason": "Why the agent should or should not respond right now.",
   "engagement_level": 0-3,
   "under_contract": true or false,
   "actions": [
-    {{
+    {{{{
       "action": "Short imperative action (e.g. 'Call back about the term quote')",
       "reason": "Why this action matters right now",
       "priority": "high | medium | low",
       "icon": "fa-solid fa-<appropriate-icon>"
-    }}
+    }}}}
   ]
-}}
+}}}}
 
 CRITICAL CLASSIFICATION RULES — READ THESE CAREFULLY:
 
-"temperature" — Based on the CONTENT AND CONTEXT of what the lead said, NOT just whether they replied:
-- hot = Lead is actively buying: asking for quotes, requesting coverage, comparing products, ready to book, saying "let's do it." They are IN the buying process.
+"temperature" — Based on CONTENT, CONTEXT, AND BEHAVIOR:
+- hot = Lead is actively buying: asking for quotes, requesting coverage, comparing products, ready to book, saying "let's do it." They are IN the buying process. ALSO hot if velocity_trend is "warming" AND engagement_level >= 2.
 - warm = Lead is engaged and positive: responding to questions, sharing information about their situation, showing genuine interest. The conversation is progressing forward.
-- cool = Lead went quiet (no response to last 2+ messages), giving slow/short replies, showing declining interest, OR gave a soft objection like "let me think about it."
-- cold = Lead explicitly said no: "not interested", "stop", "already covered", "don't contact me", OR has completely ghosted (no response to 3+ outreach attempts). A lead who REPLIED with "no thanks" or "I'm good" is COLD, not hot.
+- cool = Lead went quiet (no response to last 2+ messages), giving slow/short replies, showing declining interest, soft objection ("let me think about it"), OR velocity_trend is "cooling." If bot sent 2+ messages with no lead reply, this is AT MOST cool — not warm or hot.
+- cold = Lead explicitly said no: "not interested", "stop", "already covered", "don't contact me", OR has completely ghosted (no response to 3+ outreach attempts over multiple days). "no thanks" or "I'm good" = COLD, not hot.
 IMPORTANT: If the Bot offered an opt-out and the lead's reply CONFIRMS they want to opt out (even with a single word that completes the Bot's sentence), that is COLD. Read the lead's reply in the context of what the Bot said immediately before it.
+TIMING RULE: If the lead has not responded in 7+ days despite bot outreach, they cannot be "warm" — they are at best "cool" unless they have a scheduled callback.
 
-"score" — 0-100 likelihood to convert to a paying client. Consider:
-- What the lead actually said (buying signals vs objections vs silence)
-- Pipeline stage and deal value if present
-- Call history: "outbound by agent" = the AGENT called the lead (NOT lead-initiated). "inbound from lead" = the LEAD called in. "answered (>30s)" = actually spoke. "unanswered" = no answer, busy, or call under 30s (likely voicemail/no pickup). Do NOT say "lead initiated a call" when the call was outbound by agent.
-- Recency of engagement
-- A lead who said "not interested" gets 5-15, NOT 50+
+"score" — 0-100 likelihood to convert to a paying client:
+HARD CALIBRATION RULES (these override your intuition):
+  - Lead said "not interested" / "stop" / "no" / "I'm good" → score MUST be 5-15
+  - No conversation exists (only bot outreach, no lead replies) → score MUST be 10-25
+  - Lead replied but only surface-level (one-word, "who is this") → score 15-30
+  - Lead engaged but has soft objections ("too expensive", "let me think") → score 25-45
+  - Lead actively discussing coverage, answering questions, sharing details → score 45-70
+  - Lead asking for quotes, comparing products, scheduling calls → score 65-85
+  - Lead ready to buy, discussing specific policies/terms/amounts → score 80-95
+  TIMING ADJUSTMENTS: Subtract 10-20 points if lead hasn't responded in 7+ days. Add 5-10 points if lead responded within minutes/hours.
+  Call history: "outbound by agent" = the AGENT called the lead (NOT lead-initiated). "inbound from lead" = the LEAD called in. "answered (>30s)" = actually spoke. "unanswered" = no answer, busy, or call under 30s (likely voicemail/no pickup). Do NOT say "lead initiated a call" when the call was outbound by agent.
 
 "should_respond" — true if the agent needs to take action NOW:
-- true: Lead asked a question that hasn't been answered, expressed interest that wasn't followed up, or sent a message that deserves a reply.
+- true: Lead asked a question that hasn't been answered, expressed interest that wasn't followed up, or sent a message that deserves a reply. ALSO true if lead responded recently and the last message is from the Lead.
 - false: Bot already replied to the lead's last message, lead said stop/not interested, lead hasn't sent any messages, or there is genuinely nothing to respond to.
 - This is about whether the lead is WAITING for a response, not just whether they're a good lead.
+- TIMING: If who_spoke_last is "Lead", should_respond is almost always true (lead is waiting).
 
 "engagement_level" — How deep the interaction has gone (0-3):
-- 0 = No meaningful interaction yet (new lead, only outbound attempts)
+- 0 = No meaningful interaction yet (new lead, only outbound attempts, no lead replies at all)
 - 1 = Surface contact (lead acknowledged but no real conversation — one-word replies, "who is this", etc.)
 - 2 = Real conversation (lead is sharing information, asking questions, back-and-forth dialogue)
 - 3 = Deep engagement (multiple exchanges, discussing specifics, answered calls >30s where they actually spoke, approaching a decision). Unanswered outbound calls do NOT count as engagement.
@@ -273,16 +519,17 @@ IMPORTANT: If the Bot offered an opt-out and the lead's reply CONFIRMS they want
 - When in doubt (no pipeline, unclear stage), set false. Most contacts are unsold leads.
 
 "actions" — 2-4 specific next steps. Use icons: fa-phone (calls), fa-paper-plane (SMS), fa-file-invoice-dollar (quotes), fa-calendar (appointments), fa-fire (urgency), fa-clock (timing), fa-reply (responding), fa-bolt (quick action).
-- If no conversation exists, focus on initial outreach.
+- Factor in TIMING: if lead hasn't replied in days, don't suggest "follow up on the conversation" — suggest a new angle or different channel (call instead of text).
+- If call transcripts show specific topics discussed, reference them in actions.
 - Be direct and actionable. No fluff."""
 
     try:
         response = _client.chat.completions.create(
             model=INTELLIGENCE_MODEL,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.4,
-            max_tokens=400,
-            timeout=12.0,
+            temperature=0.3,
+            max_tokens=500,
+            timeout=15.0,
         )
         raw = (response.choices[0].message.content or "").strip()
 
@@ -292,24 +539,8 @@ IMPORTANT: If the Bot offered an opt-out and the lead's reply CONFIRMS they want
 
         result = json.loads(raw)
 
-        # Validate required fields
-        if not isinstance(result.get('actions'), list):
-            result['actions'] = []
-        if result.get('temperature') not in ('hot', 'warm', 'cool', 'cold'):
-            result['temperature'] = 'warm'
-        if not isinstance(result.get('score'), (int, float)):
-            result['score'] = 50
-        result['score'] = max(0, min(100, int(result['score'])))
-        # Validate new fields (graceful defaults for backward compat)
-        if not isinstance(result.get('should_respond'), bool):
-            result['should_respond'] = False
-        if not isinstance(result.get('should_respond_reason'), str):
-            result['should_respond_reason'] = ''
-        if not isinstance(result.get('engagement_level'), (int, float)):
-            result['engagement_level'] = 0
-        result['engagement_level'] = max(0, min(3, int(result['engagement_level'])))
-        if not isinstance(result.get('under_contract'), bool):
-            result['under_contract'] = False
+        # Validate and calibrate
+        result = _validate_and_calibrate(result, ctx)
 
         return result
 
@@ -319,6 +550,84 @@ IMPORTANT: If the Bot offered an opt-out and the lead's reply CONFIRMS they want
     except Exception as e:
         logger.error(f"AI intelligence call failed for {contact_id}: {e}")
         return None
+
+
+def _validate_and_calibrate(result, ctx):
+    """
+    Validate required fields AND apply hard score/temperature calibration.
+    The AI is instructed to follow the calibration rules, but this function
+    enforces them structurally as a safety net. If the AI's output violates
+    a hard rule, we correct it here.
+    """
+    # --- Basic field validation ---
+    if not isinstance(result.get('actions'), list):
+        result['actions'] = []
+    if result.get('temperature') not in ('hot', 'warm', 'cool', 'cold'):
+        result['temperature'] = 'warm'
+    if not isinstance(result.get('score'), (int, float)):
+        result['score'] = 50
+    result['score'] = max(0, min(100, int(result['score'])))
+    if not isinstance(result.get('should_respond'), bool):
+        result['should_respond'] = False
+    if not isinstance(result.get('should_respond_reason'), str):
+        result['should_respond_reason'] = ''
+    if not isinstance(result.get('engagement_level'), (int, float)):
+        result['engagement_level'] = 0
+    result['engagement_level'] = max(0, min(3, int(result['engagement_level'])))
+    if not isinstance(result.get('under_contract'), bool):
+        result['under_contract'] = False
+    if not isinstance(result.get('summary'), str) or len(result.get('summary', '')) < 5:
+        result['summary'] = 'Analysis incomplete.'
+    if not isinstance(result.get('temperature_reason'), str):
+        result['temperature_reason'] = ''
+
+    # --- Hard calibration rules (structural enforcement) ---
+    timing = ctx.get("timing", {})
+    messages = ctx.get("messages", [])
+    consec_unanswered = timing.get("consecutive_unanswered_bot", 0)
+
+    # Rule 1: No lead messages at all → can't be warm/hot, score capped at 25
+    lead_messages = [m for m in messages if m.startswith("Lead:")]
+    if not lead_messages:
+        if result['temperature'] in ('hot', 'warm'):
+            result['temperature'] = 'cool'
+        result['score'] = min(result['score'], 25)
+        result['engagement_level'] = 0
+        if result['should_respond']:
+            result['should_respond'] = False
+            result['should_respond_reason'] = 'No lead messages to respond to.'
+
+    # Rule 2: 3+ consecutive bot messages unanswered → at most "cool"
+    if consec_unanswered >= 3:
+        if result['temperature'] in ('hot', 'warm'):
+            result['temperature'] = 'cool'
+        result['score'] = min(result['score'], 30)
+
+    # Rule 3: 2+ consecutive bot messages unanswered → cannot be "hot"
+    if consec_unanswered >= 2:
+        if result['temperature'] == 'hot':
+            result['temperature'] = 'warm'
+
+    # Rule 4: If who_spoke_last is Lead, should_respond is almost always true
+    if timing.get("who_spoke_last") == "Lead" and not result['should_respond']:
+        last_lead_msg = ""
+        for m in reversed(messages):
+            if m.startswith("Lead:"):
+                last_lead_msg = m[5:].strip().lower()
+                break
+        stop_words = {"stop", "unsubscribe", "remove me", "do not contact", "opt out", "optout"}
+        if not any(sw in last_lead_msg for sw in stop_words):
+            result['should_respond'] = True
+            if not result['should_respond_reason']:
+                result['should_respond_reason'] = 'Lead spoke last — they may be waiting for a reply.'
+
+    # Rule 5: Temperature/score coherence
+    if result['temperature'] == 'cold' and result['score'] > 20:
+        result['score'] = min(result['score'], 20)
+    if result['temperature'] == 'hot' and result['score'] < 55:
+        result['score'] = max(result['score'], 55)
+
+    return result
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -498,14 +807,16 @@ PIPELINE: {pipeline_str}
 CALLS: {calls_str}"""
 
 
-def _run_bulk_ai_analysis(location_id, contact_blocks):
+def _run_bulk_ai_analysis(location_id, contact_blocks, all_contexts=None):
     """
     Analyze multiple contacts in a single LLM call.
     contact_blocks: list of (contact_id, text_block) tuples.
+    all_contexts: optional dict of {contact_id: ctx_dict} for calibration.
     Returns: {contact_id: analysis_dict} for successfully parsed contacts.
     """
     if not _client or not contact_blocks:
         return {}
+    all_contexts = all_contexts or {}
 
     contacts_text = "\n\n---\n\n".join(block for _, block in contact_blocks)
     id_list = ", ".join(cid for cid, _ in contact_blocks)
@@ -546,12 +857,12 @@ Respond with ONLY a valid JSON array (no markdown, no code fences). Each element
 ]
 
 CLASSIFICATION RULES:
-- temperature: hot=actively buying/quoting/ready. warm=engaged/sharing info/positive. cool=went quiet/short replies/soft objections. cold=said no/stop/not interested/ghosted 3+ attempts. "no thanks"=COLD not hot.
-- score: 0-100 conversion likelihood. "not interested"=5-15, NOT 50+.
-- should_respond: true only if the lead is WAITING for a reply (unanswered question, unaddressed interest). false if bot already replied, lead said stop, or nothing to respond to.
-- engagement_level: 0=no contact, 1=surface (one-word replies), 2=real conversation, 3=deep (specifics, calls, near decision).
+- temperature: hot=actively buying/quoting/ready. warm=engaged/sharing info/positive. cool=went quiet/short replies/soft objections/2+ bot messages unanswered. cold=said no/stop/not interested/ghosted 3+ attempts. "no thanks"=COLD not hot. TIMING: if no lead reply in 7+ days despite outreach, AT MOST "cool."
+- score CALIBRATION (mandatory ranges): not interested/stop=5-15. No lead replies at all=10-25. Surface one-word replies=15-30. Soft objections=25-45. Discussing coverage/sharing details=45-70. Asking for quotes/scheduling=65-85. Ready to buy=80-95.
+- should_respond: true only if the lead is WAITING for a reply (unanswered question, unaddressed interest, lead spoke last). false if bot already replied, lead said stop, or nothing to respond to.
+- engagement_level: 0=no lead replies at all, 1=surface (one-word replies), 2=real conversation, 3=deep (specifics, calls >30s, near decision). Unanswered outbound calls do NOT count.
 - under_contract: true if contact is an EXISTING CLIENT (sold). Look at PIPELINE — stages like "sold", "closed won", "active client", "policy issued", "customer", "in force", "bound", "retention", "renewal" = true. Sales/prospecting pipelines ("new leads", "follow up", "quoted", "nurture") = false. Also check conversation for policy numbers or servicing existing coverage. When in doubt, false.
-- actions: 2-4 per contact. Icons: fa-phone, fa-paper-plane, fa-file-invoice-dollar, fa-calendar, fa-fire, fa-clock, fa-reply, fa-bolt.
+- actions: 2-4 per contact. Factor in TIMING — if lead hasn't replied in days, suggest a new angle or different channel, not "follow up." Icons: fa-phone, fa-paper-plane, fa-file-invoice-dollar, fa-calendar, fa-fire, fa-clock, fa-reply, fa-bolt.
 
 You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact IDs: {id_list}"""
 
@@ -585,24 +896,9 @@ You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact 
             if not cid:
                 continue
 
-            # Validate fields (same as single analysis)
-            if not isinstance(item.get('actions'), list):
-                item['actions'] = []
-            if item.get('temperature') not in ('hot', 'warm', 'cool', 'cold'):
-                item['temperature'] = 'warm'
-            if not isinstance(item.get('score'), (int, float)):
-                item['score'] = 50
-            item['score'] = max(0, min(100, int(item['score'])))
-            if not isinstance(item.get('should_respond'), bool):
-                item['should_respond'] = False
-            if not isinstance(item.get('should_respond_reason'), str):
-                item['should_respond_reason'] = ''
-            if not isinstance(item.get('engagement_level'), (int, float)):
-                item['engagement_level'] = 0
-            item['engagement_level'] = max(0, min(3, int(item['engagement_level'])))
-            if not isinstance(item.get('under_contract'), bool):
-                item['under_contract'] = False
-
+            # Validate + calibrate using same rules as single analysis
+            ctx = all_contexts.get(cid, {"messages": [], "timing": {}})
+            item = _validate_and_calibrate(item, ctx)
             results[cid] = item
 
         logger.info(f"Bulk AI analysis returned {len(results)}/{len(contact_blocks)} contacts")
@@ -623,22 +919,8 @@ You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact 
                     cid = item.get("contact_id", "")
                     if not cid:
                         continue
-                    if not isinstance(item.get('actions'), list):
-                        item['actions'] = []
-                    if item.get('temperature') not in ('hot', 'warm', 'cool', 'cold'):
-                        item['temperature'] = 'warm'
-                    if not isinstance(item.get('score'), (int, float)):
-                        item['score'] = 50
-                    item['score'] = max(0, min(100, int(item['score'])))
-                    if not isinstance(item.get('should_respond'), bool):
-                        item['should_respond'] = False
-                    if not isinstance(item.get('should_respond_reason'), str):
-                        item['should_respond_reason'] = ''
-                    if not isinstance(item.get('engagement_level'), (int, float)):
-                        item['engagement_level'] = 0
-                    item['engagement_level'] = max(0, min(3, int(item['engagement_level'])))
-                    if not isinstance(item.get('under_contract'), bool):
-                        item['under_contract'] = False
+                    ctx = all_contexts.get(cid, {"messages": [], "timing": {}})
+                    item = _validate_and_calibrate(item, ctx)
                     results[cid] = item
                 logger.info(f"Bulk AI JSON repair succeeded: {len(results)}/{len(contact_blocks)} contacts")
                 return results
@@ -687,7 +969,7 @@ def bulk_analyze_and_cache(location_id, contact_ids):
     def _process_chunk(chunk):
         """Process a single chunk: call LLM, cache results, return count."""
         analyzed = 0
-        ai_results = _run_bulk_ai_analysis(location_id, chunk)
+        ai_results = _run_bulk_ai_analysis(location_id, chunk, all_contexts=all_contexts)
 
         for cid, _ in chunk:
             result = ai_results.get(cid)
