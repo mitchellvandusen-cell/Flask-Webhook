@@ -1427,9 +1427,11 @@
                 const intel = _igbIntelCache[c.id];
 
                 // ── AI detected existing client (sold policy, in service pipeline) ──
+                // Always takes priority over temperature — clients under contract
+                // are not active sales leads and should never appear in hot/warm/cool/cold.
                 if (intel && intel.under_contract) { underContract.push(c); return; }
 
-                if (intel && intel.temperature) {
+                if (intel && intel.temperature && intel.temperature !== 'neutral') {
                     // ── AI-powered classification ──
                     // "Should Respond" = AI says hot/warm AND lead's last message is unanswered
                     const shouldRespond = _igbShouldRespond(c.id, intel);

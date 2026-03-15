@@ -586,8 +586,38 @@ def _validate_and_calibrate(result, ctx):
     messages = ctx.get("messages", [])
     consec_unanswered = timing.get("consecutive_unanswered_bot", 0)
 
-    # Rule 1: No lead messages at all → can't be warm/hot, score capped at 25
+    # Shared stop/opt-out word set (matches voice/intelligence.py _stop_words)
+    _opt_out_phrases = {
+        "stop", "unsubscribe", "opt out", "optout", "remove me",
+        "do not contact", "do not call", "do not text", "do not message",
+        "cancel", "quit", "leave me alone", "not interested",
+        "lose my number", "delete my number", "take me off",
+        "don't contact", "don't call", "don't text",
+        "im good", "i'm good", "no thanks", "no thank you",
+    }
+
+    # Rule 0: Stop / opt-out detection → force cold, score 0-5, should_respond=false
+    # This catches cases where the AI misreads a "stop" reply as something else.
     lead_messages = [m for m in messages if m.startswith("Lead:")]
+    if lead_messages:
+        last_lead_msg = ""
+        for m in reversed(messages):
+            if m.startswith("Lead:"):
+                last_lead_msg = m[5:].strip().lower()
+                break
+        if last_lead_msg and any(phrase in last_lead_msg for phrase in _opt_out_phrases):
+            # Check if the entire message is basically just the opt-out phrase
+            # (not "I'm not interested in whole life but term sounds good")
+            clean = last_lead_msg.strip().rstrip('.!?')
+            is_pure_rejection = len(clean) < 40 or clean in _opt_out_phrases
+            if is_pure_rejection:
+                result['temperature'] = 'cold'
+                result['score'] = min(result['score'], 5)
+                result['should_respond'] = False
+                result['should_respond_reason'] = 'Lead opted out or expressed clear disinterest.'
+                result['engagement_level'] = min(result['engagement_level'], 1)
+
+    # Rule 1: No lead messages at all → can't be warm/hot, score capped at 25
     if not lead_messages:
         if result['temperature'] in ('hot', 'warm'):
             result['temperature'] = 'cool'
@@ -609,14 +639,14 @@ def _validate_and_calibrate(result, ctx):
             result['temperature'] = 'warm'
 
     # Rule 4: If who_spoke_last is Lead, should_respond is almost always true
+    # (unless Rule 0 already set should_respond=false for opt-out)
     if timing.get("who_spoke_last") == "Lead" and not result['should_respond']:
         last_lead_msg = ""
         for m in reversed(messages):
             if m.startswith("Lead:"):
                 last_lead_msg = m[5:].strip().lower()
                 break
-        stop_words = {"stop", "unsubscribe", "remove me", "do not contact", "opt out", "optout"}
-        if not any(sw in last_lead_msg for sw in stop_words):
+        if not any(sw in last_lead_msg for sw in _opt_out_phrases):
             result['should_respond'] = True
             if not result['should_respond_reason']:
                 result['should_respond_reason'] = 'Lead spoke last — they may be waiting for a reply.'
@@ -626,6 +656,16 @@ def _validate_and_calibrate(result, ctx):
         result['score'] = min(result['score'], 20)
     if result['temperature'] == 'hot' and result['score'] < 55:
         result['score'] = max(result['score'], 55)
+
+    # Rule 6: Under contract → neutralize temperature for pipeline purposes
+    # The frontend correctly groups under_contract contacts into their own group,
+    # but the cached temperature can still leak into the SMS bot pipeline via
+    # get_cached_temperature(). Set temperature to None so the bot pipeline
+    # doesn't inject misleading "LEAD TEMPERATURE: HOT" for existing clients.
+    if result.get('under_contract'):
+        result['temperature'] = 'neutral'
+        result['should_respond'] = False
+        result['should_respond_reason'] = 'Existing client under contract — not an active sales lead.'
 
     return result
 
@@ -1144,6 +1184,11 @@ def get_cached_temperature(contact_id: str) -> dict:
     Returns cached temperature, score, and engagement_level if available.
     Zero AI cost — reads DB only.
 
+    Returns None for:
+      - No cached data
+      - Under-contract contacts (existing clients, not sales leads)
+      - Neutral temperature (set by calibration for sold clients)
+
     Returns: {"temperature": str, "score": int, "engagement_level": int} or None
     """
     conn = get_db_connection()
@@ -1169,8 +1214,19 @@ def get_cached_temperature(contact_id: str) -> dict:
         if not analysis:
             return None
 
+        # Don't inject temperature context for existing clients —
+        # they're not sales leads and the bot pipeline shouldn't
+        # adjust its approach based on a sold client's temperature.
+        if analysis.get("under_contract"):
+            return None
+
+        temp = analysis.get("temperature", "")
+        # "neutral" is set by calibration for under_contract contacts
+        if not temp or temp == "neutral":
+            return None
+
         return {
-            "temperature": analysis.get("temperature", ""),
+            "temperature": temp,
             "score": analysis.get("score", 0),
             "engagement_level": analysis.get("engagement_level", 0),
         }
