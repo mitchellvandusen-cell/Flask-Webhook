@@ -279,7 +279,6 @@
                                 '</div>' +
                                 '<div style="display:flex;align-items:center;gap:8px;">' +
                                     label +
-                                    (!n.cnam_enabled ? '<button onclick="enableCnamSingle(\'' + n.id + '\')" style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.15);color:#00ff88;border-radius:5px;padding:3px 10px;font-size:.75rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-shield-halved me-1"></i>Enable</button>' : '') +
                                 '</div>' +
                             '</div>';
                         });
@@ -353,18 +352,6 @@
             }
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-shield-halved me-2"></i>Register & Protect All Numbers';
-        }
-
-        async function enableCnamSingle(numberId) {
-            try {
-                const r = await fetch('/voice/numbers/' + numberId + '/cnam', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ enable: true }),
-                });
-                if (r.ok) loadSpamProtectionStatus();
-                else alert('Failed to enable CNAM');
-            } catch(e) { alert('Network error'); }
         }
 
         // Backward compatibility aliases

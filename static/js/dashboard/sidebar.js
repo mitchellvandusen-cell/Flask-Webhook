@@ -122,7 +122,11 @@
 
         // ── Voice Config column menu switching ──
         function switchVoicePanel(name) {
-            const panels = ['activation', 'enable', 'settings', 'numbers', 'dialer', 'numberhealth', 'trusthub', 'cnam', 'numberintegrity', 'training'];
+            // Backward compatibility: map old panel names to new consolidated names
+            if (name === 'enable') name = 'settings';
+            if (name === 'trusthub' || name === 'cnam' || name === 'numberintegrity' || name === 'numberhealth') name = 'spammonitoring';
+
+            const panels = ['activation', 'settings', 'numbers', 'dialer', 'spammonitoring', 'training'];
             panels.forEach(p => {
                 const panel = document.getElementById('vstab-panel-' + p);
                 const menuBtn = document.getElementById('vmenu-' + p);
@@ -137,10 +141,12 @@
                 }
             });
             if (name === 'numbers') loadNumbersTab();
-            if (name === 'numberhealth') loadNumberHealth();
-            if (name === 'trusthub') loadTrustHubData();
-            if (name === 'cnam' && typeof loadCnamMonitor === 'function') loadCnamMonitor();
-            if (name === 'numberintegrity' && typeof loadNumberIntegrity === 'function') loadNumberIntegrity();
+            if (name === 'spammonitoring') {
+                loadTrustHubData();
+                if (typeof loadCnamMonitor === 'function') loadCnamMonitor();
+                if (typeof loadNumberIntegrity === 'function') loadNumberIntegrity();
+                if (typeof loadNumberHealth === 'function') loadNumberHealth();
+            }
             if (name === 'training') loadTrainingStatus();
         }
 
