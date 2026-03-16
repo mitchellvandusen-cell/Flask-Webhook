@@ -109,17 +109,24 @@ def list_voice_numbers():
                 _save_voice_config(current_user.email, vc)
                 logger.info(f"[numbers] Auto-synced primary number {primary_number} for {current_user.email}")
 
+        # CNAM: check which numbers are assigned to the CNAM Trust Product
+        cnam_config = vc.get('cnam', {})
+        cnam_assigned_sids = set(cnam_config.get('assigned_numbers', []))
+
         result = []
         for n in numbers:
             phone = n.get('phone', '')
+            sid = n.get('sid', '')
             is_primary = phone == primary_number
             nickname = nicknames.get(phone, '')
             caps = n.get('capabilities', {})
             result.append({
-                "sid": n.get('sid', ''),
+                "sid": sid,
                 "phone": phone,
+                "friendly_name": n.get('friendly_name', ''),
                 "nickname": nickname,
                 "is_primary": is_primary,
+                "cnam_listed": sid in cnam_assigned_sids,
                 "capabilities": {
                     "voice": caps.get('voice', False),
                     "sms": caps.get('sms', False),
