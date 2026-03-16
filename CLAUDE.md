@@ -16,15 +16,16 @@ The system is multi-tenant SaaS: each subscribing insurance agency gets their ow
 Browser / GHL Webhook
         │
         ▼
-Gunicorn (4 threads) ──► Flask app (main.py, ~6700 lines)
+Gunicorn (40 threads) ──► Flask app (main.py → 16 blueprints + voice/ package)
         │
-        ├── PostgreSQL (psycopg2 threaded pool, 2–20 connections)
+        ├── PostgreSQL (psycopg2 threaded pool, 2–20 connections, 30 tables)
         ├── Redis + RQ (background job queues)
         ├── Twilio (SMS send/receive, Voice, sub-accounts)
         ├── xAI Grok API (LLM for text replies + Realtime API for voice)
         ├── Stripe (subscriptions + AI Minutes usage billing)
         ├── GoHighLevel OAuth (CRM data access)
-        └── Discord (embedded team chat in dashboard)
+        ├── Discord (embedded team chat in dashboard)
+        └── Slack (embedded workspace chat in dashboard)
 ```
 
 ### Worker Architecture
@@ -121,12 +122,13 @@ Master Twilio Account (platform owner — DIRECT CUSTOMER)
 
 | File | Purpose | Size |
 |------|---------|------|
-| `main.py` | Flask app — all HTTP routes, Redis/RQ setup, Flask-Login/Mail/Sock | ~6700 lines |
-| `db.py` | PostgreSQL layer — connection pool, all data access functions, schema | ~97KB |
-| `tasks.py` | Background job engine — AI pipeline, webhook processing | ~49KB |
-| `voice_bridge.py` | Twilio ↔ xAI Realtime voice WebSocket bridge | ~193KB |
+| `main.py` | Flask app factory — wires blueprints, Redis, DB, Flask-Login/Mail, voice bridge | ~323 lines |
+| `db.py` | PostgreSQL layer — connection pool, all data access functions, schema (30 tables) | ~4200 lines |
+| `tasks.py` | Background job engine — AI pipeline, webhook processing | ~1400 lines |
+| `voice_bridge.py` | Backward-compatibility shim — re-exports from `voice/` package | shim |
+| `extensions.py` | Shared Redis/RQ initialization, queue definitions, `ensure_redis()` | small |
 | `worker.py` | RQ worker startup script | small |
-| `api_v1.py` | External API blueprint (`/api/v1/`) — OpenAI-compatible | small |
+| `api_v1.py` | External API blueprint (`/api/v1/`) — OpenAI-compatible + Training API | small |
 | `prompt.py` | System prompt builder for LLM context | medium |
 | `memory.py` | Contact memory/facts retrieval | medium |
 | `individual_profile.py` | Comprehensive contact profile builder | medium |
@@ -152,9 +154,67 @@ Master Twilio Account (platform owner — DIRECT CUSTOMER)
 | `ghl_sync.py` | GHL data sync engine — pulls conversations, opportunities, phone numbers into local DB | ~900 lines |
 | `twilio_sms.py` | Direct Twilio SMS sender — bypasses GHL API, drop-in replacement for ghl_message.py | small |
 | `lead_intelligence.py` | AI-powered lead intelligence via xAI Grok micro-prompts with caching | medium |
+| `email_templates.py` | Premium HTML email builder for invites, onboarding, reminders | ~1020 lines |
+| `booking_detection.py` | Calendar booking detection via xAI — detects when contacts want to schedule | ~560 lines |
+| `translations.py` | i18n/internationalization support — multi-language UI strings | small |
+| `token_encryption.py` | Fernet symmetric encryption/decryption for OAuth tokens at rest | small |
+| `lead_resolver.py` | Smart lead type detection combining GHL tags + dates | small |
+| `message_utils.py` | Message batching and rapid-fire message collection utilities | small |
+| `payload_utils.py` | Webhook payload normalization for flexible GHL field extraction | small |
+| `forms.py` | Flask-WTF form definitions | small |
 | `voice/predictive_engine.py` | Erlang-C pacing, TCPA compliance tracker, agent state machine, callback queue, timezone/consent lookup | medium |
 | `voice/stream.py` | Call listen/intercept — live audio streaming WebSocket + takeover endpoint | small |
 | `crm_adapters/` | CRM adapter factory + GHL/HubSpot/Salesforce/Pipedrive/Zoho/Insureio/Zapier | directory |
+
+### Blueprints (`blueprints/`)
+
+All HTTP routes have been extracted from `main.py` into dedicated Flask blueprints:
+
+| File | Purpose | Size |
+|------|---------|------|
+| `auth.py` | Login, register, password reset, claim-account flows | ~416 lines |
+| `public.py` | Marketing pages — home, comparison, FAQ, contact, privacy, terms | ~226 lines |
+| `webhooks.py` | GHL webhook receiver, Conversation Provider outbound handler | ~654 lines |
+| `oauth.py` | GHL OAuth initiate/callback, token refresh | ~1137 lines |
+| `dashboard.py` | Main dashboard, config save, bot settings, voice config, onboarding | ~1038 lines |
+| `billing.py` | Stripe webhooks, checkout, plan switching, AI minutes, portal | ~1186 lines |
+| `admin.py` | God Mode admin dashboard, impersonation, marketplace installs | ~747 lines |
+| `agency.py` | Agency dashboard, sub-user invites, KPIs, agent stats, call log | ~934 lines |
+| `demo.py` | Demo chat endpoints, session init/reset, transcript download | ~540 lines |
+| `discord.py` | Discord OAuth, servers, channels, messages | ~444 lines |
+| `slack.py` | Slack OAuth, workspace management, channel messages | ~446 lines |
+| `cron.py` | Scheduled jobs — token refresh, reminders, webhook recovery, GHL sync | ~261 lines |
+| `inbox.py` | Unified inbox — conversations list, contact threads, SSE notifications | ~523 lines |
+| `calendar.py` | GHL calendar fetching and booking | ~554 lines |
+| `google_calendar.py` | Google Calendar OAuth and integration | ~369 lines |
+| `team.py` | Team management — invite members, roles, permissions, audit log | ~1233 lines |
+
+### Voice Package (`voice/`)
+
+The voice bridge has been decomposed from a single `voice_bridge.py` (~193KB) into a modular package:
+
+| File | Purpose | Size |
+|------|---------|------|
+| `numbers.py` | Phone number management, search, buy, release, Trust Hub, spam protection, number health | ~2513 lines |
+| `dialer.py` | Multi-line power dialer, predictive dialing, batch status polling | ~1836 lines |
+| `predictive_engine.py` | Erlang-C pacing, TCPA compliance tracker, agent state machine, callback queue | ~851 lines |
+| `contacts.py` | Contact data fetching, engagement metrics, bulk operations | ~828 lines |
+| `stream.py` | Twilio ↔ xAI Realtime WebSocket bridge, audio streaming | ~825 lines |
+| `call_history.py` | Call history CRUD, recording management | ~731 lines |
+| `voice_prompt.py` | Voice AI system prompt builder | ~695 lines |
+| `a2p.py` | A2P 10DLC brand/campaign registration, import, status polling | ~612 lines |
+| `outbound.py` | Outbound call initiation, TwiML generation | ~452 lines |
+| `intelligence.py` | AI contact intelligence routes — bulk cache, batch analysis | ~408 lines |
+| `twiml_routes.py` | TwiML webhook handlers — call status, gather, transfer complete | ~391 lines |
+| `stats.py` | Call statistics, KPIs, duration buckets, daily/hourly breakdown | ~312 lines |
+| `recordings.py` | Recording playback, transcription, Twilio proxy | ~243 lines |
+| `setup.py` | Voice blueprint setup, Twilio client initialization | ~209 lines |
+| `audio.py` | Audio pipeline — soxr resampling, mulaw/PCM conversion, EQ | ~200 lines |
+| `helpers.py` | Shared voice utilities | ~180 lines |
+| `voice_tools.py` | Voice AI tool definitions for function calling | ~178 lines |
+| `insights.py` | Call insights and analytics | ~140 lines |
+| `call_state.py` | In-memory call state tracking (`active_calls`, `transfer_requests`) | ~129 lines |
+| `call_history_helpers.py` | Call history helper functions | small |
 
 ---
 
@@ -209,6 +269,16 @@ Master Twilio Account (platform owner — DIRECT CUSTOMER)
 ### Slack (optional)
 - `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_REDIRECT_URI`
 
+### GHL Conversation Providers
+- `GHL_SMS_CONVERSATION_PROVIDER_ID` — Custom SMS provider ID (default: `699c84aef36d66cc10a56e82`)
+- `GHL_CALL_CONVERSATION_PROVIDER_ID` — Call provider ID (default: `699c83535fc465bbff87a78d`)
+
+### Stripe (additional)
+- `STRIPE_SEAT_PRICE_ID` — Per-seat add-on pricing for team members
+
+### Affiliate
+- `REWARDFUL_API_SECRET` — Rewardful affiliate/referral tracking
+
 ### Cron / Scheduled Jobs
 - `CRON_SECRET` — Shared secret for authenticating cron endpoints (passed as `?key=` query param or `Authorization: Bearer` header)
 
@@ -217,9 +287,9 @@ Master Twilio Account (platform owner — DIRECT CUSTOMER)
 
 ---
 
-## Database Schema (21 tables)
+## Database Schema (30 tables)
 
-All tables created in `db.py`'s `init_db()` function:
+All tables created in `db.py`'s `init_db()` function (plus `contact_intelligence` in `lead_intelligence.py`):
 
 | Table | Purpose |
 |-------|---------|
@@ -240,10 +310,19 @@ All tables created in `db.py`'s `init_db()` function:
 | `discord_connections` | Discord OAuth tokens per user |
 | `discord_servers` | Saved Discord servers per user (max 3) |
 | `discord_webhook_channels` | Webhook-connected Discord channels |
+| `failed_webhook_payloads` | Stores failed webhook payloads for retry/recovery |
+| `app_settings` | Global application settings (key-value) |
+| `contact_cache` | Cached GHL contact data for fast local lookups |
 | `ghl_conversations` | Synced GHL message history (contact_id, message_type, direction, body, source, ghl_message_id UNIQUE) |
 | `ghl_opportunities` | Synced GHL pipeline/deal data (pipeline_name, stage_name, status, monetary_value, ghl_opportunity_id UNIQUE) |
 | `ghl_sync_state` | Sync progress tracking (resource_type, last_sync_at, last_cursor, sync_status, total_synced) |
-| `contact_intelligence` | AI intelligence cache (contact_id PK, analysis JSONB, analyzed_at — invalidated on new messages) |
+| `number_health` | Phone number health tracking — spam scores, carrier status, rotation state |
+| `slack_connections` | Slack OAuth tokens per user |
+| `slack_workspaces` | Saved Slack workspaces per user |
+| `uninstall_feedback` | GHL marketplace uninstall feedback/reasons |
+| `location_users` | Team members per location — roles, permissions, invited/claimed status |
+| `team_audit_log` | Audit trail for team management actions (invites, role changes, removals) |
+| `contact_intelligence` | AI intelligence cache (contact_id PK, analysis JSONB, analyzed_at — in `lead_intelligence.py`) |
 
 ### Database Connection Pool
 - `ThreadedConnectionPool` with semaphore queuing
@@ -253,16 +332,25 @@ All tables created in `db.py`'s `init_db()` function:
 
 ---
 
-## HTTP Routes (main.py)
+## HTTP Routes (blueprints/)
 
-### Public / Marketing
+### Public / Marketing (`blueprints/public.py`)
 - `GET /` — Home page
-- `GET /comparison`, `/comparison/text-drip` — Comparison pages
+- `GET /for-agencies` — Agency landing page
+- `GET /for-individuals` — Individual agent landing page
+- `GET /comparison`, `/comparison/text-drip`, `/comparison/dialers` — Comparison pages
+- `GET /dialer` — Dialer marketing page
+- `GET /sms` — SMS marketing page
 - `GET /getting-started` — Setup guide
+- `GET /a2p-guide` — A2P 10DLC registration guide
+- `GET /articles` — Articles/blog page
+- `GET /about` — About page
+- `GET /affiliate` — Affiliate program page
 - `GET /reviews` — Reviews page (POST submits review)
 - `GET /contact`, `/privacy`, `/terms`, `/disclaimers`
 - `GET /faq`, `/integrations`, `/support`, `/setup-guide`
 - `GET /spam-protection` — Spam monitoring & number health marketing page
+- `GET|POST /uninstall-feedback` — GHL marketplace uninstall feedback form
 - `GET /demo-chat` — Demo chatbot UI
 
 ### Authentication
@@ -384,6 +472,34 @@ All tables created in `db.py`'s `init_db()` function:
 ### Website Bot
 - `POST /website-bot-webhook` — External website chatbot webhook
 
+### Team Management (`blueprints/team.py`)
+- `GET /api/team/ghl-users` — Fetch GHL location users for invite picker
+- `GET /api/team/members` — List all team members with roles and status
+- `POST /api/team/invite` — Invite team member (creates `location_users` record, sends email)
+- `POST /api/team/resend-invite` — Resend invite email to pending member
+- `GET|POST /claim-seat` — Team member claim flow (set password, activate account)
+- `POST /api/team/permissions` — Update member permissions (JSON array)
+- `POST /api/team/role` — Change member role (admin/agent/viewer)
+- `POST /api/team/toggle-active` — Enable/disable team member
+- `POST /api/team/activate-voice` — Provision voice (Twilio sub-account) for team member
+- `GET /api/team/agent-kpis` — Per-agent KPIs (calls, connected, duration, messages)
+- `GET /api/team/stats` — Aggregated team statistics
+- `GET /api/team/audit-log` — Team management audit trail
+- `GET /api/team/onboarding-status` — Per-member onboarding completion check
+- `POST /api/team/remove` — Remove team member
+- `POST /api/team/checkout` — Stripe checkout for additional team seats
+- `GET /api/team/billing-info` — Team billing information
+- `GET /api/team/roles` — Available roles and their permissions
+
+### Slack (`blueprints/slack.py`)
+- `GET /slack/connect` — Start Slack OAuth
+- `GET /slack/callback` — Slack OAuth callback
+- `GET /slack/disconnect` — Disconnect Slack
+- `GET /api/slack/status` — Slack connection status
+- `GET /api/slack/workspaces` — User's Slack workspaces
+- `GET /api/slack/channels/<workspace_id>` — List workspace channels
+- `GET|POST /api/slack/messages/<channel_id>` — Read/send messages
+
 ### External API (Blueprint, api_v1.py)
 - `POST /api/v1/chat/completions` — OpenAI-compatible chat completions endpoint (Bearer token auth, 120 req/min rate limit)
 
@@ -454,14 +570,26 @@ When a GHL webhook arrives at `POST /webhook`:
 
 ---
 
-## Voice Bridge (voice_bridge.py)
+## Voice Package (`voice/`)
 
-- **Flask Blueprint** `voice_bp` mounted in main.py
-- Bidirectional WebSocket bridge: Twilio mulaw 8kHz ↔ xAI PCM 16kHz
-- Audio pipeline: soxr resampling + audioop mulaw/PCM conversion + scipy Butterworth EQ
-- In-memory call tracking: `active_calls`, `transfer_requests`, `call_listeners`
-- Supports real-time voice AI conversations using xAI's Realtime API
-- A2P 10DLC registration routes for brand/campaign compliance (see A2P 10DLC section below)
+- **Flask Blueprint** `voice_bp` mounted in main.py (decomposed from monolithic `voice_bridge.py`)
+- `voice_bridge.py` is now a backward-compatibility shim that re-exports from `voice/`
+- Bidirectional WebSocket bridge: Twilio mulaw 8kHz ↔ xAI PCM 16kHz (`voice/stream.py`)
+- Audio pipeline: soxr resampling + mulaw/PCM conversion + scipy Butterworth EQ (`voice/audio.py`)
+- In-memory call tracking: `active_calls`, `transfer_requests`, `call_listeners` (`voice/call_state.py`)
+- Outbound call initiation and TwiML generation (`voice/outbound.py`)
+- Call history CRUD and recording management (`voice/call_history.py`)
+- Voice AI system prompt builder (`voice/voice_prompt.py`)
+- Voice AI tool definitions for function calling (`voice/voice_tools.py`)
+- TwiML webhook handlers — status callbacks, gather, transfer complete (`voice/twiml_routes.py`)
+- Call statistics and analytics (`voice/stats.py`, `voice/insights.py`)
+- Recording playback, transcription, Twilio proxy (`voice/recordings.py`)
+- Contact data fetching and engagement metrics (`voice/contacts.py`)
+- AI contact intelligence routes (`voice/intelligence.py`)
+- A2P 10DLC registration routes (`voice/a2p.py`)
+- Phone number management and Trust Hub (`voice/numbers.py`)
+- Multi-line dialer and predictive dialing (`voice/dialer.py`)
+- Predictive engine with Erlang-C pacing (`voice/predictive_engine.py`)
 
 ---
 
@@ -883,6 +1011,22 @@ The dialer's Smart Filters use AI intelligence to classify contacts — NOT simp
 templates/
   dashboard.html              Main dashboard layout (individual user)
   agency-dashboard.html       Agency command center (sidebar+tab, self-contained, inline JS)
+  base.html                   Base template for marketing pages
+  home.html                   Home/landing page
+  sms.html                    SMS marketing page
+  spam-protection.html        Spam monitoring & number health marketing page
+  comparison.html             Main comparison page
+  comparison-text-drip.html   Text drip comparison page
+  comparison-dialers.html     Dialer comparison page
+  for-agencies.html           Agency landing page
+  for-individuals.html        Individual agent landing page
+  a2p-guide.html              A2P 10DLC registration guide
+  about.html                  About page
+  affiliate.html              Affiliate program page
+  articles.html               Articles/blog page
+  claim_seat.html             Team member claim seat flow
+  uninstall-feedback.html     GHL marketplace uninstall feedback
+  call_panel.html             Embedded call panel
   dashboard/_head.html        <head>, all inline CSS (Discord, alerts, etc.)
   dashboard/_topbar.html      Top bar with page title and controls
   dashboard/_sidebar.html     Left collapsible sidebar with nav
@@ -898,9 +1042,12 @@ templates/
     aiminutes.html            AI Minutes balance/purchase
     billing.html              Billing/subscription management
     logs.html                 Activity logs
+    team.html                 Team management (invite, roles, permissions, KPIs)
+    training.html             Training API configuration
   dashboard/modals/
     discord_panel.html        Discord message panel (side panel, hidden)
     discord_modal.html        Discord server picker modal
+    slack_panel.html          Slack message panel (side panel, hidden)
     congrats.html             Congratulations overlay
     save_overlay.html         Saving indicator overlay
 ```
@@ -922,6 +1069,9 @@ static/js/dashboard/
   advanced.js       Advanced settings
   api_keys.js       External API key management
   discord.js        Discord integration (all Discord UI logic)
+  slack.js          Slack integration (workspace/channel management, messages)
+  team.js           Team management (invites, roles, permissions, agent KPIs, audit log)
+  pwa.js            Progressive Web App registration and offline support
   tutorial.js       Interactive dashboard tutorial (driver.js, 11 chapters, glassmorphism UI)
 ```
 
@@ -953,6 +1103,36 @@ The dashboard embeds a Discord team chat panel:
 - Fixed panel that slides out from the right side of the sidebar
 - Toggle: click a channel in the sidebar, or use the Discord bell button in the topbar
 - Dismissible with the X button in the panel header
+
+---
+
+## Slack Integration
+
+The dashboard embeds a Slack workspace chat panel (similar to Discord):
+1. User connects Slack via OAuth (`/slack/connect`)
+2. User adds Slack workspaces
+3. User clicks a channel in the sidebar → chat panel slides open
+4. Messages displayed in real-time; users can read and reply without leaving the dashboard
+
+### Slack Panel Position
+- Fixed panel that slides out from the right side of the sidebar (mirrors Discord panel UX)
+- Toggle: click a channel in the sidebar
+- Dismissible with the X button in the panel header
+
+---
+
+## Team Management
+
+Multi-user team support for individual subscribers (distinct from Agency model):
+1. Account owner invites team members via email (`POST /api/team/invite`)
+2. Invitees receive email with claim link → `/claim-seat` sets password and activates account
+3. Owner manages roles (admin/agent/viewer), permissions, and active status
+4. Each team member can get their own Twilio sub-account for voice (`POST /api/team/activate-voice`)
+5. Per-agent KPIs, stats, and audit logging for all team management actions
+
+### Key Tables
+- `location_users` — Team members per location (role, permissions JSON, invited/claimed status)
+- `team_audit_log` — Audit trail for invites, role changes, permission updates, removals
 
 ---
 
