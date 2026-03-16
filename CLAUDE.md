@@ -343,7 +343,13 @@ All tables created in `db.py`'s `init_db()` function (plus `contact_intelligence
 - `GET /sms` — SMS marketing page
 - `GET /getting-started` — Setup guide
 - `GET /a2p-guide` — A2P 10DLC registration guide
-- `GET /articles` — Articles/blog page
+- `GET /articles` — Articles/blog listing page (7 articles)
+- `GET /articles/top-tools-life-insurance-agents` — SEO article: Top Tools for Life Insurance Agents
+- `GET /articles/ai-life-insurance-good-thing` — SEO article: Why AI in Life Insurance Is a Good Thing
+- `GET /articles/gohighlevel-vs-hubspot-insurance` — SEO article: GoHighLevel vs HubSpot for Insurance
+- `GET /articles/speed-to-lead-insurance` — SEO article: Speed to Lead in Insurance Sales
+- `GET /articles/spam-likely-killing-sales` — SEO article: How Spam Likely Is Killing Your Sales
+- `GET /connect` — Connect With Us / social media page (Facebook, LinkedIn)
 - `GET /about` — About page
 - `GET /affiliate` — Affiliate program page
 - `GET /reviews` — Reviews page (POST submits review)
@@ -1004,6 +1010,43 @@ The dialer's Smart Filters use AI intelligence to classify contacts — NOT simp
 
 ---
 
+## Main Navigation Structure (base.html)
+
+The marketing site navbar uses two dropdown menus:
+- **Agents** → `/for-individuals`
+- **Agencies** → `/for-agencies`
+- **Features** (dropdown): SMS AI Texting (`/sms`), Spam Protection (`/spam-protection`)
+- **Resources** (dropdown): Comparison (`/comparison`), Articles (`/articles`), Connect With Us (`/connect`)
+- **Pricing** → `/#pricing`
+- **Demo** → `/demo-chat`
+- **Support** → `/support`
+
+Footer links include: For Agents, For Agencies, SMS, Spam Protection, Comparison, Articles, About, Support, Contact, Connect With Us, Affiliates, Terms, Privacy.
+
+### SEO Articles (`/articles/*`)
+
+Five long-form SEO articles, each with their own page, JSON-LD structured data, and meta descriptions:
+
+| URL | Topic | SEO Target |
+|-----|-------|------------|
+| `/articles/top-tools-life-insurance-agents` | Best tools for insurance agents in 2026 | "tools for life insurance agents" |
+| `/articles/ai-life-insurance-good-thing` | Why AI benefits insurance agents | "AI life insurance" |
+| `/articles/gohighlevel-vs-hubspot-insurance` | CRM comparison for insurance | "GoHighLevel vs HubSpot insurance" |
+| `/articles/speed-to-lead-insurance` | Speed to lead research & ROI math | "speed to lead insurance" |
+| `/articles/spam-likely-killing-sales` | Spam protection playbook (CNAM, STIR/SHAKEN, Voice Integrity, A2P) | "spam likely insurance agent" |
+
+All articles use the `.article-page` layout with `.article-section`, `.article-highlight-box`, `.article-stat-row`, `.article-cta-box` CSS components. Light theme overrides included.
+
+### Social Media / Connect Page (`/connect`)
+
+Links to InsuranceGrokBot social profiles:
+- **Facebook**: `https://www.facebook.com/profile.php?id=61587536844180`
+- **LinkedIn**: `https://www.linkedin.com/company/insurancegrokbot`
+
+Uses `.connect-grid`, `.connect-card`, `.connect-reason-card` CSS components with Liquid Glass styling. Includes JSON-LD Organization schema with `sameAs` social links.
+
+---
+
 ## Frontend (Dashboard)
 
 ### Template Structure
@@ -1023,7 +1066,13 @@ templates/
   a2p-guide.html              A2P 10DLC registration guide
   about.html                  About page
   affiliate.html              Affiliate program page
-  articles.html               Articles/blog page
+  articles.html               Articles/blog listing page (7 articles)
+  article-top-tools-life-insurance.html          SEO: Top Tools for Life Insurance Agents
+  article-ai-life-insurance-good-thing.html      SEO: Why AI in Life Insurance Is a Good Thing
+  article-gohighlevel-vs-hubspot-insurance.html  SEO: GoHighLevel vs HubSpot for Insurance
+  article-speed-to-lead-insurance.html           SEO: Speed to Lead in Insurance Sales
+  article-spam-likely-killing-sales.html         SEO: How Spam Likely Is Killing Your Sales
+  connect.html                Connect With Us / social media page
   claim_seat.html             Team member claim seat flow
   uninstall-feedback.html     GHL marketplace uninstall feedback
   call_panel.html             Embedded call panel
