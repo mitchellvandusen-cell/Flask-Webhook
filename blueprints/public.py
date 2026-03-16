@@ -174,7 +174,7 @@ def reviews():
 @public_bp.route("/robots.txt")
 def robots_txt():
     """Serve robots.txt — allow all crawlers including AI bots."""
-    domain = request.host_url.rstrip('/')
+    domain = 'https://insurancegrokbot.com'
     body = f"""User-agent: *
 Allow: /
 
@@ -225,7 +225,7 @@ Sitemap: {domain}/sitemap.xml
 @public_bp.route("/sitemap.xml")
 def sitemap_xml():
     """Dynamic XML sitemap for all public marketing pages."""
-    domain = request.host_url.rstrip('/')
+    domain = 'https://insurancegrokbot.com'
     today = datetime.utcnow().strftime('%Y-%m-%d')
 
     # (path, changefreq, priority)

@@ -15,13 +15,13 @@
     {% block seo_meta %}
     <meta name="description" content="{% block meta_description %}InsuranceGrokBot is an AI-powered sales assistant for life insurance agents. Automates SMS, voice calls, and appointment booking with 270+ carrier knowledge.{% endblock %}">
     <meta name="robots" content="index, follow">
-    <link rel="canonical" href="{% block canonical_url %}{{ request.url_root.rstrip('/') }}{{ request.path }}{% endblock %}">
+    <link rel="canonical" href="{% block canonical_url %}https://insurancegrokbot.com{{ request.path }}{% endblock %}">
 
     {# Open Graph #}
     <meta property="og:type" content="{% block og_type %}website{% endblock %}">
     <meta property="og:title" content="{% block og_title %}{{ self.title() }}{% endblock %}">
     <meta property="og:description" content="{% block og_description %}{{ self.meta_description() }}{% endblock %}">
-    <meta property="og:url" content="{{ request.url_root.rstrip('/') }}{{ request.path }}">
+    <meta property="og:url" content="https://insurancegrokbot.com{{ request.path }}">
     <meta property="og:site_name" content="InsuranceGrokBot">
     <meta property="og:image" content="{% block og_image %}{{ url_for('static', filename='og-image.png', _external=True) }}{% endblock %}">
     <meta property="og:locale" content="en_US">
