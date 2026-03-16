@@ -7,9 +7,8 @@
 import logging
 from datetime import datetime
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request, Response, make_response
+from flask import Blueprint, render_template, redirect, request, make_response
 from crm_adapters.factory import list_available_crms, CRM_DISPLAY_NAMES
-from forms import ReviewForm
 from db import get_uninstall_feedback, save_uninstall_feedback
 from send_email_api import send_email_via_api
 
@@ -176,29 +175,6 @@ def privacy():
     return render_template('privacy.html')
 
 
-# ── Reviews ───────────────────────────────────────────────────────────────────
-
-@public_bp.route("/reviews", methods=["GET", "POST"])
-def reviews():
-    form = ReviewForm()
-
-    if form.validate_on_submit():
-        flash("Thank you! Your review has been submitted for approval.", "success")
-        return redirect(url_for('public.reviews'))
-
-    all_reviews = [
-        {"name": "Sarah Jenkins", "role": "Agency Owner", "text": "This bot literally saved my business. I went from booking 2 appointments a week to 15.", "stars": 5},
-        {"name": "Mike Ross", "role": "Solo Agent", "text": "It works okay, but I had some issues with the setup.", "stars": 3},
-        {"name": "David K.", "role": "Life Insurance Broker", "text": "I was skeptical about the AI, but it handles objections better than my human setters.", "stars": 5},
-        {"name": "Emily Chen", "role": "Marketing Director", "text": "Good tool, decent price. Not perfect though.", "stars": 4},
-        {"name": "Marcus T.", "role": "Independent Agent", "text": "The integration is seamless. It feels native to Lead Connector.", "stars": 5},
-        {"name": "Jason V.", "role": "Independent Agent", "text": "I've tried every bot on the market. This is the only one that understands underwriting.", "stars": 5}
-    ]
-
-    visible_reviews = [r for r in all_reviews if r['stars'] == 5]
-    return render_template('reviews.html', reviews=visible_reviews, form=form)
-
-
 # ── SEO: robots.txt + sitemap.xml ─────────────────────────────────────────────
 
 @public_bp.route("/robots.txt")
@@ -270,7 +246,6 @@ def sitemap_xml():
         ('/spam-protection',        'weekly',   '0.8'),
         ('/faq',                    'monthly',  '0.8'),
         ('/about',                  'monthly',  '0.6'),
-        ('/reviews',                'monthly',  '0.7'),
         ('/affiliate',              'monthly',  '0.5'),
         ('/articles',               'weekly',   '0.7'),
         ('/articles/top-tools-life-insurance-agents', 'monthly', '0.7'),
