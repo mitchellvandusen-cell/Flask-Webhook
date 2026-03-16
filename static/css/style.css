@@ -1373,7 +1373,7 @@ body.light-theme .tech-label { color: var(--lt-text-muted) !important; }
 
 /* ── Main wrapper & topbar ── */
 body.light-theme .main-wrapper { background: transparent; }
-body.light-theme .dash-topbar { border-bottom-color: var(--lt-border); background: rgba(255,255,255,0.8); backdrop-filter: blur(12px); }
+body.light-theme .dash-topbar { border-bottom-color: var(--lt-border); background: rgba(255,255,255,0.8); backdrop-filter: blur(12px); padding-left: 16px; padding-right: 16px; border-radius: 12px; }
 body.light-theme .dash-topbar h1 { color: var(--lt-text-primary) !important; }
 body.light-theme .dash-subtitle { color: var(--lt-text-muted) !important; }
 body.light-theme .dash-user-pill { background: rgba(0,0,0,0.03); border-color: var(--lt-border); }
@@ -4850,6 +4850,9 @@ body.light-theme .cnam-stat-info { background: rgba(0,100,180,0.08); color: #006
     display: flex; align-items: center; justify-content: center;
     margin: 0 auto 8px; font-size: 1rem;
 }
+.ni-carrier-logo {
+    height: 28px; width: auto; object-fit: contain;
+}
 .ni-carrier-active .ni-carrier-icon { background: rgba(0,255,136,0.15); color: #00ff88; }
 .ni-carrier-pending .ni-carrier-icon { background: rgba(255,165,0,0.15); color: #ffa500; }
 .ni-carrier-inactive .ni-carrier-icon { background: rgba(255,255,255,0.06); color: #555; }
@@ -5148,6 +5151,147 @@ body.light-theme .ni-edit-label { color: var(--lt-text-secondary); }
 body.light-theme .ni-edit-input { background: var(--lt-input-bg); border-color: var(--lt-border); color: var(--lt-input-text); }
 body.light-theme .ni-edit-input:focus { border-color: rgba(0,100,180,0.4); box-shadow: 0 0 0 2px rgba(0,100,180,0.1); }
 body.light-theme .ni-edit-submit-btn { background: linear-gradient(135deg, #0088ff, #0066cc); }
+
+/* ── Light theme: carrier logo icon backgrounds (no circle bg when using logos) ── */
+body.light-theme .ni-carrier-active .ni-carrier-icon { background: rgba(0,170,94,0.10); }
+body.light-theme .ni-carrier-pending .ni-carrier-icon { background: rgba(255,140,0,0.10); }
+
+/* ══════════════════════════════════════════════════════════════════
+   LIGHT THEME — Comprehensive icon visibility fixes
+   All white-on-dark icons need to become dark/gray in light mode
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── Topbar: add horizontal padding so white backdrop doesn't clip text ── */
+body.light-theme .dash-topbar { padding-left: 16px; padding-right: 16px; border-radius: 12px; }
+
+/* ── Activate Voice: Active status badge visibility ── */
+body.light-theme #vstab-panel-activation .badge[style*="color: #00ff88"],
+body.light-theme #vstab-panel-activation .badge[style*="color:#00ff88"] { color: var(--lt-accent) !important; background: rgba(0,170,94,0.10) !important; border-color: rgba(0,170,94,0.25) !important; }
+body.light-theme #vstab-panel-activation .fa-circle { color: var(--lt-accent) !important; }
+body.light-theme #vstab-panel-activation span[style*="color:#ccc"] { color: var(--lt-text-secondary) !important; }
+body.light-theme #vstab-panel-activation span[style*="color:#555"] { color: var(--lt-text-muted) !important; }
+body.light-theme #vstab-panel-activation h6[style*="color:#fff"] { color: var(--lt-text-primary) !important; }
+body.light-theme #vstab-panel-activation p[style*="color:#888"] { color: var(--lt-text-muted) !important; }
+body.light-theme #vstab-panel-activation p[style*="color:#00ff88"] { color: var(--lt-accent) !important; }
+body.light-theme #vstab-panel-activation i[style*="color:#00ff88"] { color: var(--lt-accent) !important; }
+body.light-theme #vstab-panel-activation i[style*="color:#444"] { color: var(--lt-text-muted) !important; }
+
+/* ── Global: #00ff88 (neon green) → readable green in light theme ── */
+body.light-theme #voiceStatusBadge { color: var(--lt-accent) !important; background: rgba(0,170,94,0.10) !important; border-color: rgba(0,170,94,0.25) !important; }
+body.light-theme #voiceStatusBadge i { color: var(--lt-accent) !important; }
+body.light-theme #voiceEnabledStatus[style*="color:#00ff88"] { color: var(--lt-accent) !important; }
+
+/* ── Voice AI: Preview button microphone icon ── */
+body.light-theme #voicePreviewBtn { color: #0078b8 !important; border-color: rgba(0,120,184,0.25) !important; background: rgba(0,120,184,0.06) !important; }
+body.light-theme #voicePreviewBtn i { color: #0078b8 !important; }
+
+/* ── Voice AI: "Voice Settings" header icon ── */
+body.light-theme #vstab-panel-settings h6[style*="color: var(--accent)"] i,
+body.light-theme #vstab-panel-settings h6[style*="var(--accent)"] i.fa-microphone { color: var(--lt-accent) !important; }
+
+/* ── Voice AI: Contact Fields Available to AI info box icon ── */
+body.light-theme div[style*="color:#00d9ff"] i.fa-circle-info { color: #0078b8 !important; }
+body.light-theme #vstab-panel-settings div[style*="background:rgba(0,217,255,0.04)"] div[style*="color:#00d9ff"] { color: #0078b8 !important; }
+
+/* ── Voice AI: "How it works" icon ── */
+body.light-theme div[style*="color:#a78bfa"] i.fa-circle-info { color: #7c3aed !important; }
+body.light-theme #vstab-panel-settings div[style*="background:rgba(167,139,250,0.05)"] div[style*="color:#a78bfa"] { color: #7c3aed !important; }
+
+/* ── Voice AI: Save Voice Settings button icon ── */
+body.light-theme #vstab-panel-settings .btn[onclick="saveVoiceConfig()"] { color: #000 !important; }
+body.light-theme #vstab-panel-settings .btn[onclick="saveVoiceConfig()"] i { color: #000 !important; }
+
+/* ── Voice AI: Test Connection button — remove the vial icon ── */
+body.light-theme #vstab-panel-settings .btn[onclick="testVoiceConnection()"] { color: #0078b8 !important; border-color: rgba(0,120,184,0.25) !important; background: rgba(0,120,184,0.06) !important; }
+body.light-theme #vstab-panel-settings .btn[onclick="testVoiceConnection()"] i { color: #0078b8 !important; }
+
+/* ── Voice AI: Enable Voice AI Agent label ── */
+body.light-theme .form-check-label[for="voiceEnabled"] { color: var(--lt-text-primary) !important; }
+
+/* ── Dialer Settings: Browser VoIP Refresh Devices button ── */
+body.light-theme button[onclick="refreshAudioDevices()"] { color: var(--lt-text-secondary) !important; border-color: var(--lt-border) !important; background: var(--lt-surface) !important; }
+body.light-theme button[onclick="refreshAudioDevices()"] i { color: var(--lt-text-secondary) !important; }
+
+/* ── Dialer Settings: Test Speaker button & play icon ── */
+body.light-theme button[onclick="testAudioOutput()"] { color: #0078b8 !important; border-color: rgba(0,120,184,0.20) !important; background: rgba(0,120,184,0.06) !important; }
+body.light-theme button[onclick="testAudioOutput()"] i { color: #0078b8 !important; }
+
+/* ── Dialer Settings: Save Dialer Settings button icon ── */
+body.light-theme #vstab-panel-dialer button[onclick="saveVoiceConfig()"] { color: #000 !important; }
+body.light-theme #vstab-panel-dialer button[onclick="saveVoiceConfig()"] i { color: #000 !important; }
+
+/* ── Number Protection: Refresh button ── */
+body.light-theme #smAccProtection button[onclick="loadSpamProtectionStatus()"] { color: var(--lt-text-secondary) !important; border-color: var(--lt-border) !important; background: var(--lt-surface) !important; }
+body.light-theme #smAccProtection button[onclick="loadSpamProtectionStatus()"] i { color: var(--lt-text-secondary) !important; }
+
+/* ── Spam Monitoring accordion icons ── */
+body.light-theme .sm-accordion-icon { color: var(--lt-text-secondary) !important; }
+body.light-theme .sm-accordion-item.open .sm-accordion-icon { color: var(--lt-accent) !important; }
+
+/* ── CNAM: status badges & action icons ── */
+body.light-theme .cnam-action-btn { color: var(--lt-text-muted) !important; }
+body.light-theme .cnam-action-btn:hover { color: var(--lt-text-primary) !important; }
+body.light-theme .cnam-refresh-btn { color: var(--lt-text-secondary) !important; border-color: var(--lt-border) !important; background: var(--lt-surface) !important; }
+body.light-theme .cnam-refresh-btn i { color: var(--lt-text-secondary) !important; }
+
+/* ── Numbers tab: Refresh button ── */
+body.light-theme #vstab-panel-numbers button[onclick="loadNumbersTab()"] { color: var(--lt-text-secondary) !important; border-color: var(--lt-border) !important; background: var(--lt-surface) !important; }
+body.light-theme #vstab-panel-numbers button[onclick="loadNumbersTab()"] i { color: var(--lt-text-secondary) !important; }
+
+/* ── Workflows: tab button icons ── */
+body.light-theme .workflow-tab-btn i { color: inherit !important; }
+
+/* ── Workflows: Smart Tag card header icons (fresh, aged, re-engage) ── */
+body.light-theme .wf-tag-header i { color: var(--lt-text-secondary) !important; }
+body.light-theme .wf-tag-fresh .wf-tag-header i { color: #059669 !important; }
+body.light-theme .wf-tag-aged .wf-tag-header i { color: #d97706 !important; }
+body.light-theme .wf-tag-reengage .wf-tag-header i { color: #7c3aed !important; }
+
+/* ── Workflows: Date Intelligence icon ── */
+body.light-theme .wf-date-intel-icon { color: var(--lt-accent) !important; }
+
+/* ── Advanced Settings: Add Message button "+" icon ── */
+body.light-theme .adv-add-msg-btn i { color: var(--lt-accent) !important; }
+body.light-theme .adv-add-msg-btn { color: var(--lt-accent) !important; }
+
+/* ── Advanced Settings: Save Settings floppy disk icon ── */
+body.light-theme .adv-save-btn i { color: #000 !important; }
+body.light-theme .adv-save-btn { color: #000 !important; }
+
+/* ── Dialer Settings: section header icons (Call Behavior, Lead Dossier, Browser VoIP, etc.) ── */
+body.light-theme #vstab-panel-dialer div[style*="text-transform:uppercase"] i { color: #0078b8 !important; }
+body.light-theme #vstab-panel-dialer div[style*="color:#00d9ff"] i { color: #0078b8 !important; }
+body.light-theme #vstab-panel-dialer div[style*="color:#a78bfa"] i { color: #7c3aed !important; }
+body.light-theme #vstab-panel-dialer div[style*="color:#f59e0b"] i { color: #d97706 !important; }
+
+/* ── Global: all inline-styled white icons in dashboard buttons/headers → gray in light mode ── */
+body.light-theme #vstab-panel-settings i[style*="color:#fff"],
+body.light-theme #vstab-panel-dialer i[style*="color:#fff"],
+body.light-theme #vstab-panel-spammonitoring i[style*="color:#fff"],
+body.light-theme #vstab-panel-numbers i[style*="color:#fff"],
+body.light-theme #vstab-panel-activation i[style*="color:#fff"] { color: var(--lt-text-primary) !important; }
+
+/* ── Global: inline #aaa/#888/#555 colored text & icons → appropriate light theme color ── */
+body.light-theme #vstab-panel-settings div[style*="color:#fff"],
+body.light-theme #vstab-panel-dialer div[style*="color:#fff"] { color: var(--lt-text-primary) !important; }
+
+/* ── Voice Config panel: inline background overrides for form sections ── */
+body.light-theme #vstab-panel-dialer div[style*="background:rgba(255,255,255,0.02)"] { background: rgba(0,0,0,0.02) !important; border-color: var(--lt-border) !important; }
+body.light-theme #vstab-panel-settings div[style*="background:rgba(0,255,136,0.04)"] { background: rgba(0,170,94,0.04) !important; border-color: rgba(0,170,94,0.12) !important; }
+
+/* ── Number Health: strategy selector button icons (weighted, round robin, top health) ── */
+body.light-theme .nh-strategy-btn { border-color: var(--lt-border) !important; background: var(--lt-surface) !important; color: var(--lt-text-muted) !important; }
+body.light-theme .nh-strategy-btn i { color: inherit !important; }
+body.light-theme .nh-strategy-btn.nh-strategy-active { color: #0078b8 !important; border-color: rgba(0,120,184,0.25) !important; background: rgba(0,120,184,0.08) !important; }
+body.light-theme .nh-strategy-btn.nh-strategy-active i { color: #0078b8 !important; }
+
+/* ── Number Health: disabled state icon & section header ── */
+body.light-theme #numberHealthContent i[style*="color:#444"] { color: var(--lt-text-muted) !important; }
+body.light-theme #numberHealthContent h6[style*="color:#fff"] { color: var(--lt-text-primary) !important; }
+body.light-theme #numberHealthContent div[style*="background:rgba(255,255,255,0.02)"] { background: rgba(0,0,0,0.02) !important; border-color: var(--lt-border) !important; }
+
+/* ── Voice Settings menu divider ── */
+body.light-theme #voiceSettingsMenu div[style*="background:rgba(255,255,255,0.06)"] { background: var(--lt-border) !important; }
 
 /* ══ Dashboard Layout Theme Classes ══ */
 
@@ -6888,7 +7032,7 @@ body.light-theme .adv-reset-btn:hover {
 }
 body.light-theme .adv-save-btn {
     background: var(--lt-accent);
-    color: #fff;
+    color: #000;
 }
 body.light-theme .resp-len-btn {
     border-color: var(--lt-border);

@@ -720,9 +720,14 @@
                         var statusClass = isActive ? 'ni-carrier-active' : (isPending ? 'ni-carrier-pending' : (isRejected ? 'ni-carrier-rejected' : 'ni-carrier-inactive'));
                         var statusIcon = isActive ? 'fa-circle-check' : (isPending ? 'fa-clock' : 'fa-circle-xmark');
                         var statusLabel = isActive ? 'Registered' : (isPending ? 'Pending' : (isRejected ? 'Rejected' : 'Not Registered'));
+                        var logoMap = { att: '/static/img/carriers/att.svg', tmobile: '/static/img/carriers/tmobile.png', verizon: '/static/img/carriers/verizon.svg' };
+                        var logoSrc = logoMap[c.key] || '';
+                        var iconHtml = logoSrc
+                            ? '<img src="' + logoSrc + '" alt="' + _esc(c.name) + '" class="ni-carrier-logo">'
+                            : '<i class="fa-solid ' + c.icon + '"></i>';
                         carrierHtml += '<div class="col-md-4">' +
                             '<div class="ni-carrier-card ' + statusClass + '">' +
-                                '<div class="ni-carrier-icon"><i class="fa-solid ' + c.icon + '"></i></div>' +
+                                '<div class="ni-carrier-icon">' + iconHtml + '</div>' +
                                 '<div class="ni-carrier-name">' + _esc(c.name) + '</div>' +
                                 '<div class="ni-carrier-status"><i class="fa-solid ' + statusIcon + ' me-1"></i>' + statusLabel + '</div>' +
                                 '<div class="ni-carrier-desc">' + _esc(c.description) + '</div>' +
@@ -1239,7 +1244,7 @@
             ];
             strategies.forEach(function(s) {
                 var active = strategy === s.key;
-                html += '<button onclick="nhSetStrategy(\'' + s.key + '\')" title="' + _esc(s.desc) + '" style="flex:1;padding:6px 8px;border-radius:6px;font-size:.75rem;font-weight:600;cursor:pointer;border:1px solid ' + (active ? 'rgba(0,217,255,0.3)' : 'rgba(255,255,255,0.06)') + ';background:' + (active ? 'rgba(0,217,255,0.08)' : 'rgba(255,255,255,0.02)') + ';color:' + (active ? '#00d9ff' : '#888') + ';">';
+                html += '<button class="nh-strategy-btn' + (active ? ' nh-strategy-active' : '') + '" onclick="nhSetStrategy(\'' + s.key + '\')" title="' + _esc(s.desc) + '" style="flex:1;padding:6px 8px;border-radius:6px;font-size:.75rem;font-weight:600;cursor:pointer;border:1px solid ' + (active ? 'rgba(0,217,255,0.3)' : 'rgba(255,255,255,0.06)') + ';background:' + (active ? 'rgba(0,217,255,0.08)' : 'rgba(255,255,255,0.02)') + ';color:' + (active ? '#00d9ff' : '#888') + ';">';
                 html += '<i class="fa-solid ' + s.icon + ' me-1"></i>' + s.label;
                 html += '</button>';
             });
