@@ -9396,6 +9396,10 @@ body.light-theme .ci-btn-secondary:hover { background: rgba(0,0,0,0.08); }
 }
 @keyframes wfbShimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 .wfb-btn-ai:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(124,58,237,0.3); }
+.wfb-btn-accent {
+    background: var(--accent); color: #000;
+}
+.wfb-btn-accent:hover { background: #fff; transform: translateY(-1px); box-shadow: 0 8px 20px rgba(0,255,136,0.2); }
 .wfb-btn-ghost {
     background: rgba(255,255,255,0.05); color: #aaa;
     border: 1px solid rgba(255,255,255,0.08);
@@ -10010,14 +10014,16 @@ body.light-theme .wfb-context-menu { background: rgba(255,255,255,0.95); border-
 
 /* ── Missing WFB Light Overrides ─────────────────────────────────────────── */
 body.light-theme .wfb-btn-ai {
-    background: linear-gradient(135deg, #6d28d9, #2563eb); color: #fff;
+    background: linear-gradient(135deg, #7c3aed, #4f46e5); color: #fff;
+    border: 1px solid rgba(124,58,237,0.3);
 }
-body.light-theme .wfb-btn-ai::before { opacity: 0.4; }
-body.light-theme .wfb-btn-ai:hover { box-shadow: 0 8px 24px rgba(109,40,217,0.25); }
+body.light-theme .wfb-btn-ai::before { opacity: 0.3; }
+body.light-theme .wfb-btn-ai:hover { box-shadow: 0 8px 24px rgba(124,58,237,0.3); background: linear-gradient(135deg, #6d28d9, #4338ca); }
 body.light-theme .wfb-ai-build-btn {
-    background: linear-gradient(135deg, #6d28d9, #2563eb); color: #fff;
+    background: linear-gradient(135deg, #7c3aed, #4f46e5); color: #fff;
+    border: 1px solid rgba(124,58,237,0.3);
 }
-body.light-theme .wfb-ai-build-btn:hover { box-shadow: 0 8px 24px rgba(109,40,217,0.25); }
+body.light-theme .wfb-ai-build-btn:hover { box-shadow: 0 8px 24px rgba(124,58,237,0.3); background: linear-gradient(135deg, #6d28d9, #4338ca); }
 body.light-theme .wfb-ai-icon i { background: linear-gradient(135deg, #6d28d9, #2563eb, var(--lt-accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 body.light-theme .wfb-node-logic { border-color: rgba(124,58,237,0.25); }
 body.light-theme .wfb-node-logic .wfb-node-icon { background: rgba(124,58,237,0.1); color: #7c3aed; }
@@ -10029,7 +10035,7 @@ body.light-theme .wfb-toolbar-pause { background: rgba(234,88,12,0.08); color: #
 body.light-theme .wfb-toolbar-pause:hover { background: rgba(234,88,12,0.14); }
 body.light-theme .wfb-char-count { color: var(--lt-text-muted); }
 body.light-theme .wfb-custom-input::placeholder { color: var(--lt-text-faint); }
-body.light-theme .wfb-empty-icon { opacity: 0.5; color: var(--lt-text-muted); }
+body.light-theme .wfb-empty-icon { opacity: 0.6; color: var(--lt-text-secondary); }
 body.light-theme .wfb-empty-hint { color: var(--lt-text-muted); }
 body.light-theme .wfb-port-true span { color: var(--lt-accent); }
 body.light-theme .wfb-port-false span { color: #dc2626; }

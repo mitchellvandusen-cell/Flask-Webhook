@@ -1262,12 +1262,86 @@
     }
 
     // ── Init ────────────────────────────────────────────────────────────────
+    // ── Button Event Bindings ────────────────────────────────────────────────
+    function _setupButtonEvents() {
+        // List view buttons
+        var newBtn = document.getElementById('wfbNewBtn');
+        var newEmptyBtn = document.getElementById('wfbNewEmptyBtn');
+        var aiListBtn = document.getElementById('wfbAiListBtn');
+        var aiEmptyBtn = document.getElementById('wfbAiEmptyBtn');
+        if (newBtn) newBtn.addEventListener('click', function() { wfbNewWorkflow(); });
+        if (newEmptyBtn) newEmptyBtn.addEventListener('click', function() { wfbNewWorkflow(); });
+        if (aiListBtn) aiListBtn.addEventListener('click', function() { wfbOpenAiModal(); });
+        if (aiEmptyBtn) aiEmptyBtn.addEventListener('click', function() { wfbOpenAiModal(); });
+
+        // Editor toolbar buttons
+        var backBtn = document.getElementById('wfbBackBtn');
+        var saveBtn = document.getElementById('wfbSaveBtn');
+        var aiEditorBtn = document.getElementById('wfbAiEditorBtn');
+        var activeToggle = document.getElementById('wfbActiveToggle');
+        if (backBtn) backBtn.addEventListener('click', function() { wfbShowList(); });
+        if (saveBtn) saveBtn.addEventListener('click', function() { wfbSave(); });
+        if (aiEditorBtn) aiEditorBtn.addEventListener('click', function() { wfbOpenAiModal(); });
+        if (activeToggle) activeToggle.addEventListener('click', function() { wfbActivate(); });
+
+        // AI modal buttons
+        var aiClose = document.getElementById('wfbAiClose');
+        var aiBuildBtn = document.getElementById('wfbAiBuildBtn');
+        if (aiClose) aiClose.addEventListener('click', function() { wfbCloseAiModal(); });
+        if (aiBuildBtn) aiBuildBtn.addEventListener('click', function() { wfbBuildWithAi(); });
+
+        // AI example chips
+        document.querySelectorAll('.wfb-ai-chip[data-prompt]').forEach(function(chip) {
+            chip.addEventListener('click', function() {
+                wfbAiExample(chip.getAttribute('data-prompt'));
+            });
+        });
+
+        // Config panel
+        var configClose = document.getElementById('wfbConfigClose');
+        var configSave = document.getElementById('wfbConfigSave');
+        if (configClose) configClose.addEventListener('click', function() { wfbCloseConfig(); });
+        if (configSave) configSave.addEventListener('click', function() { wfbSaveConfig(); });
+
+        // Palette toggle
+        var paletteToggle = document.getElementById('wfbPaletteToggle');
+        if (paletteToggle) paletteToggle.addEventListener('click', function() {
+            var palette = document.getElementById('wfbPalette');
+            if (palette) palette.classList.toggle('wfb-palette-collapsed');
+        });
+
+        // More menu
+        var moreBtn = document.getElementById('wfbMoreBtn');
+        if (moreBtn) moreBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var existing = document.querySelector('.wfb-dropdown.wfb-toolbar-dropdown');
+            if (existing) { existing.remove(); return; }
+            var dd = document.createElement('div');
+            dd.className = 'wfb-dropdown wfb-toolbar-dropdown';
+            dd.innerHTML = '<div class="wfb-dropdown-item" id="wfbMoreDuplicate"><i class="fa-solid fa-copy"></i> Duplicate</div>' +
+                '<div class="wfb-dropdown-item wfb-dropdown-item--danger" id="wfbMoreDelete"><i class="fa-solid fa-trash"></i> Delete</div>';
+            moreBtn.parentElement.appendChild(dd);
+            dd.querySelector('#wfbMoreDuplicate').addEventListener('click', function() {
+                dd.remove();
+                if (_currentWorkflow) wfbDuplicateWf(_currentWorkflow.id);
+            });
+            dd.querySelector('#wfbMoreDelete').addEventListener('click', function() {
+                dd.remove();
+                wfbDeleteCurrent();
+            });
+            setTimeout(function() {
+                document.addEventListener('click', function _cl() { dd.remove(); document.removeEventListener('click', _cl); }, { once: true });
+            }, 0);
+        });
+    }
+
     window.wfbInit = function() {
         if (_initDone) {
             _loadWorkflows();
             return;
         }
         _initDone = true;
+        _setupButtonEvents();
         _setupCanvasEvents();
         _setupNodeEvents();
         _setupPaletteEvents();
