@@ -6,6 +6,25 @@
 
                     .wfb-hidden { display: none !important; }
 
+                    /* ── Category Collapse ── */
+                    .wfb-cat-collapsed .wfb-palette-cat-items { display: none; }
+                    .wfb-palette-cat-chevron { transition: transform 0.2s; font-size: 0.6rem; }
+                    .wfb-palette-cat-chevron.wfb-cat-open { transform: rotate(90deg); }
+
+                    /* ── AI Building Overlay ── */
+                    .wfb-ai-overlay { display: none; position: absolute; inset: 0; background: rgba(5,5,5,0.6); backdrop-filter: blur(6px); z-index: 30; align-items: center; justify-content: center; border-radius: 12px; }
+                    .wfb-ai-overlay.wfb-ai-building { display: flex; }
+                    .wfb-ai-overlay-content { text-align: center; }
+                    body.light-theme .wfb-ai-overlay { background: rgba(240,242,245,0.7); }
+
+                    /* ── Palette Feedback Input ── */
+                    .wfb-palette-feedback { padding: 6px 12px; }
+                    .wfb-palette-feedback-link { background: none; border: none; color: #666; font-size: 0.72rem; cursor: pointer; text-decoration: underline; text-decoration-style: dotted; padding: 0; }
+                    .wfb-palette-feedback-link:hover { color: var(--accent); }
+                    .wfb-palette-feedback-input { width: 100%; margin-top: 6px; padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #ccc; font-size: 0.75rem; }
+                    body.light-theme .wfb-palette-feedback-link { color: var(--lt-text-muted); }
+                    body.light-theme .wfb-palette-feedback-input { background: var(--lt-input-bg); border-color: var(--lt-border); color: var(--lt-input-text); }
+
                     /* ── View 1: Workflow List ── */
                     .wfb-list-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
                     .wfb-list-title-group { display: flex; align-items: center; gap: 12px; }
@@ -24,6 +43,36 @@
                     .wfb-btn-sm { padding: 6px 12px; font-size: 0.76rem; border-radius: 8px; }
                     .wfb-btn-danger { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
                     .wfb-btn-danger:hover { background: rgba(239,68,68,0.25); }
+                    .wfb-btn-ghl { background: rgba(255,120,50,0.1); color: #ff8c42; border: 1px solid rgba(255,120,50,0.2); }
+                    .wfb-btn-ghl:hover { background: rgba(255,120,50,0.22); color: #ffab70; }
+
+                    /* GHL workflow card source badge */
+                    .wfb-source-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; font-size: 0.65rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+                    .wfb-source-ghl { background: rgba(255,120,50,0.1); color: #ff8c42; border: 1px solid rgba(255,120,50,0.15); }
+                    .wfb-source-igb { background: rgba(0,255,136,0.06); color: var(--accent); border: 1px solid rgba(0,255,136,0.12); }
+
+                    /* GHL workflow section */
+                    .wfb-ghl-section { margin-top: 28px; }
+                    .wfb-ghl-section-header { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+                    .wfb-ghl-section-icon { color: #ff8c42; font-size: 0.9rem; }
+                    .wfb-ghl-section-title { font-size: 0.85rem; font-weight: 600; color: #ccc; letter-spacing: -0.01em; }
+                    .wfb-ghl-section-count { font-size: 0.72rem; color: #666; margin-left: auto; }
+                    .wfb-ghl-card { background: rgba(255,120,50,0.02); border: 1px solid rgba(255,120,50,0.08); }
+                    .wfb-ghl-card:hover { border-color: rgba(255,120,50,0.2); background: rgba(255,120,50,0.04); }
+                    .wfb-ghl-card .wfb-card-trigger-icon { background: rgba(255,120,50,0.06); border-color: rgba(255,120,50,0.12); color: #ff8c42; }
+
+                    /* Light theme overrides for GHL elements */
+                    body.light-theme .wfb-btn-ghl { background: rgba(234,88,12,0.08); color: #c2410c; border-color: rgba(234,88,12,0.15); }
+                    body.light-theme .wfb-btn-ghl:hover { background: rgba(234,88,12,0.15); }
+                    body.light-theme .wfb-source-ghl { background: rgba(234,88,12,0.06); color: #c2410c; border-color: rgba(234,88,12,0.12); }
+                    body.light-theme .wfb-source-igb { background: rgba(0,170,94,0.06); color: var(--lt-accent); border-color: rgba(0,170,94,0.12); }
+                    body.light-theme .wfb-ghl-section-header { border-color: var(--lt-border); }
+                    body.light-theme .wfb-ghl-section-title { color: var(--lt-text-secondary); }
+                    body.light-theme .wfb-ghl-section-count { color: var(--lt-text-faint); }
+                    body.light-theme .wfb-ghl-card { background: rgba(234,88,12,0.02); border-color: rgba(234,88,12,0.08); }
+                    body.light-theme .wfb-ghl-card:hover { border-color: rgba(234,88,12,0.18); background: rgba(234,88,12,0.04); }
+                    body.light-theme .wfb-ghl-card .wfb-card-trigger-icon { background: rgba(234,88,12,0.06); border-color: rgba(234,88,12,0.12); color: #c2410c; }
+                    body.light-theme .wfb-ghl-readonly { color: var(--lt-text-faint); }
 
                     /* Workflow grid */
                     .wfb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
@@ -34,9 +83,11 @@
                     .wfb-card-trigger-icon { width: 36px; height: 36px; border-radius: 9px; background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.12); display: flex; align-items: center; justify-content: center; font-size: 0.9rem; color: var(--accent); flex-shrink: 0; }
                     .wfb-card-menu-btn { width: 30px; height: 30px; border-radius: 8px; background: transparent; border: 1px solid transparent; display: flex; align-items: center; justify-content: center; color: #666; cursor: pointer; font-size: 0.85rem; transition: all 0.15s; }
                     .wfb-card-menu-btn:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); color: #aaa; }
+                    .wfb-card-name-wrap { flex: 1; min-width: 0; }
                     .wfb-card-name { font-size: 0.92rem; font-weight: 700; margin: 0 0 4px; }
                     .wfb-card-desc { font-size: 0.76rem; color: #777; margin: 0 0 14px; line-height: 1.4; }
                     .wfb-card-footer { display: flex; align-items: center; justify-content: space-between; }
+                    .wfb-ghl-readonly { font-size: 0.7rem; color: #666; font-style: italic; }
                     .wfb-card-trigger-label { font-size: 0.7rem; color: #555; display: flex; align-items: center; gap: 5px; }
                     .wfb-card-trigger-label i { font-size: 0.65rem; }
                     .wfb-card-nodes { font-size: 0.68rem; color: #555; }
@@ -334,6 +385,10 @@
                             </div>
                         </div>
                         <div class="wfb-list-actions">
+                            <button class="wfb-btn wfb-btn-ghl" id="wfbImportGhlBtn" type="button">
+                                <i class="fa-solid fa-cloud-arrow-down"></i>
+                                <span>Import from GHL</span>
+                            </button>
                             <button class="wfb-btn wfb-btn-ai" id="wfbAiListBtn" type="button">
                                 <i class="fa-solid fa-microchip"></i>
                                 <span>Build with AI</span>
@@ -452,7 +507,7 @@
                                             <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="missed_call">
                                                 <i class="fa-solid fa-phone-slash"></i><span>Missed Call</span>
                                             </div>
-                                            <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="voicemail">
+                                            <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="voicemail_received">
                                                 <i class="fa-solid fa-voicemail"></i><span>Voicemail</span>
                                             </div>
                                             <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="tag_added">
@@ -473,13 +528,13 @@
                                             <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="manual">
                                                 <i class="fa-solid fa-hand-pointer"></i><span>Manual</span>
                                             </div>
-                                            <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="birthday">
+                                            <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="birthday_approaching">
                                                 <i class="fa-solid fa-cake-candles"></i><span>Birthday</span>
                                             </div>
                                             <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="field_updated">
                                                 <i class="fa-solid fa-pen-field"></i><span>Field Updated</span>
                                             </div>
-                                            <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="opted_out">
+                                            <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="contact_dnd">
                                                 <i class="fa-solid fa-ban"></i><span>Opted Out</span>
                                             </div>
                                             <div class="wfb-palette-feedback">
@@ -499,7 +554,7 @@
                                             <div class="wfb-palette-item" draggable="true" data-type="action" data-subtype="send_sms">
                                                 <i class="fa-solid fa-message"></i><span>Send SMS</span>
                                             </div>
-                                            <div class="wfb-palette-item" draggable="true" data-type="action" data-subtype="make_ai_call">
+                                            <div class="wfb-palette-item" draggable="true" data-type="action" data-subtype="ai_call">
                                                 <i class="fa-solid fa-phone-volume"></i><span>Make AI Call</span>
                                             </div>
                                             <div class="wfb-palette-item" draggable="true" data-type="action" data-subtype="add_tag">
@@ -563,7 +618,7 @@
                                             <span class="wfb-palette-cat-label">Coming Soon</span>
                                         </div>
                                         <div class="wfb-palette-cat-items">
-                                            <div class="wfb-palette-item wfb-palette-item-disabled" draggable="false" data-type="coming_soon" data-subtype="move_pipeline">
+                                            <div class="wfb-palette-item wfb-palette-item-disabled" draggable="false" data-type="coming_soon" data-subtype="move_stage">
                                                 <i class="fa-solid fa-chart-simple"></i>
                                                 <span>Move Pipeline Stage</span>
                                                 <i class="fa-solid fa-lock wfb-palette-item-lock"></i>
@@ -594,6 +649,17 @@
                                 <div class="wfb-canvas-wrap" id="wfbCanvasWrap">
                                     <div class="wfb-canvas" id="wfbCanvas">
                                         <svg class="wfb-svg-layer" id="wfbSvgLayer"></svg>
+                                    </div>
+                                    <!-- AI building overlay -->
+                                    <div class="wfb-ai-overlay" id="wfbAiOverlay">
+                                        <div class="wfb-ai-overlay-content">
+                                            <div class="wfb-ai-loading-dot-group">
+                                                <div class="wfb-ai-loading-dot"></div>
+                                                <div class="wfb-ai-loading-dot"></div>
+                                                <div class="wfb-ai-loading-dot"></div>
+                                            </div>
+                                            <span class="wfb-ai-loading-text">AI is building your workflow...</span>
+                                        </div>
                                     </div>
                                 </div>
 
