@@ -1,6 +1,6 @@
 # forms.py — All WTForms classes for InsuranceGrokBot
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField, TextAreaField, SelectField, BooleanField
+from wtforms import StringField, PasswordField, SubmitField, BooleanField
 from wtforms.validators import DataRequired, Email, EqualTo
 
 
@@ -28,15 +28,3 @@ class ConfigForm(FlaskForm):
     initial_message = StringField("Optional Initial Message")
     personal_website = StringField("Personal Website (optional)")
     submit = SubmitField("Save Settings")
-
-
-class ReviewForm(FlaskForm):
-    name = StringField("Full Name", validators=[DataRequired()])
-    role = StringField("Job Title", validators=[DataRequired()])
-    text = TextAreaField("Your Experience", validators=[DataRequired()])
-    stars = SelectField(
-        "Rating",
-        choices=[('5', '5 Stars'), ('4', '4 Stars'), ('3', '3 Stars'), ('2', '2 Stars'), ('1', '1 Star')],
-        validators=[DataRequired()]
-    )
-    submit = SubmitField("Submit Review")
