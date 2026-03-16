@@ -6,6 +6,8 @@
 
     // ── State ────────────────────────────────────────────────────────────────
     var _workflows = [];
+    var _ghlWorkflows = [];
+    var _ghlLoaded = false;
     var _currentWorkflow = null;
     var _nodes = new Map();
     var _connections = [];
@@ -118,16 +120,17 @@
     }
 
     function _renderList() {
-        var grid = document.getElementById('wfbWorkflowGrid');
+        var grid = document.getElementById('wfbGrid');
+        var emptyState = document.getElementById('wfbEmptyState');
         if (!grid) return;
 
         if (!_workflows.length) {
-            grid.innerHTML = '<div class="wfb-empty"><div class="wfb-empty-icon"><i class="fa-solid fa-diagram-project"></i></div>' +
-                '<div class="wfb-empty-title">No workflows yet</div>' +
-                '<div class="wfb-empty-hint">Create your first workflow or use Build with AI</div></div>';
+            grid.innerHTML = '';
+            if (emptyState) emptyState.style.display = '';
             return;
         }
 
+        if (emptyState) emptyState.style.display = 'none';
         var html = '';
         _workflows.forEach(function(wf) {
             var trigDef = NODE_DEFS[wf.trigger_type] || NODE_DEFS.manual;
@@ -136,7 +139,7 @@
             html += '<div class="wfb-card" onclick="wfbShowEditor(\'' + _esc(wf.id) + '\')">' +
                 '<div class="wfb-card-header">' +
                     '<div class="wfb-card-trigger-icon"><i class="' + trigDef.icon + '"></i></div>' +
-                    '<div style="flex:1;min-width:0">' +
+                    '<div class="wfb-card-name-wrap">' +
                         '<div class="wfb-card-name">' + _esc(wf.name) + '</div>' +
                         '<div class="wfb-card-desc">' + _esc(wf.description || trigDef.label + ' trigger') + '</div>' +
                     '</div>' +
@@ -149,6 +152,9 @@
             '</div>';
         });
         grid.innerHTML = html;
+
+        // Re-render GHL section if loaded
+        if (_ghlLoaded) _renderGhlWorkflows();
     }
 
     window.wfbCardMenu = function(btn, wfId) {
@@ -194,6 +200,72 @@
         fetch('/api/workflows/' + id + '/' + action, { method: 'POST' }).then(function() { _loadWorkflows(); });
     };
 
+    // ── GHL Workflow Import ─────────────────────────────────────────────────
+    window.wfbImportGhl = function() {
+        var btn = document.getElementById('wfbImportGhlBtn');
+        if (btn) { btn.disabled = true; btn.querySelector('span').textContent = 'Loading...'; }
+
+        fetch('/api/workflows/ghl').then(function(r) { return r.json(); }).then(function(data) {
+            if (btn) { btn.disabled = false; btn.querySelector('span').textContent = 'Import from GHL'; }
+            if (data.error) {
+                if (typeof _showDashToast === 'function') _showDashToast(false, data.error);
+                return;
+            }
+            _ghlWorkflows = data.workflows || [];
+            _ghlLoaded = true;
+            _renderGhlWorkflows();
+            if (typeof _showDashToast === 'function') {
+                _showDashToast(true, _ghlWorkflows.length + ' LeadConnector workflow' + (_ghlWorkflows.length !== 1 ? 's' : '') + ' found');
+            }
+        }).catch(function() {
+            if (btn) { btn.disabled = false; btn.querySelector('span').textContent = 'Import from GHL'; }
+            if (typeof _showDashToast === 'function') _showDashToast(false, 'Failed to fetch GHL workflows');
+        });
+    };
+
+    function _renderGhlWorkflows() {
+        var existing = document.getElementById('wfbGhlSection');
+        if (existing) existing.remove();
+
+        if (!_ghlWorkflows.length) return;
+
+        var listView = document.getElementById('wfbListView');
+        if (!listView) return;
+
+        var section = document.createElement('div');
+        section.className = 'wfb-ghl-section';
+        section.id = 'wfbGhlSection';
+
+        var header = '<div class="wfb-ghl-section-header">' +
+            '<i class="fa-solid fa-cloud-arrow-down wfb-ghl-section-icon"></i>' +
+            '<span class="wfb-ghl-section-title">LeadConnector Workflows</span>' +
+            '<span class="wfb-ghl-section-count">' + _ghlWorkflows.length + ' workflow' + (_ghlWorkflows.length !== 1 ? 's' : '') + '</span>' +
+        '</div>';
+
+        var cards = '<div class="wfb-grid">';
+        _ghlWorkflows.forEach(function(wf) {
+            var statusClass = wf.status === 'published' ? 'wfb-badge-active' : 'wfb-badge-draft';
+            var statusText = wf.status === 'published' ? 'active' : (wf.status || 'draft');
+            cards += '<div class="wfb-card wfb-ghl-card">' +
+                '<div class="wfb-card-header">' +
+                    '<div class="wfb-card-trigger-icon"><i class="fa-solid fa-diagram-project"></i></div>' +
+                    '<div class="wfb-card-name-wrap">' +
+                        '<div class="wfb-card-name">' + _esc(wf.name) + '</div>' +
+                        '<div class="wfb-card-desc"><span class="wfb-source-badge wfb-source-ghl">LeadConnector</span></div>' +
+                    '</div>' +
+                    '<span class="wfb-badge ' + statusClass + '">' + _esc(statusText) + '</span>' +
+                '</div>' +
+                '<div class="wfb-card-footer">' +
+                    '<span class="wfb-card-stats wfb-ghl-readonly">Read-only · Managed in GHL</span>' +
+                '</div>' +
+            '</div>';
+        });
+        cards += '</div>';
+
+        section.innerHTML = header + cards;
+        listView.appendChild(section);
+    }
+
     // ── Load Single Workflow ────────────────────────────────────────────────
     function _loadWorkflow(wfId) {
         fetch('/api/workflows/' + wfId).then(function(r) { return r.json(); }).then(function(data) {
@@ -201,9 +273,9 @@
             _clearCanvas();
 
             // Set toolbar
-            var nameEl = document.getElementById('wfbToolbarName');
+            var nameEl = document.getElementById('wfbWorkflowName');
             if (nameEl) nameEl.value = _currentWorkflow.name || 'Untitled';
-            var badgeEl = document.getElementById('wfbToolbarBadge');
+            var badgeEl = document.getElementById('wfbEditorBadge');
             if (badgeEl) {
                 var bc = _currentWorkflow.status === 'active' ? 'wfb-badge-active' : _currentWorkflow.status === 'paused' ? 'wfb-badge-paused' : 'wfb-badge-draft';
                 badgeEl.className = 'wfb-badge ' + bc;
@@ -674,7 +746,7 @@
             hdrIcon.className = 'wfb-config-header-icon';
             hdrIcon.innerHTML = '<i class="' + _getIcon(node.subtype) + '"></i>';
         }
-        var hdrTitle = panel.querySelector('.wfb-config-title');
+        var hdrTitle = panel.querySelector('.wfb-config-header-title');
         if (hdrTitle) hdrTitle.textContent = _getLabel(node.subtype);
 
         // Build form
@@ -792,6 +864,10 @@
         return h;
     }
 
+    window.wfbCondField = function(sel, idx) {
+        // No-op for now — field selection tracked on save via DOM
+    };
+
     window.wfbInsertMerge = function(field) {
         var ta = document.getElementById('cfgMsg');
         if (ta) {
@@ -900,17 +976,33 @@
         // Category collapse
         document.querySelectorAll('.wfb-palette-cat-header').forEach(function(hdr) {
             hdr.addEventListener('click', function() {
-                hdr.classList.toggle('wfb-collapsed');
+                var cat = hdr.closest('.wfb-palette-category');
+                if (cat) cat.classList.toggle('wfb-cat-collapsed');
+                var chevron = hdr.querySelector('.wfb-palette-cat-chevron');
+                if (chevron) chevron.classList.toggle('wfb-cat-open');
             });
         });
 
         // "Not seeing what you need?" toggles
-        document.querySelectorAll('.wfb-custom-prompt').forEach(function(prompt) {
-            prompt.addEventListener('click', function() {
-                var wrap = prompt.nextElementSibling;
-                if (wrap) wrap.classList.toggle('wfb-expanded');
+        document.querySelectorAll('.wfb-palette-feedback-link').forEach(function(link) {
+            link.addEventListener('click', function() {
+                var feedbackWrap = link.closest('.wfb-palette-feedback');
+                var input = feedbackWrap ? feedbackWrap.querySelector('.wfb-palette-feedback-input') : null;
+                if (input) input.classList.toggle('wfb-hidden');
             });
         });
+
+        // Palette search
+        var paletteSearch = document.getElementById('wfbPaletteSearch');
+        if (paletteSearch) {
+            paletteSearch.addEventListener('input', function() {
+                var q = paletteSearch.value.toLowerCase().trim();
+                document.querySelectorAll('.wfb-palette-item').forEach(function(item) {
+                    var text = item.textContent.toLowerCase();
+                    item.style.display = (!q || text.indexOf(q) !== -1) ? '' : 'none';
+                });
+            });
+        }
     }
 
     // ── Save ────────────────────────────────────────────────────────────────
@@ -959,7 +1051,7 @@
             body.trigger_config = triggerNode.config || {};
         }
 
-        var nameEl = document.getElementById('wfbToolbarName');
+        var nameEl = document.getElementById('wfbWorkflowName');
         if (nameEl) body.name = nameEl.value;
 
         fetch('/api/workflows/' + _currentWorkflow.id + '/save-full', {
@@ -1000,7 +1092,7 @@
             .then(function(data) {
                 if (data.workflow) {
                     _currentWorkflow = data.workflow;
-                    var badge = document.getElementById('wfbToolbarBadge');
+                    var badge = document.getElementById('wfbEditorBadge');
                     if (badge) {
                         var bc = _currentWorkflow.status === 'active' ? 'wfb-badge-active' : _currentWorkflow.status === 'paused' ? 'wfb-badge-paused' : 'wfb-badge-draft';
                         badge.className = 'wfb-badge ' + bc;
@@ -1081,7 +1173,7 @@
             if (ev) ev.classList.remove('wfb-hidden');
             _clearCanvas();
 
-            var nameEl = document.getElementById('wfbToolbarName');
+            var nameEl = document.getElementById('wfbWorkflowName');
             if (nameEl) nameEl.value = _currentWorkflow.name;
 
             // Show AI building overlay
@@ -1196,7 +1288,7 @@
     }
 
     function _renderCustomActions() {
-        var wrap = document.getElementById('wfbCustomActionsItems');
+        var wrap = document.getElementById('wfbCustomActions');
         if (!wrap) return;
         if (!_customActions.length) {
             wrap.innerHTML = '<div class="wfb-config-hint" style="padding:4px 12px">No custom actions yet</div>';
@@ -1269,10 +1361,12 @@
         var newEmptyBtn = document.getElementById('wfbNewEmptyBtn');
         var aiListBtn = document.getElementById('wfbAiListBtn');
         var aiEmptyBtn = document.getElementById('wfbAiEmptyBtn');
+        var importGhlBtn = document.getElementById('wfbImportGhlBtn');
         if (newBtn) newBtn.addEventListener('click', function() { wfbNewWorkflow(); });
         if (newEmptyBtn) newEmptyBtn.addEventListener('click', function() { wfbNewWorkflow(); });
         if (aiListBtn) aiListBtn.addEventListener('click', function() { wfbOpenAiModal(); });
         if (aiEmptyBtn) aiEmptyBtn.addEventListener('click', function() { wfbOpenAiModal(); });
+        if (importGhlBtn) importGhlBtn.addEventListener('click', function() { wfbImportGhl(); });
 
         // Editor toolbar buttons
         var backBtn = document.getElementById('wfbBackBtn');
@@ -1302,6 +1396,14 @@
         var configSave = document.getElementById('wfbConfigSave');
         if (configClose) configClose.addEventListener('click', function() { wfbCloseConfig(); });
         if (configSave) configSave.addEventListener('click', function() { wfbSaveConfig(); });
+
+        // Zoom buttons
+        var zoomIn = document.getElementById('wfbZoomIn');
+        var zoomOut = document.getElementById('wfbZoomOut');
+        var zoomFit = document.getElementById('wfbZoomFit');
+        if (zoomIn) zoomIn.addEventListener('click', function() { wfbZoomIn(); });
+        if (zoomOut) zoomOut.addEventListener('click', function() { wfbZoomOut(); });
+        if (zoomFit) zoomFit.addEventListener('click', function() { wfbZoomFit(); });
 
         // Palette toggle
         var paletteToggle = document.getElementById('wfbPaletteToggle');

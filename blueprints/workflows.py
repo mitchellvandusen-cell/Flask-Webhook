@@ -27,11 +27,13 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
+import requests
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 
 from db import get_db_connection, return_db_connection
 from extensions import get_client, ensure_redis, q_production
+from ghl_api import get_valid_token
 
 logger = logging.getLogger(__name__)
 
@@ -940,3 +942,58 @@ def delete_custom_action(action_id):
         return jsonify({"error": "Failed to delete custom action"}), 500
     finally:
         return_db_connection(conn)
+
+
+# ── GHL Workflow Import ─────────────────────────────────────────────────────
+
+GHL_BASE = "https://services.leadconnectorhq.com"
+
+
+@workflows_bp.route("/api/workflows/ghl", methods=["GET"])
+@login_required
+def list_ghl_workflows():
+    """Fetch workflows from GHL via workflows.readonly scope."""
+    location_id = current_user.location_id
+    token = get_valid_token(location_id)
+    if not token:
+        return jsonify({"error": "GHL not connected. Please connect your GoHighLevel account first."}), 401
+
+    try:
+        resp = requests.get(
+            f"{GHL_BASE}/workflows/",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Version": "2021-07-28",
+            },
+            params={"locationId": location_id},
+            timeout=15,
+        )
+        if resp.status_code == 401:
+            return jsonify({"error": "GHL token expired. Please reconnect."}), 401
+        if resp.status_code != 200:
+            logger.warning(f"GHL workflows API returned {resp.status_code}: {resp.text[:200]}")
+            return jsonify({"error": "Failed to fetch GHL workflows"}), 502
+
+        data = resp.json()
+        workflows = data.get("workflows", [])
+
+        # Normalize to a clean format for the frontend
+        result = []
+        for wf in workflows:
+            result.append({
+                "id": wf.get("id", ""),
+                "name": wf.get("name", "Untitled"),
+                "status": wf.get("status", "draft"),
+                "created_at": wf.get("createdAt", ""),
+                "updated_at": wf.get("updatedAt", ""),
+                "source": "ghl",
+                "version": wf.get("version", 1),
+            })
+
+        return jsonify({"workflows": result})
+
+    except requests.Timeout:
+        return jsonify({"error": "GHL API timeout"}), 504
+    except Exception as e:
+        logger.error(f"GHL workflow fetch error: {e}")
+        return jsonify({"error": "Failed to fetch GHL workflows"}), 500
