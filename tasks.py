@@ -919,6 +919,30 @@ Instead, apologize that the requested time isn't available and offer the availab
         except Exception as intel_err:
             logger.debug(f"Intelligence re-queue skipped: {intel_err}")
 
+        # ── Check workflow triggers ──
+        # After processing any webhook event, check if any active workflows
+        # should be triggered by this event type.
+        try:
+            from workflow_engine import check_workflow_triggers
+            # Determine the GHL event type from the payload
+            event_type = _resolve_ghl_event_type(payload)
+            if event_type and location_id and contact_id:
+                event_data = {
+                    "message": payload.get("message") or payload.get("body", ""),
+                    "tags": payload.get("tags", []),
+                    "phone": payload.get("phone", ""),
+                    "pipeline_id": payload.get("pipeline_id", ""),
+                    "stage_id": payload.get("stage_id", ""),
+                    "calendar_id": payload.get("calendar_id", ""),
+                    "dnd": payload.get("dnd"),
+                    "source": payload.get("source", ""),
+                }
+                run_ids = check_workflow_triggers(location_id, event_type, contact_id, event_data)
+                if run_ids:
+                    logger.info(f"⚡ Workflow triggers fired: {len(run_ids)} runs for {event_type}")
+        except Exception as wf_err:
+            logger.debug(f"Workflow trigger check skipped: {wf_err}")
+
         return {"status": "success", "reply_sent": bool(reply), "booking_made": booking_made}
 
     except Exception as e:
@@ -930,6 +954,65 @@ Instead, apologize that the requested time isn't available and offer the availab
     finally:
         elapsed = time.time() - start_time
         logger.info(f"⏹ TASK END | contact={contact_id} | took {elapsed:.2f}s")
+
+
+def _resolve_ghl_event_type(payload):
+    """
+    Determine the GHL event type from a normalized webhook payload.
+
+    GHL webhooks include a 'type' field that maps to event types like
+    'ContactCreate', 'InboundMessage', etc. We also infer event types
+    from payload characteristics when the type field is ambiguous.
+    """
+    original = payload.get("_original_payload", {})
+
+    # Check for explicit GHL event type
+    event_type = (original.get("type") or original.get("event")
+                  or payload.get("type") or payload.get("event") or "")
+
+    # Normalize common GHL event types
+    event_map = {
+        "contactcreate": "ContactCreate",
+        "contactupdate": "ContactUpdate",
+        "contactdndupdate": "ContactDndUpdate",
+        "inboundmessage": "InboundMessage",
+        "outboundmessage": "OutboundMessage",
+        "inboundcall": "InboundCall",
+        "missedcall": "MissedCall",
+        "voicemailreceived": "VoicemailReceived",
+        "tagadded": "TagAdded",
+        "tagremoved": "TagRemoved",
+        "opportunitystageupdate": "OpportunityStageUpdate",
+        "opportunitycreate": "OpportunityCreate",
+        "appointmentcreate": "AppointmentCreate",
+        "appointmentnoshow": "AppointmentNoShow",
+        "appointmentupdate": "AppointmentUpdate",
+    }
+
+    normalized = event_map.get(event_type.lower().replace("_", "").replace(" ", ""), "")
+    if normalized:
+        return normalized
+
+    # Infer from payload content
+    message = payload.get("message") or payload.get("body", "")
+    direction = str(payload.get("direction", "")).lower()
+
+    if message and direction == "inbound":
+        return "InboundMessage"
+    if message and not direction:
+        # Likely an inbound message webhook (most common)
+        return "InboundMessage"
+    if payload.get("appointment_id"):
+        return "AppointmentCreate"
+    if payload.get("opportunity_id") and payload.get("stage_id"):
+        return "OpportunityStageUpdate"
+
+    # Check for contact create patterns
+    status = str(payload.get("status", "")).lower()
+    if status == "new" and payload.get("contact_id") and not message:
+        return "ContactCreate"
+
+    return ""
 
 
 def _audit_and_retry_failed_tasks(location_id: str, working_token: str):

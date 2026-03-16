@@ -716,58 +716,193 @@ def save_full(workflow_id):
 
 # ── AI workflow builder ──────────────────────────────────────────────────────
 
-_AI_BUILDER_SYSTEM_PROMPT = """You are an automation workflow builder for an insurance CRM platform.
+_AI_BUILDER_SYSTEM_PROMPT = """You are an enterprise workflow automation builder for an insurance CRM platform.
+You create FULLY FUNCTIONAL workflows that execute real actions (send SMS, make calls, update CRM data).
 Given a natural-language description, generate a structured workflow JSON.
 
-Available trigger types:
-contact_created, sms_received, inbound_call, missed_call, voicemail_received,
-tag_added, tag_removed, stage_changed, appointment_booked, appointment_noshow,
-contact_dnd, no_response, lead_age, birthday_approaching, field_updated, manual, scheduled
+═══ TRIGGERS (what starts the workflow) ═══
 
-Available action step_subtypes:
-send_sms, ai_call, add_tag, remove_tag, assign_agent, wait, update_field,
-add_note, send_webhook, if_else, loop, goto, exit, custom
+Event-driven (fire immediately when event occurs):
+- contact_created: New lead/contact imported. Config: {"source_filter": "any"}
+- sms_received: Inbound text message. Config: {"keyword_filter": "optional keyword to match"}
+- inbound_call: Contact calls in. Config: {}
+- missed_call: Call was missed/unanswered. Config: {}
+- voicemail_received: Voicemail left. Config: {}
+- tag_added: Tag was added to contact. Config: {"tag": "specific-tag-name"}
+- tag_removed: Tag was removed. Config: {"tag": "specific-tag-name"}
+- stage_changed: Pipeline stage changed. Config: {"pipeline_id": "", "stage_id": ""}
+- appointment_booked: Appointment created. Config: {"calendar_id": ""}
+- appointment_noshow: Contact no-showed appointment. Config: {}
+- contact_dnd: Contact opted out (Do Not Disturb set). Config: {}
+- field_updated: Contact field was updated. Config: {"field_name": "fieldKey"}
 
-Merge fields for SMS templates:
+Time-based (polled by cron every 1-5 minutes):
+- scheduled: Recurring cron schedule. Config: {"cron": "0 9 * * *", "timezone": "America/New_York", "tag_filter": ["optional-tag"]}
+  Cron format: minute hour day_of_month month day_of_week (0=Monday)
+  Examples: "0 9 * * 1-5" = 9 AM weekdays, "*/30 * * * *" = every 30 min
+- no_response: Contact hasn't replied in X days. Config: {"days": 3}
+- lead_age: Contact was imported X+ days ago. Config: {"days_since_import": 60}
+- birthday_approaching: Contact's birthday in X days. Config: {"days_before": 7}
+- manual: Only triggered via API/test button. Config: {}
+
+═══ ACTIONS (step_subtypes — what the workflow does) ═══
+
+Communication:
+- send_sms: Send text message. Config: {"message": "Hi {{firstName}}, ...", "from_strategy": "default"|"closest_state"|"rotate"}
+  from_strategy: "default" = primary number, "closest_state" = number matching contact's state, "rotate" = round-robin
+- ai_call: Make AI voice call. Config: {"voice_prompt": "Optional custom prompt", "ring_timeout": 30}
+
+CRM Actions:
+- add_tag: Add tag to contact. Config: {"tag": "tag-name"}
+- remove_tag: Remove tag. Config: {"tag": "tag-name"}
+- assign_agent: Assign contact to user. Config: {"assigned_to": "user_id"}
+- update_field: Update any contact field. Config: {"field_key": "firstName|lastName|phone|email|city|state|companyName|customField.key", "field_value": "new value"}
+- add_note: Add note to contact. Config: {"body": "Note text with {{firstName}} merge fields"}
+- move_stage: Move contact in pipeline. Config: {"pipeline_id": "...", "stage_id": "..."}
+
+Integration:
+- send_webhook: HTTP request to external URL. Config: {"url": "https://...", "payload": {"key": "value"}, "secret": "optional-hmac-secret"}
+
+Logic & Flow Control:
+- if_else: Conditional branching. Config: {"conditions": [{"field": "...", "operator": "...", "value": "..."}], "logic": "and"|"or"}
+  Outgoing connections use branch_key "true" or "false"
+  Field can reference query_results from state_query steps (e.g. "days_since_contact")
+- loop: Repeat a section up to N times. Config: {"max_iterations": 15}
+  Outgoing connections: "loop" (continue) or "exit" (done)
+- wait: Fixed duration pause. Config: {"duration": 1, "unit": "seconds"|"minutes"|"hours"|"days"}
+- wait_until: Smart conditional wait — pauses until a condition becomes true OR timeout.
+  Config: {"condition": {"field": "...", "operator": "...", "value": "..."}, "max_wait_hours": 72, "check_interval_minutes": 5}
+  Outgoing connections: "condition_met" or "timeout"
+  Example: wait until contact replies: {"condition": {"field": "responded_within", "operator": "responded_within", "value": "5"}, "max_wait_hours": 48}
+- state_query: Query the database and store results for downstream conditions.
+  Config: {"query_type": "last_outbound_message|last_inbound_message|message_count|call_count|last_call_date|days_since_contact|contact_field|workflow_run_count", "store_as": "variable_name"}
+  Results stored in context — use the "store_as" name as "field" in subsequent if_else conditions.
+  Example: {"query_type": "days_since_contact", "store_as": "days_silent"} then if_else with {"field": "days_silent", "operator": "greater_than", "value": "7"}
+- goto: Jump to another step. Config: {"target_step_id": "step_N"}
+- exit: End the workflow. Config: {}
+
+Custom Actions:
+- custom: Freeform action interpreted by AI at runtime. Config: {"description": "what this action should do", "action_name": "descriptive-name"}
+  The AI engine interprets the description and maps it to real actions (SMS, tags, webhooks, etc.)
+  Can also include sub_actions for explicit multi-step: {"sub_actions": [{"type": "add_tag", "config": {"tag": "x"}}]}
+  Or delegate to a known type: {"execute_as": "send_sms", "execute_config": {"message": "..."}}
+
+═══ MERGE FIELDS (for SMS, notes, field values) ═══
 {{firstName}}, {{lastName}}, {{phone}}, {{email}}, {{city}}, {{state}}, {{companyName}}, {{tags}}, {{source}}
 
-SMS from_strategy options: default, closest_state, rotate
+═══ CONDITION OPERATORS (for if_else) ═══
+String: equals, not_equals, contains, starts_with
+Existence: is_empty, is_not_empty
+Numeric: greater_than, less_than
+Tags: has_tag, no_tag (value = tag name)
+Location: in_state (value = "CA", "TX", etc. — checks phone area code)
+Lead data: lead_age_days (value = minimum days since import)
+AI intelligence: score_above, score_below (value = 0-100), temperature_is (value = "hot"|"warm"|"cool"|"cold")
+Activity: responded_within (value = minutes), total_messages_sent (value = count threshold)
+Timing: time_is_between (value = "09:00-17:00" — checks contact's timezone)
 
-Condition operators (for if_else steps):
-equals, not_equals, contains, starts_with, is_empty, is_not_empty,
-greater_than, less_than, has_tag, no_tag, in_state, lead_age_days,
-score_above, score_below, temperature_is, responded_within,
-total_messages_sent, time_is_between
-
-Return ONLY valid JSON (no markdown, no explanation) with this structure:
+═══ OUTPUT FORMAT ═══
+Return ONLY valid JSON (no markdown, no explanation):
 {
-  "name": "Workflow Name",
-  "description": "Brief description",
-  "trigger_type": "one_of_the_triggers",
+  "name": "Descriptive Workflow Name",
+  "description": "Brief description of what this workflow does",
+  "trigger_type": "one_of_the_triggers_above",
   "trigger_config": {},
   "steps": [
-    {
-      "temp_id": "step_1",
-      "step_type": "action|condition|control",
-      "step_subtype": "one_of_the_subtypes",
-      "config": {},
-      "position_x": 0,
-      "position_y": 0
-    }
+    {"temp_id": "step_1", "step_type": "action", "step_subtype": "send_sms", "config": {"message": "Hi {{firstName}}!"}, "position_x": 400, "position_y": 100},
+    {"temp_id": "step_2", "step_type": "control", "step_subtype": "wait", "config": {"duration": 4, "unit": "hours"}, "position_x": 400, "position_y": 250}
   ],
   "connections": [
-    {
-      "from_temp_id": "step_1",
-      "to_temp_id": "step_2",
-      "branch_key": "default"
-    }
+    {"from_temp_id": "step_1", "to_temp_id": "step_2", "branch_key": "default"}
   ]
 }
 
-For if_else steps, use branch_key "true" and "false" on outgoing connections.
-For wait steps, config should include {"duration": N, "unit": "minutes|hours|days"}.
-For send_sms, config should include {"message": "...", "from_strategy": "default"}.
-Arrange steps in a top-down layout with ~150px vertical spacing."""
+step_type values: "action" (sends/updates), "condition" (if_else), "control" (wait, loop, goto, exit)
+
+═══ LAYOUT ═══
+- Center steps at x=400, space y by 150px
+- For if_else branches: true path at x=250, false path at x=550
+- For loops: place loop body steps, then connect back to the loop step
+
+═══ IMPORTANT ═══
+- Every workflow MUST end with either an "exit" step or reach a dead end (no outgoing connection)
+- Every non-trigger step must have at least one incoming connection
+- Loops must use the "loop" step with max_iterations to prevent infinite execution
+- For complex schedules (e.g. "every day for 4 days, then every 3rd day"), use loop + wait combinations
+- Custom actions are REAL — they execute via AI interpretation at runtime, not cosmetic placeholders
+- All triggers are REAL and fire actual workflow runs — event-driven triggers fire from webhooks, time-based triggers fire from cron
+- AUTO-EXIT: By default, workflows automatically exit when the contact replies (sends an inbound message). This is a safety mechanism — follow-up sequences stop when the lead engages. This can be disabled in trigger_config: {"exit_on_reply": false}
+- Use state_query + if_else combos for data-driven decisions (e.g. "query days_since_contact, then branch if > 7")
+- Use wait_until for event-driven waits (e.g. "wait until contact replies, max 48 hours")
+- For the pattern "send daily for X days, then every Nth day": use nested loop + wait combos
+
+═══ EXAMPLE: Complex Follow-up Sequence ═══
+"Text every day for 4 days, then every 3rd day for 4 cycles, then every 10 days until 15 total"
+→ Use: loop(4) → send_sms → wait(1 day) → loop(4) → send_sms → wait(3 days) → loop(7) → send_sms → wait(10 days) → exit
+Each loop's "exit" branch connects to the next loop. The final loop exits to an exit node."""
+
+
+_AI_BUILDER_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "create_workflow",
+        "description": "Create a structured workflow automation from a user's natural language description",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Short descriptive workflow name"},
+                "description": {"type": "string", "description": "Brief description of what this workflow does"},
+                "trigger_type": {
+                    "type": "string",
+                    "enum": [
+                        "contact_created", "sms_received", "inbound_call", "missed_call",
+                        "voicemail_received", "tag_added", "tag_removed", "stage_changed",
+                        "appointment_booked", "appointment_noshow", "contact_dnd",
+                        "no_response", "lead_age", "birthday_approaching", "field_updated",
+                        "manual", "scheduled",
+                    ],
+                },
+                "trigger_config": {"type": "object", "description": "Trigger-specific configuration"},
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "temp_id": {"type": "string"},
+                            "step_type": {"type": "string", "enum": ["action", "condition", "control"]},
+                            "step_subtype": {
+                                "type": "string",
+                                "enum": [
+                                    "send_sms", "ai_call", "add_tag", "remove_tag", "assign_agent",
+                                    "wait", "wait_until", "update_field", "add_note", "send_webhook",
+                                    "if_else", "loop", "goto", "exit", "custom", "move_stage",
+                                    "state_query",
+                                ],
+                            },
+                            "config": {"type": "object"},
+                            "position_x": {"type": "number"},
+                            "position_y": {"type": "number"},
+                        },
+                        "required": ["temp_id", "step_type", "step_subtype", "config"],
+                    },
+                },
+                "connections": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "from_temp_id": {"type": "string"},
+                            "to_temp_id": {"type": "string"},
+                            "branch_key": {"type": "string"},
+                        },
+                        "required": ["from_temp_id", "to_temp_id", "branch_key"],
+                    },
+                },
+            },
+            "required": ["name", "trigger_type", "steps", "connections"],
+        },
+    },
+}
 
 
 @workflows_bp.route("/api/workflows/build-with-ai", methods=["POST"])
@@ -784,28 +919,88 @@ def build_with_ai():
 
     try:
         response = xai.chat.completions.create(
-            model="grok-3-mini-fast",
+            model="grok-3-fast",
             messages=[
                 {"role": "system", "content": _AI_BUILDER_SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.3,
+            tools=[_AI_BUILDER_TOOL],
+            tool_choice={"type": "function", "function": {"name": "create_workflow"}},
+            temperature=0.2,
+            max_tokens=4096,
         )
-        raw = response.choices[0].message.content.strip()
 
-        if raw.startswith("```"):
-            raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-            if raw.endswith("```"):
-                raw = raw[:-3]
-            raw = raw.strip()
+        # Extract from function call if available
+        msg = response.choices[0].message
+        workflow_data = None
 
-        workflow_data = json.loads(raw)
+        if msg.tool_calls:
+            raw = msg.tool_calls[0].function.arguments
+            workflow_data = json.loads(raw)
+        elif msg.content:
+            # Fallback: parse from content if function calling not used
+            raw = msg.content.strip()
+            if raw.startswith("```"):
+                raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+                if raw.endswith("```"):
+                    raw = raw[:-3]
+                raw = raw.strip()
+            workflow_data = json.loads(raw)
+        else:
+            return jsonify({"error": "AI returned empty response"}), 422
+
+        # Validate the AI output
+        if not isinstance(workflow_data, dict):
+            return jsonify({"error": "AI returned invalid format"}), 422
+
+        # Ensure required fields
+        workflow_data.setdefault("trigger_type", "manual")
+        workflow_data.setdefault("steps", [])
+        workflow_data.setdefault("connections", [])
+        workflow_data.setdefault("name", "AI-Built Workflow")
+        workflow_data.setdefault("trigger_config", {})
+
+        # Auto-enable exit_on_reply for follow-up sequences
+        if workflow_data["trigger_config"].get("exit_on_reply") is None:
+            workflow_data["trigger_config"]["exit_on_reply"] = True
+
+        # Validate trigger type
+        valid_triggers = {
+            "contact_created", "sms_received", "inbound_call", "missed_call",
+            "voicemail_received", "tag_added", "tag_removed", "stage_changed",
+            "appointment_booked", "appointment_noshow", "contact_dnd",
+            "no_response", "lead_age", "birthday_approaching", "field_updated",
+            "manual", "scheduled",
+        }
+        if workflow_data["trigger_type"] not in valid_triggers:
+            logger.warning(f"AI used invalid trigger: {workflow_data['trigger_type']}")
+            workflow_data["trigger_type"] = "manual"
+
+        # Validate step subtypes
+        valid_subtypes = {
+            "send_sms", "ai_call", "add_tag", "remove_tag", "assign_agent",
+            "wait", "wait_until", "update_field", "add_note", "send_webhook",
+            "if_else", "loop", "goto", "exit", "custom", "move_stage",
+            "state_query",
+        }
+        for step in workflow_data["steps"]:
+            if step.get("step_subtype") not in valid_subtypes:
+                original_subtype = step.get("step_subtype", "unknown")
+                step["step_subtype"] = "custom"
+                step.setdefault("config", {})
+                step["config"]["description"] = step["config"].get("description",
+                    f"Custom action: {original_subtype}")
+
+            # Ensure position defaults
+            step.setdefault("position_x", 400)
+            step.setdefault("position_y", 100)
+
         return jsonify({"workflow": workflow_data})
     except json.JSONDecodeError:
-        logger.error(f"AI builder returned invalid JSON: {raw[:500]}")
-        return jsonify({"error": "AI returned invalid workflow structure"}), 422
+        logger.error(f"AI builder returned invalid JSON: {raw[:500] if 'raw' in dir() else 'N/A'}")
+        return jsonify({"error": "AI returned invalid workflow structure. Please try rephrasing."}), 422
     except Exception as e:
-        logger.error(f"AI builder error: {e}")
+        logger.error(f"AI builder error: {e}", exc_info=True)
         return jsonify({"error": "AI workflow generation failed"}), 500
 
 
@@ -843,8 +1038,9 @@ def test_workflow(workflow_id):
 
         if ensure_redis() and q_production:
             try:
+                from workflow_engine import execute_workflow_run
                 q_production.enqueue(
-                    "tasks.execute_workflow_run",
+                    execute_workflow_run,
                     run_id,
                     job_timeout=120,
                     job_id=f"wf-test-{run_id[:8]}",

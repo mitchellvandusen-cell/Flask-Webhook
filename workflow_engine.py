@@ -32,14 +32,32 @@ GHL_HEADERS_BASE = {"Version": "2021-07-28", "Content-Type": "application/json"}
 # Maximum steps per single execution pass (prevents infinite loops)
 MAX_STEPS_PER_RUN = 200
 
-# Trigger type → event_type mapping
+# Trigger type → GHL webhook event_type mapping
+# Event-driven triggers fire when a webhook arrives with a matching event type.
+# Time-based triggers (scheduled, no_response, lead_age, birthday_approaching)
+# are polled via cron — see process_time_based_triggers().
 TRIGGER_EVENT_MAP = {
     "contact_created": "ContactCreate",
     "sms_received": "InboundMessage",
     "inbound_call": "InboundCall",
     "missed_call": "MissedCall",
+    "voicemail_received": "VoicemailReceived",
     "tag_added": "TagAdded",
     "tag_removed": "TagRemoved",
+    "stage_changed": "OpportunityStageUpdate",
+    "appointment_booked": "AppointmentCreate",
+    "appointment_noshow": "AppointmentNoShow",
+    "contact_dnd": "ContactDndUpdate",
+    "field_updated": "ContactUpdate",
+}
+
+# These triggers are NOT event-driven — they are polled by cron.
+CRON_BASED_TRIGGERS = {
+    "scheduled",       # Fires on a cron schedule
+    "no_response",     # Fires when contact hasn't responded in X days
+    "lead_age",        # Fires when lead is X days old
+    "birthday_approaching",  # Fires X days before contact's birthday
+    "manual",          # Only fires manually via API
 }
 
 
@@ -129,7 +147,14 @@ def check_workflow_triggers(location_id, event_type, contact_id, event_data=None
                 continue
 
             # Create the run
-            context = {"event_data": event_data or {}, "loop_counters": {}}
+            # exit_on_reply: if enabled in trigger_config, the workflow will
+            # auto-terminate when the contact sends any inbound message
+            exit_on_reply = trigger_config.get("exit_on_reply", True)
+            context = {
+                "event_data": event_data or {},
+                "loop_counters": {},
+                "exit_on_reply": exit_on_reply,
+            }
             cur.execute("""
                 INSERT INTO workflow_runs (workflow_id, contact_id, status, current_step_id, context)
                 VALUES (%s, %s, 'running', %s, %s)
@@ -192,6 +217,40 @@ def _matches_trigger_config(trigger_type, trigger_config, event_data):
             if isinstance(tags, str):
                 tags = [tags]
             return required_tag.lower() in [t.lower() for t in tags]
+
+    if trigger_type == "sms_received":
+        keyword = trigger_config.get("keyword_filter", "").strip().lower()
+        if keyword:
+            message = str(event_data.get("message", "") or event_data.get("body", "")).lower()
+            return keyword in message
+
+    if trigger_type == "stage_changed":
+        pipeline_id = trigger_config.get("pipeline_id", "")
+        stage_id = trigger_config.get("stage_id", "")
+        if pipeline_id and event_data.get("pipeline_id") != pipeline_id:
+            return False
+        if stage_id and event_data.get("stage_id") != stage_id:
+            return False
+
+    if trigger_type == "appointment_booked":
+        calendar_id = trigger_config.get("calendar_id", "")
+        if calendar_id and event_data.get("calendar_id") != calendar_id:
+            return False
+
+    if trigger_type == "contact_dnd":
+        # Contact DND update — only trigger when DND is actually set
+        dnd = event_data.get("dnd", event_data.get("doNotDisturb"))
+        if dnd is not None and not dnd:
+            return False  # DND was removed, not set
+
+    if trigger_type == "field_updated":
+        field_name = trigger_config.get("field_name", "").strip()
+        if field_name:
+            changed_fields = event_data.get("changed_fields", [])
+            if isinstance(changed_fields, list) and field_name not in changed_fields:
+                # Also check if the field exists in the top-level event data
+                if field_name not in event_data:
+                    return False
 
     return True
 
@@ -487,12 +546,47 @@ def _execute_step(cur, conn, run_id, step, location_id, contact_id, context):
     if isinstance(config, str):
         config = json.loads(config)
 
+    # ── Global auto-exit on contact reply ──
+    # If the workflow has exit_on_reply enabled, check if the contact has
+    # sent an inbound message SINCE this workflow run started.
+    if context.get("exit_on_reply", False) and contact_id != "scheduled_trigger":
+        if _contact_replied_since_run_start(run_id, contact_id):
+            logger.info(f"Auto-exit: contact {contact_id} replied during run {run_id}")
+            return {"status": "exit", "reason": "contact_replied"}
+
     handler = STEP_HANDLERS.get(subtype)
     if not handler:
         logger.warning(f"Unknown step subtype: {subtype}")
         return {"status": "completed", "note": f"Unknown subtype {subtype}, skipped"}
 
+    # Also allow if_else steps to reference query_results from context
+    if subtype == "if_else" and "query_results" in context:
+        # Inject query_results into config so conditions can reference them
+        config["_query_results"] = context["query_results"]
+
     return handler(cur, conn, run_id, step, config, location_id, contact_id, context)
+
+
+def _contact_replied_since_run_start(run_id, contact_id):
+    """Check if a contact has sent an inbound message since the workflow run started."""
+    conn2 = get_db_connection()
+    if not conn2:
+        return False
+    try:
+        cur2 = conn2.cursor()
+        cur2.execute("""
+            SELECT 1 FROM contact_messages cm
+            JOIN workflow_runs wr ON wr.id = %s
+            WHERE cm.contact_id = %s
+              AND cm.message_type = 'lead'
+              AND cm.created_at > wr.started_at
+            LIMIT 1
+        """, (run_id, contact_id))
+        return cur2.fetchone() is not None
+    except Exception:
+        return False
+    finally:
+        return_db_connection(conn2)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -744,16 +838,46 @@ def _handle_wait(cur, conn, run_id, step, config, location_id, contact_id, conte
 
 
 def _handle_if_else(cur, conn, run_id, step, config, location_id, contact_id, context):
-    """Evaluate a condition and choose the 'true' or 'false' branch."""
-    field = config.get("field", "")
-    operator = config.get("operator", "equals")
-    value = config.get("value", "")
+    """
+    Evaluate conditions and choose the 'true' or 'false' branch.
 
-    result = _evaluate_condition(field, operator, value, location_id, contact_id, context)
-    branch = "true" if result else "false"
+    Supports both single condition format:
+        {"field": "...", "operator": "...", "value": "..."}
+    And multi-condition format:
+        {"conditions": [{"field": "...", "operator": "...", "value": "..."}], "logic": "and"|"or"}
+    """
+    conditions = config.get("conditions", [])
+    logic = config.get("logic", "and").lower()
 
-    logger.debug(f"If/else: field={field} op={operator} val={value} -> {branch}")
-    return {"status": "completed", "branch_key": branch, "condition_result": result}
+    # Single condition fallback
+    if not conditions:
+        field = config.get("field", "")
+        operator = config.get("operator", "equals")
+        value = config.get("value", "")
+        if field or operator not in ("equals", ""):
+            conditions = [{"field": field, "operator": operator, "value": value}]
+
+    if not conditions:
+        # No conditions at all — default to true
+        return {"status": "completed", "branch_key": "true", "condition_result": True}
+
+    results = []
+    for cond in conditions:
+        field = cond.get("field", "")
+        operator = cond.get("operator", "equals")
+        value = cond.get("value", "")
+        r = _evaluate_condition(field, operator, value, location_id, contact_id, context)
+        results.append(r)
+
+    if logic == "or":
+        final = any(results)
+    else:
+        final = all(results)
+
+    branch = "true" if final else "false"
+    logger.debug(f"If/else ({logic}): {len(conditions)} conditions -> {results} -> {branch}")
+    return {"status": "completed", "branch_key": branch, "condition_result": final,
+            "individual_results": results}
 
 
 def _handle_loop(cur, conn, run_id, step, config, location_id, contact_id, context):
@@ -880,10 +1004,137 @@ def _handle_exit(cur, conn, run_id, step, config, location_id, contact_id, conte
 
 
 def _handle_custom(cur, conn, run_id, step, config, location_id, contact_id, context):
-    """Custom/extensible action — log and mark as executed."""
-    action_name = config.get("action_name", "custom")
-    logger.info(f"Custom action '{action_name}' executed for run {run_id}, step {step['id']}")
-    return {"status": "completed", "action": action_name, "note": "Custom action executed"}
+    """
+    Custom action execution — interprets freeform config via AI when needed.
+
+    Custom actions can be:
+    1. Simple mapped types (webhook, tag combo, field update) — executed directly
+    2. Complex AI-interpreted actions — AI generates execution plan from description
+    """
+    action_name = config.get("action_name", config.get("custom_type", "custom"))
+    description = config.get("description", "")
+
+    # If the custom action has sub-actions defined, execute them as a mini-pipeline
+    sub_actions = config.get("sub_actions", [])
+    if sub_actions:
+        return _execute_custom_sub_actions(
+            cur, conn, run_id, step, sub_actions, location_id, contact_id, context)
+
+    # If this custom action maps to a known action type, delegate
+    mapped_type = config.get("execute_as")
+    if mapped_type and mapped_type in STEP_HANDLERS:
+        mapped_config = config.get("execute_config", {})
+        logger.info(f"Custom action '{action_name}' delegating to {mapped_type}")
+        return STEP_HANDLERS[mapped_type](
+            cur, conn, run_id, step, mapped_config, location_id, contact_id, context)
+
+    # If it has a webhook URL, treat as webhook action
+    if config.get("webhook_url"):
+        webhook_config = {
+            "url": config["webhook_url"],
+            "payload": {
+                "action": action_name,
+                "description": description,
+                "config": {k: v for k, v in config.items()
+                           if k not in ("webhook_url", "action_name", "description")},
+            },
+        }
+        return _handle_send_webhook(cur, conn, run_id, step, webhook_config,
+                                      location_id, contact_id, context)
+
+    # For truly freeform custom actions, attempt AI interpretation
+    if description:
+        return _ai_execute_custom_action(
+            cur, conn, run_id, step, config, location_id, contact_id, context)
+
+    logger.info(f"Custom action '{action_name}' has no executable config, marking complete")
+    return {"status": "completed", "action": action_name, "note": "Custom action logged"}
+
+
+def _execute_custom_sub_actions(cur, conn, run_id, step, sub_actions, location_id, contact_id, context):
+    """Execute a list of sub-actions defined in a custom action's config."""
+    results = []
+    for i, sub in enumerate(sub_actions):
+        sub_type = sub.get("type", "")
+        sub_config = sub.get("config", {})
+        handler = STEP_HANDLERS.get(sub_type)
+        if not handler:
+            results.append({"sub_action": i, "status": "skipped", "reason": f"Unknown type: {sub_type}"})
+            continue
+        try:
+            result = handler(cur, conn, run_id, step, sub_config, location_id, contact_id, context)
+            results.append({"sub_action": i, "type": sub_type, **result})
+            # If any sub-action returns waiting or error (non-continue), stop
+            if result.get("status") == "waiting":
+                return result
+            if result.get("status") == "error" and not result.get("continue", True):
+                return result
+        except Exception as e:
+            results.append({"sub_action": i, "status": "error", "error": str(e)[:200]})
+
+    return {"status": "completed", "sub_results": results}
+
+
+def _ai_execute_custom_action(cur, conn, run_id, step, config, location_id, contact_id, context):
+    """
+    Use AI to interpret a freeform custom action description and execute it
+    by mapping to available step handlers.
+    """
+    description = config.get("description", "")
+    try:
+        from extensions import get_client
+        xai = get_client()
+        if not xai:
+            logger.warning("AI unavailable for custom action interpretation")
+            return {"status": "completed", "note": "AI unavailable, action logged only"}
+
+        contact = _fetch_contact(location_id, contact_id)
+        contact_summary = ""
+        if contact:
+            contact_summary = (f"Contact: {contact.get('firstName', '')} {contact.get('lastName', '')}, "
+                              f"phone: {contact.get('phone', '')}, tags: {contact.get('tags', [])}")
+
+        system_prompt = """You are a workflow action interpreter. Given a custom action description
+and contact context, return a JSON array of executable sub-actions.
+
+Available action types and their config:
+- send_sms: {"message": "text with {{firstName}} merge fields", "from_strategy": "default"}
+- add_tag: {"tag": "tag-name"}
+- remove_tag: {"tag": "tag-name"}
+- update_field: {"field_key": "fieldName", "field_value": "value"}
+- add_note: {"body": "note text"}
+- send_webhook: {"url": "https://...", "payload": {}}
+- wait: {"duration": 1, "unit": "hours"}
+
+Return ONLY a JSON array like: [{"type": "add_tag", "config": {"tag": "hot-lead"}}]
+If you cannot map the description to actions, return: [{"type": "note", "config": {"body": "Custom action: <description>"}}]"""
+
+        response = xai.chat.completions.create(
+            model="grok-3-mini-fast",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Action: {description}\n{contact_summary}"},
+            ],
+            temperature=0.1,
+        )
+        raw = response.choices[0].message.content.strip()
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+            if raw.endswith("```"):
+                raw = raw[:-3]
+            raw = raw.strip()
+
+        sub_actions = json.loads(raw)
+        if isinstance(sub_actions, list):
+            return _execute_custom_sub_actions(
+                cur, conn, run_id, step, sub_actions, location_id, contact_id, context)
+
+    except Exception as e:
+        logger.error(f"AI custom action interpretation failed: {e}")
+
+    # Fallback: log as a note on the contact
+    note_config = {"body": f"[Workflow] Custom action executed: {description}"}
+    return _handle_add_note(cur, conn, run_id, step, note_config, location_id, contact_id, context)
 
 
 def _handle_assign_agent(cur, conn, run_id, step, config, location_id, contact_id, context):
@@ -911,9 +1162,301 @@ def _handle_assign_agent(cur, conn, run_id, step, config, location_id, contact_i
 
 
 def _handle_move_stage(cur, conn, run_id, step, config, location_id, contact_id, context):
-    """Move contact to a pipeline stage — coming soon."""
-    logger.info(f"Move stage step skipped (coming soon) for run {run_id}, step {step['id']}")
-    return {"status": "skipped", "note": "move_stage coming soon"}
+    """Move a contact's opportunity to a specified pipeline stage via GHL API."""
+    pipeline_id = config.get("pipeline_id", "").strip()
+    stage_id = config.get("stage_id", "").strip()
+
+    if not pipeline_id or not stage_id:
+        return {"status": "error", "error": "pipeline_id and stage_id required", "continue": True}
+
+    token = get_valid_token(location_id)
+    if not token:
+        return {"status": "error", "error": "No valid GHL token", "continue": True}
+
+    headers = _ghl_headers(token)
+
+    try:
+        # Find existing opportunity for this contact in the pipeline
+        resp = requests.get(
+            f"{GHL_BASE_URL}/opportunities/search",
+            headers=headers,
+            params={"location_id": location_id, "contact_id": contact_id,
+                    "pipeline_id": pipeline_id},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        opps = resp.json().get("opportunities", [])
+
+        if opps:
+            # Update existing opportunity
+            opp_id = opps[0]["id"]
+            resp = requests.put(
+                f"{GHL_BASE_URL}/opportunities/{opp_id}",
+                headers=headers,
+                json={"pipelineStageId": stage_id},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            logger.info(f"Moved opportunity {opp_id} to stage {stage_id} (run={run_id})")
+            return {"status": "completed", "opportunity_id": opp_id, "stage_id": stage_id}
+        else:
+            # Create new opportunity in the pipeline at the target stage
+            contact = _fetch_contact(location_id, contact_id)
+            name = "Workflow Opportunity"
+            if contact:
+                fn = contact.get("firstName", "")
+                ln = contact.get("lastName", "")
+                name = f"{fn} {ln}".strip() or name
+
+            resp = requests.post(
+                f"{GHL_BASE_URL}/opportunities/",
+                headers=headers,
+                json={
+                    "pipelineId": pipeline_id,
+                    "pipelineStageId": stage_id,
+                    "locationId": location_id,
+                    "contactId": contact_id,
+                    "name": name,
+                    "status": "open",
+                },
+                timeout=10,
+            )
+            resp.raise_for_status()
+            new_opp = resp.json().get("opportunity", {})
+            opp_id = new_opp.get("id", "unknown")
+            logger.info(f"Created opportunity {opp_id} at stage {stage_id} (run={run_id})")
+            return {"status": "completed", "opportunity_id": opp_id, "stage_id": stage_id,
+                    "created": True}
+
+    except requests.exceptions.HTTPError as e:
+        status_code = e.response.status_code if e.response else 0
+        if status_code == 403:
+            return {"status": "error",
+                    "error": "Missing opportunities.write scope — re-authorize the GHL app",
+                    "continue": True}
+        return {"status": "error", "error": f"GHL API error: {e}", "continue": True}
+    except Exception as e:
+        return {"status": "error", "error": f"Move stage failed: {e}", "continue": True}
+
+
+def _handle_wait_until(cur, conn, run_id, step, config, location_id, contact_id, context):
+    """
+    Smart Wait — pauses until a CONDITION is met or a max timeout expires.
+
+    Unlike regular 'wait' (which waits a fixed duration), wait_until checks
+    a condition on each cron tick. When the condition becomes true, execution
+    resumes. If max_wait elapses first, takes the 'timeout' branch.
+
+    Config:
+        condition: {"field": "...", "operator": "...", "value": "..."}
+        max_wait_hours: 72 (safety cap — auto-resume after this many hours)
+        check_interval_minutes: 5 (how often cron re-checks)
+    """
+    condition = config.get("condition", {})
+    max_wait_hours = config.get("max_wait_hours", 72)
+    try:
+        max_wait_hours = int(max_wait_hours)
+    except (ValueError, TypeError):
+        max_wait_hours = 72
+
+    # Check if we're on a re-check (cron resumed us to re-evaluate)
+    wait_started = context.get("_wait_until_started")
+    if wait_started:
+        # We've been waiting — check the condition
+        if condition:
+            field = condition.get("field", "")
+            operator = condition.get("operator", "equals")
+            value = condition.get("value", "")
+            result = _evaluate_condition(field, operator, value, location_id, contact_id, context)
+            if result:
+                logger.info(f"Wait_until condition met for run {run_id}")
+                context.pop("_wait_until_started", None)
+                return {"status": "completed", "branch_key": "condition_met",
+                        "waited": True, "condition_met": True}
+
+        # Check timeout
+        try:
+            started_dt = datetime.fromisoformat(wait_started)
+            elapsed = (datetime.now(timezone.utc) - started_dt).total_seconds() / 3600
+            if elapsed >= max_wait_hours:
+                logger.info(f"Wait_until timed out after {elapsed:.1f}h for run {run_id}")
+                context.pop("_wait_until_started", None)
+                return {"status": "completed", "branch_key": "timeout",
+                        "waited": True, "timed_out": True}
+        except Exception:
+            pass
+
+        # Still waiting — schedule next check
+        check_interval = config.get("check_interval_minutes", 5)
+        try:
+            check_interval = max(1, int(check_interval))
+        except (ValueError, TypeError):
+            check_interval = 5
+
+        next_check = datetime.now(timezone.utc) + timedelta(minutes=check_interval)
+        return {
+            "status": "waiting",
+            "next_execute_at": next_check.isoformat(),
+            "note": "Re-checking condition",
+        }
+
+    # First time hitting this step — check condition immediately
+    if condition:
+        field = condition.get("field", "")
+        operator = condition.get("operator", "equals")
+        value = condition.get("value", "")
+        result = _evaluate_condition(field, operator, value, location_id, contact_id, context)
+        if result:
+            return {"status": "completed", "branch_key": "condition_met",
+                    "condition_met": True}
+
+    # Condition not met — start waiting
+    context["_wait_until_started"] = datetime.now(timezone.utc).isoformat()
+
+    check_interval = config.get("check_interval_minutes", 5)
+    try:
+        check_interval = max(1, int(check_interval))
+    except (ValueError, TypeError):
+        check_interval = 5
+
+    next_check = datetime.now(timezone.utc) + timedelta(minutes=check_interval)
+    logger.info(f"Wait_until started for run {run_id}, next check at {next_check}")
+    return {
+        "status": "waiting",
+        "next_execute_at": next_check.isoformat(),
+        "note": f"Waiting for condition (max {max_wait_hours}h)",
+    }
+
+
+def _handle_state_query(cur, conn, run_id, step, config, location_id, contact_id, context):
+    """
+    State Query — queries the database and stores results in the workflow context.
+
+    This lets subsequent if_else steps branch based on real-time data like
+    "when was the last outbound message?" or "how many calls have been made?"
+
+    Config:
+        query_type: "last_outbound_message"|"last_inbound_message"|"message_count"|
+                    "call_count"|"last_call_date"|"days_since_contact"|"contact_field"
+        store_as: "variable_name" (stored in context.query_results)
+        field: (for contact_field query type) the field name to read
+    """
+    query_type = config.get("query_type", "").strip()
+    store_as = config.get("store_as", query_type or "query_result")
+
+    if not query_type:
+        return {"status": "error", "error": "No query_type specified", "continue": True}
+
+    query_results = context.get("query_results", {})
+    result_value = None
+
+    conn2 = get_db_connection()
+    if not conn2:
+        return {"status": "error", "error": "Database unavailable", "continue": True}
+
+    try:
+        cur2 = conn2.cursor()
+
+        if query_type == "last_outbound_message":
+            cur2.execute("""
+                SELECT created_at, message_text FROM contact_messages
+                WHERE contact_id = %s AND message_type = 'assistant'
+                ORDER BY created_at DESC LIMIT 1
+            """, (contact_id,))
+            row = cur2.fetchone()
+            if row:
+                result_value = row["created_at"].isoformat() if row["created_at"] else None
+            else:
+                result_value = None
+
+        elif query_type == "last_inbound_message":
+            cur2.execute("""
+                SELECT created_at, message_text FROM contact_messages
+                WHERE contact_id = %s AND message_type = 'lead'
+                ORDER BY created_at DESC LIMIT 1
+            """, (contact_id,))
+            row = cur2.fetchone()
+            result_value = row["created_at"].isoformat() if row and row["created_at"] else None
+
+        elif query_type == "message_count":
+            direction = config.get("direction", "outbound")
+            msg_type = "assistant" if direction == "outbound" else "lead"
+            cur2.execute("""
+                SELECT COUNT(*) as cnt FROM contact_messages
+                WHERE contact_id = %s AND message_type = %s
+            """, (contact_id, msg_type))
+            row = cur2.fetchone()
+            result_value = row["cnt"] if row else 0
+
+        elif query_type == "call_count":
+            cur2.execute("""
+                SELECT COUNT(*) as cnt FROM call_history
+                WHERE contact_id = %s AND location_id = %s
+            """, (contact_id, location_id))
+            row = cur2.fetchone()
+            result_value = row["cnt"] if row else 0
+
+        elif query_type == "last_call_date":
+            cur2.execute("""
+                SELECT created_at FROM call_history
+                WHERE contact_id = %s AND location_id = %s
+                ORDER BY created_at DESC LIMIT 1
+            """, (contact_id, location_id))
+            row = cur2.fetchone()
+            result_value = row["created_at"].isoformat() if row and row["created_at"] else None
+
+        elif query_type == "days_since_contact":
+            # Days since any inbound or outbound message
+            cur2.execute("""
+                SELECT MAX(created_at) as last_msg FROM contact_messages
+                WHERE contact_id = %s
+            """, (contact_id,))
+            row = cur2.fetchone()
+            if row and row["last_msg"]:
+                delta = datetime.now(timezone.utc) - row["last_msg"].replace(tzinfo=timezone.utc)
+                result_value = delta.days
+            else:
+                result_value = 999  # No messages ever
+
+        elif query_type == "contact_field":
+            field_name = config.get("field", "")
+            if field_name:
+                contact = _fetch_contact(location_id, contact_id)
+                if contact:
+                    result_value = contact.get(field_name)
+
+        elif query_type == "workflow_run_count":
+            # How many times this workflow has run for this contact
+            wf_id = config.get("workflow_id") or context.get("event_data", {}).get("workflow_id")
+            if wf_id:
+                cur2.execute("""
+                    SELECT COUNT(*) as cnt FROM workflow_runs
+                    WHERE workflow_id = %s AND contact_id = %s
+                """, (wf_id, contact_id))
+            else:
+                cur2.execute("""
+                    SELECT COUNT(*) as cnt FROM workflow_runs
+                    WHERE contact_id = %s
+                """, (contact_id,))
+            row = cur2.fetchone()
+            result_value = row["cnt"] if row else 0
+
+        else:
+            return {"status": "error", "error": f"Unknown query_type: {query_type}", "continue": True}
+
+    except Exception as e:
+        logger.error(f"State query failed: {e}")
+        return {"status": "error", "error": f"Query failed: {e}", "continue": True}
+    finally:
+        return_db_connection(conn2)
+
+    # Store result in context for downstream steps to use
+    query_results[store_as] = result_value
+    context["query_results"] = query_results
+
+    logger.debug(f"State query {query_type} = {result_value} (stored as {store_as})")
+    return {"status": "completed", "query_type": query_type,
+            "result": result_value, "stored_as": store_as}
 
 
 # Step handler registry
@@ -923,6 +1466,7 @@ STEP_HANDLERS = {
     "add_tag": _handle_add_tag,
     "remove_tag": _handle_remove_tag,
     "wait": _handle_wait,
+    "wait_until": _handle_wait_until,
     "if_else": _handle_if_else,
     "loop": _handle_loop,
     "update_field": _handle_update_field,
@@ -933,6 +1477,7 @@ STEP_HANDLERS = {
     "custom": _handle_custom,
     "assign_agent": _handle_assign_agent,
     "move_stage": _handle_move_stage,
+    "state_query": _handle_state_query,
 }
 
 
@@ -1080,6 +1625,67 @@ def _evaluate_condition(field, operator, value, location_id, contact_id, context
         finally:
             return_db_connection(conn2)
 
+    if operator == "in_state":
+        # Check if contact's phone area code maps to the specified US state
+        contact = _fetch_contact(location_id, contact_id)
+        if not contact:
+            return False
+        phone = contact.get("phone", "")
+        try:
+            from voice.predictive_engine import area_code_to_state
+            contact_state = area_code_to_state(phone)
+            return contact_state and contact_state.lower() == str_value
+        except ImportError:
+            # Fallback to contact's state field
+            return str(contact.get("state", "")).lower() == str_value
+
+    if operator == "time_is_between":
+        # Check if current time (in contact's timezone or location default) is between two times
+        # Value format: "09:00-17:00" or "9:00 AM-5:00 PM"
+        try:
+            time_range = str(value).strip()
+            if "-" not in time_range:
+                return False
+            start_str, end_str = time_range.split("-", 1)
+
+            def _parse_time(t):
+                t = t.strip()
+                for fmt in ("%H:%M", "%I:%M %p", "%I:%M%p", "%H%M"):
+                    try:
+                        return datetime.strptime(t, fmt).time()
+                    except ValueError:
+                        continue
+                return None
+
+            start_time = _parse_time(start_str)
+            end_time = _parse_time(end_str)
+            if not start_time or not end_time:
+                return False
+
+            # Get local time for the contact
+            try:
+                import pytz
+                # Try to get timezone from contact's area code
+                from voice.predictive_engine import area_code_to_timezone
+                contact = _fetch_contact(location_id, contact_id)
+                phone = (contact or {}).get("phone", "")
+                tz_name = area_code_to_timezone(phone) if phone else None
+                if not tz_name:
+                    sub = get_subscriber_info_hybrid(location_id)
+                    tz_name = (sub or {}).get("timezone", "America/New_York")
+                tz = pytz.timezone(tz_name)
+                local_now = datetime.now(timezone.utc).astimezone(tz).time()
+            except Exception:
+                local_now = datetime.now(timezone.utc).time()
+
+            if start_time <= end_time:
+                return start_time <= local_now <= end_time
+            else:
+                # Wraps midnight (e.g. 22:00-06:00)
+                return local_now >= start_time or local_now <= end_time
+        except Exception:
+            return False
+
     logger.warning(f"Unknown condition operator: {operator}")
     return False
 
@@ -1089,10 +1695,16 @@ def _resolve_field_value(field, operator, location_id, contact_id, context):
     # Intelligence-based operators resolve their own data
     if operator in ("temperature_is", "score_above", "score_below",
                     "has_tag", "no_tag", "lead_age_days",
-                    "responded_within", "total_messages_sent"):
+                    "responded_within", "total_messages_sent",
+                    "in_state", "time_is_between"):
         return None  # Handled directly in _evaluate_condition
 
-    # Check context first (for workflow-injected variables)
+    # Check query_results first (from state_query steps)
+    query_results = context.get("query_results", {})
+    if field in query_results:
+        return query_results[field]
+
+    # Check context (for workflow-injected variables)
     event_data = context.get("event_data", {})
     if field in event_data:
         return event_data[field]
@@ -1178,6 +1790,409 @@ def process_pending_delays():
 
     logger.info(f"Resumed {resumed} delayed workflow runs")
     return resumed
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ═══ CRON: TIME-BASED TRIGGER POLLING ═══════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def process_time_based_triggers():
+    """
+    Poll for time-based triggers that don't rely on webhook events.
+    Called by cron every 1-5 minutes.
+
+    Handles: scheduled, no_response, lead_age, birthday_approaching
+    Returns the number of runs created.
+    """
+    conn = get_db_connection()
+    if not conn:
+        logger.error("workflow_engine: no DB for time-based triggers")
+        return 0
+
+    created = 0
+    try:
+        cur = conn.cursor()
+
+        # Get all active workflows with cron-based triggers
+        cron_types = list(CRON_BASED_TRIGGERS - {"manual"})
+        if not cron_types:
+            return 0
+        placeholders = ",".join(["%s"] * len(cron_types))
+        cur.execute(f"""
+            SELECT w.id, w.location_id, w.trigger_type, w.trigger_config
+            FROM workflows w
+            WHERE w.status = 'active'
+              AND w.trigger_type IN ({placeholders})
+        """, cron_types)
+        workflows = cur.fetchall()
+
+        if not workflows:
+            return 0
+
+        now = datetime.now(timezone.utc)
+
+        for wf in workflows:
+            wf_id = wf["id"]
+            location_id = wf["location_id"]
+            trigger_type = wf["trigger_type"]
+            trigger_config = wf.get("trigger_config") or {}
+            if isinstance(trigger_config, str):
+                trigger_config = json.loads(trigger_config)
+
+            try:
+                if trigger_type == "scheduled":
+                    created += _process_scheduled_trigger(
+                        cur, conn, wf_id, location_id, trigger_config, now)
+                elif trigger_type == "no_response":
+                    created += _process_no_response_trigger(
+                        cur, conn, wf_id, location_id, trigger_config, now)
+                elif trigger_type == "lead_age":
+                    created += _process_lead_age_trigger(
+                        cur, conn, wf_id, location_id, trigger_config, now)
+                elif trigger_type == "birthday_approaching":
+                    created += _process_birthday_trigger(
+                        cur, conn, wf_id, location_id, trigger_config, now)
+            except Exception as e:
+                logger.error(f"Error processing time trigger for workflow {wf_id}: {e}",
+                             exc_info=True)
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+
+    except Exception as e:
+        logger.error(f"Error in time-based trigger poll: {e}", exc_info=True)
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+    finally:
+        return_db_connection(conn)
+
+    if created > 0:
+        logger.info(f"Time-based triggers created {created} workflow runs")
+    return created
+
+
+def _process_scheduled_trigger(cur, conn, wf_id, location_id, config, now):
+    """Process a scheduled/recurring trigger using cron expression."""
+    cron_expr = config.get("cron", "").strip()
+    tz_name = config.get("timezone", "America/New_York")
+    if not cron_expr:
+        return 0
+
+    # Check if this workflow ran recently (within the last interval)
+    # to avoid double-firing. Use 90-second window for 1-min cron.
+    cur.execute("""
+        SELECT 1 FROM workflow_runs
+        WHERE workflow_id = %s AND started_at > NOW() - INTERVAL '90 seconds'
+        LIMIT 1
+    """, (wf_id,))
+    if cur.fetchone():
+        return 0
+
+    # Parse cron expression (minute hour day_of_month month day_of_week)
+    if not _cron_matches_now(cron_expr, tz_name, now):
+        return 0
+
+    # Scheduled triggers fire for ALL contacts matching optional tag filter,
+    # or as a single trigger with no specific contact (contact_id = 'scheduled')
+    tag_filter = config.get("tag_filter", [])
+    if tag_filter:
+        contacts = _get_contacts_with_tags(location_id, tag_filter)
+        count = 0
+        for contact_id in contacts:
+            run_id = _create_workflow_run(cur, conn, wf_id, contact_id, {"scheduled": True})
+            if run_id:
+                _enqueue_run(run_id)
+                count += 1
+        return count
+    else:
+        # Fire once with a placeholder — useful for batch operations
+        run_id = _create_workflow_run(cur, conn, wf_id, "scheduled_trigger",
+                                       {"scheduled": True, "fire_time": now.isoformat()})
+        if run_id:
+            _enqueue_run(run_id)
+            return 1
+    return 0
+
+
+def _process_no_response_trigger(cur, conn, wf_id, location_id, config, now):
+    """Fire for contacts who haven't responded in X days."""
+    days = config.get("days", 3)
+    try:
+        days = int(days)
+    except (ValueError, TypeError):
+        days = 3
+
+    # Find contacts who received a bot message X+ days ago but haven't replied since
+    cur.execute("""
+        SELECT DISTINCT cm.contact_id
+        FROM contact_messages cm
+        WHERE cm.contact_id IN (
+            SELECT cc.contact_id FROM contact_cache cc WHERE cc.location_id = %s
+        )
+        AND cm.message_type = 'assistant'
+        AND cm.created_at < NOW() - make_interval(days => %s)
+        AND cm.contact_id NOT IN (
+            SELECT cm2.contact_id FROM contact_messages cm2
+            WHERE cm2.message_type = 'lead'
+              AND cm2.created_at > cm.created_at
+        )
+        AND cm.contact_id NOT IN (
+            SELECT wr.contact_id FROM workflow_runs wr
+            WHERE wr.workflow_id = %s AND wr.status IN ('running', 'completed')
+              AND wr.started_at > NOW() - INTERVAL '7 days'
+        )
+        LIMIT 50
+    """, (location_id, days, wf_id))
+
+    contacts = cur.fetchall()
+    count = 0
+    for row in contacts:
+        run_id = _create_workflow_run(cur, conn, wf_id, row["contact_id"],
+                                       {"no_response_days": days})
+        if run_id:
+            _enqueue_run(run_id)
+            count += 1
+    return count
+
+
+def _process_lead_age_trigger(cur, conn, wf_id, location_id, config, now):
+    """Fire for contacts whose import date is X+ days ago."""
+    days = config.get("days_since_import", 60)
+    try:
+        days = int(days)
+    except (ValueError, TypeError):
+        days = 60
+
+    # Find contacts from contact_cache that were created X+ days ago
+    # and haven't already been triggered by this workflow recently
+    cur.execute("""
+        SELECT cc.contact_id
+        FROM contact_cache cc
+        WHERE cc.location_id = %s
+          AND cc.cached_at < NOW() - make_interval(days => %s)
+          AND cc.contact_id NOT IN (
+              SELECT wr.contact_id FROM workflow_runs wr
+              WHERE wr.workflow_id = %s
+                AND wr.started_at > NOW() - INTERVAL '30 days'
+          )
+        LIMIT 50
+    """, (location_id, days, wf_id))
+
+    contacts = cur.fetchall()
+    count = 0
+    for row in contacts:
+        run_id = _create_workflow_run(cur, conn, wf_id, row["contact_id"],
+                                       {"lead_age_days": days})
+        if run_id:
+            _enqueue_run(run_id)
+            count += 1
+    return count
+
+
+def _process_birthday_trigger(cur, conn, wf_id, location_id, config, now):
+    """Fire for contacts whose birthday is within X days from now."""
+    days_before = config.get("days_before", 7)
+    try:
+        days_before = int(days_before)
+    except (ValueError, TypeError):
+        days_before = 7
+
+    target_date = now + timedelta(days=days_before)
+    target_month = target_date.month
+    target_day = target_date.day
+
+    # Find contacts with matching birthday month/day from contact_cache
+    cur.execute("""
+        SELECT cc.contact_id, cc.data
+        FROM contact_cache cc
+        WHERE cc.location_id = %s
+          AND cc.data IS NOT NULL
+          AND cc.contact_id NOT IN (
+              SELECT wr.contact_id FROM workflow_runs wr
+              WHERE wr.workflow_id = %s
+                AND wr.started_at > NOW() - INTERVAL '350 days'
+          )
+    """, (location_id, wf_id))
+
+    contacts = cur.fetchall()
+    count = 0
+    for row in contacts:
+        data = row.get("data") or {}
+        if isinstance(data, str):
+            try:
+                data = json.loads(data)
+            except Exception:
+                continue
+
+        dob = data.get("dateOfBirth") or data.get("date_of_birth") or ""
+        if not dob:
+            continue
+
+        try:
+            if isinstance(dob, str):
+                # Try common formats
+                for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m-%d-%Y", "%Y-%m-%dT%H:%M:%S"):
+                    try:
+                        dob_dt = datetime.strptime(dob.split("T")[0] if "T" in dob else dob, fmt)
+                        break
+                    except ValueError:
+                        continue
+                else:
+                    continue
+            else:
+                continue
+
+            if dob_dt.month == target_month and dob_dt.day == target_day:
+                run_id = _create_workflow_run(cur, conn, wf_id, row["contact_id"],
+                                               {"birthday_days_before": days_before})
+                if run_id:
+                    _enqueue_run(run_id)
+                    count += 1
+        except Exception:
+            continue
+
+    return count
+
+
+def _create_workflow_run(cur, conn, wf_id, contact_id, extra_context=None):
+    """Create a workflow run, checking for duplicates. Returns run_id or None."""
+    try:
+        # Check for duplicate running workflows for same contact
+        cur.execute("""
+            SELECT id FROM workflow_runs
+            WHERE workflow_id = %s AND contact_id = %s AND status = 'running'
+            LIMIT 1
+        """, (wf_id, contact_id))
+        if cur.fetchone():
+            return None
+
+        # Find first step
+        cur.execute("""
+            SELECT ws.id FROM workflow_steps ws
+            WHERE ws.workflow_id = %s
+              AND ws.id NOT IN (
+                  SELECT to_step_id FROM workflow_connections WHERE workflow_id = %s
+              )
+            ORDER BY ws.position_y ASC, ws.position_x ASC
+            LIMIT 1
+        """, (wf_id, wf_id))
+        first_step = cur.fetchone()
+        if not first_step:
+            return None
+
+        context = {"event_data": extra_context or {}, "loop_counters": {}}
+        cur.execute("""
+            INSERT INTO workflow_runs (workflow_id, contact_id, status, current_step_id, context)
+            VALUES (%s, %s, 'running', %s, %s)
+            RETURNING id
+        """, (wf_id, contact_id, first_step["id"], json.dumps(context)))
+        row = cur.fetchone()
+        run_id = row["id"]
+
+        # Increment stats
+        cur.execute("""
+            UPDATE workflows
+            SET stats = jsonb_set(COALESCE(stats, '{}'), '{runs}',
+                to_jsonb(COALESCE((stats->>'runs')::int, 0) + 1)),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """, (wf_id,))
+        conn.commit()
+        return run_id
+    except Exception as e:
+        logger.error(f"Failed to create workflow run: {e}")
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return None
+
+
+def _cron_matches_now(cron_expr, tz_name, utc_now):
+    """Check if a cron expression matches the current time in the given timezone."""
+    try:
+        import pytz
+        tz = pytz.timezone(tz_name)
+    except Exception:
+        from datetime import timezone as _tz
+        tz = _tz.utc
+
+    try:
+        local_now = utc_now.astimezone(tz)
+    except Exception:
+        local_now = utc_now
+
+    parts = cron_expr.split()
+    if len(parts) != 5:
+        return False
+
+    minute, hour, dom, month, dow = parts
+
+    def _match(field, current):
+        if field == "*":
+            return True
+        # Handle */N step values
+        if field.startswith("*/"):
+            try:
+                step = int(field[2:])
+                return current % step == 0
+            except ValueError:
+                return False
+        # Handle comma-separated values
+        if "," in field:
+            return str(current) in field.split(",")
+        # Handle ranges (e.g. 1-5)
+        if "-" in field:
+            try:
+                low, high = field.split("-")
+                return int(low) <= current <= int(high)
+            except ValueError:
+                return False
+        try:
+            return int(field) == current
+        except ValueError:
+            return False
+
+    return (
+        _match(minute, local_now.minute)
+        and _match(hour, local_now.hour)
+        and _match(dom, local_now.day)
+        and _match(month, local_now.month)
+        and _match(dow, local_now.weekday())  # 0=Monday in Python
+    )
+
+
+def _get_contacts_with_tags(location_id, tag_filter):
+    """Get contact IDs from cache that have ALL specified tags."""
+    conn2 = get_db_connection()
+    if not conn2:
+        return []
+    try:
+        cur2 = conn2.cursor()
+        cur2.execute("""
+            SELECT contact_id, data FROM contact_cache
+            WHERE location_id = %s AND data IS NOT NULL
+        """, (location_id,))
+        results = []
+        for row in cur2.fetchall():
+            data = row.get("data") or {}
+            if isinstance(data, str):
+                try:
+                    data = json.loads(data)
+                except Exception:
+                    continue
+            tags = [t.lower() for t in (data.get("tags") or [])]
+            if all(t.lower() in tags for t in tag_filter):
+                results.append(row["contact_id"])
+        return results[:100]  # Cap at 100 per batch
+    except Exception as e:
+        logger.error(f"Failed to get contacts with tags: {e}")
+        return []
+    finally:
+        return_db_connection(conn2)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
