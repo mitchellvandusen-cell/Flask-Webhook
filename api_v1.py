@@ -23,6 +23,26 @@ logger = logging.getLogger("api_v1")
 # Rate limit: requests per minute per API key
 RATE_LIMIT_RPM = int(os.getenv("API_RATE_LIMIT_RPM", "120"))
 
+# Allowed CORS origins for training API endpoints
+TRAINING_CORS_ORIGINS = [o.strip() for o in os.getenv(
+    "TRAINING_CORS_ORIGINS",
+    "https://insurancegrokbot.training,https://www.insurancegrokbot.training"
+).split(",") if o.strip()]
+
+
+@api_bp.after_request
+def add_training_cors_headers(response):
+    """Add CORS headers for training API endpoints so the training platform
+    frontend can directly fetch audio recordings for playback."""
+    if "/training/" in request.path:
+        origin = request.headers.get("Origin", "")
+        if origin in TRAINING_CORS_ORIGINS:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
+            response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+            response.headers["Access-Control-Max-Age"] = "3600"
+    return response
+
 
 # ═══════════════════════════════════════════════════════════════
 # ERROR RESPONSE HELPERS (OpenAI-compatible format)
@@ -541,6 +561,7 @@ def training_recordings():
             "offset": offset,
             "has_more": (offset + limit) < total,
             "data": recordings,
+            "recordings": recordings,  # Alias for training platform compatibility
         })
     except Exception as e:
         logger.error(f"training_recordings failed: {e}")
