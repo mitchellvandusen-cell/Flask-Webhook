@@ -1394,17 +1394,36 @@ def spam_protection_status():
     #   2. A CNAM Trust Product has been submitted (status != not_registered/draft)
     #   3. The number is assigned to the CNAM Trust Product
     # Setting friendly_name alone does NOT protect the number — it's just a label.
+    #
+    # A number is "protected" if covered by ANY active protection mechanism:
+    #   1. CNAM Trust Product: profile validated + CNAM TP submitted + number assigned to CNAM TP
+    #   2. Voice Integrity Trust Product: VI TP approved + number assigned to VI TP
+    #   3. STIR/SHAKEN: profile approved → all numbers on the account get full attestation
     cnam = (vc or {}).get('cnam', {})
     cnam_tp_submitted = cnam.get('status', '') in ('pending-review', 'in-review', 'twilio-approved', 'approved')
     cnam_assigned_sids = set(cnam.get('assigned_numbers', []))
     profile_validated = protection_active and trust_hub.get('_validated', False)
 
+    # Voice Integrity: numbers assigned to an approved/pending VI Trust Product
+    ni = (vc or {}).get('number_integrity', {})
+    vi_active = ni.get('status', '') in ('pending-review', 'in-review', 'twilio-approved', 'approved')
+    vi_assigned_sids = set(ni.get('assigned_numbers', [])) if vi_active else set()
+
+    # STIR/SHAKEN: when profile is approved, ALL numbers on the account get full attestation.
+    # The profile approval + STIR/SHAKEN status means every number is protected.
+    stir_shaken_active = profile_validated
+
     numbers_detail = []
+    protected_count = 0
     for n in status.get('numbers', []):
         phone = n.get('phone', '')
         sid = n.get('sid', '')
-        # Number is protected only if profile exists, CNAM TP submitted, and number assigned to TP
-        is_protected = profile_validated and cnam_tp_submitted and sid in cnam_assigned_sids
+        # Number is protected if covered by ANY active protection mechanism
+        cnam_protected = profile_validated and cnam_tp_submitted and sid in cnam_assigned_sids
+        vi_protected = sid in vi_assigned_sids
+        is_protected = cnam_protected or vi_protected or stir_shaken_active
+        if is_protected:
+            protected_count += 1
         numbers_detail.append({
             "phone": phone,
             "id": sid,
@@ -1451,8 +1470,8 @@ def spam_protection_status():
         "contact_email": trust_hub.get('contact_email', ''),
         "contact_phone": trust_hub.get('contact_phone', ''),
         "registered_at": trust_hub.get('registered_at', ''),
-        "numbers_protected": status.get('numbers_protected', 0),
-        "numbers_total": status.get('numbers_total', 0),
+        "numbers_protected": protected_count,
+        "numbers_total": len(numbers_detail),
         "numbers": numbers_detail,
         "stir_shaken": "active",
         "auto_cnam": trust_hub.get('auto_cnam', False),
