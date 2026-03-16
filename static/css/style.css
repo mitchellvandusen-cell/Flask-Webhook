@@ -1314,6 +1314,10 @@ body.light-theme {
     --lt-accent: #059669;
     --lt-accent-bg: rgba(5,150,105,0.08);
     --lt-accent-border: rgba(5,150,105,0.2);
+
+    /* Override base accent so var(--accent) is readable on light backgrounds */
+    --accent: #059669;
+    --accent-dim: rgba(5,150,105,0.12);
     --lt-info: #2563eb;
     --lt-input-bg: #f7f8fa;
     --lt-input-border: #d2d6dc;
@@ -5264,20 +5268,56 @@ body.light-theme #vstab-panel-dialer div[style*="color:#00d9ff"] i { color: #007
 body.light-theme #vstab-panel-dialer div[style*="color:#a78bfa"] i { color: #7c3aed !important; }
 body.light-theme #vstab-panel-dialer div[style*="color:#f59e0b"] i { color: #d97706 !important; }
 
-/* ── Global: all inline-styled white icons in dashboard buttons/headers → gray in light mode ── */
-body.light-theme #vstab-panel-settings i[style*="color:#fff"],
-body.light-theme #vstab-panel-dialer i[style*="color:#fff"],
-body.light-theme #vstab-panel-spammonitoring i[style*="color:#fff"],
-body.light-theme #vstab-panel-numbers i[style*="color:#fff"],
-body.light-theme #vstab-panel-activation i[style*="color:#fff"] { color: var(--lt-text-primary) !important; }
+/* ═══ Global: fix ALL inline-styled colors that are invisible on light backgrounds ═══ */
 
-/* ── Global: inline #aaa/#888/#555 colored text & icons → appropriate light theme color ── */
-body.light-theme #vstab-panel-settings div[style*="color:#fff"],
-body.light-theme #vstab-panel-dialer div[style*="color:#fff"] { color: var(--lt-text-primary) !important; }
+/* White text/icons (#fff, #ccc) → dark */
+body.light-theme .glass-panel i[style*="color:#fff"],
+body.light-theme .glass-panel i[style*="color: #fff"],
+body.light-theme .glass-panel span[style*="color:#fff"],
+body.light-theme .glass-panel div[style*="color:#fff"],
+body.light-theme .glass-panel h6[style*="color:#fff"],
+body.light-theme .glass-panel label[style*="color:#fff"] { color: var(--lt-text-primary) !important; }
 
-/* ── Voice Config panel: inline background overrides for form sections ── */
-body.light-theme #vstab-panel-dialer div[style*="background:rgba(255,255,255,0.02)"] { background: rgba(0,0,0,0.02) !important; border-color: var(--lt-border) !important; }
-body.light-theme #vstab-panel-settings div[style*="background:rgba(0,255,136,0.04)"] { background: rgba(0,170,94,0.04) !important; border-color: rgba(0,170,94,0.12) !important; }
+body.light-theme .glass-panel span[style*="color:#ccc"],
+body.light-theme .glass-panel div[style*="color:#ccc"] { color: var(--lt-text-secondary) !important; }
+
+/* Neon green (#00ff88) → readable dark green */
+body.light-theme .glass-panel i[style*="color:#00ff88"],
+body.light-theme .glass-panel i[style*="color: #00ff88"],
+body.light-theme .glass-panel span[style*="color:#00ff88"],
+body.light-theme .glass-panel p[style*="color:#00ff88"] { color: var(--lt-accent) !important; }
+
+/* Bright cyan (#00d9ff) → darker readable blue */
+body.light-theme .glass-panel i[style*="color:#00d9ff"],
+body.light-theme .glass-panel i[style*="color: #00d9ff"],
+body.light-theme .glass-panel div[style*="color:#00d9ff"],
+body.light-theme .glass-panel span[style*="color:#00d9ff"] { color: #0078b8 !important; }
+
+/* Muted grays that disappear on light bg */
+body.light-theme .glass-panel span[style*="color:#555"] { color: var(--lt-text-muted) !important; }
+body.light-theme .glass-panel span[style*="color:#888"],
+body.light-theme .glass-panel p[style*="color:#888"] { color: var(--lt-text-secondary) !important; }
+body.light-theme .glass-panel span[style*="color:#aaa"],
+body.light-theme .glass-panel label[style*="color:#aaa"] { color: var(--lt-text-muted) !important; }
+
+/* Purple accent (#a78bfa) → darker purple */
+body.light-theme .glass-panel i[style*="color:#a78bfa"],
+body.light-theme .glass-panel div[style*="color:#a78bfa"] { color: #7c3aed !important; }
+
+/* Dark bg panels → light bg in light theme */
+body.light-theme .glass-panel div[style*="background:rgba(255,255,255,0.02)"],
+body.light-theme .glass-panel div[style*="background: rgba(255,255,255,0.02)"] { background: rgba(0,0,0,0.02) !important; border-color: var(--lt-border) !important; }
+body.light-theme .glass-panel div[style*="background:rgba(255,255,255,0.04)"],
+body.light-theme .glass-panel div[style*="background: rgba(255,255,255,0.04)"] { background: rgba(0,0,0,0.03) !important; border-color: var(--lt-border) !important; }
+body.light-theme .glass-panel div[style*="background:rgba(0,255,136,0.04)"] { background: rgba(5,150,105,0.04) !important; border-color: rgba(5,150,105,0.12) !important; }
+body.light-theme .glass-panel div[style*="background:rgba(0,217,255,0.04)"] { background: rgba(0,120,184,0.04) !important; border-color: rgba(0,120,184,0.12) !important; }
+
+/* Inline-styled buttons with light borders → visible borders in light theme */
+body.light-theme .glass-panel button[style*="border:1px solid rgba(255,255,255,0.08)"],
+body.light-theme .glass-panel button[style*="border:1px solid rgba(255,255,255,0.1)"] { border-color: var(--lt-border) !important; }
+body.light-theme .glass-panel button[style*="background:rgba(255,255,255,0.04)"] { background: rgba(0,0,0,0.03) !important; }
+body.light-theme .glass-panel button[style*="color:#aaa"] { color: var(--lt-text-secondary) !important; }
+body.light-theme .glass-panel button[style*="color:#aaa"] i { color: var(--lt-text-secondary) !important; }
 
 /* ── Number Health: strategy selector button icons (weighted, round robin, top health) ── */
 body.light-theme .nh-strategy-btn { border-color: var(--lt-border) !important; background: var(--lt-surface) !important; color: var(--lt-text-muted) !important; }
@@ -6973,7 +7013,8 @@ body.light-theme .adv-section-card {
     background: var(--lt-surface);
     border-color: var(--lt-border);
 }
-body.light-theme .adv-section-heading { color: var(--lt-accent); }
+body.light-theme .adv-section-heading { color: var(--lt-accent) !important; }
+body.light-theme .adv-section-heading i { color: var(--lt-accent) !important; }
 body.light-theme .adv-slider-labels { color: #6b7280; }
 body.light-theme .adv-hint { color: #6b7280; }
 body.light-theme .adv-desc { color: #6b7280; }
@@ -7024,12 +7065,14 @@ body.light-theme .adv-footer { border-top-color: var(--lt-border); }
 body.light-theme .adv-reset-btn {
     background: rgba(0,0,0,0.04);
     border-color: var(--lt-border);
-    color: #6b7280;
+    color: #4a5568;
 }
+body.light-theme .adv-reset-btn i { color: #4a5568; }
 body.light-theme .adv-reset-btn:hover {
     background: rgba(0,0,0,0.07);
     color: #374151;
 }
+body.light-theme .adv-reset-btn:hover i { color: #374151; }
 body.light-theme .adv-save-btn {
     background: var(--lt-accent);
     color: #000;
