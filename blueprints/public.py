@@ -18,6 +18,16 @@ logger = logging.getLogger(__name__)
 public_bp = Blueprint('public', __name__)
 
 
+# ── Google Search Console verification ────────────────────────────────────────
+
+@public_bp.route("/googlee678258b465a9ad5.html")
+def google_search_console_verify():
+    """Serve Google Search Console HTML verification file."""
+    resp = make_response("google-site-verification: googlee678258b465a9ad5.html")
+    resp.headers['Content-Type'] = 'text/html; charset=utf-8'
+    return resp
+
+
 # ── Core marketing pages ──────────────────────────────────────────────────────
 
 @public_bp.route("/")
