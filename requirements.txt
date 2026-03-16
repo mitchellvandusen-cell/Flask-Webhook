@@ -46,5 +46,8 @@ twilio
 soxr          # High-quality polyphase sinc resampler (replaces audioop.ratecv)
 scipy         # Butterworth low-pass filter for phone-line warmth EQ
 
+# Contact import (Excel parsing)
+openpyxl
+
 # Optional (only if you use outcome_learning / classify_vibe)
 scikit-learn

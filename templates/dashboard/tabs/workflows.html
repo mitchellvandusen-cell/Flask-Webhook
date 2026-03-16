@@ -1,240 +1,703 @@
-            <!-- Create Workflow Tab -->
+            <!-- Workflows Tab -->
             <div class="tab-pane fade" id="workflows" role="tabpanel">
-                <div class="glass-panel" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px; padding: 40px;">
-                    <div class="d-flex align-items-center mb-4 gap-3">
-                        <div class="wf-header-icon">
-                            <i class="fa-solid fa-diagram-project" style="font-size:1.3rem; color:var(--accent);"></i>
+
+                <style>
+                    /* ── Workflow Builder ── wfb-* prefix ── */
+
+                    .wfb-hidden { display: none !important; }
+
+                    /* ── View 1: Workflow List ── */
+                    .wfb-list-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+                    .wfb-list-title-group { display: flex; align-items: center; gap: 12px; }
+                    .wfb-list-icon { width: 44px; height: 44px; border-radius: 12px; background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.15); display: flex; align-items: center; justify-content: center; font-size: 1.15rem; color: var(--accent); flex-shrink: 0; }
+                    .wfb-list-title { font-size: 1.25rem; font-weight: 700; margin: 0; }
+                    .wfb-list-subtitle { font-size: 0.78rem; color: #888; margin: 2px 0 0; }
+                    .wfb-list-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+                    .wfb-btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: 10px; font-size: 0.82rem; font-weight: 600; border: none; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+                    .wfb-btn-accent { background: var(--accent); color: #000; }
+                    .wfb-btn-accent:hover { background: #fff; }
+                    .wfb-btn-ai { background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(59,130,246,0.2)); color: #a78bfa; border: 1px solid rgba(139,92,246,0.25); }
+                    .wfb-btn-ai:hover { background: linear-gradient(135deg, rgba(139,92,246,0.35), rgba(59,130,246,0.35)); color: #c4b5fd; }
+                    .wfb-btn-glass { background: rgba(255,255,255,0.04); color: #ccc; border: 1px solid rgba(255,255,255,0.08); }
+                    .wfb-btn-glass:hover { background: rgba(255,255,255,0.08); color: #fff; }
+                    .wfb-btn-sm { padding: 6px 12px; font-size: 0.76rem; border-radius: 8px; }
+                    .wfb-btn-danger { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
+                    .wfb-btn-danger:hover { background: rgba(239,68,68,0.25); }
+
+                    /* Workflow grid */
+                    .wfb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+
+                    .wfb-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 20px; transition: border-color 0.2s, background 0.2s; cursor: pointer; position: relative; }
+                    .wfb-card:hover { border-color: rgba(0,255,136,0.2); background: rgba(0,255,136,0.02); }
+                    .wfb-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+                    .wfb-card-trigger-icon { width: 36px; height: 36px; border-radius: 9px; background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.12); display: flex; align-items: center; justify-content: center; font-size: 0.9rem; color: var(--accent); flex-shrink: 0; }
+                    .wfb-card-menu-btn { width: 30px; height: 30px; border-radius: 8px; background: transparent; border: 1px solid transparent; display: flex; align-items: center; justify-content: center; color: #666; cursor: pointer; font-size: 0.85rem; transition: all 0.15s; }
+                    .wfb-card-menu-btn:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); color: #aaa; }
+                    .wfb-card-name { font-size: 0.92rem; font-weight: 700; margin: 0 0 4px; }
+                    .wfb-card-desc { font-size: 0.76rem; color: #777; margin: 0 0 14px; line-height: 1.4; }
+                    .wfb-card-footer { display: flex; align-items: center; justify-content: space-between; }
+                    .wfb-card-trigger-label { font-size: 0.7rem; color: #555; display: flex; align-items: center; gap: 5px; }
+                    .wfb-card-trigger-label i { font-size: 0.65rem; }
+                    .wfb-card-nodes { font-size: 0.68rem; color: #555; }
+
+                    /* Card context menu */
+                    .wfb-card-menu { position: absolute; top: 48px; right: 12px; background: rgba(20,20,28,0.96); backdrop-filter: blur(16px) saturate(160%); -webkit-backdrop-filter: blur(16px) saturate(160%); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 4px; min-width: 150px; z-index: 20; box-shadow: 0 12px 32px rgba(0,0,0,0.5); }
+                    .wfb-card-menu-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 0.78rem; color: #bbb; border-radius: 7px; cursor: pointer; border: none; background: none; width: 100%; text-align: left; transition: background 0.15s; }
+                    .wfb-card-menu-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
+                    .wfb-card-menu-item i { width: 16px; text-align: center; font-size: 0.72rem; }
+                    .wfb-card-menu-item-danger { color: #f87171; }
+                    .wfb-card-menu-item-danger:hover { background: rgba(239,68,68,0.1); color: #fca5a5; }
+
+                    /* Status badges */
+                    .wfb-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 6px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+                    .wfb-badge-draft { background: rgba(255,255,255,0.06); color: #888; }
+                    .wfb-badge-active { background: rgba(0,255,136,0.1); color: var(--accent); }
+                    .wfb-badge-paused { background: rgba(251,191,36,0.1); color: #fbbf24; }
+                    .wfb-badge-dot { width: 6px; height: 6px; border-radius: 50%; }
+                    .wfb-badge-draft .wfb-badge-dot { background: #666; }
+                    .wfb-badge-active .wfb-badge-dot { background: var(--accent); }
+                    .wfb-badge-paused .wfb-badge-dot { background: #fbbf24; }
+
+                    /* Empty state */
+                    .wfb-empty { text-align: center; padding: 60px 20px; }
+                    .wfb-empty-icon { width: 72px; height: 72px; border-radius: 20px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 1.8rem; color: #444; }
+                    .wfb-empty-title { font-size: 1rem; font-weight: 700; margin: 0 0 8px; color: #bbb; }
+                    .wfb-empty-desc { font-size: 0.82rem; color: #666; margin: 0 0 24px; max-width: 400px; margin-left: auto; margin-right: auto; line-height: 1.5; }
+                    .wfb-empty-actions { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+
+                    /* ── View 2: Workflow Editor ── */
+                    .wfb-editor { display: flex; flex-direction: column; height: calc(100vh - 140px); min-height: 500px; }
+
+                    /* Editor toolbar */
+                    .wfb-toolbar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+                    .wfb-toolbar-back { width: 34px; height: 34px; border-radius: 9px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; color: #aaa; cursor: pointer; font-size: 0.85rem; transition: all 0.15s; flex-shrink: 0; }
+                    .wfb-toolbar-back:hover { background: rgba(255,255,255,0.08); color: #fff; }
+                    .wfb-toolbar-divider { width: 1px; height: 24px; background: rgba(255,255,255,0.08); flex-shrink: 0; }
+                    .wfb-toolbar-name { background: none; border: 1px solid transparent; border-radius: 7px; padding: 5px 10px; font-size: 0.9rem; font-weight: 700; color: #eee; outline: none; min-width: 180px; transition: border-color 0.2s, background 0.2s; }
+                    .wfb-toolbar-name:hover { border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); }
+                    .wfb-toolbar-name:focus { border-color: rgba(0,255,136,0.3); background: rgba(0,255,136,0.03); }
+                    .wfb-toolbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+                    .wfb-toolbar-more { width: 34px; height: 34px; border-radius: 9px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; color: #888; cursor: pointer; font-size: 0.8rem; transition: all 0.15s; }
+                    .wfb-toolbar-more:hover { background: rgba(255,255,255,0.08); color: #ccc; }
+
+                    /* Toolbar more menu */
+                    .wfb-toolbar-menu { position: absolute; top: 100%; right: 0; margin-top: 4px; background: rgba(20,20,28,0.96); backdrop-filter: blur(16px) saturate(160%); -webkit-backdrop-filter: blur(16px) saturate(160%); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 4px; min-width: 160px; z-index: 30; box-shadow: 0 12px 32px rgba(0,0,0,0.5); }
+
+                    /* Toggle switch for activate/pause */
+                    .wfb-toggle { position: relative; width: 40px; height: 22px; border-radius: 11px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; transition: background 0.25s; flex-shrink: 0; }
+                    .wfb-toggle.wfb-toggle-on { background: rgba(0,255,136,0.2); border-color: rgba(0,255,136,0.3); }
+                    .wfb-toggle-knob { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #666; transition: transform 0.25s, background 0.25s; }
+                    .wfb-toggle.wfb-toggle-on .wfb-toggle-knob { transform: translateX(18px); background: var(--accent); }
+                    .wfb-toggle-label { font-size: 0.72rem; font-weight: 600; color: #888; }
+
+                    /* Editor body: 3-panel layout */
+                    .wfb-editor-body { display: flex; flex: 1; gap: 0; overflow: hidden; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.2); }
+
+                    /* ── Left: Node Palette ── */
+                    .wfb-palette { width: 220px; flex-shrink: 0; background: rgba(255,255,255,0.02); border-right: 1px solid rgba(255,255,255,0.06); overflow-y: auto; transition: width 0.25s, opacity 0.25s; }
+                    .wfb-palette.wfb-palette-collapsed { width: 0; opacity: 0; overflow: hidden; border-right: none; }
+                    .wfb-palette-toggle { position: absolute; top: 12px; left: 12px; z-index: 10; width: 28px; height: 28px; border-radius: 7px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; color: #888; cursor: pointer; font-size: 0.7rem; transition: all 0.15s; }
+                    .wfb-palette-toggle:hover { background: rgba(255,255,255,0.1); color: #ccc; }
+                    .wfb-palette-inner { padding: 12px; min-width: 220px; }
+                    .wfb-palette-search { width: 100%; padding: 7px 10px 7px 30px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); color: #ccc; font-size: 0.78rem; outline: none; margin-bottom: 12px; transition: border-color 0.2s; }
+                    .wfb-palette-search:focus { border-color: rgba(0,255,136,0.25); }
+                    .wfb-palette-search-wrap { position: relative; }
+                    .wfb-palette-search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 0.7rem; color: #555; pointer-events: none; }
+
+                    .wfb-palette-category { margin-bottom: 14px; }
+                    .wfb-palette-cat-header { display: flex; align-items: center; gap: 6px; padding: 4px 0; cursor: pointer; user-select: none; }
+                    .wfb-palette-cat-chevron { font-size: 0.6rem; color: #555; transition: transform 0.2s; width: 12px; text-align: center; }
+                    .wfb-palette-cat-chevron.wfb-cat-open { transform: rotate(90deg); }
+                    .wfb-palette-cat-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #666; }
+                    .wfb-palette-cat-items { padding-top: 4px; }
+                    .wfb-palette-cat-items.wfb-cat-collapsed { display: none; }
+
+                    .wfb-palette-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 7px; font-size: 0.78rem; color: #bbb; cursor: grab; transition: background 0.15s, color 0.15s; user-select: none; }
+                    .wfb-palette-item:hover { background: rgba(255,255,255,0.05); color: #eee; }
+                    .wfb-palette-item:active { cursor: grabbing; }
+                    .wfb-palette-item i { width: 18px; text-align: center; font-size: 0.75rem; color: #888; flex-shrink: 0; }
+                    .wfb-palette-item span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                    .wfb-palette-item-disabled { opacity: 0.4; cursor: default; }
+                    .wfb-palette-item-disabled:hover { background: none; color: #bbb; }
+                    .wfb-palette-item-lock { font-size: 0.6rem; color: #555; margin-left: auto; flex-shrink: 0; }
+
+                    .wfb-palette-feedback { padding: 4px 8px; }
+                    .wfb-palette-feedback-link { font-size: 0.7rem; color: #555; cursor: pointer; transition: color 0.15s; border: none; background: none; padding: 0; }
+                    .wfb-palette-feedback-link:hover { color: var(--accent); }
+                    .wfb-palette-feedback-input { width: 100%; padding: 6px 8px; border-radius: 6px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #ccc; font-size: 0.74rem; outline: none; margin-top: 6px; transition: border-color 0.2s; }
+                    .wfb-palette-feedback-input:focus { border-color: rgba(0,255,136,0.25); }
+
+                    .wfb-palette-custom-empty { font-size: 0.72rem; color: #555; padding: 6px 8px; font-style: italic; }
+
+                    /* ── Center: Canvas ── */
+                    .wfb-canvas-area { flex: 1; position: relative; overflow: hidden; }
+
+                    .wfb-canvas-wrap { width: 100%; height: 100%; overflow: auto; position: relative; }
+                    .wfb-canvas { position: relative; min-width: 2000px; min-height: 1500px; background-image: radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px); background-size: 24px 24px; }
+                    .wfb-svg-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+
+                    /* Canvas empty state */
+                    .wfb-canvas-empty { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; z-index: 2; }
+                    .wfb-canvas-empty-icon { font-size: 2rem; color: #333; margin-bottom: 14px; }
+                    .wfb-canvas-empty-text { font-size: 0.82rem; color: #555; line-height: 1.5; max-width: 280px; }
+
+                    /* Zoom controls */
+                    .wfb-zoom-controls { position: absolute; bottom: 14px; left: 14px; display: flex; align-items: center; gap: 4px; z-index: 10; }
+                    .wfb-zoom-btn { width: 32px; height: 32px; border-radius: 8px; background: rgba(20,20,28,0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; color: #aaa; cursor: pointer; font-size: 0.8rem; transition: all 0.15s; }
+                    .wfb-zoom-btn:hover { background: rgba(40,40,52,0.9); color: #fff; }
+                    .wfb-zoom-level { font-size: 0.68rem; color: #666; padding: 0 6px; min-width: 36px; text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+                    /* Minimap */
+                    .wfb-minimap { position: absolute; bottom: 14px; right: 14px; width: 140px; height: 90px; border-radius: 8px; background: rgba(20,20,28,0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); z-index: 10; overflow: hidden; }
+                    .wfb-minimap-viewport { position: absolute; border: 1px solid rgba(0,255,136,0.4); background: rgba(0,255,136,0.05); border-radius: 2px; }
+
+                    /* ── Right: Config Panel ── */
+                    .wfb-config-panel { width: 0; flex-shrink: 0; background: rgba(255,255,255,0.02); border-left: none; overflow: hidden; transition: width 0.25s; }
+                    .wfb-config-panel.wfb-config-open { width: 300px; border-left: 1px solid rgba(255,255,255,0.06); overflow-y: auto; }
+                    .wfb-config-inner { min-width: 300px; padding: 16px; display: flex; flex-direction: column; height: 100%; }
+                    .wfb-config-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+                    .wfb-config-header-icon { width: 32px; height: 32px; border-radius: 8px; background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.12); display: flex; align-items: center; justify-content: center; font-size: 0.82rem; color: var(--accent); flex-shrink: 0; }
+                    .wfb-config-header-title { font-size: 0.88rem; font-weight: 700; margin: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                    .wfb-config-close { width: 28px; height: 28px; border-radius: 7px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; color: #888; cursor: pointer; font-size: 0.7rem; transition: all 0.15s; flex-shrink: 0; }
+                    .wfb-config-close:hover { background: rgba(255,255,255,0.08); color: #ccc; }
+                    .wfb-config-form { flex: 1; overflow-y: auto; }
+                    .wfb-config-footer { padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06); margin-top: auto; }
+
+                    /* Config form elements */
+                    .wfb-field { margin-bottom: 14px; }
+                    .wfb-field-label { display: block; font-size: 0.72rem; font-weight: 600; color: #888; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+                    .wfb-field-input { width: 100%; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #ccc; font-size: 0.82rem; outline: none; transition: border-color 0.2s; }
+                    .wfb-field-input:focus { border-color: rgba(0,255,136,0.3); }
+                    .wfb-field-textarea { resize: vertical; min-height: 72px; font-family: inherit; }
+                    .wfb-field-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23666'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
+                    .wfb-field-hint { font-size: 0.68rem; color: #555; margin-top: 4px; }
+
+                    /* ── Build with AI Modal ── */
+                    .wfb-ai-modal { position: fixed; inset: 0; z-index: 9999; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+                    .wfb-ai-modal.wfb-ai-modal-open { display: flex; }
+                    .wfb-ai-modal-content { width: 90%; max-width: 580px; background: rgba(20,20,28,0.96); backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%); border-width: 1px; border-style: solid; border-color: rgba(255,255,255,0.15) rgba(255,255,255,0.05) rgba(255,255,255,0.05) rgba(255,255,255,0.1); border-radius: 18px; box-shadow: 0 24px 64px rgba(0,0,0,0.6); padding: 28px; }
+                    .wfb-ai-modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+                    .wfb-ai-modal-title-group { display: flex; align-items: center; gap: 10px; }
+                    .wfb-ai-modal-icon { width: 40px; height: 40px; border-radius: 11px; background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(59,130,246,0.15)); border: 1px solid rgba(139,92,246,0.2); display: flex; align-items: center; justify-content: center; font-size: 1.05rem; color: #a78bfa; }
+                    .wfb-ai-modal-title { font-size: 1.05rem; font-weight: 700; margin: 0; }
+                    .wfb-ai-modal-subtitle { font-size: 0.76rem; color: #777; margin: 2px 0 0; }
+                    .wfb-ai-modal-close { width: 32px; height: 32px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; color: #888; cursor: pointer; font-size: 0.8rem; transition: all 0.15s; }
+                    .wfb-ai-modal-close:hover { background: rgba(255,255,255,0.08); color: #ccc; }
+
+                    .wfb-ai-textarea { width: 100%; min-height: 120px; padding: 14px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); color: #ddd; font-size: 0.88rem; font-family: inherit; resize: vertical; outline: none; line-height: 1.55; transition: border-color 0.2s; }
+                    .wfb-ai-textarea:focus { border-color: rgba(139,92,246,0.35); }
+                    .wfb-ai-textarea::placeholder { color: #555; }
+
+                    .wfb-ai-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 20px; }
+                    .wfb-ai-chip { padding: 6px 14px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); color: #999; font-size: 0.76rem; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+                    .wfb-ai-chip:hover { background: rgba(139,92,246,0.08); border-color: rgba(139,92,246,0.2); color: #c4b5fd; }
+
+                    .wfb-ai-build-btn { width: 100%; padding: 12px; border-radius: 10px; background: linear-gradient(135deg, #8b5cf6, #3b82f6); color: #fff; font-size: 0.88rem; font-weight: 700; border: none; cursor: pointer; transition: opacity 0.2s, transform 0.15s; position: relative; overflow: hidden; }
+                    .wfb-ai-build-btn:hover { opacity: 0.9; }
+                    .wfb-ai-build-btn:active { transform: scale(0.98); }
+                    .wfb-ai-build-btn::after { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent); animation: wfbShimmer 2.5s infinite; }
+                    @keyframes wfbShimmer { to { left: 100%; } }
+
+                    /* AI loading state */
+                    .wfb-ai-loading { display: none; align-items: center; justify-content: center; flex-direction: column; gap: 14px; padding: 32px 0; }
+                    .wfb-ai-loading.wfb-ai-loading-active { display: flex; }
+                    .wfb-ai-loading-dot-group { display: flex; gap: 6px; }
+                    .wfb-ai-loading-dot { width: 10px; height: 10px; border-radius: 50%; background: #8b5cf6; animation: wfbPulse 1.4s ease-in-out infinite; }
+                    .wfb-ai-loading-dot:nth-child(2) { animation-delay: 0.2s; }
+                    .wfb-ai-loading-dot:nth-child(3) { animation-delay: 0.4s; }
+                    @keyframes wfbPulse { 0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1); } }
+                    .wfb-ai-loading-text { font-size: 0.82rem; color: #888; }
+
+                    /* ── Light Theme ── */
+                    body.light-theme .wfb-list-icon { background: rgba(0,170,94,0.08); border-color: rgba(0,170,94,0.15); color: var(--lt-accent); }
+                    body.light-theme .wfb-list-title { color: var(--lt-text-primary); }
+                    body.light-theme .wfb-list-subtitle { color: var(--lt-text-muted); }
+                    body.light-theme .wfb-btn-accent { background: var(--lt-accent); color: #fff; }
+                    body.light-theme .wfb-btn-accent:hover { background: #008a4e; }
+                    body.light-theme .wfb-btn-ai { background: linear-gradient(135deg, rgba(139,92,246,0.08), rgba(59,130,246,0.08)); color: #7c3aed; border-color: rgba(139,92,246,0.15); }
+                    body.light-theme .wfb-btn-glass { background: var(--lt-surface); color: var(--lt-text-secondary); border-color: var(--lt-border); }
+                    body.light-theme .wfb-btn-glass:hover { background: var(--lt-surface-hover); color: var(--lt-text-primary); }
+                    body.light-theme .wfb-btn-danger { background: rgba(239,68,68,0.06); color: #dc2626; border-color: rgba(239,68,68,0.12); }
+
+                    body.light-theme .wfb-card { background: var(--lt-surface); border-color: var(--lt-border); }
+                    body.light-theme .wfb-card:hover { border-color: rgba(0,170,94,0.25); background: rgba(0,170,94,0.03); }
+                    body.light-theme .wfb-card-name { color: var(--lt-text-primary); }
+                    body.light-theme .wfb-card-desc { color: var(--lt-text-muted); }
+                    body.light-theme .wfb-card-trigger-icon { background: rgba(0,170,94,0.06); border-color: rgba(0,170,94,0.12); color: var(--lt-accent); }
+                    body.light-theme .wfb-card-menu-btn { color: var(--lt-text-muted); }
+                    body.light-theme .wfb-card-menu-btn:hover { background: rgba(0,0,0,0.04); color: var(--lt-text-primary); }
+                    body.light-theme .wfb-card-trigger-label { color: var(--lt-text-muted); }
+                    body.light-theme .wfb-card-nodes { color: var(--lt-text-muted); }
+                    body.light-theme .wfb-card-menu { background: rgba(255,255,255,0.96); border-color: var(--lt-border); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+                    body.light-theme .wfb-card-menu-item { color: var(--lt-text-secondary); }
+                    body.light-theme .wfb-card-menu-item:hover { background: rgba(0,0,0,0.04); color: var(--lt-text-primary); }
+
+                    body.light-theme .wfb-badge-draft { background: rgba(0,0,0,0.05); color: var(--lt-text-muted); }
+                    body.light-theme .wfb-badge-active { background: rgba(0,170,94,0.08); color: var(--lt-accent); }
+                    body.light-theme .wfb-badge-paused { background: rgba(217,119,6,0.08); color: #b45309; }
+                    body.light-theme .wfb-badge-draft .wfb-badge-dot { background: var(--lt-text-muted); }
+                    body.light-theme .wfb-badge-active .wfb-badge-dot { background: var(--lt-accent); }
+                    body.light-theme .wfb-badge-paused .wfb-badge-dot { background: #b45309; }
+
+                    body.light-theme .wfb-empty-icon { background: rgba(0,0,0,0.03); border-color: var(--lt-border); color: var(--lt-text-faint); }
+                    body.light-theme .wfb-empty-title { color: var(--lt-text-primary); }
+                    body.light-theme .wfb-empty-desc { color: var(--lt-text-muted); }
+
+                    body.light-theme .wfb-toolbar { background: var(--lt-surface); border-color: var(--lt-border); }
+                    body.light-theme .wfb-toolbar-back { background: rgba(0,0,0,0.04); border-color: var(--lt-border); color: var(--lt-text-muted); }
+                    body.light-theme .wfb-toolbar-back:hover { background: rgba(0,0,0,0.07); color: var(--lt-text-primary); }
+                    body.light-theme .wfb-toolbar-divider { background: var(--lt-border); }
+                    body.light-theme .wfb-toolbar-name { color: var(--lt-text-primary); }
+                    body.light-theme .wfb-toolbar-name:hover { border-color: var(--lt-border); background: rgba(0,0,0,0.02); }
+                    body.light-theme .wfb-toolbar-name:focus { border-color: rgba(0,170,94,0.3); background: rgba(0,170,94,0.03); }
+                    body.light-theme .wfb-toolbar-more { background: rgba(0,0,0,0.04); border-color: var(--lt-border); color: var(--lt-text-muted); }
+                    body.light-theme .wfb-toolbar-menu { background: rgba(255,255,255,0.96); border-color: var(--lt-border); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+
+                    body.light-theme .wfb-toggle { background: rgba(0,0,0,0.08); border-color: rgba(0,0,0,0.12); }
+                    body.light-theme .wfb-toggle.wfb-toggle-on { background: rgba(0,170,94,0.15); border-color: rgba(0,170,94,0.25); }
+                    body.light-theme .wfb-toggle-knob { background: #999; }
+                    body.light-theme .wfb-toggle.wfb-toggle-on .wfb-toggle-knob { background: var(--lt-accent); }
+
+                    body.light-theme .wfb-editor-body { border-color: var(--lt-border); background: rgba(0,0,0,0.02); }
+
+                    body.light-theme .wfb-palette { background: var(--lt-surface); border-right-color: var(--lt-border); }
+                    body.light-theme .wfb-palette-toggle { background: rgba(0,0,0,0.04); border-color: var(--lt-border); color: var(--lt-text-muted); }
+                    body.light-theme .wfb-palette-search { background: var(--lt-input-bg); border-color: var(--lt-border); color: var(--lt-input-text); }
+                    body.light-theme .wfb-palette-search-icon { color: var(--lt-text-faint); }
+                    body.light-theme .wfb-palette-cat-chevron { color: var(--lt-text-faint); }
+                    body.light-theme .wfb-palette-cat-label { color: var(--lt-text-muted); }
+                    body.light-theme .wfb-palette-item { color: var(--lt-text-secondary); }
+                    body.light-theme .wfb-palette-item:hover { background: rgba(0,0,0,0.04); color: var(--lt-text-primary); }
+                    body.light-theme .wfb-palette-item i { color: var(--lt-text-muted); }
+                    body.light-theme .wfb-palette-feedback-link { color: var(--lt-text-muted); }
+                    body.light-theme .wfb-palette-feedback-link:hover { color: var(--lt-accent); }
+                    body.light-theme .wfb-palette-feedback-input { background: var(--lt-input-bg); border-color: var(--lt-border); color: var(--lt-input-text); }
+                    body.light-theme .wfb-palette-custom-empty { color: var(--lt-text-faint); }
+
+                    body.light-theme .wfb-canvas { background-image: radial-gradient(circle, rgba(0,0,0,0.07) 1px, transparent 1px); }
+                    body.light-theme .wfb-canvas-empty-icon { color: var(--lt-text-faint); }
+                    body.light-theme .wfb-canvas-empty-text { color: var(--lt-text-muted); }
+                    body.light-theme .wfb-zoom-btn { background: rgba(255,255,255,0.9); border-color: var(--lt-border); color: var(--lt-text-secondary); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+                    body.light-theme .wfb-zoom-btn:hover { background: #fff; color: var(--lt-text-primary); }
+                    body.light-theme .wfb-zoom-level { color: var(--lt-text-muted); }
+                    body.light-theme .wfb-minimap { background: rgba(255,255,255,0.9); border-color: var(--lt-border); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+                    body.light-theme .wfb-minimap-viewport { border-color: rgba(0,170,94,0.4); background: rgba(0,170,94,0.05); }
+
+                    body.light-theme .wfb-config-panel.wfb-config-open { background: var(--lt-surface); border-left-color: var(--lt-border); }
+                    body.light-theme .wfb-config-header { border-bottom-color: var(--lt-border); }
+                    body.light-theme .wfb-config-header-icon { background: rgba(0,170,94,0.06); border-color: rgba(0,170,94,0.12); color: var(--lt-accent); }
+                    body.light-theme .wfb-config-header-title { color: var(--lt-text-primary); }
+                    body.light-theme .wfb-config-close { background: rgba(0,0,0,0.04); border-color: var(--lt-border); color: var(--lt-text-muted); }
+                    body.light-theme .wfb-config-close:hover { background: rgba(0,0,0,0.07); color: var(--lt-text-primary); }
+                    body.light-theme .wfb-config-footer { border-top-color: var(--lt-border); }
+                    body.light-theme .wfb-field-label { color: var(--lt-text-muted); }
+                    body.light-theme .wfb-field-input { background: var(--lt-input-bg); border-color: var(--lt-border); color: var(--lt-input-text); }
+                    body.light-theme .wfb-field-hint { color: var(--lt-text-faint); }
+
+                    body.light-theme .wfb-ai-modal-content { background: rgba(255,255,255,0.96); border-color: rgba(0,0,0,0.08); box-shadow: 0 24px 64px rgba(0,0,0,0.15); }
+                    body.light-theme .wfb-ai-modal-title { color: var(--lt-text-primary); }
+                    body.light-theme .wfb-ai-modal-subtitle { color: var(--lt-text-muted); }
+                    body.light-theme .wfb-ai-modal-close { background: rgba(0,0,0,0.04); border-color: var(--lt-border); color: var(--lt-text-muted); }
+                    body.light-theme .wfb-ai-textarea { background: var(--lt-input-bg); border-color: var(--lt-border); color: var(--lt-input-text); }
+                    body.light-theme .wfb-ai-textarea::placeholder { color: var(--lt-text-faint); }
+                    body.light-theme .wfb-ai-chip { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.07); color: var(--lt-text-muted); }
+                    body.light-theme .wfb-ai-chip:hover { background: rgba(139,92,246,0.06); border-color: rgba(139,92,246,0.15); color: #7c3aed; }
+                    body.light-theme .wfb-ai-loading-text { color: var(--lt-text-muted); }
+
+                    /* ── Responsive ── */
+                    @media (max-width: 768px) {
+                        .wfb-palette { width: 180px; }
+                        .wfb-palette-inner { min-width: 180px; }
+                        .wfb-config-panel.wfb-config-open { width: 260px; }
+                        .wfb-config-inner { min-width: 260px; }
+                        .wfb-grid { grid-template-columns: 1fr; }
+                    }
+                    @media (max-width: 640px) {
+                        .wfb-palette { position: absolute; z-index: 20; height: 100%; }
+                        .wfb-config-panel.wfb-config-open { position: absolute; z-index: 20; right: 0; height: 100%; }
+                    }
+                </style>
+
+                <!-- ════════════════════════════════════════════ -->
+                <!-- View 1: Workflow List                       -->
+                <!-- ════════════════════════════════════════════ -->
+                <div id="wfbListView">
+                    <div class="wfb-list-header">
+                        <div class="wfb-list-title-group">
+                            <div class="wfb-list-icon">
+                                <i class="fa-solid fa-diagram-project"></i>
+                            </div>
+                            <div>
+                                <h3 class="wfb-list-title">Workflows</h3>
+                                <p class="wfb-list-subtitle">Automate your lead follow-up and engagement</p>
+                            </div>
                         </div>
-                        <div>
-                            <h3 class="m-0" style="font-weight:700;">Create a Workflow</h3>
-                            <p class="m-0 wf-subtitle">Set up automation in your Lead Connector account</p>
+                        <div class="wfb-list-actions">
+                            <button class="wfb-btn wfb-btn-ai" id="wfbAiListBtn" type="button">
+                                <i class="fa-solid fa-microchip"></i>
+                                <span>Build with AI</span>
+                            </button>
+                            <button class="wfb-btn wfb-btn-accent" id="wfbNewBtn" type="button">
+                                <i class="fa-solid fa-plus"></i>
+                                <span>New Workflow</span>
+                            </button>
                         </div>
                     </div>
 
-                    <!-- Workflow Sub-tabs -->
-                    <div class="workflow-tabs">
-                        <button class="workflow-tab-btn active" onclick="switchWorkflow('reengage')">
-                            <i class="fa-solid fa-rotate me-2"></i>Re-Engage Workflow
-                        </button>
-                        <button class="workflow-tab-btn" onclick="switchWorkflow('smsreply')">
-                            <i class="fa-solid fa-comment-sms me-2"></i>SMS Reply Workflow
-                        </button>
-                        <button class="workflow-tab-btn" onclick="switchWorkflow('smarttags')">
-                            <i class="fa-solid fa-brain me-2"></i>Smart Tags
-                        </button>
+                    <!-- Workflow cards grid -->
+                    <div class="wfb-grid" id="wfbGrid">
+                        <!-- Cards injected by JS -->
                     </div>
 
-                    <!-- Video Walkthrough -->
-                    <div id="wf-video-wrapper" style="margin-bottom: 24px;">
-                        <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; border: 1px solid var(--glass-border);">
-                            <iframe src="https://www.youtube.com/embed/jqto80NvJGI" title="Workflow Setup Walkthrough" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe>
+                    <!-- Empty state (shown when no workflows) -->
+                    <div class="wfb-empty" id="wfbEmptyState">
+                        <div class="wfb-empty-icon">
+                            <i class="fa-solid fa-diagram-project"></i>
                         </div>
-                    </div>
-
-                    <!-- Re-Engage Workflow -->
-                    <div class="workflow-content active" id="wf-reengage">
-                        <div style="margin-bottom: 16px;">
-                            <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); font-weight: 700;">InsuranceGrokBot Re-Engage Workflow</span>
-                        </div>
-
-                        <div class="wf-step">
-                            <div class="wf-step-num">1</div>
-                            <div class="wf-step-text">Create a <strong>new workflow from scratch</strong> in your Lead Connector account.</div>
-                        </div>
-                        <div class="wf-step">
-                            <div class="wf-step-num">2</div>
-                            <div class="wf-step-text">Assign the trigger to <strong>"Tag Added"</strong>.</div>
-                        </div>
-                        <div class="wf-step">
-                            <div class="wf-step-num">3</div>
-                            <div class="wf-step-text">Add a <strong>Wait delay</strong> (1 or 2 minutes).</div>
-                        </div>
-                        <div class="wf-step">
-                            <div class="wf-step-num">4</div>
-                            <div class="wf-step-text">Select the <strong>"+"</strong> button, go to the <strong>"Apps"</strong> tab, scroll to <strong>InsuranceGrokBot</strong>, and select the action.</div>
-                        </div>
-                        <div class="wf-step">
-                            <div class="wf-step-num">5</div>
-                            <div class="wf-step-text">Add an <strong>"If/Else"</strong> condition. For the <strong>IF</strong>: check if contact has an <strong>"appointment booked"</strong> tag, then <strong>end the workflow</strong>.</div>
-                        </div>
-                        <div class="wf-step">
-                            <div class="wf-step-num">6</div>
-                            <div class="wf-step-text">Add a <strong>Wait</strong> step (1 day).</div>
-                        </div>
-                        <div class="wf-step">
-                            <div class="wf-step-num">7</div>
-                            <div class="wf-step-text">Add a <strong>"Go-To"</strong> and select above the first wait, under the trigger. This creates the re-engagement loop.</div>
-                        </div>
-                    </div>
-
-                    <!-- SMS Reply Workflow -->
-                    <div class="workflow-content" id="wf-smsreply">
-                        <div style="margin-bottom: 16px;">
-                            <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); font-weight: 700;">InsuranceGrokBot SMS Reply Workflow</span>
-                        </div>
-
-                        <div class="wf-step">
-                            <div class="wf-step-num">1</div>
-                            <div class="wf-step-text">Set the trigger to <strong>"SMS Received"</strong> by contact with tag.</div>
-                        </div>
-                        <div class="wf-step">
-                            <div class="wf-step-num">2</div>
-                            <div class="wf-step-text">Add a <strong>Wait</strong> step.</div>
-                        </div>
-                        <div class="wf-step">
-                            <div class="wf-step-num">3</div>
-                            <div class="wf-step-text">Select the <strong>"+"</strong> button, go to <strong>"Apps"</strong>, and add the <strong>InsuranceGrokBot</strong> action.</div>
-                        </div>
-                    </div>
-
-                    <!-- Smart Tags Guide -->
-                    <div class="workflow-content" id="wf-smarttags">
-                        <div style="margin-bottom: 16px;">
-                            <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); font-weight: 700;">Smart Tag Intelligence</span>
-                        </div>
-
-                        <p class="wf-smart-desc" style="margin-bottom: 20px;">
-                            Tags tell the AI what kind of lead it's talking to. The AI cross-references your tags with the contact's import date to verify accuracy. A "fresh" tag on a 90-day-old contact gets overridden automatically.
+                        <h4 class="wfb-empty-title">No workflows yet</h4>
+                        <p class="wfb-empty-desc">
+                            Create your first workflow to automate SMS follow-ups, AI calls, tagging, and more. Or let AI build one for you.
                         </p>
-
-                        <!-- Tag Cards -->
-                        <div class="wf-tag-grid">
-
-                            <div class="wf-tag-card wf-tag-fresh">
-                                <div class="wf-tag-header">
-                                    <i class="fa-solid fa-bolt"></i>
-                                    <span class="wf-tag-name">fresh</span>
-                                </div>
-                                <div class="wf-tag-desc">
-                                    Speed-to-lead. They just requested info. The AI knows they're expecting a response and adjusts its tone accordingly.
-                                </div>
-                                <div class="wf-tag-detail">
-                                    <div class="wf-tag-detail-row">
-                                        <span class="wf-tag-detail-label">Verified by date?</span>
-                                        <span class="wf-tag-detail-val wf-tag-yes">Yes</span>
-                                    </div>
-                                    <div class="wf-tag-detail-row">
-                                        <span class="wf-tag-detail-label">If tag + import &le; 3 days</span>
-                                        <span class="wf-tag-detail-val">Confirmed fresh</span>
-                                    </div>
-                                    <div class="wf-tag-detail-row">
-                                        <span class="wf-tag-detail-label">If tag + import 31-90 days</span>
-                                        <span class="wf-tag-detail-val wf-tag-warn">Overridden to aged</span>
-                                    </div>
-                                    <div class="wf-tag-detail-row">
-                                        <span class="wf-tag-detail-label">If tag + import 90+ days</span>
-                                        <span class="wf-tag-detail-val wf-tag-warn">Overridden to very old</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="wf-tag-card wf-tag-aged">
-                                <div class="wf-tag-header">
-                                    <i class="fa-solid fa-clock-rotate-left"></i>
-                                    <span class="wf-tag-name">aged</span>
-                                </div>
-                                <div class="wf-tag-desc">
-                                    Purchased aged lead, 30+ days old. The AI knows they may not remember filling out any form and adjusts expectations.
-                                </div>
-                                <div class="wf-tag-detail">
-                                    <div class="wf-tag-detail-row">
-                                        <span class="wf-tag-detail-label">Verified by date?</span>
-                                        <span class="wf-tag-detail-val wf-tag-yes">Yes</span>
-                                    </div>
-                                    <div class="wf-tag-detail-row">
-                                        <span class="wf-tag-detail-label">If tag + import &le; 7 days</span>
-                                        <span class="wf-tag-detail-val">Recently purchased aged</span>
-                                    </div>
-                                    <div class="wf-tag-detail-row">
-                                        <span class="wf-tag-detail-label">If tag + import 90+ days</span>
-                                        <span class="wf-tag-detail-val wf-tag-warn">Upgraded to very old</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="wf-tag-card wf-tag-reengage">
-                                <div class="wf-tag-header">
-                                    <i class="fa-solid fa-rotate"></i>
-                                    <span class="wf-tag-name">re-engage</span>
-                                </div>
-                                <div class="wf-tag-desc">
-                                    Dormant lead you're circling back to. Always trusted regardless of date because this is an explicit agent action.
-                                </div>
-                                <div class="wf-tag-detail">
-                                    <div class="wf-tag-detail-row">
-                                        <span class="wf-tag-detail-label">Verified by date?</span>
-                                        <span class="wf-tag-detail-val">No (always trusted)</span>
-                                    </div>
-                                    <div class="wf-tag-detail-row">
-                                        <span class="wf-tag-detail-label">Priority</span>
-                                        <span class="wf-tag-detail-val">Highest (overrides other tags)</span>
-                                    </div>
-                                </div>
-                            </div>
-
+                        <div class="wfb-empty-actions">
+                            <button class="wfb-btn wfb-btn-ai" id="wfbAiEmptyBtn" type="button">
+                                <i class="fa-solid fa-microchip"></i>
+                                <span>Build with AI</span>
+                            </button>
+                            <button class="wfb-btn wfb-btn-accent" id="wfbNewEmptyBtn" type="button">
+                                <i class="fa-solid fa-plus"></i>
+                                <span>New Workflow</span>
+                            </button>
                         </div>
-
-                        <!-- Date Intelligence -->
-                        <div class="wf-date-intel-box" style="margin-top: 28px;">
-                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-                                <i class="fa-solid fa-calendar-check wf-date-intel-icon"></i>
-                                <span style="font-weight: 700; font-size: 0.95rem;">Date Intelligence</span>
-                            </div>
-                            <p class="wf-date-intel-desc" style="margin: 0 0 12px;">
-                                The AI automatically reads the contact's <strong>Date Added</strong> or <strong>Date Created</strong> from your CRM. Even without tags, it can infer lead freshness:
-                            </p>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
-                                <div class="wf-date-pill">
-                                    <span class="wf-date-range">0-3 days</span>
-                                    <span class="wf-date-type wf-date-fresh">Inferred fresh</span>
-                                </div>
-                                <div class="wf-date-pill">
-                                    <span class="wf-date-range">4-30 days</span>
-                                    <span class="wf-date-type wf-date-ambiguous">Ambiguous</span>
-                                </div>
-                                <div class="wf-date-pill">
-                                    <span class="wf-date-range">31-90 days</span>
-                                    <span class="wf-date-type wf-date-aged">Inferred aged</span>
-                                </div>
-                                <div class="wf-date-pill">
-                                    <span class="wf-date-range">90+ days</span>
-                                    <span class="wf-date-type wf-date-old">Very old</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Lead Vendor Custom Field -->
-                        <div class="wf-vendor-box" style="margin-top: 20px;">
-                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-                                <i class="fa-solid fa-store wf-vendor-icon"></i>
-                                <span style="font-weight: 700; font-size: 0.95rem;">Lead Vendor (Custom Field)</span>
-                            </div>
-                            <p class="wf-vendor-desc" style="margin: 0 0 12px;">
-                                If you have a custom field in your CRM named any of the following, the AI will automatically extract the lead vendor and include it in the contact's profile:
-                            </p>
-                            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
-                                <code class="wf-cf-chip">lead_vendor</code>
-                                <code class="wf-cf-chip">lead_source</code>
-                                <code class="wf-cf-chip">lead_provider</code>
-                                <code class="wf-cf-chip">vendor</code>
-                            </div>
-                            <p class="wf-vendor-hint">
-                                This helps the AI understand where the lead came from (QuoteWizard, MediaAlpha, etc.) and adjust its approach.
-                            </p>
-                        </div>
-
-                        <!-- Multiple Tags Warning -->
-                        <div class="wf-multitag-box" style="margin-top: 20px;">
-                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-                                <i class="fa-solid fa-tags wf-multitag-icon"></i>
-                                <span style="font-weight: 700; font-size: 0.95rem;">Multiple Tags</span>
-                            </div>
-                            <p class="wf-multitag-desc" style="margin: 0;">
-                                If a contact has conflicting tags (e.g. both "fresh" and "aged"), the AI uses this priority: <strong>re-engage</strong> wins over <strong>fresh</strong>, which wins over <strong>aged</strong>. The import date is then used to verify whichever tag won. Stale tags get overridden automatically.
-                            </p>
-                        </div>
-
                     </div>
-
                 </div>
+
+                <!-- ════════════════════════════════════════════ -->
+                <!-- View 2: Workflow Editor                     -->
+                <!-- ════════════════════════════════════════════ -->
+                <div id="wfbEditorView" class="wfb-hidden">
+                    <div class="wfb-editor">
+
+                        <!-- Top Toolbar -->
+                        <div class="wfb-toolbar">
+                            <button class="wfb-toolbar-back" id="wfbBackBtn" type="button" title="Back to list">
+                                <i class="fa-solid fa-arrow-left"></i>
+                            </button>
+                            <div class="wfb-toolbar-divider"></div>
+                            <input type="text" class="wfb-toolbar-name" id="wfbWorkflowName" value="Untitled Workflow" spellcheck="false">
+                            <span class="wfb-badge wfb-badge-draft" id="wfbEditorBadge">
+                                <span class="wfb-badge-dot"></span>
+                                Draft
+                            </span>
+                            <div class="wfb-toolbar-right">
+                                <div class="wfb-toggle" id="wfbActiveToggle" title="Activate / Pause">
+                                    <div class="wfb-toggle-knob"></div>
+                                </div>
+                                <span class="wfb-toggle-label" id="wfbToggleLabel">Inactive</span>
+                                <div class="wfb-toolbar-divider"></div>
+                                <button class="wfb-btn wfb-btn-ai wfb-btn-sm" id="wfbAiEditorBtn" type="button">
+                                    <i class="fa-solid fa-microchip"></i>
+                                    <span>AI</span>
+                                </button>
+                                <button class="wfb-btn wfb-btn-accent wfb-btn-sm" id="wfbSaveBtn" type="button">
+                                    <i class="fa-solid fa-check"></i>
+                                    <span>Save</span>
+                                </button>
+                                <div class="wfb-toolbar-more-wrap" data-wfb-relative>
+                                    <button class="wfb-toolbar-more" id="wfbMoreBtn" type="button" title="More options">
+                                        <i class="fa-solid fa-ellipsis"></i>
+                                    </button>
+                                    <div class="wfb-toolbar-menu wfb-hidden" id="wfbMoreMenu">
+                                        <button class="wfb-card-menu-item" data-action="duplicate">
+                                            <i class="fa-solid fa-copy"></i> Duplicate
+                                        </button>
+                                        <button class="wfb-card-menu-item" data-action="test">
+                                            <i class="fa-solid fa-flask"></i> Test Run
+                                        </button>
+                                        <button class="wfb-card-menu-item wfb-card-menu-item-danger" data-action="delete">
+                                            <i class="fa-solid fa-trash"></i> Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3-Panel Editor Body -->
+                        <div class="wfb-editor-body">
+
+                            <!-- Left: Node Palette -->
+                            <div class="wfb-palette" id="wfbPalette">
+                                <div class="wfb-palette-inner">
+                                    <div class="wfb-palette-search-wrap">
+                                        <i class="fa-solid fa-magnifying-glass wfb-palette-search-icon"></i>
+                                        <input type="text" class="wfb-palette-search" id="wfbPaletteSearch" placeholder="Search nodes...">
+                                    </div>
+
+                                    <!-- Triggers -->
+                                    <div class="wfb-palette-category" data-category="triggers">
+                                        <div class="wfb-palette-cat-header">
+                                            <i class="fa-solid fa-chevron-right wfb-palette-cat-chevron wfb-cat-open"></i>
+                                            <span class="wfb-palette-cat-label">Triggers</span>
+                                        </div>
+                                        <div class="wfb-palette-cat-items">
+                                            <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="contact_created">
+                                                <i class="fa-solid fa-user-plus"></i><span>Contact Created</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="sms_received">
+                                                <i class="fa-solid fa-comment-sms"></i><span>SMS Received</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="inbound_call">
+                                                <i class="fa-solid fa-phone"></i><span>Inbound Call</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="missed_call">
+                                                <i class="fa-solid fa-phone-slash"></i><span>Missed Call</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="voicemail">
+                                                <i class="fa-solid fa-voicemail"></i><span>Voicemail</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="tag_added">
+                                                <i class="fa-solid fa-tag"></i><span>Tag Added</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="tag_removed">
+                                                <i class="fa-solid fa-tag wfb-icon-strike"></i><span>Tag Removed</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="lead_age">
+                                                <i class="fa-solid fa-hourglass-half"></i><span>Lead Age</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="no_response">
+                                                <i class="fa-solid fa-clock"></i><span>No Response</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="scheduled">
+                                                <i class="fa-solid fa-calendar-clock"></i><span>Scheduled</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="manual">
+                                                <i class="fa-solid fa-hand-pointer"></i><span>Manual</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="birthday">
+                                                <i class="fa-solid fa-cake-candles"></i><span>Birthday</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="field_updated">
+                                                <i class="fa-solid fa-pen-field"></i><span>Field Updated</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="opted_out">
+                                                <i class="fa-solid fa-ban"></i><span>Opted Out</span>
+                                            </div>
+                                            <div class="wfb-palette-feedback">
+                                                <button class="wfb-palette-feedback-link" type="button" data-category="triggers">Not seeing what you need?</button>
+                                                <input type="text" class="wfb-palette-feedback-input wfb-hidden" placeholder="Describe the trigger you need..." data-category="triggers">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Actions -->
+                                    <div class="wfb-palette-category" data-category="actions">
+                                        <div class="wfb-palette-cat-header">
+                                            <i class="fa-solid fa-chevron-right wfb-palette-cat-chevron wfb-cat-open"></i>
+                                            <span class="wfb-palette-cat-label">Actions</span>
+                                        </div>
+                                        <div class="wfb-palette-cat-items">
+                                            <div class="wfb-palette-item" draggable="true" data-type="action" data-subtype="send_sms">
+                                                <i class="fa-solid fa-message"></i><span>Send SMS</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="action" data-subtype="make_ai_call">
+                                                <i class="fa-solid fa-phone-volume"></i><span>Make AI Call</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="action" data-subtype="add_tag">
+                                                <i class="fa-solid fa-tag"></i><span>Add Tag</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="action" data-subtype="remove_tag">
+                                                <i class="fa-solid fa-tags"></i><span>Remove Tag</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="action" data-subtype="update_field">
+                                                <i class="fa-solid fa-pen-to-square"></i><span>Update Field</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="action" data-subtype="add_note">
+                                                <i class="fa-solid fa-note-sticky"></i><span>Add Note</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="action" data-subtype="send_webhook">
+                                                <i class="fa-solid fa-globe"></i><span>Send Webhook</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="action" data-subtype="assign_agent">
+                                                <i class="fa-solid fa-user-gear"></i><span>Assign Agent</span>
+                                            </div>
+                                            <div class="wfb-palette-feedback">
+                                                <button class="wfb-palette-feedback-link" type="button" data-category="actions">Not seeing what you need?</button>
+                                                <input type="text" class="wfb-palette-feedback-input wfb-hidden" placeholder="Describe the action you need..." data-category="actions">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Logic -->
+                                    <div class="wfb-palette-category" data-category="logic">
+                                        <div class="wfb-palette-cat-header">
+                                            <i class="fa-solid fa-chevron-right wfb-palette-cat-chevron wfb-cat-open"></i>
+                                            <span class="wfb-palette-cat-label">Logic</span>
+                                        </div>
+                                        <div class="wfb-palette-cat-items">
+                                            <div class="wfb-palette-item" draggable="true" data-type="logic" data-subtype="if_else">
+                                                <i class="fa-solid fa-code-branch"></i><span>If / Then / Else</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="logic" data-subtype="loop">
+                                                <i class="fa-solid fa-repeat"></i><span>Loop / Repeat</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="logic" data-subtype="goto">
+                                                <i class="fa-solid fa-arrow-turn-down"></i><span>Go To</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="logic" data-subtype="wait">
+                                                <i class="fa-solid fa-clock"></i><span>Wait / Delay</span>
+                                            </div>
+                                            <div class="wfb-palette-item" draggable="true" data-type="logic" data-subtype="exit">
+                                                <i class="fa-solid fa-right-from-bracket"></i><span>Exit</span>
+                                            </div>
+                                            <div class="wfb-palette-feedback">
+                                                <button class="wfb-palette-feedback-link" type="button" data-category="logic">Not seeing what you need?</button>
+                                                <input type="text" class="wfb-palette-feedback-input wfb-hidden" placeholder="Describe the logic you need..." data-category="logic">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Coming Soon -->
+                                    <div class="wfb-palette-category" data-category="coming-soon">
+                                        <div class="wfb-palette-cat-header">
+                                            <i class="fa-solid fa-chevron-right wfb-palette-cat-chevron wfb-cat-open"></i>
+                                            <span class="wfb-palette-cat-label">Coming Soon</span>
+                                        </div>
+                                        <div class="wfb-palette-cat-items">
+                                            <div class="wfb-palette-item wfb-palette-item-disabled" draggable="false" data-type="coming_soon" data-subtype="move_pipeline">
+                                                <i class="fa-solid fa-chart-simple"></i>
+                                                <span>Move Pipeline Stage</span>
+                                                <i class="fa-solid fa-lock wfb-palette-item-lock"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- My Custom Actions -->
+                                    <div class="wfb-palette-category" data-category="custom">
+                                        <div class="wfb-palette-cat-header">
+                                            <i class="fa-solid fa-chevron-right wfb-palette-cat-chevron wfb-cat-open"></i>
+                                            <span class="wfb-palette-cat-label">My Custom Actions</span>
+                                        </div>
+                                        <div class="wfb-palette-cat-items" id="wfbCustomActions">
+                                            <div class="wfb-palette-custom-empty" id="wfbCustomEmpty">No custom actions yet</div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            <!-- Center: Canvas -->
+                            <div class="wfb-canvas-area">
+                                <button class="wfb-palette-toggle" id="wfbPaletteToggle" type="button" title="Toggle palette">
+                                    <i class="fa-solid fa-sidebar" id="wfbPaletteToggleIcon"></i>
+                                </button>
+
+                                <div class="wfb-canvas-wrap" id="wfbCanvasWrap">
+                                    <div class="wfb-canvas" id="wfbCanvas">
+                                        <svg class="wfb-svg-layer" id="wfbSvgLayer"></svg>
+                                    </div>
+                                </div>
+
+                                <!-- Canvas empty state -->
+                                <div class="wfb-canvas-empty" id="wfbCanvasEmpty">
+                                    <div class="wfb-canvas-empty-icon">
+                                        <i class="fa-solid fa-arrow-pointer"></i>
+                                    </div>
+                                    <p class="wfb-canvas-empty-text">
+                                        Drag actions from the palette, or <strong>Build with AI</strong> to get started
+                                    </p>
+                                </div>
+
+                                <!-- Zoom controls -->
+                                <div class="wfb-zoom-controls">
+                                    <button class="wfb-zoom-btn" id="wfbZoomOut" type="button" title="Zoom out">
+                                        <i class="fa-solid fa-minus"></i>
+                                    </button>
+                                    <span class="wfb-zoom-level" id="wfbZoomLevel">100%</span>
+                                    <button class="wfb-zoom-btn" id="wfbZoomIn" type="button" title="Zoom in">
+                                        <i class="fa-solid fa-plus"></i>
+                                    </button>
+                                    <button class="wfb-zoom-btn" id="wfbZoomFit" type="button" title="Fit all">
+                                        <i class="fa-solid fa-expand"></i>
+                                    </button>
+                                </div>
+
+                                <!-- Minimap -->
+                                <div class="wfb-minimap" id="wfbMinimap">
+                                    <div class="wfb-minimap-viewport" id="wfbMinimapViewport"></div>
+                                </div>
+                            </div>
+
+                            <!-- Right: Config Panel -->
+                            <div class="wfb-config-panel" id="wfbConfigPanel">
+                                <div class="wfb-config-inner">
+                                    <div class="wfb-config-header">
+                                        <div class="wfb-config-header-icon" id="wfbConfigIcon">
+                                            <i class="fa-solid fa-gear"></i>
+                                        </div>
+                                        <h4 class="wfb-config-header-title" id="wfbConfigTitle">Configure Node</h4>
+                                        <button class="wfb-config-close" id="wfbConfigClose" type="button" title="Close">
+                                            <i class="fa-solid fa-xmark"></i>
+                                        </button>
+                                    </div>
+                                    <div class="wfb-config-form" id="wfbConfigForm">
+                                        <!-- Dynamic form content injected by JS -->
+                                    </div>
+                                    <div class="wfb-config-footer">
+                                        <button class="wfb-btn wfb-btn-accent" id="wfbConfigSave" type="button">
+                                            <i class="fa-solid fa-check"></i>
+                                            <span>Apply</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ════════════════════════════════════════════ -->
+                <!-- Build with AI Modal                         -->
+                <!-- ════════════════════════════════════════════ -->
+                <div id="wfbAiModal" class="wfb-ai-modal">
+                    <div class="wfb-ai-modal-content">
+                        <div class="wfb-ai-modal-header">
+                            <div class="wfb-ai-modal-title-group">
+                                <div class="wfb-ai-modal-icon">
+                                    <i class="fa-solid fa-microchip"></i>
+                                </div>
+                                <div>
+                                    <h3 class="wfb-ai-modal-title">Build with AI</h3>
+                                    <p class="wfb-ai-modal-subtitle">Describe what you want to automate</p>
+                                </div>
+                            </div>
+                            <button class="wfb-ai-modal-close" id="wfbAiClose" type="button">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+
+                        <textarea class="wfb-ai-textarea" id="wfbAiPrompt" placeholder="Example: When a new lead comes in, wait 2 minutes, then send an SMS introducing myself. If they don't reply in 24 hours, make an AI call..."></textarea>
+
+                        <div class="wfb-ai-chips">
+                            <button class="wfb-ai-chip" type="button" data-prompt="Send an SMS when a new contact is created, wait 1 day, then follow up if no reply">Speed to Lead</button>
+                            <button class="wfb-ai-chip" type="button" data-prompt="When a lead goes 3 days without responding, make an AI call. If no answer, send a follow-up SMS the next day">Re-engage Cold Leads</button>
+                            <button class="wfb-ai-chip" type="button" data-prompt="When an inbound call is missed, immediately send an SMS apologizing and offer to call back. Wait 30 minutes then make an AI call">Missed Call Recovery</button>
+                            <button class="wfb-ai-chip" type="button" data-prompt="When a contact's birthday is today, send a personalized birthday SMS and add a 'birthday-greeted' tag">Birthday Outreach</button>
+                        </div>
+
+                        <div class="wfb-ai-loading" id="wfbAiLoading">
+                            <div class="wfb-ai-loading-dot-group">
+                                <div class="wfb-ai-loading-dot"></div>
+                                <div class="wfb-ai-loading-dot"></div>
+                                <div class="wfb-ai-loading-dot"></div>
+                            </div>
+                            <span class="wfb-ai-loading-text">Building your workflow...</span>
+                        </div>
+
+                        <button class="wfb-ai-build-btn" id="wfbAiBuildBtn" type="button">
+                            <i class="fa-solid fa-microchip"></i>
+                            Build Workflow
+                        </button>
+                    </div>
+                </div>
+
             </div>

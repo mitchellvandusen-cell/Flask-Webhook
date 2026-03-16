@@ -1742,6 +1742,133 @@ def init_db() -> bool:
             conn.rollback()
             logger.debug(f"team_audit_log migration note: {e}")
 
+        # 30. MIGRATION: Contact imports table for CSV/Excel/TXT import tracking
+        try:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS contact_imports (
+                    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+                    location_id TEXT NOT NULL,
+                    filename TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    total_rows INTEGER DEFAULT 0,
+                    imported INTEGER DEFAULT 0,
+                    updated INTEGER DEFAULT 0,
+                    skipped INTEGER DEFAULT 0,
+                    failed INTEGER DEFAULT 0,
+                    duplicate_strategy TEXT DEFAULT 'skip',
+                    apply_tags JSONB DEFAULT '[]',
+                    column_mapping JSONB DEFAULT '{}',
+                    preview_data JSONB DEFAULT '[]',
+                    error_log JSONB DEFAULT '[]',
+                    file_data JSONB DEFAULT '[]',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    completed_at TIMESTAMP,
+                    created_by TEXT
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_imports_loc ON contact_imports (location_id, created_at DESC)")
+            conn.commit()
+            logger.info("✅ Migration: Created contact_imports table")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"contact_imports migration note: {e}")
+
+        # 31. MIGRATION: Workflow builder tables
+        try:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS workflows (
+                    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+                    location_id TEXT NOT NULL,
+                    name TEXT NOT NULL DEFAULT 'Untitled Workflow',
+                    description TEXT DEFAULT '',
+                    status TEXT NOT NULL DEFAULT 'draft',
+                    trigger_type TEXT NOT NULL DEFAULT 'manual',
+                    trigger_config JSONB DEFAULT '{}',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    created_by TEXT,
+                    stats JSONB DEFAULT '{"runs": 0, "completed": 0, "failed": 0}'
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_workflows_loc ON workflows (location_id, status)")
+
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS workflow_steps (
+                    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+                    workflow_id TEXT NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
+                    step_type TEXT NOT NULL,
+                    step_subtype TEXT NOT NULL,
+                    config JSONB DEFAULT '{}',
+                    position_x FLOAT DEFAULT 0,
+                    position_y FLOAT DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_wf_steps_wf ON workflow_steps (workflow_id)")
+
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS workflow_connections (
+                    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+                    workflow_id TEXT NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
+                    from_step_id TEXT NOT NULL,
+                    to_step_id TEXT NOT NULL,
+                    branch_key TEXT DEFAULT 'default',
+                    sort_order INTEGER DEFAULT 0
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_wf_conn_wf ON workflow_connections (workflow_id)")
+
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS workflow_runs (
+                    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+                    workflow_id TEXT NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
+                    contact_id TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'running',
+                    current_step_id TEXT,
+                    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    completed_at TIMESTAMP,
+                    next_execute_at TIMESTAMP,
+                    error TEXT,
+                    context JSONB DEFAULT '{}'
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_wf_runs_wf ON workflow_runs (workflow_id, status)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_wf_runs_contact ON workflow_runs (contact_id, status)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_wf_runs_next ON workflow_runs (next_execute_at) WHERE status = 'running'")
+
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS workflow_step_logs (
+                    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+                    run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
+                    step_id TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    result JSONB DEFAULT '{}',
+                    executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_wf_logs_run ON workflow_step_logs (run_id, executed_at)")
+
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS workflow_custom_actions (
+                    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+                    location_id TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    description TEXT DEFAULT '',
+                    step_type TEXT NOT NULL DEFAULT 'action',
+                    icon TEXT DEFAULT 'fa-solid fa-puzzle-piece',
+                    color TEXT DEFAULT '#00b4ff',
+                    config_template JSONB DEFAULT '{}',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_wf_custom_loc ON workflow_custom_actions (location_id)")
+
+            conn.commit()
+            logger.info("✅ Migration: Created workflow builder tables (workflows, steps, connections, runs, logs, custom_actions)")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"workflow tables migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)

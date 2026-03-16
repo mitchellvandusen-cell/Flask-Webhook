@@ -297,6 +297,8 @@ from blueprints.calendar import calendar_bp
 from blueprints.inbox import inbox_bp
 from voice.numbers import numbers_bp
 from blueprints.team import team_bp
+from blueprints.contacts_import import contacts_import_bp
+from blueprints.workflows import workflows_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(public_bp)
@@ -315,6 +317,8 @@ app.register_blueprint(calendar_bp)
 app.register_blueprint(inbox_bp)
 app.register_blueprint(numbers_bp)
 app.register_blueprint(team_bp)
+app.register_blueprint(contacts_import_bp)
+app.register_blueprint(workflows_bp)
 
 logger.info("All modular blueprints registered successfully.")
 
