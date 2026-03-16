@@ -162,6 +162,8 @@ Master Twilio Account (platform owner — DIRECT CUSTOMER)
 | `message_utils.py` | Message batching and rapid-fire message collection utilities | small |
 | `payload_utils.py` | Webhook payload normalization for flexible GHL field extraction | small |
 | `forms.py` | Flask-WTF form definitions | small |
+| `voice/predictive_engine.py` | Erlang-C pacing, TCPA compliance tracker, agent state machine, callback queue, timezone/consent lookup | medium |
+| `voice/stream.py` | Call listen/intercept — live audio streaming WebSocket + takeover endpoint | small |
 | `crm_adapters/` | CRM adapter factory + GHL/HubSpot/Salesforce/Pipedrive/Zoho/Insureio/Zapier | directory |
 
 ### Blueprints (`blueprints/`)
@@ -519,6 +521,10 @@ All tables created in `db.py`'s `init_db()` function (plus `contact_intelligence
 - `GET /voice/contact-intelligence-bulk?ids=<csv>` — Bulk cached AI intelligence for Smart Filters (zero AI cost, reads from cache only). Returns `{cached: {id: {temperature, score, summary}}, uncached: [ids]}`
 - `POST /voice/contact-intelligence-analyze` — Batch-analyze uncached contacts via AI (up to 5 per request). Body: `{contact_ids: [...]}`
 
+### Call Listen & Intercept (Blueprint, voice/stream.py)
+- `WS /voice/listen-stream` — WebSocket endpoint for live call audio monitoring. Streams 8kHz mulaw audio from Twilio media stream to the agent's browser in real time. Pushes `None` sentinel to listener queues when call ends for instant cleanup.
+- `POST /voice/takeover` — Intercept an active AI call. Pre-validates call status via Twilio before attempting redirect. Returns structured errors (e.g. "call already ended") instead of Twilio 400 explosions.
+
 ### Multi-Line Dialer (Blueprint, voice/dialer.py)
 - `POST /voice/multi-dial` — Initiate up to 4 concurrent calls (Pro Dialer tier required). Body: `{contacts: [{contact_id, phone, first_name}], dial_mode, max_lines}`
 - `GET /voice/active-lines` — Current active call lines count and details for the user
@@ -584,6 +590,55 @@ When a GHL webhook arrives at `POST /webhook`:
 - Phone number management and Trust Hub (`voice/numbers.py`)
 - Multi-line dialer and predictive dialing (`voice/dialer.py`)
 - Predictive engine with Erlang-C pacing (`voice/predictive_engine.py`)
+
+---
+
+## Call Listen & Intercept (voice/stream.py + dialer.js)
+
+### What It Is
+Real-time call monitoring and agent takeover. Agents can listen to live AI-handled calls and intercept (take over) the call from the AI at any time.
+
+### Architecture
+
+**Listen (live audio stream):**
+- Agent clicks Listen → opens WebSocket to `WS /voice/listen-stream`
+- Server registers a `queue.Queue` in `call_listeners[call_sid]` dict
+- Twilio media stream pushes audio frames → server copies each frame to all listener queues
+- When the call ends, server pushes a `None` sentinel to all listener queues for instant exit (no 2-second timeout wait)
+- Client plays audio via Web Audio API (AudioContext + mulaw decoding)
+
+**Intercept (agent takeover):**
+- Agent clicks Intercept → `POST /voice/takeover` with `{call_sid, location_id}`
+- Server pre-fetches live call status from Twilio API before attempting redirect
+- If call already ended (completed/busy/canceled/failed/no-answer), returns 400 with `"already ended"` message — avoids Twilio 400 explosion
+- If call is live, redirects Twilio call to agent's TwiML app conference
+- On successful intercept, frontend stops the listen stream (agent is now on the call directly)
+
+### Race Condition Guards
+
+**Stale WebSocket protection (frontend):**
+- `_listenWs` reference tracked globally; all `onmessage`/`onclose`/`onerror` handlers check `if (ws !== _listenWs) return` before processing
+- Prevents old socket events from interfering with new connections
+- `_listenReconnectTimer` prevents duplicate reconnect timers from stacking up
+- `_stopListenStream()` sets `onclose = null` before closing socket so the close event doesn't trigger a reconnect
+
+**Intercept resilience (frontend):**
+- `retries: 0` on takeover fetch (prevents double-redirect on failure)
+- On 400 with "already ended" in response, shows disabled "Call Ended" button state instead of misleading "Intercept" reset
+- Successful intercept auto-stops listen stream
+
+**Server-side cleanup (voice/stream.py):**
+- `'busy'` added to terminal call state check (was previously missing)
+- `None` sentinel pushed to all listener queues when Twilio stream ends, ensuring listeners exit immediately
+
+### Key Functions
+| Location | Function | Purpose |
+|----------|----------|---------|
+| `voice/stream.py` | `listen_stream()` | WebSocket endpoint — registers listener queue, streams audio frames |
+| `voice/stream.py` | `takeover()` | Pre-validates call status, then redirects to agent conference |
+| `dialer.js` | `_startListenStream()` | Opens WebSocket, plays audio via AudioContext, handles reconnect |
+| `dialer.js` | `_stopListenStream()` | Closes WebSocket with stale-socket guards, cleans up AudioContext |
+| `dialer.js` | `dialerTakeover()` | Calls `/voice/takeover`, handles ended-call state, stops listen on success |
 
 ---
 
