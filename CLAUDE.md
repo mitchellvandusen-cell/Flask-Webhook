@@ -154,6 +154,14 @@ Master Twilio Account (platform owner — DIRECT CUSTOMER)
 | `ghl_sync.py` | GHL data sync engine — pulls conversations, opportunities, phone numbers into local DB | ~900 lines |
 | `twilio_sms.py` | Direct Twilio SMS sender — bypasses GHL API, drop-in replacement for ghl_message.py | small |
 | `lead_intelligence.py` | AI-powered lead intelligence via xAI Grok micro-prompts with caching | medium |
+| `email_templates.py` | Premium HTML email builder for invites, onboarding, reminders | ~1020 lines |
+| `booking_detection.py` | Calendar booking detection via xAI — detects when contacts want to schedule | ~560 lines |
+| `translations.py` | i18n/internationalization support — multi-language UI strings | small |
+| `token_encryption.py` | Fernet symmetric encryption/decryption for OAuth tokens at rest | small |
+| `lead_resolver.py` | Smart lead type detection combining GHL tags + dates | small |
+| `message_utils.py` | Message batching and rapid-fire message collection utilities | small |
+| `payload_utils.py` | Webhook payload normalization for flexible GHL field extraction | small |
+| `forms.py` | Flask-WTF form definitions | small |
 | `crm_adapters/` | CRM adapter factory + GHL/HubSpot/Salesforce/Pipedrive/Zoho/Insureio/Zapier | directory |
 
 ### Blueprints (`blueprints/`)
@@ -258,6 +266,16 @@ The voice bridge has been decomposed from a single `voice_bridge.py` (~193KB) in
 
 ### Slack (optional)
 - `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_REDIRECT_URI`
+
+### GHL Conversation Providers
+- `GHL_SMS_CONVERSATION_PROVIDER_ID` — Custom SMS provider ID (default: `699c84aef36d66cc10a56e82`)
+- `GHL_CALL_CONVERSATION_PROVIDER_ID` — Call provider ID (default: `699c83535fc465bbff87a78d`)
+
+### Stripe (additional)
+- `STRIPE_SEAT_PRICE_ID` — Per-seat add-on pricing for team members
+
+### Affiliate
+- `REWARDFUL_API_SECRET` — Rewardful affiliate/referral tracking
 
 ### Cron / Scheduled Jobs
 - `CRON_SECRET` — Shared secret for authenticating cron endpoints (passed as `?key=` query param or `Authorization: Bearer` header)
