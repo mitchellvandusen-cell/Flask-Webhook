@@ -192,6 +192,40 @@ body.light-theme .sp-carrier-logo {
     box-shadow: 0 0 32px rgba(0, 255, 136, 0.25);
     transform: translateY(-2px);
 }
+body.light-theme .btn-primary,
+body.light-theme .tab-pane .btn-primary {
+    background: rgba(0,170,94,0.12) !important;
+    border: 1px solid rgba(0,170,94,0.3) !important;
+    color: var(--lt-accent) !important;
+    box-shadow: 0 0 12px rgba(0,170,94,0.06);
+}
+body.light-theme .btn-primary i,
+body.light-theme .tab-pane .btn-primary i { color: var(--lt-accent) !important; }
+body.light-theme .btn-primary:hover,
+body.light-theme .tab-pane .btn-primary:hover {
+    background: rgba(0,170,94,0.2) !important;
+    border-color: rgba(0,170,94,0.45) !important;
+    color: #016b3a !important;
+    box-shadow: 0 0 20px rgba(0,170,94,0.12);
+}
+body.light-theme .btn-primary:hover i,
+body.light-theme .tab-pane .btn-primary:hover i { color: #016b3a !important; }
+body.light-theme .btn-outline-light,
+body.light-theme .tab-pane .btn-outline-light {
+    background: rgba(0,0,0,0.04) !important;
+    border: 1px solid var(--lt-border) !important;
+    color: var(--lt-text-secondary) !important;
+}
+body.light-theme .btn-outline-light i,
+body.light-theme .tab-pane .btn-outline-light i { color: var(--lt-text-secondary) !important; }
+body.light-theme .btn-outline-light:hover,
+body.light-theme .tab-pane .btn-outline-light:hover {
+    background: rgba(0,0,0,0.08) !important;
+    color: var(--lt-text-primary) !important;
+    border-color: rgba(0,0,0,0.15) !important;
+}
+body.light-theme .btn-outline-light:hover i,
+body.light-theme .tab-pane .btn-outline-light:hover i { color: var(--lt-text-primary) !important; }
 
 .btn-outline-accent {
     border: 1px solid rgba(0, 255, 136, 0.4) !important;
@@ -1516,9 +1550,12 @@ body.light-theme .carrier-chip.selected .carrier-name { color: var(--lt-accent) 
 body.light-theme .carrier-chip .carrier-check { border-color: var(--lt-border-strong) !important; }
 
 /* ── CRM connect buttons ── */
-body.light-theme .crm-select-btn { background: var(--lt-surface) !important; border-color: var(--lt-border) !important; color: var(--lt-text-muted) !important; }
+body.light-theme .crm-select-btn { background: var(--lt-surface) !important; border-color: var(--lt-border) !important; color: var(--lt-text-secondary) !important; }
+body.light-theme .crm-select-btn i { color: var(--lt-text-secondary) !important; }
 body.light-theme .crm-select-btn:hover { border-color: var(--lt-accent-border) !important; color: var(--lt-accent) !important; background: var(--lt-accent-bg) !important; }
+body.light-theme .crm-select-btn:hover i { color: var(--lt-accent) !important; }
 body.light-theme .crm-select-btn.active { border-color: var(--lt-accent) !important; color: var(--lt-accent) !important; background: var(--lt-accent-bg) !important; }
+body.light-theme .crm-select-btn.active i { color: var(--lt-accent) !important; }
 
 /* ── Persistent alerts ── */
 body.light-theme .persistent-alert .pa-message { color: var(--lt-text-secondary) !important; }
@@ -5121,8 +5158,8 @@ body.light-theme .ni-banner-remediate-btn {
 }
 body.light-theme .ni-banner-remediate-btn:hover { color: var(--lt-text-primary); }
 
-body.light-theme .ni-register-btn { background: linear-gradient(135deg, #0088ff, #0066cc); color: #fff; }
-body.light-theme .ni-remediate-btn { background: linear-gradient(135deg, #ff8c00, #cc6600); color: #fff; }
+body.light-theme .ni-register-btn { background: linear-gradient(135deg, #0088ff, #0066cc) !important; color: #fff !important; border-color: transparent !important; }
+body.light-theme .ni-remediate-btn { background: linear-gradient(135deg, #ff8c00, #cc6600) !important; color: #fff !important; border-color: transparent !important; }
 
 body.light-theme .ni-result-success { color: #00aa5e; }
 body.light-theme .ni-result-error   { color: #dc2626; }
@@ -5233,10 +5270,24 @@ body.light-theme .sm-accordion-icon { color: var(--lt-text-secondary) !important
 body.light-theme .sm-accordion-item.open .sm-accordion-icon { color: var(--lt-accent) !important; }
 
 /* ── CNAM: status badges & action icons ── */
-body.light-theme .cnam-action-btn { color: var(--lt-text-muted) !important; }
-body.light-theme .cnam-action-btn:hover { color: var(--lt-text-primary) !important; }
+body.light-theme .cnam-action-btn { color: var(--lt-text-secondary) !important; background: rgba(0,0,0,0.05) !important; border-color: rgba(0,0,0,0.12) !important; }
+body.light-theme .cnam-action-btn:hover { color: #0064b4 !important; background: rgba(0,100,180,0.1) !important; border-color: rgba(0,100,180,0.25) !important; }
+body.light-theme .cnam-action-btn i { color: inherit !important; }
 body.light-theme .cnam-refresh-btn { color: var(--lt-text-secondary) !important; border-color: var(--lt-border) !important; background: var(--lt-surface) !important; }
 body.light-theme .cnam-refresh-btn i { color: var(--lt-text-secondary) !important; }
+
+/* ── CNAM/Voice Integrity: accordion badges (set via JS inline styles) ── */
+body.light-theme .sm-accordion-badge { color: #00875a !important; background: rgba(0,170,94,0.1) !important; }
+body.light-theme .sm-accordion-badge[style*="color:#ffa500"] { color: #b47800 !important; background: rgba(200,120,0,0.1) !important; }
+body.light-theme .sm-accordion-badge[style*="color:#ff4444"] { color: #c53030 !important; background: rgba(197,48,48,0.1) !important; }
+
+/* ── CNAM: stat pills (beside display name / count) ── */
+body.light-theme .cnam-stat-pill i { color: inherit !important; }
+
+/* ── Voice Integrity: remediate button icon ── */
+body.light-theme .ni-remediate-btn i { color: #fff !important; }
+body.light-theme .ni-register-btn { color: #fff !important; }
+body.light-theme .ni-register-btn i { color: #fff !important; }
 
 /* ── Numbers tab: Refresh button ── */
 body.light-theme #vstab-panel-numbers button[onclick="loadNumbersTab()"] { color: var(--lt-text-secondary) !important; border-color: var(--lt-border) !important; background: var(--lt-surface) !important; }
@@ -7367,12 +7418,14 @@ body.light-theme .conn-header-icon {
     background: rgba(0,170,94,0.08);
     border-color: rgba(0,170,94,0.18);
 }
+body.light-theme .conn-header-icon i { color: var(--lt-accent) !important; }
 body.light-theme .conn-subtitle { color: #6b7280; }
 body.light-theme .conn-badge {
     background: rgba(0,170,94,0.12);
     color: var(--lt-accent);
     border-color: rgba(0,170,94,0.25);
 }
+body.light-theme .conn-badge i { color: var(--lt-accent) !important; }
 body.light-theme .conn-webhook-box {
     background: rgba(0,170,94,0.06);
     border-color: rgba(0,170,94,0.2);
@@ -7384,15 +7437,18 @@ body.light-theme .conn-settings-menu {
     border-color: var(--lt-border);
 }
 body.light-theme .conn-menu-item { color: #6b7280; }
+body.light-theme .conn-menu-item i { color: inherit !important; }
 body.light-theme .conn-menu-item.active {
     background: rgba(0,170,94,0.08);
     border-color: rgba(0,170,94,0.15);
     color: var(--lt-accent);
 }
+body.light-theme .conn-menu-item.active i { color: var(--lt-accent) !important; }
 body.light-theme .conn-menu-item:hover:not(.active) {
     background: rgba(0,0,0,0.04);
     color: #374151;
 }
+body.light-theme .conn-menu-item:hover:not(.active) i { color: #374151 !important; }
 body.light-theme .conn-marketplace-cta {
     background: linear-gradient(135deg,rgba(59,130,246,0.08),rgba(99,102,241,0.05));
     border-color: rgba(59,130,246,0.2);
@@ -7403,26 +7459,34 @@ body.light-theme .conn-success-box {
     background: rgba(0,170,94,0.05);
     border-color: rgba(0,170,94,0.15);
 }
+body.light-theme .conn-success-box small { color: var(--lt-accent) !important; }
+body.light-theme .conn-success-box small i { color: var(--lt-accent) !important; }
 body.light-theme .conn-reauth-btn {
-    background: rgba(0,120,184,0.08);
-    border-color: rgba(0,120,184,0.2);
-    color: #0078b8;
+    background: rgba(0,120,184,0.08) !important;
+    border-color: rgba(0,120,184,0.2) !important;
+    color: #0078b8 !important;
 }
+body.light-theme .conn-reauth-btn i { color: #0078b8 !important; }
 body.light-theme .conn-reauth-btn:hover {
-    background: rgba(0,120,184,0.14);
+    background: rgba(0,120,184,0.14) !important;
+    color: #005a8c !important;
 }
+body.light-theme .conn-reauth-btn:hover i { color: #005a8c !important; }
 body.light-theme .conn-quick-connect {
     background: rgba(0,170,94,0.03);
     border-color: rgba(0,170,94,0.1);
 }
 body.light-theme .conn-detect-btn {
-    background: rgba(0,170,94,0.08);
-    color: var(--lt-accent);
-    border-color: rgba(0,170,94,0.18);
+    background: rgba(0,170,94,0.08) !important;
+    color: var(--lt-accent) !important;
+    border-color: rgba(0,170,94,0.18) !important;
 }
+body.light-theme .conn-detect-btn i { color: var(--lt-accent) !important; }
 body.light-theme .conn-detect-btn:hover {
-    background: rgba(0,170,94,0.14);
+    background: rgba(0,170,94,0.14) !important;
+    color: #016b3a !important;
 }
+body.light-theme .conn-detect-btn:hover i { color: #016b3a !important; }
 body.light-theme .conn-detect-hint { color: #6b7280; }
 body.light-theme .conn-input-dark {
     background: var(--lt-input-bg);
@@ -7462,13 +7526,15 @@ body.light-theme .conn-outbound-code {
     color: var(--lt-accent);
 }
 body.light-theme .conn-copy-btn {
-    background: rgba(0,170,94,0.08);
-    color: var(--lt-accent);
-    border-color: rgba(0,170,94,0.18);
+    background: rgba(0,170,94,0.08) !important;
+    color: var(--lt-accent) !important;
+    border-color: rgba(0,170,94,0.18) !important;
 }
+body.light-theme .conn-copy-btn i { color: var(--lt-accent) !important; }
 body.light-theme .conn-copy-btn:hover {
-    background: rgba(0,170,94,0.14);
+    background: rgba(0,170,94,0.14) !important;
 }
+body.light-theme .conn-copy-btn:hover i { color: #016b3a !important; }
 body.light-theme .conn-outbound-body-label { color: #374151; }
 body.light-theme .conn-outbound-pre {
     background: rgba(0,0,0,0.04);
