@@ -57,6 +57,8 @@
         loop:                { label: 'Loop',                icon: 'fa-solid fa-repeat',           category: 'condition' },
         goto:                { label: 'Go To',               icon: 'fa-solid fa-arrow-turn-down',  category: 'logic' },
         wait:                { label: 'Wait / Delay',        icon: 'fa-solid fa-clock',            category: 'delay' },
+        wait_until:          { label: 'Wait Until',          icon: 'fa-solid fa-hourglass-end',    category: 'delay' },
+        state_query:         { label: 'Query State',         icon: 'fa-solid fa-database',         category: 'logic' },
         exit:                { label: 'Exit',                icon: 'fa-solid fa-right-from-bracket',category: 'exit' },
         custom:              { label: 'Custom Action',       icon: 'fa-solid fa-puzzle-piece',     category: 'action' }
     };
@@ -75,17 +77,24 @@
         var st = node.subtype;
         if (st === 'send_sms') return c.message ? c.message.substring(0, 40) + (c.message.length > 40 ? '...' : '') : 'Configure message';
         if (st === 'ai_call') return c.voice_prompt ? 'Prompt set' : 'Configure prompt';
-        if (st === 'add_tag' || st === 'remove_tag') return c.tag_name || 'Set tag';
+        if (st === 'add_tag' || st === 'remove_tag') return c.tag_name || c.tag || 'Set tag';
         if (st === 'wait') return (c.duration || '?') + ' ' + (c.unit || 'hours');
+        if (st === 'wait_until') return c.condition ? (c.condition.field || 'condition') + ' (max ' + (c.max_wait_hours || 72) + 'h)' : 'Set condition';
+        if (st === 'state_query') return c.query_type ? c.query_type.replace(/_/g, ' ') + ' → ' + (c.store_as || 'result') : 'Set query';
         if (st === 'if_else') return (c.conditions && c.conditions.length) ? c.conditions.length + ' condition(s)' : 'Set conditions';
         if (st === 'loop') return 'Max ' + (c.max_iterations || '?') + ' iterations';
         if (st === 'send_webhook') return c.url ? c.url.substring(0, 30) : 'Set URL';
-        if (st === 'update_field') return c.field || 'Set field';
-        if (st === 'add_note') return c.note ? c.note.substring(0, 30) : 'Set note';
-        if (st === 'tag_added' || st === 'tag_removed') return c.tag_name || '';
+        if (st === 'update_field') return c.field || c.field_key || 'Set field';
+        if (st === 'add_note') return c.note || c.body ? (c.note || c.body).substring(0, 30) : 'Set note';
+        if (st === 'assign_agent') return c.assigned_to || 'Set agent';
+        if (st === 'move_stage') return c.pipeline_id ? 'Pipeline set' : 'Set pipeline';
+        if (st === 'custom') return c.action_name || c.description ? (c.action_name || c.description).substring(0, 30) : 'Custom action';
+        if (st === 'tag_added' || st === 'tag_removed') return c.tag_name || c.tag || '';
         if (st === 'scheduled') return c.cron || '';
         if (st === 'no_response') return (c.days || '3') + ' days';
         if (st === 'lead_age') return (c.days_since_import || '60') + ' days';
+        if (st === 'birthday_approaching') return (c.days_before || '7') + ' days before';
+        if (st === 'goto') return c.target_step_id ? 'Target set' : 'Set target';
         return '';
     }
 
@@ -474,6 +483,28 @@
             fp.innerHTML = '<span>N</span>';
             el.appendChild(tp);
             el.appendChild(fp);
+        } else if (node.subtype === 'wait_until') {
+            var mp = document.createElement('div');
+            mp.className = 'wfb-port wfb-port-output wfb-port-true';
+            mp.setAttribute('data-branch', 'condition_met');
+            mp.innerHTML = '<span>Met</span>';
+            var top = document.createElement('div');
+            top.className = 'wfb-port wfb-port-output wfb-port-false';
+            top.setAttribute('data-branch', 'timeout');
+            top.innerHTML = '<span>T/O</span>';
+            el.appendChild(mp);
+            el.appendChild(top);
+        } else if (node.subtype === 'loop') {
+            var lp = document.createElement('div');
+            lp.className = 'wfb-port wfb-port-output wfb-port-true';
+            lp.setAttribute('data-branch', 'loop');
+            lp.innerHTML = '<span>Loop</span>';
+            var ep = document.createElement('div');
+            ep.className = 'wfb-port wfb-port-output wfb-port-false';
+            ep.setAttribute('data-branch', 'exit');
+            ep.innerHTML = '<span>Exit</span>';
+            el.appendChild(lp);
+            el.appendChild(ep);
         } else if (cat !== 'exit') {
             var outp = document.createElement('div');
             outp.className = 'wfb-port wfb-port-output';
@@ -874,19 +905,34 @@
                 h += '<div class="wfb-condition-row">' +
                     '<select onchange="wfbCondField(this,' + i + ')"><option value="">Field...</option>' +
                         '<option value="firstName"' + (cond.field === 'firstName' ? ' selected' : '') + '>First Name</option>' +
+                        '<option value="lastName"' + (cond.field === 'lastName' ? ' selected' : '') + '>Last Name</option>' +
                         '<option value="phone"' + (cond.field === 'phone' ? ' selected' : '') + '>Phone</option>' +
+                        '<option value="email"' + (cond.field === 'email' ? ' selected' : '') + '>Email</option>' +
                         '<option value="tags"' + (cond.field === 'tags' ? ' selected' : '') + '>Tags</option>' +
                         '<option value="state"' + (cond.field === 'state' ? ' selected' : '') + '>State</option>' +
+                        '<option value="city"' + (cond.field === 'city' ? ' selected' : '') + '>City</option>' +
+                        '<option value="source"' + (cond.field === 'source' ? ' selected' : '') + '>Source</option>' +
                         '<option value="temperature"' + (cond.field === 'temperature' ? ' selected' : '') + '>AI Temperature</option>' +
                         '<option value="score"' + (cond.field === 'score' ? ' selected' : '') + '>AI Score</option>' +
                     '</select>' +
                     '<select><option value="equals"' + (cond.operator === 'equals' ? ' selected' : '') + '>equals</option>' +
                         '<option value="not_equals"' + (cond.operator === 'not_equals' ? ' selected' : '') + '>not equals</option>' +
                         '<option value="contains"' + (cond.operator === 'contains' ? ' selected' : '') + '>contains</option>' +
-                        '<option value="has_tag"' + (cond.operator === 'has_tag' ? ' selected' : '') + '>has tag</option>' +
+                        '<option value="starts_with"' + (cond.operator === 'starts_with' ? ' selected' : '') + '>starts with</option>' +
                         '<option value="is_empty"' + (cond.operator === 'is_empty' ? ' selected' : '') + '>is empty</option>' +
+                        '<option value="is_not_empty"' + (cond.operator === 'is_not_empty' ? ' selected' : '') + '>is not empty</option>' +
                         '<option value="greater_than"' + (cond.operator === 'greater_than' ? ' selected' : '') + '>greater than</option>' +
+                        '<option value="less_than"' + (cond.operator === 'less_than' ? ' selected' : '') + '>less than</option>' +
+                        '<option value="has_tag"' + (cond.operator === 'has_tag' ? ' selected' : '') + '>has tag</option>' +
+                        '<option value="no_tag"' + (cond.operator === 'no_tag' ? ' selected' : '') + '>no tag</option>' +
+                        '<option value="in_state"' + (cond.operator === 'in_state' ? ' selected' : '') + '>in state</option>' +
+                        '<option value="lead_age_days"' + (cond.operator === 'lead_age_days' ? ' selected' : '') + '>lead age (days)</option>' +
                         '<option value="temperature_is"' + (cond.operator === 'temperature_is' ? ' selected' : '') + '>temperature is</option>' +
+                        '<option value="score_above"' + (cond.operator === 'score_above' ? ' selected' : '') + '>score above</option>' +
+                        '<option value="score_below"' + (cond.operator === 'score_below' ? ' selected' : '') + '>score below</option>' +
+                        '<option value="responded_within"' + (cond.operator === 'responded_within' ? ' selected' : '') + '>responded within (min)</option>' +
+                        '<option value="total_messages_sent"' + (cond.operator === 'total_messages_sent' ? ' selected' : '') + '>total messages sent</option>' +
+                        '<option value="time_is_between"' + (cond.operator === 'time_is_between' ? ' selected' : '') + '>time is between</option>' +
                     '</select>' +
                     '<input value="' + _esc(cond.value || '') + '" placeholder="Value">' +
                     '<button class="wfb-condition-remove" onclick="this.parentNode.remove()"><i class="fa-solid fa-xmark"></i></button>' +
@@ -923,6 +969,73 @@
         } else if (node.subtype === 'lead_age') {
             h += '<div class="wfb-config-field"><label class="wfb-config-label">Days since import</label>' +
                 '<input class="wfb-config-input" type="number" id="cfgDays" value="' + (c.days_since_import || 60) + '" min="1"></div>';
+        } else if (node.subtype === 'birthday_approaching') {
+            h += '<div class="wfb-config-field"><label class="wfb-config-label">Days before birthday</label>' +
+                '<input class="wfb-config-input" type="number" id="cfgDaysBefore" value="' + (c.days_before || 7) + '" min="1" max="30"></div>';
+        } else if (node.subtype === 'wait_until') {
+            var cond = c.condition || {};
+            h += '<div class="wfb-config-field"><label class="wfb-config-label">Wait until condition is true</label>' +
+                '<select class="wfb-config-select" id="cfgWuField">' +
+                    '<option value="">Select field...</option>' +
+                    '<option value="responded_within"' + (cond.field === 'responded_within' ? ' selected' : '') + '>Contact replied</option>' +
+                    '<option value="has_tag"' + (cond.field === 'has_tag' ? ' selected' : '') + '>Has tag</option>' +
+                    '<option value="score_above"' + (cond.field === 'score_above' ? ' selected' : '') + '>AI score above</option>' +
+                    '<option value="temperature_is"' + (cond.field === 'temperature_is' ? ' selected' : '') + '>AI temperature is</option>' +
+                    '<option value="is_not_empty"' + (cond.field === 'is_not_empty' ? ' selected' : '') + '>Field is not empty</option>' +
+                '</select></div>';
+            h += '<div class="wfb-config-field"><label class="wfb-config-label">Operator</label>' +
+                '<select class="wfb-config-select" id="cfgWuOp">' +
+                    '<option value="responded_within"' + (cond.operator === 'responded_within' ? ' selected' : '') + '>responded within</option>' +
+                    '<option value="has_tag"' + (cond.operator === 'has_tag' ? ' selected' : '') + '>has tag</option>' +
+                    '<option value="equals"' + (cond.operator === 'equals' ? ' selected' : '') + '>equals</option>' +
+                    '<option value="greater_than"' + (cond.operator === 'greater_than' ? ' selected' : '') + '>greater than</option>' +
+                    '<option value="score_above"' + (cond.operator === 'score_above' ? ' selected' : '') + '>score above</option>' +
+                    '<option value="temperature_is"' + (cond.operator === 'temperature_is' ? ' selected' : '') + '>temperature is</option>' +
+                    '<option value="is_not_empty"' + (cond.operator === 'is_not_empty' ? ' selected' : '') + '>is not empty</option>' +
+                '</select></div>';
+            h += '<div class="wfb-config-field"><label class="wfb-config-label">Value</label>' +
+                '<input class="wfb-config-input" id="cfgWuValue" value="' + _esc(cond.value || '') + '" placeholder="e.g. 60 (minutes), hot, tag-name"></div>';
+            h += '<div class="wfb-config-field"><label class="wfb-config-label">Max wait (hours)</label>' +
+                '<input class="wfb-config-input" type="number" id="cfgWuMaxHours" value="' + (c.max_wait_hours || 72) + '" min="1" max="720"></div>';
+            h += '<div class="wfb-config-field"><label class="wfb-config-label">Check every (minutes)</label>' +
+                '<input class="wfb-config-input" type="number" id="cfgWuInterval" value="' + (c.check_interval_minutes || 5) + '" min="1" max="60"></div>';
+            h += '<div class="wfb-config-hint">Branches: "Met" when condition is true, "T/O" on timeout.</div>';
+        } else if (node.subtype === 'state_query') {
+            h += '<div class="wfb-config-field"><label class="wfb-config-label">Query Type</label>' +
+                '<select class="wfb-config-select" id="cfgSqType">' +
+                    '<option value="">Select query...</option>' +
+                    '<option value="days_since_contact"' + (c.query_type === 'days_since_contact' ? ' selected' : '') + '>Days since last contact</option>' +
+                    '<option value="message_count"' + (c.query_type === 'message_count' ? ' selected' : '') + '>Message count</option>' +
+                    '<option value="call_count"' + (c.query_type === 'call_count' ? ' selected' : '') + '>Call count</option>' +
+                    '<option value="last_outbound_message"' + (c.query_type === 'last_outbound_message' ? ' selected' : '') + '>Last outbound message date</option>' +
+                    '<option value="last_inbound_message"' + (c.query_type === 'last_inbound_message' ? ' selected' : '') + '>Last inbound message date</option>' +
+                    '<option value="last_call_date"' + (c.query_type === 'last_call_date' ? ' selected' : '') + '>Last call date</option>' +
+                    '<option value="contact_field"' + (c.query_type === 'contact_field' ? ' selected' : '') + '>Contact field value</option>' +
+                    '<option value="workflow_run_count"' + (c.query_type === 'workflow_run_count' ? ' selected' : '') + '>Workflow run count</option>' +
+                '</select></div>';
+            h += '<div class="wfb-config-field"><label class="wfb-config-label">Store as variable</label>' +
+                '<input class="wfb-config-input" id="cfgSqStore" value="' + _esc(c.store_as || '') + '" placeholder="e.g. days_silent"></div>';
+            h += '<div class="wfb-config-field"><label class="wfb-config-label">Field name (for contact_field)</label>' +
+                '<input class="wfb-config-input" id="cfgSqField" value="' + _esc(c.field || '') + '" placeholder="e.g. email, state, customField.key"></div>';
+            h += '<div class="wfb-config-hint">Result stored in context — use the variable name as "field" in a downstream If/Then.</div>';
+        } else if (node.subtype === 'assign_agent') {
+            h += '<div class="wfb-config-field"><label class="wfb-config-label">User ID</label>' +
+                '<input class="wfb-config-input" id="cfgAssignTo" value="' + _esc(c.assigned_to || '') + '" placeholder="GHL user ID"></div>';
+        } else if (node.subtype === 'move_stage') {
+            h += '<div class="wfb-config-field"><label class="wfb-config-label">Pipeline ID</label>' +
+                '<input class="wfb-config-input" id="cfgPipelineId" value="' + _esc(c.pipeline_id || '') + '" placeholder="GHL pipeline ID"></div>';
+            h += '<div class="wfb-config-field"><label class="wfb-config-label">Stage ID</label>' +
+                '<input class="wfb-config-input" id="cfgStageId" value="' + _esc(c.stage_id || '') + '" placeholder="GHL stage ID"></div>';
+        } else if (node.subtype === 'custom') {
+            h += '<div class="wfb-config-field"><label class="wfb-config-label">Action Name</label>' +
+                '<input class="wfb-config-input" id="cfgCustomName" value="' + _esc(c.action_name || '') + '" placeholder="e.g. timezone-aware-text"></div>';
+            h += '<div class="wfb-config-field"><label class="wfb-config-label">Description</label>' +
+                '<textarea class="wfb-config-textarea" id="cfgCustomDesc" placeholder="Describe what this action should do...">' + _esc(c.description || '') + '</textarea>' +
+                '<div class="wfb-config-hint">AI interprets this at runtime and maps to real actions.</div></div>';
+        } else if (node.subtype === 'goto') {
+            h += '<div class="wfb-config-field"><label class="wfb-config-label">Target Step ID</label>' +
+                '<input class="wfb-config-input" id="cfgGotoTarget" value="' + _esc(c.target_step_id || '') + '" placeholder="Step ID to jump to">' +
+                '<div class="wfb-config-hint">Tip: Copy the step ID from the step you want to jump to.</div></div>';
         } else {
             h += '<div class="wfb-config-hint">No additional configuration needed.</div>';
         }
@@ -952,10 +1065,14 @@
         if (!wrap) return;
         var row = document.createElement('div');
         row.className = 'wfb-condition-row';
-        row.innerHTML = '<select><option value="">Field...</option><option value="firstName">First Name</option><option value="phone">Phone</option>' +
-            '<option value="tags">Tags</option><option value="state">State</option><option value="temperature">AI Temperature</option><option value="score">AI Score</option></select>' +
-            '<select><option value="equals">equals</option><option value="not_equals">not equals</option><option value="contains">contains</option>' +
-            '<option value="has_tag">has tag</option><option value="is_empty">is empty</option><option value="greater_than">greater than</option><option value="temperature_is">temperature is</option></select>' +
+        row.innerHTML = '<select><option value="">Field...</option><option value="firstName">First Name</option><option value="lastName">Last Name</option><option value="phone">Phone</option>' +
+            '<option value="email">Email</option><option value="tags">Tags</option><option value="state">State</option><option value="city">City</option>' +
+            '<option value="source">Source</option><option value="temperature">AI Temperature</option><option value="score">AI Score</option></select>' +
+            '<select><option value="equals">equals</option><option value="not_equals">not equals</option><option value="contains">contains</option><option value="starts_with">starts with</option>' +
+            '<option value="is_empty">is empty</option><option value="is_not_empty">is not empty</option><option value="greater_than">greater than</option><option value="less_than">less than</option>' +
+            '<option value="has_tag">has tag</option><option value="no_tag">no tag</option><option value="in_state">in state</option><option value="lead_age_days">lead age (days)</option>' +
+            '<option value="temperature_is">temperature is</option><option value="score_above">score above</option><option value="score_below">score below</option>' +
+            '<option value="responded_within">responded within (min)</option><option value="total_messages_sent">total messages sent</option><option value="time_is_between">time is between</option></select>' +
             '<input placeholder="Value"><button class="wfb-condition-remove" onclick="this.parentNode.remove()"><i class="fa-solid fa-xmark"></i></button>';
         wrap.appendChild(row);
     };
@@ -1022,6 +1139,45 @@
         } else if (node.subtype === 'lead_age') {
             var da = document.getElementById('cfgDays');
             c.days_since_import = da ? parseInt(da.value) || 60 : 60;
+        } else if (node.subtype === 'birthday_approaching') {
+            var db = document.getElementById('cfgDaysBefore');
+            c.days_before = db ? parseInt(db.value) || 7 : 7;
+        } else if (node.subtype === 'wait_until') {
+            var wuf = document.getElementById('cfgWuField');
+            var wuo = document.getElementById('cfgWuOp');
+            var wuv = document.getElementById('cfgWuValue');
+            var wuh = document.getElementById('cfgWuMaxHours');
+            var wui = document.getElementById('cfgWuInterval');
+            c.condition = {
+                field: wuf ? wuf.value : '',
+                operator: wuo ? wuo.value : 'equals',
+                value: wuv ? wuv.value : ''
+            };
+            c.max_wait_hours = wuh ? parseInt(wuh.value) || 72 : 72;
+            c.check_interval_minutes = wui ? parseInt(wui.value) || 5 : 5;
+        } else if (node.subtype === 'state_query') {
+            var sqt = document.getElementById('cfgSqType');
+            var sqs = document.getElementById('cfgSqStore');
+            var sqf = document.getElementById('cfgSqField');
+            c.query_type = sqt ? sqt.value : '';
+            c.store_as = sqs ? sqs.value : c.query_type;
+            c.field = sqf ? sqf.value : '';
+        } else if (node.subtype === 'assign_agent') {
+            var aa = document.getElementById('cfgAssignTo');
+            c.assigned_to = aa ? aa.value : '';
+        } else if (node.subtype === 'move_stage') {
+            var pid = document.getElementById('cfgPipelineId');
+            var sid = document.getElementById('cfgStageId');
+            c.pipeline_id = pid ? pid.value : '';
+            c.stage_id = sid ? sid.value : '';
+        } else if (node.subtype === 'custom') {
+            var cn = document.getElementById('cfgCustomName');
+            var cd = document.getElementById('cfgCustomDesc');
+            c.action_name = cn ? cn.value : '';
+            c.description = cd ? cd.value : '';
+        } else if (node.subtype === 'goto') {
+            var gt = document.getElementById('cfgGotoTarget');
+            c.target_step_id = gt ? gt.value : '';
         }
 
         node.config = c;

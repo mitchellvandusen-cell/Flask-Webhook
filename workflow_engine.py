@@ -726,7 +726,7 @@ def _handle_ai_call(cur, conn, run_id, step, config, location_id, contact_id, co
 
 def _handle_add_tag(cur, conn, run_id, step, config, location_id, contact_id, context):
     """Add a tag to the GHL contact."""
-    tag = config.get("tag", "").strip()
+    tag = (config.get("tag") or config.get("tag_name") or "").strip()
     if not tag:
         return {"status": "error", "error": "No tag specified", "continue": True}
 
@@ -766,7 +766,7 @@ def _handle_add_tag(cur, conn, run_id, step, config, location_id, contact_id, co
 
 def _handle_remove_tag(cur, conn, run_id, step, config, location_id, contact_id, context):
     """Remove a tag from the GHL contact."""
-    tag = config.get("tag", "").strip()
+    tag = (config.get("tag") or config.get("tag_name") or "").strip()
     if not tag:
         return {"status": "error", "error": "No tag specified", "continue": True}
 
@@ -906,8 +906,8 @@ def _handle_loop(cur, conn, run_id, step, config, location_id, contact_id, conte
 
 def _handle_update_field(cur, conn, run_id, step, config, location_id, contact_id, context):
     """Update a field on the GHL contact."""
-    field_key = config.get("field_key", "").strip()
-    field_value = config.get("field_value", "")
+    field_key = (config.get("field_key") or config.get("field") or "").strip()
+    field_value = config.get("field_value") if config.get("field_value") is not None else config.get("value", "")
 
     if not field_key:
         return {"status": "error", "error": "No field_key specified", "continue": True}
@@ -937,7 +937,7 @@ def _handle_update_field(cur, conn, run_id, step, config, location_id, contact_i
 
 def _handle_add_note(cur, conn, run_id, step, config, location_id, contact_id, context):
     """Add a note to the GHL contact."""
-    body = config.get("body", "").strip()
+    body = (config.get("body") or config.get("note") or "").strip()
     if not body:
         return {"status": "error", "error": "No note body specified", "continue": True}
 
