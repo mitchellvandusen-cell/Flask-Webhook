@@ -277,3 +277,22 @@ def api_cron_process_workflow_delays():
     except Exception as e:
         logger.error(f"Cron process-workflow-delays crashed: {e}", exc_info=True)
         return safe_jsonify({"success": False, "error": str(e)}), 200
+
+
+@cron_bp.route("/api/cron/process-workflow-triggers", methods=["GET", "POST"])
+def api_cron_process_workflow_triggers():
+    """
+    Poll time-based workflow triggers (scheduled, no_response, lead_age, birthday).
+    These triggers don't depend on webhook events — they fire based on time/data conditions.
+    Run every 1-5 minutes via external cron.
+    """
+    if not _cron_authorized():
+        return safe_jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        from workflow_engine import process_time_based_triggers
+        result = process_time_based_triggers()
+        return safe_jsonify({"success": True, "runs_created": result})
+    except Exception as e:
+        logger.error(f"Cron process-workflow-triggers crashed: {e}", exc_info=True)
+        return safe_jsonify({"success": False, "error": str(e)}), 200
