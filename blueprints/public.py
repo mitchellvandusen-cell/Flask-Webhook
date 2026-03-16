@@ -85,6 +85,36 @@ def articles():
     return render_template('articles.html')
 
 
+@public_bp.route("/articles/top-tools-life-insurance-agents")
+def article_top_tools():
+    return render_template('article-top-tools-life-insurance.html')
+
+
+@public_bp.route("/articles/ai-life-insurance-good-thing")
+def article_ai_good_thing():
+    return render_template('article-ai-life-insurance-good-thing.html')
+
+
+@public_bp.route("/articles/gohighlevel-vs-hubspot-insurance")
+def article_ghl_vs_hubspot():
+    return render_template('article-gohighlevel-vs-hubspot-insurance.html')
+
+
+@public_bp.route("/articles/speed-to-lead-insurance")
+def article_speed_to_lead():
+    return render_template('article-speed-to-lead-insurance.html')
+
+
+@public_bp.route("/articles/spam-likely-killing-sales")
+def article_spam_likely():
+    return render_template('article-spam-likely-killing-sales.html')
+
+
+@public_bp.route("/connect")
+def connect():
+    return render_template('connect.html')
+
+
 @public_bp.route("/about")
 def about():
     return render_template('about.html')
@@ -243,6 +273,12 @@ def sitemap_xml():
         ('/reviews',                'monthly',  '0.7'),
         ('/affiliate',              'monthly',  '0.5'),
         ('/articles',               'weekly',   '0.7'),
+        ('/articles/top-tools-life-insurance-agents', 'monthly', '0.7'),
+        ('/articles/ai-life-insurance-good-thing',    'monthly', '0.7'),
+        ('/articles/gohighlevel-vs-hubspot-insurance','monthly', '0.7'),
+        ('/articles/speed-to-lead-insurance',         'monthly', '0.7'),
+        ('/articles/spam-likely-killing-sales',       'monthly', '0.7'),
+        ('/connect',                'monthly',  '0.5'),
         ('/integrations',           'monthly',  '0.7'),
         ('/getting-started',        'monthly',  '0.6'),
         ('/setup-guide',            'monthly',  '0.6'),

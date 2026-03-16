@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Connect With Us - InsuranceGrokBot{% endblock %}
+
+{% block meta_description %}Follow InsuranceGrokBot on social media. Connect with us on Facebook and LinkedIn for the latest updates, insurance industry insights, AI tips, and community discussions.{% endblock %}
+
+{% block json_ld %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "InsuranceGrokBot",
+  "url": "https://insurancegrokbot.com",
+  "sameAs": [
+    "https://www.facebook.com/profile.php?id=61587536844180",
+    "https://www.linkedin.com/company/insurancegrokbot"
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="container page-top-pad">
+
+    <div class="text-center mb-5" data-aos="fade-down">
+        <span class="aff-hero-label">
+            <i class="fa-solid fa-share-nodes me-1"></i> Social
+        </span>
+        <h1 class="about-h1">Connect <span class="text-accent">With Us</span></h1>
+        <p class="about-hero-sub">Follow us on social media for the latest AI insights, insurance industry tips, product updates, and community discussions. We'd love to hear from you.</p>
+    </div>
+
+    <div class="connect-grid" data-aos="fade-up">
+
+        <a href="https://www.facebook.com/profile.php?id=61587536844180" target="_blank" rel="noopener noreferrer" class="connect-card glass-card text-decoration-none">
+            <div class="connect-card-icon connect-icon--facebook">
+                <i class="fa-brands fa-facebook-f"></i>
+            </div>
+            <h2 class="connect-card-title">Facebook</h2>
+            <p class="connect-card-body">
+                Join our Facebook community for daily tips on using AI in your insurance practice, success stories from fellow agents, live Q&A sessions, and behind-the-scenes product updates. We post regularly about lead generation strategies, objection handling techniques, and how to get more out of your tools.
+            </p>
+            <div class="connect-card-action">
+                <span class="connect-follow-btn connect-follow-btn--facebook">
+                    <i class="fa-brands fa-facebook-f me-2"></i> Follow on Facebook
+                </span>
+            </div>
+        </a>
+
+        <a href="https://www.linkedin.com/company/insurancegrokbot" target="_blank" rel="noopener noreferrer" class="connect-card glass-card text-decoration-none">
+            <div class="connect-card-icon connect-icon--linkedin">
+                <i class="fa-brands fa-linkedin-in"></i>
+            </div>
+            <h2 class="connect-card-title">LinkedIn</h2>
+            <p class="connect-card-body">
+                Connect with us on LinkedIn for professional industry insights, thought leadership on AI in insurance, product announcements, and networking opportunities. We share in-depth articles about the future of insurance technology, agency growth strategies, and compliance best practices.
+            </p>
+            <div class="connect-card-action">
+                <span class="connect-follow-btn connect-follow-btn--linkedin">
+                    <i class="fa-brands fa-linkedin-in me-2"></i> Follow on LinkedIn
+                </span>
+            </div>
+        </a>
+
+    </div>
+
+    <div class="connect-why-section" data-aos="fade-up">
+        <h2 class="connect-why-title">Why Follow <span class="text-accent">InsuranceGrokBot</span>?</h2>
+        <div class="connect-reasons-grid">
+            <div class="connect-reason-card glass-card">
+                <div class="connect-reason-icon">
+                    <i class="fa-solid fa-lightbulb"></i>
+                </div>
+                <h3>Industry Insights</h3>
+                <p>Stay ahead of the curve with the latest trends in AI, insurance technology, and sales strategies that top producers are using right now.</p>
+            </div>
+            <div class="connect-reason-card glass-card">
+                <div class="connect-reason-icon">
+                    <i class="fa-solid fa-bullhorn"></i>
+                </div>
+                <h3>Product Updates</h3>
+                <p>Be the first to know about new features, integrations, and improvements. We ship fast and announce everything on social first.</p>
+            </div>
+            <div class="connect-reason-card glass-card">
+                <div class="connect-reason-icon">
+                    <i class="fa-solid fa-users"></i>
+                </div>
+                <h3>Community</h3>
+                <p>Connect with thousands of insurance agents who are using AI to transform their businesses. Share tips, ask questions, and learn from each other.</p>
+            </div>
+            <div class="connect-reason-card glass-card">
+                <div class="connect-reason-icon">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                </div>
+                <h3>Free Resources</h3>
+                <p>We regularly share free guides, templates, scripts, and strategies that you can implement immediately — no signup required.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="connect-cta text-center" data-aos="fade-up">
+        <p class="connect-cta-text">Want to reach us directly? We're always happy to chat.</p>
+        <div class="d-flex gap-3 justify-content-center flex-wrap">
+            <a href="/contact" class="btn btn-primary">Contact Us <i class="fa-solid fa-arrow-right ms-1"></i></a>
+            <a href="/support" class="btn btn-outline-accent">Get Support</a>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
