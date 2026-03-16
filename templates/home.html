@@ -27,7 +27,45 @@
     .ps-cell p { color: #888; font-size: 0.88rem; line-height: 1.6; margin-bottom: 14px; }
     .ps-tags { display: flex; flex-wrap: wrap; gap: 6px; }
     .ps-tag { font-size: 0.72rem; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+    .ps-link { font-size: 0.82rem; font-weight: 600; text-decoration: none; display: inline-block; margin-top: 10px; transition: all 0.2s; }
+    .ps-link:hover { transform: translateX(4px); }
     @media (max-width: 991px) { .platform-strip { grid-template-columns: 1fr; } .ps-cell { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); } .ps-cell:last-child { border-bottom: none; } }
+
+    /* ── How It Works ── */
+    .hiw-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; max-width: 900px; margin: 0 auto; position: relative; }
+    .hiw-step { text-align: center; padding: 40px 32px; position: relative; }
+    .hiw-num { width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.2rem; margin: 0 auto 18px; }
+    .hiw-step h4 { font-weight: 800; font-size: 1.05rem; margin-bottom: 8px; }
+    .hiw-step p { color: #888; font-size: 0.88rem; line-height: 1.6; margin: 0; }
+    .hiw-arrow { position: absolute; top: 62px; right: -12px; color: rgba(255,255,255,0.15); font-size: 1.2rem; }
+    @media (max-width: 767px) { .hiw-grid { grid-template-columns: 1fr; gap: 16px; } .hiw-arrow { display: none; } }
+
+    /* ── Deep Dive directory cards ── */
+    .dd-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 960px; margin: 0 auto; }
+    @media (max-width: 767px) { .dd-grid { grid-template-columns: 1fr; } }
+    .dd-card { border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 32px 28px; background: rgba(255,255,255,0.02); transition: all 0.3s; display: flex; flex-direction: column; position: relative; overflow: hidden; text-decoration: none; color: inherit; }
+    .dd-card:hover { transform: translateY(-4px); background: rgba(255,255,255,0.04); }
+    .dd-card-icon { width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; margin-bottom: 16px; flex-shrink: 0; }
+    .dd-card h4 { font-weight: 800; font-size: 1.1rem; margin-bottom: 6px; }
+    .dd-card p { color: #888; font-size: 0.88rem; line-height: 1.55; margin-bottom: 16px; flex: 1; }
+    .dd-card-cta { font-weight: 700; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; transition: gap 0.2s; }
+    .dd-card:hover .dd-card-cta { gap: 10px; }
+    .dd-card-cta i { font-size: 0.7rem; }
+    .dd-card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+    .dd-card-tag { font-size: 0.68rem; font-weight: 600; padding: 2px 8px; border-radius: 6px; }
+
+    /* ── Testimonials ── */
+    .testimonial-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 960px; margin: 0 auto; }
+    @media (max-width: 767px) { .testimonial-grid { grid-template-columns: 1fr; } }
+    .founder-result { border: 1px solid rgba(0,255,136,0.15); border-radius: 20px; padding: 40px 44px; background: rgba(0,255,136,0.02); position: relative; }
+    .founder-result::before { content: '\201C'; position: absolute; top: 16px; left: 24px; font-size: 4rem; line-height: 1; color: rgba(0,255,136,0.12); font-family: Georgia, serif; }
+    .founder-result blockquote { color: #ccc; font-size: 1.05rem; line-height: 1.7; margin: 0 0 20px; font-style: italic; padding-left: 12px; }
+    .founder-result .fr-stats { display: flex; gap: 32px; flex-wrap: wrap; }
+    .founder-result .fr-stat { text-align: center; }
+    .founder-result .fr-stat .val { font-size: 1.6rem; font-weight: 900; line-height: 1; }
+    .founder-result .fr-stat .desc { color: #666; font-size: 0.78rem; margin-top: 4px; }
+    .founder-result .fr-attr { color: #666; font-size: 0.82rem; margin-top: 16px; }
+    @media (max-width: 575px) { .founder-result { padding: 28px 24px; } }
 
     /* ── Audience cards ── */
     .audience-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 860px; margin: 0 auto; }
@@ -40,19 +78,30 @@
     .audience-card ul li i { margin-right: 8px; }
     @media (max-width: 767px) { .audience-grid { grid-template-columns: 1fr; } }
 
-    /* ── Social proof ── */
-    .proof-scroll { display: flex; gap: 24px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding-bottom: 8px; scrollbar-width: none; }
-    .proof-scroll::-webkit-scrollbar { display: none; }
-    .proof-card { min-width: 340px; max-width: 380px; flex-shrink: 0; scroll-snap-align: start; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 28px; }
-    .proof-card .quote { color: #bbb; font-size: 0.9rem; line-height: 1.65; margin-bottom: 16px; font-style: italic; }
-    .proof-card .author { display: flex; align-items: center; gap: 12px; }
-    .proof-card .avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem; }
-    .proof-card .name { color: #fff; font-weight: 700; font-size: 0.85rem; }
-    .proof-card .role { color: #666; font-size: 0.75rem; }
-    .proof-card .stats-row { display: flex; gap: 16px; margin-bottom: 16px; }
-    .proof-card .mini-stat { text-align: center; flex: 1; padding: 10px 0; border-radius: 10px; }
-    .proof-card .mini-stat .val { font-size: 1.4rem; font-weight: 900; line-height: 1; }
-    .proof-card .mini-stat .desc { font-size: 0.75rem; color: #777; margin-top: 2px; }
+    /* ── Comparison banner ── */
+    .hp-comp-banner { display: flex; align-items: center; gap: 24px; border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 28px 36px; background: rgba(255,255,255,0.02); max-width: 960px; margin: 0 auto; transition: all 0.3s; text-decoration: none; color: inherit; }
+    .hp-comp-banner:hover { background: rgba(255,255,255,0.04); transform: translateY(-2px); border-color: rgba(139,92,246,0.2); }
+    .hp-comp-icon { width: 56px; height: 56px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0; }
+    .hp-comp-text { flex: 1; }
+    .hp-comp-text h4 { font-weight: 800; font-size: 1.05rem; margin-bottom: 4px; }
+    .hp-comp-text p { color: #888; font-size: 0.88rem; margin: 0; }
+    .hp-comp-arrow { color: #8b5cf6; font-size: 1.2rem; }
+    @media (max-width: 575px) { .hp-comp-banner { flex-direction: column; text-align: center; } .hp-comp-arrow { display: none; } }
+
+    /* ── Resources strip ── */
+    .hp-resource-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; max-width: 960px; margin: 0 auto; }
+    @media (max-width: 991px) { .hp-resource-strip { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 575px) { .hp-resource-strip { grid-template-columns: 1fr; } }
+    .hp-resource-chip { display: flex; align-items: center; gap: 12px; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 16px 18px; background: rgba(255,255,255,0.02); transition: all 0.3s; text-decoration: none; color: #ccc; }
+    .hp-resource-chip:hover { background: rgba(255,255,255,0.04); transform: translateY(-2px); color: #fff; }
+    .hp-resource-chip i { font-size: 1rem; width: 20px; text-align: center; }
+    .hp-resource-chip span { font-weight: 600; font-size: 0.85rem; }
+
+    /* ── CRM bar ── */
+    .crm-bar { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; }
+    .crm-chip { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 8px 18px; border-radius: 30px; color: #aaa; font-size: 0.82rem; font-weight: 600; transition: all 0.3s; }
+    .crm-chip:hover { background: rgba(0,255,136,0.04); border-color: rgba(0,255,136,0.15); color: #fff; transform: translateY(-2px); }
+    .hp-crm-label { color: #555; font-size: 0.82rem; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 16px; }
 
     /* ── Pricing ── */
     .price-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; max-width: 880px; margin: 0 auto; }
@@ -68,46 +117,16 @@
     .price-features li i { margin-right: 8px; }
     @media (max-width: 767px) { .price-grid { grid-template-columns: 1fr; } }
 
-    /* ── CRM bar ── */
-    .crm-bar { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; }
-    .crm-chip { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 8px 18px; border-radius: 30px; color: #aaa; font-size: 0.82rem; font-weight: 600; transition: all 0.3s; }
-    .crm-chip:hover { background: rgba(0,255,136,0.04); border-color: rgba(0,255,136,0.15); color: #fff; transform: translateY(-2px); }
-
-    /* ── Showcase cards ── */
-    .showcase-card:hover { transform: translateY(-4px); border-color: rgba(0,255,136,0.2) !important; }
-    @media (max-width: 767px) {
-        .showcase-strip { grid-template-columns: 1fr !important; }
-    }
-
-    /* ── How It Works ── */
-    .hiw-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; max-width: 900px; margin: 0 auto; position: relative; }
-    .hiw-step { text-align: center; padding: 40px 32px; position: relative; }
-    .hiw-num { width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.2rem; margin: 0 auto 18px; }
-    .hiw-step h4 { font-weight: 800; font-size: 1.05rem; margin-bottom: 8px; }
-    .hiw-step p { color: #888; font-size: 0.88rem; line-height: 1.6; margin: 0; }
-    .hiw-arrow { position: absolute; top: 62px; right: -12px; color: rgba(255,255,255,0.15); font-size: 1.2rem; }
-    @media (max-width: 767px) { .hiw-grid { grid-template-columns: 1fr; gap: 16px; } .hiw-arrow { display: none; } }
-
-    /* ── Testimonials ── */
-    .testimonial-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 960px; margin: 0 auto; }
-    @media (max-width: 767px) { .testimonial-grid { grid-template-columns: 1fr; } }
-    .founder-result { border: 1px solid rgba(0,255,136,0.15); border-radius: 20px; padding: 40px 44px; background: rgba(0,255,136,0.02); position: relative; }
-    .founder-result::before { content: '\201C'; position: absolute; top: 16px; left: 24px; font-size: 4rem; line-height: 1; color: rgba(0,255,136,0.12); font-family: Georgia, serif; }
-    .founder-result blockquote { color: #ccc; font-size: 1.05rem; line-height: 1.7; margin: 0 0 20px; font-style: italic; padding-left: 12px; }
-    .founder-result .fr-stats { display: flex; gap: 32px; flex-wrap: wrap; }
-    .founder-result .fr-stat { text-align: center; }
-    .founder-result .fr-stat .val { font-size: 1.6rem; font-weight: 900; line-height: 1; }
-    .founder-result .fr-stat .desc { color: #666; font-size: 0.78rem; margin-top: 4px; }
-    .founder-result .fr-attr { color: #666; font-size: 0.82rem; margin-top: 16px; }
-    @media (max-width: 575px) { .founder-result { padding: 28px 24px; } }
-
-    /* ── Why-switch grid ── */
-    .hp-why-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-    @media (max-width: 991px) { .hp-why-grid { grid-template-columns: 1fr; } }
-
-    /* ── ROI cap items ── */
-    .hp-roi-label { color: #888; font-size: 0.82rem; line-height: 1.5; }
-    .hp-roi-sublabel { color: #555; }
+    /* ── Pricing helpers ── */
+    .hp-pricing-footnote { color: #555; font-size: 0.78rem; max-width: 600px; margin: 0 auto; }
+    .hp-pricing-footnote a { color: var(--accent); }
+    .hp-agency-link { color: #8b5cf6; font-weight: 600; font-size: 0.88rem; margin-top: 12px; display: inline-block; }
+    .hp-agency-link i { font-size: 0.75rem; }
+    .hp-price-subtitle-green { color: var(--accent); font-weight: 600; font-size: 0.85rem; margin-top: 8px; }
+    .hp-price-trial { color: #00ff88; font-weight: 700; font-size: 0.82rem; margin: 4px 0; }
+    .hp-price-subtitle-orange { color: #ff6b35; font-weight: 600; font-size: 0.85rem; margin-top: 8px; }
+    .hp-price-see-all { color: #888; font-size: 0.78rem; }
+    .hp-price-see-all i { font-size: 0.65rem; }
 
     /* ── Closing CTA ── */
     .closing-cta-inner { position: relative; }
@@ -115,22 +134,6 @@
     .closing-cta-inner h2 { font-size: clamp(2rem, 4vw, 3rem); font-weight: 900; margin-bottom: 16px; }
     .closing-cta-inner h2 span { background: linear-gradient(135deg, var(--accent), #00d9ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .closing-cta-inner p { color: #888; font-size: 1.05rem; max-width: 520px; margin: 0 auto 32px; line-height: 1.6; }
-
-    /* ── CRM label ── */
-    .hp-crm-label { color: #555; font-size: 0.82rem; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 16px; }
-
-    /* ── Pricing footnote ── */
-    .hp-pricing-footnote { color: #555; font-size: 0.78rem; max-width: 600px; margin: 0 auto; }
-    .hp-pricing-footnote a { color: var(--accent); }
-    .hp-agency-link { color: #8b5cf6; font-weight: 600; font-size: 0.88rem; margin-top: 12px; display: inline-block; }
-    .hp-agency-link i { font-size: 0.75rem; }
-
-    /* ── Price card text helpers ── */
-    .hp-price-subtitle-green { color: var(--accent); font-weight: 600; font-size: 0.85rem; margin-top: 8px; }
-    .hp-price-trial { color: #00ff88; font-weight: 700; font-size: 0.82rem; margin: 4px 0; }
-    .hp-price-subtitle-orange { color: #ff6b35; font-weight: 600; font-size: 0.85rem; margin-top: 8px; }
-    .hp-price-see-all { color: #888; font-size: 0.78rem; }
-    .hp-price-see-all i { font-size: 0.65rem; }
 
     /* ── GHL Marketplace button ── */
     .btn-ghl-marketplace { display: inline-flex; align-items: center; gap: 8px; }
@@ -140,11 +143,11 @@
 <nav class="ios-section-dots" id="iosSectionDots">
     <div class="ios-section-dot active" data-section="0" title="Hero"></div>
     <div class="ios-section-dot" data-section="1" title="How It Works"></div>
-    <div class="ios-section-dot" data-section="2" title="Three Products"></div>
-    <div class="ios-section-dot" data-section="3" title="Real Results"></div>
-    <div class="ios-section-dot" data-section="4" title="Why Switch"></div>
-    <div class="ios-section-dot" data-section="5" title="The Math"></div>
-    <div class="ios-section-dot" data-section="6" title="Built For You"></div>
+    <div class="ios-section-dot" data-section="2" title="The Platform"></div>
+    <div class="ios-section-dot" data-section="3" title="Go Deeper"></div>
+    <div class="ios-section-dot" data-section="4" title="Real Results"></div>
+    <div class="ios-section-dot" data-section="5" title="Built For You"></div>
+    <div class="ios-section-dot" data-section="6" title="Compare"></div>
     <div class="ios-section-dot" data-section="7" title="Pricing"></div>
     <div class="ios-section-dot" data-section="8" title="Get Started"></div>
 </nav>
@@ -211,11 +214,15 @@
                 <p>The AI texts, calls, qualifies, overcomes objections, and books appointments — automatically, 24/7.</p>
             </div>
         </div>
+
+        <div class="text-center mt-4" data-aos="fade-up">
+            <a href="/getting-started" class="hp-price-see-all" style="color: var(--accent);">See the full setup guide <i class="fa-solid fa-arrow-right ms-1"></i></a>
+        </div>
     </div>
 </section>
 
 
-<!-- ═══════════════ SECTION 2: THREE PILLARS ═══════════════ -->
+<!-- ═══════════════ SECTION 2: THREE PILLARS (with deep-dive links) ═══════════════ -->
 <section class="ios-snap-section" id="iosSection2">
     <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
@@ -231,12 +238,13 @@
                     <i class="fa-solid fa-comment-sms" style="color: var(--accent);"></i>
                 </div>
                 <h4 style="color: var(--accent);">AI Texting</h4>
-                <p>Sends outbound SMS, handles every reply, overcomes objections, and books appointments — all automatically.</p>
+                <p>5-stage conversation pipeline, 6 objection types handled, 5 sales frameworks. Not a drip campaign — a Sales Director inside every text.</p>
                 <div class="ps-tags">
-                    <span class="ps-tag mkt-tag--accent">Outbound + Inbound</span>
                     <span class="ps-tag mkt-tag--accent">Objection Handling</span>
                     <span class="ps-tag mkt-tag--accent">Auto-Booking</span>
+                    <span class="ps-tag mkt-tag--accent">5 Frameworks</span>
                 </div>
+                <a href="/sms" class="ps-link" style="color: var(--accent);">Deep dive into AI Texting <i class="fa-solid fa-arrow-right ms-1" style="font-size: 0.75rem;"></i></a>
             </div>
 
             <!-- Smart Dialer -->
@@ -245,13 +253,13 @@
                     <i class="fa-solid fa-phone-volume" style="color: #00d9ff;"></i>
                 </div>
                 <h4 style="color: #00d9ff;">Smart Dialer</h4>
-                <p>AI-powered dialer with lead intelligence scoring, Smart Filters, queue dialing, and live eavesdrop.</p>
+                <p>AI-powered lead scoring, Smart Filters that read conversations (not rules), multi-line dialing, live listen + intercept, queue dialing.</p>
                 <div class="ps-tags">
                     <span class="ps-tag mkt-tag--cyan">Lead Scoring</span>
                     <span class="ps-tag mkt-tag--cyan">Smart Filters</span>
                     <span class="ps-tag mkt-tag--cyan">Multi-Line</span>
                 </div>
-                <a href="/for-individuals" style="color: #00d9ff; font-size: 0.82rem; font-weight: 600; text-decoration: none; display: inline-block; margin-top: 10px;">Explore the Dialer <i class="fa-solid fa-arrow-right ms-1" style="font-size: 0.75rem;"></i></a>
+                <a href="/for-individuals" class="ps-link" style="color: #00d9ff;">Explore the Dialer <i class="fa-solid fa-arrow-right ms-1" style="font-size: 0.75rem;"></i></a>
             </div>
 
             <!-- AI Voice Agent -->
@@ -260,20 +268,86 @@
                     <i class="fa-solid fa-robot" style="color: #e91e63;"></i>
                 </div>
                 <h4 style="color: #e91e63;">AI Voice Agent</h4>
-                <p>Outbound AI calling powered by Grok speech-to-speech. The AI dials, handles objections, and books. Listen live and intercept any call — or let the AI transfer hot leads to you automatically.</p>
+                <p>Outbound AI calling powered by Grok speech-to-speech. Dials, qualifies, handles objections, and books — or transfers hot leads to you live.</p>
                 <div class="ps-tags">
                     <span class="ps-tag mkt-tag--pink">Speech-to-Speech</span>
-                    <span class="ps-tag mkt-tag--pink">Live Listen + Intercept</span>
-                    <span class="ps-tag mkt-tag--pink">Hot Lead Transfer</span>
+                    <span class="ps-tag mkt-tag--pink">Live Intercept</span>
+                    <span class="ps-tag mkt-tag--pink">Hot Transfer</span>
                 </div>
+                <a href="/for-individuals" class="ps-link" style="color: #e91e63;">See Voice AI in action <i class="fa-solid fa-arrow-right ms-1" style="font-size: 0.75rem;"></i></a>
             </div>
         </div>
     </div>
 </section>
 
 
-<!-- ═══════════════ SECTION 3: REAL RESULT ═══════════════ -->
-<section class="ios-snap-section" id="iosSection3">
+<!-- ═══════════════ SECTION 3: DEEP DIVE DIRECTORY ═══════════════ -->
+<section class="ios-snap-section auto-height" id="iosSection3">
+    <div class="container" style="width: 100%;">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <span class="ios-section-label ios-section-label--purple">Go Deeper</span>
+            <h2 class="ios-section-h2">Explore What's <span>Under the Hood</span></h2>
+            <p class="ios-section-sub">Each feature is purpose-built for insurance outbound sales. Click any card to see the full breakdown.</p>
+        </div>
+
+        <div class="dd-grid" data-aos="fade-up">
+            <!-- SMS Deep Dive -->
+            <a href="/sms" class="dd-card" style="border-color: rgba(0,255,136,0.1);">
+                <div class="dd-card-icon mkt-icon-box--accent"><i class="fa-solid fa-brain"></i></div>
+                <h4 style="color: var(--accent);">AI Texting Intelligence</h4>
+                <p>5-stage conversation pipeline, 6 objection categories, lead-type awareness (fresh vs aged vs re-engage), NLP fact extraction, age-based product matching, and 5 elite sales frameworks.</p>
+                <div class="dd-card-tags">
+                    <span class="dd-card-tag mkt-tag--accent">NEPQ</span>
+                    <span class="dd-card-tag mkt-tag--accent">Sandler</span>
+                    <span class="dd-card-tag mkt-tag--accent">Challenger</span>
+                    <span class="dd-card-tag mkt-tag--accent">Chris Voss</span>
+                </div>
+                <span class="dd-card-cta" style="color: var(--accent);">See how the AI thinks <i class="fa-solid fa-arrow-right"></i></span>
+            </a>
+
+            <!-- Spam Protection -->
+            <a href="/spam-protection" class="dd-card" style="border-color: rgba(0,217,255,0.1);">
+                <div class="dd-card-icon mkt-icon-box--cyan"><i class="fa-solid fa-shield-halved"></i></div>
+                <h4 style="color: #00d9ff;">Spam Protection & Number Health</h4>
+                <p>Carrier-level registration with AT&T, T-Mobile, and Verizon. 8-dimensional health scoring, smart number rotation, auto-remediation, and real-time SIP analysis. The most advanced in the industry.</p>
+                <div class="dd-card-tags">
+                    <span class="dd-card-tag mkt-tag--cyan">CNAM</span>
+                    <span class="dd-card-tag mkt-tag--cyan">STIR/SHAKEN</span>
+                    <span class="dd-card-tag mkt-tag--cyan">Auto-Rotate</span>
+                </div>
+                <span class="dd-card-cta" style="color: #00d9ff;">See the full protection stack <i class="fa-solid fa-arrow-right"></i></span>
+            </a>
+
+            <!-- For Individuals -->
+            <a href="/for-individuals" class="dd-card" style="border-color: rgba(255,107,53,0.1);">
+                <div class="dd-card-icon mkt-icon-box--orange"><i class="fa-solid fa-user-astronaut"></i></div>
+                <h4 style="color: #ff6b35;">Individual Agent Platform</h4>
+                <p>Power dialer with AI lead scoring, Smart Filters, queue dialing, voicemail detection, geo-routing, call recording, and unlimited human minutes. Dial 8 hours of leads in 90 minutes.</p>
+                <div class="dd-card-tags">
+                    <span class="dd-card-tag" style="background: rgba(255,107,53,0.08); color: #ff6b35;">Power Dialer</span>
+                    <span class="dd-card-tag" style="background: rgba(255,107,53,0.08); color: #ff6b35;">Lead Intelligence</span>
+                </div>
+                <span class="dd-card-cta" style="color: #ff6b35;">See all individual features <i class="fa-solid fa-arrow-right"></i></span>
+            </a>
+
+            <!-- For Agencies -->
+            <a href="/for-agencies" class="dd-card" style="border-color: rgba(139,92,246,0.1);">
+                <div class="dd-card-icon mkt-icon-box--purple"><i class="fa-solid fa-building"></i></div>
+                <h4 style="color: #8b5cf6;">Agency Command Center</h4>
+                <p>Multi-tenant dashboard with per-agent KPIs, predictive dialing with Erlang-C pacing, TCPA auto-throttle, recording consent tracking, centralized billing, and compliance automation.</p>
+                <div class="dd-card-tags">
+                    <span class="dd-card-tag" style="background: rgba(139,92,246,0.08); color: #8b5cf6;">Predictive Dialer</span>
+                    <span class="dd-card-tag" style="background: rgba(139,92,246,0.08); color: #8b5cf6;">TCPA Compliant</span>
+                </div>
+                <span class="dd-card-cta" style="color: #8b5cf6;">See agency plans <i class="fa-solid fa-arrow-right"></i></span>
+            </a>
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══════════════ SECTION 4: REAL RESULTS ═══════════════ -->
+<section class="ios-snap-section" id="iosSection4">
     <div class="container" style="width: 100%;">
         <div class="text-center mb-4" data-aos="fade-up">
             <span class="ios-section-label ios-section-label--accent">Real Results</span>
@@ -323,71 +397,16 @@
                 <p class="fr-attr">— Devon Tyerman, Agency Owner at Family First Life</p>
             </div>
         </div>
-    </div>
-</section>
 
-
-<!-- ═══════════════ SECTION 4: WHY AGENTS SWITCH ═══════════════ -->
-<section class="ios-snap-section" id="iosSection4">
-    <div class="container" style="width: 100%;">
-        <div class="text-center mb-5" data-aos="fade-up">
-            <span class="ios-section-label ios-section-label--purple">Why Switch</span>
-            <h2 class="ios-section-h2">What Makes This <span>Different</span></h2>
-        </div>
-
-        <div class="hp-why-grid" data-aos="fade-up">
-            <div class="mkt-glass-card">
-                <i class="fa-solid fa-ban" style="color: var(--accent); font-size: 1.3rem; margin-bottom: 14px; display: block;"></i>
-                <h4 style="font-weight: 800; font-size: 1rem; margin-bottom: 8px;">Kill 4 Subscriptions</h4>
-                <p style="color: #888; font-size: 0.88rem; line-height: 1.6; margin: 0;">Replaces your dialer, text bot, calendar tool, and CRM inbox. One platform, one login, one bill — typically saves $200-400/mo in stacked SaaS.</p>
-            </div>
-            <div class="mkt-glass-card mkt-glass-card--cyan">
-                <i class="fa-solid fa-building-columns" style="color: #00d9ff; font-size: 1.3rem; margin-bottom: 14px; display: block;"></i>
-                <h4 style="font-weight: 800; font-size: 1rem; margin-bottom: 8px;">Insurance-Native AI</h4>
-                <p style="color: #888; font-size: 0.88rem; line-height: 1.6; margin: 0;">Trained on 270+ carriers, term, whole, IUL, and final expense. It only references your contracted carriers — no generic scripts or hallucinated products.</p>
-            </div>
-            <div class="mkt-glass-card mkt-glass-card--purple">
-                <i class="fa-solid fa-clock" style="color: #e91e63; font-size: 1.3rem; margin-bottom: 14px; display: block;"></i>
-                <h4 style="font-weight: 800; font-size: 1rem; margin-bottom: 8px;">Leads Never Wait</h4>
-                <p style="color: #888; font-size: 0.88rem; line-height: 1.6; margin: 0;">Leads respond at 11 PM, 6 AM, and during your appointments. The AI handles every reply instantly — qualifying, overcoming objections, and booking while you sleep.</p>
-            </div>
+        <div class="text-center mt-4" data-aos="fade-up">
+            <a href="/reviews" class="hp-price-see-all" style="color: var(--accent);">Read more agent stories <i class="fa-solid fa-arrow-right ms-1"></i></a>
         </div>
     </div>
 </section>
 
 
-<!-- ═══════════════ SECTION 5: ROI MATH ═══════════════ -->
-<section class="ios-snap-section" id="iosSection5">
-    <div class="container" style="width: 100%;">
-        <div class="text-center mb-5" data-aos="fade-up">
-            <span class="ios-section-label ios-section-label--orange">The Math</span>
-            <h2 class="ios-section-h2">What <span>$149.98/mo</span> Actually Gets You</h2>
-        </div>
-
-        <div class="ios-cap-grid" data-aos="fade-up">
-            <div class="ios-cap-item" style="text-align: center;">
-                <div class="metallic-stat" style="font-size: 2rem; margin-bottom: 8px;">4</div>
-                <div class="hp-roi-label">Tools replaced<br><span class="hp-roi-sublabel">dialer + texter + CRM inbox + calendar</span></div>
-            </div>
-            <div class="ios-cap-item" style="text-align: center;">
-                <div class="metallic-stat metallic-stat--cyan" style="font-size: 2rem; margin-bottom: 8px;">24/7</div>
-                <div class="hp-roi-label">Lead response<br><span class="hp-roi-sublabel">AI never sleeps, never calls in sick</span></div>
-            </div>
-            <div class="ios-cap-item" style="text-align: center;">
-                <div class="metallic-stat" style="font-size: 2rem; margin-bottom: 8px;">270+</div>
-                <div class="hp-roi-label">Carriers recognized<br><span class="hp-roi-sublabel">only quotes your contracted book</span></div>
-            </div>
-            <div class="ios-cap-item" style="text-align: center;">
-                <div class="metallic-stat" style="font-size: 2rem; margin-bottom: 8px; background: linear-gradient(135deg, #e91e63, #ff6b35); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">5</div>
-                <div class="hp-roi-label">Sales frameworks<br><span class="hp-roi-sublabel">SPIN, Challenger, Sandler, and more</span></div>
-            </div>
-        </div>
-    </div>
-</section>
-
-
-<!-- ═══════════════ SECTION 6: AUDIENCE SPLIT + CRM ═══════════════ -->
-<section class="ios-snap-section auto-height" id="iosSection6">
+<!-- ═══════════════ SECTION 5: AUDIENCE SPLIT + CRM ═══════════════ -->
+<section class="ios-snap-section auto-height" id="iosSection5">
     <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
             <span class="ios-section-label">Built For You</span>
@@ -406,7 +425,7 @@
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> 270+ carrier recognition</li>
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> 5 elite sales frameworks</li>
                 </ul>
-                <a href="/for-individuals" class="btn btn-primary w-100 py-3" style="font-weight: 700;">Start your Free Trial <i class="fa-solid fa-arrow-right ms-2"></i></a>
+                <a href="/for-individuals" class="btn btn-primary w-100 py-3" style="font-weight: 700;">See Individual Plans <i class="fa-solid fa-arrow-right ms-2"></i></a>
             </div>
 
             <!-- Agency -->
@@ -415,9 +434,9 @@
                 <p>Multi-tenant command center with per-agent KPIs, predictive dialing, TCPA compliance automation, and centralized billing for your entire team.</p>
                 <ul>
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Agency dashboard with real-time KPIs</li>
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Predictive dialer that stays compliant automatically</li>
+                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Predictive dialer with TCPA auto-throttle</li>
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Sub-account management + team billing</li>
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Built-in compliance tracking + recording consent</li>
+                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Built-in compliance + recording consent</li>
                 </ul>
                 <a href="/for-agencies" class="btn btn-gradient-cyan w-100 py-3" style="font-weight: 700;">See Agency Plans <i class="fa-solid fa-arrow-right ms-2"></i></a>
             </div>
@@ -435,6 +454,77 @@
                 <div class="crm-chip"><i class="fa-solid fa-plug" style="color: #9c27b0;"></i>Zapier</div>
                 <div class="crm-chip"><i class="fa-solid fa-shield-halved" style="color: #607d8b;"></i>Insureio</div>
             </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══════════════ SECTION 6: COMPARISON + RESOURCES ═══════════════ -->
+<section class="ios-snap-section auto-height" id="iosSection6">
+    <div class="container" style="width: 100%;">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <span class="ios-section-label ios-section-label--orange">Compare</span>
+            <h2 class="ios-section-h2">See How We <span>Stack Up</span></h2>
+            <p class="ios-section-sub">We've done the homework. See exactly how InsuranceGrokBot compares to what you're using now.</p>
+        </div>
+
+        <!-- Comparison banner -->
+        <a href="/comparison" class="hp-comp-banner" data-aos="fade-up" style="margin-bottom: 20px;">
+            <div class="hp-comp-icon" style="background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.2); color: #8b5cf6;">
+                <i class="fa-solid fa-table-columns"></i>
+            </div>
+            <div class="hp-comp-text">
+                <h4 class="text-white">Full Feature Comparison</h4>
+                <p>Side-by-side breakdown of InsuranceGrokBot vs. every tool you're currently paying for. Feature by feature, dollar by dollar.</p>
+            </div>
+            <div class="hp-comp-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+        </a>
+
+        <!-- Sub-comparisons -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 960px; margin: 0 auto 40px;" data-aos="fade-up">
+            <a href="/comparison/text-drip" class="hp-comp-banner" style="margin: 0; padding: 22px 28px;">
+                <div class="hp-comp-icon" style="background: rgba(255,107,53,0.1); border: 1px solid rgba(255,107,53,0.2); color: #ff6b35; width: 44px; height: 44px; font-size: 1.1rem;">
+                    <i class="fa-solid fa-money-bill-trend-up"></i>
+                </div>
+                <div class="hp-comp-text">
+                    <h4 class="text-white" style="font-size: 0.95rem;">Text Drip ROI Analysis</h4>
+                    <p style="font-size: 0.82rem;">Your text drip is bleeding $96K-$384K/yr. Here's the math.</p>
+                </div>
+                <div class="hp-comp-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+            </a>
+            <a href="/comparison/dialers" class="hp-comp-banner" style="margin: 0; padding: 22px 28px;">
+                <div class="hp-comp-icon" style="background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2); color: #00d9ff; width: 44px; height: 44px; font-size: 1.1rem;">
+                    <i class="fa-solid fa-phone"></i>
+                </div>
+                <div class="hp-comp-text">
+                    <h4 class="text-white" style="font-size: 0.95rem;">vs. WAVV, Mojo & PhoneBurner</h4>
+                    <p style="font-size: 0.82rem;">A dialer is a gas pedal. This is a self-driving car.</p>
+                </div>
+                <div class="hp-comp-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+            </a>
+        </div>
+
+        <!-- Resources strip -->
+        <div class="text-center mb-3" data-aos="fade-up">
+            <p class="hp-crm-label">Resources</p>
+        </div>
+        <div class="hp-resource-strip" data-aos="fade-up">
+            <a href="/about" class="hp-resource-chip">
+                <i class="fa-solid fa-user-tie" style="color: var(--accent);"></i>
+                <span>Our Story</span>
+            </a>
+            <a href="/articles" class="hp-resource-chip">
+                <i class="fa-solid fa-newspaper" style="color: #00d9ff;"></i>
+                <span>Articles & Guides</span>
+            </a>
+            <a href="/a2p-guide" class="hp-resource-chip">
+                <i class="fa-solid fa-file-shield" style="color: #ff6b35;"></i>
+                <span>A2P 10DLC Guide</span>
+            </a>
+            <a href="/affiliate" class="hp-resource-chip">
+                <i class="fa-solid fa-hand-holding-dollar" style="color: #8b5cf6;"></i>
+                <span>Earn 20% Forever</span>
+            </a>
         </div>
     </div>
 </section>
