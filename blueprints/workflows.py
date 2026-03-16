@@ -766,9 +766,18 @@ Integration:
 Logic & Flow Control:
 - if_else: Conditional branching. Config: {"conditions": [{"field": "...", "operator": "...", "value": "..."}], "logic": "and"|"or"}
   Outgoing connections use branch_key "true" or "false"
+  Field can reference query_results from state_query steps (e.g. "days_since_contact")
 - loop: Repeat a section up to N times. Config: {"max_iterations": 15}
   Outgoing connections: "loop" (continue) or "exit" (done)
-- wait: Pause execution. Config: {"duration": 1, "unit": "seconds"|"minutes"|"hours"|"days"}
+- wait: Fixed duration pause. Config: {"duration": 1, "unit": "seconds"|"minutes"|"hours"|"days"}
+- wait_until: Smart conditional wait — pauses until a condition becomes true OR timeout.
+  Config: {"condition": {"field": "...", "operator": "...", "value": "..."}, "max_wait_hours": 72, "check_interval_minutes": 5}
+  Outgoing connections: "condition_met" or "timeout"
+  Example: wait until contact replies: {"condition": {"field": "responded_within", "operator": "responded_within", "value": "5"}, "max_wait_hours": 48}
+- state_query: Query the database and store results for downstream conditions.
+  Config: {"query_type": "last_outbound_message|last_inbound_message|message_count|call_count|last_call_date|days_since_contact|contact_field|workflow_run_count", "store_as": "variable_name"}
+  Results stored in context — use the "store_as" name as "field" in subsequent if_else conditions.
+  Example: {"query_type": "days_since_contact", "store_as": "days_silent"} then if_else with {"field": "days_silent", "operator": "greater_than", "value": "7"}
 - goto: Jump to another step. Config: {"target_step_id": "step_N"}
 - exit: End the workflow. Config: {}
 
@@ -821,7 +830,79 @@ step_type values: "action" (sends/updates), "condition" (if_else), "control" (wa
 - Loops must use the "loop" step with max_iterations to prevent infinite execution
 - For complex schedules (e.g. "every day for 4 days, then every 3rd day"), use loop + wait combinations
 - Custom actions are REAL — they execute via AI interpretation at runtime, not cosmetic placeholders
-- All triggers are REAL and fire actual workflow runs — event-driven triggers fire from webhooks, time-based triggers fire from cron"""
+- All triggers are REAL and fire actual workflow runs — event-driven triggers fire from webhooks, time-based triggers fire from cron
+- AUTO-EXIT: By default, workflows automatically exit when the contact replies (sends an inbound message). This is a safety mechanism — follow-up sequences stop when the lead engages. This can be disabled in trigger_config: {"exit_on_reply": false}
+- Use state_query + if_else combos for data-driven decisions (e.g. "query days_since_contact, then branch if > 7")
+- Use wait_until for event-driven waits (e.g. "wait until contact replies, max 48 hours")
+- For the pattern "send daily for X days, then every Nth day": use nested loop + wait combos
+
+═══ EXAMPLE: Complex Follow-up Sequence ═══
+"Text every day for 4 days, then every 3rd day for 4 cycles, then every 10 days until 15 total"
+→ Use: loop(4) → send_sms → wait(1 day) → loop(4) → send_sms → wait(3 days) → loop(7) → send_sms → wait(10 days) → exit
+Each loop's "exit" branch connects to the next loop. The final loop exits to an exit node."""
+
+
+_AI_BUILDER_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "create_workflow",
+        "description": "Create a structured workflow automation from a user's natural language description",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Short descriptive workflow name"},
+                "description": {"type": "string", "description": "Brief description of what this workflow does"},
+                "trigger_type": {
+                    "type": "string",
+                    "enum": [
+                        "contact_created", "sms_received", "inbound_call", "missed_call",
+                        "voicemail_received", "tag_added", "tag_removed", "stage_changed",
+                        "appointment_booked", "appointment_noshow", "contact_dnd",
+                        "no_response", "lead_age", "birthday_approaching", "field_updated",
+                        "manual", "scheduled",
+                    ],
+                },
+                "trigger_config": {"type": "object", "description": "Trigger-specific configuration"},
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "temp_id": {"type": "string"},
+                            "step_type": {"type": "string", "enum": ["action", "condition", "control"]},
+                            "step_subtype": {
+                                "type": "string",
+                                "enum": [
+                                    "send_sms", "ai_call", "add_tag", "remove_tag", "assign_agent",
+                                    "wait", "wait_until", "update_field", "add_note", "send_webhook",
+                                    "if_else", "loop", "goto", "exit", "custom", "move_stage",
+                                    "state_query",
+                                ],
+                            },
+                            "config": {"type": "object"},
+                            "position_x": {"type": "number"},
+                            "position_y": {"type": "number"},
+                        },
+                        "required": ["temp_id", "step_type", "step_subtype", "config"],
+                    },
+                },
+                "connections": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "from_temp_id": {"type": "string"},
+                            "to_temp_id": {"type": "string"},
+                            "branch_key": {"type": "string"},
+                        },
+                        "required": ["from_temp_id", "to_temp_id", "branch_key"],
+                    },
+                },
+            },
+            "required": ["name", "trigger_type", "steps", "connections"],
+        },
+    },
+}
 
 
 @workflows_bp.route("/api/workflows/build-with-ai", methods=["POST"])
@@ -843,34 +924,47 @@ def build_with_ai():
                 {"role": "system", "content": _AI_BUILDER_SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
             ],
+            tools=[_AI_BUILDER_TOOL],
+            tool_choice={"type": "function", "function": {"name": "create_workflow"}},
             temperature=0.2,
             max_tokens=4096,
         )
-        raw = response.choices[0].message.content.strip()
 
-        if raw.startswith("```"):
-            raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-            if raw.endswith("```"):
-                raw = raw[:-3]
-            raw = raw.strip()
+        # Extract from function call if available
+        msg = response.choices[0].message
+        workflow_data = None
 
-        workflow_data = json.loads(raw)
+        if msg.tool_calls:
+            raw = msg.tool_calls[0].function.arguments
+            workflow_data = json.loads(raw)
+        elif msg.content:
+            # Fallback: parse from content if function calling not used
+            raw = msg.content.strip()
+            if raw.startswith("```"):
+                raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+                if raw.endswith("```"):
+                    raw = raw[:-3]
+                raw = raw.strip()
+            workflow_data = json.loads(raw)
+        else:
+            return jsonify({"error": "AI returned empty response"}), 422
 
-        # Validate the AI output has required structure
+        # Validate the AI output
         if not isinstance(workflow_data, dict):
             return jsonify({"error": "AI returned invalid format"}), 422
 
-        # Ensure required fields exist
-        if "trigger_type" not in workflow_data:
-            workflow_data["trigger_type"] = "manual"
-        if "steps" not in workflow_data or not isinstance(workflow_data["steps"], list):
-            workflow_data["steps"] = []
-        if "connections" not in workflow_data or not isinstance(workflow_data["connections"], list):
-            workflow_data["connections"] = []
-        if "name" not in workflow_data:
-            workflow_data["name"] = "AI-Built Workflow"
+        # Ensure required fields
+        workflow_data.setdefault("trigger_type", "manual")
+        workflow_data.setdefault("steps", [])
+        workflow_data.setdefault("connections", [])
+        workflow_data.setdefault("name", "AI-Built Workflow")
+        workflow_data.setdefault("trigger_config", {})
 
-        # Validate trigger type is a real one
+        # Auto-enable exit_on_reply for follow-up sequences
+        if workflow_data["trigger_config"].get("exit_on_reply") is None:
+            workflow_data["trigger_config"]["exit_on_reply"] = True
+
+        # Validate trigger type
         valid_triggers = {
             "contact_created", "sms_received", "inbound_call", "missed_call",
             "voicemail_received", "tag_added", "tag_removed", "stage_changed",
@@ -879,29 +973,34 @@ def build_with_ai():
             "manual", "scheduled",
         }
         if workflow_data["trigger_type"] not in valid_triggers:
-            logger.warning(f"AI used invalid trigger: {workflow_data['trigger_type']}, defaulting to manual")
+            logger.warning(f"AI used invalid trigger: {workflow_data['trigger_type']}")
             workflow_data["trigger_type"] = "manual"
 
         # Validate step subtypes
         valid_subtypes = {
             "send_sms", "ai_call", "add_tag", "remove_tag", "assign_agent",
-            "wait", "update_field", "add_note", "send_webhook", "if_else",
-            "loop", "goto", "exit", "custom", "move_stage",
+            "wait", "wait_until", "update_field", "add_note", "send_webhook",
+            "if_else", "loop", "goto", "exit", "custom", "move_stage",
+            "state_query",
         }
         for step in workflow_data["steps"]:
             if step.get("step_subtype") not in valid_subtypes:
+                original_subtype = step.get("step_subtype", "unknown")
                 step["step_subtype"] = "custom"
-                if "config" not in step:
-                    step["config"] = {}
-                step["config"]["description"] = step.get("config", {}).get("description",
-                    f"Custom action: {step.get('step_subtype', 'unknown')}")
+                step.setdefault("config", {})
+                step["config"]["description"] = step["config"].get("description",
+                    f"Custom action: {original_subtype}")
+
+            # Ensure position defaults
+            step.setdefault("position_x", 400)
+            step.setdefault("position_y", 100)
 
         return jsonify({"workflow": workflow_data})
     except json.JSONDecodeError:
-        logger.error(f"AI builder returned invalid JSON: {raw[:500]}")
-        return jsonify({"error": "AI returned invalid workflow structure. Please try rephrasing your request."}), 422
+        logger.error(f"AI builder returned invalid JSON: {raw[:500] if 'raw' in dir() else 'N/A'}")
+        return jsonify({"error": "AI returned invalid workflow structure. Please try rephrasing."}), 422
     except Exception as e:
-        logger.error(f"AI builder error: {e}")
+        logger.error(f"AI builder error: {e}", exc_info=True)
         return jsonify({"error": "AI workflow generation failed"}), 500
 
 

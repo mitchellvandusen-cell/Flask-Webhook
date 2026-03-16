@@ -147,7 +147,14 @@ def check_workflow_triggers(location_id, event_type, contact_id, event_data=None
                 continue
 
             # Create the run
-            context = {"event_data": event_data or {}, "loop_counters": {}}
+            # exit_on_reply: if enabled in trigger_config, the workflow will
+            # auto-terminate when the contact sends any inbound message
+            exit_on_reply = trigger_config.get("exit_on_reply", True)
+            context = {
+                "event_data": event_data or {},
+                "loop_counters": {},
+                "exit_on_reply": exit_on_reply,
+            }
             cur.execute("""
                 INSERT INTO workflow_runs (workflow_id, contact_id, status, current_step_id, context)
                 VALUES (%s, %s, 'running', %s, %s)
@@ -539,12 +546,47 @@ def _execute_step(cur, conn, run_id, step, location_id, contact_id, context):
     if isinstance(config, str):
         config = json.loads(config)
 
+    # ── Global auto-exit on contact reply ──
+    # If the workflow has exit_on_reply enabled, check if the contact has
+    # sent an inbound message SINCE this workflow run started.
+    if context.get("exit_on_reply", False) and contact_id != "scheduled_trigger":
+        if _contact_replied_since_run_start(run_id, contact_id):
+            logger.info(f"Auto-exit: contact {contact_id} replied during run {run_id}")
+            return {"status": "exit", "reason": "contact_replied"}
+
     handler = STEP_HANDLERS.get(subtype)
     if not handler:
         logger.warning(f"Unknown step subtype: {subtype}")
         return {"status": "completed", "note": f"Unknown subtype {subtype}, skipped"}
 
+    # Also allow if_else steps to reference query_results from context
+    if subtype == "if_else" and "query_results" in context:
+        # Inject query_results into config so conditions can reference them
+        config["_query_results"] = context["query_results"]
+
     return handler(cur, conn, run_id, step, config, location_id, contact_id, context)
+
+
+def _contact_replied_since_run_start(run_id, contact_id):
+    """Check if a contact has sent an inbound message since the workflow run started."""
+    conn2 = get_db_connection()
+    if not conn2:
+        return False
+    try:
+        cur2 = conn2.cursor()
+        cur2.execute("""
+            SELECT 1 FROM contact_messages cm
+            JOIN workflow_runs wr ON wr.id = %s
+            WHERE cm.contact_id = %s
+              AND cm.message_type = 'lead'
+              AND cm.created_at > wr.started_at
+            LIMIT 1
+        """, (run_id, contact_id))
+        return cur2.fetchone() is not None
+    except Exception:
+        return False
+    finally:
+        return_db_connection(conn2)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1197,6 +1239,226 @@ def _handle_move_stage(cur, conn, run_id, step, config, location_id, contact_id,
         return {"status": "error", "error": f"Move stage failed: {e}", "continue": True}
 
 
+def _handle_wait_until(cur, conn, run_id, step, config, location_id, contact_id, context):
+    """
+    Smart Wait — pauses until a CONDITION is met or a max timeout expires.
+
+    Unlike regular 'wait' (which waits a fixed duration), wait_until checks
+    a condition on each cron tick. When the condition becomes true, execution
+    resumes. If max_wait elapses first, takes the 'timeout' branch.
+
+    Config:
+        condition: {"field": "...", "operator": "...", "value": "..."}
+        max_wait_hours: 72 (safety cap — auto-resume after this many hours)
+        check_interval_minutes: 5 (how often cron re-checks)
+    """
+    condition = config.get("condition", {})
+    max_wait_hours = config.get("max_wait_hours", 72)
+    try:
+        max_wait_hours = int(max_wait_hours)
+    except (ValueError, TypeError):
+        max_wait_hours = 72
+
+    # Check if we're on a re-check (cron resumed us to re-evaluate)
+    wait_started = context.get("_wait_until_started")
+    if wait_started:
+        # We've been waiting — check the condition
+        if condition:
+            field = condition.get("field", "")
+            operator = condition.get("operator", "equals")
+            value = condition.get("value", "")
+            result = _evaluate_condition(field, operator, value, location_id, contact_id, context)
+            if result:
+                logger.info(f"Wait_until condition met for run {run_id}")
+                context.pop("_wait_until_started", None)
+                return {"status": "completed", "branch_key": "condition_met",
+                        "waited": True, "condition_met": True}
+
+        # Check timeout
+        try:
+            started_dt = datetime.fromisoformat(wait_started)
+            elapsed = (datetime.now(timezone.utc) - started_dt).total_seconds() / 3600
+            if elapsed >= max_wait_hours:
+                logger.info(f"Wait_until timed out after {elapsed:.1f}h for run {run_id}")
+                context.pop("_wait_until_started", None)
+                return {"status": "completed", "branch_key": "timeout",
+                        "waited": True, "timed_out": True}
+        except Exception:
+            pass
+
+        # Still waiting — schedule next check
+        check_interval = config.get("check_interval_minutes", 5)
+        try:
+            check_interval = max(1, int(check_interval))
+        except (ValueError, TypeError):
+            check_interval = 5
+
+        next_check = datetime.now(timezone.utc) + timedelta(minutes=check_interval)
+        return {
+            "status": "waiting",
+            "next_execute_at": next_check.isoformat(),
+            "note": "Re-checking condition",
+        }
+
+    # First time hitting this step — check condition immediately
+    if condition:
+        field = condition.get("field", "")
+        operator = condition.get("operator", "equals")
+        value = condition.get("value", "")
+        result = _evaluate_condition(field, operator, value, location_id, contact_id, context)
+        if result:
+            return {"status": "completed", "branch_key": "condition_met",
+                    "condition_met": True}
+
+    # Condition not met — start waiting
+    context["_wait_until_started"] = datetime.now(timezone.utc).isoformat()
+
+    check_interval = config.get("check_interval_minutes", 5)
+    try:
+        check_interval = max(1, int(check_interval))
+    except (ValueError, TypeError):
+        check_interval = 5
+
+    next_check = datetime.now(timezone.utc) + timedelta(minutes=check_interval)
+    logger.info(f"Wait_until started for run {run_id}, next check at {next_check}")
+    return {
+        "status": "waiting",
+        "next_execute_at": next_check.isoformat(),
+        "note": f"Waiting for condition (max {max_wait_hours}h)",
+    }
+
+
+def _handle_state_query(cur, conn, run_id, step, config, location_id, contact_id, context):
+    """
+    State Query — queries the database and stores results in the workflow context.
+
+    This lets subsequent if_else steps branch based on real-time data like
+    "when was the last outbound message?" or "how many calls have been made?"
+
+    Config:
+        query_type: "last_outbound_message"|"last_inbound_message"|"message_count"|
+                    "call_count"|"last_call_date"|"days_since_contact"|"contact_field"
+        store_as: "variable_name" (stored in context.query_results)
+        field: (for contact_field query type) the field name to read
+    """
+    query_type = config.get("query_type", "").strip()
+    store_as = config.get("store_as", query_type or "query_result")
+
+    if not query_type:
+        return {"status": "error", "error": "No query_type specified", "continue": True}
+
+    query_results = context.get("query_results", {})
+    result_value = None
+
+    conn2 = get_db_connection()
+    if not conn2:
+        return {"status": "error", "error": "Database unavailable", "continue": True}
+
+    try:
+        cur2 = conn2.cursor()
+
+        if query_type == "last_outbound_message":
+            cur2.execute("""
+                SELECT created_at, message_text FROM contact_messages
+                WHERE contact_id = %s AND message_type = 'assistant'
+                ORDER BY created_at DESC LIMIT 1
+            """, (contact_id,))
+            row = cur2.fetchone()
+            if row:
+                result_value = row["created_at"].isoformat() if row["created_at"] else None
+            else:
+                result_value = None
+
+        elif query_type == "last_inbound_message":
+            cur2.execute("""
+                SELECT created_at, message_text FROM contact_messages
+                WHERE contact_id = %s AND message_type = 'lead'
+                ORDER BY created_at DESC LIMIT 1
+            """, (contact_id,))
+            row = cur2.fetchone()
+            result_value = row["created_at"].isoformat() if row and row["created_at"] else None
+
+        elif query_type == "message_count":
+            direction = config.get("direction", "outbound")
+            msg_type = "assistant" if direction == "outbound" else "lead"
+            cur2.execute("""
+                SELECT COUNT(*) as cnt FROM contact_messages
+                WHERE contact_id = %s AND message_type = %s
+            """, (contact_id, msg_type))
+            row = cur2.fetchone()
+            result_value = row["cnt"] if row else 0
+
+        elif query_type == "call_count":
+            cur2.execute("""
+                SELECT COUNT(*) as cnt FROM call_history
+                WHERE contact_id = %s AND location_id = %s
+            """, (contact_id, location_id))
+            row = cur2.fetchone()
+            result_value = row["cnt"] if row else 0
+
+        elif query_type == "last_call_date":
+            cur2.execute("""
+                SELECT created_at FROM call_history
+                WHERE contact_id = %s AND location_id = %s
+                ORDER BY created_at DESC LIMIT 1
+            """, (contact_id, location_id))
+            row = cur2.fetchone()
+            result_value = row["created_at"].isoformat() if row and row["created_at"] else None
+
+        elif query_type == "days_since_contact":
+            # Days since any inbound or outbound message
+            cur2.execute("""
+                SELECT MAX(created_at) as last_msg FROM contact_messages
+                WHERE contact_id = %s
+            """, (contact_id,))
+            row = cur2.fetchone()
+            if row and row["last_msg"]:
+                delta = datetime.now(timezone.utc) - row["last_msg"].replace(tzinfo=timezone.utc)
+                result_value = delta.days
+            else:
+                result_value = 999  # No messages ever
+
+        elif query_type == "contact_field":
+            field_name = config.get("field", "")
+            if field_name:
+                contact = _fetch_contact(location_id, contact_id)
+                if contact:
+                    result_value = contact.get(field_name)
+
+        elif query_type == "workflow_run_count":
+            # How many times this workflow has run for this contact
+            wf_id = config.get("workflow_id") or context.get("event_data", {}).get("workflow_id")
+            if wf_id:
+                cur2.execute("""
+                    SELECT COUNT(*) as cnt FROM workflow_runs
+                    WHERE workflow_id = %s AND contact_id = %s
+                """, (wf_id, contact_id))
+            else:
+                cur2.execute("""
+                    SELECT COUNT(*) as cnt FROM workflow_runs
+                    WHERE contact_id = %s
+                """, (contact_id,))
+            row = cur2.fetchone()
+            result_value = row["cnt"] if row else 0
+
+        else:
+            return {"status": "error", "error": f"Unknown query_type: {query_type}", "continue": True}
+
+    except Exception as e:
+        logger.error(f"State query failed: {e}")
+        return {"status": "error", "error": f"Query failed: {e}", "continue": True}
+    finally:
+        return_db_connection(conn2)
+
+    # Store result in context for downstream steps to use
+    query_results[store_as] = result_value
+    context["query_results"] = query_results
+
+    logger.debug(f"State query {query_type} = {result_value} (stored as {store_as})")
+    return {"status": "completed", "query_type": query_type,
+            "result": result_value, "stored_as": store_as}
+
+
 # Step handler registry
 STEP_HANDLERS = {
     "send_sms": _handle_send_sms,
@@ -1204,6 +1466,7 @@ STEP_HANDLERS = {
     "add_tag": _handle_add_tag,
     "remove_tag": _handle_remove_tag,
     "wait": _handle_wait,
+    "wait_until": _handle_wait_until,
     "if_else": _handle_if_else,
     "loop": _handle_loop,
     "update_field": _handle_update_field,
@@ -1214,6 +1477,7 @@ STEP_HANDLERS = {
     "custom": _handle_custom,
     "assign_agent": _handle_assign_agent,
     "move_stage": _handle_move_stage,
+    "state_query": _handle_state_query,
 }
 
 
@@ -1431,10 +1695,16 @@ def _resolve_field_value(field, operator, location_id, contact_id, context):
     # Intelligence-based operators resolve their own data
     if operator in ("temperature_is", "score_above", "score_below",
                     "has_tag", "no_tag", "lead_age_days",
-                    "responded_within", "total_messages_sent"):
+                    "responded_within", "total_messages_sent",
+                    "in_state", "time_is_between"):
         return None  # Handled directly in _evaluate_condition
 
-    # Check context first (for workflow-injected variables)
+    # Check query_results first (from state_query steps)
+    query_results = context.get("query_results", {})
+    if field in query_results:
+        return query_results[field]
+
+    # Check context (for workflow-injected variables)
     event_data = context.get("event_data", {})
     if field in event_data:
         return event_data[field]
