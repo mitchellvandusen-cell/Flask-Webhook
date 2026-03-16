@@ -150,24 +150,23 @@
                     .wfb-palette.wfb-palette-collapsed { width: 0; opacity: 0; overflow: hidden; border-right: none; }
                     .wfb-palette-toggle { position: absolute; top: 12px; left: 12px; z-index: 10; width: 28px; height: 28px; border-radius: 7px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; color: #888; cursor: pointer; font-size: 0.7rem; transition: all 0.15s; }
                     .wfb-palette-toggle:hover { background: rgba(255,255,255,0.1); color: #ccc; }
-                    .wfb-palette-inner { padding: 12px; min-width: 220px; }
-                    .wfb-palette-search { width: 100%; padding: 7px 10px 7px 30px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); color: #ccc; font-size: 0.78rem; outline: none; margin-bottom: 12px; transition: border-color 0.2s; }
+                    .wfb-palette-inner { padding: 14px; min-width: 220px; }
+                    .wfb-palette-search { width: 100%; padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); color: #ccc; font-size: 0.78rem; outline: none; margin-bottom: 14px; transition: border-color 0.2s; }
                     .wfb-palette-search:focus { border-color: rgba(0,255,136,0.25); }
                     .wfb-palette-search-wrap { position: relative; }
-                    .wfb-palette-search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 0.7rem; color: #555; pointer-events: none; }
 
-                    .wfb-palette-category { margin-bottom: 14px; }
-                    .wfb-palette-cat-header { display: flex; align-items: center; gap: 6px; padding: 4px 0; cursor: pointer; user-select: none; }
-                    .wfb-palette-cat-chevron { font-size: 0.6rem; color: #555; transition: transform 0.2s; width: 12px; text-align: center; }
+                    .wfb-palette-category { margin-bottom: 6px; }
+                    .wfb-palette-cat-header { display: flex; align-items: center; gap: 6px; padding: 8px 4px 6px; cursor: pointer; user-select: none; }
+                    .wfb-palette-cat-chevron { font-size: 0.55rem; color: #555; transition: transform 0.2s; width: 14px; text-align: center; flex-shrink: 0; }
                     .wfb-palette-cat-chevron.wfb-cat-open { transform: rotate(90deg); }
-                    .wfb-palette-cat-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #666; }
-                    .wfb-palette-cat-items { padding-top: 4px; }
+                    .wfb-palette-cat-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #666; }
+                    .wfb-palette-cat-items { padding: 2px 0 6px; }
                     .wfb-palette-cat-items.wfb-cat-collapsed { display: none; }
 
-                    .wfb-palette-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 7px; font-size: 0.78rem; color: #bbb; cursor: grab; transition: background 0.15s, color 0.15s; user-select: none; }
+                    .wfb-palette-item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; font-size: 0.8rem; color: #bbb; cursor: grab; transition: background 0.15s, color 0.15s; user-select: none; }
                     .wfb-palette-item:hover { background: rgba(255,255,255,0.05); color: #eee; }
                     .wfb-palette-item:active { cursor: grabbing; }
-                    .wfb-palette-item i { width: 18px; text-align: center; font-size: 0.75rem; color: #888; flex-shrink: 0; }
+                    .wfb-palette-item i { width: 20px; text-align: center; font-size: 0.82rem; color: #888; flex-shrink: 0; }
                     .wfb-palette-item span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
                     .wfb-palette-item-disabled { opacity: 0.4; cursor: default; }
                     .wfb-palette-item-disabled:hover { background: none; color: #bbb; }
@@ -303,8 +302,9 @@
                     body.light-theme .wfb-empty-desc { color: var(--lt-text-muted); }
 
                     body.light-theme .wfb-toolbar { background: var(--lt-surface); border-color: var(--lt-border); }
-                    body.light-theme .wfb-toolbar-back { background: rgba(0,0,0,0.04); border-color: var(--lt-border); color: var(--lt-text-muted); }
-                    body.light-theme .wfb-toolbar-back:hover { background: rgba(0,0,0,0.07); color: var(--lt-text-primary); }
+                    body.light-theme .wfb-toolbar-back { background: rgba(0,0,0,0.04); border-color: var(--lt-border); color: #374151; }
+                    body.light-theme .wfb-toolbar-back:hover { background: rgba(0,0,0,0.07); color: #111827; }
+                    body.light-theme .wfb-toolbar-back i { color: #374151; }
                     body.light-theme .wfb-toolbar-divider { background: var(--lt-border); }
                     body.light-theme .wfb-toolbar-name { color: var(--lt-text-primary); }
                     body.light-theme .wfb-toolbar-name:hover { border-color: var(--lt-border); background: rgba(0,0,0,0.02); }
@@ -316,18 +316,19 @@
                     body.light-theme .wfb-toggle.wfb-toggle-on { background: rgba(0,170,94,0.15); border-color: rgba(0,170,94,0.25); }
                     body.light-theme .wfb-toggle-knob { background: #999; }
                     body.light-theme .wfb-toggle.wfb-toggle-on .wfb-toggle-knob { background: var(--lt-accent); }
+                    body.light-theme .wfb-toggle-label { color: #6b7280; }
 
                     body.light-theme .wfb-editor-body { border-color: var(--lt-border); background: rgba(0,0,0,0.02); }
 
                     body.light-theme .wfb-palette { background: var(--lt-surface); border-right-color: var(--lt-border); }
                     body.light-theme .wfb-palette-toggle { background: rgba(0,0,0,0.04); border-color: var(--lt-border); color: var(--lt-text-muted); }
                     body.light-theme .wfb-palette-search { background: var(--lt-input-bg); border-color: var(--lt-border); color: var(--lt-input-text); }
-                    body.light-theme .wfb-palette-search-icon { color: var(--lt-text-faint); }
-                    body.light-theme .wfb-palette-cat-chevron { color: var(--lt-text-faint); }
-                    body.light-theme .wfb-palette-cat-label { color: var(--lt-text-muted); }
+                    body.light-theme .wfb-palette-cat-chevron { color: #9ca3af; }
+                    body.light-theme .wfb-palette-cat-label { color: #6b7280; }
                     body.light-theme .wfb-palette-item { color: var(--lt-text-secondary); }
                     body.light-theme .wfb-palette-item:hover { background: rgba(0,0,0,0.04); color: var(--lt-text-primary); }
-                    body.light-theme .wfb-palette-item i { color: var(--lt-text-muted); }
+                    body.light-theme .wfb-palette-item i { color: #6b7280; }
+                    body.light-theme .wfb-palette-item:hover i { color: var(--lt-text-primary); }
                     body.light-theme .wfb-palette-feedback-link { color: var(--lt-text-muted); }
                     body.light-theme .wfb-palette-feedback-link:hover { color: var(--lt-accent); }
                     body.light-theme .wfb-palette-feedback-input { background: var(--lt-input-bg); border-color: var(--lt-border); color: var(--lt-input-text); }
@@ -500,7 +501,6 @@
                             <div class="wfb-palette" id="wfbPalette">
                                 <div class="wfb-palette-inner">
                                     <div class="wfb-palette-search-wrap">
-                                        <i class="fa-solid fa-magnifying-glass wfb-palette-search-icon"></i>
                                         <input type="text" class="wfb-palette-search" id="wfbPaletteSearch" placeholder="Search nodes...">
                                     </div>
 
@@ -539,7 +539,7 @@
                                                 <i class="fa-solid fa-clock"></i><span>No Response</span>
                                             </div>
                                             <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="scheduled">
-                                                <i class="fa-solid fa-calendar-clock"></i><span>Scheduled</span>
+                                                <i class="fa-regular fa-calendar"></i><span>Scheduled</span>
                                             </div>
                                             <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="manual">
                                                 <i class="fa-solid fa-hand-pointer"></i><span>Manual</span>
@@ -548,7 +548,7 @@
                                                 <i class="fa-solid fa-cake-candles"></i><span>Birthday</span>
                                             </div>
                                             <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="field_updated">
-                                                <i class="fa-solid fa-pen-field"></i><span>Field Updated</span>
+                                                <i class="fa-solid fa-pen-to-square"></i><span>Field Updated</span>
                                             </div>
                                             <div class="wfb-palette-item" draggable="true" data-type="trigger" data-subtype="contact_dnd">
                                                 <i class="fa-solid fa-ban"></i><span>Opted Out</span>
@@ -659,7 +659,7 @@
                             <!-- Center: Canvas -->
                             <div class="wfb-canvas-area">
                                 <button class="wfb-palette-toggle" id="wfbPaletteToggle" type="button" title="Toggle palette">
-                                    <i class="fa-solid fa-sidebar" id="wfbPaletteToggleIcon"></i>
+                                    <i class="fa-solid fa-bars" id="wfbPaletteToggleIcon"></i>
                                 </button>
 
                                 <div class="wfb-canvas-wrap" id="wfbCanvasWrap">
