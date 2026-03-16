@@ -5,8 +5,9 @@
 # Exception: /uninstall-feedback accepts POST for feedback submission.
 
 import logging
+from datetime import datetime
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, Response, make_response
 from crm_adapters.factory import list_available_crms, CRM_DISPLAY_NAMES
 from forms import ReviewForm
 from db import get_uninstall_feedback, save_uninstall_feedback
@@ -15,6 +16,16 @@ from send_email_api import send_email_via_api
 logger = logging.getLogger(__name__)
 
 public_bp = Blueprint('public', __name__)
+
+
+# ── Google Search Console verification ────────────────────────────────────────
+
+@public_bp.route("/googlee678258b465a9ad5.html")
+def google_search_console_verify():
+    """Serve Google Search Console HTML verification file."""
+    resp = make_response("google-site-verification: googlee678258b465a9ad5.html")
+    resp.headers['Content-Type'] = 'text/html; charset=utf-8'
+    return resp
 
 
 # ── Core marketing pages ──────────────────────────────────────────────────────
@@ -156,6 +167,115 @@ def reviews():
 
     visible_reviews = [r for r in all_reviews if r['stars'] == 5]
     return render_template('reviews.html', reviews=visible_reviews, form=form)
+
+
+# ── SEO: robots.txt + sitemap.xml ─────────────────────────────────────────────
+
+@public_bp.route("/robots.txt")
+def robots_txt():
+    """Serve robots.txt — allow all crawlers including AI bots."""
+    domain = request.host_url.rstrip('/')
+    body = f"""User-agent: *
+Allow: /
+
+# AI crawlers — explicitly welcomed
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: Anthropic-AI
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+# Block authenticated / app routes from indexing
+Disallow: /dashboard
+Disallow: /admin/
+Disallow: /api/
+Disallow: /oauth/
+Disallow: /webhook
+Disallow: /stripe-webhook
+Disallow: /voice/
+Disallow: /agency-dashboard
+Disallow: /agency-login
+Disallow: /claim-account
+Disallow: /claim-seat
+Disallow: /set-password
+
+Sitemap: {domain}/sitemap.xml
+"""
+    resp = make_response(body.strip())
+    resp.headers['Content-Type'] = 'text/plain; charset=utf-8'
+    resp.headers['Cache-Control'] = 'public, max-age=86400'
+    return resp
+
+
+@public_bp.route("/sitemap.xml")
+def sitemap_xml():
+    """Dynamic XML sitemap for all public marketing pages."""
+    domain = request.host_url.rstrip('/')
+    today = datetime.utcnow().strftime('%Y-%m-%d')
+
+    # (path, changefreq, priority)
+    pages = [
+        ('/',                       'weekly',   '1.0'),
+        ('/for-individuals',        'weekly',   '0.9'),
+        ('/for-agencies',           'weekly',   '0.9'),
+        ('/comparison',             'weekly',   '0.8'),
+        ('/comparison/text-drip',   'monthly',  '0.7'),
+        ('/comparison/dialers',     'monthly',  '0.7'),
+        ('/sms',                    'weekly',   '0.8'),
+        ('/spam-protection',        'weekly',   '0.8'),
+        ('/faq',                    'monthly',  '0.8'),
+        ('/about',                  'monthly',  '0.6'),
+        ('/reviews',                'monthly',  '0.7'),
+        ('/affiliate',              'monthly',  '0.5'),
+        ('/articles',               'weekly',   '0.7'),
+        ('/integrations',           'monthly',  '0.7'),
+        ('/getting-started',        'monthly',  '0.6'),
+        ('/setup-guide',            'monthly',  '0.6'),
+        ('/a2p-guide',              'monthly',  '0.6'),
+        ('/support',                'monthly',  '0.6'),
+        ('/demo-chat',              'monthly',  '0.7'),
+        ('/contact',                'monthly',  '0.5'),
+        ('/terms',                  'yearly',   '0.3'),
+        ('/privacy',                'yearly',   '0.3'),
+        ('/disclaimers',            'yearly',   '0.3'),
+    ]
+
+    urls = []
+    for path, freq, prio in pages:
+        urls.append(
+            f'  <url>\n'
+            f'    <loc>{domain}{path}</loc>\n'
+            f'    <lastmod>{today}</lastmod>\n'
+            f'    <changefreq>{freq}</changefreq>\n'
+            f'    <priority>{prio}</priority>\n'
+            f'  </url>'
+        )
+
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + '\n'.join(urls) + '\n'
+        '</urlset>'
+    )
+    resp = make_response(xml)
+    resp.headers['Content-Type'] = 'application/xml; charset=utf-8'
+    resp.headers['Cache-Control'] = 'public, max-age=3600'
+    return resp
 
 
 # ── Uninstall feedback ────────────────────────────────────────────────────────
