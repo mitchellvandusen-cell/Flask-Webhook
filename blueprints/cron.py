@@ -259,3 +259,21 @@ def api_cron_number_health_expire():
     except Exception as e:
         logger.error(f"Cron number-health-expire crashed: {e}", exc_info=True)
         return safe_jsonify({"success": False, "error": str(e)}), 200
+
+
+@cron_bp.route("/api/cron/process-workflow-delays", methods=["GET", "POST"])
+def api_cron_process_workflow_delays():
+    """
+    Resume workflow runs that have pending delays (next_execute_at <= NOW()).
+    Run every 1 minute via external cron.
+    """
+    if not _cron_authorized():
+        return safe_jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        from workflow_engine import process_pending_delays
+        result = process_pending_delays()
+        return safe_jsonify({"success": True, "processed": result})
+    except Exception as e:
+        logger.error(f"Cron process-workflow-delays crashed: {e}", exc_info=True)
+        return safe_jsonify({"success": False, "error": str(e)}), 200

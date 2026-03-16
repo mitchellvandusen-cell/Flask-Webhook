@@ -1,0 +1,148 @@
+<!-- Contact Import Modal -->
+<div id="ciModal" class="ci-modal" onclick="if(event.target===this)ciClose()">
+    <div class="ci-modal-content">
+        <div class="ci-modal-header">
+            <div class="ci-header-left">
+                <div class="ci-header-icon"><i class="fa-solid fa-file-import"></i></div>
+                <div>
+                    <h3 class="ci-title">Import Contacts</h3>
+                    <p class="ci-subtitle">Upload CSV, Excel, or TXT files</p>
+                </div>
+            </div>
+            <button class="ci-close-btn" onclick="ciClose()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <!-- Step indicators -->
+        <div class="ci-steps-bar">
+            <div class="ci-step-dot ci-step-active" data-step="1"><span>1</span> Upload</div>
+            <div class="ci-step-line"></div>
+            <div class="ci-step-dot" data-step="2"><span>2</span> Map</div>
+            <div class="ci-step-line"></div>
+            <div class="ci-step-dot" data-step="3"><span>3</span> Options</div>
+            <div class="ci-step-line"></div>
+            <div class="ci-step-dot" data-step="4"><span>4</span> Import</div>
+            <div class="ci-step-line"></div>
+            <div class="ci-step-dot" data-step="5"><span>5</span> Done</div>
+        </div>
+
+        <!-- Step 1: Upload -->
+        <div class="ci-step-content ci-step-visible" id="ciStep1">
+            <div class="ci-drop-zone" id="ciDropZone">
+                <div class="ci-drop-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+                <p class="ci-drop-title">Drop your file here</p>
+                <p class="ci-drop-hint">or click to browse</p>
+                <p class="ci-drop-formats">Supports CSV, Excel (.xlsx), TXT</p>
+                <input type="file" id="ciFileInput" accept=".csv,.xlsx,.xls,.txt,.tsv" class="ci-file-input">
+            </div>
+            <div id="ciFileInfo" class="ci-file-info ci-hidden">
+                <i class="fa-solid fa-file-lines"></i>
+                <span id="ciFileName"></span>
+                <span id="ciFileRows"></span>
+                <button class="ci-btn-text" onclick="ciResetUpload()">Change</button>
+            </div>
+
+            <!-- Import History -->
+            <div class="ci-history-section">
+                <button class="ci-btn-text" onclick="ciToggleHistory()">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Recent Imports
+                </button>
+                <div id="ciHistory" class="ci-hidden"></div>
+            </div>
+        </div>
+
+        <!-- Step 2: Column Mapping -->
+        <div class="ci-step-content ci-hidden" id="ciStep2">
+            <p class="ci-map-hint">Match your columns to contact fields. We auto-mapped what we could.</p>
+            <div class="ci-mapping-table-wrap">
+                <table class="ci-mapping-table">
+                    <thead>
+                        <tr>
+                            <th>Your Column</th>
+                            <th>Sample Data</th>
+                            <th>Maps To</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ciMappingBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Step 3: Options -->
+        <div class="ci-step-content ci-hidden" id="ciStep3">
+            <div class="ci-option-group">
+                <label class="ci-option-label">Duplicate Handling</label>
+                <p class="ci-option-hint">When a contact with the same phone number already exists:</p>
+                <div class="ci-radio-group">
+                    <label class="ci-radio"><input type="radio" name="ciDupe" value="skip" checked> <span>Skip duplicates</span></label>
+                    <label class="ci-radio"><input type="radio" name="ciDupe" value="update"> <span>Update existing contacts</span></label>
+                </div>
+            </div>
+            <div class="ci-option-group">
+                <label class="ci-option-label">Apply Tags <span class="ci-optional">(optional)</span></label>
+                <p class="ci-option-hint">Add tags to all imported contacts. Comma-separated.</p>
+                <input type="text" id="ciTags" class="ci-input" placeholder="e.g. imported, aged-leads, 2026">
+            </div>
+            <div class="ci-preview-section">
+                <label class="ci-option-label">Preview (first 5 rows mapped)</label>
+                <div class="ci-preview-table-wrap">
+                    <table class="ci-preview-table" id="ciPreviewTable"></table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 4: Importing -->
+        <div class="ci-step-content ci-hidden" id="ciStep4">
+            <div class="ci-progress-section">
+                <div class="ci-progress-icon"><i class="fa-solid fa-spinner fa-spin"></i></div>
+                <p class="ci-progress-title">Importing contacts...</p>
+                <div class="ci-progress-bar-wrap">
+                    <div class="ci-progress-bar" id="ciProgressBar"></div>
+                </div>
+                <div class="ci-progress-stats">
+                    <span class="ci-stat"><i class="fa-solid fa-check"></i> <span id="ciStatImported">0</span> imported</span>
+                    <span class="ci-stat"><i class="fa-solid fa-pen"></i> <span id="ciStatUpdated">0</span> updated</span>
+                    <span class="ci-stat"><i class="fa-solid fa-forward"></i> <span id="ciStatSkipped">0</span> skipped</span>
+                    <span class="ci-stat ci-stat-fail"><i class="fa-solid fa-xmark"></i> <span id="ciStatFailed">0</span> failed</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 5: Results -->
+        <div class="ci-step-content ci-hidden" id="ciStep5">
+            <div class="ci-results-card">
+                <div class="ci-results-icon"><i class="fa-solid fa-circle-check"></i></div>
+                <h4 class="ci-results-title">Import Complete</h4>
+                <div class="ci-results-grid">
+                    <div class="ci-result-item ci-result-success">
+                        <span class="ci-result-num" id="ciResImported">0</span>
+                        <span class="ci-result-label">Imported</span>
+                    </div>
+                    <div class="ci-result-item ci-result-info">
+                        <span class="ci-result-num" id="ciResUpdated">0</span>
+                        <span class="ci-result-label">Updated</span>
+                    </div>
+                    <div class="ci-result-item ci-result-muted">
+                        <span class="ci-result-num" id="ciResSkipped">0</span>
+                        <span class="ci-result-label">Skipped</span>
+                    </div>
+                    <div class="ci-result-item ci-result-fail">
+                        <span class="ci-result-num" id="ciResFailed">0</span>
+                        <span class="ci-result-label">Failed</span>
+                    </div>
+                </div>
+                <div id="ciErrorsSection" class="ci-errors-section ci-hidden">
+                    <button class="ci-btn-text" onclick="ciToggleErrors()">
+                        <i class="fa-solid fa-triangle-exclamation"></i> View Errors
+                    </button>
+                    <div id="ciErrorsList" class="ci-errors-list ci-hidden"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer buttons -->
+        <div class="ci-modal-footer">
+            <button class="ci-btn ci-btn-secondary" id="ciBtnBack" onclick="ciPrevStep()" class="ci-hidden">Back</button>
+            <button class="ci-btn ci-btn-primary" id="ciBtnNext" onclick="ciNextStep()">Upload File</button>
+        </div>
+    </div>
+</div>

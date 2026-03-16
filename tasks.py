@@ -1396,3 +1396,241 @@ def backfill_failed_webhooks(max_age_hours: int = 96) -> dict:
         stats["error"] = str(e)
 
     return stats
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONTACT IMPORT TASK — Background job for CSV/Excel/TXT → GHL contact creation
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def import_contacts_task(import_id):
+    """Process a contact import job: create/update contacts in GHL via API."""
+    import requests as http_requests
+    from blueprints.contacts_import import _normalize_phone
+
+    GHL_API_BASE = "https://services.leadconnectorhq.com"
+    API_VERSION = "2021-07-28"
+
+    conn = get_db_connection()
+    try:
+        cur = conn.cursor()
+
+        # Load import record
+        cur.execute("""
+            SELECT location_id, column_mapping, duplicate_strategy, apply_tags, file_data
+            FROM contact_imports WHERE id = %s
+        """, (import_id,))
+        rec = cur.fetchone()
+        if not rec:
+            logger.error(f"Import {import_id}: record not found")
+            return
+
+        location_id, column_mapping, dupe_strategy, apply_tags, file_data = rec
+        column_mapping = column_mapping if isinstance(column_mapping, dict) else json.loads(column_mapping or '{}')
+        apply_tags = apply_tags if isinstance(apply_tags, list) else json.loads(apply_tags or '[]')
+        file_data = file_data if isinstance(file_data, list) else json.loads(file_data or '[]')
+
+        # Get GHL token
+        token = get_valid_token(location_id)
+        if not token:
+            cur.execute("UPDATE contact_imports SET status = 'failed' WHERE id = %s", (import_id,))
+            conn.commit()
+            logger.error(f"Import {import_id}: no valid GHL token for {location_id}")
+            return
+
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Version": API_VERSION,
+            "Content-Type": "application/json",
+        }
+
+        # Mark as processing
+        cur.execute("UPDATE contact_imports SET status = 'processing' WHERE id = %s", (import_id,))
+        conn.commit()
+
+        imported = 0
+        updated = 0
+        skipped = 0
+        failed = 0
+        errors = []
+
+        for row_idx, row in enumerate(file_data):
+            try:
+                # Map columns to GHL fields
+                contact_data = {"locationId": location_id}
+                notes_value = None
+
+                for csv_col, ghl_field in column_mapping.items():
+                    val = row.get(csv_col, "").strip()
+                    if not val:
+                        continue
+                    if ghl_field == "phone":
+                        val = _normalize_phone(val)
+                        if not val:
+                            continue
+                    if ghl_field == "tags":
+                        # Tags can be comma-separated in the CSV
+                        contact_data["tags"] = [t.strip() for t in val.split(",") if t.strip()]
+                        continue
+                    if ghl_field == "notes":
+                        notes_value = val
+                        continue
+                    contact_data[ghl_field] = val
+
+                # Apply bulk tags
+                if apply_tags:
+                    existing_tags = contact_data.get("tags", [])
+                    contact_data["tags"] = list(set(existing_tags + apply_tags))
+
+                # Must have at least phone or email
+                if not contact_data.get("phone") and not contact_data.get("email"):
+                    skipped += 1
+                    errors.append({"row": row_idx + 2, "error": "No phone or email"})
+                    continue
+
+                # Check for duplicates by phone
+                existing_id = None
+                if contact_data.get("phone") and dupe_strategy in ("skip", "update"):
+                    try:
+                        lookup_url = f"{GHL_API_BASE}/contacts/lookup"
+                        lookup_resp = http_requests.get(
+                            lookup_url,
+                            headers=headers,
+                            params={"phone": contact_data["phone"], "locationId": location_id},
+                            timeout=10,
+                        )
+                        if lookup_resp.status_code == 200:
+                            lookup_data = lookup_resp.json()
+                            contacts_found = lookup_data.get("contacts", [])
+                            if contacts_found:
+                                existing_id = contacts_found[0].get("id")
+                    except Exception:
+                        pass  # Lookup failed, proceed with create
+
+                if existing_id and dupe_strategy == "skip":
+                    skipped += 1
+                    continue
+
+                if existing_id and dupe_strategy == "update":
+                    # Update existing contact
+                    update_payload = {k: v for k, v in contact_data.items()
+                                      if k not in ("locationId",)}
+                    try:
+                        resp = http_requests.put(
+                            f"{GHL_API_BASE}/contacts/{existing_id}",
+                            headers=headers,
+                            json=update_payload,
+                            timeout=10,
+                        )
+                        if resp.status_code in (200, 201):
+                            updated += 1
+                            # Add notes if present
+                            if notes_value:
+                                _add_contact_note(GHL_API_BASE, headers, existing_id, notes_value)
+                        else:
+                            failed += 1
+                            errors.append({"row": row_idx + 2, "error": f"Update failed: HTTP {resp.status_code}"})
+                    except Exception as e:
+                        failed += 1
+                        errors.append({"row": row_idx + 2, "error": f"Update error: {str(e)[:100]}"})
+                else:
+                    # Create new contact
+                    try:
+                        resp = http_requests.post(
+                            f"{GHL_API_BASE}/contacts/",
+                            headers=headers,
+                            json=contact_data,
+                            timeout=10,
+                        )
+                        if resp.status_code in (200, 201):
+                            imported += 1
+                            # Add notes if present
+                            if notes_value:
+                                new_id = resp.json().get("contact", {}).get("id")
+                                if new_id:
+                                    _add_contact_note(GHL_API_BASE, headers, new_id, notes_value)
+                        elif resp.status_code == 422:
+                            # Duplicate detected by GHL (phone/email exists)
+                            if dupe_strategy == "skip":
+                                skipped += 1
+                            else:
+                                failed += 1
+                                errors.append({"row": row_idx + 2, "error": f"GHL rejected: {resp.text[:100]}"})
+                        else:
+                            failed += 1
+                            errors.append({"row": row_idx + 2, "error": f"Create failed: HTTP {resp.status_code}"})
+                    except Exception as e:
+                        failed += 1
+                        errors.append({"row": row_idx + 2, "error": f"Create error: {str(e)[:100]}"})
+
+                # Update progress every 10 rows
+                if (row_idx + 1) % 10 == 0:
+                    cur.execute("""
+                        UPDATE contact_imports
+                        SET imported = %s, updated = %s, skipped = %s, failed = %s
+                        WHERE id = %s
+                    """, (imported, updated, skipped, failed, import_id))
+                    conn.commit()
+
+                # Rate limit: 0.3s between API calls
+                time.sleep(0.3)
+
+                # Refresh token every 200 rows
+                if (row_idx + 1) % 200 == 0:
+                    new_token = get_valid_token(location_id)
+                    if new_token:
+                        token = new_token
+                        headers["Authorization"] = f"Bearer {token}"
+
+            except Exception as e:
+                failed += 1
+                errors.append({"row": row_idx + 2, "error": f"Unexpected: {str(e)[:100]}"})
+
+        # Final update
+        cur.execute("""
+            UPDATE contact_imports
+            SET status = 'completed', imported = %s, updated = %s, skipped = %s, failed = %s,
+                error_log = %s, completed_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """, (imported, updated, skipped, failed, json.dumps(errors[:500]), import_id))
+        conn.commit()
+
+        logger.info(f"Import {import_id} complete: {imported} imported, {updated} updated, "
+                     f"{skipped} skipped, {failed} failed out of {len(file_data)} rows")
+
+        # Refresh local contact cache
+        try:
+            from db import upsert_contact_cache
+            # Trigger a cache refresh by clearing the synced_at
+            cur.execute("""
+                UPDATE contact_cache SET synced_at = '2000-01-01'
+                WHERE location_id = %s
+            """, (location_id,))
+            conn.commit()
+        except Exception:
+            pass
+
+    except Exception as e:
+        logger.error(f"Import {import_id} critical error: {e}", exc_info=True)
+        try:
+            cur.execute("""
+                UPDATE contact_imports SET status = 'failed', error_log = %s WHERE id = %s
+            """, (json.dumps([{"row": 0, "error": f"Critical: {str(e)[:200]}"}]), import_id))
+            conn.commit()
+        except Exception:
+            pass
+    finally:
+        return_db_connection(conn)
+
+
+def _add_contact_note(api_base, headers, contact_id, note_text):
+    """Add a note to a GHL contact."""
+    import requests as http_requests
+    try:
+        http_requests.post(
+            f"{api_base}/contacts/{contact_id}/notes",
+            headers=headers,
+            json={"body": note_text},
+            timeout=10,
+        )
+    except Exception:
+        pass
