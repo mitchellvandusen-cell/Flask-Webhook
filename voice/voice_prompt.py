@@ -45,17 +45,16 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
     contact_age = None
     contact_address = None
     contact_tags = []
+    contact_notes = []
     contact_email = ""
     lead_type = "default"
     pipeline_str = ""
     previous_transcripts_str = ""
     underwriting_ctx = ""
     company_ctx = ""
-    tags_str = ""
 
     # ── Fetch GHL contact data FIRST (needed for age, tags, address, lead type) ──
     contact_data = {}
-    contact_fields_str = ""
     if contact_id:
         try:
             location_id = subscriber.get('location_id', '')
@@ -96,22 +95,31 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
                     except Exception as e:
                         logger.debug(f"Voice: Could not resolve lead type: {e}")
 
-                    # Custom fields
+                    # Custom fields (stored for directive pass-through to profile builder)
                     custom_fields = contact_data.get("customFields", [])
-                    field_lines = []
-                    for cf in custom_fields:
-                        val = cf.get('value', '')
-                        name = cf.get('name', '') or cf.get('fieldKey', '')
-                        if val and name:
-                            field_lines.append(f"  - {name}: {val}")
-                    if field_lines:
-                        contact_fields_str = "\n=== CONTACT CUSTOM FIELDS (from CRM) ===\nUse these naturally in conversation when relevant:\n" + "\n".join(field_lines)
+
+                    # Fetch agent notes from CRM (separate API call)
+                    try:
+                        notes_resp = http_requests.get(
+                            f"https://services.leadconnectorhq.com/contacts/{contact_id}/notes",
+                            headers={"Authorization": f"Bearer {access_token}", "Version": "2021-07-28"},
+                            timeout=5
+                        )
+                        if notes_resp.status_code == 200:
+                            import re as _re
+                            _raw_notes = notes_resp.json().get("notes", [])
+                            contact_notes = [
+                                {
+                                    "body": _re.sub(r'<[^>]+>', '', n.get("body", "")).strip(),
+                                    "dateAdded": n.get("dateAdded", ""),
+                                }
+                                for n in sorted(_raw_notes, key=lambda x: x.get("dateAdded", ""), reverse=True)[:5]
+                                if n.get("body", "").strip()
+                            ]
+                    except Exception:
+                        pass
         except Exception as e:
             logger.debug(f"Voice: Could not fetch contact data: {e}")
-
-    # ── Build tags string ──
-    if contact_tags:
-        tags_str = "\n=== CONTACT TAGS ===\n" + ", ".join(contact_tags)
 
     if contact_id:
         try:
@@ -123,6 +131,15 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
                 address=contact_address,
                 bot_settings=bot_settings,
                 lead_type=lead_type,
+                last_name=contact_data.get("lastName"),
+                company_name=contact_data.get("companyName"),
+                tags=contact_tags,
+                notes=contact_notes,
+                custom_fields=contact_data.get("customFields"),
+                source=contact_data.get("source"),
+                city=contact_data.get("city"),
+                state=contact_data.get("state"),
+                gender=contact_data.get("gender"),
             )
             profile_str = directive.get("profile_str", "")
             tactical_narrative = directive.get("tactical_narrative", "")
@@ -669,10 +686,6 @@ NEVER use bullet points, numbered lists, emojis, asterisks, markdown, or any tex
 CURRENT STAGE: {stage}
 
 {calendar_str}
-
-{contact_fields_str}
-
-{tags_str}
 
 {pipeline_str}
 

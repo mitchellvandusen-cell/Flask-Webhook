@@ -1,5 +1,6 @@
 # individual_profile.py - Right Brain: Who Is This Person?
-# Builds a person dossier from known facts. Not the conversation — the PERSON.
+# Builds a person dossier from known facts + CRM contact data.
+# Not the conversation — the PERSON.
 # Family, job, coverage, health, personality, what drives them.
 
 import re
@@ -24,19 +25,38 @@ DURABLE_KEYWORDS = [
     "home owner", "homeowner", "mortgage", "rents",
 ]
 
+# Custom field keys that should NOT be shown to the LLM (internal/technical)
+_EXCLUDED_CUSTOM_FIELD_KEYS = {
+    "lead_vendor", "leadvendor", "lead vendor",
+    "lead_source", "leadsource", "lead source",
+    "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",
+    "gclid", "fbclid", "ip_address", "ip address",
+    "stripe_customer_id", "subscription_id",
+}
+
 
 def build_comprehensive_profile(
     story_narrative: str,
     known_facts: Union[List[str], List[Dict]],
     first_name: Optional[str] = None,
     age: Optional[str] = None,
-    address: Optional[str] = None
+    address: Optional[str] = None,
+    # ── Enriched contact data from CRM ──
+    last_name: Optional[str] = None,
+    company_name: Optional[str] = None,
+    tags: Optional[List[str]] = None,
+    notes: Optional[List[Dict]] = None,
+    custom_fields: Optional[List[Dict]] = None,
+    source: Optional[str] = None,
+    city: Optional[str] = None,
+    state: Optional[str] = None,
+    gender: Optional[str] = None,
 ) -> Tuple[str, Dict]:
     """
     RIGHT BRAIN — Who is this person?
 
-    Takes the known facts (extracted by the narrator) and intake data,
-    and builds two things:
+    Takes the known facts (extracted by the narrator), intake data, and CRM
+    contact card fields, and builds two things:
     1. A person dossier string for the LLM prompt (who they are, their life,
        their coverage situation, their personality)
     2. A profile_context dict for sales_director routing (health flags,
@@ -79,14 +99,20 @@ def build_comprehensive_profile(
     high_value_signals = ["business", "estate", "wealth", "asset", "inheritance", "executive"]
     profile_context["high_value_potential"] = any(s in full_text for s in high_value_signals)
 
+    # Company name from CRM also signals high-value potential
+    if company_name and company_name.strip():
+        profile_context["high_value_potential"] = True
+
     # ─── 2. Build the Person Dossier (what Grok sees) ───
     name = (first_name or "").strip().split()[0].capitalize() if first_name else ""
+    last = (last_name or "").strip().capitalize() if last_name else ""
 
     # Start with intake data
     identity_parts = []
     age_int = 0
     if name:
-        identity_parts.append(name)
+        full_name = f"{name} {last}" if last else name
+        identity_parts.append(full_name)
     if age:
         try:
             age_int = int(re.search(r'\d+', str(age)).group())
@@ -95,7 +121,80 @@ def build_comprehensive_profile(
         except (AttributeError, ValueError):
             age_int = 0
 
+    # Gender context (only if available, helps with pronoun/product framing)
+    if gender:
+        g = gender.strip().lower()
+        if g in ("m", "male"):
+            identity_parts.append("male")
+        elif g in ("f", "female"):
+            identity_parts.append("female")
+
     identity_line = ", ".join(identity_parts) if identity_parts else ""
+
+    # ─── CRM context lines (company, location, source) ───
+    crm_lines = []
+    if company_name and company_name.strip():
+        crm_lines.append(f"- Works at: {company_name.strip()}")
+    if city and state:
+        crm_lines.append(f"- Location: {city.strip()}, {state.strip()}")
+    elif state:
+        crm_lines.append(f"- State: {state.strip()}")
+    elif city:
+        crm_lines.append(f"- City: {city.strip()}")
+    if source and source.strip():
+        crm_lines.append(f"- Lead source: {source.strip()}")
+
+    # ─── Tags (filter out internal/system tags, keep descriptive ones) ───
+    tag_lines = []
+    if tags:
+        # Skip tags that look like internal system tags
+        _system_prefixes = ("utm_", "ghl_", "lc_", "api_", "webhook_")
+        descriptive_tags = [
+            t.strip() for t in tags
+            if t and t.strip()
+            and not t.strip().lower().startswith(_system_prefixes)
+            and len(t.strip()) > 1
+        ]
+        if descriptive_tags:
+            tag_lines.append(f"- CRM tags: {', '.join(descriptive_tags)}")
+
+    # ─── Custom fields (filter out technical/internal ones) ───
+    cf_lines = []
+    if custom_fields:
+        for cf in custom_fields:
+            if not isinstance(cf, dict):
+                continue
+            val = cf.get("value", "")
+            name_key = cf.get("name", "") or cf.get("fieldKey", "")
+            if not val or not name_key:
+                continue
+            # Skip internal/technical fields
+            if name_key.lower().strip() in _EXCLUDED_CUSTOM_FIELD_KEYS:
+                continue
+            # Skip very long values (probably notes or JSON)
+            val_str = str(val).strip()
+            if len(val_str) > 200:
+                val_str = val_str[:200] + "..."
+            if val_str:
+                cf_lines.append(f"- {name_key}: {val_str}")
+
+    # ─── Agent notes from contact card ───
+    notes_block = ""
+    if notes:
+        # Take most recent 3 notes, strip HTML, limit length
+        note_lines = []
+        for n in notes[:3]:
+            if not isinstance(n, dict):
+                continue
+            body = (n.get("body") or "").strip()
+            if not body:
+                continue
+            # Truncate long notes
+            if len(body) > 300:
+                body = body[:300] + "..."
+            note_lines.append(f"  - {body}")
+        if note_lines:
+            notes_block = "\nAGENT NOTES (written by the insurance agent about this lead):\n" + "\n".join(note_lines)
 
     # ─── Age bracket → mandatory product focus note ───
     # This is hardcoded logic, not a soft prompt hint.
@@ -163,9 +262,15 @@ def build_comprehensive_profile(
 
     age_bracket_line = f"\n{age_bracket_note}" if age_bracket_note else ""
 
+    # ─── Assemble CRM data section (only if we have any) ───
+    crm_section = ""
+    all_crm = crm_lines + tag_lines + cf_lines
+    if all_crm:
+        crm_section = "\n" + "\n".join(all_crm)
+
     final_profile = f"""WHO THIS PERSON IS:
 {identity_line}
-{facts_block}
+{facts_block}{crm_section}{notes_block}
 {health_note}{age_bracket_line}
 This is everything confirmed about the lead so far. Use it as quiet intuition. Adapt to who they are. Never re-ask things listed here."""
 
