@@ -200,13 +200,13 @@
         fetch('/api/workflows/' + id + '/' + action, { method: 'POST' }).then(function() { _loadWorkflows(); });
     };
 
-    // ── GHL Workflow Import ─────────────────────────────────────────────────
+    // ── LeadConnector Workflow Import ─────────────────────────────────────────
     window.wfbImportGhl = function() {
         var btn = document.getElementById('wfbImportGhlBtn');
         if (btn) { btn.disabled = true; btn.querySelector('span').textContent = 'Loading...'; }
 
         fetch('/api/workflows/ghl').then(function(r) { return r.json(); }).then(function(data) {
-            if (btn) { btn.disabled = false; btn.querySelector('span').textContent = 'Import from GHL'; }
+            if (btn) { btn.disabled = false; btn.querySelector('span').textContent = 'Import from LeadConnector'; }
             if (data.error) {
                 if (typeof _showDashToast === 'function') _showDashToast(false, data.error);
                 return;
@@ -218,9 +218,74 @@
                 _showDashToast(true, _ghlWorkflows.length + ' LeadConnector workflow' + (_ghlWorkflows.length !== 1 ? 's' : '') + ' found');
             }
         }).catch(function() {
-            if (btn) { btn.disabled = false; btn.querySelector('span').textContent = 'Import from GHL'; }
-            if (typeof _showDashToast === 'function') _showDashToast(false, 'Failed to fetch GHL workflows');
+            if (btn) { btn.disabled = false; btn.querySelector('span').textContent = 'Import from LeadConnector'; }
+            if (typeof _showDashToast === 'function') _showDashToast(false, 'Failed to fetch LeadConnector workflows');
         });
+    };
+
+    window.wfbShowGhlDetail = function(wfId) {
+        var wf = null;
+        for (var i = 0; i < _ghlWorkflows.length; i++) {
+            if (_ghlWorkflows[i].id === wfId) { wf = _ghlWorkflows[i]; break; }
+        }
+        if (!wf) return;
+
+        var created = wf.created_at ? new Date(wf.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Unknown';
+        var updated = wf.updated_at ? new Date(wf.updated_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Unknown';
+        var status = wf.status === 'published' ? 'Active' : (wf.status || 'Draft');
+        var statusClass = wf.status === 'published' ? 'wfb-badge-active' : 'wfb-badge-draft';
+
+        var existing = document.getElementById('wfbGhlDetailModal');
+        if (existing) existing.remove();
+
+        var modal = document.createElement('div');
+        modal.id = 'wfbGhlDetailModal';
+        modal.className = 'wfb-ai-modal wfb-ai-modal-open';
+        modal.innerHTML =
+            '<div class="wfb-ai-modal-content wfb-ghl-detail-modal-content">' +
+                '<div class="wfb-ai-modal-header">' +
+                    '<div class="wfb-ai-modal-title-group">' +
+                        '<div class="wfb-card-trigger-icon wfb-ghl-detail-icon"><i class="fa-solid fa-diagram-project"></i></div>' +
+                        '<div>' +
+                            '<h3 class="wfb-ai-modal-title">' + _esc(wf.name) + '</h3>' +
+                            '<p class="wfb-ai-modal-subtitle">LeadConnector Workflow</p>' +
+                        '</div>' +
+                    '</div>' +
+                    '<button class="wfb-ai-modal-close" onclick="document.getElementById(\'wfbGhlDetailModal\').remove()" type="button"><i class="fa-solid fa-xmark"></i></button>' +
+                '</div>' +
+                '<div class="wfb-ghl-detail-body">' +
+                    '<div class="wfb-ghl-detail-row">' +
+                        '<span class="wfb-ghl-detail-label">Status</span>' +
+                        '<span class="wfb-badge ' + statusClass + '"><span class="wfb-badge-dot"></span> ' + _esc(status) + '</span>' +
+                    '</div>' +
+                    '<div class="wfb-ghl-detail-row">' +
+                        '<span class="wfb-ghl-detail-label">Created</span>' +
+                        '<span class="wfb-ghl-detail-value">' + _esc(created) + '</span>' +
+                    '</div>' +
+                    '<div class="wfb-ghl-detail-row">' +
+                        '<span class="wfb-ghl-detail-label">Last Updated</span>' +
+                        '<span class="wfb-ghl-detail-value">' + _esc(updated) + '</span>' +
+                    '</div>' +
+                    '<div class="wfb-ghl-detail-row">' +
+                        '<span class="wfb-ghl-detail-label">Version</span>' +
+                        '<span class="wfb-ghl-detail-value">v' + (wf.version || 1) + '</span>' +
+                    '</div>' +
+                    '<div class="wfb-ghl-detail-row">' +
+                        '<span class="wfb-ghl-detail-label">Source</span>' +
+                        '<span class="wfb-source-badge wfb-source-ghl">LeadConnector</span>' +
+                    '</div>' +
+                    '<div class="wfb-ghl-detail-note">' +
+                        '<i class="fa-solid fa-circle-info"></i> ' +
+                        'This workflow is managed in LeadConnector. To edit triggers, steps, and actions, open it in your LeadConnector dashboard.' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) modal.remove();
+        });
+
+        document.body.appendChild(modal);
     };
 
     function _renderGhlWorkflows() {
@@ -246,7 +311,8 @@
         _ghlWorkflows.forEach(function(wf) {
             var statusClass = wf.status === 'published' ? 'wfb-badge-active' : 'wfb-badge-draft';
             var statusText = wf.status === 'published' ? 'active' : (wf.status || 'draft');
-            cards += '<div class="wfb-card wfb-ghl-card">' +
+            var updated = wf.updated_at ? new Date(wf.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+            cards += '<div class="wfb-card wfb-ghl-card" onclick="wfbShowGhlDetail(\'' + _esc(wf.id) + '\')">' +
                 '<div class="wfb-card-header">' +
                     '<div class="wfb-card-trigger-icon"><i class="fa-solid fa-diagram-project"></i></div>' +
                     '<div class="wfb-card-name-wrap">' +
@@ -256,7 +322,8 @@
                     '<span class="wfb-badge ' + statusClass + '">' + _esc(statusText) + '</span>' +
                 '</div>' +
                 '<div class="wfb-card-footer">' +
-                    '<span class="wfb-card-stats wfb-ghl-readonly">Read-only · Managed in GHL</span>' +
+                    '<span class="wfb-card-stats wfb-ghl-readonly">Read-only · Managed in LeadConnector</span>' +
+                    (updated ? '<span class="wfb-card-stats wfb-ghl-readonly">' + updated + '</span>' : '') +
                 '</div>' +
             '</div>';
         });
@@ -1128,26 +1195,38 @@
     window.wfbBuildWithAi = function() {
         var ta = document.getElementById('wfbAiPrompt');
         var prompt = ta ? ta.value.trim() : '';
-        if (!prompt) return;
+        if (!prompt) {
+            if (typeof _showDashToast === 'function') _showDashToast(false, 'Please describe what you want to automate');
+            return;
+        }
 
         var btn = document.getElementById('wfbAiBuildBtn');
-        if (btn) { btn.classList.add('wfb-ai-loading'); btn.disabled = true; }
+        var loader = document.getElementById('wfbAiLoading');
+        // Show loading indicator, hide build button
+        if (btn) btn.style.display = 'none';
+        if (loader) loader.classList.add('wfb-ai-loading-active');
+
+        function _resetBuildBtn() {
+            if (btn) btn.style.display = '';
+            if (loader) loader.classList.remove('wfb-ai-loading-active');
+        }
 
         fetch('/api/workflows/build-with-ai', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ prompt: prompt })
         }).then(function(r) { return r.json(); }).then(function(data) {
-            if (btn) { btn.classList.remove('wfb-ai-loading'); btn.disabled = false; }
             if (data.error) {
+                _resetBuildBtn();
                 if (typeof _showDashToast === 'function') _showDashToast(false, data.error);
                 return;
             }
+            _resetBuildBtn();
             wfbCloseAiModal();
             _animateAiWorkflow(data.workflow);
-        }).catch(function() {
-            if (btn) { btn.classList.remove('wfb-ai-loading'); btn.disabled = false; }
-            if (typeof _showDashToast === 'function') _showDashToast(false, 'AI build failed');
+        }).catch(function(err) {
+            _resetBuildBtn();
+            if (typeof _showDashToast === 'function') _showDashToast(false, 'AI build failed: ' + (err.message || 'Network error'));
         });
     };
 
