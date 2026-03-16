@@ -113,6 +113,7 @@ def process_webhook_task(payload: dict):
 
         is_demo = location_id in {'DEMO', 'DEMO_LOC', 'DEMO_ACCOUNT_SALES_ONLY', 'TEST_LOCATION_456'}
         is_api_source = payload.get("_source") == "universal_api"
+        is_workflow_outreach = payload.get("_workflow_outreach", False)
 
         if is_demo:
             subscriber = {
@@ -309,7 +310,7 @@ def process_webhook_task(payload: dict):
         message_id = payload.get("message_id") or payload.get("id")
 
         # === FIXED: Atomic Idempotency Check ===
-        if not is_demo and message_id:
+        if not is_demo and not is_workflow_outreach and message_id:
             conn = get_db_connection()
             if conn:
                 cur = None
@@ -339,7 +340,7 @@ def process_webhook_task(payload: dict):
                         cur.close()
                     return_db_connection(conn)
 
-        if message:
+        if message and not is_workflow_outreach:
             save_message(contact_id, message, "lead")
             # Fire rich event so SSE stream can push a live inbox update to the dashboard
             _contact_name = payload.get('first_name') or payload.get('name') or 'Contact'
@@ -601,18 +602,33 @@ Instead, apologize that the requested time isn't available and offer the availab
         # === LEAD RE-ENGAGEMENT CHECK ===
         # If re-engagement is disabled and this is a follow-up (no inbound message),
         # skip responding entirely — let the lead come to us.
-        if not message and not bot_settings.get("lead_reengagement", True):
+        # Workflow outreach bypasses this check (explicitly requested by workflow).
+        if not is_workflow_outreach and not message and not bot_settings.get("lead_reengagement", True):
             bot_msgs = [m for m in recent_exchanges if m.get('role') == 'assistant']
             if len(bot_msgs) >= 1:
                 logger.info(f"🚫 RE-ENGAGEMENT DISABLED | Skipping follow-up for {contact_id}")
                 return {"status": "skipped", "reason": "lead_reengagement disabled", "contact_id": contact_id}
 
+        # === WORKFLOW OUTREACH: Manual message bypass ===
+        if is_workflow_outreach and payload.get("_manual_message"):
+            reply = payload["_manual_message"]
+            logger.info(f"📨 WORKFLOW MANUAL MSG | contact={contact_id} | msg='{reply[:60]}'")
+            # Skip AI generation — jump straight to sending
+            # (falls through to the send section below)
+
+        # === WORKFLOW OUTREACH: Prompt hint injection ===
+        if is_workflow_outreach and payload.get("_prompt_hint"):
+            _wf_hint = payload["_prompt_hint"]
+            final_nudge = f"{final_nudge}\n\n[WORKFLOW DIRECTIVE] {_wf_hint}".strip()
+            logger.info(f"🤖 WORKFLOW AI OUTREACH | contact={contact_id} | hint='{_wf_hint[:80]}'")
+
         # === INITIAL MESSAGE / OUTBOUND DRIP BYPASS ===
         initial_msg = subscriber.get('initial_message', '').strip()
         outbound_msgs = bot_settings.get("outbound_messages", [])
-        reply = ""
+        if not (is_workflow_outreach and payload.get("_manual_message")):
+            reply = ""
 
-        if not message and not recent_exchanges and initial_msg:
+        if not reply and not message and not recent_exchanges and initial_msg:
             # First ever contact — use configured initial message
             reply = initial_msg
             logger.info(f"📨 USING CONFIGURED INITIAL MESSAGE | contact={contact_id} | msg='{reply[:60]}'")

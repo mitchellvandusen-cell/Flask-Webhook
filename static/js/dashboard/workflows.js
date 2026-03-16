@@ -50,6 +50,7 @@
         remove_tag:          { label: 'Remove Tag',          icon: 'fa-solid fa-tags',             category: 'action' },
         update_field:        { label: 'Update Field',        icon: 'fa-solid fa-pen-to-square',    category: 'action' },
         add_note:            { label: 'Add Note',            icon: 'fa-solid fa-note-sticky',      category: 'action' },
+        send_igb_message:    { label: 'IGB AI Message',       icon: 'fa-solid fa-robot',            category: 'action' },
         send_webhook:        { label: 'Send Webhook',        icon: 'fa-solid fa-globe',            category: 'action' },
         assign_agent:        { label: 'Assign Agent',        icon: 'fa-solid fa-user-gear',        category: 'action' },
         move_stage:          { label: 'Move Stage',          icon: 'fa-solid fa-chart-simple',     category: 'coming_soon' },
@@ -76,6 +77,7 @@
         var c = node.config || {};
         var st = node.subtype;
         if (st === 'send_sms') return c.message ? c.message.substring(0, 40) + (c.message.length > 40 ? '...' : '') : 'Configure message';
+        if (st === 'send_igb_message') return c.mode === 'manual' ? (c.manual_message ? c.manual_message.substring(0, 30) + '...' : 'Set message') : (c.prompt_hint ? 'AI: ' + c.prompt_hint.substring(0, 28) + '...' : 'AI auto-compose');
         if (st === 'ai_call') return c.voice_prompt ? 'Prompt set' : 'Configure prompt';
         if (st === 'add_tag' || st === 'remove_tag') return c.tag_name || c.tag || 'Set tag';
         if (st === 'wait') return (c.duration || '?') + ' ' + (c.unit || 'hours');
@@ -146,6 +148,7 @@
             var badge = wf.status === 'active' ? 'wfb-badge-active' : wf.status === 'paused' ? 'wfb-badge-paused' : 'wfb-badge-draft';
             var stats = wf.stats || {};
             html += '<div class="wfb-card" onclick="wfbShowEditor(\'' + _esc(wf.id) + '\')">' +
+                '<button class="wfb-card-menu-btn" onclick="event.stopPropagation();wfbCardMenu(this,\'' + _esc(wf.id) + '\')"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
                 '<div class="wfb-card-header">' +
                     '<div class="wfb-card-trigger-icon"><i class="' + trigDef.icon + '"></i></div>' +
                     '<div class="wfb-card-name-wrap">' +
@@ -156,7 +159,6 @@
                 '</div>' +
                 '<div class="wfb-card-footer">' +
                     '<span class="wfb-card-stats">' + (stats.runs || 0) + ' runs</span>' +
-                    '<button class="wfb-card-menu" onclick="event.stopPropagation();wfbCardMenu(this,\'' + _esc(wf.id) + '\')"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
                 '</div>' +
             '</div>';
         });
@@ -167,17 +169,17 @@
     }
 
     window.wfbCardMenu = function(btn, wfId) {
-        var existing = document.querySelector('.wfb-dropdown-open');
-        if (existing) { existing.classList.remove('wfb-dropdown-open'); return; }
+        var existing = document.querySelector('.wfb-card-menu');
+        if (existing) { existing.remove(); return; }
 
         var dd = document.createElement('div');
-        dd.className = 'wfb-dropdown wfb-dropdown-open';
+        dd.className = 'wfb-card-menu';
         dd.innerHTML =
-            '<button class="wfb-dropdown-item" onclick="wfbDuplicateWf(\'' + wfId + '\')"><i class="fa-solid fa-copy"></i> Duplicate</button>' +
-            '<button class="wfb-dropdown-item" onclick="wfbToggleWf(\'' + wfId + '\')"><i class="fa-solid fa-power-off"></i> Toggle Status</button>' +
-            '<button class="wfb-dropdown-item wfb-dropdown-item--danger" onclick="wfbDeleteWf(\'' + wfId + '\')"><i class="fa-solid fa-trash"></i> Delete</button>';
-        btn.style.position = 'relative';
-        btn.appendChild(dd);
+            '<button class="wfb-card-menu-item" onclick="event.stopPropagation();wfbDuplicateWf(\'' + wfId + '\')"><i class="fa-solid fa-copy"></i> Duplicate</button>' +
+            '<button class="wfb-card-menu-item" onclick="event.stopPropagation();wfbToggleWf(\'' + wfId + '\')"><i class="fa-solid fa-power-off"></i> Toggle Status</button>' +
+            '<button class="wfb-card-menu-item wfb-card-menu-item-danger" onclick="event.stopPropagation();wfbDeleteWf(\'' + wfId + '\')"><i class="fa-solid fa-trash"></i> Delete</button>';
+        var card = btn.closest('.wfb-card');
+        card.appendChild(dd);
         setTimeout(function() {
             document.addEventListener('click', function _cl() { dd.remove(); document.removeEventListener('click', _cl); }, { once: true });
         }, 10);
@@ -550,8 +552,15 @@
         var svg = document.getElementById('wfbSvgLayer');
         var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.classList.add('wfb-connection');
-        if (branch === 'true') path.classList.add('wfb-connection-true');
-        if (branch === 'false') path.classList.add('wfb-connection-false');
+        if (branch === 'true') {
+            path.classList.add('wfb-connection-true');
+            path.setAttribute('marker-end', 'url(#wfbArrowTrue)');
+        } else if (branch === 'false') {
+            path.classList.add('wfb-connection-false');
+            path.setAttribute('marker-end', 'url(#wfbArrowFalse)');
+        } else {
+            path.setAttribute('marker-end', 'url(#wfbArrow)');
+        }
         if (svg) svg.appendChild(path);
         var conn = { id: connId, from: fromId, to: toId, branch: branch, pathEl: path };
         _connections.push(conn);
@@ -880,6 +889,26 @@
                     '<option value="closest_state"' + (c.from_strategy === 'closest_state' ? ' selected' : '') + '>Closest to State</option>' +
                     '<option value="rotate"' + (c.from_strategy === 'rotate' ? ' selected' : '') + '>Rotate Numbers</option>' +
                 '</select></div>';
+        } else if (node.subtype === 'send_igb_message') {
+            var igbMode = c.mode || 'ai';
+            h += '<div class="wfb-config-field"><label class="wfb-config-label">Mode</label>' +
+                '<select class="wfb-config-select" id="cfgIgbMode" onchange="wfbIgbModeToggle(this.value)">' +
+                    '<option value="ai"' + (igbMode === 'ai' ? ' selected' : '') + '>AI Auto-Compose (reads conversation)</option>' +
+                    '<option value="manual"' + (igbMode === 'manual' ? ' selected' : '') + '>Manual Message (exact text via IGB channel)</option>' +
+                '</select></div>';
+            h += '<div id="cfgIgbAi" class="' + (igbMode !== 'ai' ? 'wfb-hidden' : '') + '">' +
+                '<div class="wfb-config-field"><label class="wfb-config-label">AI Prompt Hint (optional)</label>' +
+                '<textarea class="wfb-config-textarea" id="cfgPromptHint" placeholder="Guide the AI, e.g. \'Re-engage about their quote\'...">' + _esc(c.prompt_hint || '') + '</textarea>' +
+                '<div class="wfb-config-hint">The AI reads the full conversation and composes a contextual reply.</div></div></div>';
+            h += '<div id="cfgIgbManual" class="' + (igbMode !== 'manual' ? 'wfb-hidden' : '') + '">' +
+                '<div class="wfb-config-field"><label class="wfb-config-label">Message</label>' +
+                '<textarea class="wfb-config-textarea" id="cfgIgbMsg" placeholder="Hi {{firstName}}, ...">' + _esc(c.manual_message || '') + '</textarea>' +
+                '<div class="wfb-merge-btns">' +
+                    '<button class="wfb-merge-btn" onclick="wfbInsertMerge(\'firstName\',\'cfgIgbMsg\')">{{firstName}}</button>' +
+                    '<button class="wfb-merge-btn" onclick="wfbInsertMerge(\'lastName\',\'cfgIgbMsg\')">{{lastName}}</button>' +
+                    '<button class="wfb-merge-btn" onclick="wfbInsertMerge(\'phone\',\'cfgIgbMsg\')">{{phone}}</button>' +
+                '</div>' +
+                '<div class="wfb-config-hint">Sent through your configured SMS channel (GHL or Twilio).</div></div></div>';
         } else if (node.subtype === 'ai_call') {
             h += '<div class="wfb-config-field"><label class="wfb-config-label">Voice Prompt</label>' +
                 '<textarea class="wfb-config-textarea" id="cfgPrompt" placeholder="Describe what the AI should say...">' + _esc(c.voice_prompt || '') + '</textarea></div>';
@@ -1048,8 +1077,8 @@
         // No-op for now — field selection tracked on save via DOM
     };
 
-    window.wfbInsertMerge = function(field) {
-        var ta = document.getElementById('cfgMsg');
+    window.wfbInsertMerge = function(field, targetId) {
+        var ta = document.getElementById(targetId || 'cfgMsg');
         if (ta) {
             var start = ta.selectionStart;
             var val = ta.value;
@@ -1058,6 +1087,13 @@
             ta.selectionStart = ta.selectionEnd = start + insert.length;
             ta.focus();
         }
+    };
+
+    window.wfbIgbModeToggle = function(mode) {
+        var aiDiv = document.getElementById('cfgIgbAi');
+        var manDiv = document.getElementById('cfgIgbManual');
+        if (aiDiv) aiDiv.classList.toggle('wfb-hidden', mode !== 'ai');
+        if (manDiv) manDiv.classList.toggle('wfb-hidden', mode !== 'manual');
     };
 
     window.wfbAddCondition = function() {
@@ -1088,6 +1124,13 @@
             var strat = document.getElementById('cfgFromStrategy');
             c.message = msg ? msg.value : '';
             c.from_strategy = strat ? strat.value : 'default';
+        } else if (node.subtype === 'send_igb_message') {
+            var modeEl = document.getElementById('cfgIgbMode');
+            c.mode = modeEl ? modeEl.value : 'ai';
+            var hintEl = document.getElementById('cfgPromptHint');
+            c.prompt_hint = hintEl ? hintEl.value : '';
+            var manMsgEl = document.getElementById('cfgIgbMsg');
+            c.manual_message = manMsgEl ? manMsgEl.value : '';
         } else if (node.subtype === 'ai_call') {
             var pr = document.getElementById('cfgPrompt');
             var to = document.getElementById('cfgTimeout');

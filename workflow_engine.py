@@ -1459,6 +1459,67 @@ def _handle_state_query(cur, conn, run_id, step, config, location_id, contact_id
             "result": result_value, "stored_as": store_as}
 
 
+def _handle_send_igb_message(cur, conn, run_id, step, config, location_id, contact_id, context):
+    """Trigger the InsuranceGrokBot AI SMS pipeline for this contact.
+
+    Two modes:
+    - "ai" (default): enqueues process_webhook_task with a workflow-outreach flag.
+      The full AI pipeline runs: fetches contact context, loads conversation history,
+      builds system prompt, calls xAI Grok, generates contextual reply, and sends via
+      whatever SMS channel is configured (GHL API or Twilio sub-account).
+    - "manual": sends exact user-provided text through the subscriber's configured
+      channel, same routing as send_sms but triggers via the IGB pipeline for logging.
+    """
+    mode = config.get("mode", "ai")
+    prompt_hint = config.get("prompt_hint", "")
+    manual_message = config.get("manual_message", config.get("message", ""))
+
+    if mode == "manual" and manual_message:
+        # Manual mode: send exact text through IGB pipeline
+        # Still goes through process_webhook_task for proper logging & channel routing
+        contact = _fetch_contact(location_id, contact_id)
+        if not contact:
+            return {"status": "error", "error": "Contact not found", "continue": True}
+        phone = contact.get("phone")
+        if not phone:
+            return {"status": "error", "error": "Contact has no phone number", "continue": True}
+        message = _interpolate_merge_fields(manual_message, contact)
+
+        payload = {
+            "contact_id": contact_id,
+            "location_id": location_id,
+            "phone": phone,
+            "_workflow_outreach": True,
+            "_manual_message": message,
+            "_run_id": run_id,
+        }
+    else:
+        # AI mode: let InsuranceGrokBot generate the message
+        payload = {
+            "contact_id": contact_id,
+            "location_id": location_id,
+            "_workflow_outreach": True,
+            "_prompt_hint": prompt_hint,
+            "_run_id": run_id,
+        }
+
+    try:
+        ensure_redis()
+        q_production.enqueue(
+            "tasks.process_webhook_task",
+            payload,
+            job_timeout=120,
+        )
+        logger.info(f"IGB message enqueued for {contact_id} mode={mode} (run={run_id})")
+        log_webhook_event(location_id, "workflow_igb_message", "queued",
+                          f"IGB {mode} message queued for contact", contact_id)
+        return {"status": "completed", "queued": True, "mode": mode}
+    except Exception as e:
+        logger.error(f"Failed to enqueue IGB message for {contact_id}: {e}")
+        return {"status": "error", "error": f"Failed to queue message: {str(e)[:100]}",
+                "continue": True}
+
+
 # Step handler registry
 STEP_HANDLERS = {
     "send_sms": _handle_send_sms,
@@ -1478,6 +1539,7 @@ STEP_HANDLERS = {
     "assign_agent": _handle_assign_agent,
     "move_stage": _handle_move_stage,
     "state_query": _handle_state_query,
+    "send_igb_message": _handle_send_igb_message,
 }
 
 

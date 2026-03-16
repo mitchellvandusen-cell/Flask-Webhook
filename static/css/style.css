@@ -9644,9 +9644,9 @@ body.light-theme .ci-btn-secondary:hover { background: rgba(0,0,0,0.08); }
 /* Ports */
 .wfb-port {
     position: absolute; width: 12px; height: 12px; border-radius: 50%;
-    background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.3);
+    background: rgba(100,116,139,0.35); border: 2px solid rgba(100,116,139,0.5);
     cursor: crosshair; z-index: 10;
-    opacity: 0; transition: opacity 0.15s, transform 0.15s, background 0.15s;
+    opacity: 0.6; transition: opacity 0.15s, transform 0.15s, background 0.15s;
 }
 .wfb-node:hover .wfb-port, .wfb-node-selected .wfb-port { opacity: 1; }
 .wfb-port:hover { background: var(--accent); border-color: var(--accent); transform: scale(1.3); }
@@ -9663,14 +9663,17 @@ body.light-theme .ci-btn-secondary:hover { background: rgba(0,0,0,0.08); }
 
 /* SVG connections */
 .wfb-connection {
-    fill: none; stroke: rgba(255,255,255,0.15); stroke-width: 2;
+    fill: none; stroke: rgba(100,116,139,0.5); stroke-width: 2.5;
     pointer-events: stroke; cursor: pointer;
-    transition: stroke 0.2s;
+    transition: stroke 0.2s, stroke-width 0.2s;
+    stroke-linecap: round;
 }
-.wfb-connection:hover { stroke: rgba(255,255,255,0.4); stroke-width: 3; }
-.wfb-connection-true { stroke: rgba(0,255,136,0.3); }
-.wfb-connection-false { stroke: rgba(239,83,80,0.3); }
-.wfb-connection-drawing { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 8 4; opacity: 0.6; }
+.wfb-connection:hover { stroke: rgba(148,163,184,0.8); stroke-width: 3.5; }
+.wfb-connection-true { stroke: rgba(0,200,100,0.55); stroke-width: 2.5; }
+.wfb-connection-true:hover { stroke: rgba(0,200,100,0.85); }
+.wfb-connection-false { stroke: rgba(239,83,80,0.5); stroke-width: 2.5; }
+.wfb-connection-false:hover { stroke: rgba(239,83,80,0.8); }
+.wfb-connection-drawing { stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 8 4; opacity: 0.7; }
 .wfb-connection-animating {
     filter: drop-shadow(0 0 6px var(--accent));
     stroke: var(--accent); stroke-width: 2.5;
@@ -9980,10 +9983,12 @@ body.light-theme .wfb-node-title { color: var(--lt-text-primary); }
 body.light-theme .wfb-node-summary { color: var(--lt-text-muted); }
 body.light-theme .wfb-port { background: rgba(0,0,0,0.1); border-color: rgba(0,0,0,0.2); }
 body.light-theme .wfb-port:hover { background: var(--lt-accent); border-color: var(--lt-accent); }
-body.light-theme .wfb-connection { stroke: rgba(0,0,0,0.12); }
-body.light-theme .wfb-connection:hover { stroke: rgba(0,0,0,0.3); }
-body.light-theme .wfb-connection-true { stroke: rgba(0,170,94,0.3); }
-body.light-theme .wfb-connection-false { stroke: rgba(220,38,38,0.3); }
+body.light-theme .wfb-connection { stroke: rgba(100,116,139,0.4); }
+body.light-theme .wfb-connection:hover { stroke: rgba(71,85,105,0.7); }
+body.light-theme .wfb-connection-true { stroke: rgba(0,170,94,0.5); }
+body.light-theme .wfb-connection-true:hover { stroke: rgba(0,170,94,0.8); }
+body.light-theme .wfb-connection-false { stroke: rgba(220,38,38,0.45); }
+body.light-theme .wfb-connection-false:hover { stroke: rgba(220,38,38,0.75); }
 body.light-theme .wfb-connection-animating { filter: drop-shadow(0 0 6px var(--lt-accent)); stroke: var(--lt-accent); }
 
 body.light-theme .wfb-zoom-btn { background: rgba(255,255,255,0.9); border-color: var(--lt-border); color: #6b7280; }
