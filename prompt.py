@@ -355,7 +355,10 @@ def build_system_prompt(
     ])
 
     # RIGHT BRAIN: Who this person is (profile_str already contains the facts)
-    # No separate facts section — the profile IS the dossier.
+    # Fallback: if profile builder failed/returned empty, inject raw facts so bot has context
+    if (not profile_str or len(profile_str.strip()) < 20) and known_facts:
+        facts_block = "\n".join(f"- {f}" for f in known_facts)
+        profile_str = f"=== KNOWN FACTS ABOUT THIS PERSON ===\n{facts_block}\nUse these as quiet intuition. Never re-state them word-for-word to the lead."
 
     # LEFT BRAIN: What has happened in this conversation
     # The narrative observer produces structured sections:

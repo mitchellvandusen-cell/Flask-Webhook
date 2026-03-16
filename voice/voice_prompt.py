@@ -220,7 +220,7 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
     if direction != "inbound" and (previous_call_count > 0 or has_sms_history):
         call_context = f"FOLLOW-UP OUTBOUND CALL — you called them. You've contacted this person {previous_call_count} time(s) by phone before"
         if has_sms_history:
-            call_context += f" and there are {len(recent_exchanges)} SMS exchanges in history"
+            call_context += f" and there are {len(recent_exchanges)} SMS text exchanges in history (shown in RECENT SMS CONVERSATION below). Read them carefully — do NOT re-ask questions already answered over text"
 
     # ── Per-voice personality traits ──
     voice_personalities = {
@@ -254,7 +254,21 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
     # ── Story narrative ──
     story_str = ""
     if story_narrative and story_narrative.strip():
-        story_str = f"\n=== CONVERSATION SO FAR (what has been discussed, what was answered, where things stand) ===\n{story_narrative.strip()}"
+        sn = story_narrative.strip()
+        if "SITUATION:" in sn or "EMOTIONAL_ARC:" in sn:
+            # Structured narrative — present sections with clear instructions for the voice LLM
+            story_str = f"\n=== CONVERSATION MEMORY ===\n{sn}"
+            story_str += (
+                "\n\nINSTRUCTIONS FOR USING CONVERSATION MEMORY:\n"
+                "- SITUATION tells you where things stand. Do not re-ask anything answered there.\n"
+                "- EMOTIONAL_ARC contains moments that matter deeply to this person. If they shared grief, fear, "
+                "or vulnerability, you REMEMBER it. Reference it naturally when relevant. Never dismiss or forget it.\n"
+                "- OBJECTION_LOG lists every objection and the angle already used. You MUST use a completely "
+                "different approach each time. If you repeat an angle from this log, the lead will disengage."
+            )
+        else:
+            # Legacy format — single recap string
+            story_str = f"\n=== CONVERSATION SO FAR (what has been discussed, what was answered, where things stand) ===\n{sn}"
 
     # ── Calendar ──
     calendar_str = f"\nAvailable appointment slots:\n{calendar_slots}" if calendar_slots else ""
@@ -682,7 +696,7 @@ CURRENT STAGE: {stage}
     chr(10) + chr(10) + call_script
 ) if call_script else ""}
 
-{"=== RECENT CONVERSATION ===" + chr(10) + flow_str if flow_str else ""}
+{"=== RECENT SMS CONVERSATION (what was discussed over text before this call) ===" + chr(10) + flow_str if flow_str else ""}
 
 === OUTPUT RULE ===
 Your ENTIRE response must be ONLY the spoken words you say as {voice_bot_name}. Nothing else. No reasoning. No recap. No thinking. No commentary. No instructions repeated. Do not explain what you're about to say. Just say it.
