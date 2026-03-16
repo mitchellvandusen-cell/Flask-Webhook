@@ -237,6 +237,18 @@ def process_webhook_task(payload: dict):
         intent = payload.get("intent") or ""
         age = calculate_age_from_dob(date_of_birth=dob_str) if dob_str else None
 
+        # Enriched contact data from normalized payload (for individual profile)
+        last_name = payload.get("last_name") or ""
+        contact_city = payload.get("city") or ""
+        contact_state = payload.get("state") or ""
+        contact_gender = payload.get("gender") or ""
+        contact_source = payload.get("source") or ""
+        contact_tags = payload.get("tags") or []
+        contact_custom_fields = payload.get("custom_fields") or []
+        contact_company = payload.get("company_name") or ""
+        # Notes require a separate GHL API call — not in webhook payload
+        # They'll be fetched when available (voice prompt does this already)
+
         # === SMART LEAD TYPE DETECTION ===
         # Cross-references GHL tags + date imported + custom fields to determine
         # true lead freshness. Tags alone are unreliable (stale tags happen).
@@ -399,6 +411,14 @@ def process_webhook_task(payload: dict):
             address=address,
             bot_settings=bot_settings,
             lead_type=lead_type,
+            last_name=last_name,
+            company_name=contact_company,
+            tags=contact_tags,
+            custom_fields=contact_custom_fields,
+            source=contact_source,
+            city=contact_city,
+            state=contact_state,
+            gender=contact_gender,
         )
 
         recent_exchanges = director_output["recent_exchanges"]

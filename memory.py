@@ -370,7 +370,7 @@ OBJECTION_LOG:
 List every objection the lead has raised AND how the bot responded to it. Format: "Objection: [what they said] > Angle: [how bot handled it]". This prevents repeating the same approach. If the previous recap already has objection entries, carry them forward and add new ones. If no objections, write NONE.
 
 FACTS:
-List any NEW facts about the lead. One fact per line. Maximum 10 words per fact. Short fragments only (e.g. "Has 2 kids", "Works at FedEx", "Wants term life"). Do not repeat facts from ALREADY KNOWN FACTS. If no new facts, write NONE."""
+List any NEW facts about the lead. One fact per line. Maximum 10 words per fact. Short fragments only (e.g. "Has 2 kids", "Works at FedEx", "Wants term life"). Do not repeat facts from ALREADY KNOWN FACTS. Do NOT extract street addresses, zip codes, or specific locations as facts. General city/state is acceptable. If no new facts, write NONE."""
 
     try:
         if not client:
@@ -420,7 +420,12 @@ List any NEW facts about the lead. One fact per line. Maximum 10 words per fact.
         if facts_part and facts_part.upper().strip() != "NONE":
             new_facts = []
             for line in facts_part.split("\n"):
-                line = line.strip().lstrip("-•* 0123456789.")
+                line = line.strip()
+                # Remove bullet/numbering prefixes (e.g. "- ", "• ", "1. ", "2) ")
+                # but NOT leading content numbers (e.g. "2 kids" must stay intact)
+                line = re.sub(r'^[-•*]\s*', '', line)           # bullet chars
+                line = re.sub(r'^\d+[.)]\s*', '', line)         # numbering like "1. " or "2) "
+                line = line.strip()
                 if line and len(line) > 3 and line.upper() != "NONE":
                     new_facts.append(line)
 

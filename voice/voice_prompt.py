@@ -45,17 +45,16 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
     contact_age = None
     contact_address = None
     contact_tags = []
+    contact_notes = []
     contact_email = ""
     lead_type = "default"
     pipeline_str = ""
     previous_transcripts_str = ""
     underwriting_ctx = ""
     company_ctx = ""
-    tags_str = ""
 
     # ── Fetch GHL contact data FIRST (needed for age, tags, address, lead type) ──
     contact_data = {}
-    contact_fields_str = ""
     if contact_id:
         try:
             location_id = subscriber.get('location_id', '')
@@ -96,22 +95,31 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
                     except Exception as e:
                         logger.debug(f"Voice: Could not resolve lead type: {e}")
 
-                    # Custom fields
+                    # Custom fields (stored for directive pass-through to profile builder)
                     custom_fields = contact_data.get("customFields", [])
-                    field_lines = []
-                    for cf in custom_fields:
-                        val = cf.get('value', '')
-                        name = cf.get('name', '') or cf.get('fieldKey', '')
-                        if val and name:
-                            field_lines.append(f"  - {name}: {val}")
-                    if field_lines:
-                        contact_fields_str = "\n=== CONTACT CUSTOM FIELDS (from CRM) ===\nUse these naturally in conversation when relevant:\n" + "\n".join(field_lines)
+
+                    # Fetch agent notes from CRM (separate API call)
+                    try:
+                        notes_resp = http_requests.get(
+                            f"https://services.leadconnectorhq.com/contacts/{contact_id}/notes",
+                            headers={"Authorization": f"Bearer {access_token}", "Version": "2021-07-28"},
+                            timeout=5
+                        )
+                        if notes_resp.status_code == 200:
+                            import re as _re
+                            _raw_notes = notes_resp.json().get("notes", [])
+                            contact_notes = [
+                                {
+                                    "body": _re.sub(r'<[^>]+>', '', n.get("body", "")).strip(),
+                                    "dateAdded": n.get("dateAdded", ""),
+                                }
+                                for n in sorted(_raw_notes, key=lambda x: x.get("dateAdded", ""), reverse=True)[:5]
+                                if n.get("body", "").strip()
+                            ]
+                    except Exception:
+                        pass
         except Exception as e:
             logger.debug(f"Voice: Could not fetch contact data: {e}")
-
-    # ── Build tags string ──
-    if contact_tags:
-        tags_str = "\n=== CONTACT TAGS ===\n" + ", ".join(contact_tags)
 
     if contact_id:
         try:
@@ -123,6 +131,15 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
                 address=contact_address,
                 bot_settings=bot_settings,
                 lead_type=lead_type,
+                last_name=contact_data.get("lastName"),
+                company_name=contact_data.get("companyName"),
+                tags=contact_tags,
+                notes=contact_notes,
+                custom_fields=contact_data.get("customFields"),
+                source=contact_data.get("source"),
+                city=contact_data.get("city"),
+                state=contact_data.get("state"),
+                gender=contact_data.get("gender"),
             )
             profile_str = directive.get("profile_str", "")
             tactical_narrative = directive.get("tactical_narrative", "")
@@ -220,7 +237,7 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
     if direction != "inbound" and (previous_call_count > 0 or has_sms_history):
         call_context = f"FOLLOW-UP OUTBOUND CALL — you called them. You've contacted this person {previous_call_count} time(s) by phone before"
         if has_sms_history:
-            call_context += f" and there are {len(recent_exchanges)} SMS exchanges in history"
+            call_context += f" and there are {len(recent_exchanges)} SMS text exchanges in history (shown in RECENT SMS CONVERSATION below). Read them carefully — do NOT re-ask questions already answered over text"
 
     # ── Per-voice personality traits ──
     voice_personalities = {
@@ -254,7 +271,21 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
     # ── Story narrative ──
     story_str = ""
     if story_narrative and story_narrative.strip():
-        story_str = f"\n=== CONVERSATION SO FAR (what has been discussed, what was answered, where things stand) ===\n{story_narrative.strip()}"
+        sn = story_narrative.strip()
+        if "SITUATION:" in sn or "EMOTIONAL_ARC:" in sn:
+            # Structured narrative — present sections with clear instructions for the voice LLM
+            story_str = f"\n=== CONVERSATION MEMORY ===\n{sn}"
+            story_str += (
+                "\n\nINSTRUCTIONS FOR USING CONVERSATION MEMORY:\n"
+                "- SITUATION tells you where things stand. Do not re-ask anything answered there.\n"
+                "- EMOTIONAL_ARC contains moments that matter deeply to this person. If they shared grief, fear, "
+                "or vulnerability, you REMEMBER it. Reference it naturally when relevant. Never dismiss or forget it.\n"
+                "- OBJECTION_LOG lists every objection and the angle already used. You MUST use a completely "
+                "different approach each time. If you repeat an angle from this log, the lead will disengage."
+            )
+        else:
+            # Legacy format — single recap string
+            story_str = f"\n=== CONVERSATION SO FAR (what has been discussed, what was answered, where things stand) ===\n{sn}"
 
     # ── Calendar ──
     calendar_str = f"\nAvailable appointment slots:\n{calendar_slots}" if calendar_slots else ""
@@ -656,10 +687,6 @@ CURRENT STAGE: {stage}
 
 {calendar_str}
 
-{contact_fields_str}
-
-{tags_str}
-
 {pipeline_str}
 
 {previous_transcripts_str}
@@ -682,7 +709,7 @@ CURRENT STAGE: {stage}
     chr(10) + chr(10) + call_script
 ) if call_script else ""}
 
-{"=== RECENT CONVERSATION ===" + chr(10) + flow_str if flow_str else ""}
+{"=== RECENT SMS CONVERSATION (what was discussed over text before this call) ===" + chr(10) + flow_str if flow_str else ""}
 
 === OUTPUT RULE ===
 Your ENTIRE response must be ONLY the spoken words you say as {voice_bot_name}. Nothing else. No reasoning. No recap. No thinking. No commentary. No instructions repeated. Do not explain what you're about to say. Just say it.

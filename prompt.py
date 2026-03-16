@@ -354,8 +354,14 @@ def build_system_prompt(
         for msg in recent_exchanges[-8:]
     ])
 
-    # RIGHT BRAIN: Who this person is (profile_str already contains the facts)
-    # No separate facts section — the profile IS the dossier.
+    # RIGHT BRAIN: Who this person is
+    # profile_str is built by individual_profile.py which already formats known_facts
+    # with temporal staleness markers, health flags, and age bracket directives.
+    # This fallback only fires if build_comprehensive_profile() threw an exception,
+    # ensuring the bot still has SOME contact context rather than nothing.
+    if (not profile_str or len(profile_str.strip()) < 20) and known_facts:
+        facts_block = "\n".join(f"- {f}" for f in known_facts)
+        profile_str = f"=== KNOWN FACTS ABOUT THIS PERSON ===\n{facts_block}\nUse these as quiet intuition. Never re-state them word-for-word to the lead."
 
     # LEFT BRAIN: What has happened in this conversation
     # The narrative observer produces structured sections:

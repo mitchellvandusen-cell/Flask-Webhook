@@ -53,7 +53,8 @@ def normalize_payload_universal(payload: dict) -> dict:
     data_fields = ["first_name", "last_name", "full_name", "email", "phone",
                    "address", "city", "state", "zip", "country",
                    "age", "date_of_birth", "gender", "intent", "message",
-                   "agent", "status", "type", "direction", "body"]
+                   "agent", "status", "type", "direction", "body",
+                   "company_name"]
 
     normalized = {}
     for field in id_fields + data_fields:

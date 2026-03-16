@@ -34,6 +34,16 @@ def generate_strategic_directive(
     address: str | None = None,
     bot_settings: dict = None,
     lead_type: str = "default",
+    # ── Enriched CRM contact data ──
+    last_name: str | None = None,
+    company_name: str | None = None,
+    tags: list | None = None,
+    notes: list | None = None,
+    custom_fields: list | None = None,
+    source: str | None = None,
+    city: str | None = None,
+    state: str | None = None,
+    gender: str | None = None,
 ) -> Dict[str, Any]:
     """
     Returns lean context + tactical situation for the texting agent.
@@ -82,8 +92,18 @@ def generate_strategic_directive(
 
     # ─── 4. BUILD PROFILE ───
     # Pass temporal facts for staleness awareness; profile builder handles both formats
+    # Include CRM contact card data so the bot starts with what the agent already knows
     profile_str, _ = build_comprehensive_profile(
-        narrative, known_facts_temporal or known_facts, first_name, age, address
+        narrative, known_facts_temporal or known_facts, first_name, age, address,
+        last_name=last_name,
+        company_name=company_name,
+        tags=tags,
+        notes=notes,
+        custom_fields=custom_fields,
+        source=source,
+        city=city,
+        state=state,
+        gender=gender,
     )
 
     # ─── 5. CONTEXTUAL INTELLIGENCE (Underwriting & Carriers) ───
