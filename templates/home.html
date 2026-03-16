@@ -2,6 +2,99 @@
 
 {% block title %}InsuranceGrokBot — AI That Texts, Calls & Books Appointments{% endblock %}
 
+{% block meta_description %}AI-powered sales assistant built for life insurance agents. Automates SMS follow-up, AI voice calls, and appointment booking with 270+ carrier knowledge. Integrates with GoHighLevel, Salesforce, HubSpot. From $149.99/mo.{% endblock %}
+
+{% block json_ld %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://insurancegrokbot.com/#organization",
+      "name": "InsuranceGrokBot",
+      "url": "https://insurancegrokbot.com",
+      "logo": "https://insurancegrokbot.com/static/favicon.svg",
+      "description": "AI-powered sales assistant platform built specifically for life insurance agents and agencies.",
+      "foundingDate": "2025",
+      "sameAs": [],
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "customer support",
+        "url": "https://insurancegrokbot.com/support"
+      }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://insurancegrokbot.com/#product",
+      "name": "InsuranceGrokBot",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "description": "AI sales assistant for life insurance agents that automates SMS lead follow-up, AI-powered voice calls, appointment booking, and multi-line power dialing. Built-in knowledge of 270+ insurance carriers, underwriting rules, and sales frameworks.",
+      "url": "https://insurancegrokbot.com",
+      "provider": { "@id": "https://insurancegrokbot.com/#organization" },
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Power Dialer",
+          "price": "149.99",
+          "priceCurrency": "USD",
+          "billingDuration": "P1M",
+          "description": "Single-line AI dialer with SMS texting, voice calls, lead intelligence, Smart Filters, and 270+ carrier knowledge. No contracts.",
+          "url": "https://insurancegrokbot.com/#pricing"
+        },
+        {
+          "@type": "Offer",
+          "name": "Pro Dialer",
+          "price": "224.99",
+          "priceCurrency": "USD",
+          "billingDuration": "P1M",
+          "description": "Multi-line power dialer with up to 4 concurrent lines, predictive pacing, connect rate analytics, and priority queue.",
+          "url": "https://insurancegrokbot.com/#pricing"
+        },
+        {
+          "@type": "Offer",
+          "name": "Predictive Dialer",
+          "price": "349.98",
+          "priceCurrency": "USD",
+          "billingDuration": "P1M",
+          "description": "Enterprise predictive dialer with Erlang-C pacing, TCPA auto-throttle, compliance dashboard, and callback queue.",
+          "url": "https://insurancegrokbot.com/#pricing"
+        }
+      ],
+      "featureList": [
+        "AI-powered SMS lead follow-up",
+        "AI voice calls with real-time conversation",
+        "Multi-line power dialer (up to 4 lines)",
+        "Predictive dialing with Erlang-C pacing",
+        "Automatic appointment booking",
+        "270+ insurance carrier knowledge",
+        "Underwriting rules awareness",
+        "AI lead intelligence and scoring",
+        "Smart Filters (hot/warm/cool/cold leads)",
+        "GoHighLevel CRM integration",
+        "Salesforce integration",
+        "HubSpot integration",
+        "Spam protection and number health monitoring",
+        "A2P 10DLC compliance",
+        "TCPA compliance dashboard",
+        "White-label SMS via Twilio sub-accounts",
+        "Team management with roles and permissions",
+        "Agency multi-tenant dashboard"
+      ],
+      "screenshot": "https://insurancegrokbot.com/static/og-image.png",
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "6",
+        "bestRating": "5"
+      }
+    }
+  ]
+}
+</script>
+{% endblock %}
+
 {% block content %}
 <style>
     /* ── Hero ── */
