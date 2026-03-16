@@ -760,6 +760,16 @@ CRM Actions:
 - add_note: Add note to contact. Config: {"body": "Note text with {{firstName}} merge fields"}
 - move_stage: Move contact in pipeline. Config: {"pipeline_id": "...", "stage_id": "..."}
 
+AI-Powered Messaging:
+- send_igb_message: Trigger InsuranceGrokBot's full AI pipeline to send an intelligent, context-aware SMS.
+  Two modes:
+  - AI mode (default): The bot reads the contact's full conversation history, understands context, and generates a smart reply.
+    Config: {"mode": "ai", "prompt_hint": "Optional guidance for the AI, e.g. 'Re-engage about their life insurance quote'"}
+  - Manual mode: Send exact text through the IGB-configured SMS channel (GHL or Twilio, respects voice_config).
+    Config: {"mode": "manual", "manual_message": "Hi {{firstName}}, just checking in! Are you still looking for coverage?"}
+  Use send_igb_message instead of send_sms when you want the AI to compose the message based on full conversation context.
+  Use send_sms for simple templated messages. Use send_igb_message for intelligent, personalized outreach.
+
 Integration:
 - send_webhook: HTTP request to external URL. Config: {"url": "https://...", "payload": {"key": "value"}, "secret": "optional-hmac-secret"}
 
@@ -873,7 +883,7 @@ _AI_BUILDER_TOOL = {
                             "step_subtype": {
                                 "type": "string",
                                 "enum": [
-                                    "send_sms", "ai_call", "add_tag", "remove_tag", "assign_agent",
+                                    "send_sms", "send_igb_message", "ai_call", "add_tag", "remove_tag", "assign_agent",
                                     "wait", "wait_until", "update_field", "add_note", "send_webhook",
                                     "if_else", "loop", "goto", "exit", "custom", "move_stage",
                                     "state_query",
@@ -978,7 +988,7 @@ def build_with_ai():
 
         # Validate step subtypes
         valid_subtypes = {
-            "send_sms", "ai_call", "add_tag", "remove_tag", "assign_agent",
+            "send_sms", "send_igb_message", "ai_call", "add_tag", "remove_tag", "assign_agent",
             "wait", "wait_until", "update_field", "add_note", "send_webhook",
             "if_else", "loop", "goto", "exit", "custom", "move_stage",
             "state_query",

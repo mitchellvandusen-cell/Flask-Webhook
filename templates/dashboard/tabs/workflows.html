@@ -102,7 +102,8 @@
                     .wfb-card:hover { border-color: rgba(0,255,136,0.2); background: rgba(0,255,136,0.02); }
                     .wfb-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
                     .wfb-card-trigger-icon { width: 36px; height: 36px; border-radius: 9px; background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.12); display: flex; align-items: center; justify-content: center; font-size: 0.9rem; color: var(--accent); flex-shrink: 0; }
-                    .wfb-card-menu-btn { width: 30px; height: 30px; border-radius: 8px; background: transparent; border: 1px solid transparent; display: flex; align-items: center; justify-content: center; color: #666; cursor: pointer; font-size: 0.85rem; transition: all 0.15s; }
+                    .wfb-card-menu-btn { position: absolute; top: 12px; right: 12px; width: 30px; height: 30px; border-radius: 8px; background: transparent; border: 1px solid transparent; display: flex; align-items: center; justify-content: center; color: #666; cursor: pointer; font-size: 0.85rem; transition: all 0.15s; z-index: 10; opacity: 0; }
+                    .wfb-card:hover .wfb-card-menu-btn { opacity: 1; }
                     .wfb-card-menu-btn:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); color: #aaa; }
                     .wfb-card-name-wrap { flex: 1; min-width: 0; }
                     .wfb-card-name { font-size: 0.92rem; font-weight: 700; margin: 0 0 4px; }
@@ -594,6 +595,9 @@
                                             <div class="wfb-palette-item" draggable="true" data-type="action" data-subtype="send_sms">
                                                 <i class="fa-solid fa-message"></i><span>Send SMS</span>
                                             </div>
+                                            <div class="wfb-palette-item wfb-palette-item--action" draggable="true" data-type="action" data-subtype="send_igb_message">
+                                                <i class="fa-solid fa-robot"></i><span>IGB AI Message</span>
+                                            </div>
                                             <div class="wfb-palette-item" draggable="true" data-type="action" data-subtype="ai_call">
                                                 <i class="fa-solid fa-phone-volume"></i><span>Make AI Call</span>
                                             </div>
@@ -694,7 +698,19 @@
 
                                 <div class="wfb-canvas-wrap" id="wfbCanvasWrap">
                                     <div class="wfb-canvas" id="wfbCanvas">
-                                        <svg class="wfb-svg-layer" id="wfbSvgLayer"></svg>
+                                        <svg class="wfb-svg-layer" id="wfbSvgLayer">
+                                            <defs>
+                                                <marker id="wfbArrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+                                                    <path d="M 0 0 L 10 4 L 0 8 z" fill="rgba(100,116,139,0.6)" />
+                                                </marker>
+                                                <marker id="wfbArrowTrue" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+                                                    <path d="M 0 0 L 10 4 L 0 8 z" fill="rgba(0,170,94,0.7)" />
+                                                </marker>
+                                                <marker id="wfbArrowFalse" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+                                                    <path d="M 0 0 L 10 4 L 0 8 z" fill="rgba(220,38,38,0.7)" />
+                                                </marker>
+                                            </defs>
+                                        </svg>
                                     </div>
                                     <!-- AI building overlay -->
                                     <div class="wfb-ai-overlay" id="wfbAiOverlay">
