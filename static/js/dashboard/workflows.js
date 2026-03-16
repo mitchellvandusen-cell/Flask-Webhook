@@ -568,6 +568,19 @@
         return conn;
     }
 
+    // Get port center in canvas (pre-transform) coordinates.
+    // Uses the port's getBoundingClientRect relative to the node's rect so that
+    // CSS-positioned ports (top/bottom/left with %) are measured accurately,
+    // then adds the node's stored x/y (which IS the pre-transform position).
+    function _portCenter(node, port) {
+        var nodeRect = node.el.getBoundingClientRect();
+        var portRect = port.getBoundingClientRect();
+        // Port center relative to node element (in screen pixels, scaled by zoom)
+        var relX = (portRect.left + portRect.width / 2 - nodeRect.left) / _zoom;
+        var relY = (portRect.top + portRect.height / 2 - nodeRect.top) / _zoom;
+        return { x: node.x + relX, y: node.y + relY };
+    }
+
     function _updateConnectionPath(conn) {
         var fromNode = _nodes.get(conn.from);
         var toNode = _nodes.get(conn.to);
@@ -586,15 +599,12 @@
 
         if (!outPort || !inPort) return;
 
-        // Calculate positions relative to the canvas (no zoom/pan needed since SVG is also transformed)
-        var x1 = fromNode.x + outPort.offsetLeft + 6;
-        var y1 = fromNode.y + outPort.offsetTop + 6;
-        var x2 = toNode.x + inPort.offsetLeft + 6;
-        var y2 = toNode.y + inPort.offsetTop + 6;
+        var p1 = _portCenter(fromNode, outPort);
+        var p2 = _portCenter(toNode, inPort);
 
-        var dy = Math.abs(y2 - y1);
+        var dy = Math.abs(p2.y - p1.y);
         var cy = Math.max(60, dy * 0.5);
-        var d = 'M ' + x1 + ' ' + y1 + ' C ' + x1 + ' ' + (y1 + cy) + ', ' + x2 + ' ' + (y2 - cy) + ', ' + x2 + ' ' + y2;
+        var d = 'M ' + p1.x + ' ' + p1.y + ' C ' + p1.x + ' ' + (p1.y + cy) + ', ' + p2.x + ' ' + (p2.y - cy) + ', ' + p2.x + ' ' + p2.y;
         conn.pathEl.setAttribute('d', d);
     }
 
@@ -748,8 +758,8 @@
                 var node = _nodes.get(nodeId);
                 if (!node) return;
                 var branch = e.target.getAttribute('data-branch') || 'default';
-                var x1 = node.x + e.target.offsetLeft + 6;
-                var y1 = node.y + e.target.offsetTop + 6;
+                var pc = _portCenter(node, e.target);
+                var x1 = pc.x, y1 = pc.y;
                 var tempPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 tempPath.classList.add('wfb-connection', 'wfb-connection-drawing');
                 var svg = document.getElementById('wfbSvgLayer');
