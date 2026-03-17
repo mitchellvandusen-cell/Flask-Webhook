@@ -63,12 +63,13 @@ AI_MINUTE_PACKAGES = [
 
 # ── JWT helpers ──────────────────────────────────────────────────────────────
 
-def _create_jwt(location_id, email, tier):
+def _create_jwt(location_id, email, tier, subscribed=True):
     """Create a signed JWT token for GHL Custom JS."""
     payload = {
         'location_id': location_id,
         'email': email,
         'tier': tier,
+        'subscribed': subscribed,
         'iat': datetime.utcnow(),
         'exp': datetime.utcnow() + timedelta(hours=JWT_EXPIRY_HOURS),
     }
@@ -86,18 +87,23 @@ def _decode_jwt(token):
 
 
 def _get_jwt_from_request():
-    """Extract JWT from Authorization: Bearer header."""
+    """Extract JWT from Authorization: Bearer header or ?key= query param."""
     auth_header = request.headers.get('Authorization', '')
     if auth_header.startswith('Bearer '):
         return auth_header[7:]
+    # Allow JWT in ?key= query param (browser audio elements can't set headers)
+    key_param = request.args.get('key', '')
+    if key_param:
+        return key_param
     return None
 
 
 # ── Auth decorator ───────────────────────────────────────────────────────────
 
 def jwt_required(f):
-    """Decorator that requires a valid JWT token in the Authorization header.
-    Sets request._ghl_jwt with the decoded payload."""
+    """Decorator that requires a valid JWT token in the Authorization header or ?key= param.
+    Sets request._ghl_jwt with the decoded payload.
+    Returns 402 with subscription_required=True if the account has no active subscription."""
     @functools.wraps(f)
     def decorated(*args, **kwargs):
         token = _get_jwt_from_request()
@@ -106,6 +112,11 @@ def jwt_required(f):
         payload = _decode_jwt(token)
         if not payload:
             return jsonify({"error": "Invalid or expired token"}), 401
+        # Subscription gate: all endpoints except subscription-info itself require active plan
+        if not payload.get('subscribed', True):
+            if not request.path.endswith('/subscription-info'):
+                return jsonify({"subscription_required": True,
+                                "error": "Active subscription required"}), 402
         request._ghl_jwt = payload
         return f(*args, **kwargs)
     return decorated
@@ -242,11 +253,19 @@ def ghl_auth_token():
     email = subscriber.get('email', '')
     tier = subscriber.get('subscription_tier', 'individual')
 
-    token = _create_jwt(location_id, email, tier)
+    # Determine subscription status: active Stripe subscription OR admin account
+    stripe_status = subscriber.get('stripe_status', '')
+    is_admin = email.lower() in [e.lower() for e in ADMIN_EMAILS]
+    # Agency sub-users inherit subscription from parent — treat as subscribed
+    is_sub_user = bool(subscriber.get('parent_agency_email'))
+    subscribed = (stripe_status in ('active', 'trialing')) or is_admin or is_sub_user
+
+    token = _create_jwt(location_id, email, tier, subscribed=subscribed)
     return jsonify({
         "token": token,
         "expires_in": JWT_EXPIRY_HOURS * 3600,
         "tier": tier,
+        "subscribed": subscribed,
     })
 
 
@@ -650,7 +669,8 @@ def ghl_subscription_info():
     }
     info = tier_info.get(tier, tier_info["individual"])
 
-    return jsonify({"tier": tier, "is_admin": is_admin, **info})
+    subscribed = jwt_payload.get('subscribed', True)
+    return jsonify({"tier": tier, "is_admin": is_admin, "subscribed": subscribed, **info})
 
 
 # ── SSE Notifications ────────────────────────────────────────────────────────

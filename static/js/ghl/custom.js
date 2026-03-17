@@ -7,6 +7,7 @@ let igbKey = '';
 let igbKeyExpiresAt = 0;
 let igbLocationId = '';
 let igbSubscriptionTier = 'individual';
+let igbSubscribed = false;
 let igbMaxDialLines = 1;
 let igbBalanceRefreshTimer = null;
 let igbStatsRefreshTimer = null;
@@ -90,7 +91,15 @@ async function igbApiRequest(httpMethod, apiPath, requestBody) {
         fetchOptions.headers['Authorization'] = 'Bearer ' + igbKey;
         response = await fetch(igbServerUrl + apiPath, fetchOptions);
     }
-    return response.json();
+    const data = await response.json();
+    // If subscription has lapsed mid-session, show upgrade prompt and throw so callers bail out
+    if (response.status === 402 && data.subscription_required) {
+        igbLog('Subscription required — showing upgrade prompt');
+        igbSubscribed = false;
+        igbShowUpgradePrompt();
+        throw new Error('subscription_required');
+    }
+    return data;
 }
 
 async function igbAuthenticate() {
@@ -121,8 +130,9 @@ async function igbAuthenticate() {
         if (data.token) {
             igbKey = data.token;
             igbSubscriptionTier = data.tier || 'individual';
+            igbSubscribed = data.subscribed !== false;
             igbKeyExpiresAt = Date.now() + (data.expires_in || 7200) * 1000;
-            igbLog('Authenticated, tier: ' + igbSubscriptionTier);
+            igbLog('Authenticated, tier: ' + igbSubscriptionTier + ', subscribed: ' + igbSubscribed);
             return true;
         }
 
@@ -1231,6 +1241,12 @@ function igbOpenListenStream(callSid) {
         igbListenSocket.onopen = () => {
             igbLog('Live listen connected');
             igbShowToast('Listening to call...', 'info');
+            // Send init message — backend accepts call_sid from either URL params or first message
+            try {
+                igbListenSocket.send(JSON.stringify({ call_sid: callSid }));
+            } catch (sendErr) {
+                igbLog('Listen stream send error: ' + sendErr);
+            }
             try {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 8000 });
             } catch (audioError) {
@@ -1446,6 +1462,29 @@ const igbDomObserver = new MutationObserver(() => {
     igbDomObserver.debounceTimer = setTimeout(igbHandlePageChange, 300);
 });
 
+function igbShowUpgradePrompt() {
+    // Show a fixed upgrade banner — only one at a time
+    if (igbFind('#igb-upgrade-banner')) {
+        return;
+    }
+    const banner = igbMakeElement('div', 'igb-upgrade-banner');
+    banner.id = 'igb-upgrade-banner';
+
+    const logo = igbMakeElement('div', 'igb-upgrade-logo', '&#129302; <strong>InsuranceGrokBot</strong>');
+    banner.appendChild(logo);
+
+    const msg = igbMakeElement('p', 'igb-upgrade-msg', 'Start your subscription to unlock AI texting, voice dialing, and lead intelligence inside GHL.');
+    banner.appendChild(msg);
+
+    const btn = igbMakeElement('a', 'igb-upgrade-btn', 'Pick Your Plan \u2192');
+    btn.href = igbServerUrl + '/dashboard?tab=billing';
+    btn.target = '_blank';
+    btn.rel = 'noopener';
+    banner.appendChild(btn);
+
+    document.body.appendChild(banner);
+}
+
 async function igbInit() {
     igbLog('Initializing');
 
@@ -1455,6 +1494,13 @@ async function igbInit() {
             igbLog('Auth failed, features disabled');
             return;
         }
+    }
+
+    // If not subscribed, show upgrade prompt and stop — no other features injected
+    if (!igbSubscribed) {
+        igbLog('No active subscription — showing upgrade prompt');
+        igbShowUpgradePrompt();
+        return;
     }
 
     try {

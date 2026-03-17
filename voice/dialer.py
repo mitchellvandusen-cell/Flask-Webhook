@@ -884,9 +884,6 @@ def dial_contact():
     except (ValueError, TypeError):
         dial_attempt = 1
 
-    if not phone:
-        return jsonify({"error": "Phone number is required"}), 400
-
     conn = get_db_connection()
     if not conn:
         return jsonify({"error": "Database error"}), 500
@@ -902,6 +899,24 @@ def dial_contact():
         return_db_connection(conn)
 
     location_id  = subscriber.get('location_id', '')
+
+    # If phone not provided (GHL Custom JS sends contact_id only), look it up from GHL
+    if not phone and contact_id and location_id:
+        try:
+            from ghl_api import get_valid_token as _gvt
+            _tok = _gvt(location_id)
+            if _tok:
+                from voice.contacts import fetch_contact_data_from_ghl
+                _cd = fetch_contact_data_from_ghl(contact_id, _tok, location_id)
+                if _cd:
+                    phone = _cd.get('phone', '')
+                    if not first_name or first_name == 'there':
+                        first_name = _cd.get('firstName', 'there') or 'there'
+        except Exception as _le:
+            logger.warning(f"GHL phone lookup failed for {contact_id}: {_le}")
+
+    if not phone:
+        return jsonify({"error": "Phone number is required"}), 400
     voice_config = subscriber.get('voice_config') or {}
     tier = subscriber.get('subscription_tier', 'individual')
     is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
