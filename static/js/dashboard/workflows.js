@@ -412,15 +412,15 @@
     // ── Canvas Transform ────────────────────────────────────────────────────
     function _updateCanvasTransform() {
         var canvas = document.getElementById('wfbCanvas');
-        var svg = document.getElementById('wfbSvgLayer');
         if (canvas) canvas.style.transform = 'scale(' + _zoom + ') translate(' + _panX + 'px, ' + _panY + 'px)';
-        if (svg) svg.style.transform = 'scale(' + _zoom + ') translate(' + _panX + 'px, ' + _panY + 'px)';
+        // SVG is a child of wfbCanvas — it inherits the transform automatically.
+        // Do NOT apply a separate transform to the SVG or paths will be double-transformed.
         var lvl = document.getElementById('wfbZoomLevel');
         if (lvl) lvl.textContent = Math.round(_zoom * 100) + '%';
     }
 
-    window.wfbZoomIn = function() { _zoom = Math.min(2, _zoom + 0.1); _updateCanvasTransform(); };
-    window.wfbZoomOut = function() { _zoom = Math.max(0.3, _zoom - 0.1); _updateCanvasTransform(); };
+    window.wfbZoomIn = function() { _zoom = Math.min(2, _zoom + 0.1); _updateCanvasTransform(); _updateAllConnections(); };
+    window.wfbZoomOut = function() { _zoom = Math.max(0.3, _zoom - 0.1); _updateCanvasTransform(); _updateAllConnections(); };
     window.wfbZoomFit = function() { _zoomToFit(true); };
 
     function _zoomToFit(animated) {
@@ -441,16 +441,16 @@
         _panY = -minY + 50;
         if (animated) {
             var canvas = document.getElementById('wfbCanvas');
-            var svg = document.getElementById('wfbSvgLayer');
             if (canvas) canvas.style.transition = 'transform 0.4s ease';
-            if (svg) svg.style.transition = 'transform 0.4s ease';
             _updateCanvasTransform();
+            _updateAllConnections();
             setTimeout(function() {
                 if (canvas) canvas.style.transition = '';
-                if (svg) svg.style.transition = '';
+                _updateAllConnections();
             }, 450);
         } else {
             _updateCanvasTransform();
+            _updateAllConnections();
         }
     }
 
@@ -673,6 +673,7 @@
             var delta = e.deltaY > 0 ? -0.08 : 0.08;
             _zoom = Math.min(2, Math.max(0.3, _zoom + delta));
             _updateCanvasTransform();
+            _updateAllConnections();
         }, { passive: false });
 
         // Pan with middle mouse or space+drag
