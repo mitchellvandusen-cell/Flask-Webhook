@@ -1,11 +1,10 @@
 const igbServerUrl = 'https://app.insurancegrokbot.click';
-const igbKeyStorageKey = 'igb_jwt';
-const igbKeyExpiryKey = 'igb_jwt_exp';
 const igbCallPollMs = 2000;
 const igbRefreshIntervalMs = 60000;
 const igbMaxVisibleToasts = 3;
 
 let igbKey = '';
+let igbKeyExpiresAt = 0;
 let igbLocationId = '';
 let igbSubscriptionTier = 'individual';
 let igbMaxDialLines = 1;
@@ -122,9 +121,7 @@ async function igbAuthenticate() {
         if (data.token) {
             igbKey = data.token;
             igbSubscriptionTier = data.tier || 'individual';
-            localStorage.setItem(igbKeyStorageKey, igbKey);
-            const expiresAt = Date.now() + (data.expires_in || 7200) * 1000;
-            localStorage.setItem(igbKeyExpiryKey, String(expiresAt));
+            igbKeyExpiresAt = Date.now() + (data.expires_in || 7200) * 1000;
             igbLog('Authenticated, tier: ' + igbSubscriptionTier);
             return true;
         }
@@ -166,8 +163,7 @@ async function igbGetGhlUserAccess() {
 }
 
 function igbIsKeyValid() {
-    const expiry = parseInt(localStorage.getItem(igbKeyExpiryKey) || '0');
-    return igbKey && Date.now() < expiry - 60000;
+    return igbKey && Date.now() < igbKeyExpiresAt - 60000;
 }
 
 function igbShowToast(message, toastType) {
@@ -1453,7 +1449,6 @@ const igbDomObserver = new MutationObserver(() => {
 async function igbInit() {
     igbLog('Initializing');
 
-    igbKey = localStorage.getItem(igbKeyStorageKey) || '';
     if (!igbIsKeyValid()) {
         const authSuccess = await igbAuthenticate();
         if (!authSuccess) {
