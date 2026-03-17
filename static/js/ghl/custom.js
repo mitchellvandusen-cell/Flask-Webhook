@@ -943,6 +943,15 @@ function igbBuildDialerContent(popup, dialerTitle) {
     body.appendChild(queueList);
 
     popup.appendChild(body);
+
+    // Footer — website link
+    const footer = igbMakeElement('div', 'igb-dialer-footer');
+    const footerLink = igbMakeElement('a', 'igb-dialer-footer-link', 'More information on the website');
+    footerLink.href = igbServerUrl;
+    footerLink.target = '_blank';
+    footerLink.rel = 'noopener';
+    footer.appendChild(footerLink);
+    popup.appendChild(footer);
 }
 
 function igbRefreshCurrentContact() {
@@ -1238,6 +1247,18 @@ function igbOpenListenStream(callSid) {
         igbListenSocket.binaryType = 'arraybuffer';
 
         let audioContext = null;
+        let nextPlayAt = 0;  // Scheduled playback timestamp to prevent gaps/overlap
+
+        // Decode a single mulaw (G.711 u-law) byte to a linear PCM float [-1, 1]
+        function igbMulawToFloat(u) {
+            u = ~u & 0xFF;
+            const sign = (u & 0x80) ? -1 : 1;
+            const exp = (u >> 4) & 0x07;
+            const mantissa = u & 0x0F;
+            const magnitude = ((mantissa << 1) + 33) << (exp + 2);
+            return sign * magnitude / 32768.0;
+        }
+
         igbListenSocket.onopen = () => {
             igbLog('Live listen connected');
             igbShowToast('Listening to call...', 'info');
@@ -1249,15 +1270,61 @@ function igbOpenListenStream(callSid) {
             }
             try {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 8000 });
+                nextPlayAt = audioContext.currentTime;
             } catch (audioError) {
-                // AudioContext unavailable
+                igbLog('AudioContext unavailable: ' + audioError);
             }
         };
-        igbListenSocket.onmessage = () => {
-            // Audio frame received (playback handled by AudioContext)
+        igbListenSocket.onmessage = (event) => {
+            let msg;
+            try {
+                msg = JSON.parse(event.data);
+            } catch (e) {
+                return;
+            }
+            if (msg.status === 'call_ended') {
+                igbLog('Listen stream: call ended');
+                igbStopListenStream();
+                return;
+            }
+            if (!msg.audio || !audioContext) {
+                return;
+            }
+            // Decode base64 → Uint8Array of mulaw bytes
+            let mulawBytes;
+            try {
+                const binary = atob(msg.audio);
+                mulawBytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) {
+                    mulawBytes[i] = binary.charCodeAt(i);
+                }
+            } catch (e) {
+                return;
+            }
+            // Convert mulaw bytes → float32 PCM samples
+            const floatSamples = new Float32Array(mulawBytes.length);
+            for (let i = 0; i < mulawBytes.length; i++) {
+                floatSamples[i] = igbMulawToFloat(mulawBytes[i]);
+            }
+            // Schedule for gapless playback
+            const buffer = audioContext.createBuffer(1, floatSamples.length, 8000);
+            buffer.getChannelData(0).set(floatSamples);
+            const source = audioContext.createBufferSource();
+            source.buffer = buffer;
+            source.connect(audioContext.destination);
+            const now = audioContext.currentTime;
+            if (nextPlayAt < now) {
+                nextPlayAt = now;
+            }
+            source.start(nextPlayAt);
+            nextPlayAt += buffer.duration;
         };
         igbListenSocket.onclose = () => {
             igbLog('Live listen disconnected');
+            if (audioContext) {
+                audioContext.close().catch(() => {});
+                audioContext = null;
+            }
         };
         igbListenSocket.onerror = () => {
             igbLog('Live listen error');

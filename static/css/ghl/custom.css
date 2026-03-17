@@ -864,3 +864,19 @@
     background: #fff;
     transform: translateY(-1px);
 }
+
+/* ── Dialer Footer ──────────────────────────────────────────────────────────── */
+.igb-dialer-footer {
+    border-top: 1px solid var(--igb-border);
+    padding: 10px 16px;
+    text-align: center;
+}
+.igb-dialer-footer-link {
+    font-size: 11px;
+    color: var(--igb-text-muted);
+    text-decoration: none;
+    transition: color 0.15s;
+}
+.igb-dialer-footer-link:hover {
+    color: var(--igb-accent);
+}
