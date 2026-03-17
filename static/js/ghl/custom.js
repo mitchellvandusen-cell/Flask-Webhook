@@ -42,7 +42,7 @@ function igbFindAll(selector, root) {
 }
 
 function igbLog(message) {
-    console.log('[IGB]', message);
+    // no-op in production
 }
 
 function igbFormatNumber(num) {
@@ -186,7 +186,7 @@ function igbShowToast(message, toastType) {
 
     const closeBtn = document.createElement('button');
     closeBtn.className = 'igb-toast-close';
-    closeBtn.textContent = '\u00D7';
+    closeBtn.textContent = '×';
     closeBtn.addEventListener('click', () => toast.remove());
     toast.appendChild(closeBtn);
 
@@ -264,7 +264,7 @@ async function igbToggleMinutesPanel() {
     header.appendChild(document.createTextNode(' AI Minutes '));
     const closeBtn = document.createElement('button');
     closeBtn.className = 'igb-panel-close';
-    closeBtn.textContent = '\u00D7';
+    closeBtn.textContent = '×';
     closeBtn.addEventListener('click', () => {
         const p = document.getElementById('igb-minutes-panel');
         if (p) p.remove();
@@ -412,7 +412,7 @@ async function igbToggleStatsPanel() {
     header.appendChild(document.createTextNode(" Today's Stats "));
     const closeBtn = document.createElement('button');
     closeBtn.className = 'igb-panel-close';
-    closeBtn.textContent = '\u00D7';
+    closeBtn.textContent = '×';
     closeBtn.addEventListener('click', () => {
         const p = document.getElementById('igb-stats-panel');
         if (p) p.remove();
@@ -660,7 +660,7 @@ function igbShowAiReplyPreview(draftText, contactId, composeElement) {
     previewHeader.appendChild(document.createTextNode('AI Draft '));
     const closeBtn = document.createElement('button');
     closeBtn.className = 'igb-panel-close';
-    closeBtn.textContent = '\u00D7';
+    closeBtn.textContent = '×';
     closeBtn.addEventListener('click', () => preview.remove());
     previewHeader.appendChild(closeBtn);
     preview.appendChild(previewHeader);
@@ -854,10 +854,10 @@ function igbCloseDialer() {
 function igbBuildDialerContent(popup, dialerTitle) {
     // Header
     const header = igbMakeElement('div', 'igb-dialer-header');
-    header.appendChild(document.createTextNode(`IGB Dialer \u2014 ${igbSafeText(dialerTitle)}`));
+    header.appendChild(document.createTextNode(`IGB Dialer — ${igbSafeText(dialerTitle)}`));
     const closeBtn = document.createElement('button');
     closeBtn.className = 'igb-panel-close';
-    closeBtn.textContent = '\u00D7';
+    closeBtn.textContent = '×';
     closeBtn.addEventListener('click', igbCloseDialer);
     header.appendChild(closeBtn);
     popup.appendChild(header);
@@ -1218,7 +1218,7 @@ async function igbPollCallStatus() {
         if (statusBar) {
             statusBar.innerHTML = `<span class="igb-status-dot ${dotClass}"></span> ${statusLabel}`;
             if (statusData.duration) {
-                statusBar.innerHTML += ` \u00B7 ${igbFormatDuration(statusData.duration)}`;
+                statusBar.innerHTML += ` · ${igbFormatDuration(statusData.duration)}`;
             }
         }
 
@@ -1542,7 +1542,7 @@ function igbBuildConfigPanel() {
     header.innerHTML = '<i class="fa-solid fa-shield-halved"></i> Spam Protection & Config';
     const closeBtn = document.createElement('button');
     closeBtn.className = 'igb-panel-close';
-    closeBtn.textContent = '\u00D7';
+    closeBtn.textContent = '×';
     closeBtn.addEventListener('click', () => { panel.remove(); igbConfigPanelOpen = false; });
     header.appendChild(closeBtn);
     panel.appendChild(header);
@@ -1609,7 +1609,7 @@ async function igbLoadConfigSection(section, container) {
 
 // Helper: info grid row
 function igbInfoRow(label, value) {
-    return '<div class="igb-cfg-info-label">' + igbSafeText(label) + '</div><div class="igb-cfg-info-value">' + igbSafeText(value || '\u2014') + '</div>';
+    return '<div class="igb-cfg-info-label">' + igbSafeText(label) + '</div><div class="igb-cfg-info-value">' + igbSafeText(value || '—') + '</div>';
 }
 
 // Helper: status badge
@@ -1620,7 +1620,7 @@ function igbBadge(text, ok) {
 
 // Helper: dashboard link button
 function igbDashLink(label, tab, section) {
-    var url = igbServerUrl + '/dashboard?tab=' + tab;
+    let url = igbServerUrl + '/dashboard?tab=' + tab;
     if (section) { url += '&section=' + section; }
     return '<a class="igb-cfg-dash-link" href="' + url + '" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i> ' + igbSafeText(label) + '</a>';
 }
@@ -1704,7 +1704,7 @@ async function igbSecActivate(c) {
         c.innerHTML += igbBadge('Voice Account Active', true);
         const info = igbMakeElement('div', 'igb-cfg-info-grid');
         info.innerHTML = igbInfoRow('Phone Number', vc.has_phone_number ? 'Provisioned' : 'None yet')
-            + igbInfoRow('Calling Hours', (vc.calling_hours_start || '08:00') + ' \u2013 ' + (vc.calling_hours_end || '21:00'));
+            + igbInfoRow('Calling Hours', (vc.calling_hours_start || '08:00') + ' – ' + (vc.calling_hours_end || '21:00'));
         c.appendChild(info);
 
         const desc = igbMakeElement('div', 'igb-cfg-desc', 'Your voice account is active. Buy numbers below, then configure spam protection to improve answer rates.');
@@ -1815,7 +1815,7 @@ async function igbSecNumbers(c) {
                     try {
                         await igbApiRequest('POST', '/api/ghl/numbers/buy', { phone_number: num.phone, number_type: numType });
                         igbShowToast('Purchased ' + num.phone, 'success');
-                        buyBtn.textContent = '\u2713'; buyBtn.classList.add('igb-cfg-btn-owned');
+                        buyBtn.textContent = '✓'; buyBtn.classList.add('igb-cfg-btn-owned');
                         igbRenderConfigChip();
                     } catch (err) {
                         if (err.message && err.message.indexOf('402') >= 0) {
@@ -1966,7 +1966,7 @@ async function igbSecA2p(c) {
     const title = igbMakeElement('div', 'igb-cfg-section-title', 'A2P 10DLC (SMS Compliance)');
     c.appendChild(title);
 
-    c.appendChild(igbMakeElement('div', 'igb-cfg-desc', 'A2P 10DLC registers your brand and use case with mobile carriers for business SMS. This is optional \u2014 your SMS bot uses GHL by default. Register if you want to send SMS directly through your own Twilio numbers.'));
+    c.appendChild(igbMakeElement('div', 'igb-cfg-desc', 'A2P 10DLC registers your brand and use case with mobile carriers for business SMS. This is optional — your SMS bot uses GHL by default. Register if you want to send SMS directly through your own Twilio numbers.'));
 
     if (data.registered) {
         c.innerHTML += igbBadge('Registered', true);
@@ -2086,11 +2086,11 @@ async function igbSecSms(c) {
     // SMS routing
     form.innerHTML += '<label class="igb-cfg-label">SMS Send Via</label>'
         + '<select class="igb-cfg-input igb-cfg-select" id="igb-sc-via">'
-        + '<option value="ghl"' + (data.sms_send_via === 'ghl' || !data.sms_send_via ? ' selected' : '') + '>GHL (GoHighLevel) \u2014 Default</option>'
-        + '<option value="twilio"' + (data.sms_send_via && data.sms_send_via.startsWith('+') ? ' selected' : '') + '>Twilio (Direct) \u2014 Requires A2P</option>'
+        + '<option value="ghl"' + (data.sms_send_via === 'ghl' || !data.sms_send_via ? ' selected' : '') + '>GHL (GoHighLevel) — Default</option>'
+        + '<option value="twilio"' + (data.sms_send_via && data.sms_send_via.startsWith('+') ? ' selected' : '') + '>Twilio (Direct) — Requires A2P</option>'
         + '</select>';
 
-    c.appendChild(igbMakeElement('div', 'igb-cfg-desc', 'Your SMS bot sends through GHL by default \u2014 no extra setup needed. Switch to Twilio only if you need direct number control with A2P 10DLC registration.'));
+    c.appendChild(igbMakeElement('div', 'igb-cfg-desc', 'Your SMS bot sends through GHL by default — no extra setup needed. Switch to Twilio only if you need direct number control with A2P 10DLC registration.'));
 
     // Initial message
     form.innerHTML += '<label class="igb-cfg-label">Initial Greeting Message</label>'
@@ -2169,7 +2169,7 @@ function igbShowUpgradePrompt() {
     const msg = igbMakeElement('p', 'igb-upgrade-msg', 'Start your subscription to unlock AI texting, voice dialing, and lead intelligence inside GHL.');
     banner.appendChild(msg);
 
-    const btn = igbMakeElement('a', 'igb-upgrade-btn', 'Pick Your Plan \u2192');
+    const btn = igbMakeElement('a', 'igb-upgrade-btn', 'Pick Your Plan →');
     btn.href = igbServerUrl + '/dashboard?tab=billing';
     btn.target = '_blank';
     btn.rel = 'noopener';
