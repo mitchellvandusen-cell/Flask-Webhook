@@ -438,7 +438,7 @@
             element: '#configSettingsMenu',
             popover: {
                 title: 'Settings Menu',
-                description: 'Use these sub-menus to configure different aspects:<br><br><strong>Identity</strong> \u2014 Bot name and how it introduces itself<br><strong>Calendar</strong> \u2014 Select which calendar the bot books into<br><strong>Outreach</strong> \u2014 First message sent to new leads<br><strong>SMS Channel</strong> \u2014 Send via LeadConnector or your own Twilio number',
+                description: 'Use these sub-menus to configure different aspects:<br><br><strong>Identity</strong> \u2014 Bot name and how it introduces itself<br><strong>Calendar</strong> \u2014 Select which calendar the bot books into<br><strong>Outreach</strong> \u2014 First message sent to new leads<br><strong>SMS Channel</strong> \u2014 Send via LeadConnector or your own IGB number',
                 side: 'right', align: 'start'
             }
         });
@@ -472,7 +472,7 @@
             element: '#voiceSettingsMenu',
             popover: {
                 title: 'Voice Settings Menu',
-                description: 'Navigate between voice sub-sections:<br><br><strong>AI Agent</strong> \u2014 Enable/disable, pick a voice, set the script and behavior rules<br><strong>Activate Voice</strong> \u2014 Provision your Twilio sub-account and phone number<br><strong>Phone Numbers</strong> \u2014 Buy numbers, manage health scores, set up geo-routing<br><strong>Spam Monitoring</strong> \u2014 CNAM, Voice Integrity, number protection<br><strong>10DLC Registration</strong> \u2014 A2P compliance for SMS delivery',
+                description: 'Navigate between voice sub-sections:<br><br><strong>AI Agent</strong> \u2014 Enable/disable, pick a voice, set the script and behavior rules<br><strong>Activate Voice</strong> \u2014 Provision your voice account and phone number<br><strong>Phone Numbers</strong> \u2014 Buy numbers, manage health scores, set up geo-routing<br><strong>Spam Monitoring</strong> \u2014 CNAM, Voice Integrity, number protection<br><strong>10DLC Registration</strong> \u2014 A2P compliance for SMS delivery',
                 side: 'right', align: 'start'
             }
         });
@@ -504,7 +504,7 @@
             element: '#sbnVoiceConfig',
             popover: {
                 title: 'A2P 10DLC Registration',
-                description: 'Also under Voice Config \u2192 <strong>10DLC Registration</strong>. Required for SMS delivery:<br><br><strong>Register New</strong> \u2014 Submit your brand and campaign to Twilio for carrier approval<br><strong>Import Existing</strong> \u2014 Bring in an already-approved brand/campaign from GHL or another provider<br><br>Without A2P registration, carriers may filter your SMS messages.',
+                description: 'Also under Voice Config \u2192 <strong>10DLC Registration</strong>. Required for SMS delivery:<br><br><strong>Register New</strong> \u2014 Submit your brand and campaign for carrier approval<br><strong>Import Existing</strong> \u2014 Bring in an already-approved brand/campaign from GHL or another provider<br><br>Without A2P registration, carriers may filter your SMS messages.',
                 side: 'right', align: 'start'
             }
         });
