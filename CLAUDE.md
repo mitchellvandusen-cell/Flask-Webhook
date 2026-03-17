@@ -343,6 +343,7 @@ All tables created in `db.py`'s `init_db()` function (plus `contact_intelligence
 - `GET /comparison`, `/comparison/text-drip`, `/comparison/dialers` — Comparison pages
 - `GET /dialer` — Dialer marketing page
 - `GET /sms` — SMS marketing page
+- `GET /workflows` — Workflow automation marketing page
 - `GET /getting-started` — Setup guide
 - `GET /a2p-guide` — A2P 10DLC registration guide
 - `GET /articles` — Articles/blog listing page (7 articles)
@@ -1032,13 +1033,13 @@ The dialer's Smart Filters use AI intelligence to classify contacts — NOT simp
 The marketing site navbar uses two dropdown menus:
 - **Agents** → `/for-individuals`
 - **Agencies** → `/for-agencies`
-- **Features** (dropdown): SMS AI Texting (`/sms`), Spam Protection (`/spam-protection`)
+- **Features** (dropdown): SMS AI Texting (`/sms`), AI Workflows (`/workflows`), Spam Protection (`/spam-protection`)
 - **Resources** (dropdown): Comparison (`/comparison`), Articles (`/articles`), Connect With Us (`/connect`)
 - **Pricing** → `/#pricing`
 - **Demo** → `/demo-chat`
 - **Support** → `/support`
 
-Footer links include: For Agents, For Agencies, SMS, Spam Protection, Comparison, Articles, About, Support, Contact, Connect With Us, Affiliates, Terms, Privacy.
+Footer links include: For Agents, For Agencies, SMS, Workflows, Spam Protection, Comparison, Articles, About, Support, Contact, Connect With Us, Affiliates, Terms, Privacy.
 
 ### SEO Articles (`/articles/*`)
 
@@ -1074,6 +1075,7 @@ templates/
   base.html                   Base template for marketing pages
   home.html                   Home/landing page
   sms.html                    SMS marketing page
+  workflows-marketing.html    Workflow automation marketing page
   spam-protection.html        Spam monitoring & number health marketing page
   comparison.html             Main comparison page
   comparison-text-drip.html   Text drip comparison page
