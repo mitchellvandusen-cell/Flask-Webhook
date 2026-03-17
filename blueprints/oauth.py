@@ -625,12 +625,98 @@ def oauth_callback():
         # /locations/search requires a Company-scoped token.  For Location-
         # scoped tokens, fetch the single location directly via
         # GET /locations/{locationId}.
+        #
+        # EDGE CASE: GHL sometimes returns a Location-scoped token with a
+        # companyId but NO locationId (marketplace installs where user didn't
+        # pick a specific sub-account). In that case, try /locations/search
+        # with the companyId to discover all locations.
         sub_accounts = []
         using_location_fallback = False
 
         if token_user_type_used == 'Company' and company_id:
             locations_url = f"https://services.leadconnectorhq.com/locations/search?companyId={company_id}"
             sub_accounts = fetch_all_ghl_items(locations_url, headers_ghl, item_key='locations')
+        elif not primary_location_id and company_id:
+            # Location-scoped token with companyId but no locationId — try
+            # fetching locations via company search. This happens when GHL
+            # sends a company-level marketplace install but the token exchange
+            # succeeded with user_type=Location.
+            logger.info(
+                f"No locationId in token but companyId={company_id} present. "
+                f"Attempting /locations/search to discover locations."
+            )
+            locations_url = f"https://services.leadconnectorhq.com/locations/search?companyId={company_id}"
+            sub_accounts = fetch_all_ghl_items(locations_url, headers_ghl, item_key='locations')
+            if sub_accounts:
+                # Use the first location as the primary
+                primary_location_id = sub_accounts[0].get('id')
+                logger.info(
+                    f"Discovered {len(sub_accounts)} location(s) via companyId search. "
+                    f"Primary set to: {primary_location_id}"
+                )
+            else:
+                logger.warning(
+                    f"/locations/search with companyId={company_id} returned 0 results. "
+                    f"Retrying token exchange with user_type=Company..."
+                )
+                # The Location-scoped token might not have permission for
+                # /locations/search. Try getting a Company-scoped token.
+                retry_payload = {
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "redirect_uri": f"{domain}/oauth/callback",
+                    "user_type": "Company",
+                }
+                retry_resp, retry_err = _ghl_api_call(
+                    'POST', token_url, data=retry_payload, timeout=15,
+                    label="Token exchange retry (Company, for location discovery)"
+                )
+                if retry_resp and retry_resp.ok:
+                    try:
+                        retry_data = retry_resp.json()
+                        retry_token = retry_data.get('access_token')
+                        retry_loc_id = retry_data.get('locationId')
+                        if retry_token:
+                            retry_headers = {'Authorization': f'Bearer {retry_token}', 'Version': '2021-07-28'}
+                            sub_accounts = fetch_all_ghl_items(locations_url, retry_headers, item_key='locations')
+                            if sub_accounts:
+                                primary_location_id = retry_loc_id or sub_accounts[0].get('id')
+                                # Update token data with Company-scoped token
+                                access_token = retry_token
+                                enc_access_token = encrypt_token(access_token)
+                                new_refresh = retry_data.get('refresh_token')
+                                if new_refresh:
+                                    refresh_token = new_refresh
+                                    enc_refresh_token = encrypt_token(refresh_token)
+                                token_user_type_used = 'Company'
+                                headers_ghl = retry_headers
+                                logger.info(
+                                    f"Company token retry succeeded: {len(sub_accounts)} locations found, "
+                                    f"primary={primary_location_id}"
+                                )
+                            elif retry_loc_id:
+                                primary_location_id = retry_loc_id
+                                access_token = retry_token
+                                enc_access_token = encrypt_token(access_token)
+                                new_refresh = retry_data.get('refresh_token')
+                                if new_refresh:
+                                    refresh_token = new_refresh
+                                    enc_refresh_token = encrypt_token(refresh_token)
+                                token_user_type_used = 'Company'
+                                headers_ghl = retry_headers
+                                logger.info(
+                                    f"Company token retry returned locationId={retry_loc_id} "
+                                    f"but /locations/search still empty"
+                                )
+                    except (ValueError, KeyError) as e:
+                        logger.warning(f"Company token retry parse error: {e}")
+                else:
+                    logger.info(
+                        f"Company token retry failed: "
+                        f"{retry_resp.status_code if retry_resp else retry_err}"
+                    )
         elif primary_location_id:
             # Location-scoped token — fetch this single location's details
             loc_resp, loc_err = _ghl_api_call(
@@ -668,6 +754,39 @@ def oauth_callback():
                              'name': user_name or 'Primary Location',
                              'timezone': None}]
             num_subs = 1
+
+        # Last resort: no locationId AND no locations discovered, but we have
+        # companyId. Use companyId as the location_id so the user at least gets
+        # a subscriber row and can log in. Admin alert sent so we can fix it.
+        if num_subs == 0 and not primary_location_id and company_id:
+            using_location_fallback = True
+            primary_location_id = company_id
+            logger.warning(
+                f"NO locationId from token and ALL location discovery failed. "
+                f"Using companyId={company_id} as location_id fallback for {user_email}."
+            )
+            sub_accounts = [{'id': company_id,
+                             'name': user_name or 'Primary Location',
+                             'timezone': None}]
+            num_subs = 1
+
+            # Alert admin — this user needs manual location resolution
+            try:
+                save_persistent_alert(
+                    email=ADMIN_EMAILS[0] if ADMIN_EMAILS else "admin",
+                    alert_type="company_id_fallback",
+                    title="OAuth: CompanyID Used as LocationID",
+                    message=(
+                        f"User {user_email} installed via marketplace but GHL returned NO "
+                        f"locationId. companyId={company_id} was used as a fallback. "
+                        f"This user needs their location_id corrected once their real "
+                        f"GHL location is identified."
+                    ),
+                    severity="warning",
+                    location_id=company_id,
+                )
+            except Exception:
+                pass
 
         # ── Step 5-6: Determine tier and primary location ─────────────────────
         if is_website_user:
