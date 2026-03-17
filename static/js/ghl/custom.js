@@ -12,9 +12,6 @@
  * Paste this entire file into GHL Developer Portal → Custom JS → JavaScript field.
  */
 
-(function() {
-'use strict';
-
 // ── Configuration ───────────────────────────────────────────────────────────
 var IGB_SERVER = 'https://app.insurancegrokbot.click';
 var SHARED_SECRET = ''; // Set via AppUtils.Utilities.getSharedSecret() at runtime
@@ -1185,5 +1182,3 @@ if (document.readyState === 'loading') {
 } else {
     _init();
 }
-
-})();
