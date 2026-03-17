@@ -4,6 +4,7 @@ import logging
 
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
+from ghl_auth import jwt_or_session_required
 
 from db import get_db_connection, return_db_connection
 from ghl_api import get_valid_token
@@ -199,7 +200,7 @@ def get_contact_engagement_bulk():
 
 
 @intelligence_bp.route('/voice/contact-intelligence-bulk', methods=['GET', 'POST'])
-@login_required
+@jwt_or_session_required
 def get_contact_intelligence_bulk():
     """Bulk fetch cached AI intelligence for Smart Filters.
     Returns cached AI temperature/score for contacts that have fresh analysis.
@@ -232,7 +233,7 @@ def get_contact_intelligence_bulk():
 
 
 @intelligence_bp.route('/voice/contact-intelligence-analyze', methods=['POST'])
-@login_required
+@jwt_or_session_required
 def post_contact_intelligence_analyze():
     """Queue bulk AI analysis for contacts without cached intelligence.
     Enqueues RQ jobs (batches of 100) using bulk AI prompts (~25 contacts

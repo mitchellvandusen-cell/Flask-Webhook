@@ -1,11 +1,30 @@
 {% include "dashboard/_head.html" %}
-<body>
+<body{% if embed_mode %} class="ghl-embed"{% endif %}>
 
+    {% if not embed_mode %}
     {% include "dashboard/_sidebar.html" %}
+    {% endif %}
 
     <div class="main-wrapper">
 
+        {% if not embed_mode %}
         {% include "dashboard/_topbar.html" %}
+        {% endif %}
+
+        {% if embed_mode %}
+        <!-- Compact horizontal tab bar for GHL embed mode -->
+        <nav class="ghl-embed-tabs">
+            <button class="ghl-embed-tab active" data-tab="voicedialer" onclick="switchEmbedTab(this)">Dialer</button>
+            <button class="ghl-embed-tab" data-tab="config" onclick="switchEmbedTab(this)">SMS</button>
+            <button class="ghl-embed-tab" data-tab="voice" onclick="switchEmbedTab(this)">Voice</button>
+            <button class="ghl-embed-tab" data-tab="workflows" onclick="switchEmbedTab(this)">Workflows</button>
+            <button class="ghl-embed-tab" data-tab="numbers" onclick="switchEmbedTab(this)">Numbers</button>
+            <button class="ghl-embed-tab" data-tab="advanced" onclick="switchEmbedTab(this)">Advanced</button>
+            <button class="ghl-embed-tab" data-tab="billing" onclick="switchEmbedTab(this)">Billing</button>
+            <button class="ghl-embed-tab" data-tab="aiminutes" onclick="switchEmbedTab(this)">AI Minutes</button>
+            <button class="ghl-embed-tab" data-tab="team" onclick="switchEmbedTab(this)">Team</button>
+        </nav>
+        {% endif %}
 
         {% include "dashboard/_alerts.html" %}
 
@@ -188,6 +207,11 @@
         bypassCallingHours:      {{ 'true' if voice_config is defined and voice_config.get('bypass_calling_hours') else 'false' }},
         quietHoursEnabled:       {{ 'true' if voice_config is defined and voice_config.get('quiet_hours_enabled') else 'false' }},
         isSeatUser:              {{ 'true' if current_user.is_seat_user else 'false' }},
+        // GHL embed mode
+        embedMode:               {{ 'true' if embed_mode else 'false' }},
+        initialTab:              {{ initial_tab|tojson if initial_tab else '""' }},
+        embedContactId:          {{ embed_contact_id|tojson if embed_contact_id else '""' }},
+        embedDialContacts:       {{ embed_dial_contacts|tojson if embed_dial_contacts else '""' }},
     };
     </script>
 
@@ -287,6 +311,33 @@
 
     <!-- ── PWA: Service Worker Registration + Install Prompt ── -->
     <script src="{{ url_for('static', filename='js/dashboard/pwa.js') }}?v={{ _sv }}"></script>
+
+    {% if embed_mode %}
+    <!-- GHL Embed Mode: tab switching + initial tab activation -->
+    <script>
+    function switchEmbedTab(btn) {
+        var tab = btn.getAttribute('data-tab');
+        // Deactivate all embed tab buttons
+        document.querySelectorAll('.ghl-embed-tab').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        // Use the existing sidebar nav click to switch tabs
+        var navLink = document.querySelector('.sidebar-nav a[data-tab="' + tab + '"]');
+        if (navLink) { navLink.click(); }
+        else {
+            // Fallback: manually show/hide tab panes
+            document.querySelectorAll('.tab-pane').forEach(function(p) { p.style.display = 'none'; });
+            var pane = document.getElementById('tab-' + tab);
+            if (pane) { pane.style.display = 'block'; }
+        }
+    }
+    // Activate initial tab on load
+    (function() {
+        var initTab = window.DASHBOARD_BOOT?.initialTab || 'voicedialer';
+        var btn = document.querySelector('.ghl-embed-tab[data-tab="' + initTab + '"]');
+        if (btn) { setTimeout(function() { switchEmbedTab(btn); }, 200); }
+    })();
+    </script>
+    {% endif %}
 
 </body>
 </html>

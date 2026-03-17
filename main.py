@@ -308,6 +308,9 @@ from crm_providers.hubspot.crm_card import hubspot_card_bp
 # Embeddable panel routes (CRM iframes, Chrome extension)
 from blueprints.embed import embed_bp
 
+# GHL Custom JS API endpoints (JWT-authenticated)
+from blueprints.ghl_embed import ghl_embed_bp
+
 app.register_blueprint(auth_bp)
 app.register_blueprint(public_bp)
 app.register_blueprint(webhooks_bp)
@@ -331,6 +334,7 @@ app.register_blueprint(hubspot_oauth_bp)
 app.register_blueprint(hubspot_webhook_bp)
 app.register_blueprint(hubspot_card_bp)
 app.register_blueprint(embed_bp)
+app.register_blueprint(ghl_embed_bp)
 
 logger.info("All modular blueprints registered successfully.")
 
