@@ -669,7 +669,7 @@ def ghl_subscription_info():
     }
     info = tier_info.get(tier, tier_info["individual"])
 
-    subscribed = payload.get('subscribed', True)
+    subscribed = jwt_payload.get('subscribed', True)
     return jsonify({"tier": tier, "is_admin": is_admin, "subscribed": subscribed, **info})
 
 

@@ -91,7 +91,15 @@ async function igbApiRequest(httpMethod, apiPath, requestBody) {
         fetchOptions.headers['Authorization'] = 'Bearer ' + igbKey;
         response = await fetch(igbServerUrl + apiPath, fetchOptions);
     }
-    return response.json();
+    const data = await response.json();
+    // If subscription has lapsed mid-session, show upgrade prompt and throw so callers bail out
+    if (response.status === 402 && data.subscription_required) {
+        igbLog('Subscription required — showing upgrade prompt');
+        igbSubscribed = false;
+        igbShowUpgradePrompt();
+        throw new Error('subscription_required');
+    }
+    return data;
 }
 
 async function igbAuthenticate() {
@@ -1459,33 +1467,19 @@ function igbShowUpgradePrompt() {
     if (igbFind('#igb-upgrade-banner')) {
         return;
     }
-    const banner = igbMakeElement('div', '');
+    const banner = igbMakeElement('div', 'igb-upgrade-banner');
     banner.id = 'igb-upgrade-banner';
-    banner.style.cssText = [
-        'position:fixed', 'bottom:24px', 'right:24px', 'z-index:999999',
-        'background:linear-gradient(135deg,#0a0a0f 0%,#12121e 100%)',
-        'border:1px solid rgba(0,255,136,0.35)', 'border-radius:14px',
-        'padding:18px 22px', 'max-width:320px', 'box-shadow:0 8px 32px rgba(0,0,0,0.6)',
-        'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
-    ].join(';');
 
-    const logo = igbMakeElement('div', '', '&#129302; <strong style="color:#00ff88">InsuranceGrokBot</strong>');
-    logo.style.cssText = 'font-size:14px;margin-bottom:10px;color:#fff';
+    const logo = igbMakeElement('div', 'igb-upgrade-logo', '&#129302; <strong>InsuranceGrokBot</strong>');
     banner.appendChild(logo);
 
-    const msg = igbMakeElement('p', '', 'Start your subscription to unlock AI texting, voice dialing, and lead intelligence inside GHL.');
-    msg.style.cssText = 'font-size:13px;color:#9ca3af;margin:0 0 14px;line-height:1.5';
+    const msg = igbMakeElement('p', 'igb-upgrade-msg', 'Start your subscription to unlock AI texting, voice dialing, and lead intelligence inside GHL.');
     banner.appendChild(msg);
 
-    const btn = igbMakeElement('a', '', 'Pick Your Plan &rarr;');
+    const btn = igbMakeElement('a', 'igb-upgrade-btn', 'Pick Your Plan \u2192');
     btn.href = igbServerUrl + '/dashboard?tab=billing';
     btn.target = '_blank';
     btn.rel = 'noopener';
-    btn.style.cssText = [
-        'display:inline-block', 'background:#00ff88', 'color:#000',
-        'font-weight:700', 'font-size:13px', 'padding:8px 18px',
-        'border-radius:8px', 'text-decoration:none',
-    ].join(';');
     banner.appendChild(btn);
 
     document.body.appendChild(banner);
