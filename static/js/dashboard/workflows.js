@@ -362,7 +362,7 @@
 
             // Create trigger node
             var trigId = 'trigger_' + wfId;
-            _addNode(_currentWorkflow.trigger_type, 400, 60, _currentWorkflow.trigger_config || {}, trigId, 'trigger');
+            _addNode(_currentWorkflow.trigger_type, 400, 120, _currentWorkflow.trigger_config || {}, trigId, 'trigger');
 
             // Create step nodes
             var steps = data.steps || [];
@@ -380,6 +380,8 @@
 
             _updateAllConnections();
             _updateEmptyState();
+            // Auto zoom-to-fit after loading so trigger is visible
+            setTimeout(function() { _zoomToFit(true); }, 100);
         });
     }
 
@@ -1469,7 +1471,7 @@
             if (overlay) overlay.classList.add('wfb-ai-building');
 
             var steps = wfData.steps || [];
-            var startX = 400, startY = 80, spacingY = 150;
+            var startX = 400, startY = 120, spacingY = 150;
 
             // Prepare trigger
             var triggerData = {
@@ -1693,12 +1695,24 @@
         if (zoomOut) zoomOut.addEventListener('click', function() { wfbZoomOut(); });
         if (zoomFit) zoomFit.addEventListener('click', function() { wfbZoomFit(); });
 
-        // Palette toggle
-        var paletteToggle = document.getElementById('wfbPaletteToggle');
-        if (paletteToggle) paletteToggle.addEventListener('click', function() {
+        // Palette toggle (canvas button + collapse header)
+        function _togglePalette() {
             var palette = document.getElementById('wfbPalette');
-            if (palette) palette.classList.toggle('wfb-palette-collapsed');
-        });
+            if (!palette) return;
+            palette.classList.toggle('wfb-palette-collapsed');
+            var icon = document.getElementById('wfbPaletteCollapseIcon');
+            if (icon) {
+                if (palette.classList.contains('wfb-palette-collapsed')) {
+                    icon.className = 'fa-solid fa-chevron-right wfb-palette-collapse-icon';
+                } else {
+                    icon.className = 'fa-solid fa-chevron-left wfb-palette-collapse-icon';
+                }
+            }
+        }
+        var paletteToggle = document.getElementById('wfbPaletteToggle');
+        if (paletteToggle) paletteToggle.addEventListener('click', _togglePalette);
+        var paletteCollapseBtn = document.getElementById('wfbPaletteCollapseBtn');
+        if (paletteCollapseBtn) paletteCollapseBtn.addEventListener('click', _togglePalette);
 
         // More menu
         var moreBtn = document.getElementById('wfbMoreBtn');

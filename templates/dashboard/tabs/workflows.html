@@ -168,11 +168,14 @@
                     .wfb-editor-body { display: flex; flex: 1; gap: 0; overflow: hidden; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.2); }
 
                     /* ── Left: Node Palette ── */
-                    .wfb-palette { width: 220px; flex-shrink: 0; background: rgba(255,255,255,0.02); border-right: 1px solid rgba(255,255,255,0.06); overflow-y: auto; transition: width 0.25s, opacity 0.25s; }
-                    .wfb-palette.wfb-palette-collapsed { width: 0; opacity: 0; overflow: hidden; border-right: none; }
+                    .wfb-palette { width: max-content; max-width: 220px; flex-shrink: 0; background: rgba(255,255,255,0.02); border-right: 1px solid rgba(255,255,255,0.06); overflow-y: auto; overflow-x: hidden; transition: width 0.25s ease, max-width 0.25s ease; }
+                    .wfb-palette.wfb-palette-collapsed { width: 0; max-width: 0; overflow: hidden; border-right: none; }
+                    .wfb-palette-collapse-btn { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 8px; cursor: pointer; user-select: none; border-bottom: 1px solid rgba(255,255,255,0.04); margin-bottom: 4px; }
+                    .wfb-palette-collapse-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #777; }
+                    .wfb-palette-collapse-icon { font-size: 0.6rem; color: #555; transition: transform 0.2s; }
                     .wfb-palette-toggle { position: absolute; top: 12px; left: 12px; z-index: 10; width: 28px; height: 28px; border-radius: 7px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; color: #888; cursor: pointer; font-size: 0.7rem; transition: all 0.15s; }
                     .wfb-palette-toggle:hover { background: rgba(255,255,255,0.1); color: #ccc; }
-                    .wfb-palette-inner { padding: 14px; min-width: 220px; }
+                    .wfb-palette-inner { padding: 6px 10px 14px; }
                     .wfb-palette-search { width: 100%; padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); color: #ccc; font-size: 0.78rem; outline: none; margin-bottom: 14px; transition: border-color 0.2s; }
                     .wfb-palette-search:focus { border-color: rgba(0,255,136,0.25); }
                     .wfb-palette-search-wrap { position: relative; }
@@ -225,9 +228,9 @@
                     .wfb-minimap-viewport { position: absolute; border: 1px solid rgba(0,255,136,0.4); background: rgba(0,255,136,0.05); border-radius: 2px; }
 
                     /* ── Right: Config Panel ── */
-                    .wfb-config-panel { width: 0; flex-shrink: 0; background: rgba(255,255,255,0.02); border-left: none; overflow: hidden; transition: width 0.25s; }
-                    .wfb-config-panel.wfb-config-open { width: 300px; border-left: 1px solid rgba(255,255,255,0.06); overflow-y: auto; }
-                    .wfb-config-inner { min-width: 300px; padding: 16px; display: flex; flex-direction: column; height: 100%; }
+                    .wfb-config-panel { width: 0; flex-shrink: 0; background: rgba(255,255,255,0.02); border-left: none; overflow: hidden; transition: width 0.25s ease; }
+                    .wfb-config-panel.wfb-config-open { width: max-content; min-width: 300px; max-width: 380px; border-left: 1px solid rgba(255,255,255,0.06); overflow-y: auto; }
+                    .wfb-config-inner { min-width: 300px; padding: 14px; display: flex; flex-direction: column; height: 100%; }
                     .wfb-config-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.06); }
                     .wfb-config-header-icon { width: 32px; height: 32px; border-radius: 8px; background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.12); display: flex; align-items: center; justify-content: center; font-size: 0.82rem; color: var(--accent); flex-shrink: 0; }
                     .wfb-config-header-title { font-size: 0.88rem; font-weight: 700; margin: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -345,7 +348,12 @@
                     body.light-theme .wfb-editor-body { border-color: var(--lt-border); background: rgba(0,0,0,0.02); }
 
                     body.light-theme .wfb-palette { background: var(--lt-surface); border-right-color: var(--lt-border); }
+                    body.light-theme .wfb-palette-collapse-btn { border-bottom-color: var(--lt-border); }
+                    body.light-theme .wfb-palette-collapse-btn:hover { background: rgba(0,0,0,0.02); }
+                    body.light-theme .wfb-palette-collapse-label { color: var(--lt-text-muted); }
+                    body.light-theme .wfb-palette-collapse-icon { color: var(--lt-text-faint); }
                     body.light-theme .wfb-palette-toggle { background: rgba(0,0,0,0.04); border-color: var(--lt-border); color: var(--lt-text-muted); }
+                    body.light-theme .wfb-palette-toggle:hover { background: rgba(0,0,0,0.08); color: var(--lt-text-primary); }
                     body.light-theme .wfb-palette-search { background: var(--lt-input-bg); border-color: var(--lt-border); color: var(--lt-input-text); }
                     body.light-theme .wfb-palette-cat-chevron { color: #9ca3af; }
                     body.light-theme .wfb-palette-cat-label { color: #6b7280; }
@@ -400,14 +408,13 @@
 
                     /* ── Responsive ── */
                     @media (max-width: 768px) {
-                        .wfb-palette { width: 180px; }
-                        .wfb-palette-inner { min-width: 180px; }
-                        .wfb-config-panel.wfb-config-open { width: 260px; }
+                        .wfb-palette { max-width: 180px; }
+                        .wfb-config-panel.wfb-config-open { min-width: 260px; max-width: 300px; }
                         .wfb-config-inner { min-width: 260px; }
                         .wfb-grid { grid-template-columns: 1fr; }
                     }
                     @media (max-width: 640px) {
-                        .wfb-palette { position: absolute; z-index: 20; height: 100%; }
+                        .wfb-palette { position: absolute; z-index: 20; height: 100%; max-width: 220px; }
                         .wfb-config-panel.wfb-config-open { position: absolute; z-index: 20; right: 0; height: 100%; }
                     }
                 </style>
@@ -524,6 +531,10 @@
 
                             <!-- Left: Node Palette -->
                             <div class="wfb-palette" id="wfbPalette">
+                                <div class="wfb-palette-collapse-btn" id="wfbPaletteCollapseBtn" title="Collapse palette">
+                                    <span class="wfb-palette-collapse-label">Nodes</span>
+                                    <i class="fa-solid fa-chevron-left wfb-palette-collapse-icon" id="wfbPaletteCollapseIcon"></i>
+                                </div>
                                 <div class="wfb-palette-inner">
                                     <div class="wfb-palette-search-wrap">
                                         <input type="text" class="wfb-palette-search" id="wfbPaletteSearch" placeholder="Search nodes...">
