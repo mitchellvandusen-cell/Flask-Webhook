@@ -33,10 +33,16 @@ def _decode_jwt(token):
 
 
 def _get_jwt_from_request():
-    """Extract JWT from Authorization: Bearer header."""
+    """Extract JWT from Authorization: Bearer header or ?key= query param.
+    The ?key= fallback is needed for browser-native audio elements which cannot
+    send custom headers — custom JS passes JWT as a URL query param instead."""
     auth_header = request.headers.get('Authorization', '')
     if auth_header.startswith('Bearer '):
         return auth_header[7:]
+    # Allow JWT in ?key= query param (browser audio/video elements can't set headers)
+    key_param = request.args.get('key', '')
+    if key_param:
+        return key_param
     return None
 
 

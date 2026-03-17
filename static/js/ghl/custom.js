@@ -7,6 +7,7 @@ let igbKey = '';
 let igbKeyExpiresAt = 0;
 let igbLocationId = '';
 let igbSubscriptionTier = 'individual';
+let igbSubscribed = false;
 let igbMaxDialLines = 1;
 let igbBalanceRefreshTimer = null;
 let igbStatsRefreshTimer = null;
@@ -121,8 +122,9 @@ async function igbAuthenticate() {
         if (data.token) {
             igbKey = data.token;
             igbSubscriptionTier = data.tier || 'individual';
+            igbSubscribed = data.subscribed !== false;
             igbKeyExpiresAt = Date.now() + (data.expires_in || 7200) * 1000;
-            igbLog('Authenticated, tier: ' + igbSubscriptionTier);
+            igbLog('Authenticated, tier: ' + igbSubscriptionTier + ', subscribed: ' + igbSubscribed);
             return true;
         }
 
@@ -1231,6 +1233,12 @@ function igbOpenListenStream(callSid) {
         igbListenSocket.onopen = () => {
             igbLog('Live listen connected');
             igbShowToast('Listening to call...', 'info');
+            // Send init message — backend accepts call_sid from either URL params or first message
+            try {
+                igbListenSocket.send(JSON.stringify({ call_sid: callSid }));
+            } catch (sendErr) {
+                igbLog('Listen stream send error: ' + sendErr);
+            }
             try {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 8000 });
             } catch (audioError) {
@@ -1446,6 +1454,43 @@ const igbDomObserver = new MutationObserver(() => {
     igbDomObserver.debounceTimer = setTimeout(igbHandlePageChange, 300);
 });
 
+function igbShowUpgradePrompt() {
+    // Show a fixed upgrade banner — only one at a time
+    if (igbFind('#igb-upgrade-banner')) {
+        return;
+    }
+    const banner = igbMakeElement('div', '');
+    banner.id = 'igb-upgrade-banner';
+    banner.style.cssText = [
+        'position:fixed', 'bottom:24px', 'right:24px', 'z-index:999999',
+        'background:linear-gradient(135deg,#0a0a0f 0%,#12121e 100%)',
+        'border:1px solid rgba(0,255,136,0.35)', 'border-radius:14px',
+        'padding:18px 22px', 'max-width:320px', 'box-shadow:0 8px 32px rgba(0,0,0,0.6)',
+        'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+    ].join(';');
+
+    const logo = igbMakeElement('div', '', '&#129302; <strong style="color:#00ff88">InsuranceGrokBot</strong>');
+    logo.style.cssText = 'font-size:14px;margin-bottom:10px;color:#fff';
+    banner.appendChild(logo);
+
+    const msg = igbMakeElement('p', '', 'Start your subscription to unlock AI texting, voice dialing, and lead intelligence inside GHL.');
+    msg.style.cssText = 'font-size:13px;color:#9ca3af;margin:0 0 14px;line-height:1.5';
+    banner.appendChild(msg);
+
+    const btn = igbMakeElement('a', '', 'Pick Your Plan &rarr;');
+    btn.href = igbServerUrl + '/dashboard?tab=billing';
+    btn.target = '_blank';
+    btn.rel = 'noopener';
+    btn.style.cssText = [
+        'display:inline-block', 'background:#00ff88', 'color:#000',
+        'font-weight:700', 'font-size:13px', 'padding:8px 18px',
+        'border-radius:8px', 'text-decoration:none',
+    ].join(';');
+    banner.appendChild(btn);
+
+    document.body.appendChild(banner);
+}
+
 async function igbInit() {
     igbLog('Initializing');
 
@@ -1455,6 +1500,13 @@ async function igbInit() {
             igbLog('Auth failed, features disabled');
             return;
         }
+    }
+
+    // If not subscribed, show upgrade prompt and stop — no other features injected
+    if (!igbSubscribed) {
+        igbLog('No active subscription — showing upgrade prompt');
+        igbShowUpgradePrompt();
+        return;
     }
 
     try {

@@ -180,12 +180,37 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_SECURE'] = True
 
 
+@app.before_request
+def handle_cors_preflight():
+    """Handle OPTIONS preflight requests for GHL Custom JS cross-origin calls."""
+    if request.method == 'OPTIONS':
+        path = request.path
+        if path.startswith('/api/ghl/') or path.startswith('/voice/'):
+            resp = app.make_response('')
+            resp.status_code = 204
+            origin = request.headers.get('Origin', '*')
+            resp.headers['Access-Control-Allow-Origin'] = origin if origin != '*' else '*'
+            resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+            resp.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type, X-Requested-With'
+            resp.headers['Access-Control-Allow-Credentials'] = 'true'
+            resp.headers['Access-Control-Max-Age'] = '86400'
+            return resp
+
+
 @app.after_request
 def add_iframe_headers(response):
-    """Allow embedding in GHL iframe and grant microphone permission."""
+    """Allow embedding in GHL iframe, grant microphone permission, and add CORS for GHL Custom JS."""
     response.headers.pop('X-Frame-Options', None)
     response.headers['Permissions-Policy'] = 'microphone=*, camera=*, autoplay=*'
     response.headers['Content-Security-Policy'] = "frame-ancestors *"
+    # CORS for GHL Custom JS — runs on GHL's domain (cross-origin fetch)
+    path = request.path
+    if path.startswith('/api/ghl/') or path.startswith('/voice/'):
+        origin = request.headers.get('Origin', '')
+        response.headers['Access-Control-Allow-Origin'] = origin if origin else '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type, X-Requested-With'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
     return response
 
 
