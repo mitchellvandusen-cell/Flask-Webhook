@@ -1984,6 +1984,37 @@ def init_db() -> bool:
             conn.rollback()
             logger.debug(f"ghl_trigger_subscriptions migration note: {e}")
 
+        # ── GHL action loops (custom action loop/repeat) ──
+        try:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ghl_action_loops (
+                    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+                    location_id TEXT NOT NULL,
+                    contact_id TEXT NOT NULL,
+                    phone TEXT NOT NULL DEFAULT '',
+                    first_name TEXT NOT NULL DEFAULT '',
+                    loop_action TEXT NOT NULL DEFAULT 'ai_sms',
+                    message_template TEXT DEFAULT '',
+                    duration_days INTEGER NOT NULL DEFAULT 3,
+                    interval_hours INTEGER NOT NULL DEFAULT 24,
+                    iteration INTEGER NOT NULL DEFAULT 0,
+                    max_iterations INTEGER NOT NULL DEFAULT 3,
+                    status TEXT NOT NULL DEFAULT 'active',
+                    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    next_execute_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    completed_at TIMESTAMP,
+                    config JSONB DEFAULT '{}'
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_loops_active ON ghl_action_loops (status, next_execute_at) WHERE status = 'active'")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_loops_loc ON ghl_action_loops (location_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_loops_contact ON ghl_action_loops (location_id, contact_id)")
+            conn.commit()
+            logger.info("✅ Migration: ghl_action_loops table ready")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"ghl_action_loops migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)

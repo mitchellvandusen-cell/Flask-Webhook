@@ -399,6 +399,418 @@ def ghl_trigger_subscribe():
 
 
 # ──────────────────────────────────────────────────────────────
+# ROUTE: GHL Custom Action — Loop
+# ──────────────────────────────────────────────────────────────
+
+@outbound_bp.route('/voice/ghl-action/loop', methods=['POST'])
+def ghl_action_loop():
+    """
+    GHL Marketplace Custom Action: Loop.
+
+    Repeats an action (AI SMS or AI Call) at a fixed interval for a configured
+    number of days, then fires a "loop_completed" trigger back to GHL so the
+    workflow can continue.
+
+    GHL App Builder input fields:
+      - loopDurationDays:  how many days to loop (1-30, default 3)
+      - loopIntervalHours: hours between iterations (1-168, default 24)
+      - loopAction:        "ai_sms" or "ai_call" (default "ai_sms")
+      - message:           custom message template for SMS iterations (optional)
+      - contactId, phone, firstName, locationId: standard GHL fields
+    """
+    # ── Verify GHL webhook signature ──
+    webhook_secret = os.getenv("MARKETPLACE_WEBHOOK_SECRET")
+    if webhook_secret:
+        signature = (request.headers.get("X-Ghl-Signature")
+                     or request.headers.get("X-Hook-Secret")
+                     or "")
+        if signature:
+            body = request.get_data(as_text=True)
+            expected = hmac.new(
+                webhook_secret.encode(), body.encode(), hashlib.sha256
+            ).hexdigest()
+            if not hmac.compare_digest(signature, expected):
+                logger.warning("GHL Loop action: signature mismatch — rejecting")
+                return jsonify({"status": "error", "reason": "invalid_signature"}), 401
+        else:
+            logger.debug("GHL Loop action: no signature header — skipping verification")
+    else:
+        logger.warning("GHL Loop action: MARKETPLACE_WEBHOOK_SECRET not set — cannot verify")
+
+    data = request.get_json(silent=True) or {}
+
+    # GHL custom actions may wrap fields in customData
+    if "customData" in data and isinstance(data["customData"], dict):
+        fields = data["customData"]
+    else:
+        fields = data
+
+    location_id = fields.get("locationId") or fields.get("location_id") or ""
+    contact_id = fields.get("contactId") or fields.get("contact_id") or ""
+    phone = fields.get("phone") or fields.get("toNumber") or ""
+    first_name = fields.get("firstName") or fields.get("first_name") or "there"
+
+    # Loop configuration
+    try:
+        duration_days = max(1, min(30, int(fields.get("loopDurationDays") or 3)))
+    except (ValueError, TypeError):
+        duration_days = 3
+    try:
+        interval_hours = max(1, min(168, int(fields.get("loopIntervalHours") or 24)))
+    except (ValueError, TypeError):
+        interval_hours = 24
+    loop_action = (fields.get("loopAction") or "ai_sms").lower()
+    if loop_action not in ("ai_sms", "ai_call"):
+        loop_action = "ai_sms"
+    message_template = fields.get("message") or ""
+
+    if not location_id or not contact_id:
+        return jsonify({"error": "locationId and contactId are required"}), 400
+
+    # Calculate max iterations from duration and interval
+    max_iterations = max(1, (duration_days * 24) // interval_hours)
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Database unavailable"}), 503
+        cur = conn.cursor()
+
+        # Prevent duplicate active loops for same contact in same location
+        cur.execute("""
+            SELECT id FROM ghl_action_loops
+            WHERE location_id = %s AND contact_id = %s AND status = 'active'
+        """, (location_id, contact_id))
+        existing = cur.fetchone()
+        if existing:
+            # Cancel old loop, start fresh
+            cur.execute("""
+                UPDATE ghl_action_loops SET status = 'cancelled', completed_at = NOW()
+                WHERE id = %s
+            """, (existing["id"],))
+            logger.info(f"GHL Loop: cancelled existing loop {existing['id']} for contact {contact_id}")
+
+        # Create the loop record — first iteration executes immediately
+        from datetime import datetime, timezone as tz
+        now = datetime.now(tz.utc)
+        cur.execute("""
+            INSERT INTO ghl_action_loops
+                (location_id, contact_id, phone, first_name, loop_action,
+                 message_template, duration_days, interval_hours,
+                 iteration, max_iterations, status, started_at, next_execute_at, config)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 0, %s, 'active', %s, %s, %s)
+            RETURNING id
+        """, (location_id, contact_id, phone, first_name, loop_action,
+              message_template, duration_days, interval_hours,
+              max_iterations, now, now,
+              json.dumps({"raw_fields": {k: v for k, v in fields.items()
+                                         if k not in ("phone", "firstName", "first_name",
+                                                       "contactId", "contact_id",
+                                                       "locationId", "location_id")}})))
+        loop_id = cur.fetchone()["id"]
+        conn.commit()
+        cur.close()
+
+        logger.info(f"GHL Loop: created loop {loop_id} for contact {contact_id} "
+                     f"({loop_action} every {interval_hours}h for {duration_days}d, "
+                     f"max {max_iterations} iterations)")
+
+        try:
+            log_webhook_event(
+                location_id=location_id,
+                contact_id=contact_id,
+                event_type="ghl_action_loop_started",
+                status="success",
+                summary=f"Loop started: {loop_action} every {interval_hours}h for {duration_days}d",
+                details={"loop_id": loop_id, "max_iterations": max_iterations}
+            )
+        except Exception:
+            pass
+
+        return jsonify({
+            "status": "loop_started",
+            "loop_id": loop_id,
+            "max_iterations": max_iterations,
+            "interval_hours": interval_hours,
+            "duration_days": duration_days,
+        })
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        logger.error(f"GHL Loop action failed: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
+# ──────────────────────────────────────────────────────────────
+# PROCESSOR: Execute pending loop iterations (called by cron)
+# ──────────────────────────────────────────────────────────────
+
+def process_ghl_action_loops():
+    """
+    Find active loops with next_execute_at <= NOW(), execute the next
+    iteration for each, and either schedule the next iteration or
+    complete the loop.
+
+    Returns dict with processing stats.
+    """
+    from datetime import datetime, timezone as tz, timedelta
+
+    conn = None
+    stats = {"processed": 0, "completed": 0, "errors": 0}
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return stats
+        cur = conn.cursor()
+
+        # Fetch loops due for execution (limit 50 per cron run)
+        cur.execute("""
+            SELECT * FROM ghl_action_loops
+            WHERE status = 'active' AND next_execute_at <= NOW()
+            ORDER BY next_execute_at ASC
+            LIMIT 50
+        """)
+        loops = cur.fetchall()
+        cur.close()
+
+        for loop in loops:
+            try:
+                _execute_loop_iteration(conn, loop)
+                stats["processed"] += 1
+
+                # Check if loop is now complete
+                new_iteration = loop["iteration"] + 1
+                if new_iteration >= loop["max_iterations"]:
+                    stats["completed"] += 1
+            except Exception as e:
+                logger.error(f"Loop iteration failed for {loop['id']}: {e}")
+                stats["errors"] += 1
+
+        return stats
+
+    except Exception as e:
+        logger.error(f"process_ghl_action_loops failed: {e}")
+        return stats
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
+def _execute_loop_iteration(conn, loop):
+    """Execute a single loop iteration: perform the action, then advance or complete."""
+    from datetime import datetime, timezone as tz, timedelta
+
+    loop_id = loop["id"]
+    location_id = loop["location_id"]
+    contact_id = loop["contact_id"]
+    phone = loop["phone"]
+    first_name = loop["first_name"]
+    loop_action = loop["loop_action"]
+    message_template = loop["message_template"]
+    iteration = loop["iteration"] + 1
+    max_iterations = loop["max_iterations"]
+    interval_hours = loop["interval_hours"]
+
+    logger.info(f"Loop {loop_id}: executing iteration {iteration}/{max_iterations} "
+                f"({loop_action}) for contact {contact_id}")
+
+    # ── Execute the action ──
+    action_success = False
+
+    if loop_action == "ai_sms":
+        action_success = _loop_send_ai_sms(location_id, contact_id, phone, first_name,
+                                            message_template, iteration, max_iterations)
+    elif loop_action == "ai_call":
+        action_success = _loop_trigger_ai_call(location_id, contact_id, phone, first_name)
+
+    # ── Advance or complete the loop ──
+    cur = conn.cursor()
+    now = datetime.now(tz.utc)
+
+    if iteration >= max_iterations:
+        # Loop complete — mark done and fire trigger
+        cur.execute("""
+            UPDATE ghl_action_loops
+            SET iteration = %s, status = 'completed', completed_at = %s
+            WHERE id = %s
+        """, (iteration, now, loop_id))
+        conn.commit()
+        cur.close()
+
+        logger.info(f"Loop {loop_id}: completed all {max_iterations} iterations for contact {contact_id}")
+
+        # Fire "loop_completed" trigger to GHL so workflow continues
+        _fire_ghl_trigger(location_id, 'loop_completed', {
+            'contactId': contact_id,
+            'locationId': location_id,
+            'phone': phone,
+            'firstName': first_name,
+            'loopId': loop_id,
+            'totalIterations': max_iterations,
+            'loopAction': loop_action,
+        })
+
+        try:
+            log_webhook_event(
+                location_id=location_id,
+                contact_id=contact_id,
+                event_type="ghl_action_loop_completed",
+                status="success",
+                summary=f"Loop completed: {max_iterations} iterations of {loop_action}",
+                details={"loop_id": loop_id}
+            )
+        except Exception:
+            pass
+    else:
+        # Schedule next iteration
+        next_at = now + timedelta(hours=interval_hours)
+        cur.execute("""
+            UPDATE ghl_action_loops
+            SET iteration = %s, next_execute_at = %s
+            WHERE id = %s
+        """, (iteration, next_at, loop_id))
+        conn.commit()
+        cur.close()
+
+        logger.info(f"Loop {loop_id}: iteration {iteration}/{max_iterations} done, "
+                     f"next at {next_at.isoformat()}")
+
+
+def _loop_send_ai_sms(location_id, contact_id, phone, first_name,
+                       message_template, iteration, max_iterations):
+    """Send an AI SMS for a loop iteration. Uses the standard webhook pipeline."""
+    try:
+        import extensions
+        if not extensions.ensure_redis():
+            logger.warning(f"Loop AI SMS: Redis unavailable for {contact_id}")
+            return False
+
+        from tasks import process_webhook_task
+
+        # Build a synthetic webhook payload that the existing pipeline understands
+        payload = {
+            "type": "OutboundMessage",
+            "locationId": location_id,
+            "contactId": contact_id,
+            "phone": phone,
+            "firstName": first_name,
+            "_loop_iteration": iteration,
+            "_loop_max": max_iterations,
+            "_loop_message_template": message_template,
+            "_source": "ghl_loop_action",
+        }
+
+        # Queue via RQ so it goes through the full AI pipeline
+        job = extensions.q_production.enqueue(
+            process_webhook_task,
+            payload,
+            job_timeout=120,
+            result_ttl=3600,
+        )
+        logger.info(f"Loop AI SMS queued: contact={contact_id} iteration={iteration} job={job.id}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Loop AI SMS failed for {contact_id}: {e}")
+        return False
+
+
+def _loop_trigger_ai_call(location_id, contact_id, phone, first_name):
+    """Trigger an AI call for a loop iteration."""
+    try:
+        subscriber = _get_subscriber_by_location(location_id)
+        if not subscriber:
+            logger.warning(f"Loop AI Call: subscriber not found for {location_id}")
+            return False
+
+        voice_config = subscriber.get("voice_config") or {}
+        if not voice_config.get("enabled"):
+            logger.warning(f"Loop AI Call: voice not enabled for {location_id}")
+            return False
+
+        sub_sid = voice_config.get("twilio_sub_account_sid", "")
+        from_number = voice_config.get("twilio_phone_number", "")
+
+        rotation_result = select_outbound_number(location_id, voice_config, dest_phone=phone)
+        if rotation_result:
+            from_number = rotation_result["phone"]
+
+        if not sub_sid or not from_number:
+            logger.warning(f"Loop AI Call: voice not provisioned for {location_id}")
+            return False
+
+        host = os.getenv("YOUR_DOMAIN", "").replace("https://", "").replace("http://", "")
+        if not host:
+            logger.error("Loop AI Call: YOUR_DOMAIN not set")
+            return False
+        webhook_base_url = f"https://{host}"
+
+        custom_params = {
+            'location_id': location_id,
+            'caller': from_number,
+            'called': phone,
+            'direction': 'outbound',
+            'contact_id': contact_id,
+            'contact_name': first_name,
+            'dial_mode': 'ai',
+        }
+
+        try:
+            ring_timeout = int(voice_config.get('ring_timeout', 45))
+        except (ValueError, TypeError):
+            ring_timeout = 45
+
+        result = twilio_provisioning.create_outbound_call(
+            sub_account_sid=sub_sid,
+            to=phone,
+            from_number=from_number,
+            webhook_base_url=webhook_base_url,
+            machine_detection='DetectMessageEnd',
+            custom_params=custom_params,
+            ring_timeout=ring_timeout,
+        )
+        call_sid = result.get('call_sid', '')
+
+        logger.info(f"Loop AI Call initiated: {from_number} -> {phone} (sid={call_sid})")
+
+        active_calls[call_sid] = {
+            "status": "initiated",
+            "duration": 0,
+            "contact_id": contact_id,
+            "phone": phone,
+            "name": first_name,
+            "_location_id": location_id,
+            "_sub_sid": sub_sid,
+            "_host": host,
+            "_from_number": from_number,
+            "_agent_email": "",
+            "_wrap_up_time": int(voice_config.get('wrap_up_time', 15)),
+        }
+
+        save_call_to_history(
+            location_id=location_id,
+            call_sid=call_sid,
+            phone=phone,
+            contact_id=contact_id,
+            contact_name=first_name,
+            direction='outbound',
+            status='initiated',
+            from_number=from_number,
+        )
+
+        return True
+
+    except Exception as e:
+        logger.error(f"Loop AI Call failed for {contact_id}: {e}")
+        return False
+
+
+# ──────────────────────────────────────────────────────────────
 # HELPER: Fire GHL trigger events
 # ──────────────────────────────────────────────────────────────
 

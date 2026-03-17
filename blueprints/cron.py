@@ -313,6 +313,26 @@ def api_cron_number_health_expire():
         return safe_jsonify({"success": False, "error": str(e)}), 200
 
 
+@cron_bp.route("/api/cron/process-ghl-loops", methods=["GET", "POST"])
+def api_cron_process_ghl_loops():
+    """
+    Execute pending GHL custom action loop iterations.
+    Finds active loops with next_execute_at <= NOW(), runs the action,
+    and either schedules the next iteration or fires the loop_completed trigger.
+    Schedule every 1-5 minutes via external cron.
+    """
+    if not _cron_authorized():
+        return safe_jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        from voice.outbound import process_ghl_action_loops
+        result = process_ghl_action_loops()
+        return safe_jsonify({"success": True, **result})
+    except Exception as e:
+        logger.error(f"Cron process-ghl-loops crashed: {e}", exc_info=True)
+        return safe_jsonify({"success": False, "error": str(e)}), 200
+
+
 @cron_bp.route("/api/cron/process-workflow-delays", methods=["GET", "POST"])
 def api_cron_process_workflow_delays():
     """
