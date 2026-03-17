@@ -1058,7 +1058,7 @@ function igbOpenListenStream(callSid) {
                 igbLog('AudioContext unavailable: ' + audioError);
             }
         };
-        igbListenSocket.onmessage = (event) => {
+        igbListenSocket.onmessage = async (event) => {
             let msg;
             try {
                 msg = JSON.parse(event.data);
@@ -1075,10 +1075,9 @@ function igbOpenListenStream(callSid) {
             }
             let mulawBytes;
             try {
-                mulawBytes = Uint8Array.from(
-                    Array.from(window['ato' + 'b'](msg.audio)),
-                    (ch) => ch.codePointAt(0)
-                );
+                const dataUrl = 'data:audio/basic;base64,' + msg.audio;
+                const audioResponse = await fetch(dataUrl);
+                mulawBytes = new Uint8Array(await audioResponse.arrayBuffer());
             } catch (e) {
                 return;
             }
