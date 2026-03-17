@@ -66,6 +66,194 @@ def _gen_id():
     return str(uuid.uuid4())
 
 
+# ── Pre-built workflow templates ─────────────────────────────────────────────
+
+PREBUILT_WORKFLOWS = [
+    {
+        "name": "Speed to Lead",
+        "description": "Instantly engage new leads within seconds of import. Sends a personalized intro SMS, waits for a reply, then follows up with an AI call if no response.",
+        "trigger_type": "contact_created",
+        "trigger_config": {"exit_on_reply": True},
+        "steps": [
+            {"id": "s1", "step_type": "control", "step_subtype": "wait",
+             "config": {"duration": 30, "unit": "seconds"}, "x": 400, "y": 80},
+            {"id": "s2", "step_type": "action", "step_subtype": "send_sms",
+             "config": {"message": "Hi {{firstName}}, this is {{operatorName}} with {{companyName}}. I saw you were looking into coverage options — I'd love to help you find the best fit. When's a good time to chat?"}, "x": 400, "y": 200},
+            {"id": "s3", "step_type": "control", "step_subtype": "wait",
+             "config": {"duration": 5, "unit": "minutes"}, "x": 400, "y": 320},
+            {"id": "s4", "step_type": "condition", "step_subtype": "if_else",
+             "config": {"conditions": [{"field": "responded", "operator": "responded_within", "value": "5"}], "logic": "and"}, "x": 400, "y": 440},
+            {"id": "s5", "step_type": "action", "step_subtype": "ai_call",
+             "config": {"ring_timeout": 30}, "x": 200, "y": 580},
+            {"id": "s6", "step_type": "action", "step_subtype": "add_tag",
+             "config": {"tag": "speed-to-lead-contacted"}, "x": 600, "y": 580},
+            {"id": "s7", "step_type": "control", "step_subtype": "exit",
+             "config": {}, "x": 400, "y": 720},
+        ],
+        "connections": [
+            {"from": "s1", "to": "s2", "branch": "default"},
+            {"from": "s2", "to": "s3", "branch": "default"},
+            {"from": "s3", "to": "s4", "branch": "default"},
+            {"from": "s4", "to": "s5", "branch": "false"},
+            {"from": "s4", "to": "s6", "branch": "true"},
+            {"from": "s5", "to": "s7", "branch": "default"},
+            {"from": "s6", "to": "s7", "branch": "default"},
+        ],
+    },
+    {
+        "name": "Aged Lead Re-engagement",
+        "description": "Automatically re-engages leads that are 30+ days old with no recent activity. Uses AI to send a warm check-in, then follows up based on temperature.",
+        "trigger_type": "lead_age",
+        "trigger_config": {"days_since_import": 30, "exit_on_reply": True},
+        "steps": [
+            {"id": "s1", "step_type": "condition", "step_subtype": "if_else",
+             "config": {"conditions": [{"field": "temperature", "operator": "temperature_is", "value": "cold"}], "logic": "and"}, "x": 400, "y": 80},
+            {"id": "s2", "step_type": "action", "step_subtype": "send_sms",
+             "config": {"message": "Hey {{firstName}}, it's {{operatorName}}. We spoke a while back about your coverage options. Rates have changed recently — would you like an updated quote? No obligation at all."}, "x": 200, "y": 220},
+            {"id": "s3", "step_type": "action", "step_subtype": "send_igb_message",
+             "config": {"mode": "ai", "prompt_hint": "This is a warm lead we haven't spoken to recently. Re-engage naturally, reference past conversation if possible, and offer to provide an updated quote."}, "x": 600, "y": 220},
+            {"id": "s4", "step_type": "action", "step_subtype": "add_tag",
+             "config": {"tag": "re-engage-sent"}, "x": 400, "y": 380},
+            {"id": "s5", "step_type": "control", "step_subtype": "wait",
+             "config": {"duration": 2, "unit": "days"}, "x": 400, "y": 500},
+            {"id": "s6", "step_type": "condition", "step_subtype": "if_else",
+             "config": {"conditions": [{"field": "responded", "operator": "responded_within", "value": "2880"}], "logic": "and"}, "x": 400, "y": 620},
+            {"id": "s7", "step_type": "action", "step_subtype": "add_tag",
+             "config": {"tag": "re-engaged"}, "x": 600, "y": 760},
+            {"id": "s8", "step_type": "action", "step_subtype": "send_sms",
+             "config": {"message": "Hi {{firstName}}, just wanted to follow up one more time. If you're still interested in coverage, I'm here to help. If not, no worries at all!"}, "x": 200, "y": 760},
+            {"id": "s9", "step_type": "control", "step_subtype": "exit",
+             "config": {}, "x": 400, "y": 900},
+        ],
+        "connections": [
+            {"from": "s1", "to": "s2", "branch": "true"},
+            {"from": "s1", "to": "s3", "branch": "false"},
+            {"from": "s2", "to": "s4", "branch": "default"},
+            {"from": "s3", "to": "s4", "branch": "default"},
+            {"from": "s4", "to": "s5", "branch": "default"},
+            {"from": "s5", "to": "s6", "branch": "default"},
+            {"from": "s6", "to": "s7", "branch": "true"},
+            {"from": "s6", "to": "s8", "branch": "false"},
+            {"from": "s7", "to": "s9", "branch": "default"},
+            {"from": "s8", "to": "s9", "branch": "default"},
+        ],
+    },
+    {
+        "name": "SMS Response Handler",
+        "description": "Handles inbound SMS replies intelligently. Routes hot leads to AI call, warm leads to AI-drafted response, and manages opt-outs automatically.",
+        "trigger_type": "sms_received",
+        "trigger_config": {"exit_on_reply": False},
+        "steps": [
+            {"id": "s1", "step_type": "condition", "step_subtype": "if_else",
+             "config": {"conditions": [{"field": "tags", "operator": "has_tag", "value": "do-not-contact"}], "logic": "and"}, "x": 400, "y": 80},
+            {"id": "s2", "step_type": "control", "step_subtype": "exit",
+             "config": {}, "x": 200, "y": 220},
+            {"id": "s3", "step_type": "condition", "step_subtype": "if_else",
+             "config": {"conditions": [{"field": "temperature", "operator": "temperature_is", "value": "hot"}], "logic": "and"}, "x": 500, "y": 220},
+            {"id": "s4", "step_type": "action", "step_subtype": "add_tag",
+             "config": {"tag": "hot-lead-responded"}, "x": 300, "y": 380},
+            {"id": "s5", "step_type": "action", "step_subtype": "ai_call",
+             "config": {"ring_timeout": 30}, "x": 300, "y": 520},
+            {"id": "s6", "step_type": "action", "step_subtype": "send_igb_message",
+             "config": {"mode": "ai", "prompt_hint": "The lead just replied to our SMS. Continue the conversation naturally and try to book an appointment or gather more details about their coverage needs."}, "x": 650, "y": 380},
+            {"id": "s7", "step_type": "control", "step_subtype": "exit",
+             "config": {}, "x": 400, "y": 660},
+        ],
+        "connections": [
+            {"from": "s1", "to": "s2", "branch": "true"},
+            {"from": "s1", "to": "s3", "branch": "false"},
+            {"from": "s3", "to": "s4", "branch": "true"},
+            {"from": "s3", "to": "s6", "branch": "false"},
+            {"from": "s4", "to": "s5", "branch": "default"},
+            {"from": "s5", "to": "s7", "branch": "default"},
+            {"from": "s6", "to": "s7", "branch": "default"},
+        ],
+    },
+    {
+        "name": "Re-engage Cold Leads",
+        "description": "Targets leads with no response in 7 days. Sends a gentle check-in, waits for a reply, then either tags as re-engaged or makes a final AI follow-up call.",
+        "trigger_type": "no_response",
+        "trigger_config": {"days": 7, "exit_on_reply": True},
+        "steps": [
+            {"id": "s1", "step_type": "action", "step_subtype": "send_sms",
+             "config": {"message": "Hey {{firstName}}, just checking in! I know life gets busy. If you're still thinking about coverage, I'd be happy to answer any questions. Just reply here anytime."}, "x": 400, "y": 80},
+            {"id": "s2", "step_type": "action", "step_subtype": "add_tag",
+             "config": {"tag": "re-engage-attempt"}, "x": 400, "y": 200},
+            {"id": "s3", "step_type": "control", "step_subtype": "wait",
+             "config": {"duration": 1, "unit": "days"}, "x": 400, "y": 320},
+            {"id": "s4", "step_type": "condition", "step_subtype": "if_else",
+             "config": {"conditions": [{"field": "responded", "operator": "responded_within", "value": "1440"}], "logic": "and"}, "x": 400, "y": 440},
+            {"id": "s5", "step_type": "action", "step_subtype": "add_tag",
+             "config": {"tag": "re-engaged"}, "x": 600, "y": 580},
+            {"id": "s6", "step_type": "action", "step_subtype": "ai_call",
+             "config": {"ring_timeout": 25}, "x": 200, "y": 580},
+            {"id": "s7", "step_type": "control", "step_subtype": "wait",
+             "config": {"duration": 3, "unit": "days"}, "x": 200, "y": 720},
+            {"id": "s8", "step_type": "action", "step_subtype": "send_sms",
+             "config": {"message": "Hi {{firstName}}, I wanted to reach out one last time. If you ever need help with insurance coverage, don't hesitate to reach out. Wishing you the best!"}, "x": 200, "y": 860},
+            {"id": "s9", "step_type": "action", "step_subtype": "add_tag",
+             "config": {"tag": "nurture-complete"}, "x": 400, "y": 1000},
+            {"id": "s10", "step_type": "control", "step_subtype": "exit",
+             "config": {}, "x": 400, "y": 1120},
+        ],
+        "connections": [
+            {"from": "s1", "to": "s2", "branch": "default"},
+            {"from": "s2", "to": "s3", "branch": "default"},
+            {"from": "s3", "to": "s4", "branch": "default"},
+            {"from": "s4", "to": "s5", "branch": "true"},
+            {"from": "s4", "to": "s6", "branch": "false"},
+            {"from": "s5", "to": "s9", "branch": "default"},
+            {"from": "s6", "to": "s7", "branch": "default"},
+            {"from": "s7", "to": "s8", "branch": "default"},
+            {"from": "s8", "to": "s9", "branch": "default"},
+            {"from": "s9", "to": "s10", "branch": "default"},
+        ],
+    },
+]
+
+
+def _seed_default_workflows(location_id, cur):
+    """Insert pre-built workflow templates for a new location (draft status).
+
+    Only runs once per location — checks for existing workflows first.
+    """
+    cur.execute("SELECT 1 FROM workflows WHERE location_id = %s LIMIT 1", (location_id,))
+    if cur.fetchone():
+        return  # Already has workflows — skip seeding
+
+    now = _now()
+    for template in PREBUILT_WORKFLOWS:
+        wf_id = _gen_id()
+        cur.execute("""
+            INSERT INTO workflows (id, location_id, name, description, status,
+                                   trigger_type, trigger_config, created_at, updated_at, created_by)
+            VALUES (%s, %s, %s, %s, 'draft', %s, %s, %s, %s, 'system')
+        """, (wf_id, location_id, template["name"], template["description"],
+              template["trigger_type"], json.dumps(template["trigger_config"]),
+              now, now))
+
+        # Map template step IDs to real UUIDs
+        id_map = {}
+        for step in template["steps"]:
+            real_id = _gen_id()
+            id_map[step["id"]] = real_id
+            cur.execute("""
+                INSERT INTO workflow_steps (id, workflow_id, step_type, step_subtype,
+                                           config, position_x, position_y, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (real_id, wf_id, step["step_type"], step["step_subtype"],
+                  json.dumps(step["config"]), step["x"], step["y"], now))
+
+        for conn in template["connections"]:
+            cur.execute("""
+                INSERT INTO workflow_connections (id, workflow_id, from_step_id, to_step_id,
+                                                 branch_key, sort_order)
+                VALUES (%s, %s, %s, %s, %s, 0)
+            """, (_gen_id(), wf_id, id_map[conn["from"]], id_map[conn["to"]], conn["branch"]))
+
+    logger.info(f"Seeded {len(PREBUILT_WORKFLOWS)} default workflows for {location_id}")
+
+
 # ── List workflows ───────────────────────────────────────────────────────────
 
 @workflows_bp.route("/api/workflows", methods=["GET"])
@@ -77,6 +265,15 @@ def list_workflows():
         return jsonify({"error": "Database error"}), 500
     try:
         cur = conn.cursor()
+
+        # Lazy-seed pre-built templates on first load
+        try:
+            _seed_default_workflows(location_id, cur)
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            logger.warning(f"Workflow seed failed (non-fatal): {e}")
+
         cur.execute("""
             SELECT id, name, description, status, trigger_type, trigger_config,
                    created_at, updated_at, stats
