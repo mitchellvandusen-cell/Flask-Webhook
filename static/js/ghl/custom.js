@@ -1,4 +1,4 @@
-const igbServerUrl = 'https://app.insurancegrokbot.click';
+const igbServerUrl = 'https://insurancegrokbot.click';
 const igbCallPollMs = 2000;
 const igbRefreshIntervalMs = 60000;
 const igbMaxVisibleToasts = 3;
