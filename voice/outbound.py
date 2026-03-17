@@ -408,15 +408,25 @@ def ghl_action_loop():
     GHL Marketplace Custom Action: Loop.
 
     Repeats an action (AI SMS or AI Call) at a fixed interval for a configured
-    number of days, then fires a "loop_completed" trigger back to GHL so the
-    workflow can continue.
+    number of days. Enable "Pause Execution" in the GHL App Builder so the
+    workflow holds the contact at this step. When all iterations complete,
+    we POST back to GHL's resume webhook to release the contact and continue
+    the workflow.
 
-    GHL App Builder input fields:
+    GHL sends the standard marketplace action payload:
+      {
+        "data": { ...configured input fields... },
+        "extras": { "locationId": "...", "contactId": "...", "workflowId": "..." },
+        "meta": { "key": "...", "version": "..." }
+      }
+
+    App Builder input fields (in "data"):
       - loopDurationDays:  how many days to loop (1-30, default 3)
       - loopIntervalHours: hours between iterations (1-168, default 24)
       - loopAction:        "ai_sms" or "ai_call" (default "ai_sms")
       - message:           custom message template for SMS iterations (optional)
-      - contactId, phone, firstName, locationId: standard GHL fields
+      - phone:             contact phone (mapped from GHL contact fields)
+      - firstName:         contact first name (mapped from GHL contact fields)
     """
     # ── Verify GHL webhook signature ──
     webhook_secret = os.getenv("MARKETPLACE_WEBHOOK_SECRET")
@@ -437,32 +447,50 @@ def ghl_action_loop():
     else:
         logger.warning("GHL Loop action: MARKETPLACE_WEBHOOK_SECRET not set — cannot verify")
 
-    data = request.get_json(silent=True) or {}
+    raw_payload = request.get_json(silent=True) or {}
 
-    # GHL custom actions may wrap fields in customData
-    if "customData" in data and isinstance(data["customData"], dict):
-        fields = data["customData"]
-    else:
-        fields = data
+    # ── Parse GHL marketplace action payload ──
+    # Standard format: { data: {...}, extras: {...}, meta: {...} }
+    # Legacy/fallback: flat or customData wrapper
+    ghl_data = raw_payload.get("data") or {}
+    ghl_extras = raw_payload.get("extras") or {}
+    ghl_meta = raw_payload.get("meta") or {}
 
-    location_id = fields.get("locationId") or fields.get("location_id") or ""
-    contact_id = fields.get("contactId") or fields.get("contact_id") or ""
-    phone = fields.get("phone") or fields.get("toNumber") or ""
-    first_name = fields.get("firstName") or fields.get("first_name") or "there"
+    # Also handle legacy customData wrapper
+    if "customData" in raw_payload and isinstance(raw_payload["customData"], dict):
+        ghl_data = {**raw_payload["customData"], **ghl_data}
 
-    # Loop configuration
+    # Extract standard identifiers from extras (GHL marketplace standard)
+    # Fall back to data fields for legacy/flat payloads
+    location_id = (ghl_extras.get("locationId") or ghl_data.get("locationId")
+                   or ghl_data.get("location_id") or raw_payload.get("locationId") or "")
+    contact_id = (ghl_extras.get("contactId") or ghl_data.get("contactId")
+                  or ghl_data.get("contact_id") or raw_payload.get("contactId") or "")
+    workflow_id = ghl_extras.get("workflowId") or ""
+
+    # Contact fields from data
+    phone = ghl_data.get("phone") or ghl_data.get("toNumber") or raw_payload.get("phone") or ""
+    first_name = ghl_data.get("firstName") or ghl_data.get("first_name") or raw_payload.get("firstName") or "there"
+
+    # Loop configuration from data
     try:
-        duration_days = max(1, min(30, int(fields.get("loopDurationDays") or 3)))
+        duration_days = max(1, min(30, int(ghl_data.get("loopDurationDays") or 3)))
     except (ValueError, TypeError):
         duration_days = 3
     try:
-        interval_hours = max(1, min(168, int(fields.get("loopIntervalHours") or 24)))
+        interval_hours = max(1, min(168, int(ghl_data.get("loopIntervalHours") or 24)))
     except (ValueError, TypeError):
         interval_hours = 24
-    loop_action = (fields.get("loopAction") or "ai_sms").lower()
+    loop_action = (ghl_data.get("loopAction") or "ai_sms").lower()
     if loop_action not in ("ai_sms", "ai_call"):
         loop_action = "ai_sms"
-    message_template = fields.get("message") or ""
+    message_template = ghl_data.get("message") or ""
+
+    # Resume webhook URL — GHL provides this for Pause Execution actions
+    # May be in extras, meta, or top-level payload depending on GHL version
+    resume_url = (ghl_extras.get("resumeUrl") or ghl_extras.get("webhookUrl")
+                  or ghl_meta.get("resumeUrl") or raw_payload.get("resumeUrl")
+                  or raw_payload.get("webhookUrl") or "")
 
     if not location_id or not contact_id:
         return jsonify({"error": "locationId and contactId are required"}), 400
@@ -491,9 +519,15 @@ def ghl_action_loop():
             """, (existing["id"],))
             logger.info(f"GHL Loop: cancelled existing loop {existing['id']} for contact {contact_id}")
 
-        # Create the loop record — first iteration executes immediately
+        # Create the loop record — first iteration executes on next cron tick
         from datetime import datetime, timezone as tz
         now = datetime.now(tz.utc)
+        config_json = json.dumps({
+            "resume_url": resume_url,
+            "workflow_id": workflow_id,
+            "ghl_extras": ghl_extras,
+            "ghl_meta": ghl_meta,
+        })
         cur.execute("""
             INSERT INTO ghl_action_loops
                 (location_id, contact_id, phone, first_name, loop_action,
@@ -503,18 +537,14 @@ def ghl_action_loop():
             RETURNING id
         """, (location_id, contact_id, phone, first_name, loop_action,
               message_template, duration_days, interval_hours,
-              max_iterations, now, now,
-              json.dumps({"raw_fields": {k: v for k, v in fields.items()
-                                         if k not in ("phone", "firstName", "first_name",
-                                                       "contactId", "contact_id",
-                                                       "locationId", "location_id")}})))
+              max_iterations, now, now, config_json))
         loop_id = cur.fetchone()["id"]
         conn.commit()
         cur.close()
 
         logger.info(f"GHL Loop: created loop {loop_id} for contact {contact_id} "
                      f"({loop_action} every {interval_hours}h for {duration_days}d, "
-                     f"max {max_iterations} iterations)")
+                     f"max {max_iterations} iterations, resume_url={'yes' if resume_url else 'no'})")
 
         try:
             log_webhook_event(
@@ -523,7 +553,8 @@ def ghl_action_loop():
                 event_type="ghl_action_loop_started",
                 status="success",
                 summary=f"Loop started: {loop_action} every {interval_hours}h for {duration_days}d",
-                details={"loop_id": loop_id, "max_iterations": max_iterations}
+                details={"loop_id": loop_id, "max_iterations": max_iterations,
+                         "has_resume_url": bool(resume_url)}
             )
         except Exception:
             pass
@@ -633,7 +664,7 @@ def _execute_loop_iteration(conn, loop):
     now = datetime.now(tz.utc)
 
     if iteration >= max_iterations:
-        # Loop complete — mark done and fire trigger
+        # Loop complete — mark done and resume GHL workflow
         cur.execute("""
             UPDATE ghl_action_loops
             SET iteration = %s, status = 'completed', completed_at = %s
@@ -644,16 +675,28 @@ def _execute_loop_iteration(conn, loop):
 
         logger.info(f"Loop {loop_id}: completed all {max_iterations} iterations for contact {contact_id}")
 
-        # Fire "loop_completed" trigger to GHL so workflow continues
-        _fire_ghl_trigger(location_id, 'loop_completed', {
-            'contactId': contact_id,
-            'locationId': location_id,
-            'phone': phone,
-            'firstName': first_name,
-            'loopId': loop_id,
-            'totalIterations': max_iterations,
-            'loopAction': loop_action,
-        })
+        # Resume GHL workflow by POSTing to the resume webhook URL
+        loop_config = loop.get("config") or {}
+        if isinstance(loop_config, str):
+            try:
+                loop_config = json.loads(loop_config)
+            except (json.JSONDecodeError, TypeError):
+                loop_config = {}
+        resume_url = loop_config.get("resume_url", "")
+        ghl_extras = loop_config.get("ghl_extras", {})
+
+        if resume_url:
+            _resume_ghl_workflow(resume_url, {
+                **ghl_extras,
+                'contactId': contact_id,
+                'locationId': location_id,
+                'loopId': loop_id,
+                'totalIterations': max_iterations,
+                'loopAction': loop_action,
+                'status': 'completed',
+            })
+        else:
+            logger.info(f"Loop {loop_id}: no resume URL — workflow will not auto-continue")
 
         try:
             log_webhook_event(
@@ -662,7 +705,7 @@ def _execute_loop_iteration(conn, loop):
                 event_type="ghl_action_loop_completed",
                 status="success",
                 summary=f"Loop completed: {max_iterations} iterations of {loop_action}",
-                details={"loop_id": loop_id}
+                details={"loop_id": loop_id, "resumed_ghl": bool(resume_url)}
             )
         except Exception:
             pass
@@ -808,6 +851,35 @@ def _loop_trigger_ai_call(location_id, contact_id, phone, first_name):
     except Exception as e:
         logger.error(f"Loop AI Call failed for {contact_id}: {e}")
         return False
+
+
+# ──────────────────────────────────────────────────────────────
+# HELPER: Resume GHL workflow (for Pause Execution actions)
+# ──────────────────────────────────────────────────────────────
+
+def _resume_ghl_workflow(resume_url, payload):
+    """
+    POST to GHL's resume webhook URL to continue a paused workflow.
+    Called when a Pause Execution custom action (like Loop) finishes.
+    Runs in a background thread to avoid blocking the cron processor.
+    """
+    def _send():
+        import requests as http_requests
+        try:
+            logger.info(f"Resuming GHL workflow: url={resume_url[:80]} contact={payload.get('contactId', '?')}")
+            resp = http_requests.post(
+                resume_url,
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=10,
+            )
+            logger.info(f"GHL workflow resumed: status={resp.status_code} contact={payload.get('contactId', '?')}")
+        except Exception as e:
+            logger.warning(f"GHL workflow resume failed: {e} (url={resume_url[:60]})")
+
+    t = threading.Thread(target=_send, daemon=True,
+                         name=f"ghl-resume-{payload.get('contactId', 'x')[:8]}")
+    t.start()
 
 
 # ──────────────────────────────────────────────────────────────
