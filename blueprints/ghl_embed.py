@@ -122,28 +122,6 @@ def jwt_required(f):
     return decorated
 
 
-def jwt_or_session_required(f):
-    """Decorator that accepts either a JWT token OR a Flask session.
-    For JWT: sets request._ghl_jwt. For session: uses current_user as normal.
-    This allows existing voice endpoints to work with both Custom JS and dashboard."""
-    @functools.wraps(f)
-    def decorated(*args, **kwargs):
-        # Try JWT first
-        token = _get_jwt_from_request()
-        if token:
-            payload = _decode_jwt(token)
-            if not payload:
-                return jsonify({"error": "Invalid or expired token"}), 401
-            request._ghl_jwt = payload
-            return f(*args, **kwargs)
-        # Fall back to Flask session
-        if current_user and current_user.is_authenticated:
-            request._ghl_jwt = None
-            return f(*args, **kwargs)
-        return jsonify({"error": "Authentication required"}), 401
-    return decorated
-
-
 def _get_location_id():
     """Get location_id from JWT payload or current_user."""
     jwt_payload = getattr(request, '_ghl_jwt', None)
@@ -258,6 +236,7 @@ def ghl_auth_token():
     is_admin = email.lower() in [e.lower() for e in ADMIN_EMAILS]
     # Agency sub-users inherit subscription from parent — treat as subscribed
     is_sub_user = bool(subscriber.get('parent_agency_email'))
+    # 'past_due' is intentionally excluded: features are locked until payment recovers
     subscribed = (stripe_status in ('active', 'trialing')) or is_admin or is_sub_user
 
     token = _create_jwt(location_id, email, tier, subscribed=subscribed)
@@ -740,3 +719,639 @@ def ghl_stream_notifications():
             'Connection': 'keep-alive',
         },
     )
+
+
+# ── Spam Protection / Number Management ─────────────────────────────────────
+# Proxy endpoints that wrap the voice/ blueprint routes with JWT auth
+# so the GHL Custom JS can call them without a Flask session cookie.
+
+def _voice_subscriber_context(location_id):
+    """Load subscriber + voice config needed by spam protection APIs."""
+    subscriber = _get_subscriber_by_location(location_id)
+    if not subscriber:
+        return None, None
+    vc = subscriber.get('voice_config') or {}
+    if isinstance(vc, str):
+        vc = json.loads(vc)
+    return subscriber, vc
+
+
+@ghl_embed_bp.route('/api/ghl/spam-protection/status')
+@jwt_required
+def ghl_spam_protection_status():
+    """Current spam protection registration status."""
+    location_id = _get_location_id()
+    subscriber, vc = _voice_subscriber_context(location_id)
+    if not subscriber:
+        return jsonify({"error": "Account not found"}), 404
+
+    from twilio_provisioning import get_sub_account_client_native
+
+    sub_sid = vc.get('twilio_sub_account_sid', '')
+    sub_auth = vc.get('twilio_sub_account_auth_token', '')
+
+    spam = vc.get('spam_protection') or {}
+    cnam_data = vc.get('cnam') or {}
+    ni_data = vc.get('number_integrity') or {}
+    a2p_data = vc.get('a2p') or {}
+
+    # Count phone numbers on sub-account
+    numbers_total = 0
+    numbers_list = []
+    if sub_sid and sub_auth:
+        try:
+            sub_client = get_sub_account_client_native(sub_sid, sub_auth)
+            nums = sub_client.incoming_phone_numbers.list(limit=100)
+            numbers_total = len(nums)
+            numbers_list = [{"phone": n.phone_number, "sid": n.sid, "friendly_name": n.friendly_name} for n in nums]
+        except Exception as e:
+            logger.error(f"ghl spam status: number list error: {e}")
+
+    return jsonify({
+        "protection_active": bool(spam.get('registered_at')),
+        "business_name": spam.get('business_name', ''),
+        "ein": spam.get('ein', ''),
+        "registered_at": spam.get('registered_at', ''),
+        "numbers_total": numbers_total,
+        "numbers": numbers_list,
+        "cnam": {
+            "registered": bool(cnam_data.get('trust_product_sid')),
+            "status": cnam_data.get('status', ''),
+            "display_name": cnam_data.get('cnam_display_name', ''),
+            "assigned_count": cnam_data.get('assigned_count', 0),
+        },
+        "number_integrity": {
+            "registered": bool(ni_data.get('trust_product_sid')),
+            "status": ni_data.get('status', ''),
+            "assigned_count": ni_data.get('assigned_count', 0),
+        },
+        "a2p": {
+            "registered": bool(a2p_data.get('campaign_sid')),
+            "brand_status": a2p_data.get('brand_status', ''),
+            "campaign_status": a2p_data.get('campaign_status', ''),
+        },
+        "has_sub_account": bool(sub_sid),
+    })
+
+
+@ghl_embed_bp.route('/api/ghl/number-health')
+@jwt_required
+def ghl_number_health():
+    """Number health dashboard data."""
+    location_id = _get_location_id()
+    subscriber, vc = _voice_subscriber_context(location_id)
+    if not subscriber:
+        return jsonify({"error": "Account not found"}), 404
+
+    sub_sid = vc.get('twilio_sub_account_sid', '')
+    if not sub_sid:
+        return jsonify({"numbers": [], "summary": {}, "rotation_enabled": False})
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT phone, nickname, is_primary, status, health_score,
+                   warmup_stage, daily_calls, daily_connected,
+                   ring_rate, connect_rate, block_rate, pdd_ms,
+                   stir_a_rate, block_velocity, rest_until, last_used_at
+            FROM number_health
+            WHERE location_id = %s
+            ORDER BY phone
+        """, (location_id,))
+        rows = cur.fetchall()
+        cur.close()
+
+        numbers = []
+        total_score = 0
+        for r in rows:
+            score = r.get('health_score') or 0
+            total_score += score
+            numbers.append({
+                "phone": r['phone'],
+                "nickname": r.get('nickname', ''),
+                "is_primary": r.get('is_primary', False),
+                "status": r.get('status', 'active'),
+                "health_score": score,
+                "warmup_stage": r.get('warmup_stage', ''),
+                "daily_calls": r.get('daily_calls', 0),
+                "daily_connected": r.get('daily_connected', 0),
+                "connect_rate": r.get('connect_rate', 0),
+                "block_rate": r.get('block_rate', 0),
+                "rest_until": str(r['rest_until']) if r.get('rest_until') else None,
+                "last_used_at": str(r['last_used_at']) if r.get('last_used_at') else None,
+            })
+
+        avg_score = round(total_score / len(numbers)) if numbers else 0
+        rotation_enabled = vc.get('number_rotation_enabled', False)
+
+        return jsonify({
+            "numbers": numbers,
+            "summary": {
+                "total": len(numbers),
+                "avg_health_score": avg_score,
+                "active": sum(1 for n in numbers if n['status'] == 'active'),
+                "resting": sum(1 for n in numbers if n['status'] == 'resting'),
+                "frozen": sum(1 for n in numbers if n['status'] == 'frozen'),
+            },
+            "rotation_enabled": rotation_enabled,
+        })
+    except Exception as e:
+        logger.error(f"ghl number health error: {e}")
+        return jsonify({"error": "Failed to fetch number health"}), 500
+    finally:
+        return_db_connection(conn)
+
+
+@ghl_embed_bp.route('/api/ghl/numbers')
+@jwt_required
+def ghl_numbers_list():
+    """List all phone numbers on subscriber's Twilio sub-account."""
+    location_id = _get_location_id()
+    subscriber, vc = _voice_subscriber_context(location_id)
+    if not subscriber:
+        return jsonify({"error": "Account not found"}), 404
+
+    from twilio_provisioning import get_sub_account_client_native
+
+    sub_sid = vc.get('twilio_sub_account_sid', '')
+    sub_auth = vc.get('twilio_sub_account_auth_token', '')
+    if not sub_sid or not sub_auth:
+        return jsonify({"numbers": [], "total": 0, "free_remaining": 5, "free_allowance": 5})
+
+    try:
+        sub_client = get_sub_account_client_native(sub_sid, sub_auth)
+        nums = sub_client.incoming_phone_numbers.list(limit=100)
+
+        numbers = []
+        for n in nums:
+            numbers.append({
+                "sid": n.sid,
+                "phone": n.phone_number,
+                "friendly_name": n.friendly_name,
+                "capabilities": {
+                    "voice": getattr(n.capabilities, 'voice', True),
+                    "sms": getattr(n.capabilities, 'sms', True),
+                },
+            })
+
+        free_allowance = 5
+        free_remaining = max(0, free_allowance - len(numbers))
+
+        return jsonify({
+            "numbers": numbers,
+            "total": len(numbers),
+            "free_remaining": free_remaining,
+            "free_allowance": free_allowance,
+        })
+    except Exception as e:
+        logger.error(f"ghl numbers list error: {e}")
+        return jsonify({"error": "Failed to list numbers"}), 500
+
+
+@ghl_embed_bp.route('/api/ghl/numbers/search')
+@jwt_required
+def ghl_numbers_search():
+    """Search available phone numbers to purchase."""
+    location_id = _get_location_id()
+    subscriber, vc = _voice_subscriber_context(location_id)
+    if not subscriber:
+        return jsonify({"error": "Account not found"}), 404
+
+    from twilio_provisioning import get_sub_account_client_native
+
+    sub_sid = vc.get('twilio_sub_account_sid', '')
+    sub_auth = vc.get('twilio_sub_account_auth_token', '')
+
+    area_code = request.args.get('area_code', '')
+    state = request.args.get('state', '')
+    contains = request.args.get('contains', '')
+    number_type = request.args.get('number_type', 'local')
+
+    # Use master client if no sub-account (search doesn't require ownership)
+    try:
+        if sub_sid and sub_auth:
+            client = get_sub_account_client_native(sub_sid, sub_auth)
+        else:
+            from twilio.rest import Client as TwilioClient
+            client = TwilioClient(
+                os.getenv('TWILIO_ACCOUNT_SID'),
+                os.getenv('TWILIO_AUTH_TOKEN'),
+            )
+
+        kwargs = {"limit": 20, "voice_enabled": True, "sms_enabled": True}
+        if area_code:
+            kwargs["area_code"] = area_code
+        if state:
+            kwargs["in_region"] = state
+        if contains:
+            kwargs["contains"] = contains
+
+        if number_type == 'toll_free':
+            results = client.available_phone_numbers("US").toll_free.list(**kwargs)
+        else:
+            results = client.available_phone_numbers("US").local.list(**kwargs)
+
+        numbers = [{
+            "phone": n.phone_number,
+            "friendly_name": n.friendly_name,
+            "locality": getattr(n, 'locality', ''),
+            "region": getattr(n, 'region', ''),
+            "type": number_type,
+        } for n in results]
+
+        return jsonify({"numbers": numbers, "total": len(numbers)})
+    except Exception as e:
+        logger.error(f"ghl numbers search error: {e}")
+        return jsonify({"error": "Search failed"}), 500
+
+
+@ghl_embed_bp.route('/api/ghl/numbers/buy', methods=['POST'])
+@jwt_required
+def ghl_numbers_buy():
+    """Purchase a phone number (free if under allowance, 402 if payment required)."""
+    location_id = _get_location_id()
+    subscriber, vc = _voice_subscriber_context(location_id)
+    if not subscriber:
+        return jsonify({"error": "Account not found"}), 404
+
+    from twilio_provisioning import get_sub_account_client_native
+
+    data = request.get_json() or {}
+    phone_number = data.get('phone_number', '')
+    number_type = data.get('number_type', 'local')
+
+    if not phone_number:
+        return jsonify({"error": "phone_number is required"}), 400
+
+    sub_sid = vc.get('twilio_sub_account_sid', '')
+    sub_auth = vc.get('twilio_sub_account_auth_token', '')
+    if not sub_sid or not sub_auth:
+        return jsonify({"error": "Voice not provisioned. Set up voice first in the IGB dashboard."}), 400
+
+    # Check free allowance
+    try:
+        sub_client = get_sub_account_client_native(sub_sid, sub_auth)
+        current_count = len(sub_client.incoming_phone_numbers.list(limit=100))
+        free_allowance = 5
+
+        if current_count >= free_allowance:
+            # Payment required
+            price_cents = 215 if number_type == 'toll_free' else 90
+            return jsonify({
+                "payment_required": True,
+                "current_count": current_count,
+                "free_allowance": free_allowance,
+                "price_cents": price_cents,
+                "price_label": f"${price_cents / 100:.2f}/mo",
+            }), 402
+
+        # Free purchase — provision immediately
+        domain = YOUR_DOMAIN.rstrip('/')
+        new_number = sub_client.incoming_phone_numbers.create(
+            phone_number=phone_number,
+            voice_url=f"{domain}/voice/twiml/inbound",
+            sms_url=f"{domain}/webhook",
+        )
+
+        return jsonify({
+            "status": "purchased",
+            "phone": new_number.phone_number,
+            "sid": new_number.sid,
+            "free": True,
+        })
+    except Exception as e:
+        logger.error(f"ghl numbers buy error: {e}")
+        return jsonify({"error": f"Purchase failed: {e}"}), 500
+
+
+@ghl_embed_bp.route('/api/ghl/numbers/release', methods=['POST'])
+@jwt_required
+def ghl_numbers_release():
+    """Release a phone number from the sub-account."""
+    location_id = _get_location_id()
+    subscriber, vc = _voice_subscriber_context(location_id)
+    if not subscriber:
+        return jsonify({"error": "Account not found"}), 404
+
+    from twilio_provisioning import get_sub_account_client_native
+
+    data = request.get_json() or {}
+    sid = data.get('sid', '')
+    if not sid:
+        return jsonify({"error": "sid is required"}), 400
+
+    sub_sid = vc.get('twilio_sub_account_sid', '')
+    sub_auth = vc.get('twilio_sub_account_auth_token', '')
+    if not sub_sid or not sub_auth:
+        return jsonify({"error": "Voice not provisioned"}), 400
+
+    try:
+        sub_client = get_sub_account_client_native(sub_sid, sub_auth)
+        sub_client.incoming_phone_numbers(sid).delete()
+        return jsonify({"status": "released"})
+    except Exception as e:
+        logger.error(f"ghl numbers release error: {e}")
+        return jsonify({"error": f"Release failed: {e}"}), 500
+
+
+@ghl_embed_bp.route('/api/ghl/trust-hub')
+@jwt_required
+def ghl_trust_hub_status():
+    """Trust Hub / business profile / carrier registration status."""
+    location_id = _get_location_id()
+    subscriber, vc = _voice_subscriber_context(location_id)
+    if not subscriber:
+        return jsonify({"error": "Account not found"}), 404
+
+    spam = vc.get('spam_protection') or {}
+    cnam_data = vc.get('cnam') or {}
+    ni_data = vc.get('number_integrity') or {}
+
+    return jsonify({
+        "business_profile": {
+            "business_name": spam.get('business_name', ''),
+            "ein": spam.get('ein', ''),
+            "street": spam.get('street', ''),
+            "city": spam.get('city', ''),
+            "state": spam.get('state', ''),
+            "zip": spam.get('zip', ''),
+            "contact_name": spam.get('contact_name', ''),
+            "contact_email": spam.get('contact_email', ''),
+            "contact_phone": spam.get('contact_phone', ''),
+            "registered": bool(spam.get('registered_at')),
+        },
+        "cnam": {
+            "registered": bool(cnam_data.get('trust_product_sid')),
+            "status": cnam_data.get('status', ''),
+            "display_name": cnam_data.get('cnam_display_name', ''),
+        },
+        "number_integrity": {
+            "registered": bool(ni_data.get('trust_product_sid')),
+            "status": ni_data.get('status', ''),
+        },
+    })
+
+
+@ghl_embed_bp.route('/api/ghl/number-integrity/status')
+@jwt_required
+def ghl_number_integrity_status():
+    """Voice Integrity registration status."""
+    location_id = _get_location_id()
+    subscriber, vc = _voice_subscriber_context(location_id)
+    if not subscriber:
+        return jsonify({"error": "Account not found"}), 404
+
+    ni = vc.get('number_integrity') or {}
+    return jsonify({
+        "registered": bool(ni.get('trust_product_sid')),
+        "status": ni.get('status', ''),
+        "trust_product_sid": ni.get('trust_product_sid', ''),
+        "assigned_count": ni.get('assigned_count', 0),
+        "assigned_numbers": ni.get('assigned_numbers', []),
+        "registered_at": ni.get('registered_at', ''),
+        "business_name": ni.get('business_name', ''),
+    })
+
+
+@ghl_embed_bp.route('/api/ghl/a2p/status')
+@jwt_required
+def ghl_a2p_status():
+    """A2P 10DLC registration status."""
+    location_id = _get_location_id()
+    subscriber, vc = _voice_subscriber_context(location_id)
+    if not subscriber:
+        return jsonify({"error": "Account not found"}), 404
+
+    a2p = vc.get('a2p') or {}
+    return jsonify({
+        "registered": bool(a2p.get('campaign_sid')),
+        "brand_sid": a2p.get('brand_sid', ''),
+        "brand_status": a2p.get('brand_status', ''),
+        "campaign_sid": a2p.get('campaign_sid', ''),
+        "campaign_status": a2p.get('campaign_status', ''),
+        "messaging_service_sid": a2p.get('messaging_service_sid', ''),
+        "registered_at": a2p.get('registered_at', ''),
+    })
+
+
+# ── Voice Config ────────────────────────────────────────────────────────────
+
+@ghl_embed_bp.route('/api/ghl/voice-config', methods=['GET'])
+@jwt_required
+def ghl_voice_config_get():
+    """Get current voice configuration."""
+    location_id = _get_location_id()
+    subscriber, vc = _voice_subscriber_context(location_id)
+    if not subscriber:
+        return jsonify({"error": "Account not found"}), 404
+
+    # Return user-editable fields only (not Twilio secrets)
+    safe_keys = [
+        'tts_voice', 'voice_instructions', 'voice_greeting',
+        'voice_personality', 'voice_language', 'transfer_number',
+        'max_call_duration', 'voicemail_detection', 'voicemail_message',
+        'on_machine_action', 'wrap_up_time', 'require_disposition',
+        'calling_hours_start', 'calling_hours_end',
+        'same_number_cooldown_hours', 'same_contact_daily_max',
+        'max_lines_setting', 'max_abandon_rate_pct',
+        'auto_disposition_no_answer', 'auto_disposition_voicemail',
+        'number_rotation_enabled', 'rotation_strategy',
+    ]
+    result = {}
+    for k in safe_keys:
+        if k in vc:
+            result[k] = vc[k]
+
+    # Include provisioning status (not secrets)
+    result['voice_activated'] = bool(vc.get('twilio_sub_account_sid'))
+    result['has_phone_number'] = bool(vc.get('twilio_phone_number') or vc.get('twilio_number_sid'))
+
+    return jsonify(result)
+
+
+@ghl_embed_bp.route('/api/ghl/voice-config', methods=['POST'])
+@jwt_required
+def ghl_voice_config_save():
+    """Save voice configuration settings."""
+    location_id = _get_location_id()
+    subscriber, vc = _voice_subscriber_context(location_id)
+    if not subscriber:
+        return jsonify({"error": "Account not found"}), 404
+
+    data = request.get_json() or {}
+
+    # Validate and merge only safe user-editable fields
+    editable_strings = {
+        'tts_voice': 255, 'voice_instructions': 2000, 'voice_greeting': 500,
+        'voice_personality': 500, 'voice_language': 10, 'transfer_number': 20,
+        'voicemail_message': 500, 'on_machine_action': 20,
+        'calling_hours_start': 5, 'calling_hours_end': 5,
+        'rotation_strategy': 30,
+    }
+    editable_ints = {
+        'max_call_duration': (30, 3600), 'wrap_up_time': (0, 120),
+        'same_number_cooldown_hours': (0, 72), 'same_contact_daily_max': (0, 10),
+        'max_lines_setting': (1, 4),
+    }
+    editable_floats = {'max_abandon_rate_pct': (1.0, 10.0)}
+    editable_bools = [
+        'voicemail_detection', 'require_disposition',
+        'auto_disposition_no_answer', 'auto_disposition_voicemail',
+        'number_rotation_enabled',
+    ]
+
+    updated = dict(vc)  # preserve existing
+
+    for key, max_len in editable_strings.items():
+        if key in data:
+            updated[key] = str(data[key])[:max_len]
+
+    for key, (lo, hi) in editable_ints.items():
+        if key in data:
+            try:
+                updated[key] = max(lo, min(hi, int(data[key])))
+            except (ValueError, TypeError):
+                pass
+
+    for key, (lo, hi) in editable_floats.items():
+        if key in data:
+            try:
+                updated[key] = max(lo, min(hi, float(data[key])))
+            except (ValueError, TypeError):
+                pass
+
+    for key in editable_bools:
+        if key in data:
+            updated[key] = bool(data[key])
+
+    # Save back to DB
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE subscribers SET voice_config = %s WHERE location_id = %s",
+            (json.dumps(updated), location_id),
+        )
+        conn.commit()
+        cur.close()
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"ghl voice config save error: {e}")
+        return jsonify({"error": "Save failed"}), 500
+    finally:
+        return_db_connection(conn)
+
+
+# ── SMS Bot Config ──────────────────────────────────────────────────────────
+
+@ghl_embed_bp.route('/api/ghl/bot-config', methods=['GET'])
+@jwt_required
+def ghl_bot_config_get():
+    """Get SMS bot configuration."""
+    location_id = _get_location_id()
+    subscriber = _get_subscriber_by_location(location_id)
+    if not subscriber:
+        return jsonify({"error": "Account not found"}), 404
+
+    from db import get_bot_settings_by_location
+    bot_settings = get_bot_settings_by_location(location_id)
+
+    return jsonify({
+        "bot_first_name": subscriber.get('bot_first_name', ''),
+        "timezone": subscriber.get('timezone', 'America/Chicago'),
+        "sms_send_via": subscriber.get('sms_send_via', 'ghl'),
+        "initial_message": subscriber.get('initial_message', ''),
+        "personal_website": subscriber.get('personal_website', ''),
+        "calendar_id": subscriber.get('calendar_id', ''),
+        "calendar_name": subscriber.get('calendar_name', ''),
+        "bot_settings": bot_settings or {},
+    })
+
+
+@ghl_embed_bp.route('/api/ghl/bot-config', methods=['POST'])
+@jwt_required
+def ghl_bot_config_save():
+    """Save SMS bot configuration."""
+    location_id = _get_location_id()
+    subscriber = _get_subscriber_by_location(location_id)
+    if not subscriber:
+        return jsonify({"error": "Account not found"}), 404
+
+    data = request.get_json() or {}
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        updates = []
+        params = []
+
+        safe_fields = {
+            'bot_first_name': 100, 'timezone': 50,
+            'initial_message': 500, 'personal_website': 255,
+            'sms_send_via': 20,
+        }
+        for field, max_len in safe_fields.items():
+            if field in data:
+                updates.append(f"{field} = %s")
+                params.append(str(data[field])[:max_len])
+
+        if not updates:
+            return jsonify({"status": "ok", "message": "No changes"})
+
+        params.append(location_id)
+        cur.execute(
+            f"UPDATE subscribers SET {', '.join(updates)} WHERE location_id = %s",
+            params,
+        )
+        conn.commit()
+        cur.close()
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"ghl bot config save error: {e}")
+        return jsonify({"error": "Save failed"}), 500
+    finally:
+        return_db_connection(conn)
+
+
+# ── Voice Activation ────────────────────────────────────────────────────────
+
+@ghl_embed_bp.route('/api/ghl/voice/activate', methods=['POST'])
+@jwt_required
+def ghl_voice_activate():
+    """Activate voice (provision Twilio sub-account)."""
+    location_id = _get_location_id()
+    subscriber, vc = _voice_subscriber_context(location_id)
+    if not subscriber:
+        return jsonify({"error": "Account not found"}), 404
+
+    if vc.get('twilio_sub_account_sid'):
+        return jsonify({"status": "already_active", "message": "Voice already activated"})
+
+    email = _get_email()
+    is_admin = email.lower() in [e.lower() for e in ADMIN_EMAILS]
+
+    try:
+        from twilio_provisioning import provision_subscriber, provision_master, is_master_account
+        import os
+
+        if is_admin and is_master_account(os.getenv('TWILIO_ACCOUNT_SID', '')):
+            result = provision_master(location_id)
+        else:
+            result = provision_subscriber(location_id, email)
+
+        if result.get('error'):
+            return jsonify({"error": result['error']}), 500
+
+        return jsonify({"status": "activated", "message": "Voice account provisioned"})
+    except Exception as e:
+        logger.error(f"ghl voice activate error: {e}")
+        return jsonify({"error": f"Activation failed: {e}"}), 500
