@@ -362,21 +362,45 @@
 
             // Create trigger node
             var trigId = 'trigger_' + wfId;
-            _addNode(_currentWorkflow.trigger_type, 400, 120, _currentWorkflow.trigger_config || {}, trigId, 'trigger');
+            var trigY = 120;
+            _addNode(_currentWorkflow.trigger_type, 400, trigY, _currentWorkflow.trigger_config || {}, trigId, 'trigger');
 
-            // Create step nodes
+            // Create step nodes — offset positions so they sit below the trigger
             var steps = data.steps || [];
             var stepMap = {};
+            var minStepY = trigY + 100; // first step must be below trigger
             steps.forEach(function(s) {
                 stepMap[s.id] = s;
-                _addNode(s.step_subtype, s.position_x || 400, s.position_y || 200, s.config || {}, s.id, s.step_type);
+                var sy = s.position_y || 200;
+                if (sy <= trigY) sy = minStepY;
+                _addNode(s.step_subtype, s.position_x || 400, sy, s.config || {}, s.id, s.step_type);
             });
 
-            // Create connections
+            // Create connections from DB
             var conns = data.connections || [];
+            var connectedTo = {};
+            var triggerHasOutgoing = false;
             conns.forEach(function(c) {
+                connectedTo[c.to_step_id] = true;
+                if (c.from_step_id === trigId || (c.from_step_id && c.from_step_id.indexOf('trigger_') === 0)) {
+                    triggerHasOutgoing = true;
+                }
                 _addConnection(c.from_step_id, c.to_step_id, c.branch_key || 'default', c.id);
             });
+
+            // Auto-connect trigger to the first step that has no incoming connection
+            // (only if trigger doesn't already have a saved outgoing connection)
+            if (steps.length > 0 && !triggerHasOutgoing) {
+                var firstStep = null;
+                for (var si = 0; si < steps.length; si++) {
+                    if (!connectedTo[steps[si].id]) {
+                        firstStep = steps[si];
+                        break;
+                    }
+                }
+                if (!firstStep) firstStep = steps[0];
+                _addConnection(trigId, firstStep.id, 'default');
+            }
 
             _updateAllConnections();
             _updateEmptyState();
