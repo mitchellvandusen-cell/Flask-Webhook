@@ -254,12 +254,12 @@ async function _toggleMinutesPanel() {
 
         html += '<div class="igb-section-label">Buy More Minutes</div><div class="igb-packages-grid">';
         var pkgs = packages.packages || [];
-        var colors = { 500: '#00ff88', 2000: '#0099ff', 5000: '#a855f7', 10000: '#ffaa00' };
+        var pkgClasses = { 500: 'igb-pkg-green', 2000: 'igb-pkg-blue', 5000: 'igb-pkg-purple', 10000: 'igb-pkg-gold' };
         pkgs.forEach(function(p) {
             var price = p.price_cents ? '$' + (p.price_cents / 100).toFixed(2) : 'N/A';
-            var color = colors[p.minutes] || '#00ff88';
-            html += '<div class="igb-package-card" style="border-color:' + color + '30">' +
-                '<div class="igb-package-minutes" style="color:' + color + '"><i class="fa-solid fa-bolt"></i> ' + _formatNum(p.minutes) + '</div>' +
+            var cls = pkgClasses[p.minutes] || 'igb-pkg-green';
+            html += '<div class="igb-package-card ' + cls + '">' +
+                '<div class="igb-package-minutes"><i class="fa-solid fa-bolt"></i> ' + _formatNum(p.minutes) + '</div>' +
                 '<div class="igb-package-label">' + p.label + '</div>' +
                 '<div class="igb-package-price">' + price + '</div>' +
                 '<button class="igb-btn igb-btn-sm" onclick="window._igbBuyMinutes(' + p.minutes + ')" ' + (p.available ? '' : 'disabled') + '>Buy</button>' +
@@ -462,11 +462,10 @@ async function _injectTemperatureBadges() {
 
 function _createTempBadge(temp, score) {
     var badge = _el('div', 'igb-temp-badge');
-    var colors = { hot: '#00ff88', warm: '#ff9500', cool: '#0099ff', cold: '#888' };
     var icons = { hot: 'fa-fire', warm: 'fa-temperature-half', cool: 'fa-snowflake', cold: 'fa-icicles' };
-    var color = colors[temp] || '#888';
     var icon = icons[temp] || 'fa-circle';
-    badge.innerHTML = '<i class="fa-solid ' + icon + '" style="color:' + color + '"></i>';
+    var colorClasses = { hot: 'igb-color-hot', warm: 'igb-color-warm', cool: 'igb-color-cool', cold: 'igb-color-cold' };
+    badge.innerHTML = '<i class="fa-solid ' + icon + ' ' + (colorClasses[temp] || 'igb-color-cold') + '"></i>';
     badge.title = (temp || 'unknown') + ' | Score: ' + score;
     if (temp === 'hot') badge.classList.add('igb-temp-hot');
     return badge;
@@ -578,12 +577,11 @@ async function _injectIntelligenceCard() {
         if (data.status === 'ok' && data.intelligence) {
             var intel = data.intelligence;
             var temp = intel.temperature || 'unknown';
-            var colors = { hot: '#00ff88', warm: '#ff9500', cool: '#0099ff', cold: '#888' };
             var icons = { hot: 'fa-fire', warm: 'fa-temperature-half', cool: 'fa-snowflake', cold: 'fa-icicles' };
 
             card.innerHTML =
                 '<div class="igb-intel-header">' +
-                '<span class="igb-intel-temp" style="color:' + (colors[temp] || '#888') + '"><i class="fa-solid ' + (icons[temp] || 'fa-circle') + '"></i> ' + _capitalize(temp) + '</span>' +
+                '<span class="igb-intel-temp ' + ({ hot: 'igb-color-hot', warm: 'igb-color-warm', cool: 'igb-color-cool', cold: 'igb-color-cold' }[temp] || 'igb-color-cold') + '"><i class="fa-solid ' + (icons[temp] || 'fa-circle') + '"></i> ' + _capitalize(temp) + '</span>' +
                 '<span class="igb-intel-score">Score: ' + (intel.score || 0) + '</span>' +
                 '</div>' +
                 '<div class="igb-intel-summary">' + _escHtml(intel.summary || '') + '</div>' +

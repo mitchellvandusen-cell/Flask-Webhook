@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 import pytz
 from flask import Blueprint, request, jsonify
-from flask_login import login_required, current_user
+from flask_login import current_user
 from ghl_auth import jwt_or_session_required
 
 from db import get_db_connection, return_db_connection

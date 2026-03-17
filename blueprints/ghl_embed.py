@@ -38,7 +38,7 @@ from flask_login import current_user
 
 from db import (
     get_db_connection, return_db_connection,
-    get_ai_minute_balance, get_ai_minute_purchases, get_ai_minute_usage,
+    get_ai_minute_balance,
 )
 from extensions import YOUR_DOMAIN, ADMIN_EMAILS
 

@@ -3,7 +3,7 @@ import os
 import logging
 
 from flask import Blueprint, request, Response, jsonify
-from flask_login import login_required, current_user
+from flask_login import current_user
 from ghl_auth import jwt_or_session_required
 import requests as http_requests
 import httpx
