@@ -2,7 +2,7 @@
 
 ## What This App Is
 
-**InsuranceGrokBot** is a white-label AI-powered SMS and voice bot platform specifically built for insurance agents. It connects to GoHighLevel (GHL/Lead Connector) CRM via OAuth, intercepts incoming webhook events (new leads, SMS messages, etc.), and uses xAI's Grok LLM to generate intelligent, context-aware replies — automatically sent back through Twilio as white-label SMS (users never see "Twilio" branding).
+**InsuranceGrokBot** is a white-label AI-powered SMS and voice bot platform specifically built for insurance agents. It connects to CRMs (GoHighLevel primary, HubSpot supported) via OAuth, intercepts incoming webhook events (new leads, SMS messages, etc.), and uses xAI's Grok LLM to generate intelligent, context-aware replies — automatically sent back through Twilio as white-label SMS (users never see "Twilio" branding).
 
 The system is multi-tenant SaaS: each subscribing insurance agency gets their own isolated bot instance with their own phone numbers, carrier list, prompt configuration, and conversation history. It also supports agency owners managing multiple sub-accounts.
 
@@ -23,7 +23,8 @@ Gunicorn (40 threads) ──► Flask app (main.py → 16 blueprints + voice/ pa
         ├── Twilio (SMS send/receive, Voice, sub-accounts)
         ├── xAI Grok API (LLM for text replies + Realtime API for voice)
         ├── Stripe (subscriptions + AI Minutes usage billing)
-        ├── GoHighLevel OAuth (CRM data access)
+        ├── GoHighLevel OAuth (CRM data access — primary)
+        ├── HubSpot OAuth (CRM data access — supported)
         ├── Discord (embedded team chat in dashboard)
         └── Slack (embedded workspace chat in dashboard)
 ```
@@ -166,6 +167,16 @@ Master Twilio Account (platform owner — DIRECT CUSTOMER)
 | `voice/predictive_engine.py` | Erlang-C pacing, TCPA compliance tracker, agent state machine, callback queue, timezone/consent lookup | medium |
 | `voice/stream.py` | Call listen/intercept — live audio streaming WebSocket + takeover endpoint | small |
 | `crm_adapters/` | CRM adapter factory + GHL/HubSpot/Salesforce/Pipedrive/Zoho/Insureio/Zapier | directory |
+| `crm_providers/` | CRM Provider plugin system (ABC base + GHL wrapper + HubSpot full integration) | directory |
+| `crm_providers/base.py` | `CRMProvider` ABC — interface for all CRM integrations | small |
+| `crm_providers/ghl/__init__.py` | GHL provider — wraps existing GHL code into CRMProvider interface | small |
+| `crm_providers/hubspot/__init__.py` | HubSpot provider orchestrator — wires OAuth, sync, webhooks, logging, resolver | medium |
+| `crm_providers/hubspot/oauth.py` | HubSpot OAuth2 flow (initiate, callback, token refresh) | medium |
+| `crm_providers/hubspot/inbound.py` | HubSpot webhook handler (batched events, HMAC-SHA256 v3 verification) | medium |
+| `crm_providers/hubspot/sync.py` | HubSpot data sync engine (conversations, deals, contacts → local Postgres) | large |
+| `crm_providers/hubspot/logger.py` | HubSpot activity logging (SMS → Communication, calls → Call, notes → Note) | medium |
+| `crm_providers/hubspot/resolver.py` | HubSpot contact search via CRM v3 Search API | small |
+| `crm_providers/hubspot/crm_card.py` | HubSpot CRM Card endpoint (AI intelligence, zero cost, cache-only) | medium |
 
 ### Blueprints (`blueprints/`)
 
@@ -189,6 +200,7 @@ All HTTP routes have been extracted from `main.py` into dedicated Flask blueprin
 | `calendar.py` | GHL calendar fetching and booking | ~554 lines |
 | `google_calendar.py` | Google Calendar OAuth and integration | ~369 lines |
 | `team.py` | Team management — invite members, roles, permissions, audit log | ~1233 lines |
+| `embed.py` | Embeddable panel routes — CRM iframe embedding (intelligence, dialer, panel) | ~122 lines |
 | `workflows.py` | Workflow CRUD, AI builder, pre-built template seeding, test runs | ~1200 lines |
 
 ### Voice Package (`voice/`)
@@ -259,6 +271,10 @@ The voice bridge has been decomposed from a single `voice_bridge.py` (~193KB) in
 - `GOOGLE_CREDENTIALS` — JSON service account credentials
 - `SUBSCRIBER_SHEET_URL` — CSV export URL for subscriber sync
 - `SUBSCRIBER_SHEET_EDIT_URL` — Spreadsheet edit URL
+
+### HubSpot CRM
+- `HUBSPOT_CLIENT_ID` — HubSpot public app client ID (from HubSpot Developer Portal)
+- `HUBSPOT_CLIENT_SECRET` — HubSpot app client secret (used for OAuth token exchange + webhook HMAC-SHA256 v3 signature verification)
 
 ### Google Calendar (optional)
 - `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET`, `GOOGLE_CALENDAR_REDIRECT_URI`
@@ -477,6 +493,19 @@ All tables created in `db.py`'s `init_db()` function (plus `contact_intelligence
 - `GET|POST /api/cron/refresh-tokens` — Proactive OAuth token refresh (refreshes tokens expiring within 2 hours; designed for 15-minute cron interval)
 - `GET|POST /api/cron/recover-failed-webhooks` — Find webhook tasks that failed due to token errors in the last N hours, get fresh token, re-queue them (schedule every 15 min; auth via `CRON_SECRET`)
 - `GET|POST /api/cron/backfill-failed-webhooks` — One-shot backfill: recover webhooks that failed before `failed_webhook_payloads` table existed, reconstruct payloads from `webhook_logs`, re-queue (safe to run multiple times; auth via `CRON_SECRET`)
+
+### HubSpot CRM Integration
+- `GET /hubspot/oauth/initiate` — Start HubSpot OAuth flow (redirects to HubSpot consent screen)
+- `GET /hubspot/oauth/callback` — HubSpot OAuth callback (exchanges code for tokens, stores in `subscribers.crm_config`)
+- `POST /hubspot/webhook` — HubSpot inbound webhook receiver (batched events, HMAC-SHA256 v3 verified)
+- `GET /hubspot/crm-card` — CRM Card data fetch URL (returns AI intelligence JSON for HubSpot sidebar)
+- `GET /hubspot/crm-card/health` — CRM Card health check
+
+### Embeddable Panels (`blueprints/embed.py`)
+- `GET /embed/panel` — Mini-dashboard without sidebar/topbar (for CRM iframe embedding)
+- `GET /embed/dialer` — Dialer focused on one contact (for CRM iframe embedding)
+- `GET /embed/intelligence/<contact_id>` — AI intelligence card only (for HubSpot CRM Card iframes)
+- `GET /embed/intelligence/<contact_id>/json` — JSON API for intelligence data
 
 ### Website Bot
 - `POST /website-bot-webhook` — External website chatbot webhook
@@ -1230,6 +1259,339 @@ The `crm_adapters/` directory contains a factory pattern with adapters for:
 - Zoho
 - Insureio
 - Zapier
+
+---
+
+## CRM Provider Plugin System (`crm_providers/`)
+
+A higher-level abstraction above CRM adapters. Providers handle the full integration lifecycle: OAuth, webhooks, data sync, activity logging, contact resolution, and embeddable UI. The adapter layer handles individual API operations; the provider layer orchestrates them.
+
+### Architecture
+
+```
+crm_providers/
+├── __init__.py          Provider registry + get_provider(crm_type)
+├── base.py              CRMProvider ABC (full interface definition)
+├── ghl/
+│   └── __init__.py      GHLProvider — wraps existing GHL code (zero changes to originals)
+└── hubspot/
+    ├── __init__.py      HubSpotProvider — orchestrator wiring all pieces
+    ├── oauth.py         OAuth2 flow (initiate, callback, token refresh)
+    ├── inbound.py       Webhook handler (batched, HMAC-SHA256 v3)
+    ├── sync.py          Data sync engine (conversations, deals, contacts)
+    ├── logger.py        Activity logging (SMS, calls, notes → HubSpot timeline)
+    ├── resolver.py      Contact search via CRM v3 Search API
+    └── crm_card.py      CRM Card endpoint (AI intelligence sidebar)
+```
+
+### Provider Registry
+
+```python
+from crm_providers import get_provider
+provider = get_provider("hubspot")  # Returns HubSpotProvider singleton
+provider = get_provider("ghl")      # Returns GHLProvider singleton
+```
+
+Lazy-loaded singletons. Provider type determined by `subscribers.crm_type` column (`"ghl"` or `"hubspot"`).
+
+### CRMProvider ABC Interface
+
+| Method | Purpose |
+|--------|---------|
+| `normalize_webhook(request_data, headers)` | Convert raw CRM webhook → canonical `CRMEvent` |
+| `verify_webhook_signature(data, headers, sig)` | Verify webhook authenticity |
+| `get_webhook_event_type_map()` | Map IGB trigger names → CRM-specific event types |
+| `get_valid_token(subscriber)` | Get valid API token, auto-refresh if expired → `(token, was_refreshed, error)` |
+| `refresh_token(subscriber)` | Force-refresh OAuth token |
+| `sync_conversations(location_id, token)` | Sync messages → `crm_conversations` table |
+| `sync_deals(location_id, token)` | Sync deals → `crm_deals` table |
+| `log_outbound_sms(contact_id, message, token)` | Log SMS to CRM timeline |
+| `log_call(contact_id, direction, duration, token)` | Log call to CRM timeline |
+| `resolve_contact(phone, name, email, token, location_id)` | Search CRM for contact |
+
+### CRM-Agnostic Database Tables
+
+The integration uses renamed tables with `crm_source` columns:
+
+| Table | Replaces | crm_source values |
+|-------|----------|-------------------|
+| `crm_conversations` | `ghl_conversations` | `ghl`, `hubspot` |
+| `crm_deals` | `ghl_opportunities` | `ghl`, `hubspot` |
+| `crm_sync_state` | `ghl_sync_state` | `ghl`, `hubspot` |
+| `contacts` | (new) | `ghl`, `hubspot` |
+
+Column renames: `ghl_message_id` → `external_message_id`, `ghl_opportunity_id` → `external_deal_id`.
+
+---
+
+## HubSpot Deep Integration
+
+### Overview
+
+Full self-contained HubSpot CRM integration in `crm_providers/hubspot/`. Brings IGB's AI texting, voice, lead intelligence, and Smart Filters to HubSpot users. All HubSpot code is isolated in the provider package — zero changes to existing GHL code paths.
+
+### HubSpot OAuth2 Flow
+
+- **Initiate**: `GET /hubspot/oauth/initiate` → redirects to `https://app.hubspot.com/oauth/authorize` with scopes + CSRF state param
+- **Callback**: `GET /hubspot/oauth/callback` → exchanges code for tokens via `POST https://api.hubapi.com/oauth/v1/token`
+- **Token storage**: `subscribers.crm_config` JSONB with `access_token`, `refresh_token`, `token_expires_at`, `hub_id`
+- **Token expiry**: HubSpot tokens expire every **6 hours** (vs GHL's 24 hours)
+- **Auto-refresh**: 10-minute buffer before expiry; cron job refreshes proactively every 15 minutes
+- **Redirect URI**: `https://{YOUR_DOMAIN}/hubspot/oauth/callback`
+
+### Required OAuth Scopes
+
+```
+crm.objects.contacts.read
+crm.objects.contacts.write
+crm.objects.deals.read
+crm.objects.deals.write
+crm.objects.communications.read
+crm.objects.communications.write
+crm.objects.meetings.write
+timeline
+```
+
+### HubSpot Webhook Events
+
+| HubSpot Event | IGB Mapping | Purpose |
+|---------------|-------------|---------|
+| `contact.creation` | `ContactCreate` | New lead created |
+| `contact.propertyChange` | `ContactUpdate` | Contact field changed (includes SMS activity) |
+| `deal.creation` | `DealCreate` | New deal/opportunity |
+| `deal.propertyChange` | `DealUpdate` | Deal stage changed |
+
+**Webhook endpoint**: `POST /hubspot/webhook`
+**Signature**: HMAC-SHA256 v3 — `HMAC(client_secret, POST + url + body + timestamp)`
+**Headers**: `X-HubSpot-Signature-v3`, `X-HubSpot-Request-Timestamp`
+**Payload**: JSON array of batched events (caller iterates batch)
+
+### HubSpot Data Sync
+
+Syncs HubSpot data into local Postgres (mirrors `ghl_sync.py` patterns):
+- **Conversations**: `GET /crm/v3/objects/communications` → `crm_conversations` table
+- **Deals**: `GET /crm/v3/objects/deals` + pipeline stages → `crm_deals` table
+- **Contacts**: `GET /crm/v3/objects/contacts` → `contacts` table
+
+Features: cursor-based pagination (`after` param), exponential backoff, 429 rate limit handling, 401 auto-refresh, UPSERT via `INSERT ... ON CONFLICT DO UPDATE`.
+
+**Rate limits**: 40 req/10s (OAuth apps), 100 req/10s (private apps).
+
+### HubSpot Activity Logging
+
+Logs IGB activity back to HubSpot timeline so agents see everything in their CRM:
+
+| IGB Action | HubSpot Object | Association Type ID |
+|------------|---------------|---------------------|
+| Outbound SMS | Communication (`hs_communication_channel_type: SMS`) | 81 |
+| Call | Call engagement (direction, duration, recording URL) | 194 |
+| AI Note | Note (intelligence summary) | 202 |
+
+### HubSpot CRM Card
+
+Displays AI intelligence in the HubSpot sidebar when agents view a contact:
+- **Data fetch URL**: `GET /hubspot/crm-card?associatedObjectId={id}&portalId={id}`
+- **Returns**: CRM Card v3 JSON with temperature, score, summary, recommended actions
+- **Zero AI cost**: reads from `contact_intelligence` cache only
+- **Actions**: "Full AI Intelligence" (IFRAME → `/embed/intelligence/{id}`) and "Open Dialer" (IFRAME → `/embed/dialer?contact={id}`)
+
+### HubSpot Contact Resolution
+
+- `POST /crm/v3/objects/contacts/search` with OR filter groups
+- Priority: email > phone > name
+- Phone normalization: strips to digits, removes leading country code `1`
+
+### Embeddable Panel Routes (`blueprints/embed.py`)
+
+Lightweight iframe-friendly routes for embedding IGB inside HubSpot CRM Cards:
+- `GET /embed/panel` — Mini-dashboard (no sidebar/topbar)
+- `GET /embed/dialer?contact={id}` — Dialer focused on one contact
+- `GET /embed/intelligence/{contact_id}` — AI intelligence card (temperature, score, summary, actions)
+- `GET /embed/intelligence/{contact_id}/json` — JSON API for intelligence data
+- Template: `templates/embed_base.html` (dark theme, minimal chrome)
+
+### Workflow Engine CRM Abstraction
+
+The workflow engine (`workflow_engine.py`) has been refactored for multi-CRM support:
+- `_is_ghl(crm_type)` helper branches by CRM type
+- `_fetch_contact()` uses CRM adapter for non-GHL contacts
+- 7 step handlers are CRM-aware: `_handle_send_sms`, `_handle_add_tag`, `_handle_remove_tag`, `_handle_update_field`, `_handle_add_note`, `_handle_assign_agent`, `_handle_move_stage`
+- `TRIGGER_EVENT_MAP_BY_CRM` maps trigger names to per-CRM event types
+- GHL code paths remain completely untouched
+
+### Contact Import CRM Abstraction
+
+`import_contacts_task()` in `tasks.py` detects CRM type and uses adapter for non-GHL:
+- Non-GHL: `adapter.search_contact()` for dedup, `adapter.create_contact()`/`adapter.update_contact()` for CRUD
+- GHL: existing direct API path unchanged
+
+---
+
+## HubSpot Developer App Setup Guide
+
+### Prerequisites
+
+- HubSpot Developer account at https://developers.hubspot.com
+- Node.js 18+ installed (for HubSpot CLI)
+- IGB platform deployed with public HTTPS domain (`YOUR_DOMAIN` env var)
+- `HUBSPOT_CLIENT_ID` and `HUBSPOT_CLIENT_SECRET` env vars ready to set
+
+### Step 1: Create HubSpot Developer Account
+
+1. Go to **https://developers.hubspot.com** and sign up / log in
+2. This gives you a **developer account** — distinct from a regular HubSpot portal
+3. From the developer dashboard, create a **developer test account** (free, 90-day Enterprise trial) for testing installs
+
+### Step 2: Install HubSpot CLI
+
+```bash
+npm install -g @hubspot/cli@latest
+hs --version  # verify
+```
+
+### Step 3: Authenticate CLI
+
+```bash
+hs account auth
+# Select your developer account
+# Creates hubspot.config.yml with credentials
+```
+
+You'll need a **Personal Access Key** with these permissions enabled:
+- `Developer projects`
+- `Developer test accounts`
+- `File manager`
+
+### Step 4: Create the Public App
+
+```bash
+hs project create
+# Project name: insurancegrokbot-hubspot
+# App type: Public App
+```
+
+This generates a project with `app-hsmeta.json` and `extensions/` folder.
+
+### Step 5: Configure `app-hsmeta.json`
+
+This is the single source of truth for your HubSpot app. Configure it with IGB's requirements:
+
+```json
+{
+  "version": "1.0.0",
+  "name": "InsuranceGrokBot",
+  "description": "AI-powered SMS and voice bot for insurance agents",
+  "uid": "insurancegrokbot",
+  "auth": {
+    "required_scopes": [
+      "crm.objects.contacts.read",
+      "crm.objects.contacts.write",
+      "crm.objects.deals.read",
+      "crm.objects.deals.write",
+      "crm.objects.communications.read",
+      "crm.objects.communications.write"
+    ],
+    "optional_scopes": [
+      "crm.objects.meetings.write",
+      "timeline"
+    ],
+    "scopes_prompt": "oauth",
+    "redirect_urls": [
+      "https://{YOUR_DOMAIN}/hubspot/oauth/callback"
+    ]
+  },
+  "webhooks": {
+    "implementation_language": "backend",
+    "target_url": "https://{YOUR_DOMAIN}/hubspot/webhook",
+    "subscriptions": [
+      "contact.creation",
+      "contact.propertyChange",
+      "deal.creation",
+      "deal.propertyChange"
+    ]
+  },
+  "extensions": [
+    {
+      "type": "crm/record-page/card",
+      "location": "crm.record.property-panel",
+      "objectTypes": ["CONTACT"],
+      "title": "InsuranceGrokBot AI Intelligence",
+      "data_fetch_uri": "https://{YOUR_DOMAIN}/hubspot/crm-card"
+    }
+  ]
+}
+```
+
+Replace `{YOUR_DOMAIN}` with your actual domain (e.g., `app.insurancegrokbot.click`).
+
+### Step 6: Deploy the App to HubSpot
+
+```bash
+hs project deploy
+```
+
+This registers your app with HubSpot. After deploy, go to the HubSpot Developer Portal and note:
+- **Client ID** — copy this
+- **Client Secret** — copy this
+
+### Step 7: Set Environment Variables on IGB Platform
+
+Add to your `.env` or deployment config:
+
+```bash
+HUBSPOT_CLIENT_ID=your_client_id_from_step_6
+HUBSPOT_CLIENT_SECRET=your_client_secret_from_step_6
+```
+
+The `YOUR_DOMAIN` env var should already be set from your existing deployment.
+
+### Step 8: Install on Test Account
+
+1. In HubSpot Developer Portal, go to your app → **Testing** → **Install on test account**
+2. Select your developer test account
+3. Authorize the OAuth scopes
+4. This triggers the OAuth flow: HubSpot → `GET /hubspot/oauth/initiate` → consent → `GET /hubspot/oauth/callback`
+5. Tokens are stored in `subscribers.crm_config` automatically
+
+### Step 9: Verify Webhook Delivery
+
+1. In HubSpot Developer Portal, go to your app → **Webhooks** tab
+2. Verify subscriptions are active: `contact.creation`, `contact.propertyChange`, `deal.creation`, `deal.propertyChange`
+3. Create a test contact in your test HubSpot portal
+4. Check IGB logs for `POST /hubspot/webhook` receiving the event
+5. Verify HMAC-SHA256 v3 signature passes (uses `HUBSPOT_CLIENT_SECRET`)
+
+### Step 10: Verify CRM Card
+
+1. Open a contact in your test HubSpot portal
+2. The right sidebar should show "InsuranceGrokBot AI Intelligence" card
+3. First load shows "No AI intelligence available" (cache is empty)
+4. After the bot processes conversations for this contact, the card populates with temperature, score, summary, and action buttons
+
+### Step 11: Test End-to-End Flow
+
+1. Create a contact in HubSpot test portal
+2. Verify `contact.creation` webhook fires → IGB receives and queues it
+3. Send a test SMS through IGB → verify Communication object appears in HubSpot timeline
+4. Check data sync: trigger `/api/cron/sync-ghl-data` (it now also syncs HubSpot subscribers)
+5. Verify `crm_conversations`, `crm_deals`, `contacts` tables have HubSpot data with `crm_source='hubspot'`
+6. Trigger AI intelligence analysis → verify CRM Card shows data
+
+### Step 12: Go Live (Production Install)
+
+1. In HubSpot Developer Portal, submit app for **marketplace review** (if distributing publicly)
+2. Or install directly on production HubSpot portals via the OAuth install URL:
+   ```
+   https://app.hubspot.com/oauth/authorize?client_id={CLIENT_ID}&redirect_uri={YOUR_DOMAIN}/hubspot/oauth/callback&scope=crm.objects.contacts.read%20crm.objects.contacts.write%20crm.objects.deals.read%20crm.objects.deals.write%20crm.objects.communications.read%20crm.objects.communications.write
+   ```
+
+### Important Notes
+
+- **Classic CRM Cards sunset October 31, 2026** — the current implementation uses CRM Card v3 data fetch format which works now. Plan migration to UI Extensions (React components) before sunset.
+- **Token refresh**: HubSpot tokens expire every 6 hours. The cron job at `/api/cron/refresh-tokens` handles this automatically. Schedule it every 15 minutes.
+- **Rate limits**: OAuth apps get 40 requests per 10 seconds. The sync engine includes exponential backoff and 429 handling.
+- **Webhook batching**: HubSpot sends events in batched arrays, not individually. The webhook handler iterates the batch.
+- **`HUBSPOT_CLIENT_SECRET` is dual-purpose**: used for both OAuth token exchange AND webhook signature verification (HMAC-SHA256 v3).
 
 ---
 
