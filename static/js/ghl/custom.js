@@ -28,7 +28,7 @@ function igbMakeElement(tagName, cssClass, htmlContent) {
         el.className = cssClass;
     }
     if (htmlContent) {
-        el.innerHTML = htmlContent;
+        el.textContent = htmlContent;
     }
     return el;
 }
@@ -59,9 +59,12 @@ function igbFormatDuration(totalSeconds) {
 }
 
 function igbSafeText(rawText) {
-    const div = document.createElement('div');
-    div.textContent = rawText;
-    return div.innerHTML;
+    return String(rawText)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 function igbCapitalize(str) {
@@ -273,7 +276,7 @@ async function igbToggleMinutesPanel() {
     panel.appendChild(header);
 
     const body = igbMakeElement('div', 'igb-panel-body');
-    body.innerHTML = '<div class="igb-loading">Loading...</div>';
+    body.appendChild(igbMakeElement('div', 'igb-loading', 'Loading...'));
     panel.appendChild(body);
 
     document.body.appendChild(panel);
@@ -302,17 +305,50 @@ async function igbToggleMinutesPanel() {
         if (!panelBody) { return; }
 
         // Clear and rebuild panel body with DOM methods
-        panelBody.innerHTML = '';
+        panelBody.replaceChildren();
 
         // Stats section
         const statsDiv = igbMakeElement('div', 'igb-minutes-stats');
-        statsDiv.innerHTML = `
-            <div class="igb-stat-row"><span>Available</span><strong>${igbFormatNumber(available)} min</strong></div>
-            <div class="igb-stat-row"><span>Purchased</span><span>${igbFormatNumber(totalPurchased)}</span></div>
-            <div class="igb-stat-row"><span>Used</span><span>${igbFormatNumber(totalUsed)}</span></div>
-            <div class="igb-progress-bar"><div class="igb-progress-fill" style="width:${Math.min(usedPercent, 100)}%"></div></div>
-            <div class="igb-stat-row igb-text-muted"><span>${usedPercent}% used</span></div>
-        `;
+
+        const availRow = igbMakeElement('div', 'igb-stat-row');
+        const availLabel = document.createElement('span');
+        availLabel.textContent = 'Available';
+        const availVal = document.createElement('strong');
+        availVal.textContent = igbFormatNumber(available) + ' min';
+        availRow.appendChild(availLabel);
+        availRow.appendChild(availVal);
+        statsDiv.appendChild(availRow);
+
+        const purchRow = igbMakeElement('div', 'igb-stat-row');
+        const purchLabel = document.createElement('span');
+        purchLabel.textContent = 'Purchased';
+        const purchVal = document.createElement('span');
+        purchVal.textContent = igbFormatNumber(totalPurchased);
+        purchRow.appendChild(purchLabel);
+        purchRow.appendChild(purchVal);
+        statsDiv.appendChild(purchRow);
+
+        const usedRow = igbMakeElement('div', 'igb-stat-row');
+        const usedLabel = document.createElement('span');
+        usedLabel.textContent = 'Used';
+        const usedVal = document.createElement('span');
+        usedVal.textContent = igbFormatNumber(totalUsed);
+        usedRow.appendChild(usedLabel);
+        usedRow.appendChild(usedVal);
+        statsDiv.appendChild(usedRow);
+
+        const progressBar = igbMakeElement('div', 'igb-progress-bar');
+        const progressFill = igbMakeElement('div', 'igb-progress-fill');
+        progressFill.style.width = Math.min(usedPercent, 100) + '%';
+        progressBar.appendChild(progressFill);
+        statsDiv.appendChild(progressBar);
+
+        const pctRow = igbMakeElement('div', 'igb-stat-row igb-text-muted');
+        const pctSpan = document.createElement('span');
+        pctSpan.textContent = usedPercent + '% used';
+        pctRow.appendChild(pctSpan);
+        statsDiv.appendChild(pctRow);
+
         panelBody.appendChild(statsDiv);
 
         // Section label
@@ -329,11 +365,19 @@ async function igbToggleMinutesPanel() {
             const packageClass = packageColorMap[pkg.minutes] || 'igb-pkg-green';
 
             const card = igbMakeElement('div', `igb-package-card ${packageClass}`);
-            card.innerHTML = `
-                <div class="igb-package-minutes"><i class="fa-solid fa-bolt"></i> ${igbFormatNumber(pkg.minutes)}</div>
-                <div class="igb-package-label">${igbSafeText(pkg.label)}</div>
-                <div class="igb-package-price">${displayPrice}</div>
-            `;
+
+            const minutesDiv = igbMakeElement('div', 'igb-package-minutes');
+            const boltPkgIcon = document.createElement('i');
+            boltPkgIcon.className = 'fa-solid fa-bolt';
+            minutesDiv.appendChild(boltPkgIcon);
+            minutesDiv.appendChild(document.createTextNode(' ' + igbFormatNumber(pkg.minutes)));
+            card.appendChild(minutesDiv);
+
+            const labelDiv = igbMakeElement('div', 'igb-package-label', pkg.label);
+            card.appendChild(labelDiv);
+
+            const priceDiv = igbMakeElement('div', 'igb-package-price', displayPrice);
+            card.appendChild(priceDiv);
 
             const buyBtn = document.createElement('button');
             buyBtn.className = 'igb-btn igb-btn-sm';
@@ -421,7 +465,7 @@ async function igbToggleStatsPanel() {
     panel.appendChild(header);
 
     const body = igbMakeElement('div', 'igb-panel-body');
-    body.innerHTML = '<div class="igb-loading">Loading...</div>';
+    body.appendChild(igbMakeElement('div', 'igb-loading', 'Loading...'));
     panel.appendChild(body);
 
     document.body.appendChild(panel);
