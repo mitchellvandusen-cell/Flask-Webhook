@@ -1498,7 +1498,6 @@ async function igbRequestTranscription(callSid, requestBtn) {
     }
 }
 
-// ── Spam Protection & Config Panel ──────────────────────────────────────────
 
 let igbConfigPanelOpen = false;
 let igbConfigSection = 'overview';
@@ -1625,7 +1624,6 @@ function igbDashLink(label, tab, section) {
     return '<a class="igb-cfg-dash-link" href="' + url + '" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i> ' + igbSafeText(label) + '</a>';
 }
 
-// ── Section: Overview ──────────────────────────────────────────────────────
 
 async function igbSecOverview(c) {
     const [status, vc] = await Promise.all([
@@ -1691,7 +1689,6 @@ async function igbSecOverview(c) {
     }
 }
 
-// ── Section: Voice Account Activation ──────────────────────────────────────
 
 async function igbSecActivate(c) {
     const vc = await igbApiRequest('GET', '/api/ghl/voice-config');
@@ -1731,7 +1728,6 @@ async function igbSecActivate(c) {
     }
 }
 
-// ── Section: Buy Numbers ───────────────────────────────────────────────────
 
 async function igbSecNumbers(c) {
     c.innerHTML = '';
@@ -1835,7 +1831,6 @@ async function igbSecNumbers(c) {
     });
 }
 
-// ── Section: Business Profile ──────────────────────────────────────────────
 
 async function igbSecBusiness(c) {
     const data = await igbApiRequest('GET', '/api/ghl/trust-hub');
@@ -1872,7 +1867,6 @@ async function igbSecBusiness(c) {
     }
 }
 
-// ── Section: Spam Protection (CNAM + Trust Hub) ────────────────────────────
 
 async function igbSecSpam(c) {
     const data = await igbApiRequest('GET', '/api/ghl/spam-protection/status');
@@ -1895,7 +1889,6 @@ async function igbSecSpam(c) {
     }
 }
 
-// ── Section: Number Integrity ──────────────────────────────────────────────
 
 async function igbSecIntegrity(c) {
     const data = await igbApiRequest('GET', '/api/ghl/number-integrity/status');
@@ -1917,7 +1910,6 @@ async function igbSecIntegrity(c) {
     }
 }
 
-// ── Section: Number Health ─────────────────────────────────────────────────
 
 async function igbSecHealth(c) {
     const data = await igbApiRequest('GET', '/api/ghl/number-health');
@@ -1958,7 +1950,6 @@ async function igbSecHealth(c) {
     c.appendChild(list);
 }
 
-// ── Section: A2P 10DLC ─────────────────────────────────────────────────────
 
 async function igbSecA2p(c) {
     const data = await igbApiRequest('GET', '/api/ghl/a2p/status');
@@ -1981,7 +1972,6 @@ async function igbSecA2p(c) {
     }
 }
 
-// ── Section: Voice Config ──────────────────────────────────────────────────
 
 async function igbSecVoice(c) {
     const vc = await igbApiRequest('GET', '/api/ghl/voice-config');
@@ -2065,7 +2055,6 @@ async function igbSecVoice(c) {
     });
 }
 
-// ── Section: SMS Bot Config ────────────────────────────────────────────────
 
 async function igbSecSms(c) {
     const data = await igbApiRequest('GET', '/api/ghl/bot-config');
