@@ -1,66 +1,30 @@
-/**
- * InsuranceGrokBot — GHL Custom CSS
- *
- * Styles for all injected elements: mini dialer popup, pipeline buttons,
- * temperature badges, AI Reply, intelligence cards, AI Minutes chip,
- * stats chip, recording players, toast notifications.
- *
- * Full Liquid Glass glassmorphism: frosted translucent panels with
- * asymmetric 3D edge lighting (top/left bright, bottom/right shadow),
- * inset box-shadows for glass thickness, layered rgba gradients,
- * and backdrop-filter blur+saturation+brightness.
- *
- * Paste this entire file into GHL Developer Portal → Custom JS → CSS field.
- */
-
-/* ── CSS Variables ───────────────────────────────────────────────────────── */
-
 :root {
-    /* Accent */
     --igb-accent: #00ff88;
     --igb-accent-hover: #ffffff;
     --igb-accent-dim: rgba(0,255,136,0.12);
-
-    /* Background gradients — simulates frosted translucent glass */
     --igb-glass-bg: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%);
     --igb-glass-bg-strong: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.04) 100%);
     --igb-glass-bg-solid: rgba(10,10,15,0.88);
-
-    /* Blur filter — frosted glass effect */
     --igb-glass-blur: blur(20px) saturate(160%) brightness(1.1);
-
-    /* 3D Edge Lighting — top/left catch the light, bottom/right in shadow */
     --igb-border-top: rgba(255,255,255,0.25);
     --igb-border-left: rgba(255,255,255,0.15);
     --igb-border-bottom: rgba(255,255,255,0.05);
     --igb-border-right: rgba(255,255,255,0.05);
-
-    /* Legacy aliases */
     --igb-border: rgba(255,255,255,0.12);
     --igb-border-bright: rgba(255,255,255,0.22);
-
-    /* Depth shadows — outer float + inner edge glow */
     --igb-glass-shadow: 0 16px 32px -8px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.15);
     --igb-glass-shadow-hover: 0 24px 48px -12px rgba(0,255,136,0.15), inset 0 1px 2px rgba(255,255,255,0.25);
     --igb-glass-shadow-sm: 0 8px 20px -4px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12);
-
-    /* Surface layers (interior elements on glass) */
     --igb-surface: rgba(255,255,255,0.06);
     --igb-surface-hover: rgba(255,255,255,0.10);
     --igb-surface-active: rgba(255,255,255,0.14);
-
-    /* Text hierarchy */
     --igb-text: #fff;
     --igb-text-sec: rgba(255,255,255,0.82);
     --igb-text-muted: rgba(255,255,255,0.48);
-
-    /* Radii */
     --igb-radius: 14px;
     --igb-radius-sm: 10px;
     --igb-radius-xs: 6px;
 }
-
-/* ── Glass Mixin (applied via classes) ──────────────────────────────────── */
 
 .igb-glass {
     background: var(--igb-glass-bg);
@@ -88,7 +52,6 @@
     box-shadow: var(--igb-glass-shadow-sm);
 }
 
-/* Interior surface on top of glass panels */
 .igb-inner-surface {
     background: var(--igb-surface);
     border: 1px solid rgba(255,255,255,0.06);
@@ -99,8 +62,6 @@
     background: var(--igb-surface-hover);
     border-color: rgba(255,255,255,0.10);
 }
-
-/* ── Floating Chips (Top Nav) ────────────────────────────────────────────── */
 
 .igb-floating-chips {
     position: fixed;
@@ -147,8 +108,6 @@
     50% { opacity: 0.6; }
 }
 
-/* ── Dropdown Panels (Glass Panes) ──────────────────────────────────────── */
-
 .igb-dropdown-panel {
     position: fixed;
     z-index: 99995;
@@ -189,8 +148,6 @@
 .igb-panel-close:hover { color: var(--igb-text); background: rgba(255,255,255,0.08); }
 .igb-panel-body { padding: 14px 16px; }
 
-/* ── Stats / Balance ─────────────────────────────────────────────────────── */
-
 .igb-minutes-stats { margin-bottom: 14px; }
 .igb-stat-row {
     display: flex;
@@ -228,8 +185,6 @@
     box-shadow: 0 0 8px rgba(0,255,136,0.3);
 }
 
-/* ── Package Cards (Glass Tiles) ────────────────────────────────────────── */
-
 .igb-packages-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -257,7 +212,6 @@
 .igb-package-label { font-size: 0.72rem; color: var(--igb-text-muted); margin-bottom: 4px; }
 .igb-package-price { font-size: 0.85rem; font-weight: 600; color: var(--igb-text); margin-bottom: 8px; }
 
-/* Package accent colors */
 .igb-pkg-green .igb-package-minutes { color: #00ff88; }
 .igb-pkg-green { border-color: rgba(0,255,136,0.30) rgba(0,255,136,0.10) rgba(0,255,136,0.05) rgba(0,255,136,0.20); }
 .igb-pkg-blue .igb-package-minutes { color: #0099ff; }
@@ -266,8 +220,6 @@
 .igb-pkg-purple { border-color: rgba(168,85,247,0.30) rgba(168,85,247,0.10) rgba(168,85,247,0.05) rgba(168,85,247,0.20); }
 .igb-pkg-gold .igb-package-minutes { color: #ffaa00; }
 .igb-pkg-gold { border-color: rgba(255,170,0,0.30) rgba(255,170,0,0.10) rgba(255,170,0,0.05) rgba(255,170,0,0.20); }
-
-/* ── Buttons (Glass Surface) ────────────────────────────────────────────── */
 
 .igb-btn {
     display: inline-flex;
@@ -332,8 +284,6 @@
     box-shadow: 0 8px 24px -4px rgba(0,153,255,0.2), inset 0 1px 1px rgba(0,153,255,0.18);
 }
 
-/* ── Pipeline Dial Button (Mini Glass Pill) ────────────────────────────── */
-
 .igb-dial-btn {
     display: inline-flex;
     align-items: center;
@@ -364,8 +314,6 @@
     box-shadow: 0 2px 6px rgba(0,0,0,0.3), inset 0 2px 3px rgba(0,0,0,0.15);
 }
 
-/* ── Temperature Badges (Floating Glass Dots) ──────────────────────────── */
-
 .igb-temp-badge {
     position: absolute;
     top: 6px;
@@ -376,13 +324,10 @@
 }
 .igb-temp-hot { animation: igbPulse 2s ease-in-out infinite; }
 
-/* Temperature color classes */
 .igb-color-hot { color: #00ff88; }
 .igb-color-warm { color: #ff9500; }
 .igb-color-cool { color: #0099ff; }
 .igb-color-cold { color: rgba(255,255,255,0.4); }
-
-/* ── AI Reply Button (Glass Pill) ──────────────────────────────────────── */
 
 .igb-ai-reply-btn {
     display: inline-flex;
@@ -409,8 +354,6 @@
     box-shadow: 0 6px 16px -3px rgba(0,255,136,0.18), inset 0 1px 1px rgba(0,255,136,0.15);
     transform: translateY(-1px);
 }
-
-/* ── AI Reply Preview (Glass Pane) ──────────────────────────────────────── */
 
 .igb-ai-preview {
     position: fixed;
@@ -456,8 +399,6 @@
     padding: 10px 14px;
     border-top: 1px solid rgba(255,255,255,0.08);
 }
-
-/* ── Intelligence Card (Glass Panel) ────────────────────────────────────── */
 
 .igb-intelligence-card {
     background: var(--igb-glass-bg-solid);
@@ -515,16 +456,12 @@
     100% { background-position: -200% 0; }
 }
 
-/* ── Bulk Call Button ────────────────────────────────────────────────────── */
-
 .igb-bulk-call-btn {
     color: #00ff88 !important;
     background: linear-gradient(135deg, rgba(0,255,136,0.08) 0%, rgba(0,255,136,0.02) 100%) !important;
     border-color: rgba(0,255,136,0.25) !important;
     box-shadow: 0 4px 12px -2px rgba(0,255,136,0.1), inset 0 1px 0 rgba(0,255,136,0.1) !important;
 }
-
-/* ── Mini Dialer Popup (Main Glass Panel) ───────────────────────────────── */
 
 .igb-dialer-popup {
     position: fixed;
@@ -624,8 +561,6 @@
 .igb-line-btn.disabled { opacity: 0.3; cursor: not-allowed; }
 .igb-active-count { margin-left: auto; }
 
-/* ── Call Status (Inner Glass Surface) ───────────────────────────────────── */
-
 .igb-call-status {
     padding: 10px 14px;
     margin-bottom: 10px;
@@ -654,8 +589,6 @@
 .igb-status-ringing { background: #ffaa00; color: #ffaa00; animation: igbPulse 1s ease-in-out infinite; }
 .igb-status-connected { background: #00ff88; color: #00ff88; }
 .igb-status-ended { background: rgba(255,255,255,0.4); color: rgba(255,255,255,0.4); }
-
-/* ── Call Controls (Glass Button Row) ────────────────────────────────────── */
 
 .igb-call-controls {
     display: flex;
@@ -700,8 +633,6 @@
     box-shadow: 0 6px 16px -3px rgba(255,68,68,0.2), inset 0 1px 1px rgba(255,68,68,0.15);
 }
 
-/* ── Disposition (Glass Grid) ───────────────────────────────────────────── */
-
 .igb-disposition { margin-bottom: 12px; }
 .igb-disp-label {
     font-size: 0.72rem;
@@ -743,8 +674,6 @@
     border-color: rgba(255,68,68,0.20) rgba(255,68,68,0.06) rgba(255,68,68,0.03) rgba(255,68,68,0.12);
 }
 
-/* ── Queue List ──────────────────────────────────────────────────────────── */
-
 .igb-dialer-queue-header {
     font-size: 0.72rem;
     font-weight: 700;
@@ -761,8 +690,6 @@
     font-size: 0.8rem;
     color: var(--igb-text-sec);
 }
-
-/* ── Audio Player (Glass Bar) ────────────────────────────────────────────── */
 
 .igb-audio-player {
     display: flex;
@@ -824,8 +751,6 @@
     box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
 }
 
-/* ── Toast Notifications (Floating Glass Cards) ─────────────────────────── */
-
 #igb-toast-container {
     position: fixed;
     bottom: 16px;
@@ -877,16 +802,12 @@
     to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* ── Loading Spinner ─────────────────────────────────────────────────────── */
-
 .igb-loading {
     text-align: center;
     color: var(--igb-text-muted);
     font-size: 0.82rem;
     padding: 20px 0;
 }
-
-/* ── Scrollbar (Thin Glass) ──────────────────────────────────────────────── */
 
 .igb-dialer-popup::-webkit-scrollbar,
 .igb-dropdown-panel::-webkit-scrollbar { width: 5px; }
