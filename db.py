@@ -1372,11 +1372,11 @@ def init_db() -> bool:
             conn.rollback()
             logger.debug(f"contact_cache assigned_to migration note: {e}")
 
-        # ── GHL Sync Engine tables ─────────────────────────────────────────
-        # Phase 1: ghl_conversations — stores ALL GHL conversation messages locally
+        # ── CRM Sync Engine tables (renamed from ghl_* for multi-CRM support) ──
+        # Phase 1: crm_conversations — stores ALL CRM conversation messages locally
         try:
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS ghl_conversations (
+                CREATE TABLE IF NOT EXISTS crm_conversations (
                     id SERIAL PRIMARY KEY,
                     location_id TEXT NOT NULL,
                     contact_id TEXT NOT NULL,
@@ -1387,26 +1387,47 @@ def init_db() -> bool:
                     direction TEXT DEFAULT 'inbound',
                     body TEXT,
                     source TEXT DEFAULT 'ghl_native',
-                    ghl_message_id TEXT UNIQUE NOT NULL,
+                    external_message_id TEXT UNIQUE NOT NULL,
+                    crm_source TEXT DEFAULT 'ghl',
                     date_added TEXT,
                     synced_at TIMESTAMP DEFAULT NOW()
                 )
             """)
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_conv_location ON ghl_conversations(location_id)")
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_conv_contact ON ghl_conversations(location_id, contact_id)")
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_conv_type ON ghl_conversations(location_id, message_type)")
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_conv_source ON ghl_conversations(location_id, source)")
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_conv_date ON ghl_conversations(location_id, date_added DESC)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_crm_conv_location ON crm_conversations(location_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_crm_conv_contact ON crm_conversations(location_id, contact_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_crm_conv_type ON crm_conversations(location_id, message_type)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_crm_conv_source ON crm_conversations(location_id, source)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_crm_conv_date ON crm_conversations(location_id, date_added DESC)")
             conn.commit()
-            logger.info("✅ Migration: Created ghl_conversations table")
+            logger.info("✅ Migration: Created crm_conversations table")
         except Exception as e:
             conn.rollback()
-            logger.debug(f"ghl_conversations migration note: {e}")
+            logger.debug(f"crm_conversations migration note: {e}")
 
-        # Phase 1: ghl_opportunities — synced pipeline deals from GHL
+        # Rename legacy ghl_conversations → crm_conversations if it exists
         try:
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS ghl_opportunities (
+                DO $$
+                BEGIN
+                    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ghl_conversations')
+                       AND NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'crm_conversations') THEN
+                        ALTER TABLE ghl_conversations RENAME TO crm_conversations;
+                    END IF;
+                    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'crm_conversations' AND column_name = 'ghl_message_id') THEN
+                        ALTER TABLE crm_conversations RENAME COLUMN ghl_message_id TO external_message_id;
+                    END IF;
+                END $$;
+            """)
+            cur.execute("ALTER TABLE crm_conversations ADD COLUMN IF NOT EXISTS crm_source TEXT DEFAULT 'ghl'")
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"crm_conversations rename migration note: {e}")
+
+        # Phase 1: crm_deals — synced pipeline deals from any CRM
+        try:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS crm_deals (
                     id SERIAL PRIMARY KEY,
                     location_id TEXT NOT NULL,
                     contact_id TEXT,
@@ -1418,29 +1439,51 @@ def init_db() -> bool:
                     monetary_value NUMERIC DEFAULT 0,
                     source TEXT,
                     assigned_to TEXT,
-                    ghl_opportunity_id TEXT UNIQUE NOT NULL,
+                    external_deal_id TEXT UNIQUE NOT NULL,
+                    crm_source TEXT DEFAULT 'ghl',
                     created_at_ghl TEXT,
                     updated_at_ghl TEXT,
                     synced_at TIMESTAMP DEFAULT NOW()
                 )
             """)
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_opp_location ON ghl_opportunities(location_id)")
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_opp_contact ON ghl_opportunities(location_id, contact_id)")
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_opp_pipeline ON ghl_opportunities(location_id, pipeline_id)")
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_opp_status ON ghl_opportunities(location_id, status)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_crm_deals_location ON crm_deals(location_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_crm_deals_contact ON crm_deals(location_id, contact_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_crm_deals_pipeline ON crm_deals(location_id, pipeline_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_crm_deals_status ON crm_deals(location_id, status)")
             conn.commit()
-            logger.info("✅ Migration: Created ghl_opportunities table")
+            logger.info("✅ Migration: Created crm_deals table")
         except Exception as e:
             conn.rollback()
-            logger.debug(f"ghl_opportunities migration note: {e}")
+            logger.debug(f"crm_deals migration note: {e}")
 
-        # Phase 1: ghl_sync_state — tracks incremental sync progress
+        # Rename legacy ghl_opportunities → crm_deals if it exists
         try:
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS ghl_sync_state (
+                DO $$
+                BEGIN
+                    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ghl_opportunities')
+                       AND NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'crm_deals') THEN
+                        ALTER TABLE ghl_opportunities RENAME TO crm_deals;
+                    END IF;
+                    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'crm_deals' AND column_name = 'ghl_opportunity_id') THEN
+                        ALTER TABLE crm_deals RENAME COLUMN ghl_opportunity_id TO external_deal_id;
+                    END IF;
+                END $$;
+            """)
+            cur.execute("ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS crm_source TEXT DEFAULT 'ghl'")
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"crm_deals rename migration note: {e}")
+
+        # Phase 1: crm_sync_state — tracks incremental sync progress per CRM
+        try:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS crm_sync_state (
                     id SERIAL PRIMARY KEY,
                     location_id TEXT NOT NULL,
                     resource_type TEXT NOT NULL,
+                    crm_source TEXT DEFAULT 'ghl',
                     last_sync_at TIMESTAMP,
                     last_cursor TEXT,
                     sync_status TEXT DEFAULT 'idle',
@@ -1450,13 +1493,65 @@ def init_db() -> bool:
                     UNIQUE (location_id, resource_type)
                 )
             """)
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_sync_location ON ghl_sync_state(location_id)")
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_sync_status ON ghl_sync_state(sync_status)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_crm_sync_location ON crm_sync_state(location_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_crm_sync_status ON crm_sync_state(sync_status)")
             conn.commit()
-            logger.info("✅ Migration: Created ghl_sync_state table")
+            logger.info("✅ Migration: Created crm_sync_state table")
         except Exception as e:
             conn.rollback()
-            logger.debug(f"ghl_sync_state migration note: {e}")
+            logger.debug(f"crm_sync_state migration note: {e}")
+
+        # Rename legacy ghl_sync_state → crm_sync_state if it exists
+        try:
+            cur.execute("""
+                DO $$
+                BEGIN
+                    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ghl_sync_state')
+                       AND NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'crm_sync_state') THEN
+                        ALTER TABLE ghl_sync_state RENAME TO crm_sync_state;
+                    END IF;
+                END $$;
+            """)
+            cur.execute("ALTER TABLE crm_sync_state ADD COLUMN IF NOT EXISTS crm_source TEXT DEFAULT 'ghl'")
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"crm_sync_state rename migration note: {e}")
+
+        # ── Universal contacts table (multi-CRM + standalone mode) ────────
+        try:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS contacts (
+                    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+                    location_id TEXT NOT NULL,
+                    external_id TEXT,
+                    crm_source TEXT DEFAULT 'standalone',
+                    first_name TEXT,
+                    last_name TEXT,
+                    email TEXT,
+                    phone TEXT,
+                    address TEXT,
+                    city TEXT,
+                    state TEXT,
+                    zip TEXT,
+                    tags JSONB DEFAULT '[]',
+                    custom_fields JSONB DEFAULT '{}',
+                    pipeline_stage TEXT,
+                    date_added TIMESTAMP DEFAULT NOW(),
+                    last_activity_at TIMESTAMP,
+                    do_not_contact BOOLEAN DEFAULT FALSE,
+                    UNIQUE(location_id, external_id, crm_source)
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_contacts_location ON contacts(location_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_contacts_phone ON contacts(phone)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_contacts_external ON contacts(external_id, crm_source)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_contacts_crm ON contacts(location_id, crm_source)")
+            conn.commit()
+            logger.info("✅ Migration: Created contacts table")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"contacts migration note: {e}")
 
         # Phase 3: SMS channel selection — sms_send_via column
         try:
@@ -2963,9 +3058,10 @@ def delete_subscriber_data(location_id: str) -> bool:
             "persistent_alerts",
             "call_history",
             "failed_webhook_payloads",
-            "ghl_conversations",
-            "ghl_opportunities",
-            "ghl_sync_state",
+            "crm_conversations",
+            "crm_deals",
+            "crm_sync_state",
+            "contacts",
             "number_health",
             "contact_cache",
         ]

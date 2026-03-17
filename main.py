@@ -300,6 +300,14 @@ from blueprints.team import team_bp
 from blueprints.contacts_import import contacts_import_bp
 from blueprints.workflows import workflows_bp
 
+# HubSpot CRM integration blueprints
+from crm_providers.hubspot.oauth import hubspot_oauth_bp
+from crm_providers.hubspot.inbound import hubspot_webhook_bp
+from crm_providers.hubspot.crm_card import hubspot_card_bp
+
+# Embeddable panel routes (CRM iframes, Chrome extension)
+from blueprints.embed import embed_bp
+
 app.register_blueprint(auth_bp)
 app.register_blueprint(public_bp)
 app.register_blueprint(webhooks_bp)
@@ -319,6 +327,10 @@ app.register_blueprint(numbers_bp)
 app.register_blueprint(team_bp)
 app.register_blueprint(contacts_import_bp)
 app.register_blueprint(workflows_bp)
+app.register_blueprint(hubspot_oauth_bp)
+app.register_blueprint(hubspot_webhook_bp)
+app.register_blueprint(hubspot_card_bp)
+app.register_blueprint(embed_bp)
 
 logger.info("All modular blueprints registered successfully.")
 

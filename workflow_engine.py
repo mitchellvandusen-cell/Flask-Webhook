@@ -32,7 +32,7 @@ GHL_HEADERS_BASE = {"Version": "2021-07-28", "Content-Type": "application/json"}
 # Maximum steps per single execution pass (prevents infinite loops)
 MAX_STEPS_PER_RUN = 200
 
-# Trigger type → GHL webhook event_type mapping
+# Trigger type → GHL webhook event_type mapping (default / GHL)
 # Event-driven triggers fire when a webhook arrives with a matching event type.
 # Time-based triggers (scheduled, no_response, lead_age, birthday_approaching)
 # are polled via cron — see process_time_based_triggers().
@@ -51,6 +51,14 @@ TRIGGER_EVENT_MAP = {
     "field_updated": "ContactUpdate",
 }
 
+# Per-CRM trigger event type mappings (keyed by crm_type)
+# GHL uses TRIGGER_EVENT_MAP above. Non-GHL CRMs define their own mappings
+# via their provider's get_webhook_event_type_map().
+TRIGGER_EVENT_MAP_BY_CRM = {
+    "ghl": TRIGGER_EVENT_MAP,
+    "gohighlevel": TRIGGER_EVENT_MAP,
+}
+
 # These triggers are NOT event-driven — they are polled by cron.
 CRON_BASED_TRIGGERS = {
     "scheduled",       # Fires on a cron schedule
@@ -59,6 +67,51 @@ CRON_BASED_TRIGGERS = {
     "birthday_approaching",  # Fires X days before contact's birthday
     "manual",          # Only fires manually via API
 }
+
+
+def _is_ghl(crm_type):
+    """Check if a crm_type string is GoHighLevel."""
+    return (crm_type or "ghl").lower() in ("ghl", "gohighlevel", "")
+
+
+def _get_subscriber_crm_type(location_id, subscriber=None):
+    """
+    Get the CRM type for a subscriber. Caches the subscriber in the
+    module-level _subscriber_cache for the current execution.
+
+    Returns: (crm_type: str, subscriber: dict)
+    """
+    cache_key = f"sub:{location_id}"
+    if cache_key in _contact_cache and subscriber is None:
+        sub = _contact_cache[cache_key]
+        return ((sub.get("crm_type") or "ghl"), sub)
+    if subscriber is None:
+        subscriber = get_subscriber_info_hybrid(location_id)
+    if subscriber:
+        _contact_cache[cache_key] = subscriber
+    crm_type = (subscriber or {}).get("crm_type", "ghl") or "ghl"
+    return (crm_type, subscriber or {})
+
+
+def get_trigger_event_map_for_crm(crm_type):
+    """
+    Get the trigger event type mapping for a given CRM.
+    Falls back to the default GHL map for unknown CRMs.
+    """
+    if crm_type in TRIGGER_EVENT_MAP_BY_CRM:
+        return TRIGGER_EVENT_MAP_BY_CRM[crm_type]
+    # Try to get from provider
+    try:
+        from crm_providers import get_provider
+        provider = get_provider(crm_type)
+        if provider:
+            mapping = provider.get_webhook_event_type_map()
+            if mapping:
+                TRIGGER_EVENT_MAP_BY_CRM[crm_type] = mapping
+                return mapping
+    except Exception:
+        pass
+    return TRIGGER_EVENT_MAP
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -602,7 +655,7 @@ def _handle_send_sms(cur, conn, run_id, step, config, location_id, contact_id, c
     # Fetch contact data for merge fields
     contact = _fetch_contact(location_id, contact_id)
     if not contact:
-        return {"status": "error", "error": "Contact not found in GHL", "continue": True}
+        return {"status": "error", "error": "Contact not found", "continue": True}
 
     message = _interpolate_merge_fields(message_template, contact)
     phone = contact.get("phone")
@@ -614,11 +667,12 @@ def _handle_send_sms(cur, conn, run_id, step, config, location_id, contact_id, c
     if not subscriber:
         return {"status": "error", "error": "Subscriber not found", "continue": True}
 
+    crm_type = (subscriber.get("crm_type") or "ghl").lower()
     sms_send_via = subscriber.get("sms_send_via", "ghl")
     from_strategy = config.get("from_strategy", "default")
 
     if sms_send_via and sms_send_via.startswith("+"):
-        # Send via Twilio
+        # Send via Twilio (works for all CRM types)
         from_number = sms_send_via
         if from_strategy == "closest_state":
             from_number = _get_closest_state_number(subscriber, phone) or from_number
@@ -639,6 +693,16 @@ def _handle_send_sms(cur, conn, run_id, step, config, location_id, contact_id, c
             twilio_auth_token=sub_token,
             contact_id=contact_id,
         )
+    elif not _is_ghl(crm_type):
+        # Non-GHL CRM — use CRM adapter for messaging
+        try:
+            from crm_adapters.factory import get_adapter_for_subscriber
+            adapter = get_adapter_for_subscriber(subscriber)
+            success = adapter.send_message(contact_id, message, phone=phone)
+            fail_reason = "" if success else "adapter_send_failed"
+            detail = None
+        except Exception as e:
+            success, fail_reason, detail = False, f"adapter_error: {e}", str(e)
     else:
         # Send via GHL
         token = get_valid_token(location_id)
@@ -725,11 +789,34 @@ def _handle_ai_call(cur, conn, run_id, step, config, location_id, contact_id, co
 
 
 def _handle_add_tag(cur, conn, run_id, step, config, location_id, contact_id, context):
-    """Add a tag to the GHL contact."""
+    """Add a tag to the contact (CRM-aware)."""
     tag = (config.get("tag") or config.get("tag_name") or "").strip()
     if not tag:
         return {"status": "error", "error": "No tag specified", "continue": True}
 
+    crm_type, subscriber = _get_subscriber_crm_type(location_id)
+
+    if not _is_ghl(crm_type):
+        # Non-GHL: use CRM adapter
+        try:
+            from crm_adapters.factory import get_adapter_for_subscriber
+            adapter = get_adapter_for_subscriber(subscriber)
+            # Get current contact, add tag, update
+            contact = adapter.get_contact(contact_id)
+            if not contact:
+                return {"status": "error", "error": "Contact not found", "continue": True}
+            current_tags = contact.get("tags", [])
+            if isinstance(current_tags, list) and tag in current_tags:
+                return {"status": "completed", "note": "Tag already present"}
+            success = adapter.update_contact(contact_id, {"tags": (current_tags or []) + [tag]})
+            if success:
+                logger.info(f"Tag '{tag}' added to {contact_id} via {crm_type} (run={run_id})")
+                return {"status": "completed", "tag": tag}
+            return {"status": "error", "error": f"{crm_type} tag update failed", "continue": True}
+        except Exception as e:
+            return {"status": "error", "error": f"Tag add failed: {e}", "continue": True}
+
+    # GHL path — unchanged
     token = get_valid_token(location_id)
     if not token:
         return {"status": "error", "error": "No valid GHL token", "continue": True}
@@ -765,11 +852,34 @@ def _handle_add_tag(cur, conn, run_id, step, config, location_id, contact_id, co
 
 
 def _handle_remove_tag(cur, conn, run_id, step, config, location_id, contact_id, context):
-    """Remove a tag from the GHL contact."""
+    """Remove a tag from the contact (CRM-aware)."""
     tag = (config.get("tag") or config.get("tag_name") or "").strip()
     if not tag:
         return {"status": "error", "error": "No tag specified", "continue": True}
 
+    crm_type, subscriber = _get_subscriber_crm_type(location_id)
+
+    if not _is_ghl(crm_type):
+        # Non-GHL: use CRM adapter
+        try:
+            from crm_adapters.factory import get_adapter_for_subscriber
+            adapter = get_adapter_for_subscriber(subscriber)
+            contact = adapter.get_contact(contact_id)
+            if not contact:
+                return {"status": "error", "error": "Contact not found", "continue": True}
+            current_tags = contact.get("tags", [])
+            if isinstance(current_tags, list) and tag not in current_tags:
+                return {"status": "completed", "note": "Tag not present"}
+            new_tags = [t for t in (current_tags or []) if t != tag]
+            success = adapter.update_contact(contact_id, {"tags": new_tags})
+            if success:
+                logger.info(f"Tag '{tag}' removed from {contact_id} via {crm_type} (run={run_id})")
+                return {"status": "completed", "tag": tag}
+            return {"status": "error", "error": f"{crm_type} tag update failed", "continue": True}
+        except Exception as e:
+            return {"status": "error", "error": f"Tag remove failed: {e}", "continue": True}
+
+    # GHL path — unchanged
     token = get_valid_token(location_id)
     if not token:
         return {"status": "error", "error": "No valid GHL token", "continue": True}
@@ -905,7 +1015,7 @@ def _handle_loop(cur, conn, run_id, step, config, location_id, contact_id, conte
 
 
 def _handle_update_field(cur, conn, run_id, step, config, location_id, contact_id, context):
-    """Update a field on the GHL contact."""
+    """Update a field on the contact (CRM-aware)."""
     field_key = (config.get("field_key") or config.get("field") or "").strip()
     field_value = config.get("field_value") if config.get("field_value") is not None else config.get("value", "")
 
@@ -917,6 +1027,22 @@ def _handle_update_field(cur, conn, run_id, step, config, location_id, contact_i
     if contact:
         field_value = _interpolate_merge_fields(str(field_value), contact)
 
+    crm_type, subscriber = _get_subscriber_crm_type(location_id)
+
+    if not _is_ghl(crm_type):
+        # Non-GHL: use CRM adapter
+        try:
+            from crm_adapters.factory import get_adapter_for_subscriber
+            adapter = get_adapter_for_subscriber(subscriber)
+            success = adapter.update_contact(contact_id, {field_key: field_value})
+            if success:
+                logger.info(f"Updated field '{field_key}' on {contact_id} via {crm_type} (run={run_id})")
+                return {"status": "completed", "field": field_key, "value": field_value}
+            return {"status": "error", "error": f"{crm_type} field update failed", "continue": True}
+        except Exception as e:
+            return {"status": "error", "error": f"Field update failed: {e}", "continue": True}
+
+    # GHL path — unchanged
     token = get_valid_token(location_id)
     if not token:
         return {"status": "error", "error": "No valid GHL token", "continue": True}
@@ -936,7 +1062,7 @@ def _handle_update_field(cur, conn, run_id, step, config, location_id, contact_i
 
 
 def _handle_add_note(cur, conn, run_id, step, config, location_id, contact_id, context):
-    """Add a note to the GHL contact."""
+    """Add a note to the contact (CRM-aware)."""
     body = (config.get("body") or config.get("note") or "").strip()
     if not body:
         return {"status": "error", "error": "No note body specified", "continue": True}
@@ -945,6 +1071,24 @@ def _handle_add_note(cur, conn, run_id, step, config, location_id, contact_id, c
     if contact:
         body = _interpolate_merge_fields(body, contact)
 
+    crm_type, subscriber = _get_subscriber_crm_type(location_id)
+
+    if not _is_ghl(crm_type):
+        # Non-GHL: use provider's log_note for CRMs that support it
+        try:
+            from crm_providers import get_provider
+            provider = get_provider(crm_type)
+            if provider and provider.HAS_ACTIVITY_LOGGING:
+                crm_config = subscriber.get("crm_config") or {}
+                token = crm_config.get("access_token", "")
+                if provider.log_note(contact_id, body, token):
+                    logger.info(f"Note added to {contact_id} via {crm_type} (run={run_id})")
+                    return {"status": "completed", "note_added": True}
+                return {"status": "error", "error": f"{crm_type} note failed", "continue": True}
+        except Exception as e:
+            return {"status": "error", "error": f"Note add failed: {e}", "continue": True}
+
+    # GHL path — unchanged
     token = get_valid_token(location_id)
     if not token:
         return {"status": "error", "error": "No valid GHL token", "continue": True}
@@ -1138,11 +1282,29 @@ If you cannot map the description to actions, return: [{"type": "note", "config"
 
 
 def _handle_assign_agent(cur, conn, run_id, step, config, location_id, contact_id, context):
-    """Update the contact owner (assigned user) in GHL."""
+    """Update the contact owner (assigned user) — CRM-aware."""
     assigned_to = config.get("assigned_to", "").strip()
     if not assigned_to:
         return {"status": "error", "error": "No assigned_to user specified", "continue": True}
 
+    crm_type, subscriber = _get_subscriber_crm_type(location_id)
+
+    if not _is_ghl(crm_type):
+        # Non-GHL: use CRM adapter to update owner field
+        try:
+            from crm_adapters.factory import get_adapter_for_subscriber
+            adapter = get_adapter_for_subscriber(subscriber)
+            # Map to CRM-specific owner field
+            owner_field = "hubspot_owner_id" if crm_type == "hubspot" else "assignedTo"
+            success = adapter.update_contact(contact_id, {owner_field: assigned_to})
+            if success:
+                logger.info(f"Contact {contact_id} assigned to {assigned_to} via {crm_type} (run={run_id})")
+                return {"status": "completed", "assigned_to": assigned_to}
+            return {"status": "error", "error": f"{crm_type} assign failed", "continue": True}
+        except Exception as e:
+            return {"status": "error", "error": f"Assign agent failed: {e}", "continue": True}
+
+    # GHL path — unchanged
     token = get_valid_token(location_id)
     if not token:
         return {"status": "error", "error": "No valid GHL token", "continue": True}
@@ -1162,13 +1324,96 @@ def _handle_assign_agent(cur, conn, run_id, step, config, location_id, contact_i
 
 
 def _handle_move_stage(cur, conn, run_id, step, config, location_id, contact_id, context):
-    """Move a contact's opportunity to a specified pipeline stage via GHL API."""
+    """Move a contact's opportunity/deal to a specified pipeline stage (CRM-aware)."""
     pipeline_id = config.get("pipeline_id", "").strip()
     stage_id = config.get("stage_id", "").strip()
 
     if not pipeline_id or not stage_id:
         return {"status": "error", "error": "pipeline_id and stage_id required", "continue": True}
 
+    crm_type, subscriber = _get_subscriber_crm_type(location_id)
+
+    if not _is_ghl(crm_type):
+        # Non-GHL: use CRM-specific deal/pipeline API
+        try:
+            from crm_providers import get_provider
+            provider = get_provider(crm_type)
+            crm_config = subscriber.get("crm_config") or {}
+            token = crm_config.get("access_token", "")
+            if not token:
+                return {"status": "error", "error": f"No {crm_type} token", "continue": True}
+
+            if crm_type == "hubspot":
+                # HubSpot: update deal stage via Deals API
+                import requests as req
+                hs_headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+                # Search for deals associated with this contact
+                search_url = f"https://api.hubapi.com/crm/v3/objects/deals/search"
+                search_resp = req.post(search_url, headers=hs_headers, json={
+                    "filterGroups": [{"filters": [
+                        {"propertyName": "associations.contact", "operator": "EQ", "value": contact_id}
+                    ]}],
+                    "properties": ["pipeline", "dealstage"],
+                    "limit": 5,
+                }, timeout=15)
+                if search_resp.status_code == 200:
+                    deals = search_resp.json().get("results", [])
+                    target_deal = None
+                    for d in deals:
+                        if d.get("properties", {}).get("pipeline") == pipeline_id:
+                            target_deal = d
+                            break
+                    if target_deal:
+                        deal_id = target_deal["id"]
+                        update_resp = req.patch(
+                            f"https://api.hubapi.com/crm/v3/objects/deals/{deal_id}",
+                            headers=hs_headers,
+                            json={"properties": {"dealstage": stage_id}},
+                            timeout=15,
+                        )
+                        if update_resp.status_code == 200:
+                            logger.info(f"HubSpot deal {deal_id} moved to stage {stage_id} (run={run_id})")
+                            return {"status": "completed", "deal_id": deal_id, "stage_id": stage_id}
+                    else:
+                        # Create new deal in pipeline
+                        contact = _fetch_contact(location_id, contact_id)
+                        name = "Workflow Deal"
+                        if contact:
+                            fn = contact.get("firstName", "")
+                            ln = contact.get("lastName", "")
+                            name = f"{fn} {ln}".strip() or name
+                        create_resp = req.post(
+                            "https://api.hubapi.com/crm/v3/objects/deals",
+                            headers=hs_headers,
+                            json={
+                                "properties": {
+                                    "dealname": name,
+                                    "pipeline": pipeline_id,
+                                    "dealstage": stage_id,
+                                },
+                                "associations": [{
+                                    "to": {"id": contact_id},
+                                    "types": [{"associationCategory": "HUBSPOT_DEFINED",
+                                               "associationTypeId": 3}]  # Deal to Contact
+                                }],
+                            },
+                            timeout=15,
+                        )
+                        if create_resp.status_code in (200, 201):
+                            new_deal = create_resp.json()
+                            logger.info(f"HubSpot deal created at stage {stage_id} (run={run_id})")
+                            return {"status": "completed", "deal_id": new_deal.get("id"),
+                                    "stage_id": stage_id, "created": True}
+
+                return {"status": "error", "error": f"HubSpot deal move failed", "continue": True}
+            else:
+                # Generic fallback for other CRMs
+                return {"status": "error", "error": f"move_stage not supported for {crm_type}",
+                        "continue": True}
+        except Exception as e:
+            return {"status": "error", "error": f"Move stage failed: {e}", "continue": True}
+
+    # GHL path — unchanged
     token = get_valid_token(location_id)
     if not token:
         return {"status": "error", "error": "No valid GHL token", "continue": True}
@@ -2274,33 +2519,84 @@ def _ghl_headers(token):
 _contact_cache = {}
 
 
-def _fetch_contact(location_id, contact_id):
+def _fetch_contact(location_id, contact_id, subscriber=None):
     """
-    Fetch contact data from GHL API. Cached within the current process
-    to avoid redundant API calls during a single run execution.
+    Fetch contact data from the appropriate CRM API. Cached within the
+    current process to avoid redundant API calls during a single run execution.
+
+    CRM-aware: uses GHL API for GHL subscribers, CRM adapter for others.
+    Returns a GHL-compatible contact dict for backward compatibility with
+    merge fields (firstName, lastName, phone, email, etc.).
     """
     cache_key = f"{location_id}:{contact_id}"
     if cache_key in _contact_cache:
         return _contact_cache[cache_key]
 
-    token = get_valid_token(location_id)
-    if not token:
-        logger.warning(f"No GHL token to fetch contact {contact_id}")
+    crm_type, sub = _get_subscriber_crm_type(location_id, subscriber)
+
+    if _is_ghl(crm_type):
+        # GHL path — unchanged
+        token = get_valid_token(location_id)
+        if not token:
+            logger.warning(f"No GHL token to fetch contact {contact_id}")
+            return None
+
+        try:
+            resp = requests.get(
+                f"{GHL_BASE_URL}/contacts/{contact_id}",
+                headers=_ghl_headers(token),
+                timeout=10,
+            )
+            resp.raise_for_status()
+            contact = resp.json().get("contact", {})
+            _contact_cache[cache_key] = contact
+            return contact
+        except Exception as e:
+            logger.warning(f"Failed to fetch contact {contact_id}: {e}")
+            return None
+    else:
+        # Non-GHL CRM — use adapter
+        try:
+            from crm_adapters.factory import get_adapter_for_subscriber
+            adapter = get_adapter_for_subscriber(sub)
+            contact = adapter.get_contact(contact_id)
+            if contact:
+                # Normalize to GHL-compatible field names for merge field compat
+                normalized = _normalize_contact_fields(contact, crm_type)
+                _contact_cache[cache_key] = normalized
+                return normalized
+        except Exception as e:
+            logger.warning(f"Failed to fetch {crm_type} contact {contact_id}: {e}")
         return None
 
-    try:
-        resp = requests.get(
-            f"{GHL_BASE_URL}/contacts/{contact_id}",
-            headers=_ghl_headers(token),
-            timeout=10,
-        )
-        resp.raise_for_status()
-        contact = resp.json().get("contact", {})
-        _contact_cache[cache_key] = contact
+
+def _normalize_contact_fields(contact, crm_type):
+    """
+    Normalize CRM adapter contact dict to GHL-compatible field names.
+    Ensures merge fields like {{firstName}}, {{phone}} work regardless of CRM.
+    """
+    if not contact:
         return contact
-    except Exception as e:
-        logger.warning(f"Failed to fetch contact {contact_id}: {e}")
-        return None
+    return {
+        "id": contact.get("id", ""),
+        "firstName": contact.get("firstName", contact.get("firstname", "")),
+        "lastName": contact.get("lastName", contact.get("lastname", "")),
+        "email": contact.get("email", ""),
+        "phone": contact.get("phone", ""),
+        "company": contact.get("company", contact.get("companyName", "")),
+        "companyName": contact.get("company", contact.get("companyName", "")),
+        "address1": contact.get("address", contact.get("address1", "")),
+        "city": contact.get("city", ""),
+        "state": contact.get("state", ""),
+        "postalCode": contact.get("zip", contact.get("postalCode", "")),
+        "tags": contact.get("tags", []),
+        # Preserve any extra fields
+        **{k: v for k, v in contact.items() if k not in (
+            "id", "firstName", "lastName", "email", "phone", "company",
+            "companyName", "address", "address1", "city", "state", "zip",
+            "postalCode", "tags", "firstname", "lastname",
+        )},
+    }
 
 
 def _interpolate_merge_fields(template, contact):

@@ -1502,7 +1502,7 @@ def backfill_failed_webhooks(max_age_hours: int = 96) -> dict:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def import_contacts_task(import_id):
-    """Process a contact import job: create/update contacts in GHL via API."""
+    """Process a contact import job: create/update contacts via CRM API (GHL, HubSpot, etc.)."""
     import requests as http_requests
     from blueprints.contacts_import import _normalize_phone
 
@@ -1528,19 +1528,39 @@ def import_contacts_task(import_id):
         apply_tags = apply_tags if isinstance(apply_tags, list) else json.loads(apply_tags or '[]')
         file_data = file_data if isinstance(file_data, list) else json.loads(file_data or '[]')
 
-        # Get GHL token
-        token = get_valid_token(location_id)
-        if not token:
-            cur.execute("UPDATE contact_imports SET status = 'failed' WHERE id = %s", (import_id,))
-            conn.commit()
-            logger.error(f"Import {import_id}: no valid GHL token for {location_id}")
-            return
+        # Determine CRM type for this subscriber
+        subscriber = get_subscriber_info_hybrid(location_id)
+        crm_type = ((subscriber or {}).get("crm_type") or "ghl").lower()
+        is_ghl = crm_type in ("ghl", "gohighlevel", "")
 
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Version": API_VERSION,
-            "Content-Type": "application/json",
-        }
+        # Get CRM adapter for non-GHL CRMs
+        crm_adapter = None
+        if not is_ghl:
+            try:
+                from crm_adapters.factory import get_adapter_for_subscriber
+                crm_adapter = get_adapter_for_subscriber(subscriber)
+            except Exception as e:
+                logger.error(f"Import {import_id}: failed to get {crm_type} adapter: {e}")
+                cur.execute("UPDATE contact_imports SET status = 'failed' WHERE id = %s", (import_id,))
+                conn.commit()
+                return
+
+        # Get GHL token (only for GHL imports)
+        token = None
+        headers = {}
+        if is_ghl:
+            token = get_valid_token(location_id)
+            if not token:
+                cur.execute("UPDATE contact_imports SET status = 'failed' WHERE id = %s", (import_id,))
+                conn.commit()
+                logger.error(f"Import {import_id}: no valid GHL token for {location_id}")
+                return
+
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Version": API_VERSION,
+                "Content-Type": "application/json",
+            }
 
         # Mark as processing
         cur.execute("UPDATE contact_imports SET status = 'processing' WHERE id = %s", (import_id,))
@@ -1586,80 +1606,148 @@ def import_contacts_task(import_id):
                     errors.append({"row": row_idx + 2, "error": "No phone or email"})
                     continue
 
-                # Check for duplicates by phone
+                # ── Duplicate check + create/update (CRM-aware) ──
                 existing_id = None
-                if contact_data.get("phone") and dupe_strategy in ("skip", "update"):
-                    try:
-                        lookup_url = f"{GHL_API_BASE}/contacts/lookup"
-                        lookup_resp = http_requests.get(
-                            lookup_url,
-                            headers=headers,
-                            params={"phone": contact_data["phone"], "locationId": location_id},
-                            timeout=10,
-                        )
-                        if lookup_resp.status_code == 200:
-                            lookup_data = lookup_resp.json()
-                            contacts_found = lookup_data.get("contacts", [])
-                            if contacts_found:
-                                existing_id = contacts_found[0].get("id")
-                    except Exception:
-                        pass  # Lookup failed, proceed with create
 
-                if existing_id and dupe_strategy == "skip":
-                    skipped += 1
-                    continue
+                if crm_adapter and not is_ghl:
+                    # Non-GHL CRM: use adapter for duplicate check + create/update
+                    if contact_data.get("phone") and dupe_strategy in ("skip", "update"):
+                        try:
+                            existing = crm_adapter.search_contact(
+                                phone=contact_data.get("phone"),
+                                email=contact_data.get("email"),
+                            )
+                            if existing:
+                                existing_id = existing.get("id")
+                        except Exception:
+                            pass
 
-                if existing_id and dupe_strategy == "update":
-                    # Update existing contact
-                    update_payload = {k: v for k, v in contact_data.items()
-                                      if k not in ("locationId",)}
+                    if existing_id and dupe_strategy == "skip":
+                        skipped += 1
+                        continue
+
+                    # Map GHL field names to CRM-specific field names
+                    adapter_data = {
+                        "first_name": contact_data.get("firstName", ""),
+                        "last_name": contact_data.get("lastName", ""),
+                        "email": contact_data.get("email", ""),
+                        "phone": contact_data.get("phone", ""),
+                    }
+                    # Pass through any extra fields
+                    for k, v in contact_data.items():
+                        if k not in ("firstName", "lastName", "email", "phone",
+                                     "locationId", "tags"):
+                            adapter_data[k] = v
+
                     try:
-                        resp = http_requests.put(
-                            f"{GHL_API_BASE}/contacts/{existing_id}",
-                            headers=headers,
-                            json=update_payload,
-                            timeout=10,
-                        )
-                        if resp.status_code in (200, 201):
-                            updated += 1
-                            # Add notes if present
-                            if notes_value:
-                                _add_contact_note(GHL_API_BASE, headers, existing_id, notes_value)
-                        else:
-                            failed += 1
-                            errors.append({"row": row_idx + 2, "error": f"Update failed: HTTP {resp.status_code}"})
-                    except Exception as e:
-                        failed += 1
-                        errors.append({"row": row_idx + 2, "error": f"Update error: {str(e)[:100]}"})
-                else:
-                    # Create new contact
-                    try:
-                        resp = http_requests.post(
-                            f"{GHL_API_BASE}/contacts/",
-                            headers=headers,
-                            json=contact_data,
-                            timeout=10,
-                        )
-                        if resp.status_code in (200, 201):
-                            imported += 1
-                            # Add notes if present
-                            if notes_value:
-                                new_id = resp.json().get("contact", {}).get("id")
-                                if new_id:
-                                    _add_contact_note(GHL_API_BASE, headers, new_id, notes_value)
-                        elif resp.status_code == 422:
-                            # Duplicate detected by GHL (phone/email exists)
-                            if dupe_strategy == "skip":
-                                skipped += 1
+                        if existing_id and dupe_strategy == "update":
+                            success = crm_adapter.update_contact(existing_id, adapter_data)
+                            if success:
+                                updated += 1
+                                if notes_value:
+                                    try:
+                                        from crm_providers import get_provider
+                                        provider = get_provider(crm_type)
+                                        crm_config = (subscriber or {}).get("crm_config") or {}
+                                        crm_token = crm_config.get("access_token", "")
+                                        if provider and provider.HAS_ACTIVITY_LOGGING:
+                                            provider.log_note(existing_id, notes_value, crm_token)
+                                    except Exception:
+                                        pass
                             else:
                                 failed += 1
-                                errors.append({"row": row_idx + 2, "error": f"GHL rejected: {resp.text[:100]}"})
+                                errors.append({"row": row_idx + 2, "error": f"{crm_type} update failed"})
                         else:
-                            failed += 1
-                            errors.append({"row": row_idx + 2, "error": f"Create failed: HTTP {resp.status_code}"})
+                            new_id = crm_adapter.create_contact(adapter_data)
+                            if new_id:
+                                imported += 1
+                                if notes_value:
+                                    try:
+                                        from crm_providers import get_provider
+                                        provider = get_provider(crm_type)
+                                        crm_config = (subscriber or {}).get("crm_config") or {}
+                                        crm_token = crm_config.get("access_token", "")
+                                        if provider and provider.HAS_ACTIVITY_LOGGING:
+                                            provider.log_note(new_id, notes_value, crm_token)
+                                    except Exception:
+                                        pass
+                            else:
+                                failed += 1
+                                errors.append({"row": row_idx + 2, "error": f"{crm_type} create failed"})
                     except Exception as e:
                         failed += 1
-                        errors.append({"row": row_idx + 2, "error": f"Create error: {str(e)[:100]}"})
+                        errors.append({"row": row_idx + 2, "error": f"{crm_type} error: {str(e)[:100]}"})
+                else:
+                    # GHL path — unchanged
+                    if contact_data.get("phone") and dupe_strategy in ("skip", "update"):
+                        try:
+                            lookup_url = f"{GHL_API_BASE}/contacts/lookup"
+                            lookup_resp = http_requests.get(
+                                lookup_url,
+                                headers=headers,
+                                params={"phone": contact_data["phone"], "locationId": location_id},
+                                timeout=10,
+                            )
+                            if lookup_resp.status_code == 200:
+                                lookup_data = lookup_resp.json()
+                                contacts_found = lookup_data.get("contacts", [])
+                                if contacts_found:
+                                    existing_id = contacts_found[0].get("id")
+                        except Exception:
+                            pass  # Lookup failed, proceed with create
+
+                    if existing_id and dupe_strategy == "skip":
+                        skipped += 1
+                        continue
+
+                    if existing_id and dupe_strategy == "update":
+                        # Update existing contact
+                        update_payload = {k: v for k, v in contact_data.items()
+                                          if k not in ("locationId",)}
+                        try:
+                            resp = http_requests.put(
+                                f"{GHL_API_BASE}/contacts/{existing_id}",
+                                headers=headers,
+                                json=update_payload,
+                                timeout=10,
+                            )
+                            if resp.status_code in (200, 201):
+                                updated += 1
+                                if notes_value:
+                                    _add_contact_note(GHL_API_BASE, headers, existing_id, notes_value)
+                            else:
+                                failed += 1
+                                errors.append({"row": row_idx + 2, "error": f"Update failed: HTTP {resp.status_code}"})
+                        except Exception as e:
+                            failed += 1
+                            errors.append({"row": row_idx + 2, "error": f"Update error: {str(e)[:100]}"})
+                    else:
+                        # Create new contact
+                        try:
+                            resp = http_requests.post(
+                                f"{GHL_API_BASE}/contacts/",
+                                headers=headers,
+                                json=contact_data,
+                                timeout=10,
+                            )
+                            if resp.status_code in (200, 201):
+                                imported += 1
+                                if notes_value:
+                                    new_id = resp.json().get("contact", {}).get("id")
+                                    if new_id:
+                                        _add_contact_note(GHL_API_BASE, headers, new_id, notes_value)
+                            elif resp.status_code == 422:
+                                if dupe_strategy == "skip":
+                                    skipped += 1
+                                else:
+                                    failed += 1
+                                    errors.append({"row": row_idx + 2, "error": f"GHL rejected: {resp.text[:100]}"})
+                            else:
+                                failed += 1
+                                errors.append({"row": row_idx + 2, "error": f"Create failed: HTTP {resp.status_code}"})
+                        except Exception as e:
+                            failed += 1
+                            errors.append({"row": row_idx + 2, "error": f"Create error: {str(e)[:100]}"})
 
                 # Update progress every 10 rows
                 if (row_idx + 1) % 10 == 0:
@@ -1673,8 +1761,8 @@ def import_contacts_task(import_id):
                 # Rate limit: 0.3s between API calls
                 time.sleep(0.3)
 
-                # Refresh token every 200 rows
-                if (row_idx + 1) % 200 == 0:
+                # Refresh token every 200 rows (GHL only — non-GHL adapters auto-refresh)
+                if is_ghl and (row_idx + 1) % 200 == 0:
                     new_token = get_valid_token(location_id)
                     if new_token:
                         token = new_token

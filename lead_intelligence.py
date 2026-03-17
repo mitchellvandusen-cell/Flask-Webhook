@@ -92,7 +92,7 @@ def _gather_contact_context(location_id, contact_id):
         try:
             cur.execute("""
                 SELECT pipeline_name, stage_name, status, monetary_value
-                FROM ghl_opportunities
+                FROM crm_deals
                 WHERE location_id = %s AND contact_id = %s
                 ORDER BY updated_at_ghl DESC NULLS LAST
                 LIMIT 1
@@ -737,7 +737,7 @@ def _gather_bulk_contexts(location_id, contact_ids):
             cur.execute("""
                 SELECT DISTINCT ON (contact_id)
                        contact_id, pipeline_name, stage_name, status, monetary_value
-                FROM ghl_opportunities
+                FROM crm_deals
                 WHERE location_id = %s AND contact_id = ANY(%s)
                 ORDER BY contact_id, updated_at_ghl DESC NULLS LAST
             """, (location_id, contact_ids))
