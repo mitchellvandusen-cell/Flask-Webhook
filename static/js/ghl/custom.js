@@ -1,29 +1,29 @@
-var igbServerUrl = 'https://app.insurancegrokbot.click';
-var igbKeyStorageKey = 'igb_jwt';
-var igbKeyExpiryKey = 'igb_jwt_exp';
-var igbCallPollMs = 2000;
-var igbRefreshIntervalMs = 60000;
-var igbMaxVisibleToasts = 3;
+const igbServerUrl = 'https://app.insurancegrokbot.click';
+const igbKeyStorageKey = 'igb_jwt';
+const igbKeyExpiryKey = 'igb_jwt_exp';
+const igbCallPollMs = 2000;
+const igbRefreshIntervalMs = 60000;
+const igbMaxVisibleToasts = 3;
 
-var igbKey = '';
-var igbLocationId = '';
-var igbSubscriptionTier = 'individual';
-var igbMaxDialLines = 1;
-var igbBalanceRefreshTimer = null;
-var igbStatsRefreshTimer = null;
-var igbDialerPopupEl = null;
-var igbCallQueue = [];
-var igbCallQueueIndex = 0;
-var igbActiveCallMap = new Map();
-var igbCallPollTimer = null;
-var igbListenSocket = null;
-var igbCurrentCallSid = '';
-var igbCurrentCallMode = '';
-var igbToastList = [];
-var igbCurrentAiMinutes = 0;
+let igbKey = '';
+let igbLocationId = '';
+let igbSubscriptionTier = 'individual';
+let igbMaxDialLines = 1;
+let igbBalanceRefreshTimer = null;
+let igbStatsRefreshTimer = null;
+let igbDialerPopupEl = null;
+let igbCallQueue = [];
+let igbCallQueueIndex = 0;
+const igbActiveCallMap = new Map();
+let igbCallPollTimer = null;
+let igbListenSocket = null;
+let igbCurrentCallSid = '';
+let igbCurrentCallMode = '';
+let igbToastList = [];
+let igbCurrentAiMinutes = 0;
 
 function igbMakeElement(tagName, cssClass, htmlContent) {
-    var el = document.createElement(tagName);
+    const el = document.createElement(tagName);
     if (cssClass) {
         el.className = cssClass;
     }
@@ -53,13 +53,13 @@ function igbFormatDuration(totalSeconds) {
     if (!totalSeconds) {
         return '0:00';
     }
-    var minutes = Math.floor(totalSeconds / 60);
-    var seconds = Math.floor(totalSeconds % 60);
-    return minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
 }
 
 function igbSafeText(rawText) {
-    var div = document.createElement('div');
+    const div = document.createElement('div');
     div.textContent = rawText;
     return div.innerHTML;
 }
@@ -69,12 +69,12 @@ function igbCapitalize(str) {
 }
 
 function igbGetContactIdFromUrl() {
-    var match = window.location.pathname.match(/\/contacts\/(?:detail\/)?([a-zA-Z0-9]+)/);
+    const match = window.location.pathname.match(/\/contacts\/(?:detail\/)?([a-zA-Z0-9]+)/);
     return match ? match[1] : '';
 }
 
 async function igbApiRequest(httpMethod, apiPath, requestBody) {
-    var fetchOptions = {
+    const fetchOptions = {
         method: httpMethod,
         headers: {
             'Authorization': 'Bearer ' + igbKey,
@@ -84,7 +84,7 @@ async function igbApiRequest(httpMethod, apiPath, requestBody) {
     if (requestBody) {
         fetchOptions.body = JSON.stringify(requestBody);
     }
-    var response = await fetch(igbServerUrl + apiPath, fetchOptions);
+    let response = await fetch(igbServerUrl + apiPath, fetchOptions);
     if (response.status === 401) {
         igbLog('Session expired, refreshing');
         await igbAuthenticate();
@@ -102,28 +102,28 @@ async function igbAuthenticate() {
             return false;
         }
 
-        var requestPayload = {
+        const requestPayload = {
             location_id: igbLocationId,
             timestamp: Math.floor(Date.now() / 1000),
         };
 
-        var userAccess = await igbGetGhlUserAccess();
+        const userAccess = await igbGetGhlUserAccess();
         if (userAccess) {
             requestPayload.ghl_token = userAccess;
         }
 
-        var resp = await fetch(igbServerUrl + '/api/ghl/auth/token', {
+        const resp = await fetch(igbServerUrl + '/api/ghl/auth/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestPayload),
         });
 
-        var data = await resp.json();
+        const data = await resp.json();
         if (data.token) {
             igbKey = data.token;
             igbSubscriptionTier = data.tier || 'individual';
             localStorage.setItem(igbKeyStorageKey, igbKey);
-            var expiresAt = Date.now() + (data.expires_in || 7200) * 1000;
+            const expiresAt = Date.now() + (data.expires_in || 7200) * 1000;
             localStorage.setItem(igbKeyExpiryKey, String(expiresAt));
             igbLog('Authenticated, tier: ' + igbSubscriptionTier);
             return true;
@@ -140,7 +140,7 @@ async function igbAuthenticate() {
 async function igbGetLocationId() {
     if (typeof AppUtils !== 'undefined' && AppUtils.Utilities) {
         try {
-            var locationData = await AppUtils.Utilities.getCurrentLocation();
+            const locationData = await AppUtils.Utilities.getCurrentLocation();
             return locationData.id || locationData.locationId || '';
         } catch (e) {
             igbLog('Could not get location from AppUtils: ' + e);
@@ -158,22 +158,33 @@ async function igbGetGhlUserAccess() {
             if (AppUtils.Utilities.getSharedSecret) {
                 return await AppUtils.Utilities.getSharedSecret();
             }
-        } catch (e) {}
+        } catch (e) {
+            // Silently fail if user access methods unavailable
+        }
     }
     return '';
 }
 
 function igbIsKeyValid() {
-    var expiry = parseInt(localStorage.getItem(igbKeyExpiryKey) || '0');
+    const expiry = parseInt(localStorage.getItem(igbKeyExpiryKey) || '0');
     return igbKey && Date.now() < expiry - 60000;
 }
 
 function igbShowToast(message, toastType) {
     toastType = toastType || 'info';
-    var toast = igbMakeElement('div', 'igb-toast igb-toast-' + toastType);
-    toast.innerHTML = message + '<button class="igb-toast-close" onclick="this.parentElement.remove()">&times;</button>';
+    const toast = igbMakeElement('div', `igb-toast igb-toast-${toastType}`);
 
-    var container = igbFind('#igb-toast-container');
+    const messageSpan = document.createElement('span');
+    messageSpan.textContent = message;
+    toast.appendChild(messageSpan);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'igb-toast-close';
+    closeBtn.textContent = '\u00D7';
+    closeBtn.addEventListener('click', () => toast.remove());
+    toast.appendChild(closeBtn);
+
+    let container = igbFind('#igb-toast-container');
     if (!container) {
         container = igbMakeElement('div', '');
         container.id = 'igb-toast-container';
@@ -183,109 +194,154 @@ function igbShowToast(message, toastType) {
     igbToastList.push(toast);
 
     while (igbToastList.length > igbMaxVisibleToasts) {
-        var oldToast = igbToastList.shift();
+        const oldToast = igbToastList.shift();
         if (oldToast.parentElement) {
             oldToast.remove();
         }
     }
 
-    setTimeout(function() {
+    setTimeout(() => {
         toast.classList.add('igb-toast-fade');
-        setTimeout(function() { toast.remove(); }, 300);
+        setTimeout(() => toast.remove(), 300);
     }, 5000);
 }
 
 async function igbRenderAiMinutesChip() {
-    var existing = igbFind('#igb-minutes-chip');
+    const existing = igbFind('#igb-minutes-chip');
     if (existing) {
         existing.remove();
     }
 
     try {
-        var balanceData = await igbApiRequest('GET', '/api/ghl/ai-minutes/balance');
+        const balanceData = await igbApiRequest('GET', '/api/ghl/ai-minutes/balance');
         igbCurrentAiMinutes = balanceData.balance_minutes || 0;
     } catch (e) {
         return;
     }
 
-    var chip = igbMakeElement('div', 'igb-chip igb-minutes-chip');
+    const chip = igbMakeElement('div', 'igb-chip igb-minutes-chip');
     chip.id = 'igb-minutes-chip';
 
-    var colorClass = 'igb-chip-green';
+    let colorClass = 'igb-chip-green';
     if (igbCurrentAiMinutes <= 500) { colorClass = 'igb-chip-yellow'; }
     if (igbCurrentAiMinutes <= 100) { colorClass = 'igb-chip-red'; }
     if (igbCurrentAiMinutes < 50)  { colorClass += ' igb-chip-pulse'; }
 
-    chip.classList.add(colorClass);
-    chip.innerHTML = '<i class="fa-solid fa-bolt"></i> ' + igbFormatNumber(igbCurrentAiMinutes) + ' min';
+    chip.classList.add(...colorClass.split(' '));
+
+    const boltIcon = document.createElement('i');
+    boltIcon.className = 'fa-solid fa-bolt';
+    chip.appendChild(boltIcon);
+    chip.appendChild(document.createTextNode(` ${igbFormatNumber(igbCurrentAiMinutes)} min`));
+
     chip.title = 'AI Minutes balance';
-    chip.onclick = igbToggleMinutesPanel;
+    chip.addEventListener('click', igbToggleMinutesPanel);
 
     igbInjectIntoTopNav(chip);
 }
 
 async function igbToggleMinutesPanel() {
-    var existing = igbFind('#igb-minutes-panel');
+    const existing = igbFind('#igb-minutes-panel');
     if (existing) {
         existing.remove();
         return;
     }
 
-    var panel = igbMakeElement('div', 'igb-dropdown-panel');
+    const panel = igbMakeElement('div', 'igb-dropdown-panel');
     panel.id = 'igb-minutes-panel';
-    panel.innerHTML = '<div class="igb-panel-header"><i class="fa-solid fa-bolt"></i> AI Minutes <button class="igb-panel-close" onclick="document.getElementById(\'igb-minutes-panel\').remove()">&times;</button></div><div class="igb-panel-body"><div class="igb-loading">Loading...</div></div>';
+
+    // Build header
+    const header = igbMakeElement('div', 'igb-panel-header');
+    const headerIcon = document.createElement('i');
+    headerIcon.className = 'fa-solid fa-bolt';
+    header.appendChild(headerIcon);
+    header.appendChild(document.createTextNode(' AI Minutes '));
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'igb-panel-close';
+    closeBtn.textContent = '\u00D7';
+    closeBtn.addEventListener('click', () => {
+        const p = document.getElementById('igb-minutes-panel');
+        if (p) p.remove();
+    });
+    header.appendChild(closeBtn);
+    panel.appendChild(header);
+
+    const body = igbMakeElement('div', 'igb-panel-body');
+    body.innerHTML = '<div class="igb-loading">Loading...</div>';
+    panel.appendChild(body);
+
     document.body.appendChild(panel);
 
-    var chipEl = igbFind('#igb-minutes-chip');
+    const chipEl = igbFind('#igb-minutes-chip');
     if (chipEl) {
-        var chipRect = chipEl.getBoundingClientRect();
+        const chipRect = chipEl.getBoundingClientRect();
         panel.style.top = (chipRect.bottom + 8) + 'px';
         panel.style.right = (window.innerWidth - chipRect.right) + 'px';
     }
 
     try {
-        var results = await Promise.all([
+        const results = await Promise.all([
             igbApiRequest('GET', '/api/ghl/ai-minutes/balance'),
             igbApiRequest('GET', '/api/ghl/ai-minutes/packages'),
         ]);
-        var balanceResult = results[0];
-        var packagesResult = results[1];
+        const balanceResult = results[0];
+        const packagesResult = results[1];
 
-        var available = balanceResult.balance_minutes || 0;
-        var totalPurchased = balanceResult.total_purchased || 0;
-        var totalUsed = balanceResult.total_used || 0;
-        var usedPercent = totalPurchased > 0 ? Math.round(totalUsed / totalPurchased * 100) : 0;
+        const available = balanceResult.balance_minutes || 0;
+        const totalPurchased = balanceResult.total_purchased || 0;
+        const totalUsed = balanceResult.total_used || 0;
+        const usedPercent = totalPurchased > 0 ? Math.round(totalUsed / totalPurchased * 100) : 0;
 
-        var panelBody = igbFind('#igb-minutes-panel .igb-panel-body');
+        const panelBody = igbFind('#igb-minutes-panel .igb-panel-body');
         if (!panelBody) { return; }
 
-        var panelHtml = '<div class="igb-minutes-stats">'
-            + '<div class="igb-stat-row"><span>Available</span><strong>' + igbFormatNumber(available) + ' min</strong></div>'
-            + '<div class="igb-stat-row"><span>Purchased</span><span>' + igbFormatNumber(totalPurchased) + '</span></div>'
-            + '<div class="igb-stat-row"><span>Used</span><span>' + igbFormatNumber(totalUsed) + '</span></div>'
-            + '<div class="igb-progress-bar"><div class="igb-progress-fill" style="width:' + Math.min(usedPercent, 100) + '%"></div></div>'
-            + '<div class="igb-stat-row igb-text-muted"><span>' + usedPercent + '% used</span></div>'
-            + '</div>';
+        // Clear and rebuild panel body with DOM methods
+        panelBody.innerHTML = '';
 
-        panelHtml += '<div class="igb-section-label">Buy More Minutes</div><div class="igb-packages-grid">';
+        // Stats section
+        const statsDiv = igbMakeElement('div', 'igb-minutes-stats');
+        statsDiv.innerHTML = `
+            <div class="igb-stat-row"><span>Available</span><strong>${igbFormatNumber(available)} min</strong></div>
+            <div class="igb-stat-row"><span>Purchased</span><span>${igbFormatNumber(totalPurchased)}</span></div>
+            <div class="igb-stat-row"><span>Used</span><span>${igbFormatNumber(totalUsed)}</span></div>
+            <div class="igb-progress-bar"><div class="igb-progress-fill" style="width:${Math.min(usedPercent, 100)}%"></div></div>
+            <div class="igb-stat-row igb-text-muted"><span>${usedPercent}% used</span></div>
+        `;
+        panelBody.appendChild(statsDiv);
 
-        var packageList = packagesResult.packages || [];
-        var packageColorMap = { 500: 'igb-pkg-green', 2000: 'igb-pkg-blue', 5000: 'igb-pkg-purple', 10000: 'igb-pkg-gold' };
+        // Section label
+        const sectionLabel = igbMakeElement('div', 'igb-section-label', 'Buy More Minutes');
+        panelBody.appendChild(sectionLabel);
 
-        packageList.forEach(function(pkg) {
-            var displayPrice = pkg.price_cents ? '$' + (pkg.price_cents / 100).toFixed(2) : 'N/A';
-            var packageClass = packageColorMap[pkg.minutes] || 'igb-pkg-green';
-            var disabledAttr = pkg.available ? '' : ' disabled';
-            panelHtml += '<div class="igb-package-card ' + packageClass + '">'
-                + '<div class="igb-package-minutes"><i class="fa-solid fa-bolt"></i> ' + igbFormatNumber(pkg.minutes) + '</div>'
-                + '<div class="igb-package-label">' + pkg.label + '</div>'
-                + '<div class="igb-package-price">' + displayPrice + '</div>'
-                + '<button class="igb-btn igb-btn-sm" onclick="igbPurchaseMinutes(' + pkg.minutes + ')"' + disabledAttr + '>Buy</button>'
-                + '</div>';
+        // Packages grid
+        const grid = igbMakeElement('div', 'igb-packages-grid');
+        const packageList = packagesResult.packages || [];
+        const packageColorMap = { 500: 'igb-pkg-green', 2000: 'igb-pkg-blue', 5000: 'igb-pkg-purple', 10000: 'igb-pkg-gold' };
+
+        packageList.forEach((pkg) => {
+            const displayPrice = pkg.price_cents ? '$' + (pkg.price_cents / 100).toFixed(2) : 'N/A';
+            const packageClass = packageColorMap[pkg.minutes] || 'igb-pkg-green';
+
+            const card = igbMakeElement('div', `igb-package-card ${packageClass}`);
+            card.innerHTML = `
+                <div class="igb-package-minutes"><i class="fa-solid fa-bolt"></i> ${igbFormatNumber(pkg.minutes)}</div>
+                <div class="igb-package-label">${igbSafeText(pkg.label)}</div>
+                <div class="igb-package-price">${displayPrice}</div>
+            `;
+
+            const buyBtn = document.createElement('button');
+            buyBtn.className = 'igb-btn igb-btn-sm';
+            buyBtn.textContent = 'Buy';
+            if (!pkg.available) {
+                buyBtn.disabled = true;
+            }
+            buyBtn.addEventListener('click', () => igbPurchaseMinutes(pkg.minutes));
+            card.appendChild(buyBtn);
+
+            grid.appendChild(card);
         });
 
-        panelHtml += '</div>';
-        panelBody.innerHTML = panelHtml;
+        panelBody.appendChild(grid);
     } catch (e) {
         igbLog('Minutes panel error: ' + e);
     }
@@ -293,7 +349,7 @@ async function igbToggleMinutesPanel() {
 
 async function igbPurchaseMinutes(minuteAmount) {
     try {
-        var checkoutData = await igbApiRequest('POST', '/api/ghl/ai-minutes/checkout', { minutes: minuteAmount });
+        const checkoutData = await igbApiRequest('POST', '/api/ghl/ai-minutes/checkout', { minutes: minuteAmount });
         if (checkoutData.checkout_url) {
             window.open(checkoutData.checkout_url, '_blank');
         } else {
@@ -305,76 +361,105 @@ async function igbPurchaseMinutes(minuteAmount) {
 }
 
 async function igbRenderStatsChip() {
-    var existing = igbFind('#igb-stats-chip');
+    const existing = igbFind('#igb-stats-chip');
     if (existing) {
         existing.remove();
     }
 
     try {
-        var statsData = await igbApiRequest('GET', '/api/ghl/stats?period=today');
-        var callsMade = statsData.total_calls || 0;
-        var callsConnected = statsData.connected || 0;
+        const statsData = await igbApiRequest('GET', '/api/ghl/stats?period=today');
+        const callsMade = statsData.total_calls || 0;
+        const callsConnected = statsData.connected || 0;
 
-        var chip = igbMakeElement('div', 'igb-chip igb-stats-chip');
+        const chip = igbMakeElement('div', 'igb-chip igb-stats-chip');
         chip.id = 'igb-stats-chip';
-        chip.innerHTML = '<i class="fa-solid fa-chart-simple"></i> ' + callsMade + '/' + callsConnected;
-        chip.title = 'Today: ' + callsMade + ' calls, ' + callsConnected + ' connected, '
-            + (statsData.connect_rate || 0) + '% rate, '
-            + igbFormatDuration(statsData.avg_duration || 0) + ' avg';
-        chip.onclick = igbToggleStatsPanel;
+
+        const chartIcon = document.createElement('i');
+        chartIcon.className = 'fa-solid fa-chart-simple';
+        chip.appendChild(chartIcon);
+        chip.appendChild(document.createTextNode(` ${callsMade}/${callsConnected}`));
+
+        chip.title = `Today: ${callsMade} calls, ${callsConnected} connected, ${statsData.connect_rate || 0}% rate, ${igbFormatDuration(statsData.avg_duration || 0)} avg`;
+        chip.addEventListener('click', igbToggleStatsPanel);
 
         igbInjectIntoTopNav(chip);
-    } catch (e) {}
+    } catch (e) {
+        // Stats unavailable, skip chip
+    }
 }
 
 async function igbToggleStatsPanel() {
-    var existing = igbFind('#igb-stats-panel');
+    const existing = igbFind('#igb-stats-panel');
     if (existing) {
         existing.remove();
         return;
     }
 
-    var panel = igbMakeElement('div', 'igb-dropdown-panel');
+    const panel = igbMakeElement('div', 'igb-dropdown-panel');
     panel.id = 'igb-stats-panel';
-    panel.innerHTML = '<div class="igb-panel-header"><i class="fa-solid fa-chart-simple"></i> Today\'s Stats <button class="igb-panel-close" onclick="document.getElementById(\'igb-stats-panel\').remove()">&times;</button></div><div class="igb-panel-body"><div class="igb-loading">Loading...</div></div>';
+
+    // Build header
+    const header = igbMakeElement('div', 'igb-panel-header');
+    const headerIcon = document.createElement('i');
+    headerIcon.className = 'fa-solid fa-chart-simple';
+    header.appendChild(headerIcon);
+    header.appendChild(document.createTextNode(" Today's Stats "));
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'igb-panel-close';
+    closeBtn.textContent = '\u00D7';
+    closeBtn.addEventListener('click', () => {
+        const p = document.getElementById('igb-stats-panel');
+        if (p) p.remove();
+    });
+    header.appendChild(closeBtn);
+    panel.appendChild(header);
+
+    const body = igbMakeElement('div', 'igb-panel-body');
+    body.innerHTML = '<div class="igb-loading">Loading...</div>';
+    panel.appendChild(body);
+
     document.body.appendChild(panel);
 
-    var statsChip = igbFind('#igb-stats-chip');
+    const statsChip = igbFind('#igb-stats-chip');
     if (statsChip) {
-        var chipRect = statsChip.getBoundingClientRect();
+        const chipRect = statsChip.getBoundingClientRect();
         panel.style.top = (chipRect.bottom + 8) + 'px';
         panel.style.right = (window.innerWidth - chipRect.right) + 'px';
     }
 
     try {
-        var allStats = await Promise.all([
+        const allStats = await Promise.all([
             igbApiRequest('GET', '/api/ghl/stats?period=today'),
             igbApiRequest('GET', '/api/ghl/stats?period=week'),
         ]);
-        var todayStats = allStats[0];
-        var weekStats = allStats[1];
+        const todayStats = allStats[0];
+        const weekStats = allStats[1];
 
-        var panelBody = igbFind('#igb-stats-panel .igb-panel-body');
+        const panelBody = igbFind('#igb-stats-panel .igb-panel-body');
         if (!panelBody) { return; }
 
-        panelBody.innerHTML = '<div class="igb-minutes-stats">'
-            + '<div class="igb-stat-row"><span>Calls Made</span><strong>' + (todayStats.total_calls || 0) + '</strong></div>'
-            + '<div class="igb-stat-row"><span>Connected</span><strong>' + (todayStats.connected || 0) + ' (' + (todayStats.connect_rate || 0) + '%)</strong></div>'
-            + '<div class="igb-stat-row"><span>Avg Duration</span><span>' + igbFormatDuration(todayStats.avg_duration || 0) + '</span></div>'
-            + '<div class="igb-stat-row"><span>Voicemails</span><span>' + (todayStats.voicemail || 0) + '</span></div>'
-            + '<div class="igb-stat-row"><span>No Answer</span><span>' + (todayStats.no_answer || 0) + '</span></div>'
-            + '</div>'
-            + '<div class="igb-section-label">This Week</div>'
-            + '<div class="igb-minutes-stats">'
-            + '<div class="igb-stat-row"><span>Calls</span><span>' + (weekStats.total_calls || 0) + '</span></div>'
-            + '<div class="igb-stat-row"><span>Connected</span><span>' + (weekStats.connected || 0) + '</span></div>'
-            + '<div class="igb-stat-row"><span>Talk Time</span><span>' + igbFormatDuration(weekStats.total_duration || 0) + '</span></div>'
-            + '</div>';
-    } catch (e) {}
+        panelBody.innerHTML = `
+            <div class="igb-minutes-stats">
+                <div class="igb-stat-row"><span>Calls Made</span><strong>${todayStats.total_calls || 0}</strong></div>
+                <div class="igb-stat-row"><span>Connected</span><strong>${todayStats.connected || 0} (${todayStats.connect_rate || 0}%)</strong></div>
+                <div class="igb-stat-row"><span>Avg Duration</span><span>${igbFormatDuration(todayStats.avg_duration || 0)}</span></div>
+                <div class="igb-stat-row"><span>Voicemails</span><span>${todayStats.voicemail || 0}</span></div>
+                <div class="igb-stat-row"><span>No Answer</span><span>${todayStats.no_answer || 0}</span></div>
+            </div>
+            <div class="igb-section-label">This Week</div>
+            <div class="igb-minutes-stats">
+                <div class="igb-stat-row"><span>Calls</span><span>${weekStats.total_calls || 0}</span></div>
+                <div class="igb-stat-row"><span>Connected</span><span>${weekStats.connected || 0}</span></div>
+                <div class="igb-stat-row"><span>Talk Time</span><span>${igbFormatDuration(weekStats.total_duration || 0)}</span></div>
+            </div>
+        `;
+    } catch (e) {
+        // Stats unavailable
+    }
 }
 
 function igbInjectPipelineButtons() {
-    var stageHeaders = igbFindAll(
+    const stageHeaders = igbFindAll(
         '[class*="pipeline"] [class*="stage-header"], '
         + '[class*="pipeline"] [class*="column-header"], '
         + '.board-column .column-header, '
@@ -382,35 +467,38 @@ function igbInjectPipelineButtons() {
         + '.pipeline-view .stage-column > div:first-child'
     );
 
-    stageHeaders.forEach(function(header) {
+    stageHeaders.forEach((header) => {
         if (header.querySelector('.igb-dial-btn')) {
             return;
         }
 
-        var dialButton = igbMakeElement('button', 'igb-dial-btn');
-        dialButton.innerHTML = '<i class="fa-solid fa-phone"></i> Dial';
+        const dialButton = igbMakeElement('button', 'igb-dial-btn');
+        const phoneIcon = document.createElement('i');
+        phoneIcon.className = 'fa-solid fa-phone';
+        dialButton.appendChild(phoneIcon);
+        dialButton.appendChild(document.createTextNode(' Dial'));
         dialButton.title = 'Dial all contacts in this stage';
-        dialButton.onclick = function(event) {
+        dialButton.addEventListener('click', (event) => {
             event.stopPropagation();
             igbDialFromPipelineStage(header);
-        };
+        });
         header.appendChild(dialButton);
     });
 }
 
 function igbDialFromPipelineStage(headerElement) {
-    var column = headerElement.closest('[class*="column"], .board-column, .stage-column');
+    const column = headerElement.closest('[class*="column"], .board-column, .stage-column');
     if (!column) { return; }
 
-    var opportunityCards = column.querySelectorAll('[class*="opportunity-card"], [class*="deal-card"], .board-card');
-    var contactList = [];
+    const opportunityCards = column.querySelectorAll('[class*="opportunity-card"], [class*="deal-card"], .board-card');
+    const contactList = [];
 
-    opportunityCards.forEach(function(card) {
-        var contactLink = card.querySelector('a[href*="/contacts/"]');
-        var contactId = '';
+    opportunityCards.forEach((card) => {
+        const contactLink = card.querySelector('a[href*="/contacts/"]');
+        let contactId = '';
 
         if (contactLink) {
-            var urlMatch = contactLink.href.match(/\/contacts\/([a-zA-Z0-9]+)/);
+            const urlMatch = contactLink.href.match(/\/contacts\/([a-zA-Z0-9]+)/);
             if (urlMatch) { contactId = urlMatch[1]; }
         }
 
@@ -418,8 +506,8 @@ function igbDialFromPipelineStage(headerElement) {
             contactId = card.getAttribute('data-contact-id') || card.getAttribute('data-id') || '';
         }
 
-        var nameElement = card.querySelector('[class*="name"], [class*="title"]');
-        var contactName = nameElement ? nameElement.textContent.trim() : 'Unknown';
+        const nameElement = card.querySelector('[class*="name"], [class*="title"]');
+        const contactName = nameElement ? nameElement.textContent.trim() : 'Unknown';
 
         if (contactId) {
             contactList.push({ contactId: contactId, name: contactName });
@@ -431,23 +519,23 @@ function igbDialFromPipelineStage(headerElement) {
         return;
     }
 
-    var stageName = headerElement.textContent.replace(/Dial$/i, '').trim();
+    const stageName = headerElement.textContent.replace(/Dial$/i, '').trim();
     igbOpenDialer(contactList, stageName);
 }
 
 async function igbInjectTemperatureBadges() {
-    var opportunityCards = igbFindAll('[class*="opportunity-card"], [class*="deal-card"], .board-card');
-    var contactIdList = [];
-    var cardsByContactId = {};
+    const opportunityCards = igbFindAll('[class*="opportunity-card"], [class*="deal-card"], .board-card');
+    const contactIdList = [];
+    const cardsByContactId = {};
 
-    opportunityCards.forEach(function(card) {
+    opportunityCards.forEach((card) => {
         if (card.querySelector('.igb-temp-badge')) { return; }
 
-        var contactLink = card.querySelector('a[href*="/contacts/"]');
-        var contactId = '';
+        const contactLink = card.querySelector('a[href*="/contacts/"]');
+        let contactId = '';
 
         if (contactLink) {
-            var urlMatch = contactLink.href.match(/\/contacts\/([a-zA-Z0-9]+)/);
+            const urlMatch = contactLink.href.match(/\/contacts\/([a-zA-Z0-9]+)/);
             if (urlMatch) { contactId = urlMatch[1]; }
         }
 
@@ -467,17 +555,17 @@ async function igbInjectTemperatureBadges() {
     if (contactIdList.length === 0) { return; }
 
     try {
-        var bulkData = await igbApiRequest('GET', '/api/ghl/intelligence/bulk?ids=' + contactIdList.slice(0, 300).join(','));
-        var cachedResults = bulkData.cached || {};
-        var uncachedIds = bulkData.uncached || [];
+        const bulkData = await igbApiRequest('GET', '/api/ghl/intelligence/bulk?ids=' + contactIdList.slice(0, 300).join(','));
+        const cachedResults = bulkData.cached || {};
+        const uncachedIds = bulkData.uncached || [];
 
-        Object.keys(cachedResults).forEach(function(contactId) {
-            var intelligence = cachedResults[contactId];
-            var temperature = intelligence.temperature || '';
-            var score = intelligence.score || 0;
-            var badge = igbMakeTempBadge(temperature, score);
+        Object.keys(cachedResults).forEach((contactId) => {
+            const intelligence = cachedResults[contactId];
+            const temperature = intelligence.temperature || '';
+            const score = intelligence.score || 0;
+            const badge = igbMakeTempBadge(temperature, score);
 
-            (cardsByContactId[contactId] || []).forEach(function(card) {
+            (cardsByContactId[contactId] || []).forEach((card) => {
                 if (!card.querySelector('.igb-temp-badge')) {
                     card.style.position = 'relative';
                     card.appendChild(badge.cloneNode(true));
@@ -486,7 +574,7 @@ async function igbInjectTemperatureBadges() {
         });
 
         if (uncachedIds.length > 0) {
-            igbApiRequest('POST', '/voice/contact-intelligence-analyze', { contact_ids: uncachedIds.slice(0, 5) }).catch(function() {});
+            igbApiRequest('POST', '/voice/contact-intelligence-analyze', { contact_ids: uncachedIds.slice(0, 5) }).catch(() => {});
         }
     } catch (e) {
         igbLog('Temperature badge error: ' + e);
@@ -494,13 +582,17 @@ async function igbInjectTemperatureBadges() {
 }
 
 function igbMakeTempBadge(temperature, score) {
-    var badge = igbMakeElement('div', 'igb-temp-badge');
-    var iconMap = { hot: 'fa-fire', warm: 'fa-temperature-half', cool: 'fa-snowflake', cold: 'fa-icicles' };
-    var colorClassMap = { hot: 'igb-color-hot', warm: 'igb-color-warm', cool: 'igb-color-cool', cold: 'igb-color-cold' };
-    var iconName = iconMap[temperature] || 'fa-circle';
-    var colorClass = colorClassMap[temperature] || 'igb-color-cold';
-    badge.innerHTML = '<i class="fa-solid ' + iconName + ' ' + colorClass + '"></i>';
-    badge.title = (temperature || 'unknown') + ' | Score: ' + score;
+    const badge = igbMakeElement('div', 'igb-temp-badge');
+    const iconMap = { hot: 'fa-fire', warm: 'fa-temperature-half', cool: 'fa-snowflake', cold: 'fa-icicles' };
+    const colorClassMap = { hot: 'igb-color-hot', warm: 'igb-color-warm', cool: 'igb-color-cool', cold: 'igb-color-cold' };
+    const iconName = iconMap[temperature] || 'fa-circle';
+    const colorClass = colorClassMap[temperature] || 'igb-color-cold';
+
+    const icon = document.createElement('i');
+    icon.className = `fa-solid ${iconName} ${colorClass}`;
+    badge.appendChild(icon);
+
+    badge.title = `${temperature || 'unknown'} | Score: ${score}`;
     if (temperature === 'hot') {
         badge.classList.add('igb-temp-hot');
     }
@@ -508,30 +600,33 @@ function igbMakeTempBadge(temperature, score) {
 }
 
 function igbInjectAiReplyButton() {
-    var composeArea = igbFind('[class*="message-composer"], [class*="compose"], [class*="reply-box"], .hl_message-composer');
+    const composeArea = igbFind('[class*="message-composer"], [class*="compose"], [class*="reply-box"], .hl_message-composer');
     if (!composeArea || composeArea.querySelector('.igb-ai-reply-btn')) { return; }
 
-    var contactId = igbGetContactIdFromUrl();
+    const contactId = igbGetContactIdFromUrl();
     if (!contactId) { return; }
 
-    var replyButton = igbMakeElement('button', 'igb-ai-reply-btn');
-    replyButton.innerHTML = '<i class="fa-solid fa-robot"></i> AI Reply';
+    const replyButton = igbMakeElement('button', 'igb-ai-reply-btn');
+    const robotIcon = document.createElement('i');
+    robotIcon.className = 'fa-solid fa-robot';
+    replyButton.appendChild(robotIcon);
+    replyButton.appendChild(document.createTextNode(' AI Reply'));
     replyButton.title = 'Generate AI reply draft';
-    replyButton.onclick = function() {
+    replyButton.addEventListener('click', () => {
         igbGenerateAiReply(contactId, composeArea);
-    };
+    });
     composeArea.appendChild(replyButton);
 }
 
 async function igbGenerateAiReply(contactId, composeElement) {
-    var replyBtn = composeElement.querySelector('.igb-ai-reply-btn');
+    const replyBtn = composeElement.querySelector('.igb-ai-reply-btn');
     if (replyBtn) {
         replyBtn.disabled = true;
         replyBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
     }
 
     try {
-        var replyData = await igbApiRequest('POST', '/api/ghl/ai-suggest/' + contactId);
+        const replyData = await igbApiRequest('POST', '/api/ghl/ai-suggest/' + contactId);
         if (replyData.draft) {
             igbShowAiReplyPreview(replyData.draft, contactId, composeElement);
         } else {
@@ -548,31 +643,42 @@ async function igbGenerateAiReply(contactId, composeElement) {
 }
 
 function igbShowAiReplyPreview(draftText, contactId, composeElement) {
-    var existing = igbFind('#igb-ai-preview');
+    const existing = igbFind('#igb-ai-preview');
     if (existing) { existing.remove(); }
 
-    var preview = igbMakeElement('div', 'igb-ai-preview');
+    const preview = igbMakeElement('div', 'igb-ai-preview');
     preview.id = 'igb-ai-preview';
-    preview.innerHTML = '<div class="igb-preview-header">AI Draft <button class="igb-panel-close" onclick="document.getElementById(\'igb-ai-preview\').remove()">&times;</button></div>'
-        + '<textarea class="igb-preview-text" rows="4">' + igbSafeText(draftText) + '</textarea>'
-        + '<div class="igb-preview-actions">'
-        + '<button class="igb-btn igb-btn-primary" id="igb-send-draft-btn">Send</button>'
-        + '<button class="igb-btn igb-btn-secondary" onclick="document.getElementById(\'igb-ai-preview\').remove()">Cancel</button>'
-        + '</div>';
 
-    var composeRect = composeElement.getBoundingClientRect();
-    preview.style.bottom = (window.innerHeight - composeRect.top + 8) + 'px';
-    preview.style.left = composeRect.left + 'px';
-    preview.style.width = composeRect.width + 'px';
-    document.body.appendChild(preview);
+    // Build header
+    const previewHeader = igbMakeElement('div', 'igb-preview-header');
+    previewHeader.appendChild(document.createTextNode('AI Draft '));
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'igb-panel-close';
+    closeBtn.textContent = '\u00D7';
+    closeBtn.addEventListener('click', () => preview.remove());
+    previewHeader.appendChild(closeBtn);
+    preview.appendChild(previewHeader);
 
-    igbFind('#igb-send-draft-btn').onclick = async function() {
-        var messageText = preview.querySelector('textarea').value.trim();
+    // Build textarea
+    const textarea = document.createElement('textarea');
+    textarea.className = 'igb-preview-text';
+    textarea.rows = 4;
+    textarea.value = draftText;
+    preview.appendChild(textarea);
+
+    // Build action buttons
+    const actions = igbMakeElement('div', 'igb-preview-actions');
+
+    const sendBtn = document.createElement('button');
+    sendBtn.className = 'igb-btn igb-btn-primary';
+    sendBtn.textContent = 'Send';
+    sendBtn.addEventListener('click', async () => {
+        const messageText = textarea.value.trim();
         if (!messageText) { return; }
-        this.disabled = true;
-        this.textContent = 'Sending...';
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'Sending...';
         try {
-            var sendResult = await igbApiRequest('POST', '/api/ghl/send-sms/' + contactId, { message: messageText });
+            const sendResult = await igbApiRequest('POST', '/api/ghl/send-sms/' + contactId, { message: messageText });
             if (sendResult.status === 'sent') {
                 igbShowToast('Message sent', 'success');
                 preview.remove();
@@ -582,20 +688,35 @@ function igbShowAiReplyPreview(draftText, contactId, composeElement) {
         } catch (e) {
             igbShowToast('Send error', 'error');
         }
-    };
+    });
+    actions.appendChild(sendBtn);
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'igb-btn igb-btn-secondary';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => preview.remove());
+    actions.appendChild(cancelBtn);
+
+    preview.appendChild(actions);
+
+    const composeRect = composeElement.getBoundingClientRect();
+    preview.style.bottom = (window.innerHeight - composeRect.top + 8) + 'px';
+    preview.style.left = composeRect.left + 'px';
+    preview.style.width = composeRect.width + 'px';
+    document.body.appendChild(preview);
 }
 
 async function igbInjectIntelligenceCard() {
-    var contactId = igbGetContactIdFromUrl();
+    const contactId = igbGetContactIdFromUrl();
     if (!contactId) { return; }
     if (!window.location.pathname.match(/\/contacts\/detail\//)) { return; }
     if (igbFind('#igb-intelligence-card')) { return; }
 
-    var card = igbMakeElement('div', 'igb-intelligence-card');
+    const card = igbMakeElement('div', 'igb-intelligence-card');
     card.id = 'igb-intelligence-card';
     card.innerHTML = '<div class="igb-intel-shimmer"></div>';
 
-    var sidebarArea = igbFind('[class*="contact-detail-sidebar"], [class*="right-panel"], .contact-details aside');
+    const sidebarArea = igbFind('[class*="contact-detail-sidebar"], [class*="right-panel"], .contact-details aside');
     if (sidebarArea) {
         sidebarArea.prepend(card);
     } else {
@@ -604,29 +725,45 @@ async function igbInjectIntelligenceCard() {
     }
 
     try {
-        var intelligenceData = await igbApiRequest('GET', '/api/ghl/intelligence/' + contactId);
+        const intelligenceData = await igbApiRequest('GET', '/api/ghl/intelligence/' + contactId);
         if (intelligenceData.status === 'ok' && intelligenceData.intelligence) {
-            var intel = intelligenceData.intelligence;
-            var temp = intel.temperature || 'unknown';
-            var tempColorMap = { hot: 'igb-color-hot', warm: 'igb-color-warm', cool: 'igb-color-cool', cold: 'igb-color-cold' };
-            var tempIconMap = { hot: 'fa-fire', warm: 'fa-temperature-half', cool: 'fa-snowflake', cold: 'fa-icicles' };
-            var tempColorClass = tempColorMap[temp] || 'igb-color-cold';
-            var tempIconName = tempIconMap[temp] || 'fa-circle';
+            const intel = intelligenceData.intelligence;
+            const temp = intel.temperature || 'unknown';
+            const tempColorMap = { hot: 'igb-color-hot', warm: 'igb-color-warm', cool: 'igb-color-cool', cold: 'igb-color-cold' };
+            const tempIconMap = { hot: 'fa-fire', warm: 'fa-temperature-half', cool: 'fa-snowflake', cold: 'fa-icicles' };
+            const tempColorClass = tempColorMap[temp] || 'igb-color-cold';
+            const tempIconName = tempIconMap[temp] || 'fa-circle';
 
-            var actionsHtml = (intel.actions || []).map(function(action) {
-                return '<div class="igb-intel-action"><i class="fa-solid ' + (action.icon || 'fa-circle') + '"></i> ' + igbSafeText(action.text || action.action || '') + '</div>';
+            const actionsHtml = (intel.actions || []).map((action) => {
+                const iconClass = action.icon || 'fa-circle';
+                const actionText = igbSafeText(action.text || action.action || '');
+                return `<div class="igb-intel-action"><i class="fa-solid ${iconClass}"></i> ${actionText}</div>`;
             }).join('');
 
-            card.innerHTML = '<div class="igb-intel-header">'
-                + '<span class="igb-intel-temp ' + tempColorClass + '"><i class="fa-solid ' + tempIconName + '"></i> ' + igbCapitalize(temp) + '</span>'
-                + '<span class="igb-intel-score">Score: ' + (intel.score || 0) + '</span>'
-                + '</div>'
-                + '<div class="igb-intel-summary">' + igbSafeText(intel.summary || '') + '</div>'
-                + '<div class="igb-intel-actions">' + actionsHtml + '</div>'
-                + '<div class="igb-intel-buttons">'
-                + '<button class="igb-btn igb-btn-sm igb-btn-primary" onclick="igbDialSingleContact(\'' + contactId + '\')"><i class="fa-solid fa-phone"></i> Dial</button>'
-                + '<button class="igb-btn igb-btn-sm" onclick="igbAiReplySingleContact(\'' + contactId + '\')"><i class="fa-solid fa-robot"></i> AI Reply</button>'
-                + '</div>';
+            card.innerHTML = `
+                <div class="igb-intel-header">
+                    <span class="igb-intel-temp ${tempColorClass}"><i class="fa-solid ${tempIconName}"></i> ${igbCapitalize(temp)}</span>
+                    <span class="igb-intel-score">Score: ${intel.score || 0}</span>
+                </div>
+                <div class="igb-intel-summary">${igbSafeText(intel.summary || '')}</div>
+                <div class="igb-intel-actions">${actionsHtml}</div>
+                <div class="igb-intel-buttons"></div>
+            `;
+
+            // Add action buttons via DOM instead of inline onclick
+            const buttonsDiv = card.querySelector('.igb-intel-buttons');
+
+            const dialBtn = document.createElement('button');
+            dialBtn.className = 'igb-btn igb-btn-sm igb-btn-primary';
+            dialBtn.innerHTML = '<i class="fa-solid fa-phone"></i> Dial';
+            dialBtn.addEventListener('click', () => igbDialSingleContact(contactId));
+            buttonsDiv.appendChild(dialBtn);
+
+            const aiReplyBtn = document.createElement('button');
+            aiReplyBtn.className = 'igb-btn igb-btn-sm';
+            aiReplyBtn.innerHTML = '<i class="fa-solid fa-robot"></i> AI Reply';
+            aiReplyBtn.addEventListener('click', () => igbAiReplySingleContact(contactId));
+            buttonsDiv.appendChild(aiReplyBtn);
         } else {
             card.innerHTML = '<div class="igb-intel-empty"><i class="fa-solid fa-brain"></i> No AI intelligence yet</div>';
         }
@@ -640,32 +777,32 @@ function igbDialSingleContact(contactId) {
 }
 
 function igbAiReplySingleContact(contactId) {
-    var composeArea = igbFind('[class*="message-composer"], [class*="compose"]');
+    const composeArea = igbFind('[class*="message-composer"], [class*="compose"]');
     if (composeArea) {
         igbGenerateAiReply(contactId, composeArea);
     }
 }
 
 function igbInjectBulkCallButton() {
-    var bulkActionBar = igbFind('[class*="bulk-actions"], [class*="selection-actions"], .bulk-action-bar');
+    const bulkActionBar = igbFind('[class*="bulk-actions"], [class*="selection-actions"], .bulk-action-bar');
     if (!bulkActionBar || bulkActionBar.querySelector('.igb-bulk-call-btn')) { return; }
 
-    var callButton = igbMakeElement('button', 'igb-bulk-call-btn igb-btn');
+    const callButton = igbMakeElement('button', 'igb-bulk-call-btn igb-btn');
     callButton.innerHTML = '<i class="fa-solid fa-phone"></i> Call with IGB';
-    callButton.onclick = function() {
-        var checkedBoxes = igbFindAll('input[type="checkbox"]:checked');
-        var selectedContacts = [];
+    callButton.addEventListener('click', () => {
+        const checkedBoxes = igbFindAll('input[type="checkbox"]:checked');
+        const selectedContacts = [];
 
-        checkedBoxes.forEach(function(checkbox) {
-            var row = checkbox.closest('tr, [class*="contact-row"]');
+        checkedBoxes.forEach((checkbox) => {
+            const row = checkbox.closest('tr, [class*="contact-row"]');
             if (!row) { return; }
-            var contactLink = row.querySelector('a[href*="/contacts/"]');
-            var contactId = '';
+            const contactLink = row.querySelector('a[href*="/contacts/"]');
+            let contactId = '';
             if (contactLink) {
-                var urlMatch = contactLink.href.match(/\/contacts\/([a-zA-Z0-9]+)/);
+                const urlMatch = contactLink.href.match(/\/contacts\/([a-zA-Z0-9]+)/);
                 if (urlMatch) { contactId = urlMatch[1]; }
             }
-            var nameEl = row.querySelector('[class*="name"]');
+            const nameEl = row.querySelector('[class*="name"]');
             if (contactId) {
                 selectedContacts.push({ contactId: contactId, name: nameEl ? nameEl.textContent.trim() : '' });
             }
@@ -676,7 +813,7 @@ function igbInjectBulkCallButton() {
         } else {
             igbShowToast('No contacts selected', 'error');
         }
-    };
+    });
 
     bulkActionBar.appendChild(callButton);
 }
@@ -687,9 +824,9 @@ function igbOpenDialer(contacts, dialerTitle) {
     igbCallQueueIndex = 0;
     igbActiveCallMap.clear();
 
-    var popup = igbMakeElement('div', 'igb-dialer-popup');
+    const popup = igbMakeElement('div', 'igb-dialer-popup');
     popup.id = 'igb-dialer-popup';
-    popup.innerHTML = igbBuildDialerHtml(dialerTitle);
+    igbBuildDialerContent(popup, dialerTitle);
     document.body.appendChild(popup);
     igbDialerPopupEl = popup;
 
@@ -708,88 +845,157 @@ function igbCloseDialer() {
     igbCurrentCallSid = '';
 }
 
-function igbBuildDialerHtml(dialerTitle) {
-    var lineSelectionHtml = '';
+function igbBuildDialerContent(popup, dialerTitle) {
+    // Header
+    const header = igbMakeElement('div', 'igb-dialer-header');
+    header.appendChild(document.createTextNode(`IGB Dialer \u2014 ${igbSafeText(dialerTitle)}`));
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'igb-panel-close';
+    closeBtn.textContent = '\u00D7';
+    closeBtn.addEventListener('click', igbCloseDialer);
+    header.appendChild(closeBtn);
+    popup.appendChild(header);
+
+    // Body
+    const body = igbMakeElement('div', 'igb-dialer-body');
+
+    // Queue info
+    const queueInfo = igbMakeElement('div', 'igb-dialer-queue-info', `Queue: ${igbCallQueue.length} contacts`);
+    body.appendChild(queueInfo);
+
+    // Current contact
+    const currentContact = igbMakeElement('div', 'igb-current-contact');
+    currentContact.id = 'igb-current-contact';
+    body.appendChild(currentContact);
+
+    // Dial controls
+    const controls = igbMakeElement('div', 'igb-dialer-controls');
+
+    const aiBtn = document.createElement('button');
+    aiBtn.className = 'igb-btn igb-btn-ai';
+    aiBtn.id = 'igb-dial-ai-btn';
+    aiBtn.innerHTML = '<i class="fa-solid fa-robot"></i> AI Call';
+    aiBtn.addEventListener('click', () => igbStartDial('ai'));
+    controls.appendChild(aiBtn);
+
+    const humanBtn = document.createElement('button');
+    humanBtn.className = 'igb-btn igb-btn-human';
+    humanBtn.id = 'igb-dial-human-btn';
+    humanBtn.innerHTML = '<i class="fa-solid fa-phone"></i> Human Call';
+    humanBtn.addEventListener('click', () => igbStartDial('human'));
+    controls.appendChild(humanBtn);
+
+    body.appendChild(controls);
+
+    // Line selection (multi-line)
     if (igbMaxDialLines > 1) {
-        lineSelectionHtml = '<div class="igb-dialer-lines">Lines: ';
-        for (var lineNum = 1; lineNum <= 4; lineNum++) {
-            var isEnabled = lineNum <= igbMaxDialLines;
-            var activeClass = lineNum === 1 ? ' active' : '';
-            var disabledClass = !isEnabled ? ' disabled' : '';
-            var disabledAttr = !isEnabled ? ' disabled title="Upgrade for more lines"' : '';
-            lineSelectionHtml += '<button class="igb-line-btn' + activeClass + disabledClass + '" data-lines="' + lineNum + '"' + disabledAttr + '>' + lineNum + '</button> ';
+        const linesDiv = igbMakeElement('div', 'igb-dialer-lines');
+        linesDiv.appendChild(document.createTextNode('Lines: '));
+        for (let lineNum = 1; lineNum <= 4; lineNum++) {
+            const isEnabled = lineNum <= igbMaxDialLines;
+            const lineBtn = document.createElement('button');
+            lineBtn.className = 'igb-line-btn';
+            lineBtn.setAttribute('data-lines', lineNum);
+            lineBtn.textContent = lineNum;
+            if (lineNum === 1) lineBtn.classList.add('active');
+            if (!isEnabled) {
+                lineBtn.classList.add('disabled');
+                lineBtn.disabled = true;
+                lineBtn.title = 'Upgrade for more lines';
+            }
+            linesDiv.appendChild(lineBtn);
         }
-        lineSelectionHtml += '<span class="igb-active-count">Active: 0</span></div>';
+        const activeCount = igbMakeElement('span', 'igb-active-count', 'Active: 0');
+        linesDiv.appendChild(activeCount);
+        body.appendChild(linesDiv);
     }
 
-    return '<div class="igb-dialer-header">'
-        + '<span>IGB Dialer &mdash; ' + igbSafeText(dialerTitle) + '</span>'
-        + '<button class="igb-panel-close" onclick="igbCloseDialer()">&times;</button>'
-        + '</div>'
-        + '<div class="igb-dialer-body">'
-        + '<div class="igb-dialer-queue-info">Queue: ' + igbCallQueue.length + ' contacts</div>'
-        + '<div id="igb-current-contact" class="igb-current-contact"></div>'
-        + '<div class="igb-dialer-controls">'
-        + '<button class="igb-btn igb-btn-ai" id="igb-dial-ai-btn" onclick="igbStartDial(\'ai\')"><i class="fa-solid fa-robot"></i> AI Call</button>'
-        + '<button class="igb-btn igb-btn-human" id="igb-dial-human-btn" onclick="igbStartDial(\'human\')"><i class="fa-solid fa-phone"></i> Human Call</button>'
-        + '</div>'
-        + lineSelectionHtml
-        + '<div id="igb-call-status-bar" class="igb-call-status" style="display:none"></div>'
-        + '<div id="igb-call-action-btns" class="igb-call-controls" style="display:none"></div>'
-        + '<div id="igb-disposition-panel" class="igb-disposition" style="display:none"></div>'
-        + '<div class="igb-dialer-queue-header">Up Next</div>'
-        + '<div id="igb-queue-list"></div>'
-        + '</div>';
+    // Call status bar (hidden initially)
+    const statusBar = igbMakeElement('div', 'igb-call-status');
+    statusBar.id = 'igb-call-status-bar';
+    statusBar.style.display = 'none';
+    body.appendChild(statusBar);
+
+    // Call action buttons (hidden initially)
+    const actionBtns = igbMakeElement('div', 'igb-call-controls');
+    actionBtns.id = 'igb-call-action-btns';
+    actionBtns.style.display = 'none';
+    body.appendChild(actionBtns);
+
+    // Disposition panel (hidden initially)
+    const dispPanel = igbMakeElement('div', 'igb-disposition');
+    dispPanel.id = 'igb-disposition-panel';
+    dispPanel.style.display = 'none';
+    body.appendChild(dispPanel);
+
+    // Queue header and list
+    const queueHeader = igbMakeElement('div', 'igb-dialer-queue-header', 'Up Next');
+    body.appendChild(queueHeader);
+
+    const queueList = document.createElement('div');
+    queueList.id = 'igb-queue-list';
+    body.appendChild(queueList);
+
+    popup.appendChild(body);
 }
 
 function igbRefreshCurrentContact() {
-    var contactEl = igbFind('#igb-current-contact');
+    const contactEl = igbFind('#igb-current-contact');
     if (!contactEl || igbCallQueueIndex >= igbCallQueue.length) {
         if (contactEl) {
             contactEl.innerHTML = '<div class="igb-text-muted">Queue complete</div>';
         }
         return;
     }
-    var currentContact = igbCallQueue[igbCallQueueIndex];
-    contactEl.innerHTML = '<div class="igb-contact-name">' + igbSafeText(currentContact.name || 'Contact') + '</div>'
-        + '<button class="igb-btn igb-btn-sm igb-btn-secondary" onclick="igbSkipContact()">Skip</button>';
+    const currentContact = igbCallQueue[igbCallQueueIndex];
+
+    contactEl.innerHTML = '';
+    const nameDiv = igbMakeElement('div', 'igb-contact-name', igbSafeText(currentContact.name || 'Contact'));
+    contactEl.appendChild(nameDiv);
+
+    const skipBtn = document.createElement('button');
+    skipBtn.className = 'igb-btn igb-btn-sm igb-btn-secondary';
+    skipBtn.textContent = 'Skip';
+    skipBtn.addEventListener('click', igbSkipContact);
+    contactEl.appendChild(skipBtn);
 }
 
 function igbRefreshQueueDisplay() {
-    var queueListEl = igbFind('#igb-queue-list');
+    const queueListEl = igbFind('#igb-queue-list');
     if (!queueListEl) { return; }
 
-    var listHtml = '';
-    var displayLimit = Math.min(igbCallQueueIndex + 6, igbCallQueue.length);
-    for (var idx = igbCallQueueIndex + 1; idx < displayLimit; idx++) {
-        listHtml += '<div class="igb-queue-item">' + (idx + 1) + '. ' + igbSafeText(igbCallQueue[idx].name || 'Contact') + '</div>';
+    queueListEl.innerHTML = '';
+    const displayLimit = Math.min(igbCallQueueIndex + 6, igbCallQueue.length);
+    for (let idx = igbCallQueueIndex + 1; idx < displayLimit; idx++) {
+        const item = igbMakeElement('div', 'igb-queue-item', `${idx + 1}. ${igbSafeText(igbCallQueue[idx].name || 'Contact')}`);
+        queueListEl.appendChild(item);
     }
-    var remainingCount = igbCallQueue.length - igbCallQueueIndex - 6;
+    const remainingCount = igbCallQueue.length - igbCallQueueIndex - 6;
     if (remainingCount > 0) {
-        listHtml += '<div class="igb-queue-item igb-text-muted">...' + remainingCount + ' more</div>';
+        const moreItem = igbMakeElement('div', 'igb-queue-item igb-text-muted', `...${remainingCount} more`);
+        queueListEl.appendChild(moreItem);
     }
-    queueListEl.innerHTML = listHtml;
 }
 
 async function igbStartDial(callMode) {
     if (igbCallQueueIndex >= igbCallQueue.length) { return; }
 
-    var contact = igbCallQueue[igbCallQueueIndex];
+    const contact = igbCallQueue[igbCallQueueIndex];
     igbCurrentCallMode = callMode;
 
-    var aiBtn = igbFind('#igb-dial-ai-btn');
-    var humanBtn = igbFind('#igb-dial-human-btn');
+    const aiBtn = igbFind('#igb-dial-ai-btn');
+    const humanBtn = igbFind('#igb-dial-human-btn');
     if (aiBtn) { aiBtn.disabled = true; }
     if (humanBtn) { humanBtn.disabled = true; }
 
-    var statusBar = igbFind('#igb-call-status-bar');
+    const statusBar = igbFind('#igb-call-status-bar');
     if (statusBar) {
         statusBar.style.display = 'block';
-        statusBar.innerHTML = '<span class="igb-status-dot igb-status-ringing"></span> Dialing ' + igbSafeText(contact.name) + '...';
+        statusBar.innerHTML = `<span class="igb-status-dot igb-status-ringing"></span> Dialing ${igbSafeText(contact.name)}...`;
     }
 
     try {
-        var dialResponse = await igbApiRequest('POST', '/voice/dial', {
+        const dialResponse = await igbApiRequest('POST', '/voice/dial', {
             contact_id: contact.contactId,
             dial_mode: callMode,
         });
@@ -826,7 +1032,9 @@ async function igbHangupCall() {
     if (!igbCurrentCallSid) { return; }
     try {
         await igbApiRequest('POST', '/voice/hangup', { call_sid: igbCurrentCallSid });
-    } catch (e) {}
+    } catch (e) {
+        // Hangup best-effort
+    }
 }
 
 function igbStartListening() {
@@ -841,7 +1049,7 @@ function igbStopListening() {
 async function igbInterceptCall() {
     if (!igbCurrentCallSid) { return; }
     try {
-        var interceptResult = await igbApiRequest('POST', '/voice/takeover', {
+        const interceptResult = await igbApiRequest('POST', '/voice/takeover', {
             call_sid: igbCurrentCallSid,
             location_id: igbLocationId,
         });
@@ -866,7 +1074,9 @@ async function igbSaveDisposition(dispositionValue) {
             disposition: dispositionValue,
         });
         igbShowToast('Disposition saved: ' + dispositionValue, 'success');
-    } catch (e) {}
+    } catch (e) {
+        // Disposition save best-effort
+    }
 
     igbCurrentCallSid = '';
     igbCallQueueIndex++;
@@ -874,51 +1084,82 @@ async function igbSaveDisposition(dispositionValue) {
     igbRefreshQueueDisplay();
     igbHideCallControls();
 
-    var aiBtn = igbFind('#igb-dial-ai-btn');
-    var humanBtn = igbFind('#igb-dial-human-btn');
+    const aiBtn = igbFind('#igb-dial-ai-btn');
+    const humanBtn = igbFind('#igb-dial-human-btn');
     if (aiBtn) { aiBtn.disabled = false; }
     if (humanBtn) { humanBtn.disabled = false; }
 }
 
 function igbShowCallActionButtons(callMode) {
-    var actionBtns = igbFind('#igb-call-action-btns');
+    const actionBtns = igbFind('#igb-call-action-btns');
     if (!actionBtns) { return; }
     actionBtns.style.display = 'flex';
+    actionBtns.innerHTML = '';
 
-    var buttonsHtml = '';
     if (callMode === 'ai') {
-        buttonsHtml = '<button class="igb-ctrl-btn" onclick="igbStartListening()" title="Listen live"><i class="fa-solid fa-headphones"></i></button>'
-            + '<button class="igb-ctrl-btn" onclick="igbInterceptCall()" title="Take over call"><i class="fa-solid fa-bolt"></i></button>';
+        const listenBtn = document.createElement('button');
+        listenBtn.className = 'igb-ctrl-btn';
+        listenBtn.title = 'Listen live';
+        listenBtn.innerHTML = '<i class="fa-solid fa-headphones"></i>';
+        listenBtn.addEventListener('click', igbStartListening);
+        actionBtns.appendChild(listenBtn);
+
+        const interceptBtn = document.createElement('button');
+        interceptBtn.className = 'igb-ctrl-btn';
+        interceptBtn.title = 'Take over call';
+        interceptBtn.innerHTML = '<i class="fa-solid fa-bolt"></i>';
+        interceptBtn.addEventListener('click', igbInterceptCall);
+        actionBtns.appendChild(interceptBtn);
     }
-    buttonsHtml += '<button class="igb-ctrl-btn igb-ctrl-hangup" onclick="igbHangupCall()" title="Hang up"><i class="fa-solid fa-phone-slash"></i></button>';
-    actionBtns.innerHTML = buttonsHtml;
+
+    const hangupBtn = document.createElement('button');
+    hangupBtn.className = 'igb-ctrl-btn igb-ctrl-hangup';
+    hangupBtn.title = 'Hang up';
+    hangupBtn.innerHTML = '<i class="fa-solid fa-phone-slash"></i>';
+    hangupBtn.addEventListener('click', igbHangupCall);
+    actionBtns.appendChild(hangupBtn);
 }
 
 function igbHideCallControls() {
-    var actionBtns = igbFind('#igb-call-action-btns');
+    const actionBtns = igbFind('#igb-call-action-btns');
     if (actionBtns) { actionBtns.style.display = 'none'; }
-    var statusBar = igbFind('#igb-call-status-bar');
+    const statusBar = igbFind('#igb-call-status-bar');
     if (statusBar) { statusBar.style.display = 'none'; }
-    var dispositionPanel = igbFind('#igb-disposition-panel');
+    const dispositionPanel = igbFind('#igb-disposition-panel');
     if (dispositionPanel) { dispositionPanel.style.display = 'none'; }
 }
 
 function igbShowDispositionPanel() {
-    var dispositionPanel = igbFind('#igb-disposition-panel');
+    const dispositionPanel = igbFind('#igb-disposition-panel');
     if (!dispositionPanel) { return; }
     dispositionPanel.style.display = 'block';
-    dispositionPanel.innerHTML = '<div class="igb-disp-label">Disposition:</div>'
-        + '<div class="igb-disp-grid">'
-        + '<button class="igb-disp-btn" onclick="igbSaveDisposition(\'connected\')">Connected</button>'
-        + '<button class="igb-disp-btn" onclick="igbSaveDisposition(\'voicemail\')">Voicemail</button>'
-        + '<button class="igb-disp-btn" onclick="igbSaveDisposition(\'no_answer\')">No Answer</button>'
-        + '<button class="igb-disp-btn" onclick="igbSaveDisposition(\'callback\')">Callback</button>'
-        + '<button class="igb-disp-btn" onclick="igbSaveDisposition(\'interested\')">Interested</button>'
-        + '<button class="igb-disp-btn" onclick="igbSaveDisposition(\'not_interested\')">Not Interested</button>'
-        + '<button class="igb-disp-btn igb-disp-dnc" onclick="igbSaveDisposition(\'do_not_call\')">DNC</button>'
-        + '</div>';
+    dispositionPanel.innerHTML = '';
 
-    var actionBtns = igbFind('#igb-call-action-btns');
+    const label = igbMakeElement('div', 'igb-disp-label', 'Disposition:');
+    dispositionPanel.appendChild(label);
+
+    const grid = igbMakeElement('div', 'igb-disp-grid');
+    const dispositions = [
+        { value: 'connected', label: 'Connected', isDnc: false },
+        { value: 'voicemail', label: 'Voicemail', isDnc: false },
+        { value: 'no_answer', label: 'No Answer', isDnc: false },
+        { value: 'callback', label: 'Callback', isDnc: false },
+        { value: 'interested', label: 'Interested', isDnc: false },
+        { value: 'not_interested', label: 'Not Interested', isDnc: false },
+        { value: 'do_not_call', label: 'DNC', isDnc: true },
+    ];
+
+    dispositions.forEach((disp) => {
+        const btn = document.createElement('button');
+        btn.className = disp.isDnc ? 'igb-disp-btn igb-disp-dnc' : 'igb-disp-btn';
+        btn.textContent = disp.label;
+        btn.addEventListener('click', () => igbSaveDisposition(disp.value));
+        grid.appendChild(btn);
+    });
+
+    dispositionPanel.appendChild(grid);
+
+    const actionBtns = igbFind('#igb-call-action-btns');
     if (actionBtns) { actionBtns.style.display = 'none'; }
 }
 
@@ -941,67 +1182,72 @@ async function igbPollCallStatus() {
     }
 
     try {
-        var statusData = await igbApiRequest('GET', '/voice/call-status/' + igbCurrentCallSid);
-        var callStatus = statusData.status || 'unknown';
-        var statusBar = igbFind('#igb-call-status-bar');
-        var callInfo = igbActiveCallMap.get(igbCurrentCallSid);
-        var contactName = callInfo ? callInfo.name : '';
+        const statusData = await igbApiRequest('GET', '/voice/call-status/' + igbCurrentCallSid);
+        const callStatus = statusData.status || 'unknown';
+        const statusBar = igbFind('#igb-call-status-bar');
+        const callInfo = igbActiveCallMap.get(igbCurrentCallSid);
+        const contactName = callInfo ? callInfo.name : '';
 
-        var dotClass = 'igb-status-ringing';
-        var statusLabel = callStatus;
+        let dotClass = 'igb-status-ringing';
+        let statusLabel = callStatus;
 
         if (callStatus === 'in-progress') {
             dotClass = 'igb-status-connected';
             statusLabel = (igbCurrentCallMode === 'ai' ? 'AI talking to ' : 'Connected to ') + contactName;
         } else if (callStatus === 'ringing') {
-            statusLabel = 'Ringing ' + contactName + '...';
+            statusLabel = `Ringing ${contactName}...`;
         } else if (callStatus === 'initiated') {
-            statusLabel = 'Dialing ' + contactName + '...';
+            statusLabel = `Dialing ${contactName}...`;
         }
 
         if (statusBar) {
-            statusBar.innerHTML = '<span class="igb-status-dot ' + dotClass + '"></span> ' + statusLabel;
+            statusBar.innerHTML = `<span class="igb-status-dot ${dotClass}"></span> ${statusLabel}`;
             if (statusData.duration) {
-                statusBar.innerHTML += ' &middot; ' + igbFormatDuration(statusData.duration);
+                statusBar.innerHTML += ` \u00B7 ${igbFormatDuration(statusData.duration)}`;
             }
         }
 
-        var terminalStatuses = ['completed', 'busy', 'no-answer', 'failed', 'canceled'];
+        const terminalStatuses = ['completed', 'busy', 'no-answer', 'failed', 'canceled'];
         if (terminalStatuses.indexOf(callStatus) >= 0) {
             igbStopCallPolling();
             igbStopListenStream();
             if (statusBar) {
-                statusBar.innerHTML = '<span class="igb-status-dot igb-status-ended"></span> Call ended (' + callStatus + ')';
+                statusBar.innerHTML = `<span class="igb-status-dot igb-status-ended"></span> Call ended (${callStatus})`;
             }
             igbShowDispositionPanel();
         }
-    } catch (e) {}
+    } catch (e) {
+        // Poll error, will retry next interval
+    }
 }
 
 function igbOpenListenStream(callSid) {
     igbStopListenStream();
     try {
-        var wsUrl = igbServerUrl.replace('https://', 'wss://').replace('http://', 'ws://')
+        const wsUrl = igbServerUrl.replace('https://', 'wss://').replace('http://', 'ws://')
             + '/voice/listen-stream?call_sid=' + callSid
             + '&key=' + encodeURIComponent(igbKey);
 
         igbListenSocket = new WebSocket(wsUrl);
         igbListenSocket.binaryType = 'arraybuffer';
 
-        var audioContext = null;
-        igbListenSocket.onopen = function() {
+        let audioContext = null;
+        igbListenSocket.onopen = () => {
             igbLog('Live listen connected');
             igbShowToast('Listening to call...', 'info');
             try {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 8000 });
-            } catch (audioError) {}
+            } catch (audioError) {
+                // AudioContext unavailable
+            }
         };
-        igbListenSocket.onmessage = function(messageEvent) {
+        igbListenSocket.onmessage = () => {
+            // Audio frame received (playback handled by AudioContext)
         };
-        igbListenSocket.onclose = function() {
+        igbListenSocket.onclose = () => {
             igbLog('Live listen disconnected');
         };
-        igbListenSocket.onerror = function() {
+        igbListenSocket.onerror = () => {
             igbLog('Live listen error');
         };
     } catch (e) {
@@ -1018,7 +1264,7 @@ function igbStopListenStream() {
 }
 
 function igbInjectIntoTopNav(element) {
-    var navSelectors = [
+    const navSelectors = [
         'nav [class*="right-section"]',
         'header [class*="actions"]',
         '[class*="topbar"] [class*="right"]',
@@ -1026,8 +1272,8 @@ function igbInjectIntoTopNav(element) {
         'nav.hl_topbar',
     ];
 
-    var targetEl = null;
-    for (var sIdx = 0; sIdx < navSelectors.length; sIdx++) {
+    let targetEl = null;
+    for (let sIdx = 0; sIdx < navSelectors.length; sIdx++) {
         targetEl = igbFind(navSelectors[sIdx]);
         if (targetEl) { break; }
     }
@@ -1035,7 +1281,7 @@ function igbInjectIntoTopNav(element) {
     if (targetEl) {
         targetEl.insertBefore(element, targetEl.firstChild);
     } else {
-        var chipContainer = igbFind('#igb-floating-chips');
+        let chipContainer = igbFind('#igb-floating-chips');
         if (!chipContainer) {
             chipContainer = igbMakeElement('div', 'igb-floating-chips');
             chipContainer.id = 'igb-floating-chips';
@@ -1046,30 +1292,51 @@ function igbInjectIntoTopNav(element) {
 }
 
 function igbInjectRecordingPlayers() {
-    var callMessageEls = igbFindAll('[class*="call-message"], [class*="call-entry"], [data-message-type="Call"]');
+    const callMessageEls = igbFindAll('[class*="call-message"], [class*="call-entry"], [data-message-type="Call"]');
 
-    callMessageEls.forEach(function(callEntry) {
+    callMessageEls.forEach((callEntry) => {
         if (callEntry.querySelector('.igb-audio-player')) { return; }
 
-        var callSid = callEntry.getAttribute('data-call-sid') || '';
+        let callSid = callEntry.getAttribute('data-call-sid') || '';
         if (!callSid) {
-            var sidMatch = callEntry.textContent.match(/CA[a-f0-9]{32}/);
+            const sidMatch = callEntry.textContent.match(/CA[a-f0-9]{32}/);
             if (sidMatch) { callSid = sidMatch[0]; }
         }
         if (!callSid) { return; }
 
-        var audioPlayer = igbMakeElement('div', 'igb-audio-player');
-        audioPlayer.innerHTML = '<button class="igb-play-btn" onclick="igbPlayRecording(this, \'' + callSid + '\')"><i class="fa-solid fa-play"></i></button>'
-            + '<div class="igb-audio-bar"><div class="igb-audio-progress"></div></div>'
-            + '<span class="igb-audio-time">0:00</span>'
-            + '<button class="igb-transcript-btn" onclick="igbToggleTranscript(this, \'' + callSid + '\')" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>';
+        const audioPlayer = igbMakeElement('div', 'igb-audio-player');
+
+        // Play button
+        const playBtn = document.createElement('button');
+        playBtn.className = 'igb-play-btn';
+        playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+        playBtn.addEventListener('click', () => igbPlayRecording(playBtn, callSid));
+        audioPlayer.appendChild(playBtn);
+
+        // Progress bar
+        const audioBar = igbMakeElement('div', 'igb-audio-bar');
+        audioBar.innerHTML = '<div class="igb-audio-progress"></div>';
+        audioPlayer.appendChild(audioBar);
+
+        // Time display
+        const timeSpan = igbMakeElement('span', 'igb-audio-time', '0:00');
+        audioPlayer.appendChild(timeSpan);
+
+        // Transcript button
+        const transcriptBtn = document.createElement('button');
+        transcriptBtn.className = 'igb-transcript-btn';
+        transcriptBtn.title = 'Transcript';
+        transcriptBtn.innerHTML = '<i class="fa-solid fa-file-lines"></i>';
+        transcriptBtn.addEventListener('click', () => igbToggleTranscript(transcriptBtn, callSid));
+        audioPlayer.appendChild(transcriptBtn);
+
         callEntry.appendChild(audioPlayer);
     });
 }
 
 async function igbPlayRecording(playBtn, callSid) {
-    var playerEl = playBtn.closest('.igb-audio-player');
-    var existingAudio = playerEl.querySelector('audio');
+    const playerEl = playBtn.closest('.igb-audio-player');
+    const existingAudio = playerEl.querySelector('audio');
 
     if (existingAudio) {
         if (existingAudio.paused) {
@@ -1083,22 +1350,22 @@ async function igbPlayRecording(playBtn, callSid) {
     }
 
     playBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-    var audioEl = document.createElement('audio');
+    const audioEl = document.createElement('audio');
     audioEl.src = igbServerUrl + '/voice/recording/' + callSid + '?key=' + encodeURIComponent(igbKey);
     audioEl.style.display = 'none';
     playerEl.appendChild(audioEl);
 
-    audioEl.onloadedmetadata = function() {
+    audioEl.onloadedmetadata = () => {
         playerEl.querySelector('.igb-audio-time').textContent = igbFormatDuration(Math.round(audioEl.duration));
     };
-    audioEl.ontimeupdate = function() {
-        var progressPercent = audioEl.duration ? (audioEl.currentTime / audioEl.duration * 100) : 0;
-        var progressBar = playerEl.querySelector('.igb-audio-progress');
+    audioEl.ontimeupdate = () => {
+        const progressPercent = audioEl.duration ? (audioEl.currentTime / audioEl.duration * 100) : 0;
+        const progressBar = playerEl.querySelector('.igb-audio-progress');
         if (progressBar) { progressBar.style.width = progressPercent + '%'; }
         playerEl.querySelector('.igb-audio-time').textContent =
             igbFormatDuration(Math.round(audioEl.currentTime)) + '/' + igbFormatDuration(Math.round(audioEl.duration || 0));
     };
-    audioEl.onended = function() {
+    audioEl.onended = () => {
         playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
     };
 
@@ -1111,23 +1378,30 @@ async function igbPlayRecording(playBtn, callSid) {
 }
 
 async function igbToggleTranscript(transcriptBtn, callSid) {
-    var playerEl = transcriptBtn.closest('.igb-audio-player');
-    var existingPanel = playerEl.querySelector('.igb-transcript-panel');
+    const playerEl = transcriptBtn.closest('.igb-audio-player');
+    const existingPanel = playerEl.querySelector('.igb-transcript-panel');
     if (existingPanel) {
         existingPanel.remove();
         return;
     }
 
-    var transcriptPanel = igbMakeElement('div', 'igb-transcript-panel');
+    const transcriptPanel = igbMakeElement('div', 'igb-transcript-panel');
     transcriptPanel.innerHTML = '<div class="igb-loading">Loading transcript...</div>';
     playerEl.appendChild(transcriptPanel);
 
     try {
-        var callData = await igbApiRequest('GET', '/voice/call-status/' + callSid);
+        const callData = await igbApiRequest('GET', '/voice/call-status/' + callSid);
         if (callData.transcript) {
-            transcriptPanel.innerHTML = '<div class="igb-transcript-text">' + igbSafeText(callData.transcript) + '</div>';
+            const textDiv = igbMakeElement('div', 'igb-transcript-text', igbSafeText(callData.transcript));
+            transcriptPanel.innerHTML = '';
+            transcriptPanel.appendChild(textDiv);
         } else {
-            transcriptPanel.innerHTML = '<button class="igb-btn igb-btn-sm" onclick="igbRequestTranscription(\'' + callSid + '\', this)">Transcribe</button>';
+            transcriptPanel.innerHTML = '';
+            const transcribeBtn = document.createElement('button');
+            transcribeBtn.className = 'igb-btn igb-btn-sm';
+            transcribeBtn.textContent = 'Transcribe';
+            transcribeBtn.addEventListener('click', () => igbRequestTranscription(callSid, transcribeBtn));
+            transcriptPanel.appendChild(transcribeBtn);
         }
     } catch (e) {
         transcriptPanel.innerHTML = '<div class="igb-text-muted">Transcript unavailable</div>';
@@ -1146,17 +1420,17 @@ async function igbRequestTranscription(callSid, requestBtn) {
 }
 
 function igbHandlePageChange() {
-    var currentPath = window.location.pathname;
+    const currentPath = window.location.pathname;
 
     if (currentPath.indexOf('/opportunities') >= 0 || currentPath.indexOf('/pipeline') >= 0) {
-        setTimeout(function() {
+        setTimeout(() => {
             igbInjectPipelineButtons();
             igbInjectTemperatureBadges();
         }, 500);
     }
 
     if (currentPath.indexOf('/conversations') >= 0 || currentPath.indexOf('/messages') >= 0) {
-        setTimeout(function() {
+        setTimeout(() => {
             igbInjectAiReplyButton();
             igbInjectRecordingPlayers();
         }, 500);
@@ -1171,7 +1445,7 @@ function igbHandlePageChange() {
     }
 }
 
-var igbDomObserver = new MutationObserver(function() {
+const igbDomObserver = new MutationObserver(() => {
     clearTimeout(igbDomObserver.debounceTimer);
     igbDomObserver.debounceTimer = setTimeout(igbHandlePageChange, 300);
 });
@@ -1181,7 +1455,7 @@ async function igbInit() {
 
     igbKey = localStorage.getItem(igbKeyStorageKey) || '';
     if (!igbIsKeyValid()) {
-        var authSuccess = await igbAuthenticate();
+        const authSuccess = await igbAuthenticate();
         if (!authSuccess) {
             igbLog('Auth failed, features disabled');
             return;
@@ -1189,10 +1463,12 @@ async function igbInit() {
     }
 
     try {
-        var subscriptionInfo = await igbApiRequest('GET', '/api/ghl/subscription-info');
+        const subscriptionInfo = await igbApiRequest('GET', '/api/ghl/subscription-info');
         igbSubscriptionTier = subscriptionInfo.tier || 'individual';
         igbMaxDialLines = subscriptionInfo.max_lines || 1;
-    } catch (e) {}
+    } catch (e) {
+        // Subscription info unavailable, use defaults
+    }
 
     await Promise.all([
         igbRenderStatsChip(),
