@@ -273,7 +273,7 @@
         numbers.forEach(n => {
             const hasSms = n.capabilities?.sms;
             const smsIcon = hasSms
-                ? '<i class="fa-solid fa-circle-check" style="color:#4ade80;"></i>'
+                ? '<i class="fa-solid fa-circle-check" style="color:' + _tc.green + ';"></i>'
                 : '<i class="fa-solid fa-circle-xmark" style="color:' + _tc.textDim + ';"></i>';
 
             // Per-number A2P status — check if this number's SID is in the messaging service
@@ -282,21 +282,21 @@
             if (!hasSms) {
                 a2pBadge = '<span style="color:' + _tc.textDim + ';font-size:.75rem;">N/A</span>';
             } else if (isRegistered && numberInMs) {
-                a2pBadge = '<span style="background:rgba(74,222,128,0.12);color:#4ade80;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;"><i class="fa-solid fa-shield-halved me-1"></i>Registered</span>';
+                a2pBadge = '<span style="background:' + _tc.greenBg + ';color:' + _tc.green + ';padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;"><i class="fa-solid fa-shield-halved me-1"></i>Registered</span>';
             } else if (isRegistered && !numberInMs) {
-                a2pBadge = '<span style="background:rgba(239,68,68,0.12);color:#ef4444;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;">Not Registered</span>';
+                a2pBadge = '<span style="background:' + _tc.redBg + ';color:' + _tc.red + ';padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;">Not Registered</span>';
             } else if (brandStatus === 'APPROVED' && !a2p.campaign_sid) {
-                a2pBadge = '<span style="background:rgba(255,165,0,0.12);color:#ffa500;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;">Campaign Needed</span>';
+                a2pBadge = '<span style="background:' + _tc.orangeBg + ';color:' + _tc.orange + ';padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;">Campaign Needed</span>';
             } else if (brandStatus === 'PENDING' || brandStatus === 'IN_REVIEW') {
-                a2pBadge = '<span style="background:rgba(255,165,0,0.12);color:#ffa500;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;">Pending</span>';
+                a2pBadge = '<span style="background:' + _tc.orangeBg + ';color:' + _tc.orange + ';padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;">Pending</span>';
             } else {
-                a2pBadge = '<span style="background:rgba(239,68,68,0.12);color:#ef4444;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;">Not Registered</span>';
+                a2pBadge = '<span style="background:' + _tc.redBg + ';color:' + _tc.red + ';padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;">Not Registered</span>';
             }
 
             // Actions — per-number
             let actions = '';
             if (hasSms && isRegistered && numberInMs) {
-                actions = '<span style="color:#4ade80;font-size:.75rem;"><i class="fa-solid fa-circle-check me-1"></i>Compliant</span>';
+                actions = '<span style="color:' + _tc.green + ';font-size:.75rem;"><i class="fa-solid fa-circle-check me-1"></i>Compliant</span>';
             } else if (hasSms && isRegistered && !numberInMs && msgServiceSid) {
                 // A2P is set up but this number isn't in the messaging service — offer to add it
                 actions = '<button onclick="smsAddNumberToA2p(\'' + (n.sid || '') + '\')" style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.25);color:#00ff88;border-radius:5px;padding:3px 10px;font-size:.75rem;font-weight:600;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-plus me-1"></i>Add to A2P</button>';
