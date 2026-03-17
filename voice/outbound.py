@@ -686,7 +686,7 @@ def voice_status():
     if call_status in terminal_statuses and call_sid and call_sid in active_calls:
         _queue_insights_fetch(call_sid, active_calls.get(call_sid, {}))
 
-    # ── Fire GHL trigger: AI Call Completed ──
+    # ── Fire GHL triggers: AI Call Completed / No Answer ──
     if call_status in terminal_statuses and call_sid and call_sid in active_calls:
         trigger_info = active_calls[call_sid]
         trigger_location = trigger_info.get('_location_id', '')
@@ -694,7 +694,8 @@ def voice_status():
             effective_status = trigger_info.get('_amd_result', call_status)
             if effective_status == 'completed' and int(duration or 0) == 0:
                 effective_status = 'no-answer'
-            _fire_ghl_trigger(trigger_location, 'ai_call_completed', {
+
+            trigger_payload = {
                 'contactId': trigger_info.get('contact_id', ''),
                 'locationId': trigger_location,
                 'phone': trigger_info.get('phone', ''),
@@ -703,7 +704,15 @@ def voice_status():
                 'callStatus': effective_status,
                 'callDuration': int(duration or 0),
                 'direction': 'outbound',
-            })
+            }
+
+            # Always fire the "completed" trigger (covers all outcomes)
+            _fire_ghl_trigger(trigger_location, 'ai_call_completed', trigger_payload)
+
+            # Fire "no answer" trigger for missed/failed calls
+            no_answer_statuses = {'no-answer', 'busy', 'failed', 'canceled', 'voicemail'}
+            if effective_status in no_answer_statuses:
+                _fire_ghl_trigger(trigger_location, 'ai_call_no_answer', trigger_payload)
 
     return '', 204
 
