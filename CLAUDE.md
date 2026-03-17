@@ -163,6 +163,7 @@ Master Twilio Account (platform owner — DIRECT CUSTOMER)
 | `message_utils.py` | Message batching and rapid-fire message collection utilities | small |
 | `payload_utils.py` | Webhook payload normalization for flexible GHL field extraction | small |
 | `forms.py` | Flask-WTF form definitions | small |
+| `workflow_engine.py` | Workflow execution engine — trigger matching, step handlers, condition evaluation, cron-based triggers | ~2300 lines |
 | `voice/predictive_engine.py` | Erlang-C pacing, TCPA compliance tracker, agent state machine, callback queue, timezone/consent lookup | medium |
 | `voice/stream.py` | Call listen/intercept — live audio streaming WebSocket + takeover endpoint | small |
 | `crm_adapters/` | CRM adapter factory + GHL/HubSpot/Salesforce/Pipedrive/Zoho/Insureio/Zapier | directory |
@@ -200,6 +201,7 @@ All HTTP routes have been extracted from `main.py` into dedicated Flask blueprin
 | `google_calendar.py` | Google Calendar OAuth and integration | ~369 lines |
 | `team.py` | Team management — invite members, roles, permissions, audit log | ~1233 lines |
 | `embed.py` | Embeddable panel routes — CRM iframe embedding (intelligence, dialer, panel) | ~122 lines |
+| `workflows.py` | Workflow CRUD, AI builder, pre-built template seeding, test runs | ~1200 lines |
 
 ### Voice Package (`voice/`)
 
@@ -357,6 +359,7 @@ All tables created in `db.py`'s `init_db()` function (plus `contact_intelligence
 - `GET /comparison`, `/comparison/text-drip`, `/comparison/dialers` — Comparison pages
 - `GET /dialer` — Dialer marketing page
 - `GET /sms` — SMS marketing page
+- `GET /workflows` — Workflow automation marketing page
 - `GET /getting-started` — Setup guide
 - `GET /a2p-guide` — A2P 10DLC registration guide
 - `GET /articles` — Articles/blog listing page (7 articles)
@@ -586,6 +589,21 @@ All tables created in `db.py`'s `init_db()` function (plus `contact_intelligence
 - `GET /voice/a2p/campaign-status` — Poll campaign approval status
 - `POST /voice/a2p/import` — Import externally-approved brand + campaign IDs (CNP migration)
 - `POST /voice/a2p/mark-fee-paid` — Mark A2P registration fee as paid for sub-account users
+
+---
+
+## Pre-Built Workflow Templates (blueprints/workflows.py)
+
+Every new location gets **4 pre-built workflow templates** automatically seeded on first load (all in `draft` status — users activate when ready). Seeding is lazy: `_seed_default_workflows()` runs inside `GET /api/workflows` and checks `SELECT 1 FROM workflows WHERE location_id = %s LIMIT 1` before inserting.
+
+| Workflow | Trigger | Description |
+|----------|---------|-------------|
+| **Speed to Lead** | `contact_created` | 30s wait → personalized intro SMS → 5min wait → if no reply → AI call → tag `speed-to-lead-contacted` |
+| **Aged Lead Re-engagement** | `lead_age` (30 days) | Check temperature → cold gets AI low-pressure check-in, warm gets AI re-engagement → tag `re-engage-sent` → 2-day wait → AI follow-up or tag `re-engaged` |
+| **SMS Response Handler** | `sms_received` | Check DNC tag → if hot lead → tag + AI call; if warm/cool → AI-drafted reply |
+| **Re-engage Cold Leads** | `no_response` (7 days) | Gentle check-in SMS → tag `re-engage-attempt` → 1-day wait → if replied tag `re-engaged`, else AI call → 3-day wait → final SMS → tag `nurture-complete` |
+
+Templates use merge fields (`{{firstName}}`, `{{operatorName}}`, `{{companyName}}`), AI intelligence conditions (`temperature_is`, `responded_within`), and `exit_on_reply` for auto-exit when the contact responds.
 
 ---
 
@@ -1044,13 +1062,13 @@ The dialer's Smart Filters use AI intelligence to classify contacts — NOT simp
 The marketing site navbar uses two dropdown menus:
 - **Agents** → `/for-individuals`
 - **Agencies** → `/for-agencies`
-- **Features** (dropdown): SMS AI Texting (`/sms`), Spam Protection (`/spam-protection`)
+- **Features** (dropdown): SMS AI Texting (`/sms`), AI Workflows (`/workflows`), Spam Protection (`/spam-protection`)
 - **Resources** (dropdown): Comparison (`/comparison`), Articles (`/articles`), Connect With Us (`/connect`)
 - **Pricing** → `/#pricing`
 - **Demo** → `/demo-chat`
 - **Support** → `/support`
 
-Footer links include: For Agents, For Agencies, SMS, Spam Protection, Comparison, Articles, About, Support, Contact, Connect With Us, Affiliates, Terms, Privacy.
+Footer links include: For Agents, For Agencies, SMS, Workflows, Spam Protection, Comparison, Articles, About, Support, Contact, Connect With Us, Affiliates, Terms, Privacy.
 
 ### SEO Articles (`/articles/*`)
 
@@ -1086,6 +1104,7 @@ templates/
   base.html                   Base template for marketing pages
   home.html                   Home/landing page
   sms.html                    SMS marketing page
+  workflows-marketing.html    Workflow automation marketing page
   spam-protection.html        Spam monitoring & number health marketing page
   comparison.html             Main comparison page
   comparison-text-drip.html   Text drip comparison page
@@ -1150,7 +1169,7 @@ static/js/dashboard/
   slack.js          Slack integration (workspace/channel management, messages)
   team.js           Team management (invites, roles, permissions, agent KPIs, audit log)
   pwa.js            Progressive Web App registration and offline support
-  tutorial.js       Interactive dashboard tutorial (driver.js, 11 chapters, glassmorphism UI)
+  tutorial.js       Interactive dashboard tutorial (driver.js, 7 chapters, Liquid Glass UI with dark+light theme)
 ```
 
 ### CSS

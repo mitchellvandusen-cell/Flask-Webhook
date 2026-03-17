@@ -362,24 +362,50 @@
 
             // Create trigger node
             var trigId = 'trigger_' + wfId;
-            _addNode(_currentWorkflow.trigger_type, 400, 60, _currentWorkflow.trigger_config || {}, trigId, 'trigger');
+            var trigY = 120;
+            _addNode(_currentWorkflow.trigger_type, 400, trigY, _currentWorkflow.trigger_config || {}, trigId, 'trigger');
 
-            // Create step nodes
+            // Create step nodes — offset positions so they sit below the trigger
             var steps = data.steps || [];
             var stepMap = {};
+            var minStepY = trigY + 100; // first step must be below trigger
             steps.forEach(function(s) {
                 stepMap[s.id] = s;
-                _addNode(s.step_subtype, s.position_x || 400, s.position_y || 200, s.config || {}, s.id, s.step_type);
+                var sy = s.position_y || 200;
+                if (sy <= trigY) sy = minStepY;
+                _addNode(s.step_subtype, s.position_x || 400, sy, s.config || {}, s.id, s.step_type);
             });
 
-            // Create connections
+            // Create connections from DB
             var conns = data.connections || [];
+            var connectedTo = {};
+            var triggerHasOutgoing = false;
             conns.forEach(function(c) {
+                connectedTo[c.to_step_id] = true;
+                if (c.from_step_id === trigId || (c.from_step_id && c.from_step_id.indexOf('trigger_') === 0)) {
+                    triggerHasOutgoing = true;
+                }
                 _addConnection(c.from_step_id, c.to_step_id, c.branch_key || 'default', c.id);
             });
 
+            // Auto-connect trigger to the first step that has no incoming connection
+            // (only if trigger doesn't already have a saved outgoing connection)
+            if (steps.length > 0 && !triggerHasOutgoing) {
+                var firstStep = null;
+                for (var si = 0; si < steps.length; si++) {
+                    if (!connectedTo[steps[si].id]) {
+                        firstStep = steps[si];
+                        break;
+                    }
+                }
+                if (!firstStep) firstStep = steps[0];
+                _addConnection(trigId, firstStep.id, 'default');
+            }
+
             _updateAllConnections();
             _updateEmptyState();
+            // Auto zoom-to-fit after loading so trigger is visible
+            setTimeout(function() { _zoomToFit(true); }, 100);
         });
     }
 
@@ -1469,7 +1495,7 @@
             if (overlay) overlay.classList.add('wfb-ai-building');
 
             var steps = wfData.steps || [];
-            var startX = 400, startY = 80, spacingY = 150;
+            var startX = 400, startY = 120, spacingY = 150;
 
             // Prepare trigger
             var triggerData = {
@@ -1693,12 +1719,24 @@
         if (zoomOut) zoomOut.addEventListener('click', function() { wfbZoomOut(); });
         if (zoomFit) zoomFit.addEventListener('click', function() { wfbZoomFit(); });
 
-        // Palette toggle
-        var paletteToggle = document.getElementById('wfbPaletteToggle');
-        if (paletteToggle) paletteToggle.addEventListener('click', function() {
+        // Palette toggle (canvas button + collapse header)
+        function _togglePalette() {
             var palette = document.getElementById('wfbPalette');
-            if (palette) palette.classList.toggle('wfb-palette-collapsed');
-        });
+            if (!palette) return;
+            palette.classList.toggle('wfb-palette-collapsed');
+            var icon = document.getElementById('wfbPaletteCollapseIcon');
+            if (icon) {
+                if (palette.classList.contains('wfb-palette-collapsed')) {
+                    icon.className = 'fa-solid fa-chevron-right wfb-palette-collapse-icon';
+                } else {
+                    icon.className = 'fa-solid fa-chevron-left wfb-palette-collapse-icon';
+                }
+            }
+        }
+        var paletteToggle = document.getElementById('wfbPaletteToggle');
+        if (paletteToggle) paletteToggle.addEventListener('click', _togglePalette);
+        var paletteCollapseBtn = document.getElementById('wfbPaletteCollapseBtn');
+        if (paletteCollapseBtn) paletteCollapseBtn.addEventListener('click', _togglePalette);
 
         // More menu
         var moreBtn = document.getElementById('wfbMoreBtn');

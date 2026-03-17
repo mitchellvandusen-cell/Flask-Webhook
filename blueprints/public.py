@@ -64,6 +64,11 @@ def sms():
     return render_template('sms.html')
 
 
+@public_bp.route("/workflows")
+def workflows_marketing():
+    return render_template('workflows-marketing.html')
+
+
 @public_bp.route("/comparison/dialers")
 def comparison_dialers():
     return render_template('comparison-dialers.html')
