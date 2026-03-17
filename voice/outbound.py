@@ -9,6 +9,8 @@ import threading
 import time
 import os
 import json
+import hmac
+import hashlib
 
 from flask import Blueprint, request, jsonify
 from flask_login import current_user
@@ -175,6 +177,155 @@ def trigger_outbound_call():
 
     except Exception as e:
         logger.error(f"Failed to initiate outbound call: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ──────────────────────────────────────────────────────────────
+# ROUTE: GHL Custom Action — AI Call
+# ──────────────────────────────────────────────────────────────
+
+@outbound_bp.route('/voice/ghl-action/ai-call', methods=['POST'])
+def ghl_action_ai_call():
+    """
+    GHL Marketplace Custom Action endpoint for triggering AI outbound calls.
+
+    Authentication: verifies GHL webhook signature (MARKETPLACE_WEBHOOK_SECRET)
+    so subscribers don't need to manage API keys. The locationId in the payload
+    identifies the subscriber.
+
+    GHL custom action payload contains the fields defined in the action config:
+    contactId, phone, firstName, locationId.
+    """
+    # ── Verify GHL webhook signature ──
+    webhook_secret = os.getenv("MARKETPLACE_WEBHOOK_SECRET")
+    if webhook_secret:
+        signature = (request.headers.get("X-Ghl-Signature")
+                     or request.headers.get("X-Hook-Secret")
+                     or "")
+        if signature:
+            body = request.get_data(as_text=True)
+            expected = hmac.new(
+                webhook_secret.encode(), body.encode(), hashlib.sha256
+            ).hexdigest()
+            if not hmac.compare_digest(signature, expected):
+                logger.warning("GHL AI Call action: signature mismatch — rejecting")
+                return jsonify({"status": "error", "reason": "invalid_signature"}), 401
+        else:
+            logger.debug("GHL AI Call action: no signature header — skipping verification")
+    else:
+        logger.warning("GHL AI Call action: MARKETPLACE_WEBHOOK_SECRET not set — cannot verify")
+
+    data = request.get_json(silent=True) or {}
+
+    # GHL custom actions may wrap fields in customData
+    if "customData" in data and isinstance(data["customData"], dict):
+        fields = data["customData"]
+    else:
+        fields = data
+
+    location_id = fields.get("locationId") or fields.get("location_id") or ""
+    lead_phone = fields.get("phone") or fields.get("toNumber") or ""
+    lead_name = fields.get("firstName") or fields.get("first_name") or "there"
+    contact_id = fields.get("contactId") or fields.get("contact_id") or ""
+
+    if not location_id or not lead_phone:
+        return jsonify({"error": "locationId and phone are required"}), 400
+
+    subscriber = _get_subscriber_by_location(location_id)
+    if not subscriber:
+        return jsonify({"error": "Subscriber not found for this location"}), 404
+
+    voice_config = subscriber.get("voice_config") or {}
+    if not voice_config.get("enabled"):
+        return jsonify({"error": "Voice is not enabled for this account"}), 400
+
+    sub_sid = voice_config.get("twilio_sub_account_sid", "")
+    from_number = voice_config.get("twilio_phone_number", "")
+
+    # Smart number rotation
+    rotation_result = select_outbound_number(location_id, voice_config, dest_phone=lead_phone)
+    if rotation_result:
+        from_number = rotation_result["phone"]
+        logger.info(f"Smart rotation (ghl-action) selected {from_number} (reason={rotation_result['reason']})")
+
+    if not sub_sid or not from_number:
+        return jsonify({"error": "Voice service not fully provisioned"}), 400
+
+    try:
+        host = request.host
+        webhook_base_url = f"https://{host}"
+
+        custom_params = {
+            'location_id':  location_id,
+            'caller':       from_number,
+            'called':       lead_phone,
+            'direction':    'outbound',
+            'contact_id':   contact_id,
+            'contact_name': lead_name,
+            'dial_mode':    'ai',
+        }
+
+        try:
+            ring_timeout = int(voice_config.get('ring_timeout', 45))
+        except (ValueError, TypeError):
+            ring_timeout = 45
+
+        result = twilio_provisioning.create_outbound_call(
+            sub_account_sid=sub_sid,
+            to=lead_phone,
+            from_number=from_number,
+            webhook_base_url=webhook_base_url,
+            machine_detection='DetectMessageEnd',
+            custom_params=custom_params,
+            ring_timeout=ring_timeout,
+        )
+        call_sid = result.get('call_sid', '')
+
+        logger.info(f"GHL AI Call action: {from_number} -> {lead_phone} (sid={call_sid}, location={location_id})")
+
+        # Track in active calls
+        active_calls[call_sid] = {
+            "status": "initiated",
+            "duration": 0,
+            "contact_id": contact_id,
+            "phone": lead_phone,
+            "name": lead_name,
+            "_location_id": location_id,
+            "_sub_sid": sub_sid,
+            "_host": host,
+            "_from_number": from_number,
+            "_agent_email": "",
+            "_wrap_up_time": int(voice_config.get('wrap_up_time', 15)),
+        }
+
+        # Persist to call_history DB
+        save_call_to_history(
+            location_id=location_id,
+            call_sid=call_sid,
+            phone=lead_phone,
+            contact_id=contact_id,
+            contact_name=lead_name,
+            direction='outbound',
+            status='initiated',
+            from_number=from_number,
+        )
+
+        try:
+            log_webhook_event(
+                location_id=location_id,
+                contact_id=contact_id,
+                event_type="ghl_action_ai_call",
+                status="success",
+                summary=f"GHL action: AI call to {lead_name} ({lead_phone})",
+                details={"call_sid": call_sid, "to": lead_phone, "from": from_number}
+            )
+        except Exception:
+            pass
+
+        return jsonify({"status": "calling", "call_sid": call_sid})
+
+    except Exception as e:
+        logger.error(f"GHL AI Call action failed: {e}")
         return jsonify({"error": str(e)}), 500
 
 
