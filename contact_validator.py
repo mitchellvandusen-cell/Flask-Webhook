@@ -237,6 +237,7 @@ def validate_and_resolve_contact(payload: Dict[str, Any]) -> Optional[str]:
                 email = payload.get("email", "")
                 result = provider.resolve_contact(
                     phone=phone, name=first_name, email=email, token=token,
+                    location_id=location_id,
                 )
                 if result and result.get("id"):
                     logger.critical(f"✅ CONTACT RESOLVED via {crm_source} provider | contact_id={result['id']}")

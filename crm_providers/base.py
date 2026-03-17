@@ -186,7 +186,8 @@ class CRMProvider(ABC):
     # ═══════════════════════════════════════════════════════════════════════
 
     def resolve_contact(self, phone: str = None, name: str = None,
-                        email: str = None, token: str = None) -> Optional[dict]:
+                        email: str = None, token: str = None,
+                        location_id: str = None) -> Optional[dict]:
         """
         Search CRM for contact by phone/name/email.
         Returns: {id, firstName, lastName, email, phone, ...} or None.

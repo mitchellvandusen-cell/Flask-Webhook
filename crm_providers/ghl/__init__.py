@@ -189,13 +189,14 @@ class GHLProvider(CRMProvider):
     # ═══ Contact Resolution ════════════════════════════════════════════
 
     def resolve_contact(self, phone: str = None, name: str = None,
-                        email: str = None, token: str = None) -> Optional[dict]:
+                        email: str = None, token: str = None,
+                        location_id: str = None) -> Optional[dict]:
         """Delegate to existing GHL contact validator."""
         try:
             from contact_validator import search_contact_by_phone
 
-            if phone and token:
-                result = search_contact_by_phone("", phone, name or "", token)
+            if phone and location_id:
+                result = search_contact_by_phone(location_id, phone, name or "")
                 return result
         except Exception as e:
             logger.error(f"GHL contact resolution failed: {e}")

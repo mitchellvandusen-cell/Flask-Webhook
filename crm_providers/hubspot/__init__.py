@@ -209,7 +209,7 @@ class HubSpotProvider(CRMProvider):
     # ═══ CONTACT RESOLUTION ═══════════════════════════════════════════════
     # ═══════════════════════════════════════════════════════════════════════
 
-    def resolve_contact(self, phone=None, name=None, email=None, token=None):
+    def resolve_contact(self, phone=None, name=None, email=None, token=None, location_id=None):
         """Search HubSpot for contact by phone/name/email."""
         from crm_providers.hubspot.resolver import resolve_contact
         return resolve_contact(phone=phone, name=name, email=email,
