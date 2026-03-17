@@ -63,7 +63,7 @@ def api_inbox_conversations():
     """
     Get unified conversation list sorted by most recent message.
     Supports search by contact name/phone.
-    Primary: synced GHL data (ghl_conversations).
+    Primary: synced GHL data (crm_conversations).
     Fallback: local webhook messages (contact_messages via contact_cache).
     """
     location_id = current_user.location_id
@@ -91,7 +91,7 @@ def api_inbox_conversations():
                 contact_id, contact_name, contact_phone,
                 body as last_message, direction as last_direction,
                 message_type, date_added, source
-            FROM ghl_conversations
+            FROM crm_conversations
             WHERE location_id = %s
               AND message_type NOT IN ('call', 'voicemail')
               {search_filter_ghl}
@@ -185,7 +185,7 @@ def api_inbox_thread(contact_id):
         # Primary: GHL synced messages
         cur.execute("""
             SELECT body, direction, message_type, source, date_added
-            FROM ghl_conversations
+            FROM crm_conversations
             WHERE location_id = %s AND contact_id = %s
             ORDER BY date_added ASC
             LIMIT %s
@@ -234,7 +234,7 @@ def api_inbox_thread(contact_id):
                 messages.append(lm)
 
         # Sort merged result by date — parse as actual datetimes (not strings)
-        # because ghl_conversations stores ISO format ("2026-03-15T14:30:00Z")
+        # because crm_conversations stores ISO format ("2026-03-15T14:30:00Z")
         # while contact_messages::text produces "2026-03-15 14:30:00"
         def _parse_msg_date(msg):
             d = msg.get('date') or ''
@@ -475,7 +475,7 @@ def api_sync_deep_pull_reset():
             cur = conn.cursor()
             # Reset sync state to pending with zeroed counters
             cur.execute("""
-                UPDATE ghl_sync_state
+                UPDATE crm_sync_state
                 SET sync_status = 'pending', last_cursor = '0', total_synced = 0,
                     error_message = NULL, last_sync_at = NOW()
                 WHERE location_id = %s AND resource_type = 'conversations_deep'

@@ -193,24 +193,15 @@ def validate_and_resolve_contact(payload: Dict[str, Any]) -> Optional[str]:
     """
     Intelligent contact ID resolution using PAYLOAD DATA as source of truth.
 
-    The payload contains all the data we need:
-    - Phone number (the number being texted - GHL wouldn't send webhook without it)
-    - First name (from GHL contact record)
-    - Location ID (which GHL account this belongs to)
+    CRM-aware: uses GHL API for GHL subscribers, CRM provider for others
+    (HubSpot, Salesforce, etc.).
 
-    We use THIS DATA to find the correct contact_id by cross-referencing with GHL API.
-
-    PRIORITY ORDER (as per user requirements):
+    PRIORITY ORDER:
     1. Use payload contact_id if valid
     2. Phone + First Name (99% match - PRIMARY RESOLUTION METHOD)
     3. Phone only (if no first_name available)
     4. First Name + Location ID (fallback, but ambiguous for common names)
     5. Return None (cannot resolve)
-
-    Phone number is MOST UNIQUE because:
-    - It's the number being texted (inherent to SMS routing)
-    - Each contact has only one phone number
-    - Combined with first_name = 99% accurate match
     """
 
     # Extract all available data points from payload (SOURCE OF TRUTH)
@@ -219,51 +210,71 @@ def validate_and_resolve_contact(payload: Dict[str, Any]) -> Optional[str]:
     first_name = payload.get("first_name") or payload.get("contact", {}).get("first_name") or payload.get("contact", {}).get("firstName")
     address = payload.get("address") or payload.get("contact", {}).get("address1")
     phone = extract_phone_from_payload(payload)
+    crm_source = payload.get("_crm_source", "ghl")
 
-    logger.critical(f"🔍 CONTACT VALIDATION START | contact_id={contact_id} | location_id={location_id} | first_name={first_name} | phone={phone} | has_address={bool(address)} | payload_source=GHL")
+    logger.critical(f"🔍 CONTACT VALIDATION START | contact_id={contact_id} | location_id={location_id} | first_name={first_name} | phone={phone} | has_address={bool(address)} | crm_source={crm_source}")
 
     # Step 1: Check if contact_id is already valid
     if contact_id and contact_id != "unknown" and len(str(contact_id).strip()) >= 5:
-        logger.critical(f"✅ CONTACT_ID VALID - NO RESOLUTION NEEDED | contact_id={contact_id} | Using GHL payload as source of truth")
+        logger.critical(f"✅ CONTACT_ID VALID - NO RESOLUTION NEEDED | contact_id={contact_id}")
         return contact_id
 
-    # If no location_id, we can't search GHL
+    # If no location_id, we can't search any CRM
     if not location_id:
-        logger.critical("❌ VALIDATION FAILED: no location_id in payload - cannot search GHL API")
+        logger.critical("❌ VALIDATION FAILED: no location_id in payload")
         return None
+
+    # For non-GHL CRMs, use the provider's contact resolver
+    if crm_source and crm_source.lower() not in ("ghl", "gohighlevel", ""):
+        try:
+            from crm_providers import get_provider
+            provider = get_provider(crm_source)
+            if provider:
+                from db import get_subscriber_info_hybrid
+                subscriber = get_subscriber_info_hybrid(location_id)
+                crm_config = (subscriber or {}).get("crm_config") or {}
+                token = crm_config.get("access_token", "")
+                email = payload.get("email", "")
+                result = provider.resolve_contact(
+                    phone=phone, name=first_name, email=email, token=token,
+                )
+                if result and result.get("id"):
+                    logger.critical(f"✅ CONTACT RESOLVED via {crm_source} provider | contact_id={result['id']}")
+                    return result["id"]
+        except Exception as e:
+            logger.error(f"CRM provider contact resolution failed: {e}")
+        # Fall through to GHL methods as fallback
 
     # Step 2: PRIMARY METHOD - Phone + First Name (99% match)
     if phone and first_name:
-        logger.critical(f"🔍 PRIMARY RESOLUTION METHOD: Phone + First Name | phone={phone} | first_name={first_name} | Searching GHL API...")
+        logger.critical(f"🔍 PRIMARY RESOLUTION METHOD: Phone + First Name | phone={phone} | first_name={first_name}")
         result = search_contact_by_phone(location_id, phone, expected_first_name=first_name)
         if result and result.get("validated"):
             resolved_id = result["contact_id"]
-            logger.critical(f"✅ CONTACT RESOLVED (99% MATCH) | Method=Phone+Name | phone={phone} + first_name={first_name} → contact_id={resolved_id} | This is a validated match")
+            logger.critical(f"✅ CONTACT RESOLVED (99% MATCH) | Method=Phone+Name | phone={phone} + first_name={first_name} → contact_id={resolved_id}")
             return resolved_id
         elif result:
-            # Phone matched but name didn't validate
-            logger.critical(f"🚨 DATA MISMATCH | Phone matched but NAME VALIDATION FAILED | expected_name={first_name} | This indicates payload might have wrong contact_id | Trying other methods")
+            logger.critical(f"🚨 DATA MISMATCH | Phone matched but NAME VALIDATION FAILED | expected_name={first_name}")
         else:
-            logger.warning(f"⚠️ No contact found with phone={phone} in GHL | Trying other methods")
+            logger.warning(f"⚠️ No contact found with phone={phone} | Trying other methods")
 
     # Step 3: Phone only (if no first_name or name validation failed)
     if phone:
-        logger.critical(f"🔍 SECONDARY RESOLUTION METHOD: Phone only | phone={phone} | Searching GHL API...")
+        logger.critical(f"🔍 SECONDARY RESOLUTION METHOD: Phone only | phone={phone}")
         result = search_contact_by_phone(location_id, phone, expected_first_name=None)
         if result:
             resolved_id = result["contact_id"]
-            logger.critical(f"✅ CONTACT RESOLVED BY PHONE | Method=Phone | phone={phone} → contact_id={resolved_id} | WARNING: No name validation - may be ambiguous")
+            logger.critical(f"✅ CONTACT RESOLVED BY PHONE | Method=Phone | phone={phone} → contact_id={resolved_id}")
             return resolved_id
 
     # Step 4: FALLBACK - First Name + Location ID (warn about ambiguity)
     if first_name:
-        logger.critical(f"🔍 FALLBACK RESOLUTION METHOD: First Name only | first_name={first_name} | WARNING: May be ambiguous for common names")
+        logger.critical(f"🔍 FALLBACK RESOLUTION METHOD: First Name only | first_name={first_name}")
         resolved_id = search_contact_by_name(location_id, first_name)
         if resolved_id:
-            logger.critical(f"✅ CONTACT RESOLVED BY NAME (HIGH AMBIGUITY RISK) | Method=Name | first_name={first_name} → contact_id={resolved_id} | WARNING: Common names like 'Dennis' may cause cross-contamination")
+            logger.critical(f"✅ CONTACT RESOLVED BY NAME (HIGH AMBIGUITY RISK) | first_name={first_name} → contact_id={resolved_id}")
             return resolved_id
 
     # Step 5: All methods failed
-    logger.critical(f"❌ CONTACT VALIDATION FAILED - ALL RESOLUTION METHODS EXHAUSTED | contact_id={contact_id} | location_id={location_id} | first_name={first_name} | phone={phone} | Payload keys: {list(payload.keys())}")
-    logger.critical(f"🚨 WEBHOOK WILL BE REJECTED | This prevents processing with invalid contact data")
+    logger.critical(f"❌ CONTACT VALIDATION FAILED - ALL METHODS EXHAUSTED | contact_id={contact_id} | location_id={location_id} | first_name={first_name} | phone={phone}")
     return None

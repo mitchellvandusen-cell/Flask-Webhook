@@ -98,7 +98,7 @@ def _get_sync_state(conn, location_id, resource_type):
         cur = conn.cursor()
         cur.execute("""
             SELECT last_sync_at, last_cursor, sync_status, total_synced
-            FROM ghl_sync_state
+            FROM crm_sync_state
             WHERE location_id = %s AND resource_type = %s
         """, (location_id, resource_type))
         row = cur.fetchone()
@@ -114,14 +114,14 @@ def _update_sync_state(conn, location_id, resource_type, status,
     try:
         cur = conn.cursor()
         cur.execute("""
-            INSERT INTO ghl_sync_state
+            INSERT INTO crm_sync_state
                 (location_id, resource_type, sync_status, last_cursor,
                  total_synced, error_message, last_sync_at, created_at)
             VALUES (%s, %s, %s, %s, COALESCE(%s, 0), %s, NOW(), NOW())
             ON CONFLICT (location_id, resource_type) DO UPDATE SET
                 sync_status = EXCLUDED.sync_status,
-                last_cursor = COALESCE(EXCLUDED.last_cursor, ghl_sync_state.last_cursor),
-                total_synced = COALESCE(EXCLUDED.total_synced, ghl_sync_state.total_synced),
+                last_cursor = COALESCE(EXCLUDED.last_cursor, crm_sync_state.last_cursor),
+                total_synced = COALESCE(EXCLUDED.total_synced, crm_sync_state.total_synced),
                 error_message = EXCLUDED.error_message,
                 last_sync_at = NOW()
         """, (location_id, resource_type, status, cursor, total, error))
@@ -137,16 +137,16 @@ def _update_sync_state(conn, location_id, resource_type, status,
 
 # ─── Conversation Sync ────────────────────────────────────────────────────────
 
-def sync_ghl_conversations(location_id, access_token=None):
+def sync_crm_conversations(location_id, access_token=None):
     """
-    Sync ALL conversation messages from GHL into ghl_conversations table.
+    Sync ALL conversation messages from GHL into crm_conversations table.
     Incremental: only fetches messages newer than last_sync_at.
 
     Flow:
     1. List contacts for location (paginated)
     2. For each contact, search for conversation
     3. Fetch messages from conversation (paginated)
-    4. Upsert into ghl_conversations with message type classification
+    4. Upsert into crm_conversations with message type classification
     """
     if not access_token:
         access_token = get_valid_token(location_id)
@@ -414,12 +414,12 @@ def _sync_contact_conversations(conn, location_id, contact_id, headers, last_syn
             cur = conn.cursor()
             from psycopg2.extras import execute_values
             execute_values(cur, """
-                INSERT INTO ghl_conversations
+                INSERT INTO crm_conversations
                     (location_id, contact_id, contact_name, contact_phone,
                      conversation_id, message_type, direction, body, source,
-                     ghl_message_id, date_added, synced_at)
+                     external_message_id, date_added, synced_at)
                 VALUES %s
-                ON CONFLICT (ghl_message_id) DO UPDATE SET
+                ON CONFLICT (external_message_id) DO UPDATE SET
                     body = EXCLUDED.body,
                     synced_at = NOW()
             """, [(
@@ -438,9 +438,9 @@ def _sync_contact_conversations(conn, location_id, contact_id, headers, last_syn
 
 # ─── Opportunity Sync ─────────────────────────────────────────────────────────
 
-def sync_ghl_opportunities(location_id, access_token=None):
+def sync_crm_deals(location_id, access_token=None):
     """
-    Sync ALL pipeline opportunities from GHL into ghl_opportunities table.
+    Sync ALL pipeline opportunities from GHL into crm_deals table.
     Pulls pipeline stages, deal values, and assignment info.
     """
     if not access_token:
@@ -530,13 +530,13 @@ def sync_ghl_opportunities(location_id, access_token=None):
                         cur = conn.cursor()
                         from psycopg2.extras import execute_values
                         execute_values(cur, """
-                            INSERT INTO ghl_opportunities
+                            INSERT INTO crm_deals
                                 (location_id, contact_id, pipeline_id, pipeline_name,
                                  stage_id, stage_name, status, monetary_value, source,
-                                 assigned_to, ghl_opportunity_id, created_at_ghl,
+                                 assigned_to, external_deal_id, created_at_ghl,
                                  updated_at_ghl, synced_at)
                             VALUES %s
-                            ON CONFLICT (ghl_opportunity_id) DO UPDATE SET
+                            ON CONFLICT (external_deal_id) DO UPDATE SET
                                 stage_id = EXCLUDED.stage_id,
                                 stage_name = EXCLUDED.stage_name,
                                 status = EXCLUDED.status,
@@ -809,10 +809,10 @@ def sync_all_for_location(location_id, access_token=None):
     start = _time.time()
 
     # 1. Conversations (largest sync, most valuable)
-    results["conversations"] = sync_ghl_conversations(location_id, access_token)
+    results["conversations"] = sync_crm_conversations(location_id, access_token)
 
     # 2. Opportunities
-    results["opportunities"] = sync_ghl_opportunities(location_id, access_token)
+    results["opportunities"] = sync_crm_deals(location_id, access_token)
 
     # 3. Phone numbers (small, fast)
     results["phone_numbers"] = sync_ghl_phone_numbers(location_id, access_token)
@@ -1085,7 +1085,7 @@ def deep_sync_conversations(location_id, access_token=None):
     1. List ALL conversations for the location via /conversations/search
     2. For each conversation, pull ALL messages (paginated, no cap)
     3. Auto-refresh token on auth errors
-    4. Tracks progress in ghl_sync_state as 'conversations_deep'
+    4. Tracks progress in crm_sync_state as 'conversations_deep'
     5. Only runs once — checks for prior completion before starting
     6. Can resume from where it left off if interrupted (uses cursor)
     """
@@ -1375,12 +1375,12 @@ def _deep_pull_conversation_messages(conn, location_id, convo_id, contact_id,
             cur = conn.cursor()
             from psycopg2.extras import execute_values
             execute_values(cur, """
-                INSERT INTO ghl_conversations
+                INSERT INTO crm_conversations
                     (location_id, contact_id, contact_name, contact_phone,
                      conversation_id, message_type, direction, body, source,
-                     ghl_message_id, date_added, synced_at)
+                     external_message_id, date_added, synced_at)
                 VALUES %s
-                ON CONFLICT (ghl_message_id) DO UPDATE SET
+                ON CONFLICT (external_message_id) DO UPDATE SET
                     body = EXCLUDED.body,
                     synced_at = NOW()
             """, [(
@@ -1407,7 +1407,7 @@ def get_deep_sync_status(location_id):
         cur = conn.cursor()
         cur.execute("""
             SELECT sync_status, last_cursor, total_synced, error_message, last_sync_at
-            FROM ghl_sync_state
+            FROM crm_sync_state
             WHERE location_id = %s AND resource_type = 'conversations_deep'
         """, (location_id,))
         row = cur.fetchone()
@@ -1451,7 +1451,7 @@ def get_deep_sync_status(location_id):
 
 def get_merged_call_count(location_id, contact_id):
     """
-    Get total dial count for a contact: local call_history + ghl_conversations calls.
+    Get total dial count for a contact: local call_history + crm_conversations calls.
     Deduplicates by timestamp window (60s) + phone number.
     """
     conn = get_db_connection()
@@ -1470,7 +1470,7 @@ def get_merged_call_count(location_id, contact_id):
 
         # GHL calls (excluding those already counted in local)
         cur.execute("""
-            SELECT COUNT(*) as cnt FROM ghl_conversations
+            SELECT COUNT(*) as cnt FROM crm_conversations
             WHERE location_id = %s AND contact_id = %s
               AND message_type IN ('call', 'voicemail')
               AND source != 'dialer'
@@ -1523,7 +1523,7 @@ def get_merged_call_history(location_id, contact_id=None, limit=100, offset=0):
                     NULL as call_sid, NULL as transcript,
                     COALESCE(date_added::timestamp, synced_at) as call_time,
                     source, message_type
-                FROM ghl_conversations
+                FROM crm_conversations
                 WHERE location_id = %s {contact_filter}
                   AND message_type IN ('call', 'voicemail')
                   AND source != 'dialer'
@@ -1553,7 +1553,7 @@ def get_contact_pipeline_stage(location_id, contact_id):
         cur = conn.cursor()
         cur.execute("""
             SELECT pipeline_name, stage_name, status, monetary_value
-            FROM ghl_opportunities
+            FROM crm_deals
             WHERE location_id = %s AND contact_id = %s
             ORDER BY updated_at_ghl DESC NULLS LAST
             LIMIT 1
@@ -1577,7 +1577,7 @@ def get_sync_stats_for_dashboard(location_id):
         cur = conn.cursor()
         cur.execute("""
             SELECT resource_type, sync_status, last_sync_at, total_synced, error_message
-            FROM ghl_sync_state
+            FROM crm_sync_state
             WHERE location_id = %s
         """, (location_id,))
         rows = cur.fetchall()
@@ -1607,7 +1607,7 @@ def get_conversation_stats(location_id):
                 COUNT(*) FILTER (WHERE source = 'ghl_native') as ghl_native,
                 COUNT(*) FILTER (WHERE source = 'wavv') as wavv,
                 COUNT(*) FILTER (WHERE source = 'dialer') as dialer_calls
-            FROM ghl_conversations
+            FROM crm_conversations
             WHERE location_id = %s
         """, (location_id,))
         row = cur.fetchone()

@@ -117,9 +117,9 @@ def api_send_reminders():
 @cron_bp.route("/api/cron/refresh-tokens", methods=["GET", "POST"])
 def api_cron_refresh_tokens():
     """
-    Proactively refresh GHL OAuth tokens expiring within buffer_minutes (default 60).
-    Tokens are refreshed a full hour before expiry so they never lapse.
-    Schedule every 15 minutes — matches cron at https://insurancegrokbot.click/api/cron/refresh-tokens
+    Proactively refresh OAuth tokens expiring within buffer_minutes (default 60).
+    Handles both GHL tokens (24h expiry) and HubSpot tokens (6h expiry).
+    Schedule every 15 minutes.
     """
     if not _cron_authorized():
         return safe_jsonify({"error": "Unauthorized"}), 401
@@ -128,6 +128,38 @@ def api_cron_refresh_tokens():
         from ghl_api import refresh_tokens_proactively
         buffer_minutes = int(request.args.get("buffer", 60))
         stats = refresh_tokens_proactively(buffer_minutes=buffer_minutes)
+
+        # Also refresh HubSpot tokens that are expiring soon
+        hs_refreshed = 0
+        try:
+            from db import get_db_connection, return_db_connection
+            from crm_providers.hubspot.oauth import refresh_hubspot_token
+            import time as _time
+            conn = get_db_connection()
+            if conn:
+                try:
+                    cur = conn.cursor()
+                    # Find HubSpot subscribers with tokens expiring within buffer
+                    threshold = int(_time.time()) + (buffer_minutes * 60)
+                    cur.execute("""
+                        SELECT location_id, crm_config FROM subscribers
+                        WHERE crm_type = 'hubspot'
+                          AND crm_config IS NOT NULL
+                          AND (crm_config->>'token_expires_at')::bigint < %s
+                    """, (threshold,))
+                    for row in cur.fetchall():
+                        try:
+                            result = refresh_hubspot_token(dict(row))
+                            if result:
+                                hs_refreshed += 1
+                        except Exception as e:
+                            logger.warning(f"HubSpot token refresh failed for {row.get('location_id')}: {e}")
+                finally:
+                    return_db_connection(conn)
+        except Exception as e:
+            logger.warning(f"HubSpot token refresh scan failed (non-fatal): {e}")
+
+        stats["hubspot_refreshed"] = hs_refreshed
         return safe_jsonify({"success": True, **stats})
     except Exception as e:
         logger.error(f"Cron refresh-tokens crashed: {e}", exc_info=True)
@@ -191,8 +223,10 @@ def api_cron_backfill_failed_webhooks():
 @cron_bp.route("/api/cron/sync-ghl-data", methods=["GET", "POST"])
 def api_cron_sync_ghl_data():
     """
-    Run incremental GHL data sync for all active subscribers.
-    Syncs conversations, opportunities, phone numbers, and location data.
+    Run incremental CRM data sync for all active subscribers.
+    Dispatches to the correct sync engine based on subscriber's crm_type:
+      - GHL: ghl_sync.run_incremental_sync_all()
+      - HubSpot: crm_providers.hubspot.sync.sync_all_hubspot()
     Schedule every 5-10 minutes via cron.
     """
     if not _cron_authorized():
@@ -205,10 +239,28 @@ def api_cron_sync_ghl_data():
         from ghl_sync import run_incremental_sync_all
         job = extensions.q_website.enqueue(
             run_incremental_sync_all,
-            job_timeout=900,   # all locations sync concurrently via threads (~5-10 min)
+            job_timeout=900,
             result_ttl=86400,
         )
-        return safe_jsonify({"success": True, "queued": True, "job_id": job.id})
+
+        # Also queue HubSpot sync for HubSpot subscribers
+        hubspot_job_id = None
+        try:
+            from crm_providers.hubspot.sync import sync_all_hubspot
+            hs_job = extensions.q_website.enqueue(
+                sync_all_hubspot,
+                job_timeout=900,
+                result_ttl=86400,
+            )
+            hubspot_job_id = hs_job.id
+        except Exception as e:
+            logger.warning(f"HubSpot sync queue failed (non-fatal): {e}")
+
+        return safe_jsonify({
+            "success": True, "queued": True,
+            "ghl_job_id": job.id,
+            "hubspot_job_id": hubspot_job_id,
+        })
     except Exception as e:
         logger.error(f"Cron sync-ghl-data crashed: {e}", exc_info=True)
         return safe_jsonify({"success": False, "error": str(e)}), 200

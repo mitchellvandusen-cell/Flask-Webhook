@@ -292,7 +292,7 @@ def post_contact_intelligence_analyze():
 @login_required
 def get_contact_call_counts_merged():
     """Batch merged (local DB + synced GHL) call counts for up to 300 contact IDs.
-    Uses local ghl_conversations table instead of live API — instant, no rate limits."""
+    Uses local crm_conversations table instead of live API — instant, no rate limits."""
 
     ids_param = _get_ids_param()
     if not ids_param:
@@ -320,12 +320,12 @@ def get_contact_call_counts_merged():
         """, (location_id, contact_ids))
         local_counts = {r['contact_id']: r['cnt'] for r in cur.fetchall()}
 
-        # Synced GHL/WAVV calls (ghl_conversations table, exclude dialer to avoid dupes)
+        # Synced GHL/WAVV calls (crm_conversations table, exclude dialer to avoid dupes)
         ghl_counts = {}
         try:
             cur.execute("""
                 SELECT contact_id, COUNT(*) AS cnt
-                FROM ghl_conversations
+                FROM crm_conversations
                 WHERE location_id = %s AND contact_id = ANY(%s)
                   AND message_type IN ('call', 'voicemail')
                   AND source != 'dialer'
@@ -375,11 +375,11 @@ def get_contact_ghl_call_count(contact_id):
         )
         local_count = cur.fetchone()['cnt'] or 0
 
-        # Synced GHL calls (from ghl_conversations, excluding our dialer to avoid dupes)
+        # Synced GHL calls (from crm_conversations, excluding our dialer to avoid dupes)
         ghl_count = 0
         try:
             cur.execute("""
-                SELECT COUNT(*) AS cnt FROM ghl_conversations
+                SELECT COUNT(*) AS cnt FROM crm_conversations
                 WHERE location_id = %s AND contact_id = %s
                   AND message_type IN ('call', 'voicemail')
                   AND source != 'dialer'

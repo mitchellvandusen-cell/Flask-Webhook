@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} — InsuranceGrokBot</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 16px;
+        }
+        .embed-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Intelligence Card */
+        .intel-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%);
+            backdrop-filter: blur(20px) saturate(160%);
+            -webkit-backdrop-filter: blur(20px) saturate(160%);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 12px;
+        }
+        .intel-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .temp-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .temp-hot { background: rgba(239,68,68,0.2); color: #f87171; }
+        .temp-warm { background: rgba(251,146,60,0.2); color: #fb923c; }
+        .temp-cool { background: rgba(96,165,250,0.2); color: #60a5fa; }
+        .temp-cold { background: rgba(156,163,175,0.2); color: #9ca3af; }
+        .score-badge {
+            font-size: 20px;
+            font-weight: 700;
+            color: #00ff88;
+        }
+        .intel-summary {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #d1d5db;
+            margin-bottom: 16px;
+        }
+        .intel-section-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+        .action-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 13px;
+        }
+        .action-item:last-child { border-bottom: none; }
+        .action-icon { color: #00ff88; min-width: 16px; }
+        .action-priority {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(0,255,136,0.1);
+            color: #00ff88;
+            margin-left: auto;
+            white-space: nowrap;
+        }
+        .no-data {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+        }
+        .no-data-icon { font-size: 36px; margin-bottom: 12px; }
+        .powered-by {
+            text-align: center;
+            font-size: 10px;
+            color: #4b5563;
+            margin-top: 16px;
+        }
+        .respond-badge {
+            background: rgba(239,68,68,0.2);
+            color: #f87171;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        /* Panel placeholder */
+        .panel-placeholder {
+            text-align: center;
+            padding: 60px 20px;
+        }
+        .panel-placeholder h2 { color: #00ff88; margin-bottom: 8px; }
+
+        /* Dialer placeholder */
+        .dialer-placeholder {
+            text-align: center;
+            padding: 40px 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="embed-container">
+        {% if content_type == "intelligence" %}
+            {% if intelligence %}
+                <div class="intel-card">
+                    <div class="intel-header">
+                        {% set temp = intelligence.get('temperature', 'unknown') %}
+                        <span class="temp-badge temp-{{ temp }}">
+                            {% if temp == 'hot' %}🔥{% elif temp == 'warm' %}🌡️{% elif temp == 'cool' %}❄️{% else %}🧊{% endif %}
+                            {{ temp|title }}
+                        </span>
+                        <span class="score-badge">{{ intelligence.get('score', '?') }}</span>
+                        {% if intelligence.get('should_respond') %}
+                            <span class="respond-badge">Response Needed</span>
+                        {% endif %}
+                    </div>
+                    <div class="intel-summary">{{ intelligence.get('summary', 'No summary available.') }}</div>
+
+                    {% if intelligence.get('temperature_reason') %}
+                        <div class="intel-section-title">Temperature Reason</div>
+                        <div class="intel-summary" style="margin-bottom: 12px;">{{ intelligence.temperature_reason }}</div>
+                    {% endif %}
+
+                    {% set actions = intelligence.get('actions', []) %}
+                    {% if actions %}
+                        <div class="intel-section-title">Recommended Actions</div>
+                        {% for action in actions %}
+                            <div class="action-item">
+                                <span class="action-icon">→</span>
+                                <span>{{ action.text if action is mapping else action }}</span>
+                                {% if action is mapping and action.get('priority') %}
+                                    <span class="action-priority">{{ action.priority }}</span>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                {% if intelligence.get('analyzed_at') %}
+                    <div class="powered-by">
+                        Analyzed {{ intelligence.analyzed_at[:16] }} · Powered by InsuranceGrokBot AI
+                    </div>
+                {% endif %}
+            {% else %}
+                <div class="intel-card no-data">
+                    <div class="no-data-icon">🔍</div>
+                    <div>No AI intelligence available for this contact yet.</div>
+                    <div style="margin-top: 8px; font-size: 12px;">
+                        Intelligence is generated automatically when the contact interacts with your bot.
+                    </div>
+                </div>
+            {% endif %}
+
+        {% elif content_type == "dialer" %}
+            <div class="intel-card dialer-placeholder">
+                <h3 style="color: #00ff88; margin-bottom: 8px;">IGB Dialer</h3>
+                {% if contact_id %}
+                    <p>Contact: {{ contact_id }}</p>
+                    <p style="margin-top: 8px; font-size: 13px; color: #6b7280;">
+                        Open the full dashboard to use the dialer.
+                    </p>
+                {% else %}
+                    <p style="color: #6b7280;">No contact selected.</p>
+                {% endif %}
+            </div>
+
+        {% elif content_type == "panel" %}
+            <div class="intel-card panel-placeholder">
+                <h2>InsuranceGrokBot</h2>
+                <p style="color: #6b7280;">Embedded panel — open the full dashboard for all features.</p>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>

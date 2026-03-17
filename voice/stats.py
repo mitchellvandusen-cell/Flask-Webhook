@@ -252,7 +252,7 @@ def get_dialer_stats():
         try:
             cur.execute("""
                 SELECT source, COUNT(*) AS cnt
-                FROM ghl_conversations
+                FROM crm_conversations
                 WHERE location_id = %s AND message_type IN ('call', 'voicemail')
                   AND date_added >= %s::text
                 GROUP BY source
