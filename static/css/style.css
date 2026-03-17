@@ -10110,3 +10110,210 @@ body.light-theme .ci-progress-icon { color: var(--lt-accent); }
 body.light-theme .ci-stat-fail i { color: #dc2626; }
 body.light-theme .ci-text-fail { color: #dc2626; }
 body.light-theme .ci-step-visible { background: transparent; }
+
+/* ── Integrations Page ─────────────────────────────────────────────────── */
+.integrations-hero { padding-top: 140px; }
+.integrations-hero .section-title { font-size: 3rem; margin-bottom: 20px; }
+.integration-icon {
+    width: 64px; height: 64px;
+    background: rgba(0, 255, 136, 0.06);
+    border: 1px solid rgba(0, 255, 136, 0.12);
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px;
+    font-size: 1.5rem; color: var(--accent);
+    transition: var(--transition);
+}
+.glass-card:hover .integration-icon {
+    background: rgba(0, 255, 136, 0.12);
+    border-color: rgba(0, 255, 136, 0.3);
+    transform: scale(1.1);
+}
+.integration-card-title { font-weight: 700; margin-bottom: 8px; }
+.integration-badge {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-secondary);
+    font-size: 0.7rem; font-weight: 600;
+    padding: 4px 14px; border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 16px;
+    letter-spacing: 0.5px; text-transform: uppercase;
+}
+.integration-badge.native {
+    background: rgba(0, 255, 136, 0.1);
+    color: var(--accent);
+    border-color: rgba(0, 255, 136, 0.2);
+}
+.integration-badge.coming-soon-badge {
+    background: rgba(255, 170, 0, 0.1);
+    color: #ffaa00;
+    border-color: rgba(255, 170, 0, 0.2);
+}
+.integration-desc {
+    color: #888; font-size: 0.9rem;
+    margin-bottom: 16px; line-height: 1.6;
+}
+.integration-features {
+    font-size: 0.8rem; color: #777;
+    text-align: left; padding: 0 10px;
+}
+.integration-features div { padding: 3px 0; }
+.integration-step-num {
+    width: 56px; height: 56px;
+    background: rgba(0, 255, 136, 0.06);
+    border: 1px solid rgba(0, 255, 136, 0.12);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+    font-weight: 900; font-size: 1.3rem; color: var(--accent);
+    transition: var(--transition);
+}
+.glass-card:hover .integration-step-num {
+    background: rgba(0, 255, 136, 0.12);
+    border-color: rgba(0, 255, 136, 0.3);
+}
+.integrations-section-divider { border-top: 1px solid rgba(255, 255, 255, 0.05); }
+.integrations-tag {
+    padding: 6px 18px; border-radius: 20px;
+    font-size: 0.75rem; font-weight: 700;
+    letter-spacing: 0.5px; display: inline-block;
+}
+.integrations-tag.tag-api {
+    background: rgba(0, 217, 255, 0.1);
+    color: #00d9ff;
+    border: 1px solid rgba(0, 217, 255, 0.2);
+}
+.integrations-tag.tag-builtin {
+    background: rgba(0, 255, 136, 0.1);
+    color: var(--accent);
+    border: 1px solid rgba(0, 255, 136, 0.2);
+}
+.integrations-tag.tag-voice {
+    background: rgba(0, 217, 255, 0.1);
+    color: #00d9ff;
+    border: 1px solid rgba(0, 217, 255, 0.2);
+}
+.integrations-tag.tag-app {
+    background: rgba(138, 43, 226, 0.1);
+    color: #a855f7;
+    border: 1px solid rgba(138, 43, 226, 0.2);
+}
+.integrations-section-title { margin-top: 16px; font-size: 2.2rem; }
+.integrations-section-desc { color: #888; max-width: 650px; margin: 0 auto; }
+.integrations-feature-label { color: var(--accent); font-weight: 700; margin-bottom: 8px; }
+.integrations-feature-label.voice { color: #00d9ff; }
+.integrations-feature-text { color: #888; font-size: 0.9rem; margin: 0; }
+.integrations-step-title { font-weight: 700; }
+.integrations-step-desc { color: #888; font-size: 0.9rem; margin: 0; }
+.integrations-cta { max-width: 600px; }
+.integrations-cta h3 { font-weight: 800; margin-bottom: 12px; }
+.integrations-cta p { color: #888; margin-bottom: 24px; }
+.integrations-cta .btn { padding: 14px 40px; border-radius: 14px; font-weight: 700; }
+.integrations-cta-link { color: var(--accent); font-size: 0.9rem; text-decoration: underline; }
+
+/* Download App Section */
+.download-app-wrapper { position: relative; }
+.download-app-cards { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
+.download-app-card {
+    flex: 1; min-width: 220px; max-width: 280px;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 12px; padding: 32px 24px;
+}
+.download-app-card i { font-size: 2.5rem; color: var(--accent); }
+.download-app-card .app-platform { font-weight: 700; font-size: 1.1rem; }
+.download-app-card .app-store-name { color: #888; font-size: 0.85rem; }
+.coming-soon-overlay {
+    position: absolute; inset: 0;
+    background: rgba(5, 5, 5, 0.75);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border-radius: 16px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 2;
+}
+.coming-soon-overlay .coming-soon-label {
+    font-size: 1.6rem; font-weight: 800;
+    background: linear-gradient(135deg, var(--accent), #00d9ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+}
+.coming-soon-overlay .coming-soon-sub { color: #888; font-size: 0.9rem; }
+
+/* ── Integrations Light Theme ──────────────────────────────────────────── */
+body.light-theme .integrations-section-divider { border-top-color: var(--lt-border); }
+body.light-theme .integration-icon {
+    background: var(--lt-accent-bg);
+    border-color: rgba(0, 170, 94, 0.18);
+}
+body.light-theme .glass-card:hover .integration-icon {
+    background: rgba(0, 170, 94, 0.15);
+    border-color: rgba(0, 170, 94, 0.35);
+}
+body.light-theme .integration-badge {
+    background: rgba(0, 0, 0, 0.04);
+    color: var(--lt-text-secondary);
+    border-color: var(--lt-border);
+}
+body.light-theme .integration-badge.native {
+    background: var(--lt-accent-bg);
+    color: var(--lt-accent);
+    border-color: rgba(0, 170, 94, 0.2);
+}
+body.light-theme .integration-badge.coming-soon-badge {
+    background: rgba(255, 170, 0, 0.08);
+    color: #b37700;
+    border-color: rgba(255, 170, 0, 0.2);
+}
+body.light-theme .integration-desc { color: var(--lt-text-secondary); }
+body.light-theme .integration-features { color: var(--lt-text-muted); }
+body.light-theme .integration-step-num {
+    background: var(--lt-accent-bg);
+    border-color: rgba(0, 170, 94, 0.18);
+    color: var(--lt-accent);
+}
+body.light-theme .glass-card:hover .integration-step-num {
+    background: rgba(0, 170, 94, 0.15);
+    border-color: rgba(0, 170, 94, 0.35);
+}
+body.light-theme .integrations-tag.tag-api {
+    background: rgba(0, 130, 200, 0.08);
+    color: #0077b6;
+    border-color: rgba(0, 130, 200, 0.2);
+}
+body.light-theme .integrations-tag.tag-builtin {
+    background: var(--lt-accent-bg);
+    color: var(--lt-accent);
+    border-color: rgba(0, 170, 94, 0.2);
+}
+body.light-theme .integrations-tag.tag-voice {
+    background: rgba(0, 130, 200, 0.08);
+    color: #0077b6;
+    border-color: rgba(0, 130, 200, 0.2);
+}
+body.light-theme .integrations-tag.tag-app {
+    background: rgba(138, 43, 226, 0.06);
+    color: #7c3aed;
+    border-color: rgba(138, 43, 226, 0.15);
+}
+body.light-theme .integrations-section-desc { color: var(--lt-text-secondary); }
+body.light-theme .integrations-feature-label { color: var(--lt-accent); }
+body.light-theme .integrations-feature-label.voice { color: #0077b6; }
+body.light-theme .integrations-feature-text { color: var(--lt-text-secondary); }
+body.light-theme .integrations-step-desc { color: var(--lt-text-secondary); }
+body.light-theme .integrations-cta p { color: var(--lt-text-secondary); }
+body.light-theme .integrations-cta-link { color: var(--lt-accent); }
+body.light-theme .coming-soon-overlay {
+    background: rgba(240, 242, 245, 0.8);
+    backdrop-filter: blur(6px);
+}
+body.light-theme .coming-soon-overlay .coming-soon-label {
+    background: linear-gradient(135deg, var(--lt-accent), #0077b6);
+    -webkit-background-clip: text; background-clip: text;
+}
+body.light-theme .coming-soon-overlay .coming-soon-sub { color: var(--lt-text-muted); }
+body.light-theme .download-app-card i { color: var(--lt-accent); }
+body.light-theme .download-app-card .app-store-name { color: var(--lt-text-muted); }
