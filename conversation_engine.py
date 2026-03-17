@@ -169,10 +169,12 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
     # Order matters: check most specific patterns first
 
     not_interested_kw = [
-        "not interested", "no thanks", "no thank you", "dont want", "don't want",
+        "not interested", "no longer interested", "no thanks", "no thank you",
+        "dont want", "don't want", "not wanting",
         "nah im good", "nah i'm good", "no i'm good", "no im good",
         "don't need", "dont need", "not for me",
         "not looking", "no need", "i'll pass", "ill pass",
+        "no longer looking", "no longer need", "not anymore",
     ]
 
     # "i'm good" / "im good" are ONLY objections when they are the entire message
@@ -519,7 +521,7 @@ INTENT FIELDS (true/false):
 - mentioned_goal: protecting family, kids, spouse, mortgage, business, future, etc.
 - mentioned_obstacle: barrier like busy, expensive, health issue, not sure, complicated
 - ready_to_book: agreed to call/meet/talk/book/time works/yes/lets do it/sure/next step
-- resistance: strong opt-out: stop, unsubscribe, remove, leave me alone, do not contact, not interested, opt out, lose my number, take me off
+- resistance: strong opt-out: stop, unsubscribe, remove, leave me alone, do not contact, opt out, lose my number, take me off (NOTE: "not interested" is NOT resistance — it is an objection to be handled)
 - articulated_impact: the lead has expressed WHY coverage matters to them personally, what would happen to their family without it, the consequences of the gap, or emotional weight behind their need. Not just mentioning a goal but explaining why it is important to them or what would happen if they did not address it
 
 OBJECTION FIELDS (based on the MOST RECENT lead message only):
@@ -586,7 +588,9 @@ Context clues:
             "leave me alone", "do not contact", "don't contact",
             "do not call", "don't call", "do not text", "don't text",
             "do not message", "don't message", "remove me", "take me off",
-            "opt out", "not interested", "lose my number", "delete my number",
+            "opt out", "lose my number", "delete my number",
+            # NOTE: "not interested" is NOT a stop keyword — it's an objection
+            # handled by the objection framework with persistence and angle tracking.
         ]
 
         obj_type, obj_nature = detect_objection_keywords(recent_lead_text)
