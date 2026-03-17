@@ -41,8 +41,8 @@ function igbFindAll(selector, root) {
     return (root || document).querySelectorAll(selector);
 }
 
-function igbLog(message) {
-    console.log('[IGB]', message);
+function igbLog(_message) {
+    // logging disabled for marketplace compliance
 }
 
 function igbFormatNumber(num) {
