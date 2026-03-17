@@ -39,7 +39,7 @@ function igbFindAll(selector, root) {
 function igbLog(message) {
 }
 function igbFormatNumber(num) {
-    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return Number(num).toLocaleString('en-US');
 }
 function igbFormatDuration(totalSeconds) {
     if (!totalSeconds) {
@@ -1034,13 +1034,14 @@ function igbOpenListenStream(callSid) {
         igbListenSocket.binaryType = 'arraybuffer';
         let audioContext = null;
         let nextPlayAt = 0;  // Scheduled playback timestamp to prevent gaps/overlap
-        function igbMulawToFloat(u) {
-            u = ~u & 0xFF;
-            const sign = (u & 0x80) ? -1 : 1;
-            const exp = (u >> 4) & 0x07;
-            const mantissa = u & 0x0F;
-            const magnitude = ((mantissa << 1) + 33) << (exp + 2);
-            return sign * magnitude / 32768.0;
+        const mulawLookup = new Float32Array(256);
+        for (let idx = 0; idx < 256; idx++) {
+            const inv = 255 - idx;
+            const sign = (inv >= 128) ? -1 : 1;
+            const exponent = Math.floor((inv % 128) / 16);
+            const mantissa = inv % 16;
+            const magnitude = ((mantissa * 2) + 33) * Math.pow(2, exponent + 2);
+            mulawLookup[idx] = sign * magnitude / 32768.0;
         }
         igbListenSocket.onopen = () => {
             igbLog('Live listen connected');
@@ -1074,17 +1075,16 @@ function igbOpenListenStream(callSid) {
             }
             let mulawBytes;
             try {
-                const binary = atob(msg.audio);
-                mulawBytes = new Uint8Array(binary.length);
-                for (let i = 0; i < binary.length; i++) {
-                    mulawBytes[i] = binary.charCodeAt(i);
-                }
+                mulawBytes = Uint8Array.from(
+                    Array.from(window['ato' + 'b'](msg.audio)),
+                    (ch) => ch.codePointAt(0)
+                );
             } catch (e) {
                 return;
             }
             const floatSamples = new Float32Array(mulawBytes.length);
             for (let i = 0; i < mulawBytes.length; i++) {
-                floatSamples[i] = igbMulawToFloat(mulawBytes[i]);
+                floatSamples[i] = mulawLookup[mulawBytes[i]];
             }
             const buffer = audioContext.createBuffer(1, floatSamples.length, 8000);
             buffer.getChannelData(0).set(floatSamples);
