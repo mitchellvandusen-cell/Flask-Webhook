@@ -174,7 +174,9 @@ def get_contact_engagement_bulk():
 
         # ── Opt-out detection: check last message from each lead for stop keywords ──
         import re as _re
-        _stop_words = {'stop', 'unsubscribe', 'opt out', 'optout', 'remove me', 'do not contact', 'do not call', 'do not text', 'do not message', 'cancel', 'quit', 'leave me alone', 'not interested', 'lose my number', 'delete my number', 'take me off', 'blocked'}
+        # TCPA-mandated stop words only — sales objections like "not interested"
+        # are handled by the conversation engine, not flagged as opt-outs
+        _stop_words = {'stop', 'unsubscribe', 'opt out', 'optout', 'remove me', 'do not contact', 'do not call', 'do not text', 'do not message', 'cancel', "don't contact", "don't call", "don't text", "don't message"}
         cur.execute("""
             SELECT DISTINCT ON (contact_id) contact_id, message_text
             FROM contact_messages
