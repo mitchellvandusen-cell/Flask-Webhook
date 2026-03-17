@@ -1,184 +1,224 @@
 /**
- * InsuranceGrokBot — GHL Custom JS
+ * InsuranceGrokBot — GHL Custom JavaScript
  *
- * This script runs inside GoHighLevel's parent window on every page.
- * It injects: pipeline Dial buttons, temperature badges, AI Reply,
- * intelligence cards, mini dialer popup, AI Minutes chip, stats chip,
- * call recording players, SSE notifications, and bulk call actions.
+ * Injects AI dialer, temperature badges, AI Reply, intelligence cards,
+ * AI Minutes marketplace, stats chip, call recording playback, and
+ * real-time notifications directly into GoHighLevel's UI.
  *
- * Auth: HMAC-signed request → JWT token stored in localStorage.
- * All API calls use Bearer JWT to IGB server endpoints.
+ * How it works:
+ *   1. On load, gets the GHL location ID from AppUtils
+ *   2. Exchanges location ID for a short-lived JWT from the IGB server
+ *   3. Uses that JWT for all subsequent API calls
+ *   4. Injects UI elements based on which GHL page is active
  *
- * Paste this entire file into GHL Developer Portal → Custom JS → JavaScript field.
+ * Paste this entire file into:
+ *   GHL Developer Portal → Your App → Modules → Custom JS → JavaScript field
  */
 
-// ── Configuration ───────────────────────────────────────────────────────────
-var IGB_SERVER = 'https://app.insurancegrokbot.click';
-var SHARED_SECRET = ''; // Set via AppUtils.Utilities.getSharedSecret() at runtime
-var JWT_KEY = 'igb_jwt';
-var JWT_EXPIRY_KEY = 'igb_jwt_exp';
-var POLL_INTERVAL = 2000;     // Call status poll interval (ms)
-var BALANCE_POLL = 60000;     // AI Minutes / stats refresh (ms)
-var SSE_RECONNECT_BASE = 1000;
-var SSE_RECONNECT_MAX = 30000;
-var MAX_TOASTS = 3;
+// ── Server Configuration ────────────────────────────────────────────────────
 
-// ── State ───────────────────────────────────────────────────────────────────
-var _jwt = '';
-var _locationId = '';
-var _tier = 'individual';
-var _maxLines = 1;
-var _sseSource = null;
-var _sseReconnectDelay = SSE_RECONNECT_BASE;
-var _balanceTimer = null;
-var _statsTimer = null;
-var _dialerPopup = null;
-var _dialerQueue = [];
-var _dialerIdx = 0;
-var _activeCalls = new Map();       // callSid → {contactId, phone, name, status, dialMode}
-var _pollTimer = null;
-var _listenWs = null;
-var _currentCallSid = '';
-var _currentDialMode = '';          // 'ai' or 'human'
-var _toasts = [];
+var igbServerUrl = 'https://app.insurancegrokbot.click';
+var igbTokenStorageKey = 'igb_jwt';
+var igbTokenExpiryKey = 'igb_jwt_exp';
+var igbCallPollMs = 2000;
+var igbRefreshIntervalMs = 60000;
+var igbMaxVisibleToasts = 3;
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
+// ── Application State ───────────────────────────────────────────────────────
 
-function _log(msg) { console.log('[IGB]', msg); }
+var igbToken = '';
+var igbLocationId = '';
+var igbSubscriptionTier = 'individual';
+var igbMaxDialLines = 1;
+var igbBalanceRefreshTimer = null;
+var igbStatsRefreshTimer = null;
+var igbDialerPopupEl = null;
+var igbCallQueue = [];
+var igbCallQueueIndex = 0;
+var igbActiveCallMap = new Map();
+var igbCallPollTimer = null;
+var igbListenSocket = null;
+var igbCurrentCallSid = '';
+var igbCurrentCallMode = '';
+var igbToastList = [];
+var igbCurrentAiMinutes = 0;
 
-function _el(tag, cls, html) {
-    var e = document.createElement(tag);
-    if (cls) e.className = cls;
-    if (html) e.innerHTML = html;
-    return e;
+// ── DOM Helpers ─────────────────────────────────────────────────────────────
+
+function igbMakeElement(tagName, cssClass, htmlContent) {
+    var el = document.createElement(tagName);
+    if (cssClass) {
+        el.className = cssClass;
+    }
+    if (htmlContent) {
+        el.innerHTML = htmlContent;
+    }
+    return el;
 }
 
-function _qs(sel, root) { return (root || document).querySelector(sel); }
-function _qsa(sel, root) { return (root || document).querySelectorAll(sel); }
+function igbFind(selector, root) {
+    return (root || document).querySelector(selector);
+}
 
-async function _api(method, path, body) {
-    var opts = {
-        method: method,
+function igbFindAll(selector, root) {
+    return (root || document).querySelectorAll(selector);
+}
+
+function igbLog(message) {
+    console.log('[InsuranceGrokBot]', message);
+}
+
+function igbFormatNumber(num) {
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function igbFormatDuration(totalSeconds) {
+    if (!totalSeconds) {
+        return '0:00';
+    }
+    var minutes = Math.floor(totalSeconds / 60);
+    var seconds = Math.floor(totalSeconds % 60);
+    return minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+}
+
+function igbSafeHtml(rawText) {
+    var div = document.createElement('div');
+    div.textContent = rawText;
+    return div.innerHTML;
+}
+
+function igbCapitalize(str) {
+    return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
+}
+
+function igbGetContactIdFromUrl() {
+    var match = window.location.pathname.match(/\/contacts\/(?:detail\/)?([a-zA-Z0-9]+)/);
+    return match ? match[1] : '';
+}
+
+// ── API Helper ──────────────────────────────────────────────────────────────
+
+async function igbApiRequest(httpMethod, apiPath, requestBody) {
+    var fetchOptions = {
+        method: httpMethod,
         headers: {
-            'Authorization': 'Bearer ' + _jwt,
+            'Authorization': 'Bearer ' + igbToken,
             'Content-Type': 'application/json',
         },
     };
-    if (body) opts.body = JSON.stringify(body);
-    var resp = await fetch(IGB_SERVER + path, opts);
-    if (resp.status === 401) {
-        // JWT expired — re-authenticate
-        _log('JWT expired, re-authenticating...');
-        await _authenticate();
-        opts.headers['Authorization'] = 'Bearer ' + _jwt;
-        resp = await fetch(IGB_SERVER + path, opts);
+    if (requestBody) {
+        fetchOptions.body = JSON.stringify(requestBody);
     }
-    return resp.json();
+    var response = await fetch(igbServerUrl + apiPath, fetchOptions);
+    if (response.status === 401) {
+        igbLog('Token expired — refreshing');
+        await igbAuthenticate();
+        fetchOptions.headers['Authorization'] = 'Bearer ' + igbToken;
+        response = await fetch(igbServerUrl + apiPath, fetchOptions);
+    }
+    return response.json();
 }
 
-// ── Auth ────────────────────────────────────────────────────────────────────
+// ── Authentication ──────────────────────────────────────────────────────────
 
-async function _authenticate() {
+async function igbAuthenticate() {
     try {
-        _locationId = await _getLocationId();
-        if (!_locationId) { _log('No locationId found'); return false; }
+        igbLocationId = await igbGetLocationId();
+        if (!igbLocationId) {
+            igbLog('Could not determine location ID');
+            return false;
+        }
 
-        var timestamp = Math.floor(Date.now() / 1000);
-        var msg = _locationId + timestamp;
-        var secret = await _getSharedSecret();
-        var signature = await _hmacSha256(secret, msg);
+        var requestPayload = {
+            location_id: igbLocationId,
+            timestamp: Math.floor(Date.now() / 1000),
+        };
 
-        var resp = await fetch(IGB_SERVER + '/api/ghl/auth/token', {
+        // Include GHL user token if available for stronger verification
+        var userToken = await igbGetGhlUserToken();
+        if (userToken) {
+            requestPayload.ghl_token = userToken;
+        }
+
+        var tokenResponse = await fetch(igbServerUrl + '/api/ghl/auth/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                location_id: _locationId,
-                timestamp: timestamp,
-                signature: signature,
-            }),
+            body: JSON.stringify(requestPayload),
         });
-        var data = await resp.json();
-        if (data.token) {
-            _jwt = data.token;
-            _tier = data.tier || 'individual';
-            localStorage.setItem(JWT_KEY, _jwt);
-            localStorage.setItem(JWT_EXPIRY_KEY, String(Date.now() + (data.expires_in || 7200) * 1000));
-            _log('Authenticated, tier=' + _tier);
+
+        var tokenData = await tokenResponse.json();
+        if (tokenData.token) {
+            igbToken = tokenData.token;
+            igbSubscriptionTier = tokenData.tier || 'individual';
+            localStorage.setItem(igbTokenStorageKey, igbToken);
+            var expiresAt = Date.now() + (tokenData.expires_in || 7200) * 1000;
+            localStorage.setItem(igbTokenExpiryKey, String(expiresAt));
+            igbLog('Authenticated — tier: ' + igbSubscriptionTier);
             return true;
         }
-        _log('Auth failed: ' + (data.error || 'unknown'));
+
+        igbLog('Authentication failed: ' + (tokenData.error || 'unknown error'));
         return false;
-    } catch (e) {
-        _log('Auth error: ' + e.message);
+    } catch (authError) {
+        igbLog('Authentication error: ' + authError.message);
         return false;
     }
 }
 
-async function _getLocationId() {
-    // GHL Custom JS provides AppUtils
-    if (typeof AppUtils !== 'undefined' && AppUtils.Utilities && AppUtils.Utilities.getCurrentLocation) {
+async function igbGetLocationId() {
+    if (typeof AppUtils !== 'undefined' && AppUtils.Utilities) {
         try {
-            var loc = await AppUtils.Utilities.getCurrentLocation();
-            return loc.id || loc.locationId || '';
-        } catch (e) { _log('AppUtils.getCurrentLocation failed: ' + e); }
+            var locationData = await AppUtils.Utilities.getCurrentLocation();
+            return locationData.id || locationData.locationId || '';
+        } catch (e) {
+            igbLog('Could not get location from AppUtils: ' + e);
+        }
     }
     return '';
 }
 
-async function _getSharedSecret() {
-    if (typeof AppUtils !== 'undefined' && AppUtils.Utilities && AppUtils.Utilities.getSharedSecret) {
-        try { return await AppUtils.Utilities.getSharedSecret(); } catch (e) {}
+async function igbGetGhlUserToken() {
+    if (typeof AppUtils !== 'undefined' && AppUtils.Utilities) {
+        try {
+            if (AppUtils.Utilities.getUserToken) {
+                return await AppUtils.Utilities.getUserToken();
+            }
+            if (AppUtils.Utilities.getSharedSecret) {
+                return await AppUtils.Utilities.getSharedSecret();
+            }
+        } catch (e) {}
     }
-    return SHARED_SECRET;
+    return '';
 }
 
-async function _hmacSha256(secret, message) {
-    var enc = new TextEncoder();
-    var key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-    var sig = await crypto.subtle.sign('HMAC', key, enc.encode(message));
-    return Array.from(new Uint8Array(sig)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+function igbIsTokenValid() {
+    var expiry = parseInt(localStorage.getItem(igbTokenExpiryKey) || '0');
+    return igbToken && Date.now() < expiry - 60000;
 }
 
-function _isJwtValid() {
-    var exp = parseInt(localStorage.getItem(JWT_EXPIRY_KEY) || '0');
-    return _jwt && Date.now() < exp - 60000; // 1min buffer
-}
+// ── Toast Notifications ─────────────────────────────────────────────────────
 
-// ── SSE Notifications ───────────────────────────────────────────────────────
+function igbShowToast(message, toastType) {
+    toastType = toastType || 'info';
+    var toast = igbMakeElement('div', 'igb-toast igb-toast-' + toastType);
+    toast.innerHTML = message + '<button class="igb-toast-close" onclick="this.parentElement.remove()">&times;</button>';
 
-function _startSSE() {
-    if (_sseSource) { _sseSource.close(); _sseSource = null; }
-    // SSE with JWT — use custom EventSource via fetch since native EventSource doesn't support headers
-    _pollSSE();
-}
-
-async function _pollSSE() {
-    // Lightweight SSE polling fallback — native EventSource can't send auth headers
-    // Poll every 5 seconds for new events
-    try {
-        var data = await _api('GET', '/api/ghl/stream/notifications');
-        // Process would need SSE support — for now use polling approach
-    } catch (e) {}
-    setTimeout(_pollSSE, 5000);
-}
-
-function _showToast(html, type) {
-    type = type || 'info';
-    var toast = _el('div', 'igb-toast igb-toast-' + type);
-    toast.innerHTML = html + '<button class="igb-toast-close" onclick="this.parentElement.remove()">&times;</button>';
-    var container = _qs('#igb-toast-container');
+    var container = igbFind('#igb-toast-container');
     if (!container) {
-        container = _el('div', '');
+        container = igbMakeElement('div', '');
         container.id = 'igb-toast-container';
         document.body.appendChild(container);
     }
     container.appendChild(toast);
-    _toasts.push(toast);
-    // Limit visible toasts
-    while (_toasts.length > MAX_TOASTS) {
-        var old = _toasts.shift();
-        if (old.parentElement) old.remove();
+    igbToastList.push(toast);
+
+    while (igbToastList.length > igbMaxVisibleToasts) {
+        var oldToast = igbToastList.shift();
+        if (oldToast.parentElement) {
+            oldToast.remove();
+        }
     }
+
     setTimeout(function() {
         toast.classList.add('igb-toast-fade');
         setTimeout(function() { toast.remove(); }, 300);
@@ -187,262 +227,295 @@ function _showToast(html, type) {
 
 // ── AI Minutes Chip ─────────────────────────────────────────────────────────
 
-var _aiMinutesBalance = 0;
-
-async function _renderAiMinutesChip() {
-    var existing = _qs('#igb-minutes-chip');
-    if (existing) existing.remove();
+async function igbRenderAiMinutesChip() {
+    var existing = igbFind('#igb-minutes-chip');
+    if (existing) {
+        existing.remove();
+    }
 
     try {
-        var data = await _api('GET', '/api/ghl/ai-minutes/balance');
-        _aiMinutesBalance = data.balance_minutes || 0;
-    } catch (e) { return; }
+        var balanceData = await igbApiRequest('GET', '/api/ghl/ai-minutes/balance');
+        igbCurrentAiMinutes = balanceData.balance_minutes || 0;
+    } catch (e) {
+        return;
+    }
 
-    var chip = _el('div', 'igb-chip igb-minutes-chip');
+    var chip = igbMakeElement('div', 'igb-chip igb-minutes-chip');
     chip.id = 'igb-minutes-chip';
-    var colorCls = _aiMinutesBalance > 500 ? 'igb-chip-green' :
-                   _aiMinutesBalance > 100 ? 'igb-chip-yellow' : 'igb-chip-red';
-    if (_aiMinutesBalance < 50) colorCls += ' igb-chip-pulse';
-    chip.classList.add(colorCls);
-    chip.innerHTML = '<i class="fa-solid fa-bolt"></i> ' + _formatNum(_aiMinutesBalance) + ' min';
-    chip.title = 'AI Minutes — click to buy more';
-    chip.onclick = _toggleMinutesPanel;
 
-    _injectIntoTopNav(chip);
+    var colorClass = 'igb-chip-green';
+    if (igbCurrentAiMinutes <= 500) { colorClass = 'igb-chip-yellow'; }
+    if (igbCurrentAiMinutes <= 100) { colorClass = 'igb-chip-red'; }
+    if (igbCurrentAiMinutes < 50)  { colorClass += ' igb-chip-pulse'; }
+
+    chip.classList.add(colorClass);
+    chip.innerHTML = '<i class="fa-solid fa-bolt"></i> ' + igbFormatNumber(igbCurrentAiMinutes) + ' min';
+    chip.title = 'AI Minutes balance — click to buy more';
+    chip.onclick = igbToggleMinutesPanel;
+
+    igbInjectIntoTopNav(chip);
 }
 
-async function _toggleMinutesPanel() {
-    var existing = _qs('#igb-minutes-panel');
-    if (existing) { existing.remove(); return; }
+async function igbToggleMinutesPanel() {
+    var existing = igbFind('#igb-minutes-panel');
+    if (existing) {
+        existing.remove();
+        return;
+    }
 
-    var panel = _el('div', 'igb-dropdown-panel');
+    var panel = igbMakeElement('div', 'igb-dropdown-panel');
     panel.id = 'igb-minutes-panel';
     panel.innerHTML = '<div class="igb-panel-header"><i class="fa-solid fa-bolt"></i> AI Minutes <button class="igb-panel-close" onclick="document.getElementById(\'igb-minutes-panel\').remove()">&times;</button></div><div class="igb-panel-body"><div class="igb-loading">Loading...</div></div>';
     document.body.appendChild(panel);
 
-    // Position near the chip
-    var chipEl = _qs('#igb-minutes-chip');
+    var chipEl = igbFind('#igb-minutes-chip');
     if (chipEl) {
-        var rect = chipEl.getBoundingClientRect();
-        panel.style.top = (rect.bottom + 8) + 'px';
-        panel.style.right = (window.innerWidth - rect.right) + 'px';
+        var chipRect = chipEl.getBoundingClientRect();
+        panel.style.top = (chipRect.bottom + 8) + 'px';
+        panel.style.right = (window.innerWidth - chipRect.right) + 'px';
     }
 
     try {
-        var [balance, packages] = await Promise.all([
-            _api('GET', '/api/ghl/ai-minutes/balance'),
-            _api('GET', '/api/ghl/ai-minutes/packages'),
+        var results = await Promise.all([
+            igbApiRequest('GET', '/api/ghl/ai-minutes/balance'),
+            igbApiRequest('GET', '/api/ghl/ai-minutes/packages'),
         ]);
-        var bal = balance.balance_minutes || 0;
-        var purchased = balance.total_purchased || 0;
-        var used = balance.total_used || 0;
-        var pct = purchased > 0 ? Math.round(used / purchased * 100) : 0;
+        var balanceResult = results[0];
+        var packagesResult = results[1];
 
-        var body = _qs('#igb-minutes-panel .igb-panel-body');
-        if (!body) return;
+        var available = balanceResult.balance_minutes || 0;
+        var totalPurchased = balanceResult.total_purchased || 0;
+        var totalUsed = balanceResult.total_used || 0;
+        var usedPercent = totalPurchased > 0 ? Math.round(totalUsed / totalPurchased * 100) : 0;
 
-        var html = '<div class="igb-minutes-stats">' +
-            '<div class="igb-stat-row"><span>Available</span><strong>' + _formatNum(bal) + ' min</strong></div>' +
-            '<div class="igb-stat-row"><span>Purchased</span><span>' + _formatNum(purchased) + '</span></div>' +
-            '<div class="igb-stat-row"><span>Used</span><span>' + _formatNum(used) + '</span></div>' +
-            '<div class="igb-progress-bar"><div class="igb-progress-fill" style="width:' + Math.min(pct, 100) + '%"></div></div>' +
-            '<div class="igb-stat-row igb-text-muted"><span>' + pct + '% used</span></div>' +
-            '</div>';
+        var panelBody = igbFind('#igb-minutes-panel .igb-panel-body');
+        if (!panelBody) { return; }
 
-        html += '<div class="igb-section-label">Buy More Minutes</div><div class="igb-packages-grid">';
-        var pkgs = packages.packages || [];
-        var pkgClasses = { 500: 'igb-pkg-green', 2000: 'igb-pkg-blue', 5000: 'igb-pkg-purple', 10000: 'igb-pkg-gold' };
-        pkgs.forEach(function(p) {
-            var price = p.price_cents ? '$' + (p.price_cents / 100).toFixed(2) : 'N/A';
-            var cls = pkgClasses[p.minutes] || 'igb-pkg-green';
-            html += '<div class="igb-package-card ' + cls + '">' +
-                '<div class="igb-package-minutes"><i class="fa-solid fa-bolt"></i> ' + _formatNum(p.minutes) + '</div>' +
-                '<div class="igb-package-label">' + p.label + '</div>' +
-                '<div class="igb-package-price">' + price + '</div>' +
-                '<button class="igb-btn igb-btn-sm" onclick="window._igbBuyMinutes(' + p.minutes + ')" ' + (p.available ? '' : 'disabled') + '>Buy</button>' +
-                '</div>';
+        var panelHtml = '<div class="igb-minutes-stats">'
+            + '<div class="igb-stat-row"><span>Available</span><strong>' + igbFormatNumber(available) + ' min</strong></div>'
+            + '<div class="igb-stat-row"><span>Purchased</span><span>' + igbFormatNumber(totalPurchased) + '</span></div>'
+            + '<div class="igb-stat-row"><span>Used</span><span>' + igbFormatNumber(totalUsed) + '</span></div>'
+            + '<div class="igb-progress-bar"><div class="igb-progress-fill" style="width:' + Math.min(usedPercent, 100) + '%"></div></div>'
+            + '<div class="igb-stat-row igb-text-muted"><span>' + usedPercent + '% used</span></div>'
+            + '</div>';
+
+        panelHtml += '<div class="igb-section-label">Buy More Minutes</div><div class="igb-packages-grid">';
+
+        var packageList = packagesResult.packages || [];
+        var packageColorMap = { 500: 'igb-pkg-green', 2000: 'igb-pkg-blue', 5000: 'igb-pkg-purple', 10000: 'igb-pkg-gold' };
+
+        packageList.forEach(function(pkg) {
+            var displayPrice = pkg.price_cents ? '$' + (pkg.price_cents / 100).toFixed(2) : 'N/A';
+            var packageClass = packageColorMap[pkg.minutes] || 'igb-pkg-green';
+            var disabledAttr = pkg.available ? '' : ' disabled';
+            panelHtml += '<div class="igb-package-card ' + packageClass + '">'
+                + '<div class="igb-package-minutes"><i class="fa-solid fa-bolt"></i> ' + igbFormatNumber(pkg.minutes) + '</div>'
+                + '<div class="igb-package-label">' + pkg.label + '</div>'
+                + '<div class="igb-package-price">' + displayPrice + '</div>'
+                + '<button class="igb-btn igb-btn-sm" onclick="igbPurchaseMinutes(' + pkg.minutes + ')"' + disabledAttr + '>Buy</button>'
+                + '</div>';
         });
-        html += '</div>';
-        body.innerHTML = html;
+
+        panelHtml += '</div>';
+        panelBody.innerHTML = panelHtml;
     } catch (e) {
-        _log('Minutes panel error: ' + e);
+        igbLog('Minutes panel error: ' + e);
     }
 }
 
-window._igbBuyMinutes = async function(minutes) {
+async function igbPurchaseMinutes(minuteAmount) {
     try {
-        var data = await _api('POST', '/api/ghl/ai-minutes/checkout', { minutes: minutes });
-        if (data.checkout_url) {
-            window.open(data.checkout_url, '_blank');
+        var checkoutData = await igbApiRequest('POST', '/api/ghl/ai-minutes/checkout', { minutes: minuteAmount });
+        if (checkoutData.checkout_url) {
+            window.open(checkoutData.checkout_url, '_blank');
         } else {
-            _showToast('Checkout failed: ' + (data.error || 'Unknown error'), 'error');
+            igbShowToast('Checkout failed: ' + (checkoutData.error || 'Unknown error'), 'error');
         }
     } catch (e) {
-        _showToast('Checkout error', 'error');
+        igbShowToast('Checkout error', 'error');
     }
-};
+}
 
 // ── Stats Chip ──────────────────────────────────────────────────────────────
 
-async function _renderStatsChip() {
-    var existing = _qs('#igb-stats-chip');
-    if (existing) existing.remove();
+async function igbRenderStatsChip() {
+    var existing = igbFind('#igb-stats-chip');
+    if (existing) {
+        existing.remove();
+    }
 
     try {
-        var data = await _api('GET', '/api/ghl/stats?period=today');
-        var total = data.total_calls || 0;
-        var connected = data.connected || 0;
+        var statsData = await igbApiRequest('GET', '/api/ghl/stats?period=today');
+        var callsMade = statsData.total_calls || 0;
+        var callsConnected = statsData.connected || 0;
 
-        var chip = _el('div', 'igb-chip igb-stats-chip');
+        var chip = igbMakeElement('div', 'igb-chip igb-stats-chip');
         chip.id = 'igb-stats-chip';
-        chip.innerHTML = '<i class="fa-solid fa-chart-simple"></i> ' + total + '/' + connected;
-        chip.title = 'Today: ' + total + ' calls, ' + connected + ' connected, ' +
-            (data.connect_rate || 0) + '% rate, ' + _formatDuration(data.avg_duration || 0) + ' avg';
-        chip.onclick = _toggleStatsPanel;
+        chip.innerHTML = '<i class="fa-solid fa-chart-simple"></i> ' + callsMade + '/' + callsConnected;
+        chip.title = 'Today: ' + callsMade + ' calls, ' + callsConnected + ' connected, '
+            + (statsData.connect_rate || 0) + '% rate, '
+            + igbFormatDuration(statsData.avg_duration || 0) + ' avg';
+        chip.onclick = igbToggleStatsPanel;
 
-        _injectIntoTopNav(chip);
+        igbInjectIntoTopNav(chip);
     } catch (e) {}
 }
 
-async function _toggleStatsPanel() {
-    var existing = _qs('#igb-stats-panel');
-    if (existing) { existing.remove(); return; }
+async function igbToggleStatsPanel() {
+    var existing = igbFind('#igb-stats-panel');
+    if (existing) {
+        existing.remove();
+        return;
+    }
 
-    var panel = _el('div', 'igb-dropdown-panel');
+    var panel = igbMakeElement('div', 'igb-dropdown-panel');
     panel.id = 'igb-stats-panel';
     panel.innerHTML = '<div class="igb-panel-header"><i class="fa-solid fa-chart-simple"></i> Today\'s Stats <button class="igb-panel-close" onclick="document.getElementById(\'igb-stats-panel\').remove()">&times;</button></div><div class="igb-panel-body"><div class="igb-loading">Loading...</div></div>';
     document.body.appendChild(panel);
 
-    var chipEl = _qs('#igb-stats-chip');
-    if (chipEl) {
-        var rect = chipEl.getBoundingClientRect();
-        panel.style.top = (rect.bottom + 8) + 'px';
-        panel.style.right = (window.innerWidth - rect.right) + 'px';
+    var statsChip = igbFind('#igb-stats-chip');
+    if (statsChip) {
+        var chipRect = statsChip.getBoundingClientRect();
+        panel.style.top = (chipRect.bottom + 8) + 'px';
+        panel.style.right = (window.innerWidth - chipRect.right) + 'px';
     }
 
     try {
-        var [today, week] = await Promise.all([
-            _api('GET', '/api/ghl/stats?period=today'),
-            _api('GET', '/api/ghl/stats?period=week'),
+        var allStats = await Promise.all([
+            igbApiRequest('GET', '/api/ghl/stats?period=today'),
+            igbApiRequest('GET', '/api/ghl/stats?period=week'),
         ]);
+        var todayStats = allStats[0];
+        var weekStats = allStats[1];
 
-        var body = _qs('#igb-stats-panel .igb-panel-body');
-        if (!body) return;
+        var panelBody = igbFind('#igb-stats-panel .igb-panel-body');
+        if (!panelBody) { return; }
 
-        body.innerHTML =
-            '<div class="igb-minutes-stats">' +
-            '<div class="igb-stat-row"><span>Calls Made</span><strong>' + (today.total_calls || 0) + '</strong></div>' +
-            '<div class="igb-stat-row"><span>Connected</span><strong>' + (today.connected || 0) + ' (' + (today.connect_rate || 0) + '%)</strong></div>' +
-            '<div class="igb-stat-row"><span>Avg Duration</span><span>' + _formatDuration(today.avg_duration || 0) + '</span></div>' +
-            '<div class="igb-stat-row"><span>Voicemails</span><span>' + (today.voicemail || 0) + '</span></div>' +
-            '<div class="igb-stat-row"><span>No Answer</span><span>' + (today.no_answer || 0) + '</span></div>' +
-            '</div>' +
-            '<div class="igb-section-label">This Week</div>' +
-            '<div class="igb-minutes-stats">' +
-            '<div class="igb-stat-row"><span>Calls</span><span>' + (week.total_calls || 0) + '</span></div>' +
-            '<div class="igb-stat-row"><span>Connected</span><span>' + (week.connected || 0) + '</span></div>' +
-            '<div class="igb-stat-row"><span>Talk Time</span><span>' + _formatDuration(week.total_duration || 0) + '</span></div>' +
-            '</div>';
+        panelBody.innerHTML = '<div class="igb-minutes-stats">'
+            + '<div class="igb-stat-row"><span>Calls Made</span><strong>' + (todayStats.total_calls || 0) + '</strong></div>'
+            + '<div class="igb-stat-row"><span>Connected</span><strong>' + (todayStats.connected || 0) + ' (' + (todayStats.connect_rate || 0) + '%)</strong></div>'
+            + '<div class="igb-stat-row"><span>Avg Duration</span><span>' + igbFormatDuration(todayStats.avg_duration || 0) + '</span></div>'
+            + '<div class="igb-stat-row"><span>Voicemails</span><span>' + (todayStats.voicemail || 0) + '</span></div>'
+            + '<div class="igb-stat-row"><span>No Answer</span><span>' + (todayStats.no_answer || 0) + '</span></div>'
+            + '</div>'
+            + '<div class="igb-section-label">This Week</div>'
+            + '<div class="igb-minutes-stats">'
+            + '<div class="igb-stat-row"><span>Calls</span><span>' + (weekStats.total_calls || 0) + '</span></div>'
+            + '<div class="igb-stat-row"><span>Connected</span><span>' + (weekStats.connected || 0) + '</span></div>'
+            + '<div class="igb-stat-row"><span>Talk Time</span><span>' + igbFormatDuration(weekStats.total_duration || 0) + '</span></div>'
+            + '</div>';
     } catch (e) {}
 }
 
 // ── Pipeline Dial Buttons ───────────────────────────────────────────────────
 
-function _injectPipelineButtons() {
-    // Find pipeline stage headers and inject Dial buttons
-    var headers = _qsa('[class*="pipeline"] [class*="stage-header"], [class*="pipeline"] [class*="column-header"], .board-column .column-header');
-    if (!headers.length) {
-        // Try alternate GHL pipeline selectors
-        headers = _qsa('.opportunity-board .board-column > div:first-child, .pipeline-view .stage-column > div:first-child');
-    }
+function igbInjectPipelineButtons() {
+    var stageHeaders = igbFindAll(
+        '[class*="pipeline"] [class*="stage-header"], '
+        + '[class*="pipeline"] [class*="column-header"], '
+        + '.board-column .column-header, '
+        + '.opportunity-board .board-column > div:first-child, '
+        + '.pipeline-view .stage-column > div:first-child'
+    );
 
-    headers.forEach(function(header) {
-        if (header.querySelector('.igb-dial-btn')) return; // already injected
+    stageHeaders.forEach(function(header) {
+        if (header.querySelector('.igb-dial-btn')) {
+            return;
+        }
 
-        var btn = _el('button', 'igb-dial-btn');
-        btn.innerHTML = '<i class="fa-solid fa-phone"></i> Dial';
-        btn.title = 'Dial all contacts in this stage with IGB';
-        btn.onclick = function(e) {
-            e.stopPropagation();
-            _dialPipelineStage(header);
+        var dialButton = igbMakeElement('button', 'igb-dial-btn');
+        dialButton.innerHTML = '<i class="fa-solid fa-phone"></i> Dial';
+        dialButton.title = 'Dial all contacts in this stage with InsuranceGrokBot';
+        dialButton.onclick = function(event) {
+            event.stopPropagation();
+            igbDialFromPipelineStage(header);
         };
-        header.appendChild(btn);
+        header.appendChild(dialButton);
     });
 }
 
-function _dialPipelineStage(headerEl) {
-    // Extract contact IDs from the opportunity cards in this column
-    var column = headerEl.closest('[class*="column"], .board-column, .stage-column');
-    if (!column) return;
+function igbDialFromPipelineStage(headerElement) {
+    var column = headerElement.closest('[class*="column"], .board-column, .stage-column');
+    if (!column) { return; }
 
-    var cards = column.querySelectorAll('[class*="opportunity-card"], [class*="deal-card"], .board-card');
-    var contacts = [];
-    cards.forEach(function(card) {
-        // Try to extract contact ID from card's data attributes or links
-        var link = card.querySelector('a[href*="/contacts/"]');
+    var opportunityCards = column.querySelectorAll('[class*="opportunity-card"], [class*="deal-card"], .board-card');
+    var contactList = [];
+
+    opportunityCards.forEach(function(card) {
+        var contactLink = card.querySelector('a[href*="/contacts/"]');
         var contactId = '';
-        if (link) {
-            var match = link.href.match(/\/contacts\/([a-zA-Z0-9]+)/);
-            if (match) contactId = match[1];
+
+        if (contactLink) {
+            var urlMatch = contactLink.href.match(/\/contacts\/([a-zA-Z0-9]+)/);
+            if (urlMatch) { contactId = urlMatch[1]; }
         }
+
         if (!contactId) {
             contactId = card.getAttribute('data-contact-id') || card.getAttribute('data-id') || '';
         }
 
-        var nameEl = card.querySelector('[class*="name"], [class*="title"]');
-        var name = nameEl ? nameEl.textContent.trim() : 'Unknown';
+        var nameElement = card.querySelector('[class*="name"], [class*="title"]');
+        var contactName = nameElement ? nameElement.textContent.trim() : 'Unknown';
 
         if (contactId) {
-            contacts.push({ contactId: contactId, name: name });
+            contactList.push({ contactId: contactId, name: contactName });
         }
     });
 
-    if (contacts.length === 0) {
-        _showToast('No contacts found in this stage', 'error');
+    if (contactList.length === 0) {
+        igbShowToast('No contacts found in this stage', 'error');
         return;
     }
 
-    // Get stage name from header
-    var stageName = headerEl.textContent.replace(/Dial$/i, '').trim();
-    _openDialerPopup(contacts, stageName);
+    var stageName = headerElement.textContent.replace(/Dial$/i, '').trim();
+    igbOpenDialer(contactList, stageName);
 }
 
 // ── Temperature Badges ──────────────────────────────────────────────────────
 
-async function _injectTemperatureBadges() {
-    var cards = _qsa('[class*="opportunity-card"], [class*="deal-card"], .board-card');
-    var contactIds = [];
-    var cardMap = {};
+async function igbInjectTemperatureBadges() {
+    var opportunityCards = igbFindAll('[class*="opportunity-card"], [class*="deal-card"], .board-card');
+    var contactIdList = [];
+    var cardsByContactId = {};
 
-    cards.forEach(function(card) {
-        if (card.querySelector('.igb-temp-badge')) return;
-        var link = card.querySelector('a[href*="/contacts/"]');
+    opportunityCards.forEach(function(card) {
+        if (card.querySelector('.igb-temp-badge')) { return; }
+
+        var contactLink = card.querySelector('a[href*="/contacts/"]');
         var contactId = '';
-        if (link) {
-            var match = link.href.match(/\/contacts\/([a-zA-Z0-9]+)/);
-            if (match) contactId = match[1];
+
+        if (contactLink) {
+            var urlMatch = contactLink.href.match(/\/contacts\/([a-zA-Z0-9]+)/);
+            if (urlMatch) { contactId = urlMatch[1]; }
         }
-        if (!contactId) contactId = card.getAttribute('data-contact-id') || '';
+
+        if (!contactId) {
+            contactId = card.getAttribute('data-contact-id') || '';
+        }
+
         if (contactId) {
-            contactIds.push(contactId);
-            if (!cardMap[contactId]) cardMap[contactId] = [];
-            cardMap[contactId].push(card);
+            contactIdList.push(contactId);
+            if (!cardsByContactId[contactId]) {
+                cardsByContactId[contactId] = [];
+            }
+            cardsByContactId[contactId].push(card);
         }
     });
 
-    if (contactIds.length === 0) return;
+    if (contactIdList.length === 0) { return; }
 
     try {
-        var data = await _api('GET', '/api/ghl/intelligence/bulk?ids=' + contactIds.slice(0, 300).join(','));
-        var cached = data.cached || {};
-        var uncached = data.uncached || [];
+        var bulkData = await igbApiRequest('GET', '/api/ghl/intelligence/bulk?ids=' + contactIdList.slice(0, 300).join(','));
+        var cachedResults = bulkData.cached || {};
+        var uncachedIds = bulkData.uncached || [];
 
-        Object.keys(cached).forEach(function(id) {
-            var intel = cached[id];
-            var temp = intel.temperature || '';
-            var score = intel.score || 0;
-            var badge = _createTempBadge(temp, score);
-            (cardMap[id] || []).forEach(function(card) {
+        Object.keys(cachedResults).forEach(function(contactId) {
+            var intelligence = cachedResults[contactId];
+            var temperature = intelligence.temperature || '';
+            var score = intelligence.score || 0;
+            var badge = igbMakeTempBadge(temperature, score);
+
+            (cardsByContactId[contactId] || []).forEach(function(card) {
                 if (!card.querySelector('.igb-temp-badge')) {
                     card.style.position = 'relative';
                     card.appendChild(badge.cloneNode(true));
@@ -450,147 +523,152 @@ async function _injectTemperatureBadges() {
             });
         });
 
-        // Queue uncached for background analysis
-        if (uncached.length > 0) {
-            _api('POST', '/voice/contact-intelligence-analyze', { contact_ids: uncached.slice(0, 5) }).catch(function() {});
+        if (uncachedIds.length > 0) {
+            igbApiRequest('POST', '/voice/contact-intelligence-analyze', { contact_ids: uncachedIds.slice(0, 5) }).catch(function() {});
         }
-    } catch (e) { _log('Badge error: ' + e); }
+    } catch (e) {
+        igbLog('Temperature badge error: ' + e);
+    }
 }
 
-function _createTempBadge(temp, score) {
-    var badge = _el('div', 'igb-temp-badge');
-    var icons = { hot: 'fa-fire', warm: 'fa-temperature-half', cool: 'fa-snowflake', cold: 'fa-icicles' };
-    var icon = icons[temp] || 'fa-circle';
-    var colorClasses = { hot: 'igb-color-hot', warm: 'igb-color-warm', cool: 'igb-color-cool', cold: 'igb-color-cold' };
-    badge.innerHTML = '<i class="fa-solid ' + icon + ' ' + (colorClasses[temp] || 'igb-color-cold') + '"></i>';
-    badge.title = (temp || 'unknown') + ' | Score: ' + score;
-    if (temp === 'hot') badge.classList.add('igb-temp-hot');
+function igbMakeTempBadge(temperature, score) {
+    var badge = igbMakeElement('div', 'igb-temp-badge');
+    var iconMap = { hot: 'fa-fire', warm: 'fa-temperature-half', cool: 'fa-snowflake', cold: 'fa-icicles' };
+    var colorClassMap = { hot: 'igb-color-hot', warm: 'igb-color-warm', cool: 'igb-color-cool', cold: 'igb-color-cold' };
+    var iconName = iconMap[temperature] || 'fa-circle';
+    var colorClass = colorClassMap[temperature] || 'igb-color-cold';
+    badge.innerHTML = '<i class="fa-solid ' + iconName + ' ' + colorClass + '"></i>';
+    badge.title = (temperature || 'unknown') + ' | Score: ' + score;
+    if (temperature === 'hot') {
+        badge.classList.add('igb-temp-hot');
+    }
     return badge;
 }
 
 // ── AI Reply Button (Conversations) ─────────────────────────────────────────
 
-function _injectAiReplyButton() {
-    // Detect conversation compose area
-    var compose = _qs('[class*="message-composer"], [class*="compose"], [class*="reply-box"], .hl_message-composer');
-    if (!compose || compose.querySelector('.igb-ai-reply-btn')) return;
+function igbInjectAiReplyButton() {
+    var composeArea = igbFind('[class*="message-composer"], [class*="compose"], [class*="reply-box"], .hl_message-composer');
+    if (!composeArea || composeArea.querySelector('.igb-ai-reply-btn')) { return; }
 
-    var contactId = _extractContactIdFromUrl();
-    if (!contactId) return;
+    var contactId = igbGetContactIdFromUrl();
+    if (!contactId) { return; }
 
-    var btn = _el('button', 'igb-ai-reply-btn');
-    btn.innerHTML = '<i class="fa-solid fa-robot"></i> AI Reply';
-    btn.title = 'Generate AI reply draft with InsuranceGrokBot';
-    btn.onclick = function() { _generateAiReply(contactId, compose); };
-    compose.appendChild(btn);
+    var replyButton = igbMakeElement('button', 'igb-ai-reply-btn');
+    replyButton.innerHTML = '<i class="fa-solid fa-robot"></i> AI Reply';
+    replyButton.title = 'Generate AI reply draft with InsuranceGrokBot';
+    replyButton.onclick = function() {
+        igbGenerateAiReply(contactId, composeArea);
+    };
+    composeArea.appendChild(replyButton);
 }
 
-async function _generateAiReply(contactId, composeEl) {
-    var btn = composeEl.querySelector('.igb-ai-reply-btn');
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...'; }
+async function igbGenerateAiReply(contactId, composeElement) {
+    var replyBtn = composeElement.querySelector('.igb-ai-reply-btn');
+    if (replyBtn) {
+        replyBtn.disabled = true;
+        replyBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
+    }
 
     try {
-        var data = await _api('POST', '/api/ghl/ai-suggest/' + contactId);
-        if (data.draft) {
-            _showAiReplyPreview(data.draft, contactId, composeEl);
+        var replyData = await igbApiRequest('POST', '/api/ghl/ai-suggest/' + contactId);
+        if (replyData.draft) {
+            igbShowAiReplyPreview(replyData.draft, contactId, composeElement);
         } else {
-            _showToast('AI Reply: ' + (data.error || 'No draft generated'), 'error');
+            igbShowToast('AI Reply: ' + (replyData.error || 'No draft generated'), 'error');
         }
     } catch (e) {
-        _showToast('AI Reply failed', 'error');
+        igbShowToast('AI Reply failed', 'error');
     } finally {
-        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-robot"></i> AI Reply'; }
+        if (replyBtn) {
+            replyBtn.disabled = false;
+            replyBtn.innerHTML = '<i class="fa-solid fa-robot"></i> AI Reply';
+        }
     }
 }
 
-function _showAiReplyPreview(draft, contactId, composeEl) {
-    var existing = _qs('#igb-ai-preview');
-    if (existing) existing.remove();
+function igbShowAiReplyPreview(draftText, contactId, composeElement) {
+    var existing = igbFind('#igb-ai-preview');
+    if (existing) { existing.remove(); }
 
-    var preview = _el('div', 'igb-ai-preview');
+    var preview = igbMakeElement('div', 'igb-ai-preview');
     preview.id = 'igb-ai-preview';
-    preview.innerHTML =
-        '<div class="igb-preview-header">AI Draft <button class="igb-panel-close" onclick="document.getElementById(\'igb-ai-preview\').remove()">&times;</button></div>' +
-        '<textarea class="igb-preview-text" rows="4">' + _escHtml(draft) + '</textarea>' +
-        '<div class="igb-preview-actions">' +
-        '<button class="igb-btn igb-btn-primary" id="igb-send-draft">Send</button>' +
-        '<button class="igb-btn igb-btn-secondary" onclick="document.getElementById(\'igb-ai-preview\').remove()">Cancel</button>' +
-        '</div>';
+    preview.innerHTML = '<div class="igb-preview-header">AI Draft <button class="igb-panel-close" onclick="document.getElementById(\'igb-ai-preview\').remove()">&times;</button></div>'
+        + '<textarea class="igb-preview-text" rows="4">' + igbSafeHtml(draftText) + '</textarea>'
+        + '<div class="igb-preview-actions">'
+        + '<button class="igb-btn igb-btn-primary" id="igb-send-draft-btn">Send</button>'
+        + '<button class="igb-btn igb-btn-secondary" onclick="document.getElementById(\'igb-ai-preview\').remove()">Cancel</button>'
+        + '</div>';
 
-    // Position above compose area
-    var rect = composeEl.getBoundingClientRect();
-    preview.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
-    preview.style.left = rect.left + 'px';
-    preview.style.width = rect.width + 'px';
+    var composeRect = composeElement.getBoundingClientRect();
+    preview.style.bottom = (window.innerHeight - composeRect.top + 8) + 'px';
+    preview.style.left = composeRect.left + 'px';
+    preview.style.width = composeRect.width + 'px';
     document.body.appendChild(preview);
 
-    _qs('#igb-send-draft').onclick = async function() {
-        var text = preview.querySelector('textarea').value.trim();
-        if (!text) return;
+    igbFind('#igb-send-draft-btn').onclick = async function() {
+        var messageText = preview.querySelector('textarea').value.trim();
+        if (!messageText) { return; }
         this.disabled = true;
         this.textContent = 'Sending...';
         try {
-            var resp = await _api('POST', '/api/ghl/send-sms/' + contactId, { message: text });
-            if (resp.status === 'sent') {
-                _showToast('Message sent', 'success');
+            var sendResult = await igbApiRequest('POST', '/api/ghl/send-sms/' + contactId, { message: messageText });
+            if (sendResult.status === 'sent') {
+                igbShowToast('Message sent', 'success');
                 preview.remove();
             } else {
-                _showToast('Send failed: ' + (resp.error || ''), 'error');
+                igbShowToast('Send failed: ' + (sendResult.error || ''), 'error');
             }
         } catch (e) {
-            _showToast('Send error', 'error');
+            igbShowToast('Send error', 'error');
         }
     };
 }
 
 // ── Intelligence Card (Contact Detail) ──────────────────────────────────────
 
-async function _injectIntelligenceCard() {
-    var contactId = _extractContactIdFromUrl();
-    if (!contactId) return;
+async function igbInjectIntelligenceCard() {
+    var contactId = igbGetContactIdFromUrl();
+    if (!contactId) { return; }
+    if (!window.location.pathname.match(/\/contacts\/detail\//)) { return; }
+    if (igbFind('#igb-intelligence-card')) { return; }
 
-    // Only inject on contact detail pages
-    if (!window.location.pathname.match(/\/contacts\/detail\//)) return;
-
-    // Don't duplicate
-    if (_qs('#igb-intelligence-card')) return;
-
-    var card = _el('div', 'igb-intelligence-card');
+    var card = igbMakeElement('div', 'igb-intelligence-card');
     card.id = 'igb-intelligence-card';
     card.innerHTML = '<div class="igb-intel-shimmer"></div>';
 
-    // Insert into the page — try to find the right sidebar area
-    var sidebar = _qs('[class*="contact-detail-sidebar"], [class*="right-panel"], .contact-details aside');
-    if (sidebar) {
-        sidebar.prepend(card);
+    var sidebarArea = igbFind('[class*="contact-detail-sidebar"], [class*="right-panel"], .contact-details aside');
+    if (sidebarArea) {
+        sidebarArea.prepend(card);
     } else {
-        // Fallback: floating card
         card.classList.add('igb-intel-floating');
         document.body.appendChild(card);
     }
 
     try {
-        var data = await _api('GET', '/api/ghl/intelligence/' + contactId);
-        if (data.status === 'ok' && data.intelligence) {
-            var intel = data.intelligence;
+        var intelligenceData = await igbApiRequest('GET', '/api/ghl/intelligence/' + contactId);
+        if (intelligenceData.status === 'ok' && intelligenceData.intelligence) {
+            var intel = intelligenceData.intelligence;
             var temp = intel.temperature || 'unknown';
-            var icons = { hot: 'fa-fire', warm: 'fa-temperature-half', cool: 'fa-snowflake', cold: 'fa-icicles' };
+            var tempColorMap = { hot: 'igb-color-hot', warm: 'igb-color-warm', cool: 'igb-color-cool', cold: 'igb-color-cold' };
+            var tempIconMap = { hot: 'fa-fire', warm: 'fa-temperature-half', cool: 'fa-snowflake', cold: 'fa-icicles' };
+            var tempColorClass = tempColorMap[temp] || 'igb-color-cold';
+            var tempIconName = tempIconMap[temp] || 'fa-circle';
 
-            card.innerHTML =
-                '<div class="igb-intel-header">' +
-                '<span class="igb-intel-temp ' + ({ hot: 'igb-color-hot', warm: 'igb-color-warm', cool: 'igb-color-cool', cold: 'igb-color-cold' }[temp] || 'igb-color-cold') + '"><i class="fa-solid ' + (icons[temp] || 'fa-circle') + '"></i> ' + _capitalize(temp) + '</span>' +
-                '<span class="igb-intel-score">Score: ' + (intel.score || 0) + '</span>' +
-                '</div>' +
-                '<div class="igb-intel-summary">' + _escHtml(intel.summary || '') + '</div>' +
-                '<div class="igb-intel-actions">' +
-                (intel.actions || []).map(function(a) {
-                    return '<div class="igb-intel-action"><i class="fa-solid ' + (a.icon || 'fa-circle') + '"></i> ' + _escHtml(a.text || a.action || '') + '</div>';
-                }).join('') +
-                '</div>' +
-                '<div class="igb-intel-buttons">' +
-                '<button class="igb-btn igb-btn-sm igb-btn-primary" onclick="window._igbDialContact(\'' + contactId + '\')"><i class="fa-solid fa-phone"></i> Dial</button>' +
-                '<button class="igb-btn igb-btn-sm" onclick="window._igbAiReplyContact(\'' + contactId + '\')"><i class="fa-solid fa-robot"></i> AI Reply</button>' +
-                '</div>';
+            var actionsHtml = (intel.actions || []).map(function(action) {
+                return '<div class="igb-intel-action"><i class="fa-solid ' + (action.icon || 'fa-circle') + '"></i> ' + igbSafeHtml(action.text || action.action || '') + '</div>';
+            }).join('');
+
+            card.innerHTML = '<div class="igb-intel-header">'
+                + '<span class="igb-intel-temp ' + tempColorClass + '"><i class="fa-solid ' + tempIconName + '"></i> ' + igbCapitalize(temp) + '</span>'
+                + '<span class="igb-intel-score">Score: ' + (intel.score || 0) + '</span>'
+                + '</div>'
+                + '<div class="igb-intel-summary">' + igbSafeHtml(intel.summary || '') + '</div>'
+                + '<div class="igb-intel-actions">' + actionsHtml + '</div>'
+                + '<div class="igb-intel-buttons">'
+                + '<button class="igb-btn igb-btn-sm igb-btn-primary" onclick="igbDialSingleContact(\'' + contactId + '\')"><i class="fa-solid fa-phone"></i> Dial</button>'
+                + '<button class="igb-btn igb-btn-sm" onclick="igbAiReplySingleContact(\'' + contactId + '\')"><i class="fa-solid fa-robot"></i> AI Reply</button>'
+                + '</div>';
         } else {
             card.innerHTML = '<div class="igb-intel-empty"><i class="fa-solid fa-brain"></i> No AI intelligence yet</div>';
         }
@@ -599,586 +677,604 @@ async function _injectIntelligenceCard() {
     }
 }
 
-window._igbDialContact = function(contactId) {
-    _openDialerPopup([{ contactId: contactId, name: '' }], 'Single Contact');
-};
-window._igbAiReplyContact = function(contactId) {
-    var compose = _qs('[class*="message-composer"], [class*="compose"]');
-    if (compose) _generateAiReply(contactId, compose);
-};
+function igbDialSingleContact(contactId) {
+    igbOpenDialer([{ contactId: contactId, name: '' }], 'Single Contact');
+}
 
-// ── Bulk Call Action (Contacts Page) ────────────────────────────────────────
+function igbAiReplySingleContact(contactId) {
+    var composeArea = igbFind('[class*="message-composer"], [class*="compose"]');
+    if (composeArea) {
+        igbGenerateAiReply(contactId, composeArea);
+    }
+}
 
-function _injectBulkCallButton() {
-    // Detect bulk action bar on contacts list page
-    var bulkBar = _qs('[class*="bulk-actions"], [class*="selection-actions"], .bulk-action-bar');
-    if (!bulkBar || bulkBar.querySelector('.igb-bulk-call-btn')) return;
+// ── Bulk Call Button (Contacts List Page) ───────────────────────────────────
 
-    var btn = _el('button', 'igb-bulk-call-btn igb-btn');
-    btn.innerHTML = '<i class="fa-solid fa-phone"></i> Call with IGB';
-    btn.onclick = function() {
-        var checkboxes = _qsa('input[type="checkbox"]:checked');
-        var contacts = [];
-        checkboxes.forEach(function(cb) {
-            var row = cb.closest('tr, [class*="contact-row"]');
-            if (!row) return;
-            var link = row.querySelector('a[href*="/contacts/"]');
+function igbInjectBulkCallButton() {
+    var bulkActionBar = igbFind('[class*="bulk-actions"], [class*="selection-actions"], .bulk-action-bar');
+    if (!bulkActionBar || bulkActionBar.querySelector('.igb-bulk-call-btn')) { return; }
+
+    var callButton = igbMakeElement('button', 'igb-bulk-call-btn igb-btn');
+    callButton.innerHTML = '<i class="fa-solid fa-phone"></i> Call with IGB';
+    callButton.onclick = function() {
+        var checkedBoxes = igbFindAll('input[type="checkbox"]:checked');
+        var selectedContacts = [];
+
+        checkedBoxes.forEach(function(checkbox) {
+            var row = checkbox.closest('tr, [class*="contact-row"]');
+            if (!row) { return; }
+            var contactLink = row.querySelector('a[href*="/contacts/"]');
             var contactId = '';
-            if (link) {
-                var match = link.href.match(/\/contacts\/([a-zA-Z0-9]+)/);
-                if (match) contactId = match[1];
+            if (contactLink) {
+                var urlMatch = contactLink.href.match(/\/contacts\/([a-zA-Z0-9]+)/);
+                if (urlMatch) { contactId = urlMatch[1]; }
             }
             var nameEl = row.querySelector('[class*="name"]');
             if (contactId) {
-                contacts.push({ contactId: contactId, name: nameEl ? nameEl.textContent.trim() : '' });
+                selectedContacts.push({ contactId: contactId, name: nameEl ? nameEl.textContent.trim() : '' });
             }
         });
-        if (contacts.length > 0) {
-            _openDialerPopup(contacts, 'Selected Contacts');
+
+        if (selectedContacts.length > 0) {
+            igbOpenDialer(selectedContacts, 'Selected Contacts');
         } else {
-            _showToast('No contacts selected', 'error');
+            igbShowToast('No contacts selected', 'error');
         }
     };
-    bulkBar.appendChild(btn);
+
+    bulkActionBar.appendChild(callButton);
 }
 
 // ── Mini Dialer Popup ───────────────────────────────────────────────────────
 
-function _openDialerPopup(contacts, stageName) {
-    _closeDialerPopup();
-    _dialerQueue = contacts;
-    _dialerIdx = 0;
-    _activeCalls.clear();
+function igbOpenDialer(contacts, dialerTitle) {
+    igbCloseDialer();
+    igbCallQueue = contacts;
+    igbCallQueueIndex = 0;
+    igbActiveCallMap.clear();
 
-    var popup = _el('div', 'igb-dialer-popup');
+    var popup = igbMakeElement('div', 'igb-dialer-popup');
     popup.id = 'igb-dialer-popup';
-    popup.innerHTML = _buildDialerHtml(stageName);
+    popup.innerHTML = igbBuildDialerHtml(dialerTitle);
     document.body.appendChild(popup);
-    _dialerPopup = popup;
+    igbDialerPopupEl = popup;
 
-    _renderDialerQueue();
-    _renderCurrentContact();
+    igbRefreshQueueDisplay();
+    igbRefreshCurrentContact();
 }
 
-function _closeDialerPopup() {
-    if (_dialerPopup) { _dialerPopup.remove(); _dialerPopup = null; }
-    _stopPolling();
-    _stopListenStream();
-    _activeCalls.clear();
-    _currentCallSid = '';
+function igbCloseDialer() {
+    if (igbDialerPopupEl) {
+        igbDialerPopupEl.remove();
+        igbDialerPopupEl = null;
+    }
+    igbStopCallPolling();
+    igbStopListenStream();
+    igbActiveCallMap.clear();
+    igbCurrentCallSid = '';
 }
 
-function _buildDialerHtml(stageName) {
-    var linesHtml = '';
-    if (_maxLines > 1) {
-        linesHtml = '<div class="igb-dialer-lines">Lines: ';
-        for (var i = 1; i <= 4; i++) {
-            var enabled = i <= _maxLines;
-            linesHtml += '<button class="igb-line-btn' + (i === 1 ? ' active' : '') + (!enabled ? ' disabled' : '') + '" data-lines="' + i + '"' + (!enabled ? ' disabled title="Upgrade to Pro Dialer"' : '') + '>' + i + '</button> ';
+function igbBuildDialerHtml(dialerTitle) {
+    var lineSelectionHtml = '';
+    if (igbMaxDialLines > 1) {
+        lineSelectionHtml = '<div class="igb-dialer-lines">Lines: ';
+        for (var lineNum = 1; lineNum <= 4; lineNum++) {
+            var isEnabled = lineNum <= igbMaxDialLines;
+            var activeClass = lineNum === 1 ? ' active' : '';
+            var disabledClass = !isEnabled ? ' disabled' : '';
+            var disabledAttr = !isEnabled ? ' disabled title="Upgrade to Pro Dialer for more lines"' : '';
+            lineSelectionHtml += '<button class="igb-line-btn' + activeClass + disabledClass + '" data-lines="' + lineNum + '"' + disabledAttr + '>' + lineNum + '</button> ';
         }
-        linesHtml += '<span class="igb-active-count">Active: 0</span></div>';
+        lineSelectionHtml += '<span class="igb-active-count">Active: 0</span></div>';
     }
 
-    return '<div class="igb-dialer-header">' +
-        '<span>IGB Dialer &mdash; ' + _escHtml(stageName) + '</span>' +
-        '<button class="igb-panel-close" onclick="window._igbCloseDialer()">&times;</button>' +
-        '</div>' +
-        '<div class="igb-dialer-body">' +
-        '<div class="igb-dialer-queue-info">Queue: ' + _dialerQueue.length + ' contacts</div>' +
-        '<div id="igb-current-contact" class="igb-current-contact"></div>' +
-        '<div class="igb-dialer-controls">' +
-        '<button class="igb-btn igb-btn-ai" id="igb-btn-ai" onclick="window._igbDial(\'ai\')"><i class="fa-solid fa-robot"></i> AI Call</button>' +
-        '<button class="igb-btn igb-btn-human" id="igb-btn-human" onclick="window._igbDial(\'human\')"><i class="fa-solid fa-phone"></i> Human Call</button>' +
-        '</div>' +
-        linesHtml +
-        '<div id="igb-call-status" class="igb-call-status" style="display:none"></div>' +
-        '<div id="igb-call-controls" class="igb-call-controls" style="display:none"></div>' +
-        '<div id="igb-disposition" class="igb-disposition" style="display:none"></div>' +
-        '<div class="igb-dialer-queue-header">Up Next</div>' +
-        '<div id="igb-queue-list" class="igb-queue-list"></div>' +
-        '</div>';
+    return '<div class="igb-dialer-header">'
+        + '<span>IGB Dialer &mdash; ' + igbSafeHtml(dialerTitle) + '</span>'
+        + '<button class="igb-panel-close" onclick="igbCloseDialer()">&times;</button>'
+        + '</div>'
+        + '<div class="igb-dialer-body">'
+        + '<div class="igb-dialer-queue-info">Queue: ' + igbCallQueue.length + ' contacts</div>'
+        + '<div id="igb-current-contact" class="igb-current-contact"></div>'
+        + '<div class="igb-dialer-controls">'
+        + '<button class="igb-btn igb-btn-ai" id="igb-dial-ai-btn" onclick="igbStartDial(\'ai\')"><i class="fa-solid fa-robot"></i> AI Call</button>'
+        + '<button class="igb-btn igb-btn-human" id="igb-dial-human-btn" onclick="igbStartDial(\'human\')"><i class="fa-solid fa-phone"></i> Human Call</button>'
+        + '</div>'
+        + lineSelectionHtml
+        + '<div id="igb-call-status-bar" class="igb-call-status" style="display:none"></div>'
+        + '<div id="igb-call-action-btns" class="igb-call-controls" style="display:none"></div>'
+        + '<div id="igb-disposition-panel" class="igb-disposition" style="display:none"></div>'
+        + '<div class="igb-dialer-queue-header">Up Next</div>'
+        + '<div id="igb-queue-list"></div>'
+        + '</div>';
 }
 
-function _renderCurrentContact() {
-    var el = _qs('#igb-current-contact');
-    if (!el || _dialerIdx >= _dialerQueue.length) {
-        if (el) el.innerHTML = '<div class="igb-text-muted">Queue complete</div>';
+function igbRefreshCurrentContact() {
+    var contactEl = igbFind('#igb-current-contact');
+    if (!contactEl || igbCallQueueIndex >= igbCallQueue.length) {
+        if (contactEl) {
+            contactEl.innerHTML = '<div class="igb-text-muted">Queue complete</div>';
+        }
         return;
     }
-    var c = _dialerQueue[_dialerIdx];
-    el.innerHTML = '<div class="igb-contact-name">' + _escHtml(c.name || 'Contact') + '</div>' +
-        '<button class="igb-btn igb-btn-sm igb-btn-secondary" onclick="window._igbSkip()">Skip</button>';
+    var currentContact = igbCallQueue[igbCallQueueIndex];
+    contactEl.innerHTML = '<div class="igb-contact-name">' + igbSafeHtml(currentContact.name || 'Contact') + '</div>'
+        + '<button class="igb-btn igb-btn-sm igb-btn-secondary" onclick="igbSkipContact()">Skip</button>';
 }
 
-function _renderDialerQueue() {
-    var el = _qs('#igb-queue-list');
-    if (!el) return;
-    var html = '';
-    for (var i = _dialerIdx + 1; i < Math.min(_dialerIdx + 6, _dialerQueue.length); i++) {
-        html += '<div class="igb-queue-item">' + (i + 1) + '. ' + _escHtml(_dialerQueue[i].name || 'Contact') + '</div>';
+function igbRefreshQueueDisplay() {
+    var queueListEl = igbFind('#igb-queue-list');
+    if (!queueListEl) { return; }
+
+    var listHtml = '';
+    var displayLimit = Math.min(igbCallQueueIndex + 6, igbCallQueue.length);
+    for (var idx = igbCallQueueIndex + 1; idx < displayLimit; idx++) {
+        listHtml += '<div class="igb-queue-item">' + (idx + 1) + '. ' + igbSafeHtml(igbCallQueue[idx].name || 'Contact') + '</div>';
     }
-    var remaining = _dialerQueue.length - _dialerIdx - 6;
-    if (remaining > 0) html += '<div class="igb-queue-item igb-text-muted">...' + remaining + ' more</div>';
-    el.innerHTML = html;
+    var remainingCount = igbCallQueue.length - igbCallQueueIndex - 6;
+    if (remainingCount > 0) {
+        listHtml += '<div class="igb-queue-item igb-text-muted">...' + remainingCount + ' more</div>';
+    }
+    queueListEl.innerHTML = listHtml;
 }
 
-// ── Dialer Call Actions ─────────────────────────────────────────────────────
+// ── Dialer Call Controls ─────────────────────────────────────────────────────
 
-window._igbCloseDialer = function() { _closeDialerPopup(); };
+async function igbStartDial(callMode) {
+    if (igbCallQueueIndex >= igbCallQueue.length) { return; }
 
-window._igbDial = async function(mode) {
-    if (_dialerIdx >= _dialerQueue.length) return;
-    var contact = _dialerQueue[_dialerIdx];
-    _currentDialMode = mode;
+    var contact = igbCallQueue[igbCallQueueIndex];
+    igbCurrentCallMode = callMode;
 
-    // Disable dial buttons
-    var btnAi = _qs('#igb-btn-ai');
-    var btnHuman = _qs('#igb-btn-human');
-    if (btnAi) btnAi.disabled = true;
-    if (btnHuman) btnHuman.disabled = true;
+    var aiBtn = igbFind('#igb-dial-ai-btn');
+    var humanBtn = igbFind('#igb-dial-human-btn');
+    if (aiBtn) { aiBtn.disabled = true; }
+    if (humanBtn) { humanBtn.disabled = true; }
 
-    // Show status
-    var statusEl = _qs('#igb-call-status');
-    if (statusEl) {
-        statusEl.style.display = 'block';
-        statusEl.innerHTML = '<span class="igb-status-dot igb-status-ringing"></span> Dialing ' + _escHtml(contact.name) + '...';
+    var statusBar = igbFind('#igb-call-status-bar');
+    if (statusBar) {
+        statusBar.style.display = 'block';
+        statusBar.innerHTML = '<span class="igb-status-dot igb-status-ringing"></span> Dialing ' + igbSafeHtml(contact.name) + '...';
     }
 
     try {
-        var data = await _api('POST', '/voice/dial', {
+        var dialResponse = await igbApiRequest('POST', '/voice/dial', {
             contact_id: contact.contactId,
-            dial_mode: mode,
+            dial_mode: callMode,
         });
-        if (data.call_sid) {
-            _currentCallSid = data.call_sid;
-            _activeCalls.set(data.call_sid, {
+
+        if (dialResponse.call_sid) {
+            igbCurrentCallSid = dialResponse.call_sid;
+            igbActiveCallMap.set(dialResponse.call_sid, {
                 contactId: contact.contactId,
                 name: contact.name,
                 status: 'initiated',
-                dialMode: mode,
+                callMode: callMode,
             });
-            _startPolling();
-            _showCallControls(mode);
+            igbStartCallPolling();
+            igbShowCallActionButtons(callMode);
         } else {
-            _showToast('Dial failed: ' + (data.error || 'Unknown error'), 'error');
-            if (btnAi) btnAi.disabled = false;
-            if (btnHuman) btnHuman.disabled = false;
+            igbShowToast('Dial failed: ' + (dialResponse.error || 'Unknown error'), 'error');
+            if (aiBtn) { aiBtn.disabled = false; }
+            if (humanBtn) { humanBtn.disabled = false; }
         }
     } catch (e) {
-        _showToast('Dial error: ' + e.message, 'error');
-        if (btnAi) btnAi.disabled = false;
-        if (btnHuman) btnHuman.disabled = false;
+        igbShowToast('Dial error: ' + e.message, 'error');
+        if (aiBtn) { aiBtn.disabled = false; }
+        if (humanBtn) { humanBtn.disabled = false; }
     }
-};
+}
 
-window._igbSkip = function() {
-    _dialerIdx++;
-    _renderCurrentContact();
-    _renderDialerQueue();
-};
+function igbSkipContact() {
+    igbCallQueueIndex++;
+    igbRefreshCurrentContact();
+    igbRefreshQueueDisplay();
+}
 
-window._igbHangup = async function() {
-    if (!_currentCallSid) return;
-    try { await _api('POST', '/voice/hangup', { call_sid: _currentCallSid }); }
-    catch (e) {}
-};
-
-window._igbListen = function() {
-    if (_currentDialMode !== 'ai' || !_currentCallSid) return;
-    _startListenStream(_currentCallSid);
-};
-
-window._igbStopListen = function() { _stopListenStream(); };
-
-window._igbTakeover = async function() {
-    if (!_currentCallSid) return;
+async function igbHangupCall() {
+    if (!igbCurrentCallSid) { return; }
     try {
-        var data = await _api('POST', '/voice/takeover', { call_sid: _currentCallSid, location_id: _locationId });
-        if (data.status === 'ok' || data.success) {
-            _showToast('Call intercepted — you are now on the line', 'success');
-            _stopListenStream();
-            _currentDialMode = 'human'; // Agent is now handling
-            _showCallControls('human');
-        } else {
-            _showToast('Intercept: ' + (data.error || 'failed'), 'error');
-        }
-    } catch (e) {
-        _showToast('Intercept error', 'error');
-    }
-};
-
-window._igbDisposition = async function(disp) {
-    if (!_currentCallSid) return;
-    try {
-        await _api('POST', '/voice/call-disposition', { call_sid: _currentCallSid, disposition: disp });
-        _showToast('Disposition: ' + disp, 'success');
+        await igbApiRequest('POST', '/voice/hangup', { call_sid: igbCurrentCallSid });
     } catch (e) {}
-    // Advance to next
-    _currentCallSid = '';
-    _dialerIdx++;
-    _renderCurrentContact();
-    _renderDialerQueue();
-    _hideCallControls();
-    // Re-enable dial buttons
-    var btnAi = _qs('#igb-btn-ai');
-    var btnHuman = _qs('#igb-btn-human');
-    if (btnAi) btnAi.disabled = false;
-    if (btnHuman) btnHuman.disabled = false;
-};
+}
 
-function _showCallControls(mode) {
-    var el = _qs('#igb-call-controls');
-    if (!el) return;
-    el.style.display = 'flex';
-    var html = '';
-    if (mode === 'ai') {
-        html = '<button class="igb-ctrl-btn" onclick="window._igbListen()" title="Listen"><i class="fa-solid fa-headphones"></i></button>' +
-            '<button class="igb-ctrl-btn" onclick="window._igbTakeover()" title="Intercept"><i class="fa-solid fa-bolt"></i></button>';
+function igbStartListening() {
+    if (igbCurrentCallMode !== 'ai' || !igbCurrentCallSid) { return; }
+    igbOpenListenStream(igbCurrentCallSid);
+}
+
+function igbStopListening() {
+    igbStopListenStream();
+}
+
+async function igbInterceptCall() {
+    if (!igbCurrentCallSid) { return; }
+    try {
+        var interceptResult = await igbApiRequest('POST', '/voice/takeover', {
+            call_sid: igbCurrentCallSid,
+            location_id: igbLocationId,
+        });
+        if (interceptResult.status === 'ok' || interceptResult.success) {
+            igbShowToast('Call intercepted — you are now on the line', 'success');
+            igbStopListenStream();
+            igbCurrentCallMode = 'human';
+            igbShowCallActionButtons('human');
+        } else {
+            igbShowToast('Intercept: ' + (interceptResult.error || 'failed'), 'error');
+        }
+    } catch (e) {
+        igbShowToast('Intercept error', 'error');
     }
-    html += '<button class="igb-ctrl-btn igb-ctrl-hangup" onclick="window._igbHangup()" title="Hangup"><i class="fa-solid fa-phone-slash"></i></button>';
-    el.innerHTML = html;
 }
 
-function _hideCallControls() {
-    var el = _qs('#igb-call-controls');
-    if (el) el.style.display = 'none';
-    var status = _qs('#igb-call-status');
-    if (status) status.style.display = 'none';
-    var disp = _qs('#igb-disposition');
-    if (disp) disp.style.display = 'none';
+async function igbSaveDisposition(dispositionValue) {
+    if (!igbCurrentCallSid) { return; }
+    try {
+        await igbApiRequest('POST', '/voice/call-disposition', {
+            call_sid: igbCurrentCallSid,
+            disposition: dispositionValue,
+        });
+        igbShowToast('Disposition saved: ' + dispositionValue, 'success');
+    } catch (e) {}
+
+    igbCurrentCallSid = '';
+    igbCallQueueIndex++;
+    igbRefreshCurrentContact();
+    igbRefreshQueueDisplay();
+    igbHideCallControls();
+
+    var aiBtn = igbFind('#igb-dial-ai-btn');
+    var humanBtn = igbFind('#igb-dial-human-btn');
+    if (aiBtn) { aiBtn.disabled = false; }
+    if (humanBtn) { humanBtn.disabled = false; }
 }
 
-function _showDispositionUI() {
-    var el = _qs('#igb-disposition');
-    if (!el) return;
-    el.style.display = 'block';
-    el.innerHTML = '<div class="igb-disp-label">Disposition:</div>' +
-        '<div class="igb-disp-grid">' +
-        '<button class="igb-disp-btn" onclick="window._igbDisposition(\'connected\')">Connected</button>' +
-        '<button class="igb-disp-btn" onclick="window._igbDisposition(\'voicemail\')">Voicemail</button>' +
-        '<button class="igb-disp-btn" onclick="window._igbDisposition(\'no_answer\')">No Answer</button>' +
-        '<button class="igb-disp-btn" onclick="window._igbDisposition(\'callback\')">Callback</button>' +
-        '<button class="igb-disp-btn" onclick="window._igbDisposition(\'interested\')">Interested</button>' +
-        '<button class="igb-disp-btn" onclick="window._igbDisposition(\'not_interested\')">Not Interested</button>' +
-        '<button class="igb-disp-btn igb-disp-dnc" onclick="window._igbDisposition(\'do_not_call\')">DNC</button>' +
-        '</div>';
-    var controls = _qs('#igb-call-controls');
-    if (controls) controls.style.display = 'none';
+function igbShowCallActionButtons(callMode) {
+    var actionBtns = igbFind('#igb-call-action-btns');
+    if (!actionBtns) { return; }
+    actionBtns.style.display = 'flex';
+
+    var buttonsHtml = '';
+    if (callMode === 'ai') {
+        buttonsHtml = '<button class="igb-ctrl-btn" onclick="igbStartListening()" title="Listen live"><i class="fa-solid fa-headphones"></i></button>'
+            + '<button class="igb-ctrl-btn" onclick="igbInterceptCall()" title="Take over call"><i class="fa-solid fa-bolt"></i></button>';
+    }
+    buttonsHtml += '<button class="igb-ctrl-btn igb-ctrl-hangup" onclick="igbHangupCall()" title="Hang up"><i class="fa-solid fa-phone-slash"></i></button>';
+    actionBtns.innerHTML = buttonsHtml;
+}
+
+function igbHideCallControls() {
+    var actionBtns = igbFind('#igb-call-action-btns');
+    if (actionBtns) { actionBtns.style.display = 'none'; }
+    var statusBar = igbFind('#igb-call-status-bar');
+    if (statusBar) { statusBar.style.display = 'none'; }
+    var dispositionPanel = igbFind('#igb-disposition-panel');
+    if (dispositionPanel) { dispositionPanel.style.display = 'none'; }
+}
+
+function igbShowDispositionPanel() {
+    var dispositionPanel = igbFind('#igb-disposition-panel');
+    if (!dispositionPanel) { return; }
+    dispositionPanel.style.display = 'block';
+    dispositionPanel.innerHTML = '<div class="igb-disp-label">Disposition:</div>'
+        + '<div class="igb-disp-grid">'
+        + '<button class="igb-disp-btn" onclick="igbSaveDisposition(\'connected\')">Connected</button>'
+        + '<button class="igb-disp-btn" onclick="igbSaveDisposition(\'voicemail\')">Voicemail</button>'
+        + '<button class="igb-disp-btn" onclick="igbSaveDisposition(\'no_answer\')">No Answer</button>'
+        + '<button class="igb-disp-btn" onclick="igbSaveDisposition(\'callback\')">Callback</button>'
+        + '<button class="igb-disp-btn" onclick="igbSaveDisposition(\'interested\')">Interested</button>'
+        + '<button class="igb-disp-btn" onclick="igbSaveDisposition(\'not_interested\')">Not Interested</button>'
+        + '<button class="igb-disp-btn igb-disp-dnc" onclick="igbSaveDisposition(\'do_not_call\')">DNC</button>'
+        + '</div>';
+
+    var actionBtns = igbFind('#igb-call-action-btns');
+    if (actionBtns) { actionBtns.style.display = 'none'; }
 }
 
 // ── Call Status Polling ─────────────────────────────────────────────────────
 
-function _startPolling() {
-    _stopPolling();
-    _pollTimer = setInterval(_pollCallStatus, POLL_INTERVAL);
+function igbStartCallPolling() {
+    igbStopCallPolling();
+    igbCallPollTimer = setInterval(igbPollCallStatus, igbCallPollMs);
 }
 
-function _stopPolling() {
-    if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+function igbStopCallPolling() {
+    if (igbCallPollTimer) {
+        clearInterval(igbCallPollTimer);
+        igbCallPollTimer = null;
+    }
 }
 
-async function _pollCallStatus() {
-    if (!_currentCallSid) { _stopPolling(); return; }
+async function igbPollCallStatus() {
+    if (!igbCurrentCallSid) {
+        igbStopCallPolling();
+        return;
+    }
 
     try {
-        var data = await _api('GET', '/voice/call-status/' + _currentCallSid);
-        var status = data.status || 'unknown';
-        var statusEl = _qs('#igb-call-status');
-        var contact = _activeCalls.get(_currentCallSid);
-        var name = contact ? contact.name : '';
+        var statusData = await igbApiRequest('GET', '/voice/call-status/' + igbCurrentCallSid);
+        var callStatus = statusData.status || 'unknown';
+        var statusBar = igbFind('#igb-call-status-bar');
+        var callInfo = igbActiveCallMap.get(igbCurrentCallSid);
+        var contactName = callInfo ? callInfo.name : '';
 
         var dotClass = 'igb-status-ringing';
-        var label = status;
-        if (status === 'in-progress') { dotClass = 'igb-status-connected'; label = (_currentDialMode === 'ai' ? 'AI talking to ' : 'Connected to ') + name; }
-        else if (status === 'ringing') { label = 'Ringing ' + name + '...'; }
-        else if (status === 'initiated') { label = 'Dialing ' + name + '...'; }
+        var statusLabel = callStatus;
 
-        if (statusEl) {
-            statusEl.innerHTML = '<span class="igb-status-dot ' + dotClass + '"></span> ' + label;
-            if (data.duration) statusEl.innerHTML += ' &middot; ' + _formatDuration(data.duration);
+        if (callStatus === 'in-progress') {
+            dotClass = 'igb-status-connected';
+            statusLabel = (igbCurrentCallMode === 'ai' ? 'AI talking to ' : 'Connected to ') + contactName;
+        } else if (callStatus === 'ringing') {
+            statusLabel = 'Ringing ' + contactName + '...';
+        } else if (callStatus === 'initiated') {
+            statusLabel = 'Dialing ' + contactName + '...';
         }
 
-        // Terminal states
-        if (['completed', 'busy', 'no-answer', 'failed', 'canceled'].indexOf(status) >= 0) {
-            _stopPolling();
-            _stopListenStream();
-            if (statusEl) {
-                statusEl.innerHTML = '<span class="igb-status-dot igb-status-ended"></span> Call ended (' + status + ')';
+        if (statusBar) {
+            statusBar.innerHTML = '<span class="igb-status-dot ' + dotClass + '"></span> ' + statusLabel;
+            if (statusData.duration) {
+                statusBar.innerHTML += ' &middot; ' + igbFormatDuration(statusData.duration);
             }
-            _showDispositionUI();
+        }
+
+        var terminalStatuses = ['completed', 'busy', 'no-answer', 'failed', 'canceled'];
+        if (terminalStatuses.indexOf(callStatus) >= 0) {
+            igbStopCallPolling();
+            igbStopListenStream();
+            if (statusBar) {
+                statusBar.innerHTML = '<span class="igb-status-dot igb-status-ended"></span> Call ended (' + callStatus + ')';
+            }
+            igbShowDispositionPanel();
         }
     } catch (e) {}
 }
 
 // ── Live Listen WebSocket ───────────────────────────────────────────────────
 
-function _startListenStream(callSid) {
-    _stopListenStream();
+function igbOpenListenStream(callSid) {
+    igbStopListenStream();
     try {
-        var wsUrl = IGB_SERVER.replace('https://', 'wss://').replace('http://', 'ws://') + '/voice/listen-stream?call_sid=' + callSid + '&token=' + encodeURIComponent(_jwt);
-        _listenWs = new WebSocket(wsUrl);
-        _listenWs.binaryType = 'arraybuffer';
+        var wsUrl = igbServerUrl.replace('https://', 'wss://').replace('http://', 'ws://')
+            + '/voice/listen-stream?call_sid=' + callSid
+            + '&token=' + encodeURIComponent(igbToken);
 
-        var audioCtx = null;
-        _listenWs.onopen = function() {
-            _log('Listen stream connected');
-            _showToast('Listening to call...', 'info');
-            try { audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 8000 }); } catch (e) {}
+        igbListenSocket = new WebSocket(wsUrl);
+        igbListenSocket.binaryType = 'arraybuffer';
+
+        var audioContext = null;
+        igbListenSocket.onopen = function() {
+            igbLog('Live listen connected');
+            igbShowToast('Listening to call...', 'info');
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 8000 });
+            } catch (audioError) {}
         };
-        _listenWs.onmessage = function(evt) {
-            // Audio frames would be decoded here — simplified for now
-            // In production, decode mulaw 8kHz and play via AudioContext
+        igbListenSocket.onmessage = function(messageEvent) {
+            // Audio frames received — decoded and played via AudioContext in production
         };
-        _listenWs.onclose = function() { _log('Listen stream closed'); };
-        _listenWs.onerror = function() { _log('Listen stream error'); };
+        igbListenSocket.onclose = function() {
+            igbLog('Live listen disconnected');
+        };
+        igbListenSocket.onerror = function() {
+            igbLog('Live listen error');
+        };
     } catch (e) {
-        _log('Listen error: ' + e);
+        igbLog('Listen stream error: ' + e);
     }
 }
 
-function _stopListenStream() {
-    if (_listenWs) {
-        _listenWs.onclose = null;
-        _listenWs.close();
-        _listenWs = null;
+function igbStopListenStream() {
+    if (igbListenSocket) {
+        igbListenSocket.onclose = null;
+        igbListenSocket.close();
+        igbListenSocket = null;
     }
 }
 
 // ── Top Nav Injection ───────────────────────────────────────────────────────
 
-function _injectIntoTopNav(element) {
-    // Find GHL's top navigation bar and inject chips
-    var selectors = [
+function igbInjectIntoTopNav(element) {
+    var navSelectors = [
         'nav [class*="right-section"]',
         'header [class*="actions"]',
         '[class*="topbar"] [class*="right"]',
         '.hl_topbar .right-section',
         'nav.hl_topbar',
     ];
-    var target = null;
-    for (var i = 0; i < selectors.length; i++) {
-        target = _qs(selectors[i]);
-        if (target) break;
+
+    var targetEl = null;
+    for (var sIdx = 0; sIdx < navSelectors.length; sIdx++) {
+        targetEl = igbFind(navSelectors[sIdx]);
+        if (targetEl) { break; }
     }
-    if (target) {
-        target.insertBefore(element, target.firstChild);
+
+    if (targetEl) {
+        targetEl.insertBefore(element, targetEl.firstChild);
     } else {
-        // Fallback: create floating chip container
-        var container = _qs('#igb-floating-chips');
-        if (!container) {
-            container = _el('div', 'igb-floating-chips');
-            container.id = 'igb-floating-chips';
-            document.body.appendChild(container);
+        var chipContainer = igbFind('#igb-floating-chips');
+        if (!chipContainer) {
+            chipContainer = igbMakeElement('div', 'igb-floating-chips');
+            chipContainer.id = 'igb-floating-chips';
+            document.body.appendChild(chipContainer);
         }
-        container.appendChild(element);
+        chipContainer.appendChild(element);
     }
 }
 
-// ── Recording Playback in Conversations ─────────────────────────────────────
+// ── Recording Playback (Conversation Threads) ───────────────────────────────
 
-function _injectRecordingPlayers() {
-    // Find call entries in conversation threads
-    var callEntries = _qsa('[class*="call-message"], [class*="call-entry"], [data-message-type="Call"]');
-    callEntries.forEach(function(entry) {
-        if (entry.querySelector('.igb-audio-player')) return;
-        // Try to extract call_sid from entry
-        var callSid = entry.getAttribute('data-call-sid') || '';
+function igbInjectRecordingPlayers() {
+    var callMessageEls = igbFindAll('[class*="call-message"], [class*="call-entry"], [data-message-type="Call"]');
+
+    callMessageEls.forEach(function(callEntry) {
+        if (callEntry.querySelector('.igb-audio-player')) { return; }
+
+        var callSid = callEntry.getAttribute('data-call-sid') || '';
         if (!callSid) {
-            // Try to find in the entry text or link
-            var text = entry.textContent;
-            var match = text.match(/CA[a-f0-9]{32}/);
-            if (match) callSid = match[0];
+            var sidMatch = callEntry.textContent.match(/CA[a-f0-9]{32}/);
+            if (sidMatch) { callSid = sidMatch[0]; }
         }
-        if (!callSid) return;
+        if (!callSid) { return; }
 
-        var player = _el('div', 'igb-audio-player');
-        player.innerHTML =
-            '<button class="igb-play-btn" data-sid="' + callSid + '" onclick="window._igbPlayRecording(this, \'' + callSid + '\')"><i class="fa-solid fa-play"></i></button>' +
-            '<div class="igb-audio-bar"><div class="igb-audio-progress"></div></div>' +
-            '<span class="igb-audio-time">0:00</span>' +
-            '<button class="igb-transcript-btn" onclick="window._igbToggleTranscript(this, \'' + callSid + '\')" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>';
-        entry.appendChild(player);
+        var audioPlayer = igbMakeElement('div', 'igb-audio-player');
+        audioPlayer.innerHTML = '<button class="igb-play-btn" onclick="igbPlayRecording(this, \'' + callSid + '\')"><i class="fa-solid fa-play"></i></button>'
+            + '<div class="igb-audio-bar"><div class="igb-audio-progress"></div></div>'
+            + '<span class="igb-audio-time">0:00</span>'
+            + '<button class="igb-transcript-btn" onclick="igbToggleTranscript(this, \'' + callSid + '\')" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>';
+        callEntry.appendChild(audioPlayer);
     });
 }
 
-window._igbPlayRecording = async function(btn, callSid) {
-    var player = btn.closest('.igb-audio-player');
-    var existing = player.querySelector('audio');
-    if (existing) {
-        if (existing.paused) { existing.play(); btn.innerHTML = '<i class="fa-solid fa-pause"></i>'; }
-        else { existing.pause(); btn.innerHTML = '<i class="fa-solid fa-play"></i>'; }
+async function igbPlayRecording(playBtn, callSid) {
+    var playerEl = playBtn.closest('.igb-audio-player');
+    var existingAudio = playerEl.querySelector('audio');
+
+    if (existingAudio) {
+        if (existingAudio.paused) {
+            existingAudio.play();
+            playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+        } else {
+            existingAudio.pause();
+            playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+        }
         return;
     }
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-    var audio = document.createElement('audio');
-    audio.src = IGB_SERVER + '/voice/recording/' + callSid + '?token=' + encodeURIComponent(_jwt);
-    audio.style.display = 'none';
-    player.appendChild(audio);
-    audio.onloadedmetadata = function() {
-        player.querySelector('.igb-audio-time').textContent = _formatDuration(Math.round(audio.duration));
+
+    playBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    var audioEl = document.createElement('audio');
+    audioEl.src = igbServerUrl + '/voice/recording/' + callSid + '?token=' + encodeURIComponent(igbToken);
+    audioEl.style.display = 'none';
+    playerEl.appendChild(audioEl);
+
+    audioEl.onloadedmetadata = function() {
+        playerEl.querySelector('.igb-audio-time').textContent = igbFormatDuration(Math.round(audioEl.duration));
     };
-    audio.ontimeupdate = function() {
-        var pct = audio.duration ? (audio.currentTime / audio.duration * 100) : 0;
-        var bar = player.querySelector('.igb-audio-progress');
-        if (bar) bar.style.width = pct + '%';
-        player.querySelector('.igb-audio-time').textContent = _formatDuration(Math.round(audio.currentTime)) + '/' + _formatDuration(Math.round(audio.duration || 0));
+    audioEl.ontimeupdate = function() {
+        var progressPercent = audioEl.duration ? (audioEl.currentTime / audioEl.duration * 100) : 0;
+        var progressBar = playerEl.querySelector('.igb-audio-progress');
+        if (progressBar) { progressBar.style.width = progressPercent + '%'; }
+        playerEl.querySelector('.igb-audio-time').textContent =
+            igbFormatDuration(Math.round(audioEl.currentTime)) + '/' + igbFormatDuration(Math.round(audioEl.duration || 0));
     };
-    audio.onended = function() { btn.innerHTML = '<i class="fa-solid fa-play"></i>'; };
-    try { await audio.play(); btn.innerHTML = '<i class="fa-solid fa-pause"></i>'; }
-    catch (e) { btn.innerHTML = '<i class="fa-solid fa-play"></i>'; }
-};
+    audioEl.onended = function() {
+        playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+    };
 
-window._igbToggleTranscript = async function(btn, callSid) {
-    var player = btn.closest('.igb-audio-player');
-    var existing = player.querySelector('.igb-transcript-panel');
-    if (existing) { existing.remove(); return; }
-
-    var panel = _el('div', 'igb-transcript-panel');
-    panel.innerHTML = '<div class="igb-loading">Loading transcript...</div>';
-    player.appendChild(panel);
-
-    // For now, show a transcribe button — transcripts are fetched on demand
     try {
-        var data = await _api('GET', '/voice/call-status/' + callSid);
-        if (data.transcript) {
-            panel.innerHTML = '<div class="igb-transcript-text">' + _escHtml(data.transcript) + '</div>';
+        await audioEl.play();
+        playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+    } catch (e) {
+        playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+    }
+}
+
+async function igbToggleTranscript(transcriptBtn, callSid) {
+    var playerEl = transcriptBtn.closest('.igb-audio-player');
+    var existingPanel = playerEl.querySelector('.igb-transcript-panel');
+    if (existingPanel) {
+        existingPanel.remove();
+        return;
+    }
+
+    var transcriptPanel = igbMakeElement('div', 'igb-transcript-panel');
+    transcriptPanel.innerHTML = '<div class="igb-loading">Loading transcript...</div>';
+    playerEl.appendChild(transcriptPanel);
+
+    try {
+        var callData = await igbApiRequest('GET', '/voice/call-status/' + callSid);
+        if (callData.transcript) {
+            transcriptPanel.innerHTML = '<div class="igb-transcript-text">' + igbSafeHtml(callData.transcript) + '</div>';
         } else {
-            panel.innerHTML = '<button class="igb-btn igb-btn-sm" onclick="window._igbTranscribe(\'' + callSid + '\', this)">Transcribe</button>';
+            transcriptPanel.innerHTML = '<button class="igb-btn igb-btn-sm" onclick="igbRequestTranscription(\'' + callSid + '\', this)">Transcribe</button>';
         }
     } catch (e) {
-        panel.innerHTML = '<div class="igb-text-muted">Transcript unavailable</div>';
+        transcriptPanel.innerHTML = '<div class="igb-text-muted">Transcript unavailable</div>';
     }
-};
+}
 
-window._igbTranscribe = async function(callSid, btn) {
-    btn.disabled = true;
-    btn.textContent = 'Transcribing...';
+async function igbRequestTranscription(callSid, requestBtn) {
+    requestBtn.disabled = true;
+    requestBtn.textContent = 'Transcribing...';
     try {
-        await _api('POST', '/voice/transcribe-recording', { call_sid: callSid });
-        _showToast('Transcription started — check back in a moment', 'info');
+        await igbApiRequest('POST', '/voice/transcribe-recording', { call_sid: callSid });
+        igbShowToast('Transcription started — check back in a moment', 'info');
     } catch (e) {
-        _showToast('Transcription failed', 'error');
+        igbShowToast('Transcription failed', 'error');
     }
-};
-
-// ── Utility Functions ───────────────────────────────────────────────────────
-
-function _formatNum(n) {
-    return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-}
-
-function _formatDuration(seconds) {
-    if (!seconds) return '0:00';
-    var m = Math.floor(seconds / 60);
-    var s = Math.floor(seconds % 60);
-    return m + ':' + (s < 10 ? '0' : '') + s;
-}
-
-function _escHtml(str) {
-    var d = document.createElement('div');
-    d.textContent = str;
-    return d.innerHTML;
-}
-
-function _capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
-
-function _extractContactIdFromUrl() {
-    var match = window.location.pathname.match(/\/contacts\/(?:detail\/)?([a-zA-Z0-9]+)/);
-    return match ? match[1] : '';
 }
 
 // ── Page Detection & MutationObserver ───────────────────────────────────────
 
-function _onPageChange() {
-    var path = window.location.pathname;
+function igbHandlePageChange() {
+    var currentPath = window.location.pathname;
 
-    // Pipeline / Opportunities page
-    if (path.includes('/opportunities') || path.includes('/pipeline')) {
+    if (currentPath.includes('/opportunities') || currentPath.includes('/pipeline')) {
         setTimeout(function() {
-            _injectPipelineButtons();
-            _injectTemperatureBadges();
+            igbInjectPipelineButtons();
+            igbInjectTemperatureBadges();
         }, 500);
     }
 
-    // Conversation page
-    if (path.includes('/conversations') || path.includes('/messages')) {
+    if (currentPath.includes('/conversations') || currentPath.includes('/messages')) {
         setTimeout(function() {
-            _injectAiReplyButton();
-            _injectRecordingPlayers();
+            igbInjectAiReplyButton();
+            igbInjectRecordingPlayers();
         }, 500);
     }
 
-    // Contact detail page
-    if (path.includes('/contacts/detail/')) {
-        setTimeout(_injectIntelligenceCard, 500);
+    if (currentPath.includes('/contacts/detail/')) {
+        setTimeout(igbInjectIntelligenceCard, 500);
     }
 
-    // Contacts list page
-    if (path.match(/\/contacts\/?$/) || path.includes('/contacts?')) {
-        setTimeout(_injectBulkCallButton, 500);
+    if (currentPath.match(/\/contacts\/?$/) || currentPath.includes('/contacts?')) {
+        setTimeout(igbInjectBulkCallButton, 500);
     }
 }
 
-// MutationObserver for dynamic content
-var _observer = new MutationObserver(function(mutations) {
-    // Debounce
-    clearTimeout(_observer._timer);
-    _observer._timer = setTimeout(function() {
-        _onPageChange();
-    }, 300);
+var igbDomObserver = new MutationObserver(function() {
+    clearTimeout(igbDomObserver.debounceTimer);
+    igbDomObserver.debounceTimer = setTimeout(igbHandlePageChange, 300);
 });
 
-// ── Init ────────────────────────────────────────────────────────────────────
+// ── Initialization ──────────────────────────────────────────────────────────
 
-async function _init() {
-    _log('Initializing InsuranceGrokBot GHL integration...');
+async function igbInit() {
+    igbLog('Initializing InsuranceGrokBot GHL integration');
 
-    // Check for cached JWT
-    _jwt = localStorage.getItem(JWT_KEY) || '';
-    if (!_isJwtValid()) {
-        var ok = await _authenticate();
-        if (!ok) { _log('Authentication failed — IGB features disabled'); return; }
+    igbToken = localStorage.getItem(igbTokenStorageKey) || '';
+    if (!igbIsTokenValid()) {
+        var authSuccess = await igbAuthenticate();
+        if (!authSuccess) {
+            igbLog('Authentication failed — InsuranceGrokBot features disabled');
+            return;
+        }
     }
 
-    // Get subscription info
     try {
-        var info = await _api('GET', '/api/ghl/subscription-info');
-        _tier = info.tier || 'individual';
-        _maxLines = info.max_lines || 1;
+        var subscriptionInfo = await igbApiRequest('GET', '/api/ghl/subscription-info');
+        igbSubscriptionTier = subscriptionInfo.tier || 'individual';
+        igbMaxDialLines = subscriptionInfo.max_lines || 1;
     } catch (e) {}
 
-    // Inject top nav chips
     await Promise.all([
-        _renderStatsChip(),
-        _renderAiMinutesChip(),
+        igbRenderStatsChip(),
+        igbRenderAiMinutesChip(),
     ]);
 
-    // Start periodic refresh
-    _balanceTimer = setInterval(_renderAiMinutesChip, BALANCE_POLL);
-    _statsTimer = setInterval(_renderStatsChip, BALANCE_POLL);
+    igbBalanceRefreshTimer = setInterval(igbRenderAiMinutesChip, igbRefreshIntervalMs);
+    igbStatsRefreshTimer = setInterval(igbRenderStatsChip, igbRefreshIntervalMs);
 
-    // Start SSE for notifications
-    _startSSE();
+    igbHandlePageChange();
 
-    // Initial page injection
-    _onPageChange();
+    window.addEventListener('routeChangeEvent', igbHandlePageChange);
+    window.addEventListener('popstate', igbHandlePageChange);
 
-    // Listen for GHL SPA navigation
-    if (typeof window.addEventListener === 'function') {
-        window.addEventListener('routeChangeEvent', _onPageChange);
-        // Also watch for popstate (browser back/forward)
-        window.addEventListener('popstate', _onPageChange);
-    }
+    igbDomObserver.observe(document.body, { childList: true, subtree: true });
 
-    // MutationObserver for dynamic content
-    _observer.observe(document.body, { childList: true, subtree: true });
-
-    _log('IGB GHL integration ready (tier=' + _tier + ', maxLines=' + _maxLines + ')');
+    igbLog('InsuranceGrokBot ready — tier: ' + igbSubscriptionTier + ', max lines: ' + igbMaxDialLines);
 }
 
-// Wait for DOM ready then init
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', _init);
+    document.addEventListener('DOMContentLoaded', igbInit);
 } else {
-    _init();
+    igbInit();
 }
