@@ -1,4 +1,4 @@
-const igbServerUrl = 'https://app.insurancegrokbot.click';
+const igbServerUrl = 'https://insurancegrokbot.click';
 const igbCallPollMs = 2000;
 const igbRefreshIntervalMs = 60000;
 const igbMaxVisibleToasts = 3;
@@ -28,7 +28,7 @@ function igbMakeElement(tagName, cssClass, htmlContent) {
         el.className = cssClass;
     }
     if (htmlContent) {
-        el.innerHTML = htmlContent;
+        el.textContent = htmlContent;
     }
     return el;
 }
@@ -59,9 +59,12 @@ function igbFormatDuration(totalSeconds) {
 }
 
 function igbSafeText(rawText) {
-    const div = document.createElement('div');
-    div.textContent = rawText;
-    return div.innerHTML;
+    return String(rawText)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 function igbCapitalize(str) {
@@ -186,7 +189,7 @@ function igbShowToast(message, toastType) {
 
     const closeBtn = document.createElement('button');
     closeBtn.className = 'igb-toast-close';
-    closeBtn.textContent = '\u00D7';
+    closeBtn.textContent = '×';
     closeBtn.addEventListener('click', () => toast.remove());
     toast.appendChild(closeBtn);
 
@@ -264,7 +267,7 @@ async function igbToggleMinutesPanel() {
     header.appendChild(document.createTextNode(' AI Minutes '));
     const closeBtn = document.createElement('button');
     closeBtn.className = 'igb-panel-close';
-    closeBtn.textContent = '\u00D7';
+    closeBtn.textContent = '×';
     closeBtn.addEventListener('click', () => {
         const p = document.getElementById('igb-minutes-panel');
         if (p) p.remove();
@@ -273,7 +276,7 @@ async function igbToggleMinutesPanel() {
     panel.appendChild(header);
 
     const body = igbMakeElement('div', 'igb-panel-body');
-    body.innerHTML = '<div class="igb-loading">Loading...</div>';
+    body.appendChild(igbMakeElement('div', 'igb-loading', 'Loading...'));
     panel.appendChild(body);
 
     document.body.appendChild(panel);
@@ -302,17 +305,50 @@ async function igbToggleMinutesPanel() {
         if (!panelBody) { return; }
 
         // Clear and rebuild panel body with DOM methods
-        panelBody.innerHTML = '';
+        panelBody.replaceChildren();
 
         // Stats section
         const statsDiv = igbMakeElement('div', 'igb-minutes-stats');
-        statsDiv.innerHTML = `
-            <div class="igb-stat-row"><span>Available</span><strong>${igbFormatNumber(available)} min</strong></div>
-            <div class="igb-stat-row"><span>Purchased</span><span>${igbFormatNumber(totalPurchased)}</span></div>
-            <div class="igb-stat-row"><span>Used</span><span>${igbFormatNumber(totalUsed)}</span></div>
-            <div class="igb-progress-bar"><div class="igb-progress-fill" style="width:${Math.min(usedPercent, 100)}%"></div></div>
-            <div class="igb-stat-row igb-text-muted"><span>${usedPercent}% used</span></div>
-        `;
+
+        const availRow = igbMakeElement('div', 'igb-stat-row');
+        const availLabel = document.createElement('span');
+        availLabel.textContent = 'Available';
+        const availVal = document.createElement('strong');
+        availVal.textContent = igbFormatNumber(available) + ' min';
+        availRow.appendChild(availLabel);
+        availRow.appendChild(availVal);
+        statsDiv.appendChild(availRow);
+
+        const purchRow = igbMakeElement('div', 'igb-stat-row');
+        const purchLabel = document.createElement('span');
+        purchLabel.textContent = 'Purchased';
+        const purchVal = document.createElement('span');
+        purchVal.textContent = igbFormatNumber(totalPurchased);
+        purchRow.appendChild(purchLabel);
+        purchRow.appendChild(purchVal);
+        statsDiv.appendChild(purchRow);
+
+        const usedRow = igbMakeElement('div', 'igb-stat-row');
+        const usedLabel = document.createElement('span');
+        usedLabel.textContent = 'Used';
+        const usedVal = document.createElement('span');
+        usedVal.textContent = igbFormatNumber(totalUsed);
+        usedRow.appendChild(usedLabel);
+        usedRow.appendChild(usedVal);
+        statsDiv.appendChild(usedRow);
+
+        const progressBar = igbMakeElement('div', 'igb-progress-bar');
+        const progressFill = igbMakeElement('div', 'igb-progress-fill');
+        progressFill.style.width = Math.min(usedPercent, 100) + '%';
+        progressBar.appendChild(progressFill);
+        statsDiv.appendChild(progressBar);
+
+        const pctRow = igbMakeElement('div', 'igb-stat-row igb-text-muted');
+        const pctSpan = document.createElement('span');
+        pctSpan.textContent = usedPercent + '% used';
+        pctRow.appendChild(pctSpan);
+        statsDiv.appendChild(pctRow);
+
         panelBody.appendChild(statsDiv);
 
         // Section label
@@ -329,11 +365,19 @@ async function igbToggleMinutesPanel() {
             const packageClass = packageColorMap[pkg.minutes] || 'igb-pkg-green';
 
             const card = igbMakeElement('div', `igb-package-card ${packageClass}`);
-            card.innerHTML = `
-                <div class="igb-package-minutes"><i class="fa-solid fa-bolt"></i> ${igbFormatNumber(pkg.minutes)}</div>
-                <div class="igb-package-label">${igbSafeText(pkg.label)}</div>
-                <div class="igb-package-price">${displayPrice}</div>
-            `;
+
+            const minutesDiv = igbMakeElement('div', 'igb-package-minutes');
+            const boltPkgIcon = document.createElement('i');
+            boltPkgIcon.className = 'fa-solid fa-bolt';
+            minutesDiv.appendChild(boltPkgIcon);
+            minutesDiv.appendChild(document.createTextNode(' ' + igbFormatNumber(pkg.minutes)));
+            card.appendChild(minutesDiv);
+
+            const labelDiv = igbMakeElement('div', 'igb-package-label', pkg.label);
+            card.appendChild(labelDiv);
+
+            const priceDiv = igbMakeElement('div', 'igb-package-price', displayPrice);
+            card.appendChild(priceDiv);
 
             const buyBtn = document.createElement('button');
             buyBtn.className = 'igb-btn igb-btn-sm';
@@ -412,7 +456,7 @@ async function igbToggleStatsPanel() {
     header.appendChild(document.createTextNode(" Today's Stats "));
     const closeBtn = document.createElement('button');
     closeBtn.className = 'igb-panel-close';
-    closeBtn.textContent = '\u00D7';
+    closeBtn.textContent = '×';
     closeBtn.addEventListener('click', () => {
         const p = document.getElementById('igb-stats-panel');
         if (p) p.remove();
@@ -421,7 +465,7 @@ async function igbToggleStatsPanel() {
     panel.appendChild(header);
 
     const body = igbMakeElement('div', 'igb-panel-body');
-    body.innerHTML = '<div class="igb-loading">Loading...</div>';
+    body.appendChild(igbMakeElement('div', 'igb-loading', 'Loading...'));
     panel.appendChild(body);
 
     document.body.appendChild(panel);
@@ -444,21 +488,47 @@ async function igbToggleStatsPanel() {
         const panelBody = igbFind('#igb-stats-panel .igb-panel-body');
         if (!panelBody) { return; }
 
-        panelBody.innerHTML = `
-            <div class="igb-minutes-stats">
-                <div class="igb-stat-row"><span>Calls Made</span><strong>${todayStats.total_calls || 0}</strong></div>
-                <div class="igb-stat-row"><span>Connected</span><strong>${todayStats.connected || 0} (${todayStats.connect_rate || 0}%)</strong></div>
-                <div class="igb-stat-row"><span>Avg Duration</span><span>${igbFormatDuration(todayStats.avg_duration || 0)}</span></div>
-                <div class="igb-stat-row"><span>Voicemails</span><span>${todayStats.voicemail || 0}</span></div>
-                <div class="igb-stat-row"><span>No Answer</span><span>${todayStats.no_answer || 0}</span></div>
-            </div>
-            <div class="igb-section-label">This Week</div>
-            <div class="igb-minutes-stats">
-                <div class="igb-stat-row"><span>Calls</span><span>${weekStats.total_calls || 0}</span></div>
-                <div class="igb-stat-row"><span>Connected</span><span>${weekStats.connected || 0}</span></div>
-                <div class="igb-stat-row"><span>Talk Time</span><span>${igbFormatDuration(weekStats.total_duration || 0)}</span></div>
-            </div>
-        `;
+        panelBody.replaceChildren();
+
+        const todayStatsDiv = igbMakeElement('div', 'igb-minutes-stats');
+        const todayRows = [
+            ['Calls Made', String(todayStats.total_calls || 0), true],
+            ['Connected', (todayStats.connected || 0) + ' (' + (todayStats.connect_rate || 0) + '%)', true],
+            ['Avg Duration', igbFormatDuration(todayStats.avg_duration || 0), false],
+            ['Voicemails', String(todayStats.voicemail || 0), false],
+            ['No Answer', String(todayStats.no_answer || 0), false],
+        ];
+        todayRows.forEach(function(r) {
+            const row = igbMakeElement('div', 'igb-stat-row');
+            const label = document.createElement('span');
+            label.textContent = r[0];
+            row.appendChild(label);
+            const val = document.createElement(r[2] ? 'strong' : 'span');
+            val.textContent = r[1];
+            row.appendChild(val);
+            todayStatsDiv.appendChild(row);
+        });
+        panelBody.appendChild(todayStatsDiv);
+
+        panelBody.appendChild(igbMakeElement('div', 'igb-section-label', 'This Week'));
+
+        const weekStatsDiv = igbMakeElement('div', 'igb-minutes-stats');
+        const weekRows = [
+            ['Calls', String(weekStats.total_calls || 0)],
+            ['Connected', String(weekStats.connected || 0)],
+            ['Talk Time', igbFormatDuration(weekStats.total_duration || 0)],
+        ];
+        weekRows.forEach(function(r) {
+            const row = igbMakeElement('div', 'igb-stat-row');
+            const label = document.createElement('span');
+            label.textContent = r[0];
+            row.appendChild(label);
+            const val = document.createElement('span');
+            val.textContent = r[1];
+            row.appendChild(val);
+            weekStatsDiv.appendChild(row);
+        });
+        panelBody.appendChild(weekStatsDiv);
     } catch (e) {
         // Stats unavailable
     }
@@ -660,7 +730,7 @@ function igbShowAiReplyPreview(draftText, contactId, composeElement) {
     previewHeader.appendChild(document.createTextNode('AI Draft '));
     const closeBtn = document.createElement('button');
     closeBtn.className = 'igb-panel-close';
-    closeBtn.textContent = '\u00D7';
+    closeBtn.textContent = '×';
     closeBtn.addEventListener('click', () => preview.remove());
     previewHeader.appendChild(closeBtn);
     preview.appendChild(previewHeader);
@@ -854,10 +924,10 @@ function igbCloseDialer() {
 function igbBuildDialerContent(popup, dialerTitle) {
     // Header
     const header = igbMakeElement('div', 'igb-dialer-header');
-    header.appendChild(document.createTextNode(`IGB Dialer \u2014 ${igbSafeText(dialerTitle)}`));
+    header.appendChild(document.createTextNode(`IGB Dialer — ${igbSafeText(dialerTitle)}`));
     const closeBtn = document.createElement('button');
     closeBtn.className = 'igb-panel-close';
-    closeBtn.textContent = '\u00D7';
+    closeBtn.textContent = '×';
     closeBtn.addEventListener('click', igbCloseDialer);
     header.appendChild(closeBtn);
     popup.appendChild(header);
@@ -1218,7 +1288,7 @@ async function igbPollCallStatus() {
         if (statusBar) {
             statusBar.innerHTML = `<span class="igb-status-dot ${dotClass}"></span> ${statusLabel}`;
             if (statusData.duration) {
-                statusBar.innerHTML += ` \u00B7 ${igbFormatDuration(statusData.duration)}`;
+                statusBar.innerHTML += ` · ${igbFormatDuration(statusData.duration)}`;
             }
         }
 
@@ -1290,15 +1360,16 @@ function igbOpenListenStream(callSid) {
             if (!msg.audio || !audioContext) {
                 return;
             }
-            // Decode base64 → Uint8Array of mulaw bytes
+            // Decode base64 audio payload to byte array
             let mulawBytes;
             try {
-                const binary = atob(msg.audio);
-                mulawBytes = new Uint8Array(binary.length);
-                for (let i = 0; i < binary.length; i++) {
-                    mulawBytes[i] = binary.charCodeAt(i);
+                const binaryString = window.atob(msg.audio);
+                const len = binaryString.length;
+                mulawBytes = new Uint8Array(len);
+                for (let idx = 0; idx < len; idx++) {
+                    mulawBytes[idx] = binaryString.codePointAt(idx);
                 }
-            } catch (e) {
+            } catch (decodeError) {
                 return;
             }
             // Convert mulaw bytes → float32 PCM samples
@@ -1542,7 +1613,7 @@ function igbBuildConfigPanel() {
     header.innerHTML = '<i class="fa-solid fa-shield-halved"></i> Spam Protection & Config';
     const closeBtn = document.createElement('button');
     closeBtn.className = 'igb-panel-close';
-    closeBtn.textContent = '\u00D7';
+    closeBtn.textContent = '×';
     closeBtn.addEventListener('click', () => { panel.remove(); igbConfigPanelOpen = false; });
     header.appendChild(closeBtn);
     panel.appendChild(header);
@@ -1609,7 +1680,7 @@ async function igbLoadConfigSection(section, container) {
 
 // Helper: info grid row
 function igbInfoRow(label, value) {
-    return '<div class="igb-cfg-info-label">' + igbSafeText(label) + '</div><div class="igb-cfg-info-value">' + igbSafeText(value || '\u2014') + '</div>';
+    return '<div class="igb-cfg-info-label">' + igbSafeText(label) + '</div><div class="igb-cfg-info-value">' + igbSafeText(value || '—') + '</div>';
 }
 
 // Helper: status badge
@@ -1704,7 +1775,7 @@ async function igbSecActivate(c) {
         c.innerHTML += igbBadge('Voice Account Active', true);
         const info = igbMakeElement('div', 'igb-cfg-info-grid');
         info.innerHTML = igbInfoRow('Phone Number', vc.has_phone_number ? 'Provisioned' : 'None yet')
-            + igbInfoRow('Calling Hours', (vc.calling_hours_start || '08:00') + ' \u2013 ' + (vc.calling_hours_end || '21:00'));
+            + igbInfoRow('Calling Hours', (vc.calling_hours_start || '08:00') + ' – ' + (vc.calling_hours_end || '21:00'));
         c.appendChild(info);
 
         const desc = igbMakeElement('div', 'igb-cfg-desc', 'Your voice account is active. Buy numbers below, then configure spam protection to improve answer rates.');
@@ -1815,7 +1886,7 @@ async function igbSecNumbers(c) {
                     try {
                         await igbApiRequest('POST', '/api/ghl/numbers/buy', { phone_number: num.phone, number_type: numType });
                         igbShowToast('Purchased ' + num.phone, 'success');
-                        buyBtn.textContent = '\u2713'; buyBtn.classList.add('igb-cfg-btn-owned');
+                        buyBtn.textContent = '✓'; buyBtn.classList.add('igb-cfg-btn-owned');
                         igbRenderConfigChip();
                     } catch (err) {
                         if (err.message && err.message.indexOf('402') >= 0) {
@@ -1966,7 +2037,7 @@ async function igbSecA2p(c) {
     const title = igbMakeElement('div', 'igb-cfg-section-title', 'A2P 10DLC (SMS Compliance)');
     c.appendChild(title);
 
-    c.appendChild(igbMakeElement('div', 'igb-cfg-desc', 'A2P 10DLC registers your brand and use case with mobile carriers for business SMS. This is optional \u2014 your SMS bot uses GHL by default. Register if you want to send SMS directly through your own Twilio numbers.'));
+    c.appendChild(igbMakeElement('div', 'igb-cfg-desc', 'A2P 10DLC registers your brand and use case with mobile carriers for business SMS. This is optional — your SMS bot uses GHL by default. Register if you want to send SMS directly through your own Twilio numbers.'));
 
     if (data.registered) {
         c.innerHTML += igbBadge('Registered', true);
@@ -2086,11 +2157,11 @@ async function igbSecSms(c) {
     // SMS routing
     form.innerHTML += '<label class="igb-cfg-label">SMS Send Via</label>'
         + '<select class="igb-cfg-input igb-cfg-select" id="igb-sc-via">'
-        + '<option value="ghl"' + (data.sms_send_via === 'ghl' || !data.sms_send_via ? ' selected' : '') + '>GHL (GoHighLevel) \u2014 Default</option>'
-        + '<option value="twilio"' + (data.sms_send_via && data.sms_send_via.startsWith('+') ? ' selected' : '') + '>Twilio (Direct) \u2014 Requires A2P</option>'
+        + '<option value="ghl"' + (data.sms_send_via === 'ghl' || !data.sms_send_via ? ' selected' : '') + '>GHL (GoHighLevel) — Default</option>'
+        + '<option value="twilio"' + (data.sms_send_via && data.sms_send_via.startsWith('+') ? ' selected' : '') + '>Twilio (Direct) — Requires A2P</option>'
         + '</select>';
 
-    c.appendChild(igbMakeElement('div', 'igb-cfg-desc', 'Your SMS bot sends through GHL by default \u2014 no extra setup needed. Switch to Twilio only if you need direct number control with A2P 10DLC registration.'));
+    c.appendChild(igbMakeElement('div', 'igb-cfg-desc', 'Your SMS bot sends through GHL by default — no extra setup needed. Switch to Twilio only if you need direct number control with A2P 10DLC registration.'));
 
     // Initial message
     form.innerHTML += '<label class="igb-cfg-label">Initial Greeting Message</label>'
@@ -2169,7 +2240,7 @@ function igbShowUpgradePrompt() {
     const msg = igbMakeElement('p', 'igb-upgrade-msg', 'Start your subscription to unlock AI texting, voice dialing, and lead intelligence inside GHL.');
     banner.appendChild(msg);
 
-    const btn = igbMakeElement('a', 'igb-upgrade-btn', 'Pick Your Plan \u2192');
+    const btn = igbMakeElement('a', 'igb-upgrade-btn', 'Pick Your Plan →');
     btn.href = igbServerUrl + '/dashboard?tab=billing';
     btn.target = '_blank';
     btn.rel = 'noopener';
