@@ -569,7 +569,7 @@ Every new location gets **4 pre-built workflow templates** automatically seeded 
 | Workflow | Trigger | Description |
 |----------|---------|-------------|
 | **Speed to Lead** | `contact_created` | 30s wait → personalized intro SMS → 5min wait → if no reply → AI call → tag `speed-to-lead-contacted` |
-| **Aged Lead Re-engagement** | `lead_age` (30 days) | Check temperature → cold gets manual SMS, warm gets AI message → tag `re-engage-sent` → 2-day wait → follow-up or tag `re-engaged` |
+| **Aged Lead Re-engagement** | `lead_age` (30 days) | Check temperature → cold gets AI low-pressure check-in, warm gets AI re-engagement → tag `re-engage-sent` → 2-day wait → AI follow-up or tag `re-engaged` |
 | **SMS Response Handler** | `sms_received` | Check DNC tag → if hot lead → tag + AI call; if warm/cool → AI-drafted reply |
 | **Re-engage Cold Leads** | `no_response` (7 days) | Gentle check-in SMS → tag `re-engage-attempt` → 1-day wait → if replied tag `re-engaged`, else AI call → 3-day wait → final SMS → tag `nurture-complete` |
 
