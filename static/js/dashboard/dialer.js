@@ -4945,47 +4945,44 @@
         }
 
         function _renderNumbersTable(numbers, container) {
-            const hdrStyle = 'padding:8px 10px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px;';
-            const cellStyle = 'padding:8px 10px;border-top:1px solid rgba(255,255,255,0.04);';
-            let html = '<div style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;overflow:visible;">';
+            let html = '<div class="vnum-table">';
             // Header
             html += '<div class="numbers-grid-header" style="display:grid;grid-template-columns:1fr 100px 60px 60px 60px 50px;gap:0;">';
-            html += '<div style="' + hdrStyle + '">Number</div>';
-            html += '<div style="' + hdrStyle + 'text-align:center;">Status</div>';
-            html += '<div class="numbers-col-voice" style="' + hdrStyle + 'text-align:center;">Voice</div>';
-            html += '<div class="numbers-col-sms" style="' + hdrStyle + 'text-align:center;">SMS</div>';
-            html += '<div class="numbers-col-cnam" style="' + hdrStyle + 'text-align:center;">CNAM</div>';
-            html += '<div class="numbers-col-menu" style="' + hdrStyle + '"></div>';
+            html += '<div class="vnum-hdr">Number</div>';
+            html += '<div class="vnum-hdr numbers-col-voice" style="text-align:center;">Status</div>';
+            html += '<div class="vnum-hdr numbers-col-voice" style="text-align:center;">Voice</div>';
+            html += '<div class="vnum-hdr numbers-col-sms" style="text-align:center;">SMS</div>';
+            html += '<div class="vnum-hdr numbers-col-cnam" style="text-align:center;">CNAM</div>';
+            html += '<div class="vnum-hdr numbers-col-menu"></div>';
             html += '</div>';
             // Rows
             numbers.forEach(n => {
-                const statusColor = n.status === 'active' ? '#4ade80' : (n.status === 'pending' ? '#ffa500' : '#888');
-                const statusBg = n.status === 'active' ? 'rgba(74,222,128,0.1)' : (n.status === 'pending' ? 'rgba(255,165,0,0.1)' : 'rgba(255,255,255,0.04)');
-                const primaryBadge = n.is_primary ? '<span style="background:rgba(0,217,255,0.15);color:#00d9ff;padding:1px 6px;border-radius:3px;font-size:.75rem;font-weight:700;margin-left:6px;">PRIMARY</span>' : '';
-                const nickname = n.nickname ? '<span style="color:#888;font-size:.75rem;margin-left:4px;">(' + _esc(n.nickname) + ')</span>' : '';
-                const voiceIcon = n.capabilities?.voice ? '<i class="fa-solid fa-circle-check" style="color:#4ade80;"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:#444;"></i>';
-                const smsIcon = n.capabilities?.sms ? '<i class="fa-solid fa-circle-check" style="color:#4ade80;"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:#444;"></i>';
-                const cnamIcon = n.cnam_listed ? '<i class="fa-solid fa-circle-check" style="color:#4ade80;cursor:pointer;" title="CNAM enabled — click to disable" onclick="toggleCNAM(\'' + n.sid + '\',false)"></i>' : '<i class="fa-regular fa-circle" style="color:#444;cursor:pointer;" title="CNAM disabled — click to enable" onclick="toggleCNAM(\'' + n.sid + '\',true)"></i>';
+                const statusClass = n.status === 'active' ? 'vnum-status-active' : (n.status === 'pending' ? 'vnum-status-pending' : 'vnum-status-other');
+                const primaryBadge = n.is_primary ? '<span class="vnum-primary">PRIMARY</span>' : '';
+                const nickname = n.nickname ? '<span class="vnum-nickname">(' + _esc(n.nickname) + ')</span>' : '';
+                const voiceIcon = n.capabilities?.voice ? '<i class="fa-solid fa-circle-check vnum-check"></i>' : '<i class="fa-solid fa-circle-xmark vnum-xmark"></i>';
+                const smsIcon = n.capabilities?.sms ? '<i class="fa-solid fa-circle-check vnum-check"></i>' : '<i class="fa-solid fa-circle-xmark vnum-xmark"></i>';
+                const cnamIcon = n.cnam_listed ? '<i class="fa-solid fa-circle-check vnum-cnam-on" title="CNAM enabled — click to disable" onclick="toggleCNAM(\'' + n.sid + '\',false)"></i>' : '<i class="fa-regular fa-circle vnum-cnam-off" title="CNAM disabled — click to enable" onclick="toggleCNAM(\'' + n.sid + '\',true)"></i>';
                 html += '<div class="numbers-grid-row" style="display:grid;grid-template-columns:1fr 100px 60px 60px 60px 50px;gap:0;align-items:center;">';
-                html += '<div style="' + cellStyle + 'color:#fff;font-size:.8rem;">' + _esc(_fmtPhone(n.phone)) + primaryBadge + nickname + '<br><span style="color:#555;font-size:.75rem;">' + _esc(n.number_type || 'local') + '</span></div>';
-                html += '<div style="' + cellStyle + 'text-align:center;"><span style="background:' + statusBg + ';color:' + statusColor + ';padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;">' + (n.status || 'active') + '</span></div>';
-                html += '<div class="numbers-col-voice" style="' + cellStyle + 'text-align:center;">' + voiceIcon + '</div>';
-                html += '<div class="numbers-col-sms" style="' + cellStyle + 'text-align:center;">' + smsIcon + '</div>';
-                html += '<div class="numbers-col-cnam" style="' + cellStyle + 'text-align:center;">' + cnamIcon + '</div>';
-                html += '<div class="numbers-col-menu" style="' + cellStyle + 'text-align:center;"><div class="dropdown" style="position:relative;display:inline-block;">' +
-                    '<button onclick="toggleNumMenu(this)" style="background:none;border:none;color:#888;cursor:pointer;font-size:.75rem;padding:6px 8px;"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
-                    '<div class="num-menu" style="display:none;position:fixed;background:#1a1a2e;border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:4px 0;z-index:9999;min-width:160px;box-shadow:0 4px 16px rgba(0,0,0,0.6);">' +
-                    (!n.is_primary ? '<button onclick="setPrimaryNumber(\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:none;border:none;color:#ccc;font-size:.78rem;cursor:pointer;white-space:nowrap;" onmouseover="this.style.background=\'rgba(255,255,255,0.06)\'" onmouseout="this.style.background=\'none\'"><i class="fa-solid fa-star me-1" style="color:#ffa500;"></i>Set as Primary</button>' : '') +
-                    '<button onclick="promptNickname(\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:none;border:none;color:#ccc;font-size:.78rem;cursor:pointer;white-space:nowrap;" onmouseover="this.style.background=\'rgba(255,255,255,0.06)\'" onmouseout="this.style.background=\'none\'"><i class="fa-solid fa-pen me-1" style="color:#00d9ff;"></i>Edit Nickname</button>' +
-                    '<button onclick="releaseNumber(\'' + (n.sid || '') + '\',\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:none;border:none;color:#ef4444;font-size:.78rem;cursor:pointer;white-space:nowrap;" onmouseover="this.style.background=\'rgba(255,255,255,0.06)\'" onmouseout="this.style.background=\'none\'"><i class="fa-solid fa-trash me-1"></i>Release Number</button>' +
+                html += '<div class="vnum-cell"><span class="vnum-phone">' + _esc(_fmtPhone(n.phone)) + '</span>' + primaryBadge + nickname + '<br><span class="vnum-type">' + _esc(n.number_type || 'local') + '</span></div>';
+                html += '<div class="vnum-cell" style="text-align:center;"><span class="' + statusClass + '">' + (n.status || 'active') + '</span></div>';
+                html += '<div class="numbers-col-voice vnum-cell" style="text-align:center;">' + voiceIcon + '</div>';
+                html += '<div class="numbers-col-sms vnum-cell" style="text-align:center;">' + smsIcon + '</div>';
+                html += '<div class="numbers-col-cnam vnum-cell" style="text-align:center;">' + cnamIcon + '</div>';
+                html += '<div class="numbers-col-menu vnum-cell" style="text-align:center;"><div class="dropdown" style="position:relative;display:inline-block;">' +
+                    '<button onclick="toggleNumMenu(this)" class="vnum-menu-btn"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
+                    '<div class="num-menu vnum-menu">' +
+                    (!n.is_primary ? '<button onclick="setPrimaryNumber(\'' + _esc(n.phone) + '\')" class="vnum-menu-item"><i class="fa-solid fa-star me-1 vnum-menu-icon-star"></i>Set as Primary</button>' : '') +
+                    '<button onclick="promptNickname(\'' + _esc(n.phone) + '\')" class="vnum-menu-item"><i class="fa-solid fa-pen me-1 vnum-menu-icon-edit"></i>Edit Nickname</button>' +
+                    '<button onclick="releaseNumber(\'' + (n.sid || '') + '\',\'' + _esc(n.phone) + '\')" class="vnum-menu-item vnum-menu-item-danger"><i class="fa-solid fa-trash me-1"></i>Release Number</button>' +
                     '</div></div></div>';
                 html += '</div>';
             });
             html += '</div>';
             // Summary info
-            html += '<div style="margin-top:8px;padding:8px 10px;background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:6px;font-size:.75rem;color:#666;">' +
-                '<strong style="color:#aaa;">' + numbers.length + ' number' + (numbers.length !== 1 ? 's' : '') + '</strong> on your account. ' +
-                'STIR/SHAKEN is auto-managed. Register with carriers in the <strong style="color:#00d9ff;cursor:pointer;" onclick="switchVoiceSubtab(\'spammonitoring\')">Spam Monitoring</strong> tab to reduce spam flags.' +
+            html += '<div class="vnum-summary">' +
+                '<strong>' + numbers.length + ' number' + (numbers.length !== 1 ? 's' : '') + '</strong> on your account. ' +
+                'STIR/SHAKEN is auto-managed. Register with carriers in the <strong class="vnum-summary-link" onclick="switchVoiceSubtab(\'spammonitoring\')">Spam Monitoring</strong> tab to reduce spam flags.' +
                 '</div>';
             container.innerHTML = html;
         }

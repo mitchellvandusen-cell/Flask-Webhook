@@ -7003,6 +7003,61 @@ body.light-theme .slack-hashtag-icon { color: #1a9fc0; }
 .cfg-numbers-loading { text-align: center; padding: 30px 20px; color: #555; }
 .cfg-numbers-spinner { font-size: 1.2rem; color: #00d9ff; display: block; margin-bottom: 8px; }
 
+/* ── Numbers table (dynamic JS) ── */
+.sms-num-table { border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; overflow: visible; }
+.sms-num-hdr { padding: 8px 10px; background: rgba(255,255,255,0.04); font-weight: 700; color: #888; font-size: .75rem; text-transform: uppercase; letter-spacing: .5px; }
+.sms-num-cell { padding: 8px 10px; border-top: 1px solid rgba(255,255,255,0.08); }
+.sms-num-phone { color: #fff; font-size: .8rem; }
+.sms-num-type { color: #555; font-size: .75rem; }
+.sms-num-primary { background: rgba(0,217,255,0.15); color: #00d9ff; padding: 1px 6px; border-radius: 3px; font-size: .75rem; font-weight: 700; margin-left: 6px; }
+.sms-num-nickname { color: #888; font-size: .75rem; margin-left: 4px; }
+.sms-num-check { color: #4ade80; }
+.sms-num-xmark { color: #555; }
+.sms-num-badge-registered { background: rgba(74,222,128,0.08); color: #4ade80; padding: 2px 8px; border-radius: 4px; font-size: .75rem; font-weight: 600; }
+.sms-num-badge-notreg { background: rgba(239,68,68,0.08); color: #ef4444; padding: 2px 8px; border-radius: 4px; font-size: .75rem; font-weight: 600; }
+.sms-num-badge-pending { background: rgba(255,165,0,0.08); color: #ffa500; padding: 2px 8px; border-radius: 4px; font-size: .75rem; font-weight: 600; }
+.sms-num-badge-na { color: #555; font-size: .75rem; }
+.sms-num-compliant { color: #4ade80; font-size: .75rem; }
+.sms-num-add-a2p { background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.25); color: #00ff88; border-radius: 5px; padding: 3px 10px; font-size: .75rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.sms-num-reg-a2p { background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.25); color: #a78bfa; border-radius: 5px; padding: 3px 10px; font-size: .75rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.sms-a2p-summary-ok { padding: 14px; background: rgba(74,222,128,0.06); border: 1px solid rgba(74,222,128,0.2); border-radius: 10px; }
+.sms-a2p-summary-ok .sms-a2p-icon { color: #4ade80; }
+.sms-a2p-summary-ok .sms-a2p-title { font-weight: 700; color: #4ade80; font-size: .88rem; }
+.sms-a2p-summary-warn { padding: 14px; background: rgba(255,165,0,0.06); border: 1px solid rgba(255,165,0,0.2); border-radius: 10px; }
+.sms-a2p-summary-warn .sms-a2p-icon { color: #ffa500; }
+.sms-a2p-summary-warn .sms-a2p-title { font-weight: 700; color: #ffa500; font-size: .88rem; }
+.sms-a2p-summary-err { padding: 14px; background: rgba(239,68,68,0.04); border: 1px solid rgba(239,68,68,0.12); border-radius: 10px; }
+.sms-a2p-summary-err .sms-a2p-icon { color: #ef4444; }
+.sms-a2p-summary-err .sms-a2p-title { font-weight: 700; color: #ef4444; font-size: .88rem; }
+.sms-a2p-summary-count { font-size: .75rem; color: #888; margin-left: 4px; }
+.sms-a2p-summary-desc { font-size: .75rem; color: #888; line-height: 1.6; }
+
+/* ── Voice Numbers table (dialer.js) ── */
+.vnum-table { border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; overflow: visible; }
+.vnum-hdr { padding: 8px 10px; background: rgba(255,255,255,0.03); font-weight: 700; color: #888; font-size: .75rem; text-transform: uppercase; letter-spacing: .5px; }
+.vnum-cell { padding: 8px 10px; border-top: 1px solid rgba(255,255,255,0.04); }
+.vnum-phone { color: #fff; font-size: .8rem; }
+.vnum-type { color: #555; font-size: .75rem; }
+.vnum-primary { background: rgba(0,217,255,0.15); color: #00d9ff; padding: 1px 6px; border-radius: 3px; font-size: .75rem; font-weight: 700; margin-left: 6px; }
+.vnum-nickname { color: #888; font-size: .75rem; margin-left: 4px; }
+.vnum-check { color: #4ade80; }
+.vnum-xmark { color: #444; }
+.vnum-cnam-on { color: #4ade80; cursor: pointer; }
+.vnum-cnam-off { color: #444; cursor: pointer; }
+.vnum-status-active { background: rgba(74,222,128,0.1); color: #4ade80; padding: 2px 8px; border-radius: 4px; font-size: .75rem; font-weight: 600; }
+.vnum-status-pending { background: rgba(255,165,0,0.1); color: #ffa500; padding: 2px 8px; border-radius: 4px; font-size: .75rem; font-weight: 600; }
+.vnum-status-other { background: rgba(255,255,255,0.04); color: #888; padding: 2px 8px; border-radius: 4px; font-size: .75rem; font-weight: 600; }
+.vnum-menu-btn { background: none; border: none; color: #888; cursor: pointer; font-size: .75rem; padding: 6px 8px; }
+.vnum-menu { display: none; position: fixed; background: #1a1a2e; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; padding: 4px 0; z-index: 9999; min-width: 160px; box-shadow: 0 4px 16px rgba(0,0,0,0.6); }
+.vnum-menu-item { display: block; width: 100%; text-align: left; padding: 8px 12px; background: none; border: none; color: #ccc; font-size: .78rem; cursor: pointer; white-space: nowrap; }
+.vnum-menu-item:hover { background: rgba(255,255,255,0.06); }
+.vnum-menu-item-danger { color: #ef4444; }
+.vnum-menu-icon-star { color: #ffa500; }
+.vnum-menu-icon-edit { color: #00d9ff; }
+.vnum-summary { margin-top: 8px; padding: 8px 10px; background: rgba(0,217,255,0.03); border: 1px solid rgba(0,217,255,0.08); border-radius: 6px; font-size: .75rem; color: #666; }
+.vnum-summary strong { color: #aaa; }
+.vnum-summary-link { color: #00d9ff; cursor: pointer; }
+
 /* ── A2P panel ── */
 .cfg-a2p-icon-box {
     width: 40px; height: 40px; border-radius: 10px;
@@ -7209,6 +7264,61 @@ body.light-theme .cfg-buy-search-btn {
 
 body.light-theme .cfg-numbers-loading { color: #6b7280; }
 body.light-theme .cfg-numbers-spinner { color: #0078b8; }
+
+/* ── Numbers table light theme ── */
+body.light-theme .sms-num-table { border-color: rgba(0,0,0,0.10); }
+body.light-theme .sms-num-hdr { background: rgba(0,0,0,0.03); color: #6b7280; }
+body.light-theme .sms-num-cell { border-top-color: rgba(0,0,0,0.06); }
+body.light-theme .sms-num-phone { color: #111827; }
+body.light-theme .sms-num-type { color: #9ca3af; }
+body.light-theme .sms-num-primary { background: rgba(0,120,184,0.1); color: #0078b8; }
+body.light-theme .sms-num-nickname { color: #6b7280; }
+body.light-theme .sms-num-check { color: #16a34a; }
+body.light-theme .sms-num-xmark { color: #d1d5db; }
+body.light-theme .sms-num-badge-registered { background: rgba(22,163,74,0.10); color: #15803d; }
+body.light-theme .sms-num-badge-notreg { background: rgba(220,38,38,0.08); color: #dc2626; }
+body.light-theme .sms-num-badge-pending { background: rgba(217,119,6,0.08); color: #b45309; }
+body.light-theme .sms-num-badge-na { color: #9ca3af; }
+body.light-theme .sms-num-compliant { color: #15803d; }
+body.light-theme .sms-num-add-a2p { background: rgba(22,163,74,0.08); border-color: rgba(22,163,74,0.25); color: #15803d; }
+body.light-theme .sms-num-reg-a2p { background: rgba(124,58,237,0.08); border-color: rgba(124,58,237,0.2); color: #7c3aed; }
+body.light-theme .sms-a2p-summary-ok { background: rgba(22,163,74,0.06); border-color: rgba(22,163,74,0.2); }
+body.light-theme .sms-a2p-summary-ok .sms-a2p-icon { color: #15803d; }
+body.light-theme .sms-a2p-summary-ok .sms-a2p-title { color: #15803d; }
+body.light-theme .sms-a2p-summary-warn { background: rgba(217,119,6,0.06); border-color: rgba(217,119,6,0.2); }
+body.light-theme .sms-a2p-summary-warn .sms-a2p-icon { color: #b45309; }
+body.light-theme .sms-a2p-summary-warn .sms-a2p-title { color: #b45309; }
+body.light-theme .sms-a2p-summary-err { background: rgba(220,38,38,0.04); border-color: rgba(220,38,38,0.12); }
+body.light-theme .sms-a2p-summary-err .sms-a2p-icon { color: #dc2626; }
+body.light-theme .sms-a2p-summary-err .sms-a2p-title { color: #dc2626; }
+body.light-theme .sms-a2p-summary-count { color: #6b7280; }
+body.light-theme .sms-a2p-summary-desc { color: #6b7280; }
+
+/* ── Voice Numbers table light theme ── */
+body.light-theme .vnum-table { border-color: rgba(0,0,0,0.10); }
+body.light-theme .vnum-hdr { background: rgba(0,0,0,0.03); color: #6b7280; }
+body.light-theme .vnum-cell { border-top-color: rgba(0,0,0,0.06); }
+body.light-theme .vnum-phone { color: #111827; }
+body.light-theme .vnum-type { color: #9ca3af; }
+body.light-theme .vnum-primary { background: rgba(0,120,184,0.1); color: #0078b8; }
+body.light-theme .vnum-nickname { color: #6b7280; }
+body.light-theme .vnum-check { color: #16a34a; }
+body.light-theme .vnum-xmark { color: #d1d5db; }
+body.light-theme .vnum-cnam-on { color: #16a34a; }
+body.light-theme .vnum-cnam-off { color: #d1d5db; }
+body.light-theme .vnum-status-active { background: rgba(22,163,74,0.08); color: #15803d; }
+body.light-theme .vnum-status-pending { background: rgba(217,119,6,0.08); color: #b45309; }
+body.light-theme .vnum-status-other { background: rgba(0,0,0,0.04); color: #6b7280; }
+body.light-theme .vnum-menu-btn { color: #6b7280; }
+body.light-theme .vnum-menu { background: #fff; border-color: rgba(0,0,0,0.12); box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+body.light-theme .vnum-menu-item { color: #374151; }
+body.light-theme .vnum-menu-item:hover { background: rgba(0,0,0,0.04); }
+body.light-theme .vnum-menu-item-danger { color: #dc2626; }
+body.light-theme .vnum-menu-icon-star { color: #d97706; }
+body.light-theme .vnum-menu-icon-edit { color: #0078b8; }
+body.light-theme .vnum-summary { background: rgba(0,120,184,0.03); border-color: rgba(0,120,184,0.1); color: #6b7280; }
+body.light-theme .vnum-summary strong { color: #374151; }
+body.light-theme .vnum-summary-link { color: #0078b8; }
 
 body.light-theme .cfg-a2p-icon-box {
     background: rgba(124,58,237,0.1); border-color: rgba(124,58,237,0.25);
