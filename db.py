@@ -2135,31 +2135,35 @@ class User(UserMixin):
         """
         if not email:
             return None
-            
-        logger.debug(f"User.get called for email: '{email}'")
-       
+
+        # Normalize email to lowercase for case-insensitive matching.
+        # GHL and Outlook can return mixed-case emails (e.g. "Meghan@Outlook.com")
+        # which must match the DB regardless of stored casing.
+        email_lookup = email.strip().lower()
+        logger.debug(f"User.get called for email: '{email_lookup}'")
+
         conn = get_db_connection()
         if not conn:
             logger.debug("DB connection failed")
             return None
-       
+
         try:
             cur = conn.cursor(cursor_factory=RealDictCursor)
-            
+
             # 1. Check subscribers table first (most users)
             cur.execute("""
-                SELECT * FROM subscribers WHERE email = %s LIMIT 1
-            """, (email,))
+                SELECT * FROM subscribers WHERE LOWER(email) = %s LIMIT 1
+            """, (email_lookup,))
             row = cur.fetchone()
-            
+
             if row:
                 logger.debug(f"Found user in subscribers table")
                 return User(row)
-            
+
             # 2. Check agency_billing table (agency owners)
             cur.execute("""
-                SELECT * FROM agency_billing WHERE agency_email = %s LIMIT 1
-            """, (email,))
+                SELECT * FROM agency_billing WHERE LOWER(agency_email) = %s LIMIT 1
+            """, (email_lookup,))
             row = cur.fetchone()
 
             if row:
@@ -2180,9 +2184,9 @@ class User(UserMixin):
                            s.sms_send_via, s.calendar_id, s.calendar_name
                     FROM location_users lu
                     JOIN subscribers s ON s.location_id = lu.location_id
-                    WHERE lu.email = %s AND lu.is_active = true
+                    WHERE LOWER(lu.email) = %s AND lu.is_active = true
                     LIMIT 1
-                """, (email,))
+                """, (email_lookup,))
                 seat_row = cur.fetchone()
                 if seat_row:
                     # Check session revocation — if session was created before revocation, deny

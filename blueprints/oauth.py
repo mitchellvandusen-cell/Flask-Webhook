@@ -164,9 +164,15 @@ def oauth_callback():
     code = request.args.get("code")
     raw_state = request.args.get("state")
 
+    # GHL may pass locationId as a URL query parameter on the redirect.
+    # Capture it now — if the token exchange returns locationId=None, this
+    # is often the only way to identify which sub-account was installed.
+    url_location_id = request.args.get("locationId")
+
     logger.info(
         f"=== OAUTH CALLBACK START === state={'present' if raw_state else 'MISSING'}, "
-        f"code={'present' if code else 'MISSING'}"
+        f"code={'present' if code else 'MISSING'}, "
+        f"locationId_from_url={'present: ' + url_location_id if url_location_id else 'MISSING'}"
     )
 
     try:
@@ -375,6 +381,16 @@ def oauth_callback():
         company_id = token_data.get('companyId')
         refresh_token = token_data.get('refresh_token')
         expires_in = token_data.get('expires_in', 86400)
+
+        # CRITICAL FIX: GHL sometimes returns locationId=None in the token
+        # response even for Location-scoped installs. Fall back to the
+        # locationId from the callback URL query parameters.
+        if not primary_location_id and url_location_id:
+            primary_location_id = url_location_id
+            logger.info(
+                f"Token response had locationId=None — using locationId from "
+                f"URL query param: {url_location_id}"
+            )
 
         # ── Scope validation ─────────────────────────────────────────────────
         # Verify that the granted scopes include the critical ones we need.
@@ -625,12 +641,92 @@ def oauth_callback():
         # /locations/search requires a Company-scoped token.  For Location-
         # scoped tokens, fetch the single location directly via
         # GET /locations/{locationId}.
+        #
+        # EDGE CASE: GHL sometimes returns a Location-scoped token with a
+        # companyId but NO locationId (marketplace installs where user didn't
+        # pick a specific sub-account). In that case, try /locations/search
+        # with the companyId to discover all locations.
         sub_accounts = []
         using_location_fallback = False
 
         if token_user_type_used == 'Company' and company_id:
             locations_url = f"https://services.leadconnectorhq.com/locations/search?companyId={company_id}"
             sub_accounts = fetch_all_ghl_items(locations_url, headers_ghl, item_key='locations')
+        elif not primary_location_id and company_id:
+            # Location-scoped token with companyId but no locationId.
+            # The token IS scoped to a specific location, but GHL didn't
+            # tell us which one. Try multiple discovery approaches.
+            logger.info(
+                f"No locationId in token or URL but companyId={company_id} present. "
+                f"Attempting location discovery..."
+            )
+
+            # Approach 1: /oauth/installedLocations — returns locations where
+            # this app is installed under this company
+            app_id = client_id  # GHL appId = our OAuth client_id
+            installed_url = (
+                f"https://services.leadconnectorhq.com/oauth/installedLocations"
+                f"?companyId={company_id}"
+            )
+            installed_resp, installed_err = _ghl_api_call(
+                'GET', installed_url,
+                headers=headers_ghl, timeout=10,
+                label=f"/oauth/installedLocations?companyId={company_id}"
+            )
+            if installed_resp and installed_resp.ok:
+                try:
+                    installed_data = installed_resp.json()
+                    # Response format: {"locations": [{"_id": "xxx", "name": "...", ...}]}
+                    # or: {"installedLocations": [...]}
+                    installed_locs = (
+                        installed_data.get('locations')
+                        or installed_data.get('installedLocations')
+                        or []
+                    )
+                    if isinstance(installed_data, list):
+                        installed_locs = installed_data
+                    if installed_locs:
+                        # Use first installed location
+                        first_loc = installed_locs[0]
+                        primary_location_id = (
+                            first_loc.get('_id')
+                            or first_loc.get('id')
+                            or first_loc.get('locationId')
+                        )
+                        sub_accounts = [{
+                            'id': primary_location_id,
+                            'name': first_loc.get('name', user_name or 'Primary Location'),
+                            'timezone': first_loc.get('timezone'),
+                        }]
+                        logger.info(
+                            f"installedLocations returned {len(installed_locs)} location(s). "
+                            f"Primary set to: {primary_location_id}"
+                        )
+                except (ValueError, KeyError) as e:
+                    logger.warning(f"/oauth/installedLocations parse error: {e}")
+            elif installed_resp:
+                logger.info(
+                    f"/oauth/installedLocations returned {installed_resp.status_code}: "
+                    f"{installed_resp.text[:200]}"
+                )
+            else:
+                logger.info(f"/oauth/installedLocations unreachable: {installed_err}")
+
+            # Approach 2: /locations/search — may work if token has enough scope
+            if not sub_accounts:
+                locations_url = f"https://services.leadconnectorhq.com/locations/search?companyId={company_id}"
+                sub_accounts = fetch_all_ghl_items(locations_url, headers_ghl, item_key='locations')
+                if sub_accounts:
+                    primary_location_id = sub_accounts[0].get('id')
+                    logger.info(
+                        f"/locations/search discovered {len(sub_accounts)} location(s). "
+                        f"Primary set to: {primary_location_id}"
+                    )
+                else:
+                    logger.warning(
+                        f"All location discovery failed for companyId={company_id}. "
+                        f"Will use companyId fallback."
+                    )
         elif primary_location_id:
             # Location-scoped token — fetch this single location's details
             loc_resp, loc_err = _ghl_api_call(
@@ -668,6 +764,39 @@ def oauth_callback():
                              'name': user_name or 'Primary Location',
                              'timezone': None}]
             num_subs = 1
+
+        # Last resort: no locationId AND no locations discovered, but we have
+        # companyId. Use companyId as the location_id so the user at least gets
+        # a subscriber row and can log in. Admin alert sent so we can fix it.
+        if num_subs == 0 and not primary_location_id and company_id:
+            using_location_fallback = True
+            primary_location_id = company_id
+            logger.warning(
+                f"NO locationId from token and ALL location discovery failed. "
+                f"Using companyId={company_id} as location_id fallback for {user_email}."
+            )
+            sub_accounts = [{'id': company_id,
+                             'name': user_name or 'Primary Location',
+                             'timezone': None}]
+            num_subs = 1
+
+            # Alert admin — this user needs manual location resolution
+            try:
+                save_persistent_alert(
+                    email=ADMIN_EMAILS[0] if ADMIN_EMAILS else "admin",
+                    alert_type="company_id_fallback",
+                    title="OAuth: CompanyID Used as LocationID",
+                    message=(
+                        f"User {user_email} installed via marketplace but GHL returned NO "
+                        f"locationId. companyId={company_id} was used as a fallback. "
+                        f"This user needs their location_id corrected once their real "
+                        f"GHL location is identified."
+                    ),
+                    severity="warning",
+                    location_id=company_id,
+                )
+            except Exception:
+                pass
 
         # ── Step 5-6: Determine tier and primary location ─────────────────────
         if is_website_user:
