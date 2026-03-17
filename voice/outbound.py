@@ -330,6 +330,128 @@ def ghl_action_ai_call():
 
 
 # ──────────────────────────────────────────────────────────────
+# ROUTE: GHL Trigger Subscription Management
+# ──────────────────────────────────────────────────────────────
+
+@outbound_bp.route('/voice/ghl-trigger/subscribe', methods=['POST'])
+def ghl_trigger_subscribe():
+    """
+    GHL calls this when a user adds/removes a trigger in their workflow.
+
+    GHL sends:
+      - locationId: which location is subscribing
+      - webhookUrl: where to fire events (GHL's internal webhook receiver)
+      - action: "subscribe" or "unsubscribe" (may vary by GHL version)
+
+    We store the subscription so we know which locations to notify
+    when events (like AI Call Completed) occur.
+    """
+    data = request.get_json(silent=True) or {}
+
+    location_id = data.get("locationId") or data.get("location_id") or ""
+    webhook_url = data.get("webhookUrl") or data.get("webhook_url") or ""
+    trigger_type = data.get("triggerType") or data.get("trigger_type") or "ai_call_completed"
+    action = (data.get("action") or "subscribe").lower()
+
+    logger.info(f"GHL trigger subscription: location={location_id} type={trigger_type} action={action} url={webhook_url[:60]}")
+
+    if not location_id:
+        return jsonify({"error": "locationId is required"}), 400
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Database unavailable"}), 503
+        cur = conn.cursor()
+
+        if action == "unsubscribe" or action == "delete":
+            cur.execute(
+                "DELETE FROM ghl_trigger_subscriptions WHERE location_id = %s AND trigger_type = %s",
+                (location_id, trigger_type)
+            )
+            conn.commit()
+            cur.close()
+            logger.info(f"GHL trigger unsubscribed: location={location_id} type={trigger_type}")
+            return jsonify({"status": "unsubscribed"})
+        else:
+            if not webhook_url:
+                return jsonify({"error": "webhookUrl is required for subscribe"}), 400
+            cur.execute("""
+                INSERT INTO ghl_trigger_subscriptions (location_id, trigger_type, webhook_url)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (location_id, trigger_type)
+                DO UPDATE SET webhook_url = EXCLUDED.webhook_url
+            """, (location_id, trigger_type, webhook_url))
+            conn.commit()
+            cur.close()
+            logger.info(f"GHL trigger subscribed: location={location_id} type={trigger_type}")
+            return jsonify({"status": "subscribed"})
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        logger.error(f"GHL trigger subscription failed: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
+# ──────────────────────────────────────────────────────────────
+# HELPER: Fire GHL trigger events
+# ──────────────────────────────────────────────────────────────
+
+def _fire_ghl_trigger(location_id, trigger_type, payload):
+    """
+    Fire a trigger event to GHL for a subscribed location.
+    Runs in a background thread to avoid blocking the status callback.
+
+    Args:
+        location_id: GHL location ID
+        trigger_type: e.g. "ai_call_completed"
+        payload: dict with trigger data (contactId, callStatus, etc.)
+    """
+    def _send():
+        import requests as http_requests
+        conn = None
+        try:
+            conn = get_db_connection()
+            if not conn:
+                return
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT webhook_url FROM ghl_trigger_subscriptions WHERE location_id = %s AND trigger_type = %s",
+                (location_id, trigger_type)
+            )
+            row = cur.fetchone()
+            cur.close()
+
+            if not row:
+                return  # No subscription for this location/trigger
+
+            webhook_url = row["webhook_url"]
+            logger.info(f"Firing GHL trigger: type={trigger_type} location={location_id} url={webhook_url[:60]}")
+
+            resp = http_requests.post(
+                webhook_url,
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=10,
+            )
+            logger.info(f"GHL trigger fired: status={resp.status_code} type={trigger_type} location={location_id}")
+
+        except Exception as e:
+            logger.warning(f"GHL trigger fire failed: {e} (type={trigger_type}, location={location_id})")
+        finally:
+            if conn:
+                return_db_connection(conn)
+
+    t = threading.Thread(target=_send, daemon=True, name=f"ghl-trigger-{trigger_type[:12]}-{location_id[:8]}")
+    t.start()
+
+
+# ──────────────────────────────────────────────────────────────
 # ROUTE: Call status webhook
 # ──────────────────────────────────────────────────────────────
 
@@ -563,6 +685,25 @@ def voice_status():
     # ── Voice Insights: queue background fetch of Call Summary ──
     if call_status in terminal_statuses and call_sid and call_sid in active_calls:
         _queue_insights_fetch(call_sid, active_calls.get(call_sid, {}))
+
+    # ── Fire GHL trigger: AI Call Completed ──
+    if call_status in terminal_statuses and call_sid and call_sid in active_calls:
+        trigger_info = active_calls[call_sid]
+        trigger_location = trigger_info.get('_location_id', '')
+        if trigger_location:
+            effective_status = trigger_info.get('_amd_result', call_status)
+            if effective_status == 'completed' and int(duration or 0) == 0:
+                effective_status = 'no-answer'
+            _fire_ghl_trigger(trigger_location, 'ai_call_completed', {
+                'contactId': trigger_info.get('contact_id', ''),
+                'locationId': trigger_location,
+                'phone': trigger_info.get('phone', ''),
+                'firstName': trigger_info.get('name', ''),
+                'callSid': call_sid,
+                'callStatus': effective_status,
+                'callDuration': int(duration or 0),
+                'direction': 'outbound',
+            })
 
     return '', 204
 
