@@ -4,6 +4,7 @@ import logging
 
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
+from ghl_auth import jwt_or_session_required
 
 from db import get_db_connection, return_db_connection
 from ghl_api import get_valid_token
@@ -174,7 +175,9 @@ def get_contact_engagement_bulk():
 
         # ── Opt-out detection: check last message from each lead for stop keywords ──
         import re as _re
-        _stop_words = {'stop', 'unsubscribe', 'opt out', 'optout', 'remove me', 'do not contact', 'do not call', 'do not text', 'do not message', 'cancel', 'quit', 'leave me alone', 'not interested', 'lose my number', 'delete my number', 'take me off', 'blocked'}
+        # TCPA-mandated stop words only — sales objections like "not interested"
+        # are handled by the conversation engine, not flagged as opt-outs
+        _stop_words = {'stop', 'unsubscribe', 'opt out', 'optout', 'remove me', 'do not contact', 'do not call', 'do not text', 'do not message', 'cancel', "don't contact", "don't call", "don't text", "don't message"}
         cur.execute("""
             SELECT DISTINCT ON (contact_id) contact_id, message_text
             FROM contact_messages
@@ -199,7 +202,7 @@ def get_contact_engagement_bulk():
 
 
 @intelligence_bp.route('/voice/contact-intelligence-bulk', methods=['GET', 'POST'])
-@login_required
+@jwt_or_session_required
 def get_contact_intelligence_bulk():
     """Bulk fetch cached AI intelligence for Smart Filters.
     Returns cached AI temperature/score for contacts that have fresh analysis.
@@ -232,7 +235,7 @@ def get_contact_intelligence_bulk():
 
 
 @intelligence_bp.route('/voice/contact-intelligence-analyze', methods=['POST'])
-@login_required
+@jwt_or_session_required
 def post_contact_intelligence_analyze():
     """Queue bulk AI analysis for contacts without cached intelligence.
     Enqueues RQ jobs (batches of 100) using bulk AI prompts (~25 contacts

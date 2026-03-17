@@ -484,13 +484,14 @@ CRITICAL CLASSIFICATION RULES — READ THESE CAREFULLY:
 - hot = Lead is actively buying: asking for quotes, requesting coverage, comparing products, ready to book, saying "let's do it." They are IN the buying process. ALSO hot if velocity_trend is "warming" AND engagement_level >= 2.
 - warm = Lead is engaged and positive: responding to questions, sharing information about their situation, showing genuine interest. The conversation is progressing forward.
 - cool = Lead went quiet (no response to last 2+ messages), giving slow/short replies, showing declining interest, soft objection ("let me think about it"), OR velocity_trend is "cooling." If bot sent 2+ messages with no lead reply, this is AT MOST cool — not warm or hot.
-- cold = Lead explicitly said no: "not interested", "stop", "already covered", "don't contact me", OR has completely ghosted (no response to 3+ outreach attempts over multiple days). "no thanks" or "I'm good" = COLD, not hot.
-IMPORTANT: If the Bot offered an opt-out and the lead's reply CONFIRMS they want to opt out (even with a single word that completes the Bot's sentence), that is COLD. Read the lead's reply in the context of what the Bot said immediately before it.
+- cold = Lead sent a TCPA opt-out ("stop", "unsubscribe", "do not contact", "remove me", "opt out"), OR has completely ghosted (no response to 3+ outreach attempts over multiple days). Note: "not interested", "no thanks", "I'm good" are sales OBJECTIONS, not opt-outs — classify them as cool (the bot should keep trying new angles, and the lead could still convert).
+IMPORTANT: If the Bot offered an opt-out and the lead's reply CONFIRMS they want to opt out with a TCPA word (stop, unsubscribe, remove me), that is COLD. But general disinterest ("nah", "no thanks", "I'm good") is cool — the bot's objection handling will work on them.
 TIMING RULE: If the lead has not responded in 7+ days despite bot outreach, they cannot be "warm" — they are at best "cool" unless they have a scheduled callback.
 
 "score" — 0-100 likelihood to convert to a paying client:
 HARD CALIBRATION RULES (these override your intuition):
-  - Lead said "not interested" / "stop" / "no" / "I'm good" → score MUST be 5-15
+  - Lead sent TCPA opt-out ("stop" / "unsubscribe" / "remove me" / "do not contact") → score MUST be 5-15
+  - Lead said "not interested" / "no thanks" / "I'm good" → score 15-30 (objection, not dead — bot will keep trying)
   - No conversation exists (only bot outreach, no lead replies) → score MUST be 10-25
   - Lead replied but only surface-level (one-word, "who is this") → score 15-30
   - Lead engaged but has soft objections ("too expensive", "let me think") → score 25-45
@@ -502,7 +503,7 @@ HARD CALIBRATION RULES (these override your intuition):
 
 "should_respond" — true if the agent needs to take action NOW:
 - true: Lead asked a question that hasn't been answered, expressed interest that wasn't followed up, or sent a message that deserves a reply. ALSO true if lead responded recently and the last message is from the Lead.
-- false: Bot already replied to the lead's last message, lead said stop/not interested, lead hasn't sent any messages, or there is genuinely nothing to respond to.
+- false: Bot already replied to the lead's last message, lead sent a TCPA opt-out (stop/unsubscribe/remove me), lead hasn't sent any messages, or there is genuinely nothing to respond to. NOTE: "not interested" is NOT an opt-out — should_respond should be TRUE because the bot's objection handling should continue working on them.
 - This is about whether the lead is WAITING for a response, not just whether they're a good lead.
 - TIMING: If who_spoke_last is "Lead", should_respond is almost always true (lead is waiting).
 
@@ -586,18 +587,18 @@ def _validate_and_calibrate(result, ctx):
     messages = ctx.get("messages", [])
     consec_unanswered = timing.get("consecutive_unanswered_bot", 0)
 
-    # Shared stop/opt-out word set (matches voice/intelligence.py _stop_words)
-    _opt_out_phrases = {
-        "stop", "unsubscribe", "opt out", "optout", "remove me",
+    # ── TCPA-only stop phrases ──
+    # Only legally mandated opt-outs force cold/score 0. Sales objections like
+    # "not interested" or "no thanks" are handled by the conversation engine —
+    # the bot should keep trying, not mark them as dead leads.
+    _tcpa_opt_out_phrases = {
+        "stop", "unsubscribe", "opt out", "optout", "remove me", "cancel",
         "do not contact", "do not call", "do not text", "do not message",
-        "cancel", "quit", "leave me alone", "not interested",
-        "lose my number", "delete my number", "take me off",
-        "don't contact", "don't call", "don't text",
-        "im good", "i'm good", "no thanks", "no thank you",
+        "don't contact", "don't call", "don't text", "don't message",
     }
 
-    # Rule 0: Stop / opt-out detection → force cold, score 0-5, should_respond=false
-    # This catches cases where the AI misreads a "stop" reply as something else.
+    # Rule 0: TCPA opt-out detection → force cold, score 0-5, should_respond=false
+    # Only triggers on legally mandated stop words, NOT sales objections.
     lead_messages = [m for m in messages if m.startswith("Lead:")]
     if lead_messages:
         last_lead_msg = ""
@@ -605,16 +606,14 @@ def _validate_and_calibrate(result, ctx):
             if m.startswith("Lead:"):
                 last_lead_msg = m[5:].strip().lower()
                 break
-        if last_lead_msg and any(phrase in last_lead_msg for phrase in _opt_out_phrases):
-            # Check if the entire message is basically just the opt-out phrase
-            # (not "I'm not interested in whole life but term sounds good")
+        if last_lead_msg and any(phrase in last_lead_msg for phrase in _tcpa_opt_out_phrases):
             clean = last_lead_msg.strip().rstrip('.!?')
-            is_pure_rejection = len(clean) < 40 or clean in _opt_out_phrases
-            if is_pure_rejection:
+            is_pure_opt_out = len(clean) < 40 or clean in _tcpa_opt_out_phrases
+            if is_pure_opt_out:
                 result['temperature'] = 'cold'
                 result['score'] = min(result['score'], 5)
                 result['should_respond'] = False
-                result['should_respond_reason'] = 'Lead opted out or expressed clear disinterest.'
+                result['should_respond_reason'] = 'Lead sent TCPA opt-out keyword.'
                 result['engagement_level'] = min(result['engagement_level'], 1)
 
     # Rule 1: No lead messages at all → can't be warm/hot, score capped at 25
@@ -646,7 +645,7 @@ def _validate_and_calibrate(result, ctx):
             if m.startswith("Lead:"):
                 last_lead_msg = m[5:].strip().lower()
                 break
-        if not any(sw in last_lead_msg for sw in _opt_out_phrases):
+        if not any(sw in last_lead_msg for sw in _tcpa_opt_out_phrases):
             result['should_respond'] = True
             if not result['should_respond_reason']:
                 result['should_respond_reason'] = 'Lead spoke last — they may be waiting for a reply.'
@@ -897,9 +896,9 @@ Respond with ONLY a valid JSON array (no markdown, no code fences). Each element
 ]
 
 CLASSIFICATION RULES:
-- temperature: hot=actively buying/quoting/ready. warm=engaged/sharing info/positive. cool=went quiet/short replies/soft objections/2+ bot messages unanswered. cold=said no/stop/not interested/ghosted 3+ attempts. "no thanks"=COLD not hot. TIMING: if no lead reply in 7+ days despite outreach, AT MOST "cool."
-- score CALIBRATION (mandatory ranges): not interested/stop=5-15. No lead replies at all=10-25. Surface one-word replies=15-30. Soft objections=25-45. Discussing coverage/sharing details=45-70. Asking for quotes/scheduling=65-85. Ready to buy=80-95.
-- should_respond: true only if the lead is WAITING for a reply (unanswered question, unaddressed interest, lead spoke last). false if bot already replied, lead said stop, or nothing to respond to.
+- temperature: hot=actively buying/quoting/ready. warm=engaged/sharing info/positive. cool=went quiet/short replies/objections like "not interested" or "no thanks"/2+ bot messages unanswered (objections are COOL not cold — bot keeps trying). cold=TCPA opt-out only (stop/unsubscribe/remove me/do not contact) OR ghosted 3+ attempts over multiple days. TIMING: if no lead reply in 7+ days despite outreach, AT MOST "cool."
+- score CALIBRATION (mandatory ranges): TCPA opt-out (stop/unsubscribe)=5-15. "not interested"/"no thanks"=15-30 (objection, not dead). No lead replies at all=10-25. Surface one-word replies=15-30. Soft objections=25-45. Discussing coverage/sharing details=45-70. Asking for quotes/scheduling=65-85. Ready to buy=80-95.
+- should_respond: true only if the lead is WAITING for a reply (unanswered question, unaddressed interest, lead spoke last). ALSO true if lead said "not interested"/"no thanks" — the bot should keep working on them. false ONLY if bot already replied, lead sent TCPA opt-out (stop/unsubscribe), or nothing to respond to.
 - engagement_level: 0=no lead replies at all, 1=surface (one-word replies), 2=real conversation, 3=deep (specifics, calls >30s, near decision). Unanswered outbound calls do NOT count.
 - under_contract: true if contact is an EXISTING CLIENT (sold). Look at PIPELINE — stages like "sold", "closed won", "active client", "policy issued", "customer", "in force", "bound", "retention", "renewal" = true. Sales/prospecting pipelines ("new leads", "follow up", "quoted", "nurture") = false. Also check conversation for policy numbers or servicing existing coverage. When in doubt, false.
 - actions: 2-4 per contact. Factor in TIMING — if lead hasn't replied in days, suggest a new angle or different channel, not "follow up." Icons: fa-phone, fa-paper-plane, fa-file-invoice-dollar, fa-calendar, fa-fire, fa-clock, fa-reply, fa-bolt.

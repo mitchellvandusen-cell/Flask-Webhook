@@ -4,10 +4,10 @@
 {% block meta_description %}InsuranceGrokBot integrates with GoHighLevel, Salesforce, HubSpot, Pipedrive, Zoho CRM, Insureio, and Zapier. Connect your CRM for AI-powered SMS, voice calling, and appointment booking.{% endblock %}
 
 {% block content %}
-<section class="section" style="padding-top: 140px;">
+<section class="section integrations-hero">
     <div class="container">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h1 class="section-title" style="font-size: 3rem; margin-bottom: 20px;">
+            <h1 class="section-title integrations-hero-title">
                 Connect Your <span>CRM</span>
             </h1>
             <p class="section-subtitle">
@@ -23,7 +23,7 @@
                     <div class="integration-icon">
                         <i class="fa-solid fa-bolt"></i>
                     </div>
-                    <h4 style="font-weight: 700; margin-bottom: 8px;">LeadConnector</h4>
+                    <h4 class="integration-card-title">LeadConnector</h4>
                     <span class="integration-badge native">Native Integration</span>
                     <p class="integration-desc">
                         Full native integration with Lead Connector. OAuth connect, calendar booking, two-way SMS, contact sync, and workflow automation.
@@ -38,44 +38,46 @@
                 </div>
             </div>
 
-            <!-- Salesforce -->
+            <!-- HubSpot -->
             <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="100">
                 <div class="glass-card text-center p-4">
                     <div class="integration-icon">
-                        <i class="fa-solid fa-cloud"></i>
+                        <i class="fa-brands fa-hubspot"></i>
                     </div>
-                    <h4 style="font-weight: 700; margin-bottom: 8px;">Salesforce</h4>
-                    <span class="integration-badge">API Integration</span>
+                    <h4 class="integration-card-title">HubSpot</h4>
+                    <span class="integration-badge native">Full Integration</span>
                     <p class="integration-desc">
-                        Connect to Salesforce via OAuth 2.0. Full contact lifecycle with SOQL search, event booking, Built-in SMS &amp; Calling, and activity logging on the timeline.
+                        Deep HubSpot CRM integration with OAuth 2.0, real-time webhooks, data sync, CRM Card with AI intelligence in your sidebar, and full activity logging to the HubSpot timeline.
                     </p>
                     <div class="integration-features">
-                        <div><i class="fa-solid fa-check text-accent me-2"></i>Contact Search &amp; Sync</div>
-                        <div><i class="fa-solid fa-check text-accent me-2"></i>Event Booking</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>OAuth 2.0 Connect</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Real-Time Webhooks</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>CRM Card (AI Sidebar)</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Conversation &amp; Deal Sync</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Timeline Activity Logging</div>
                         <div><i class="fa-solid fa-check text-accent me-2"></i>Built-in SMS &amp; Calling</div>
-                        <div><i class="fa-solid fa-check text-accent me-2"></i>Activity Timeline Log</div>
-                        <div><i class="fa-solid fa-check text-accent me-2"></i>Auto Token Refresh</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Contact Search &amp; Dedup</div>
                     </div>
                 </div>
             </div>
 
-            <!-- HubSpot -->
+            <!-- Salesforce -->
             <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="200">
                 <div class="glass-card text-center p-4">
                     <div class="integration-icon">
-                        <i class="fa-solid fa-h"></i>
+                        <i class="fa-brands fa-salesforce"></i>
                     </div>
-                    <h4 style="font-weight: 700; margin-bottom: 8px;">HubSpot</h4>
-                    <span class="integration-badge">API Integration</span>
+                    <h4 class="integration-card-title">Salesforce</h4>
+                    <span class="integration-badge coming-soon-badge">Coming Soon</span>
                     <p class="integration-desc">
-                        Integrate with HubSpot CRM v3 API. Contact search with dedup, meeting creation with associations, Built-in SMS &amp; Calling with Communications timeline logging.
+                        Full Salesforce integration in development. OAuth 2.0, SOQL contact search, event booking, activity timeline logging, and built-in SMS &amp; calling. Same depth as our HubSpot integration.
                     </p>
                     <div class="integration-features">
-                        <div><i class="fa-solid fa-check text-accent me-2"></i>Contact Search &amp; Dedup</div>
-                        <div><i class="fa-solid fa-check text-accent me-2"></i>Meeting Booking</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>OAuth 2.0 Connect</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>SOQL Contact Search</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Event Booking</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Activity Timeline Log</div>
                         <div><i class="fa-solid fa-check text-accent me-2"></i>Built-in SMS &amp; Calling</div>
-                        <div><i class="fa-solid fa-check text-accent me-2"></i>Communications Log</div>
-                        <div><i class="fa-solid fa-check text-accent me-2"></i>Contact Associations</div>
                     </div>
                 </div>
             </div>
@@ -86,7 +88,7 @@
                     <div class="integration-icon">
                         <i class="fa-solid fa-handshake"></i>
                     </div>
-                    <h4 style="font-weight: 700; margin-bottom: 8px;">Pipedrive</h4>
+                    <h4 class="integration-card-title">Pipedrive</h4>
                     <span class="integration-badge">API Integration</span>
                     <p class="integration-desc">
                         Connect Pipedrive with your API token. Person management with search, auto-deal creation, activity scheduling, Built-in SMS &amp; Calling with note logging.
@@ -107,7 +109,7 @@
                     <div class="integration-icon">
                         <i class="fa-solid fa-database"></i>
                     </div>
-                    <h4 style="font-weight: 700; margin-bottom: 8px;">Zoho CRM</h4>
+                    <h4 class="integration-card-title">Zoho CRM</h4>
                     <span class="integration-badge">API Integration</span>
                     <p class="integration-desc">
                         Integrate with Zoho CRM v8 API. Contact search, event scheduling with participants, native email sending, Built-in SMS &amp; Calling, and global data center support.
@@ -128,7 +130,7 @@
                     <div class="integration-icon">
                         <i class="fa-solid fa-plug"></i>
                     </div>
-                    <h4 style="font-weight: 700; margin-bottom: 8px;">Zapier</h4>
+                    <h4 class="integration-card-title">Zapier</h4>
                     <span class="integration-badge">Universal Webhook</span>
                     <p class="integration-desc">
                         Connect to 6,000+ apps through Zapier webhooks. Route booking data, contact info, and messages to any platform. Separate hooks for messages, bookings, and contacts.
@@ -149,7 +151,7 @@
                     <div class="integration-icon">
                         <i class="fa-solid fa-shield-halved"></i>
                     </div>
-                    <h4 style="font-weight: 700; margin-bottom: 8px;">Insureio</h4>
+                    <h4 class="integration-card-title">Insureio</h4>
                     <span class="integration-badge">Insurance CRM</span>
                     <p class="integration-desc">
                         Purpose-built for insurance agents. Create and fetch consumers via API, send Built-in SMS &amp; Calling, and route booking notifications through webhooks.
@@ -166,14 +168,51 @@
 
         </div>
 
-        <!-- Webhook API Section -->
-        <div class="mt-5 pt-5" style="border-top: 1px solid rgba(255,255,255,0.05);" data-aos="fade-up">
+        <!-- Download the App Section -->
+        <div class="mt-5 pt-5 integrations-section-divider" data-aos="fade-up">
             <div class="text-center mb-4">
-                <span style="background: rgba(0,217,255,0.1); color: #00d9ff; padding: 6px 18px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.5px; border: 1px solid rgba(0,217,255,0.2);">API</span>
-                <h2 class="section-title" style="margin-top: 16px; font-size: 2.2rem;">
+                <span class="integrations-tag tag-app">MOBILE</span>
+                <h2 class="section-title integrations-section-title">
+                    Download the <span>App</span>
+                </h2>
+                <p class="integrations-section-desc">
+                    Manage your leads, take calls, and monitor your AI bot from anywhere. Native mobile apps for iOS and Android.
+                </p>
+            </div>
+
+            <div class="download-app-wrapper">
+                <div class="download-app-cards">
+                    <div class="glass-card download-app-card" data-aos="fade-up" data-aos-delay="0">
+                        <i class="fa-brands fa-apple"></i>
+                        <div class="app-platform">iOS</div>
+                        <div class="app-store-name">App Store</div>
+                    </div>
+                    <div class="glass-card download-app-card" data-aos="fade-up" data-aos-delay="100">
+                        <i class="fa-brands fa-google-play"></i>
+                        <div class="app-platform">Android</div>
+                        <div class="app-store-name">Google Play</div>
+                    </div>
+                    <div class="glass-card download-app-card" data-aos="fade-up" data-aos-delay="200">
+                        <i class="fa-solid fa-desktop"></i>
+                        <div class="app-platform">Desktop</div>
+                        <div class="app-store-name">Windows &amp; Mac</div>
+                    </div>
+                </div>
+                <div class="coming-soon-overlay">
+                    <div class="coming-soon-label">Coming Soon</div>
+                    <div class="coming-soon-sub">Native mobile and desktop apps are in development</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Webhook API Section -->
+        <div class="mt-5 pt-5 integrations-section-divider" data-aos="fade-up">
+            <div class="text-center mb-4">
+                <span class="integrations-tag tag-api">API</span>
+                <h2 class="section-title integrations-section-title">
                     Webhook <span>API</span>
                 </h2>
-                <p style="color: #888; max-width: 650px; margin: 0 auto;">
+                <p class="integrations-section-desc">
                     Every account gets a unique webhook endpoint. Send any CRM payload and the bot handles the rest, including automatic field mapping, contact resolution, and response delivery.
                 </p>
             </div>
@@ -181,33 +220,33 @@
             <div class="row g-4 justify-content-center">
                 <div class="col-md-4" data-aos="fade-up" data-aos-delay="0">
                     <div class="glass-card p-4">
-                        <div style="color: var(--accent); font-weight: 700; margin-bottom: 8px;"><i class="fa-solid fa-code me-2"></i>Universal Endpoint</div>
-                        <p style="color: #888; font-size: 0.9rem; margin: 0;">Single <code>POST /webhook</code> endpoint accepts JSON from any CRM. Automatically detects field formats (camelCase, snake_case, UPPERCASE) and maps them correctly.</p>
+                        <div class="integrations-feature-label"><i class="fa-solid fa-code me-2"></i>Universal Endpoint</div>
+                        <p class="integrations-feature-text">Single <code>POST /webhook</code> endpoint accepts JSON from any CRM. Automatically detects field formats (camelCase, snake_case, UPPERCASE) and maps them correctly.</p>
                     </div>
                 </div>
                 <div class="col-md-4" data-aos="fade-up" data-aos-delay="100">
                     <div class="glass-card p-4">
-                        <div style="color: var(--accent); font-weight: 700; margin-bottom: 8px;"><i class="fa-solid fa-vial me-2"></i>Test &amp; Validate</div>
-                        <p style="color: #888; font-size: 0.9rem; margin: 0;">Built-in connection testing from your dashboard. Save your CRM credentials, hit Test Connection, and verify everything works before going live.</p>
+                        <div class="integrations-feature-label"><i class="fa-solid fa-vial me-2"></i>Test &amp; Validate</div>
+                        <p class="integrations-feature-text">Built-in connection testing from your dashboard. Save your CRM credentials, hit Test Connection, and verify everything works before going live.</p>
                     </div>
                 </div>
                 <div class="col-md-4" data-aos="fade-up" data-aos-delay="200">
                     <div class="glass-card p-4">
-                        <div style="color: var(--accent); font-weight: 700; margin-bottom: 8px;"><i class="fa-solid fa-chart-line me-2"></i>Real-Time Logs</div>
-                        <p style="color: #888; font-size: 0.9rem; margin: 0;">Every webhook hit, booking attempt, message sent, and error is logged in real-time. Filter by event type and status directly from your dashboard.</p>
+                        <div class="integrations-feature-label"><i class="fa-solid fa-chart-line me-2"></i>Real-Time Logs</div>
+                        <p class="integrations-feature-text">Every webhook hit, booking attempt, message sent, and error is logged in real-time. Filter by event type and status directly from your dashboard.</p>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Carrier Intelligence Section -->
-        <div class="mt-5 pt-5" style="border-top: 1px solid rgba(255,255,255,0.05);" data-aos="fade-up">
+        <div class="mt-5 pt-5 integrations-section-divider" data-aos="fade-up">
             <div class="text-center mb-4">
-                <span style="background: rgba(0,255,136,0.1); color: var(--accent); padding: 6px 18px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.5px; border: 1px solid rgba(0,255,136,0.2);">BUILT-IN</span>
-                <h2 class="section-title" style="margin-top: 16px; font-size: 2.2rem;">
+                <span class="integrations-tag tag-builtin">BUILT-IN</span>
+                <h2 class="section-title integrations-section-title">
                     Carrier <span>Intelligence</span>
                 </h2>
-                <p style="color: #888; max-width: 650px; margin: 0 auto;">
+                <p class="integrations-section-desc">
                     The bot doesn't just connect to your CRM. It understands the insurance industry. 270+ carriers recognized by name with product classification, underwriting rules, and gap analysis built in.
                 </p>
             </div>
@@ -215,27 +254,27 @@
             <div class="row g-4 justify-content-center">
                 <div class="col-md-6" data-aos="fade-up" data-aos-delay="0">
                     <div class="glass-card p-4">
-                        <div style="color: var(--accent); font-weight: 700; margin-bottom: 8px;"><i class="fa-solid fa-building-columns me-2"></i>270+ Carrier Database</div>
-                        <p style="color: #888; font-size: 0.9rem;">Major carriers (Northwestern Mutual, MetLife, Prudential, New York Life), regional mutuals (Farm Bureau, Grange), specialty carriers (Lemonade, Root), and Canadian carriers (Manulife, Sun Life). Automatically classifies each as guaranteed issue, employer group, bundled policy, or standard.</p>
+                        <div class="integrations-feature-label"><i class="fa-solid fa-building-columns me-2"></i>270+ Carrier Database</div>
+                        <p class="integrations-feature-text">Major carriers (Northwestern Mutual, MetLife, Prudential, New York Life), regional mutuals (Farm Bureau, Grange), specialty carriers (Lemonade, Root), and Canadian carriers (Manulife, Sun Life). Automatically classifies each as guaranteed issue, employer group, bundled policy, or standard.</p>
                     </div>
                 </div>
                 <div class="col-md-6" data-aos="fade-up" data-aos-delay="100">
                     <div class="glass-card p-4">
-                        <div style="color: var(--accent); font-weight: 700; margin-bottom: 8px;"><i class="fa-solid fa-shield-halved me-2"></i>Live Underwriting Rules</div>
-                        <p style="color: #888; font-size: 0.9rem;">Real-time underwriting data sourced from live Google Sheets covering whole life, term, IUL, and universal life products. The bot knows which carriers accept specific health conditions, so when a lead mentions a medical issue, the bot already knows the landscape before your advisor picks up the phone.</p>
+                        <div class="integrations-feature-label"><i class="fa-solid fa-shield-halved me-2"></i>Live Underwriting Rules</div>
+                        <p class="integrations-feature-text">Real-time underwriting data sourced from live Google Sheets covering whole life, term, IUL, and universal life products. The bot knows which carriers accept specific health conditions, so when a lead mentions a medical issue, the bot already knows the landscape before your advisor picks up the phone.</p>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Voice AI Section -->
-        <div class="mt-5 pt-5" style="border-top: 1px solid rgba(255,255,255,0.05);" data-aos="fade-up">
+        <div class="mt-5 pt-5 integrations-section-divider" data-aos="fade-up">
             <div class="text-center mb-4">
-                <span style="background: rgba(0,217,255,0.1); color: #00d9ff; padding: 6px 18px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.5px; border: 1px solid rgba(0,217,255,0.2);">VOICE AI</span>
-                <h2 class="section-title" style="margin-top: 16px; font-size: 2.2rem;">
+                <span class="integrations-tag tag-voice">VOICE AI</span>
+                <h2 class="section-title integrations-section-title">
                     AI Voice <span>Agent</span>
                 </h2>
-                <p style="color: #888; max-width: 650px; margin: 0 auto;">
+                <p class="integrations-section-desc">
                     Real-time speech-to-speech voice conversations powered by Grok. Your leads talk to an AI agent that sounds natural, answers questions, and books appointments mid-call.
                 </p>
             </div>
@@ -243,28 +282,28 @@
             <div class="row g-4 justify-content-center">
                 <div class="col-md-4" data-aos="fade-up" data-aos-delay="0">
                     <div class="glass-card p-4">
-                        <div style="color: #00d9ff; font-weight: 700; margin-bottom: 8px;"><i class="fa-solid fa-waveform-lines me-2"></i>Speech-to-Speech</div>
-                        <p style="color: #888; font-size: 0.9rem; margin: 0;">Native G.711 &mu;-law audio with zero transcoding for carrier-grade quality. Sub-second latency keeps conversations feeling natural. Choose from 7 distinct voice personalities to match your brand.</p>
+                        <div class="integrations-feature-label voice"><i class="fa-solid fa-waveform-lines me-2"></i>Speech-to-Speech</div>
+                        <p class="integrations-feature-text">Native G.711 &mu;-law audio with zero transcoding for carrier-grade quality. Sub-second latency keeps conversations feeling natural. Choose from 7 distinct voice personalities to match your brand.</p>
                     </div>
                 </div>
                 <div class="col-md-4" data-aos="fade-up" data-aos-delay="100">
                     <div class="glass-card p-4">
-                        <div style="color: #00d9ff; font-weight: 700; margin-bottom: 8px;"><i class="fa-solid fa-phone-volume me-2"></i>Inbound &amp; Outbound</div>
-                        <p style="color: #888; font-size: 0.9rem; margin: 0;">Leads call your AI number for instant engagement, or the AI calls leads automatically via CRM webhook triggers. Auto-greeting detects caller intent and routes the conversation accordingly.</p>
+                        <div class="integrations-feature-label voice"><i class="fa-solid fa-phone-volume me-2"></i>Inbound &amp; Outbound</div>
+                        <p class="integrations-feature-text">Leads call your AI number for instant engagement, or the AI calls leads automatically via CRM webhook triggers. Auto-greeting detects caller intent and routes the conversation accordingly.</p>
                     </div>
                 </div>
                 <div class="col-md-4" data-aos="fade-up" data-aos-delay="200">
                     <div class="glass-card p-4">
-                        <div style="color: #00d9ff; font-weight: 700; margin-bottom: 8px;"><i class="fa-solid fa-calendar-check me-2"></i>Live Calendar Booking</div>
-                        <p style="color: #888; font-size: 0.9rem; margin: 0;">Mid-call calendar checking and appointment booking using the same engine as the text bot. The voice agent queries available slots, confirms the time with the lead, and locks in the appointment in real time.</p>
+                        <div class="integrations-feature-label voice"><i class="fa-solid fa-calendar-check me-2"></i>Live Calendar Booking</div>
+                        <p class="integrations-feature-text">Mid-call calendar checking and appointment booking using the same engine as the text bot. The voice agent queries available slots, confirms the time with the lead, and locks in the appointment in real time.</p>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- How It Works Section -->
-        <div class="text-center mt-5 pt-5" style="border-top: 1px solid rgba(255,255,255,0.05);" data-aos="fade-up">
-            <h2 class="section-title" style="font-size: 2.2rem; margin-bottom: 40px;">
+        <div class="text-center mt-5 pt-5 integrations-section-divider" data-aos="fade-up">
+            <h2 class="section-title integrations-section-title mb-5">
                 How Integration <span>Works</span>
             </h2>
 
@@ -272,22 +311,22 @@
                 <div class="col-md-4" data-aos="fade-up" data-aos-delay="0">
                     <div class="glass-card text-center p-4">
                         <div class="integration-step-num">1</div>
-                        <h5 style="font-weight: 700;">Choose Your CRM</h5>
-                        <p style="color: #888; font-size: 0.9rem; margin: 0;">Select your CRM from the dashboard settings. Already using LeadConnector? You're all set, it's the default.</p>
+                        <h5 class="integrations-step-title">Choose Your CRM</h5>
+                        <p class="integrations-step-desc">Select your CRM from the dashboard settings. Already using LeadConnector? You're all set, it's the default.</p>
                     </div>
                 </div>
                 <div class="col-md-4" data-aos="fade-up" data-aos-delay="100">
                     <div class="glass-card text-center p-4">
                         <div class="integration-step-num">2</div>
-                        <h5 style="font-weight: 700;">Paste Your API Key</h5>
-                        <p style="color: #888; font-size: 0.9rem; margin: 0;">Paste your API key and we auto-detect which CRM it belongs to. No separate accounts needed — SMS and calling is built in.</p>
+                        <h5 class="integrations-step-title">Connect via OAuth</h5>
+                        <p class="integrations-step-desc">Click Connect and authorize with your CRM. For HubSpot and LeadConnector, it's one-click OAuth. For others, paste your API key.</p>
                     </div>
                 </div>
                 <div class="col-md-4" data-aos="fade-up" data-aos-delay="200">
                     <div class="glass-card text-center p-4">
                         <div class="integration-step-num">3</div>
-                        <h5 style="font-weight: 700;">Bot Goes Live</h5>
-                        <p style="color: #888; font-size: 0.9rem; margin: 0;">The bot handles lead conversations, detects booking intent, and creates appointments directly in your CRM. No code required.</p>
+                        <h5 class="integrations-step-title">Bot Goes Live</h5>
+                        <p class="integrations-step-desc">The bot handles lead conversations, detects booking intent, and creates appointments directly in your CRM. No code required.</p>
                     </div>
                 </div>
             </div>
@@ -295,16 +334,14 @@
 
         <!-- CTA Section -->
         <div class="text-center mt-5 pt-4" data-aos="fade-up">
-            <div class="glass-card p-5 mx-auto" style="max-width: 600px;">
-                <h3 style="font-weight: 800; margin-bottom: 12px;">Ready to Connect?</h3>
-                <p style="color: #888; margin-bottom: 24px;">
-                    Sign up and configure your CRM integration from the dashboard.
-                </p>
-                <a href="/register" class="btn btn-primary btn-lg" style="padding: 14px 40px; border-radius: 14px; font-weight: 700;">
+            <div class="glass-card p-5 mx-auto integrations-cta">
+                <h3>Ready to Connect?</h3>
+                <p>Sign up and configure your CRM integration from the dashboard.</p>
+                <a href="/register" class="btn btn-primary btn-lg">
                     Get Started Free
                 </a>
                 <div class="mt-3">
-                    <a href="/support#crm-integration" style="color: var(--accent); font-size: 0.9rem; text-decoration: underline;">
+                    <a href="/support#crm-integration" class="integrations-cta-link">
                         View Step-by-Step Setup Guides
                     </a>
                 </div>
@@ -312,78 +349,4 @@
         </div>
     </div>
 </section>
-
-<style>
-    .integration-icon {
-        width: 64px;
-        height: 64px;
-        background: rgba(0, 255, 136, 0.06);
-        border: 1px solid rgba(0, 255, 136, 0.12);
-        border-radius: 16px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 20px;
-        font-size: 1.5rem;
-        color: var(--accent);
-        transition: var(--transition);
-    }
-    .glass-card:hover .integration-icon {
-        background: rgba(0, 255, 136, 0.12);
-        border-color: rgba(0, 255, 136, 0.3);
-        transform: scale(1.1);
-    }
-    .integration-badge {
-        display: inline-block;
-        background: rgba(255, 255, 255, 0.06);
-        color: var(--text-secondary);
-        font-size: 0.7rem;
-        font-weight: 600;
-        padding: 4px 14px;
-        border-radius: 20px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        margin-bottom: 16px;
-        letter-spacing: 0.5px;
-        text-transform: uppercase;
-    }
-    .integration-badge.native {
-        background: rgba(0, 255, 136, 0.1);
-        color: var(--accent);
-        border-color: rgba(0, 255, 136, 0.2);
-    }
-    .integration-desc {
-        color: #888;
-        font-size: 0.9rem;
-        margin-bottom: 16px;
-        line-height: 1.6;
-    }
-    .integration-features {
-        font-size: 0.8rem;
-        color: #777;
-        text-align: left;
-        padding: 0 10px;
-    }
-    .integration-features div {
-        padding: 3px 0;
-    }
-    .integration-step-num {
-        width: 56px;
-        height: 56px;
-        background: rgba(0, 255, 136, 0.06);
-        border: 1px solid rgba(0, 255, 136, 0.12);
-        border-radius: 14px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 16px;
-        font-weight: 900;
-        font-size: 1.3rem;
-        color: var(--accent);
-        transition: var(--transition);
-    }
-    .glass-card:hover .integration-step-num {
-        background: rgba(0, 255, 136, 0.12);
-        border-color: rgba(0, 255, 136, 0.3);
-    }
-</style>
 {% endblock %}

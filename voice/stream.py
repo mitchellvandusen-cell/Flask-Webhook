@@ -715,29 +715,51 @@ def run_voice_stream(ws):
 def run_listen_stream(ws):
     """
     WebSocket handler for live listen (speaker mode).
-    Receives call_sid from the client, subscribes to audio,
-    and forwards mulaw audio chunks to the browser for playback.
+    Accepts call_sid from either URL query params (GHL Custom JS) or the first
+    WebSocket message (dashboard). JWT auth via ?key= param or first message.
+    Forwards mulaw audio chunks to the browser for playback.
     """
     listener_queue = _queue_module.Queue(maxsize=500)
     call_sid = None
 
-    try:
-        # First message from browser: { "call_sid": "CAxxxxxx" }
-        # Client sends this immediately in onopen, so plain receive() is fine.
-        # If connection drops before message arrives, receive() returns None.
-        try:
-            init_msg = ws.receive()
-        except Exception as e:
-            logger.warning(f"Listen stream: receive() error waiting for init: {e}")
-            init_msg = None
+    # GHL Custom JS passes call_sid and JWT in the WS URL query params
+    # because browser WebSocket API cannot set custom headers.
+    url_call_sid = request.args.get('call_sid', '')
+    url_key = request.args.get('key', '')
 
-        if not init_msg:
-            logger.warning("Listen stream: connection closed before init message arrived")
+    # Validate JWT from URL param if present
+    if url_key:
+        from ghl_auth import _decode_jwt
+        if not _decode_jwt(url_key):
+            logger.warning("Listen stream: invalid JWT in ?key= param")
+            try:
+                ws.send(json.dumps({"error": "Invalid or expired token"}))
+            except Exception:
+                pass
             return
 
-        init_data = json.loads(init_msg)
-        call_sid = init_data.get('call_sid') or ''
-        logger.info(f"Listen stream: init received, call_sid={call_sid[:16] if call_sid else 'EMPTY'}")
+    try:
+        if url_call_sid:
+            # call_sid provided in URL — skip waiting for init message
+            call_sid = url_call_sid
+            logger.info(f"Listen stream: call_sid from URL params: {call_sid[:16] if call_sid else 'EMPTY'}")
+        else:
+            # First message from browser: { "call_sid": "CAxxxxxx" }
+            # Client sends this immediately in onopen, so plain receive() is fine.
+            # If connection drops before message arrives, receive() returns None.
+            try:
+                init_msg = ws.receive()
+            except Exception as e:
+                logger.warning(f"Listen stream: receive() error waiting for init: {e}")
+                init_msg = None
+
+            if not init_msg:
+                logger.warning("Listen stream: connection closed before init message arrived")
+                return
+
+            init_data = json.loads(init_msg)
+            call_sid = init_data.get('call_sid') or ''
+            logger.info(f"Listen stream: init received, call_sid={call_sid[:16] if call_sid else 'EMPTY'}")
 
         if not call_sid:
             logger.warning("Listen stream: call_sid missing in init message")

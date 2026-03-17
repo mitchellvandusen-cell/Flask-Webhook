@@ -180,12 +180,35 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_SECURE'] = True
 
 
+@app.before_request
+def handle_cors_preflight():
+    """Handle OPTIONS preflight requests for GHL Custom JS cross-origin calls.
+    These endpoints use JWT Bearer tokens (not cookies) so credentials mode is not needed.
+    Access-Control-Allow-Origin: * is safe here — auth is enforced by the JWT itself."""
+    if request.method == 'OPTIONS':
+        path = request.path
+        if path.startswith('/api/ghl/') or path.startswith('/voice/'):
+            resp = app.make_response('')
+            resp.status_code = 204
+            resp.headers['Access-Control-Allow-Origin'] = '*'
+            resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+            resp.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type, X-Requested-With'
+            resp.headers['Access-Control-Max-Age'] = '86400'
+            return resp  # Short-circuits route processing for preflight
+
+
 @app.after_request
 def add_iframe_headers(response):
-    """Allow embedding in GHL iframe and grant microphone permission."""
+    """Allow embedding in GHL iframe, grant microphone permission, and add CORS for GHL Custom JS."""
     response.headers.pop('X-Frame-Options', None)
     response.headers['Permissions-Policy'] = 'microphone=*, camera=*, autoplay=*'
     response.headers['Content-Security-Policy'] = "frame-ancestors *"
+    # CORS for GHL Custom JS — uses JWT Bearer tokens, not cookies, so * origin is safe
+    path = request.path
+    if path.startswith('/api/ghl/') or path.startswith('/voice/'):
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type, X-Requested-With'
     return response
 
 
@@ -308,6 +331,9 @@ from crm_providers.hubspot.crm_card import hubspot_card_bp
 # Embeddable panel routes (CRM iframes, Chrome extension)
 from blueprints.embed import embed_bp
 
+# GHL Custom JS API endpoints (JWT-authenticated)
+from blueprints.ghl_embed import ghl_embed_bp
+
 app.register_blueprint(auth_bp)
 app.register_blueprint(public_bp)
 app.register_blueprint(webhooks_bp)
@@ -331,6 +357,7 @@ app.register_blueprint(hubspot_oauth_bp)
 app.register_blueprint(hubspot_webhook_bp)
 app.register_blueprint(hubspot_card_bp)
 app.register_blueprint(embed_bp)
+app.register_blueprint(ghl_embed_bp)
 
 logger.info("All modular blueprints registered successfully.")
 

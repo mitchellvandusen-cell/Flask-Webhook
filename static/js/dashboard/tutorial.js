@@ -438,7 +438,7 @@
             element: '#configSettingsMenu',
             popover: {
                 title: 'Settings Menu',
-                description: 'Use these sub-menus to configure different aspects:<br><br><strong>Identity</strong> \u2014 Bot name and how it introduces itself<br><strong>Calendar</strong> \u2014 Select which calendar the bot books into<br><strong>Outreach</strong> \u2014 First message sent to new leads<br><strong>SMS Channel</strong> \u2014 Send via LeadConnector or your own IGB number',
+                description: 'Use these sub-menus to configure different aspects:<br><br><strong>Identity</strong> \u2014 Bot name and how it introduces itself<br><strong>Calendar</strong> \u2014 Select which calendar the bot books into<br><strong>Outreach</strong> \u2014 First message sent to new leads<br><strong>SMS Channel</strong> \u2014 Send via LeadConnector or your own dedicated number',
                 side: 'right', align: 'start'
             }
         });
@@ -472,7 +472,7 @@
             element: '#voiceSettingsMenu',
             popover: {
                 title: 'Voice Settings Menu',
-                description: 'Navigate between voice sub-sections:<br><br><strong>AI Agent</strong> \u2014 Enable/disable, pick a voice, set the script and behavior rules<br><strong>Activate Voice</strong> \u2014 Provision your voice account and phone number<br><strong>Phone Numbers</strong> \u2014 Buy numbers, manage health scores, set up geo-routing<br><strong>Spam Monitoring</strong> \u2014 CNAM, Voice Integrity, number protection<br><strong>10DLC Registration</strong> \u2014 A2P compliance for SMS delivery',
+                description: 'Navigate between voice sub-sections:<br><br><strong>AI Agent</strong> \u2014 Enable/disable, pick a voice, set the script and behavior rules<br><strong>Activate Voice</strong> \u2014 Provision your dedicated sub-account and phone number<br><strong>Phone Numbers</strong> \u2014 Buy numbers, manage health scores, set up geo-routing<br><strong>Spam Monitoring</strong> \u2014 CNAM, Voice Integrity, number protection<br><strong>10DLC Registration</strong> \u2014 A2P compliance for SMS delivery',
                 side: 'right', align: 'start'
             }
         });

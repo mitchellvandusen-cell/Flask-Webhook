@@ -3,7 +3,8 @@ import os
 import logging
 
 from flask import Blueprint, request, Response, jsonify
-from flask_login import login_required, current_user
+from flask_login import current_user
+from ghl_auth import jwt_or_session_required
 import requests as http_requests
 import httpx
 
@@ -100,7 +101,7 @@ def transcription_webhook():
 
 
 @recordings_bp.route('/voice/recording/<recording_sid>', methods=['GET'])
-@login_required
+@jwt_or_session_required
 @require_permission('can_view_call_recordings')
 def stream_recording(recording_sid):
     """
@@ -150,7 +151,7 @@ def stream_recording(recording_sid):
 
 # ──────────────────────────────────────────────────────────────
 @recordings_bp.route('/voice/transcribe-recording', methods=['POST'])
-@login_required
+@jwt_or_session_required
 def transcribe_recording():
     """
     Trigger on-demand transcription for a call recording.

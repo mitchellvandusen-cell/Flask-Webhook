@@ -1964,6 +1964,57 @@ def init_db() -> bool:
             conn.rollback()
             logger.debug(f"workflow tables migration note: {e}")
 
+        # ── GHL trigger subscriptions ──
+        try:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ghl_trigger_subscriptions (
+                    id SERIAL PRIMARY KEY,
+                    location_id TEXT NOT NULL,
+                    trigger_type TEXT NOT NULL,
+                    webhook_url TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(location_id, trigger_type)
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_trig_loc ON ghl_trigger_subscriptions (location_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_trig_type ON ghl_trigger_subscriptions (trigger_type)")
+            conn.commit()
+            logger.info("✅ Migration: ghl_trigger_subscriptions table ready")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"ghl_trigger_subscriptions migration note: {e}")
+
+        # ── GHL action loops (custom action loop/repeat) ──
+        try:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ghl_action_loops (
+                    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+                    location_id TEXT NOT NULL,
+                    contact_id TEXT NOT NULL,
+                    phone TEXT NOT NULL DEFAULT '',
+                    first_name TEXT NOT NULL DEFAULT '',
+                    loop_action TEXT NOT NULL DEFAULT 'ai_sms',
+                    message_template TEXT DEFAULT '',
+                    duration_days INTEGER NOT NULL DEFAULT 3,
+                    interval_hours INTEGER NOT NULL DEFAULT 24,
+                    iteration INTEGER NOT NULL DEFAULT 0,
+                    max_iterations INTEGER NOT NULL DEFAULT 3,
+                    status TEXT NOT NULL DEFAULT 'active',
+                    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    next_execute_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    completed_at TIMESTAMP,
+                    config JSONB DEFAULT '{}'
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_loops_active ON ghl_action_loops (status, next_execute_at) WHERE status = 'active'")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_loops_loc ON ghl_action_loops (location_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_loops_contact ON ghl_action_loops (location_id, contact_id)")
+            conn.commit()
+            logger.info("✅ Migration: ghl_action_loops table ready")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"ghl_action_loops migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)
@@ -2084,31 +2135,35 @@ class User(UserMixin):
         """
         if not email:
             return None
-            
-        logger.debug(f"User.get called for email: '{email}'")
-       
+
+        # Normalize email to lowercase for case-insensitive matching.
+        # GHL and Outlook can return mixed-case emails (e.g. "Meghan@Outlook.com")
+        # which must match the DB regardless of stored casing.
+        email_lookup = email.strip().lower()
+        logger.debug(f"User.get called for email: '{email_lookup}'")
+
         conn = get_db_connection()
         if not conn:
             logger.debug("DB connection failed")
             return None
-       
+
         try:
             cur = conn.cursor(cursor_factory=RealDictCursor)
-            
+
             # 1. Check subscribers table first (most users)
             cur.execute("""
-                SELECT * FROM subscribers WHERE email = %s LIMIT 1
-            """, (email,))
+                SELECT * FROM subscribers WHERE LOWER(email) = %s LIMIT 1
+            """, (email_lookup,))
             row = cur.fetchone()
-            
+
             if row:
                 logger.debug(f"Found user in subscribers table")
                 return User(row)
-            
+
             # 2. Check agency_billing table (agency owners)
             cur.execute("""
-                SELECT * FROM agency_billing WHERE agency_email = %s LIMIT 1
-            """, (email,))
+                SELECT * FROM agency_billing WHERE LOWER(agency_email) = %s LIMIT 1
+            """, (email_lookup,))
             row = cur.fetchone()
 
             if row:
@@ -2129,9 +2184,9 @@ class User(UserMixin):
                            s.sms_send_via, s.calendar_id, s.calendar_name
                     FROM location_users lu
                     JOIN subscribers s ON s.location_id = lu.location_id
-                    WHERE lu.email = %s AND lu.is_active = true
+                    WHERE LOWER(lu.email) = %s AND lu.is_active = true
                     LIMIT 1
-                """, (email,))
+                """, (email_lookup,))
                 seat_row = cur.fetchone()
                 if seat_row:
                     # Check session revocation — if session was created before revocation, deny

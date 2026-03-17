@@ -257,61 +257,58 @@
         const registeredSids = a2p.registered_number_sids || [];
         const registeredSet = new Set(registeredSids);
 
-        const hdrStyle = 'padding:8px 10px;background:' + _tc.surface + ';font-weight:700;color:' + _tc.textMut + ';font-size:.75rem;text-transform:uppercase;letter-spacing:.5px;';
-        const cellStyle = 'padding:8px 10px;border-top:1px solid ' + _tc.border + ';';
-
-        let html = '<div style="border:1px solid ' + _tc.border + ';border-radius:8px;overflow:visible;">';
+        let html = '<div class="sms-num-table">';
         // Header
         html += '<div style="display:grid;grid-template-columns:1fr 80px 100px 140px;gap:0;">';
-        html += '<div style="' + hdrStyle + '">Number</div>';
-        html += '<div style="' + hdrStyle + 'text-align:center;">SMS</div>';
-        html += '<div style="' + hdrStyle + 'text-align:center;">A2P Status</div>';
-        html += '<div style="' + hdrStyle + 'text-align:center;">Actions</div>';
+        html += '<div class="sms-num-hdr">Number</div>';
+        html += '<div class="sms-num-hdr" style="text-align:center;">SMS</div>';
+        html += '<div class="sms-num-hdr" style="text-align:center;">A2P Status</div>';
+        html += '<div class="sms-num-hdr" style="text-align:center;">Actions</div>';
         html += '</div>';
 
         // Rows
         numbers.forEach(n => {
             const hasSms = n.capabilities?.sms;
             const smsIcon = hasSms
-                ? '<i class="fa-solid fa-circle-check" style="color:#4ade80;"></i>'
-                : '<i class="fa-solid fa-circle-xmark" style="color:' + _tc.textDim + ';"></i>';
+                ? '<i class="fa-solid fa-circle-check sms-num-check"></i>'
+                : '<i class="fa-solid fa-circle-xmark sms-num-xmark"></i>';
 
             // Per-number A2P status — check if this number's SID is in the messaging service
             const numberInMs = registeredSet.has(n.sid);
             let a2pBadge;
             if (!hasSms) {
-                a2pBadge = '<span style="color:' + _tc.textDim + ';font-size:.75rem;">N/A</span>';
+                a2pBadge = '<span class="sms-num-badge-na">N/A</span>';
             } else if (isRegistered && numberInMs) {
-                a2pBadge = '<span style="background:rgba(74,222,128,0.12);color:#4ade80;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;"><i class="fa-solid fa-shield-halved me-1"></i>Registered</span>';
+                a2pBadge = '<span class="sms-num-badge-registered"><i class="fa-solid fa-shield-halved me-1"></i>Registered</span>';
             } else if (isRegistered && !numberInMs) {
-                a2pBadge = '<span style="background:rgba(239,68,68,0.12);color:#ef4444;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;">Not Registered</span>';
+                a2pBadge = '<span class="sms-num-badge-notreg">Not Registered</span>';
             } else if (brandStatus === 'APPROVED' && !a2p.campaign_sid) {
-                a2pBadge = '<span style="background:rgba(255,165,0,0.12);color:#ffa500;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;">Campaign Needed</span>';
+                a2pBadge = '<span class="sms-num-badge-pending">Campaign Needed</span>';
             } else if (brandStatus === 'PENDING' || brandStatus === 'IN_REVIEW') {
-                a2pBadge = '<span style="background:rgba(255,165,0,0.12);color:#ffa500;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;">Pending</span>';
+                a2pBadge = '<span class="sms-num-badge-pending">Pending</span>';
             } else {
-                a2pBadge = '<span style="background:rgba(239,68,68,0.12);color:#ef4444;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;">Not Registered</span>';
+                a2pBadge = '<span class="sms-num-badge-notreg">Not Registered</span>';
             }
 
             // Actions — per-number
             let actions = '';
             if (hasSms && isRegistered && numberInMs) {
-                actions = '<span style="color:#4ade80;font-size:.75rem;"><i class="fa-solid fa-circle-check me-1"></i>Compliant</span>';
+                actions = '<span class="sms-num-compliant"><i class="fa-solid fa-circle-check me-1"></i>Compliant</span>';
             } else if (hasSms && isRegistered && !numberInMs && msgServiceSid) {
                 // A2P is set up but this number isn't in the messaging service — offer to add it
-                actions = '<button onclick="smsAddNumberToA2p(\'' + (n.sid || '') + '\')" style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.25);color:#00ff88;border-radius:5px;padding:3px 10px;font-size:.75rem;font-weight:600;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-plus me-1"></i>Add to A2P</button>';
+                actions = '<button onclick="smsAddNumberToA2p(\'' + (n.sid || '') + '\')" class="sms-num-add-a2p"><i class="fa-solid fa-plus me-1"></i>Add to A2P</button>';
             } else if (hasSms && !isRegistered) {
-                actions = '<button onclick="switchConfigPanel(\'a2p\')" style="background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.25);color:#a78bfa;border-radius:5px;padding:3px 10px;font-size:.75rem;font-weight:600;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-certificate me-1"></i>Register A2P</button>';
+                actions = '<button onclick="switchConfigPanel(\'a2p\')" class="sms-num-reg-a2p"><i class="fa-solid fa-certificate me-1"></i>Register A2P</button>';
             }
 
-            const nickname = n.nickname ? '<span style="color:' + _tc.textMut + ';font-size:.75rem;margin-left:4px;">(' + (typeof _esc === 'function' ? _esc(n.nickname) : n.nickname) + ')</span>' : '';
-            const primaryBadge = n.is_primary ? '<span style="background:' + _tc.cyanBg + ';color:' + _tc.cyan + ';padding:1px 6px;border-radius:3px;font-size:.75rem;font-weight:700;margin-left:6px;">PRIMARY</span>' : '';
+            const nickname = n.nickname ? '<span class="sms-num-nickname">(' + (typeof _esc === 'function' ? _esc(n.nickname) : n.nickname) + ')</span>' : '';
+            const primaryBadge = n.is_primary ? '<span class="sms-num-primary">PRIMARY</span>' : '';
 
             html += '<div style="display:grid;grid-template-columns:1fr 80px 100px 140px;gap:0;align-items:center;">';
-            html += '<div style="' + cellStyle + 'color:' + _tc.text + ';font-size:.8rem;">' + _formatPhone(n.phone) + primaryBadge + nickname + '<br><span style="color:' + _tc.textDim + ';font-size:.75rem;">' + (n.number_type || 'local') + '</span></div>';
-            html += '<div style="' + cellStyle + 'text-align:center;">' + smsIcon + '</div>';
-            html += '<div style="' + cellStyle + 'text-align:center;">' + a2pBadge + '</div>';
-            html += '<div style="' + cellStyle + 'text-align:center;">' + actions + '</div>';
+            html += '<div class="sms-num-cell"><span class="sms-num-phone">' + _formatPhone(n.phone) + '</span>' + primaryBadge + nickname + '<br><span class="sms-num-type">' + (n.number_type || 'local') + '</span></div>';
+            html += '<div class="sms-num-cell" style="text-align:center;">' + smsIcon + '</div>';
+            html += '<div class="sms-num-cell" style="text-align:center;">' + a2pBadge + '</div>';
+            html += '<div class="sms-num-cell" style="text-align:center;">' + actions + '</div>';
             html += '</div>';
         });
         html += '</div>';
@@ -335,49 +332,49 @@
             el.style.display = 'block';
             if (allRegistered) {
                 // All numbers are in the messaging service
-                el.innerHTML = '<div style="padding:14px;background:rgba(74,222,128,0.06);border:1px solid rgba(74,222,128,0.2);border-radius:10px;">' +
+                el.innerHTML = '<div class="sms-a2p-summary-ok">' +
                     '<div class="d-flex align-items-center gap-2 mb-1">' +
-                        '<i class="fa-solid fa-shield-halved" style="color:#4ade80;"></i>' +
-                        '<span style="font-weight:700;color:#4ade80;font-size:.88rem;">A2P 10DLC Registered</span>' +
-                        '<span style="font-size:.75rem;color:' + _tc.textMut + ';margin-left:4px;">' + registeredCount + '/' + totalSms + ' numbers</span>' +
+                        '<i class="fa-solid fa-shield-halved sms-a2p-icon"></i>' +
+                        '<span class="sms-a2p-title">A2P 10DLC Registered</span>' +
+                        '<span class="sms-a2p-summary-count">' + registeredCount + '/' + totalSms + ' numbers</span>' +
                     '</div>' +
-                    '<div style="font-size:.75rem;color:' + _tc.textMut + ';line-height:1.6;">' +
+                    '<div class="sms-a2p-summary-desc">' +
                         'All SMS numbers are registered for A2P 10DLC compliance. Messages are delivered at full throughput without carrier filtering.' +
                     '</div></div>';
             } else {
                 // A2P approved but some numbers not in the messaging service
                 const unregisteredCount = totalSms - registeredCount;
-                el.innerHTML = '<div style="padding:14px;background:rgba(255,165,0,0.06);border:1px solid rgba(255,165,0,0.2);border-radius:10px;">' +
+                el.innerHTML = '<div class="sms-a2p-summary-warn">' +
                     '<div class="d-flex align-items-center gap-2 mb-1">' +
-                        '<i class="fa-solid fa-triangle-exclamation" style="color:#ffa500;"></i>' +
-                        '<span style="font-weight:700;color:#ffa500;font-size:.88rem;">' + unregisteredCount + ' Number' + (unregisteredCount !== 1 ? 's' : '') + ' Not A2P Registered</span>' +
+                        '<i class="fa-solid fa-triangle-exclamation sms-a2p-icon"></i>' +
+                        '<span class="sms-a2p-title">' + unregisteredCount + ' Number' + (unregisteredCount !== 1 ? 's' : '') + ' Not A2P Registered</span>' +
                     '</div>' +
-                    '<div style="font-size:.75rem;color:' + _tc.textMut + ';line-height:1.6;">' +
-                        'Your A2P brand and campaign are approved, but <strong style="color:#ffa500;">' + unregisteredCount + ' of ' + totalSms + '</strong> SMS numbers are not yet added to the messaging service. ' +
-                        'Click <strong style="color:#00ff88;">Add to A2P</strong> next to each unregistered number to register it. Unregistered numbers may have messages filtered by carriers.' +
+                    '<div class="sms-a2p-summary-desc">' +
+                        'Your A2P brand and campaign are approved, but <strong class="sms-a2p-icon">' + unregisteredCount + ' of ' + totalSms + '</strong> SMS numbers are not yet added to the messaging service. ' +
+                        'Click <strong class="sms-num-compliant">Add to A2P</strong> next to each unregistered number to register it. Unregistered numbers may have messages filtered by carriers.' +
                     '</div></div>';
             }
         } else if (brandStatus && brandStatus !== 'FAILED') {
             el.style.display = 'block';
-            el.innerHTML = '<div style="padding:14px;background:rgba(255,165,0,0.06);border:1px solid rgba(255,165,0,0.2);border-radius:10px;">' +
+            el.innerHTML = '<div class="sms-a2p-summary-warn">' +
                 '<div class="d-flex align-items-center gap-2 mb-1">' +
-                    '<i class="fa-solid fa-clock" style="color:#ffa500;"></i>' +
-                    '<span style="font-weight:700;color:#ffa500;font-size:.88rem;">A2P Registration In Progress</span>' +
+                    '<i class="fa-solid fa-clock sms-a2p-icon"></i>' +
+                    '<span class="sms-a2p-title">A2P Registration In Progress</span>' +
                 '</div>' +
-                '<div style="font-size:.75rem;color:' + _tc.textMut + ';line-height:1.6;">' +
+                '<div class="sms-a2p-summary-desc">' +
                     'Brand: ' + brandStatus + (campaignStatus ? ' &bull; Campaign: ' + campaignStatus : '') +
-                    '. Check the <strong style="color:#a78bfa;cursor:pointer;" onclick="switchConfigPanel(\'a2p\')">A2P 10DLC</strong> tab for details.' +
+                    '. Check the <strong class="sms-num-reg-a2p" style="border:none;background:none;padding:0;cursor:pointer;" onclick="switchConfigPanel(\'a2p\')">A2P 10DLC</strong> tab for details.' +
                 '</div></div>';
         } else {
             el.style.display = 'block';
-            el.innerHTML = '<div style="padding:14px;background:rgba(239,68,68,0.04);border:1px solid rgba(239,68,68,0.12);border-radius:10px;">' +
+            el.innerHTML = '<div class="sms-a2p-summary-err">' +
                 '<div class="d-flex align-items-center gap-2 mb-1">' +
-                    '<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i>' +
-                    '<span style="font-weight:700;color:#ef4444;font-size:.88rem;">A2P Registration Required</span>' +
+                    '<i class="fa-solid fa-triangle-exclamation sms-a2p-icon"></i>' +
+                    '<span class="sms-a2p-title">A2P Registration Required</span>' +
                 '</div>' +
-                '<div style="font-size:.75rem;color:' + _tc.textMut + ';line-height:1.6;">' +
+                '<div class="sms-a2p-summary-desc">' +
                     'Your numbers are not registered for A2P 10DLC. Without registration, SMS messages may be filtered or blocked by carriers. ' +
-                    '<strong style="color:#a78bfa;cursor:pointer;" onclick="switchConfigPanel(\'a2p\')">Register now &rarr;</strong>' +
+                    '<strong class="sms-num-reg-a2p" style="border:none;background:none;padding:0;cursor:pointer;" onclick="switchConfigPanel(\'a2p\')">Register now &rarr;</strong>' +
                 '</div></div>';
         }
     }
