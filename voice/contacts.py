@@ -7,6 +7,7 @@ from datetime import datetime
 import requests as http_requests
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
+from ghl_auth import jwt_or_session_required
 
 from blueprints.team import require_permission
 from db import (
@@ -102,7 +103,7 @@ def _get_custom_field_defs(location_id: str, headers: dict) -> dict:
 
 
 @contacts_bp.route('/voice/contact/<contact_id>', methods=['GET'])
-@login_required
+@jwt_or_session_required
 def get_contact_detail(contact_id):
     """Fetch full GHL contact details including notes and tags."""
     conn = get_db_connection()

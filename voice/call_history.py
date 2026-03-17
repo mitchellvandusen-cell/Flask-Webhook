@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 import pytz
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
+from ghl_auth import jwt_or_session_required
 
 
 import twilio_provisioning
@@ -37,7 +38,7 @@ call_history_bp = Blueprint('voice_call_history', __name__)
 # ──────────────────────────────────────────────────────────────
 
 @call_history_bp.route('/voice/call-status/<call_sid>', methods=['GET'])
-@login_required
+@jwt_or_session_required
 def get_call_status(call_sid):
     """Poll call status for the dialer queue."""
     if call_sid in active_calls:
@@ -64,7 +65,7 @@ def get_call_status(call_sid):
 # ──────────────────────────────────────────────────────────────
 
 @call_history_bp.route('/voice/hangup', methods=['POST'])
-@login_required
+@jwt_or_session_required
 def hangup_active_call():
     """Hang up the currently active call."""
     data = request.json or {}
@@ -135,7 +136,7 @@ def hangup_active_call():
 # ──────────────────────────────────────────────────────────────
 
 @call_history_bp.route('/voice/takeover', methods=['POST'])
-@login_required
+@jwt_or_session_required
 def voice_takeover():
     """
     Let a human agent take over an active AI call.
@@ -340,7 +341,7 @@ def voice_transfer():
 # ──────────────────────────────────────────────────────────────
 
 @call_history_bp.route('/voice/call-disposition', methods=['POST'])
-@login_required
+@jwt_or_session_required
 def set_call_disposition():
     """Save a disposition for a completed call."""
     data = request.json or {}

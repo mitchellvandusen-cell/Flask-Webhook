@@ -10427,3 +10427,71 @@ body.light-theme .coming-soon-overlay .coming-soon-label {
 body.light-theme .coming-soon-overlay .coming-soon-sub { color: var(--lt-text-muted); }
 body.light-theme .download-app-card i { color: var(--lt-accent); }
 body.light-theme .download-app-card .app-store-name { color: var(--lt-text-muted); }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   GHL EMBED MODE — hide sidebar/topbar, full-width content, compact tab bar
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+body.ghl-embed #mainSidebar,
+body.ghl-embed .dash-topbar,
+body.ghl-embed #mobileBottomNav { display: none !important; }
+
+body.ghl-embed .main-wrapper {
+    margin-left: 0 !important;
+    padding-top: 0 !important;
+    width: 100% !important;
+}
+
+/* Compact horizontal tab bar */
+.ghl-embed-tabs {
+    display: flex;
+    gap: 2px;
+    padding: 6px 12px;
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-bottom: 1px solid var(--glass-border-bottom);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+.ghl-embed-tabs::-webkit-scrollbar { display: none; }
+
+.ghl-embed-tab {
+    flex-shrink: 0;
+    padding: 6px 14px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: rgba(255,255,255,0.6);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+.ghl-embed-tab:hover {
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.85);
+}
+.ghl-embed-tab.active {
+    background: var(--accent-dim);
+    color: var(--accent);
+}
+
+/* Light theme overrides for embed tab bar */
+body.light-theme .ghl-embed-tabs {
+    background: rgba(255,255,255,0.85);
+    border-bottom-color: var(--lt-border);
+}
+body.light-theme .ghl-embed-tab {
+    color: var(--lt-text-muted);
+}
+body.light-theme .ghl-embed-tab:hover {
+    background: rgba(0,0,0,0.04);
+    color: var(--lt-text-primary);
+}
+body.light-theme .ghl-embed-tab.active {
+    background: var(--lt-accent-bg);
+    color: var(--lt-accent);
+}

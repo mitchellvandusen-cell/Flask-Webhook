@@ -310,6 +310,12 @@ def dashboard():
         except Exception as _e:
             logger.warning(f"[dashboard] Primary number auto-sync failed: {_e}")
 
+    # GHL embed mode — hide sidebar/topbar, show compact tab bar
+    embed_mode = request.args.get('embed') == '1'
+    initial_tab = request.args.get('tab', 'voicedialer') if embed_mode else ''
+    embed_contact_id = request.args.get('contact_id', '') if embed_mode else ''
+    embed_dial_contacts = request.args.get('dial_contacts', '') if embed_mode else ''
+
     return render_template('dashboard.html',
         form=form,
         access_token_display=access_token_display,
@@ -329,6 +335,10 @@ def dashboard():
         crm_config_fields=CRM_CONFIG_FIELDS,
         crm_display_names=CRM_DISPLAY_NAMES,
         voice_config=voice_config,
+        embed_mode=embed_mode,
+        initial_tab=initial_tab,
+        embed_contact_id=embed_contact_id,
+        embed_dial_contacts=embed_dial_contacts,
     )
 
 

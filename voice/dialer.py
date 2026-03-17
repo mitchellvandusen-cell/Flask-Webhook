@@ -9,6 +9,7 @@ import httpx
 import requests as http_requests
 from flask import Blueprint, request, Response, jsonify
 from flask_login import login_required, current_user
+from ghl_auth import jwt_or_session_required
 
 import twilio_provisioning
 from db import get_db_connection, return_db_connection
@@ -866,7 +867,7 @@ def export_contacts():
 
 
 @dialer_bp.route('/voice/dial', methods=['POST'])
-@login_required
+@jwt_or_session_required
 @require_permission('can_dial')
 def dial_contact():
     """
@@ -1106,7 +1107,7 @@ def dial_contact():
 
 
 @dialer_bp.route('/voice/multi-dial', methods=['POST'])
-@login_required
+@jwt_or_session_required
 @require_permission('can_dial')
 def multi_dial():
     """
@@ -1354,7 +1355,7 @@ def multi_dial():
 
 
 @dialer_bp.route('/voice/active-lines', methods=['GET'])
-@login_required
+@jwt_or_session_required
 def get_active_lines():
     """Return count and details of currently active call lines for this user."""
     conn = get_db_connection()
@@ -1398,7 +1399,7 @@ def get_active_lines():
 
 
 @dialer_bp.route('/voice/multi-hangup', methods=['POST'])
-@login_required
+@jwt_or_session_required
 def multi_hangup():
     """Hang up multiple active calls at once."""
     data = request.json or {}
@@ -1454,7 +1455,7 @@ def multi_hangup():
 
 
 @dialer_bp.route('/voice/multi-status', methods=['POST'])
-@login_required
+@jwt_or_session_required
 def multi_call_status():
     """Poll status of multiple calls at once (reduces HTTP overhead for multi-line)."""
     data = request.json or {}
