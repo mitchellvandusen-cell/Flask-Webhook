@@ -1964,6 +1964,26 @@ def init_db() -> bool:
             conn.rollback()
             logger.debug(f"workflow tables migration note: {e}")
 
+        # ── GHL trigger subscriptions ──
+        try:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ghl_trigger_subscriptions (
+                    id SERIAL PRIMARY KEY,
+                    location_id TEXT NOT NULL,
+                    trigger_type TEXT NOT NULL,
+                    webhook_url TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(location_id, trigger_type)
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_trig_loc ON ghl_trigger_subscriptions (location_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_trig_type ON ghl_trigger_subscriptions (trigger_type)")
+            conn.commit()
+            logger.info("✅ Migration: ghl_trigger_subscriptions table ready")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"ghl_trigger_subscriptions migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)
