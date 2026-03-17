@@ -122,28 +122,6 @@ def jwt_required(f):
     return decorated
 
 
-def jwt_or_session_required(f):
-    """Decorator that accepts either a JWT token OR a Flask session.
-    For JWT: sets request._ghl_jwt. For session: uses current_user as normal.
-    This allows existing voice endpoints to work with both Custom JS and dashboard."""
-    @functools.wraps(f)
-    def decorated(*args, **kwargs):
-        # Try JWT first
-        token = _get_jwt_from_request()
-        if token:
-            payload = _decode_jwt(token)
-            if not payload:
-                return jsonify({"error": "Invalid or expired token"}), 401
-            request._ghl_jwt = payload
-            return f(*args, **kwargs)
-        # Fall back to Flask session
-        if current_user and current_user.is_authenticated:
-            request._ghl_jwt = None
-            return f(*args, **kwargs)
-        return jsonify({"error": "Authentication required"}), 401
-    return decorated
-
-
 def _get_location_id():
     """Get location_id from JWT payload or current_user."""
     jwt_payload = getattr(request, '_ghl_jwt', None)
@@ -258,6 +236,7 @@ def ghl_auth_token():
     is_admin = email.lower() in [e.lower() for e in ADMIN_EMAILS]
     # Agency sub-users inherit subscription from parent — treat as subscribed
     is_sub_user = bool(subscriber.get('parent_agency_email'))
+    # 'past_due' is intentionally excluded: features are locked until payment recovers
     subscribed = (stripe_status in ('active', 'trialing')) or is_admin or is_sub_user
 
     token = _create_jwt(location_id, email, tier, subscribed=subscribed)
