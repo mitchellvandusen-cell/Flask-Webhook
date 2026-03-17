@@ -159,83 +159,240 @@ def determine_message_context(message: str, messages: List[Dict[str, str]]) -> T
 def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature]:
     """
     Keyword-based fallback for objection detection when LLM is unavailable.
-    Checks the most recent lead text for common objection patterns.
+
+    PHILOSOPHY: Think like a closer. The ONLY responses that are NOT objections
+    are: answering a question, asking a question, expressing interest, agreeing
+    to something, or providing information. EVERYTHING ELSE is some form of
+    objection — and every objection is an opportunity.
+
+    The keyword lists are intentionally broad. It is far better to classify a
+    neutral message as an objection (the LLM will handle it gracefully) than to
+    let a real objection slip through undetected (the LLM gives up).
     """
     if not text:
         return ObjectionType.NONE, ObjectionNature.NONE
 
     text_lower = text.lower().strip()
+    word_count = len(text_lower.split())
 
-    # Order matters: check most specific patterns first
-
+    # ── NOT INTERESTED — any form of "no", dismissal, disengagement ──
+    # A closer hears ALL of these as "I haven't been given a good enough reason yet"
     not_interested_kw = [
-        "not interested", "no longer interested", "no thanks", "no thank you",
-        "dont want", "don't want", "not wanting",
-        "nah im good", "nah i'm good", "no i'm good", "no im good",
-        "don't need", "dont need", "not for me",
-        "not looking", "no need", "i'll pass", "ill pass",
-        "no longer looking", "no longer need", "not anymore",
+        # Direct "not interested" variants
+        "not interested", "no longer interested", "no interest",
+        "never interested", "wasn't interested", "lost interest",
+        # Flat no / dismissals
+        "no thanks", "no thank you", "no thx", "nty",
+        "don't want", "dont want", "do not want", "not wanting",
+        "don't need", "dont need", "do not need",
+        "not for me", "not for us", "not my thing",
+        "not looking", "no longer looking", "wasn't looking",
+        "no need", "no desire",
+        # Pass / decline
+        "i'll pass", "ill pass", "i pass", "gonna pass", "going to pass",
+        "hard pass", "i decline", "i refuse", "count me out",
+        # Dismissive closers
+        "nah", "nope", "naw", "hell no", "heck no", "absolutely not",
+        "definitely not", "certainly not", "no way", "not a chance",
+        "not happening", "never", "not ever", "no sir", "no ma'am",
+        "no maam", "miss me with", "foh",
+        # "I'm good" / "I'm fine" (dismissive, not confirmatory)
+        # Handled with context check below
+        # Go away / leave me alone (softer than TCPA "do not contact")
+        "leave me alone", "go away", "buzz off", "get lost", "kick rocks",
+        "lose my number", "delete my number", "take me off your list",
+        "take me off the list", "off your list", "off the list",
+        "stop texting", "stop calling", "stop messaging", "stop contacting",
+        "quit texting", "quit calling", "quit messaging",
+        "enough already", "enough with", "give it a rest",
+        # Soft exits
+        "not anymore", "not any more", "not at this time",
+        "not right now for me", "not something i need",
+        "i don't think so", "i dont think so", "don't think so",
+        "i think i'm ok", "i think im ok", "think i'm ok",
+        "all good here", "we're all good", "we're good",
+        "not today", "no not today", "maybe some other lifetime",
+        "i have no interest", "zero interest",
+        "please don't", "please stop", "please dont",
     ]
 
-    # "i'm good" / "im good" are ONLY objections when they are the entire message
-    # or clearly dismissive (short message, no positive context).
-    # "yeah im good with 3pm" or "im good to go" are NOT objections.
-    im_good_patterns = ["i'm good", "im good"]
-    positive_context = ["good with", "good to", "good for", "good on that", "good let"]
+    # "i'm good" / "im good" / "i'm fine" — context-sensitive
+    # "yeah im good with 3pm" = positive.  "im good" by itself = dismissal.
+    im_good_patterns = ["i'm good", "im good", "i'm fine", "im fine",
+                        "we're good", "were good", "we good"]
+    positive_context = ["good with", "good to", "good for", "good on that",
+                        "good let", "fine with", "fine to", "fine for"]
     if any(p in text_lower for p in im_good_patterns):
         has_positive = any(p in text_lower for p in positive_context)
-        is_short = len(text_lower.split()) <= 4
-        if not has_positive and is_short:
-            not_interested_kw.append(text_lower)  # match itself so the check below hits
+        if not has_positive and word_count <= 6:
+            not_interested_kw.append(text_lower)
 
+    # ── SPOUSE / THIRD PARTY — deferring decision to someone else ──
+    # A closer hears: "I'm not confident enough to decide alone"
     spouse_kw = [
-        "talk to my wife", "talk to my husband", "ask my spouse", "ask my wife",
-        "ask my husband", "check with my", "run it by my", "discuss with my",
-        "talk to my partner", "other half", "talk it over", "spouse",
-        "talk to my daughter", "talk to my son", "ask my daughter", "ask my son",
-        "ask my accountant", "ask my lawyer", "ask my attorney", "ask my advisor",
-        "check with my financial", "run it by my accountant", "talk to my agent",
-        "ask my family", "talk to my mom", "talk to my dad", "ask my parents"
+        # Spouse / partner
+        "talk to my wife", "talk to my husband", "ask my wife", "ask my husband",
+        "check with my wife", "check with my husband", "run it by my wife",
+        "run it by my husband", "discuss with my wife", "discuss with my husband",
+        "talk to my partner", "ask my partner", "check with my partner",
+        "my wife would", "my husband would", "wife says", "husband says",
+        "wife thinks", "husband thinks", "other half",
+        "spouse", "wifey", "hubby", "significant other",
+        "talk it over with", "talk it over first",
+        # Family
+        "talk to my family", "ask my family", "check with my family",
+        "talk to my daughter", "talk to my son", "talk to my mom", "talk to my dad",
+        "ask my daughter", "ask my son", "ask my mom", "ask my dad",
+        "ask my parents", "talk to my parents", "check with my parents",
+        "ask my kids", "talk to my kids", "run it by my family",
+        "my daughter handles", "my son handles", "my kids handle",
+        # Professional advisors
+        "ask my accountant", "check with my accountant", "run it by my accountant",
+        "talk to my accountant", "my accountant", "my cpa",
+        "ask my lawyer", "talk to my lawyer", "check with my lawyer",
+        "ask my attorney", "talk to my attorney", "check with my attorney",
+        "my financial advisor", "my advisor", "my financial planner",
+        "ask my agent", "talk to my agent", "check with my agent",
+        "my insurance guy", "my insurance gal", "my insurance person",
+        "my insurance agent", "my broker",
+        # Generic deferral
+        "need to check with", "need to talk to", "need to ask",
+        "want to check with", "want to talk to", "want to ask",
+        "gotta check with", "gotta talk to", "gotta ask",
+        "let me check with", "let me talk to", "let me ask",
+        "consult with", "get their opinion", "get his opinion", "get her opinion",
+        "see what they think", "see what he thinks", "see what she thinks",
+        "get permission", "need approval", "need their ok",
     ]
 
+    # ── PRICE / MONEY — any cost concern ──
+    # A closer hears: "You haven't shown me why it's worth it yet"
     price_kw = [
-        "too expensive", "can't afford", "cant afford", "too much money",
-        "don't have the money", "out of my budget", "pricey", "costly",
-        "not in my budget", "too much", "how much does"
+        "too expensive", "too pricey", "too costly", "too much money",
+        "too much per month", "too rich for my blood",
+        "can't afford", "cant afford", "cannot afford",
+        "don't have the money", "dont have the money", "no money",
+        "out of my budget", "not in my budget", "over my budget",
+        "on a fixed income", "fixed income", "tight budget",
+        "money is tight", "funds are tight", "finances are tight",
+        "barely making ends meet", "barely getting by",
+        "living paycheck to paycheck", "paycheck to paycheck",
+        "can barely pay", "can't even pay", "struggling financially",
+        "cost too much", "costs too much", "that's a lot",
+        "that's expensive", "thats expensive", "sounds expensive",
+        "more than i expected", "more than i thought",
+        "wasn't expecting that", "sticker shock",
+        "don't have that kind of", "that's steep",
+        "i don't have that", "where would i find",
+        "not worth it", "not worth the money", "waste of money",
+        "throwing money away", "rather save", "rather keep my money",
+        "can't justify", "cant justify", "hard to justify",
+        "what's the cheapest", "anything cheaper", "is there a cheaper",
+        "minimum amount", "bare minimum",
     ]
 
+    # ── ALREADY COVERED — claims existing protection ──
+    # A closer hears: "I haven't been shown the gaps in what I have"
     already_kw = [
-        "already have", "already got", "i'm covered", "im covered",
-        "have insurance", "have a policy", "taken care of", "all set",
-        "set with insurance", "good on insurance", "squared away",
+        "already have", "already got", "already covered", "already taken care of",
+        "i'm covered", "im covered", "we're covered", "were covered",
+        "have insurance", "have a policy", "got a policy",
+        "have life insurance", "got life insurance",
+        "taken care of", "all taken care of",
+        "all set", "i'm set", "im set", "we're set", "were set",
+        "set with insurance", "good on insurance",
+        "squared away", "all squared away",
         "have something through", "through my job", "through work",
-        "employer", "work provides"
+        "employer provides", "work provides", "job provides",
+        "company provides", "employer covers", "work covers",
+        "group policy", "group plan", "group coverage",
+        "my union", "union provides", "union covers",
+        "va covers", "va provides", "veterans", "military covers",
+        "tricare", "sgli",
+        "already working with someone", "already have an agent",
+        "already have a guy", "already have a gal", "already have someone",
+        "my agent handles", "my broker handles",
+        "just got a policy", "just bought", "recently purchased",
+        "just renewed", "just signed up",
+        "happy with what i have", "satisfied with", "content with",
     ]
 
+    # ── THINK ABOUT IT — stalling, delaying decision ──
+    # A closer hears: "I don't have a compelling enough reason to act NOW"
     think_kw = [
         "think about it", "think on it", "think it over", "think about this",
         "let me think", "need to think", "gotta think", "got to think",
-        "sleep on it", "sit on it", "mull it over", "consider it",
-        "need some time", "give me some time", "not sure yet", "not ready",
-        "need to process", "lot to think about", "big decision",
-        "need a minute", "need a day", "need a few days"
+        "have to think", "wanna think", "want to think",
+        "sleep on it", "sit on it", "sit with it", "mull it over",
+        "consider it", "need to consider", "let me consider",
+        "need some time", "give me some time", "give me a few days",
+        "give me a week", "give me time",
+        "not sure yet", "not sure about", "still not sure",
+        "not ready", "not ready yet", "not quite ready",
+        "not ready to commit", "not ready to decide",
+        "need to process", "lot to think about", "lot to consider",
+        "big decision", "huge decision", "major decision",
+        "need a minute", "need a day", "need a few days",
+        "need a week", "need a couple days",
+        "let me sit with", "let me process", "let me digest",
+        "no rush right", "no rush", "what's the rush", "whats the rush",
+        "no hurry", "plenty of time", "i've got time",
+        "not in a hurry", "not in a rush",
+        "get back to you", "i'll get back", "ill get back",
+        "let me get back", "circle back", "follow up later",
+        "maybe down the road", "maybe in the future",
+        "maybe next year", "maybe next month", "maybe someday",
+        "down the line", "down the road", "in the future",
+        "sometime later", "eventually", "when i'm ready",
+        "when the time is right", "when things settle",
+        "not a priority", "not a priority right now",
+        "other priorities", "bigger fish to fry",
+        "a lot going on", "lot on my plate", "lot going on",
+        "too much going on", "dealing with a lot",
+        "just not right now", "timing isn't right", "bad timing",
+        "maybe later on", "maybe some other time", "some other time",
+        "rain check", "take a rain check",
+        "i'll let you know", "ill let you know", "let you know",
+        "i'll reach out", "ill reach out", "reach out when",
+        "don't call me i'll call you", "dont call me ill call you",
     ]
 
+    # ── BUSY / TIMING — can't talk now ──
+    # A closer hears: "You caught me at a bad moment, but the door isn't closed"
     busy_kw = [
-        "busy right now", "call back later", "another time", "not a good time",
-        "bad time", "not now", "maybe later", "call me back", "reach out later",
-        "try again later", "not the best time", "in a meeting", "at work",
-        "can you call back", "text me later"
+        "busy right now", "busy at the moment", "busy today",
+        "really busy", "super busy", "slammed", "swamped",
+        "call back later", "call back tomorrow", "call back next week",
+        "text back later", "text me later", "text me tomorrow",
+        "call me back", "call me later", "call me tomorrow",
+        "call me next week", "call me monday", "call me after",
+        "reach out later", "reach out tomorrow", "reach out next week",
+        "try again later", "try me later", "try me tomorrow",
+        "try again tomorrow", "try again next week",
+        "another time", "some other time",
+        "not a good time", "not the best time", "bad time",
+        "not now", "can't talk", "cant talk", "can't right now",
+        "cant right now", "not right now",
+        "in a meeting", "at work", "at the office", "on the job",
+        "driving", "in the car", "behind the wheel",
+        "with a client", "with a customer", "with a patient",
+        "in the middle of something", "in the middle of dinner",
+        "eating", "at dinner", "at lunch",
+        "about to go", "heading out", "on my way out",
+        "about to leave", "gotta go", "gotta run", "got to go",
+        "at the gym", "working out", "exercising",
+        "with my kids", "with the kids", "with family",
+        "on vacation", "traveling", "out of town",
+        "maybe later", "maybe tomorrow", "maybe next week",
+        "can you call back", "could you call back",
+        "hit me up later", "hmu later",
+        "catch me later", "catch me tomorrow",
     ]
 
-    if any(kw in text_lower for kw in not_interested_kw):
-        return ObjectionType.NOT_INTERESTED, ObjectionNature.FEAR_BASED
+    # ── Check order: most specific first, then broad categories ──
 
     if any(kw in text_lower for kw in spouse_kw):
         return ObjectionType.SPOUSE_PARTNER, ObjectionNature.FEAR_BASED
-
-    if any(kw in text_lower for kw in think_kw):
-        return ObjectionType.THINK_ABOUT_IT, ObjectionNature.FEAR_BASED
 
     if any(kw in text_lower for kw in price_kw):
         return ObjectionType.PRICE_MONEY, ObjectionNature.LOGISTICAL
@@ -243,8 +400,45 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
     if any(kw in text_lower for kw in already_kw):
         return ObjectionType.ALREADY_COVERED, ObjectionNature.LOGISTICAL
 
+    if any(kw in text_lower for kw in think_kw):
+        return ObjectionType.THINK_ABOUT_IT, ObjectionNature.FEAR_BASED
+
     if any(kw in text_lower for kw in busy_kw):
         return ObjectionType.BUSY_TIMING, ObjectionNature.FEAR_BASED
+
+    # Check not_interested AFTER the more specific categories
+    # so "too expensive, not interested" catches price first
+    if any(kw in text_lower for kw in not_interested_kw):
+        return ObjectionType.NOT_INTERESTED, ObjectionNature.FEAR_BASED
+
+    # ── CATCH-ALL: short negative/dismissive responses ──
+    # A closer's mindset: if it's short and not clearly positive or a question,
+    # it's some form of resistance. Better to handle it than to ignore it.
+    if word_count <= 5 and not text_lower.endswith("?"):
+        # Single word or very short negatives the lists above might miss
+        short_negative_patterns = [
+            r'^no+$',           # "no", "nooo", "noooo"
+            r'^nah+$',          # "nah", "nahh"
+            r'^nope+$',         # "nope", "nopee"
+            r'^naw+$',          # "naw"
+            r'^bye',            # "bye", "bye bye", "byeee"
+            r'^later$',         # "later" by itself
+            r'^whatever$',      # "whatever"
+            r'^k$',             # not an objection — just acknowledgment
+            r'^wrong number',   # wrong number
+            r'^who is this',    # who is this — not objection, just confused
+        ]
+        # These short replies are dismissals → NOT_INTERESTED
+        dismissal_patterns = [
+            r'^no+$', r'^nah+$', r'^nope+$', r'^naw+$',
+            r'^bye', r'^goodbye', r'^later$', r'^whatever$',
+            r'^lol no', r'^lmao no', r'^ha+\s+no',
+            r'^not really', r'^hardly', r'^doubt it',
+            r'^why would i', r'^why should i',
+            r'^no\s+i', r'^nah\s+i',
+        ]
+        if any(re.search(p, text_lower) for p in dismissal_patterns):
+            return ObjectionType.NOT_INTERESTED, ObjectionNature.FEAR_BASED
 
     return ObjectionType.NONE, ObjectionNature.NONE
 
@@ -525,19 +719,23 @@ INTENT FIELDS (true/false):
 - articulated_impact: the lead has expressed WHY coverage matters to them personally, what would happen to their family without it, the consequences of the gap, or emotional weight behind their need. Not just mentioning a goal but explaining why it is important to them or what would happen if they did not address it
 
 OBJECTION FIELDS (based on the MOST RECENT lead message only):
-- objection_type: one of "none", "not_interested", "spouse_partner", "price_money", "already_covered", "busy_timing", "think_about_it"
-  "not_interested" = any form of no, pass, not interested, don't need this
-  "spouse_partner" = needs to consult spouse, partner, family member, accountant, lawyer, or any third party before deciding
-  "price_money" = concerns about cost, affordability, budget, expense
-  "already_covered" = claims to already have life insurance or be covered
-  "busy_timing" = too busy, bad time, call back later, not now
-  "think_about_it" = needs to think about it, not sure yet, wants time to decide, big decision, sleep on it
-  "none" = no objection, or message is positive/neutral/engaged
+- objection_type: one of "not_interested", "spouse_partner", "price_money", "already_covered", "busy_timing", "think_about_it", "none"
 
-- objection_nature: one of "none", "fear_based", "logistical"
-  "fear_based" = emotional resistance, avoidance, uncertainty, deflecting the decision
-  "logistical" = practical concern about money movement, scheduling, or existing arrangements
-  "none" = no objection present
+CLASSIFICATION MINDSET — Think like a top sales closer:
+The ONLY messages that are "none" are: answering your question, asking their own question, expressing genuine interest, agreeing to something, or providing information you asked for. EVERYTHING ELSE is an objection. When in doubt, it IS an objection. A closer never lets resistance slip by undetected.
+
+  "not_interested" = ANY form of no, decline, dismissal, disengagement, negativity, apathy, or rejection. This includes: "no thanks", "not interested", "no longer interested", "I'm good", "nah", "nope", "pass", "don't need this", "not for me", "whatever", "bye", "leave me alone", "lose my number", "stop texting/calling me", "go away", short flat "no" replies, sarcastic dismissals, or ANY response that signals the lead does not want to continue. If you are unsure whether something is an objection or a "none", classify it as "not_interested" — it is better to handle an objection that wasn't there than to miss one.
+  "spouse_partner" = deferring to ANY third party: spouse, partner, family member, parent, child, accountant, lawyer, financial advisor, insurance agent, broker, or anyone else. "Let me check with...", "I need to ask...", "My wife/husband...", "My accountant says..."
+  "price_money" = ANY concern about cost, affordability, budget, value, or money. "Too expensive", "can't afford", "on a fixed income", "not worth it", "rather save my money", "that's steep", "money is tight"
+  "already_covered" = claims to have ANY existing protection: employer coverage, group plan, VA, another policy, another agent, "I'm covered", "already have", "all set", "taken care of", "working with someone", "happy with what I have"
+  "busy_timing" = can't engage RIGHT NOW but not rejecting outright: "busy", "at work", "driving", "in a meeting", "call back later", "text me tomorrow", "not a good time", "maybe later" (when clearly about timing, not interest)
+  "think_about_it" = stalling/delaying the decision: "need to think", "sleep on it", "not ready", "big decision", "get back to you", "down the road", "maybe someday", "not a priority", "lot going on", "timing isn't right", "rain check", "I'll let you know"
+  "none" = ONLY use when the lead is genuinely positive, engaged, asking questions, answering questions, or providing requested information. A short "ok" or "k" in response to information is "none." But a short "ok" after a pitch is "think_about_it" (passive disengagement).
+
+- objection_nature: one of "fear_based", "logistical", "none"
+  "fear_based" = emotional resistance, avoidance, uncertainty, deflecting, fear of commitment, fear of being sold to, fear of making a mistake. MOST objections are fear-based even when they sound logical.
+  "logistical" = genuinely practical: real budget constraint (not value objection), existing arrangement they are satisfied with, scheduling conflict
+  "none" = no objection present (only when objection_type is also "none")
 
 Context clues:
 "I already have something through work" = already_covered + logistical
@@ -546,6 +744,11 @@ Context clues:
 "Let me talk to my wife first" = spouse_partner + fear_based
 "I'm slammed this week" = busy_timing + fear_based
 "Yeah sounds good" = none + none (positive response)
+"no" / "nah" / "nope" = not_interested + fear_based
+"whatever" / "bye" / "later" = not_interested + fear_based
+"maybe" (by itself) = think_about_it + fear_based
+"I'll think about it and get back to you" = think_about_it + fear_based
+"My wife handles the finances" = spouse_partner + fear_based
 """
 
         try:
@@ -584,13 +787,13 @@ Context clues:
             "appointment", "call", "talk", "meet", "time work", "works for me"
         ]
         stop_keywords = [
-            "stop", "unsubscribe", "remove", "blocked", "cancel", "quit", "end",
-            "leave me alone", "do not contact", "don't contact",
+            # ── TCPA-mandated stop words ONLY ──
+            # Everything else is an objection the bot should handle.
+            "stop", "unsubscribe", "cancel",
+            "remove me", "opt out",
+            "do not contact", "don't contact",
             "do not call", "don't call", "do not text", "don't text",
-            "do not message", "don't message", "remove me", "take me off",
-            "opt out", "lose my number", "delete my number",
-            # NOTE: "not interested" is NOT a stop keyword — it's an objection
-            # handled by the objection framework with persistence and angle tracking.
+            "do not message", "don't message",
         ]
 
         obj_type, obj_nature = detect_objection_keywords(recent_lead_text)

@@ -359,16 +359,15 @@ def process_webhook_task(payload: dict):
         # If the lead says stop/unsubscribe/blocked/leave me alone/etc, we MUST stop messaging.
         # Check BEFORE booking or response generation.
         TCPA_STOP_WORDS = [
-            # Single-word opt-outs (legally mandated TCPA compliance)
-            "stop", "unsubscribe", "blocked", "cancel", "quit", "end",
-            # Phrase-based opt-outs (explicit requests to cease contact)
-            "leave me alone", "do not call", "don't call", "do not text",
-            "don't text", "do not contact", "don't contact", "do not message",
-            "don't message", "remove me", "take me off", "opt out",
-            "lose my number", "delete my number",
+            # ── LEGALLY MANDATED opt-outs ONLY ──
+            # These are the TCPA/carrier-required stop words that MUST halt messaging.
+            # Everything else is a sales objection the bot should handle.
+            "stop", "unsubscribe", "cancel",
+            # Explicit cease-contact demands (legal, not sales objections)
+            "remove me", "opt out",
+            "do not call", "don't call", "do not text", "don't text",
+            "do not contact", "don't contact", "do not message", "don't message",
             "put me on your do not call list", "do not call list",
-            # NOTE: "not interested" is intentionally NOT here — it is a sales
-            # objection handled by the conversation engine, not a legal opt-out.
         ]
         if message:
             msg_lower = message.lower()
