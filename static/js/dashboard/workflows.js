@@ -412,15 +412,15 @@
     // ── Canvas Transform ────────────────────────────────────────────────────
     function _updateCanvasTransform() {
         var canvas = document.getElementById('wfbCanvas');
-        var svg = document.getElementById('wfbSvgLayer');
         if (canvas) canvas.style.transform = 'scale(' + _zoom + ') translate(' + _panX + 'px, ' + _panY + 'px)';
-        if (svg) svg.style.transform = 'scale(' + _zoom + ') translate(' + _panX + 'px, ' + _panY + 'px)';
+        // SVG is a child of wfbCanvas — it inherits the transform automatically.
+        // Do NOT apply a separate transform to the SVG or paths will be double-transformed.
         var lvl = document.getElementById('wfbZoomLevel');
         if (lvl) lvl.textContent = Math.round(_zoom * 100) + '%';
     }
 
-    window.wfbZoomIn = function() { _zoom = Math.min(2, _zoom + 0.1); _updateCanvasTransform(); };
-    window.wfbZoomOut = function() { _zoom = Math.max(0.3, _zoom - 0.1); _updateCanvasTransform(); };
+    window.wfbZoomIn = function() { _zoom = Math.min(2, _zoom + 0.1); _updateCanvasTransform(); _updateAllConnections(); };
+    window.wfbZoomOut = function() { _zoom = Math.max(0.3, _zoom - 0.1); _updateCanvasTransform(); _updateAllConnections(); };
     window.wfbZoomFit = function() { _zoomToFit(true); };
 
     function _zoomToFit(animated) {
@@ -441,16 +441,16 @@
         _panY = -minY + 50;
         if (animated) {
             var canvas = document.getElementById('wfbCanvas');
-            var svg = document.getElementById('wfbSvgLayer');
             if (canvas) canvas.style.transition = 'transform 0.4s ease';
-            if (svg) svg.style.transition = 'transform 0.4s ease';
             _updateCanvasTransform();
+            _updateAllConnections();
             setTimeout(function() {
                 if (canvas) canvas.style.transition = '';
-                if (svg) svg.style.transition = '';
+                _updateAllConnections();
             }, 450);
         } else {
             _updateCanvasTransform();
+            _updateAllConnections();
         }
     }
 
@@ -673,11 +673,18 @@
             var delta = e.deltaY > 0 ? -0.08 : 0.08;
             _zoom = Math.min(2, Math.max(0.3, _zoom + delta));
             _updateCanvasTransform();
+            _updateAllConnections();
         }, { passive: false });
 
-        // Pan with middle mouse or space+drag
+        // Pan: left-click on empty canvas, middle-click anywhere, or space+click
+        var _spaceHeld = false;
+        document.addEventListener('keydown', function(e) { if (e.code === 'Space' && !e.target.matches('input,textarea,select')) { _spaceHeld = true; wrap.style.cursor = 'grab'; } });
+        document.addEventListener('keyup', function(e) { if (e.code === 'Space') { _spaceHeld = false; if (!_isPanning) wrap.style.cursor = ''; } });
+
         wrap.addEventListener('mousedown', function(e) {
-            if (e.button === 1 || (e.button === 0 && e.target === wrap)) {
+            // Pan triggers: middle-click, space+left-click, or left-click on empty area (not on a node)
+            var isEmptyArea = e.target === wrap || e.target === canvas || e.target.tagName === 'svg';
+            if (e.button === 1 || (e.button === 0 && _spaceHeld) || (e.button === 0 && isEmptyArea)) {
                 _isPanning = true;
                 _panStartX = e.clientX - _panX * _zoom;
                 _panStartY = e.clientY - _panY * _zoom;
@@ -691,6 +698,7 @@
                 _panX = (e.clientX - _panStartX) / _zoom;
                 _panY = (e.clientY - _panStartY) / _zoom;
                 _updateCanvasTransform();
+                _updateAllConnections();
             }
             if (_draggingNode) {
                 var wrapRect = wrap.getBoundingClientRect();
@@ -716,7 +724,7 @@
         document.addEventListener('mouseup', function(e) {
             if (_isPanning) {
                 _isPanning = false;
-                wrap.style.cursor = '';
+                wrap.style.cursor = _spaceHeld ? 'grab' : '';
             }
             if (_draggingNode) {
                 _draggingNode.el.style.zIndex = '';
@@ -747,6 +755,69 @@
         canvas.addEventListener('click', function(e) {
             if (e.target === canvas) {
                 _selectNode(null);
+            }
+        });
+
+        // ── Touch support: pinch-to-zoom + drag-to-pan ──────────────────────
+        var _touchStartDist = 0;
+        var _touchStartZoom = 1;
+        var _touchPanStartX = 0;
+        var _touchPanStartY = 0;
+        var _touchPanPanX = 0;
+        var _touchPanPanY = 0;
+
+        wrap.addEventListener('touchstart', function(e) {
+            if (e.touches.length === 2) {
+                // Pinch zoom start
+                var dx = e.touches[0].clientX - e.touches[1].clientX;
+                var dy = e.touches[0].clientY - e.touches[1].clientY;
+                _touchStartDist = Math.sqrt(dx * dx + dy * dy);
+                _touchStartZoom = _zoom;
+                e.preventDefault();
+            } else if (e.touches.length === 1) {
+                // Single finger pan — only on empty canvas area
+                var t = e.touches[0];
+                var target = document.elementFromPoint(t.clientX, t.clientY);
+                var isNode = target && target.closest('.wfb-node');
+                if (!isNode) {
+                    _touchPanStartX = t.clientX;
+                    _touchPanStartY = t.clientY;
+                    _touchPanPanX = _panX;
+                    _touchPanPanY = _panY;
+                    _isPanning = true;
+                    e.preventDefault();
+                }
+            }
+        }, { passive: false });
+
+        wrap.addEventListener('touchmove', function(e) {
+            if (e.touches.length === 2) {
+                // Pinch zoom
+                var dx = e.touches[0].clientX - e.touches[1].clientX;
+                var dy = e.touches[0].clientY - e.touches[1].clientY;
+                var dist = Math.sqrt(dx * dx + dy * dy);
+                var scale = dist / _touchStartDist;
+                _zoom = Math.min(2, Math.max(0.3, _touchStartZoom * scale));
+                _updateCanvasTransform();
+                _updateAllConnections();
+                e.preventDefault();
+            } else if (e.touches.length === 1 && _isPanning) {
+                // Single finger pan
+                var t = e.touches[0];
+                _panX = _touchPanPanX + (t.clientX - _touchPanStartX) / _zoom;
+                _panY = _touchPanPanY + (t.clientY - _touchPanStartY) / _zoom;
+                _updateCanvasTransform();
+                _updateAllConnections();
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        wrap.addEventListener('touchend', function(e) {
+            if (e.touches.length < 2) {
+                _touchStartDist = 0;
+            }
+            if (e.touches.length === 0) {
+                _isPanning = false;
             }
         });
 
