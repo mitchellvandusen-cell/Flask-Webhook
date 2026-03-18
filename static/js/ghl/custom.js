@@ -1107,108 +1107,15 @@ async function igbPollCallStatus() {
 // Live call listen stream -WebSocket audio from Twilio
 // ---------------------------------------------------------------------------
 
-// Open a WebSocket to stream live call audio for monitoring
+// Live call listening is available on the main IGB dashboard.
+// The GHL embedded view does not support WebSocket audio streaming,
+// so this stub directs the user to the dashboard instead.
 function igbOpenListenStream(callSid) {
-    igbStopListenStream();
-    try {
-        const wsUrl = igbServerUrl.replace('https://', 'wss://').replace('http://', 'ws://')
-            + '/voice/listen-stream?call_sid=' + callSid
-            + '&key=' + encodeURIComponent(igbKey);
-        igbListenSocket = new WebSocket(wsUrl);
-        igbListenSocket.binaryType = 'arraybuffer';
-        let audioContext = null;
-        let nextPlayAt = 0;
-
-        // Pre-compute a lookup table that converts mulaw-encoded byte values
-        // (0-255) to PCM float samples (-1.0 to 1.0) for audio playback.
-        // Mulaw is the codec used by Twilio for telephony audio streams.
-        const mulawLookup = new Float32Array(256);
-        for (let idx = 0; idx < 256; idx++) {
-            const inv = 255 - idx;
-            const sign = (inv >= 128) ? -1 : 1;
-            const exponent = Math.floor((inv % 128) / 16);
-            const mantissa = inv % 16;
-            const magnitude = ((mantissa * 2) + 33) * Math.pow(2, exponent + 2);
-            mulawLookup[idx] = sign * magnitude / 32768.0;
-        }
-        igbListenSocket.onopen = () => {
-            igbLog('Live listen connected');
-            igbShowToast('Listening to call...', 'info');
-            try {
-                igbListenSocket.send(JSON.stringify({ call_sid: callSid }));
-            } catch (sendErr) {
-                igbLog('Listen stream send error: ' + sendErr);
-            }
-            try {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 8000 });
-                nextPlayAt = audioContext.currentTime;
-            } catch (audioError) {
-                igbLog('AudioContext unavailable: ' + audioError);
-            }
-        };
-        igbListenSocket.onmessage = async (event) => {
-            let msg;
-            try {
-                msg = JSON.parse(event.data);
-            } catch (e) {
-                return;
-            }
-            if (msg.status === 'call_ended') {
-                igbLog('Listen stream: call ended');
-                igbStopListenStream();
-                return;
-            }
-            if (!msg.audio || !audioContext) {
-                return;
-            }
-            // Twilio sends audio as a standard base64-encoded string.
-            // Decode it into raw bytes so we can convert mulaw to PCM for playback.
-            let mulawBytes;
-            try {
-                const rawBinary = atob(msg.audio);
-                mulawBytes = new Uint8Array(rawBinary.length);
-                for (let j = 0; j < rawBinary.length; j++) {
-                    mulawBytes[j] = rawBinary.codePointAt(j);
-                }
-            } catch (e) {
-                return;
-            }
-            const floatSamples = new Float32Array(mulawBytes.length);
-            for (let i = 0; i < mulawBytes.length; i++) {
-                floatSamples[i] = mulawLookup[mulawBytes[i]];
-            }
-            const buffer = audioContext.createBuffer(1, floatSamples.length, 8000);
-            buffer.getChannelData(0).set(floatSamples);
-            const source = audioContext.createBufferSource();
-            source.buffer = buffer;
-            source.connect(audioContext.destination);
-            const now = audioContext.currentTime;
-            if (nextPlayAt < now) {
-                nextPlayAt = now;
-            }
-            source.start(nextPlayAt);
-            nextPlayAt += buffer.duration;
-        };
-        igbListenSocket.onclose = () => {
-            igbLog('Live listen disconnected');
-            if (audioContext) {
-                audioContext.close().catch(() => {});
-                audioContext = null;
-            }
-        };
-        igbListenSocket.onerror = () => {
-            igbLog('Live listen error');
-        };
-    } catch (e) {
-        igbLog('Listen stream error: ' + e);
-    }
+    igbShowToast('Live listen is available on the IGB Dashboard', 'info');
 }
+
 function igbStopListenStream() {
-    if (igbListenSocket) {
-        igbListenSocket.onclose = null;
-        igbListenSocket.close();
-        igbListenSocket = null;
-    }
+    // No-op in GHL context
 }
 // ---------------------------------------------------------------------------
 // Top navigation bar injection
