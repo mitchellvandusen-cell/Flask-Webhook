@@ -85,7 +85,8 @@ def generate_strategic_directive(
         f"objection={logic.objection_type.value}/{logic.objection_nature.value} | "
         f"buying_signal={logic.buying_signal.value} | "
         f"impact={logic.articulated_impact} | "
-        f"consecutive_bot={logic.consecutive_bot_messages} | lead_count={logic.conversation_count}"
+        f"consecutive_bot={logic.consecutive_bot_messages} | rapport_turns={logic.consecutive_rapport_turns} | "
+        f"lead_count={logic.conversation_count}"
     )
     if logic.insurance_context and logic.insurance_context.guidance_note:
         logger.info(f"Director insurance_ctx | {contact_id} | {logic.insurance_context.guidance_note[:200]}")
@@ -377,6 +378,10 @@ def _build_tactical_guidance(logic: LogicSignal, stage_value: str, first_name: s
     if stage_value == ConversationStage.OBJECTION_HANDLING.value:
         return _build_objection_guidance(logic, bot_settings or {}, objection_log=objection_log or [])
 
+    # --- RAPPORT ---
+    if stage_value == ConversationStage.RAPPORT.value:
+        return _build_rapport_guidance(logic, first_name)
+
     # --- QUALIFYING / DISCOVERY ---
     return _build_qualifying_guidance(logic, first_name, full_lower)
 
@@ -628,6 +633,64 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
 
     return header + (
         "They raised a concern. Figure out what is really behind it."
+    )
+
+
+# ═══════════════════════════════════════════════════
+# RAPPORT GUIDANCE
+# ═══════════════════════════════════════════════════
+
+def _build_rapport_guidance(logic: LogicSignal, first_name: str) -> str:
+    """
+    Build tactical guidance for the rapport stage.
+
+    Rapport is NOT filler. It is the trust-building layer that separates
+    a human sales conversation from a bot interrogation. The lead said
+    something personal, conversational, or off-topic — acknowledge it,
+    connect as a person, then naturally steer back toward qualifying.
+
+    Max 2 consecutive rapport turns before hard pivot to qualifying.
+    """
+    turns = logic.consecutive_rapport_turns
+
+    if turns == 0:
+        # First rapport turn — lean into it, be a real person
+        return (
+            "RAPPORT: They said something personal or conversational. This is gold.\n\n"
+            "WHAT TO DO:\n"
+            "1. Respond to what THEY said. Not what you want to talk about. What THEY said.\n"
+            "2. Match their energy. If they're joking, be light. If they're sharing something "
+            "real, acknowledge it genuinely.\n"
+            "3. Share something briefly about yourself or find common ground. You are a person, "
+            "not a question machine. One sentence of genuine connection goes further than "
+            "five qualifying questions.\n"
+            "4. End with a natural bridge — a question or comment that connects what they said "
+            "back to their life situation. Not a hard pivot to insurance. A bridge.\n\n"
+            "WHAT NOT TO DO:\n"
+            "- Do not ignore what they said and ask a qualifying question\n"
+            "- Do not say 'that's great, anyway about your coverage...'\n"
+            "- Do not treat this as wasted time. This IS the sale.\n"
+            "- Do not be fake. If you cannot relate, ask them more about it.\n\n"
+            "The goal is not to stay in rapport forever. The goal is to earn enough trust "
+            "that when you DO ask about their situation, they actually answer honestly."
+        )
+
+    # turns == 1 — second rapport turn, start bridging
+    return (
+        "RAPPORT (turn 2): Good — you built some connection. Now bridge back.\n\n"
+        "WHAT TO DO:\n"
+        "1. Acknowledge what they just said naturally (one sentence, not a speech).\n"
+        "2. Use what you learned about them to transition into a qualifying question. "
+        "Connect it to something they told you. If they mentioned kids, ask about protecting them. "
+        "If they talked about work stress, ask what keeps them up at night. If they shared a hobby, "
+        "find the thread that connects to their life situation.\n"
+        "3. The transition should feel like a conversation flowing, not a subject change.\n\n"
+        "WHAT NOT TO DO:\n"
+        "- Do not stay in rapport for a third turn. You have built enough trust.\n"
+        "- Do not make a hard subject change. The bridge should feel natural.\n"
+        "- Do not ask a generic qualifying question. Use what they gave you.\n\n"
+        "You earned some trust. Now use it. Ask something real about their situation "
+        "that connects to what they just told you."
     )
 
 

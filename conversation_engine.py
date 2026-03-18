@@ -28,6 +28,7 @@ if XAI_API_KEY:
 
 class ConversationStage(Enum):
     INITIAL_OUTREACH    = "initial_outreach"
+    RAPPORT             = "rapport"
     QUALIFYING          = "qualifying"
     OBJECTION_HANDLING  = "objection_handling"
     BOOKING             = "booking"
@@ -107,6 +108,7 @@ class LogicSignal:
     buying_signal: BuyingSignalType = BuyingSignalType.NONE
     insurance_context: InsuranceContext = None
     too_deep_for_text: bool = False        # True = stop texting details, book appointment
+    consecutive_rapport_turns: int = 0     # How many recent lead messages had zero qualifying content
 
 
 # ===================================
@@ -154,6 +156,40 @@ def determine_message_context(message: str, messages: List[Dict[str, str]]) -> T
         return MessageContext.COLD_OUTBOUND, 0
 
     return MessageContext.FOLLOW_UP_NO_REPLY, consecutive
+
+
+def _count_consecutive_rapport_turns(messages: List[Dict[str, str]]) -> int:
+    """
+    Count how many recent consecutive lead messages had ZERO qualifying content.
+    Walks backward through lead messages. Stops counting when a lead message
+    contains qualifying keywords (insurance, coverage, family, goals, etc.).
+    """
+    qualifying_signals = [
+        # Coverage / product
+        "policy", "coverage", "term", "whole life", "iul", "universal", "insurance",
+        "covered", "premium", "rates", "quote", "plan",
+        # Needs / goals
+        "need", "want", "looking for", "interested in", "protect", "mortgage",
+        "family", "kids", "wife", "husband", "spouse", "children", "parents",
+        "beneficiary", "funeral", "burial", "estate",
+        # Engagement / booking
+        "book", "schedule", "appointment", "call", "meet", "talk",
+        "sounds good", "let's do", "sign me up", "what's next",
+        # Obstacles / objections (these are qualifying-relevant, not rapport)
+        "expensive", "afford", "already have", "think about it", "busy",
+        "not interested", "no thanks",
+    ]
+
+    count = 0
+    for msg in reversed(messages):
+        if msg['role'] != 'lead':
+            continue
+        text = msg['text'].lower()
+        has_qualifying = any(kw in text for kw in qualifying_signals)
+        if has_qualifying:
+            break
+        count += 1
+    return count
 
 
 def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature]:
@@ -852,6 +888,21 @@ Context clues:
     # ─── Depth guard: too many technical questions = book appointment ───
     too_deep = bool(ins_ctx.guidance_note and "DEPTH GUARD" in ins_ctx.guidance_note)
 
+    # ─── Rapport turn tracking ───
+    rapport_turns = _count_consecutive_rapport_turns(messages) if messages else 0
+
+    # ─── Check if current message has ANY qualifying substance ───
+    has_qualifying_substance = (
+        cls.get("has_coverage", False)
+        or cls.get("needs_coverage", False)
+        or cls.get("mentioned_goal", False)
+        or cls.get("mentioned_obstacle", False)
+        or cls.get("ready_to_book", False)
+        or cls.get("articulated_impact", False)
+        or buying_signal != BuyingSignalType.NONE
+        or objection_type != ObjectionType.NONE
+    )
+
     # ─── Stage logic (priority order) ───
     stage = ConversationStage.QUALIFYING
 
@@ -894,6 +945,18 @@ Context clues:
     elif conversation_count == 0:
         stage = ConversationStage.INITIAL_OUTREACH
 
+    elif (msg_context == MessageContext.INBOUND_REPLY
+          and not has_qualifying_substance
+          and conversation_count >= 1
+          and rapport_turns < 2):
+        # Lead is talking but NOT about insurance — this is rapport.
+        # They're being human: chit-chat, personal stories, reactions.
+        # Allow 1-2 rapport turns to build trust before pivoting back.
+        stage = ConversationStage.RAPPORT
+
+    # If rapport_turns >= 2 and no qualifying substance, stage stays QUALIFYING
+    # (the default) which forces the bot to steer back to business.
+
     return LogicSignal(
         stage=stage,
         message_context=msg_context,
@@ -911,4 +974,5 @@ Context clues:
         buying_signal=buying_signal,
         insurance_context=ins_ctx,
         too_deep_for_text=too_deep,
+        consecutive_rapport_turns=rapport_turns,
     )
