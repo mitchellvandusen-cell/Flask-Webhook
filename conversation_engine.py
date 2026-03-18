@@ -942,9 +942,9 @@ Context clues:
             "when can we meet", "when can we talk", "when are you free",
             "when are you available", "what times do you have",
             "what's your availability", "what times work",
-            "works for me", "that time works", "time work",
+            "that time works", "that works for me", "those times work",
             "sign me up", "let's do it", "let's get started",
-            "I'm ready", "ready to go",
+            "I'm ready to get started", "ready to go ahead",
         ]
         stop_keywords = [
             # ── TCPA-mandated stop words ONLY ──
@@ -959,10 +959,26 @@ Context clues:
         obj_type, obj_nature = detect_objection_keywords(recent_lead_text)
 
         impact_keywords = [
+            # Emotional weight / fear
             "important to me", "worry", "worried", "scared", "what if",
+            "keep me up", "can't sleep", "burden", "devastating", "struggle",
+            "terrif", "afraid", "fear",
+            # Consequences for family
             "my family would", "kids would", "they'd have to", "couldn't afford",
-            "leaves them", "left with nothing", "i need to make sure", "peace of mind",
-            "keep me up", "can't sleep", "burden", "devastating", "struggle"
+            "leaves them", "left with nothing", "leave them with",
+            "bad for my", "hard on my", "tough on my", "rough on my",
+            "what happens to", "what would happen", "who takes care",
+            "they'd be", "they would be", "kids would be", "wife would",
+            "husband would", "family would",
+            # Personal resolve / commitment
+            "i need to make sure", "peace of mind", "gotta make sure",
+            "have to protect", "need to protect", "want to protect",
+            "can't leave them", "don't want them to",
+            "owe it to", "for their sake", "for my kids",
+            "responsible thing", "right thing to do",
+            # Gap awareness
+            "not enough", "wouldn't be enough", "won't cover",
+            "wouldn't cover", "gaps in", "no safety net",
         ]
 
         cls = {
