@@ -25,7 +25,7 @@ from db import (
     mark_install_oauth_complete, find_marketplace_email,
 )
 from extensions import ADMIN_EMAILS, YOUR_DOMAIN
-from email_templates import _email_wrapper, _build_welcome_email
+from email_templates import _email_wrapper, _build_welcome_email, _build_agency_owner_welcome_email
 from send_email_api import send_email_via_api
 from sync_subscribers import sync_subscribers
 from token_encryption import encrypt_token, decrypt_token
@@ -812,20 +812,18 @@ def oauth_callback():
                 pass
 
         # ── Step 5-6: Determine tier and primary location ─────────────────────
-        # Agency detection is now companyId-based, not location-count-based.
+        # Agency owners: FREE — no subscription needed. They just download to get
+        # on all their agents' GHL sidebars. Agents pay for their own plans.
         # Agency owners get agency_billing row; individuals get subscribers row.
-        if is_website_user:
+        if is_agency_owner:
+            plan_tier = 'agency_owner'
+            use_agency_flow = True
+        elif is_website_user:
             plan_tier = current_user.subscription_tier or 'individual'
-            use_agency_flow = plan_tier in ('agency_starter', 'agency_pro') or is_agency_owner
-            logger.info(
-                f"Website user: subscribed tier={plan_tier}, GHL agency={is_agency_owner}, "
-                f"using agency flow={use_agency_flow}"
-            )
+            use_agency_flow = False
         else:
             plan_tier = 'individual'
-            if is_agency_owner:
-                plan_tier = 'agency_pro'
-            use_agency_flow = is_agency_owner
+            use_agency_flow = False
 
         primary_sub = next((s for s in sub_accounts if s['id'] == primary_location_id), None)
         primary_name = primary_sub.get('name', 'Unknown Location') if primary_sub else user_name
@@ -853,8 +851,10 @@ def oauth_callback():
                 f"primary_location_id={primary_location_id}"
             )
             if use_agency_flow:
-                max_seats = 9999 if plan_tier == 'agency_pro' else 14
-                active_seats = max(0, num_subs - 1)
+                # Agency owners are FREE — no seat caps, no subscription required.
+                # They download to appear on agents' GHL sidebars. Agents pay individually.
+                max_seats = 9999
+                active_seats = 0
                 app_type = 'private' if is_private_app else ('website' if is_website_user else 'marketplace')
 
                 # For agency owners with no locationId, use companyId as location_id
@@ -1207,22 +1207,29 @@ def oauth_callback():
             except Exception as e:
                 logger.warning(f"Failed to save scope alert: {e}")
 
-        # 8c. Welcome email (uses pre-built template from email_templates.py)
+        # 8c. Welcome email — agency owners get a different email (no subscription step)
         try:
             domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
             dashboard_link = (
                 f"{domain_url}/agency-dashboard" if use_agency_flow
                 else f"{domain_url}/dashboard"
             )
-            welcome_html = _build_welcome_email(user_name, dashboard_link, domain_url)
+            if use_agency_flow:
+                welcome_html = _build_agency_owner_welcome_email(user_name, dashboard_link, domain_url)
+            else:
+                welcome_html = _build_welcome_email(user_name, dashboard_link, domain_url)
+            email_subject = (
+                "Your Agency Dashboard is Ready — InsuranceGrokBot" if use_agency_flow
+                else "Welcome to InsuranceGrokBot — Your AI Assistant is Ready"
+            )
             email_sent = send_email_via_api(
                 to_email=user_email,
-                subject="Welcome to InsuranceGrokBot — Your AI Assistant is Ready",
+                subject=email_subject,
                 html_body=welcome_html,
                 text_body=(
                     f"Welcome to InsuranceGrokBot, {user_name}! "
                     f"Dashboard: {dashboard_link} | "
-                    f"Support: {domain_url}/support | Status: {domain_url}/onboarding-status"
+                    f"Support: {domain_url}/support"
                 )
             )
             if email_sent:
