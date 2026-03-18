@@ -631,8 +631,22 @@ def checkout_pro_dialer():
 
 
 @billing_bp.route("/checkout/predictive-dialer")
+@login_required
 def checkout_predictive_dialer():
-    """Predictive Dialer plan checkout — enterprise predictive features."""
+    """Predictive Dialer checkout — AGENCY ONLY. Requires agency owner with 5+ members."""
+    # Gate: only agency owners can purchase predictive dialer
+    if current_user.role != 'agency_owner':
+        flash("Predictive Dialer is an agency-level feature. It requires an agency account with 5 or more agents.", "error")
+        return redirect(url_for('dashboard.dashboard'))
+
+    # Gate: must have 5+ members
+    from db import get_agency_members_by_company_id
+    company_id = getattr(current_user, 'company_id', None)
+    members = get_agency_members_by_company_id(company_id) if company_id else []
+    if len(members) < 5:
+        flash(f"Predictive Dialer requires at least 5 agents in your agency. You currently have {len(members)}. As your agents subscribe, they'll appear automatically.", "error")
+        return redirect(url_for('agency.agency_dashboard'))
+
     try:
         price_id = os.getenv("STRIPE_PREDICTIVE_DIALER_PRICE_ID")
         if not price_id:
@@ -656,16 +670,18 @@ def checkout_predictive_dialer():
             customer_email=customer_email,
             metadata={
                 "user_email": customer_email,
-                "target_role": "individual",
+                "target_role": "agency_owner",
                 "target_tier": "predictive_dialer",
-                "source": "website"
+                "company_id": company_id or "",
+                "source": "agency_dashboard"
             },
             subscription_data={
                 "trial_period_days": 7,
                 "metadata": {
                     "user_email": customer_email,
-                    "target_role": "individual",
-                    "target_tier": "predictive_dialer"
+                    "target_role": "agency_owner",
+                    "target_tier": "predictive_dialer",
+                    "company_id": company_id or ""
                 },
             },
             success_url=f"{YOUR_DOMAIN}/success?session_id={{CHECKOUT_SESSION_ID}}",
@@ -931,15 +947,16 @@ def change_plan():
     data = request.get_json(silent=True) or {}
     target_tier = data.get("target_tier", "")
 
+    # Individual agents can only switch between sms_bot, individual, pro_dialer.
+    # Predictive dialer is agency-only (requires 5+ members in agency dashboard).
     tier_to_price = {
         "sms_bot": os.getenv("STRIPE_SMS_BOT_PRICE_ID"),
         "individual": os.getenv("STRIPE_PRICE_ID"),
         "pro_dialer": os.getenv("STRIPE_PRO_DIALER_PRICE_ID"),
-        "predictive_dialer": os.getenv("STRIPE_PREDICTIVE_DIALER_PRICE_ID"),
     }
 
     if target_tier not in tier_to_price:
-        return flask_jsonify({"error": f"Unknown plan: {target_tier}"}), 400
+        return flask_jsonify({"error": f"Unknown plan: {target_tier}. Predictive Dialer is an agency-level feature."}), 400
 
     # Guard: prevent no-op plan change to same tier
     current_tier = current_user.subscription_tier or 'individual'
@@ -1067,6 +1084,8 @@ def subscription_info():
             "name": "Predictive Dialer",
             "price": "$349.98/mo",
             "max_lines": 4,
+            "agency_only": True,
+            "min_agents": 5,
             "features": [
                 "Erlang-C predictive pacing", "TCPA auto-throttle (3% abandon rate)",
                 "Recipient timezone enforcement", "Agent state machine",
