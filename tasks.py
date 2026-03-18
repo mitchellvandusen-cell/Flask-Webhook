@@ -459,6 +459,14 @@ def process_webhook_task(payload: dict):
         booking_time_str = booking_result.time_string
         wants_slots = booking_result.action == "offer_slots"
         logger.info(f"📅 Booking detection: action={booking_result.action} time={booking_result.time_string} reason={booking_result.reason} | contact={contact_id}")
+
+        # If the lead is directly asking to book or asking for available times,
+        # override the stage to BOOKING so the tactical directive doesn't
+        # contradict by saying "wait for impact." The lead's intent is clear.
+        if (is_booking_request or wants_slots) and director_output["stage"] not in ("booked", "closed"):
+            if director_output["stage"] != "booking":
+                logger.info(f"📅 Stage override: {director_output['stage']} → booking (lead directly requested)")
+                director_output["stage"] = "booking"
         
         # Determine CRM type for adapter routing
         crm_type = subscriber.get("crm_type", "ghl") or "ghl"

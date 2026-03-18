@@ -764,7 +764,7 @@ INTENT FIELDS (true/false):
 - needs_coverage: expressed need, want, interest, looking, thinking about coverage
 - mentioned_goal: protecting family, kids, spouse, mortgage, business, future, etc.
 - mentioned_obstacle: barrier like busy, expensive, health issue, not sure, complicated
-- ready_to_book: agreed to call/meet/talk/book/time works/yes/lets do it/sure/next step
+- ready_to_book: the lead is EXPLICITLY asking to schedule or book an appointment. Examples: "can we book a call?", "let's schedule something", "when are you available?", "I'd like to set up a meeting", "what times do you have?", "sign me up", "let's do it", "I'm ready to go". CRITICAL: generic agreement words like "yes", "sure", "ok", "sounds good" are NOT ready_to_book UNLESS the lead is clearly accepting a specific appointment time you offered. "Yes" answering a qualifying question = false. "Yes that time works" after you offered a slot = true
 - resistance: strong opt-out: stop, unsubscribe, remove, leave me alone, do not contact, opt out, lose my number, take me off (NOTE: "not interested" is NOT resistance — it is an objection to be handled)
 - articulated_impact: the lead has expressed WHY coverage matters to them personally, what would happen to their family without it, the consequences of the gap, or emotional weight behind their need. Not just mentioning a goal but explaining why it is important to them or what would happen if they did not address it
 
@@ -832,9 +832,25 @@ Context clues:
         need_keywords = ["need", "want", "looking", "interested", "thinking about", "protect", "mortgage"]
         goal_keywords = ["family", "kids", "wife", "husband", "spouse", "children", "business", "parents"]
         obstacle_keywords = ["busy", "expensive", "too much", "later", "not sure", "confused", "health", "complicated"]
+        # Explicit booking phrases — multi-word only, no false positives.
+        # "yes", "sure", "ok", "call", "talk", "meet" are NOT here because
+        # they match normal conversation ("yes I have kids", "sure", "ok").
+        # Those are handled by booking_detection.py's LLM classifier which
+        # checks if the bot offered times before treating acceptance as booking.
         booking_keywords = [
-            "yes", "sure", "ok", "sounds good", "let's do", "book", "schedule",
-            "appointment", "call", "talk", "meet", "time work", "works for me"
+            "book an appointment", "book appointment", "book a call", "book a time",
+            "schedule a call", "schedule an appointment", "schedule appointment",
+            "set up a call", "set up an appointment", "set up a meeting",
+            "can we meet", "can we book", "can we schedule",
+            "let's book", "let's schedule", "let's set up",
+            "I'd like to book", "I'd like to schedule",
+            "want to book", "want to schedule",
+            "when can we meet", "when can we talk", "when are you free",
+            "when are you available", "what times do you have",
+            "what's your availability", "what times work",
+            "works for me", "that time works", "time work",
+            "sign me up", "let's do it", "let's get started",
+            "I'm ready", "ready to go",
         ]
         stop_keywords = [
             # ── TCPA-mandated stop words ONLY ──
@@ -924,8 +940,10 @@ Context clues:
         # Already booked — nothing else matters
         stage = ConversationStage.BOOKED
 
-    elif cls.get("ready_to_book", False) and conversation_count >= 2:
-        # Explicit readiness to book overrides objections
+    elif cls.get("ready_to_book", False):
+        # Lead directly asked to book/schedule/meet — honor it immediately.
+        # No conversation depth requirement: if they say "can we book Monday?"
+        # on the first reply, the bot should book, not keep qualifying.
         stage = ConversationStage.BOOKING
 
     elif too_deep and msg_context == MessageContext.INBOUND_REPLY:

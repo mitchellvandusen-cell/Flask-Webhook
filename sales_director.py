@@ -338,13 +338,28 @@ def _build_tactical_guidance(logic: LogicSignal, stage_value: str, first_name: s
 
     # --- BOOKING ---
     if stage_value == ConversationStage.BOOKING.value:
-        booking_base = (
-            "READY TO BOOK.\n"
-            "They are showing real interest, enough to justify a live call.\n"
-            "Offer 2 to 3 specific times from the available calendar slots.\n"
-            "Keep it short, confident, and normal. Like a busy person setting up a quick chat.\n"
-            "Do not over-explain. Just offer times and ask which works.\n\n"
-        )
+
+        # Lead DIRECTLY asked to book — honor their intent immediately.
+        # Don't pitch, don't qualify further, don't "build impact." They told
+        # you what they want. Confirm the time and lock it in.
+        if logic.ready_to_book:
+            booking_base = (
+                "LEAD REQUESTED BOOKING DIRECTLY.\n"
+                "They explicitly asked to schedule, book, or meet. This is their idea, "
+                "not yours. Do NOT continue qualifying or selling. Do NOT ask why they "
+                "want coverage or try to build impact. They already decided.\n\n"
+                "If they gave a specific day/time: confirm it and lock it in.\n"
+                "If they said 'let's book' without a time: offer 2-3 available slots.\n"
+                "Keep it short. Match their energy. They are ready — just handle the logistics.\n\n"
+            )
+        else:
+            booking_base = (
+                "READY TO BOOK.\n"
+                "They are showing real interest, enough to justify a live call.\n"
+                "Offer 2 to 3 specific times from the available calendar slots.\n"
+                "Keep it short, confident, and normal. Like a busy person setting up a quick chat.\n"
+                "Do not over-explain. Just offer times and ask which works.\n\n"
+            )
 
         # Buying signal context — tell the bot WHY we're booking
         if logic.buying_signal == BuyingSignalType.ASKING_PRICE:
