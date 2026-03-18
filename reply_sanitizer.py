@@ -125,7 +125,33 @@ def sanitize_reply(raw: str) -> str:
     if not cleaned:
         return ""
 
-    # 2. Check for contamination markers
+    # 2. Strip emojis — the prompt forbids them, but LLMs sometimes slip them in.
+    #    Matches all Unicode emoji ranges (emoticons, symbols, flags, modifiers).
+    cleaned = re.sub(
+        r'[\U0001F600-\U0001F64F'   # Emoticons
+        r'\U0001F300-\U0001F5FF'    # Misc Symbols and Pictographs
+        r'\U0001F680-\U0001F6FF'    # Transport and Map
+        r'\U0001F1E0-\U0001F1FF'    # Flags
+        r'\U00002702-\U000027B0'    # Dingbats
+        r'\U0000FE00-\U0000FE0F'    # Variation Selectors
+        r'\U0001F900-\U0001F9FF'    # Supplemental Symbols
+        r'\U0001FA00-\U0001FA6F'    # Chess Symbols / Extended-A
+        r'\U0001FA70-\U0001FAFF'    # Symbols Extended-A continued
+        r'\U00002600-\U000026FF'    # Misc symbols (sun, cloud, etc.)
+        r'\U0000200D'               # Zero Width Joiner
+        r'\U00002328'               # Keyboard
+        r'\U000023CF'               # Eject
+        r'\U000023E9-\U000023F3'    # Media controls
+        r'\U000023F8-\U000023FA'    # Media controls 2
+        r'\U0000231A-\U0000231B]+', # Watch/hourglass
+        '', cleaned
+    ).strip()
+
+    if not cleaned:
+        logger.warning("Reply was emoji-only — blocked")
+        return ""
+
+    # 3. Check for contamination markers
     lower = cleaned.lower()
     found_markers = [m for m in CONTAMINATION_MARKERS if m in lower]
 
@@ -134,7 +160,7 @@ def sanitize_reply(raw: str) -> str:
         logger.warning(f"BLOCKED MESSAGE: '{cleaned[:200]}...'")
         return ""
 
-    # 3. Check if the reply STARTS with a reasoning opener
+    # 4. Check if the reply STARTS with a reasoning opener
     lower_stripped = lower.lstrip()
     for opener in REASONING_OPENERS:
         if lower_stripped.startswith(opener):
@@ -145,7 +171,7 @@ def sanitize_reply(raw: str) -> str:
                 return ""
             break
 
-    # 4. Check message length — real texts are short, reasoning dumps are long
+    # 5. Check message length — real texts are short, reasoning dumps are long
     #    A 500+ char SMS that also has a contamination marker is almost certainly reasoning
     if len(cleaned) > 500 and found_markers:
         logger.warning(f"LONG MESSAGE + MARKER: {len(cleaned)} chars, marker={found_markers[0]}")
