@@ -49,13 +49,17 @@
 
         <!-- Hidden Bootstrap tab triggers (driven by sidebar JS) -->
         <ul class="nav nav-tabs dash-tabs-hidden" id="dashTabs" role="tablist" aria-hidden="true">
+            {% if current_user.subscription_tier != 'sms_bot' %}
             <li class="nav-item"><button class="nav-link active" id="tbDialer"  data-bs-toggle="tab" data-bs-target="#voicedialer" type="button" tabindex="-1"></button></li>
-            <li class="nav-item"><button class="nav-link"        id="tbConfig"  data-bs-toggle="tab" data-bs-target="#config"      type="button" tabindex="-1"></button></li>
+            {% endif %}
+            <li class="nav-item"><button class="nav-link {{ 'active' if current_user.subscription_tier == 'sms_bot' else '' }}" id="tbConfig"  data-bs-toggle="tab" data-bs-target="#config"      type="button" tabindex="-1"></button></li>
+            {% if current_user.subscription_tier != 'sms_bot' %}
             <li class="nav-item"><button class="nav-link"        id="tbVoice"   data-bs-toggle="tab" data-bs-target="#voice"       type="button" tabindex="-1"></button></li>
+            {% endif %}
         </ul>
 
         <!-- ── Onboarding banners ── -->
-        {% if not voice_config.get('twilio_sub_account_sid') %}
+        {% if not voice_config.get('twilio_sub_account_sid') and current_user.subscription_tier != 'sms_bot' %}
         <div class="d-flex align-items-center gap-3 mb-3 px-3 py-2 onboard-banner-voice" onclick="navTo('voice');setTimeout(()=>switchVoicePanel('activation'),100);">
             <i class="fa-solid fa-wand-magic-sparkles onboard-icon-voice"></i>
             <span class="onboard-text-voice">Get started: <strong>Activate Voice</strong> to enable your AI phone agent and dialer.</span>
@@ -333,7 +337,7 @@
     }
     // Activate initial tab on load
     (function() {
-        var initTab = window.DASHBOARD_BOOT?.initialTab || 'voicedialer';
+        var initTab = window.DASHBOARD_BOOT?.initialTab || (window.DASHBOARD_BOOT?.subscriptionTier === 'sms_bot' ? 'config' : 'voicedialer');
         var btn = document.querySelector('.ghl-embed-tab[data-tab="' + initTab + '"]');
         if (btn) { setTimeout(function() { switchEmbedTab(btn); }, 200); }
     })();

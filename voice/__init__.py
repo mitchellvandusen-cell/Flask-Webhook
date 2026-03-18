@@ -3,10 +3,53 @@
 # This package contains the decomposed voice_bridge.py, split into focused modules.
 # The unified Blueprint `voice_bp` is assembled here by registering all sub-blueprints.
 
-from flask import Blueprint
+import logging
+from flask import Blueprint, request, jsonify
+from flask_login import current_user
+
+logger = logging.getLogger("voice")
 
 # ── Master blueprint (preserves the /voice/* URL prefix expected by frontend) ──
 voice_bp = Blueprint('voice', __name__)
+
+
+# ── SMS Bot tier gate ──
+# Routes that sms_bot tier CAN access (contacts, intelligence, SMS sending).
+# Everything else (dialer, numbers, A2P, setup, recordings, stats) is blocked.
+_SMS_BOT_ALLOWED_PREFIXES = (
+    '/voice/contact',           # contact data, send-sms, messages, notes, intelligence
+    '/voice/contacts',          # contact list, tags, sync, export
+    '/voice/ping',              # health check
+)
+
+
+@voice_bp.before_request
+def _gate_sms_bot_tier():
+    """Block sms_bot tier from all voice/dialer features.
+
+    SMS Bot users pay $99.98/mo for AI texting only. They should not be able
+    to provision Twilio, buy numbers, make calls, register A2P, or access
+    any dialer/voice functionality. Only contact data and SMS-related
+    endpoints are allowed.
+    """
+    # Skip for unauthenticated requests (webhooks, TwiML callbacks)
+    if not current_user or not current_user.is_authenticated:
+        return None
+
+    tier = getattr(current_user, 'subscription_tier', None) or 'individual'
+    if tier != 'sms_bot':
+        return None
+
+    path = request.path
+    if any(path.startswith(prefix) for prefix in _SMS_BOT_ALLOWED_PREFIXES):
+        return None
+
+    logger.info(f"SMS Bot tier blocked from voice route: {path} (user={current_user.email})")
+    return jsonify({
+        "error": "This feature requires a Power Dialer plan or higher.",
+        "upgrade_required": True,
+        "current_tier": "sms_bot",
+    }), 403
 
 # ── Import sub-blueprints ──
 from voice.twiml_routes import twiml_bp
