@@ -788,7 +788,9 @@ Instead, apologize that the requested time isn't available and offer the availab
                 http_detail = None
 
                 # Determine SMS channel: GHL (default), last_used, or direct Twilio number
-                sms_send_via = subscriber.get('sms_send_via', 'ghl')
+                # SMS Bot tier always routes through GHL — no Twilio direct access
+                sub_tier = subscriber.get('subscription_tier', 'individual')
+                sms_send_via = 'ghl' if sub_tier == 'sms_bot' else subscriber.get('sms_send_via', 'ghl')
 
                 # Resolve "last_used" to actual number from call/SMS history
                 if sms_send_via == 'last_used':

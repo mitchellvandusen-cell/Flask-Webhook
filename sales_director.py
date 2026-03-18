@@ -569,8 +569,24 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
     # perspective shifts, challenging the belief that staying where they are is safe.
 
     # Determine if we are still in Phase 1 or have moved to Phase 2
-    # Phase 2 triggers when the SAME objection type appears 2+ times in the log
-    same_objection_count = sum(1 for entry in log if obj.value.replace("_", " ") in entry.lower()) if log else 0
+    # Phase 2 triggers when the SAME objection category appears 2+ times in the log.
+    # The narrative observer writes free-text log entries, so we match against multiple
+    # keywords per objection type to catch natural language variations.
+    _OBJECTION_LOG_KEYWORDS = {
+        ObjectionType.NOT_INTERESTED: ["not interested", "no thanks", "not for me", "pass", "decline", "dismissal", "disengag"],
+        ObjectionType.SPOUSE_PARTNER: ["spouse", "partner", "wife", "husband", "consult", "family member", "advisor", "check with"],
+        ObjectionType.PRICE_MONEY:    ["price", "money", "expensive", "afford", "cost", "budget", "cash flow", "value"],
+        ObjectionType.ALREADY_COVERED: ["already covered", "already have", "already has", "existing coverage", "have insurance", "covered", "all set"],
+        ObjectionType.THINK_ABOUT_IT: ["think about", "sleep on", "not ready", "get back", "need time", "decision", "consider", "rain check"],
+        ObjectionType.BUSY_TIMING:    ["busy", "timing", "not a good time", "call back", "later", "schedule", "swamped", "slammed"],
+    }
+    match_keywords = _OBJECTION_LOG_KEYWORDS.get(obj, [obj.value.replace("_", " ")])
+    same_objection_count = 0
+    if log:
+        for entry in log:
+            entry_lower = entry.lower()
+            if any(kw in entry_lower for kw in match_keywords):
+                same_objection_count += 1
     in_phase_2 = same_objection_count >= 2
 
     if in_phase_2:

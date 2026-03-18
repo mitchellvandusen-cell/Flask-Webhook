@@ -163,30 +163,44 @@ def _count_consecutive_rapport_turns(messages: List[Dict[str, str]]) -> int:
     Count how many recent consecutive lead messages had ZERO qualifying content.
     Walks backward through lead messages. Stops counting when a lead message
     contains qualifying keywords (insurance, coverage, family, goals, etc.).
+
+    Uses word-boundary matching to avoid false positives (e.g. "needlessly"
+    matching "need"). Objection keywords are excluded — those are handled by
+    the objection engine, not the rapport detector.
     """
-    qualifying_signals = [
-        # Coverage / product
-        "policy", "coverage", "term", "whole life", "iul", "universal", "insurance",
-        "covered", "premium", "rates", "quote", "plan",
-        # Needs / goals
-        "need", "want", "looking for", "interested in", "protect", "mortgage",
-        "family", "kids", "wife", "husband", "spouse", "children", "parents",
-        "beneficiary", "funeral", "burial", "estate",
-        # Engagement / booking
-        "book", "schedule", "appointment", "call", "meet", "talk",
-        "sounds good", "let's do", "sign me up", "what's next",
-        # Obstacles / objections (these are qualifying-relevant, not rapport)
-        "expensive", "afford", "already have", "think about it", "busy",
-        "not interested", "no thanks",
+    # Multi-word phrases checked via substring (safe, no false positive risk)
+    _QUALIFYING_PHRASES = [
+        "whole life", "final expense", "life insurance", "term life",
+        "looking for", "interested in", "sign me up", "what's next",
+        "sounds good", "let's do", "how much", "what does it cost",
+        "think about it", "already have", "not interested", "no thanks",
+        "happens to me", "happens if", "what if i", "coverage gap",
     ]
+    # Single words checked via word boundary regex (prevents substring false positives)
+    _QUALIFYING_WORDS = [
+        "policy", "coverage", "insurance", "premium", "rates", "quote",
+        "iul", "universal", "beneficiary", "funeral", "burial", "estate",
+        "protect", "mortgage", "family", "kids", "wife", "husband",
+        "spouse", "children", "parents", "dependents",
+        "book", "schedule", "appointment",
+        "expensive", "afford",
+        # Health / underwriting (qualifying-relevant, not rapport)
+        "sick", "medical", "physical", "exam", "approval", "health",
+        "diagnosis", "condition", "medication", "doctor", "underwriting",
+    ]
+    # Pre-compile word boundary patterns for single words
+    _QUALIFYING_WORD_PATTERNS = [re.compile(r'\b' + re.escape(w) + r'\b') for w in _QUALIFYING_WORDS]
 
     count = 0
     for msg in reversed(messages):
         if msg['role'] != 'lead':
             continue
         text = msg['text'].lower()
-        has_qualifying = any(kw in text for kw in qualifying_signals)
-        if has_qualifying:
+        # Check multi-word phrases via substring (safe — phrases are specific enough)
+        has_phrase = any(p in text for p in _QUALIFYING_PHRASES)
+        # Check single words via word boundary regex (prevents "needlessly" → "need")
+        has_word = any(pat.search(text) for pat in _QUALIFYING_WORD_PATTERNS) if not has_phrase else False
+        if has_phrase or has_word:
             break
         count += 1
     return count
