@@ -286,6 +286,12 @@
     .closing-cta-inner h2 span { background: linear-gradient(135deg, var(--accent), #00d9ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .closing-cta-inner p { color: #888; font-size: 1.05rem; max-width: 520px; margin: 0 auto 32px; line-height: 1.6; }
 
+    /* ── Solo Predictive centerpiece responsive ── */
+    @media (max-width: 767px) {
+        #iosSection1b [style*="grid-template-columns:repeat(3"] { grid-template-columns: 1fr !important; }
+        #iosSection1b [style*="grid-template-columns:1fr 1fr;"] { grid-template-columns: 1fr !important; }
+    }
+
     /* ── GHL Marketplace button ── */
     .btn-ghl-marketplace { display: inline-flex; align-items: center; gap: 8px; }
 
@@ -300,6 +306,7 @@
 <nav class="ios-section-dots" id="iosSectionDots">
     <div class="ios-section-dot active" data-section="0" title="Hero"></div>
     <div class="ios-section-dot" data-section="1" title="The Problem"></div>
+    <div class="ios-section-dot" data-section="1b" title="Predictive Dialer"></div>
     <div class="ios-section-dot" data-section="2" title="Watch the AI"></div>
     <div class="ios-section-dot" data-section="3" title="The Platform"></div>
     <div class="ios-section-dot" data-section="4" title="Number Health"></div>
@@ -378,6 +385,77 @@
 </section>
 
 
+<!-- ═══════════════ SECTION 1b: SOLO PREDICTIVE + AI OVERFLOW (centerpiece) ═══════════════ -->
+<section class="ios-snap-section auto-height" id="iosSection1b" style="padding:100px 0">
+    <div class="container" style="width:100%;">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <span class="ios-section-label" style="background:rgba(139,92,246,0.08);color:#a78bfa;border-color:rgba(139,92,246,0.25)">Category-Defining Feature</span>
+            <h2 class="ios-section-h2">The First Predictive Dialer<br><span style="background:linear-gradient(135deg,#a78bfa,var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent">That Doesn't Need a Team</span></h2>
+            <p class="ios-section-sub">Traditional predictive dialers need 5+ agents. We solved the collision problem with AI. Erlang-C math paces your calls. When two leads answer at once — you take one, your AI takes the other and books the appointment.</p>
+        </div>
+
+        <!-- Three lanes: Manual → Power → Solo Predictive -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;max-width:960px;margin:0 auto 48px" data-aos="fade-up">
+            <div style="background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:28px 22px;text-align:center">
+                <div style="width:44px;height:44px;border-radius:12px;background:rgba(239,68,68,0.1);display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><i class="fa-solid fa-snail" style="color:#ef4444"></i></div>
+                <div style="font-size:0.68rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#ef4444;margin-bottom:8px">The Slow Lane</div>
+                <div style="font-weight:700;color:#fff;margin-bottom:6px">Manual Dialing</div>
+                <div style="font-size:0.82rem;color:#888;line-height:1.55">80% of your day listening to ringtones. Dial, ring, voicemail, hang up, repeat.</div>
+            </div>
+            <div style="background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:28px 22px;text-align:center">
+                <div style="width:44px;height:44px;border-radius:12px;background:rgba(234,179,8,0.1);display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><i class="fa-solid fa-bolt" style="color:#eab308"></i></div>
+                <div style="font-size:0.68rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#eab308;margin-bottom:8px">The Reckless Lane</div>
+                <div style="font-weight:700;color:#fff;margin-bottom:6px">Power Dialer</div>
+                <div style="font-size:0.82rem;color:#888;line-height:1.55">Blasts 3 numbers. Two pick up? One hears dead air. You just burned an expensive lead.</div>
+            </div>
+            <div style="background:linear-gradient(135deg,rgba(139,92,246,0.08),rgba(0,255,136,0.05));backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border:1px solid rgba(139,92,246,0.25);border-radius:16px;padding:28px 22px;text-align:center;position:relative;overflow:hidden">
+                <div style="position:absolute;top:0;right:0;background:linear-gradient(135deg,#a78bfa,var(--accent));color:#000;font-size:0.6rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:4px 14px;border-radius:0 0 0 12px">NEW</div>
+                <div style="width:44px;height:44px;border-radius:12px;background:rgba(0,255,136,0.12);display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><i class="fa-solid fa-brain" style="color:var(--accent)"></i></div>
+                <div style="font-size:0.68rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--accent);margin-bottom:8px">Smart Cruise Control</div>
+                <div style="font-weight:700;color:#fff;margin-bottom:6px">Solo Predictive + AI Overflow</div>
+                <div style="font-size:0.82rem;color:#888;line-height:1.55">Erlang-C math paces your calls. AI catches every collision and books the appointment. Zero dropped leads.</div>
+            </div>
+        </div>
+
+        <!-- How AI Overflow works: 4-step visual -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;max-width:960px;margin:0 auto" data-aos="fade-up">
+            <div>
+                <h3 style="font-weight:800;font-size:1.3rem;color:#fff;margin-bottom:20px">What happens when two leads answer at once?</h3>
+                <div style="display:flex;flex-direction:column;gap:20px">
+                    <div style="display:flex;gap:14px;align-items:flex-start">
+                        <div style="width:32px;height:32px;border-radius:50%;background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.3);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.8rem;color:#a78bfa;flex-shrink:0">1</div>
+                        <div><div style="font-weight:700;color:#fff;font-size:0.92rem">Dialer fires 4 lines</div><div style="font-size:0.82rem;color:#888;line-height:1.5">Erlang-C calculated your connect rate needs 4 simultaneous dials.</div></div>
+                    </div>
+                    <div style="display:flex;gap:14px;align-items:flex-start">
+                        <div style="width:32px;height:32px;border-radius:50%;background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.3);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.8rem;color:#a78bfa;flex-shrink:0">2</div>
+                        <div><div style="font-weight:700;color:#fff;font-size:0.92rem">Two leads answer at the same time</div><div style="font-size:0.82rem;color:#888;line-height:1.5">On any other dialer, one gets dropped. Not here.</div></div>
+                    </div>
+                    <div style="display:flex;gap:14px;align-items:flex-start">
+                        <div style="width:32px;height:32px;border-radius:50%;background:rgba(0,255,136,0.15);border:1px solid rgba(0,255,136,0.3);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.8rem;color:var(--accent);flex-shrink:0">3</div>
+                        <div><div style="font-weight:700;color:#fff;font-size:0.92rem">You take Call A. AI takes Call B.</div><div style="font-size:0.82rem;color:#888;line-height:1.5">Call B bridges to your AI agent — qualifies, handles objections, books the appointment.</div></div>
+                    </div>
+                    <div style="display:flex;gap:14px;align-items:flex-start">
+                        <div style="width:32px;height:32px;border-radius:50%;background:rgba(0,255,136,0.15);border:1px solid rgba(0,255,136,0.3);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.8rem;color:var(--accent);flex-shrink:0">4</div>
+                        <div><div style="font-weight:700;color:#fff;font-size:0.92rem">Take Over or let AI book it</div><div style="font-size:0.82rem;color:#888;line-height:1.5">Click Take Over mid-conversation, or the AI books and moves on. Every call gets a shot.</div></div>
+                    </div>
+                </div>
+            </div>
+            <div style="text-align:center" data-aos="fade-left">
+                <div style="background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:40px 28px;box-shadow:var(--glass-shadow)">
+                    <div style="font-size:3.5rem;margin-bottom:16px"><i class="fa-solid fa-phone-volume" style="color:#a78bfa"></i> <span style="color:#555;font-size:1.2rem;margin:0 6px">+</span> <i class="fa-solid fa-robot" style="color:var(--accent)"></i></div>
+                    <div style="font-size:1.3rem;font-weight:800;color:#fff;margin-bottom:6px">Zero Dropped Leads</div>
+                    <div style="font-size:0.88rem;color:#888;line-height:1.6;max-width:280px;margin:0 auto 20px">Every answered call gets a real conversation. Human or AI. No dead air. No burned leads.</div>
+                    <a href="/predictive-dialer" style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff;padding:12px 28px;border-radius:12px;font-weight:700;font-size:0.9rem;text-decoration:none;transition:all .3s">
+                        <i class="fa-solid fa-rocket"></i> See How It Works
+                    </a>
+                    <div style="margin-top:12px;font-size:0.78rem;color:#888">$349/mo &middot; 2,000 AI minutes included</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
 <!-- ═══════════════ SECTION 2: WATCH THE AI WORK (animated phone mockup) ═══════════════ -->
 <section class="ios-snap-section auto-height" id="iosSection2">
     <div class="container" style="width: 100%;">
@@ -447,13 +525,28 @@
         </div>
 
         <div class="platform-strip" data-aos="fade-up">
+            <!-- Solo Predictive Dialer -->
+            <div class="ps-cell" style="border-bottom:2px solid rgba(139,92,246,0.2)">
+                <div class="ps-icon" style="background:rgba(139,92,246,0.1)">
+                    <i class="fa-solid fa-brain" style="color: #a78bfa;"></i>
+                </div>
+                <h4 style="color: #a78bfa;">Solo Predictive Dialer</h4>
+                <p>Erlang-C math paces your calls. AI Overflow catches collisions and books appointments. The first predictive dialer built for a solo agent — no team needed.</p>
+                <div class="ps-tags">
+                    <span class="ps-tag" style="background:rgba(139,92,246,0.1);color:#a78bfa">Erlang-C Pacing</span>
+                    <span class="ps-tag" style="background:rgba(139,92,246,0.1);color:#a78bfa">AI Overflow</span>
+                    <span class="ps-tag" style="background:rgba(139,92,246,0.1);color:#a78bfa">Zero Dropped Leads</span>
+                </div>
+                <a href="/predictive-dialer" class="ps-link" style="color: #a78bfa;">See the full breakdown <i class="fa-solid fa-arrow-right ms-1" style="font-size: 0.75rem;"></i></a>
+            </div>
+
             <!-- AI Texting -->
             <div class="ps-cell">
                 <div class="ps-icon mkt-icon-box--accent">
                     <i class="fa-solid fa-comment-sms" style="color: var(--accent);"></i>
                 </div>
                 <h4 style="color: var(--accent);">AI Texting</h4>
-                <p>5-stage conversation pipeline, 6 objection types handled, 5 sales frameworks. Not a drip campaign — a Sales Director inside every text.</p>
+                <p>7-stage conversation engine, 6 objection types, 5 sales frameworks. Reads the full thread and responds in context — not a drip campaign.</p>
                 <div class="ps-tags">
                     <span class="ps-tag mkt-tag--accent">Objection Handling</span>
                     <span class="ps-tag mkt-tag--accent">Auto-Booking</span>
@@ -462,28 +555,13 @@
                 <a href="/sms" class="ps-link" style="color: var(--accent);">Deep dive into AI Texting <i class="fa-solid fa-arrow-right ms-1" style="font-size: 0.75rem;"></i></a>
             </div>
 
-            <!-- Smart Dialer -->
-            <div class="ps-cell">
-                <div class="ps-icon mkt-icon-box--cyan">
-                    <i class="fa-solid fa-phone-volume" style="color: #00d9ff;"></i>
-                </div>
-                <h4 style="color: #00d9ff;">Smart Dialer</h4>
-                <p>AI-powered lead scoring, Smart Filters that read conversations (not rules), multi-line dialing, live listen + intercept, queue dialing.</p>
-                <div class="ps-tags">
-                    <span class="ps-tag mkt-tag--cyan">Lead Scoring</span>
-                    <span class="ps-tag mkt-tag--cyan">Smart Filters</span>
-                    <span class="ps-tag mkt-tag--cyan">Multi-Line</span>
-                </div>
-                <a href="/for-individuals" class="ps-link" style="color: #00d9ff;">Explore the Dialer <i class="fa-solid fa-arrow-right ms-1" style="font-size: 0.75rem;"></i></a>
-            </div>
-
             <!-- AI Voice Agent -->
             <div class="ps-cell">
                 <div class="ps-icon mkt-icon-box--pink">
                     <i class="fa-solid fa-robot" style="color: #e91e63;"></i>
                 </div>
                 <h4 style="color: #e91e63;">AI Voice Agent</h4>
-                <p>Outbound AI calling powered by Grok speech-to-speech. Dials, qualifies, handles objections, and books — or transfers hot leads to you live.</p>
+                <p>Outbound AI calling powered by Grok speech-to-speech. Sounds human, qualifies leads, handles objections, and books — or transfers hot leads to you live.</p>
                 <div class="ps-tags">
                     <span class="ps-tag mkt-tag--pink">Speech-to-Speech</span>
                     <span class="ps-tag mkt-tag--pink">Live Intercept</span>

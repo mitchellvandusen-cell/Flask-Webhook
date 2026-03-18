@@ -4,6 +4,7 @@ import logging
 from db import log_webhook_event
 from ghl_calendar import consolidated_calendar_op
 from voice.call_state import active_calls, transfer_requests
+from voice.predictive_engine import agent_state_manager, AgentState
 
 logger = logging.getLogger("voice_bridge.voice_tools")
 
@@ -147,10 +148,22 @@ def execute_voice_tool(tool_name, arguments, subscriber, contact_id=None, first_
             logger.warning("Transfer requested but no transfer_number configured")
             return "Transfer is not available right now — no agent number configured. Continue the conversation and try to book an appointment instead."
 
-        # Signal the WebSocket bridge to perform the transfer
-        # The bridge checks transfer_requests during audio relay
+        # Check if agent is available BEFORE attempting transfer.
+        # For overflow calls, the agent may be on their primary call — if so,
+        # the transfer can't succeed and we should pivot to booking.
         location_id = subscriber.get("location_id", "")
-        # Find the active call_sid for this location
+        agent_email = subscriber.get("email", "")
+        if location_id and agent_email:
+            agent_st = agent_state_manager.get_agent_state(location_id, agent_email)
+            if agent_st.get('state') == AgentState.ON_CALL:
+                logger.info(f"Transfer blocked: agent {agent_email} is ON_CALL — pivoting to booking")
+                return (
+                    "The advisor is currently with another client right now and can't take the transfer. "
+                    "Go ahead and book an appointment instead — pull up the calendar and find a time "
+                    "that works for them. This way the advisor can give them their full attention."
+                )
+
+        # Signal the WebSocket bridge to perform the transfer
         for csid, cinfo in active_calls.items():
             if cinfo.get("contact_id") == contact_id or cinfo.get("name") == first_name:
                 transfer_requests[csid] = {
@@ -162,7 +175,7 @@ def execute_voice_tool(tool_name, arguments, subscriber, contact_id=None, first_
                 break
         else:
             logger.warning("Could not find active call for transfer — no matching call_sid found")
-            return "The senior advisor is not available right now. Continue helping the lead directly and let them know someone will follow up with them."
+            return "The senior advisor is not available right now. Continue helping the lead directly and try to book an appointment instead."
 
         return f"Transfer initiated to the senior advisor. Tell the lead to hold on for just a moment while you connect them. The transfer is happening now."
 
