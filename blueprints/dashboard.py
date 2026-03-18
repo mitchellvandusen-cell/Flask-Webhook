@@ -145,7 +145,9 @@ def onboarding_status():
 @dashboard_bp.route("/dashboard", methods=["GET", "POST"])
 @login_required
 def dashboard():
-    # Unified dashboard — agency owners and individuals use the same route
+    if current_user.role == 'agency_owner':
+        return redirect(url_for("agency.agency_dashboard"))
+
     is_admin         = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
     needs_subscription = not current_user.stripe_customer_id and not is_admin
 

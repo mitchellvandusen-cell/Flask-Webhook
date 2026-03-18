@@ -58,31 +58,25 @@ def _send_invite_email(to_email: str, agent_name: str, agency_name: str, invite_
 @agency_bp.route("/agency-dashboard", methods=["GET", "POST"])
 @login_required
 def agency_dashboard():
-    # Redirect to unified dashboard — agency-dashboard is kept for backward compat
-    return redirect(url_for("dashboard.dashboard"))
-
-
-@agency_bp.route("/agency-dashboard-legacy", methods=["GET", "POST"])
-@login_required
-def agency_dashboard_legacy():
-    """Legacy agency dashboard — kept for reference but redirected above."""
+    """Agency owner dashboard — renders the SAME dashboard.html used by individuals,
+    with is_agency=True so the sidebar shows agency-specific sections (Members, KPIs,
+    White Label) alongside all individual features (Dialer, SMS Config, Voice, etc.)."""
     is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
 
     if current_user.role != 'agency_owner' and not is_admin:
         flash("Access restricted to agency owners only.", "error")
         return redirect("/dashboard")
 
-    has_active_sub = (current_user.stripe_customer_id and
-                      getattr(current_user, 'stripe_status', None) in ('active', 'trialing'))
-    needs_subscription = not has_active_sub and not is_admin
+    # ── Subscription check ────────────────────────────────────────────────────
+    needs_subscription = not current_user.stripe_customer_id and not is_admin
+
+    form = ConfigForm()
+
     if needs_subscription:
-        detected_tier = current_user.subscription_tier or 'agency_starter'
-        return render_template('agency-dashboard.html',
+        return render_template('dashboard.html',
             needs_subscription=True,
-            detected_tier=detected_tier,
-            agency_starter_price=797.99,
-            agency_pro_price=1597.99,
-            form=ConfigForm(),
+            subscription_price=149.99,
+            form=form,
             access_token_display='',
             refresh_token_display='',
             token_readonly='',
@@ -93,60 +87,57 @@ def agency_dashboard_legacy():
                 'phone':     current_user.phone or '',
                 'bio':       current_user.bio or '',
             },
-            carrier_list=CARRIER_LIST,
-            selected_carriers=[],
-            bot_settings=dict(BOT_SETTINGS_DEFAULTS),
-            sub_accounts=[],
-            stats={'max_seats': 0, 'active_seats': 0, 'tier': 'Not Subscribed'},
-            user=current_user,
+            is_agency=True,
+            whitelabel=getattr(current_user, 'whitelabel_config', None) or {},
         )
 
+    # ── Form save (POST) — updates agency_billing ─────────────────────────────
     conn = get_db_connection()
-    if not conn:
-        flash("System error: Database unavailable.", "error")
-        return redirect("/dashboard")
-
-    form = ConfigForm()
 
     if request.method == 'POST' and not form.validate_on_submit():
         logger.warning(f"Agency form validation failed for {current_user.email}: {form.errors}")
         flash("Please fill in all required fields.", "error")
 
     if form.validate_on_submit():
-        try:
-            cur = conn.cursor()
-            calendar_name = request.form.get('calendar_name', '')
-            cur.execute("""
-                UPDATE agency_billing
-                SET location_id      = %s,
-                    calendar_id      = %s,
-                    calendar_name    = %s,
-                    crm_user_id      = %s,
-                    bot_first_name   = %s,
-                    timezone         = %s,
-                    initial_message  = %s,
-                    personal_website = %s,
-                    updated_at       = NOW()
-                WHERE agency_email = %s
-            """, (
-                form.location_id.data,
-                form.calendar_id.data,
-                calendar_name,
-                form.crm_user_id.data,
-                form.bot_name.data,
-                form.timezone.data,
-                form.initial_message.data,
-                form.personal_website.data or None,
-                current_user.email,
-            ))
-            conn.commit()
-            flash("Settings saved successfully!", "success")
-            return redirect(url_for('agency.agency_dashboard'))
-        except Exception as e:
-            conn.rollback()
-            flash(f"Error saving settings: {str(e)}", "error")
-        finally:
-            cur.close()
+        if not conn:
+            flash("Database connection failed", "error")
+        else:
+            try:
+                cur = conn.cursor()
+                calendar_name = request.form.get('calendar_name', '')
+                cur.execute("""
+                    UPDATE agency_billing
+                    SET location_id      = %s,
+                        calendar_id      = %s,
+                        calendar_name    = %s,
+                        crm_user_id      = %s,
+                        bot_first_name   = %s,
+                        timezone         = %s,
+                        initial_message  = %s,
+                        personal_website = %s,
+                        updated_at       = NOW()
+                    WHERE agency_email = %s
+                """, (
+                    form.location_id.data,
+                    form.calendar_id.data,
+                    calendar_name,
+                    form.crm_user_id.data,
+                    form.bot_name.data,
+                    form.timezone.data,
+                    form.initial_message.data,
+                    form.personal_website.data or None,
+                    current_user.email,
+                ))
+                conn.commit()
+                flash("Settings saved successfully!", "success")
+                return redirect(url_for('agency.agency_dashboard'))
+            except Exception as e:
+                conn.rollback()
+                flash(f"Error saving settings: {str(e)}", "error")
+            finally:
+                cur.close()
+                return_db_connection(conn)
+                conn = None  # prevent double-return below
 
     if request.method == 'GET':
         form.location_id.data     = current_user.location_id
@@ -157,7 +148,8 @@ def agency_dashboard_legacy():
         form.initial_message.data = current_user.initial_message
         form.personal_website.data= current_user.personal_website
 
-    # Token display logic
+    # ── Token display — same as individual dashboard ──────────────────────────
+    from token_encryption import decrypt_token
     access_token_display = ''
     refresh_token_display= ''
     expires_in_str       = ''
@@ -165,9 +157,8 @@ def agency_dashboard_legacy():
 
     if current_user.access_token:
         token_field_state = 'readonly'
-        at = current_user.access_token
+        at = decrypt_token(current_user.access_token) or current_user.access_token
         access_token_display = at[:8] + '...' + at[-4:] if len(at) > 12 else at
-
         if current_user.token_expires_at:
             expires_at = current_user.token_expires_at
             if isinstance(expires_at, str):
@@ -185,82 +176,75 @@ def agency_dashboard_legacy():
         else:
             expires_in_str = "Persistent"
 
+    if current_user.refresh_token:
+        rt = decrypt_token(current_user.refresh_token) or current_user.refresh_token
+        refresh_token_display = rt[:8] + '...' + rt[-4:] if len(rt) > 12 else rt
+
     profile = {
         'full_name': current_user.full_name or '',
         'phone':     current_user.phone or '',
         'bio':       current_user.bio or '',
     }
 
-    sub_accounts = []
-    agency_stats = {'max_seats': 10, 'active_seats': 0, 'tier': 'Agency Starter'}
+    needs_oauth   = not bool(current_user.access_token)
+    show_congrats = request.args.get('setup') == 'complete'
 
-    try:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
+    loc_ok = bool(current_user.location_id and
+                  not str(current_user.location_id).startswith("temp_"))
+    cal_ok = bool(current_user.calendar_id)
+    bot_ok = bool(current_user.bot_first_name)
+    tz_ok  = bool(current_user.timezone)
+    msg_ok = bool(current_user.initial_message)
 
-        cur.execute("""
-            SELECT subscription_tier, max_seats
-            FROM agency_billing
-            WHERE agency_email = %s
-        """, (current_user.email,))
-        billing_row = cur.fetchone()
-        if billing_row:
-            agency_stats['max_seats'] = billing_row['max_seats']
-            agency_stats['tier'] = billing_row['subscription_tier'].replace('_', ' ').title()
+    missing_fields = []
+    if not bot_ok: missing_fields.append('bot_name')
+    if not tz_ok:  missing_fields.append('timezone')
+    if not msg_ok: missing_fields.append('initial_message')
+    if not loc_ok: missing_fields.append('location_id')
+    if not cal_ok: missing_fields.append('calendar_id')
 
-        cur.execute("""
-            SELECT location_id, full_name, email, bot_first_name, timezone,
-                   access_token, subscription_tier, token_expires_at, created_at,
-                   refresh_token, onboarding_status, invite_sent_at
-            FROM subscribers
-            WHERE parent_agency_email = %s
-            ORDER BY created_at DESC
-        """, (current_user.email,))
+    is_placeholder = bool(current_user.email and
+                          current_user.email.endswith('@placeholder.grokbot'))
+    is_incomplete  = bool(not current_user.crm_user_id or not current_user.location_id)
 
-        current_time = datetime.now()
-        for sub in cur.fetchall():
-            is_connected = False
-            if sub['access_token']:
-                if sub['token_expires_at']:
-                    expires = sub['token_expires_at']
-                    if isinstance(expires, str):
-                        try:
-                            expires = datetime.fromisoformat(expires)
-                        except Exception:
-                            expires = datetime.now()
-                    is_connected = expires > current_time
-                else:
-                    is_connected = True
-
-            sub_accounts.append({
-                'name':               sub['full_name'] or 'Unnamed Location',
-                'location_id':        sub['location_id'],
-                'email':              sub['email'] or 'No Email Assigned',
-                'agent_email':        sub['email'] or 'No Agent Email',
-                'status':             'Active' if is_connected else 'Pending Auth',
-                'status_class':       'success' if is_connected else 'warning',
-                'tier':               sub['subscription_tier'].replace('_', ' ').title(),
-                'bot_name':           sub['bot_first_name'],
-                'timezone':           sub['timezone'],
-                'access_token':       sub['access_token'],
-                'refresh_token':      sub['refresh_token'],
-                'onboarding_status':  sub['onboarding_status'] or 'pending',
-                'invite_sent_at':     sub['invite_sent_at'],
-            })
-
-        agency_stats['active_seats'] = len(sub_accounts)
-
-    except Exception as e:
-        logger.error(f"Agency Dashboard Error: {e}")
-        flash("Error loading agency data.", "error")
-    finally:
-        cur.close()
+    # Return DB connection if still held
+    if conn:
         return_db_connection(conn)
+        conn = None
 
-    agency_carriers    = get_contracted_carriers(current_user.email)
-    agency_bot_settings= get_bot_settings(current_user.email)
+    selected_carriers = get_contracted_carriers(current_user.email)
+    bot_settings      = get_bot_settings(current_user.email)
+    voice_config      = current_user.voice_config or {}
 
-    return render_template(
-        'agency-dashboard.html',
+    # Auto-sync primary phone number (same as individual dashboard)
+    _sub_sid = voice_config.get('twilio_sub_account_sid', '')
+    if _sub_sid and not voice_config.get('twilio_phone_number'):
+        try:
+            import twilio_provisioning as _tp
+            from voice.helpers import _save_voice_config as _svc
+            _nums = _tp.list_phone_numbers(_sub_sid)
+            if _nums:
+                _first = _nums[0]
+                voice_config['twilio_phone_number'] = _first.get('phone', '')
+                voice_config['twilio_number_sid'] = _first.get('sid', '')
+                _svc(current_user.email, voice_config)
+        except Exception as _e:
+            logger.warning(f"[agency-dashboard] Primary number auto-sync failed: {_e}")
+
+    # GHL embed mode
+    embed_mode = request.args.get('embed') == '1'
+    initial_tab = request.args.get('tab', 'voicedialer') if embed_mode else ''
+    embed_contact_id = request.args.get('contact_id', '') if embed_mode else ''
+    embed_dial_contacts = request.args.get('dial_contacts', '') if embed_mode else ''
+
+    # White-label branding
+    from db import get_whitelabel_for_user
+    whitelabel = get_whitelabel_for_user(current_user)
+
+    # CRM config fields for integrations tab
+    from crm_adapters.factory import CRM_CONFIG_FIELDS, CRM_DISPLAY_NAMES
+
+    return render_template('dashboard.html',
         form=form,
         access_token_display=access_token_display,
         refresh_token_display=refresh_token_display,
@@ -268,12 +252,23 @@ def agency_dashboard_legacy():
         expires_in_str=expires_in_str,
         sub=current_user,
         profile=profile,
-        sub_accounts=sub_accounts,
-        stats=agency_stats,
-        user=current_user,
+        needs_oauth=needs_oauth,
+        show_congrats=show_congrats,
+        missing_fields=missing_fields,
+        is_placeholder=is_placeholder,
+        is_incomplete=is_incomplete,
         carrier_list=CARRIER_LIST,
-        selected_carriers=agency_carriers,
-        bot_settings=agency_bot_settings,
+        selected_carriers=selected_carriers,
+        bot_settings=bot_settings,
+        crm_config_fields=CRM_CONFIG_FIELDS,
+        crm_display_names=CRM_DISPLAY_NAMES,
+        voice_config=voice_config,
+        embed_mode=embed_mode,
+        initial_tab=initial_tab,
+        embed_contact_id=embed_contact_id,
+        embed_dial_contacts=embed_dial_contacts,
+        whitelabel=whitelabel,
+        is_agency=True,
     )
 
 
