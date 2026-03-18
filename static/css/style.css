@@ -663,6 +663,14 @@ footer a:hover { color: var(--accent); }
     50% { background-position: 100% 50%; }
 }
 /* Tier-colored metallic variants */
+.metallic-price--cyan {
+    background: linear-gradient(135deg, #00d9ff 0%, #a5f3fc 30%, #00d9ff 50%, #0891b2 75%, #00d9ff 100%);
+    background-size: 200% 200%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: metallicShimmer 4s ease-in-out infinite;
+}
 .metallic-price--green {
     background: linear-gradient(135deg, #00ff88 0%, #b8ffdb 30%, #00ff88 50%, #00cc6a 75%, #00ff88 100%);
     background-size: 200% 200%;
@@ -2360,6 +2368,13 @@ body.light-theme [style*="background: rgba(255,255,255,0.05"] {
 }
 
 /* ── Metallic price text readable in light mode ── */
+body.light-theme .metallic-price--cyan {
+    background: linear-gradient(135deg, #0891b2 0%, #06b6d4 30%, #0891b2 50%, #0e7490 75%, #0891b2 100%) !important;
+    background-size: 200% 200% !important;
+    background-clip: text !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+}
 body.light-theme .metallic-price--green {
     background: linear-gradient(135deg, #059669 0%, #34d399 30%, #059669 50%, #047857 75%, #059669 100%) !important;
     background-size: 200% 200% !important;
@@ -4185,6 +4200,19 @@ nav.navbar { position: fixed; z-index: 1000; }
     box-shadow: 0 0 32px rgba(0, 217, 255, 0.3);
     transform: translateY(-2px);
     color: #fff !important;
+}
+.btn-gradient-cyan {
+    background: linear-gradient(135deg, #00d9ff, #0891b2) !important;
+    color: #000 !important;
+    font-weight: 700;
+    border: none !important;
+    box-shadow: 0 0 20px rgba(0, 217, 255, 0.15);
+    transition: var(--transition);
+}
+.btn-gradient-cyan:hover {
+    box-shadow: 0 0 32px rgba(0, 217, 255, 0.3);
+    transform: translateY(-2px);
+    color: #000 !important;
 }
 .btn-gradient-orange {
     background: linear-gradient(135deg, #ff6b35, #ff3366) !important;
@@ -6681,6 +6709,7 @@ body.light-theme .team-role-desc { color: #6b7280; }
 
 /* --- Feature Checkmarks --- */
 .billing-check-accent { color: var(--accent); margin-right: 6px; }
+.billing-check-cyan { color: #00d9ff; margin-right: 6px; }
 .billing-check-orange { color: #ff6b35; margin-right: 6px; }
 .billing-check-purple { color: #8b5cf6; margin-right: 6px; }
 
@@ -6699,6 +6728,7 @@ body.light-theme .team-role-desc { color: #6b7280; }
     background: var(--accent); color: #000;
     font-size: 0.72rem; font-weight: 700; padding: 2px 10px; border-radius: 10px;
 }
+.billing-badge-current--cyan { background: #00d9ff; color: #000; }
 .billing-badge-current--orange { background: #ff6b35; color: #fff; }
 .billing-badge-current--purple { background: #8b5cf6; color: #fff; }
 
@@ -6747,11 +6777,13 @@ body.light-theme .billing-current-plan-text { color: #6b7280; }
 body.light-theme .billing-plan-title { color: #111827; }
 body.light-theme .billing-price-period { color: #6b7280; }
 body.light-theme .billing-check-accent { color: #059669; }
+body.light-theme .billing-check-cyan { color: #0891b2; }
 body.light-theme .billing-check-orange { color: #e85d2c; }
 body.light-theme .billing-check-purple { color: #7c3aed; }
 body.light-theme .billing-tier-badge--upgrade { background: linear-gradient(135deg, #e85d2c, #dc2654); }
 body.light-theme .billing-tier-badge--enterprise { background: linear-gradient(135deg, #7c3aed, #4f46e5); }
 body.light-theme .billing-badge-current { background: var(--lt-accent); color: #fff; }
+body.light-theme .billing-badge-current--cyan { background: #0891b2; color: #fff; }
 body.light-theme .billing-badge-current--orange { background: #e85d2c; }
 body.light-theme .billing-badge-current--purple { background: #7c3aed; }
 body.light-theme .billing-change-plan-btn {

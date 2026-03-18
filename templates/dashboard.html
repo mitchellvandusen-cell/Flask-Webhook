@@ -207,6 +207,7 @@
         bypassCallingHours:      {{ 'true' if voice_config is defined and voice_config.get('bypass_calling_hours') else 'false' }},
         quietHoursEnabled:       {{ 'true' if voice_config is defined and voice_config.get('quiet_hours_enabled') else 'false' }},
         isSeatUser:              {{ 'true' if current_user.is_seat_user else 'false' }},
+        subscriptionTier:        {{ (current_user.subscription_tier or 'individual')|tojson }},
         // GHL embed mode
         embedMode:               {{ 'true' if embed_mode else 'false' }},
         initialTab:              {{ initial_tab|tojson if initial_tab else '""' }},
