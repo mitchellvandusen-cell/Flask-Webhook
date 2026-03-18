@@ -68,7 +68,7 @@ def generate_strategic_directive(
 
     # ─── 1. INTELLIGENCE GATHERING (Single DB Fetch) ───
     all_msgs: List[Dict] = get_recent_messages(contact_id, limit=None)
-    recent_exchanges = all_msgs[-14:] if all_msgs else []
+    recent_exchanges = all_msgs[-30:] if all_msgs else []
 
     # ─── 2. REFRESH NARRATIVE & FACTS ───
     observer = run_narrative_observer(contact_id, message, all_msgs)
@@ -483,6 +483,11 @@ def _build_followup_guidance(logic: LogicSignal, bot_settings: dict = None) -> s
             f"Every previous approach failed. You need something completely different "
             f"from anything you have already tried. Read the conversation history "
             f"and do the opposite of what you have been doing.\n"
+            f"IMPORTANT: When they DO finally respond, their response is about your "
+            f"MESSAGE to them. Read what you sent and what they said back. Do not "
+            f"force an insurance conversation if they are commenting on your texting "
+            f"behavior. Acknowledge what they said, be human about it, and let the "
+            f"conversation develop naturally from there.\n"
             f"Goal: get ANY response."
         )
 
@@ -561,8 +566,26 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
     if obj == ObjectionType.NOT_INTERESTED:
         return header + (
             "OBJECTION: Not interested.\n"
-            "Something put this topic on their radar at some point. That trigger did not "
-            "vanish because they said no. Figure out a new angle you have not tried yet."
+            "They said some form of no. This is NOT a stop signal. This is the most common "
+            "objection in sales and it almost never means the door is actually closed.\n\n"
+            "CRITICAL RESPONSE RULES:\n"
+            "1. FIRST, acknowledge exactly what they said. Do not skip this. If they said "
+            "'no longer interested', say something that shows you heard THOSE words.\n"
+            "2. Do NOT immediately pitch again. Do NOT list benefits. Do NOT get defensive.\n"
+            "3. Ask ONE question from a completely new angle. The question should be about "
+            "THEM, not about insurance. Their situation, their family, what changed, what "
+            "they are dealing with. Something that makes them think rather than react.\n"
+            "4. Keep it short. 1-2 sentences max. The lighter the touch, the better.\n"
+            "5. If they have said 'not interested' multiple times and you have already tried "
+            "several angles (check the objection log), scale back. Be more human, less sales. "
+            "A genuine 'fair enough, just wanted to make sure you were covered' lands better "
+            "than another creative angle after the 3rd rejection.\n\n"
+            "WHAT NEVER TO SAY:\n"
+            "- 'I understand, but...' (dismissive)\n"
+            "- 'Just one more thing...' (pushy)\n"
+            "- 'Are you sure?' (condescending)\n"
+            "- 'What if I told you...' (salesy)\n"
+            "- Anything that sounds like you did not hear them"
         )
 
     if obj == ObjectionType.SPOUSE_PARTNER:
