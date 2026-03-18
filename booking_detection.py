@@ -190,8 +190,12 @@ DEFINITIONS:
 - "offer_slots": Customer wants to schedule but didn't give both day AND time.
   Examples: "sometime next week", "Thursday works", "what times do you have?", "when are you free?", "afternoon works".
   Also use when it's ambiguous which offered time the customer accepted.
+- "offer_slots" ALSO when: Customer REJECTED the offered times ("none of those work", "can't do either of those",
+  "those don't work for me") — use offer_slots so the system fetches new availability.
+  Also when customer gives multiple options ("I can do 2pm or 4pm") — they are offering choices, not confirming one.
 - "none": Not about scheduling at all. Actively declining. General conversation.
-  Examples: "can't do that time", "how much is it?", "I have 2 kids", "not interested", "I work until 5".
+  Examples: "how much is it?", "I have 2 kids", "not interested", "I work until 5", "I need to think about it",
+  "let me check my schedule and get back to you".
 
 TIME STRING FORMAT (only for "book"):
 Include day AND time: "11:00 am tuesday" or "2:00 pm march 17" or "9:30 am tomorrow".
