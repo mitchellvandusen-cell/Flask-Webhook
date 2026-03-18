@@ -21,7 +21,8 @@ from voice.helpers import _get_subscriber_by_location, _get_current_subscriber_v
 from voice.call_history_helpers import save_call_to_history, update_call_history_status
 from blueprints.team import require_permission
 from voice.predictive_engine import (
-    calculate_optimal_dial_ratio, tcpa_tracker, agent_state_manager,
+    calculate_optimal_dial_ratio, calculate_solo_predictive_ratio,
+    tcpa_tracker, agent_state_manager,
     callback_queue, check_recipient_timezone, is_two_party_consent_state,
     area_code_to_state, area_code_to_timezone, get_compliance_metrics,
     AgentState,
@@ -956,7 +957,7 @@ def dial_contact():
         return jsonify({"error": hours_reason, "calling_hours_blocked": True}), 400
 
     # ── Recipient timezone enforcement (compliance — pro_dialer+ only) ──
-    if tier in ('pro_dialer', 'predictive_dialer'):
+    if tier in ('pro_dialer', 'solo_predictive'):
         tz_ok, tz_reason, recip_tz, recip_time = check_recipient_timezone(
             phone,
             voice_config.get('calling_hours_start', '08:00'),
@@ -1100,6 +1101,7 @@ def dial_contact():
             "_from_number": from_number,
             "_agent_email": current_user.email,
             "_wrap_up_time": int(voice_config.get('wrap_up_time', 15)),
+            "_subscription_tier": tier,
         }
 
         save_call_to_history(
@@ -1163,8 +1165,8 @@ def multi_dial():
 
     tier = subscriber.get('subscription_tier', 'individual')
     is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
-    if tier not in ('pro_dialer', 'predictive_dialer'):
-        return jsonify({"error": "Multi-line dialer requires Pro Dialer subscription", "upgrade_required": True}), 403
+    if tier not in ('pro_dialer', 'solo_predictive'):
+        return jsonify({"error": "Multi-line dialer requires Pro Dialer or Solo Predictive subscription", "upgrade_required": True}), 403
 
     location_id = subscriber.get('location_id', '')
     voice_config = subscriber.get('voice_config') or {}
@@ -1232,7 +1234,7 @@ def multi_dial():
 
     # ── Per-contact timezone enforcement (compliance — pro_dialer+ only) ──
     tz_blocked_phones = set()
-    if tier in ('pro_dialer', 'predictive_dialer'):
+    if tier in ('pro_dialer', 'solo_predictive'):
         calling_start = voice_config.get('calling_hours_start', '08:00')
         calling_end = voice_config.get('calling_hours_end', '21:00')
         for contact in contacts_to_dial:
@@ -1342,6 +1344,7 @@ def multi_dial():
                 "_multi_line": True,
                 "_agent_email": current_user.email,
                 "_wrap_up_time": int(voice_config.get('wrap_up_time', 15)),
+                "_subscription_tier": tier,
             }
 
             save_call_to_history(
@@ -1388,7 +1391,7 @@ def get_active_lines():
     finally:
         return_db_connection(conn)
 
-    max_lines = 4 if tier in ('pro_dialer', 'predictive_dialer') else 1
+    max_lines = 4 if tier in ('pro_dialer', 'solo_predictive') else 1
 
     lines = []
     for sid, info in list(active_calls.items()):
@@ -1516,6 +1519,9 @@ def multi_call_status():
             if '_amd_result' in entry:
                 entry['amd_result'] = entry['_amd_result']
             entry['ring_confirmed'] = entry.get('_ring_confirmed', False)
+            # Expose AI overflow status for frontend
+            entry['overflow'] = entry.get('_overflow', False)
+            entry['overflow_agent'] = entry.get('_overflow_agent', '')
             statuses[sid] = entry
         else:
             statuses[sid] = {"status": "unknown"}
@@ -1568,26 +1574,33 @@ def predictive_stats():
         connect_rate = (connected / total * 100) if total > 0 else 0
         wrap_up_time = int(voice_config.get('wrap_up_time', 15))
 
-        # Use Erlang-C for predictive_dialer tier, simple formula for pro_dialer
-        if tier == 'predictive_dialer':
-            # Bootstrap TCPA tracker from DB if this location has no in-memory data yet
+        # Use Solo Predictive Erlang-C for solo_predictive, simple formula for pro_dialer
+        if tier == 'solo_predictive':
+            # Solo Predictive: Erlang-C with AI overflow (1 human + 3 AI)
             if tcpa_tracker.get_abandon_rate(location_id) == 0.0:
                 try:
                     tcpa_tracker.load_from_db(location_id)
                 except Exception as e:
                     logger.warning(f"TCPA bootstrap failed for {location_id}: {e}")
             current_abandon = tcpa_tracker.get_abandon_rate(location_id)
-            available = len(agent_state_manager.get_available_agents(location_id)) or 1
+            max_lines = int(voice_config.get('max_lines_setting', 4))
 
-            erlang_result = calculate_optimal_dial_ratio(
-                available_agents=available,
+            erlang_result = calculate_solo_predictive_ratio(
                 avg_handle_time_sec=avg_duration or 180,
                 avg_ring_time_sec=15,
                 answer_rate_pct=connect_rate or 25,
                 current_abandon_rate_pct=current_abandon,
                 target_abandon_rate_pct=float(voice_config.get('max_abandon_rate_pct', 3.0)),
                 wrap_up_time_sec=wrap_up_time,
-                max_ratio=4.0,
+                max_ratio=float(max_lines),
+                ai_overflow_capacity=max_lines - 1,  # All non-human lines are AI overflow
+            )
+
+            # Count active overflow calls right now
+            overflow_active = sum(
+                1 for sid, info in list(active_calls.items())
+                if info.get('_location_id') == location_id and info.get('_overflow')
+                and info.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')
             )
 
             return jsonify({
@@ -1603,9 +1616,14 @@ def predictive_stats():
                 "predicted_abandon_rate": erlang_result["predicted_abandon_rate"],
                 "current_abandon_rate": round(current_abandon, 2),
                 "throttled": erlang_result["throttled"],
-                "algorithm": "erlang_c",
-                "available_agents": erlang_result["inputs"]["available_agents"],
+                "algorithm": "solo_predictive_erlang_c",
+                "ai_overflow": True,
+                "ai_overflow_active": overflow_active,
+                "human_agents": 1,
+                "ai_overflow_capacity": max_lines - 1,
+                "effective_agents": erlang_result["inputs"]["effective_agents"],
             })
+
         else:
             # Simple formula for pro_dialer tier
             if connect_rate > 0:
@@ -1651,8 +1669,8 @@ def compliance_dashboard():
             return jsonify({"error": "Account not found"}), 404
 
         tier = row['subscription_tier'] or 'individual'
-        if tier != 'predictive_dialer':
-            return jsonify({"error": "Compliance dashboard requires Predictive Dialer tier",
+        if tier not in ('solo_predictive'):
+            return jsonify({"error": "Compliance dashboard requires Predictive Dialer or Solo Predictive tier",
                             "upgrade_required": True}), 403
 
         location_id = row['location_id']
@@ -1702,8 +1720,8 @@ def agent_state():
     finally:
         return_db_connection(conn)
 
-    if tier != 'predictive_dialer':
-        return jsonify({"error": "Agent state requires Predictive Dialer tier",
+    if tier not in ('solo_predictive'):
+        return jsonify({"error": "Agent state requires Predictive Dialer or Solo Predictive tier",
                         "upgrade_required": True}), 403
 
     if request.method == 'GET':
@@ -1755,8 +1773,8 @@ def callback_queue_route():
     finally:
         return_db_connection(conn)
 
-    if tier != 'predictive_dialer':
-        return jsonify({"error": "Callback queue requires Predictive Dialer tier",
+    if tier not in ('solo_predictive'):
+        return jsonify({"error": "Callback queue requires Predictive Dialer or Solo Predictive tier",
                         "upgrade_required": True}), 403
 
     if request.method == 'GET':

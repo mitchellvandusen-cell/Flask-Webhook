@@ -59,6 +59,11 @@ def dialer():
     return redirect('/for-individuals')
 
 
+@public_bp.route("/predictive-dialer")
+def predictive_dialer():
+    return render_template('predictive-dialer.html')
+
+
 @public_bp.route("/sms")
 def sms():
     return render_template('sms.html')

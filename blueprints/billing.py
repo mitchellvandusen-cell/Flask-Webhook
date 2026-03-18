@@ -24,7 +24,7 @@ from datetime import datetime
 
 import stripe
 from flask import (Blueprint, redirect, request, render_template_string,
-                   render_template, flash, make_response)
+                   render_template, flash, make_response, url_for)
 from flask import jsonify as flask_jsonify
 from flask_login import login_required, login_user, current_user
 
@@ -344,6 +344,22 @@ def stripe_webhook():
                     conn.commit()
                     logger.info(f"Provisioned {target_tier.upper()} {target_role} account for: {email}")
 
+                    # Solo Predictive includes 2000 AI minutes/month — credit on initial subscription
+                    if target_tier == "solo_predictive":
+                        try:
+                            credited = credit_ai_minutes(
+                                email=email,
+                                minutes=2000,
+                                stripe_session_id=session.id,
+                                stripe_payment_intent=session.payment_intent or "",
+                                package_label="Solo Predictive — 2,000 included minutes",
+                                amount_cents=0,
+                            )
+                            if credited:
+                                logger.info(f"Solo Predictive: Credited 2000 AI minutes to {email}")
+                        except Exception as sp_err:
+                            logger.warning(f"Solo Predictive AI minutes credit failed for {email}: {sp_err}")
+
                     # Auto-create Rewardful affiliate account for new subscriber (non-fatal)
                     try:
                         affiliate = _create_rewardful_affiliate(email)
@@ -432,6 +448,43 @@ def stripe_webhook():
                         return_db_connection(conn)
             except Exception as e:
                 logger.error(f"Seat subscription lifecycle error: {e}")
+
+    # ── Recurring invoice paid — credit included AI minutes for solo_predictive ──
+    elif event["type"] == "invoice.paid":
+        invoice = event["data"]["object"]
+        customer_id = invoice.get("customer", "")
+        # Only process subscription renewal invoices (not the initial checkout)
+        if invoice.get("billing_reason") == "subscription_cycle" and customer_id:
+            try:
+                conn = get_db_connection()
+                if conn:
+                    cur = None
+                    try:
+                        cur = conn.cursor()
+                        cur.execute(
+                            "SELECT email, subscription_tier FROM subscribers WHERE stripe_customer_id = %s",
+                            (customer_id,)
+                        )
+                        row = cur.fetchone()
+                        if row and row['subscription_tier'] == 'solo_predictive':
+                            credited = credit_ai_minutes(
+                                email=row['email'],
+                                minutes=2000,
+                                stripe_session_id=invoice.get("id", ""),
+                                stripe_payment_intent=invoice.get("payment_intent", ""),
+                                package_label="Solo Predictive — 2,000 monthly included minutes",
+                                amount_cents=0,
+                            )
+                            if credited:
+                                logger.info(f"Solo Predictive renewal: Credited 2000 AI minutes to {row['email']}")
+                    except Exception as e:
+                        logger.error(f"Solo Predictive monthly AI minutes credit failed: {e}")
+                    finally:
+                        if cur:
+                            cur.close()
+                        return_db_connection(conn)
+            except Exception as e:
+                logger.error(f"Invoice.paid handler error: {e}")
 
     return '', 200
 
@@ -631,34 +684,26 @@ def checkout_pro_dialer():
 
 
 @billing_bp.route("/checkout/predictive-dialer")
-@login_required
-def checkout_predictive_dialer():
-    """Predictive Dialer checkout — AGENCY ONLY. Requires agency owner with 5+ members."""
-    # Gate: only agency owners can purchase predictive dialer
-    if current_user.role != 'agency_owner':
-        flash("Predictive Dialer is an agency-level feature. It requires an agency account with 5 or more agents.", "error")
-        return redirect(url_for('dashboard.dashboard'))
+@billing_bp.route("/checkout/solo-predictive")
+def checkout_solo_predictive():
+    """Solo Predictive + AI Overflow checkout — $349/mo with 2000 AI minutes included.
 
-    # Gate: must have 5+ members
-    from db import get_agency_members_by_company_id
-    company_id = getattr(current_user, 'company_id', None)
-    members = get_agency_members_by_company_id(company_id) if company_id else []
-    if len(members) < 5:
-        flash(f"Predictive Dialer requires at least 5 agents in your agency. You currently have {len(members)}. As your agents subscribe, they'll appear automatically.", "error")
-        return redirect(url_for('agency.agency_dashboard'))
-
+    Erlang-C predictive dialing for solo agents. When the dialer dials multiple
+    lines and more than one lead answers, the first call bridges to the human
+    and overflow calls bridge to Voice AI which books the appointment.
+    """
     try:
         price_id = os.getenv("STRIPE_PREDICTIVE_DIALER_PRICE_ID")
         if not price_id:
             logger.error("STRIPE_PREDICTIVE_DIALER_PRICE_ID environment variable is not set!")
             return _error_page(
                 "Configuration Error",
-                "The Predictive Dialer price ID is not configured. Please contact support.",
+                "The Solo Predictive price ID is not configured. Please contact support.",
                 "Error Code: MISSING_PRICE_ID"
             )
 
         customer_email = current_user.email if current_user.is_authenticated else None
-        logger.info(f"Creating Predictive Dialer checkout with price_id: {price_id}")
+        logger.info(f"Creating Solo Predictive checkout with price_id: {price_id}")
 
         referral = request.args.get("referral", "").strip()
         coupon_id = _get_validated_coupon(request.args.get("coupon", "").strip())
@@ -670,18 +715,16 @@ def checkout_predictive_dialer():
             customer_email=customer_email,
             metadata={
                 "user_email": customer_email,
-                "target_role": "agency_owner",
-                "target_tier": "predictive_dialer",
-                "company_id": company_id or "",
-                "source": "agency_dashboard"
+                "target_role": "individual",
+                "target_tier": "solo_predictive",
+                "source": "website"
             },
             subscription_data={
                 "trial_period_days": 7,
                 "metadata": {
                     "user_email": customer_email,
-                    "target_role": "agency_owner",
-                    "target_tier": "predictive_dialer",
-                    "company_id": company_id or ""
+                    "target_role": "individual",
+                    "target_tier": "solo_predictive"
                 },
             },
             success_url=f"{YOUR_DOMAIN}/success?session_id={{CHECKOUT_SESSION_ID}}",
@@ -700,14 +743,14 @@ def checkout_predictive_dialer():
         return redirect(session.url, code=303)
 
     except stripe.error.InvalidRequestError as e:
-        logger.error(f"Stripe Invalid Request Error (Predictive Dialer): {e}")
+        logger.error(f"Stripe Invalid Request Error (Solo Predictive): {e}")
         return _error_page(
             "Stripe Configuration Error",
             "There's an issue with the payment configuration. Please contact support.",
             f"Error: {e}"
         )
     except Exception as e:
-        logger.error(f"Predictive Dialer checkout error: {e}")
+        logger.error(f"Solo Predictive checkout error: {e}")
         return _error_page("Checkout Error",
                            "Unable to create checkout session. Please contact support.",
                            f"Error Code: {e}")
@@ -947,16 +990,15 @@ def change_plan():
     data = request.get_json(silent=True) or {}
     target_tier = data.get("target_tier", "")
 
-    # Individual agents can only switch between sms_bot, individual, pro_dialer.
-    # Predictive dialer is agency-only (requires 5+ members in agency dashboard).
     tier_to_price = {
         "sms_bot": os.getenv("STRIPE_SMS_BOT_PRICE_ID"),
         "individual": os.getenv("STRIPE_PRICE_ID"),
         "pro_dialer": os.getenv("STRIPE_PRO_DIALER_PRICE_ID"),
+        "solo_predictive": os.getenv("STRIPE_PREDICTIVE_DIALER_PRICE_ID"),
     }
 
     if target_tier not in tier_to_price:
-        return flask_jsonify({"error": f"Unknown plan: {target_tier}. Predictive Dialer is an agency-level feature."}), 400
+        return flask_jsonify({"error": f"Unknown plan: {target_tier}"}), 400
 
     # Guard: prevent no-op plan change to same tier
     current_tier = current_user.subscription_tier or 'individual'
@@ -1034,9 +1076,10 @@ def change_plan():
                 return_db_connection(conn)
 
         tier_names = {
+            "sms_bot": "SMS Bot ($99.98/mo)",
             "individual": "Power Dialer ($149.98/mo)",
             "pro_dialer": "Pro Dialer ($224.98/mo)",
-            "predictive_dialer": "Predictive Dialer ($349.98/mo)",
+            "solo_predictive": "Solo Predictive + AI Overflow ($349/mo)",
         }
         return flask_jsonify({
             "success": True,
@@ -1080,19 +1123,19 @@ def subscription_info():
             "max_lines": 4,
             "features": ["Multi-line dialing (up to 4)", "Predictive dialer", "AI Texting", "AI Voice Agent", "Smart Filters", "Lead Intelligence", "Priority queue"],
         },
-        "predictive_dialer": {
-            "name": "Predictive Dialer",
-            "price": "$349.98/mo",
+        "solo_predictive": {
+            "name": "Solo Predictive + AI Overflow",
+            "price": "$349/mo",
             "max_lines": 4,
-            "agency_only": True,
-            "min_agents": 5,
+            "included_ai_minutes": 2000,
             "features": [
-                "Erlang-C predictive pacing", "TCPA auto-throttle (3% abandon rate)",
+                "Erlang-C predictive pacing (solo agent)", "AI Overflow safety net",
+                "2,000 AI minutes included/month",
+                "Multi-line dialing (up to 4)", "TCPA auto-throttle (3% abandon rate)",
                 "Recipient timezone enforcement", "Agent state machine",
                 "Compliance dashboard", "Recording consent tracking",
                 "Callback queue with scheduled re-dials", "Advanced AMD",
-                "Multi-line dialing (up to 4)", "AI Texting", "AI Voice Agent",
-                "Smart Filters", "Lead Intelligence", "Priority queue",
+                "AI Texting", "AI Voice Agent", "Smart Filters", "Lead Intelligence",
             ],
         },
     }

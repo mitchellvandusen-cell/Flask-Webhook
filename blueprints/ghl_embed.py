@@ -644,7 +644,7 @@ def ghl_subscription_info():
     tier_info = {
         "individual": {"name": "Power Dialer", "max_lines": 1},
         "pro_dialer": {"name": "Pro Dialer", "max_lines": 4},
-        "predictive_dialer": {"name": "Predictive Dialer", "max_lines": 4},
+        "solo_predictive": {"name": "Solo Predictive", "max_lines": 4},
     }
     info = tier_info.get(tier, tier_info["individual"])
 

@@ -348,6 +348,68 @@ def calculate_optimal_dial_ratio(
     }
 
 
+def calculate_solo_predictive_ratio(
+    avg_handle_time_sec,
+    avg_ring_time_sec,
+    answer_rate_pct,
+    current_abandon_rate_pct=0.0,
+    target_abandon_rate_pct=3.0,
+    wrap_up_time_sec=15,
+    max_ratio=4.0,
+    ai_overflow_capacity=3,
+):
+    """Calculate optimal dial ratio for Solo Predictive + AI Overflow.
+
+    Solo Predictive flips the traditional Erlang-C constraint: instead of
+    needing 5+ human agents to absorb call collisions, a SINGLE human agent
+    is backed by AI overflow lines. When multiple leads answer simultaneously,
+    the first call bridges to the human agent and all subsequent calls bridge
+    to the Voice AI in "overflow/warmup" mode.
+
+    Because AI catches every overflow call, these are NOT abandoned — they are
+    answered. The effective agent count for Erlang-C is 1 human + N AI agents.
+    TCPA abandon rate is effectively 0% since no caller waits unanswered.
+
+    Args:
+        avg_handle_time_sec: Average call duration in seconds
+        avg_ring_time_sec: Average ring time before answer
+        answer_rate_pct: Historical answer rate (0-100)
+        current_abandon_rate_pct: Current rolling abandon rate
+        target_abandon_rate_pct: TCPA target (default 3%)
+        wrap_up_time_sec: Post-call wrap-up time
+        max_ratio: Maximum dial ratio (capped at 4 lines)
+        ai_overflow_capacity: Number of AI overflow lines (default 3 = 4 total - 1 human)
+
+    Returns:
+        dict with dial_ratio, recommended_lines, overflow metrics, etc.
+    """
+    # Effective agents = 1 human + AI overflow capacity
+    # AI agents handle calls just as well as humans for queue math purposes —
+    # they answer instantly and keep the lead engaged.
+    effective_agents = 1 + ai_overflow_capacity
+
+    # Run standard Erlang-C with the effective agent count
+    result = calculate_optimal_dial_ratio(
+        available_agents=effective_agents,
+        avg_handle_time_sec=avg_handle_time_sec,
+        avg_ring_time_sec=avg_ring_time_sec,
+        answer_rate_pct=answer_rate_pct,
+        current_abandon_rate_pct=current_abandon_rate_pct,
+        target_abandon_rate_pct=target_abandon_rate_pct,
+        wrap_up_time_sec=wrap_up_time_sec,
+        max_ratio=max_ratio,
+    )
+
+    # Enrich the result with solo predictive context
+    result["reason"] = "solo_predictive_erlang_c"
+    result["inputs"]["human_agents"] = 1
+    result["inputs"]["ai_overflow_capacity"] = ai_overflow_capacity
+    result["inputs"]["effective_agents"] = effective_agents
+    result["ai_overflow"] = True
+
+    return result
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # TCPA COMPLIANCE ENGINE — Rolling Abandon Rate Tracker
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -590,6 +652,61 @@ class AgentStateManager:
                     agent["wrap_up_ends_at"] = None
 
             return dict(agent)
+
+    def try_claim_for_call(self, location_id, email, call_sid):
+        """Atomically try to claim an agent for a call (Solo Predictive).
+
+        This is the critical race-condition guard for AI overflow. When multiple
+        calls answer simultaneously, each one hits /voice/outbound-twiml and
+        calls this method. Only the FIRST call to arrive wins the claim —
+        subsequent calls return False and get routed to AI overflow.
+
+        Returns:
+            (claimed: bool, current_state: str, primary_call_sid: str or None)
+            - (True, 'on_call', None) = agent was available, now claimed for this call
+            - (False, 'on_call', 'CA...') = agent already on another call (collision)
+            - (False, 'wrap_up'|'break'|..., None) = agent unavailable (non-ready state)
+        """
+        with self._lock:
+            now = time.time()
+            agent = self._agents[location_id].get(email)
+
+            # Auto-transition wrap-up → ready if timer expired
+            if agent and agent["state"] == AgentState.WRAP_UP and agent.get("wrap_up_ends_at"):
+                if now >= agent["wrap_up_ends_at"]:
+                    agent["state"] = AgentState.READY
+                    agent["reason"] = None
+                    agent["since"] = now
+                    agent["wrap_up_ends_at"] = None
+
+            current_state = agent["state"] if agent else None
+
+            # Agent is available → claim them
+            if current_state in (AgentState.READY, None):
+                self._agents[location_id][email] = {
+                    "state": AgentState.ON_CALL,
+                    "reason": "solo_predictive_claim",
+                    "since": now,
+                    "call_sid": call_sid,
+                    "wrap_up_ends_at": None,
+                }
+                self._history[location_id].append({
+                    "email": email,
+                    "from_state": current_state or AgentState.LOGGED_OUT,
+                    "to_state": AgentState.ON_CALL,
+                    "reason": "solo_predictive_claim",
+                    "timestamp": now,
+                })
+                if len(self._history[location_id]) > 1000:
+                    self._history[location_id] = self._history[location_id][-500:]
+                return (True, AgentState.ON_CALL, None)
+
+            # Agent is on a call → collision (overflow to AI)
+            if current_state == AgentState.ON_CALL:
+                return (False, AgentState.ON_CALL, agent.get("call_sid"))
+
+            # Agent is in any other state → overflow to AI
+            return (False, current_state, None)
 
     def get_available_agents(self, location_id):
         """Get count and list of agents in READY state.

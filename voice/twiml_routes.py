@@ -9,6 +9,7 @@ import twilio_provisioning
 from number_health import select_outbound_number, update_number_health
 from voice.call_state import active_calls, transfer_requests, _encode_client_state, _build_twiml_stream, _twilio_hangup
 from voice.helpers import _get_subscriber_by_phone, _get_subscriber_by_location
+from voice.predictive_engine import agent_state_manager, AgentState, tcpa_tracker
 
 logger = logging.getLogger("voice_bridge.twiml")
 
@@ -236,8 +237,53 @@ def outbound_twiml():
                     logger.warning(f"Auto-record failed: {e}")
             threading.Thread(target=_start_rec, daemon=True).start()
 
-    # For human VoIP mode, bridge the PSTN callee to the browser agent
-    if dial_mode == 'human':
+    # ── Solo Predictive AI Overflow Detection ──
+    # For solo_predictive tier with human dial_mode: atomically check if the agent
+    # is available. If not, this is a COLLISION — route to AI overflow.
+    #
+    # RACE CONDITION GUARD: Two calls can answer at the exact same instant.
+    # Both hit this endpoint concurrently, both see agent READY, both try to
+    # bridge to the human → one gets dropped. Fix: use agent_state_manager's
+    # thread-safe set_state as an atomic claim. The FIRST call to successfully
+    # transition READY → ON_CALL wins. Any subsequent call sees ON_CALL → overflow.
+    _is_overflow = False
+    if dial_mode == 'human' and location_id:
+        call_info = active_calls.get(call_sid, {})
+        agent_email = call_info.get('_agent_email', '')
+        _tier = call_info.get('_subscription_tier', '')
+
+        if _tier == 'solo_predictive' and agent_email:
+            # ATOMIC claim: try_claim_for_call checks agent state AND sets
+            # ON_CALL in a single lock acquisition. This prevents the race
+            # condition where two calls answer at the same instant, both see
+            # READY, and both try to bridge to the human (dropping one call).
+            claimed, state, primary_sid = agent_state_manager.try_claim_for_call(
+                location_id, agent_email, call_sid
+            )
+
+            if claimed:
+                # This call won the claim → bridge to human agent
+                logger.info(
+                    f"SOLO PREDICTIVE: Agent {agent_email} claimed for "
+                    f"{call_sid[:16]} (contact={contact_name})"
+                )
+            else:
+                # Collision or agent unavailable → route to AI overflow
+                _is_overflow = True
+                logger.info(
+                    f"AI OVERFLOW: Agent {agent_email} state={state} — "
+                    f"routing {call_sid[:16]} to AI "
+                    f"(contact={contact_name}"
+                    f"{f', primary={primary_sid[:16]}' if primary_sid else ''})"
+                )
+                # Mark overflow in active_calls for frontend visibility
+                if call_sid in active_calls:
+                    active_calls[call_sid]['_overflow'] = True
+                    active_calls[call_sid]['_overflow_agent'] = agent_email
+                    active_calls[call_sid]['_overflow_primary_sid'] = primary_sid or ''
+
+    # For human VoIP mode (NOT overflow), bridge the PSTN callee to the browser agent
+    if dial_mode == 'human' and not _is_overflow:
         identity = f"agent_{location_id}" if location_id else ""
         if identity:
             logger.info(f"Human mode outbound: bridging to browser client={identity}")
@@ -252,7 +298,7 @@ def outbound_twiml():
             twiml = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
         return Response(twiml, content_type='text/xml')
 
-    # (host already set above for recording)
+    # AI mode (default) or AI overflow — connect to xAI Realtime WebSocket
     stream_url = f'wss://{host}/voice/stream'
 
     client_state = _encode_client_state({
@@ -262,7 +308,7 @@ def outbound_twiml():
         'direction':    direction,
         'contact_id':   contact_id,
         'contact_name': contact_name,
-        'dial_mode':    dial_mode,
+        'dial_mode':    'ai_overflow' if _is_overflow else dial_mode,
     })
 
     params = {'client_state': client_state, 'callSid': call_sid}

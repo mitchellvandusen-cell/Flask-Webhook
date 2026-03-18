@@ -1,0 +1,469 @@
+{% extends "base.html" %}
+
+{% block title %}Solo Predictive Dialer + AI Overflow — InsuranceGrokBot{% endblock %}
+
+{% block meta_description %}The first predictive dialer built for solo insurance agents. Erlang-C math paces your calls. AI Overflow catches collisions. Zero dropped leads. $349/mo.{% endblock %}
+
+{% block content %}
+<style>
+    .pd-hero{padding:150px 0 80px;position:relative;overflow:hidden;text-align:center}
+    .pd-tag{display:inline-block;background:rgba(139,92,246,0.1);color:#a78bfa;border:1px solid rgba(139,92,246,0.25);border-radius:100px;padding:6px 18px;font-size:0.8rem;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:24px;font-weight:600}
+    .pd-h1{font-size:clamp(2.4rem,5vw,3.8rem);font-weight:800;line-height:1.1;margin-bottom:20px;color:#fff}
+    .pd-h1 span{background:linear-gradient(135deg,#a78bfa 0%,#00ff88 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .pd-sub{font-size:clamp(1rem,2vw,1.25rem);color:#999;max-width:680px;margin:0 auto 36px;line-height:1.7}
+    .pd-hero-cta{display:inline-flex;align-items:center;gap:12px;background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff;padding:16px 36px;border-radius:14px;font-weight:700;font-size:1.05rem;text-decoration:none;transition:all .3s}
+    .pd-hero-cta:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(139,92,246,0.4);color:#fff}
+    .pd-price-tag{display:inline-block;background:rgba(0,255,136,0.08);color:var(--accent);border:1px solid rgba(0,255,136,0.2);border-radius:100px;padding:8px 20px;font-size:0.85rem;font-weight:600;margin-top:16px}
+
+    .pd-section{padding:100px 0}
+    .pd-section-tag{display:inline-block;color:#a78bfa;font-size:0.75rem;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin-bottom:12px}
+    .pd-section-h2{font-size:clamp(1.8rem,3.5vw,2.6rem);font-weight:800;color:#fff;margin-bottom:16px;line-height:1.15}
+    .pd-section-sub{font-size:1.05rem;color:#999;max-width:640px;line-height:1.7;margin-bottom:40px}
+
+    .pd-lanes{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:40px}
+    @media(max-width:768px){.pd-lanes{grid-template-columns:1fr}}
+    .pd-lane{background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-width:1px;border-style:solid;border-color:var(--glass-border-top) var(--glass-border-bottom) var(--glass-border-bottom) rgba(255,255,255,0.15);border-radius:18px;box-shadow:var(--glass-shadow);padding:32px 28px;position:relative;overflow:hidden;transition:all .3s}
+    .pd-lane:hover{transform:translateY(-6px);box-shadow:var(--glass-shadow-hover)}
+    .pd-lane::after{content:'';position:absolute;top:0;left:-100%;width:50%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.04),transparent);transform:skewX(-20deg);transition:.6s;pointer-events:none}
+    .pd-lane:hover::after{left:150%}
+    .pd-lane-icon{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;margin-bottom:16px}
+    .pd-lane-icon--red{background:rgba(239,68,68,0.12);color:#ef4444}
+    .pd-lane-icon--yellow{background:rgba(234,179,8,0.12);color:#eab308}
+    .pd-lane-icon--green{background:rgba(0,255,136,0.12);color:var(--accent)}
+    .pd-lane h4{font-size:1.15rem;font-weight:700;color:#fff;margin-bottom:8px}
+    .pd-lane p{font-size:0.92rem;color:#999;line-height:1.65}
+    .pd-lane-badge{display:inline-block;font-size:0.7rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border-radius:6px;margin-bottom:12px}
+    .pd-lane-badge--slow{background:rgba(239,68,68,0.1);color:#ef4444}
+    .pd-lane-badge--reckless{background:rgba(234,179,8,0.1);color:#eab308}
+    .pd-lane-badge--smart{background:rgba(0,255,136,0.1);color:var(--accent)}
+
+    .pd-erlang{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+    @media(max-width:768px){.pd-erlang{grid-template-columns:1fr}}
+    .pd-erlang-visual{background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border:1px solid rgba(255,255,255,0.1);border-radius:18px;padding:36px;box-shadow:var(--glass-shadow)}
+    .pd-var{display:flex;align-items:center;gap:16px;padding:16px 0;border-bottom:1px solid rgba(255,255,255,0.06)}
+    .pd-var:last-child{border-bottom:none}
+    .pd-var-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
+    .pd-var-icon--blue{background:rgba(59,130,246,0.12);color:#3b82f6}
+    .pd-var-icon--orange{background:rgba(234,179,8,0.12);color:#eab308}
+    .pd-var-icon--green{background:rgba(0,255,136,0.12);color:var(--accent)}
+    .pd-var-label{font-size:0.85rem;color:#999}
+    .pd-var-value{font-size:1rem;color:#fff;font-weight:600}
+
+    .pd-overflow-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+    @media(max-width:768px){.pd-overflow-grid{grid-template-columns:1fr}}
+    .pd-flow{position:relative}
+    .pd-flow-step{display:flex;align-items:flex-start;gap:16px;margin-bottom:28px;position:relative;padding-left:8px}
+    .pd-flow-num{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.85rem;flex-shrink:0}
+    .pd-flow-num--purple{background:rgba(139,92,246,0.15);color:#a78bfa;border:1px solid rgba(139,92,246,0.3)}
+    .pd-flow-num--green{background:rgba(0,255,136,0.15);color:var(--accent);border:1px solid rgba(0,255,136,0.3)}
+    .pd-flow-text h5{font-size:1rem;font-weight:700;color:#fff;margin-bottom:4px}
+    .pd-flow-text p{font-size:0.88rem;color:#999;line-height:1.6}
+
+    .pd-sim{background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border:1px solid rgba(255,255,255,0.1);border-radius:18px;padding:40px;box-shadow:var(--glass-shadow);max-width:800px;margin:0 auto}
+    .pd-sim-controls{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:32px}
+    @media(max-width:600px){.pd-sim-controls{grid-template-columns:1fr}}
+    .pd-sim-label{font-size:0.8rem;color:#999;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:8px}
+    .pd-sim-slider{width:100%;-webkit-appearance:none;height:6px;border-radius:3px;background:rgba(255,255,255,0.1);outline:none}
+    .pd-sim-slider::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 12px rgba(0,255,136,0.4)}
+    .pd-sim-value{font-size:1.4rem;font-weight:800;color:#fff;margin-top:4px}
+    .pd-sim-result{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.06)}
+    @media(max-width:600px){.pd-sim-result{grid-template-columns:1fr 1fr}}
+    .pd-sim-metric{text-align:center}
+    .pd-sim-metric-val{font-size:1.6rem;font-weight:800;color:var(--accent)}
+    .pd-sim-metric-label{font-size:0.75rem;color:#999;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px}
+    .pd-sim-lines{display:flex;gap:12px;justify-content:center;margin:24px 0}
+    .pd-sim-line{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;transition:all .4s}
+    .pd-sim-line--active{background:rgba(0,255,136,0.12);border:1px solid rgba(0,255,136,0.3);color:var(--accent)}
+    .pd-sim-line--idle{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);color:#555}
+
+    .pd-stages{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:40px}
+    @media(max-width:900px){.pd-stages{grid-template-columns:repeat(4,1fr)}}
+    @media(max-width:600px){.pd-stages{grid-template-columns:repeat(2,1fr)}}
+    .pd-stage{background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px 12px;text-align:center;transition:all .3s}
+    .pd-stage:hover{border-color:rgba(139,92,246,0.3);transform:translateY(-3px)}
+    .pd-stage-num{font-size:0.65rem;color:#a78bfa;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+    .pd-stage-name{font-size:0.82rem;font-weight:700;color:#fff;margin-bottom:4px}
+    .pd-stage-desc{font-size:0.72rem;color:#888;line-height:1.4}
+
+    .pd-cta-section{padding:80px 0;text-align:center}
+    .pd-cta-box{background:linear-gradient(135deg,rgba(139,92,246,0.08),rgba(0,255,136,0.05));border:1px solid rgba(139,92,246,0.2);border-radius:24px;padding:60px 40px;max-width:700px;margin:0 auto}
+    .pd-cta-box h2{font-size:clamp(1.6rem,3vw,2.2rem);font-weight:800;color:#fff;margin-bottom:12px}
+    .pd-cta-box p{color:#999;font-size:1rem;margin-bottom:28px}
+
+    body.light-theme .pd-h1,body.light-theme .pd-lane h4,body.light-theme .pd-section-h2,body.light-theme .pd-flow-text h5,body.light-theme .pd-var-value,body.light-theme .pd-sim-value,body.light-theme .pd-sim-metric-val,body.light-theme .pd-stage-name,body.light-theme .pd-cta-box h2{color:var(--lt-text-primary)}
+    body.light-theme .pd-sub,body.light-theme .pd-section-sub,body.light-theme .pd-lane p,body.light-theme .pd-flow-text p,body.light-theme .pd-var-label,body.light-theme .pd-sim-metric-label,body.light-theme .pd-stage-desc,body.light-theme .pd-cta-box p{color:var(--lt-text-secondary)}
+    body.light-theme .pd-lane,body.light-theme .pd-erlang-visual,body.light-theme .pd-sim,body.light-theme .pd-stage{background:var(--lt-surface);border-color:var(--lt-border);box-shadow:0 4px 16px rgba(0,0,0,0.06)}
+    body.light-theme .pd-cta-box{background:rgba(139,92,246,0.04);border-color:rgba(139,92,246,0.15)}
+</style>
+
+<nav class="ios-section-dots" id="iosSectionDots">
+    <div class="ios-section-dot active" data-section="0" title="Hero"></div>
+    <div class="ios-section-dot" data-section="1" title="The Problem"></div>
+    <div class="ios-section-dot" data-section="2" title="Erlang-C Math"></div>
+    <div class="ios-section-dot" data-section="3" title="AI Overflow"></div>
+    <div class="ios-section-dot" data-section="4" title="AI Stages"></div>
+    <div class="ios-section-dot" data-section="5" title="Simulator"></div>
+    <div class="ios-section-dot" data-section="6" title="Get Started"></div>
+</nav>
+
+<!-- SECTION 0: HERO -->
+<section class="ios-snap-section pd-hero" id="iosSection0">
+    <div class="container">
+        <span class="pd-tag">Solo Predictive + AI Overflow</span>
+        <h1 class="pd-h1">The Predictive Dialer That<br><span>Doesn't Need a Team</span></h1>
+        <p class="pd-sub">Erlang-C math paces your calls. AI catches every collision. You talk to humans back-to-back while a mathematician and an AI agent work behind the scenes. Zero dropped leads. Ever.</p>
+        <a href="/checkout/predictive-dialer" class="pd-hero-cta">
+            <i class="fa-solid fa-rocket"></i> Start 7-Day Free Trial
+        </a>
+        <div class="pd-price-tag">$349/mo &middot; 2,000 AI minutes included &middot; Cancel anytime</div>
+    </div>
+</section>
+
+<!-- SECTION 1: THE THREE LANES -->
+<section class="ios-snap-section pd-section" id="iosSection1">
+    <div class="container">
+        <div class="text-center">
+            <span class="pd-section-tag">The Problem</span>
+            <h2 class="pd-section-h2">Three ways to dial. Only one doesn't burn leads.</h2>
+            <p class="pd-section-sub" style="margin-left:auto;margin-right:auto">Most agents are stuck in the slow lane or the reckless lane. Neither gets you where you need to go.</p>
+        </div>
+
+        <div class="pd-lanes">
+            <div class="pd-lane">
+                <div class="pd-lane-icon pd-lane-icon--red"><i class="fa-solid fa-snail"></i></div>
+                <span class="pd-lane-badge pd-lane-badge--slow">The Slow Lane</span>
+                <h4>Manual Dialing</h4>
+                <p>Dial one number. Listen to 30 seconds of ringing. Get voicemail. Hang up. Repeat. You spend 80% of your day listening to ringtones instead of talking to humans.</p>
+            </div>
+            <div class="pd-lane">
+                <div class="pd-lane-icon pd-lane-icon--yellow"><i class="fa-solid fa-bolt"></i></div>
+                <span class="pd-lane-badge pd-lane-badge--reckless">The Reckless Lane</span>
+                <h4>Power Dialer</h4>
+                <p>Blast 3 numbers at once. More conversations, but dumb software. Two people pick up? You talk to one, the other hears dead air and hangs up. You just burned an expensive lead.</p>
+            </div>
+            <div class="pd-lane">
+                <div class="pd-lane-icon pd-lane-icon--green"><i class="fa-solid fa-brain"></i></div>
+                <span class="pd-lane-badge pd-lane-badge--smart">Smart Cruise Control</span>
+                <h4>Solo Predictive</h4>
+                <p>A mathematician lives inside your dialer. It watches your connect rates, paces your calls perfectly, and on the rare collision — your AI agent catches the overflow and books the appointment.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- SECTION 2: ERLANG-C EXPLAINED -->
+<section class="ios-snap-section pd-section" id="iosSection2">
+    <div class="container">
+        <div class="pd-erlang">
+            <div>
+                <span class="pd-section-tag">The Math</span>
+                <h2 class="pd-section-h2">Erlang-C: 100 years of queue theory, working for you</h2>
+                <p class="pd-section-sub">Invented by a Danish mathematician to manage telephone switchboards in 1917. The same formula that routes millions of calls at AT&T now lives inside your dialer — running the math in reverse to calculate the exact number of lines to dial right now.</p>
+                <p class="pd-section-sub">The algorithm watches three live variables and constantly recalculates. When leads aren't answering, it dials aggressively. When they're hot, it throttles back instantly. The goal: a lead says "Hello" the exact second you finish your last call.</p>
+            </div>
+            <div class="pd-erlang-visual">
+                <div class="pd-var">
+                    <div class="pd-var-icon pd-var-icon--blue"><i class="fa-solid fa-phone-volume"></i></div>
+                    <div>
+                        <div class="pd-var-label">Variable 1</div>
+                        <div class="pd-var-value">Answer Rate</div>
+                        <div class="pd-var-label">Only 1 in 10 leads is picking up? Dial more lines.</div>
+                    </div>
+                </div>
+                <div class="pd-var">
+                    <div class="pd-var-icon pd-var-icon--orange"><i class="fa-solid fa-clock"></i></div>
+                    <div>
+                        <div class="pd-var-label">Variable 2</div>
+                        <div class="pd-var-value">Average Talk Time</div>
+                        <div class="pd-var-label">3-minute calls? The math knows when you'll be free.</div>
+                    </div>
+                </div>
+                <div class="pd-var">
+                    <div class="pd-var-icon pd-var-icon--green"><i class="fa-solid fa-user"></i></div>
+                    <div>
+                        <div class="pd-var-label">Variable 3</div>
+                        <div class="pd-var-value">Available Agents: You + AI</div>
+                        <div class="pd-var-label">Solo agent + AI overflow = 4 effective agents.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- SECTION 3: AI OVERFLOW -->
+<section class="ios-snap-section pd-section" id="iosSection3">
+    <div class="container">
+        <div class="pd-overflow-grid">
+            <div class="pd-flow">
+                <span class="pd-section-tag">The Unfair Advantage</span>
+                <h2 class="pd-section-h2">AI Overflow: what happens when two leads answer at once</h2>
+                <p class="pd-section-sub">Traditional predictive dialers need 5+ agents. Solo agents couldn't use them — until now.</p>
+
+                <div class="pd-flow-step">
+                    <div class="pd-flow-num pd-flow-num--purple">1</div>
+                    <div class="pd-flow-text">
+                        <h5>The dialer fires 4 lines</h5>
+                        <p>Erlang-C calculated that your connect rate needs 4 simultaneous dials. The dialer fires all four.</p>
+                    </div>
+                </div>
+                <div class="pd-flow-step">
+                    <div class="pd-flow-num pd-flow-num--purple">2</div>
+                    <div class="pd-flow-text">
+                        <h5>Two leads answer at the same time</h5>
+                        <p>Call A and Call B both pick up within the same second. On any other dialer, one gets dropped.</p>
+                    </div>
+                </div>
+                <div class="pd-flow-step">
+                    <div class="pd-flow-num pd-flow-num--green">3</div>
+                    <div class="pd-flow-text">
+                        <h5>You take Call A. AI takes Call B.</h5>
+                        <p>Call A bridges to you instantly. Call B bridges to your AI agent — it sounds human, qualifies the lead, handles objections, and goes for the appointment.</p>
+                    </div>
+                </div>
+                <div class="pd-flow-step">
+                    <div class="pd-flow-num pd-flow-num--green">4</div>
+                    <div class="pd-flow-text">
+                        <h5>Click "Take Over" or let AI book it</h5>
+                        <p>Finish your call, click Take Over to grab the lead mid-conversation. Or the AI books the appointment for you and moves on.</p>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div class="pd-erlang-visual" style="text-align:center;padding:48px 32px">
+                    <div style="font-size:4rem;margin-bottom:16px"><i class="fa-solid fa-phone-volume" style="color:#a78bfa"></i> <i class="fa-solid fa-plus" style="color:#555;font-size:1.5rem;margin:0 8px"></i> <i class="fa-solid fa-robot" style="color:var(--accent)"></i></div>
+                    <div style="font-size:1.4rem;font-weight:800;color:#fff;margin-bottom:8px">Zero Dropped Leads</div>
+                    <div style="font-size:0.9rem;color:#999;line-height:1.6;max-width:300px;margin:0 auto">Every answered call gets a conversation. Human or AI. No dead air. No burned leads. No TCPA violations.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- SECTION 4: AI CONVERSATION STAGES -->
+<section class="ios-snap-section pd-section" id="iosSection4">
+    <div class="container text-center">
+        <span class="pd-section-tag">AI Conversation Engine</span>
+        <h2 class="pd-section-h2">Your AI doesn't stall. It sells.</h2>
+        <p class="pd-section-sub" style="margin-left:auto;margin-right:auto">The overflow AI follows the same 7-stage conversation engine as a trained closer. It qualifies, handles objections, and either transfers hot leads to you or books the appointment.</p>
+
+        <div class="pd-stages">
+            <div class="pd-stage">
+                <div class="pd-stage-num">Stage 1</div>
+                <div class="pd-stage-name">Greeting</div>
+                <div class="pd-stage-desc">Confident, casual open. No "is now a good time?"</div>
+            </div>
+            <div class="pd-stage">
+                <div class="pd-stage-num">Stage 2</div>
+                <div class="pd-stage-name">Rapport</div>
+                <div class="pd-stage-desc">Quick personal connection. Light question, genuine reaction.</div>
+            </div>
+            <div class="pd-stage">
+                <div class="pd-stage-num">Stage 3</div>
+                <div class="pd-stage-name">Qualifying</div>
+                <div class="pd-stage-desc">Coverage status, who they protect, life changes, needs.</div>
+            </div>
+            <div class="pd-stage">
+                <div class="pd-stage-num">Stage 4</div>
+                <div class="pd-stage-name">Objection</div>
+                <div class="pd-stage-desc">Acknowledge, redirect to value, loop back to certainty.</div>
+            </div>
+            <div class="pd-stage">
+                <div class="pd-stage-num">Stage 5</div>
+                <div class="pd-stage-name">Transfer</div>
+                <div class="pd-stage-desc">Hot lead? Connects to you live. You busy? Books instead.</div>
+            </div>
+            <div class="pd-stage">
+                <div class="pd-stage-num">Stage 6</div>
+                <div class="pd-stage-name">Booking</div>
+                <div class="pd-stage-desc">Two-option close. Pulls your real calendar. Confirms time.</div>
+            </div>
+            <div class="pd-stage">
+                <div class="pd-stage-num">Stage 7</div>
+                <div class="pd-stage-name">Booked</div>
+                <div class="pd-stage-desc">Confirms appointment. Warm handoff. Done.</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- SECTION 5: INTERACTIVE SIMULATOR -->
+<section class="ios-snap-section pd-section" id="iosSection5">
+    <div class="container text-center">
+        <span class="pd-section-tag">Try It</span>
+        <h2 class="pd-section-h2">Predictive Pacing Simulator</h2>
+        <p class="pd-section-sub" style="margin-left:auto;margin-right:auto">Adjust your lead quality and talk time. Watch how the Erlang-C algorithm changes its behavior in real time.</p>
+
+        <div class="pd-sim">
+            <div class="pd-sim-controls">
+                <div>
+                    <div class="pd-sim-label">Answer Rate</div>
+                    <input type="range" min="5" max="60" value="15" class="pd-sim-slider" id="simAnswerRate">
+                    <div class="pd-sim-value"><span id="simAnswerRateVal">15</span>%</div>
+                </div>
+                <div>
+                    <div class="pd-sim-label">Avg Talk Time</div>
+                    <input type="range" min="30" max="600" value="180" step="10" class="pd-sim-slider" id="simTalkTime">
+                    <div class="pd-sim-value"><span id="simTalkTimeVal">3:00</span></div>
+                </div>
+            </div>
+
+            <div class="pd-sim-lines" id="simLines">
+                <div class="pd-sim-line pd-sim-line--active" id="simLine1"><i class="fa-solid fa-phone"></i></div>
+                <div class="pd-sim-line pd-sim-line--active" id="simLine2"><i class="fa-solid fa-phone"></i></div>
+                <div class="pd-sim-line pd-sim-line--active" id="simLine3"><i class="fa-solid fa-phone"></i></div>
+                <div class="pd-sim-line pd-sim-line--idle" id="simLine4"><i class="fa-solid fa-phone-slash"></i></div>
+            </div>
+
+            <div class="pd-sim-result">
+                <div class="pd-sim-metric">
+                    <div class="pd-sim-metric-val" id="simDialRatio">3.2x</div>
+                    <div class="pd-sim-metric-label">Dial Ratio</div>
+                </div>
+                <div class="pd-sim-metric">
+                    <div class="pd-sim-metric-val" id="simRecommendedLines">3</div>
+                    <div class="pd-sim-metric-label">Lines Active</div>
+                </div>
+                <div class="pd-sim-metric">
+                    <div class="pd-sim-metric-val" id="simAbandonRate">1.2%</div>
+                    <div class="pd-sim-metric-label">Predicted Abandon</div>
+                </div>
+                <div class="pd-sim-metric">
+                    <div class="pd-sim-metric-val" id="simCallsHour">28</div>
+                    <div class="pd-sim-metric-label">Calls/Hour</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- SECTION 6: CTA -->
+<section class="ios-snap-section pd-cta-section" id="iosSection6">
+    <div class="container">
+        <div class="pd-cta-box">
+            <h2>Stop burning leads. Start every call with a "Hello."</h2>
+            <p>7-day free trial. 2,000 AI minutes included. Cancel anytime. No contracts.</p>
+            <a href="/checkout/predictive-dialer" class="pd-hero-cta">
+                <i class="fa-solid fa-rocket"></i> Start Free Trial — $349/mo
+            </a>
+        </div>
+    </div>
+</section>
+
+<script>
+(function(){
+    /* ── Predictive Pacing Simulator ── */
+    var answerSlider = document.getElementById('simAnswerRate');
+    var talkSlider = document.getElementById('simTalkTime');
+    if (!answerSlider || !talkSlider) return;
+
+    function erlangC(agents, intensity) {
+        /* Simplified Erlang-C probability for the simulator */
+        if (agents <= 0 || intensity <= 0) return 0;
+        var rho = intensity / agents;
+        if (rho >= 1) return 1;
+        /* Log-space Erlang-C to avoid overflow */
+        var logNumer = 0;
+        for (var i = 1; i <= agents; i++) logNumer += Math.log(intensity) - Math.log(i);
+        logNumer = Math.exp(logNumer);
+        var sum = 0;
+        for (var k = 0; k < agents; k++) {
+            var t = 0;
+            for (var j = 1; j <= k; j++) t += Math.log(intensity) - Math.log(j);
+            sum += Math.exp(t);
+        }
+        var pWait = logNumer / (logNumer + (1 - rho) * sum);
+        return Math.max(0, Math.min(1, pWait));
+    }
+
+    function updateSim() {
+        var answerRate = parseInt(answerSlider.value) / 100;
+        var talkSec = parseInt(talkSlider.value);
+        var agents = 4; /* 1 human + 3 AI */
+        var wrapUp = 15;
+        var ringTime = 15;
+        var serviceTime = talkSec + wrapUp;
+
+        /* Format talk time */
+        var m = Math.floor(talkSec / 60);
+        var s = talkSec % 60;
+        document.getElementById('simTalkTimeVal').textContent = m + ':' + (s < 10 ? '0' : '') + s;
+        document.getElementById('simAnswerRateVal').textContent = answerSlider.value;
+
+        /* Binary search for optimal ratio (mirrors server-side Erlang-C) */
+        var bestRatio = 1, bestAbandon = 0;
+        var lo = 1, hi = 4;
+        for (var i = 0; i < 20; i++) {
+            var mid = (lo + hi) / 2;
+            var arrival = (agents * mid * answerRate) / ringTime;
+            var intensity = arrival * serviceTime;
+            var pWait = erlangC(agents, intensity);
+            var rho = intensity / agents;
+            var abandon = 0;
+            if (rho < 1) {
+                var exp = -agents * (1 / serviceTime) * (1 - rho) * 2;
+                abandon = pWait * Math.exp(Math.max(-500, exp)) * 100;
+            } else {
+                abandon = 100;
+            }
+            if (abandon <= 3) {
+                bestRatio = mid;
+                bestAbandon = abandon;
+                lo = mid;
+            } else {
+                hi = mid;
+            }
+        }
+
+        var recommended = Math.min(4, Math.max(1, Math.round(bestRatio)));
+        var callsPerHour = Math.round((3600 / (talkSec + wrapUp + ringTime * (1 / answerRate))) * bestRatio * 0.7);
+
+        document.getElementById('simDialRatio').textContent = bestRatio.toFixed(1) + 'x';
+        document.getElementById('simRecommendedLines').textContent = recommended;
+        document.getElementById('simAbandonRate').textContent = bestAbandon.toFixed(1) + '%';
+        document.getElementById('simCallsHour').textContent = callsPerHour;
+
+        /* Update line indicators */
+        for (var l = 1; l <= 4; l++) {
+            var el = document.getElementById('simLine' + l);
+            if (l <= recommended) {
+                el.className = 'pd-sim-line pd-sim-line--active';
+                el.innerHTML = '<i class="fa-solid fa-phone"></i>';
+            } else {
+                el.className = 'pd-sim-line pd-sim-line--idle';
+                el.innerHTML = '<i class="fa-solid fa-phone-slash"></i>';
+            }
+        }
+    }
+
+    answerSlider.addEventListener('input', updateSim);
+    talkSlider.addEventListener('input', updateSim);
+    updateSim();
+
+    /* ── Side dot navigation ── */
+    var dots = document.querySelectorAll('.ios-section-dot');
+    dots.forEach(function(dot){
+        dot.addEventListener('click', function(){
+            var idx = parseInt(this.dataset.section);
+            var sec = document.getElementById('iosSection' + idx);
+            if (sec) sec.scrollIntoView({behavior: 'smooth'});
+        });
+    });
+    var observer = new IntersectionObserver(function(entries){
+        entries.forEach(function(e){
+            if (e.isIntersecting) {
+                var id = e.target.id;
+                var idx = id.replace('iosSection', '');
+                dots.forEach(function(d){ d.classList.remove('active'); });
+                var active = document.querySelector('.ios-section-dot[data-section="' + idx + '"]');
+                if (active) active.classList.add('active');
+            }
+        });
+    }, {threshold: 0.4});
+    for (var s = 0; s <= 6; s++) {
+        var sec = document.getElementById('iosSection' + s);
+        if (sec) observer.observe(sec);
+    }
+})();
+</script>
+{% endblock %}
