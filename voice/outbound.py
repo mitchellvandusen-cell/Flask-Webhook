@@ -1014,16 +1014,17 @@ def voice_status():
             logger.warning(f"call_history update failed for {call_sid}: {e}")
 
     # ── TCPA compliance: record call outcome for abandon rate tracking ──
+    # Skip overflow calls — they are answered by AI, not abandoned.
     terminal_statuses = {'completed', 'busy', 'no-answer', 'failed', 'canceled'}
     if call_status in terminal_statuses and call_sid:
         call_info = active_calls.get(call_sid, {})
         tcpa_location = call_info.get('_location_id', '')
-        if tcpa_location:
+        is_overflow_call = call_info.get('_overflow', False)
+        if tcpa_location and not is_overflow_call:
             dur_int = int(duration or 0)
             if call_status == 'completed' and dur_int > 0:
                 tcpa_tracker.record_call_outcome(tcpa_location, 'answered')
             elif call_status == 'completed' and dur_int == 0:
-                # Call answered but 0 duration — agent likely abandoned before pickup
                 tcpa_tracker.record_call_outcome(tcpa_location, 'abandoned')
             elif call_status == 'no-answer':
                 tcpa_tracker.record_call_outcome(tcpa_location, 'no_answer')
@@ -1056,19 +1057,34 @@ def voice_status():
                 logger.debug(f"Auto-callback scheduling failed (non-fatal): {e}")
 
     # ── Agent state machine: auto-transition ON_CALL → WRAP_UP on terminal ──
+    # Overflow calls don't change agent state — only the primary (human) call does.
     if call_status in terminal_statuses and call_sid:
         call_info_asm = active_calls.get(call_sid, {})
         asm_location = call_info_asm.get('_location_id', '')
-        if asm_location and call_status == 'in-progress':
-            pass  # handled below
-        elif asm_location and call_status in terminal_statuses:
-            # Find the agent email from the subscriber lookup (cached in call_info)
+        is_overflow_asm = call_info_asm.get('_overflow', False)
+        if asm_location and not is_overflow_asm and call_status in terminal_statuses:
             asm_email = call_info_asm.get('_agent_email', '')
             if asm_email:
                 agent_current = agent_state_manager.get_agent_state(asm_location, asm_email)
                 if agent_current.get('state') == AgentState.ON_CALL:
                     wrap_time = call_info_asm.get('_wrap_up_time', 15)
-                    if int(duration or 0) > 0:
+                    is_solo = call_info_asm.get('_subscription_tier', '') == 'solo_predictive'
+                    dur_int = int(duration or 0)
+                    if dur_int > 0 and is_solo:
+                        # Solo predictive: skip WRAP_UP if overflow calls are still
+                        # active (agent should grab them immediately). Go straight
+                        # to READY so try_claim_for_call can succeed.
+                        overflow_pending = any(
+                            c.get('_overflow') and c.get('_location_id') == asm_location
+                            and c.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')
+                            for c in active_calls.values()
+                        )
+                        if overflow_pending:
+                            agent_state_manager.set_state(asm_location, asm_email, AgentState.READY)
+                            logger.info(f"Solo predictive: skip wrap-up, overflow calls pending — agent READY")
+                        else:
+                            agent_state_manager.start_wrap_up(asm_location, asm_email, wrap_time)
+                    elif dur_int > 0:
                         agent_state_manager.start_wrap_up(asm_location, asm_email, wrap_time)
                     else:
                         agent_state_manager.set_state(asm_location, asm_email, AgentState.READY)

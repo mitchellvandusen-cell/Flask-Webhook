@@ -252,6 +252,15 @@ def outbound_twiml():
         agent_email = call_info.get('_agent_email', '')
         _tier = call_info.get('_subscription_tier', '')
 
+        # Fallback: if _agent_email wasn't set (external API call, webhook-initiated),
+        # look it up from the subscriber record so the claim can still happen.
+        if not agent_email and _tier == 'solo_predictive':
+            _sub = _get_subscriber_by_location(location_id)
+            if _sub:
+                agent_email = _sub.get('email', '')
+                if agent_email and call_sid in active_calls:
+                    active_calls[call_sid]['_agent_email'] = agent_email
+
         if _tier == 'solo_predictive' and agent_email:
             # ATOMIC claim: try_claim_for_call checks agent state AND sets
             # ON_CALL in a single lock acquisition. This prevents the race
