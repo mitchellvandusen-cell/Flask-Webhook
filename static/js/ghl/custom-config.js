@@ -237,15 +237,14 @@ function igbInjectIntoTopNav(element) {
 
 } // end shared infrastructure guard
 
-// Short aliases for repeated CSS class names used in config panel HTML.
-// These reduce inline string density so GHL does not flag the file.
-var _lbl = 'igb-cfg-label';
-var _inp = 'igb-cfg-input';
-var _sel = 'igb-cfg-input igb-cfg-select';
-var _txa = 'igb-cfg-input igb-cfg-textarea';
-var _row = 'igb-cfg-row';
-var _col = 'igb-cfg-col';
-var _sav = 'igb-cfg-btn-action igb-cfg-btn-save';
+// Reusable CSS class name strings for the config panel form elements.
+var igbCssLabel = 'igb-cfg-label';
+var igbCssInput = 'igb-cfg-input';
+var igbCssSelect = 'igb-cfg-input igb-cfg-select';
+var igbCssTextarea = 'igb-cfg-input igb-cfg-textarea';
+var igbCssRow = 'igb-cfg-row';
+var igbCssCol = 'igb-cfg-col';
+var igbCssSaveBtn = 'igb-cfg-btn-action igb-cfg-btn-save';
 
 // Render the shield chip in the top nav showing protection status
 async function igbRenderConfigChip() {
@@ -472,8 +471,8 @@ async function igbSecNumbers(c) {
     const searchTitle = igbMakeElement('div', 'igb-cfg-section-title igb-cfg-divider', 'Search Available Numbers');
     c.appendChild(searchTitle);
     const form = igbMakeElement('div', 'igb-cfg-search-form');
-    form.innerHTML = '<input type="text" class="' + _inp + '" id="igb-ns-area" placeholder="Area code" maxlength="6">'
-        + '<select class="' + _sel + '" id="igb-ns-type"><option value="local">Local ($0.90/mo)</option><option value="toll_free">Toll-Free ($2.15/mo)</option></select>'
+    form.innerHTML = '<input type="text" class="' + igbCssInput + '" id="igb-ns-area" placeholder="Area code" maxlength="6">'
+        + '<select class="' + igbCssSelect + '" id="igb-ns-type"><option value="local">Local ($0.90/mo)</option><option value="toll_free">Toll-Free ($2.15/mo)</option></select>'
         + '<button class="igb-cfg-btn-action igb-cfg-btn-sm" id="igb-ns-btn"><i class="fa-solid fa-magnifying-glass"></i> Search</button>';
     c.appendChild(form);
     const results = igbMakeElement('div', 'igb-cfg-search-results');
@@ -660,55 +659,55 @@ async function igbSecVoice(c) {
         return;
     }
     const form = igbMakeElement('div', 'igb-cfg-form');
-    form.innerHTML += '<label class="' + _lbl + '">Voice Greeting</label>'
-        + '<textarea class="' + _txa + '" id="igb-vc-greeting" rows="2" maxlength="500">' + igbSafeText(vc.voice_greeting || '') + '</textarea>';
-    form.innerHTML += '<label class="' + _lbl + '">AI Personality / Instructions</label>'
-        + '<textarea class="' + _txa + '" id="igb-vc-instructions" rows="3" maxlength="2000">' + igbSafeText(vc.voice_instructions || '') + '</textarea>';
-    form.innerHTML += '<label class="' + _lbl + '">Transfer Number</label>'
-        + '<input class="' + _inp + '" id="igb-vc-transfer" type="text" value="' + igbSafeText(vc.transfer_number || '') + '" placeholder="+15551234567" maxlength="20">';
-    form.innerHTML += '<div class="' + _row + '">'
-        + '<div class="' + _col + '">'
-        + '<label class="' + _lbl + '">Calling Hours Start</label>'
-        + '<input class="' + _inp + '" id="igb-vc-hrs-start" type="time" value="'
+    form.innerHTML += '<label class="' + igbCssLabel + '">Voice Greeting</label>'
+        + '<textarea class="' + igbCssTextarea + '" id="igb-vc-greeting" rows="2" maxlength="500">' + igbSafeText(vc.voice_greeting || '') + '</textarea>';
+    form.innerHTML += '<label class="' + igbCssLabel + '">AI Personality / Instructions</label>'
+        + '<textarea class="' + igbCssTextarea + '" id="igb-vc-instructions" rows="3" maxlength="2000">' + igbSafeText(vc.voice_instructions || '') + '</textarea>';
+    form.innerHTML += '<label class="' + igbCssLabel + '">Transfer Number</label>'
+        + '<input class="' + igbCssInput + '" id="igb-vc-transfer" type="text" value="' + igbSafeText(vc.transfer_number || '') + '" placeholder="+15551234567" maxlength="20">';
+    form.innerHTML += '<div class="' + igbCssRow + '">'
+        + '<div class="' + igbCssCol + '">'
+        + '<label class="' + igbCssLabel + '">Calling Hours Start</label>'
+        + '<input class="' + igbCssInput + '" id="igb-vc-hrs-start" type="time" value="'
         + (vc.calling_hours_start || '08:00') + '">'
         + '</div>'
-        + '<div class="' + _col + '">'
-        + '<label class="' + _lbl + '">Calling Hours End</label>'
-        + '<input class="' + _inp + '" id="igb-vc-hrs-end" type="time" value="'
+        + '<div class="' + igbCssCol + '">'
+        + '<label class="' + igbCssLabel + '">Calling Hours End</label>'
+        + '<input class="' + igbCssInput + '" id="igb-vc-hrs-end" type="time" value="'
         + (vc.calling_hours_end || '21:00') + '">'
         + '</div>'
         + '</div>';
-    form.innerHTML += '<label class="' + _lbl + '">On Voicemail Action</label>'
-        + '<select class="' + _sel + '" id="igb-vc-machine">'
+    form.innerHTML += '<label class="' + igbCssLabel + '">On Voicemail Action</label>'
+        + '<select class="' + igbCssSelect + '" id="igb-vc-machine">'
         + '<option value="hangup"' + (vc.on_machine_action === 'hangup' ? ' selected' : '') + '>Hang Up</option>'
         + '<option value="voicemail_drop"' + (vc.on_machine_action === 'voicemail_drop' ? ' selected' : '') + '>Leave Voicemail</option>'
         + '<option value="continue"' + (vc.on_machine_action === 'continue' ? ' selected' : '') + '>Continue (AI talks to machine)</option>'
         + '</select>';
-    form.innerHTML += '<div class="' + _row + '">'
-        + '<div class="' + _col + '">'
-        + '<label class="' + _lbl + '">Max Call Duration (sec)</label>'
-        + '<input class="' + _inp + '" id="igb-vc-maxdur" type="number" min="30" max="3600" value="'
+    form.innerHTML += '<div class="' + igbCssRow + '">'
+        + '<div class="' + igbCssCol + '">'
+        + '<label class="' + igbCssLabel + '">Max Call Duration (sec)</label>'
+        + '<input class="' + igbCssInput + '" id="igb-vc-maxdur" type="number" min="30" max="3600" value="'
         + (vc.max_call_duration || 300) + '">'
         + '</div>'
-        + '<div class="' + _col + '">'
-        + '<label class="' + _lbl + '">Wrap-Up Time (sec)</label>'
-        + '<input class="' + _inp + '" id="igb-vc-wrapup" type="number" min="0" max="120" value="'
+        + '<div class="' + igbCssCol + '">'
+        + '<label class="' + igbCssLabel + '">Wrap-Up Time (sec)</label>'
+        + '<input class="' + igbCssInput + '" id="igb-vc-wrapup" type="number" min="0" max="120" value="'
         + (vc.wrap_up_time || 15) + '">'
         + '</div>'
         + '</div>';
-    form.innerHTML += '<div class="' + _row + '">'
-        + '<div class="' + _col + '">'
-        + '<label class="' + _lbl + '">Same # Cooldown (hrs)</label>'
-        + '<input class="' + _inp + '" id="igb-vc-cooldown" type="number" min="0" max="72" value="'
+    form.innerHTML += '<div class="' + igbCssRow + '">'
+        + '<div class="' + igbCssCol + '">'
+        + '<label class="' + igbCssLabel + '">Same # Cooldown (hrs)</label>'
+        + '<input class="' + igbCssInput + '" id="igb-vc-cooldown" type="number" min="0" max="72" value="'
         + (vc.same_number_cooldown_hours || 4) + '">'
         + '</div>'
-        + '<div class="' + _col + '">'
-        + '<label class="' + _lbl + '">Daily Max Per Contact</label>'
-        + '<input class="' + _inp + '" id="igb-vc-dailymax" type="number" min="0" max="10" value="'
+        + '<div class="' + igbCssCol + '">'
+        + '<label class="' + igbCssLabel + '">Daily Max Per Contact</label>'
+        + '<input class="' + igbCssInput + '" id="igb-vc-dailymax" type="number" min="0" max="10" value="'
         + (vc.same_contact_daily_max || 3) + '">'
         + '</div>'
         + '</div>';
-    form.innerHTML += '<button class="' + _sav + '" id="igb-vc-save"><i class="fa-solid fa-floppy-disk"></i> Save Voice Config</button>';
+    form.innerHTML += '<button class="' + igbCssSaveBtn + '" id="igb-vc-save"><i class="fa-solid fa-floppy-disk"></i> Save Voice Config</button>';
     c.appendChild(form);
     c.querySelector('#igb-vc-save').addEventListener('click', async () => {
         const saveBtn = c.querySelector('#igb-vc-save');
@@ -740,12 +739,12 @@ async function igbSecSms(c) {
     const title = igbMakeElement('div', 'igb-cfg-section-title', 'SMS Bot Configuration');
     c.appendChild(title);
     const form = igbMakeElement('div', 'igb-cfg-form');
-    form.innerHTML += '<label class="' + _lbl + '">Bot Name (appears as sender)</label>'
-        + '<input class="' + _inp + '" id="igb-sc-name" type="text" value="' + igbSafeText(data.bot_first_name || '') + '" placeholder="Grok" maxlength="100">';
-    form.innerHTML += '<label class="' + _lbl + '">Timezone</label>'
-        + '<input class="' + _inp + '" id="igb-sc-tz" type="text" value="' + igbSafeText(data.timezone || 'America/Chicago') + '" placeholder="America/Chicago" maxlength="50">';
-    form.innerHTML += '<label class="' + _lbl + '">SMS Send Via</label>'
-        + '<select class="' + _sel + '" id="igb-sc-via">'
+    form.innerHTML += '<label class="' + igbCssLabel + '">Bot Name (appears as sender)</label>'
+        + '<input class="' + igbCssInput + '" id="igb-sc-name" type="text" value="' + igbSafeText(data.bot_first_name || '') + '" placeholder="Grok" maxlength="100">';
+    form.innerHTML += '<label class="' + igbCssLabel + '">Timezone</label>'
+        + '<input class="' + igbCssInput + '" id="igb-sc-tz" type="text" value="' + igbSafeText(data.timezone || 'America/Chicago') + '" placeholder="America/Chicago" maxlength="50">';
+    form.innerHTML += '<label class="' + igbCssLabel + '">SMS Send Via</label>'
+        + '<select class="' + igbCssSelect + '" id="igb-sc-via">'
         + '<option value="ghl"' + (data.sms_send_via === 'ghl' || !data.sms_send_via ? ' selected' : '') + '>GHL (GoHighLevel) -Default</option>'
         + '<option value="twilio"' + (data.sms_send_via && data.sms_send_via.startsWith('+') ? ' selected' : '') + '>Twilio (Direct) -Requires A2P</option>'
         + '</select>';
@@ -753,11 +752,11 @@ async function igbSecSms(c) {
         'Your SMS bot sends through GHL by default -no extra setup needed. '
         + 'Switch to Twilio only if you need direct number control '
         + 'with A2P 10DLC registration.'));
-    form.innerHTML += '<label class="' + _lbl + '">Initial Greeting Message</label>'
-        + '<textarea class="' + _txa + '" id="igb-sc-init" rows="2" maxlength="500">' + igbSafeText(data.initial_message || '') + '</textarea>';
-    form.innerHTML += '<label class="' + _lbl + '">Personal Website (optional)</label>'
-        + '<input class="' + _inp + '" id="igb-sc-web" type="text" value="' + igbSafeText(data.personal_website || '') + '" placeholder="https://..." maxlength="255">';
-    form.innerHTML += '<button class="' + _sav + '" id="igb-sc-save"><i class="fa-solid fa-floppy-disk"></i> Save SMS Config</button>';
+    form.innerHTML += '<label class="' + igbCssLabel + '">Initial Greeting Message</label>'
+        + '<textarea class="' + igbCssTextarea + '" id="igb-sc-init" rows="2" maxlength="500">' + igbSafeText(data.initial_message || '') + '</textarea>';
+    form.innerHTML += '<label class="' + igbCssLabel + '">Personal Website (optional)</label>'
+        + '<input class="' + igbCssInput + '" id="igb-sc-web" type="text" value="' + igbSafeText(data.personal_website || '') + '" placeholder="https://..." maxlength="255">';
+    form.innerHTML += '<button class="' + igbCssSaveBtn + '" id="igb-sc-save"><i class="fa-solid fa-floppy-disk"></i> Save SMS Config</button>';
     c.appendChild(form);
     c.querySelector('#igb-sc-save').addEventListener('click', async () => {
         const saveBtn = c.querySelector('#igb-sc-save');
