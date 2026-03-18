@@ -101,8 +101,8 @@
     <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
             <span class="ios-section-label ios-section-label--accent">Conversation Pipeline</span>
-            <h2 class="ios-section-h2">Every Text Moves Through a <span>5-Stage Pipeline</span></h2>
-            <p class="ios-section-sub">The AI classifies every message and knows exactly which stage the conversation is in. No guessing. No generic replies. Every text is strategically chosen.</p>
+            <h2 class="ios-section-h2">Every Text Moves Through a <span>6-Stage Pipeline</span></h2>
+            <p class="ios-section-sub">The AI classifies every message and knows exactly which stage the conversation is in. It builds rapport before qualifying, handles objections logistically before emotionally, and only books when the lead is ready. No guessing. No generic replies.</p>
         </div>
 
         <div class="pipeline" data-aos="fade-up">
@@ -111,12 +111,16 @@
                 <p style="color: #888;">First contact. Adapts opener to lead type — fresh, aged, re-engage, or very old.</p>
             </div>
             <div class="pipe-stage" style="background: rgba(0,217,255,0.08);">
-                <h6 style="color: #00d9ff;">Qualifying</h6>
+                <h6 style="color: #00d9ff;">Rapport</h6>
+                <p style="color: #888;">Builds trust first. Responds to personal details, finds common ground, earns the right to ask.</p>
+            </div>
+            <div class="pipe-stage" style="background: rgba(245,158,11,0.08);">
+                <h6 style="color: #f59e0b;">Qualifying</h6>
                 <p style="color: #888;">Discovers goals, obstacles, and impact. Asks why coverage matters to them personally.</p>
             </div>
             <div class="pipe-stage" style="background: rgba(233,30,99,0.08);">
                 <h6 style="color: #e91e63;">Objection</h6>
-                <p style="color: #888;">Classifies objection type and nature. Fear-based vs logistical get different handling.</p>
+                <p style="color: #888;">Solves the logistical concern first. If it still sticks, addresses the fear underneath.</p>
             </div>
             <div class="pipe-stage" style="background: rgba(255,107,53,0.08);">
                 <h6 style="color: #ff6b35;">Booking</h6>
@@ -140,15 +144,15 @@
                 <h2 class="ios-section-h2">It Doesn't Just Reply. <span>It Reads the Room.</span></h2>
                 <p style="color: #888; font-size: 0.95rem; line-height: 1.7;">
                     Before every reply, the AI runs a full analysis: What stage is this conversation?
-                    Is there an active objection? What buying signals are present? What do we know about
-                    this person? What product is appropriate for their age? Then it generates one strategic
-                    message designed to move the conversation forward.
+                    Is there an active objection? Is this a rapport moment or a qualifying opportunity?
+                    What do we know about this person? Then it generates one strategic message designed
+                    to move the conversation forward — or build trust when that's what's needed.
                 </p>
                 <ul class="ios-feat-list">
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Builds a character profile from every known fact about the lead</li>
+                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Builds rapport before qualifying — responds to personal stories, finds common ground</li>
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Detects 6 buying signals: price questions, coverage requests, comparisons</li>
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Tracks goal + obstacle + impact — books only when all three are present</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Depth guard: if conversation gets too technical for text, pushes to call</li>
+                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Max 2 rapport turns before pivoting — human connection, not idle chit-chat</li>
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Detects vulnerable situations (health, divorce, loss) — empathy first</li>
                 </ul>
             </div>
@@ -160,10 +164,12 @@
                 </div>
                 <div class="sms-mock">
                     <div class="sms-bubble bot">Hey James, I'm with ABC Insurance — noticed you were looking into life insurance. Still something on your radar?<div class="sys">STAGE: Outreach &bull; Lead type: Fresh</div></div>
-                    <div class="sms-bubble lead">Yeah but I already have something through work<div class="ts">Signal: already_covered &bull; logistical</div></div>
-                    <div class="sms-bubble bot">Group coverage is solid while you're there. Quick question — do you know if it follows you if you switch jobs? Most employer plans don't, and that's where people get caught off guard.<div class="sys">STAGE: Qualifying &bull; Probing coverage gap</div></div>
-                    <div class="sms-bubble lead">No I don't think it would. My wife and I just had our second kid so that's kinda scary<div class="ts">Signal: goal + impact articulated</div></div>
-                    <div class="sms-bubble bot">Yeah with two kids and a spouse counting on you, that gap is worth closing. A $500K 20-year term at 42 is probably cheaper than you'd think. I can pull real numbers on a quick call — does tomorrow at 2 or Thursday at 10 work better?<div class="sys">STAGE: Booking &bull; Impact confirmed, offering times</div></div>
+                    <div class="sms-bubble lead">Yeah I guess. Been busy with the new baby honestly lol<div class="ts">No qualifying substance &bull; Personal</div></div>
+                    <div class="sms-bubble bot">Congrats on the new one! Boy or girl? That first year is a blur but it's worth every sleepless night.<div class="sys">STAGE: Rapport &bull; Building trust, matching energy</div></div>
+                    <div class="sms-bubble lead">Thanks! Little girl. Yeah it's been crazy. I do have something through work tho<div class="ts">Signal: already_covered &bull; logistical</div></div>
+                    <div class="sms-bubble bot">A little girl, that's awesome. Group coverage is solid while you're there — quick question though, does it follow you if you switch jobs? That's where people with young families get caught off guard.<div class="sys">STAGE: Qualifying &bull; Rapport bridge → coverage gap</div></div>
+                    <div class="sms-bubble lead">No I don't think it would. That's kinda scary with a newborn<div class="ts">Signal: goal + impact articulated</div></div>
+                    <div class="sms-bubble bot">Yeah with a newborn and your wife counting on you, that gap is worth closing. I can pull real numbers on a quick call — does tomorrow at 2 or Thursday at 10 work?<div class="sys">STAGE: Booking &bull; Impact confirmed, offering times</div></div>
                 </div>
             </div>
         </div>
@@ -176,16 +182,16 @@
     <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
             <span class="ios-section-label ios-section-label--pink">Objection Engine</span>
-            <h2 class="ios-section-h2">6 Objection Types. <span style="background: linear-gradient(135deg, #e91e63, #ff6b9d); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Each Handled Differently.</span></h2>
-            <p class="ios-section-sub">The AI classifies every objection by type <em>and</em> nature (fear-based vs logistical). Fear-based objections get empathy and questions. Logistical ones get practical solutions. No scripted rebuttals — the AI reads the full history and picks a new angle every time.</p>
+            <h2 class="ios-section-h2">6 Objection Types. <span style="background: linear-gradient(135deg, #e91e63, #ff6b9d); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Logistical First. Fear Second.</span></h2>
+            <p class="ios-section-sub">The AI classifies every objection by type <em>and</em> nature. It always solves the logistical concern first — can they afford it? Does their spouse actually care? Is their existing coverage enough? Only when the practical answer checks out but they're still resisting does it address the fear underneath. No scripted rebuttals — the AI reads the full history and picks a new angle every time.</p>
         </div>
 
         <div class="obj-grid" data-aos="fade-up">
             <div class="obj-card">
                 <div class="obj-type" style="color: #ef4444;">Not Interested</div>
                 <div class="obj-quote">"No thanks, I'm good"</div>
-                <div class="obj-how">Something put insurance on their radar. That trigger didn't vanish. The AI finds a completely different angle it hasn't tried yet — never repeats an approach.</div>
-                <div class="obj-nature" style="background: rgba(239,68,68,0.1); color: #ef4444;">Fear-based</div>
+                <div class="obj-how">Acknowledges exactly what they said first. Then asks one question from a completely new angle — about them, not insurance. After multiple rejections, scales back to genuine human check-in. Never repeats an approach.</div>
+                <div class="obj-nature" style="background: rgba(239,68,68,0.1); color: #ef4444;">Logistical → Fear</div>
             </div>
             <div class="obj-card">
                 <div class="obj-type" style="color: #ff6b35;">Already Covered</div>

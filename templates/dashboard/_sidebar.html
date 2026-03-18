@@ -19,24 +19,31 @@
                     <i class="fa-solid fa-chevron-down sb-section-chevron"></i>
                 </div>
                 <div class="sb-section-body">
+                    {% set is_sms_only = (current_user.subscription_tier == 'sms_bot') %}
+                    {% if not is_sms_only %}
                     <button class="sb-nav-item active" id="sbnDialer" onclick="sidebarNavigate('voicedialer', this)">
                         <i class="fa-solid fa-phone-volume"></i>
                         <span class="sb-nav-label">Dialer</span>
                     </button>
+                    {% endif %}
                     {% if not current_user.is_seat_user or current_user.has_permission('can_change_bot_config') %}
-                    <button class="sb-nav-item" id="sbnSmsConfig" onclick="sidebarNavigate('config', this)">
+                    <button class="sb-nav-item {{ 'active' if is_sms_only else '' }}" id="sbnSmsConfig" onclick="sidebarNavigate('config', this)">
                         <i class="fa-solid fa-comment-sms"></i>
                         <span class="sb-nav-label">SMS Config</span>
                     </button>
+                    {% if not is_sms_only %}
                     <button class="sb-nav-item" id="sbnVoiceConfig" onclick="sidebarNavigate('voice', this)">
                         <i class="fa-solid fa-phone"></i>
                         <span class="sb-nav-label">Voice Config</span>
                     </button>
                     {% endif %}
+                    {% endif %}
+                    {% if not is_sms_only %}
                     <button class="sb-nav-item" id="sbnAiMinutes" onclick="sidebarNavigate('aiminutes', this); loadAiMinutes();">
                         <i class="fa-solid fa-clock"></i>
                         <span class="sb-nav-label">AI Minutes</span>
                     </button>
+                    {% endif %}
                     <button class="sb-nav-item" id="sbnWorkflows" onclick="sidebarNavigate('workflows', this)">
                         <i class="fa-solid fa-diagram-project"></i>
                         <span class="sb-nav-label">Workflows</span>

@@ -9,6 +9,22 @@
                     {% if current_user.stripe_customer_id %}
                     <!-- Plan Selector -->
                     <div id="billingPlanCards" class="billing-plan-grid">
+                        <!-- SMS Bot -->
+                        <div id="billingPlanSmsBbot" class="billing-plan-card" onclick="billingSelectPlan('sms_bot')">
+                            <div class="billing-plan-title">SMS Bot</div>
+                            <div style="margin-bottom:10px;">
+                                <span class="metallic-price--cyan billing-price-amount">$99.98</span>
+                                <span class="billing-price-period">/mo</span>
+                            </div>
+                            <ul class="carved-features">
+                                <li><i class="fa-solid fa-check billing-check-cyan"></i><strong>AI Texting — outbound, inbound & booking</strong></li>
+                                <li><i class="fa-solid fa-check billing-check-cyan"></i>Rapport-building conversation engine</li>
+                                <li><i class="fa-solid fa-check billing-check-cyan"></i>6-type objection handling</li>
+                                <li><i class="fa-solid fa-check billing-check-cyan"></i>Smart Filters & Lead Intelligence</li>
+                            </ul>
+                            <div id="billingBadgeSmsBbot" class="billing-badge-current billing-badge-current--cyan" style="display:none;">CURRENT</div>
+                        </div>
+
                         <!-- Power Dialer (Individual) -->
                         <div id="billingPlanIndividual" class="billing-plan-card" onclick="billingSelectPlan('individual')">
                             <div class="billing-plan-title">Power Dialer</div>

@@ -506,6 +506,63 @@ def checkout():
                            f"Error Code: {e}")
 
 
+@billing_bp.route("/checkout/sms-bot")
+def checkout_sms_bot():
+    """SMS Bot plan checkout — AI texting only, no dialer/voice features."""
+    try:
+        price_id = os.getenv("STRIPE_SMS_BOT_PRICE_ID")
+        if not price_id:
+            logger.error("STRIPE_SMS_BOT_PRICE_ID environment variable is not set!")
+            return _error_page(
+                "Configuration Error",
+                "The SMS Bot price ID is not configured. Please contact support.",
+                "Error Code: MISSING_PRICE_ID"
+            )
+
+        customer_email = current_user.email if current_user.is_authenticated else None
+        logger.info(f"Creating SMS Bot checkout with price_id: {price_id}")
+
+        referral = request.args.get("referral", "").strip()
+        coupon_id = _get_validated_coupon(request.args.get("coupon", "").strip())
+
+        checkout_params = dict(
+            payment_method_types=["card"],
+            mode="subscription",
+            line_items=[{"price": price_id, "quantity": 1}],
+            customer_email=customer_email,
+            metadata={
+                "user_email": customer_email,
+                "target_role": "individual",
+                "target_tier": "sms_bot",
+                "source": "website"
+            },
+            subscription_data={
+                "trial_period_days": 7,
+                "metadata": {
+                    "user_email": customer_email,
+                    "target_role": "individual",
+                    "target_tier": "sms_bot"
+                },
+            },
+            success_url=f"{YOUR_DOMAIN}/success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{YOUR_DOMAIN}/cancel",
+        )
+        if referral:
+            checkout_params["metadata"]["referral"] = referral
+            checkout_params.setdefault("subscription_data", {}).setdefault("metadata", {})["referral"] = referral
+        if coupon_id:
+            checkout_params["discounts"] = [{"coupon": coupon_id}]
+            checkout_params.pop("subscription_data", {}).pop("trial_period_days", None)
+        session = stripe.checkout.Session.create(**checkout_params)
+        return redirect(session.url, code=303)
+
+    except stripe.error.InvalidRequestError as e:
+        logger.error(f"Stripe SMS Bot checkout error: {e}")
+        return _error_page("Checkout Error",
+                           "Unable to create checkout session. Please contact support.",
+                           f"Error Code: {e}")
+
+
 @billing_bp.route("/checkout/pro-dialer")
 def checkout_pro_dialer():
     """Pro Dialer plan checkout — multi-line dialing + predictive features."""
@@ -875,6 +932,7 @@ def change_plan():
     target_tier = data.get("target_tier", "")
 
     tier_to_price = {
+        "sms_bot": os.getenv("STRIPE_SMS_BOT_PRICE_ID"),
         "individual": os.getenv("STRIPE_PRICE_ID"),
         "pro_dialer": os.getenv("STRIPE_PRO_DIALER_PRICE_ID"),
         "predictive_dialer": os.getenv("STRIPE_PREDICTIVE_DIALER_PRICE_ID"),
@@ -985,6 +1043,14 @@ def subscription_info():
     is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
 
     tier_info = {
+        "sms_bot": {
+            "name": "SMS Bot",
+            "price": "$99.98/mo",
+            "max_lines": 0,
+            "features": ["AI Texting — outbound, inbound & booking", "Rapport-building conversation engine",
+                         "6-type objection handling", "Smart Filters & Lead Intelligence",
+                         "270+ carrier recognition", "7 CRM integrations", "Auto-booking"],
+        },
         "individual": {
             "name": "Power Dialer",
             "price": "$149.98/mo",

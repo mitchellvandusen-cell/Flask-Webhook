@@ -556,35 +556,74 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
         f"{history_block}\n"
     )
 
-    if nature == ObjectionNature.FEAR_BASED:
+    # ─── TWO-PHASE OBJECTION FRAMEWORK ───
+    # Phase 1 (ALWAYS FIRST): Solve the logistical reality.
+    # Every objection has a practical component. Can they afford it? Does their
+    # spouse actually care? Is their coverage enough? Is their schedule really that
+    # packed? Solve the logistics FIRST. Do not skip to emotional persuasion.
+    #
+    # Phase 2 (ONLY IF LOGISTICS RESOLVED): Address the fear underneath.
+    # If the money works, the spouse would be on board, the coverage has real gaps,
+    # the schedule is open — and they are STILL saying the same objection — then the
+    # objection is not logistical. It is fear. Now you address the fear: stories,
+    # perspective shifts, challenging the belief that staying where they are is safe.
+
+    # Determine if we are still in Phase 1 or have moved to Phase 2
+    # Phase 2 triggers when the SAME objection type appears 2+ times in the log
+    same_objection_count = sum(1 for entry in log if obj.value.replace("_", " ") in entry.lower()) if log else 0
+    in_phase_2 = same_objection_count >= 2
+
+    if in_phase_2:
         header += (
-            "NATURE: Fear-based. They are resisting emotionally, not logically. "
-            "Logic, facts, and features will not work. Questions that help them examine "
-            "their own situation honestly will.\n\n"
+            "=== PHASE 2: FEAR-BASED HANDLING ===\n"
+            "You have already addressed the logistical side of this objection in "
+            "previous messages. The practical concern has been explored or resolved. "
+            "They are STILL saying the same thing. This is no longer a logistics problem.\n\n"
+            "The real blocker is fear — fear of making a mistake, fear of change, fear of "
+            "commitment, fear of being sold to. Your job now is to help them see that "
+            "staying where they are is not the safe choice they think it is.\n\n"
+            "USE: Stories, analogies, perspective shifts. Help them see what happens if "
+            "they do nothing. Make the cost of inaction concrete and personal. Challenge "
+            "the assumption that not deciding IS a decision — and it is the riskiest one.\n\n"
+            "DO NOT: Repeat logistical arguments. Do not re-explain pricing, coverage gaps, "
+            "or scheduling. They already heard that. They need a reason to move, not more information.\n\n"
         )
-    elif nature == ObjectionNature.LOGISTICAL:
+    else:
         header += (
-            "NATURE: Logistical. They have a practical concern. Validate their reality "
-            "before exploring whether their arrangement actually covers what they think it does.\n\n"
+            "=== PHASE 1: LOGISTICAL RESOLUTION ===\n"
+            "Before ANY emotional persuasion, solve the practical side of this objection. "
+            "Every objection has a logistical component. Address it directly and honestly.\n"
+            "Do NOT skip to stories, perspective shifts, or emotional appeals yet. "
+            "The lead needs to see that the logistics work BEFORE they can address their feelings.\n\n"
         )
 
     if obj == ObjectionType.NOT_INTERESTED:
+        if in_phase_2:
+            return header + (
+                "OBJECTION: Not interested (repeated — fear phase).\n"
+                "The logistics have been explored. They know this is relevant to their situation "
+                "but they are still resisting. The fear is usually: fear of being sold to, fear "
+                "of making a wrong decision, or fear that acting means admitting vulnerability.\n\n"
+                "Help them see that 'not interested' is not a plan — it is avoidance. "
+                "The thing they are avoiding does not go away because they ignored it. "
+                "Use what you know about their situation to make inaction feel concrete.\n\n"
+                "Keep it to 1-2 sentences. Be genuine, not manipulative. If they have said no "
+                "3+ times, a sincere 'fair enough, just wanted to make sure you were covered' "
+                "is more powerful than another angle."
+            )
         return header + (
             "OBJECTION: Not interested.\n"
             "They said some form of no. This is NOT a stop signal. This is the most common "
             "objection in sales and it almost never means the door is actually closed.\n\n"
-            "CRITICAL RESPONSE RULES:\n"
+            "PHASE 1 — LOGISTICAL CHECK:\n"
             "1. FIRST, acknowledge exactly what they said. Do not skip this. If they said "
             "'no longer interested', say something that shows you heard THOSE words.\n"
             "2. Do NOT immediately pitch again. Do NOT list benefits. Do NOT get defensive.\n"
-            "3. Ask ONE question from a completely new angle. The question should be about "
-            "THEM, not about insurance. Their situation, their family, what changed, what "
-            "they are dealing with. Something that makes them think rather than react.\n"
-            "4. Keep it short. 1-2 sentences max. The lighter the touch, the better.\n"
-            "5. If they have said 'not interested' multiple times and you have already tried "
-            "several angles (check the objection log), scale back. Be more human, less sales. "
-            "A genuine 'fair enough, just wanted to make sure you were covered' lands better "
-            "than another creative angle after the 3rd rejection.\n\n"
+            "3. Ask ONE question about their actual situation — not about insurance, about THEM. "
+            "Has anything changed? Do they have something in place? Are they covered? "
+            "The question should reveal whether they actually have the logistics handled "
+            "or whether 'not interested' is masking 'I don't know enough to decide.'\n"
+            "4. Keep it short. 1-2 sentences max. The lighter the touch, the better.\n\n"
             "WHAT NEVER TO SAY:\n"
             "- 'I understand, but...' (dismissive)\n"
             "- 'Just one more thing...' (pushy)\n"
@@ -594,45 +633,117 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
         )
 
     if obj == ObjectionType.SPOUSE_PARTNER:
+        if in_phase_2:
+            return header + (
+                "OBJECTION: Spouse/partner (repeated — fear phase).\n"
+                "You have already explored whether their spouse is actually involved. "
+                "They are still deferring. This is not about their spouse — it is about "
+                "their own fear of making a decision alone. Help them see that gathering "
+                "information is not making a commitment. They can bring everything they "
+                "learn to that conversation and be the person who came prepared."
+            )
         return header + (
-            "OBJECTION: Need to consult someone else (spouse, partner, family, advisor).\n"
-            "Respect who they want to consult. Never minimize it. The question is whether "
-            "they can gather information now so that conversation is productive, or whether "
-            "the consultation itself is masking their own uncertainty."
+            "OBJECTION: Need to consult someone else (spouse, partner, family, advisor).\n\n"
+            "PHASE 1 — LOGISTICAL CHECK:\n"
+            "Respect who they want to consult. Ask logistical questions first:\n"
+            "- Has their spouse/partner expressed an opinion on this before?\n"
+            "- Would gathering the information now help make that conversation more productive?\n"
+            "- Is there a specific concern their spouse would have (cost, timing, need)?\n"
+            "Figure out if their spouse would actually object, or if 'need to talk to my wife' "
+            "means 'I am not comfortable deciding alone.' Both are valid. Handle accordingly."
         )
 
     if obj == ObjectionType.PRICE_MONEY:
+        if in_phase_2:
+            return header + (
+                "OBJECTION: Price/money (repeated — fear phase).\n"
+                "You have explored the budget reality. They know options exist within their range "
+                "but they are still saying it is too expensive. This is a value problem, not a "
+                "cash flow problem. They do not believe the protection is worth what it costs.\n\n"
+                "Help them see the cost of NOT having it. What does their family face financially "
+                "if something happens? The premium they are resisting is a fraction of the problem "
+                "they are leaving unresolved. Make the alternative concrete."
+            )
         return header + (
-            "OBJECTION: Price or money concern.\n"
-            "Could be a value problem (they do not see the worth) or a cash flow problem "
-            "(they genuinely cannot afford it). Both are valid. Figure out which.\n"
+            "OBJECTION: Price or money concern.\n\n"
+            "PHASE 1 — LOGISTICAL CHECK:\n"
+            "Two completely different problems hide behind 'too expensive':\n"
+            "1. CASH FLOW: They genuinely cannot afford it. Ask about their budget range. "
+            "There may be options they do not know about — term is often cheaper than people think.\n"
+            "2. VALUE: They can afford it but do not see the worth. This means the impact has "
+            "not landed yet. They need to feel what the gap costs, not what the policy costs.\n\n"
+            "Figure out which one it is BEFORE addressing it. Do not assume.\n"
             "HARD RULE: You cannot quote specific dollar amounts over text."
         )
 
     if obj == ObjectionType.ALREADY_COVERED:
+        if in_phase_2:
+            return header + (
+                "OBJECTION: Already covered (repeated — fear phase).\n"
+                "You have asked about their coverage and they have either described it or deflected. "
+                "If they described it and gaps are obvious, they know the gaps exist but are choosing "
+                "to ignore them. The fear is: 'If I admit my coverage is not enough, I have to do "
+                "something about it.' Help them see that knowing about a gap and ignoring it is "
+                "worse than not knowing. Their family is the one who pays for that decision."
+            )
         return header + (
-            "OBJECTION: Already have coverage.\n"
+            "OBJECTION: Already have coverage.\n\n"
+            "PHASE 1 — LOGISTICAL CHECK:\n"
             "Do not challenge it. Do not list features they might be missing. "
-            "Most people who say this cannot explain what they actually have. "
-            "The gap usually reveals itself when they try to describe their coverage."
+            "Most people who say this cannot explain what they actually have.\n"
+            "Ask logistical questions:\n"
+            "- Is it through an employer or personal? (employer = may not be portable)\n"
+            "- Do they know the coverage amount? (most guess wrong)\n"
+            "- Does it cover their mortgage, their family's needs for how many years?\n"
+            "The gap usually reveals itself when they try to describe their coverage. "
+            "Let them discover it themselves — do not tell them they are wrong."
         )
 
     if obj == ObjectionType.THINK_ABOUT_IT:
+        if in_phase_2:
+            return header + (
+                "OBJECTION: Think about it (repeated — fear phase).\n"
+                "They have been 'thinking' for a while now. Thinking is not the problem. "
+                "The problem is that thinking feels safer than deciding. Every day they 'think' "
+                "is a day their family is unprotected and a day they are older (and premiums are higher). "
+                "Help them see that delay IS a decision — the most expensive one they can make."
+            )
         return header + (
-            "OBJECTION: Need to think about it.\n"
-            "Could be genuine processing time or decision avoidance. Figure out which. "
-            "If they have been thinking about this for months, thinking is not the problem."
+            "OBJECTION: Need to think about it.\n\n"
+            "PHASE 1 — LOGISTICAL CHECK:\n"
+            "Could be genuine processing time or decision avoidance. Ask what specifically "
+            "they need to think about:\n"
+            "- Is it the cost? (You can explore options on a call)\n"
+            "- Is it whether they need it? (Their situation says yes or no — help them evaluate)\n"
+            "- Is it comparing options? (A 15-minute call can answer that faster than weeks of research)\n"
+            "If they have been thinking about this for months, thinking is not the problem. "
+            "Figure out what is actually holding them back."
         )
 
     if obj == ObjectionType.BUSY_TIMING:
+        if in_phase_2:
+            return header + (
+                "OBJECTION: Busy/timing (repeated — fear phase).\n"
+                "You have offered flexible scheduling. They are still saying they are too busy. "
+                "Everyone is busy. The question is not whether they have time — it is whether this "
+                "matters enough to make time. If their family's financial protection is not worth "
+                "15 minutes, that tells you something about how they are prioritizing this. "
+                "Help them feel the weight of that prioritization without being preachy."
+            )
         return header + (
-            "OBJECTION: Busy or bad timing.\n"
-            "Respect the timing. The question is whether you can make progress now "
-            "in a way that respects their schedule, or anchor a specific follow-up time."
+            "OBJECTION: Busy or bad timing.\n\n"
+            "PHASE 1 — LOGISTICAL CHECK:\n"
+            "Respect the timing. Ask logistical questions:\n"
+            "- When would be a better time? Anchor a specific day/time.\n"
+            "- Would a 10-minute call work better than texting back and forth?\n"
+            "- Is there a specific event making this week bad (work deadline, family event)?\n"
+            "If they give a specific time, lock it in. If they stay vague ('maybe later', 'sometime'), "
+            "that is not a timing objection — it is avoidance wearing a scheduling mask."
         )
 
     return header + (
-        "They raised a concern. Figure out what is really behind it."
+        "They raised a concern. Figure out the logistical reality first — "
+        "what is the practical barrier? Only after that is resolved, address the fear underneath."
     )
 
 

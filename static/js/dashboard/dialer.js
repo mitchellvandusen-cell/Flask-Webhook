@@ -7506,16 +7506,18 @@
                 }
 
                 // Highlight current plan card
+                const smsCard = document.getElementById('billingPlanSmsBbot');
                 const indCard = document.getElementById('billingPlanIndividual');
                 const proCard = document.getElementById('billingPlanProDialer');
                 const predCard = document.getElementById('billingPlanPredictiveDialer');
+                const smsBadge = document.getElementById('billingBadgeSmsBbot');
                 const indBadge = document.getElementById('billingBadgeIndividual');
                 const proBadge = document.getElementById('billingBadgeProDialer');
                 const predBadge = document.getElementById('billingBadgePredictiveDialer');
 
                 // Reset all cards
-                const allCards = [indCard, proCard, predCard];
-                const allBadges = [indBadge, proBadge, predBadge];
+                const allCards = [smsCard, indCard, proCard, predCard];
+                const allBadges = [smsBadge, indBadge, proBadge, predBadge];
                 allCards.forEach(c => { if (c) c.style.borderColor = 'rgba(255,255,255,0.08)'; });
                 allBadges.forEach(b => { if (b) b.style.display = 'none'; });
 
@@ -7525,6 +7527,9 @@
                 } else if (_billingCurrentTier === 'pro_dialer') {
                     if (proCard) proCard.style.borderColor = 'rgba(255,107,53,0.4)';
                     if (proBadge) proBadge.style.display = 'block';
+                } else if (_billingCurrentTier === 'sms_bot') {
+                    if (smsCard) smsCard.style.borderColor = 'rgba(0,217,255,0.4)';
+                    if (smsBadge) smsBadge.style.display = 'block';
                 } else {
                     if (indCard) indCard.style.borderColor = 'rgba(0,255,136,0.4)';
                     if (indBadge) indBadge.style.display = 'block';
@@ -7543,10 +7548,12 @@
             }
             _billingSelectedTier = tier;
 
+            const smsCard = document.getElementById('billingPlanSmsBbot');
             const indCard = document.getElementById('billingPlanIndividual');
             const proCard = document.getElementById('billingPlanProDialer');
             const predCard = document.getElementById('billingPlanPredictiveDialer');
-            [indCard, proCard, predCard].forEach(c => { if (c) c.style.borderColor = 'rgba(255,255,255,0.08)'; });
+            [smsCard, indCard, proCard, predCard].forEach(c => { if (c) c.style.borderColor = 'rgba(255,255,255,0.08)'; });
+            if (tier === 'sms_bot' && smsCard) smsCard.style.borderColor = 'rgba(0,217,255,0.4)';
             if (tier === 'individual' && indCard) indCard.style.borderColor = 'rgba(0,255,136,0.4)';
             if (tier === 'pro_dialer' && proCard) proCard.style.borderColor = 'rgba(255,107,53,0.4)';
             if (tier === 'predictive_dialer' && predCard) predCard.style.borderColor = 'rgba(139,92,246,0.4)';
@@ -7554,7 +7561,7 @@
             const btn = document.getElementById('billingChangePlanBtn');
             if (btn) {
                 btn.style.display = 'inline-flex';
-                const tierNames = { individual: 'Power Dialer ($149.98/mo)', pro_dialer: 'Pro Dialer ($224.98/mo)', predictive_dialer: 'Predictive Dialer ($349.98/mo)' };
+                const tierNames = { sms_bot: 'SMS Bot ($99.98/mo)', individual: 'Power Dialer ($149.98/mo)', pro_dialer: 'Pro Dialer ($224.98/mo)', predictive_dialer: 'Predictive Dialer ($349.98/mo)' };
                 btn.innerHTML = '<i class="fa-solid fa-arrows-rotate me-2"></i>Switch to ' + (tierNames[tier] || tier);
             }
         }
