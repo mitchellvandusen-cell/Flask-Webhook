@@ -394,7 +394,7 @@ All tables created in `db.py`'s `init_db()` function (plus `contact_intelligence
 
 ### GHL OAuth
 - `GET /oauth/initiate` — Start GHL OAuth flow (redirects to GHL authorization URL)
-- `GET /oauth/callback` — GHL OAuth callback (exchanges code for tokens, stores in DB)
+- `GET /oauth/callback` — GHL OAuth callback (exchanges code for tokens, stores in DB). Agency detection: if OAuth response has `companyId` but no `locationId`/users → agency owner (saved to `agency_billing` with `company_id`). Individual agents with matching `companyId` auto-link to agency.
 - `GET /oauth/loading` — Loading page while OAuth completes
 - `GET /refresh` — Manually refresh GHL OAuth tokens
 - `GET /app` — App landing page post-install
@@ -620,6 +620,38 @@ When a GHL webhook arrives at `POST /webhook`:
 - White-label SMS: Twilio sub-accounts mask Twilio branding from end users
 - AI Minutes: each LLM call deducts from the user's minute balance
 - Carrier awareness: bot knows only the carriers the agent has contracted
+
+### Human Identity Protocol (CRITICAL — applies to SMS and Voice)
+
+The bot must **never** reveal that it is a bot, AI, virtual assistant, or automated system. The lead must always believe they are texting or speaking with a real human insurance advisor. This is enforced at three layers:
+
+**Layer 1 — System Prompt (`prompt.py`)**:
+- "YOU ARE A REAL PERSON" section with explicit forbidden words/phrases
+- Forbidden: "system", "technical issue", "AI", "bot", "virtual assistant", "automated", "calendar is unavailable", "I'll send you a confirmation", "the system will"
+- Guidance: handle problems the way a real person would — "ah that one just got grabbed" not "there was an error accessing my calendar"
+
+**Layer 2 — Context Nudges (`tasks.py`)**:
+- All booking confirmation/failure nudges use human-sounding framing
+- Success: "You just got them on the calendar for [time]. Ask if they see the invite."
+- Slot taken: "That one just got grabbed — offer alternatives."
+- Calendar down: "You don't have your schedule pulled up right now."
+- Never: "system COULD NOT book", "technical issue", "temporarily unavailable"
+
+**Layer 3 — Reply Sanitizer (`reply_sanitizer.py`, last line of defense)**:
+- 16+ contamination markers block bot/AI identity reveals even if LLM generates them
+- Blocked phrases: "i'm an ai", "i am a bot", "virtual assistant", "automated message", "technical issue", "system error", "calendar is unavailable", "artificial intelligence", "language model"
+- If any contamination marker is detected in the LLM output, the message is blocked before sending
+
+**Voice Tools (`voice/voice_tools.py`)**:
+- Calendar check failed: "You don't have your schedule pulled up right now" (not "Calendar is temporarily unavailable")
+- Booking failed: "That time is not available" (not "Booking failed due to a technical issue")
+- Booking success: "Ask if they got the invite in their email" (not "they'll receive a confirmation")
+- Transfer failed: "Senior advisor is not available right now" (not "I wasn't able to initiate the transfer")
+
+**Booking Confirmation Language**:
+- After booking: "Got you down for [time]. Do you see the invite?" — GHL automatically sends the calendar invite via email
+- Never say: "I'll send you a confirmation" or "a calendar invite is coming" — it's already sent
+- Never say: "let me send you the confirmation" — we don't have email capabilities; GHL handles it
 
 ---
 
@@ -953,6 +985,36 @@ The light theme has comprehensive overrides for:
 
 ---
 
+## White-Label Branding (Agency Owners)
+
+Agency owners can fully white-label the dashboard so their agents see the agency's brand instead of InsuranceGrokBot.
+
+### What's Customizable
+- **Company name**: Replaces "InsuranceGrokBot" throughout the entire logged-in experience
+- **Color scheme**: Primary accent color (replaces `#00ff88`), applied to buttons, links, highlights, sidebar accents
+- **Font**: Choose from curated font list, applied to all dashboard text
+
+### How It Works
+- **Settings tab**: `dashboard/tabs/whitelabel.html` — agency owners pick name, color, font with live preview
+- **JavaScript**: `static/js/dashboard/whitelabel.js` — live preview, color picker, font selector, save to server
+- **Storage**: `agency_billing.whitelabel_config` JSONB column (`company_name`, `accent_color`, `font_family`)
+- **CSS injection**: On dashboard load, if user belongs to an agency with whitelabel config, CSS custom properties are overridden dynamically
+- **Scope**: Only affects logged-in dashboard experience — marketing pages remain InsuranceGrokBot branded
+
+### Agency Dashboard Integration
+The agency dashboard is now integrated as tabs within the main dashboard (not a separate page). Agency owners see:
+- All individual dashboard features (dialer, voice, SMS config, workflows, etc.)
+- **Agency Members tab** (`dashboard/tabs/agency_members.html`) — view/manage all agency users
+- **Agency KPIs tab** (`dashboard/tabs/agency_kpis.html`) — aggregated metrics across all agency agents
+- **White-label tab** (`dashboard/tabs/whitelabel.html`) — branding customization
+
+### Agency Auto-Import by Company ID
+- When an individual agent subscribes and their GHL `companyId` matches an agency owner's `company_id` in `agency_billing`, they are automatically linked to that agency
+- No manual invite required — agents appear in the agency dashboard as they subscribe
+- Agency owners can still manually invite via email as a fallback
+
+---
+
 ## GHL Conversation Provider Sync (ghl_logger.py)
 
 GHL stays the source-of-truth CRM. When messages are sent or calls are made through IGB (via Twilio), they are logged back to GHL's conversation threads using the GHL Conversation Provider API.
@@ -1100,7 +1162,7 @@ Uses `.connect-grid`, `.connect-card`, `.connect-reason-card` CSS components wit
 ```
 templates/
   dashboard.html              Main dashboard layout (individual user)
-  agency-dashboard.html       Agency command center (sidebar+tab, self-contained, inline JS)
+  agency-dashboard.html       Agency command center (deprecated — agency features now integrated into main dashboard)
   base.html                   Base template for marketing pages
   home.html                   Home/landing page
   sms.html                    SMS marketing page
@@ -1121,6 +1183,8 @@ templates/
   article-speed-to-lead-insurance.html           SEO: Speed to Lead in Insurance Sales
   article-spam-likely-killing-sales.html         SEO: How Spam Likely Is Killing Your Sales
   connect.html                Connect With Us / social media page
+  predictive-dialer.html      Predictive Dialer marketing page
+  white-label.html            White-label marketing page
   claim_seat.html             Team member claim seat flow
   uninstall-feedback.html     GHL marketplace uninstall feedback
   call_panel.html             Embedded call panel
@@ -1141,6 +1205,9 @@ templates/
     logs.html                 Activity logs
     team.html                 Team management (invite, roles, permissions, KPIs)
     training.html             Training API configuration
+    whitelabel.html           White-label branding settings (agency owners only)
+    agency_kpis.html          Agency KPIs dashboard tab
+    agency_members.html       Agency member management tab
   dashboard/modals/
     discord_panel.html        Discord message panel (side panel, hidden)
     discord_modal.html        Discord server picker modal
@@ -1170,6 +1237,8 @@ static/js/dashboard/
   team.js           Team management (invites, roles, permissions, agent KPIs, audit log)
   pwa.js            Progressive Web App registration and offline support
   tutorial.js       Interactive dashboard tutorial (driver.js, 7 chapters, Liquid Glass UI with dark+light theme)
+  whitelabel.js     White-label branding UI (color picker, font selector, company name, live preview)
+  agency.js         Agency management UI (member list, KPIs, auto-import by company_id)
 ```
 
 ### CSS
