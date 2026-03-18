@@ -684,95 +684,18 @@ def checkout_pro_dialer():
 
 
 @billing_bp.route("/checkout/predictive-dialer")
-@login_required
-def checkout_predictive_dialer():
-    """Predictive Dialer checkout — AGENCY ONLY. Requires agency owner with 5+ members."""
-    # Gate: only agency owners can purchase predictive dialer
-    if current_user.role != 'agency_owner':
-        flash("Predictive Dialer is an agency-level feature. It requires an agency account with 5 or more agents.", "error")
-        return redirect(url_for('dashboard.dashboard'))
+@billing_bp.route("/checkout/solo-predictive")
+def checkout_solo_predictive():
+    """Solo Predictive + AI Overflow checkout — $349/mo with 2000 AI minutes included.
 
-    # Gate: must have 5+ members
-    from db import get_agency_members_by_company_id
-    company_id = getattr(current_user, 'company_id', None)
-    members = get_agency_members_by_company_id(company_id) if company_id else []
-    if len(members) < 5:
-        flash(f"Predictive Dialer requires at least 5 agents in your agency. You currently have {len(members)}. As your agents subscribe, they'll appear automatically.", "error")
-        return redirect(url_for('agency.agency_dashboard'))
-
+    Erlang-C predictive dialing for solo agents. When the dialer dials multiple
+    lines and more than one lead answers, the first call bridges to the human
+    and overflow calls bridge to Voice AI which books the appointment.
+    """
     try:
         price_id = os.getenv("STRIPE_PREDICTIVE_DIALER_PRICE_ID")
         if not price_id:
             logger.error("STRIPE_PREDICTIVE_DIALER_PRICE_ID environment variable is not set!")
-            return _error_page(
-                "Configuration Error",
-                "The Predictive Dialer price ID is not configured. Please contact support.",
-                "Error Code: MISSING_PRICE_ID"
-            )
-
-        customer_email = current_user.email if current_user.is_authenticated else None
-        logger.info(f"Creating Predictive Dialer checkout with price_id: {price_id}")
-
-        referral = request.args.get("referral", "").strip()
-        coupon_id = _get_validated_coupon(request.args.get("coupon", "").strip())
-
-        checkout_params = dict(
-            payment_method_types=["card"],
-            mode="subscription",
-            line_items=[{"price": price_id, "quantity": 1}],
-            customer_email=customer_email,
-            metadata={
-                "user_email": customer_email,
-                "target_role": "agency_owner",
-                "target_tier": "predictive_dialer",
-                "company_id": company_id or "",
-                "source": "agency_dashboard"
-            },
-            subscription_data={
-                "trial_period_days": 7,
-                "metadata": {
-                    "user_email": customer_email,
-                    "target_role": "agency_owner",
-                    "target_tier": "predictive_dialer",
-                    "company_id": company_id or ""
-                },
-            },
-            success_url=f"{YOUR_DOMAIN}/success?session_id={{CHECKOUT_SESSION_ID}}",
-            cancel_url=f"{YOUR_DOMAIN}/cancel",
-        )
-
-        if coupon_id:
-            checkout_params["discounts"] = [{"coupon": coupon_id}]
-        else:
-            checkout_params["allow_promotion_codes"] = True
-
-        if referral:
-            checkout_params["client_reference_id"] = referral
-
-        session = stripe.checkout.Session.create(**checkout_params)
-        return redirect(session.url, code=303)
-
-    except stripe.error.InvalidRequestError as e:
-        logger.error(f"Stripe Invalid Request Error (Predictive Dialer): {e}")
-        return _error_page(
-            "Stripe Configuration Error",
-            "There's an issue with the payment configuration. Please contact support.",
-            f"Error: {e}"
-        )
-    except Exception as e:
-        logger.error(f"Predictive Dialer checkout error: {e}")
-        return _error_page("Checkout Error",
-                           "Unable to create checkout session. Please contact support.",
-                           f"Error Code: {e}")
-
-
-@billing_bp.route("/checkout/solo-predictive")
-def checkout_solo_predictive():
-    """Solo Predictive + AI Overflow checkout — $349/mo with 2000 AI minutes included."""
-    try:
-        price_id = os.getenv("STRIPE_SOLO_PREDICTIVE_PRICE_ID")
-        if not price_id:
-            logger.error("STRIPE_SOLO_PREDICTIVE_PRICE_ID environment variable is not set!")
             return _error_page(
                 "Configuration Error",
                 "The Solo Predictive price ID is not configured. Please contact support.",
@@ -1067,13 +990,11 @@ def change_plan():
     data = request.get_json(silent=True) or {}
     target_tier = data.get("target_tier", "")
 
-    # Individual agents: sms_bot, individual, pro_dialer, solo_predictive.
-    # Agency predictive_dialer is agency-only (requires 5+ members).
     tier_to_price = {
         "sms_bot": os.getenv("STRIPE_SMS_BOT_PRICE_ID"),
         "individual": os.getenv("STRIPE_PRICE_ID"),
         "pro_dialer": os.getenv("STRIPE_PRO_DIALER_PRICE_ID"),
-        "solo_predictive": os.getenv("STRIPE_SOLO_PREDICTIVE_PRICE_ID"),
+        "solo_predictive": os.getenv("STRIPE_PREDICTIVE_DIALER_PRICE_ID"),
     }
 
     if target_tier not in tier_to_price:
@@ -1155,9 +1076,10 @@ def change_plan():
                 return_db_connection(conn)
 
         tier_names = {
+            "sms_bot": "SMS Bot ($99.98/mo)",
             "individual": "Power Dialer ($149.98/mo)",
             "pro_dialer": "Pro Dialer ($224.98/mo)",
-            "predictive_dialer": "Predictive Dialer ($349.98/mo)",
+            "solo_predictive": "Solo Predictive + AI Overflow ($349/mo)",
         }
         return flask_jsonify({
             "success": True,
@@ -1214,21 +1136,6 @@ def subscription_info():
                 "Compliance dashboard", "Recording consent tracking",
                 "Callback queue with scheduled re-dials", "Advanced AMD",
                 "AI Texting", "AI Voice Agent", "Smart Filters", "Lead Intelligence",
-            ],
-        },
-        "predictive_dialer": {
-            "name": "Agency Predictive Dialer",
-            "price": "$349.98/mo",
-            "max_lines": 4,
-            "agency_only": True,
-            "min_agents": 5,
-            "features": [
-                "Erlang-C predictive pacing", "TCPA auto-throttle (3% abandon rate)",
-                "Recipient timezone enforcement", "Agent state machine",
-                "Compliance dashboard", "Recording consent tracking",
-                "Callback queue with scheduled re-dials", "Advanced AMD",
-                "Multi-line dialing (up to 4)", "AI Texting", "AI Voice Agent",
-                "Smart Filters", "Lead Intelligence", "Priority queue",
             ],
         },
     }

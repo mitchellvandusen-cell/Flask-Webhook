@@ -6674,8 +6674,8 @@
                 if (!r.ok) return;
                 const info = await r.json();
                 const tier = info.tier || 'individual';
-                _multiLineEnabled = (tier === 'pro_dialer' || tier === 'predictive_dialer');
-                _predictiveEnabled = (tier === 'predictive_dialer');
+                _multiLineEnabled = (tier === 'pro_dialer' || tier === 'solo_predictive');
+                _predictiveEnabled = (tier === 'solo_predictive');
                 // Use user-configured max_lines_setting, capped by subscription tier
                 const configuredLines = window.DASHBOARD_BOOT?.maxLinesSetting ?? 3;
                 _multiLineMaxLines = _multiLineEnabled ? Math.min(info.max_lines || 4, configuredLines) : 1;
@@ -6727,7 +6727,7 @@
 
         /**
          * Load predictive dialing statistics from the server.
-         * Enhanced: supports Erlang-C metrics for predictive_dialer tier.
+         * Enhanced: supports Erlang-C metrics + AI overflow for solo_predictive tier.
          */
         async function multiLineLoadPredictiveStats() {
             try {
@@ -6771,7 +6771,7 @@
                     }
                 }
 
-                // Load compliance & agent state for predictive_dialer tier
+                // Load compliance & agent state for solo_predictive tier
                 if (_predictiveStats.algorithm === 'erlang_c') {
                     pdLoadCompliance();
                     pdLoadAgentState();
@@ -7521,7 +7521,7 @@
                 allCards.forEach(c => { if (c) c.style.borderColor = 'rgba(255,255,255,0.08)'; });
                 allBadges.forEach(b => { if (b) b.style.display = 'none'; });
 
-                if (_billingCurrentTier === 'predictive_dialer') {
+                if (_billingCurrentTier === 'solo_predictive') {
                     if (predCard) predCard.style.borderColor = 'rgba(139,92,246,0.4)';
                     if (predBadge) predBadge.style.display = 'block';
                 } else if (_billingCurrentTier === 'pro_dialer') {
@@ -7556,12 +7556,12 @@
             if (tier === 'sms_bot' && smsCard) smsCard.style.borderColor = 'rgba(0,217,255,0.4)';
             if (tier === 'individual' && indCard) indCard.style.borderColor = 'rgba(0,255,136,0.4)';
             if (tier === 'pro_dialer' && proCard) proCard.style.borderColor = 'rgba(255,107,53,0.4)';
-            if (tier === 'predictive_dialer' && predCard) predCard.style.borderColor = 'rgba(139,92,246,0.4)';
+            if (tier === 'solo_predictive' && predCard) predCard.style.borderColor = 'rgba(139,92,246,0.4)';
 
             const btn = document.getElementById('billingChangePlanBtn');
             if (btn) {
                 btn.style.display = 'inline-flex';
-                const tierNames = { sms_bot: 'SMS Bot ($99.98/mo)', individual: 'Power Dialer ($149.98/mo)', pro_dialer: 'Pro Dialer ($224.98/mo)', predictive_dialer: 'Predictive Dialer ($349.98/mo)' };
+                const tierNames = { sms_bot: 'SMS Bot ($99.98/mo)', individual: 'Power Dialer ($149.98/mo)', pro_dialer: 'Pro Dialer ($224.98/mo)', solo_predictive: 'Solo Predictive + AI Overflow ($349/mo)' };
                 btn.innerHTML = '<i class="fa-solid fa-arrows-rotate me-2"></i>Switch to ' + (tierNames[tier] || tier);
             }
         }

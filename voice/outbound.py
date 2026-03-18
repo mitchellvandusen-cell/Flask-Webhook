@@ -992,13 +992,17 @@ def voice_status():
             mark_ring_confirmed(call_sid)
 
     # ── Agent state machine: auto-transition to ON_CALL when call goes in-progress ──
-    # Skip for AI overflow calls — agent is already ON_CALL with the primary (human) call.
+    # Skip for:
+    # - AI overflow calls: agent is already ON_CALL with the primary (human) call
+    # - solo_predictive calls: agent was already claimed atomically in outbound_twiml()
+    #   to prevent the race condition where two calls answer simultaneously
     if call_status == 'in-progress' and call_sid in active_calls:
         asm_info = active_calls[call_sid]
         asm_loc = asm_info.get('_location_id', '')
         asm_email = asm_info.get('_agent_email', '')
         is_overflow = asm_info.get('_overflow', False)
-        if asm_loc and asm_email and not is_overflow:
+        is_solo_predictive = asm_info.get('_subscription_tier', '') == 'solo_predictive'
+        if asm_loc and asm_email and not is_overflow and not is_solo_predictive:
             agent_state_manager.set_state(asm_loc, asm_email, AgentState.ON_CALL, call_sid=call_sid)
 
     # Persist to call_history DB

@@ -34,7 +34,7 @@
                     var tier = m.subscription_tier || 'individual';
                     var tierLabel = tier === 'sms_bot' ? 'SMS Bot' :
                                    tier === 'pro_dialer' ? 'Pro Dialer' :
-                                   tier === 'predictive_dialer' ? 'Predictive' :
+                                   tier === 'solo_predictive' ? 'Solo Predictive' :
                                    tier === 'individual' ? 'Power Dialer' : tier;
                     var statusClass = m.status === 'Active' ? 'active' : 'pending';
                     var joined = m.created_at ? new Date(m.created_at).toLocaleDateString() : '—';

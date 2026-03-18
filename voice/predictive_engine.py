@@ -653,6 +653,61 @@ class AgentStateManager:
 
             return dict(agent)
 
+    def try_claim_for_call(self, location_id, email, call_sid):
+        """Atomically try to claim an agent for a call (Solo Predictive).
+
+        This is the critical race-condition guard for AI overflow. When multiple
+        calls answer simultaneously, each one hits /voice/outbound-twiml and
+        calls this method. Only the FIRST call to arrive wins the claim —
+        subsequent calls return False and get routed to AI overflow.
+
+        Returns:
+            (claimed: bool, current_state: str, primary_call_sid: str or None)
+            - (True, 'on_call', None) = agent was available, now claimed for this call
+            - (False, 'on_call', 'CA...') = agent already on another call (collision)
+            - (False, 'wrap_up'|'break'|..., None) = agent unavailable (non-ready state)
+        """
+        with self._lock:
+            now = time.time()
+            agent = self._agents[location_id].get(email)
+
+            # Auto-transition wrap-up → ready if timer expired
+            if agent and agent["state"] == AgentState.WRAP_UP and agent.get("wrap_up_ends_at"):
+                if now >= agent["wrap_up_ends_at"]:
+                    agent["state"] = AgentState.READY
+                    agent["reason"] = None
+                    agent["since"] = now
+                    agent["wrap_up_ends_at"] = None
+
+            current_state = agent["state"] if agent else None
+
+            # Agent is available → claim them
+            if current_state in (AgentState.READY, None):
+                self._agents[location_id][email] = {
+                    "state": AgentState.ON_CALL,
+                    "reason": "solo_predictive_claim",
+                    "since": now,
+                    "call_sid": call_sid,
+                    "wrap_up_ends_at": None,
+                }
+                self._history[location_id].append({
+                    "email": email,
+                    "from_state": current_state or AgentState.LOGGED_OUT,
+                    "to_state": AgentState.ON_CALL,
+                    "reason": "solo_predictive_claim",
+                    "timestamp": now,
+                })
+                if len(self._history[location_id]) > 1000:
+                    self._history[location_id] = self._history[location_id][-500:]
+                return (True, AgentState.ON_CALL, None)
+
+            # Agent is on a call → collision (overflow to AI)
+            if current_state == AgentState.ON_CALL:
+                return (False, AgentState.ON_CALL, agent.get("call_sid"))
+
+            # Agent is in any other state → overflow to AI
+            return (False, current_state, None)
+
     def get_available_agents(self, location_id):
         """Get count and list of agents in READY state.
         Also checks wrap-up timers and auto-transitions expired ones to READY."""
