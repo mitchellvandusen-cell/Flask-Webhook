@@ -358,10 +358,13 @@ ALREADY KNOWN FACTS:
 RECENT MESSAGES:
 {conversation_context}
 
-Output EXACTLY four sections, nothing else. No reasoning, no thinking, no commentary. Just the raw content for each section.
+Output EXACTLY five sections, nothing else. No reasoning, no thinking, no commentary. Just the raw content for each section.
 
 SITUATION:
-Write 2-3 sentences about where this conversation stands RIGHT NOW. What does the lead want. What stage are we at. What should happen next. What questions have been answered and what is still unknown. Maximum 60 words.
+Write 2-4 sentences about where this conversation stands RIGHT NOW. What does the lead want. What stage are we at. What should happen next. What questions have been answered and what is still unknown. Maximum 80 words.
+
+CONVERSATIONAL_THREAD:
+Capture what the lead is CURRENTLY talking about and what they are responding to. This is critical for conversational coherence. If the lead is commenting on the bot's texting behavior (e.g. "you text too much", "the one about sending too many texts"), note that they are discussing the bot's messages, NOT insurance. If the lead is answering a specific question, note which question they are answering. If the lead is making small talk, confused, or off-topic, note that. If the lead asked a question that has not been answered yet, note the unanswered question. This section tells the bot what the lead is ACTUALLY talking about so it can respond appropriately instead of forcing an insurance pivot. Maximum 40 words.
 
 EMOTIONAL_ARC:
 Preserve every emotionally significant moment from the conversation. If the lead mentioned grief, family loss, fear, health scares, financial stress, divorce, kids they are worried about, a dying parent, or ANY personal vulnerability, capture it here with the exact context. Also capture strong positive moments: excitement about coverage, relief at finding help, gratitude. If the previous recap already has emotional arc entries, carry them forward and add any new ones. One line per moment, maximum 15 words each. If no emotional moments exist, write NONE.
@@ -381,7 +384,7 @@ List any NEW facts about the lead. One fact per line. Maximum 10 words per fact.
             model="grok-4-1-fast-reasoning",
             messages=[{"role": "system", "content": observer_prompt}],
             temperature=0.3,
-            max_tokens=600,
+            max_tokens=750,
             timeout=15.0
         )
         raw_output = response.choices[0].message.content.strip()

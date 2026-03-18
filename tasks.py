@@ -358,25 +358,44 @@ def process_webhook_task(payload: dict):
         # === TCPA STOP WORD CHECK ===
         # If the lead says stop/unsubscribe/blocked/leave me alone/etc, we MUST stop messaging.
         # Check BEFORE booking or response generation.
-        TCPA_STOP_WORDS = [
-            # ── LEGALLY MANDATED opt-outs ONLY ──
-            # These are the TCPA/carrier-required stop words that MUST halt messaging.
-            # Everything else is a sales objection the bot should handle.
+        # TCPA stop words — ONLY matches that are the ENTIRE message or standalone opt-outs.
+        # "stop texting me" and "stop calling me" are NOT TCPA opt-outs — they are objections
+        # that the bot should handle. Only bare "stop", "unsubscribe", etc. halt messaging.
+        TCPA_STOP_EXACT = [
+            # These match ONLY when they are the entire message (or nearly)
             "stop", "unsubscribe", "cancel",
-            # Explicit cease-contact demands (legal, not sales objections)
-            "remove me", "opt out",
-            "do not call", "don't call", "do not text", "don't text",
-            "do not contact", "don't contact", "do not message", "don't message",
+        ]
+        TCPA_STOP_PHRASES = [
+            # These match as phrases within longer messages
+            "remove me", "opt out", "opt me out",
+            "do not call", "don't call me", "do not text", "don't text me",
+            "do not contact", "don't contact me", "do not message", "don't message me",
             "put me on your do not call list", "do not call list",
         ]
+        # Phrases that LOOK like opt-outs but are objections (not TCPA)
+        TCPA_EXCEPTIONS = [
+            "stop texting", "stop calling", "stop messaging", "stop contacting",
+            "stop sending", "stop reaching out", "stop bothering",
+        ]
         if message:
-            msg_lower = message.lower()
-            for stop_word in TCPA_STOP_WORDS:
-                # Check for exact word/phrase match (not substring)
-                if re.search(rf'\b{re.escape(stop_word)}\b', msg_lower):
-                    logger.info(f"🛑 TCPA OPT-OUT: '{stop_word}' detected from contact {contact_id} | msg='{message}'")
-                    # Do NOT book, do NOT respond - just acknowledge internally
-                    return {"status": "opt_out", "reason": f"TCPA stop word: {stop_word}", "contact_id": contact_id}
+            msg_lower = message.lower().strip()
+            # First check exceptions — if the message matches an exception pattern,
+            # treat it as an objection, not a TCPA opt-out
+            is_exception = any(exc in msg_lower for exc in TCPA_EXCEPTIONS)
+            if not is_exception:
+                # Check exact matches (bare "stop", "unsubscribe", "cancel")
+                msg_words = msg_lower.split()
+                if len(msg_words) <= 3 and any(
+                    re.search(rf'\b{re.escape(sw)}\b', msg_lower) for sw in TCPA_STOP_EXACT
+                ):
+                    matched = next(sw for sw in TCPA_STOP_EXACT if re.search(rf'\b{re.escape(sw)}\b', msg_lower))
+                    logger.info(f"🛑 TCPA OPT-OUT: '{matched}' detected from contact {contact_id} | msg='{message}'")
+                    return {"status": "opt_out", "reason": f"TCPA stop word: {matched}", "contact_id": contact_id}
+                # Check phrase matches
+                for stop_phrase in TCPA_STOP_PHRASES:
+                    if re.search(rf'\b{re.escape(stop_phrase)}\b', msg_lower):
+                        logger.info(f"🛑 TCPA OPT-OUT: '{stop_phrase}' detected from contact {contact_id} | msg='{message}'")
+                        return {"status": "opt_out", "reason": f"TCPA stop word: {stop_phrase}", "contact_id": contact_id}
 
         # === MESSAGE BATCHING ===
         # If a lead sends 3 messages in 30 seconds, we want ONE response to all 3.
@@ -665,17 +684,32 @@ Instead, apologize that the requested time isn't available and offer the availab
                 bot_settings=bot_settings,
             )
 
-            # === STRUCTURAL REASONING SEPARATION ===
-            # generate_clean_reply handles:
-            # 1. Making the API call
-            # 2. Extracting reasoning_content vs content (like ChatGPT/Claude do)
-            # 3. If reasoning leaks into content: retry with a focused "response-only" call
-            # 4. Sanitization as final safety net
+            # === MULTI-TURN CONVERSATION FORMAT ===
+            # Build proper multi-turn messages so the LLM sees the conversation
+            # as a real back-and-forth, not a flat string buried in the system prompt.
+            # The system prompt still contains all context (profile, tactical guidance,
+            # narrative, etc.) but the actual conversation is structured as alternating
+            # user/assistant messages, giving the LLM much better conversational coherence.
+            full_messages = [{"role": "system", "content": system_prompt}]
+
+            # Add conversation history as proper multi-turn messages
+            # Use all recent_exchanges (up to 30) for full context
+            for msg in recent_exchanges:
+                if msg['role'] == 'lead':
+                    full_messages.append({"role": "user", "content": msg['text']})
+                else:
+                    full_messages.append({"role": "assistant", "content": msg['text']})
+
+            # Add the current inbound message as the final user message
+            if message and message.strip():
+                full_messages.append({"role": "user", "content": message})
+
             reply = generate_clean_reply(
                 client=client,
                 system_prompt=system_prompt,
                 user_message=message,
                 bot_name=bot_first_name,
+                full_messages=full_messages,
             )
 
         if not reply:
