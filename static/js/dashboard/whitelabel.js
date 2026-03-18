@@ -172,9 +172,22 @@
     function _wlShowLogoPreview(url) {
         var preview = document.getElementById('wlLogoPreview');
         if (!preview) return;
-        preview.innerHTML = '<img src="' + url + '" alt="Logo preview" id="wlLogoImg">' +
-            '<button type="button" class="btn btn-sm wl-logo-remove" onclick="wlRemoveLogo()" title="Remove logo">' +
-            '<i class="fa-solid fa-xmark"></i></button>';
+        // Build with DOM APIs to prevent XSS via URL injection
+        preview.innerHTML = '';
+        var img = document.createElement('img');
+        img.src = url;
+        img.alt = 'Logo preview';
+        img.id = 'wlLogoImg';
+        preview.appendChild(img);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-sm wl-logo-remove';
+        btn.title = 'Remove logo';
+        btn.onclick = function() { wlRemoveLogo(); };
+        var icon = document.createElement('i');
+        icon.className = 'fa-solid fa-xmark';
+        btn.appendChild(icon);
+        preview.appendChild(btn);
     }
 
     window.wlRemoveLogo = function() {

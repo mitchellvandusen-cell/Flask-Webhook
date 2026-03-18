@@ -67,29 +67,10 @@ def agency_dashboard():
         flash("Access restricted to agency owners only.", "error")
         return redirect("/dashboard")
 
-    # ── Subscription check ────────────────────────────────────────────────────
-    needs_subscription = not current_user.stripe_customer_id and not is_admin
+    # Agency owners are FREE — no subscription paywall. They download the app
+    # to appear on their agents' GHL sidebars. Agents pay for their own plans.
 
     form = ConfigForm()
-
-    if needs_subscription:
-        return render_template('dashboard.html',
-            needs_subscription=True,
-            subscription_price=149.99,
-            form=form,
-            access_token_display='',
-            refresh_token_display='',
-            token_readonly='',
-            expires_in_str='',
-            sub=current_user,
-            profile={
-                'full_name': current_user.full_name or '',
-                'phone':     current_user.phone or '',
-                'bio':       current_user.bio or '',
-            },
-            is_agency=True,
-            whitelabel=getattr(current_user, 'whitelabel_config', None) or {},
-        )
 
     # ── Form save (POST) — updates agency_billing ─────────────────────────────
     conn = get_db_connection()

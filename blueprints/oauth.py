@@ -25,7 +25,7 @@ from db import (
     mark_install_oauth_complete, find_marketplace_email,
 )
 from extensions import ADMIN_EMAILS, YOUR_DOMAIN
-from email_templates import _email_wrapper, _build_welcome_email
+from email_templates import _email_wrapper, _build_welcome_email, _build_agency_owner_welcome_email
 from send_email_api import send_email_via_api
 from sync_subscribers import sync_subscribers
 from token_encryption import encrypt_token, decrypt_token
@@ -610,16 +610,17 @@ def oauth_callback():
         logger.info(f"Step 2 complete: User info retrieved. email={user_email}")
 
         # ── Step 3: Detect agency status via companyId ────────────────────────
-        # Agency owner = Company-scoped token with companyId but NO locationId.
-        # Individual agent = has locationId (regardless of token scope).
-        # No need for /agencies/ API call — companyId presence is sufficient.
+        # Agency owner = has companyId but NO locationId (regardless of token scope).
+        # GHL marketplace installs for agency owners come in as Location-scoped
+        # tokens with companyId present but locationId=None.
+        # Individual agent = has locationId (regardless of whether companyId is also present).
         is_agency_owner = False
         company_metadata = {}
 
-        if token_user_type_used == 'Company' and company_id and not primary_location_id:
-            # Company-scoped token without a specific location = agency owner install
+        if company_id and not primary_location_id:
+            # companyId present but no locationId = agency owner install
             is_agency_owner = True
-            logger.info(f"Agency owner detected: companyId={company_id}, no locationId")
+            logger.info(f"Agency owner detected: companyId={company_id}, no locationId, token_type={token_user_type_used}")
 
             # Capture all available company/owner metadata from GHL
             company_metadata = {
@@ -811,20 +812,18 @@ def oauth_callback():
                 pass
 
         # ── Step 5-6: Determine tier and primary location ─────────────────────
-        # Agency detection is now companyId-based, not location-count-based.
+        # Agency owners: FREE — no subscription needed. They just download to get
+        # on all their agents' GHL sidebars. Agents pay for their own plans.
         # Agency owners get agency_billing row; individuals get subscribers row.
-        if is_website_user:
+        if is_agency_owner:
+            plan_tier = 'agency_owner'
+            use_agency_flow = True
+        elif is_website_user:
             plan_tier = current_user.subscription_tier or 'individual'
-            use_agency_flow = plan_tier in ('agency_starter', 'agency_pro') or is_agency_owner
-            logger.info(
-                f"Website user: subscribed tier={plan_tier}, GHL agency={is_agency_owner}, "
-                f"using agency flow={use_agency_flow}"
-            )
+            use_agency_flow = False
         else:
             plan_tier = 'individual'
-            if is_agency_owner:
-                plan_tier = 'agency_pro'
-            use_agency_flow = is_agency_owner
+            use_agency_flow = False
 
         primary_sub = next((s for s in sub_accounts if s['id'] == primary_location_id), None)
         primary_name = primary_sub.get('name', 'Unknown Location') if primary_sub else user_name
@@ -852,9 +851,15 @@ def oauth_callback():
                 f"primary_location_id={primary_location_id}"
             )
             if use_agency_flow:
-                max_seats = 9999 if plan_tier == 'agency_pro' else 14
-                active_seats = max(0, num_subs - 1)
+                # Agency owners are FREE — no seat caps, no subscription required.
+                # They download to appear on agents' GHL sidebars. Agents pay individually.
+                max_seats = 9999
+                active_seats = 0
                 app_type = 'private' if is_private_app else ('website' if is_website_user else 'marketplace')
+
+                # For agency owners with no locationId, use companyId as location_id
+                # so they can log in and use the dashboard
+                agency_location_id = primary_location_id or company_id
 
                 cur.execute("""
                     INSERT INTO agency_billing (
@@ -872,7 +877,7 @@ def oauth_callback():
                         NOW(), NOW()
                     )
                     ON CONFLICT (agency_email) DO UPDATE SET
-                        location_id = EXCLUDED.location_id,
+                        location_id = COALESCE(EXCLUDED.location_id, agency_billing.location_id),
                         access_token = EXCLUDED.access_token,
                         refresh_token = EXCLUDED.refresh_token,
                         token_expires_at = EXCLUDED.token_expires_at,
@@ -886,7 +891,7 @@ def oauth_callback():
                         company_owner_phone = COALESCE(EXCLUDED.company_owner_phone, agency_billing.company_owner_phone),
                         updated_at = NOW()
                 """, (
-                    user_email, primary_location_id, primary_name, plan_tier,
+                    user_email, agency_location_id, primary_name, plan_tier,
                     max_seats, active_seats, enc_access_token, enc_refresh_token,
                     expires_in, primary_timezone or 'America/Chicago', me_data.get('id'),
                     crm_email_resolved, app_type,
@@ -1202,22 +1207,29 @@ def oauth_callback():
             except Exception as e:
                 logger.warning(f"Failed to save scope alert: {e}")
 
-        # 8c. Welcome email (uses pre-built template from email_templates.py)
+        # 8c. Welcome email — agency owners get a different email (no subscription step)
         try:
             domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
             dashboard_link = (
                 f"{domain_url}/agency-dashboard" if use_agency_flow
                 else f"{domain_url}/dashboard"
             )
-            welcome_html = _build_welcome_email(user_name, dashboard_link, domain_url)
+            if use_agency_flow:
+                welcome_html = _build_agency_owner_welcome_email(user_name, dashboard_link, domain_url)
+            else:
+                welcome_html = _build_welcome_email(user_name, dashboard_link, domain_url)
+            email_subject = (
+                "Your Agency Dashboard is Ready — InsuranceGrokBot" if use_agency_flow
+                else "Welcome to InsuranceGrokBot — Your AI Assistant is Ready"
+            )
             email_sent = send_email_via_api(
                 to_email=user_email,
-                subject="Welcome to InsuranceGrokBot — Your AI Assistant is Ready",
+                subject=email_subject,
                 html_body=welcome_html,
                 text_body=(
                     f"Welcome to InsuranceGrokBot, {user_name}! "
                     f"Dashboard: {dashboard_link} | "
-                    f"Support: {domain_url}/support | Status: {domain_url}/onboarding-status"
+                    f"Support: {domain_url}/support"
                 )
             )
             if email_sent:
