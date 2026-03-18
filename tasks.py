@@ -556,7 +556,7 @@ def process_webhook_task(payload: dict):
                     calendar_slots = adapter.get_free_slots()
                 except Exception as adapter_err:
                     logger.error(f"CRM adapter get_free_slots error: {adapter_err}")
-                    calendar_slots = "let me check my calendar and get back to you with some times"
+                    calendar_slots = "CALENDAR_UNAVAILABLE"
             else:
                 # GHL: Use existing direct code path
                 # Pass all contact location fields for timezone resolution fallback chain
@@ -573,6 +573,13 @@ def process_webhook_task(payload: dict):
                     contact_zip=contact_zip_tz,
                     contact_address=contact_address_tz,
                 )
+
+        # Handle calendar unavailability — convert sentinel to actionable guidance
+        calendar_unavailable = False
+        if calendar_slots == "CALENDAR_UNAVAILABLE":
+            calendar_unavailable = True
+            calendar_slots = ""  # Don't pass sentinel string to LLM
+            logger.warning(f"⚠️ CALENDAR UNAVAILABLE for {location_id} — bot will ask for preferred time")
 
         context_nudge = ""
         if message and "covered" in message.lower():
@@ -591,15 +598,26 @@ Do not continue the sales conversation. The appointment is booked at {booked_dis
             logger.info(f"✅ BOOKING CONFIRMATION ADDED TO PROMPT | contact={contact_id} | booked_time={booked_display}")
         elif booking_attempted_and_failed:
             # Booking was attempted but the API call failed — give the AI specific guidance
-            context_nudge += f"""
+            if calendar_unavailable:
+                context_nudge += f"""
+⚠️ CRITICAL: The lead requested an appointment at {booking_time_str}, but the system could not book it AND the calendar is temporarily unavailable.
+Do NOT tell the lead they are booked. Do NOT confirm an appointment. Do NOT say "let me check my calendar."
+Instead, ask the lead for their preferred day and time window (e.g., "What day works best for you, and are you more of a morning or afternoon person?"). Be natural and warm. The system will retry booking on their next message."""
+            else:
+                context_nudge += f"""
 ⚠️ CRITICAL: The lead requested an appointment at {booking_time_str}, but the system COULD NOT book it (the slot may be unavailable or there was a technical issue).
 Do NOT tell the lead they are booked. Do NOT confirm an appointment.
 Instead, apologize that the requested time isn't available and offer the available slots listed below. Be natural — say something like "That time isn't available, but I have these openings:" and list the slots."""
-            logger.warning(f"⚠️ BOOKING ATTEMPTED BUT FAILED — offering alternative slots | contact={contact_id} | requested={booking_time_str}")
+            logger.warning(f"⚠️ BOOKING ATTEMPTED BUT FAILED — offering alternative slots | contact={contact_id} | requested={booking_time_str} | calendar_unavailable={calendar_unavailable}")
         else:
             # CRITICAL: Prevent AI from hallucinating bookings
-            context_nudge += "\n⚠️ CRITICAL: NO APPOINTMENT HAS BEEN BOOKED YET. Do NOT tell the lead they are booked. Do NOT confirm an appointment. Only offer times or ask which time works best."
-            logger.info(f"🚫 NO BOOKING YET | contact={contact_id}")
+            if calendar_unavailable and (director_output["stage"] == "booking" or wants_slots):
+                context_nudge += """
+⚠️ The calendar is temporarily unavailable. Do NOT say "let me check my calendar" or promise to send times.
+Instead, ask the lead for their preferred day and time (e.g., "What day and time work best for you?"). The system will book it once they give a specific time."""
+            else:
+                context_nudge += "\n⚠️ CRITICAL: NO APPOINTMENT HAS BEEN BOOKED YET. Do NOT tell the lead they are booked. Do NOT confirm an appointment. Only offer times or ask which time works best."
+            logger.info(f"🚫 NO BOOKING YET | contact={contact_id} | calendar_unavailable={calendar_unavailable}")
 
         # Note: Follow-up strategy (including humor at 5+ unanswered) is now handled
         # by sales_director's tactical_narrative via _build_followup_guidance().

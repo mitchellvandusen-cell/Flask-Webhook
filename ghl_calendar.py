@@ -493,11 +493,11 @@ def consolidated_calendar_op(
 
     if not cal_id:
         logger.error(f"Missing calendar_id for calendar op (loc={location_id})")
-        return "let me look at my calendar" if operation == "fetch_slots" else False
+        return "CALENDAR_UNAVAILABLE" if operation == "fetch_slots" else False
 
     if not access_token:
         logger.error(f"Missing access_token for calendar op (loc={location_id})")
-        return "let me look at my calendar" if operation == "fetch_slots" else False
+        return "CALENDAR_UNAVAILABLE" if operation == "fetch_slots" else False
 
     # Demo mode short-circuit
     if access_token == 'DEMO':
@@ -601,7 +601,7 @@ def consolidated_calendar_op(
 
         if operation == "fetch_slots":
             if not slots:
-                return "let me look at my calendar"
+                return "CALENDAR_UNAVAILABLE"
 
             parsed_slots = []
             for slot in slots:
@@ -620,7 +620,7 @@ def consolidated_calendar_op(
                     continue
 
             if not parsed_slots:
-                return "let me look at my calendar"
+                return "CALENDAR_UNAVAILABLE"
 
             parsed_slots.sort()
             now_customer = datetime.now(customer_tz)
@@ -654,7 +654,7 @@ def consolidated_calendar_op(
                 options.append(" or ".join(format_slot(s) for s in afternoon_picks))
 
             if not options:
-                return "let me look at my calendar"
+                return "CALENDAR_UNAVAILABLE"
 
             result = "I've got " + (", or ".join(options) if len(options) > 1 else options[0])
             # Add timezone label when customer is in a different timezone than agent

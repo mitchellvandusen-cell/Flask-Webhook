@@ -54,8 +54,9 @@ class BookingDetectionResult:
 def _has_scheduling_signals(message: str, recent_exchanges: list, stage: str) -> bool:
     """
     Fast pre-filter. Returns True if the message MIGHT be booking-related.
-    Intentionally generous (high recall) — the LLM handles precision.
-    False positives here just cost one cheap LLM call (~$0.001).
+    High recall, but requires scheduling CONTEXT — bare times alone ("I work at 2pm")
+    don't trigger without a booking keyword or bot-offered times in the conversation.
+    False positives here cost one cheap LLM call (~$0.001).
     """
     if not message:
         return False
@@ -66,43 +67,14 @@ def _has_scheduling_signals(message: str, recent_exchanges: list, stage: str) ->
     if stage in ("booking", "booked"):
         return True
 
-    # Strong scheduling signals — always trigger
-    strong_signals = [
-        "book", "schedule", "appointment", "calendar", "available",
-        "slot", "meet", "tomorrow", "today",
-        "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
-        "mon ", "tues", "tue ", "wed ", "thurs", "thu ", "fri ", "sat ", "sun ",
-        "next week", "this week",
-        "morning", "afternoon", "evening",
-        "o'clock", "oclock",
-        "works for me", "sounds good", "that works",
-        "set up", "sign me up", "lock it in", "lock me in",
-        "let's do", "lets do", "put me down",
-        "what time", "what day", "when can", "when do", "when are",
-        "are you free", "are you available",
-    ]
-    if any(w in msg for w in strong_signals):
-        return True
-
-    # Time patterns (9am, 2:30pm, etc.) — always trigger
-    if re.search(r'\d{1,2}\s*(?:am|pm|a\.m\.|p\.m\.)\b', msg):
-        return True
-
-    # Bare time with colon (2:30, 11:00) — always trigger
-    if re.search(r'\d{1,2}:\d{2}', msg):
-        return True
-
-    # Ordinal dates (the 17th, march 15, 1st) — always trigger
-    if re.search(r'\d{1,2}(?:st|nd|rd|th)\b', msg):
-        return True
-
     # Check if bot's last message had time offers — any response could be acceptance
     bot_msgs = [m for m in recent_exchanges if m['role'] == 'assistant']
+    bot_offered_times = False
     if bot_msgs:
         last_bot = bot_msgs[-1]['text'].lower()
-        bot_had_times = bool(re.search(r'\d{1,2}\s*(?:am|pm)', last_bot)) or \
-                        bool(re.search(r'\d{1,2}:\d{2}', last_bot))
-        if bot_had_times:
+        bot_offered_times = bool(re.search(r'\d{1,2}\s*(?:am|pm)', last_bot)) or \
+                            bool(re.search(r'\d{1,2}:\d{2}', last_bot))
+        if bot_offered_times:
             # Bot offered times — even simple acceptance words should trigger
             acceptance_words = [
                 "yes", "yeah", "sure", "ok", "okay", "yep", "yup",
@@ -111,6 +83,56 @@ def _has_scheduling_signals(message: str, recent_exchanges: list, stage: str) ->
             ]
             if any(re.search(r'\b' + re.escape(w) + r'\b', msg) for w in acceptance_words):
                 return True
+
+    # Explicit booking intent keywords — always trigger
+    booking_intent_keywords = [
+        "book", "schedule", "appointment", "calendar",
+        "slot", "set up", "sign me up", "lock it in", "lock me in",
+        "let's do", "lets do", "put me down",
+        "what time", "what day", "when can", "when do", "when are",
+        "are you free", "are you available",
+        "works for me", "sounds good", "that works",
+        "o'clock", "oclock",
+    ]
+    has_booking_intent = any(w in msg for w in booking_intent_keywords)
+
+    if has_booking_intent:
+        return True
+
+    # Day/time words that imply scheduling — but ONLY when combined with each other
+    # or with booking intent. "Tomorrow" alone or "2pm" alone is NOT enough.
+    day_words = [
+        "tomorrow", "today",
+        "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+        "mon ", "tues", "tue ", "wed ", "thurs", "thu ", "fri ", "sat ", "sun ",
+        "next week", "this week",
+        "morning", "afternoon", "evening",
+    ]
+    has_day_ref = any(w in msg for w in day_words)
+    has_time_pattern = bool(re.search(r'\d{1,2}\s*(?:am|pm|a\.m\.|p\.m\.)\b', msg)) or \
+                       bool(re.search(r'\d{1,2}:\d{2}', msg))
+    has_ordinal_date = bool(re.search(r'\d{1,2}(?:st|nd|rd|th)\b', msg))
+
+    # Day + Time together = strong scheduling signal (e.g., "Tuesday at 2pm")
+    if has_day_ref and has_time_pattern:
+        return True
+
+    # Day + ordinal = strong scheduling signal (e.g., "the 17th")
+    if has_day_ref and has_ordinal_date:
+        return True
+
+    # Time pattern + available/meet/free = scheduling context
+    scheduling_context = ["available", "meet", "free", "open"]
+    if has_time_pattern and any(w in msg for w in scheduling_context):
+        return True
+
+    # Bot offered times earlier in conversation (not just last message) — time pattern triggers
+    if bot_offered_times and (has_time_pattern or has_day_ref or has_ordinal_date):
+        return True
+
+    # Ordinal date with month name (e.g., "march 17th") — always scheduling
+    if has_ordinal_date and re.search(r'\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)', msg):
+        return True
 
     return False
 
@@ -168,8 +190,12 @@ DEFINITIONS:
 - "offer_slots": Customer wants to schedule but didn't give both day AND time.
   Examples: "sometime next week", "Thursday works", "what times do you have?", "when are you free?", "afternoon works".
   Also use when it's ambiguous which offered time the customer accepted.
+- "offer_slots" ALSO when: Customer REJECTED the offered times ("none of those work", "can't do either of those",
+  "those don't work for me") — use offer_slots so the system fetches new availability.
+  Also when customer gives multiple options ("I can do 2pm or 4pm") — they are offering choices, not confirming one.
 - "none": Not about scheduling at all. Actively declining. General conversation.
-  Examples: "can't do that time", "how much is it?", "I have 2 kids", "not interested", "I work until 5".
+  Examples: "how much is it?", "I have 2 kids", "not interested", "I work until 5", "I need to think about it",
+  "let me check my schedule and get back to you".
 
 TIME STRING FORMAT (only for "book"):
 Include day AND time: "11:00 am tuesday" or "2:00 pm march 17" or "9:30 am tomorrow".
