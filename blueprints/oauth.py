@@ -610,16 +610,17 @@ def oauth_callback():
         logger.info(f"Step 2 complete: User info retrieved. email={user_email}")
 
         # ── Step 3: Detect agency status via companyId ────────────────────────
-        # Agency owner = Company-scoped token with companyId but NO locationId.
-        # Individual agent = has locationId (regardless of token scope).
-        # No need for /agencies/ API call — companyId presence is sufficient.
+        # Agency owner = has companyId but NO locationId (regardless of token scope).
+        # GHL marketplace installs for agency owners come in as Location-scoped
+        # tokens with companyId present but locationId=None.
+        # Individual agent = has locationId (regardless of whether companyId is also present).
         is_agency_owner = False
         company_metadata = {}
 
-        if token_user_type_used == 'Company' and company_id and not primary_location_id:
-            # Company-scoped token without a specific location = agency owner install
+        if company_id and not primary_location_id:
+            # companyId present but no locationId = agency owner install
             is_agency_owner = True
-            logger.info(f"Agency owner detected: companyId={company_id}, no locationId")
+            logger.info(f"Agency owner detected: companyId={company_id}, no locationId, token_type={token_user_type_used}")
 
             # Capture all available company/owner metadata from GHL
             company_metadata = {
@@ -856,6 +857,10 @@ def oauth_callback():
                 active_seats = max(0, num_subs - 1)
                 app_type = 'private' if is_private_app else ('website' if is_website_user else 'marketplace')
 
+                # For agency owners with no locationId, use companyId as location_id
+                # so they can log in and use the dashboard
+                agency_location_id = primary_location_id or company_id
+
                 cur.execute("""
                     INSERT INTO agency_billing (
                         agency_email, location_id, full_name, subscription_tier,
@@ -872,7 +877,7 @@ def oauth_callback():
                         NOW(), NOW()
                     )
                     ON CONFLICT (agency_email) DO UPDATE SET
-                        location_id = EXCLUDED.location_id,
+                        location_id = COALESCE(EXCLUDED.location_id, agency_billing.location_id),
                         access_token = EXCLUDED.access_token,
                         refresh_token = EXCLUDED.refresh_token,
                         token_expires_at = EXCLUDED.token_expires_at,
@@ -886,7 +891,7 @@ def oauth_callback():
                         company_owner_phone = COALESCE(EXCLUDED.company_owner_phone, agency_billing.company_owner_phone),
                         updated_at = NOW()
                 """, (
-                    user_email, primary_location_id, primary_name, plan_tier,
+                    user_email, agency_location_id, primary_name, plan_tier,
                     max_seats, active_seats, enc_access_token, enc_refresh_token,
                     expires_in, primary_timezone or 'America/Chicago', me_data.get('id'),
                     crm_email_resolved, app_type,
