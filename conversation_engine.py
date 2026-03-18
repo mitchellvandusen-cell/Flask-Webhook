@@ -264,17 +264,27 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
         "not today", "no not today", "maybe some other lifetime",
         "i have no interest", "zero interest",
         "please don't", "please stop", "please dont",
+        # Apathy / don't care
+        "don't care", "dont care", "do not care", "couldn't care less",
+        "could not care less", "i could care less", "who cares",
+        "couldn't be bothered", "could not be bothered",
+        # Done / finished
+        "i'm done", "im done", "we're done", "done with this",
+        "done talking", "over it", "over this",
     ]
 
     # "i'm good" / "im good" / "i'm fine" — context-sensitive
     # "yeah im good with 3pm" = positive.  "im good" by itself = dismissal.
+    # "yeah I'm good on all that thanks" = dismissal (7 words, still a brush-off)
     im_good_patterns = ["i'm good", "im good", "i'm fine", "im fine",
                         "we're good", "were good", "we good"]
-    positive_context = ["good with", "good to", "good for", "good on that",
-                        "good let", "fine with", "fine to", "fine for"]
+    positive_context = ["good with", "good to go", "good to proceed", "good for",
+                        "good on that", "good on the", "good let",
+                        "fine with", "fine to", "fine for",
+                        "good to schedule", "good to book", "good to meet"]
     if any(p in text_lower for p in im_good_patterns):
         has_positive = any(p in text_lower for p in positive_context)
-        if not has_positive and word_count <= 6:
+        if not has_positive and word_count <= 10:
             not_interested_kw.append(text_lower)
 
     # ── SPOUSE / THIRD PARTY — deferring decision to someone else ──
@@ -287,6 +297,9 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
         "talk to my partner", "ask my partner", "check with my partner",
         "my wife would", "my husband would", "wife says", "husband says",
         "wife thinks", "husband thinks", "other half",
+        "wife handles", "husband handles", "wife deals with", "husband deals with",
+        "wife decides", "husband decides", "wife takes care", "husband takes care",
+        "wife manages", "husband manages",
         "spouse", "wifey", "hubby", "significant other",
         "talk it over with", "talk it over first",
         # Family
@@ -405,6 +418,9 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
         "i'll let you know", "ill let you know", "let you know",
         "i'll reach out", "ill reach out", "reach out when",
         "don't call me i'll call you", "dont call me ill call you",
+        # Noncommittal / ambivalent (when standalone or very short)
+        "not sure", "i don't know", "i dont know", "idk",
+        "we'll see", "we will see", "who knows",
     ]
 
     # ── BUSY / TIMING — can't talk now ──
@@ -451,8 +467,23 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
         "not really ", "not that ", "never too ",
     ]
 
+    # Context suffixes that flip the meaning of otherwise-objection phrases.
+    # "not for me" is an objection. "not for me to decide" is a deferral.
+    # "I'm good" is a dismissal. "I'm good with that time" is acceptance.
+    # "we're good" is a dismissal. "we're good to go" is acceptance.
+    _CONTEXT_OVERRIDES = [
+        # (keyword, suffix_that_cancels_it)
+        ("not for me", [" to decide", " to say", " to judge", " to handle"]),
+        ("we're good", [" to go", " to proceed", " with that", " with this", " on that", " for now let"]),
+        ("were good", [" to go", " to proceed", " with that", " with this", " on that"]),
+        ("we good", [" to go", " to proceed", " with that", " with this", " on that"]),
+    ]
+    _CONTEXT_OVERRIDE_MAP = {}
+    for _co_kw, _co_suffixes in _CONTEXT_OVERRIDES:
+        _CONTEXT_OVERRIDE_MAP[_co_kw] = _co_suffixes
+
     def _keyword_match(keywords):
-        """Check if any keyword is present WITHOUT being negated."""
+        """Check if any keyword is present WITHOUT being negated or context-overridden."""
         for kw in keywords:
             if kw not in text_lower:
                 continue
@@ -460,8 +491,14 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
             idx = text_lower.index(kw)
             prefix = text_lower[:idx]
             negated = any(prefix.endswith(neg) for neg in _NEGATION_PREFIXES)
-            if not negated:
-                return True
+            if negated:
+                continue
+            # Check context overrides — suffix after the keyword changes its meaning
+            if kw in _CONTEXT_OVERRIDE_MAP:
+                suffix = text_lower[idx + len(kw):]
+                if any(suffix.startswith(s) for s in _CONTEXT_OVERRIDE_MAP[kw]):
+                    continue  # Not actually an objection
+            return True
         return False
 
     # ── Context guards for specific false positive patterns ──
@@ -470,16 +507,20 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
     # "my wife loves/agrees/supports/wants" — supportive spouse, not obstacle
     # "I already have X but need more" — coverage gap, not objection
     _BUYING_THROUGH_OBJECTION = [
-        # "not interested in X, I want Y" patterns
-        (r'not interested in\s+\w+.*(?:i want|but|prefer|rather|instead|looking for)', ObjectionType.NOT_INTERESTED),
+        # "not interested in X, I want Y" / "not interested in X, what about Y?" patterns
+        (r'not interested in\s+\w+.*(?:i want|but|prefer|rather|instead|looking for|what about|how about|can you show|tell me about|do you have)', ObjectionType.NOT_INTERESTED),
+        # "not looking for X, more interested in Y" — narrowing, not rejecting
+        (r'not looking for\s+\w+.*(?:i want|but|more interested|rather|instead|what about|how about)', ObjectionType.NOT_INTERESTED),
         # spouse is supportive
-        (r'(?:wife|husband|spouse|partner)\s+(?:loves?|agrees?|supports?|wants?|thinks?\s+(?:it\'?s?\s+)?(?:great|good|a good))', ObjectionType.SPOUSE_PARTNER),
+        (r'(?:wife|husband|spouse|partner)\s+(?:loves?|agrees?|supports?|wants?|said yes|is on board|thinks?\s+(?:it\'?s?\s+)?(?:great|good|a good))', ObjectionType.SPOUSE_PARTNER),
         # has coverage but needs more
-        (r'(?:already have|have insurance|have a policy|have coverage).*(?:but|however|need more|not enough|doesn\'t cover|gaps?)', ObjectionType.ALREADY_COVERED),
+        (r'(?:already have|have insurance|have a policy|have coverage).*(?:but|however|need more|not enough|doesn\'t cover|gaps?|is it enough|worried)', ObjectionType.ALREADY_COVERED),
         # "think about it all the time" / "think about my family" — expressing concern, not stalling
         (r'think about (?:it |this )?(?:all the time|every day|constantly|a lot|my family|my kids|them)', ObjectionType.THINK_ABOUT_IT),
         # "busy protecting" / "busy working on" — commitment, not scheduling conflict
         (r'busy (?:protect|working on|taking care|making sure|getting|building)', ObjectionType.BUSY_TIMING),
+        # "done researching, ready to move forward" — action, not dismissal
+        (r'(?:done|finished|over)\s+(?:research|looking|shopping|comparing).*(?:ready|want to|let\'?s|move forward|go ahead)', ObjectionType.NOT_INTERESTED),
     ]
 
     # Check if the message matches any buying-through-objection pattern
@@ -513,21 +554,9 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
     # ── CATCH-ALL: short negative/dismissive responses ──
     # A closer's mindset: if it's short and not clearly positive or a question,
     # it's some form of resistance. Better to handle it than to ignore it.
+
+    # Tier 1: Very short (≤5 words, not a question) — catch single-word dismissals
     if word_count <= 5 and not text_lower.endswith("?"):
-        # Single word or very short negatives the lists above might miss
-        short_negative_patterns = [
-            r'^no+$',           # "no", "nooo", "noooo"
-            r'^nah+$',          # "nah", "nahh"
-            r'^nope+$',         # "nope", "nopee"
-            r'^naw+$',          # "naw"
-            r'^bye',            # "bye", "bye bye", "byeee"
-            r'^later$',         # "later" by itself
-            r'^whatever$',      # "whatever"
-            r'^k$',             # not an objection — just acknowledgment
-            r'^wrong number',   # wrong number
-            r'^who is this',    # who is this — not objection, just confused
-        ]
-        # These short replies are dismissals → NOT_INTERESTED
         dismissal_patterns = [
             r'^no+$', r'^nah+$', r'^nope+$', r'^naw+$',
             r'^bye', r'^goodbye', r'^later$', r'^whatever$',
@@ -535,8 +564,28 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
             r'^not really', r'^hardly', r'^doubt it',
             r'^why would i', r'^why should i',
             r'^no\s+i', r'^nah\s+i',
+            r'^maybe$',         # bare "maybe" by itself = think_about_it
         ]
+        # "maybe" alone is think_about_it, not not_interested
+        if re.search(r'^maybe$', text_lower):
+            return ObjectionType.THINK_ABOUT_IT, ObjectionNature.FEAR_BASED
         if any(re.search(p, text_lower) for p in dismissal_patterns):
+            return ObjectionType.NOT_INTERESTED, ObjectionNature.FEAR_BASED
+
+    # Tier 2: Medium-length (6-12 words, not a question) — catch dismissals
+    # that the keyword lists miss because they use phrasing not in our lists.
+    # These are broader regex patterns that only fire on medium-length messages
+    # to avoid false positives on long engaged replies.
+    if 6 <= word_count <= 12 and not text_lower.endswith("?"):
+        medium_dismissals = [
+            r'\bwhatever\b.*\b(?:man|dude|bro|lady|bye|done|peace)\b',
+            r'\bdone\b.*\b(?:talking|with this|with you|here|texting)\b',
+            r'\bdon\'?t\s+care\b',
+            r'\bcouldn\'?t\s+care\s+less\b',
+            r'\bnot\s+(?:gonna|going\s+to)\s+(?:happen|buy|do\s+it|sign\s+up)\b',
+            r'^(?:lol|lmao|haha)\s+(?:no|nah|nope|bye|whatever)',
+        ]
+        if any(re.search(p, text_lower) for p in medium_dismissals):
             return ObjectionType.NOT_INTERESTED, ObjectionNature.FEAR_BASED
 
     return ObjectionType.NONE, ObjectionNature.NONE
@@ -859,12 +908,15 @@ CLASSIFICATION MINDSET — Think like a top sales closer:
 The ONLY messages that are "none" are: answering your question, asking their own question, expressing genuine interest, agreeing to something, or providing information you asked for. EVERYTHING ELSE is an objection — and every objection is an opportunity.
 
 CRITICAL FALSE POSITIVE RULES — these OVERRIDE the closer mindset:
-- "not interested in X, I want Y" (e.g. "not interested in whole life, what about term?") = NONE (buying signal, NOT an objection — they are telling you what they DO want)
-- "my wife/husband loves/agrees/supports/wants this" = NONE (supportive spouse, NOT a deferral)
-- "already have some but need more" / "have coverage but it's not enough" = NONE (coverage gap = buying signal)
+- "not interested in X, I want Y" / "not interested in X, what about Y?" / "not looking for X, more interested in Y" (e.g. "not interested in whole life, what about term?") = NONE (buying signal, NOT an objection — they are telling you what they DO want)
+- "my wife/husband loves/agrees/supports/wants/is on board" = NONE (supportive spouse, NOT a deferral)
+- "my wife handles the insurance" / "my husband takes care of that" = spouse_partner (deferral — NOT not_interested)
+- "already have some but need more" / "have coverage but it's not enough" / "have coverage but worried" = NONE (coverage gap = buying signal)
 - "think about it all the time" / "think about my family" = NONE (expressing concern, NOT stalling)
 - "busy protecting my family" / "busy working on getting coverage" = NONE (commitment, NOT timing)
 - "it's not too expensive" / "actually pretty affordable" = NONE (positive price reaction, NOT price objection)
+- "it's not for me to decide" / "not for me to say" = spouse_partner (deferral — NOT not_interested even though it contains "not for me")
+- "done researching, ready to move forward" / "done shopping around, let's go" = NONE (action, NOT dismissal)
 - When the lead NEGATES an objection keyword ("not too expensive", "don't need to ask anyone", "won't need to think about it"), that is NOT an objection — it is overcoming the objection themselves.
 - "yes" / "sure" / "ok" answering YOUR question about their situation = NONE (providing info, not booking)
 
