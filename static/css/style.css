@@ -10527,3 +10527,330 @@ body.light-theme .ghl-embed-tab.active {
     background: var(--lt-accent-bg);
     color: var(--lt-accent);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   WHITE-LABEL BRANDING — Dashboard white-label tab + overrides
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Brand logo in sidebar */
+.whitelabel-logo {
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+    border-radius: 4px;
+}
+.whitelabel-brand-name {
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* White-label style toggle buttons */
+.wl-style-btn {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    color: #888;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+.wl-style-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.wl-style-btn.active {
+    background: rgba(0,255,136,0.12);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* Name preview box */
+.wl-name-preview {
+    padding: 16px 20px;
+    border-radius: 10px;
+    min-height: 56px;
+    display: flex;
+    align-items: center;
+}
+.wl-name-preview span {
+    font-size: 1.2rem;
+    color: #fff;
+}
+
+/* Logo upload area */
+.wl-logo-upload-area {
+    cursor: pointer;
+}
+.wl-logo-preview {
+    position: relative;
+    border: 2px dashed rgba(255,255,255,0.12);
+    border-radius: 12px;
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: border-color 0.2s;
+}
+.wl-logo-preview:hover {
+    border-color: var(--accent);
+}
+.wl-logo-preview img {
+    max-width: 200px;
+    max-height: 80px;
+    object-fit: contain;
+}
+.wl-logo-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: #666;
+    font-size: 0.85rem;
+}
+.wl-logo-placeholder i {
+    font-size: 2rem;
+    color: var(--accent);
+    opacity: 0.5;
+}
+.wl-logo-placeholder small {
+    color: #555;
+    font-size: 0.75rem;
+}
+.wl-logo-remove {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(255,0,0,0.15);
+    border: 1px solid rgba(255,0,0,0.3);
+    color: #ff4444;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    transition: all 0.2s;
+}
+.wl-logo-remove:hover {
+    background: rgba(255,0,0,0.3);
+    color: #fff;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   AGENCY DASHBOARD — Members, KPIs, stats
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Stat cards (small) */
+.agency-stat-card {
+    padding: 16px 20px;
+    border-radius: 10px;
+    min-width: 120px;
+    text-align: center;
+}
+.agency-stat-val {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 4px;
+}
+.agency-stat-lbl {
+    font-size: 0.72rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* KPI grid */
+.agency-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+@media (max-width: 768px) {
+    .agency-kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+.agency-kpi-card {
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+}
+.agency-kpi-icon {
+    font-size: 1.3rem;
+    color: var(--accent);
+    margin-bottom: 8px;
+    opacity: 0.7;
+}
+.agency-kpi-val {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+.agency-kpi-lbl {
+    font-size: 0.72rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+.agency-kpi-delta {
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.agency-kpi-delta.positive { color: var(--accent); }
+.agency-kpi-delta.negative { color: #ff4444; }
+
+/* Period toggle buttons */
+.agency-period-btn {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #888;
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+.agency-period-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.agency-period-btn.active {
+    background: rgba(0,255,136,0.12);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* Members table */
+.agency-members-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+}
+.agency-members-table thead th {
+    background: rgba(255,255,255,0.03);
+    color: #888;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.agency-members-table tbody td {
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: #ccc;
+    font-size: 0.85rem;
+    vertical-align: middle;
+}
+.agency-members-table tbody tr:hover td {
+    background: rgba(255,255,255,0.02);
+}
+
+/* Status badges */
+.agency-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+.agency-badge.active {
+    background: rgba(0,255,136,0.12);
+    color: var(--accent);
+}
+.agency-badge.pending {
+    background: rgba(255,170,0,0.12);
+    color: #ffaa00;
+}
+
+/* ── Light Theme Overrides ── */
+body.light-theme .wl-style-btn {
+    background: var(--lt-surface);
+    border-color: var(--lt-border);
+    color: var(--lt-text-muted);
+}
+body.light-theme .wl-style-btn:hover,
+body.light-theme .wl-style-btn.active {
+    border-color: var(--lt-accent);
+    color: var(--lt-accent);
+}
+body.light-theme .wl-style-btn.active {
+    background: var(--lt-accent-bg);
+}
+body.light-theme .wl-name-preview span {
+    color: var(--lt-text-primary);
+}
+body.light-theme .wl-logo-preview {
+    border-color: var(--lt-border);
+}
+body.light-theme .wl-logo-preview:hover {
+    border-color: var(--lt-accent);
+}
+body.light-theme .wl-logo-placeholder {
+    color: var(--lt-text-muted);
+}
+body.light-theme .wl-logo-placeholder i {
+    color: var(--lt-accent);
+}
+body.light-theme .agency-stat-val {
+    color: var(--lt-accent);
+}
+body.light-theme .agency-stat-lbl,
+body.light-theme .agency-kpi-lbl {
+    color: var(--lt-text-muted);
+}
+body.light-theme .agency-kpi-val {
+    color: var(--lt-text-primary);
+}
+body.light-theme .agency-kpi-icon {
+    color: var(--lt-accent);
+}
+body.light-theme .agency-kpi-delta.positive { color: var(--lt-accent); }
+body.light-theme .agency-period-btn {
+    background: var(--lt-surface);
+    border-color: var(--lt-border);
+    color: var(--lt-text-muted);
+}
+body.light-theme .agency-period-btn:hover,
+body.light-theme .agency-period-btn.active {
+    border-color: var(--lt-accent);
+    color: var(--lt-accent);
+    background: var(--lt-accent-bg);
+}
+body.light-theme .agency-members-table thead th {
+    background: rgba(0,0,0,0.02);
+    color: var(--lt-text-muted);
+    border-bottom-color: var(--lt-border);
+}
+body.light-theme .agency-members-table tbody td {
+    border-bottom-color: rgba(0,0,0,0.04);
+    color: var(--lt-text-secondary);
+}
+body.light-theme .agency-members-table tbody tr:hover td {
+    background: rgba(0,0,0,0.02);
+}
+body.light-theme .agency-badge.active {
+    background: var(--lt-accent-bg);
+    color: var(--lt-accent);
+}
+body.light-theme .agency-badge.pending {
+    background: rgba(255,170,0,0.08);
+    color: #cc8800;
+}

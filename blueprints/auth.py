@@ -154,13 +154,8 @@ def login():
             from datetime import datetime as _dt
             session['_seat_login_at'] = _dt.utcnow().isoformat()
 
-        role     = (user.role or 'individual').lower()
-        is_admin = user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
-
-        if is_admin or role not in ['agency_owner']:
-            return redirect(url_for("dashboard.dashboard"))
-        else:
-            return redirect(url_for("agency.agency_dashboard"))
+        # Unified dashboard for all users — agency owners and individuals alike
+        return redirect(url_for("dashboard.dashboard"))
 
     return render_template("login.html", form=form)
 

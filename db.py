@@ -2015,6 +2015,32 @@ def init_db() -> bool:
             conn.rollback()
             logger.debug(f"ghl_action_loops migration note: {e}")
 
+        # 32. MIGRATION: Add company_id + company metadata to agency_billing and subscribers
+        # Supports companyId-based agency detection and auto-linking
+        try:
+            # agency_billing: company_id + metadata + whitelabel_config
+            for col_name, col_def in [
+                ("company_id", "TEXT"),
+                ("company_name", "TEXT"),
+                ("company_owner_name", "TEXT"),
+                ("company_owner_email", "TEXT"),
+                ("company_owner_phone", "TEXT"),
+                ("whitelabel_config", "JSONB DEFAULT '{}'::jsonb"),
+            ]:
+                cur.execute(f"ALTER TABLE agency_billing ADD COLUMN IF NOT EXISTS {col_name} {col_def}")
+
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_agency_billing_company_id ON agency_billing (company_id)")
+
+            # subscribers: company_id for auto-linking to agency
+            cur.execute("ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS company_id TEXT")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_subscribers_company_id ON subscribers (company_id)")
+
+            conn.commit()
+            logger.info("✅ Migration 32: Added company_id + metadata columns to agency_billing and subscribers")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"company_id migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)
@@ -2070,11 +2096,17 @@ class User(UserMixin):
 
         # Agency linkage
         self.parent_agency_email = data.get('parent_agency_email')
+        self.company_id = data.get('company_id')
 
-        # Agency-specific billing fields
+        # Agency-specific billing/metadata fields
         self.max_seats = data.get('max_seats')
         self.active_seats = data.get('active_seats')
         self.next_billing_date = data.get('next_billing_date')
+        self.company_name = data.get('company_name')
+        self.company_owner_name = data.get('company_owner_name')
+        self.company_owner_email = data.get('company_owner_email')
+        self.company_owner_phone = data.get('company_owner_phone')
+        self.whitelabel_config = data.get('whitelabel_config') or {}
 
         # Sub-user onboarding system fields
         self.agent_email = data.get('agent_email')
@@ -4503,5 +4535,206 @@ def upsert_contact_cache(location_id: str, contacts: list, prune_stale: bool = F
         if conn:
             conn.rollback()
         return 0
+    finally:
+        return_db_connection(conn)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  AGENCY / WHITE-LABEL — company metadata and branding helpers
+# ═══════════════════════════════════════════════════════════════
+
+def get_agency_by_company_id(company_id: str) -> Optional[Dict[str, Any]]:
+    """Look up agency_billing row by GHL companyId. Returns dict or None."""
+    if not company_id:
+        return None
+    conn = get_db_connection()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM agency_billing WHERE company_id = %s LIMIT 1", (company_id,))
+        row = cur.fetchone()
+        cur.close()
+        return dict(row) if row else None
+    except Exception as e:
+        logger.error(f"get_agency_by_company_id failed for {company_id}: {e}")
+        return None
+    finally:
+        return_db_connection(conn)
+
+
+def get_agency_members_by_company_id(company_id: str) -> list:
+    """Get all subscribers linked to an agency via company_id."""
+    if not company_id:
+        return []
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""
+            SELECT location_id, email, full_name, phone, role, subscription_tier,
+                   bot_first_name, timezone, access_token, token_expires_at,
+                   onboarding_status, agent_email, invite_sent_at, invite_claimed_at,
+                   created_at, voice_config, sms_send_via
+            FROM subscribers
+            WHERE company_id = %s
+            ORDER BY created_at DESC
+        """, (company_id,))
+        rows = cur.fetchall()
+        cur.close()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"get_agency_members_by_company_id failed for {company_id}: {e}")
+        return []
+    finally:
+        return_db_connection(conn)
+
+
+def save_whitelabel_config(agency_email: str, config: dict) -> bool:
+    """Save white-label branding config for an agency owner."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE agency_billing
+            SET whitelabel_config = %s, updated_at = NOW()
+            WHERE agency_email = %s
+        """, (json.dumps(config), agency_email))
+        conn.commit()
+        cur.close()
+        return cur.rowcount > 0
+    except Exception as e:
+        logger.error(f"save_whitelabel_config failed for {agency_email}: {e}")
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        return_db_connection(conn)
+
+
+def get_whitelabel_config(agency_email: str) -> dict:
+    """Get white-label branding config for an agency owner."""
+    if not agency_email:
+        return {}
+    conn = get_db_connection()
+    if not conn:
+        return {}
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute(
+            "SELECT whitelabel_config FROM agency_billing WHERE agency_email = %s LIMIT 1",
+            (agency_email,)
+        )
+        row = cur.fetchone()
+        cur.close()
+        return dict(row['whitelabel_config']) if row and row.get('whitelabel_config') else {}
+    except Exception as e:
+        logger.error(f"get_whitelabel_config failed for {agency_email}: {e}")
+        return {}
+    finally:
+        return_db_connection(conn)
+
+
+def get_whitelabel_for_user(user) -> dict:
+    """Resolve white-label config for any user — agency owners get their own,
+    sub-users get their agency's config via company_id lookup."""
+    if not user:
+        return {}
+    # Agency owners: return their own config
+    if getattr(user, 'role', None) == 'agency_owner':
+        return getattr(user, 'whitelabel_config', None) or {}
+    # Sub-users: look up by company_id
+    company_id = getattr(user, 'company_id', None)
+    if not company_id:
+        # Fallback: try parent_agency_email
+        parent = getattr(user, 'parent_agency_email', None)
+        if parent:
+            return get_whitelabel_config(parent)
+        return {}
+    conn = get_db_connection()
+    if not conn:
+        return {}
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute(
+            "SELECT whitelabel_config FROM agency_billing WHERE company_id = %s LIMIT 1",
+            (company_id,)
+        )
+        row = cur.fetchone()
+        cur.close()
+        return dict(row['whitelabel_config']) if row and row.get('whitelabel_config') else {}
+    except Exception as e:
+        logger.error(f"get_whitelabel_for_user failed for company_id={company_id}: {e}")
+        return {}
+    finally:
+        return_db_connection(conn)
+
+
+def update_agency_company_metadata(agency_email: str, company_id: str,
+                                    company_name: str = None,
+                                    company_owner_name: str = None,
+                                    company_owner_email: str = None,
+                                    company_owner_phone: str = None) -> bool:
+    """Save company metadata to agency_billing. Called during OAuth."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE agency_billing
+            SET company_id = %s,
+                company_name = COALESCE(%s, company_name),
+                company_owner_name = COALESCE(%s, company_owner_name),
+                company_owner_email = COALESCE(%s, company_owner_email),
+                company_owner_phone = COALESCE(%s, company_owner_phone),
+                updated_at = NOW()
+            WHERE agency_email = %s
+        """, (company_id, company_name, company_owner_name,
+              company_owner_email, company_owner_phone, agency_email))
+        conn.commit()
+        cur.close()
+        return cur.rowcount > 0
+    except Exception as e:
+        logger.error(f"update_agency_company_metadata failed for {agency_email}: {e}")
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        return_db_connection(conn)
+
+
+def link_subscriber_to_agency(location_id: str, company_id: str,
+                               parent_agency_email: str = None) -> bool:
+    """Link a subscriber to an agency by company_id. Optionally set parent_agency_email."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        if parent_agency_email:
+            cur.execute("""
+                UPDATE subscribers
+                SET company_id = %s, parent_agency_email = COALESCE(%s, parent_agency_email),
+                    updated_at = NOW()
+                WHERE location_id = %s
+            """, (company_id, parent_agency_email, location_id))
+        else:
+            cur.execute("""
+                UPDATE subscribers
+                SET company_id = %s, updated_at = NOW()
+                WHERE location_id = %s
+            """, (company_id, location_id))
+        conn.commit()
+        cur.close()
+        return cur.rowcount > 0
+    except Exception as e:
+        logger.error(f"link_subscriber_to_agency failed for {location_id}: {e}")
+        if conn:
+            conn.rollback()
+        return False
     finally:
         return_db_connection(conn)

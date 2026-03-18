@@ -129,6 +129,11 @@ def spam_protection():
     return render_template('spam-protection.html')
 
 
+@public_bp.route("/white-label")
+def white_label():
+    return render_template('white-label.html')
+
+
 @public_bp.route("/affiliate")
 def affiliate():
     return render_template('affiliate.html')

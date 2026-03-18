@@ -1,363 +1,227 @@
-# Salesforce CRM Provider — Implementation Plan
+# Refactor OAuth/Agency Flow — Implementation Plan
 
-## Overview
+## Summary
 
-Build a full Salesforce CRM provider following the exact same architecture as the HubSpot provider (`crm_providers/hubspot/`). This gives Salesforce users the same depth of integration: OAuth 2.0, real-time webhooks, data sync, activity logging, contact resolution, and embeddable CRM sidebar.
-
-The existing `crm_adapters/salesforce_adapter.py` already handles outbound operations (SOQL search, Event booking, Task logging, Contact CRUD). The new provider wraps and extends this with inbound webhook handling, OAuth lifecycle, data sync, and CRM card support.
-
----
-
-## File Structure
-
-```
-crm_providers/salesforce/
-├── __init__.py      # SalesforceProvider orchestrator (mirrors hubspot/__init__.py)
-├── oauth.py         # OAuth 2.0 Web Server flow (initiate, callback, token refresh)
-├── inbound.py       # Salesforce webhook handler (Outbound Messages or Platform Events)
-├── sync.py          # Data sync engine (Tasks, Events, Opportunities, Contacts → local Postgres)
-├── logger.py        # Activity logging (SMS → Task, calls → Task, notes → Note)
-├── resolver.py      # Contact resolution via SOQL search
-└── crm_card.py      # Salesforce Canvas App / Lightning sidebar data
-```
-
-Plus:
-- `blueprints/salesforce.py` — new blueprint for OAuth routes + webhook endpoint
-- Updates to `crm_providers/__init__.py` — register "salesforce" in PROVIDER_REGISTRY
-- Updates to `blueprints/dashboard.py` — Salesforce in CRM picker
-- Updates to `main.py` — register salesforce blueprint
+Restructure the OAuth flow, agency model, and dashboard architecture to:
+1. **Simplify OAuth**: Remove `/agencies/` API calls and location-count classification
+2. **Auto-link agencies**: Use `companyId` from OAuth to auto-associate individual agents with their agency, capturing all available company/owner metadata
+3. **Unified dashboard**: Merge agency dashboard into main dashboard (one dashboard to rule everything)
+4. **White-label**: Agency owners can customize company name + logo (light/dark theme handles color schemes)
+5. **Agency-level predictive dialer**: Predictive dialer becomes agency-scoped (5+ agents required), coordinating across all agents with shared TCPA compliance, agent state management, and Erlang-C pacing
+6. **Per-user billing**: Each agent picks their own tier (SMS Bot $99/mo, Power Dialer $149.99/mo, Pro Dialer $224.99/mo). Only predictive dialer is billed at agency level.
 
 ---
 
-## Step 1: Provider Orchestrator (`crm_providers/salesforce/__init__.py`)
+## Phase 1: Database Schema Changes (`db.py`)
 
-Create `SalesforceProvider(CRMProvider)` with:
+### 1.1 Add `company_id` and company metadata columns to `agency_billing`
+- Add `company_id TEXT` — GHL companyId (primary key for agency matching)
+- Add `company_name TEXT` — company/agency name from GHL
+- Add `company_owner_name TEXT` — owner's full name (None if unavailable)
+- Add `company_owner_email TEXT` — owner's email (None if unavailable)
+- Add `company_owner_phone TEXT` — owner's phone (None if unavailable)
+- Add index on `company_id` for fast lookups
 
-```python
-CRM_NAME = "Salesforce"
-CRM_TYPE = "salesforce"
+### 1.2 Add `company_id` to `subscribers`
+- Add `company_id TEXT` — links individual agents to their agency
+- Add index on `company_id` for fast lookups
 
-HAS_INBOUND_WEBHOOKS = True
-HAS_OAUTH = True
-HAS_DATA_SYNC = True
-HAS_ACTIVITY_LOGGING = True
-HAS_MARKETPLACE = False  # No AppExchange listing yet
-HAS_EMBEDDABLE_UI = True  # Lightning sidebar card
-```
-
-Methods delegate to submodules exactly like HubSpot:
-- `normalize_webhook()` → `inbound.normalize_salesforce_event()`
-- `verify_webhook_signature()` → verify Salesforce webhook signature
-- `get_valid_token()` → check `crm_config.token_expires_at`, refresh if needed
-- `refresh_token()` → `oauth.refresh_salesforce_token()`
-- `sync_conversations()` → `sync.sync_salesforce_tasks()` (Tasks = SMS log equivalent)
-- `sync_deals()` → `sync.sync_salesforce_opportunities()`
-- `sync_contacts()` → `sync.sync_salesforce_contacts()`
-- `log_outbound_sms()` → `logger.log_outbound_sms()`
-- `log_call()` → `logger.log_call()`
-- `log_note()` → `logger.log_note()`
-- `resolve_contact()` → `resolver.resolve_contact()`
-- `get_crm_card_data()` → `crm_card.get_intelligence()`
-
----
-
-## Step 2: OAuth 2.0 Flow (`crm_providers/salesforce/oauth.py`)
-
-Salesforce uses the **OAuth 2.0 Web Server Flow** (Authorization Code Grant):
-
-### Functions:
-- `get_oauth_initiate_url(state)` — Build Salesforce authorization URL
-  - Endpoint: `https://login.salesforce.com/services/oauth2/authorize`
-  - Scopes: `api refresh_token`
-  - Response type: `code`
-  - Redirect URI: `https://{YOUR_DOMAIN}/salesforce/oauth/callback`
-
-- `exchange_code_for_tokens(code)` — Exchange auth code for tokens
-  - POST to `https://login.salesforce.com/services/oauth2/token`
-  - Returns: `access_token`, `refresh_token`, `instance_url`, `id` (user identity URL)
-  - Store in `subscribers.crm_config`: `{access_token, refresh_token, instance_url, token_expires_at, sf_user_id}`
-
-- `refresh_salesforce_token(subscriber)` — Refresh expired token
-  - POST to `https://login.salesforce.com/services/oauth2/token` with `grant_type=refresh_token`
-  - Salesforce access tokens expire after **~2 hours** (session timeout configurable)
-  - Use `update_crm_config_token()` to persist without clobbering other fields
-  - Return `{access_token, token_expires_at}` or `None`
-
-### Environment Variables:
-- `SALESFORCE_CLIENT_ID` — Connected App consumer key
-- `SALESFORCE_CLIENT_SECRET` — Connected App consumer secret
-- `SALESFORCE_REDIRECT_URI` (derived from `YOUR_DOMAIN`)
-
-### Token Storage:
+### 1.3 Add `whitelabel_config` JSONB to `agency_billing`
+Schema:
 ```json
 {
-  "access_token": "00D...",
-  "refresh_token": "5Aep...",
-  "instance_url": "https://na1.salesforce.com",
-  "token_expires_at": 1711234567,
-  "sf_user_id": "005..."
+  "company_name": "Acme Insurance Group",
+  "logo_url": "https://..."
 }
 ```
+No color scheme or font — light/dark theme toggle is sufficient.
+
+### 1.4 Remove seat-count gating
+- Keep `max_seats` and `active_seats` columns for backward compat but stop enforcing them in code
+- Agency tier no longer depends on location count
 
 ---
 
-## Step 3: Blueprint Routes (`blueprints/salesforce.py`)
+## Phase 2: OAuth Flow Refactor (`blueprints/oauth.py`)
 
-New Flask blueprint `salesforce_bp`:
+### 2.1 Remove `/agencies/` API call
+- Delete the code block (lines ~612-638) that calls `GET /agencies/` to detect agency owner
+- Remove the location-count-based tier classification (agency_starter vs agency_pro)
 
-| Route | Method | Purpose |
-|-------|--------|---------|
-| `/salesforce/oauth/initiate` | GET | Start OAuth flow → redirect to Salesforce |
-| `/salesforce/oauth/callback` | GET | Exchange code → store tokens in `crm_config` |
-| `/salesforce/webhook` | POST | Receive Salesforce Outbound Messages / Platform Events |
-| `/salesforce/crm-card` | GET | Lightning Web Component data endpoint (AI intelligence) |
-| `/salesforce/crm-card/health` | GET | Health check for CRM card |
+### 2.2 New agency detection: companyId-based
+- When OAuth callback receives token response with `companyId` but NO `locationId` → agency owner install
+  - Save to `agency_billing` with ALL available metadata:
+    - `company_id` — from token response `companyId`
+    - `company_name` — from GHL company data (if available, else None)
+    - `company_owner_name` — owner's name from GHL user data (if available, else None)
+    - `company_owner_email` — owner's email from GHL user data (if available, else None)
+    - `company_owner_phone` — owner's phone from GHL user data (if available, else None)
+  - Do NOT pull all locations or provision subscriber rows
+  - Extract whatever fields GHL provides in the token response / user info endpoint, leave None for anything unavailable
 
-### OAuth Flow:
-1. User clicks "Connect Salesforce" in dashboard
-2. `GET /salesforce/oauth/initiate` → redirect to `login.salesforce.com/services/oauth2/authorize`
-3. User authorizes → Salesforce redirects to `GET /salesforce/oauth/callback`
-4. Callback exchanges code → stores tokens + `instance_url` in `subscribers.crm_config`
-5. Sets `subscribers.crm_type = 'salesforce'`
+- When OAuth callback receives `locationId` (individual install):
+  - Save to `subscribers` as individual (existing flow)
+  - Also save `company_id` from token response
+  - Check if `company_id` matches any `agency_billing.company_id` → if yes, auto-set `parent_agency_email`
 
-### Webhook Endpoint:
-Salesforce has two webhook mechanisms:
-1. **Outbound Messages** (Workflow Rules) — SOAP XML payloads
-2. **Platform Events** (Event-Driven) — REST streaming via CometD / Pub/Sub API
-
-For v1, use **Outbound Messages** (simpler, no streaming):
-- Parse SOAP XML envelope from Salesforce
-- Extract event type, object ID, changed fields
-- Queue to RQ `production` queue like GHL/HubSpot
-
-### Registration in `main.py`:
-```python
-from blueprints.salesforce import salesforce_bp
-app.register_blueprint(salesforce_bp)
-```
+### 2.3 Simplify provisioning
+- Agency owner: ONLY creates `agency_billing` row with full metadata (no subscriber rows for sub-accounts)
+- Individual: Creates `subscribers` row, checks for agency match
+- Remove bulk location provisioning loop
 
 ---
 
-## Step 4: Inbound Webhook Handler (`crm_providers/salesforce/inbound.py`)
+## Phase 3: Unified Dashboard (`blueprints/dashboard.py`, `blueprints/agency.py`, templates)
 
-### Functions:
-- `normalize_salesforce_event(request_data, subscriber)` — Parse Salesforce webhook → canonical format
-  - Map Salesforce objects to IGB events:
-    - `Contact` created → `ContactCreate`
-    - `Contact` updated → `ContactUpdate`
-    - `Lead` created → `ContactCreate` (Salesforce has both Leads and Contacts)
-    - `Opportunity` stage changed → `DealUpdate`
-    - `Task` created (SMS-related) → `InboundMessage`
+### 3.1 Merge routes
+- Remove redirect from `/dashboard` that bounces agency owners to `/agency-dashboard`
+- Remove redirect from `/login` that sends agency owners to `/agency-dashboard`
+- Single `/dashboard` route handles both agency owners and individuals
+- Keep `/agency-dashboard` as a redirect to `/dashboard` for backward compat
 
-- `verify_salesforce_signature(request_body, headers)` — Verify Salesforce webhook authenticity
-  - For Outbound Messages: verify Salesforce org ID from SOAP envelope
-  - For Platform Events: verify JWT signature
+### 3.2 Merge templates
+- Expand `dashboard.html` with conditional sections for agency owners
+- Add agency-specific sidebar items (conditionally shown):
+  - "Agency Members" (under Team section) — shows all linked users + KPIs
+  - Agency KPIs tab
+  - Agency Call Log tab
+  - Agency Settings tab (white-label config)
+- All existing individual features (Dialer, SMS Config, Voice, Workflows, etc.) available to agency owners too
+- Move relevant agency API endpoints to work within the unified dashboard context
 
-### Event Type Map:
-```python
-SALESFORCE_EVENT_MAP = {
-    "contact_created": "ContactCreate",
-    "sms_received": "InboundMessage",
-    "field_updated": "ContactUpdate",
-    "stage_changed": "DealUpdate",
-    "lead_created": "LeadCreate",
-}
-```
+### 3.3 Sidebar changes (`_sidebar.html`)
+- Agency owners see everything individuals see PLUS:
+  - "Agency Members" nav item (shows sub-users from `subscribers WHERE company_id = agency.company_id`)
+  - "Agency KPIs" nav item
+  - "White Label" nav item (in Settings)
 
----
-
-## Step 5: Data Sync Engine (`crm_providers/salesforce/sync.py`)
-
-Mirrors `crm_providers/hubspot/sync.py` patterns:
-
-### Functions:
-- `sync_salesforce_contacts(location_id, token, since=None)` → `contacts` table
-  - SOQL: `SELECT Id, FirstName, LastName, Email, Phone, MobilePhone, CreatedDate, LastModifiedDate FROM Contact WHERE LastModifiedDate > {since} ORDER BY LastModifiedDate LIMIT 200`
-  - Paginate via `nextRecordsUrl`
-  - UPSERT into `contacts` with `crm_source='salesforce'`
-
-- `sync_salesforce_opportunities(location_id, token, since=None)` → `crm_deals` table
-  - SOQL: `SELECT Id, Name, StageName, Amount, CloseDate, ContactId, CreatedDate, LastModifiedDate FROM Opportunity WHERE LastModifiedDate > {since}`
-  - Map `StageName` to pipeline stage, `Amount` to monetary_value
-  - UPSERT into `crm_deals` with `crm_source='salesforce'`
-
-- `sync_salesforce_tasks(location_id, token, since=None)` → `crm_conversations` table
-  - SOQL: `SELECT Id, Subject, Description, WhoId, Status, ActivityDate, CreatedDate FROM Task WHERE LastModifiedDate > {since} AND Subject LIKE '%SMS%'`
-  - Map Task to conversation record (IGB logs SMS as Tasks)
-  - UPSERT into `crm_conversations` with `crm_source='salesforce'`
-
-### Shared Patterns (from HubSpot sync):
-- `_api_get(instance_url, token, endpoint, params)` with exponential backoff
-- 401 auto-refresh via `refresh_salesforce_token()`
-- 429 rate limit handling (Salesforce: daily API limit, not per-second)
-- Cursor tracking in `crm_sync_state` table
-- Batch UPSERT with `INSERT ... ON CONFLICT DO UPDATE`
-
-### Salesforce API Details:
-- Base URL: `{instance_url}/services/data/v66.0/`
-- SOQL queries via `GET /query/?q=...`
-- Pagination: response includes `nextRecordsUrl` if more results exist
-- Rate limit: Daily API request limit (varies by edition: 15k-100k+/day)
+### 3.4 Agency member discovery
+- Query changes from `WHERE parent_agency_email = %s` to `WHERE company_id = %s`
+- Sub-users appear automatically as they subscribe (no manual provisioning)
+- Keep manual invite for agents who haven't subscribed yet
 
 ---
 
-## Step 6: Activity Logger (`crm_providers/salesforce/logger.py`)
+## Phase 4: White-Label System
 
-Log IGB activity back to Salesforce timeline:
+### 4.1 White-label setup flow
+- Agency owner sees "White Label" section in Settings tab
+- Form: company name (pre-filled from GHL company metadata), logo URL
+- No color scheme or font pickers — light/dark theme toggle handles that
+- "Save" button saves to `agency_billing.whitelabel_config`
 
-### Functions:
-- `log_outbound_sms(contact_id, message, token, instance_url, **kwargs)` → Create Task
-  - POST to `/sobjects/Task`
-  - `Subject`: "SMS Sent via InsuranceGrokBot"
-  - `Description`: message body
-  - `WhoId`: contact_id (polymorphic lookup)
-  - `Status`: "Completed"
-  - `Type`: "Other" (or custom picklist value)
-  - `ActivityDate`: today
+### 4.2 Brand injection (`_topbar.html`, `_sidebar.html`)
+- Brand name replaces "InsuranceGrokBot" in topbar, sidebar logo text, page titles
+- Logo URL replaces default logo if provided
+- No CSS variable overrides needed — existing light/dark theme is sufficient
 
-- `log_call(contact_id, direction, duration, token, instance_url, **kwargs)` → Create Task
-  - POST to `/sobjects/Task`
-  - `Subject`: "Call via InsuranceGrokBot ({direction})"
-  - `Description`: includes duration, recording URL if available
-  - `CallDurationInSeconds`: duration
-  - `Type`: "Call"
-
-- `log_note(contact_id, note, token, instance_url, **kwargs)` → Create ContentNote + link
-  - POST to `/sobjects/ContentNote` with note body
-  - POST to `/sobjects/ContentDocumentLink` to link note to Contact
-
-### Salesforce Object Mapping:
-| IGB Action | Salesforce Object | Key Fields |
-|------------|------------------|------------|
-| Outbound SMS | Task | WhoId, Subject, Description, Status="Completed" |
-| Call | Task (Type=Call) | WhoId, CallDurationInSeconds, Subject |
-| Note | ContentNote + ContentDocumentLink | Title, Content, LinkedEntityId |
+### 4.3 Cascade to sub-users
+- When a sub-user logs in, check `company_id` → load agency's `whitelabel_config`
+- Sub-users see the agency's branding (company name + logo), not IGB branding
+- Only agency owner can modify white-label settings
 
 ---
 
-## Step 7: Contact Resolver (`crm_providers/salesforce/resolver.py`)
+## Phase 5: Agency-Level Predictive Dialer
 
-### Functions:
-- `resolve_contact(phone, name, email, access_token, instance_url)` → dict or None
-  - Build SOQL with OR conditions (priority: email > phone > name)
-  - Phone normalization: strip to digits, handle +1 prefix, search both `Phone` and `MobilePhone`
-  - Return `{id, firstName, lastName, email, phone}`
+### 5.1 Concept: Centralized predictive dialer for the agency
+Based on industry best practices for predictive dialers:
 
-Largely wraps the existing `SalesforceAdapter.search_contact()` but adds MobilePhone search and name lookup.
+**How it works:**
+1. Agency owner (or designated supervisor) manages the dialer from the agency dashboard
+2. Individual agents log in to their own dashboard and set their agent state (Ready/Not Ready/Break/Wrap-Up)
+3. The predictive engine auto-dials leads based on the number of Ready agents
+4. When a lead answers, the system routes the connected call to the next available Ready agent
+5. Agent automatically moves to "On Call" state, then "Wrap-Up" after call ends
+6. Erlang-C model calculates optimal dial ratio based on ALL agents' combined metrics
 
----
+**Key differences from current per-individual dialer:**
+- TCPA compliance tracked at agency level (rolling 30-day abandon rate across ALL agents)
+- Agent state tracked across all agency members (shared Ready/Not Ready pool)
+- Callback queue is agency-wide
+- Predictive stats computed from all agents' combined call history
+- Dial ratio recommendations consider total available agents (not just one)
 
-## Step 8: CRM Card / Lightning Sidebar (`crm_providers/salesforce/crm_card.py`)
+### 5.2 Gate: 5+ linked users required
+- Check `SELECT COUNT(*) FROM subscribers WHERE company_id = %s` >= 5
+- Show upgrade prompt if fewer than 5 agents
 
-### Functions:
-- `get_intelligence(contact_id, location_id)` → dict
-  - Read from `contact_intelligence` cache (zero AI cost)
-  - Return: temperature, score, summary, recommended actions
-  - Same logic as HubSpot CRM card
+### 5.3 Predictive engine refactor (`voice/predictive_engine.py`)
+- Add `company_id` parameter to `TCPAComplianceTracker` methods
+- Add `company_id` grouping to `AgentStateManager` (pool agents by company)
+- Add `company_id` grouping to `CallbackQueue`
+- `calculate_optimal_dial_ratio()` accepts `company_id` and queries all company agents' call history
+- Individual agents' power/pro dialers remain per-individual (unchanged)
 
-### Route:
-- `GET /salesforce/crm-card?contactId={id}` — returns JSON for Lightning Web Component
-- Lightning component fetches this URL and renders AI intelligence in sidebar
+### 5.4 New routes for agency predictive dialer
+- `GET /voice/agency-predictive/status` — Agency-wide predictive dialer status (active agents, dial ratio, compliance)
+- `POST /voice/agency-predictive/dial` — Agency-wide predictive dial (system auto-selects leads, auto-routes to Ready agents)
+- `GET /voice/agency-predictive/compliance` — Agency-wide TCPA compliance dashboard
+- `GET /voice/agency-predictive/agent-states` — All agent states for the agency
 
-### Salesforce Setup (future):
-- Lightning Web Component (LWC) that embeds in Contact record page
-- Or Visualforce page with iframe to `/embed/intelligence/{contact_id}`
-- This is simpler to ship first — just use the existing embed routes
+### 5.5 Agent-side integration
+- Individual agents see "Agent State" control in their dashboard when part of a predictive-dialer agency
+- States: Ready, Not Ready, Break, Wrap-Up (auto-transitions)
+- When Ready, calls are auto-routed to them
+- Agent hears a beep/tone when call connects, then is bridged to the lead
 
----
-
-## Step 9: Provider Registration
-
-### `crm_providers/__init__.py`:
-```python
-PROVIDER_REGISTRY = {
-    "ghl": ("crm_providers.ghl", "GHLProvider"),
-    "gohighlevel": ("crm_providers.ghl", "GHLProvider"),
-    "hubspot": ("crm_providers.hubspot", "HubSpotProvider"),
-    "salesforce": ("crm_providers.salesforce", "SalesforceProvider"),  # NEW
-}
-```
-
-### `db.py`:
-- No schema changes needed — `crm_conversations`, `crm_deals`, `contacts` tables already have `crm_source` column
-- Just use `crm_source='salesforce'` for all Salesforce data
-
-### `blueprints/dashboard.py`:
-- Add "Salesforce" to CRM type picker in Connect/Integrations tab
-- Show OAuth connect button when `crm_type='salesforce'`
+### 5.6 Call routing logic
+- When predictive engine connects a call, find first Ready agent (longest-idle-first)
+- Bridge the call to that agent's Twilio device
+- If no agent available within threshold, play hold music → if still no agent after X seconds, abandon tracking kicks in
 
 ---
 
-## Step 10: Environment Variables
+## Phase 6: Billing Adjustments (`blueprints/billing.py`)
 
-Add to `.env.example`:
-```bash
-# Salesforce Connected App
-SALESFORCE_CLIENT_ID=your_connected_app_consumer_key
-SALESFORCE_CLIENT_SECRET=your_connected_app_consumer_secret
-```
+### 6.1 Simplify agency tiers
+- Remove `agency_starter` vs `agency_pro` distinction based on seat count
+- Agency-level billing exists ONLY for the predictive dialer ($349.98/mo billed to agency owner)
+- All other plans are per-user, chosen individually by each agent
 
-No `SALESFORCE_REDIRECT_URI` needed — derived from `YOUR_DOMAIN` at runtime.
+### 6.2 Per-user billing (unchanged)
+Each agent picks their own tier independently:
+- **SMS Bot**: $99/mo — AI texting only, no dialer
+- **Power Dialer**: $149.99/mo — single-line dialing + AI texting
+- **Pro Dialer**: $224.99/mo — multi-line (up to 4 lines) + AI texting
+
+### 6.3 Agency predictive dialer billing
+- Predictive dialer ($349.98/mo) is the only agency-level subscription
+- Billed to agency owner, shared across all agency agents
+- Requires 5+ linked agents to activate
+- Individual agents do NOT need to be on any specific tier to participate in agency predictive dialing
 
 ---
 
-## Step 11: Cron Integration
+## File Change Summary
 
-Update `blueprints/cron.py`:
-- `refresh-tokens` job: add Salesforce token refresh (check `crm_type='salesforce'` subscribers)
-- `sync-ghl-data` job: rename to `sync-crm-data`, include Salesforce subscribers
-
----
-
-## Step 12: Salesforce Connected App Setup Guide
-
-Document in CLAUDE.md (similar to HubSpot Developer App Setup Guide):
-1. Create Connected App in Salesforce Setup
-2. Configure OAuth scopes: `api`, `refresh_token`
-3. Set callback URL to `https://{YOUR_DOMAIN}/salesforce/oauth/callback`
-4. Copy Consumer Key + Secret to env vars
-5. Enable Outbound Messages for Contact/Lead/Opportunity changes
-6. Point Outbound Messages to `https://{YOUR_DOMAIN}/salesforce/webhook`
+| File | Changes |
+|------|---------|
+| `db.py` | Add `company_id` + company metadata columns to `agency_billing`, `company_id` to `subscribers`, `whitelabel_config` JSONB, schema migration in `init_db()` |
+| `blueprints/oauth.py` | Remove `/agencies/` call, add companyId-based auto-linking, save all available company/owner metadata, simplify provisioning |
+| `blueprints/dashboard.py` | Merge agency dashboard logic, unified route |
+| `blueprints/agency.py` | Keep API endpoints but change queries to use `company_id`, add white-label save endpoint |
+| `blueprints/auth.py` | Remove agency-specific redirect on login |
+| `blueprints/billing.py` | Remove agency_starter/agency_pro tiers, keep only agency predictive dialer billing |
+| `templates/dashboard.html` | Add conditional agency sections |
+| `templates/dashboard/_sidebar.html` | Add agency nav items (conditional) |
+| `templates/dashboard/_topbar.html` | White-label company name/logo injection |
+| `templates/dashboard/tabs/team.html` | Add "Agency Members" sub-section |
+| `voice/predictive_engine.py` | Add `company_id` grouping to all singletons |
+| `voice/dialer.py` | Add agency predictive dialer routes |
+| `static/js/dashboard/dialer.js` | Agent state controls for predictive dialer agents |
+| `static/js/dashboard/sidebar.js` | Agency nav items |
+| `static/css/style.css` | Agency dashboard styles |
 
 ---
 
 ## Implementation Order
 
-1. **`crm_providers/salesforce/__init__.py`** — Provider skeleton with capability flags
-2. **`crm_providers/salesforce/oauth.py`** — OAuth flow (highest priority — users need to connect)
-3. **`blueprints/salesforce.py`** — Routes for OAuth + webhook
-4. **`crm_providers/salesforce/resolver.py`** — Contact search (needed by pipeline)
-5. **`crm_providers/salesforce/logger.py`** — Activity logging (SMS/call/note back to SF)
-6. **`crm_providers/salesforce/sync.py`** — Data sync (conversations, deals, contacts)
-7. **`crm_providers/salesforce/inbound.py`** — Inbound webhook handling
-8. **`crm_providers/salesforce/crm_card.py`** — CRM sidebar card
-9. **Provider registration** — Update `__init__.py`, `main.py`, dashboard CRM picker
-10. **Cron updates** — Token refresh + data sync for Salesforce subscribers
-11. **Testing** — End-to-end with Salesforce Developer Edition (free)
+1. **Phase 1** — DB schema changes (foundation)
+2. **Phase 2** — OAuth refactor (new flow)
+3. **Phase 3** — Unified dashboard (merge templates + routes)
+4. **Phase 4** — White-label system (cosmetic, low risk)
+5. **Phase 5** — Agency predictive dialer (most complex, builds on 1-4)
+6. **Phase 6** — Billing adjustments (final polish)
 
----
-
-## Key Differences from HubSpot
-
-| Aspect | HubSpot | Salesforce |
-|--------|---------|------------|
-| Token expiry | 6 hours | ~2 hours (session-based) |
-| Webhook format | JSON array (batched) | SOAP XML (Outbound Messages) or Platform Events |
-| Webhook signature | HMAC-SHA256 v3 | Org ID verification or JWT |
-| Rate limits | 40 req/10s (OAuth) | Daily limit (15k-100k+/day) |
-| Conversations | Communication object | Task object (SMS logged as Tasks) |
-| Deals | Deal object | Opportunity object |
-| Notes | Note engagement | ContentNote + ContentDocumentLink |
-| CRM Card | CRM Card v3 JSON | Lightning Web Component or Visualforce |
-| Contact model | Contact only | Lead + Contact (separate objects, convertible) |
-| Search API | CRM v3 Search API (POST) | SOQL (GET /query) |
-| Pagination | `after` cursor param | `nextRecordsUrl` |
-
----
-
-## Risks & Mitigations
-
-1. **SOAP XML parsing** — Salesforce Outbound Messages use SOAP. Mitigation: use `xml.etree.ElementTree` for parsing, or consider Platform Events (REST/JSON) instead.
-2. **Lead vs Contact duality** — Salesforce has both Leads and Contacts. Mitigation: search both objects, prefer Contact if converted.
-3. **Daily API limits** — Salesforce has daily limits, not per-second. Mitigation: batch SOQL queries, use Composite API for multi-object operations.
-4. **Connected App approval** — Salesforce orgs may require admin approval for Connected Apps. Document this clearly in setup guide.
+Each phase is independently deployable and backward-compatible.

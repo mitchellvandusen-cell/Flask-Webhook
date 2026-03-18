@@ -849,3 +849,238 @@ def get_compliance_metrics(location_id, period_days=30):
         return {"error": str(e)}
     finally:
         return_db_connection(conn)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AGENCY-LEVEL PREDICTIVE DIALER — company_id scoped operations
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _get_company_location_ids(company_id):
+    """Get all location_ids for a company. Used by agency-level operations."""
+    if not company_id:
+        return []
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE company_id = %s", (company_id,))
+        ids = [r[0] for r in cur.fetchall()]
+        cur.close()
+        return ids
+    except Exception as e:
+        logger.error(f"[Agency] Failed to get location_ids for company {company_id}: {e}")
+        return []
+    finally:
+        return_db_connection(conn)
+
+
+def get_agency_available_agents(company_id):
+    """Get all READY agents across the entire agency (all location_ids).
+    Returns list of {location_id, email} for each ready agent."""
+    location_ids = _get_company_location_ids(company_id)
+    available = []
+    for lid in location_ids:
+        emails = agent_state_manager.get_available_agents(lid)
+        for e in emails:
+            available.append({"location_id": lid, "email": e})
+    return available
+
+
+def get_agency_all_agent_states(company_id):
+    """Get all agent states across the agency for the command center."""
+    location_ids = _get_company_location_ids(company_id)
+    all_agents = []
+    for lid in location_ids:
+        agents = agent_state_manager.get_all_agents(lid)
+        for a in agents:
+            a["location_id"] = lid
+            all_agents.append(a)
+    return all_agents
+
+
+def get_agency_tcpa_status(company_id):
+    """Aggregate TCPA compliance across all agency locations.
+    Returns combined abandon rate (per FTC, measured across all calls)."""
+    location_ids = _get_company_location_ids(company_id)
+    total_answered = 0
+    total_abandoned = 0
+    for lid in location_ids:
+        status = tcpa_tracker.get_compliance_status(lid)
+        total_answered += status.get("total_answered_30d", 0)
+        total_abandoned += status.get("total_abandoned_30d", 0)
+
+    total = total_answered + total_abandoned
+    rate = (total_abandoned / total * 100.0) if total > 0 else 0.0
+
+    return {
+        "abandon_rate_30d": round(rate, 2),
+        "total_answered_30d": total_answered,
+        "total_abandoned_30d": total_abandoned,
+        "compliant": rate <= 3.0,
+        "warning": 2.0 < rate <= 3.0,
+        "critical": rate > 3.0,
+        "auto_throttle_active": rate > 2.4,
+        "location_count": len(location_ids),
+    }
+
+
+def calculate_agency_dial_ratio(company_id, wrap_up_time_sec=15, max_ratio=4.0):
+    """Calculate optimal dial ratio for the entire agency using Erlang-C.
+    Aggregates metrics across all company agents."""
+    location_ids = _get_company_location_ids(company_id)
+    if not location_ids:
+        return {"dial_ratio": 1.0, "recommended_lines": 1, "reason": "no_locations"}
+
+    # Count available agents across all locations
+    total_available = 0
+    for lid in location_ids:
+        total_available += len(agent_state_manager.get_available_agents(lid))
+
+    if total_available < 5:
+        return {
+            "dial_ratio": 1.0,
+            "recommended_lines": 1,
+            "reason": "insufficient_agents",
+            "available_agents": total_available,
+            "minimum_required": 5,
+        }
+
+    # Aggregate call history metrics from all locations
+    conn = get_db_connection()
+    if not conn:
+        return {"dial_ratio": 1.0, "recommended_lines": 1, "reason": "db_unavailable"}
+
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT COUNT(*) AS total,
+                   COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) AS connected,
+                   AVG(duration) FILTER (WHERE status = 'completed' AND duration > 0) AS avg_handle_time,
+                   AVG(CASE WHEN status IN ('no-answer', 'busy', 'failed', 'canceled')
+                        THEN EXTRACT(EPOCH FROM (NOW() - created_at))
+                        ELSE NULL END) AS avg_ring_time
+            FROM call_history
+            WHERE location_id = ANY(%s) AND created_at > NOW() - INTERVAL '7 days'
+        """, (location_ids,))
+        row = cur.fetchone()
+        cur.close()
+
+        total_calls = row[0] or 0
+        connected = row[1] or 0
+        avg_handle_time = float(row[2] or 180)  # Default 3 min
+        avg_ring_time = min(float(row[3] or 15), 30)  # Cap at 30s
+
+        answer_rate = (connected / total_calls * 100) if total_calls > 0 else 30.0
+
+        # Get agency-wide TCPA status for throttling
+        agency_tcpa = get_agency_tcpa_status(company_id)
+        current_abandon = agency_tcpa["abandon_rate_30d"]
+
+        result = calculate_optimal_dial_ratio(
+            available_agents=total_available,
+            avg_handle_time_sec=avg_handle_time,
+            avg_ring_time_sec=avg_ring_time,
+            answer_rate_pct=answer_rate,
+            current_abandon_rate_pct=current_abandon,
+            target_abandon_rate_pct=3.0,
+            wrap_up_time_sec=wrap_up_time_sec,
+            max_ratio=max_ratio,
+        )
+        result["available_agents"] = total_available
+        result["total_agents"] = sum(len(agent_state_manager._agents.get(lid, {})) for lid in location_ids)
+        result["company_id"] = company_id
+        return result
+
+    except Exception as e:
+        logger.error(f"[Agency] dial ratio calculation failed for {company_id}: {e}")
+        return {"dial_ratio": 1.0, "recommended_lines": 1, "reason": f"error: {e}"}
+    finally:
+        return_db_connection(conn)
+
+
+def get_agency_compliance_metrics(company_id, period_days=30):
+    """Aggregate compliance metrics across all agency locations."""
+    location_ids = _get_company_location_ids(company_id)
+    if not location_ids:
+        return {"error": "No locations found for this agency"}
+
+    # Aggregate TCPA from in-memory tracker
+    agency_tcpa = get_agency_tcpa_status(company_id)
+
+    conn = get_db_connection()
+    if not conn:
+        return {"error": "Database unavailable"}
+
+    try:
+        cur = conn.cursor()
+
+        # DNC violations across all locations
+        cur.execute("""
+            SELECT COUNT(*) as dnc_violations
+            FROM call_history ch
+            JOIN contact_cache cc ON ch.contact_id = cc.contact_id
+                AND cc.location_id = ANY(%s)
+            WHERE ch.location_id = ANY(%s)
+            AND ch.created_at > NOW() - make_interval(days => %s)
+            AND cc.dnd = true
+        """, (location_ids, location_ids, period_days))
+        dnc_row = cur.fetchone()
+        dnc_violations = dnc_row[0] if dnc_row else 0
+
+        # Calling hours violations
+        cur.execute("""
+            SELECT COUNT(*) as hours_violations
+            FROM call_history
+            WHERE location_id = ANY(%s)
+            AND created_at > NOW() - make_interval(days => %s)
+            AND (EXTRACT(HOUR FROM created_at) < 8 OR EXTRACT(HOUR FROM created_at) >= 21)
+        """, (location_ids, period_days))
+        hours_row = cur.fetchone()
+        hours_violations = hours_row[0] if hours_row else 0
+
+        # Total calls
+        cur.execute("""
+            SELECT COUNT(*) as total,
+                   COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) as connected,
+                   AVG(duration) FILTER (WHERE status = 'completed' AND duration > 0) as avg_duration
+            FROM call_history
+            WHERE location_id = ANY(%s)
+            AND created_at > NOW() - make_interval(days => %s)
+        """, (location_ids, period_days))
+        call_row = cur.fetchone()
+        total_calls = call_row[0] if call_row else 0
+        connected_calls = call_row[1] if call_row else 0
+        avg_duration = float(call_row[2] or 0) if call_row else 0
+
+        cur.close()
+
+        # Compliance score
+        score = 100
+        if agency_tcpa.get("critical"):
+            score -= 40
+        elif agency_tcpa.get("warning"):
+            score -= 20
+        if dnc_violations > 0:
+            score -= min(30, dnc_violations * 10)
+        if hours_violations > 0:
+            score -= min(20, hours_violations * 5)
+        score = max(0, score)
+
+        return {
+            "compliance_score": score,
+            "period_days": period_days,
+            "tcpa": agency_tcpa,
+            "dnc_violations": dnc_violations,
+            "hours_violations": hours_violations,
+            "total_calls": total_calls,
+            "connected_calls": connected_calls,
+            "avg_duration_sec": round(avg_duration, 1),
+            "connect_rate": round((connected_calls / total_calls * 100) if total_calls > 0 else 0, 1),
+            "location_count": len(location_ids),
+        }
+    except Exception as e:
+        logger.error(f"[Agency] compliance metrics failed for {company_id}: {e}")
+        return {"error": str(e)}
+    finally:
+        return_db_connection(conn)

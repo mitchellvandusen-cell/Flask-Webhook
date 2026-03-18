@@ -609,33 +609,45 @@ def oauth_callback():
 
         logger.info(f"Step 2 complete: User info retrieved. email={user_email}")
 
-        # ── Step 3: Detect agency status ──────────────────────────────────────
-        # /agencies/ only works with Company-scoped tokens. Location-scoped
-        # tokens will always get 401/403, so skip the call entirely.
+        # ── Step 3: Detect agency status via companyId ────────────────────────
+        # Agency owner = Company-scoped token with companyId but NO locationId.
+        # Individual agent = has locationId (regardless of token scope).
+        # No need for /agencies/ API call — companyId presence is sufficient.
         is_agency_owner = False
-        agencies = []
+        company_metadata = {}
 
-        if token_user_type_used == 'Company':
-            agency_resp, agency_err = _ghl_api_call(
-                'GET', "https://services.leadconnectorhq.com/agencies/",
-                headers=headers_ghl, timeout=10, label="/agencies/"
-            )
+        if token_user_type_used == 'Company' and company_id and not primary_location_id:
+            # Company-scoped token without a specific location = agency owner install
+            is_agency_owner = True
+            logger.info(f"Agency owner detected: companyId={company_id}, no locationId")
 
-            if agency_resp and agency_resp.ok:
-                try:
-                    agencies = agency_resp.json().get('agencies', [])
-                    is_agency_owner = len(agencies) > 0
-                except (ValueError, KeyError, AttributeError):
-                    logger.warning(f"/agencies/ returned unparseable response: {agency_resp.text[:300]}")
-                    agencies = []
-            elif agency_resp and agency_resp.status_code < 500:
-                logger.info(f"/agencies/ returned {agency_resp.status_code} — treating as individual user")
-            else:
-                logger.warning(f"/agencies/ unavailable ({agency_err}), defaulting to individual classification")
+            # Capture all available company/owner metadata from GHL
+            company_metadata = {
+                'company_id': company_id,
+                'company_name': None,
+                'company_owner_name': me_data.get('name') or me_data.get('firstName', ''),
+                'company_owner_email': me_data.get('email'),
+                'company_owner_phone': me_data.get('phone'),
+            }
+            # Try to get company name from user data or token data
+            if me_data.get('companyName'):
+                company_metadata['company_name'] = me_data['companyName']
+            elif me_data.get('company', {}).get('name') if isinstance(me_data.get('company'), dict) else None:
+                company_metadata['company_name'] = me_data['company']['name']
+
+            # Construct owner name from parts if full name not available
+            if not company_metadata['company_owner_name']:
+                first = me_data.get('firstName', '')
+                last = me_data.get('lastName', '')
+                company_metadata['company_owner_name'] = f"{first} {last}".strip() or None
+
+            logger.info(f"Company metadata captured: {company_metadata}")
+        elif company_id:
+            logger.info(f"Individual install with companyId={company_id} — will auto-link to agency if exists")
         else:
-            logger.info("Location-scoped token — skipping /agencies/ call")
+            logger.info("Location-scoped token without companyId — individual user")
 
-        logger.info(f"Step 3 complete: Agency detection. is_agency={is_agency_owner}, count={len(agencies)}")
+        logger.info(f"Step 3 complete: Agency detection. is_agency={is_agency_owner}, companyId={company_id}")
 
         # ── Step 4: Fetch all locations ──────────────────────────────────────
         # /locations/search requires a Company-scoped token.  For Location-
@@ -799,9 +811,11 @@ def oauth_callback():
                 pass
 
         # ── Step 5-6: Determine tier and primary location ─────────────────────
+        # Agency detection is now companyId-based, not location-count-based.
+        # Agency owners get agency_billing row; individuals get subscribers row.
         if is_website_user:
             plan_tier = current_user.subscription_tier or 'individual'
-            use_agency_flow = plan_tier in ('agency_starter', 'agency_pro')
+            use_agency_flow = plan_tier in ('agency_starter', 'agency_pro') or is_agency_owner
             logger.info(
                 f"Website user: subscribed tier={plan_tier}, GHL agency={is_agency_owner}, "
                 f"using agency flow={use_agency_flow}"
@@ -809,7 +823,7 @@ def oauth_callback():
         else:
             plan_tier = 'individual'
             if is_agency_owner:
-                plan_tier = 'agency_pro' if num_subs >= 15 else 'agency_starter'
+                plan_tier = 'agency_pro'
             use_agency_flow = is_agency_owner
 
         primary_sub = next((s for s in sub_accounts if s['id'] == primary_location_id), None)
@@ -847,10 +861,15 @@ def oauth_callback():
                         agency_email, location_id, full_name, subscription_tier,
                         max_seats, active_seats, access_token, refresh_token,
                         token_expires_at, timezone, crm_user_id, crm_email,
-                        oauth_app_type, created_at, updated_at
+                        oauth_app_type,
+                        company_id, company_name, company_owner_name,
+                        company_owner_email, company_owner_phone,
+                        created_at, updated_at
                     ) VALUES (
                         %s, %s, %s, %s, %s, %s, %s, %s,
-                        NOW() + interval '%s seconds', %s, %s, %s, %s, NOW(), NOW()
+                        NOW() + interval '%s seconds', %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s,
+                        NOW(), NOW()
                     )
                     ON CONFLICT (agency_email) DO UPDATE SET
                         location_id = EXCLUDED.location_id,
@@ -860,12 +879,22 @@ def oauth_callback():
                         crm_user_id = COALESCE(EXCLUDED.crm_user_id, agency_billing.crm_user_id),
                         crm_email = EXCLUDED.crm_email,
                         oauth_app_type = EXCLUDED.oauth_app_type,
+                        company_id = COALESCE(EXCLUDED.company_id, agency_billing.company_id),
+                        company_name = COALESCE(EXCLUDED.company_name, agency_billing.company_name),
+                        company_owner_name = COALESCE(EXCLUDED.company_owner_name, agency_billing.company_owner_name),
+                        company_owner_email = COALESCE(EXCLUDED.company_owner_email, agency_billing.company_owner_email),
+                        company_owner_phone = COALESCE(EXCLUDED.company_owner_phone, agency_billing.company_owner_phone),
                         updated_at = NOW()
                 """, (
                     user_email, primary_location_id, primary_name, plan_tier,
                     max_seats, active_seats, enc_access_token, enc_refresh_token,
                     expires_in, primary_timezone or 'America/Chicago', me_data.get('id'),
-                    crm_email_resolved, app_type
+                    crm_email_resolved, app_type,
+                    company_metadata.get('company_id') or company_id,
+                    company_metadata.get('company_name'),
+                    company_metadata.get('company_owner_name'),
+                    company_metadata.get('company_owner_email'),
+                    company_metadata.get('company_owner_phone'),
                 ))
 
             # B. Reconnect/reinstall sync: update OAuth tokens on existing rows.
@@ -911,6 +940,7 @@ def oauth_callback():
                         oauth_app_type = %s,
                         role = COALESCE(%s, role),
                         parent_agency_email = COALESCE(%s, parent_agency_email),
+                        company_id = COALESCE(%s, company_id),
                         onboarding_status = CASE
                             WHEN onboarding_status IN ('pending', 'invited') THEN 'claimed'
                             ELSE onboarding_status
@@ -921,6 +951,7 @@ def oauth_callback():
                     crm_email_resolved, enc_access_token, enc_refresh_token,
                     expires_in, me_data.get('id'), app_type,
                     sync_role, user_email if use_agency_flow else None,
+                    company_id,
                     primary_location_id
                 ))
                 logger.info(
@@ -1002,6 +1033,19 @@ def oauth_callback():
                 f"total_ghl_locations={num_subs})"
             )
 
+            # Auto-link: if this is an individual install with a companyId,
+            # check if an agency with this companyId exists and auto-set parent_agency_email.
+            auto_linked_agency_email = None
+            if not use_agency_flow and company_id:
+                from db import get_agency_by_company_id
+                agency_row = get_agency_by_company_id(company_id)
+                if agency_row:
+                    auto_linked_agency_email = agency_row.get('agency_email')
+                    logger.info(
+                        f"Auto-linking individual {user_email} to agency "
+                        f"{auto_linked_agency_email} via companyId={company_id}"
+                    )
+
             for sub in locations_to_provision:
                 sub_id = sub['id']
                 sub_name = sub.get('name', 'Unknown Location')
@@ -1014,17 +1058,17 @@ def oauth_callback():
                     role = 'agency_sub_account_user'
                 else:
                     role = 'individual'
-                parent_agency_email = user_email if use_agency_flow else None
+                parent_agency_email = user_email if use_agency_flow else auto_linked_agency_email
 
                 cur.execute("""
                     INSERT INTO subscribers (
                         location_id, email, crm_email, full_name, role,
-                        subscription_tier, parent_agency_email,
+                        subscription_tier, parent_agency_email, company_id,
                         access_token, refresh_token,
                         token_expires_at, timezone, crm_user_id,
                         onboarding_status, oauth_app_type, created_at, updated_at
                     ) VALUES (
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                         NOW() + interval '%s seconds',
                         %s, %s, %s, %s, NOW(), NOW()
                     )
@@ -1035,10 +1079,12 @@ def oauth_callback():
                         token_expires_at = EXCLUDED.token_expires_at,
                         crm_user_id = COALESCE(EXCLUDED.crm_user_id, subscribers.crm_user_id),
                         oauth_app_type = EXCLUDED.oauth_app_type,
+                        company_id = COALESCE(EXCLUDED.company_id, subscribers.company_id),
+                        parent_agency_email = COALESCE(EXCLUDED.parent_agency_email, subscribers.parent_agency_email),
                         updated_at = NOW()
                 """, (
                     sub_id, user_email, crm_email_resolved, sub_name, role,
-                    plan_tier, parent_agency_email,
+                    plan_tier, parent_agency_email, company_id,
                     enc_access_token, enc_refresh_token,
                     expires_in,
                     sub_timezone or 'America/Chicago', me_data.get('id'),
