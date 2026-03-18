@@ -254,7 +254,7 @@
     .hp-resource-chip span { font-weight: 600; font-size: 0.85rem; }
 
     /* ── Pricing ── */
-    .price-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; max-width: 1200px; margin: 0 auto; }
+    .price-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; max-width: 1320px; margin: 0 auto; }
     .price-card { border: 1px solid rgba(255,255,255,0.22); border-radius: 24px; padding: 40px 36px; position: relative; overflow: visible; background: rgba(255,255,255,0.065); backdrop-filter: blur(40px) saturate(200%) brightness(1.07) contrast(1.04); -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.07) contrast(1.04); box-shadow: 0 32px 80px rgba(0,0,0,0.45), inset 0 1.5px 0 rgba(255,255,255,0.55), inset 1px 0 0 rgba(255,255,255,0.15), inset 0 -1px 0 rgba(255,255,255,0.07); }
     .price-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: 24px; overflow: hidden; background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.06) 40%, rgba(255,255,255,0.01) 70%, transparent 100%); clip-path: inset(0 round 24px); filter: blur(10px); pointer-events: none; z-index: 0; }
     .price-card::after { content: ''; position: absolute; bottom: 0; left: 8%; right: 8%; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.30) 30%, rgba(255,255,255,0.42) 50%, rgba(255,255,255,0.30) 70%, transparent); pointer-events: none; z-index: 0; }
@@ -265,7 +265,8 @@
     .price-features { list-style: none; padding: 0; margin: 24px 0; }
     .price-features li { padding: 5px 0; color: #bbb; font-size: 0.85rem; }
     .price-features li i { margin-right: 8px; }
-    @media (max-width: 767px) { .price-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 991px) { .price-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 600px) { .price-grid { grid-template-columns: 1fr; } }
 
     /* ── Pricing helpers ── */
     .hp-pricing-footnote { color: #555; font-size: 0.78rem; max-width: 600px; margin: 0 auto; }
@@ -391,13 +392,13 @@
         <div class="text-center mb-5" data-aos="fade-up">
             <span class="ios-section-label" style="background:rgba(139,92,246,0.08);color:#a78bfa;border-color:rgba(139,92,246,0.25)">Category-Defining Feature</span>
             <h2 class="ios-section-h2">The First Predictive Dialer<br><span style="background:linear-gradient(135deg,#a78bfa,var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent">That Doesn't Need a Team</span></h2>
-            <p class="ios-section-sub">Traditional predictive dialers need 5+ agents. We solved the collision problem with AI. Erlang-C math paces your calls. When two leads answer at once — you take one, your AI takes the other and books the appointment.</p>
+            <p class="ios-section-sub">Traditional predictive dialers need a team to handle collisions. We replaced the team with AI. Erlang-C math paces your calls. If all 4 lines answer at once — you take one, AI takes the other three. Every call gets a real conversation.</p>
         </div>
 
         <!-- Three lanes: Manual → Power → Solo Predictive -->
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;max-width:960px;margin:0 auto 48px" data-aos="fade-up">
             <div style="background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:28px 22px;text-align:center">
-                <div style="width:44px;height:44px;border-radius:12px;background:rgba(239,68,68,0.1);display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><i class="fa-solid fa-snail" style="color:#ef4444"></i></div>
+                <div style="width:44px;height:44px;border-radius:12px;background:rgba(239,68,68,0.1);display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><i class="fa-solid fa-hourglass-half" style="color:#ef4444"></i></div>
                 <div style="font-size:0.68rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#ef4444;margin-bottom:8px">The Slow Lane</div>
                 <div style="font-weight:700;color:#fff;margin-bottom:6px">Manual Dialing</div>
                 <div style="font-size:0.82rem;color:#888;line-height:1.55">80% of your day listening to ringtones. Dial, ring, voicemail, hang up, repeat.</div>
@@ -428,11 +429,11 @@
                     </div>
                     <div style="display:flex;gap:14px;align-items:flex-start">
                         <div style="width:32px;height:32px;border-radius:50%;background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.3);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.8rem;color:#a78bfa;flex-shrink:0">2</div>
-                        <div><div style="font-weight:700;color:#fff;font-size:0.92rem">Two leads answer at the same time</div><div style="font-size:0.82rem;color:#888;line-height:1.5">On any other dialer, one gets dropped. Not here.</div></div>
+                        <div><div style="font-weight:700;color:#fff;font-size:0.92rem">All 4 leads answer at once</div><div style="font-size:0.82rem;color:#888;line-height:1.5">Worst case scenario on any other dialer. Best case on yours.</div></div>
                     </div>
                     <div style="display:flex;gap:14px;align-items:flex-start">
                         <div style="width:32px;height:32px;border-radius:50%;background:rgba(0,255,136,0.15);border:1px solid rgba(0,255,136,0.3);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.8rem;color:var(--accent);flex-shrink:0">3</div>
-                        <div><div style="font-weight:700;color:#fff;font-size:0.92rem">You take Call A. AI takes Call B.</div><div style="font-size:0.82rem;color:#888;line-height:1.5">Call B bridges to your AI agent — qualifies, handles objections, books the appointment.</div></div>
+                        <div><div style="font-weight:700;color:#fff;font-size:0.92rem">You take 1. AI takes the other 3.</div><div style="font-size:0.82rem;color:#888;line-height:1.5">Each overflow call gets its own AI agent — qualifying, handling objections, booking appointments simultaneously.</div></div>
                     </div>
                     <div style="display:flex;gap:14px;align-items:flex-start">
                         <div style="width:32px;height:32px;border-radius:50%;background:rgba(0,255,136,0.15);border:1px solid rgba(0,255,136,0.3);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.8rem;color:var(--accent);flex-shrink:0">4</div>
@@ -907,6 +908,28 @@
                 <a href="/checkout/pro-dialer" class="btn btn-gradient-orange w-100 py-3" style="font-weight: 700;">Start Free Trial</a>
                 <div class="text-center mt-2"><a href="/for-individuals" class="hp-price-see-all">See all features <i class="fa-solid fa-arrow-right ms-1"></i></a></div>
             </div>
+
+            <!-- Solo Predictive Dialer -->
+            <div class="price-card" style="border-color: rgba(139,92,246,0.35); background: linear-gradient(135deg, rgba(139,92,246,0.08), rgba(255,255,255,0.065));">
+                <span class="price-badge" style="background: linear-gradient(135deg, #8b5cf6, var(--accent)); border: none; color: #000;">AI-Powered</span>
+                <h4 class="text-white" style="margin-top: 8px;">Predictive Dialer</h4>
+                <div><span class="price-amount" style="font-size:2.4rem; font-weight:900; background: linear-gradient(135deg, #a78bfa, #c4b5fd); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">$349.98</span><span style="color: #888;">/mo</span></div>
+                <p style="color: #a78bfa; font-size: 0.82rem; font-weight: 600; margin-top: 8px;">Erlang-C pacing + AI Overflow. Solo or team.</p>
+                <p class="hp-price-trial">7-day free trial. Cancel anytime.</p>
+
+                <ul class="price-features carved-features">
+                    <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> <strong>Erlang-C predictive pacing</strong></li>
+                    <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> <strong>AI Overflow — AI handles all extra lines</strong></li>
+                    <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> Everything in Pro Dialer</li>
+                    <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> TCPA auto-throttle (3% safe harbor)</li>
+                    <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> Compliance dashboard</li>
+                    <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> Callback queue + timezone enforcement</li>
+                    <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> 2,000 AI minutes included</li>
+                </ul>
+
+                <a href="/checkout/predictive-dialer" class="btn w-100 py-3" style="font-weight: 700; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: #fff; border: none;">Start Free Trial</a>
+                <div class="text-center mt-2"><a href="/predictive-dialer" class="hp-price-see-all" style="color: #a78bfa;">How AI Overflow works <i class="fa-solid fa-arrow-right ms-1"></i></a></div>
+            </div>
         </div>
 
         <div class="text-center mt-4" data-aos="fade-up">
@@ -914,7 +937,7 @@
                 *Unlimited minutes subject to fair use policy, and only with human to human dialing. AI Dialing requires purchased minutes in the <a href="/ai-minutes">AI Minute Marketplace</a>.
                 See <a href="/terms">Terms of Service</a> for details.
             </p>
-            <a href="/for-agencies" class="hp-agency-link">Agency with 5+ agents? See Enterprise Predictive Dialer <i class="fa-solid fa-arrow-right ms-1"></i></a>
+            <a href="/for-agencies" class="hp-agency-link">Run an agency? See team plans with centralized billing <i class="fa-solid fa-arrow-right ms-1"></i></a>
         </div>
     </div>
 </section>
