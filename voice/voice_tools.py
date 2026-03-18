@@ -1,9 +1,10 @@
 import json
 import logging
+import time
 
 from db import log_webhook_event
 from ghl_calendar import consolidated_calendar_op
-from voice.call_state import active_calls, transfer_requests
+from voice.call_state import active_calls, transfer_requests, overflow_transfer_alerts
 from voice.predictive_engine import agent_state_manager, AgentState
 
 logger = logging.getLogger("voice_bridge.voice_tools")
@@ -150,17 +151,42 @@ def execute_voice_tool(tool_name, arguments, subscriber, contact_id=None, first_
 
         # Check if agent is available BEFORE attempting transfer.
         # For overflow calls, the agent may be on their primary call — if so,
-        # the transfer can't succeed and we should pivot to booking.
+        # log a transfer alert (frontend shows notification popup), and tell the AI
+        # to stall naturally for ~30 seconds while agent gets the chance to accept.
+        # If the agent doesn't accept within 30s, AI transitions to booking.
         location_id = subscriber.get("location_id", "")
         agent_email = subscriber.get("email", "")
         if location_id and agent_email:
             agent_st = agent_state_manager.get_agent_state(location_id, agent_email)
             if agent_st.get('state') == AgentState.ON_CALL:
-                logger.info(f"Transfer blocked: agent {agent_email} is ON_CALL — pivoting to booking")
+                logger.info(f"Transfer blocked: agent {agent_email} is ON_CALL — logging alert + stall for booking")
+
+                # Log the transfer alert for frontend notification
+                if location_id not in overflow_transfer_alerts:
+                    overflow_transfer_alerts[location_id] = []
+                # Find the call_sid for this overflow call
+                overflow_call_sid = None
+                for csid, cinfo in active_calls.items():
+                    if cinfo.get("contact_id") == contact_id or cinfo.get("name") == first_name:
+                        overflow_call_sid = csid
+                        break
+                overflow_transfer_alerts[location_id].append({
+                    "call_sid": overflow_call_sid or "",
+                    "contact_id": contact_id or "",
+                    "contact_name": first_name or "",
+                    "phone": args.get("phone", ""),
+                    "reason": reason,
+                    "timestamp": time.time(),
+                    "status": "pending",
+                })
+                logger.info(f"Overflow transfer alert logged for {location_id}: {first_name} wants transfer")
+
                 return (
-                    "The advisor is currently with another client right now and can't take the transfer. "
-                    "Go ahead and book an appointment instead — pull up the calendar and find a time "
-                    "that works for them. This way the advisor can give them their full attention."
+                    "The advisor is finishing up with another client right now. Let the lead know "
+                    "that and keep chatting with them naturally for a moment — ask about their "
+                    "family situation or what got them thinking about coverage today. "
+                    "If the advisor doesn't become available in the next 30 seconds, go ahead and "
+                    "book an appointment instead. Pull up the calendar and find a time that works."
                 )
 
         # Signal the WebSocket bridge to perform the transfer

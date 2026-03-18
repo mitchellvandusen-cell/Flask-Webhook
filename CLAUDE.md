@@ -394,7 +394,7 @@ All tables created in `db.py`'s `init_db()` function (plus `contact_intelligence
 
 ### GHL OAuth
 - `GET /oauth/initiate` — Start GHL OAuth flow (redirects to GHL authorization URL)
-- `GET /oauth/callback` — GHL OAuth callback (exchanges code for tokens, stores in DB)
+- `GET /oauth/callback` — GHL OAuth callback (exchanges code for tokens, stores in DB). Agency detection: if OAuth response has `companyId` but no `locationId`/users → agency owner (saved to `agency_billing` with `company_id`). Individual agents with matching `companyId` auto-link to agency.
 - `GET /oauth/loading` — Loading page while OAuth completes
 - `GET /refresh` — Manually refresh GHL OAuth tokens
 - `GET /app` — App landing page post-install
@@ -574,6 +574,9 @@ All tables created in `db.py`'s `init_db()` function (plus `contact_intelligence
 - `GET|POST|DELETE /voice/callback-queue` — Callback queue management (schedule, view, cancel re-dials)
 - `GET /voice/recording-consent` — Check two-party recording consent by phone area code
 - `POST /voice/recording-consent/batch` — Batch consent check for up to 300 numbers
+- `GET /voice/ai-minutes-check` — Check AI minutes balance + warning level for overflow (ok/low/critical/empty)
+- `GET /voice/overflow-alerts` — Pending overflow transfer alerts for current location (hot leads wanting transfer)
+- `POST /voice/overflow-alerts/dismiss` — Dismiss an overflow alert (agent chose "Let AI Book")
 - `GET /checkout/predictive-dialer` — Predictive Dialer plan checkout ($349.98/mo)
 
 ### Billing / Plan Management
@@ -620,6 +623,125 @@ When a GHL webhook arrives at `POST /webhook`:
 - White-label SMS: Twilio sub-accounts mask Twilio branding from end users
 - AI Minutes: each LLM call deducts from the user's minute balance
 - Carrier awareness: bot knows only the carriers the agent has contracted
+
+### SMS Bot Conversation Intelligence
+
+The SMS bot uses a multi-layered AI pipeline to maintain human-like conversations. Key systems:
+
+**Conversation Stages (`conversation_engine.py`)**:
+- 7 stages: `INITIAL_OUTREACH` → `RAPPORT` → `QUALIFYING` → `OBJECTION_HANDLING` → `BOOKING` → `BOOKED` → `FOLLOW_UP`
+- `RAPPORT` stage (max 2 consecutive turns) — trust-building between qualifying turns. Detects when lead sends messages with zero qualifying substance (no coverage, goals, objections). Turn 1: match energy, find common ground. Turn 2: bridge naturally to qualifying. Turn 3+: force back to QUALIFYING
+- Stage detection uses `_count_consecutive_rapport_turns()` with word-boundary-safe regex matching to prevent false positives (e.g., "needlessly" won't match "need")
+- Qualifying signals split into `_QUALIFYING_PHRASES` (substring) and `_QUALIFYING_WORDS` (word-boundary regex)
+
+**Conversational Coherence (`prompt.py`)**:
+- "RESPOND TO WHAT THEY ACTUALLY SAID" rule — LLM must read message in context of its previous message
+- Prevents forcing insurance pivots when lead is discussing unrelated topics
+- If they say "you text too much", acknowledge THAT — do not ignore and ask about insurance
+- `CONVERSATIONAL_THREAD` section added to narrative output tracks what lead is currently talking about
+
+**Conversation Context Depth**:
+- LLM receives last 20 messages (up from 8) in multi-turn `user`/`assistant` format
+- Narrative observer processes last 30 messages (up from 14) for intelligence gathering
+- Multi-turn message format enables proper conversation threading vs. flat text
+
+### Objection Detection & Handling (Closer's Mindset)
+
+**Philosophy: Nothing slips through.** ONLY non-objections: answering questions, asking questions, expressing interest, agreeing, providing info. EVERYTHING else is an objection and an opportunity. Better to classify a neutral message as objection than to miss a real one.
+
+**Six Objection Types with 290+ keyword phrases across all types:**
+
+| Type | Example Phrases | Count |
+|------|----------------|-------|
+| `NOT_INTERESTED` | "no thanks", "hard pass", "leave me alone", "whatever", "kick rocks" | ~60 |
+| `SPOUSE_PARTNER` | "ask my wife", "check with my partner", "my accountant", "need approval" | ~50 |
+| `PRICE_MONEY` | "too expensive", "fixed income", "waste of money", "anything cheaper" | ~40 |
+| `ALREADY_COVERED` | "have insurance", "employer covers", "already have an agent", "just renewed" | ~40 |
+| `THINK_ABOUT_IT` | "sleep on it", "not ready", "bigger fish to fry", "rain check" | ~50 |
+| `BUSY_TIMING` | "in a meeting", "swamped", "driving", "hit me up later" | ~50 |
+
+Plus catch-all regex for short dismissive messages: `^no+$`, `^nah+$`, "lol no", "why would i", etc.
+
+**Two-Phase Objection Framework ("Logistical First. Fear Second.")**:
+- **Phase 1 (default)**: Solve the practical side. Ask logistical questions. Never immediately re-pitch.
+- **Phase 2 (triggers at 2+ same objection)**: Address the fear underneath. Make inaction feel concrete.
+- Per-objection-type keyword matching with `_OBJECTION_LOG_KEYWORDS` dict (6-8 synonyms per type) for robust phase detection
+
+**Objection Phase Detection** (`sales_director.py`):
+- Walks objection log entries and matches against keyword lists per type
+- Handles LLM narrative variations (e.g., "too expensive" matches PRICE_MONEY even if log says "cost")
+
+### TCPA Compliance (Stop Word Handling)
+
+**Stripped to legal minimum — sales objections are NOT opt-outs:**
+
+| Category | Words | Action |
+|----------|-------|--------|
+| `TCPA_STOP_EXACT` | "stop", "unsubscribe", "cancel" (bare, ≤3 words) | Silently stop messaging |
+| `TCPA_STOP_PHRASES` | "remove me", "opt out", "do not call/text/contact/message" | Silently stop messaging |
+| `TCPA_EXCEPTIONS` | "stop texting", "stop calling", "stop messaging" | NOT TCPA — treated as NOT_INTERESTED objection |
+
+**Removed from TCPA**: "not interested", "leave me alone", "lose my number", "delete my number", "blocked", "quit", "end". All now classified as sales objections routed to objection handling.
+
+### Human Identity Protocol (CRITICAL — applies to SMS and Voice)
+
+The bot must **never** reveal that it is a bot, AI, virtual assistant, or automated system. The lead must always believe they are texting or speaking with a real human insurance advisor. Enforced at three layers:
+
+**Layer 1 — System Prompt (`prompt.py`)**:
+- "YOU ARE A REAL PERSON" section with explicit forbidden words/phrases
+- Forbidden: "system", "technical issue", "AI", "bot", "virtual assistant", "automated", "calendar is unavailable", "I'll send you a confirmation", "the system will"
+- Guidance: handle problems the way a real person would — "ah that one just got grabbed" not "there was an error accessing my calendar"
+
+**Layer 2 — Context Nudges (`tasks.py`)**:
+- All booking confirmation/failure nudges use human-sounding framing
+- Success: "You just got them on the calendar for [time]. Ask if they see the invite."
+- Slot taken: "That one just got grabbed — offer alternatives."
+- Calendar down: "You don't have your schedule pulled up right now."
+- Never: "system COULD NOT book", "technical issue", "temporarily unavailable"
+
+**Layer 3 — Reply Sanitizer (`reply_sanitizer.py`, last line of defense)**:
+- 16+ contamination markers block bot/AI identity reveals even if LLM generates them
+- Blocked phrases: "i'm an ai", "i am a bot", "virtual assistant", "automated message", "technical issue", "system error", "calendar is unavailable", "artificial intelligence", "language model"
+- Unicode emoji stripping — strips all emojis from LLM output, blocks emoji-only replies
+- If any contamination marker is detected, the message is blocked before sending
+
+**Voice Tools (`voice/voice_tools.py`)**:
+- Calendar check failed: "You don't have your schedule pulled up right now" (not "Calendar is temporarily unavailable")
+- Booking failed: "That time is not available" (not "Booking failed due to a technical issue")
+- Booking success: "Ask if they got the invite in their email" (not "they'll receive a confirmation")
+- Transfer failed: "Senior advisor is not available right now" (not "I wasn't able to initiate the transfer")
+
+**Booking Confirmation Language**:
+- After booking: "Got you down for [time]. Do you see the invite?" — GHL automatically sends the calendar invite via email
+- Never say: "I'll send you a confirmation" or "a calendar invite is coming" — it's already sent
+- Never say: "let me send you the confirmation" — we don't have email capabilities; GHL handles it
+
+### Booking Detection Precision (`conversation_engine.py`)
+
+- Booking keywords refined to prevent false positives — generic "works for me" replaced with specific "that time works", "those times work"
+- "I'm ready" replaced with "I'm ready to get started" (prevents matching casual affirmation)
+
+### Articulated Impact Detection (`conversation_engine.py`)
+
+40+ keywords detecting when a lead expresses emotional weight about coverage:
+- Emotional weight: "keep me up", "can't sleep", "burden", "devastating", "terrif", "afraid"
+- Consequences: "what happens to", "who takes care", "wife would", "they'd be"
+- Personal resolve: "gotta make sure", "need to protect", "can't leave them", "owe it to"
+- Gap awareness: "not enough", "won't cover", "no safety net"
+
+### Lead Intelligence Scoring Updates (`lead_intelligence.py`)
+
+- "Not interested" no longer forces cold/score 5 — now scored as cool/15-30 (objection, not dead)
+- TCPA opt-out words still = cold/score 5
+- `should_respond=true` for sales objections (bot should keep trying)
+- Dialer Smart Filters updated: "not interested" contacts stay in Cool group, not Do Not Contact
+
+### SMS Bot Subscription Tier
+
+- **SMS Bot**: $99.98/mo — AI texting only, no dialer/voice features. `subscription_tier = 'sms_bot'`
+- Gated from 85+ voice routes via `before_request` hook on `voice_bp`
+- Forces `sms_send_via='ghl'` (no Twilio direct sending)
+- Dashboard hides Dialer, Voice Config, AI Minutes tabs for sms_bot users
 
 ---
 
@@ -723,13 +845,55 @@ Enterprise multi-line power dialer that allows Pro Dialer subscribers ($224.99/m
 3. Compute dial ratio: `min(4.0, max(1.0, 100 / connect_rate))`
 4. Recommend lines: `round(dial_ratio)`, capped at 4
 
-**Predictive Dialer** (Erlang-C M/M/N queue model):
-1. Query `call_history` for 7-day stats (connect rate, avg handle time, avg talk time)
-2. Model as M/M/N queue: arrival rate = agents × ratio × answer rate / ring time
-3. Binary search (20 iterations) for max dial ratio keeping predicted abandon rate ≤ 3%
-4. TCPA auto-throttle: if current rolling 30-day abandon rate > 2.4%, reduce ratio by factor
-5. Uses `_erlang_c_probability()` with log-space arithmetic for numerical stability
-6. Phone number parsing: strips digits-only, removes country code `1` for 11-digit numbers
+**Solo Predictive** (Erlang-C M/M/N queue model with AI Overflow + Auto-Pacing):
+
+Built for solo agents working their own leads. Agent selects leads, adds to queue, hits "Dial" — the system auto-paces batches using Erlang-C math. When multiple calls answer simultaneously, the first bridges to the human agent and the rest overflow to AI voice agents.
+
+**Auto-Pacing Flow:**
+1. Agent selects leads → adds to queue → clicks "Dial"
+2. Frontend fetches `GET /voice/predictive-stats` to get Erlang-C recommendation
+3. System auto-dials the recommended number of lines (e.g., 3 lines at 15% connect rate)
+4. As calls complete, system auto-fires next batch from queue
+5. Every 15 seconds, frontend re-fetches live pacing with session data (calls made, connected, avg duration)
+6. Erlang-C blends historical 7-day data + live session data (session weighted more as sample grows)
+7. If connect rate changes mid-session, system adjusts lines up or down automatically
+
+**Live Session Pacing** (`calculate_live_pacing()` in `predictive_engine.py`):
+- Blends historical and session metrics with exponential weighting
+- At 0 session calls: 100% historical. At 20+ calls: ~80% session data
+- Confidence levels: low (<5 calls), medium (5-20), high (20+)
+- Frontend passes `session_calls_total`, `session_calls_connected`, `session_avg_handle_time` as query params
+
+**AI Overflow Collision Detection:**
+1. Multiple calls answer simultaneously → each hits `POST /voice/outbound-twiml`
+2. `agent_state_manager.try_claim_for_call()` atomically claims agent (thread-safe lock)
+3. First call wins → bridges to human agent via `<Dial><Client>`
+4. Subsequent calls see agent ON_CALL → check for available team members first
+5. If team member READY → bridge to them (`get_any_available_agent()` fallback)
+6. If nobody available → overflow to AI via `<Connect><Stream>` to xAI Realtime API
+
+**AI Minutes Warning System:**
+- `multi_dial()` checks AI minutes balance before each batch (overflow uses AI minutes)
+- Warning levels: `ok` (>100 min), `low` (20-100), `critical` (<20), `empty` (0)
+- At `empty`: forces single-line mode (no overflow possible without AI minutes)
+- Frontend shows persistent toast with link to top up
+- Periodic check during session via `GET /voice/ai-minutes-check`
+
+**Overflow Transfer Alerts:**
+- When AI overflow call has a hot lead wanting transfer but agent is ON_CALL:
+  1. Alert logged to `overflow_transfer_alerts` in-memory dict
+  2. Frontend polls `GET /voice/overflow-alerts` every 2 seconds
+  3. Notification card slides in: "Hot Lead: [Name] wants to talk to you"
+  4. Agent can "Accept Transfer" (calls `/voice/takeover`) or "Let AI Book"
+  5. AI stalls naturally for 30 seconds with conversation while waiting
+  6. After 30s timeout, AI transitions to booking an appointment
+- `voice_tools.py` transfer_to_agent returns a stall response instead of immediate booking pivot
+
+**Team Member Awareness (Contingent):**
+- `AgentStateManager.get_any_available_agent(location_id, exclude_email)` — checks if any OTHER team member is READY
+- Collision detection in `twiml_routes.py` checks team fallback before AI overflow
+- Solo agents (99% of cases): unchanged behavior — `try_claim_for_call()` with single email
+- Team locations: overflow tries team members first, AI last
 
 ### Frontend State
 - `_multiLineActive` (Map) — tracks all concurrent call SIDs with contact info
@@ -737,6 +901,11 @@ Enterprise multi-line power dialer that allows Pro Dialer subscribers ($224.99/m
 - `_multiLineMaxLines` (int) — max concurrent lines (1 for individual, 4 for pro_dialer)
 - `_multiLineConnectedSid` (string) — which call the agent is currently interacting with
 - `_predictiveStats` (object) — cached predictive analytics from server
+- `_isSoloPredictive` (bool) — true when `subscription_tier === 'solo_predictive'`
+- `_sessionCallsTotal` / `_sessionCallsConnected` / `_sessionTotalTalkTime` — session tracking for live pacing
+- `_predictiveRecommendedLines` (int) — live Erlang-C recommendation, updated every ~15s
+- `_aiMinutesWarning` (string) — current AI minutes warning level
+- `_overflowAlertShown` (object) — tracks shown overflow transfer alert notifications
 
 ### Multi-Line Dialer Settings (voice_config JSONB)
 All settings stored in `voice_config` JSONB on `subscribers` table, validated in `blueprints/dashboard.py`, enforced server-side in `voice/dialer.py`.
@@ -771,15 +940,19 @@ Settings injected from server to client via `window.DASHBOARD_BOOT` in `dashboar
 - Plan change updates `subscription_tier` in DB and triggers frontend re-init
 
 ### Predictive Dialer Engine (voice/predictive_engine.py)
-Enterprise-only module (`subscription_tier = 'predictive_dialer'`) with:
+Used by both `solo_predictive` (solo agents with AI overflow) and `predictive_dialer` (agency-level) tiers:
 - **Phone number parsing**: `area_code_to_timezone(phone)`, `area_code_to_state(phone)` — digits-only extraction, US country code removal for 11-digit numbers, ~300 NANP area code mappings
 - **Timezone enforcement**: `check_recipient_timezone(phone, start, end)` — pytz-based, midnight wrap-around support
 - **Recording consent**: `is_two_party_consent_state(phone)` — 12 two-party consent states (CA, CT, DE, FL, IL, MD, MA, MT, NV, NH, PA, WA)
 - **Erlang-C pacing**: `calculate_optimal_dial_ratio()` — M/M/N queue model with binary search, TCPA throttle at 80% of limit
+- **Solo Predictive pacing**: `calculate_solo_predictive_ratio()` — wraps Erlang-C with effective_agents = 1 human + N AI overflow lines
+- **Live session pacing**: `calculate_live_pacing()` — blends 7-day historical + live session data with exponential weighting (session data weighted more as sample grows). Returns blended dial ratio, confidence level (low/medium/high), and session connect rate. Used by `GET /voice/predictive-stats?session_calls_total=&session_calls_connected=&session_avg_handle_time=`
 - **TCPA tracker**: `TCPAComplianceTracker` (global singleton `tcpa_tracker`) — thread-safe rolling 30-day abandon rate, auto-prune, DB bootstrap via `load_from_db()`
 - **Agent state machine**: `AgentStateManager` (global singleton `agent_state_manager`) — ACD states (Ready/Not Ready/On Call/Wrap-Up/Break/Extended Away/Logged Out), auto wrap-up→ready transitions, predicted availability within N-second horizon
+- **Team member fallback**: `AgentStateManager.get_any_available_agent(location_id, exclude_email)` — finds first READY team member at a location (excluding the primary dialer). Used in collision detection to try team members before AI overflow
 - **Callback queue**: `CallbackQueue` (global singleton `callback_queue`) — thread-safe scheduled re-dial queue with duplicate prevention, 24-hour auto-prune of completed/cancelled items
 - **Compliance metrics**: `get_compliance_metrics()` — aggregated compliance score (0-100) from TCPA, DNC violations, calling hours violations
+- **Overflow transfer alerts**: `overflow_transfer_alerts` dict in `call_state.py` — in-memory alerts when AI overflow calls have hot leads wanting transfer. Polled by frontend via `GET /voice/overflow-alerts`, auto-expire after 30 seconds
 
 ---
 
@@ -953,6 +1126,36 @@ The light theme has comprehensive overrides for:
 
 ---
 
+## White-Label Branding (Agency Owners)
+
+Agency owners can fully white-label the dashboard so their agents see the agency's brand instead of InsuranceGrokBot.
+
+### What's Customizable
+- **Company name**: Replaces "InsuranceGrokBot" throughout the entire logged-in experience
+- **Color scheme**: Primary accent color (replaces `#00ff88`), applied to buttons, links, highlights, sidebar accents
+- **Font**: Choose from curated font list, applied to all dashboard text
+
+### How It Works
+- **Settings tab**: `dashboard/tabs/whitelabel.html` — agency owners pick name, color, font with live preview
+- **JavaScript**: `static/js/dashboard/whitelabel.js` — live preview, color picker, font selector, save to server
+- **Storage**: `agency_billing.whitelabel_config` JSONB column (`company_name`, `accent_color`, `font_family`)
+- **CSS injection**: On dashboard load, if user belongs to an agency with whitelabel config, CSS custom properties are overridden dynamically
+- **Scope**: Only affects logged-in dashboard experience — marketing pages remain InsuranceGrokBot branded
+
+### Agency Dashboard Integration
+The agency dashboard is now integrated as tabs within the main dashboard (not a separate page). Agency owners see:
+- All individual dashboard features (dialer, voice, SMS config, workflows, etc.)
+- **Agency Members tab** (`dashboard/tabs/agency_members.html`) — view/manage all agency users
+- **Agency KPIs tab** (`dashboard/tabs/agency_kpis.html`) — aggregated metrics across all agency agents
+- **White-label tab** (`dashboard/tabs/whitelabel.html`) — branding customization
+
+### Agency Auto-Import by Company ID
+- When an individual agent subscribes and their GHL `companyId` matches an agency owner's `company_id` in `agency_billing`, they are automatically linked to that agency
+- No manual invite required — agents appear in the agency dashboard as they subscribe
+- Agency owners can still manually invite via email as a fallback
+
+---
+
 ## GHL Conversation Provider Sync (ghl_logger.py)
 
 GHL stays the source-of-truth CRM. When messages are sent or calls are made through IGB (via Twilio), they are logged back to GHL's conversation threads using the GHL Conversation Provider API.
@@ -1100,7 +1303,7 @@ Uses `.connect-grid`, `.connect-card`, `.connect-reason-card` CSS components wit
 ```
 templates/
   dashboard.html              Main dashboard layout (individual user)
-  agency-dashboard.html       Agency command center (sidebar+tab, self-contained, inline JS)
+  agency-dashboard.html       Agency command center (deprecated — agency features now integrated into main dashboard)
   base.html                   Base template for marketing pages
   home.html                   Home/landing page
   sms.html                    SMS marketing page
@@ -1121,6 +1324,8 @@ templates/
   article-speed-to-lead-insurance.html           SEO: Speed to Lead in Insurance Sales
   article-spam-likely-killing-sales.html         SEO: How Spam Likely Is Killing Your Sales
   connect.html                Connect With Us / social media page
+  predictive-dialer.html      Predictive Dialer marketing page
+  white-label.html            White-label marketing page
   claim_seat.html             Team member claim seat flow
   uninstall-feedback.html     GHL marketplace uninstall feedback
   call_panel.html             Embedded call panel
@@ -1141,6 +1346,9 @@ templates/
     logs.html                 Activity logs
     team.html                 Team management (invite, roles, permissions, KPIs)
     training.html             Training API configuration
+    whitelabel.html           White-label branding settings (agency owners only)
+    agency_kpis.html          Agency KPIs dashboard tab
+    agency_members.html       Agency member management tab
   dashboard/modals/
     discord_panel.html        Discord message panel (side panel, hidden)
     discord_modal.html        Discord server picker modal
@@ -1170,6 +1378,8 @@ static/js/dashboard/
   team.js           Team management (invites, roles, permissions, agent KPIs, audit log)
   pwa.js            Progressive Web App registration and offline support
   tutorial.js       Interactive dashboard tutorial (driver.js, 7 chapters, Liquid Glass UI with dark+light theme)
+  whitelabel.js     White-label branding UI (color picker, font selector, company name, live preview)
+  agency.js         Agency management UI (member list, KPIs, auto-import by company_id)
 ```
 
 ### CSS

@@ -771,6 +771,36 @@ class AgentStateManager:
                 })
             return result
 
+    def get_any_available_agent(self, location_id, exclude_email=None):
+        """Get the first READY agent at a location (for team member fallback).
+
+        When the primary dialing agent is ON_CALL and a collision occurs,
+        check if any OTHER team member at this location is READY and can
+        take the call instead of routing to AI overflow.
+
+        Args:
+            location_id: The location to check
+            exclude_email: Email of the agent to skip (the one already ON_CALL)
+
+        Returns:
+            email of an available agent, or None if nobody is available
+        """
+        with self._lock:
+            now = time.time()
+            for email, agent in self._agents[location_id].items():
+                if exclude_email and email == exclude_email:
+                    continue
+                # Auto-transition wrap-up → ready if timer expired
+                if agent["state"] == AgentState.WRAP_UP and agent.get("wrap_up_ends_at"):
+                    if now >= agent["wrap_up_ends_at"]:
+                        agent["state"] = AgentState.READY
+                        agent["reason"] = None
+                        agent["since"] = now
+                        agent["wrap_up_ends_at"] = None
+                if agent["state"] == AgentState.READY:
+                    return email
+            return None
+
     def get_state_history(self, location_id, limit=100):
         """Get recent state transitions for compliance reporting."""
         with self._lock:
@@ -1201,3 +1231,89 @@ def get_agency_compliance_metrics(company_id, period_days=30):
         return {"error": str(e)}
     finally:
         return_db_connection(conn)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LIVE SESSION PACING — Blends historical + session data for auto-pacing
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def calculate_live_pacing(
+    historical_connect_rate,
+    historical_avg_handle_time,
+    session_calls_total,
+    session_calls_connected,
+    session_avg_handle_time,
+    wrap_up_time_sec=15,
+    max_lines=4,
+    current_abandon_rate=0.0,
+):
+    """Calculate real-time dial ratio blending historical and live session data.
+
+    As the session progresses and sample size grows, session data is weighted
+    more heavily. This makes the dialer truly predictive — it adapts mid-session
+    to the actual connect rate being observed, not just historical averages.
+
+    Args:
+        historical_connect_rate: 7-day connect rate % (0-100)
+        historical_avg_handle_time: 7-day average call duration in seconds
+        session_calls_total: Calls dialed this session
+        session_calls_connected: Calls connected this session
+        session_avg_handle_time: Average duration of connected calls this session
+        wrap_up_time_sec: Post-call wrap-up time
+        max_lines: Maximum concurrent lines (1-4)
+        current_abandon_rate: Rolling 30-day abandon rate %
+
+    Returns:
+        dict with blended dial_ratio, recommended_lines, confidence, and reason
+    """
+    # Session connect rate (avoid division by zero)
+    if session_calls_total > 0:
+        session_connect_rate = (session_calls_connected / session_calls_total) * 100
+    else:
+        session_connect_rate = 0.0
+
+    # Blend weight: session data gets more weight as sample size grows
+    # At 0 calls: 100% historical. At 20+ calls: ~80% session data.
+    if session_calls_total == 0:
+        session_weight = 0.0
+    else:
+        session_weight = min(0.8, session_calls_total / 25.0)
+    historical_weight = 1.0 - session_weight
+
+    # Blended metrics
+    blended_connect_rate = (
+        historical_weight * (historical_connect_rate or 25.0)
+        + session_weight * session_connect_rate
+    )
+    blended_handle_time = (
+        historical_weight * (historical_avg_handle_time or 180.0)
+        + session_weight * (session_avg_handle_time or 180.0)
+    )
+
+    # Run Erlang-C with blended metrics
+    ai_overflow_capacity = max(0, max_lines - 1)
+    result = calculate_solo_predictive_ratio(
+        avg_handle_time_sec=blended_handle_time,
+        avg_ring_time_sec=15,
+        answer_rate_pct=blended_connect_rate,
+        current_abandon_rate_pct=current_abandon_rate,
+        target_abandon_rate_pct=3.0,
+        wrap_up_time_sec=wrap_up_time_sec,
+        max_ratio=float(max_lines),
+        ai_overflow_capacity=ai_overflow_capacity,
+    )
+
+    result["live_pacing"] = True
+    result["session_weight"] = round(session_weight, 2)
+    result["blended_connect_rate"] = round(blended_connect_rate, 1)
+    result["blended_handle_time"] = round(blended_handle_time, 1)
+    result["session_calls_total"] = session_calls_total
+    result["session_calls_connected"] = session_calls_connected
+    result["session_connect_rate"] = round(session_connect_rate, 1)
+    result["confidence"] = (
+        "low" if session_calls_total < 5
+        else "medium" if session_calls_total < 20
+        else "high"
+    )
+
+    return result

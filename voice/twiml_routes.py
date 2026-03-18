@@ -277,19 +277,46 @@ def outbound_twiml():
                     f"{call_sid[:16]} (contact={contact_name})"
                 )
             else:
-                # Collision or agent unavailable → route to AI overflow
-                _is_overflow = True
-                logger.info(
-                    f"AI OVERFLOW: Agent {agent_email} state={state} — "
-                    f"routing {call_sid[:16]} to AI "
-                    f"(contact={contact_name}"
-                    f"{f', primary={primary_sid[:16]}' if primary_sid else ''})"
+                # Primary agent unavailable — check if any OTHER team member
+                # at this location is READY (contingent team awareness).
+                # Most locations are solo (no team members), so this is a no-op.
+                # But if team members exist and one is READY, bridge to them
+                # instead of AI overflow.
+                alt_agent = agent_state_manager.get_any_available_agent(
+                    location_id, exclude_email=agent_email
                 )
-                # Mark overflow in active_calls for frontend visibility
-                if call_sid in active_calls:
-                    active_calls[call_sid]['_overflow'] = True
-                    active_calls[call_sid]['_overflow_agent'] = agent_email
-                    active_calls[call_sid]['_overflow_primary_sid'] = primary_sid or ''
+                if alt_agent:
+                    # Another team member is available — claim them instead
+                    alt_claimed, alt_state, _ = agent_state_manager.try_claim_for_call(
+                        location_id, alt_agent, call_sid
+                    )
+                    if alt_claimed:
+                        logger.info(
+                            f"SOLO PREDICTIVE TEAM FALLBACK: Agent {alt_agent} "
+                            f"claimed for {call_sid[:16]} (primary {agent_email} "
+                            f"was {state}, contact={contact_name})"
+                        )
+                        # Bridge to the alternate agent's browser client
+                        # (claimed = True means _is_overflow stays False → human bridge)
+                    else:
+                        # Couldn't claim the alt agent either — overflow to AI
+                        _is_overflow = True
+                else:
+                    # No team members available — overflow to AI
+                    _is_overflow = True
+
+                if _is_overflow:
+                    logger.info(
+                        f"AI OVERFLOW: Agent {agent_email} state={state} — "
+                        f"routing {call_sid[:16]} to AI "
+                        f"(contact={contact_name}"
+                        f"{f', primary={primary_sid[:16]}' if primary_sid else ''})"
+                    )
+                    # Mark overflow in active_calls for frontend visibility
+                    if call_sid in active_calls:
+                        active_calls[call_sid]['_overflow'] = True
+                        active_calls[call_sid]['_overflow_agent'] = agent_email
+                        active_calls[call_sid]['_overflow_primary_sid'] = primary_sid or ''
 
     # For human VoIP mode (NOT overflow), bridge the PSTN callee to the browser agent
     if dial_mode == 'human' and not _is_overflow:
