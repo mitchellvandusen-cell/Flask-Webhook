@@ -1,51 +1,37 @@
-// Requires: custom-core.css (load first)
 /**
- * InsuranceGrokBot - GHL Custom JS Extension
- * Part 1 of 3: Core — config, auth, API, toasts, chips, page observer, init
- *
- * This script adds AI-powered calling, SMS, lead intelligence,
- * spam protection config, and number management features to the
- * GoHighLevel CRM interface as an embedded marketplace app.
- *
- * All functions and variables are prefixed with "igb" to avoid
- * naming collisions with GHL's own scripts.
+ * InsuranceGrokBot GHL Extension — Core (1 of 3)
+ * Stats chips, AI Minutes, page observer, and app initialization.
+ * Fully self-contained — no dependencies on other files.
  */
 
-// ---------------------------------------------------------------------------
-// Configuration constants
-// ---------------------------------------------------------------------------
+// Shared infrastructure — guarded so only the first loaded file initializes
+if (typeof igbServerUrl === 'undefined') {
 
-const igbServerUrl = 'https://insurancegrokbot.click';
-const igbCallPollMs = 2000;
-const igbRefreshIntervalMs = 60000;
-const igbMaxVisibleToasts = 3;
+var igbServerUrl = 'https://insurancegrokbot.click';
+var igbCallPollMs = 2000;
+var igbRefreshIntervalMs = 60000;
+var igbMaxVisibleToasts = 3;
 
-// ---------------------------------------------------------------------------
-// Global state variables
-// ---------------------------------------------------------------------------
-
-let igbKey = '';
-let igbKeyExpiresAt = 0;
-let igbLocationId = '';
-let igbSubscriptionTier = 'individual';
-let igbSubscribed = false;
-let igbMaxDialLines = 1;
-let igbBalanceRefreshTimer = null;
-let igbStatsRefreshTimer = null;
-let igbDialerPopupEl = null;
-let igbCallQueue = [];
-let igbCallQueueIndex = 0;
-const igbActiveCallMap = new Map();
-let igbCallPollTimer = null;
-let igbListenSocket = null;
-let igbCurrentCallSid = '';
-let igbCurrentCallMode = '';
-let igbToastList = [];
-let igbCurrentAiMinutes = 0;
-
-// ---------------------------------------------------------------------------
-// DOM helper utilities
-// ---------------------------------------------------------------------------
+var igbKey = '';
+var igbKeyExpiresAt = 0;
+var igbLocationId = '';
+var igbSubscriptionTier = 'individual';
+var igbSubscribed = false;
+var igbMaxDialLines = 1;
+var igbBalanceRefreshTimer = null;
+var igbStatsRefreshTimer = null;
+var igbDialerPopupEl = null;
+var igbCallQueue = [];
+var igbCallQueueIndex = 0;
+var igbActiveCallMap = new Map();
+var igbCallPollTimer = null;
+var igbListenSocket = null;
+var igbCurrentCallSid = '';
+var igbCurrentCallMode = '';
+var igbToastList = [];
+var igbCurrentAiMinutes = 0;
+var igbConfigPanelOpen = false;
+var igbConfigSection = 'overview';
 
 function igbMakeElement(tagName, cssClass, htmlContent) {
     const el = document.createElement(tagName);
@@ -89,10 +75,6 @@ function igbGetContactIdFromUrl() {
     const match = window.location.pathname.match(/\/contacts\/(?:detail\/)?([a-zA-Z0-9]+)/);
     return match ? match[1] : '';
 }
-
-// ---------------------------------------------------------------------------
-// API communication layer
-// ---------------------------------------------------------------------------
 
 // Make an authenticated API request to the IGB server, auto-refreshing token on 401
 async function igbApiRequest(httpMethod, apiPath, requestBody) {
@@ -194,11 +176,6 @@ function igbIsKeyValid() {
     return igbKey && Date.now() < igbKeyExpiresAt - 60000;
 }
 
-// ---------------------------------------------------------------------------
-// Toast notification system
-// ---------------------------------------------------------------------------
-
-// Show a temporary toast notification at the bottom-right of the screen
 function igbShowToast(message, toastType) {
     toastType = toastType || 'info';
     const toast = igbMakeElement('div', `igb-toast igb-toast-${toastType}`);
@@ -229,9 +206,35 @@ function igbShowToast(message, toastType) {
         setTimeout(() => toast.remove(), 300);
     }, 5000);
 }
-// ---------------------------------------------------------------------------
-// AI Minutes chip and purchase panel
-// ---------------------------------------------------------------------------
+
+// Insert a chip element into the GHL top navigation bar
+function igbInjectIntoTopNav(element) {
+    const navSelectors = [
+        'nav [class*="right-section"]',
+        'header [class*="actions"]',
+        '[class*="topbar"] [class*="right"]',
+        '.hl_topbar .right-section',
+        'nav.hl_topbar',
+    ];
+    let targetEl = null;
+    for (let sIdx = 0; sIdx < navSelectors.length; sIdx++) {
+        targetEl = igbFind(navSelectors[sIdx]);
+        if (targetEl) { break; }
+    }
+    if (targetEl) {
+        targetEl.insertBefore(element, targetEl.firstChild);
+    } else {
+        let chipContainer = igbFind('#igb-floating-chips');
+        if (!chipContainer) {
+            chipContainer = igbMakeElement('div', 'igb-floating-chips');
+            chipContainer.id = 'igb-floating-chips';
+            document.body.appendChild(chipContainer);
+        }
+        chipContainer.appendChild(element);
+    }
+}
+
+} // end shared infrastructure guard
 
 async function igbRenderAiMinutesChip() {
     const existing = igbFind('#igb-minutes-chip');
@@ -355,10 +358,6 @@ async function igbPurchaseMinutes(minuteAmount) {
         igbShowToast('Checkout error', 'error');
     }
 }
-// ---------------------------------------------------------------------------
-// Call statistics chip and panel
-// ---------------------------------------------------------------------------
-
 async function igbRenderStatsChip() {
     const existing = igbFind('#igb-stats-chip');
     if (existing) {
@@ -439,69 +438,40 @@ async function igbToggleStatsPanel() {
     } catch (e) {
     }
 }
-// ---------------------------------------------------------------------------
-// Top navigation bar injection
-// ---------------------------------------------------------------------------
 
-// Insert a chip element into the GHL top navigation bar
-function igbInjectIntoTopNav(element) {
-    const navSelectors = [
-        'nav [class*="right-section"]',
-        'header [class*="actions"]',
-        '[class*="topbar"] [class*="right"]',
-        '.hl_topbar .right-section',
-        'nav.hl_topbar',
-    ];
-    let targetEl = null;
-    for (let sIdx = 0; sIdx < navSelectors.length; sIdx++) {
-        targetEl = igbFind(navSelectors[sIdx]);
-        if (targetEl) { break; }
-    }
-    if (targetEl) {
-        targetEl.insertBefore(element, targetEl.firstChild);
-    } else {
-        let chipContainer = igbFind('#igb-floating-chips');
-        if (!chipContainer) {
-            chipContainer = igbMakeElement('div', 'igb-floating-chips');
-            chipContainer.id = 'igb-floating-chips';
-            document.body.appendChild(chipContainer);
-        }
-        chipContainer.appendChild(element);
-    }
-}
 // ---------------------------------------------------------------------------
 // Page change detection and feature injection
 // ---------------------------------------------------------------------------
 
-// Detect which GHL page the user is on and inject relevant IGB features
 function igbHandlePageChange() {
-    const currentPath = window.location.pathname;
+    var currentPath = window.location.pathname;
     if (currentPath.indexOf('/opportunities') >= 0 || currentPath.indexOf('/pipeline') >= 0) {
-        setTimeout(() => {
-            igbInjectPipelineButtons();
-            igbInjectTemperatureBadges();
+        setTimeout(function() {
+            if (typeof igbInjectPipelineButtons === 'function') { igbInjectPipelineButtons(); }
+            if (typeof igbInjectTemperatureBadges === 'function') { igbInjectTemperatureBadges(); }
         }, 500);
     }
     if (currentPath.indexOf('/conversations') >= 0 || currentPath.indexOf('/messages') >= 0) {
-        setTimeout(() => {
-            igbInjectAiReplyButton();
-            igbInjectRecordingPlayers();
+        setTimeout(function() {
+            if (typeof igbInjectAiReplyButton === 'function') { igbInjectAiReplyButton(); }
+            if (typeof igbInjectRecordingPlayers === 'function') { igbInjectRecordingPlayers(); }
         }, 500);
     }
     if (currentPath.indexOf('/contacts/detail/') >= 0) {
-        setTimeout(igbInjectIntelligenceCard, 500);
+        setTimeout(function() {
+            if (typeof igbInjectIntelligenceCard === 'function') { igbInjectIntelligenceCard(); }
+        }, 500);
     }
     if (currentPath.match(/\/contacts\/?$/) || currentPath.indexOf('/contacts?') >= 0) {
-        setTimeout(igbInjectBulkCallButton, 500);
+        setTimeout(function() {
+            if (typeof igbInjectBulkCallButton === 'function') { igbInjectBulkCallButton(); }
+        }, 500);
     }
 }
-const igbDomObserver = new MutationObserver(() => {
+var igbDomObserver = new MutationObserver(function() {
     clearTimeout(igbDomObserver.debounceTimer);
     igbDomObserver.debounceTimer = setTimeout(igbHandlePageChange, 300);
 });
-// ---------------------------------------------------------------------------
-// Upgrade prompt for users without active subscriptions
-// ---------------------------------------------------------------------------
 
 function igbShowUpgradePrompt() {
     if (igbFind('#igb-upgrade-banner')) {
@@ -520,36 +490,39 @@ function igbShowUpgradePrompt() {
     banner.appendChild(btn);
     document.body.appendChild(banner);
 }
+
 // ---------------------------------------------------------------------------
 // App initialization
 // ---------------------------------------------------------------------------
 
-// Main entry point -authenticate, render chips, start page observers
 async function igbInit() {
     igbLog('Initializing');
     if (!igbIsKeyValid()) {
-        const authSuccess = await igbAuthenticate();
+        var authSuccess = await igbAuthenticate();
         if (!authSuccess) {
             igbLog('Auth failed, features disabled');
             return;
         }
     }
     if (!igbSubscribed) {
-        igbLog('No active subscription -showing upgrade prompt');
+        igbLog('No active subscription - showing upgrade prompt');
         igbShowUpgradePrompt();
         return;
     }
     try {
-        const subscriptionInfo = await igbApiRequest('GET', '/api/ghl/subscription-info');
+        var subscriptionInfo = await igbApiRequest('GET', '/api/ghl/subscription-info');
         igbSubscriptionTier = subscriptionInfo.tier || 'individual';
         igbMaxDialLines = subscriptionInfo.max_lines || 1;
     } catch (e) {
     }
-    await Promise.all([
+    var chipPromises = [
         igbRenderStatsChip(),
         igbRenderAiMinutesChip(),
-        igbRenderConfigChip(),
-    ]);
+    ];
+    if (typeof igbRenderConfigChip === 'function') {
+        chipPromises.push(igbRenderConfigChip());
+    }
+    await Promise.all(chipPromises);
     igbBalanceRefreshTimer = setInterval(igbRenderAiMinutesChip, igbRefreshIntervalMs);
     igbStatsRefreshTimer = setInterval(igbRenderStatsChip, igbRefreshIntervalMs);
     igbHandlePageChange();

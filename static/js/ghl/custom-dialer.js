@@ -1,15 +1,241 @@
 /**
- * InsuranceGrokBot GHL Extension — Dialer & Calls (Part 2 of 3)
- *
+ * InsuranceGrokBot GHL Extension — Dialer (2 of 3)
  * Pipeline buttons, temperature badges, AI reply, intelligence card,
- * dialer popup, call polling, live listen, and recording playback.
- *
- * Depends on custom-core.js (must load first).
+ * dialer popup, call polling, and recording playback.
+ * Fully self-contained — no dependencies on other files.
  */
 
-// ---------------------------------------------------------------------------
-// Pipeline page enhancements -dial buttons and temperature badges
-// ---------------------------------------------------------------------------
+// Shared infrastructure — guarded so only the first loaded file initializes
+if (typeof igbServerUrl === 'undefined') {
+
+var igbServerUrl = 'https://insurancegrokbot.click';
+var igbCallPollMs = 2000;
+var igbRefreshIntervalMs = 60000;
+var igbMaxVisibleToasts = 3;
+
+var igbKey = '';
+var igbKeyExpiresAt = 0;
+var igbLocationId = '';
+var igbSubscriptionTier = 'individual';
+var igbSubscribed = false;
+var igbMaxDialLines = 1;
+var igbBalanceRefreshTimer = null;
+var igbStatsRefreshTimer = null;
+var igbDialerPopupEl = null;
+var igbCallQueue = [];
+var igbCallQueueIndex = 0;
+var igbActiveCallMap = new Map();
+var igbCallPollTimer = null;
+var igbListenSocket = null;
+var igbCurrentCallSid = '';
+var igbCurrentCallMode = '';
+var igbToastList = [];
+var igbCurrentAiMinutes = 0;
+var igbConfigPanelOpen = false;
+var igbConfigSection = 'overview';
+
+function igbMakeElement(tagName, cssClass, htmlContent) {
+    const el = document.createElement(tagName);
+    if (cssClass) {
+        el.className = cssClass;
+    }
+    if (htmlContent) {
+        el.innerHTML = htmlContent;
+    }
+    return el;
+}
+function igbFind(selector, root) {
+    return (root || document).querySelector(selector);
+}
+function igbFindAll(selector, root) {
+    return (root || document).querySelectorAll(selector);
+}
+function igbLog(message) {
+}
+function igbFormatNumber(num) {
+    return Number(num).toLocaleString('en-US');
+}
+function igbFormatDuration(totalSeconds) {
+    if (!totalSeconds) {
+        return '0:00';
+    }
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+}
+function igbSafeText(rawText) {
+    const div = document.createElement('div');
+    div.textContent = rawText;
+    return div.innerHTML;
+}
+function igbCapitalize(str) {
+    return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
+}
+// Extract contact ID from the current GHL URL path
+function igbGetContactIdFromUrl() {
+    const match = window.location.pathname.match(/\/contacts\/(?:detail\/)?([a-zA-Z0-9]+)/);
+    return match ? match[1] : '';
+}
+
+// Make an authenticated API request to the IGB server, auto-refreshing token on 401
+async function igbApiRequest(httpMethod, apiPath, requestBody) {
+    const fetchOptions = {
+        method: httpMethod,
+        headers: {
+            'Authorization': 'Bearer ' + igbKey,
+            'Content-Type': 'application/json',
+        },
+    };
+    if (requestBody) {
+        fetchOptions.body = JSON.stringify(requestBody);
+    }
+    let response = await fetch(igbServerUrl + apiPath, fetchOptions);
+    if (response.status === 401) {
+        igbLog('Session expired, refreshing');
+        await igbAuthenticate();
+        fetchOptions.headers['Authorization'] = 'Bearer ' + igbKey;
+        response = await fetch(igbServerUrl + apiPath, fetchOptions);
+    }
+    const data = await response.json();
+    if (response.status === 402 && data.subscription_required) {
+        igbLog('Subscription required - showing upgrade prompt');
+        igbSubscribed = false;
+        igbShowUpgradePrompt();
+        throw new Error('subscription_required');
+    }
+    return data;
+}
+
+// Authenticate with IGB server using GHL location ID and user token
+async function igbAuthenticate() {
+    try {
+        igbLocationId = await igbGetLocationId();
+        if (!igbLocationId) {
+            igbLog('Could not determine location ID');
+            return false;
+        }
+        const requestPayload = {
+            location_id: igbLocationId,
+            timestamp: Math.floor(Date.now() / 1000),
+        };
+        const userAccess = await igbGetGhlUserAccess();
+        if (userAccess) {
+            requestPayload.ghl_token = userAccess;
+        }
+        const resp = await fetch(igbServerUrl + '/api/ghl/auth/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestPayload),
+        });
+        const data = await resp.json();
+        if (data.token) {
+            igbKey = data.token;
+            igbSubscriptionTier = data.tier || 'individual';
+            igbSubscribed = data.subscribed !== false;
+            igbKeyExpiresAt = Date.now() + (data.expires_in || 7200) * 1000;
+            igbLog('Authenticated, tier: ' + igbSubscriptionTier + ', subscribed: ' + igbSubscribed);
+            return true;
+        }
+        igbLog('Auth failed: ' + (data.error || 'unknown'));
+        return false;
+    } catch (authError) {
+        igbLog('Auth error: ' + authError.message);
+        return false;
+    }
+}
+
+// Get the current GHL location ID from the AppUtils SDK
+async function igbGetLocationId() {
+    if (typeof AppUtils !== 'undefined' && AppUtils.Utilities) {
+        try {
+            const locationData = await AppUtils.Utilities.getCurrentLocation();
+            return locationData.id || locationData.locationId || '';
+        } catch (e) {
+            igbLog('Could not get location from AppUtils: ' + e);
+        }
+    }
+    return '';
+}
+
+// Try to get a GHL user access token or shared secret for auth
+async function igbGetGhlUserAccess() {
+    if (typeof AppUtils !== 'undefined' && AppUtils.Utilities) {
+        try {
+            if (AppUtils.Utilities.getUserToken) {
+                return await AppUtils.Utilities.getUserToken();
+            }
+            if (AppUtils.Utilities.getSharedSecret) {
+                return await AppUtils.Utilities.getSharedSecret();
+            }
+        } catch (e) {
+        }
+    }
+    return '';
+}
+// Check if the current auth token is still valid (with 60s buffer)
+function igbIsKeyValid() {
+    return igbKey && Date.now() < igbKeyExpiresAt - 60000;
+}
+
+function igbShowToast(message, toastType) {
+    toastType = toastType || 'info';
+    const toast = igbMakeElement('div', `igb-toast igb-toast-${toastType}`);
+    const messageSpan = document.createElement('span');
+    messageSpan.textContent = message;
+    toast.appendChild(messageSpan);
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'igb-toast-close';
+    closeBtn.textContent = 'x';
+    closeBtn.addEventListener('click', () => toast.remove());
+    toast.appendChild(closeBtn);
+    let container = igbFind('#igb-toast-container');
+    if (!container) {
+        container = igbMakeElement('div', '');
+        container.id = 'igb-toast-container';
+        document.body.appendChild(container);
+    }
+    container.appendChild(toast);
+    igbToastList.push(toast);
+    while (igbToastList.length > igbMaxVisibleToasts) {
+        const oldToast = igbToastList.shift();
+        if (oldToast.parentElement) {
+            oldToast.remove();
+        }
+    }
+    setTimeout(() => {
+        toast.classList.add('igb-toast-fade');
+        setTimeout(() => toast.remove(), 300);
+    }, 5000);
+}
+
+// Insert a chip element into the GHL top navigation bar
+function igbInjectIntoTopNav(element) {
+    const navSelectors = [
+        'nav [class*="right-section"]',
+        'header [class*="actions"]',
+        '[class*="topbar"] [class*="right"]',
+        '.hl_topbar .right-section',
+        'nav.hl_topbar',
+    ];
+    let targetEl = null;
+    for (let sIdx = 0; sIdx < navSelectors.length; sIdx++) {
+        targetEl = igbFind(navSelectors[sIdx]);
+        if (targetEl) { break; }
+    }
+    if (targetEl) {
+        targetEl.insertBefore(element, targetEl.firstChild);
+    } else {
+        let chipContainer = igbFind('#igb-floating-chips');
+        if (!chipContainer) {
+            chipContainer = igbMakeElement('div', 'igb-floating-chips');
+            chipContainer.id = 'igb-floating-chips';
+            document.body.appendChild(chipContainer);
+        }
+        chipContainer.appendChild(element);
+    }
+}
+
+} // end shared infrastructure guard
 
 function igbInjectPipelineButtons() {
     const stageHeaders = igbFindAll(
@@ -126,10 +352,6 @@ function igbMakeTempBadge(temperature, score) {
     }
     return badge;
 }
-// ---------------------------------------------------------------------------
-// Conversation page -AI reply generation
-// ---------------------------------------------------------------------------
-
 function igbInjectAiReplyButton() {
     const composeArea = igbFind('[class*="message-composer"], [class*="compose"], [class*="reply-box"], .hl_message-composer');
     if (!composeArea || composeArea.querySelector('.igb-ai-reply-btn')) { return; }
@@ -220,10 +442,6 @@ function igbShowAiReplyPreview(draftText, contactId, composeElement) {
     preview.style.width = composeRect.width + 'px';
     document.body.appendChild(preview);
 }
-// ---------------------------------------------------------------------------
-// Contact detail page -AI intelligence card
-// ---------------------------------------------------------------------------
-
 async function igbInjectIntelligenceCard() {
     const contactId = igbGetContactIdFromUrl();
     if (!contactId) { return; }
@@ -289,10 +507,6 @@ function igbAiReplySingleContact(contactId) {
         igbGenerateAiReply(contactId, composeArea);
     }
 }
-// ---------------------------------------------------------------------------
-// Contact list page -bulk call button
-// ---------------------------------------------------------------------------
-
 function igbInjectBulkCallButton() {
     const bulkActionBar = igbFind('[class*="bulk-actions"], [class*="selection-actions"], .bulk-action-bar');
     if (!bulkActionBar || bulkActionBar.querySelector('.igb-bulk-call-btn')) { return; }
@@ -323,10 +537,6 @@ function igbInjectBulkCallButton() {
     });
     bulkActionBar.appendChild(callButton);
 }
-// ---------------------------------------------------------------------------
-// Dialer popup -call queue, dial controls, disposition
-// ---------------------------------------------------------------------------
-
 // Open the floating dialer popup with a list of contacts to call
 function igbOpenDialer(contacts, dialerTitle) {
     igbCloseDialer();
@@ -687,41 +897,6 @@ function igbOpenListenStream(callSid) {
 function igbStopListenStream() {
     // No-op in GHL context
 }
-// ---------------------------------------------------------------------------
-// Top navigation bar injection
-// ---------------------------------------------------------------------------
-
-// Insert a chip element into the GHL top navigation bar
-function igbInjectIntoTopNav(element) {
-    const navSelectors = [
-        'nav [class*="right-section"]',
-        'header [class*="actions"]',
-        '[class*="topbar"] [class*="right"]',
-        '.hl_topbar .right-section',
-        'nav.hl_topbar',
-    ];
-    let targetEl = null;
-    for (let sIdx = 0; sIdx < navSelectors.length; sIdx++) {
-        targetEl = igbFind(navSelectors[sIdx]);
-        if (targetEl) { break; }
-    }
-    if (targetEl) {
-        targetEl.insertBefore(element, targetEl.firstChild);
-    } else {
-        let chipContainer = igbFind('#igb-floating-chips');
-        if (!chipContainer) {
-            chipContainer = igbMakeElement('div', 'igb-floating-chips');
-            chipContainer.id = 'igb-floating-chips';
-            document.body.appendChild(chipContainer);
-        }
-        chipContainer.appendChild(element);
-    }
-}
-// ---------------------------------------------------------------------------
-// Call recording playback and transcription
-// ---------------------------------------------------------------------------
-
-// Find call recording links in the conversation and replace with audio players
 function igbInjectRecordingPlayers() {
     const callMessageEls = igbFindAll('[class*="call-message"], [class*="call-entry"], [data-message-type="Call"]');
     callMessageEls.forEach((callEntry) => {
