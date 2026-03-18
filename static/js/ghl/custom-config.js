@@ -549,7 +549,10 @@ async function igbSecSpam(c) {
     c.innerHTML = '';
     const title = igbMakeElement('div', 'igb-cfg-section-title', 'Spam Protection');
     c.appendChild(title);
-    c.appendChild(igbMakeElement('div', 'igb-cfg-desc', 'One-click spam protection registers your business with carrier spam databases (AT&T/Hiya, T-Mobile, Verizon) and sets up CNAM caller ID. This improves call answer rates and prevents "Spam Likely" labels.'));
+    c.appendChild(igbMakeElement('div', 'igb-cfg-desc',
+        'One-click spam protection registers your business with carrier spam databases '
+        + '(AT&T/Hiya, T-Mobile, Verizon) and sets up CNAM caller ID. '
+        + 'This improves call answer rates and prevents "Spam Likely" labels.'));
     if (data.protection_active) {
         c.innerHTML += igbBadge('Protected', true);
         const info = igbMakeElement('div', 'igb-cfg-info-grid');
@@ -567,7 +570,10 @@ async function igbSecIntegrity(c) {
     c.innerHTML = '';
     const title = igbMakeElement('div', 'igb-cfg-section-title', 'Number Integrity');
     c.appendChild(title);
-    c.appendChild(igbMakeElement('div', 'igb-cfg-desc', 'Voice Integrity registers your numbers with carrier spam analytics engines to remediate spam labels and improve answer rates. Separate from A2P (which is for SMS).'));
+    c.appendChild(igbMakeElement('div', 'igb-cfg-desc',
+        'Voice Integrity registers your numbers with carrier spam analytics engines '
+        + 'to remediate spam labels and improve answer rates. '
+        + 'Separate from A2P (which is for SMS).'));
     if (data.registered) {
         c.innerHTML += igbBadge(data.status || 'Registered', true);
         const info = igbMakeElement('div', 'igb-cfg-info-grid');
@@ -617,7 +623,10 @@ async function igbSecA2p(c) {
     c.innerHTML = '';
     const title = igbMakeElement('div', 'igb-cfg-section-title', 'A2P 10DLC (SMS Compliance)');
     c.appendChild(title);
-    c.appendChild(igbMakeElement('div', 'igb-cfg-desc', 'A2P 10DLC registers your brand and use case with mobile carriers for business SMS. This is optional -your SMS bot uses GHL by default. Register if you want to send SMS directly through your own Twilio numbers.'));
+    c.appendChild(igbMakeElement('div', 'igb-cfg-desc',
+        'A2P 10DLC registers your brand and use case with mobile carriers for business SMS. '
+        + 'This is optional -your SMS bot uses GHL by default. '
+        + 'Register if you want to send SMS directly through your own Twilio numbers.'));
     if (data.registered) {
         c.innerHTML += igbBadge('Registered', true);
         const info = igbMakeElement('div', 'igb-cfg-info-grid');
@@ -648,8 +657,16 @@ async function igbSecVoice(c) {
     form.innerHTML += '<label class="igb-cfg-label">Transfer Number</label>'
         + '<input class="igb-cfg-input" id="igb-vc-transfer" type="text" value="' + igbSafeText(vc.transfer_number || '') + '" placeholder="+15551234567" maxlength="20">';
     form.innerHTML += '<div class="igb-cfg-row">'
-        + '<div class="igb-cfg-col"><label class="igb-cfg-label">Calling Hours Start</label><input class="igb-cfg-input" id="igb-vc-hrs-start" type="time" value="' + (vc.calling_hours_start || '08:00') + '"></div>'
-        + '<div class="igb-cfg-col"><label class="igb-cfg-label">Calling Hours End</label><input class="igb-cfg-input" id="igb-vc-hrs-end" type="time" value="' + (vc.calling_hours_end || '21:00') + '"></div>'
+        + '<div class="igb-cfg-col">'
+        + '<label class="igb-cfg-label">Calling Hours Start</label>'
+        + '<input class="igb-cfg-input" id="igb-vc-hrs-start" type="time" value="'
+        + (vc.calling_hours_start || '08:00') + '">'
+        + '</div>'
+        + '<div class="igb-cfg-col">'
+        + '<label class="igb-cfg-label">Calling Hours End</label>'
+        + '<input class="igb-cfg-input" id="igb-vc-hrs-end" type="time" value="'
+        + (vc.calling_hours_end || '21:00') + '">'
+        + '</div>'
         + '</div>';
     form.innerHTML += '<label class="igb-cfg-label">On Voicemail Action</label>'
         + '<select class="igb-cfg-input igb-cfg-select" id="igb-vc-machine">'
@@ -658,12 +675,28 @@ async function igbSecVoice(c) {
         + '<option value="continue"' + (vc.on_machine_action === 'continue' ? ' selected' : '') + '>Continue (AI talks to machine)</option>'
         + '</select>';
     form.innerHTML += '<div class="igb-cfg-row">'
-        + '<div class="igb-cfg-col"><label class="igb-cfg-label">Max Call Duration (sec)</label><input class="igb-cfg-input" id="igb-vc-maxdur" type="number" min="30" max="3600" value="' + (vc.max_call_duration || 300) + '"></div>'
-        + '<div class="igb-cfg-col"><label class="igb-cfg-label">Wrap-Up Time (sec)</label><input class="igb-cfg-input" id="igb-vc-wrapup" type="number" min="0" max="120" value="' + (vc.wrap_up_time || 15) + '"></div>'
+        + '<div class="igb-cfg-col">'
+        + '<label class="igb-cfg-label">Max Call Duration (sec)</label>'
+        + '<input class="igb-cfg-input" id="igb-vc-maxdur" type="number" min="30" max="3600" value="'
+        + (vc.max_call_duration || 300) + '">'
+        + '</div>'
+        + '<div class="igb-cfg-col">'
+        + '<label class="igb-cfg-label">Wrap-Up Time (sec)</label>'
+        + '<input class="igb-cfg-input" id="igb-vc-wrapup" type="number" min="0" max="120" value="'
+        + (vc.wrap_up_time || 15) + '">'
+        + '</div>'
         + '</div>';
     form.innerHTML += '<div class="igb-cfg-row">'
-        + '<div class="igb-cfg-col"><label class="igb-cfg-label">Same # Cooldown (hrs)</label><input class="igb-cfg-input" id="igb-vc-cooldown" type="number" min="0" max="72" value="' + (vc.same_number_cooldown_hours || 4) + '"></div>'
-        + '<div class="igb-cfg-col"><label class="igb-cfg-label">Daily Max Per Contact</label><input class="igb-cfg-input" id="igb-vc-dailymax" type="number" min="0" max="10" value="' + (vc.same_contact_daily_max || 3) + '"></div>'
+        + '<div class="igb-cfg-col">'
+        + '<label class="igb-cfg-label">Same # Cooldown (hrs)</label>'
+        + '<input class="igb-cfg-input" id="igb-vc-cooldown" type="number" min="0" max="72" value="'
+        + (vc.same_number_cooldown_hours || 4) + '">'
+        + '</div>'
+        + '<div class="igb-cfg-col">'
+        + '<label class="igb-cfg-label">Daily Max Per Contact</label>'
+        + '<input class="igb-cfg-input" id="igb-vc-dailymax" type="number" min="0" max="10" value="'
+        + (vc.same_contact_daily_max || 3) + '">'
+        + '</div>'
         + '</div>';
     form.innerHTML += '<button class="igb-cfg-btn-action igb-cfg-btn-save" id="igb-vc-save"><i class="fa-solid fa-floppy-disk"></i> Save Voice Config</button>';
     c.appendChild(form);
@@ -706,7 +739,10 @@ async function igbSecSms(c) {
         + '<option value="ghl"' + (data.sms_send_via === 'ghl' || !data.sms_send_via ? ' selected' : '') + '>GHL (GoHighLevel) -Default</option>'
         + '<option value="twilio"' + (data.sms_send_via && data.sms_send_via.startsWith('+') ? ' selected' : '') + '>Twilio (Direct) -Requires A2P</option>'
         + '</select>';
-    c.appendChild(igbMakeElement('div', 'igb-cfg-desc', 'Your SMS bot sends through GHL by default -no extra setup needed. Switch to Twilio only if you need direct number control with A2P 10DLC registration.'));
+    c.appendChild(igbMakeElement('div', 'igb-cfg-desc',
+        'Your SMS bot sends through GHL by default -no extra setup needed. '
+        + 'Switch to Twilio only if you need direct number control '
+        + 'with A2P 10DLC registration.'));
     form.innerHTML += '<label class="igb-cfg-label">Initial Greeting Message</label>'
         + '<textarea class="igb-cfg-input igb-cfg-textarea" id="igb-sc-init" rows="2" maxlength="500">' + igbSafeText(data.initial_message || '') + '</textarea>';
     form.innerHTML += '<label class="igb-cfg-label">Personal Website (optional)</label>'
