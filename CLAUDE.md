@@ -621,9 +621,68 @@ When a GHL webhook arrives at `POST /webhook`:
 - AI Minutes: each LLM call deducts from the user's minute balance
 - Carrier awareness: bot knows only the carriers the agent has contracted
 
+### SMS Bot Conversation Intelligence
+
+The SMS bot uses a multi-layered AI pipeline to maintain human-like conversations. Key systems:
+
+**Conversation Stages (`conversation_engine.py`)**:
+- 7 stages: `INITIAL_OUTREACH` → `RAPPORT` → `QUALIFYING` → `OBJECTION_HANDLING` → `BOOKING` → `BOOKED` → `FOLLOW_UP`
+- `RAPPORT` stage (max 2 consecutive turns) — trust-building between qualifying turns. Detects when lead sends messages with zero qualifying substance (no coverage, goals, objections). Turn 1: match energy, find common ground. Turn 2: bridge naturally to qualifying. Turn 3+: force back to QUALIFYING
+- Stage detection uses `_count_consecutive_rapport_turns()` with word-boundary-safe regex matching to prevent false positives (e.g., "needlessly" won't match "need")
+- Qualifying signals split into `_QUALIFYING_PHRASES` (substring) and `_QUALIFYING_WORDS` (word-boundary regex)
+
+**Conversational Coherence (`prompt.py`)**:
+- "RESPOND TO WHAT THEY ACTUALLY SAID" rule — LLM must read message in context of its previous message
+- Prevents forcing insurance pivots when lead is discussing unrelated topics
+- If they say "you text too much", acknowledge THAT — do not ignore and ask about insurance
+- `CONVERSATIONAL_THREAD` section added to narrative output tracks what lead is currently talking about
+
+**Conversation Context Depth**:
+- LLM receives last 20 messages (up from 8) in multi-turn `user`/`assistant` format
+- Narrative observer processes last 30 messages (up from 14) for intelligence gathering
+- Multi-turn message format enables proper conversation threading vs. flat text
+
+### Objection Detection & Handling (Closer's Mindset)
+
+**Philosophy: Nothing slips through.** ONLY non-objections: answering questions, asking questions, expressing interest, agreeing, providing info. EVERYTHING else is an objection and an opportunity. Better to classify a neutral message as objection than to miss a real one.
+
+**Six Objection Types with 290+ keyword phrases across all types:**
+
+| Type | Example Phrases | Count |
+|------|----------------|-------|
+| `NOT_INTERESTED` | "no thanks", "hard pass", "leave me alone", "whatever", "kick rocks" | ~60 |
+| `SPOUSE_PARTNER` | "ask my wife", "check with my partner", "my accountant", "need approval" | ~50 |
+| `PRICE_MONEY` | "too expensive", "fixed income", "waste of money", "anything cheaper" | ~40 |
+| `ALREADY_COVERED` | "have insurance", "employer covers", "already have an agent", "just renewed" | ~40 |
+| `THINK_ABOUT_IT` | "sleep on it", "not ready", "bigger fish to fry", "rain check" | ~50 |
+| `BUSY_TIMING` | "in a meeting", "swamped", "driving", "hit me up later" | ~50 |
+
+Plus catch-all regex for short dismissive messages: `^no+$`, `^nah+$`, "lol no", "why would i", etc.
+
+**Two-Phase Objection Framework ("Logistical First. Fear Second.")**:
+- **Phase 1 (default)**: Solve the practical side. Ask logistical questions. Never immediately re-pitch.
+- **Phase 2 (triggers at 2+ same objection)**: Address the fear underneath. Make inaction feel concrete.
+- Per-objection-type keyword matching with `_OBJECTION_LOG_KEYWORDS` dict (6-8 synonyms per type) for robust phase detection
+
+**Objection Phase Detection** (`sales_director.py`):
+- Walks objection log entries and matches against keyword lists per type
+- Handles LLM narrative variations (e.g., "too expensive" matches PRICE_MONEY even if log says "cost")
+
+### TCPA Compliance (Stop Word Handling)
+
+**Stripped to legal minimum — sales objections are NOT opt-outs:**
+
+| Category | Words | Action |
+|----------|-------|--------|
+| `TCPA_STOP_EXACT` | "stop", "unsubscribe", "cancel" (bare, ≤3 words) | Silently stop messaging |
+| `TCPA_STOP_PHRASES` | "remove me", "opt out", "do not call/text/contact/message" | Silently stop messaging |
+| `TCPA_EXCEPTIONS` | "stop texting", "stop calling", "stop messaging" | NOT TCPA — treated as NOT_INTERESTED objection |
+
+**Removed from TCPA**: "not interested", "leave me alone", "lose my number", "delete my number", "blocked", "quit", "end". All now classified as sales objections routed to objection handling.
+
 ### Human Identity Protocol (CRITICAL — applies to SMS and Voice)
 
-The bot must **never** reveal that it is a bot, AI, virtual assistant, or automated system. The lead must always believe they are texting or speaking with a real human insurance advisor. This is enforced at three layers:
+The bot must **never** reveal that it is a bot, AI, virtual assistant, or automated system. The lead must always believe they are texting or speaking with a real human insurance advisor. Enforced at three layers:
 
 **Layer 1 — System Prompt (`prompt.py`)**:
 - "YOU ARE A REAL PERSON" section with explicit forbidden words/phrases
@@ -640,7 +699,8 @@ The bot must **never** reveal that it is a bot, AI, virtual assistant, or automa
 **Layer 3 — Reply Sanitizer (`reply_sanitizer.py`, last line of defense)**:
 - 16+ contamination markers block bot/AI identity reveals even if LLM generates them
 - Blocked phrases: "i'm an ai", "i am a bot", "virtual assistant", "automated message", "technical issue", "system error", "calendar is unavailable", "artificial intelligence", "language model"
-- If any contamination marker is detected in the LLM output, the message is blocked before sending
+- Unicode emoji stripping — strips all emojis from LLM output, blocks emoji-only replies
+- If any contamination marker is detected, the message is blocked before sending
 
 **Voice Tools (`voice/voice_tools.py`)**:
 - Calendar check failed: "You don't have your schedule pulled up right now" (not "Calendar is temporarily unavailable")
@@ -652,6 +712,33 @@ The bot must **never** reveal that it is a bot, AI, virtual assistant, or automa
 - After booking: "Got you down for [time]. Do you see the invite?" — GHL automatically sends the calendar invite via email
 - Never say: "I'll send you a confirmation" or "a calendar invite is coming" — it's already sent
 - Never say: "let me send you the confirmation" — we don't have email capabilities; GHL handles it
+
+### Booking Detection Precision (`conversation_engine.py`)
+
+- Booking keywords refined to prevent false positives — generic "works for me" replaced with specific "that time works", "those times work"
+- "I'm ready" replaced with "I'm ready to get started" (prevents matching casual affirmation)
+
+### Articulated Impact Detection (`conversation_engine.py`)
+
+40+ keywords detecting when a lead expresses emotional weight about coverage:
+- Emotional weight: "keep me up", "can't sleep", "burden", "devastating", "terrif", "afraid"
+- Consequences: "what happens to", "who takes care", "wife would", "they'd be"
+- Personal resolve: "gotta make sure", "need to protect", "can't leave them", "owe it to"
+- Gap awareness: "not enough", "won't cover", "no safety net"
+
+### Lead Intelligence Scoring Updates (`lead_intelligence.py`)
+
+- "Not interested" no longer forces cold/score 5 — now scored as cool/15-30 (objection, not dead)
+- TCPA opt-out words still = cold/score 5
+- `should_respond=true` for sales objections (bot should keep trying)
+- Dialer Smart Filters updated: "not interested" contacts stay in Cool group, not Do Not Contact
+
+### SMS Bot Subscription Tier
+
+- **SMS Bot**: $99.98/mo — AI texting only, no dialer/voice features. `subscription_tier = 'sms_bot'`
+- Gated from 85+ voice routes via `before_request` hook on `voice_bp`
+- Forces `sms_send_via='ghl'` (no Twilio direct sending)
+- Dashboard hides Dialer, Voice Config, AI Minutes tabs for sms_bot users
 
 ---
 
