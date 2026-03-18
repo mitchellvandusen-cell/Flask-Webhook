@@ -1174,6 +1174,26 @@ def multi_dial():
     if dial_mode == 'ai' and not voice_config.get('enabled'):
         return jsonify({"error": "Voice AI is not enabled"}), 400
 
+    # ── AI Minutes warning for solo_predictive (overflow uses AI minutes) ──
+    minutes_warning = None
+    if tier == 'solo_predictive' and dial_mode == 'human':
+        try:
+            from db import get_ai_minute_balance
+            bal = get_ai_minute_balance(current_user.email)
+            balance = bal.get('balance_minutes', 0)
+            purchased = bal.get('total_purchased', 0)
+            if purchased > 0:
+                if balance <= 0:
+                    minutes_warning = "empty"
+                    # Force single-line: no overflow possible without AI minutes
+                    max_lines = 1
+                elif balance <= 20:
+                    minutes_warning = "critical"
+                elif balance <= 100:
+                    minutes_warning = "low"
+        except Exception as e:
+            logger.warning(f"AI minutes check for overflow warning failed: {e}")
+
     sub_sid = voice_config.get('twilio_sub_account_sid', '')
     from_number = voice_config.get('twilio_phone_number', '')
 
@@ -1365,11 +1385,14 @@ def multi_dial():
             logger.error(f"Multi-dial failed for {c_phone}: {e}")
             results.append({"contact_id": c_id, "call_sid": None, "status": "error", "error": str(e)})
 
-    return jsonify({
+    resp = {
         "results": results,
         "active_lines": active_for_location + sum(1 for r in results if r["status"] == "initiated"),
-        "max_lines": max_lines
-    })
+        "max_lines": max_lines,
+    }
+    if minutes_warning:
+        resp["minutes_warning"] = minutes_warning
+    return jsonify(resp)
 
 
 @dialer_bp.route('/voice/active-lines', methods=['GET'])
@@ -1535,6 +1558,11 @@ def predictive_stats():
     """
     Return predictive dialing statistics using Erlang-C pacing algorithm.
     Includes TCPA compliance status and recommended dial ratio.
+
+    Optional query params for live session pacing:
+        session_calls_total: int — calls dialed this session
+        session_calls_connected: int — calls connected this session
+        session_avg_handle_time: float — avg duration of connected calls this session (seconds)
     """
     conn = get_db_connection()
     if not conn:
@@ -1585,16 +1613,36 @@ def predictive_stats():
             current_abandon = tcpa_tracker.get_abandon_rate(location_id)
             max_lines = int(voice_config.get('max_lines_setting', 4))
 
-            erlang_result = calculate_solo_predictive_ratio(
-                avg_handle_time_sec=avg_duration or 180,
-                avg_ring_time_sec=15,
-                answer_rate_pct=connect_rate or 25,
-                current_abandon_rate_pct=current_abandon,
-                target_abandon_rate_pct=float(voice_config.get('max_abandon_rate_pct', 3.0)),
-                wrap_up_time_sec=wrap_up_time,
-                max_ratio=float(max_lines),
-                ai_overflow_capacity=max_lines - 1,  # All non-human lines are AI overflow
-            )
+            # Check for live session data (sent by frontend during active dialing)
+            session_total = request.args.get('session_calls_total', 0, type=int)
+            session_connected = request.args.get('session_calls_connected', 0, type=int)
+            session_aht = request.args.get('session_avg_handle_time', 0.0, type=float)
+
+            if session_total > 0:
+                # Use live pacing: blend historical + session data
+                from voice.predictive_engine import calculate_live_pacing
+                erlang_result = calculate_live_pacing(
+                    historical_connect_rate=connect_rate or 25,
+                    historical_avg_handle_time=avg_duration or 180,
+                    session_calls_total=session_total,
+                    session_calls_connected=session_connected,
+                    session_avg_handle_time=session_aht or avg_duration or 180,
+                    wrap_up_time_sec=wrap_up_time,
+                    max_lines=max_lines,
+                    current_abandon_rate=current_abandon,
+                )
+            else:
+                # Historical-only pacing (first batch or stats before session starts)
+                erlang_result = calculate_solo_predictive_ratio(
+                    avg_handle_time_sec=avg_duration or 180,
+                    avg_ring_time_sec=15,
+                    answer_rate_pct=connect_rate or 25,
+                    current_abandon_rate_pct=current_abandon,
+                    target_abandon_rate_pct=float(voice_config.get('max_abandon_rate_pct', 3.0)),
+                    wrap_up_time_sec=wrap_up_time,
+                    max_ratio=float(max_lines),
+                    ai_overflow_capacity=max_lines - 1,
+                )
 
             # Count active overflow calls right now
             overflow_active = sum(
@@ -1603,7 +1651,7 @@ def predictive_stats():
                 and info.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')
             )
 
-            return jsonify({
+            resp = {
                 "total_calls_7d": total,
                 "connected_calls_7d": connected,
                 "failed_calls_7d": failed,
@@ -1622,7 +1670,15 @@ def predictive_stats():
                 "human_agents": 1,
                 "ai_overflow_capacity": max_lines - 1,
                 "effective_agents": erlang_result["inputs"]["effective_agents"],
-            })
+            }
+            # Include live pacing metadata when session data is provided
+            if erlang_result.get("live_pacing"):
+                resp["live_pacing"] = True
+                resp["session_weight"] = erlang_result["session_weight"]
+                resp["blended_connect_rate"] = erlang_result["blended_connect_rate"]
+                resp["confidence"] = erlang_result["confidence"]
+                resp["session_connect_rate"] = erlang_result["session_connect_rate"]
+            return jsonify(resp)
 
         else:
             # Simple formula for pro_dialer tier
@@ -1943,3 +1999,146 @@ def agency_predictive_agent_states():
     from voice.predictive_engine import get_agency_all_agent_states
     states = get_agency_all_agent_states(company_id)
     return jsonify({"agents": states, "total": len(states)})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AI MINUTES CHECK (for Solo Predictive overflow warning)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dialer_bp.route('/voice/ai-minutes-check', methods=['GET'])
+@login_required
+def ai_minutes_check():
+    """Check AI minutes balance and return warning level for overflow calls.
+
+    Returns warning_level: ok, low, critical, or empty — plus estimated
+    overflow calls remaining based on average overflow call duration.
+    """
+    try:
+        from db import get_ai_minute_balance
+        bal = get_ai_minute_balance(current_user.email)
+        balance = bal.get('balance_minutes', 0)
+        purchased = bal.get('total_purchased', 0)
+
+        if purchased == 0:
+            return jsonify({
+                "balance_minutes": balance,
+                "warning_level": "ok",
+                "estimated_calls_remaining": None,
+                "has_purchased": False,
+            })
+
+        # Estimate remaining overflow calls based on average AI call duration
+        # Default: assume ~3 minutes per overflow call (AI qualifies + books)
+        avg_overflow_duration = 3.0
+        estimated_remaining = max(0, int(balance / avg_overflow_duration)) if balance > 0 else 0
+
+        if balance <= 0:
+            warning = "empty"
+        elif balance <= 20:
+            warning = "critical"
+        elif balance <= 100:
+            warning = "low"
+        else:
+            warning = "ok"
+
+        return jsonify({
+            "balance_minutes": balance,
+            "warning_level": warning,
+            "estimated_calls_remaining": estimated_remaining,
+            "has_purchased": True,
+        })
+    except Exception as e:
+        logger.error(f"AI minutes check failed: {e}")
+        return jsonify({"balance_minutes": 0, "warning_level": "ok", "estimated_calls_remaining": None}), 200
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# OVERFLOW TRANSFER ALERTS (for Solo Predictive hot lead notifications)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dialer_bp.route('/voice/overflow-alerts', methods=['GET'])
+@login_required
+def get_overflow_alerts():
+    """Get pending overflow transfer alerts for the current location.
+
+    When an AI overflow call has a hot lead who wants to transfer to the agent,
+    but the agent is ON_CALL, the alert is logged here. The frontend polls this
+    endpoint to show a notification popup giving the agent the option to accept
+    the transfer or let AI book the appointment.
+    """
+    from voice.call_state import overflow_transfer_alerts
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"alerts": []})
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return jsonify({"alerts": []})
+        location_id = row['location_id']
+    finally:
+        return_db_connection(conn)
+
+    alerts = overflow_transfer_alerts.get(location_id, [])
+    # Return only pending alerts, auto-expire alerts older than 30 seconds
+    now = time.time()
+    pending = []
+    for alert in alerts:
+        if alert.get('status') != 'pending':
+            continue
+        age = now - alert.get('timestamp', 0)
+        if age > 30:
+            alert['status'] = 'expired'
+            continue
+        pending.append({
+            "call_sid": alert.get('call_sid', ''),
+            "contact_id": alert.get('contact_id', ''),
+            "contact_name": alert.get('contact_name', ''),
+            "phone": alert.get('phone', ''),
+            "reason": alert.get('reason', ''),
+            "age_seconds": round(age, 1),
+        })
+
+    # Prune expired/dismissed alerts
+    overflow_transfer_alerts[location_id] = [
+        a for a in alerts if a.get('status') == 'pending'
+    ]
+
+    return jsonify({"alerts": pending})
+
+
+@dialer_bp.route('/voice/overflow-alerts/dismiss', methods=['POST'])
+@login_required
+def dismiss_overflow_alert():
+    """Dismiss an overflow transfer alert (agent chose 'Let AI Book')."""
+    from voice.call_state import overflow_transfer_alerts
+
+    data = request.json or {}
+    call_sid = data.get('call_sid', '')
+    if not call_sid:
+        return jsonify({"error": "call_sid required"}), 400
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"ok": True})
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return jsonify({"ok": True})
+        location_id = row['location_id']
+    finally:
+        return_db_connection(conn)
+
+    alerts = overflow_transfer_alerts.get(location_id, [])
+    for alert in alerts:
+        if alert.get('call_sid') == call_sid:
+            alert['status'] = 'dismissed'
+            break
+
+    return jsonify({"ok": True})

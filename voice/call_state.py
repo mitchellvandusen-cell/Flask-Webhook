@@ -36,6 +36,11 @@ call_listeners: dict = {}  # { call_sid: set(queue.Queue, ...) }
 # Populated on first contact detail fetch per location; GHL field definitions rarely change.
 custom_field_defs: dict = {}
 
+# Overflow transfer alerts: when AI overflow call has a hot lead wanting to transfer
+# but the agent is ON_CALL, we log the alert here for the frontend to poll and display.
+# { location_id: [ {call_sid, contact_id, contact_name, phone, reason, timestamp, status} ] }
+overflow_transfer_alerts: dict = {}
+
 # ── Concurrent voice stream limit (backpressure for gunicorn's 40 threads) ──
 # Reserve ~10 threads for HTTP traffic; allow max 30 concurrent voice streams.
 MAX_VOICE_STREAMS = int(os.getenv("MAX_VOICE_STREAMS", "30"))

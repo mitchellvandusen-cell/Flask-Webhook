@@ -63,6 +63,18 @@
         let _multiLinePollErrors = 0; // Error counter for poll backoff
         let _multiLineDispToastShown = false; // Debounce disposition toast
 
+        // ── Solo Predictive Auto-Pacing State ──
+        let _sessionCallsTotal = 0;         // Calls dialed this session
+        let _sessionCallsConnected = 0;     // Calls connected this session
+        let _sessionTotalTalkTime = 0;      // Total talk seconds this session
+        let _predictiveRecommendedLines = 2; // Live Erlang-C recommendation
+        let _predictivePollCount = 0;        // Counter for periodic re-fetch
+        let _isSoloPredictive = (window.DASHBOARD_BOOT?.subscriptionTier === 'solo_predictive');
+        let _aiMinutesWarning = null;        // Current warning level: ok, low, critical, empty
+        let _aiMinutesBannerShown = false;   // Prevent duplicate banners
+        let _overflowAlertPollTimer = null;  // Timer for polling overflow transfer alerts
+        let _overflowAlertShown = {};        // Track shown alerts by call_sid to prevent duplicates
+
         // ── iPhone 15 Pro UI bridge ──
         let _iosCurrentApp = null;
 
@@ -6978,6 +6990,46 @@
             _multiLineQueueIdx = 0;
             dialerUpdateBtn();
 
+            // Reset session tracking for auto-pacing
+            _sessionCallsTotal = 0;
+            _sessionCallsConnected = 0;
+            _sessionTotalTalkTime = 0;
+            _predictivePollCount = 0;
+            _aiMinutesBannerShown = false;
+            _overflowAlertShown = {};
+
+            // For solo_predictive: fetch Erlang-C recommendation before first batch
+            if (_isSoloPredictive) {
+                try {
+                    const statsR = await fetch('/voice/predictive-stats');
+                    if (statsR.ok) {
+                        const stats = await statsR.json();
+                        _predictiveRecommendedLines = stats.recommended_lines || 2;
+                        _multiLineMaxLines = Math.min(
+                            _predictiveRecommendedLines,
+                            window.DASHBOARD_BOOT?.maxLinesSetting || 4
+                        );
+                        const pct = stats.connect_rate || 0;
+                        _showDashToast(true,
+                            `Erlang-C: ${_predictiveRecommendedLines} lines (${pct}% connect rate)`
+                        );
+                    }
+                } catch (e) { /* non-fatal */ }
+
+                // Set agent state to READY
+                try {
+                    await fetch('/voice/agent-state', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({state: 'ready'})
+                    });
+                } catch (e) { /* non-fatal */ }
+
+                // Start polling overflow transfer alerts
+                if (_overflowAlertPollTimer) clearInterval(_overflowAlertPollTimer);
+                _overflowAlertPollTimer = setInterval(_pollOverflowAlerts, 2000);
+            }
+
             // Auto-expand queue body
             const qBody = document.getElementById('dialerQueueBody');
             if (qBody) qBody.style.display = 'block';
@@ -7000,9 +7052,11 @@
             _multiLineDialingInProgress = true;
 
             try {
+            // For solo_predictive: use Erlang-C recommended lines (may differ from max setting)
+            const effectiveMaxLines = _isSoloPredictive ? _predictiveRecommendedLines : _multiLineMaxLines;
             // Collect pending contacts up to available lines
             const activeCount = _multiLineActive.size;
-            const available = _multiLineMaxLines - activeCount;
+            const available = effectiveMaxLines - activeCount;
             if (available <= 0) return;
 
             const pendingContacts = [];
@@ -7099,6 +7153,29 @@
                     }
                 });
 
+                // Handle AI minutes warning from server (solo_predictive overflow)
+                if (data.minutes_warning && _isSoloPredictive) {
+                    _aiMinutesWarning = data.minutes_warning;
+                    if (data.minutes_warning === 'empty' && !_aiMinutesBannerShown) {
+                        _aiMinutesBannerShown = true;
+                        _showDashToast(false,
+                            'Out of AI minutes \u2014 single-line mode (no overflow). Top up to resume predictive dialing.',
+                            6000);
+                        _predictiveRecommendedLines = 1;
+                    } else if (data.minutes_warning === 'critical' && !_aiMinutesBannerShown) {
+                        _aiMinutesBannerShown = true;
+                        _showDashToast(false,
+                            'AI Minutes low \u2014 overflow calls may fail. Top up now.',
+                            5000);
+                    }
+                }
+
+                // Track session stats for live pacing
+                if (_isSoloPredictive) {
+                    const initiated = (data.results || []).filter(r => r.status === 'initiated').length;
+                    _sessionCallsTotal += initiated;
+                }
+
                 multiLineRenderBanner();
                 dialerRenderQueue();
 
@@ -7190,6 +7267,8 @@
                     // Detect connection (someone picked up)
                     if (serverInfo.status === 'in-progress' && oldStatus !== 'in-progress') {
                         anyConnected = true;
+                        // Track session connection for live pacing
+                        if (_isSoloPredictive) _sessionCallsConnected++;
                         // First connected call becomes the primary line
                         if (!_multiLineConnectedSid) {
                             _multiLineConnectedSid = sid;
@@ -7241,6 +7320,23 @@
                                 qi.status = 'pending';
                             }
                         }
+                    }
+                }
+
+                // Track completed call duration for session pacing
+                if (_isSoloPredictive && anyTerminated) {
+                    for (const [sid, serverInfo] of Object.entries(statuses)) {
+                        if (terminalStatuses.has(serverInfo.status) && serverInfo.duration > 0) {
+                            _sessionTotalTalkTime += (serverInfo.duration || 0);
+                        }
+                    }
+                }
+
+                // Periodic live pacing re-fetch (every ~15 seconds = 10 poll cycles)
+                if (_isSoloPredictive && dialerQueueRunning) {
+                    _predictivePollCount++;
+                    if (_predictivePollCount % 10 === 0) {
+                        _refreshLivePacing();
                     }
                 }
 
@@ -7328,8 +7424,11 @@
             _multiLineDialingInProgress = false;
             _multiLinePollErrors = 0;
             _multiLineDispToastShown = false;
+            _aiMinutesBannerShown = false;
+            _aiMinutesWarning = null;
             if (_dialerWrapUpTimer) { clearTimeout(_dialerWrapUpTimer); _dialerWrapUpTimer = null; }
             if (_multiLinePauseTimer) { clearTimeout(_multiLinePauseTimer); _multiLinePauseTimer = null; }
+            if (_overflowAlertPollTimer) { clearInterval(_overflowAlertPollTimer); _overflowAlertPollTimer = null; }
             dialerUpdateBtn();
 
             if (_multiLinePollTimer) {
@@ -7394,6 +7493,122 @@
             }
             multiLineRenderBanner();
         }
+
+        // ── Solo Predictive: Live Pacing Re-fetch ──
+        async function _refreshLivePacing() {
+            if (!_isSoloPredictive || !dialerQueueRunning) return;
+            try {
+                const sessionAHT = _sessionCallsConnected > 0
+                    ? (_sessionTotalTalkTime / _sessionCallsConnected)
+                    : 0;
+                const url = '/voice/predictive-stats'
+                    + `?session_calls_total=${_sessionCallsTotal}`
+                    + `&session_calls_connected=${_sessionCallsConnected}`
+                    + `&session_avg_handle_time=${Math.round(sessionAHT)}`;
+                const r = await fetch(url);
+                if (!r.ok) return;
+                const stats = await r.json();
+                const prev = _predictiveRecommendedLines;
+                _predictiveRecommendedLines = stats.recommended_lines || prev;
+                // Cap by user's max setting
+                _predictiveRecommendedLines = Math.min(
+                    _predictiveRecommendedLines,
+                    window.DASHBOARD_BOOT?.maxLinesSetting || 4
+                );
+                if (_predictiveRecommendedLines !== prev) {
+                    const dir = _predictiveRecommendedLines > prev ? 'up' : 'down';
+                    const pct = stats.blended_connect_rate || stats.connect_rate || 0;
+                    _showDashToast(true,
+                        `Pacing adjusted ${dir} to ${_predictiveRecommendedLines} lines (${pct}% connect rate)`
+                    );
+                }
+            } catch (e) { /* non-fatal */ }
+        }
+
+        // ── Solo Predictive: Overflow Transfer Alert Polling ──
+        async function _pollOverflowAlerts() {
+            if (!_isSoloPredictive || !dialerQueueRunning) return;
+            try {
+                const r = await fetch('/voice/overflow-alerts');
+                if (!r.ok) return;
+                const data = await r.json();
+                const alerts = data.alerts || [];
+                for (const alert of alerts) {
+                    if (_overflowAlertShown[alert.call_sid]) continue;
+                    _overflowAlertShown[alert.call_sid] = true;
+                    _showOverflowTransferAlert(alert);
+                }
+            } catch (e) { /* non-fatal */ }
+        }
+
+        function _showOverflowTransferAlert(alert) {
+            // Create a persistent notification card for hot lead transfer request
+            const el = document.createElement('div');
+            el.id = 'overflow-alert-' + (alert.call_sid || '').slice(0, 12);
+            el.className = 'overflow-transfer-alert';
+            el.style.cssText = 'position:fixed;top:80px;right:24px;z-index:99998;'
+                + 'background:linear-gradient(135deg,rgba(255,80,40,0.95),rgba(200,40,20,0.95));'
+                + 'color:#fff;padding:16px 20px;border-radius:12px;'
+                + 'box-shadow:0 8px 32px rgba(0,0,0,0.4);max-width:340px;'
+                + 'animation:_toastSlideIn .3s ease;font-size:0.9rem;';
+            const name = alert.contact_name || 'Lead';
+            el.innerHTML = '<div style="font-weight:700;font-size:1rem;margin-bottom:6px;">'
+                + '<i class="fa-solid fa-fire" style="margin-right:6px;"></i>Hot Lead: ' + name + '</div>'
+                + '<div style="margin-bottom:12px;opacity:0.95;">AI overflow call \u2014 wants to talk to you. AI is keeping them engaged.</div>'
+                + '<div style="display:flex;gap:8px;">'
+                + '<button onclick="_acceptOverflowTransfer(\'' + (alert.call_sid || '') + '\',this)" '
+                + 'style="flex:1;padding:8px 12px;border:none;border-radius:8px;'
+                + 'background:#fff;color:#c02820;font-weight:700;cursor:pointer;">Accept Transfer</button>'
+                + '<button onclick="_dismissOverflowTransfer(\'' + (alert.call_sid || '') + '\',this)" '
+                + 'style="flex:1;padding:8px 12px;border:none;border-radius:8px;'
+                + 'background:rgba(255,255,255,0.2);color:#fff;font-weight:600;cursor:pointer;">Let AI Book</button>'
+                + '</div>';
+            document.body.appendChild(el);
+            // Auto-dismiss after 30 seconds
+            setTimeout(() => {
+                const existing = document.getElementById(el.id);
+                if (existing) {
+                    existing.style.transition = 'opacity .3s';
+                    existing.style.opacity = '0';
+                    setTimeout(() => existing.remove(), 300);
+                }
+            }, 30000);
+        }
+
+        // Accept: takeover the overflow call
+        window._acceptOverflowTransfer = async function(callSid, btn) {
+            if (btn) btn.disabled = true;
+            try {
+                const r = await fetch('/voice/takeover', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({call_sid: callSid})
+                });
+                if (r.ok) {
+                    _showDashToast(true, 'Transfer accepted \u2014 connecting to lead');
+                } else {
+                    const err = await r.json().catch(() => ({}));
+                    _showDashToast(false, err.error || 'Could not transfer \u2014 AI will book instead');
+                }
+            } catch (e) {
+                _showDashToast(false, 'Transfer failed \u2014 AI will book instead');
+            }
+            const el = btn?.closest('.overflow-transfer-alert');
+            if (el) { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }
+        };
+
+        // Dismiss: tell server, AI continues to booking
+        window._dismissOverflowTransfer = async function(callSid, btn) {
+            try {
+                await fetch('/voice/overflow-alerts/dismiss', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({call_sid: callSid})
+                });
+            } catch (e) { /* non-fatal */ }
+            const el = btn?.closest('.overflow-transfer-alert');
+            if (el) { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }
+        };
 
         /**
          * Render the multi-line call banner showing all active lines.
