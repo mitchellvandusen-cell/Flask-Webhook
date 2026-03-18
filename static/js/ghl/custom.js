@@ -1,7 +1,27 @@
+/**
+ * InsuranceGrokBot - GHL Custom JS Extension
+ *
+ * This script adds AI-powered calling, SMS, lead intelligence,
+ * spam protection config, and number management features to the
+ * GoHighLevel CRM interface as an embedded marketplace app.
+ *
+ * All functions and variables are prefixed with "igb" to avoid
+ * naming collisions with GHL's own scripts.
+ */
+
+// ---------------------------------------------------------------------------
+// Configuration constants
+// ---------------------------------------------------------------------------
+
 const igbServerUrl = 'https://insurancegrokbot.click';
 const igbCallPollMs = 2000;
 const igbRefreshIntervalMs = 60000;
 const igbMaxVisibleToasts = 3;
+
+// ---------------------------------------------------------------------------
+// Global state variables
+// ---------------------------------------------------------------------------
+
 let igbKey = '';
 let igbKeyExpiresAt = 0;
 let igbLocationId = '';
@@ -20,6 +40,11 @@ let igbCurrentCallSid = '';
 let igbCurrentCallMode = '';
 let igbToastList = [];
 let igbCurrentAiMinutes = 0;
+
+// ---------------------------------------------------------------------------
+// DOM helper utilities
+// ---------------------------------------------------------------------------
+
 function igbMakeElement(tagName, cssClass, htmlContent) {
     const el = document.createElement(tagName);
     if (cssClass) {
@@ -57,10 +82,17 @@ function igbSafeText(rawText) {
 function igbCapitalize(str) {
     return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
 }
+// Extract contact ID from the current GHL URL path
 function igbGetContactIdFromUrl() {
     const match = window.location.pathname.match(/\/contacts\/(?:detail\/)?([a-zA-Z0-9]+)/);
     return match ? match[1] : '';
 }
+
+// ---------------------------------------------------------------------------
+// API communication layer
+// ---------------------------------------------------------------------------
+
+// Make an authenticated API request to the IGB server, auto-refreshing token on 401
 async function igbApiRequest(httpMethod, apiPath, requestBody) {
     const fetchOptions = {
         method: httpMethod,
@@ -88,6 +120,8 @@ async function igbApiRequest(httpMethod, apiPath, requestBody) {
     }
     return data;
 }
+
+// Authenticate with IGB server using GHL location ID and user token
 async function igbAuthenticate() {
     try {
         igbLocationId = await igbGetLocationId();
@@ -124,6 +158,8 @@ async function igbAuthenticate() {
         return false;
     }
 }
+
+// Get the current GHL location ID from the AppUtils SDK
 async function igbGetLocationId() {
     if (typeof AppUtils !== 'undefined' && AppUtils.Utilities) {
         try {
@@ -135,6 +171,8 @@ async function igbGetLocationId() {
     }
     return '';
 }
+
+// Try to get a GHL user access token or shared secret for auth
 async function igbGetGhlUserAccess() {
     if (typeof AppUtils !== 'undefined' && AppUtils.Utilities) {
         try {
@@ -149,9 +187,16 @@ async function igbGetGhlUserAccess() {
     }
     return '';
 }
+// Check if the current auth token is still valid (with 60s buffer)
 function igbIsKeyValid() {
     return igbKey && Date.now() < igbKeyExpiresAt - 60000;
 }
+
+// ---------------------------------------------------------------------------
+// Toast notification system
+// ---------------------------------------------------------------------------
+
+// Show a temporary toast notification at the bottom-right of the screen
 function igbShowToast(message, toastType) {
     toastType = toastType || 'info';
     const toast = igbMakeElement('div', `igb-toast igb-toast-${toastType}`);
@@ -182,6 +227,10 @@ function igbShowToast(message, toastType) {
         setTimeout(() => toast.remove(), 300);
     }, 5000);
 }
+// ---------------------------------------------------------------------------
+// AI Minutes chip and purchase panel
+// ---------------------------------------------------------------------------
+
 async function igbRenderAiMinutesChip() {
     const existing = igbFind('#igb-minutes-chip');
     if (existing) {
@@ -304,6 +353,10 @@ async function igbPurchaseMinutes(minuteAmount) {
         igbShowToast('Checkout error', 'error');
     }
 }
+// ---------------------------------------------------------------------------
+// Call statistics chip and panel
+// ---------------------------------------------------------------------------
+
 async function igbRenderStatsChip() {
     const existing = igbFind('#igb-stats-chip');
     if (existing) {
@@ -384,6 +437,10 @@ async function igbToggleStatsPanel() {
     } catch (e) {
     }
 }
+// ---------------------------------------------------------------------------
+// Pipeline page enhancements — dial buttons and temperature badges
+// ---------------------------------------------------------------------------
+
 function igbInjectPipelineButtons() {
     const stageHeaders = igbFindAll(
         '[class*="pipeline"] [class*="stage-header"], '
@@ -499,6 +556,10 @@ function igbMakeTempBadge(temperature, score) {
     }
     return badge;
 }
+// ---------------------------------------------------------------------------
+// Conversation page — AI reply generation
+// ---------------------------------------------------------------------------
+
 function igbInjectAiReplyButton() {
     const composeArea = igbFind('[class*="message-composer"], [class*="compose"], [class*="reply-box"], .hl_message-composer');
     if (!composeArea || composeArea.querySelector('.igb-ai-reply-btn')) { return; }
@@ -589,6 +650,10 @@ function igbShowAiReplyPreview(draftText, contactId, composeElement) {
     preview.style.width = composeRect.width + 'px';
     document.body.appendChild(preview);
 }
+// ---------------------------------------------------------------------------
+// Contact detail page — AI intelligence card
+// ---------------------------------------------------------------------------
+
 async function igbInjectIntelligenceCard() {
     const contactId = igbGetContactIdFromUrl();
     if (!contactId) { return; }
@@ -654,6 +719,10 @@ function igbAiReplySingleContact(contactId) {
         igbGenerateAiReply(contactId, composeArea);
     }
 }
+// ---------------------------------------------------------------------------
+// Contact list page — bulk call button
+// ---------------------------------------------------------------------------
+
 function igbInjectBulkCallButton() {
     const bulkActionBar = igbFind('[class*="bulk-actions"], [class*="selection-actions"], .bulk-action-bar');
     if (!bulkActionBar || bulkActionBar.querySelector('.igb-bulk-call-btn')) { return; }
@@ -684,6 +753,11 @@ function igbInjectBulkCallButton() {
     });
     bulkActionBar.appendChild(callButton);
 }
+// ---------------------------------------------------------------------------
+// Dialer popup — call queue, dial controls, disposition
+// ---------------------------------------------------------------------------
+
+// Open the floating dialer popup with a list of contacts to call
 function igbOpenDialer(contacts, dialerTitle) {
     igbCloseDialer();
     igbCallQueue = contacts;
@@ -913,6 +987,7 @@ async function igbSaveDisposition(dispositionValue) {
     if (aiBtn) { aiBtn.disabled = false; }
     if (humanBtn) { humanBtn.disabled = false; }
 }
+// Show the in-call action buttons (listen, intercept, hangup)
 function igbShowCallActionButtons(callMode) {
     const actionBtns = igbFind('#igb-call-action-btns');
     if (!actionBtns) { return; }
@@ -975,6 +1050,10 @@ function igbShowDispositionPanel() {
     const actionBtns = igbFind('#igb-call-action-btns');
     if (actionBtns) { actionBtns.style.display = 'none'; }
 }
+// ---------------------------------------------------------------------------
+// Call status polling
+// ---------------------------------------------------------------------------
+
 function igbStartCallPolling() {
     igbStopCallPolling();
     igbCallPollTimer = setInterval(igbPollCallStatus, igbCallPollMs);
@@ -1024,6 +1103,11 @@ async function igbPollCallStatus() {
     } catch (e) {
     }
 }
+// ---------------------------------------------------------------------------
+// Live call listen stream — WebSocket audio from Twilio
+// ---------------------------------------------------------------------------
+
+// Open a WebSocket to stream live call audio for monitoring
 function igbOpenListenStream(callSid) {
     igbStopListenStream();
     try {
@@ -1033,7 +1117,11 @@ function igbOpenListenStream(callSid) {
         igbListenSocket = new WebSocket(wsUrl);
         igbListenSocket.binaryType = 'arraybuffer';
         let audioContext = null;
-        let nextPlayAt = 0;  // Scheduled playback timestamp to prevent gaps/overlap
+        let nextPlayAt = 0;
+
+        // Pre-compute a lookup table that converts mulaw-encoded byte values
+        // (0-255) to PCM float samples (-1.0 to 1.0) for audio playback.
+        // Mulaw is the codec used by Twilio for telephony audio streams.
         const mulawLookup = new Float32Array(256);
         for (let idx = 0; idx < 256; idx++) {
             const inv = 255 - idx;
@@ -1118,6 +1206,11 @@ function igbStopListenStream() {
         igbListenSocket = null;
     }
 }
+// ---------------------------------------------------------------------------
+// Top navigation bar injection
+// ---------------------------------------------------------------------------
+
+// Insert a chip element into the GHL top navigation bar
 function igbInjectIntoTopNav(element) {
     const navSelectors = [
         'nav [class*="right-section"]',
@@ -1143,6 +1236,11 @@ function igbInjectIntoTopNav(element) {
         chipContainer.appendChild(element);
     }
 }
+// ---------------------------------------------------------------------------
+// Call recording playback and transcription
+// ---------------------------------------------------------------------------
+
+// Find call recording links in the conversation and replace with audio players
 function igbInjectRecordingPlayers() {
     const callMessageEls = igbFindAll('[class*="call-message"], [class*="call-entry"], [data-message-type="Call"]');
     callMessageEls.forEach((callEntry) => {
@@ -1249,8 +1347,14 @@ async function igbRequestTranscription(callSid, requestBtn) {
         igbShowToast('Transcription failed', 'error');
     }
 }
+// ---------------------------------------------------------------------------
+// Configuration panel — spam protection, numbers, voice, SMS settings
+// ---------------------------------------------------------------------------
+
 let igbConfigPanelOpen = false;
 let igbConfigSection = 'overview';
+
+// Render the shield chip in the top nav showing protection status
 async function igbRenderConfigChip() {
     const existing = igbFind('#igb-config-chip');
     if (existing) { existing.remove(); }
@@ -1346,6 +1450,7 @@ function igbDashLink(label, tab, section) {
     if (section) { url += '&section=' + section; }
     return '<a class="igb-cfg-dash-link" href="' + url + '" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i> ' + igbSafeText(label) + '</a>';
 }
+// Config panel section: Overview with status checklist
 async function igbSecOverview(c) {
     const [status, vc] = await Promise.all([
         igbApiRequest('GET', '/api/ghl/spam-protection/status'),
@@ -1399,6 +1504,7 @@ async function igbSecOverview(c) {
         c.appendChild(notice);
     }
 }
+// Config panel section: Voice account activation
 async function igbSecActivate(c) {
     const vc = await igbApiRequest('GET', '/api/ghl/voice-config');
     c.innerHTML = '';
@@ -1432,6 +1538,7 @@ async function igbSecActivate(c) {
         c.appendChild(activateBtn);
     }
 }
+// Config panel section: Phone number management and purchase
 async function igbSecNumbers(c) {
     c.innerHTML = '';
     const title = igbMakeElement('div', 'igb-cfg-section-title', 'Phone Numbers');
@@ -1640,6 +1747,7 @@ async function igbSecA2p(c) {
         c.innerHTML += igbDashLink('Set Up A2P Registration', 'voice', 'a2p');
     }
 }
+// Config panel section: Voice AI settings form
 async function igbSecVoice(c) {
     const vc = await igbApiRequest('GET', '/api/ghl/voice-config');
     c.innerHTML = '';
@@ -1699,6 +1807,7 @@ async function igbSecVoice(c) {
         saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Voice Config';
     });
 }
+// Config panel section: SMS bot configuration form
 async function igbSecSms(c) {
     const data = await igbApiRequest('GET', '/api/ghl/bot-config');
     c.innerHTML = '';
@@ -1740,6 +1849,11 @@ async function igbSecSms(c) {
         saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save SMS Config';
     });
 }
+// ---------------------------------------------------------------------------
+// Page change detection and feature injection
+// ---------------------------------------------------------------------------
+
+// Detect which GHL page the user is on and inject relevant IGB features
 function igbHandlePageChange() {
     const currentPath = window.location.pathname;
     if (currentPath.indexOf('/opportunities') >= 0 || currentPath.indexOf('/pipeline') >= 0) {
@@ -1765,13 +1879,17 @@ const igbDomObserver = new MutationObserver(() => {
     clearTimeout(igbDomObserver.debounceTimer);
     igbDomObserver.debounceTimer = setTimeout(igbHandlePageChange, 300);
 });
+// ---------------------------------------------------------------------------
+// Upgrade prompt for users without active subscriptions
+// ---------------------------------------------------------------------------
+
 function igbShowUpgradePrompt() {
     if (igbFind('#igb-upgrade-banner')) {
         return;
     }
     const banner = igbMakeElement('div', 'igb-upgrade-banner');
     banner.id = 'igb-upgrade-banner';
-    const logo = igbMakeElement('div', 'igb-upgrade-logo', '&#129302; <strong>InsuranceGrokBot</strong>');
+    const logo = igbMakeElement('div', 'igb-upgrade-logo', '🤖 <strong>InsuranceGrokBot</strong>');
     banner.appendChild(logo);
     const msg = igbMakeElement('p', 'igb-upgrade-msg', 'Start your subscription to unlock AI texting, voice dialing, and lead intelligence inside GHL.');
     banner.appendChild(msg);
@@ -1782,6 +1900,11 @@ function igbShowUpgradePrompt() {
     banner.appendChild(btn);
     document.body.appendChild(banner);
 }
+// ---------------------------------------------------------------------------
+// App initialization
+// ---------------------------------------------------------------------------
+
+// Main entry point — authenticate, render chips, start page observers
 async function igbInit() {
     igbLog('Initializing');
     if (!igbIsKeyValid()) {
