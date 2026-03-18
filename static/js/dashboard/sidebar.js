@@ -12,6 +12,8 @@
             workflows: 'Workflows', connect: 'Connect CRM',
             carriers: 'Carriers', advanced: 'Advanced Settings', aiminutes: 'AI Minutes',
             billing: 'Billing', logs: 'Activity Logs',
+            'agency-members': 'Agency Members', 'agency-kpis': 'Agency Performance',
+            whitelabel: 'White Label',
         };
 
         // Map of tab IDs to sidebar nav button IDs
@@ -20,6 +22,8 @@
             workflows: 'sbnWorkflows', connect: 'sbnConnect',
             carriers: 'sbnCarriers', advanced: 'sbnAdvanced', aiminutes: 'sbnAiMinutes',
             billing: 'sbnBilling', logs: 'sbnLogs',
+            'agency-members': 'sbnAgencyMembers', 'agency-kpis': 'sbnAgencyKpis',
+            whitelabel: 'sbnWhitelabel',
         };
 
         function sidebarNavigate(tabId, btnEl) {
@@ -42,6 +46,9 @@
             if (pane) pane.classList.add('show', 'active');
 
             if (tabId === 'logs') loadLogs();
+            if (tabId === 'whitelabel' && typeof wlInit === 'function') wlInit();
+            if (tabId === 'agency-members' && typeof agencyLoadMembers === 'function') agencyLoadMembers();
+            if (tabId === 'agency-kpis' && typeof agencyLoadKpis === 'function') agencyLoadKpis('today');
         }
 
         // Legacy compat — kept for any code that still calls showSidebarTab() or navTo()

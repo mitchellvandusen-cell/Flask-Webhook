@@ -88,6 +88,11 @@
             {% if not current_user.is_seat_user %}
             {% include "dashboard/tabs/team.html" %}
             {% endif %}
+            {% if is_agency %}
+            {% include "dashboard/tabs/whitelabel.html" %}
+            {% include "dashboard/tabs/agency_members.html" %}
+            {% include "dashboard/tabs/agency_kpis.html" %}
+            {% endif %}
         </div>
 
         {% endif %}
@@ -313,6 +318,10 @@
     <script src="{{ url_for('static', filename='js/dashboard/team.js') }}?v={{ _sv }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard/contacts_import.js') }}?v={{ _sv }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard/workflows.js') }}?v={{ _sv }}"></script>
+    {% if is_agency %}
+    <script src="{{ url_for('static', filename='js/dashboard/whitelabel.js') }}?v={{ _sv }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard/agency.js') }}?v={{ _sv }}"></script>
+    {% endif %}
 
     <!-- ── PWA: Service Worker Registration + Install Prompt ── -->
     <script src="{{ url_for('static', filename='js/dashboard/pwa.js') }}?v={{ _sv }}"></script>

@@ -58,6 +58,14 @@ def _send_invite_email(to_email: str, agent_name: str, agency_name: str, invite_
 @agency_bp.route("/agency-dashboard", methods=["GET", "POST"])
 @login_required
 def agency_dashboard():
+    # Redirect to unified dashboard — agency-dashboard is kept for backward compat
+    return redirect(url_for("dashboard.dashboard"))
+
+
+@agency_bp.route("/agency-dashboard-legacy", methods=["GET", "POST"])
+@login_required
+def agency_dashboard_legacy():
+    """Legacy agency dashboard — kept for reference but redirected above."""
     is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
 
     if current_user.role != 'agency_owner' and not is_admin:
@@ -577,13 +585,20 @@ def get_agency_logs(location_id):
 
 # ── Agency KPI & Stats API Endpoints ─────────────────────────────────────────
 
-def _get_sub_location_ids(conn, agency_email):
-    """Return list of location_ids for all sub-accounts of this agency owner."""
+def _get_sub_location_ids(conn, agency_email, company_id=None):
+    """Return list of location_ids for all sub-accounts of this agency owner.
+    Uses company_id if available (preferred), falls back to parent_agency_email."""
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute(
-        "SELECT location_id FROM subscribers WHERE parent_agency_email = %s",
-        (agency_email,)
-    )
+    if company_id:
+        cur.execute(
+            "SELECT location_id FROM subscribers WHERE company_id = %s",
+            (company_id,)
+        )
+    else:
+        cur.execute(
+            "SELECT location_id FROM subscribers WHERE parent_agency_email = %s",
+            (agency_email,)
+        )
     ids = [r['location_id'] for r in cur.fetchall()]
     cur.close()
     return ids
@@ -627,9 +642,10 @@ def agency_kpis():
         return flask_jsonify({"error": "DB unavailable"}), 503
 
     try:
-        location_ids = _get_sub_location_ids(conn, current_user.email)
+        location_ids = _get_sub_location_ids(conn, current_user.email,
+                                              company_id=getattr(current_user, 'company_id', None))
         # Also include the owner's own location_id
-        if current_user.location_id:
+        if current_user.location_id and current_user.location_id not in location_ids:
             location_ids.append(current_user.location_id)
 
         if not location_ids:
@@ -794,12 +810,20 @@ def agency_agent_stats():
 
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
-        # Get sub-accounts with their names
-        cur.execute("""
-            SELECT location_id, full_name, email, bot_first_name
-            FROM subscribers
-            WHERE parent_agency_email = %s
-        """, (current_user.email,))
+        # Get sub-accounts with their names (prefer company_id, fallback to parent_agency_email)
+        _cid = getattr(current_user, 'company_id', None)
+        if _cid:
+            cur.execute("""
+                SELECT location_id, full_name, email, bot_first_name
+                FROM subscribers
+                WHERE company_id = %s
+            """, (_cid,))
+        else:
+            cur.execute("""
+                SELECT location_id, full_name, email, bot_first_name
+                FROM subscribers
+                WHERE parent_agency_email = %s
+            """, (current_user.email,))
         subs = {r['location_id']: r for r in cur.fetchall()}
         location_ids = list(subs.keys())
 
@@ -871,8 +895,9 @@ def agency_call_log():
         return flask_jsonify({"error": "DB unavailable"}), 503
 
     try:
-        location_ids = _get_sub_location_ids(conn, current_user.email)
-        if current_user.location_id:
+        location_ids = _get_sub_location_ids(conn, current_user.email,
+                                              company_id=getattr(current_user, 'company_id', None))
+        if current_user.location_id and current_user.location_id not in location_ids:
             location_ids.append(current_user.location_id)
         if not location_ids:
             return flask_jsonify({"calls": [], "total": 0})
@@ -932,3 +957,117 @@ def agency_call_log():
         return flask_jsonify({"error": str(e)}), 500
     finally:
         return_db_connection(conn)
+
+
+# ── White-Label API ──────────────────────────────────────────────────────────
+
+@agency_bp.route("/api/agency/whitelabel", methods=["GET", "POST"])
+@login_required
+def agency_whitelabel():
+    """Get or save white-label branding config for agency owner."""
+    if current_user.role != 'agency_owner' and current_user.email.lower() not in [e.lower() for e in ADMIN_EMAILS]:
+        return flask_jsonify({"error": "Access denied"}), 403
+
+    from db import get_whitelabel_config, save_whitelabel_config
+
+    if request.method == 'GET':
+        config = get_whitelabel_config(current_user.email)
+        return flask_jsonify({"whitelabel": config})
+
+    # POST — save config
+    data = request.get_json()
+    if not data:
+        return flask_jsonify({"error": "No data provided"}), 400
+
+    # Validate and sanitize
+    config = {}
+    if data.get('company_name'):
+        name = str(data['company_name']).strip()[:100]
+        if name:
+            config['company_name'] = name
+    if data.get('logo_url'):
+        logo = str(data['logo_url']).strip()[:500]
+        # Basic URL validation
+        if logo.startswith(('https://', 'http://')):
+            config['logo_url'] = logo
+    # Logo dimensions — store max recommended size
+    if data.get('logo_width'):
+        config['logo_width'] = min(int(data['logo_width']), 400)
+    if data.get('logo_height'):
+        config['logo_height'] = min(int(data['logo_height']), 120)
+    # Company name styling
+    if data.get('name_font'):
+        allowed_fonts = [
+            'Inter', 'Roboto', 'Poppins', 'Montserrat', 'Open Sans',
+            'Lato', 'Oswald', 'Raleway', 'Playfair Display', 'Merriweather',
+        ]
+        if data['name_font'] in allowed_fonts:
+            config['name_font'] = data['name_font']
+    if isinstance(data.get('name_bold'), bool):
+        config['name_bold'] = data['name_bold']
+    if isinstance(data.get('name_italic'), bool):
+        config['name_italic'] = data['name_italic']
+    if isinstance(data.get('name_underline'), bool):
+        config['name_underline'] = data['name_underline']
+
+    ok = save_whitelabel_config(current_user.email, config)
+    if ok:
+        return flask_jsonify({"status": "ok", "whitelabel": config})
+    return flask_jsonify({"error": "Failed to save"}), 500
+
+
+@agency_bp.route("/api/agency/members")
+@login_required
+def agency_members():
+    """List all agency members via company_id (preferred) or parent_agency_email."""
+    if current_user.role != 'agency_owner' and current_user.email.lower() not in [e.lower() for e in ADMIN_EMAILS]:
+        return flask_jsonify({"error": "Access denied"}), 403
+
+    company_id = getattr(current_user, 'company_id', None)
+    if company_id:
+        from db import get_agency_members_by_company_id
+        members = get_agency_members_by_company_id(company_id)
+    else:
+        conn = get_db_connection()
+        if not conn:
+            return flask_jsonify({"error": "DB unavailable"}), 503
+        try:
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("""
+                SELECT location_id, email, full_name, phone, role, subscription_tier,
+                       bot_first_name, timezone, access_token, token_expires_at,
+                       onboarding_status, agent_email, invite_sent_at, invite_claimed_at,
+                       created_at, voice_config, sms_send_via
+                FROM subscribers
+                WHERE parent_agency_email = %s
+                ORDER BY created_at DESC
+            """, (current_user.email,))
+            members = [dict(r) for r in cur.fetchall()]
+            cur.close()
+        except Exception as e:
+            logger.error(f"agency_members error: {e}")
+            return flask_jsonify({"error": str(e)}), 500
+        finally:
+            return_db_connection(conn)
+
+    # Sanitize for JSON response
+    result = []
+    for m in members:
+        has_token = bool(m.get('access_token'))
+        expires = m.get('token_expires_at')
+        is_connected = has_token and expires and expires > datetime.utcnow() if expires else False
+        result.append({
+            'location_id': m['location_id'],
+            'email': m.get('email'),
+            'full_name': m.get('full_name'),
+            'phone': m.get('phone'),
+            'role': m.get('role'),
+            'subscription_tier': m.get('subscription_tier'),
+            'bot_name': m.get('bot_first_name'),
+            'timezone': m.get('timezone'),
+            'status': 'Active' if is_connected else 'Pending Auth',
+            'onboarding_status': m.get('onboarding_status'),
+            'created_at': m['created_at'].isoformat() + 'Z' if m.get('created_at') else None,
+        })
+
+    return flask_jsonify({"members": result, "total": len(result)})

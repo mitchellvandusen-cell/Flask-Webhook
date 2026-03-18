@@ -1,9 +1,18 @@
     <div class="sidebar" id="mainSidebar">
 
-        <!-- Brand Row -->
+        <!-- Brand Row (white-label aware) -->
         <div class="sb-brand">
+            {% if whitelabel and whitelabel.get('logo_url') %}
+            <div class="sb-brand-logo"><img src="{{ whitelabel.logo_url }}" alt="{{ whitelabel.get('company_name', 'Logo') }}" class="whitelabel-logo"></div>
+            {% else %}
             <div class="sb-brand-logo"><img src="{{ url_for('static', filename='favicon.svg') }}" alt="IGB" style="width:22px;height:22px;"></div>
+            {% endif %}
+            {% if whitelabel and whitelabel.get('company_name') %}
+            <span class="sb-brand-text whitelabel-brand-name"
+                  {% if whitelabel.get('name_font') %}style="font-family: '{{ whitelabel.name_font }}', sans-serif;{% if whitelabel.get('name_bold') %} font-weight: 700;{% endif %}{% if whitelabel.get('name_italic') %} font-style: italic;{% endif %}{% if whitelabel.get('name_underline') %} text-decoration: underline;{% endif %}"{% endif %}>{{ whitelabel.company_name }}</span>
+            {% else %}
             <span class="sb-brand-text">IGB</span>
+            {% endif %}
             <button class="sb-toggle" id="sbToggle" onclick="toggleSidebar()" title="Collapse sidebar">
                 <i class="fa-solid fa-bars" id="sbToggleIcon"></i>
             </button>
@@ -88,6 +97,32 @@
                     </button>
                 </div>
             </div>
+
+            {% if is_agency %}
+            <div class="sb-divider"></div>
+
+            <!-- ── AGENCY (only for agency owners) ── -->
+            <div class="sb-section open" id="sbSectionAgency">
+                <div class="sb-section-header" onclick="toggleSbSection('sbSectionAgency')">
+                    <span>Agency</span>
+                    <i class="fa-solid fa-chevron-down sb-section-chevron"></i>
+                </div>
+                <div class="sb-section-body">
+                    <button class="sb-nav-item" id="sbnAgencyMembers" onclick="sidebarNavigate('agency-members', this)">
+                        <i class="fa-solid fa-user-group"></i>
+                        <span class="sb-nav-label">Members</span>
+                    </button>
+                    <button class="sb-nav-item" id="sbnAgencyKpis" onclick="sidebarNavigate('agency-kpis', this)">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <span class="sb-nav-label">Agency KPIs</span>
+                    </button>
+                    <button class="sb-nav-item" id="sbnWhitelabel" onclick="sidebarNavigate('whitelabel', this)">
+                        <i class="fa-solid fa-palette"></i>
+                        <span class="sb-nav-label">White Label</span>
+                    </button>
+                </div>
+            </div>
+            {% endif %}
 
             <div class="sb-divider"></div>
 

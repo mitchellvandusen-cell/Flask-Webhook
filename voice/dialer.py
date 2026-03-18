@@ -1850,3 +1850,78 @@ def recording_consent_batch():
         "total": len(results),
         "two_party_count": two_party_count,
     })
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AGENCY PREDICTIVE DIALER — company-scoped routes (5+ agents required)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _require_agency_predictive():
+    """Validate caller is agency owner with predictive dialer subscription
+    and 5+ linked agents. Returns (company_id, error_response) tuple."""
+    if not current_user.is_authenticated:
+        return None, (jsonify({"error": "Not authenticated"}), 401)
+    if current_user.role != 'agency_owner':
+        return None, (jsonify({"error": "Agency owner access required"}), 403)
+    company_id = getattr(current_user, 'company_id', None)
+    if not company_id:
+        return None, (jsonify({"error": "No company linked to this account"}), 400)
+    return company_id, None
+
+
+@dialer_bp.route("/voice/agency-predictive/status")
+@login_required
+def agency_predictive_status():
+    """Agency-wide predictive dialer status — active agents, dial ratio, compliance."""
+    company_id, err = _require_agency_predictive()
+    if err:
+        return err
+
+    from voice.predictive_engine import (
+        get_agency_available_agents, get_agency_all_agent_states,
+        get_agency_tcpa_status, calculate_agency_dial_ratio,
+        _get_company_location_ids,
+    )
+
+    location_ids = _get_company_location_ids(company_id)
+    available = get_agency_available_agents(company_id)
+    all_states = get_agency_all_agent_states(company_id)
+    tcpa = get_agency_tcpa_status(company_id)
+    dial_ratio = calculate_agency_dial_ratio(company_id)
+
+    return jsonify({
+        "company_id": company_id,
+        "total_locations": len(location_ids),
+        "available_agents": len(available),
+        "all_agents": all_states,
+        "tcpa": tcpa,
+        "dial_ratio": dial_ratio,
+        "minimum_agents": 5,
+        "can_dial": len(available) >= 5,
+    })
+
+
+@dialer_bp.route("/voice/agency-predictive/compliance")
+@login_required
+def agency_predictive_compliance():
+    """Agency-wide TCPA compliance dashboard."""
+    company_id, err = _require_agency_predictive()
+    if err:
+        return err
+
+    from voice.predictive_engine import get_agency_compliance_metrics
+    metrics = get_agency_compliance_metrics(company_id)
+    return jsonify(metrics)
+
+
+@dialer_bp.route("/voice/agency-predictive/agent-states")
+@login_required
+def agency_predictive_agent_states():
+    """All agent states across the agency."""
+    company_id, err = _require_agency_predictive()
+    if err:
+        return err
+
+    from voice.predictive_engine import get_agency_all_agent_states
+    states = get_agency_all_agent_states(company_id)
+    return jsonify({"agents": states, "total": len(states)})

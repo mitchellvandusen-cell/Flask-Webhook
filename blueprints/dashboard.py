@@ -145,9 +145,7 @@ def onboarding_status():
 @dashboard_bp.route("/dashboard", methods=["GET", "POST"])
 @login_required
 def dashboard():
-    if current_user.role == 'agency_owner':
-        return redirect(url_for("agency.agency_dashboard"))
-
+    # Unified dashboard — agency owners and individuals use the same route
     is_admin         = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
     needs_subscription = not current_user.stripe_customer_id and not is_admin
 
@@ -316,6 +314,13 @@ def dashboard():
     embed_contact_id = request.args.get('contact_id', '') if embed_mode else ''
     embed_dial_contacts = request.args.get('dial_contacts', '') if embed_mode else ''
 
+    # White-label branding — agency owners get their own, sub-users get agency's
+    from db import get_whitelabel_for_user
+    whitelabel = get_whitelabel_for_user(current_user)
+
+    # Agency context — for sidebar/tabs showing agency-specific items
+    is_agency = current_user.role == 'agency_owner'
+
     return render_template('dashboard.html',
         form=form,
         access_token_display=access_token_display,
@@ -339,6 +344,8 @@ def dashboard():
         initial_tab=initial_tab,
         embed_contact_id=embed_contact_id,
         embed_dial_contacts=embed_dial_contacts,
+        whitelabel=whitelabel,
+        is_agency=is_agency,
     )
 
 
