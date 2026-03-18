@@ -72,9 +72,19 @@
     .pd-sim-metric-val{font-size:1.6rem;font-weight:800;color:var(--accent)}
     .pd-sim-metric-label{font-size:0.75rem;color:#999;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px}
     .pd-sim-lines{display:flex;gap:12px;justify-content:center;margin:24px 0}
-    .pd-sim-line{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;transition:all .4s}
+    .pd-sim-line{width:54px;height:60px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;transition:all .4s}
+    .pd-sim-line{flex-direction:column;gap:4px}
+    .pd-sim-line-label{font-size:0.6rem;font-weight:700;letter-spacing:0.5px;text-transform:uppercase}
     .pd-sim-line--active{background:rgba(0,255,136,0.12);border:1px solid rgba(0,255,136,0.3);color:var(--accent)}
     .pd-sim-line--idle{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);color:#555}
+    .pd-sim-presets{display:flex;gap:8px;justify-content:center;margin-top:10px}
+    .pd-sim-preset{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:6px 12px;color:#888;font-size:0.72rem;font-weight:600;cursor:pointer;transition:all .2s;line-height:1.3;text-align:center}
+    .pd-sim-preset span{font-size:0.65rem;color:#555}
+    .pd-sim-preset:hover{border-color:rgba(139,92,246,0.3);color:#ccc}
+    .pd-sim-preset--active{border-color:rgba(139,92,246,0.4);background:rgba(139,92,246,0.08);color:#a78bfa}
+    .pd-sim-preset--active span{color:#a78bfa}
+    .pd-sim-insight{margin-top:20px;padding:14px 20px;background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.15);border-radius:12px;font-size:0.85rem;color:#ccc;line-height:1.6;text-align:left;min-height:52px;transition:all .3s}
+    @media(max-width:600px){.pd-sim-presets{flex-wrap:wrap}}
 
     .pd-stages{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:40px}
     @media(max-width:900px){.pd-stages{grid-template-columns:repeat(4,1fr)}}
@@ -94,6 +104,11 @@
     body.light-theme .pd-sub,body.light-theme .pd-section-sub,body.light-theme .pd-lane p,body.light-theme .pd-flow-text p,body.light-theme .pd-var-label,body.light-theme .pd-sim-metric-label,body.light-theme .pd-stage-desc,body.light-theme .pd-cta-box p{color:var(--lt-text-secondary)}
     body.light-theme .pd-lane,body.light-theme .pd-erlang-visual,body.light-theme .pd-sim,body.light-theme .pd-stage{background:var(--lt-surface);border-color:var(--lt-border);box-shadow:0 4px 16px rgba(0,0,0,0.06)}
     body.light-theme .pd-cta-box{background:rgba(139,92,246,0.04);border-color:rgba(139,92,246,0.15)}
+    body.light-theme .pd-sim-preset{background:rgba(0,0,0,0.03);border-color:var(--lt-border);color:var(--lt-text-secondary)}
+    body.light-theme .pd-sim-preset span{color:var(--lt-text-muted)}
+    body.light-theme .pd-sim-preset--active{background:rgba(139,92,246,0.06);border-color:rgba(139,92,246,0.3);color:#7c3aed}
+    body.light-theme .pd-sim-preset--active span{color:#7c3aed}
+    body.light-theme .pd-sim-insight{background:rgba(139,92,246,0.04);border-color:rgba(139,92,246,0.1);color:var(--lt-text-secondary)}
 </style>
 
 <nav class="ios-section-dots" id="iosSectionDots">
@@ -292,7 +307,7 @@
     <div class="container text-center">
         <span class="pd-section-tag">Try It</span>
         <h2 class="pd-section-h2">Predictive Pacing Simulator</h2>
-        <p class="pd-section-sub" style="margin-left:auto;margin-right:auto">Adjust your lead quality and talk time. Watch how the Erlang-C algorithm changes its behavior in real time.</p>
+        <p class="pd-section-sub" style="margin-left:auto;margin-right:auto">Insurance calls range from 2-minute disqualifications to 50-minute sales. Erlang-C handles it all — and long calls make AI Overflow essential.</p>
 
         <div class="pd-sim">
             <div class="pd-sim-controls">
@@ -303,16 +318,22 @@
                 </div>
                 <div>
                     <div class="pd-sim-label">Avg Talk Time</div>
-                    <input type="range" min="30" max="600" value="180" step="10" class="pd-sim-slider" id="simTalkTime">
-                    <div class="pd-sim-value"><span id="simTalkTimeVal">3:00</span></div>
+                    <input type="range" min="120" max="3000" value="480" step="30" class="pd-sim-slider" id="simTalkTime">
+                    <div class="pd-sim-value"><span id="simTalkTimeVal">8:00</span></div>
+                    <div class="pd-sim-presets" id="simPresets">
+                        <button class="pd-sim-preset" data-val="120">Quick DQ<br><span>2 min</span></button>
+                        <button class="pd-sim-preset pd-sim-preset--active" data-val="480">Avg Call<br><span>8 min</span></button>
+                        <button class="pd-sim-preset" data-val="1500">Warm Sale<br><span>25 min</span></button>
+                        <button class="pd-sim-preset" data-val="2700">Full Close<br><span>45 min</span></button>
+                    </div>
                 </div>
             </div>
 
             <div class="pd-sim-lines" id="simLines">
-                <div class="pd-sim-line pd-sim-line--active" id="simLine1"><i class="fa-solid fa-phone"></i></div>
-                <div class="pd-sim-line pd-sim-line--active" id="simLine2"><i class="fa-solid fa-phone"></i></div>
-                <div class="pd-sim-line pd-sim-line--active" id="simLine3"><i class="fa-solid fa-phone"></i></div>
-                <div class="pd-sim-line pd-sim-line--idle" id="simLine4"><i class="fa-solid fa-phone-slash"></i></div>
+                <div class="pd-sim-line pd-sim-line--active" id="simLine1"><i class="fa-solid fa-phone"></i><span class="pd-sim-line-label">You</span></div>
+                <div class="pd-sim-line pd-sim-line--active" id="simLine2"><i class="fa-solid fa-robot"></i><span class="pd-sim-line-label">AI</span></div>
+                <div class="pd-sim-line pd-sim-line--active" id="simLine3"><i class="fa-solid fa-robot"></i><span class="pd-sim-line-label">AI</span></div>
+                <div class="pd-sim-line pd-sim-line--idle" id="simLine4"><i class="fa-solid fa-phone-slash"></i><span class="pd-sim-line-label"></span></div>
             </div>
 
             <div class="pd-sim-result">
@@ -330,8 +351,14 @@
                 </div>
                 <div class="pd-sim-metric">
                     <div class="pd-sim-metric-val" id="simCallsHour">28</div>
-                    <div class="pd-sim-metric-label">Calls/Hour</div>
+                    <div class="pd-sim-metric-label">Dials/Hour</div>
                 </div>
+            </div>
+
+            <!-- Narrative insight that changes with the slider -->
+            <div class="pd-sim-insight" id="simInsight">
+                <i class="fa-solid fa-brain" style="color:#a78bfa;margin-right:8px"></i>
+                <span id="simInsightText">With 8-minute avg calls, you're on the phone most of the hour. AI Overflow catches every collision so you never miss a lead.</span>
             </div>
         </div>
     </div>
@@ -357,12 +384,26 @@
     var talkSlider = document.getElementById('simTalkTime');
     if (!answerSlider || !talkSlider) return;
 
+    /* Preset buttons */
+    var presetBtns = document.querySelectorAll('.pd-sim-preset');
+    presetBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            talkSlider.value = this.dataset.val;
+            presetBtns.forEach(function(b){ b.classList.remove('pd-sim-preset--active'); });
+            this.classList.add('pd-sim-preset--active');
+            updateSim();
+        });
+    });
+    /* Clear preset highlight when slider is dragged manually */
+    talkSlider.addEventListener('input', function() {
+        presetBtns.forEach(function(b){ b.classList.remove('pd-sim-preset--active'); });
+    });
+
     function erlangC(agents, intensity) {
-        /* Simplified Erlang-C probability for the simulator */
+        /* Log-space Erlang-C to avoid overflow */
         if (agents <= 0 || intensity <= 0) return 0;
         var rho = intensity / agents;
         if (rho >= 1) return 1;
-        /* Log-space Erlang-C to avoid overflow */
         var logNumer = 0;
         for (var i = 1; i <= agents; i++) logNumer += Math.log(intensity) - Math.log(i);
         logNumer = Math.exp(logNumer);
@@ -379,10 +420,11 @@
     function updateSim() {
         var answerRate = parseInt(answerSlider.value) / 100;
         var talkSec = parseInt(talkSlider.value);
-        var agents = 4; /* 1 human + 3 AI */
+        var agents = 4; /* 1 human + 3 AI overflow */
         var wrapUp = 15;
         var ringTime = 15;
         var serviceTime = talkSec + wrapUp;
+        var talkMin = talkSec / 60;
 
         /* Format talk time */
         var m = Math.floor(talkSec / 60);
@@ -416,23 +458,55 @@
         }
 
         var recommended = Math.min(4, Math.max(1, Math.round(bestRatio)));
-        var callsPerHour = Math.round((3600 / (talkSec + wrapUp + ringTime * (1 / answerRate))) * bestRatio * 0.7);
+
+        /* Dials/hour: how many total outbound dials the system makes
+           = (3600 / avg_cycle_time) * dial_ratio
+           avg_cycle_time = ring_time / answer_rate (avg rings before an answer) */
+        var avgCycleTime = ringTime / answerRate;
+        var dialsPerHour = Math.round((3600 / avgCycleTime) * bestRatio * 0.7);
+
+        /* How many the human alone could handle (for comparison) */
+        var soloCallsPerHour = Math.max(1, Math.round(3600 / (talkSec + wrapUp + avgCycleTime)));
+
+        /* AI-handled calls while human is on a long call */
+        var aiCallsDuringHumanCall = 0;
+        if (talkSec >= 300) {
+            /* During a single human call, AI can service collisions.
+               Avg AI calls ≈ (answer_rate * dial_ratio * human_call_duration) / avg_cycle_time */
+            aiCallsDuringHumanCall = Math.round(answerRate * bestRatio * talkSec / avgCycleTime * 0.5);
+        }
 
         document.getElementById('simDialRatio').textContent = bestRatio.toFixed(1) + 'x';
         document.getElementById('simRecommendedLines').textContent = recommended;
         document.getElementById('simAbandonRate').textContent = bestAbandon.toFixed(1) + '%';
-        document.getElementById('simCallsHour').textContent = callsPerHour;
+        document.getElementById('simCallsHour').textContent = dialsPerHour;
 
-        /* Update line indicators */
+        /* Update line indicators — line 1 is always human, 2-4 are AI */
         for (var l = 1; l <= 4; l++) {
             var el = document.getElementById('simLine' + l);
             if (l <= recommended) {
                 el.className = 'pd-sim-line pd-sim-line--active';
-                el.innerHTML = '<i class="fa-solid fa-phone"></i>';
+                if (l === 1) {
+                    el.innerHTML = '<i class="fa-solid fa-phone"></i><span class="pd-sim-line-label">You</span>';
+                } else {
+                    el.innerHTML = '<i class="fa-solid fa-robot"></i><span class="pd-sim-line-label">AI</span>';
+                }
             } else {
                 el.className = 'pd-sim-line pd-sim-line--idle';
-                el.innerHTML = '<i class="fa-solid fa-phone-slash"></i>';
+                el.innerHTML = '<i class="fa-solid fa-phone-slash"></i><span class="pd-sim-line-label"></span>';
             }
+        }
+
+        /* Dynamic narrative insight based on talk time */
+        var insightEl = document.getElementById('simInsightText');
+        if (talkMin < 4) {
+            insightEl.textContent = 'Short DQ calls — you cycle fast. Erlang-C keeps all ' + recommended + ' lines hot. At ' + answerSlider.value + '% answer rate, you touch ' + dialsPerHour + ' dials/hour.';
+        } else if (talkMin < 10) {
+            insightEl.textContent = 'With ' + m + '-minute avg calls, you handle ~' + soloCallsPerHour + ' calls/hour solo. AI Overflow catches every collision so no lead hears dead air.';
+        } else if (talkMin < 25) {
+            insightEl.textContent = 'You\'re on a ' + m + '-minute call — a traditional dialer stops. Yours doesn\'t. AI keeps dialing, qualifying, and booking while you close. ' + (aiCallsDuringHumanCall > 0 ? 'AI handles ~' + aiCallsDuringHumanCall + ' overflow calls during each of your calls.' : '');
+        } else {
+            insightEl.textContent = 'A ' + m + '-minute sale means you\'re locked in. Without AI Overflow, your dialer is dead for ' + m + ' minutes. With it, AI keeps working your list — qualifying leads, booking appointments, even transferring hot ones when you free up.';
         }
     }
 
