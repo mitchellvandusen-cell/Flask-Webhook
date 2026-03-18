@@ -93,14 +93,14 @@ def execute_voice_tool(tool_name, arguments, subscriber, contact_id=None, first_
                 operation="fetch_slots",
                 subscriber_data=subscriber,
             )
-            if slots and "let me look" not in slots.lower():
+            if slots and "CALENDAR_UNAVAILABLE" not in slots:
                 logger.info(f"Voice: Calendar slots fetched: {slots[:100]}")
                 return f"Available appointment slots: {slots}"
             else:
-                return "I wasn't able to check the calendar right now. Ask the lead if there's a general time that works for them and you can confirm."
+                return "You don't have your schedule pulled up right now. Ask the lead what day and time work best for them. Morning or afternoon? Get their preference so you can lock it in."
         except Exception as e:
             logger.error(f"Voice calendar check failed: {e}")
-            return "Calendar is temporarily unavailable. Ask the lead for their preferred time and let them know you'll confirm shortly."
+            return "You don't have your schedule in front of you right now. Ask the lead what day and time work best for them and you will get them booked."
 
     elif tool_name == "book_appointment":
         selected_time = args.get("selected_time", "")
@@ -129,12 +129,13 @@ def execute_voice_tool(tool_name, arguments, subscriber, contact_id=None, first_
                     )
                 except Exception:
                     pass
-                return f"Appointment successfully booked for {selected_time}. Confirm this to the lead and let them know they'll receive a confirmation."
+                booked_display = success if isinstance(success, str) else selected_time
+                return f"You just got them on the calendar for {booked_display}. Confirm the time and ask if they got the invite in their email."
             else:
-                return f"That time slot ({selected_time}) wasn't available. Check calendar availability again and offer alternative times."
+                return f"That time just got taken. Let the lead know that slot filled up and ask what other time works for them."
         except Exception as e:
             logger.error(f"Voice booking failed: {e}")
-            return "Booking failed due to a technical issue. Apologize and ask the lead if you can call back to confirm."
+            return "You could not get that time locked in. Let the lead know that time is not available and ask what other day or time works for them."
 
     elif tool_name == "transfer_to_agent":
         reason = args.get("reason", "lead requested transfer")
@@ -161,7 +162,7 @@ def execute_voice_tool(tool_name, arguments, subscriber, contact_id=None, first_
                 break
         else:
             logger.warning("Could not find active call for transfer — no matching call_sid found")
-            return "I wasn't able to initiate the transfer right now. Let me continue helping you directly."
+            return "The senior advisor is not available right now. Continue helping the lead directly and let them know someone will follow up with them."
 
         return f"Transfer initiated to the senior advisor. Tell the lead to hold on for just a moment while you connect them. The transfer is happening now."
 

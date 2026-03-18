@@ -585,38 +585,33 @@ def process_webhook_task(payload: dict):
         if message and "covered" in message.lower():
             context_nudge = "Lead claims coverage."
 
-        # Add booking context
+        # Add booking context — all nudges must sound like a human agent's inner monologue,
+        # never reference "systems", "technical issues", "calendars being unavailable", etc.
+        # The lead must never suspect they are talking to anything other than a real person.
         if booking_made:
             # Use the actual booked time from the calendar API (not the raw customer request)
             booked_display = actual_booked_time or booking_time_str
             context_nudge += f"""
-⚠️ APPOINTMENT JUST BOOKED SUCCESSFULLY for {booked_display}.
+APPOINTMENT CONFIRMED: {booked_display}.
 
-Confirm the EXACT time: {booked_display}. Let them know a calendar invite is coming. Stop selling immediately. Do not ask for phone number, email, or any contact info. You already have it. You are texting them.
-
-Do not continue the sales conversation. The appointment is booked at {booked_display}. Confirm it in your own words and end warmly."""
+You just got them on the calendar for {booked_display}. Confirm the exact time in your own words. Say something like "Got you down for {booked_display}" or "Perfect, you're all set for {booked_display}." Then ask if they got the invite — they should see it in their email. Do NOT say "I'll send you a confirmation" or "a calendar invite is coming" — the invite is already sent automatically. Just confirm the time and ask "do you see the invite?" Stop selling. Do not ask for their phone number, email, or any contact info — you already have it, you are texting them. End warmly."""
             logger.info(f"✅ BOOKING CONFIRMATION ADDED TO PROMPT | contact={contact_id} | booked_time={booked_display}")
         elif booking_attempted_and_failed:
-            # Booking was attempted but the API call failed — give the AI specific guidance
+            # Booking was attempted but failed — guide AI without any technical language
             if calendar_unavailable:
                 context_nudge += f"""
-⚠️ CRITICAL: The lead requested an appointment at {booking_time_str}, but the system could not book it AND the calendar is temporarily unavailable.
-Do NOT tell the lead they are booked. Do NOT confirm an appointment. Do NOT say "let me check my calendar."
-Instead, ask the lead for their preferred day and time window (e.g., "What day works best for you, and are you more of a morning or afternoon person?"). Be natural and warm. The system will retry booking on their next message."""
+The lead asked for {booking_time_str} but you could not get them on the calendar right now. Do NOT tell them you are booked. Do NOT mention any issues with your calendar or any technical problems. You are a human agent — just smoothly ask what day and time work best for them. Say something like "What day works best for you — morning or afternoon?" Keep it natural. You will get them booked on their next message."""
             else:
                 context_nudge += f"""
-⚠️ CRITICAL: The lead requested an appointment at {booking_time_str}, but the system COULD NOT book it (the slot may be unavailable or there was a technical issue).
-Do NOT tell the lead they are booked. Do NOT confirm an appointment.
-Instead, apologize that the requested time isn't available and offer the available slots listed below. Be natural — say something like "That time isn't available, but I have these openings:" and list the slots."""
+The lead asked for {booking_time_str} but that slot just got taken. Do NOT tell them they are booked. Do NOT mention any errors or issues. Just let them know that time filled up and offer the available times below instead. Say something like "Ah that one just got grabbed — but I have these open:" and present the alternatives naturally. Let them pick."""
             logger.warning(f"⚠️ BOOKING ATTEMPTED BUT FAILED — offering alternative slots | contact={contact_id} | requested={booking_time_str} | calendar_unavailable={calendar_unavailable}")
         else:
-            # CRITICAL: Prevent AI from hallucinating bookings
+            # No booking attempted yet — prevent hallucinated confirmations
             if calendar_unavailable and (director_output["stage"] == "booking" or wants_slots):
                 context_nudge += """
-⚠️ The calendar is temporarily unavailable. Do NOT say "let me check my calendar" or promise to send times.
-Instead, ask the lead for their preferred day and time (e.g., "What day and time work best for you?"). The system will book it once they give a specific time."""
+You do not have your schedule pulled up right now. Do NOT say "let me check my calendar" or promise to send times. Just ask what day and time work best for them — "What day works for you?" Keep it simple and natural. You will get them booked once they give you a specific time."""
             else:
-                context_nudge += "\n⚠️ CRITICAL: NO APPOINTMENT HAS BEEN BOOKED YET. Do NOT tell the lead they are booked. Do NOT confirm an appointment. Only offer times or ask which time works best."
+                context_nudge += "\nNo appointment has been made yet. Do NOT tell the lead they are booked or confirm any appointment. Offer times from the available slots below, or ask what time works for them."
             logger.info(f"🚫 NO BOOKING YET | contact={contact_id} | calendar_unavailable={calendar_unavailable}")
 
         # Note: Follow-up strategy (including humor at 5+ unanswered) is now handled
