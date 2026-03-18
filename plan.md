@@ -4,33 +4,39 @@
 
 Restructure the OAuth flow, agency model, and dashboard architecture to:
 1. **Simplify OAuth**: Remove `/agencies/` API calls and location-count classification
-2. **Auto-link agencies**: Use `companyId` from OAuth to auto-associate individual agents with their agency
+2. **Auto-link agencies**: Use `companyId` from OAuth to auto-associate individual agents with their agency, capturing all available company/owner metadata
 3. **Unified dashboard**: Merge agency dashboard into main dashboard (one dashboard to rule everything)
-4. **White-label**: Agency owners can customize company name, color scheme, and font
+4. **White-label**: Agency owners can customize company name + logo (light/dark theme handles color schemes)
 5. **Agency-level predictive dialer**: Predictive dialer becomes agency-scoped (5+ agents required), coordinating across all agents with shared TCPA compliance, agent state management, and Erlang-C pacing
+6. **Per-user billing**: Each agent picks their own tier (SMS Bot $99/mo, Power Dialer $149.99/mo, Pro Dialer $224.99/mo). Only predictive dialer is billed at agency level.
 
 ---
 
 ## Phase 1: Database Schema Changes (`db.py`)
 
-### 1.1 Add `company_id` columns
-- Add `company_id TEXT` to `agency_billing` table
-- Add `company_id TEXT` to `subscribers` table
-- Add index on both for fast lookups
+### 1.1 Add `company_id` and company metadata columns to `agency_billing`
+- Add `company_id TEXT` — GHL companyId (primary key for agency matching)
+- Add `company_name TEXT` — company/agency name from GHL
+- Add `company_owner_name TEXT` — owner's full name (None if unavailable)
+- Add `company_owner_email TEXT` — owner's email (None if unavailable)
+- Add `company_owner_phone TEXT` — owner's phone (None if unavailable)
+- Add index on `company_id` for fast lookups
 
-### 1.2 Add `whitelabel_config` JSONB to `agency_billing`
+### 1.2 Add `company_id` to `subscribers`
+- Add `company_id TEXT` — links individual agents to their agency
+- Add index on `company_id` for fast lookups
+
+### 1.3 Add `whitelabel_config` JSONB to `agency_billing`
 Schema:
 ```json
 {
   "company_name": "Acme Insurance Group",
-  "logo_url": "https://...",
-  "accent_color": "#0066cc",
-  "font_family": "Inter",
-  "confirmed": true
+  "logo_url": "https://..."
 }
 ```
+No color scheme or font — light/dark theme toggle is sufficient.
 
-### 1.3 Remove seat-count gating
+### 1.4 Remove seat-count gating
 - Keep `max_seats` and `active_seats` columns for backward compat but stop enforcing them in code
 - Agency tier no longer depends on location count
 
@@ -44,8 +50,14 @@ Schema:
 
 ### 2.2 New agency detection: companyId-based
 - When OAuth callback receives token response with `companyId` but NO `locationId` → agency owner install
-  - Save to `agency_billing` with `company_id` column
+  - Save to `agency_billing` with ALL available metadata:
+    - `company_id` — from token response `companyId`
+    - `company_name` — from GHL company data (if available, else None)
+    - `company_owner_name` — owner's name from GHL user data (if available, else None)
+    - `company_owner_email` — owner's email from GHL user data (if available, else None)
+    - `company_owner_phone` — owner's phone from GHL user data (if available, else None)
   - Do NOT pull all locations or provision subscriber rows
+  - Extract whatever fields GHL provides in the token response / user info endpoint, leave None for anything unavailable
 
 - When OAuth callback receives `locationId` (individual install):
   - Save to `subscribers` as individual (existing flow)
@@ -53,7 +65,7 @@ Schema:
   - Check if `company_id` matches any `agency_billing.company_id` → if yes, auto-set `parent_agency_email`
 
 ### 2.3 Simplify provisioning
-- Agency owner: ONLY creates `agency_billing` row (no subscriber rows for sub-accounts)
+- Agency owner: ONLY creates `agency_billing` row with full metadata (no subscriber rows for sub-accounts)
 - Individual: Creates `subscribers` row, checks for agency match
 - Remove bulk location provisioning loop
 
@@ -94,23 +106,18 @@ Schema:
 
 ### 4.1 White-label setup flow
 - Agency owner sees "White Label" section in Settings tab
-- Form: company name (pre-filled from GHL), accent color picker, font picker (dropdown: Inter, Roboto, Poppins, Montserrat, Open Sans), logo upload URL
-- "Confirm & Apply" button saves to `agency_billing.whitelabel_config`
+- Form: company name (pre-filled from GHL company metadata), logo URL
+- No color scheme or font pickers — light/dark theme toggle handles that
+- "Save" button saves to `agency_billing.whitelabel_config`
 
-### 4.2 CSS injection (`_head.html`)
-- Before main stylesheet, inject `<style>` block overriding CSS custom properties:
-  ```css
-  :root {
-    --accent: {{ whitelabel.accent_color }};
-    --accent-hover: {{ computed_lighter }};
-  }
-  ```
+### 4.2 Brand injection (`_topbar.html`, `_sidebar.html`)
 - Brand name replaces "InsuranceGrokBot" in topbar, sidebar logo text, page titles
-- Font family injected via Google Fonts `<link>` + CSS variable
+- Logo URL replaces default logo if provided
+- No CSS variable overrides needed — existing light/dark theme is sufficient
 
 ### 4.3 Cascade to sub-users
-- When a sub-user logs in, check `parent_agency_email` → load agency's `whitelabel_config`
-- Sub-users see the agency's branding, not IGB branding
+- When a sub-user logs in, check `company_id` → load agency's `whitelabel_config`
+- Sub-users see the agency's branding (company name + logo), not IGB branding
 - Only agency owner can modify white-label settings
 
 ---
@@ -169,12 +176,20 @@ Based on industry best practices for predictive dialers:
 
 ### 6.1 Simplify agency tiers
 - Remove `agency_starter` vs `agency_pro` distinction based on seat count
-- Agency owners subscribe at individual level (power/pro dialer)
-- Predictive dialer is an agency-level add-on ($349.98/mo billed to agency owner)
+- Agency-level billing exists ONLY for the predictive dialer ($349.98/mo billed to agency owner)
+- All other plans are per-user, chosen individually by each agent
 
-### 6.2 Individual billing unchanged
-- Individual agents pay for their own power/pro dialer subscription
-- Agency owner's predictive dialer subscription is separate
+### 6.2 Per-user billing (unchanged)
+Each agent picks their own tier independently:
+- **SMS Bot**: $99/mo — AI texting only, no dialer
+- **Power Dialer**: $149.99/mo — single-line dialing + AI texting
+- **Pro Dialer**: $224.99/mo — multi-line (up to 4 lines) + AI texting
+
+### 6.3 Agency predictive dialer billing
+- Predictive dialer ($349.98/mo) is the only agency-level subscription
+- Billed to agency owner, shared across all agency agents
+- Requires 5+ linked agents to activate
+- Individual agents do NOT need to be on any specific tier to participate in agency predictive dialing
 
 ---
 
@@ -182,22 +197,21 @@ Based on industry best practices for predictive dialers:
 
 | File | Changes |
 |------|---------|
-| `db.py` | Add `company_id` to both tables, `whitelabel_config` JSONB, schema migration in `init_db()` |
-| `blueprints/oauth.py` | Remove `/agencies/` call, add companyId-based auto-linking, simplify provisioning |
-| `blueprints/dashboard.py` | Merge agency dashboard logic, add white-label injection, unified route |
+| `db.py` | Add `company_id` + company metadata columns to `agency_billing`, `company_id` to `subscribers`, `whitelabel_config` JSONB, schema migration in `init_db()` |
+| `blueprints/oauth.py` | Remove `/agencies/` call, add companyId-based auto-linking, save all available company/owner metadata, simplify provisioning |
+| `blueprints/dashboard.py` | Merge agency dashboard logic, unified route |
 | `blueprints/agency.py` | Keep API endpoints but change queries to use `company_id`, add white-label save endpoint |
 | `blueprints/auth.py` | Remove agency-specific redirect on login |
-| `blueprints/billing.py` | Simplify agency tier logic |
+| `blueprints/billing.py` | Remove agency_starter/agency_pro tiers, keep only agency predictive dialer billing |
 | `templates/dashboard.html` | Add conditional agency sections |
 | `templates/dashboard/_sidebar.html` | Add agency nav items (conditional) |
 | `templates/dashboard/_topbar.html` | White-label company name/logo injection |
-| `templates/dashboard/_head.html` | White-label CSS variable injection |
 | `templates/dashboard/tabs/team.html` | Add "Agency Members" sub-section |
 | `voice/predictive_engine.py` | Add `company_id` grouping to all singletons |
 | `voice/dialer.py` | Add agency predictive dialer routes |
 | `static/js/dashboard/dialer.js` | Agent state controls for predictive dialer agents |
 | `static/js/dashboard/sidebar.js` | Agency nav items |
-| `static/css/style.css` | White-label CSS variable support, agency dashboard styles |
+| `static/css/style.css` | Agency dashboard styles |
 
 ---
 
