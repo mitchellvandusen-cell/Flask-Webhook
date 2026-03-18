@@ -332,8 +332,8 @@ def _build_tactical_guidance(logic: LogicSignal, stage_value: str, first_name: s
     if stage_value == ConversationStage.BOOKED.value:
         return (
             "APPOINTMENT BOOKED.\n"
-            "Confirm the time naturally. Mention calendar invite coming.\n"
-            "Stop selling. End warmly. Conversation is done, hand-off complete."
+            "Confirm the time naturally. Ask if they see the invite in their email.\n"
+            "Stop selling. End warmly. Conversation is done."
         )
 
     # --- BOOKING ---
@@ -455,8 +455,8 @@ def _build_cold_outbound_guidance(first_name: str, lead_type: str = "default") -
 
     if lead_type == "very-old":
         return (
-            "SITUATION: VERY OLD LEAD. This person's information has been in the system "
-            "for 3+ months. They almost certainly do not remember any form. They have "
+            "SITUATION: VERY OLD LEAD. This person filled out a form over 3 months ago. "
+            "They almost certainly do not remember it. They have "
             "likely been contacted by multiple agents already.\n\n"
             "KEY CONTEXT: Anything that sounds like a standard insurance outreach will be "
             "dismissed immediately. They have heard it all. They are numb to it. You need "

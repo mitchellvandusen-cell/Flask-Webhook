@@ -77,6 +77,28 @@ CONTAMINATION_MARKERS = [
     "i'm playing the role",
     "as mitch,",
     "as the bot,",
+    # Bot/AI identity reveals — must NEVER reach the customer
+    "i'm an ai",
+    "i am an ai",
+    "i'm a bot",
+    "i am a bot",
+    "i'm a virtual",
+    "i am a virtual",
+    "virtual assistant",
+    "automated message",
+    "automated system",
+    "i'm an automated",
+    "i am an automated",
+    "as an ai",
+    "artificial intelligence",
+    "language model",
+    "i'm not a real person",
+    "i am not a real person",
+    "technical issue",
+    "technical error",
+    "system error",
+    "calendar is unavailable",
+    "calendar is temporarily",
 ]
 
 # Quick check: if the reply starts with these, it's definitely reasoning
