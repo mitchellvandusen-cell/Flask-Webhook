@@ -148,7 +148,7 @@
                 <div class="pd-lane-icon pd-lane-icon--red"><i class="fa-solid fa-hourglass-half"></i></div>
                 <span class="pd-lane-badge pd-lane-badge--slow">The Slow Lane</span>
                 <h4>Manual Dialing</h4>
-                <p>Dial one number. Listen to 30 seconds of ringing. Get voicemail. Hang up. Repeat. You spend 80% of your day listening to ringtones instead of talking to humans.</p>
+                <p>Dial one number. Listen to 30 seconds of ringing. Get voicemail. Hang up. Repeat. You spend 80% of your day listening to ringtones instead of talking to humans.*</p>
             </div>
             <div class="pd-lane">
                 <div class="pd-lane-icon pd-lane-icon--yellow"><i class="fa-solid fa-bolt"></i></div>
@@ -173,7 +173,7 @@
             <div>
                 <span class="pd-section-tag">The Math</span>
                 <h2 class="pd-section-h2">Erlang-C: 100 years of queue theory, working for you</h2>
-                <p class="pd-section-sub">Invented by a Danish mathematician to manage telephone switchboards in 1917. The same formula that routes millions of calls at AT&T now lives inside your dialer — running the math in reverse to calculate the exact number of lines to dial right now.</p>
+                <p class="pd-section-sub">Invented by a Danish mathematician to manage telephone switchboards in 1917. The same formula that routes millions of calls at AT&T** now lives inside your dialer — running the math in reverse to calculate the exact number of lines to dial right now.</p>
                 <p class="pd-section-sub">The algorithm watches three live variables and constantly recalculates. When leads aren't answering, it dials aggressively. When they're hot, it throttles back instantly. The goal: a lead says "Hello" the exact second you finish your last call.</p>
             </div>
             <div class="pd-erlang-visual">
@@ -248,7 +248,7 @@
                 <div class="pd-erlang-visual" style="text-align:center;padding:48px 32px">
                     <div style="font-size:4rem;margin-bottom:16px"><i class="fa-solid fa-phone-volume" style="color:#a78bfa"></i> <i class="fa-solid fa-plus" style="color:#555;font-size:1.5rem;margin:0 8px"></i> <i class="fa-solid fa-robot" style="color:var(--accent)"></i></div>
                     <div style="font-size:1.4rem;font-weight:800;color:#fff;margin-bottom:8px">Zero Dropped Leads</div>
-                    <div style="font-size:0.9rem;color:#999;line-height:1.6;max-width:300px;margin:0 auto">Every answered call gets a conversation. Human or AI. No dead air. No burned leads. No TCPA violations.</div>
+                    <div style="font-size:0.9rem;color:#999;line-height:1.6;max-width:300px;margin:0 auto">Every answered call gets a conversation. Human or AI. No dead air. No burned leads. No TCPA violations.***</div>
                 </div>
             </div>
         </div>
@@ -540,4 +540,14 @@
     }
 })();
 </script>
+
+<section class="pd-section" style="padding:40px 0 60px;border-top:1px solid rgba(255,255,255,0.06)">
+    <div class="container" style="max-width:700px">
+        <div class="pd-disclaimers" style="font-size:0.78rem;color:#666;line-height:1.8">
+            <p>* Based on industry data for manual single-line dialing. Individual results vary based on lead quality, answer rates, and calling patterns.</p>
+            <p>** Erlang-C is a standard telecom queuing formula widely used across the telecommunications industry, including carriers like AT&T, for network capacity planning. Our implementation applies the same mathematical model to outbound call pacing.</p>
+            <p>*** AI Overflow ensures 0% call abandonment rate, meeting the FTC Telemarketing Sales Rule 3% safe harbor for abandoned calls. Full TCPA compliance also depends on proper DNC list management, calling hours, and consent practices, which are the responsibility of the user. InsuranceGrokBot provides tools to support compliance (calling hours enforcement, DnD tracking, timezone checks) but does not provide legal advice.</p>
+        </div>
+    </div>
+</section>
 {% endblock %}
