@@ -439,26 +439,75 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
         "catch me later", "catch me tomorrow",
     ]
 
+    # ── Negation & context guards ──
+    # Prevents false positives when the lead NEGATES the objection keyword
+    # or uses it in a positive/different context.
+
+    # Negation patterns that flip objection meaning
+    _NEGATION_PREFIXES = [
+        "not too ", "isn't too ", "isnt too ", "it's not ", "its not ",
+        "don't need to ", "dont need to ", "don't have to ", "dont have to ",
+        "no need to ", "i don't ", "i dont ", "won't need to ", "wont need to ",
+        "not really ", "not that ", "never too ",
+    ]
+
+    def _keyword_match(keywords):
+        """Check if any keyword is present WITHOUT being negated."""
+        for kw in keywords:
+            if kw not in text_lower:
+                continue
+            # Check if this keyword appearance is negated
+            idx = text_lower.index(kw)
+            prefix = text_lower[:idx]
+            negated = any(prefix.endswith(neg) for neg in _NEGATION_PREFIXES)
+            if not negated:
+                return True
+        return False
+
+    # ── Context guards for specific false positive patterns ──
+
+    # "not interested in X, I want Y" — buying signal, not dismissal
+    # "my wife loves/agrees/supports/wants" — supportive spouse, not obstacle
+    # "I already have X but need more" — coverage gap, not objection
+    _BUYING_THROUGH_OBJECTION = [
+        # "not interested in X, I want Y" patterns
+        (r'not interested in\s+\w+.*(?:i want|but|prefer|rather|instead|looking for)', ObjectionType.NOT_INTERESTED),
+        # spouse is supportive
+        (r'(?:wife|husband|spouse|partner)\s+(?:loves?|agrees?|supports?|wants?|thinks?\s+(?:it\'?s?\s+)?(?:great|good|a good))', ObjectionType.SPOUSE_PARTNER),
+        # has coverage but needs more
+        (r'(?:already have|have insurance|have a policy|have coverage).*(?:but|however|need more|not enough|doesn\'t cover|gaps?)', ObjectionType.ALREADY_COVERED),
+        # "think about it all the time" / "think about my family" — expressing concern, not stalling
+        (r'think about (?:it |this )?(?:all the time|every day|constantly|a lot|my family|my kids|them)', ObjectionType.THINK_ABOUT_IT),
+        # "busy protecting" / "busy working on" — commitment, not scheduling conflict
+        (r'busy (?:protect|working on|taking care|making sure|getting|building)', ObjectionType.BUSY_TIMING),
+    ]
+
+    # Check if the message matches any buying-through-objection pattern
+    suppressed_types = set()
+    for pattern, obj_type in _BUYING_THROUGH_OBJECTION:
+        if re.search(pattern, text_lower):
+            suppressed_types.add(obj_type)
+
     # ── Check order: most specific first, then broad categories ──
 
-    if any(kw in text_lower for kw in spouse_kw):
+    if ObjectionType.SPOUSE_PARTNER not in suppressed_types and _keyword_match(spouse_kw):
         return ObjectionType.SPOUSE_PARTNER, ObjectionNature.FEAR_BASED
 
-    if any(kw in text_lower for kw in price_kw):
+    if ObjectionType.PRICE_MONEY not in suppressed_types and _keyword_match(price_kw):
         return ObjectionType.PRICE_MONEY, ObjectionNature.LOGISTICAL
 
-    if any(kw in text_lower for kw in already_kw):
+    if ObjectionType.ALREADY_COVERED not in suppressed_types and _keyword_match(already_kw):
         return ObjectionType.ALREADY_COVERED, ObjectionNature.LOGISTICAL
 
-    if any(kw in text_lower for kw in think_kw):
+    if ObjectionType.THINK_ABOUT_IT not in suppressed_types and _keyword_match(think_kw):
         return ObjectionType.THINK_ABOUT_IT, ObjectionNature.FEAR_BASED
 
-    if any(kw in text_lower for kw in busy_kw):
+    if ObjectionType.BUSY_TIMING not in suppressed_types and _keyword_match(busy_kw):
         return ObjectionType.BUSY_TIMING, ObjectionNature.FEAR_BASED
 
     # Check not_interested AFTER the more specific categories
     # so "too expensive, not interested" catches price first
-    if any(kw in text_lower for kw in not_interested_kw):
+    if ObjectionType.NOT_INTERESTED not in suppressed_types and _keyword_match(not_interested_kw):
         return ObjectionType.NOT_INTERESTED, ObjectionNature.FEAR_BASED
 
     # ── CATCH-ALL: short negative/dismissive responses ──
@@ -498,44 +547,76 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
 # ===================================
 
 def detect_buying_signal(text: str) -> BuyingSignalType:
-    """Detect buying signals from lead messages. These indicate interest and should push toward booking."""
+    """Detect buying signals from lead messages. These indicate interest
+    and should push toward booking.
+
+    IMPORTANT: Only match insurance-related buying signals. Generic phrases
+    like "how much experience do you have?" or "what kind of dog?" must NOT
+    trigger. Multi-word phrases are preferred over single-word substring
+    matches to prevent false positives.
+    """
     if not text:
         return BuyingSignalType.NONE
     t = text.lower()
 
+    # ── Insurance context guard ──
+    # For ambiguous phrases ("how much", "what kind of"), require insurance
+    # context words nearby to avoid matching non-insurance questions.
+    _INSURANCE_CONTEXT = [
+        "insurance", "coverage", "policy", "premium", "term", "whole life",
+        "iul", "universal", "final expense", "burial", "plan", "protect",
+        "life insurance", "beneficiary", "death benefit", "quote",
+    ]
+    has_insurance_context = any(w in t for w in _INSURANCE_CONTEXT)
+
     ready_kw = [
         "sign me up", "let's do it", "lets do it", "i'm ready", "im ready",
         "what's next", "whats next", "how do i start", "let's get started",
-        "i want to move forward", "ready to go"
+        "i want to move forward", "ready to go", "ready to move forward",
     ]
     if any(kw in t for kw in ready_kw):
         return BuyingSignalType.READY_SIGNAL
 
-    price_kw = [
-        "how much", "what does it cost", "what would it cost", "price",
-        "premium", "monthly payment", "per month", "a month",
-        "what am i looking at", "what's the cost", "whats the cost",
-        "what would i pay", "affordable", "budget", "cheapest"
+    # Price keywords — "how much" requires insurance context to avoid
+    # matching "how much experience do you have?" or "how much time?"
+    price_kw_strong = [
+        "what does it cost", "what would it cost", "what's the cost",
+        "whats the cost", "what would i pay", "what am i looking at",
+        "monthly payment", "per month", "a month",
+        "how much is the", "how much does the", "how much for",
+        "how much would", "how much is it", "how much does it",
+        "send me a quote", "can you quote", "get a quote",
     ]
-    if any(kw in t for kw in price_kw):
+    price_kw_context = ["how much", "price", "premium", "affordable", "budget", "cheapest"]
+
+    if any(kw in t for kw in price_kw_strong):
+        return BuyingSignalType.ASKING_PRICE
+    if has_insurance_context and any(kw in t for kw in price_kw_context):
         return BuyingSignalType.ASKING_PRICE
 
-    # Check for specific coverage amount requests (e.g. "I want 7000", "need 50k", "looking for 100000")
+    # Coverage amount requests (e.g. "I want 7000", "need 50k")
     amount_pattern = re.search(r'(?:want|need|looking for|get|interested in)\s*\$?(\d[\d,]*)\s*(?:k|K|thousand)?', t)
     if amount_pattern:
         return BuyingSignalType.REQUESTING_COVERAGE
 
-    option_kw = [
-        "what are my options", "what options", "what's available", "whats available",
-        "what can i get", "what kind of", "types of", "what type",
-        "what plans", "what policies"
+    # Options keywords — "what kind of" requires insurance context
+    # to avoid "what kind of dog do you have?"
+    option_kw_strong = [
+        "what are my options", "what options do i have", "what's available",
+        "whats available", "what can i get", "what plans", "what policies",
+        "what companies do you work with", "what carriers",
+        "what would you recommend",
     ]
-    if any(kw in t for kw in option_kw):
+    option_kw_context = ["what kind of", "types of", "what type"]
+
+    if any(kw in t for kw in option_kw_strong):
+        return BuyingSignalType.ASKING_OPTIONS
+    if has_insurance_context and any(kw in t for kw in option_kw_context):
         return BuyingSignalType.ASKING_OPTIONS
 
     compare_kw = [
         "which is better", "term vs", "vs whole", "difference between",
-        "term or whole", "iul vs", "compared to", "which one"
+        "term or whole", "iul vs", "compared to", "which one should i",
     ]
     if any(kw in t for kw in compare_kw):
         return BuyingSignalType.COMPARING
@@ -543,7 +624,10 @@ def detect_buying_signal(text: str) -> BuyingSignalType:
     detail_kw = [
         "how does that work", "how does it work", "tell me more",
         "explain", "what does that mean", "what's the catch", "whats the catch",
-        "what are living benefits", "what is iul", "what is term"
+        "what are living benefits", "what is iul", "what is term",
+        "how does the process", "what's the process", "whats the process",
+        "what do i need to qualify", "do i qualify", "send me some info",
+        "send me the details", "can you explain",
     ]
     if any(kw in t for kw in detail_kw):
         return BuyingSignalType.ASKING_DETAILS
@@ -772,9 +856,19 @@ OBJECTION FIELDS (based on the MOST RECENT lead message only):
 - objection_type: one of "not_interested", "spouse_partner", "price_money", "already_covered", "busy_timing", "think_about_it", "none"
 
 CLASSIFICATION MINDSET — Think like a top sales closer:
-The ONLY messages that are "none" are: answering your question, asking their own question, expressing genuine interest, agreeing to something, or providing information you asked for. EVERYTHING ELSE is an objection. When in doubt, it IS an objection. A closer never lets resistance slip by undetected.
+The ONLY messages that are "none" are: answering your question, asking their own question, expressing genuine interest, agreeing to something, or providing information you asked for. EVERYTHING ELSE is an objection — and every objection is an opportunity.
 
-  "not_interested" = ANY form of no, decline, dismissal, disengagement, negativity, apathy, or rejection. This includes: "no thanks", "not interested", "no longer interested", "I'm good", "nah", "nope", "pass", "don't need this", "not for me", "whatever", "bye", "leave me alone", "lose my number", "stop texting/calling me", "go away", short flat "no" replies, sarcastic dismissals, or ANY response that signals the lead does not want to continue. If you are unsure whether something is an objection or a "none", classify it as "not_interested" — it is better to handle an objection that wasn't there than to miss one.
+CRITICAL FALSE POSITIVE RULES — these OVERRIDE the closer mindset:
+- "not interested in X, I want Y" (e.g. "not interested in whole life, what about term?") = NONE (buying signal, NOT an objection — they are telling you what they DO want)
+- "my wife/husband loves/agrees/supports/wants this" = NONE (supportive spouse, NOT a deferral)
+- "already have some but need more" / "have coverage but it's not enough" = NONE (coverage gap = buying signal)
+- "think about it all the time" / "think about my family" = NONE (expressing concern, NOT stalling)
+- "busy protecting my family" / "busy working on getting coverage" = NONE (commitment, NOT timing)
+- "it's not too expensive" / "actually pretty affordable" = NONE (positive price reaction, NOT price objection)
+- When the lead NEGATES an objection keyword ("not too expensive", "don't need to ask anyone", "won't need to think about it"), that is NOT an objection — it is overcoming the objection themselves.
+- "yes" / "sure" / "ok" answering YOUR question about their situation = NONE (providing info, not booking)
+
+  "not_interested" = ANY form of no, decline, dismissal, disengagement, negativity, apathy, or rejection. This includes: "no thanks", "not interested", "no longer interested", "I'm good", "nah", "nope", "pass", "don't need this", "not for me", "whatever", "bye", "leave me alone", "lose my number", "stop texting/calling me", "go away", short flat "no" replies, sarcastic dismissals, or ANY response that signals the lead does not want to continue. If the message is CLEARLY negative with no other interpretation, classify as "not_interested". But if you are genuinely unsure and the message is ambiguous ("hmm", "maybe", "I don't know", "idk"), prefer "think_about_it" over "not_interested" — thoughtful leads who are weighing their options deserve patience, not aggressive objection handling.
   "spouse_partner" = deferring to ANY third party: spouse, partner, family member, parent, child, accountant, lawyer, financial advisor, insurance agent, broker, or anyone else. "Let me check with...", "I need to ask...", "My wife/husband...", "My accountant says..."
   "price_money" = ANY concern about cost, affordability, budget, value, or money. "Too expensive", "can't afford", "on a fixed income", "not worth it", "rather save my money", "that's steep", "money is tight"
   "already_covered" = claims to have ANY existing protection: employer coverage, group plan, VA, another policy, another agent, "I'm covered", "already have", "all set", "taken care of", "working with someone", "happy with what I have"
@@ -968,6 +1062,13 @@ Context clues:
 
     elif (cls.get("needs_coverage", False) or cls.get("mentioned_goal", False)) and cls.get("articulated_impact", False) and conversation_count >= 2:
         # Gap found AND lead has expressed why it matters — ready to book
+        stage = ConversationStage.BOOKING
+
+    elif (cls.get("needs_coverage", False) or cls.get("mentioned_goal", False)) and conversation_count >= 8:
+        # Conversation depth timeout: 8+ exchanges with a known gap but no
+        # articulated impact. The bot has had plenty of chances to draw it out.
+        # Continuing to ask "what would happen?" feels interrogative. Push to
+        # booking — a call will uncover the rest naturally.
         stage = ConversationStage.BOOKING
 
     elif (cls.get("needs_coverage", False) or cls.get("mentioned_goal", False)) and conversation_count >= 2:

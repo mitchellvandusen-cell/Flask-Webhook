@@ -603,8 +603,24 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
             if any(kw in entry_lower for kw in match_keywords):
                 same_objection_count += 1
     in_phase_2 = same_objection_count >= 2
+    in_phase_3 = same_objection_count >= 4  # Graceful exit after 4+ same objection
 
-    if in_phase_2:
+    if in_phase_3:
+        header += (
+            "=== PHASE 3: GRACEFUL EXIT — LEAVE THE DOOR OPEN ===\n"
+            "They have said the same thing FOUR or more times. You have addressed the "
+            "logistics AND the fear. They are not moving today.\n\n"
+            "DO NOT: Push again. Do not try another angle. Do not ask another question "
+            "about their situation. They have given you their answer for now.\n\n"
+            "INSTEAD: Acknowledge their position warmly and without pressure. Tell them "
+            "you understand. Let them know you are here if anything changes — no pressure, "
+            "no timeline, no guilt. End the exchange with genuine respect for their decision.\n\n"
+            "A top closer knows that LETTING GO gracefully is what brings them back in two weeks "
+            "when they are lying awake at night thinking about what you said. Pushing a fifth "
+            "time burns the bridge permanently.\n\n"
+            "Send ONE short message. Warm, human, zero pressure. Then stop.\n\n"
+        )
+    elif in_phase_2:
         header += (
             "=== PHASE 2: FEAR-BASED HANDLING ===\n"
             "You have already addressed the logistical side of this objection in "
