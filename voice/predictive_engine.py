@@ -348,6 +348,68 @@ def calculate_optimal_dial_ratio(
     }
 
 
+def calculate_solo_predictive_ratio(
+    avg_handle_time_sec,
+    avg_ring_time_sec,
+    answer_rate_pct,
+    current_abandon_rate_pct=0.0,
+    target_abandon_rate_pct=3.0,
+    wrap_up_time_sec=15,
+    max_ratio=4.0,
+    ai_overflow_capacity=3,
+):
+    """Calculate optimal dial ratio for Solo Predictive + AI Overflow.
+
+    Solo Predictive flips the traditional Erlang-C constraint: instead of
+    needing 5+ human agents to absorb call collisions, a SINGLE human agent
+    is backed by AI overflow lines. When multiple leads answer simultaneously,
+    the first call bridges to the human agent and all subsequent calls bridge
+    to the Voice AI in "overflow/warmup" mode.
+
+    Because AI catches every overflow call, these are NOT abandoned — they are
+    answered. The effective agent count for Erlang-C is 1 human + N AI agents.
+    TCPA abandon rate is effectively 0% since no caller waits unanswered.
+
+    Args:
+        avg_handle_time_sec: Average call duration in seconds
+        avg_ring_time_sec: Average ring time before answer
+        answer_rate_pct: Historical answer rate (0-100)
+        current_abandon_rate_pct: Current rolling abandon rate
+        target_abandon_rate_pct: TCPA target (default 3%)
+        wrap_up_time_sec: Post-call wrap-up time
+        max_ratio: Maximum dial ratio (capped at 4 lines)
+        ai_overflow_capacity: Number of AI overflow lines (default 3 = 4 total - 1 human)
+
+    Returns:
+        dict with dial_ratio, recommended_lines, overflow metrics, etc.
+    """
+    # Effective agents = 1 human + AI overflow capacity
+    # AI agents handle calls just as well as humans for queue math purposes —
+    # they answer instantly and keep the lead engaged.
+    effective_agents = 1 + ai_overflow_capacity
+
+    # Run standard Erlang-C with the effective agent count
+    result = calculate_optimal_dial_ratio(
+        available_agents=effective_agents,
+        avg_handle_time_sec=avg_handle_time_sec,
+        avg_ring_time_sec=avg_ring_time_sec,
+        answer_rate_pct=answer_rate_pct,
+        current_abandon_rate_pct=current_abandon_rate_pct,
+        target_abandon_rate_pct=target_abandon_rate_pct,
+        wrap_up_time_sec=wrap_up_time_sec,
+        max_ratio=max_ratio,
+    )
+
+    # Enrich the result with solo predictive context
+    result["reason"] = "solo_predictive_erlang_c"
+    result["inputs"]["human_agents"] = 1
+    result["inputs"]["ai_overflow_capacity"] = ai_overflow_capacity
+    result["inputs"]["effective_agents"] = effective_agents
+    result["ai_overflow"] = True
+
+    return result
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # TCPA COMPLIANCE ENGINE — Rolling Abandon Rate Tracker
 # ═══════════════════════════════════════════════════════════════════════════════

@@ -9,6 +9,7 @@ import twilio_provisioning
 from number_health import select_outbound_number, update_number_health
 from voice.call_state import active_calls, transfer_requests, _encode_client_state, _build_twiml_stream, _twilio_hangup
 from voice.helpers import _get_subscriber_by_phone, _get_subscriber_by_location
+from voice.predictive_engine import agent_state_manager, AgentState, tcpa_tracker
 
 logger = logging.getLogger("voice_bridge.twiml")
 
@@ -236,8 +237,38 @@ def outbound_twiml():
                     logger.warning(f"Auto-record failed: {e}")
             threading.Thread(target=_start_rec, daemon=True).start()
 
-    # For human VoIP mode, bridge the PSTN callee to the browser agent
-    if dial_mode == 'human':
+    # ── Solo Predictive AI Overflow Detection ──
+    # For solo_predictive tier with human dial_mode: check if the agent is already
+    # on a call. If so, this is a COLLISION — route to AI overflow instead of human.
+    _is_overflow = False
+    if dial_mode == 'human' and location_id:
+        call_info = active_calls.get(call_sid, {})
+        agent_email = call_info.get('_agent_email', '')
+        _tier = call_info.get('_subscription_tier', '')
+
+        if _tier == 'solo_predictive' and agent_email:
+            agent = agent_state_manager.get_agent_state(location_id, agent_email)
+            if agent.get('state') == AgentState.ON_CALL:
+                # COLLISION: agent is already handling another call.
+                # Route this call to Voice AI in overflow/warmup mode.
+                _is_overflow = True
+                logger.info(
+                    f"AI OVERFLOW: Agent {agent_email} is ON_CALL — "
+                    f"routing {call_sid[:16]} to AI warmup mode "
+                    f"(contact={contact_name}, collision with {agent.get('call_sid', '')[:16]})"
+                )
+                # Mark call as overflow in active_calls for frontend visibility
+                if call_sid in active_calls:
+                    active_calls[call_sid]['_overflow'] = True
+                    active_calls[call_sid]['_overflow_agent'] = agent_email
+                    active_calls[call_sid]['_overflow_primary_sid'] = agent.get('call_sid', '')
+
+                # TCPA: overflow calls are NOT abandoned — they are answered by AI.
+                # The status callback in outbound.py will record the outcome when
+                # the call terminates (completed + duration > 0 = "answered").
+
+    # For human VoIP mode (NOT overflow), bridge the PSTN callee to the browser agent
+    if dial_mode == 'human' and not _is_overflow:
         identity = f"agent_{location_id}" if location_id else ""
         if identity:
             logger.info(f"Human mode outbound: bridging to browser client={identity}")
@@ -252,7 +283,7 @@ def outbound_twiml():
             twiml = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
         return Response(twiml, content_type='text/xml')
 
-    # (host already set above for recording)
+    # AI mode (default) or AI overflow — connect to xAI Realtime WebSocket
     stream_url = f'wss://{host}/voice/stream'
 
     client_state = _encode_client_state({
@@ -262,7 +293,7 @@ def outbound_twiml():
         'direction':    direction,
         'contact_id':   contact_id,
         'contact_name': contact_name,
-        'dial_mode':    dial_mode,
+        'dial_mode':    'ai_overflow' if _is_overflow else dial_mode,
     })
 
     params = {'client_state': client_state, 'callSid': call_sid}

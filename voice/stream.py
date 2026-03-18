@@ -103,7 +103,8 @@ async def handle_voice_stream(ws):
         location_id  = client_state_meta.get('location_id', '') or custom_params.get('locationId', '')
         contact_id   = client_state_meta.get('contact_id',  '') or custom_params.get('contactId', '')
         contact_name = client_state_meta.get('contact_name','there') or custom_params.get('contactName', 'there')
-        logger.info(f"Stream started: SID={stream_sid} call={call_sid} dir={direction} loc={location_id}")
+        dial_mode    = client_state_meta.get('dial_mode', 'ai')
+        logger.info(f"Stream started: SID={stream_sid} call={call_sid} dir={direction} loc={location_id} mode={dial_mode}")
 
         # Belt-and-suspenders: if this is an outbound call and the media stream
         # is connected, the call is definitely in-progress. Force the status
@@ -144,24 +145,60 @@ async def handle_voice_stream(ws):
         voice_bot_name = subscriber.get("bot_first_name", "your advisor")
     custom_voice_instructions = voice_config.get("voice_instructions", "")
     call_script = voice_config.get("call_script", "").strip()
-    # Direction context for the AI
-    if direction == "outbound":
-        _display_name = contact_name if contact_name not in ("there", "Manual", "") else "this person"
-        direction_context = f"CALL TYPE: You are CALLING {_display_name}. This is an OUTBOUND call \u2014 you initiated it. You called them. You are the caller, they are the person you dialed. Do NOT act like they called you. You reached out to share something valuable."
-    else:
-        direction_context = "CALL TYPE: This is an INBOUND call \u2014 they called you. Respond to why they called. Be helpful and direct."
 
-    minimal_prompt = f"""You are {voice_bot_name}, a life insurance advisor on a live phone call.
+    # ── AI Overflow / Warmup Mode ──
+    # When solo_predictive dials multiple lines and the agent is already on a call,
+    # overflow calls route here with dial_mode='ai_overflow'. The AI acts as the
+    # agent's assistant, keeping the lead warm until the human takes over.
+    _is_overflow = (dial_mode == 'ai_overflow')
+    _operator_name = subscriber.get("operator_name", "").strip() or subscriber.get("bot_first_name", "your agent")
+
+    if _is_overflow:
+        _display_name = contact_name if contact_name not in ("there", "Manual", "") else ""
+        minimal_prompt = f"""You are {voice_bot_name}, an assistant for {_operator_name} who is a life insurance advisor.
+
+SITUATION: {_operator_name} just called {_display_name or 'this person'}, but {_operator_name} is currently finishing up with another client. You are answering on {_operator_name}'s behalf to keep {_display_name or 'them'} on the line until {_operator_name} is free. This should only take a moment.
+
+YOUR ROLE — OVERFLOW/WARMUP MODE:
+- You are {_operator_name}'s assistant. You work together.
+- Your job is to keep this person engaged and comfortable for 30-90 seconds until {_operator_name} can join.
+- Be warm, friendly, and natural. Make small talk. Ask a light question or two.
+- If they ask why {_operator_name} isn't on the line yet, say something like "They're just wrapping up with someone, should only be another minute."
+- Do NOT try to sell, quote, or close. You're the warm handoff, not the closer.
+- Do NOT schedule appointments or make commitments — {_operator_name} will handle that.
+- If they share information about their insurance needs, acknowledge it naturally and let them know {_operator_name} will be the best person to help with the details.
+- Keep it light and conversational. "So, have you been looking into coverage for a while, or is this something new?" type questions.
+
+VOICE: Casual, warm, upbeat. Use contractions. Short sentences. 1-2 sentences max per response. React naturally. Sound like a real person on the phone.
+
+BREATHING RHYTHM: Take a [breath] every 3-5 words. Use [short pause] after natural clause breaks. Sound human.
+
+NEVER say you're an AI, a bot, or a virtual assistant. You are {voice_bot_name}, {_operator_name}'s assistant. NEVER give specific pricing or dollar amounts.
+Every word you output is spoken aloud. Allowed inline cues: [pause], [short pause], [breath], [inhale], [sigh softly], [small chuckle]. Output ONLY what {voice_bot_name} would say. Nothing else."""
+
+        greeting = f"Hey{f' {contact_name}' if _display_name else ''}, this is {voice_bot_name}. [breath] I work with {_operator_name}, they asked me to hop on real quick. They're just finishing up with someone, should only be a minute. How's your day going?"
+
+        logger.info(f"AI OVERFLOW stream: {call_sid[:16]} — warmup mode for {_operator_name}, contact={contact_name}")
+
+    else:
+        # ── Standard prompt (non-overflow) ──
+        if direction == "outbound":
+            _display_name = contact_name if contact_name not in ("there", "Manual", "") else "this person"
+            direction_context = f"CALL TYPE: You are CALLING {_display_name}. This is an OUTBOUND call \u2014 you initiated it. You called them. You are the caller, they are the person you dialed. Do NOT act like they called you. You reached out to share something valuable."
+        else:
+            direction_context = "CALL TYPE: This is an INBOUND call \u2014 they called you. Respond to why they called. Be helpful and direct."
+
+        minimal_prompt = f"""You are {voice_bot_name}, a life insurance advisor on a live phone call.
 
 {direction_context}
 
 VOICE: You sound like a real person who's been doing this for years. Casual, warm, direct. Use contractions \u2014 "I'm", "you're", "can't", "gonna", "wanna", "kinda". Keep responses to 1-2 sentences max. One question per turn. No jargon. Never say "Great question" or "I appreciate you asking" or "I'd be happy to help" \u2014 just respond like a human would.
 
-FIRST 15 SECONDS — CONFIDENT OPENING (CRITICAL): For your greeting and first 1-2 responses, NO filler words at all — zero "um", "uh", "ah", "you know", "I mean", "like". You sound sharp, confident, and direct. You've made this call a thousand times. After the first 15 seconds of conversation, fillers can start creeping in naturally.
+FIRST 15 SECONDS \u2014 CONFIDENT OPENING (CRITICAL): For your greeting and first 1-2 responses, NO filler words at all \u2014 zero "um", "uh", "ah", "you know", "I mean", "like". You sound sharp, confident, and direct. You've made this call a thousand times. After the first 15 seconds of conversation, fillers can start creeping in naturally.
 
 MESSY REALISM (after the first 15 seconds): Sound like you're thinking in real time. Use natural fillers mid-thought: "um", "uh", "you know", "I mean", "like". Let sentences trail or self-correct occasionally: "The thing is\u2014 I mean, what most people miss is..." Use [sigh softly] for empathy, [small chuckle] for light moments, [tsk] for casual emphasis. Aim for 2-3 cues per response minimum.
 
-BREATHING RHYTHM (ALWAYS — including first 15 seconds): Take a [breath] every 3-5 words. This is mandatory. Real people breathe constantly while talking — you must too. Example: "Hey it's {voice_bot_name} [breath] I was hoping to [breath] catch you for a quick second." Use [short pause] after natural clause breaks. This breathing pattern applies from the very first word of the call.
+BREATHING RHYTHM (ALWAYS \u2014 including first 15 seconds): Take a [breath] every 3-5 words. This is mandatory. Real people breathe constantly while talking \u2014 you must too. Example: "Hey it's {voice_bot_name} [breath] I was hoping to [breath] catch you for a quick second." Use [short pause] after natural clause breaks. This breathing pattern applies from the very first word of the call.
 
 PACE: You talk like you're on the phone with a friend. Short sentences. Natural pauses. Don't monologue. React to what they say before moving on. "Yeah", "Right", "Got it", "Mm" \u2014 quick acknowledgments, then your actual response.
 
@@ -172,15 +209,15 @@ NEVER say you're an AI, a bot, or a virtual assistant. You are {voice_bot_name}.
 {f"CALL SCRIPT REFERENCE (use naturally, never read verbatim): {call_script[:2000]}" if call_script else ""}
 Every word you output is spoken aloud. Allowed inline cues: [pause], [short pause], [long-pause], [breath], [inhale], [exhale], [sigh], [sigh softly], [laugh], [small chuckle], [lip-smack], [tsk]. Allowed wrapper tags: <emphasis>, <slow>, <fast>, <soft>, <whisper>, <loud>, <higher-pitch>, <lower-pitch>, <build-intensity>. Output ONLY what {voice_bot_name} would say. Nothing else."""
 
-    # Build greeting -- short, casual, natural. NOT a script to read verbatim.
-    greeting = voice_config.get("greeting", "").strip()
-    if not greeting:
-        if direction == "outbound" and contact_name not in ("there", "Manual", ""):
-            greeting = f"Hey {contact_name}, it's {voice_bot_name}. How's it going?"
-        elif direction == "outbound":
-            greeting = f"Hey, it's {voice_bot_name}. I was hoping to catch you for a quick second."
-        else:
-            greeting = f"Hey, this is {voice_bot_name}. What's going on?"
+        # Build greeting -- short, casual, natural. NOT a script to read verbatim.
+        greeting = voice_config.get("greeting", "").strip()
+        if not greeting:
+            if direction == "outbound" and contact_name not in ("there", "Manual", ""):
+                greeting = f"Hey {contact_name}, it's {voice_bot_name}. How's it going?"
+            elif direction == "outbound":
+                greeting = f"Hey, it's {voice_bot_name}. I was hoping to catch you for a quick second."
+            else:
+                greeting = f"Hey, this is {voice_bot_name}. What's going on?"
 
     logger.info(f"Fast-connecting to XAI Realtime API (voice={voice_name})")
 
