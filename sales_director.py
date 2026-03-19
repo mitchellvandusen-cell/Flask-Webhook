@@ -427,7 +427,13 @@ def _build_cold_outbound_guidance(first_name: str, lead_type: str = "default") -
         "Every message you send must be unique. Never repeat structure, wording, or angle "
         "across different leads. One question maximum. Brief.\n\n"
         f"{name_line}"
-        "Goal: get a reply. Nothing else matters on the first message."
+        "Goal: get a reply. Nothing else matters on the first message.\n\n"
+        "MANDATORY: Your message must reference life insurance, coverage, or protection "
+        "within the first sentence. You are a stranger — a vague 'hey how's it going' "
+        "from an unknown number gets ignored or reported as spam. Make it immediately "
+        "clear why you are texting them. No generic check-ins. No small talk openers. "
+        "No 'things are going well over here.' You are reaching out about insurance, "
+        "so say that."
     )
 
     if lead_type == "fresh":
