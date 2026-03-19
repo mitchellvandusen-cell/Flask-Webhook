@@ -46,6 +46,17 @@ async def startup():
     loop.set_default_executor(
         concurrent.futures.ThreadPoolExecutor(max_workers=100)
     )
+
+    # Initialize token encryption so the voice server can decrypt OAuth tokens
+    # stored in the DB. The key auto-loads from the app_settings table (same key
+    # the Flask app generated). Without this, session enrichment fails because
+    # subscriber tokens can't be decrypted.
+    try:
+        from token_encryption import initialize_encryption
+        initialize_encryption()
+    except Exception as e:
+        logger.warning(f"Token encryption init failed (non-fatal): {e}")
+
     port = os.getenv("PORT", os.getenv("VOICE_PORT", "8081"))
     logger.info(f"Voice server started — port={port}, thread pool: 100 workers")
 

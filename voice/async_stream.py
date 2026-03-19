@@ -276,28 +276,39 @@ Every word you output is spoken aloud. Allowed cues: [pause], [long-pause], [bre
             call_active = True
             _pending_transfer = False
             _pending_hangup = False
+            _taking_over = False  # Agent intercept in progress — mute AI but keep Twilio alive
 
             async def receive_from_twilio():
-                nonlocal stream_sid, call_active
+                nonlocal stream_sid, call_active, _taking_over
                 try:
                     while call_active:
                         # Check for takeover signal
-                        if call_sid and await async_transfer_request_exists(call_sid):
+                        if call_sid and not _taking_over and await async_transfer_request_exists(call_sid):
                             req = await async_get_transfer_request(call_sid) or {}
                             if req.get('type') == 'takeover':
-                                logger.info(f"Instant AI audio cutoff (Twilio loop): {call_sid}")
+                                _taking_over = True
+                                logger.info(f"Takeover: muting AI, keeping Twilio WebSocket alive for {call_sid}")
                                 try:
+                                    # Clear Twilio audio buffer so AI stops talking
                                     await websocket.send_text(json.dumps({"event": "clear", "streamSid": stream_sid}))
+                                    # Close xAI connection so it stops generating
+                                    await xai_ws.close()
                                 except Exception:
                                     pass
-                                call_active = False
-                                break
+                                # DO NOT set call_active = False or break!
+                                # The Twilio WebSocket must stay alive while Twilio
+                                # fetches the intercept TwiML and redirects the call.
+                                continue
 
                         try:
                             message = await asyncio.wait_for(
                                 websocket.receive_text(), timeout=35.0
                             )
                         except asyncio.TimeoutError:
+                            if _taking_over:
+                                # During takeover, Twilio will send a 'stop' event
+                                # once the redirect completes. Just keep waiting.
+                                continue
                             logger.warning(f"Twilio receive timed out — ending stream {stream_sid}")
                             call_active = False
                             break
@@ -309,6 +320,8 @@ Every word you output is spoken aloud. Allowed cues: [pause], [long-pause], [bre
                         data = json.loads(message)
 
                         if data['event'] == 'media':
+                            # During takeover, still forward to listeners but
+                            # don't send to xAI (it's closed)
                             payload = data['media']['payload']
 
                             # Forward to live listeners (in-process asyncio.Queue)
@@ -319,14 +332,15 @@ Every word you output is spoken aloud. Allowed cues: [pause], [long-pause], [bre
                                     except asyncio.QueueFull:
                                         pass
 
-                            # Transcode mulaw 8kHz → PCM16 16kHz via thread
-                            mulaw_bytes = base64.b64decode(payload)
-                            pcm16_bytes = await asyncio.to_thread(_mulaw_to_pcm16, mulaw_bytes)
-                            pcm16_b64 = base64.b64encode(pcm16_bytes).decode('ascii')
-                            await xai_ws.send(json.dumps({
-                                "type": "input_audio_buffer.append",
-                                "audio": pcm16_b64,
-                            }))
+                            if not _taking_over:
+                                # Transcode mulaw 8kHz → PCM16 16kHz via thread
+                                mulaw_bytes = base64.b64decode(payload)
+                                pcm16_bytes = await asyncio.to_thread(_mulaw_to_pcm16, mulaw_bytes)
+                                pcm16_b64 = base64.b64encode(pcm16_bytes).decode('ascii')
+                                await xai_ws.send(json.dumps({
+                                    "type": "input_audio_buffer.append",
+                                    "audio": pcm16_b64,
+                                }))
 
                         elif data['event'] == 'stop':
                             logger.info(f"Twilio stream stopped: {stream_sid}")
@@ -338,7 +352,7 @@ Every word you output is spoken aloud. Allowed cues: [pause], [long-pause], [bre
                     call_active = False
 
             async def receive_from_xai():
-                nonlocal last_assistant_item, response_start_timestamp, ai_chunks_sent, call_active, _pending_transfer, _pending_hangup
+                nonlocal last_assistant_item, response_start_timestamp, ai_chunks_sent, call_active, _pending_transfer, _pending_hangup, _taking_over
 
                 async def _send_audio_to_twilio(raw_b64: str):
                     nonlocal ai_chunks_sent
@@ -363,18 +377,14 @@ Every word you output is spoken aloud. Allowed cues: [pause], [long-pause], [bre
 
                 try:
                     async for xai_message in xai_ws:
-                        if not call_active:
+                        if not call_active or _taking_over:
                             break
 
                         if call_sid and await async_transfer_request_exists(call_sid):
                             req = await async_get_transfer_request(call_sid) or {}
                             if req.get('type') == 'takeover':
-                                logger.info(f"Instant AI audio cutoff (XAI relay): {call_sid}")
-                                try:
-                                    await websocket.send_text(json.dumps({"event": "clear", "streamSid": stream_sid}))
-                                except Exception:
-                                    pass
-                                call_active = False
+                                # Takeover handled by Twilio loop — just exit xAI loop
+                                logger.info(f"Takeover detected in XAI loop, exiting: {call_sid}")
                                 break
 
                         response = json.loads(xai_message)
