@@ -1,49 +1,56 @@
-# db/schema.py — Database schema initialization & Alembic migration runner
+# db/schema.py — Database schema initialization via Alembic
 #
-# In production, schema changes should go through Alembic migrations.
-# The init_db() function is preserved for backward compatibility but
-# new schema changes MUST use Alembic (see migrations/ directory).
+# ALL schema is now defined in Alembic migrations (migrations/versions/).
+# The legacy init_db() with 1,400 lines of raw DDL is no longer called.
 #
 # To create a new migration:
-#   alembic revision --autogenerate -m "description"
+#   alembic revision -m "add column X to table Y"
 #
 # To apply pending migrations:
 #   alembic upgrade head
+#
+# Production pre-deploy command (Railway):
+#   python -m alembic upgrade head
 
 import os
 import logging
-from db_legacy import init_db as _legacy_init_db
 
 logger = logging.getLogger(__name__)
 
 
 def init_db():
     """
-    Initialize the database schema.
+    Initialize the database schema via Alembic migrations.
 
-    Calls the legacy init_db() which runs CREATE TABLE IF NOT EXISTS
-    and ALTER TABLE ADD COLUMN statements. This is preserved for
-    backward compatibility during the Alembic transition.
+    Runs `alembic upgrade head` which applies all pending migrations.
+    On a fresh database, this creates the entire schema (002_full_schema).
+    On an existing database, this applies only new migrations.
 
-    Once all environments are on Alembic, this function will be replaced
-    with: alembic.command.upgrade(alembic_cfg, "head")
+    This replaces the legacy init_db() that had 1,400 lines of raw
+    CREATE TABLE / ALTER TABLE statements.
     """
-    _legacy_init_db()
-
-    # Run any pending Alembic migrations after legacy init
     try:
         from alembic.config import Config
         from alembic import command
 
-        alembic_cfg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "alembic.ini")
+        alembic_cfg_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "alembic.ini"
+        )
         if os.path.exists(alembic_cfg_path):
             alembic_cfg = Config(alembic_cfg_path)
             command.upgrade(alembic_cfg, "head")
             logger.info("Alembic migrations applied successfully")
+        else:
+            logger.error(f"alembic.ini not found at {alembic_cfg_path}")
     except ImportError:
-        logger.debug("Alembic not installed, skipping migration check")
+        logger.warning(
+            "Alembic not installed. Install with: pip install alembic. "
+            "Schema will not be initialized."
+        )
     except Exception as e:
-        logger.warning(f"Alembic migration check failed (non-fatal): {e}")
+        # Log but don't crash — the pre-deploy command should have already
+        # applied migrations. This is a safety net, not the primary path.
+        logger.error(f"Alembic migration failed: {e}", exc_info=True)
 
 
 __all__ = ["init_db"]
