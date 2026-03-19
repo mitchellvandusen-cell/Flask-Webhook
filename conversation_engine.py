@@ -850,6 +850,9 @@ def _parse_llm_json(raw: str) -> dict:
 
 _CLASSIFICATION_PROMPT = """You are classifying lead messages in a life insurance sales conversation.
 
+Conversation stage history (most recent at bottom — shows where we have been):
+{stage_history}
+
 Lead messages (most recent at bottom):
 {lead_messages}
 
@@ -920,15 +923,17 @@ Context examples:
 """
 
 
-def _llm_classify(lead_msgs: List[str], model: str, timeout: float) -> dict:
+def _llm_classify(lead_msgs: List[str], model: str, timeout: float, stage_history: str = "") -> dict:
     """
     Run LLM classification on lead messages. Returns parsed dict or empty dict on failure.
+    stage_history: formatted string of past stages so Grok knows the conversation arc.
     """
     if not client or not lead_msgs:
         return {}
 
     lead_messages_str = chr(10).join([f"[{i+1}] {msg}" for i, msg in enumerate(lead_msgs[-8:])])
-    prompt = _CLASSIFICATION_PROMPT.format(lead_messages=lead_messages_str)
+    history_str = stage_history if stage_history else "No prior stage history (first interaction or new contact)."
+    prompt = _CLASSIFICATION_PROMPT.format(lead_messages=lead_messages_str, stage_history=history_str)
 
     try:
         response = client.chat.completions.create(
@@ -1048,13 +1053,26 @@ def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "", age: i
     all_lead_text = " ".join(lead_msgs)
     recent_lead_text = " ".join(lead_msgs[-4:]) if lead_msgs else ""
 
+    # ─── Build stage history from stamped assistant messages ───
+    # Each assistant reply carries the stage it was sent from. Reading these in order
+    # gives Grok a clear arc: "qualifying → objection_handling → rapport → qualifying"
+    # so it knows where the conversation has been, not just where it is right now.
+    stage_entries = [
+        m['stage'] for m in messages
+        if m['role'] == 'assistant' and m.get('stage')
+    ]
+    if stage_entries:
+        stage_history = " → ".join(stage_entries[-8:])  # last 8 turns is more than enough
+    else:
+        stage_history = ""
+
     # ─── Tier 1: Primary LLM classification (best model, 6s timeout) ───
-    cls = _llm_classify(lead_msgs, CLASSIFY_MODEL_PRIMARY, timeout=6.0)
+    cls = _llm_classify(lead_msgs, CLASSIFY_MODEL_PRIMARY, timeout=6.0, stage_history=stage_history)
 
     # ─── Tier 2: Fallback LLM (faster model, 4s timeout) ───
     if not cls:
         logger.info("Tier 1 LLM failed. Trying Tier 2 fallback model.")
-        cls = _llm_classify(lead_msgs, CLASSIFY_MODEL_FALLBACK, timeout=4.0)
+        cls = _llm_classify(lead_msgs, CLASSIFY_MODEL_FALLBACK, timeout=4.0, stage_history=stage_history)
 
     # ─── Tier 3: Minimal keyword safety net (API completely down) ───
     if not cls:

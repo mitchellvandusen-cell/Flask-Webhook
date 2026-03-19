@@ -24,9 +24,11 @@ if XAI_API_KEY:
 # MESSAGE STORAGE & RETRIEVAL
 # ===================================
 
-def save_message(contact_id: str, message_text: str, message_type: str = "lead") -> bool:
+def save_message(contact_id: str, message_text: str, message_type: str = "lead", stage: str = None) -> bool:
     """
     Save a single message to the database with deduplication.
+    stage: conversation stage at the time of this message (e.g. 'qualifying', 'objection_handling').
+           Stamped on assistant messages so stage history can be reconstructed on next turn.
     Returns True on success, False on failure or invalid input.
     """
     if not contact_id or not message_text or not message_text.strip():
@@ -45,10 +47,10 @@ def save_message(contact_id: str, message_text: str, message_type: str = "lead")
         # CRASH FIX: Added ON CONFLICT DO NOTHING
         # This allows the lead to repeat themselves without crashing the worker
         cur.execute("""
-            INSERT INTO contact_messages (contact_id, message_type, message_text, created_at)
-            VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+            INSERT INTO contact_messages (contact_id, message_type, message_text, stage, created_at)
+            VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
             ON CONFLICT DO NOTHING
-        """, (contact_id, message_type, message_text.strip()))
+        """, (contact_id, message_type, message_text.strip(), stage))
 
         conn.commit()
         return True
@@ -82,7 +84,7 @@ def get_recent_messages(contact_id: str, limit: int = None) -> List[Dict[str, st
         if limit is None:
             # Fetch ALL messages for narrative observer (unlimited memory)
             cur.execute("""
-                SELECT message_type, message_text
+                SELECT message_type, message_text, stage
                 FROM contact_messages
                 WHERE contact_id = %s
                 ORDER BY created_at DESC
@@ -90,7 +92,7 @@ def get_recent_messages(contact_id: str, limit: int = None) -> List[Dict[str, st
         else:
             # Fetch limited messages for logic flow
             cur.execute("""
-                SELECT message_type, message_text
+                SELECT message_type, message_text, stage
                 FROM contact_messages
                 WHERE contact_id = %s
                 ORDER BY created_at DESC
@@ -101,7 +103,10 @@ def get_recent_messages(contact_id: str, limit: int = None) -> List[Dict[str, st
         messages = []
         for row in reversed(rows):
             role = "lead" if row['message_type'] == "lead" else "assistant"
-            messages.append({"role": role, "text": row['message_text'].strip()})
+            entry = {"role": role, "text": row['message_text'].strip()}
+            if row.get('stage'):
+                entry["stage"] = row['stage']
+            messages.append(entry)
 
         # If limit specified, return last N messages; otherwise return all
         return messages[-limit:] if limit else messages

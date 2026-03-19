@@ -687,6 +687,9 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
 
         if not reply:
             # === NORMAL LLM FLOW ===
+            # Effective stage for this turn — used both in system prompt and message history
+            effective_stage = "closed" if booking_made else director_output["stage"]
+
             system_prompt = build_system_prompt(
                 bot_first_name=bot_first_name,
                 timezone=timezone,
@@ -694,7 +697,7 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                 tactical_narrative=director_output["tactical_narrative"],
                 known_facts=director_output["known_facts"],
                 story_narrative=director_output["story_narrative"],
-                stage="closed" if booking_made else director_output["stage"],
+                stage=effective_stage,
                 recent_exchanges=recent_exchanges,
                 message=message,
                 calendar_slots=calendar_slots,
@@ -791,7 +794,7 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                 success, status_code, error = deliver_webhook(
                     url=webhook_url, payload=out_payload, secret=webhook_secret
                 )
-                save_message(contact_id, reply, "assistant")
+                save_message(contact_id, reply, "assistant", stage=effective_stage)
                 if success:
                     logger.info(f"✅ API reply delivered via webhook -> {status_code}")
                     log_webhook_event(location_id, "api_webhook_sent", "success",
@@ -949,7 +952,7 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                                           details={"error": recovery_err})
 
                 if sent:
-                    save_message(contact_id, reply, "assistant")
+                    save_message(contact_id, reply, "assistant", stage=effective_stage)
                     logger.info(f"✅ Message sent via {crm_type.upper()}")
                     log_webhook_event(location_id, "message_sent", "success",
                                       f"Reply sent ({len(reply)} chars)",
@@ -959,7 +962,7 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                     http_body = (http_detail or {}).get('response_body', '')
                     http_attempts = (http_detail or {}).get('attempts', 0)
                     logger.warning(f"Message send failed ({fail_reason}, HTTP {http_status}) — saved locally")
-                    save_message(contact_id, reply, "assistant")
+                    save_message(contact_id, reply, "assistant", stage=effective_stage)
                     log_webhook_event(location_id, "message_failed", "error",
                                       f"SMS HTTP {http_status} — {fail_reason}",
                                       contact_id=contact_id,
@@ -970,7 +973,7 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                                                "reply": reply[:500],
                                                "contact_id": contact_id})
             else:
-                save_message(contact_id, reply, "assistant")
+                save_message(contact_id, reply, "assistant", stage=effective_stage)
                 logger.info("⚠ DEMO MODE: Message saved internally")
 
         # ── Auto-refresh AI intelligence after conversation changes ──
