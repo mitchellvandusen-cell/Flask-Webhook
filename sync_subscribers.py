@@ -107,9 +107,8 @@ def sync_subscribers() -> bool:
                 cur.execute(f"ALTER TABLE subscribers RENAME COLUMN {old} TO {new};")
                 logger.info(f"Renamed legacy column: {old} → {new}")
 
-        # Drop/re-add PK if needed
-        cur.execute("ALTER TABLE subscribers DROP CONSTRAINT IF EXISTS subscribers_pkey;")
-        cur.execute("ALTER TABLE subscribers ADD CONSTRAINT subscribers_pkey PRIMARY KEY (location_id);")
+        # PK already exists as location_id (legacy migration removed —
+        # DROP CONSTRAINT conflicts with location_users FK reference)
 
         # Add optional columns if missing
         cur.execute("""
