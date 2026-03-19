@@ -92,17 +92,13 @@ def _check_calling_hours(voice_config, agent_tz_str=None):
 
 
 def _check_cooldown_and_daily_max(location_id, phones, voice_config, conn):
-    """Batch check cooldown and daily max for a list of phone numbers.
+    """Batch check daily max for a list of phone numbers.
     Returns dict of phone -> reason string for phones that should be skipped."""
-    try:
-        cooldown_hours = int(voice_config.get('same_number_cooldown_hours', 0))
-    except (ValueError, TypeError):
-        cooldown_hours = 0
     try:
         daily_max = int(voice_config.get('same_contact_daily_max', 0))
     except (ValueError, TypeError):
         daily_max = 0
-    if not cooldown_hours and not daily_max:
+    if not daily_max:
         return {}
 
     blocked = {}
@@ -111,17 +107,6 @@ def _check_cooldown_and_daily_max(location_id, phones, voice_config, conn):
 
     try:
         cur = conn.cursor()
-
-        if cooldown_hours > 0:
-            cur.execute("""
-                SELECT phone, MAX(created_at) AS last_called
-                FROM call_history
-                WHERE location_id = %s AND phone = ANY(%s)
-                  AND created_at > NOW() - make_interval(hours => %s)
-                GROUP BY phone
-            """, (location_id, list(phones), cooldown_hours))
-            for row in cur.fetchall():
-                blocked[row['phone']] = f"Cooldown: called within {cooldown_hours}h"
 
         if daily_max > 0:
             cur.execute("""
@@ -138,7 +123,7 @@ def _check_cooldown_and_daily_max(location_id, phones, voice_config, conn):
 
         cur.close()
     except Exception as e:
-        logger.warning(f"Cooldown/daily-max check failed: {e}")
+        logger.warning(f"Daily-max check failed: {e}")
 
     return blocked
 
@@ -1001,16 +986,16 @@ def dial_contact():
             finally:
                 return_db_connection(_dnd_conn)
 
-    # ── Cooldown / daily max enforcement (same as multi_dial) ──
+    # ── Daily max enforcement (same as multi_dial) ──
     if phone and location_id:
         _cd_conn = get_db_connection()
         if _cd_conn:
             try:
                 blocked = _check_cooldown_and_daily_max(location_id, [phone], voice_config, _cd_conn)
                 if phone in blocked:
-                    return jsonify({"error": blocked[phone], "cooldown_blocked": True}), 400
+                    return jsonify({"error": blocked[phone], "daily_max_blocked": True}), 400
             except Exception as _cd_e:
-                logger.warning(f"Cooldown check failed (non-fatal): {_cd_e}")
+                logger.warning(f"Daily max check failed (non-fatal): {_cd_e}")
             finally:
                 return_db_connection(_cd_conn)
 
@@ -1244,7 +1229,7 @@ def multi_dial():
             finally:
                 return_db_connection(_dnd_conn)
 
-    # Batch cooldown + daily max check — single query for all phones
+    # Batch daily max check — single query for all phones
     blocked_phones = {}
     batch_phones = [c.get('phone', '') for c in contacts_to_dial if c.get('phone')]
     if batch_phones and location_id:
@@ -1253,7 +1238,7 @@ def multi_dial():
             try:
                 blocked_phones = _check_cooldown_and_daily_max(location_id, batch_phones, voice_config, _cd_conn)
             except Exception as e:
-                logger.warning(f"Multi-dial cooldown batch check failed: {e}")
+                logger.warning(f"Multi-dial daily-max batch check failed: {e}")
             finally:
                 return_db_connection(_cd_conn)
 
@@ -1295,7 +1280,7 @@ def multi_dial():
             results.append({"contact_id": c_id, "call_sid": None, "status": "skipped", "error": "Do Not Contact"})
             continue
 
-        # Cooldown / daily max check (from batch query above)
+        # Daily max check (from batch query above)
         if c_phone in blocked_phones:
             results.append({"contact_id": c_id, "call_sid": None, "status": "skipped", "error": blocked_phones[c_phone]})
             continue
