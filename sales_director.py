@@ -608,6 +608,33 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
     # Valid tags that map to ObjectionType enum values
     _VALID_TAGS = frozenset(f"[{t.value.upper()}]" for t in ObjectionType if t != ObjectionType.NONE)
 
+    # Normalize common LLM abbreviations/variations to canonical tags.
+    # The narrative observer might output [PRICE] instead of [PRICE_MONEY],
+    # or [HEALTH] instead of [HEALTH_CONCERN]. Map them back.
+    _TAG_ALIASES = {
+        "[PRICE]": "[PRICE_MONEY]",
+        "[MONEY]": "[PRICE_MONEY]",
+        "[COST]": "[PRICE_MONEY]",
+        "[SPOUSE]": "[SPOUSE_PARTNER]",
+        "[PARTNER]": "[SPOUSE_PARTNER]",
+        "[WIFE]": "[SPOUSE_PARTNER]",
+        "[HUSBAND]": "[SPOUSE_PARTNER]",
+        "[COVERED]": "[ALREADY_COVERED]",
+        "[ALREADY]": "[ALREADY_COVERED]",
+        "[BUSY]": "[BUSY_TIMING]",
+        "[TIMING]": "[BUSY_TIMING]",
+        "[THINK]": "[THINK_ABOUT_IT]",
+        "[STALL]": "[THINK_ABOUT_IT]",
+        "[STALLING]": "[THINK_ABOUT_IT]",
+        "[HEALTH]": "[HEALTH_CONCERN]",
+        "[MEDICAL]": "[HEALTH_CONCERN]",
+        "[TRUST]": "[TRUST_ISSUE]",
+        "[BAD_EXPERIENCE]": "[TRUST_ISSUE]",
+        "[LOYALTY]": "[TRUST_ISSUE]",
+        "[INTERESTED]": "[NOT_INTERESTED]",
+        "[DISMISSAL]": "[NOT_INTERESTED]",
+    }
+
     obj_tag = f"[{obj.value.upper()}]"
     same_objection_count = 0
     total_objection_count = 0
@@ -623,13 +650,15 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
             m = _TAG_RE.match(entry.strip().upper())
             if m:
                 tag = f"[{m.group(1)}]"
+                # Normalize common LLM abbreviations to canonical tags
+                tag = _TAG_ALIASES.get(tag, tag)
                 if tag in _VALID_TAGS:
                     distinct_types_seen.add(tag)
                     if tag == obj_tag:
                         same_objection_count += 1
                 else:
                     # Tag present but not a valid ObjectionType — log and skip
-                    logger.warning(f"Objection log entry has invalid tag {tag}: {entry[:80]}")
+                    logger.warning(f"Objection log entry has unrecognized tag {tag}: {entry[:80]}")
             else:
                 # Legacy entry without tag — count as current type to avoid under-escalation
                 same_objection_count += 1

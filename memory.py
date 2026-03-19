@@ -378,23 +378,23 @@ OBJECTION_LOG:
 List every objection the lead has raised AND how the bot responded to it. CRITICAL FORMAT — each entry MUST start with a type tag in square brackets, followed by the objection and angle:
 "[TYPE] Objection: [what they said] > Angle: [how bot handled it]"
 
-Valid type tags (use EXACTLY one per entry):
+MANDATORY type tags — use the EXACT tag from this list (do NOT abbreviate, do NOT use synonyms):
 [NOT_INTERESTED] — any form of no, dismissal, disengagement
 [SPOUSE_PARTNER] — deferring to spouse, family, advisor
-[PRICE_MONEY] — cost, affordability, budget concerns
-[ALREADY_COVERED] — claims existing coverage
-[BUSY_TIMING] — scheduling, bad timing
-[THINK_ABOUT_IT] — stalling, delaying, "send me info"
-[HEALTH_CONCERN] — health conditions, believes they cannot qualify
-[TRUST_ISSUE] — distrust of insurance, bad past experience, loyalty to another agent/relative
+[PRICE_MONEY] — cost, affordability, budget concerns (NOT [PRICE] or [MONEY] or [COST])
+[ALREADY_COVERED] — claims existing coverage (NOT [COVERED] or [ALREADY])
+[BUSY_TIMING] — scheduling, bad timing (NOT [BUSY] or [TIMING])
+[THINK_ABOUT_IT] — stalling, delaying, "send me info" (NOT [THINK] or [STALLING])
+[HEALTH_CONCERN] — health conditions, believes they cannot qualify (NOT [HEALTH] or [MEDICAL])
+[TRUST_ISSUE] — distrust of insurance, bad past experience, loyalty to another agent/relative (NOT [TRUST])
 
-Examples:
+Each entry MUST follow this EXACT format:
 [PRICE_MONEY] Objection: too expensive > Angle: asked if money was real barrier or perceived
 [SPOUSE_PARTNER] Objection: need to ask my wife > Angle: asked if spouse was on board would they want it
 [HEALTH_CONCERN] Objection: I have diabetes > Angle: explained carriers specialize in health issues
 [TRUST_ISSUE] Objection: my nephew sells insurance > Angle: positioned as second opinion not replacement
 
-If the previous recap already has objection entries, carry them forward (preserving their type tags) and add new ones. If no objections, write NONE.
+If the previous recap already has objection entries, carry them forward (preserving their EXACT type tags) and add new ones. Each distinct objection gets ONE entry — do not duplicate the same objection with the same angle. If no objections, write NONE.
 
 FACTS:
 List any NEW facts about the lead. One fact per line. Maximum 10 words per fact. Short fragments only (e.g. "Has 2 kids", "Works at FedEx", "Wants term life"). Do not repeat facts from ALREADY KNOWN FACTS. Do NOT extract street addresses, zip codes, or specific locations as facts. General city/state is acceptable. If no new facts, write NONE."""

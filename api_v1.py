@@ -12,7 +12,7 @@ import secrets
 from functools import wraps
 from flask import Blueprint, request, jsonify, g
 from db import (
-    get_subscriber_by_api_key, log_api_usage, get_api_request_count,
+    get_subscriber_by_api_key, log_api_usage,
     api_key_prefix, get_subscriber_by_training_token,
     get_db_connection, return_db_connection,
 )
@@ -118,19 +118,36 @@ def require_api_key(f):
             return api_error("Invalid API key.", error_type="authentication_error",
                              code="invalid_api_key", status=403)
 
-        # Rate limiting
+        # Rate limiting via Redis sliding window (NOT Postgres)
+        # Each request increments a counter with a 60-second TTL.
+        # This avoids SELECT COUNT(*) on the database for every API call.
         key_pfx = api_key_prefix(provided_key)
-        request_count = get_api_request_count(key_pfx, window_seconds=60)
-        if request_count >= RATE_LIMIT_RPM:
-            log_api_usage(key_pfx, subscriber.get("location_id"), request.path, 429,
-                          ip_address=request.remote_addr,
-                          error_message="Rate limit exceeded")
-            return api_error(
-                f"Rate limit exceeded. Maximum {RATE_LIMIT_RPM} requests per minute.",
-                error_type="rate_limit_error",
-                code="rate_limit_exceeded",
-                status=429
-            )
+        try:
+            from extensions import redis_conn as _redis, ensure_redis
+            if not _redis:
+                ensure_redis()
+                from extensions import redis_conn as _redis
+            if _redis:
+                rate_key = f"api_rate:{key_pfx}"
+                request_count = _redis.incr(rate_key)
+                if request_count == 1:
+                    _redis.expire(rate_key, 60)
+                if request_count > RATE_LIMIT_RPM:
+                    log_api_usage(key_pfx, subscriber.get("location_id"), request.path, 429,
+                                  ip_address=request.remote_addr,
+                                  error_message="Rate limit exceeded")
+                    return api_error(
+                        f"Rate limit exceeded. Maximum {RATE_LIMIT_RPM} requests per minute.",
+                        error_type="rate_limit_error",
+                        code="rate_limit_exceeded",
+                        status=429
+                    )
+            else:
+                # Redis unavailable — fall through, don't block legitimate traffic
+                logger.warning("Redis unavailable for API rate limiting, allowing request through")
+        except Exception as e:
+            # Rate limiting failure should never block legitimate API traffic
+            logger.warning(f"API rate limit check failed: {e}")
 
         # Attach to request context
         g.api_subscriber = subscriber
