@@ -11,6 +11,9 @@ import soxr
 import scipy.signal
 import websockets
 
+# Async wrappers for CPU-bound audio DSP — used by FastAPI voice server
+# to offload transcoding to the thread pool, keeping the event loop free.
+
 logger = logging.getLogger("voice_bridge.audio")
 
 # XAI Realtime API
@@ -198,3 +201,15 @@ async def _generate_voice_preview(voice_name):
         return None
 
     return b''.join(audio_chunks) if audio_chunks else None
+
+
+# ── Async wrappers for FastAPI voice server ──────────────────────────────────
+
+async def async_mulaw_to_pcm16(mulaw_bytes: bytes) -> bytes:
+    """Async wrapper — offloads CPU-bound resampling to thread pool."""
+    return await asyncio.to_thread(_mulaw_to_pcm16, mulaw_bytes)
+
+
+async def async_pcm16_to_mulaw(pcm16_bytes: bytes) -> bytes:
+    """Async wrapper — offloads CPU-bound filter + resampling to thread pool."""
+    return await asyncio.to_thread(_pcm16_to_mulaw, pcm16_bytes)

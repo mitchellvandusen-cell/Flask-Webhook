@@ -33,8 +33,9 @@ from voice.audio import (
     _is_voicemail_phrase,
 )
 from voice.call_state import (
-    active_calls,
-    transfer_requests,
+    set_active_call, get_active_call, update_active_call, call_exists,
+    set_transfer_request, get_transfer_request, delete_transfer_request,
+    transfer_request_exists,
     call_listeners,
     voice_stream_semaphore,
     MAX_VOICE_STREAMS,
@@ -109,10 +110,11 @@ async def handle_voice_stream(ws):
         # Belt-and-suspenders: if this is an outbound call and the media stream
         # is connected, the call is definitely in-progress. Force the status
         # update in case out-of-order Twilio callbacks haven't set it yet.
-        if call_sid and call_sid in active_calls:
-            cur = active_calls[call_sid].get('status', '')
+        if call_sid and call_exists(call_sid):
+            call_data = get_active_call(call_sid)
+            cur = (call_data or {}).get('status', '')
             if cur in ('initiated', 'ringing'):
-                active_calls[call_sid]['status'] = 'in-progress'
+                update_active_call(call_sid, status='in-progress')
                 logger.info(f"Stream forced status to in-progress for {call_sid[:16]} (was '{cur}')")
     else:
         logger.warning(f"Voice stream: Unexpected first event: {start_data.get('event')}")
@@ -358,8 +360,8 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                         # Check for immediate takeover (agent barge-in)
                         # Only mute AI audio here -- the REST route handles the actual
                         # Twilio redirect to avoid double-fire race conditions.
-                        if call_sid and call_sid in transfer_requests:
-                            req = transfer_requests.get(call_sid, {})
+                        if call_sid and transfer_request_exists(call_sid):
+                            req = get_transfer_request(call_sid) or {}
                             if req.get('type') == 'takeover':
                                 logger.info(f"Instant AI audio cutoff (Twilio loop): {call_sid}")
                                 # Flush buffered AI audio from Twilio's pipeline
@@ -449,8 +451,8 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                         # -- Instant takeover check in XAI relay --
                         # Without this, AI audio keeps streaming to the caller
                         # during the gap between takeover signal and Twilio redirect.
-                        if call_sid and call_sid in transfer_requests:
-                            req = transfer_requests.get(call_sid, {})
+                        if call_sid and transfer_request_exists(call_sid):
+                            req = get_transfer_request(call_sid) or {}
                             if req.get('type') == 'takeover':
                                 logger.info(f"Instant AI audio cutoff (XAI relay): {call_sid}")
                                 # Flush any buffered AI audio from Twilio's pipeline
@@ -513,11 +515,11 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                                 t_reason = t_args.get('reason', 'lead requested transfer')
                                 t_number = (subscriber.get('voice_config') or {}).get('transfer_number', '')
                                 if call_sid and t_number:
-                                    transfer_requests[call_sid] = {
+                                    set_transfer_request(call_sid, {
                                         'type': 'transfer',
                                         'target': t_number,
                                         'reason': t_reason,
-                                    }
+                                    })
 
                             # Execute the tool
                             result = execute_voice_tool(
@@ -544,7 +546,7 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
 
                             # If a transfer was requested, let the AI finish its
                             # handoff message (response.done), then execute transfer
-                            if call_sid and call_sid in transfer_requests:
+                            if call_sid and transfer_request_exists(call_sid):
                                 # Wait for the AI to finish speaking the handoff message
                                 # by listening for response.done before transferring
                                 _pending_transfer = True
@@ -575,8 +577,8 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                                         except Exception:
                                             pass
                                         # Mark as no-answer so dialer retries
-                                        if call_sid in active_calls:
-                                            active_calls[call_sid]['_amd_result'] = 'no-answer'
+                                        if call_exists(call_sid):
+                                            update_active_call(call_sid, _amd_result='no-answer')
                                         # Hang up via Twilio REST
                                         vm_sub_sid = voice_config.get('twilio_sub_account_sid', '')
                                         if vm_sub_sid and call_sid:
@@ -602,8 +604,9 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                         # response.done -- AI finished generating a response
                         elif event_type == 'response.done':
                             # Check for pending transfer or takeover
-                            if _pending_transfer and call_sid and call_sid in transfer_requests:
-                                transfer_info = transfer_requests.pop(call_sid, {})
+                            if _pending_transfer and call_sid and transfer_request_exists(call_sid):
+                                transfer_info = get_transfer_request(call_sid) or {}
+                                delete_transfer_request(call_sid)
                                 target = transfer_info.get('target', '')
                                 t_type = transfer_info.get('type', 'transfer')
                                 reason = transfer_info.get('reason', '')
@@ -615,14 +618,14 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                                     call_active = False
                                     await asyncio.sleep(0.3)
                                     # Transfer via Twilio REST (stops media stream automatically)
-                                    host_h = active_calls.get(call_sid, {}).get('_host', '') or os.getenv('RENDER_EXTERNAL_HOSTNAME', '')
+                                    host_h = (get_active_call(call_sid) or {}).get('_host', '') or os.getenv('RENDER_EXTERNAL_HOSTNAME', '')
                                     transfer_ok = _twilio_transfer(call_sid, t_sub_sid, target, f"https://{host_h}" if host_h else '')
 
                                     if transfer_ok:
                                         logger.info(f"Call transferred to {target}")
                                         # Update call status
-                                        if call_sid in active_calls:
-                                            active_calls[call_sid]['status'] = 'transferred'
+                                        if call_exists(call_sid):
+                                            update_active_call(call_sid, status='transferred')
                                     else:
                                         logger.error(f"Transfer failed for {call_sid}")
 
@@ -639,8 +642,8 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                                         logger.info(f"Hangup sent \u2014 call {call_sid[:16]} ended by AI")
                                     except Exception as e:
                                         logger.error(f"Hangup failed: {e}")
-                                if call_sid in active_calls:
-                                    active_calls[call_sid]['status'] = 'completed'
+                                if call_exists(call_sid):
+                                    update_active_call(call_sid, status='completed')
                                 call_active = False
 
                             # Takeover (human barge-in) is handled by the instant
@@ -711,10 +714,10 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
         # Mark call as completed if still showing in-progress
         # (Twilio status callback may arrive later, but this prevents
         #  stale in-progress entries that allow intercept on ended calls)
-        if call_sid and call_sid in active_calls:
-            cur_status = active_calls[call_sid].get('status', '')
+        if call_sid and call_exists(call_sid):
+            cur_status = (get_active_call(call_sid) or {}).get('status', '')
             if cur_status in ('ringing', 'queued', 'initiated', 'in-progress'):
-                active_calls[call_sid]['status'] = 'completed'
+                update_active_call(call_sid, status='completed')
         # Push None sentinel to all listener queues so run_listen_stream
         # detects call end instantly (instead of waiting 2s for queue timeout)
         if call_sid and call_sid in call_listeners:
@@ -725,7 +728,7 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                     pass
         # Clean up any leftover transfer request and listener queues
         if call_sid:
-            transfer_requests.pop(call_sid, None)
+            delete_transfer_request(call_sid)
             call_listeners.pop(call_sid, None)
         # Log call end
         try:
@@ -823,7 +826,7 @@ def run_listen_stream(ws):
                 pass
             return
 
-        if call_sid not in active_calls:
+        if not call_exists(call_sid):
             logger.warning(f"Listen stream: {call_sid[:16]} not in active_calls")
             try:
                 ws.send(json.dumps({"error": "Call not found or already ended"}))
@@ -831,7 +834,7 @@ def run_listen_stream(ws):
                 pass
             return
 
-        call_status = active_calls.get(call_sid, {}).get('status', '')
+        call_status = (get_active_call(call_sid) or {}).get('status', '')
         logger.info(f"Listen stream: {call_sid[:16]} status={call_status}")
         if call_status in ('completed', 'failed', 'canceled', 'transferred', 'no-answer', 'busy'):
             logger.warning(f"Listen stream: {call_sid[:16]} already in terminal state {call_status}")
@@ -872,8 +875,8 @@ def run_listen_stream(ws):
                     logger.info(f"Listen stream: first audio chunk sent for {call_sid[:16]}")
             except _queue_module.Empty:
                 # Check if call is still active
-                cur_status = active_calls.get(call_sid, {}).get('status', '')
-                if call_sid not in active_calls or cur_status in _LISTEN_TERMINAL:
+                cur_status = (get_active_call(call_sid) or {}).get('status', '')
+                if not call_exists(call_sid) or cur_status in _LISTEN_TERMINAL:
                     logger.info(f"Listen stream: call {call_sid[:16]} ended (status={cur_status}), closing")
                     try:
                         ws.send(json.dumps({"status": "call_ended"}))

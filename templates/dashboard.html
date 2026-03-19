@@ -222,6 +222,8 @@
         initialTab:              {{ initial_tab|tojson if initial_tab else '""' }},
         embedContactId:          {{ embed_contact_id|tojson if embed_contact_id else '""' }},
         embedDialContacts:       {{ embed_dial_contacts|tojson if embed_dial_contacts else '""' }},
+        // Voice WebSocket host (FastAPI service domain, empty = same host as Flask)
+        voiceWssHost:            {{ voice_wss_host|tojson if voice_wss_host else '""' }},
     };
     </script>
 

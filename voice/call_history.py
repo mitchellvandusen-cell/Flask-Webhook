@@ -24,7 +24,11 @@ import twilio_provisioning
 from db import get_db_connection, return_db_connection, log_webhook_event
 from openai import OpenAI
 from voice.audio import XAI_API_KEY
-from voice.call_state import active_calls, transfer_requests, call_listeners, _twilio_hangup, _twilio_transfer
+from voice.call_state import (
+    get_active_call, update_active_call, delete_active_call, call_exists,
+    set_transfer_request, get_transfer_request, delete_transfer_request,
+    call_listeners, _twilio_hangup, _twilio_transfer,
+)
 from voice.call_history_helpers import update_call_history_status
 from voice.helpers import _get_current_subscriber_voice, _verify_call_ownership
 
@@ -41,18 +45,20 @@ call_history_bp = Blueprint('voice_call_history', __name__)
 @jwt_or_session_required
 def get_call_status(call_sid):
     """Poll call status for the dialer queue."""
-    if call_sid in active_calls:
+    if call_exists(call_sid):
         if not _verify_call_ownership(call_sid):
             return jsonify({"status": "unknown"}), 404
-        info = active_calls[call_sid]
+        info = get_active_call(call_sid)
+        if info is None:
+            return jsonify({"status": "unknown"}), 404
         # For terminal states, mark for cleanup but don't delete yet (allow re-polls)
         if info["status"] in ("completed", "busy", "no-answer", "failed", "canceled", "transferred"):
             poll_count = info.get('_terminal_polls', 0) + 1
-            info['_terminal_polls'] = poll_count
+            update_active_call(call_sid, _terminal_polls=poll_count)
             # Clean up after 20 polls of a terminal state (gives frontend plenty of time)
             if poll_count >= 20:
                 status_copy = dict(info)
-                del active_calls[call_sid]
+                delete_active_call(call_sid)
                 return jsonify(status_copy)
         logger.debug(f"Poll {call_sid[:16]}: status={info.get('status')}")
         return jsonify(info)
@@ -93,8 +99,9 @@ def hangup_active_call():
 
     # If the call was transferred, Twilio created a child call.  We need to
     # complete the *parent* (original) call, plus any child leg that's still up.
-    was_transferred = (call_sid in active_calls and
-                       active_calls[call_sid].get('status') == 'transferred')
+    call_info_hangup = get_active_call(call_sid)
+    was_transferred = (call_info_hangup is not None and
+                       call_info_hangup.get('status') == 'transferred')
 
     success = _twilio_hangup(call_sid, sub_sid)
 
@@ -112,9 +119,9 @@ def hangup_active_call():
         except Exception as e:
             logger.warning(f"Could not list child calls for {call_sid}: {e}")
 
-    if call_sid in active_calls:
-        active_calls[call_sid]['status'] = 'completed'
-    transfer_requests.pop(call_sid, None)
+    if call_exists(call_sid):
+        update_active_call(call_sid, status='completed')
+    delete_transfer_request(call_sid)
 
     # Persist to DB
     try:
@@ -171,10 +178,12 @@ def voice_takeover():
         return jsonify({"error": "Voice service not provisioned"}), 400
 
     # Verify the call is actually active and belongs to this user
-    if call_sid not in active_calls:
+    if not call_exists(call_sid):
         return jsonify({"error": "Call not found or already ended"}), 404
 
-    call_info = active_calls[call_sid]
+    call_info = get_active_call(call_sid)
+    if call_info is None:
+        return jsonify({"error": "Call not found or already ended"}), 404
     call_location = call_info.get('_location_id', '')
     if call_location and call_location != location_id:
         return jsonify({"error": "Call not found or already ended"}), 404
@@ -190,12 +199,12 @@ def voice_takeover():
         live_status = live_call.status  # queued/ringing/in-progress/completed/busy/no-answer/canceled/failed
         if live_status not in ('queued', 'ringing', 'in-progress'):
             # Sync local state so future checks don't hit Twilio again
-            active_calls[call_sid]['status'] = live_status
+            update_active_call(call_sid, status=live_status)
             return jsonify({"error": f"Call already ended ({live_status})"}), 400
     except Exception as pre_err:
         err_str = str(pre_err)
         if '21220' in err_str or 'not in-progress' in err_str.lower():
-            active_calls[call_sid]['status'] = 'completed'
+            update_active_call(call_sid, status='completed')
             return jsonify({"error": "Call already ended"}), 400
         logger.warning(f"Takeover pre-verify failed (proceeding): {pre_err}")
 
@@ -208,11 +217,11 @@ def voice_takeover():
         logger.info(f"Takeover (VoIP): redirecting call {call_sid} to browser client={identity}")
 
         # Signal the WebSocket bridge to stop the AI audio loop
-        transfer_requests[call_sid] = {
+        set_transfer_request(call_sid, {
             'type': 'takeover',
             'target': target,
             'reason': 'Agent initiated VoIP intercept',
-        }
+        })
 
         # Redirect the call to TwiML that dials the browser client
         try:
@@ -221,12 +230,12 @@ def voice_takeover():
                 url=f"https://{host}/voice/intercept-twiml?identity={identity}",
                 method="POST",
             )
-            active_calls[call_sid]['status'] = 'transferred'
+            update_active_call(call_sid, status='transferred')
             logger.info(f"Takeover (VoIP): call {call_sid} redirected to {identity}")
             return jsonify({"status": "transferred", "call_sid": call_sid, "target": "Browser (VoIP)"})
         except Exception as e:
             logger.error(f"Takeover (VoIP): redirect FAILED for call {call_sid}: {e}")
-            transfer_requests.pop(call_sid, None)
+            delete_transfer_request(call_sid)
             return jsonify({"error": f"Intercept failed: {e}"}), 400
     else:
         # Phone intercept: transfer to agent's phone number
@@ -234,17 +243,17 @@ def voice_takeover():
         if not target:
             # No VoIP, no transfer number — at minimum STOP the AI by hanging up
             logger.info(f"Takeover (hangup): no VoIP/transfer number, stopping AI call {call_sid}")
-            transfer_requests[call_sid] = {
+            set_transfer_request(call_sid, {
                 'type': 'takeover',
                 'target': '',
                 'reason': 'Agent stopped AI (no VoIP/transfer)',
-            }
+            })
             try:
                 _twilio_hangup(call_sid, sub_sid)
             except Exception as e:
                 logger.warning(f"Takeover hangup failed: {e}")
-            if call_sid in active_calls:
-                active_calls[call_sid]['status'] = 'canceled'
+            if call_exists(call_sid):
+                update_active_call(call_sid, status='canceled')
             return jsonify({"status": "stopped", "call_sid": call_sid,
                             "target": "AI stopped (call ended — set up VoIP or Transfer Number to take over live)"})
 
@@ -255,21 +264,21 @@ def voice_takeover():
         logger.info(f"Takeover (phone): executing transfer for call {call_sid} -> {target}")
 
         # Signal the WebSocket bridge to stop the AI audio loop
-        transfer_requests[call_sid] = {
+        set_transfer_request(call_sid, {
             'type': 'takeover',
             'target': target,
             'reason': 'Agent initiated live takeover',
-        }
+        })
 
         # Transfer the live call — Twilio automatically stops the media stream
         transfer_ok = _twilio_transfer(call_sid, sub_sid, target, f"https://{host}")
         if transfer_ok:
             logger.info(f"Takeover (phone): call {call_sid} transferred to {target}")
-            active_calls[call_sid]['status'] = 'transferred'
+            update_active_call(call_sid, status='transferred')
             return jsonify({"status": "transferred", "call_sid": call_sid, "target": target})
         else:
             logger.error(f"Takeover (phone): transfer FAILED for call {call_sid} -> {target}")
-            transfer_requests.pop(call_sid, None)
+            delete_transfer_request(call_sid)
             return jsonify({"error": "Transfer failed — the call may have ended."}), 400
 
 
@@ -295,13 +304,15 @@ def voice_transfer():
         transfer_to = '+1' + transfer_to.lstrip('1') if len(transfer_to.replace('-','').replace(' ','')) <= 10 else '+' + transfer_to
 
     # Verify the call is active and belongs to this user
-    if call_sid not in active_calls:
+    if not call_exists(call_sid):
         return jsonify({"error": "Call not found or already ended"}), 404
 
     if not _verify_call_ownership(call_sid):
         return jsonify({"error": "Call not found or already ended"}), 404
 
-    call_info = active_calls[call_sid]
+    call_info = get_active_call(call_sid)
+    if call_info is None:
+        return jsonify({"error": "Call not found or already ended"}), 404
     if call_info.get('status') in ('completed', 'failed', 'transferred', 'no-answer'):
         return jsonify({"error": f"Call already in terminal state: {call_info.get('status')}"}), 400
 
@@ -324,7 +335,7 @@ def voice_transfer():
     host = request.host
     success = _twilio_transfer(call_sid, sub_sid, transfer_to, f"https://{host}")
     if success:
-        active_calls[call_sid]['status'] = 'transferred'
+        update_active_call(call_sid, status='transferred')
         # Persist transfer status to DB
         try:
             update_call_history_status(call_sid, 'completed', 0)

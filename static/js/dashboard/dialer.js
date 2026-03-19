@@ -3380,7 +3380,8 @@
 
             try {
                 const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-                _listenWs = new WebSocket(`${proto}//${location.host}/voice/listen-stream`);
+                const voiceHost = window.DASHBOARD_BOOT?.voiceWssHost || location.host;
+                _listenWs = new WebSocket(`${proto}//${voiceHost}/voice/listen-stream`);
             } catch(e) {
                 console.error('[Listen] WebSocket creation failed:', e);
                 if (_listenAudioCtx) { try { _listenAudioCtx.close(); } catch(x) {} _listenAudioCtx = null; }
