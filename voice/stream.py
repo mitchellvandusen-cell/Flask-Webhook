@@ -52,6 +52,191 @@ import twilio_provisioning
 logger = logging.getLogger("voice_bridge.stream")
 
 
+# ── Lead-type-aware voice greetings ─────────────────────────────────────────
+# These are the "fast greetings" — first audio the lead hears. Each template
+# is adapted from proven sales scripts with xAI-native prosody markup.
+# Tone is controlled through word choice + breathing + prosody wrappers,
+# NOT through meta-tags like <TONE:...>.
+
+def _resolve_lead_type_fast(location_id, contact_id):
+    """Resolve lead type from contact_cache (local DB, <5ms). Returns lead_type string."""
+    if not location_id or not contact_id:
+        return "default"
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT tags, date_added FROM contact_cache WHERE location_id = %s AND contact_id = %s",
+                (location_id, contact_id)
+            )
+            row = cur.fetchone()
+            if row:
+                tags = row[0] if row[0] else []
+                date_added = row[1] if row[1] else None
+                from lead_resolver import resolve_lead_type
+                info = resolve_lead_type(tags=tags, date_added=date_added)
+                return info["lead_type"]
+    except Exception as e:
+        logger.debug(f"Fast lead_type resolution failed: {e}")
+    finally:
+        if conn:
+            return_db_connection(conn)
+    return "default"
+
+
+def _build_voice_greeting(lead_type, contact_name, voice_bot_name, direction):
+    """
+    Build a lead-type-aware voice greeting with xAI Realtime prosody.
+
+    These greetings use proven insurance sales intros adapted for voice AI:
+    - Fresh leads: speed-to-lead "getting back to you" framing
+    - Aged leads (30-90d): customer service "updating records" framing
+    - Re-engage leads: casual "been a little while" framing
+    - Very-old leads (90d+): same records framing, vaguer time reference
+    - Inbound: warm, direct pickup
+
+    Prosody is controlled through:
+    - [breath] for natural breathing rhythm (every 2-4 words in opening)
+    - [pause] for dramatic/natural pauses
+    - <soft> for disarming, non-threatening moments
+    - <emphasis> for key words that anchor attention
+    - <slow> for deliberate, grounded pacing
+    - Word choice itself (contractions, casual register, downward intonation cues)
+    """
+    name = contact_name if contact_name not in ("there", "Manual", "") else ""
+
+    # Inbound calls — they called us, warm direct pickup
+    if direction != "outbound":
+        if name:
+            return (
+                f"Hey {name} [breath] this is {voice_bot_name}. "
+                f"[breath] What's going on?"
+            )
+        return f"Hey [breath] this is {voice_bot_name}. [breath] What's going on?"
+
+    # ── Outbound greetings by lead type ──
+
+    if lead_type == "fresh":
+        # Speed-to-lead: they JUST submitted — reference it immediately.
+        # Confident, direct, zero hesitation. Downward statements.
+        if name:
+            return (
+                f"Hey {name} [breath] its {voice_bot_name} [breath] "
+                f"getting back to you about that life insurance request "
+                f"you just sent in. [pause] "
+                f"It came across my desk [breath] "
+                f"were you able to get an actual quote back [breath] "
+                f"or did it come back <emphasis>way too high</emphasis>?"
+            )
+        return (
+            f"Hey [breath] its {voice_bot_name} [breath] "
+            f"getting back to you about that life insurance request "
+            f"you just sent in. [pause] "
+            f"It came across my desk [breath] "
+            f"were you able to get an actual quote back [breath] "
+            f"or did it come back <emphasis>way too high</emphasis>?"
+        )
+
+    if lead_type == "aged":
+        # 30-90 day old leads: customer service framing — soft, disarming,
+        # "updating records" angle. Non-threatening. They forgot they submitted.
+        if name:
+            return (
+                f"Hey {name} [breath] its just {voice_bot_name} [breath] "
+                f"<soft>im not sure if youre gonna remember this</soft> [pause] "
+                f"but I am just trying to get our records updated [breath] "
+                f"hopefully you can help me real quick. [pause] "
+                f"It looks like you put in some info <emphasis>a few weeks ago</emphasis> [breath] "
+                f"about possibly looking at life insurance [pause] "
+                f"did you end up finding something [breath] "
+                f"or what ended up happening?"
+            )
+        return (
+            f"Hey [breath] its just {voice_bot_name} [breath] "
+            f"<soft>im not sure if youre gonna remember this</soft> [pause] "
+            f"but I am just trying to get our records updated [breath] "
+            f"hopefully you can help me real quick. [pause] "
+            f"It looks like you put in some info <emphasis>a few weeks ago</emphasis> [breath] "
+            f"about possibly looking at life insurance [pause] "
+            f"did you end up finding something [breath] "
+            f"or what ended up happening?"
+        )
+
+    if lead_type == "re-engage":
+        # Re-engagement: same records framing but "a little while ago" timing.
+        # Slightly more casual — they've been in the CRM a while.
+        if name:
+            return (
+                f"Hey {name} [breath] its just {voice_bot_name} [breath] "
+                f"<soft>im not sure if youre gonna remember this</soft> [pause] "
+                f"but I am just trying to get our records updated [breath] "
+                f"hopefully you can help me real quick. [pause] "
+                f"It looks like you put in some info <emphasis>a little while ago</emphasis> [breath] "
+                f"about possibly looking at life insurance [pause] "
+                f"did you end up finding something [breath] "
+                f"or what ended up happening?"
+            )
+        return (
+            f"Hey [breath] its just {voice_bot_name} [breath] "
+            f"<soft>im not sure if youre gonna remember this</soft> [pause] "
+            f"but I am just trying to get our records updated [breath] "
+            f"hopefully you can help me real quick. [pause] "
+            f"It looks like you put in some info <emphasis>a little while ago</emphasis> [breath] "
+            f"about possibly looking at life insurance [pause] "
+            f"did you end up finding something [breath] "
+            f"or what ended up happening?"
+        )
+
+    if lead_type == "very-old":
+        # 90+ day leads: same records framing, vague "a while back" timing.
+        # Extra soft — they definitely forgot.
+        if name:
+            return (
+                f"Hey {name} [breath] its just {voice_bot_name} [breath] "
+                f"<soft>im not sure if youre gonna remember this</soft> [pause] "
+                f"but I am just trying to get our records updated [breath] "
+                f"hopefully you can help me real quick. [pause] "
+                f"It looks like you put in some info <emphasis>a while back</emphasis> [breath] "
+                f"about possibly looking at life insurance [pause] "
+                f"did you end up finding something [breath] "
+                f"or what ended up happening?"
+            )
+        return (
+            f"Hey [breath] its just {voice_bot_name} [breath] "
+            f"<soft>im not sure if youre gonna remember this</soft> [pause] "
+            f"but I am just trying to get our records updated [breath] "
+            f"hopefully you can help me real quick. [pause] "
+            f"It looks like you put in some info <emphasis>a while back</emphasis> [breath] "
+            f"about possibly looking at life insurance [pause] "
+            f"did you end up finding something [breath] "
+            f"or what ended up happening?"
+        )
+
+    # Default fallback — generic but still uses the records framing
+    if name:
+        return (
+            f"Hey {name} [breath] its just {voice_bot_name} [breath] "
+            f"<soft>im not sure if youre gonna remember this</soft> [pause] "
+            f"but I am just trying to get our records updated [breath] "
+            f"hopefully you can help me real quick. [pause] "
+            f"It looks like you put in some info about "
+            f"<emphasis>possibly</emphasis> looking at life insurance [pause] "
+            f"did you end up finding something [breath] "
+            f"or what ended up happening?"
+        )
+    return (
+        f"Hey [breath] its just {voice_bot_name} [breath] "
+        f"<soft>im not sure if youre gonna remember this</soft> [pause] "
+        f"but I am just trying to get our records updated [breath] "
+        f"hopefully you can help me real quick. [pause] "
+        f"It looks like you put in some info about "
+        f"<emphasis>possibly</emphasis> looking at life insurance [pause] "
+        f"did you end up finding something [breath] "
+        f"or what ended up happening?"
+    )
+
+
 async def handle_voice_stream(ws):
     """
     Core WebSocket handler: bridges Twilio Media Streams <-> XAI Realtime API.
@@ -224,15 +409,14 @@ NEVER say you're an AI, a bot, or a virtual assistant. You are {voice_bot_name}.
 {f"CALL SCRIPT REFERENCE (use naturally, never read verbatim): {call_script[:2000]}" if call_script else ""}
 Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause], [breath], [inhale], [exhale], [sigh], [laugh], [chuckle], [tsk], [tongue-click], [lip-smack]. Allowed wrapper tags: <emphasis>, <slow>, <fast>, <soft>, <whisper>, <loud>, <higher-pitch>, <lower-pitch>, <build-intensity>, <decrease-intensity>. Output ONLY what {voice_bot_name} would say. Nothing else."""
 
-    # Build greeting -- DISARMING tone with breathing cues.
+    # Build greeting — lead-type-aware with xAI prosody.
+    # Custom greeting from voice config takes priority; otherwise use proven
+    # sales script intros matched to lead age.
     greeting = voice_config.get("greeting", "").strip()
     if not greeting:
-        if direction == "outbound" and contact_name not in ("there", "Manual", ""):
-            greeting = f"Hey {contact_name} [breath] it's {voice_bot_name}. [breath] How's it going?"
-        elif direction == "outbound":
-            greeting = f"Hey [breath] it's {voice_bot_name}. [breath] I was hoping to catch you for a quick second."
-        else:
-            greeting = f"Hey [breath] this is {voice_bot_name}. What's going on?"
+        lead_type = _resolve_lead_type_fast(location_id, contact_id)
+        greeting = _build_voice_greeting(lead_type, contact_name, voice_bot_name, direction)
+        logger.info(f"Voice greeting: lead_type={lead_type} dir={direction} contact={contact_name}")
 
     logger.info(f"Fast-connecting to XAI Realtime API (voice={voice_name})")
 

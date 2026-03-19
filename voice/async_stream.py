@@ -40,6 +40,8 @@ from voice.call_state import _twilio_hangup, _twilio_transfer, _decode_client_st
 from voice.voice_tools import get_voice_tools, execute_voice_tool
 from voice.helpers import _get_subscriber_by_location, _get_subscriber_by_phone
 from voice.call_history_helpers import save_call_to_history, save_call_transcript
+# Reuse lead-type greeting builder from stream.py
+from voice.stream import _resolve_lead_type_fast, _build_voice_greeting
 
 logger = logging.getLogger("voice_bridge.async_stream")
 
@@ -195,12 +197,9 @@ Every word you output is spoken aloud. Allowed cues: [pause], [long-pause], [bre
 
     greeting = voice_config.get("greeting", "").strip()
     if not greeting:
-        if direction == "outbound" and contact_name not in ("there", "Manual", ""):
-            greeting = f"Hey {contact_name} [breath] it's {voice_bot_name}. [breath] How's it going?"
-        elif direction == "outbound":
-            greeting = f"Hey [breath] it's {voice_bot_name}. [breath] I was hoping to catch you for a quick second."
-        else:
-            greeting = f"Hey [breath] this is {voice_bot_name}. What's going on?"
+        lead_type = await run_in_threadpool(_resolve_lead_type_fast, location_id, contact_id)
+        greeting = _build_voice_greeting(lead_type, contact_name, voice_bot_name, direction)
+        logger.info(f"Voice greeting: lead_type={lead_type} dir={direction} contact={contact_name}")
 
     call_transcript = []
 
