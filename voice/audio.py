@@ -96,7 +96,8 @@ LOG_EVENT_TYPES = [
 
 # 1. High-pass at 80 Hz (order 2) — remove sub-bass rumble and DC offset.
 #    Real phone lines cut below 300 Hz, but we keep 80-300 for chest warmth.
-_HP_B, _HP_A = scipy.signal.butter(N=2, Wn=80, fs=XAI_SAMPLE_RATE, btype='high')
+#    SOS form for numerical stability (scipy recommendation for order >= 2).
+_HP_SOS = scipy.signal.butter(N=2, Wn=80, fs=XAI_SAMPLE_RATE, btype='high', output='sos')
 
 # 2. Low-mid warmth boost — peaking EQ at 250 Hz, Q=1.0, +3.5 dB.
 #    Adds chest resonance / "talking from the diaphragm" quality.
@@ -121,7 +122,8 @@ _PRES_GAIN = 10 ** (_PRES_GAIN_DB / 20)
 # 4. Low-pass at 3200 Hz (order 3) — gentle rolloff above speech band.
 #    Order 3 (18 dB/oct) is softer than order 4 (24 dB/oct), avoiding
 #    the hard "wall" cutoff that can itself sound artificial.
-_LP_B, _LP_A = scipy.signal.butter(N=3, Wn=3200, fs=XAI_SAMPLE_RATE, btype='low')
+#    SOS form required for order 3+ to avoid numerical instability.
+_LP_SOS = scipy.signal.butter(N=3, Wn=3200, fs=XAI_SAMPLE_RATE, btype='low', output='sos')
 
 # 5. Gain reduction — AI outputs near 0 dBFS (full digital volume).
 #    Real phone conversations sit around -18 to -22 dBFS.
@@ -159,7 +161,7 @@ def _pcm16_to_mulaw(pcm16_bytes: bytes) -> bytes:
     samples = np.frombuffer(pcm16_bytes, dtype=np.int16).astype(np.float64)
 
     # 1. High-pass: remove sub-bass rumble / DC offset
-    samples = scipy.signal.lfilter(_HP_B, _HP_A, samples)
+    samples = scipy.signal.sosfilt(_HP_SOS, samples)
 
     # 2. Warmth boost: +3.5 dB peaking EQ at 250 Hz (chest resonance)
     warm_filtered = scipy.signal.lfilter(_WARM_B, _WARM_A, samples)
@@ -170,7 +172,7 @@ def _pcm16_to_mulaw(pcm16_bytes: bytes) -> bytes:
     samples = samples + (pres_filtered - samples) * (1.0 - _PRES_GAIN)
 
     # 4. Low-pass: gentle rolloff above 3200 Hz
-    samples = scipy.signal.lfilter(_LP_B, _LP_A, samples)
+    samples = scipy.signal.sosfilt(_LP_SOS, samples)
 
     # 5. Gain reduction: bring volume to conversational level (-4 dB)
     samples = samples * _GAIN_LINEAR
