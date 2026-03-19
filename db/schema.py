@@ -32,12 +32,33 @@ def init_db():
     try:
         from alembic.config import Config
         from alembic import command
+        from alembic.script import ScriptDirectory
 
         alembic_cfg_path = os.path.join(
             os.path.dirname(os.path.dirname(__file__)), "alembic.ini"
         )
         if os.path.exists(alembic_cfg_path):
             alembic_cfg = Config(alembic_cfg_path)
+
+            # Debug: log what Alembic sees before running
+            script = ScriptDirectory.from_config(alembic_cfg)
+            heads = script.get_heads()
+            all_revs = [rev.revision for rev in script.walk_revisions()]
+            logger.info(f"Alembic: script head(s)={heads}, all revisions={all_revs}")
+
+            # Check current DB version
+            try:
+                from db import get_db_connection, return_db_connection
+                conn = get_db_connection()
+                cur = conn.cursor()
+                cur.execute("SELECT version_num FROM alembic_version")
+                db_versions = [r[0] for r in cur.fetchall()]
+                cur.close()
+                return_db_connection(conn)
+                logger.info(f"Alembic: DB version(s)={db_versions}")
+            except Exception as dbg_err:
+                logger.info(f"Alembic: could not read DB version: {dbg_err}")
+
             command.upgrade(alembic_cfg, "head")
             logger.info("Alembic migrations applied successfully")
         else:
