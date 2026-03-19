@@ -9,6 +9,7 @@ python-dotenv==1.1.0
 psycopg2-binary==2.9.10
 sqlalchemy==2.0.36
 flask-sqlalchemy==3.1.1
+alembic==1.18.4
 
 # Authentication & forms
 flask-login==0.6.3
