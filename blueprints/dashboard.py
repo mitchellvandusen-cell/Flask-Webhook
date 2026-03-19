@@ -501,7 +501,6 @@ def save_voice_config():
         "calling_hours_start":        _safe_hhmm(data.get("calling_hours_start"), "08:00"),
         "calling_hours_end":          _safe_hhmm(data.get("calling_hours_end"), "21:00"),
         "same_number_cooldown_hours": 0,
-        "same_contact_daily_max":     max(0, min(10, _safe_int(data.get("same_contact_daily_max"), 3))),
         "on_machine_action":          (data.get("on_machine_action") or "hangup") if data.get("on_machine_action") in ("hangup", "voicemail_drop", "continue") else "hangup",
         "auto_disposition_no_answer": bool(data.get("auto_disposition_no_answer", True)),
         "auto_disposition_voicemail": bool(data.get("auto_disposition_voicemail", True)),
