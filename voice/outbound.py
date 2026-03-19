@@ -18,7 +18,10 @@ from flask_login import current_user
 import twilio_provisioning
 from db import get_db_connection, return_db_connection, log_webhook_event, deduct_ai_minutes
 from number_health import select_outbound_number, update_number_health
-from voice.call_state import active_calls, transfer_requests
+from voice.redis_state import (
+    set_active_call, get_active_call, update_active_call, delete_active_call,
+    get_all_active_calls, delete_transfer_request,
+)
 from voice.helpers import _get_subscriber_by_location
 from voice.call_history_helpers import save_call_to_history, update_call_history_status, mark_ring_confirmed
 from voice.predictive_engine import tcpa_tracker, agent_state_manager, callback_queue, AgentState
@@ -135,7 +138,7 @@ def trigger_outbound_call():
         if current_user and getattr(current_user, 'is_authenticated', False):
             agent_email = getattr(current_user, 'email', '')
         voice_config_wt = subscriber.get("voice_config") or {}
-        active_calls[call_sid] = {
+        set_active_call(call_sid, {
             "status": "initiated",
             "duration": 0,
             "contact_id": contact_id,
@@ -147,7 +150,7 @@ def trigger_outbound_call():
             "_from_number": from_number,
             "_agent_email": agent_email,
             "_wrap_up_time": int(voice_config_wt.get('wrap_up_time', 15)),
-        }
+        })
 
         # Persist to call_history DB
         save_call_to_history(
@@ -284,7 +287,7 @@ def ghl_action_ai_call():
         logger.info(f"GHL AI Call action: {from_number} -> {lead_phone} (sid={call_sid}, location={location_id})")
 
         # Track in active calls
-        active_calls[call_sid] = {
+        set_active_call(call_sid, {
             "status": "initiated",
             "duration": 0,
             "contact_id": contact_id,
@@ -296,7 +299,7 @@ def ghl_action_ai_call():
             "_from_number": from_number,
             "_agent_email": "",
             "_wrap_up_time": int(voice_config.get('wrap_up_time', 15)),
-        }
+        })
 
         # Persist to call_history DB
         save_call_to_history(
@@ -821,7 +824,7 @@ def _loop_trigger_ai_call(location_id, contact_id, phone, first_name):
 
         logger.info(f"Loop AI Call initiated: {from_number} -> {phone} (sid={call_sid})")
 
-        active_calls[call_sid] = {
+        set_active_call(call_sid, {
             "status": "initiated",
             "duration": 0,
             "contact_id": contact_id,
@@ -833,7 +836,7 @@ def _loop_trigger_ai_call(location_id, contact_id, phone, first_name):
             "_from_number": from_number,
             "_agent_email": "",
             "_wrap_up_time": int(voice_config.get('wrap_up_time', 15)),
-        }
+        })
 
         save_call_to_history(
             location_id=location_id,
@@ -951,8 +954,10 @@ def voice_status():
     sip_code    = request.values.get('SipResponseCode', '')
     stir_status = request.values.get('StirStatus', '')  # STIR/SHAKEN attestation (A/B/C) for outbound
     # For inbound calls, StirVerstat was captured at webhook time and stored in active_calls
-    if not stir_status and call_sid in active_calls:
-        stir_status = active_calls[call_sid].get('_stir_verstat', '') or ''
+    if not stir_status:
+        _stir_info = get_active_call(call_sid)
+        if _stir_info is not None:
+            stir_status = _stir_info.get('_stir_verstat', '') or ''
 
     logger.info(f"📞 Call status: SID={call_sid} status={call_status} duration={duration}s sip={sip_code} stir={stir_status or 'n/a'}")
 
@@ -964,30 +969,32 @@ def voice_status():
         'in-progress': 3,
         'completed': 4, 'busy': 4, 'no-answer': 4, 'failed': 4, 'canceled': 4, 'transferred': 4,
     }
-    if call_sid in active_calls:
+    _status_info = get_active_call(call_sid)
+    if _status_info is not None:
         # If AMD hung up the call, Twilio still fires 'completed'. Preserve the
         # AMD-set status ('no-answer') so the frontend retry logic can trigger.
         effective_status = call_status
-        amd_result = active_calls[call_sid].get('_amd_result')
+        amd_result = _status_info.get('_amd_result')
         if call_status == 'completed' and amd_result:
             effective_status = amd_result
             logger.info(f"📞 AMD call {call_sid[:16]} ended — reporting as '{amd_result}' for retry")
 
-        current_status = active_calls[call_sid].get("status", "")
+        current_status = _status_info.get("status", "")
         new_order = _STATUS_ORDER.get(effective_status, 99)
         cur_order = _STATUS_ORDER.get(current_status, 99)
         if new_order >= cur_order:
-            active_calls[call_sid]["status"] = effective_status
+            update_active_call(call_sid, status=effective_status)
         else:
             logger.info(f"📞 Ignoring out-of-order status '{effective_status}' for {call_sid[:16]} (current='{current_status}')")
-        active_calls[call_sid]["duration"] = int(duration or 0)
+        update_active_call(call_sid, duration=int(duration or 0))
 
     # ── SIP 180 Ring Confirmation ──
     # When Twilio fires 'ringing', it means the carrier returned a SIP 180/183 —
     # the lead's phone is legitimately ringing (not fake ringback or immediate VM).
-    if call_status == 'ringing' and call_sid in active_calls:
-        if not active_calls[call_sid].get('_ring_confirmed'):
-            active_calls[call_sid]['_ring_confirmed'] = True
+    _ring_info = get_active_call(call_sid) if call_status == 'ringing' else None
+    if _ring_info is not None:
+        if not _ring_info.get('_ring_confirmed'):
+            update_active_call(call_sid, _ring_confirmed=True)
             logger.info(f"📞 Ring confirmed (SIP 180): {call_sid[:16]}")
             mark_ring_confirmed(call_sid)
 
@@ -996,8 +1003,9 @@ def voice_status():
     # - AI overflow calls: agent is already ON_CALL with the primary (human) call
     # - solo_predictive calls: agent was already claimed atomically in outbound_twiml()
     #   to prevent the race condition where two calls answer simultaneously
-    if call_status == 'in-progress' and call_sid in active_calls:
-        asm_info = active_calls[call_sid]
+    _asm_in_progress = get_active_call(call_sid) if call_status == 'in-progress' else None
+    if _asm_in_progress is not None:
+        asm_info = _asm_in_progress
         asm_loc = asm_info.get('_location_id', '')
         asm_email = asm_info.get('_agent_email', '')
         is_overflow = asm_info.get('_overflow', False)
@@ -1017,7 +1025,7 @@ def voice_status():
     # Skip overflow calls — they are answered by AI, not abandoned.
     terminal_statuses = {'completed', 'busy', 'no-answer', 'failed', 'canceled'}
     if call_status in terminal_statuses and call_sid:
-        call_info = active_calls.get(call_sid, {})
+        call_info = get_active_call(call_sid) or {}
         tcpa_location = call_info.get('_location_id', '')
         is_overflow_call = call_info.get('_overflow', False)
         if tcpa_location and not is_overflow_call:
@@ -1035,7 +1043,7 @@ def voice_status():
 
     # ── Auto-callback scheduling: queue re-dial for no-answer/busy if enabled ──
     if call_status in ('no-answer', 'busy') and call_sid:
-        cb_info = active_calls.get(call_sid, {})
+        cb_info = get_active_call(call_sid) or {}
         cb_location = cb_info.get('_location_id', '')
         if cb_location:
             try:
@@ -1059,7 +1067,7 @@ def voice_status():
     # ── Agent state machine: auto-transition ON_CALL → WRAP_UP on terminal ──
     # Overflow calls don't change agent state — only the primary (human) call does.
     if call_status in terminal_statuses and call_sid:
-        call_info_asm = active_calls.get(call_sid, {})
+        call_info_asm = get_active_call(call_sid) or {}
         asm_location = call_info_asm.get('_location_id', '')
         is_overflow_asm = call_info_asm.get('_overflow', False)
         if asm_location and not is_overflow_asm and call_status in terminal_statuses:
@@ -1074,10 +1082,11 @@ def voice_status():
                         # Solo predictive: skip WRAP_UP if overflow calls are still
                         # active (agent should grab them immediately). Go straight
                         # to READY so try_claim_for_call can succeed.
+                        _all_calls = get_all_active_calls()
                         overflow_pending = any(
                             c.get('_overflow') and c.get('_location_id') == asm_location
                             and c.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')
-                            for c in active_calls.values()
+                            for c in _all_calls.values()
                         )
                         if overflow_pending:
                             agent_state_manager.set_state(asm_location, asm_email, AgentState.READY)
@@ -1091,7 +1100,7 @@ def voice_status():
 
     # Update number health metrics on terminal statuses
     if call_status in terminal_statuses and call_sid:
-        call_info = active_calls.get(call_sid, {})
+        call_info = get_active_call(call_sid) or {}
         nh_location = call_info.get('_location_id', '')
         nh_from = call_info.get('_from_number', '')
         nh_effective = call_info.get('_amd_result', call_status)  # Use AMD result if available
@@ -1140,8 +1149,9 @@ def voice_status():
             logger.warning(f"AI minute deduction failed for {call_sid}: {e}")
 
     # Log completed/terminal calls to GHL so they appear in CRM conversation history
-    if call_status in terminal_statuses and call_sid and call_sid in active_calls:
-        call_info = active_calls[call_sid]
+    _ghl_call_info = get_active_call(call_sid) if (call_status in terminal_statuses and call_sid) else None
+    if _ghl_call_info is not None:
+        call_info = _ghl_call_info
         ghl_contact_id = call_info.get('contact_id', '')
         ghl_location_id = call_info.get('_location_id', '')
         ghl_phone = call_info.get('phone', '')
@@ -1189,12 +1199,14 @@ def voice_status():
                 logger.debug(f"GHL call log skipped for {call_sid}: {ghl_call_err}")
 
     # ── Voice Insights: queue background fetch of Call Summary ──
-    if call_status in terminal_statuses and call_sid and call_sid in active_calls:
-        _queue_insights_fetch(call_sid, active_calls.get(call_sid, {}))
+    _insights_info = get_active_call(call_sid) if (call_status in terminal_statuses and call_sid) else None
+    if _insights_info is not None:
+        _queue_insights_fetch(call_sid, _insights_info)
 
     # ── Fire GHL triggers: AI Call Completed / No Answer ──
-    if call_status in terminal_statuses and call_sid and call_sid in active_calls:
-        trigger_info = active_calls[call_sid]
+    _trigger_info = get_active_call(call_sid) if (call_status in terminal_statuses and call_sid) else None
+    if _trigger_info is not None:
+        trigger_info = _trigger_info
         trigger_location = trigger_info.get('_location_id', '')
         if trigger_location:
             effective_status = trigger_info.get('_amd_result', call_status)

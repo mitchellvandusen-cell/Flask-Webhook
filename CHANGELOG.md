@@ -8,6 +8,7 @@
 
 | Date | Milestone |
 |------|-----------|
+| 2026-03-19 | Redis-backed call state (Phase 1 of FastAPI voice WebSocket extraction) — `active_calls`, `transfer_requests`, `overflow_alerts` migrated from in-memory dicts to Redis |
 | 2026-03-12 | Pricing badge fix, comprehensive light/dark theme, magnifying glass UX fix, phone number cart with Stripe checkout |
 | 2026-03-11 | Deep dialer audit: wired dead-code TCPA tracker, agent state auto-transitions, auto-callbacks, safe input parsing |
 | 2026-03-11 | Predictive Dialer tier ($349.98/mo): Erlang-C pacing, TCPA compliance, timezone enforcement, agent state machine, callback queue, recording consent |
@@ -37,6 +38,63 @@
 | 2026-03-01 | Pricing update: $149.99/month across all pages, bot, and documentation |
 | 2026-03-10 | Hamburger menu fix, login crash fix, Remember Me (30-day), mobile dashboard redesign, agency dashboard revamp |
 | 2026-03-10 | Full QA audit: 6 critical bug fixes, 7 security fixes, 5 reliability fixes across 16 files |
+
+---
+
+## 2026-03-19 (Redis Call State — Phase 1 of Voice WebSocket Extraction)
+
+### Problem
+The Flask monolith (gunicorn gthread, 40 threads) runs everything: dashboard, webhooks, API, and voice WebSockets. Each AI voice call holds 2 WebSocket connections (Twilio→Flask, Flask→xAI) for 1-5 minutes, blocking a gunicorn thread each. 10 users × 4 multi-line dialer calls = 40 concurrent calls = 80 blocked threads = thread pool exhaustion. Dashboard and webhooks stop responding.
+
+### Goal
+Extract the 2 WebSocket endpoints into a standalone FastAPI/uvicorn service. This session completed **Phase 1: Redis State Layer** — the prerequisite for Phase 2+ (async WebSocket rewrite, FastAPI entry point, TwiML routing, frontend updates).
+
+### What Changed
+
+#### New File: `voice/redis_state.py` (~245 lines)
+Replaces the 3 in-memory dicts (`active_calls`, `transfer_requests`, `overflow_transfer_alerts`) with Redis-backed state that both Flask and future FastAPI can share.
+
+- **Redis key patterns**: `call:{call_sid}` (TTL 1hr), `xfer:{call_sid}` (TTL 30s), `overflow:{location_id}` (TTL 60s)
+- **JSON serialization**: Uses `SET`/`GET` with `json.dumps()`/`json.loads()` (not Redis hashes) because call dicts contain nested data
+- **Sync API**: 11 functions for Flask HTTP routes (`set_active_call`, `get_active_call`, `update_active_call`, `delete_active_call`, `get_all_active_calls`, `get_active_calls_for_location`, `set_transfer_request`, `get_transfer_request`, `delete_transfer_request`, `add_overflow_alert`, `get_overflow_alerts`, `dismiss_overflow_alert`)
+- **Async API**: 9 async wrappers via `asyncio.to_thread()` for future FastAPI use
+- **SCAN-based iteration**: `get_all_active_calls()` uses `SCAN` with `count=100` batches (safe for production, no `KEYS` blocking)
+- **Lazy Redis connection**: `_get_redis()` with ping-check reconnection pattern
+
+#### Modified File: `voice/call_state.py`
+- Removed in-memory `active_calls`, `transfer_requests`, `overflow_transfer_alerts` dicts
+- Removed daemon reaper thread (Redis TTLs handle auto-cleanup)
+- Re-exports all Redis state functions for backward compatibility
+- Retains `call_listeners` as in-process dict (audio frames too high-volume for Redis)
+- Retains `voice_stream_semaphore`, TwiML helpers, and constants
+
+#### 7 Voice Files Migrated to Redis State Functions
+
+| File | Changes |
+|------|---------|
+| `voice/twiml_routes.py` | `active_calls[sid] = {...}` → `set_active_call(sid, {...})`, status reads/writes → `get_active_call()`/`update_active_call()`, `transfer_requests.pop()` → `delete_transfer_request()` |
+| `voice/outbound.py` | 3 call initiation sites (trigger_outbound, ghl_action, loop_trigger) → `set_active_call()`, status callback → `get_active_call()`/`update_active_call()` |
+| `voice/call_history.py` | Status polling → `get_active_call()`, takeover → `set_transfer_request()`, hangup → `update_active_call()` + `delete_transfer_request()` |
+| `voice/dialer.py` | Idempotency guard, multi-dial, active-lines, multi-hangup, multi-status → all use `get_all_active_calls()`, `set_active_call()`, `update_active_call()` |
+| `voice/voice_tools.py` | Transfer signal → `set_transfer_request()`, overflow alert → `add_overflow_alert()`, active call scan → `get_all_active_calls()` |
+| `voice/helpers.py` | `_verify_call_ownership()` → `get_active_call()` |
+| `voice/recordings.py` | Removed unused `active_calls` import |
+
+### What Did NOT Change (Phase 2+ pending)
+- `voice/stream.py` — Still uses direct dict access (`active_calls[sid]`, `transfer_requests[sid]`). Will be replaced by `voice/async_stream.py` (native async FastAPI WebSocket handler)
+- `voice/async_stream.py` — Not yet created (Phase 2)
+- `voice/async_listen.py` — Not yet created (Phase 2)
+- `voice_server.py` — FastAPI entry point not yet created (Phase 3)
+- `main.py` — flask-sock WebSocket registration still in place (Phase 5)
+- `dialer.js` — Listen-stream WebSocket URL still hardcoded to Flask host (Phase 4)
+- `voice/twiml_routes.py` — Stream URL still uses `request.host` (Phase 4)
+- `requirements.txt` — No new dependencies yet (fastapi, uvicorn added in Phase 5)
+
+### Remaining Phases (not started)
+- **Phase 2**: Create `voice/async_stream.py` (async Twilio↔xAI bridge) and `voice/async_listen.py` (async listen stream), add async audio wrappers to `voice/audio.py`
+- **Phase 3**: Create `voice_server.py` (FastAPI/uvicorn entry point, port 8081)
+- **Phase 4**: Update TwiML stream URL to use `VOICE_WSS_URL` env var, update `dialer.js` to use `DASHBOARD_BOOT.voiceWssHost`, add `voiceWssHost` to dashboard template
+- **Phase 5**: Remove flask-sock from `main.py`, add fastapi/uvicorn/websockets to `requirements.txt`, add env vars to `.env.example`
 
 ---
 

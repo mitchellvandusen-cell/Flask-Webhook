@@ -7,7 +7,11 @@ from flask import Blueprint, request, Response
 
 import twilio_provisioning
 from number_health import select_outbound_number, update_number_health
-from voice.call_state import active_calls, transfer_requests, _encode_client_state, _build_twiml_stream, _twilio_hangup
+from voice.call_state import _encode_client_state, _build_twiml_stream, _twilio_hangup
+from voice.redis_state import (
+    set_active_call, get_active_call, update_active_call, delete_active_call,
+    get_all_active_calls, delete_transfer_request,
+)
 from voice.helpers import _get_subscriber_by_phone, _get_subscriber_by_location
 from voice.predictive_engine import agent_state_manager, AgentState, tcpa_tracker
 
@@ -67,7 +71,7 @@ def voice_inbound():
 
         # Track browser VoIP call for number health updates
         if call_sid:
-            active_calls[call_sid] = {
+            set_active_call(call_sid, {
                 "status": "initiated",
                 "duration": 0,
                 "contact_id": "",
@@ -77,7 +81,7 @@ def voice_inbound():
                 "_sub_sid": sub_sid,
                 "_host": host,
                 "_from_number": from_number,
-            }
+            })
 
         # Start recording in background
         if vc.get('auto_record', True) and sub_sid and call_sid:
@@ -138,7 +142,7 @@ def voice_inbound():
         threading.Thread(target=_start_rec, daemon=True).start()
 
     # Track the call
-    active_calls[call_sid] = {
+    set_active_call(call_sid, {
         "status": "in-progress",
         "duration": 0,
         "contact_id": "",
@@ -148,7 +152,7 @@ def voice_inbound():
         "_location_id": subscriber.get('location_id', ''),
         "_from_number": called,  # The number that received the inbound call
         "_stir_verstat": stir_verstat or None,  # STIR/SHAKEN verification result
-    }
+    })
 
     # Respond with TwiML to connect the media stream to AI bridge
     params = {'client_state': client_state, 'callSid': call_sid}
@@ -179,7 +183,7 @@ def voice_dial_status():
 
     # Update number health for browser VoIP calls
     if call_sid and dial_call_status:
-        call_info = active_calls.get(call_sid, {})
+        call_info = get_active_call(call_sid) or {}
         nh_location = call_info.get('_location_id', '')
         nh_from = call_info.get('_from_number', '')
         if nh_location and nh_from:
@@ -218,9 +222,8 @@ def outbound_twiml():
     logger.info(f"Outbound TwiML: CallSid={call_sid[:16] if call_sid else 'none'} AnsweredBy={answered_by} mode={dial_mode}")
 
     # Update active calls
-    if call_sid in active_calls:
-        active_calls[call_sid]['status'] = 'in-progress'
-        active_calls[call_sid]['_host'] = request.host
+    if get_active_call(call_sid) is not None:
+        update_active_call(call_sid, status='in-progress', _host=request.host)
 
     # Start recording in background (applies to ALL dial modes including human)
     host = request.host
@@ -248,7 +251,7 @@ def outbound_twiml():
     # transition READY → ON_CALL wins. Any subsequent call sees ON_CALL → overflow.
     _is_overflow = False
     if dial_mode == 'human' and location_id:
-        call_info = active_calls.get(call_sid, {})
+        call_info = get_active_call(call_sid) or {}
         agent_email = call_info.get('_agent_email', '')
         _tier = call_info.get('_subscription_tier', '')
 
@@ -258,8 +261,8 @@ def outbound_twiml():
             _sub = _get_subscriber_by_location(location_id)
             if _sub:
                 agent_email = _sub.get('email', '')
-                if agent_email and call_sid in active_calls:
-                    active_calls[call_sid]['_agent_email'] = agent_email
+                if agent_email and get_active_call(call_sid) is not None:
+                    update_active_call(call_sid, _agent_email=agent_email)
 
         if _tier == 'solo_predictive' and agent_email:
             # ATOMIC claim: try_claim_for_call checks agent state AND sets
@@ -313,10 +316,11 @@ def outbound_twiml():
                         f"{f', primary={primary_sid[:16]}' if primary_sid else ''})"
                     )
                     # Mark overflow in active_calls for frontend visibility
-                    if call_sid in active_calls:
-                        active_calls[call_sid]['_overflow'] = True
-                        active_calls[call_sid]['_overflow_agent'] = agent_email
-                        active_calls[call_sid]['_overflow_primary_sid'] = primary_sid or ''
+                    if get_active_call(call_sid) is not None:
+                        update_active_call(call_sid,
+                                           _overflow=True,
+                                           _overflow_agent=agent_email,
+                                           _overflow_primary_sid=primary_sid or '')
 
     # For human VoIP mode (NOT overflow), bridge the PSTN callee to the browser agent
     if dial_mode == 'human' and not _is_overflow:
@@ -422,9 +426,9 @@ def transfer_complete():
     logger.info(f"Transfer complete: original_sid={original_sid[:16] if original_sid else 'none'} dial_status={dial_status}")
 
     # Clean up in-memory tracking so the dialer UI can move on
-    if original_sid and original_sid in active_calls:
-        active_calls[original_sid]['status'] = 'completed'
-    transfer_requests.pop(original_sid, None)
+    if original_sid and get_active_call(original_sid) is not None:
+        update_active_call(original_sid, status='completed')
+    delete_transfer_request(original_sid)
 
     return Response(
         '<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>',
@@ -447,7 +451,7 @@ def amd_status_callback():
 
     logger.info(f"AMD result: CallSid={call_sid[:16] if call_sid else 'none'} AnsweredBy={answered_by}")
 
-    call_info = active_calls.get(call_sid, {})
+    call_info = get_active_call(call_sid) or {}
     sub_sid_amd = call_info.get('_sub_sid', '')
 
     # Cases where we can leave a voicemail (beep has passed)
@@ -460,14 +464,14 @@ def amd_status_callback():
     if answered_by in all_machine and sub_sid_amd and call_sid:
         # Machine detected — hang up immediately and let the dialer retry
         # Mark FIRST so /voice/status preserves 'no-answer' even if it arrives before hangup completes
-        if call_sid in active_calls:
-            active_calls[call_sid]['_amd_result'] = 'no-answer'
+        if get_active_call(call_sid) is not None:
+            update_active_call(call_sid, _amd_result='no-answer')
         try:
             _twilio_hangup(call_sid, sub_sid_amd)
         except Exception as e:
             logger.warning(f"AMD hangup failed for {call_sid}: {e}")
         # Clean up any pending transfer request for this call
-        transfer_requests.pop(call_sid, None)
+        delete_transfer_request(call_sid)
 
     # human or not_sure — call continues with existing media stream
     return '', 204

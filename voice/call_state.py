@@ -1,92 +1,60 @@
 """
-voice/call_state.py - In-memory call state, reaper, and TwiML helpers.
+voice/call_state.py — Call state, TwiML helpers, and constants.
 
-Extracted from voice_bridge.py.  All dict names are public (no underscore
-prefix) because they live in their own module.
+State is backed by Redis (via redis_state.py) for cross-service sharing
+between Flask and FastAPI. The in-memory dicts and daemon reaper have
+been removed — Redis TTLs handle cleanup automatically.
+
+For backward compatibility, this module re-exports the Redis functions
+and constants so existing code that does `from voice.call_state import active_calls`
+can be migrated incrementally.
 """
 
 import json
 import os
 import logging
-import threading
-import time
 import base64
 import queue as _queue_module
 from xml.sax.saxutils import escape as xml_escape, quoteattr as xml_quoteattr
 
 import twilio_provisioning
 
+# Re-export Redis state functions so callers can import from here
+from voice.redis_state import (
+    set_active_call,
+    get_active_call,
+    update_active_call,
+    delete_active_call,
+    get_all_active_calls,
+    get_active_calls_for_location,
+    set_transfer_request,
+    get_transfer_request,
+    delete_transfer_request,
+    add_overflow_alert,
+    get_overflow_alerts,
+    dismiss_overflow_alert,
+    TERMINAL_STATUSES,
+)
+
 logger = logging.getLogger("voice_bridge.call_state")
 
-# ── In-memory state dicts ────────────────────────────────────────────────────
-
-# In-memory call status tracking for the dialer queue
-# { call_sid: { "status": "...", "duration": 0, "contact_id": "...", "phone": "...", "name": "..." } }
-active_calls = {}
-
-# Transfer / takeover signaling: set by HTTP endpoints, read by WebSocket bridge
-# { call_sid: {"type": "transfer"|"takeover", "target": "+1...", "reason": "..."} }
-transfer_requests = {}
+# ── In-process state (NOT shared via Redis) ──────────────────────────────────
 
 # Live listen: maps call_sid → set of queue.Queue objects (one per listener)
-# Audio chunks (mulaw base64 strings) are put into each queue by the voice stream
+# Audio chunks are put into each queue by the voice stream.
+# This MUST stay in-process — audio frames are too high-volume for Redis.
 call_listeners: dict = {}  # { call_sid: set(queue.Queue, ...) }
 
-# Simple in-memory cache for GHL custom field definitions: { location_id: {field_id: field_name} }
-# Populated on first contact detail fetch per location; GHL field definitions rarely change.
+# Simple in-memory cache for GHL custom field definitions.
+# Populated on first contact detail fetch per location; rarely changes.
 custom_field_defs: dict = {}
 
-# Overflow transfer alerts: when AI overflow call has a hot lead wanting to transfer
-# but the agent is ON_CALL, we log the alert here for the frontend to poll and display.
-# { location_id: [ {call_sid, contact_id, contact_name, phone, reason, timestamp, status} ] }
-overflow_transfer_alerts: dict = {}
-
-# ── Concurrent voice stream limit (backpressure for gunicorn's 40 threads) ──
-# Reserve ~10 threads for HTTP traffic; allow max 30 concurrent voice streams.
+# ── Concurrent voice stream limit ────────────────────────────────────────────
+# For Flask/gunicorn: threading.Semaphore limits concurrent voice streams.
+# For FastAPI: async_stream.py uses asyncio.Semaphore instead.
+import threading
 MAX_VOICE_STREAMS = int(os.getenv("MAX_VOICE_STREAMS", "30"))
 voice_stream_semaphore = threading.Semaphore(MAX_VOICE_STREAMS)
-
-# ── Periodic reaper for stale active_calls / transfer_requests / call_listeners ──
-REAPER_INTERVAL = 300   # seconds (5 minutes)
-TERMINAL_STATUSES = frozenset({"completed", "busy", "no-answer", "failed", "canceled", "transferred"})
-
-NON_TERMINAL_MAX_AGE = 3600  # 1 hour — reap non-terminal entries stuck this long
-
-
-def _reap_stale_calls():
-    """Remove entries stuck in a terminal state for more than 5 minutes,
-    and entries stuck in non-terminal states for more than 1 hour."""
-    while True:
-        time.sleep(REAPER_INTERVAL)
-        try:
-            now = time.monotonic()
-            stale = []
-            for sid, info in list(active_calls.items()):
-                if info.get("status") in TERMINAL_STATUSES:
-                    # Tag first-seen monotonic time so we know how long it's been terminal
-                    if "_terminal_since" not in info:
-                        info["_terminal_since"] = now
-                    elif now - info["_terminal_since"] > REAPER_INTERVAL:
-                        stale.append(sid)
-                else:
-                    # Non-terminal entries (initiated/ringing/in-progress) stuck too long
-                    if "_created_at" not in info:
-                        info["_created_at"] = now
-                    elif now - info["_created_at"] > NON_TERMINAL_MAX_AGE:
-                        logger.warning(f"Reaping non-terminal call {sid[:16]} stuck in '{info.get('status')}' for >1hr")
-                        stale.append(sid)
-            for sid in stale:
-                active_calls.pop(sid, None)
-                transfer_requests.pop(sid, None)
-                call_listeners.pop(sid, None)
-            if stale:
-                logger.debug(f"Reaped {len(stale)} stale call entries from active_calls")
-        except Exception:
-            pass  # reaper must never crash
-
-
-_reaper_thread = threading.Thread(target=_reap_stale_calls, daemon=True)
-_reaper_thread.start()
 
 
 # ── TwiML helpers ─────────────────────────────────────────────────────────────

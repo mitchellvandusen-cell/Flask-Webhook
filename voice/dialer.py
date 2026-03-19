@@ -16,7 +16,11 @@ from db import get_db_connection, return_db_connection
 from ghl_api import get_valid_token
 from number_health import select_outbound_number
 from voice.audio import XAI_API_KEY, VOICE_OPTIONS, DEFAULT_VOICE, _generate_voice_preview, _pcm16_to_wav
-from voice.call_state import active_calls, transfer_requests, _twilio_hangup
+from voice.call_state import _twilio_hangup
+from voice.redis_state import (
+    set_active_call, get_active_call, update_active_call, delete_active_call,
+    get_all_active_calls, get_active_calls_for_location, delete_transfer_request,
+)
 from voice.helpers import _get_subscriber_by_location, _get_current_subscriber_voice
 from voice.call_history_helpers import save_call_to_history, update_call_history_status
 from blueprints.team import require_permission
@@ -1051,7 +1055,7 @@ def dial_contact():
 
     # Idempotency guard: prevent double-dial to the same phone number.
     # If a non-terminal call to this phone already exists for this location, return it.
-    for sid, info in list(active_calls.items()):
+    for sid, info in get_all_active_calls().items():
         if (info.get('phone') == phone
                 and info.get('_location_id') == location_id
                 and info.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')):
@@ -1087,7 +1091,7 @@ def dial_contact():
         )
         call_sid = result.get('call_sid', '')
 
-        active_calls[call_sid] = {
+        set_active_call(call_sid, {
             "status":     "initiated",
             "duration":   0,
             "contact_id": contact_id,
@@ -1102,7 +1106,7 @@ def dial_contact():
             "_agent_email": current_user.email,
             "_wrap_up_time": int(voice_config.get('wrap_up_time', 15)),
             "_subscription_tier": tier,
-        }
+        })
 
         save_call_to_history(
             location_id=location_id,
@@ -1208,7 +1212,7 @@ def multi_dial():
 
     # Enforce max concurrent lines already active for this location
     active_for_location = sum(
-        1 for sid, info in list(active_calls.items())
+        1 for sid, info in get_all_active_calls().items()
         if info.get('_location_id') == location_id
         and info.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')
     )
@@ -1306,7 +1310,7 @@ def multi_dial():
 
         # Double-dial guard per phone
         existing_sid = None
-        for sid, info in list(active_calls.items()):
+        for sid, info in get_all_active_calls().items():
             if (info.get('phone') == c_phone
                     and info.get('_location_id') == location_id
                     and info.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')):
@@ -1349,7 +1353,7 @@ def multi_dial():
             )
             call_sid = result.get('call_sid', '')
 
-            active_calls[call_sid] = {
+            set_active_call(call_sid, {
                 "status": "initiated",
                 "duration": 0,
                 "contact_id": c_id,
@@ -1365,7 +1369,7 @@ def multi_dial():
                 "_agent_email": current_user.email,
                 "_wrap_up_time": int(voice_config.get('wrap_up_time', 15)),
                 "_subscription_tier": tier,
-            }
+            })
 
             save_call_to_history(
                 location_id=location_id,
@@ -1417,7 +1421,7 @@ def get_active_lines():
     max_lines = 4 if tier in ('pro_dialer', 'solo_predictive') else 1
 
     lines = []
-    for sid, info in list(active_calls.items()):
+    for sid, info in get_all_active_calls().items():
         if (info.get('_location_id') == location_id
                 and info.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')):
             lines.append({
@@ -1470,18 +1474,18 @@ def multi_hangup():
     for sid in call_sids:
         try:
             # Ownership check: only allow hanging up calls belonging to this location
-            call_info = active_calls.get(sid)
+            call_info = get_active_call(sid)
             if call_info and call_info.get('_location_id') and call_info['_location_id'] != location_id:
                 results.append({"call_sid": sid, "success": False, "error": "Not your call"})
                 continue
 
             success = _twilio_hangup(sid, sub_sid)
-            if sid in active_calls:
+            if get_active_call(sid) is not None:
                 if success:
-                    active_calls[sid]['status'] = 'completed'
+                    update_active_call(sid, status='completed')
                 else:
-                    active_calls[sid]['status'] = 'hangup-failed'
-            transfer_requests.pop(sid, None)
+                    update_active_call(sid, status='hangup-failed')
+            delete_transfer_request(sid)
             if success:
                 try:
                     update_call_history_status(sid, 'completed', 0)
@@ -1522,8 +1526,8 @@ def multi_call_status():
 
     statuses = {}
     for sid in call_sids:
-        if sid in active_calls:
-            info = active_calls[sid]
+        info = get_active_call(sid)
+        if info is not None:
             # Ownership check: skip calls belonging to other locations
             if _owner_location and info.get('_location_id') and info['_location_id'] != _owner_location:
                 statuses[sid] = {"status": "unknown"}
@@ -1531,10 +1535,10 @@ def multi_call_status():
             # Terminal state cleanup (same logic as single poll)
             if info["status"] in ("completed", "busy", "no-answer", "failed", "canceled", "transferred"):
                 poll_count = info.get('_terminal_polls', 0) + 1
-                info['_terminal_polls'] = poll_count
+                update_active_call(sid, _terminal_polls=poll_count)
                 if poll_count >= 20:
                     status_copy = dict(info)
-                    del active_calls[sid]
+                    delete_active_call(sid)
                     statuses[sid] = status_copy
                     continue
             entry = dict(info)
@@ -1646,7 +1650,7 @@ def predictive_stats():
 
             # Count active overflow calls right now
             overflow_active = sum(
-                1 for sid, info in list(active_calls.items())
+                1 for sid, info in get_all_active_calls().items()
                 if info.get('_location_id') == location_id and info.get('_overflow')
                 and info.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')
             )
@@ -2066,7 +2070,7 @@ def get_overflow_alerts():
     endpoint to show a notification popup giving the agent the option to accept
     the transfer or let AI book the appointment.
     """
-    from voice.call_state import overflow_transfer_alerts
+    from voice.redis_state import get_overflow_alerts as _get_overflow_alerts
 
     conn = get_db_connection()
     if not conn:
@@ -2082,7 +2086,7 @@ def get_overflow_alerts():
     finally:
         return_db_connection(conn)
 
-    alerts = overflow_transfer_alerts.get(location_id, [])
+    alerts = _get_overflow_alerts(location_id)
     # Return only pending alerts, auto-expire alerts older than 30 seconds
     now = time.time()
     pending = []
@@ -2091,7 +2095,6 @@ def get_overflow_alerts():
             continue
         age = now - alert.get('timestamp', 0)
         if age > 30:
-            alert['status'] = 'expired'
             continue
         pending.append({
             "call_sid": alert.get('call_sid', ''),
@@ -2102,11 +2105,6 @@ def get_overflow_alerts():
             "age_seconds": round(age, 1),
         })
 
-    # Prune expired/dismissed alerts
-    overflow_transfer_alerts[location_id] = [
-        a for a in alerts if a.get('status') == 'pending'
-    ]
-
     return jsonify({"alerts": pending})
 
 
@@ -2114,7 +2112,7 @@ def get_overflow_alerts():
 @login_required
 def dismiss_overflow_alert():
     """Dismiss an overflow transfer alert (agent chose 'Let AI Book')."""
-    from voice.call_state import overflow_transfer_alerts
+    from voice.redis_state import dismiss_overflow_alert as _dismiss_overflow_alert
 
     data = request.json or {}
     call_sid = data.get('call_sid', '')
@@ -2135,10 +2133,6 @@ def dismiss_overflow_alert():
     finally:
         return_db_connection(conn)
 
-    alerts = overflow_transfer_alerts.get(location_id, [])
-    for alert in alerts:
-        if alert.get('call_sid') == call_sid:
-            alert['status'] = 'dismissed'
-            break
+    _dismiss_overflow_alert(location_id, call_sid)
 
     return jsonify({"ok": True})

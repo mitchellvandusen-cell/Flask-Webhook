@@ -227,7 +227,8 @@ The voice bridge has been decomposed from a single `voice_bridge.py` (~193KB) in
 | `helpers.py` | Shared voice utilities | ~180 lines |
 | `voice_tools.py` | Voice AI tool definitions for function calling | ~178 lines |
 | `insights.py` | Call insights and analytics | ~140 lines |
-| `call_state.py` | In-memory call state tracking (`active_calls`, `transfer_requests`) | ~129 lines |
+| `redis_state.py` | Redis-backed call state (`active_calls`, `transfer_requests`, `overflow_alerts`) with sync + async APIs | ~245 lines |
+| `call_state.py` | Call state re-exports from `redis_state.py`, TwiML helpers, in-process `call_listeners` dict | ~103 lines |
 | `call_history_helpers.py` | Call history helper functions | small |
 
 ---
@@ -751,7 +752,8 @@ The bot must **never** reveal that it is a bot, AI, virtual assistant, or automa
 - `voice_bridge.py` is now a backward-compatibility shim that re-exports from `voice/`
 - Bidirectional WebSocket bridge: Twilio mulaw 8kHz ↔ xAI PCM 16kHz (`voice/stream.py`)
 - Audio pipeline: soxr resampling + mulaw/PCM conversion + scipy Butterworth EQ (`voice/audio.py`)
-- In-memory call tracking: `active_calls`, `transfer_requests`, `call_listeners` (`voice/call_state.py`)
+- Redis-backed call state: `active_calls`, `transfer_requests`, `overflow_transfer_alerts` via `voice/redis_state.py` (sync + async APIs)
+- `voice/call_state.py` re-exports Redis functions for backward compatibility; `call_listeners` stays in-process (WebSocket-to-WebSocket audio relay)
 - Outbound call initiation and TwiML generation (`voice/outbound.py`)
 - Call history CRUD and recording management (`voice/call_history.py`)
 - Voice AI system prompt builder (`voice/voice_prompt.py`)
@@ -765,6 +767,50 @@ The bot must **never** reveal that it is a bot, AI, virtual assistant, or automa
 - Phone number management and Trust Hub (`voice/numbers.py`)
 - Multi-line dialer and predictive dialing (`voice/dialer.py`)
 - Predictive engine with Erlang-C pacing (`voice/predictive_engine.py`)
+
+### Redis-Backed Call State (`voice/redis_state.py`)
+
+Call state was migrated from in-memory Python dicts to Redis for cross-service sharing (preparation for FastAPI voice WebSocket extraction). Both Flask HTTP routes and future FastAPI WebSocket handlers read/write the same state.
+
+**Redis key patterns:**
+
+| State | Redis Key | Type | TTL |
+|-------|-----------|------|-----|
+| `active_calls` | `call:{call_sid}` | JSON string (SET/GET) | 3600s (1hr) |
+| `transfer_requests` | `xfer:{call_sid}` | JSON string (SET/GET) | 30s |
+| `overflow_transfer_alerts` | `overflow:{location_id}` | List (JSON items) | 60s |
+
+**Why JSON strings, not Redis hashes:** `active_calls` dicts contain nested data (`_stir_verstat`, `_amd_result`, etc.). Redis hashes can't store nested values. Using `SET`/`GET` with `json.dumps()`/`json.loads()` preserves the full dict structure.
+
+**Sync API** (Flask calls these via `voice.redis_state` or re-exported from `voice.call_state`):
+- `set_active_call(call_sid, data)`, `get_active_call(call_sid)`, `update_active_call(call_sid, **fields)`, `delete_active_call(call_sid)`
+- `get_all_active_calls()` — SCAN-based iteration (safe for production, no KEYS blocking)
+- `get_active_calls_for_location(location_id)` — filters by `_location_id` field
+- `set_transfer_request(call_sid, data)`, `get_transfer_request(call_sid)`, `delete_transfer_request(call_sid)`
+- `add_overflow_alert(location_id, alert)`, `get_overflow_alerts(location_id)`, `dismiss_overflow_alert(location_id, call_sid)`
+
+**Async API** (for future FastAPI — wraps sync via `asyncio.to_thread()`):
+- `async_set_active_call()`, `async_get_active_call()`, `async_update_active_call()`, `async_delete_active_call()`
+- `async_get_transfer_request()`, `async_set_transfer_request()`, `async_delete_transfer_request()`
+- `async_add_overflow_alert()`, `async_get_overflow_alerts()`
+
+**What stays in-process:**
+- `call_listeners` (dict of `call_sid → set(queue.Queue)`) — audio frames are too high-volume for Redis. Stays in `voice/call_state.py` as a plain dict.
+- `custom_field_defs` — simple per-location cache, rarely changes.
+
+**What was removed:**
+- Daemon reaper thread — Redis TTLs handle auto-cleanup automatically.
+- Direct dict access (`active_calls[sid] = {...}`) — replaced with function calls across 8 voice files.
+
+**Files migrated from in-memory dicts to Redis state functions:**
+- `voice/twiml_routes.py` — inbound/outbound TwiML, call status updates
+- `voice/outbound.py` — call initiation, status callbacks
+- `voice/call_history.py` — status polling, hangup, takeover
+- `voice/dialer.py` — multi-dial, active-lines, multi-hangup, multi-status
+- `voice/voice_tools.py` — transfer signals, overflow alerts
+- `voice/helpers.py` — call ownership verification
+- `voice/recordings.py` — removed unused `active_calls` import
+- `voice/stream.py` — still uses direct dict access (will be replaced by `async_stream.py` in Phase 2)
 
 ---
 
@@ -952,7 +998,7 @@ Used by both `solo_predictive` (solo agents with AI overflow) and `predictive_di
 - **Team member fallback**: `AgentStateManager.get_any_available_agent(location_id, exclude_email)` — finds first READY team member at a location (excluding the primary dialer). Used in collision detection to try team members before AI overflow
 - **Callback queue**: `CallbackQueue` (global singleton `callback_queue`) — thread-safe scheduled re-dial queue with duplicate prevention, 24-hour auto-prune of completed/cancelled items
 - **Compliance metrics**: `get_compliance_metrics()` — aggregated compliance score (0-100) from TCPA, DNC violations, calling hours violations
-- **Overflow transfer alerts**: `overflow_transfer_alerts` dict in `call_state.py` — in-memory alerts when AI overflow calls have hot leads wanting transfer. Polled by frontend via `GET /voice/overflow-alerts`, auto-expire after 30 seconds
+- **Overflow transfer alerts**: Redis-backed alerts in `redis_state.py` (key `overflow:{location_id}`, TTL 60s) — when AI overflow calls have hot leads wanting transfer. Polled by frontend via `GET /voice/overflow-alerts`
 
 ---
 

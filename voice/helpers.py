@@ -4,7 +4,7 @@ import logging
 from flask_login import current_user
 
 from db import get_db_connection, return_db_connection
-from voice.call_state import active_calls
+from voice.redis_state import get_active_call
 
 logger = logging.getLogger("voice_bridge.helpers")
 
@@ -137,7 +137,7 @@ def _get_current_subscriber_voice():
 def _verify_call_ownership(call_sid: str) -> bool:
     """Check that the call_sid belongs to the current user's location.
     Returns True if the call is owned by the current user, False otherwise."""
-    info = active_calls.get(call_sid)
+    info = get_active_call(call_sid)
     if not info:
         return False
     call_location = info.get('_location_id', '')

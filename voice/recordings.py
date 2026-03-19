@@ -13,7 +13,7 @@ from blueprints.team import require_permission
 from db import get_db_connection, return_db_connection
 from openai import OpenAI
 from voice.audio import XAI_API_KEY
-from voice.call_state import active_calls
+
 from voice.helpers import _get_current_subscriber_voice
 from voice.call_history_helpers import save_call_transcript
 
