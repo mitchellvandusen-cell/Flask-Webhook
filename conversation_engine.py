@@ -539,6 +539,15 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
         (r'busy (?:protect|working on|taking care|making sure|getting|building)', ObjectionType.BUSY_TIMING),
         # "done researching, ready to move forward" — action, not dismissal
         (r'(?:done|finished|over)\s+(?:research|looking|shopping|comparing).*(?:ready|want to|let\'?s|move forward|go ahead)', ObjectionType.NOT_INTERESTED),
+        # health concern + buying intent = buying signal, not objection
+        # "I have diabetes but I want coverage" / "I know I have health issues, what are my options?"
+        (r'(?:have|had|diabetes|cancer|heart|health).*(?:but i want|but i need|what are my options|can i still|is there|what do you recommend|help me)', ObjectionType.HEALTH_CONCERN),
+        # "I was denied before but I'm still looking" — persistence through rejection
+        (r'(?:denied|turned down|rejected).*(?:but|still|looking|want|need|trying)', ObjectionType.HEALTH_CONCERN),
+        # trust concern + positive signal = buying through trust
+        # "I don't trust most agents but you seem different" / "my buddy sells but I want to compare"
+        (r"(?:don't trust|dont trust|got burned).*(?:but|you seem|your approach|still want|still need|want to compare)", ObjectionType.TRUST_ISSUE),
+        (r'(?:nephew|buddy|cousin|friend|uncle|brother|sister)\s+sells.*(?:but|compare|want to see|second opinion|shop around)', ObjectionType.TRUST_ISSUE),
     ]
 
     # Check if the message matches any buying-through-objection pattern
@@ -577,7 +586,7 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
         "bad experience", "bad agent", "terrible experience",
         "don't trust", "dont trust", "do not trust", "can't trust", "cant trust",
         "my last agent", "previous agent",
-        "waste of money", "never pays out", "never pay out",
+        "never pays out", "never pay out",
         "they never pay", "insurance never covers",
         "my nephew sells", "my buddy sells", "my cousin sells",
         "my friend sells", "my neighbor sells", "my uncle sells",
@@ -1164,11 +1173,14 @@ def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "", age: i
     try:
         objection_type = ObjectionType(obj_type_str)
     except ValueError:
+        logger.warning(f"LLM returned invalid objection_type '{obj_type_str}' — defaulting to NONE. "
+                       f"Recent lead text: '{recent_lead_text[:80]}'. This may cause a real objection to be missed.")
         objection_type = ObjectionType.NONE
 
     try:
         objection_nature = ObjectionNature(obj_nature_str)
     except ValueError:
+        logger.warning(f"LLM returned invalid objection_nature '{obj_nature_str}' — defaulting to NONE.")
         objection_nature = ObjectionNature.NONE
 
     # ─── Booking confirmed by bot recently? ───

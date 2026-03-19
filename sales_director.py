@@ -605,21 +605,31 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
     # Fallback: if entries lack tags (legacy narratives from before this change),
     # count ALL entries as same-type to err on the side of escalation.
 
+    # Valid tags that map to ObjectionType enum values
+    _VALID_TAGS = frozenset(f"[{t.value.upper()}]" for t in ObjectionType if t != ObjectionType.NONE)
+
     obj_tag = f"[{obj.value.upper()}]"
     same_objection_count = 0
     total_objection_count = 0
     distinct_types_seen = set()
 
+    _TAG_RE = re.compile(r'^\s*\[([A-Z_]+)\]')
+
     if log:
         for entry in log:
             total_objection_count += 1
             # Extract tag from entry (format: "[TYPE] Objection: ...")
-            entry_stripped = entry.strip()
-            if entry_stripped.startswith("[") and "]" in entry_stripped:
-                tag = entry_stripped[:entry_stripped.index("]") + 1].upper()
-                distinct_types_seen.add(tag)
-                if tag == obj_tag:
-                    same_objection_count += 1
+            # Uses regex to handle whitespace, casing, and malformed entries
+            m = _TAG_RE.match(entry.strip().upper())
+            if m:
+                tag = f"[{m.group(1)}]"
+                if tag in _VALID_TAGS:
+                    distinct_types_seen.add(tag)
+                    if tag == obj_tag:
+                        same_objection_count += 1
+                else:
+                    # Tag present but not a valid ObjectionType — log and skip
+                    logger.warning(f"Objection log entry has invalid tag {tag}: {entry[:80]}")
             else:
                 # Legacy entry without tag — count as current type to avoid under-escalation
                 same_objection_count += 1
@@ -641,9 +651,10 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
             # 3+ objections with price in the mix = price is likely the root cause
             obj = ObjectionType.PRICE_MONEY
             obj_tag = price_tag
-            # Recount for the new type
+            # Recount for the new type using same robust regex
             same_objection_count = sum(
-                1 for e in log if e.strip().upper().startswith(price_tag)
+                1 for e in log
+                if (pm := _TAG_RE.match(e.strip().upper())) and f"[{pm.group(1)}]" == price_tag
             )
             in_phase_2 = same_objection_count >= 2
             in_phase_3 = same_objection_count >= 4
