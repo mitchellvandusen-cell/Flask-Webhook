@@ -833,10 +833,188 @@ def analyze_insurance_context(text: str, all_lead_text: str, age: int = 0) -> In
 # MAIN ANALYSIS
 # ===================================
 
+def _parse_llm_json(raw: str) -> dict:
+    """Parse JSON from LLM output, stripping reasoning tags and markdown fencing."""
+    raw = re.sub(r'<thinking>[\s\S]*?</thinking>', '', raw).strip()
+    raw = re.sub(r'</?(?:thinking|reply|output|response)>', '', raw).strip()
+    if raw.startswith("```json"):
+        raw = raw.split("```json", 1)[1].split("```", 1)[0].strip()
+    elif raw.startswith("```"):
+        raw = raw.split("```", 1)[1].split("```", 1)[0].strip()
+    return json.loads(raw)
+
+
+# ===================================
+# CLASSIFICATION PROMPT (shared across tiers)
+# ===================================
+
+_CLASSIFICATION_PROMPT = """You are classifying lead messages in a life insurance sales conversation.
+
+Lead messages (most recent at bottom):
+{lead_messages}
+
+Return ONLY valid JSON with these exact keys:
+
+{{
+  "has_coverage": bool,
+  "needs_coverage": bool,
+  "mentioned_goal": bool,
+  "mentioned_obstacle": bool,
+  "ready_to_book": bool,
+  "resistance": bool,
+  "articulated_impact": bool,
+  "objection_type": str,
+  "objection_nature": str
+}}
+
+INTENT FIELDS (true/false):
+- has_coverage: they mention having any existing life insurance/policy/coverage
+- needs_coverage: expressed need, want, interest, looking, thinking about coverage
+- mentioned_goal: protecting family, kids, spouse, mortgage, business, future, etc.
+- mentioned_obstacle: barrier like busy, expensive, health issue, not sure, complicated
+- ready_to_book: the lead is EXPLICITLY asking to schedule or book an appointment. Examples: "can we book a call?", "let's schedule something", "when are you available?", "I'd like to set up a meeting", "what times do you have?", "sign me up", "let's do it", "I'm ready to go". CRITICAL: generic agreement words like "yes", "sure", "ok", "sounds good" are NOT ready_to_book UNLESS the lead is clearly accepting a specific appointment time you offered. "Yes" answering a qualifying question = false. "Yes that time works" after you offered a slot = true
+- resistance: strong opt-out: stop, unsubscribe, remove, leave me alone, do not contact, opt out, lose my number, take me off (NOTE: "not interested" is NOT resistance — it is an objection to be handled)
+- articulated_impact: the lead has expressed WHY coverage matters to them personally, what would happen to their family without it, the consequences of the gap, or emotional weight behind their need. Not just mentioning a goal but explaining why it is important to them or what would happen if they did not address it
+
+OBJECTION FIELDS (based on the MOST RECENT lead message only):
+- objection_type: one of "not_interested", "spouse_partner", "price_money", "already_covered", "busy_timing", "think_about_it", "none"
+
+CLASSIFICATION MINDSET — Think like a top sales closer:
+The ONLY messages that are "none" are: answering your question, asking their own question, expressing genuine interest, agreeing to something, or providing information you asked for. EVERYTHING ELSE is an objection — and every objection is an opportunity.
+
+CRITICAL FALSE POSITIVE RULES — these OVERRIDE the closer mindset:
+- "not interested in X, I want Y" / "not interested in X, what about Y?" = NONE (buying signal — they are telling you what they DO want)
+- "my wife/husband loves/agrees/supports/wants/is on board" = NONE (supportive spouse)
+- "my wife handles the insurance" / "my husband takes care of that" = spouse_partner (deferral — NOT not_interested)
+- "already have some but need more" / "have coverage but it's not enough" = NONE (coverage gap = buying signal)
+- "think about it all the time" / "think about my family" = NONE (concern, NOT stalling)
+- "busy protecting my family" = NONE (commitment, NOT timing)
+- "it's not too expensive" / "actually pretty affordable" = NONE (positive price reaction)
+- "it's not for me to decide" / "not for me to say" = spouse_partner (deferral, NOT not_interested)
+- "done researching, ready to move forward" = NONE (action, NOT dismissal)
+- When the lead NEGATES an objection keyword ("not too expensive", "don't need to ask anyone"), that is NOT an objection
+- "yes" / "sure" / "ok" answering YOUR question = NONE (providing info, not booking)
+
+OBJECTION TYPE DEFINITIONS:
+  "not_interested" = ANY form of no, decline, dismissal, disengagement, negativity, apathy, or rejection. Includes: "no thanks", "I'm good", "nah", "pass", "whatever", "bye", "leave me alone", "don't care", "I'm done", sarcastic dismissals, or any response that signals the lead does not want to continue. If ambiguous ("hmm", "maybe", "idk"), prefer "think_about_it" — thoughtful leads deserve patience.
+  "spouse_partner" = deferring to ANY third party: spouse, partner, family, accountant, lawyer, advisor, broker. "Let me check with...", "My wife/husband handles/decides...", "need to ask..."
+  "price_money" = ANY concern about cost, affordability, budget, value. "Too expensive", "can't afford", "fixed income", "not worth it", "money is tight"
+  "already_covered" = claims ANY existing protection: employer, group, VA, another agent. "I'm covered", "already have", "all set", "taken care of"
+  "busy_timing" = can't engage RIGHT NOW: "busy", "at work", "driving", "call back later", "not a good time"
+  "think_about_it" = stalling/delaying: "need to think", "sleep on it", "not ready", "get back to you", "rain check", "maybe" (standalone), "I'll let you know"
+  "none" = genuinely positive, engaged, asking/answering questions, providing info
+
+- objection_nature: one of "fear_based", "logistical", "none"
+  "fear_based" = emotional resistance, avoidance, fear of commitment/being sold to/making a mistake. MOST objections are fear-based.
+  "logistical" = genuinely practical: real budget constraint, existing arrangement, scheduling conflict
+  "none" = no objection (only when objection_type is also "none")
+
+Context examples:
+"I already have something through work" = already_covered + logistical
+"I can't afford that right now" = price_money (could be either)
+"Let me talk to my wife first" = spouse_partner + fear_based
+"no" / "nah" / "nope" / "whatever" = not_interested + fear_based
+"maybe" (by itself) = think_about_it + fear_based
+"My wife handles the finances" = spouse_partner + fear_based
+"Yeah sounds good" = none + none
+"""
+
+
+def _llm_classify(lead_msgs: List[str], model: str, timeout: float) -> dict:
+    """
+    Run LLM classification on lead messages. Returns parsed dict or empty dict on failure.
+    """
+    if not client or not lead_msgs:
+        return {}
+
+    lead_messages_str = chr(10).join([f"[{i+1}] {msg}" for i, msg in enumerate(lead_msgs[-8:])])
+    prompt = _CLASSIFICATION_PROMPT.format(lead_messages=lead_messages_str)
+
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1,
+            max_tokens=250,
+            timeout=timeout
+        )
+        raw = response.choices[0].message.content.strip()
+        cls = _parse_llm_json(raw)
+        if isinstance(cls, dict) and "objection_type" in cls:
+            logger.debug(f"LLM classification ({model}): {cls}")
+            return cls
+        logger.warning(f"LLM classification ({model}) returned invalid structure: {cls}")
+        return {}
+    except Exception as e:
+        logger.warning(f"LLM classification ({model}) failed: {e}")
+        return {}
+
+
+# ===================================
+# TIER 3: MINIMAL SAFETY NET (keywords — fires only when ALL LLM calls fail)
+# ===================================
+
+def _minimal_keyword_fallback(recent_lead_text: str, all_lead_text: str) -> dict:
+    """
+    Last-resort classification when all LLM calls fail.
+    NOT designed to be comprehensive — just catches critical signals
+    (TCPA stops, obvious objections, basic intent) so the bot doesn't
+    send a completely wrong response type.
+
+    This should fire <1% of the time in production.
+    """
+    # TCPA stop detection (legal requirement — must always work)
+    stop_keywords = [
+        "stop", "unsubscribe", "cancel", "remove me", "opt out",
+        "do not contact", "don't contact", "do not call", "don't call",
+        "do not text", "don't text", "do not message", "don't message",
+    ]
+    resistance = any(_has_word(recent_lead_text, kw) for kw in stop_keywords)
+
+    # Basic objection detection via the keyword engine (preserved as safety net)
+    obj_type, obj_nature = detect_objection_keywords(recent_lead_text)
+
+    # Simple boolean signals
+    coverage_kw = ["policy", "coverage", "insurance", "have insurance", "already have"]
+    need_kw = ["need", "want", "looking", "interested", "protect"]
+    goal_kw = ["family", "kids", "wife", "husband", "spouse", "children"]
+
+    return {
+        "has_coverage":       any(_has_word(all_lead_text, kw) for kw in coverage_kw),
+        "needs_coverage":     any(_has_word(all_lead_text, kw) for kw in need_kw),
+        "mentioned_goal":     any(_has_word(all_lead_text, kw) for kw in goal_kw),
+        "mentioned_obstacle": False,  # too noisy without LLM context
+        "ready_to_book":      False,  # too risky to guess — let booking_detection.py handle it
+        "resistance":         resistance,
+        "articulated_impact": False,  # requires understanding context, not just keywords
+        "objection_type":     obj_type.value,
+        "objection_nature":   obj_nature.value,
+    }
+
+
+# ===================================
+# MAIN ANALYSIS
+# ===================================
+
+# LLM classification model hierarchy:
+#   Tier 1: grok-4-1-fast-non-reasoning — best accuracy, ~500-1000ms, no thinking tags
+#   Tier 2: grok-3-mini-fast — fastest, cheaper, still understands context
+#   Tier 3: keyword safety net — no LLM cost, basic signals only
+CLASSIFY_MODEL_PRIMARY = "grok-4-1-fast-non-reasoning"
+CLASSIFY_MODEL_FALLBACK = "grok-3-mini-fast"
+
+
 def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "", age: int = 0) -> LogicSignal:
     """
     Analyze recent conversation to produce LogicSignal.
-    Uses a small Grok call for accurate intent + objection detection, keyword fallback.
+
+    Architecture (2026 — LLM-primary, keyword safety net):
+      Tier 1: LLM classification (grok-4-1-fast-non-reasoning, 6s timeout)
+      Tier 2: LLM retry (grok-3-mini-fast, 4s timeout) — if Tier 1 fails
+      Tier 3: Minimal keyword safety net — TCPA + basic signals only (<1% of calls)
+
+    The LLM understands full conversational context, negation, sarcasm, and nuance.
+    Keywords cannot. The keyword fallback exists only for resilience when the API is down.
 
     Args:
         messages: List of conversation exchanges [{'role': 'lead'/'assistant', 'text': str}]
@@ -870,180 +1048,18 @@ def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "", age: i
     all_lead_text = " ".join(lead_msgs)
     recent_lead_text = " ".join(lead_msgs[-4:]) if lead_msgs else ""
 
-    # ─── Primary: LLM intent + objection classification ───
-    cls = {}
-    if client and lead_msgs:
-        prompt = f"""You are classifying lead messages in a life insurance sales conversation.
+    # ─── Tier 1: Primary LLM classification (best model, 6s timeout) ───
+    cls = _llm_classify(lead_msgs, CLASSIFY_MODEL_PRIMARY, timeout=6.0)
 
-Lead messages (most recent at bottom):
-{chr(10).join([f"[{i+1}] {msg}" for i, msg in enumerate(lead_msgs[-8:])])}
+    # ─── Tier 2: Fallback LLM (faster model, 4s timeout) ───
+    if not cls:
+        logger.info("Tier 1 LLM failed. Trying Tier 2 fallback model.")
+        cls = _llm_classify(lead_msgs, CLASSIFY_MODEL_FALLBACK, timeout=4.0)
 
-Return ONLY valid JSON with these exact keys:
-
-{{
-  "has_coverage": bool,
-  "needs_coverage": bool,
-  "mentioned_goal": bool,
-  "mentioned_obstacle": bool,
-  "ready_to_book": bool,
-  "resistance": bool,
-  "articulated_impact": bool,
-  "objection_type": str,
-  "objection_nature": str
-}}
-
-INTENT FIELDS (true/false):
-- has_coverage: they mention having any existing life insurance/policy/coverage
-- needs_coverage: expressed need, want, interest, looking, thinking about coverage
-- mentioned_goal: protecting family, kids, spouse, mortgage, business, future, etc.
-- mentioned_obstacle: barrier like busy, expensive, health issue, not sure, complicated
-- ready_to_book: the lead is EXPLICITLY asking to schedule or book an appointment. Examples: "can we book a call?", "let's schedule something", "when are you available?", "I'd like to set up a meeting", "what times do you have?", "sign me up", "let's do it", "I'm ready to go". CRITICAL: generic agreement words like "yes", "sure", "ok", "sounds good" are NOT ready_to_book UNLESS the lead is clearly accepting a specific appointment time you offered. "Yes" answering a qualifying question = false. "Yes that time works" after you offered a slot = true
-- resistance: strong opt-out: stop, unsubscribe, remove, leave me alone, do not contact, opt out, lose my number, take me off (NOTE: "not interested" is NOT resistance — it is an objection to be handled)
-- articulated_impact: the lead has expressed WHY coverage matters to them personally, what would happen to their family without it, the consequences of the gap, or emotional weight behind their need. Not just mentioning a goal but explaining why it is important to them or what would happen if they did not address it
-
-OBJECTION FIELDS (based on the MOST RECENT lead message only):
-- objection_type: one of "not_interested", "spouse_partner", "price_money", "already_covered", "busy_timing", "think_about_it", "none"
-
-CLASSIFICATION MINDSET — Think like a top sales closer:
-The ONLY messages that are "none" are: answering your question, asking their own question, expressing genuine interest, agreeing to something, or providing information you asked for. EVERYTHING ELSE is an objection — and every objection is an opportunity.
-
-CRITICAL FALSE POSITIVE RULES — these OVERRIDE the closer mindset:
-- "not interested in X, I want Y" / "not interested in X, what about Y?" / "not looking for X, more interested in Y" (e.g. "not interested in whole life, what about term?") = NONE (buying signal, NOT an objection — they are telling you what they DO want)
-- "my wife/husband loves/agrees/supports/wants/is on board" = NONE (supportive spouse, NOT a deferral)
-- "my wife handles the insurance" / "my husband takes care of that" = spouse_partner (deferral — NOT not_interested)
-- "already have some but need more" / "have coverage but it's not enough" / "have coverage but worried" = NONE (coverage gap = buying signal)
-- "think about it all the time" / "think about my family" = NONE (expressing concern, NOT stalling)
-- "busy protecting my family" / "busy working on getting coverage" = NONE (commitment, NOT timing)
-- "it's not too expensive" / "actually pretty affordable" = NONE (positive price reaction, NOT price objection)
-- "it's not for me to decide" / "not for me to say" = spouse_partner (deferral — NOT not_interested even though it contains "not for me")
-- "done researching, ready to move forward" / "done shopping around, let's go" = NONE (action, NOT dismissal)
-- When the lead NEGATES an objection keyword ("not too expensive", "don't need to ask anyone", "won't need to think about it"), that is NOT an objection — it is overcoming the objection themselves.
-- "yes" / "sure" / "ok" answering YOUR question about their situation = NONE (providing info, not booking)
-
-  "not_interested" = ANY form of no, decline, dismissal, disengagement, negativity, apathy, or rejection. This includes: "no thanks", "not interested", "no longer interested", "I'm good", "nah", "nope", "pass", "don't need this", "not for me", "whatever", "bye", "leave me alone", "lose my number", "stop texting/calling me", "go away", short flat "no" replies, sarcastic dismissals, or ANY response that signals the lead does not want to continue. If the message is CLEARLY negative with no other interpretation, classify as "not_interested". But if you are genuinely unsure and the message is ambiguous ("hmm", "maybe", "I don't know", "idk"), prefer "think_about_it" over "not_interested" — thoughtful leads who are weighing their options deserve patience, not aggressive objection handling.
-  "spouse_partner" = deferring to ANY third party: spouse, partner, family member, parent, child, accountant, lawyer, financial advisor, insurance agent, broker, or anyone else. "Let me check with...", "I need to ask...", "My wife/husband...", "My accountant says..."
-  "price_money" = ANY concern about cost, affordability, budget, value, or money. "Too expensive", "can't afford", "on a fixed income", "not worth it", "rather save my money", "that's steep", "money is tight"
-  "already_covered" = claims to have ANY existing protection: employer coverage, group plan, VA, another policy, another agent, "I'm covered", "already have", "all set", "taken care of", "working with someone", "happy with what I have"
-  "busy_timing" = can't engage RIGHT NOW but not rejecting outright: "busy", "at work", "driving", "in a meeting", "call back later", "text me tomorrow", "not a good time", "maybe later" (when clearly about timing, not interest)
-  "think_about_it" = stalling/delaying the decision: "need to think", "sleep on it", "not ready", "big decision", "get back to you", "down the road", "maybe someday", "not a priority", "lot going on", "timing isn't right", "rain check", "I'll let you know"
-  "none" = ONLY use when the lead is genuinely positive, engaged, asking questions, answering questions, or providing requested information. A short "ok" or "k" in response to information is "none." But a short "ok" after a pitch is "think_about_it" (passive disengagement).
-
-- objection_nature: one of "fear_based", "logistical", "none"
-  "fear_based" = emotional resistance, avoidance, uncertainty, deflecting, fear of commitment, fear of being sold to, fear of making a mistake. MOST objections are fear-based even when they sound logical.
-  "logistical" = genuinely practical: real budget constraint (not value objection), existing arrangement they are satisfied with, scheduling conflict
-  "none" = no objection present (only when objection_type is also "none")
-
-Context clues:
-"I already have something through work" = already_covered + logistical
-"I don't think I need it" = not_interested + fear_based
-"I can't afford that right now" = price_money (could be logistical OR fear_based depending on tone)
-"Let me talk to my wife first" = spouse_partner + fear_based
-"I'm slammed this week" = busy_timing + fear_based
-"Yeah sounds good" = none + none (positive response)
-"no" / "nah" / "nope" = not_interested + fear_based
-"whatever" / "bye" / "later" = not_interested + fear_based
-"maybe" (by itself) = think_about_it + fear_based
-"I'll think about it and get back to you" = think_about_it + fear_based
-"My wife handles the finances" = spouse_partner + fear_based
-"""
-
-        try:
-            response = client.chat.completions.create(
-                model="grok-4-1-fast-reasoning",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.15,
-                max_tokens=300,
-                timeout=8.0
-            )
-            raw = response.choices[0].message.content.strip()
-            # Strip reasoning tags that can wrap the JSON output
-            raw = re.sub(r'<thinking>[\s\S]*?</thinking>', '', raw).strip()
-            raw = re.sub(r'</?(?:thinking|reply|output|response)>', '', raw).strip()
-            if raw.startswith("```json"):
-                raw = raw.split("```json", 1)[1].split("```", 1)[0].strip()
-            elif raw.startswith("```"):
-                raw = raw.split("```", 1)[1].split("```", 1)[0].strip()
-            cls = json.loads(raw)
-            logger.debug(f"LLM intent+objection classification: {cls}")
-        except Exception as e:
-            logger.warning(f"LLM classification failed: {e}. Falling back to keywords.")
-            cls = {}
-
-    # ─── Fallback: keyword-based if LLM fails or unavailable ───
-    if not cls or not isinstance(cls, dict):
-        coverage_keywords = [
-            "policy", "coverage", "term", "whole life", "iul", "universal", "group",
-            "state farm", "farmers", "allstate", "have insurance", "already have"
-        ]
-        need_keywords = ["need", "want", "looking", "interested", "thinking about", "protect", "mortgage"]
-        goal_keywords = ["family", "kids", "wife", "husband", "spouse", "children", "business", "parents"]
-        obstacle_keywords = ["busy", "expensive", "too much", "later", "not sure", "confused", "health", "complicated"]
-        # Explicit booking phrases — multi-word only, no false positives.
-        # "yes", "sure", "ok", "call", "talk", "meet" are NOT here because
-        # they match normal conversation ("yes I have kids", "sure", "ok").
-        # Those are handled by booking_detection.py's LLM classifier which
-        # checks if the bot offered times before treating acceptance as booking.
-        booking_keywords = [
-            "book an appointment", "book appointment", "book a call", "book a time",
-            "schedule a call", "schedule an appointment", "schedule appointment",
-            "set up a call", "set up an appointment", "set up a meeting",
-            "can we meet", "can we book", "can we schedule",
-            "let's book", "let's schedule", "let's set up",
-            "I'd like to book", "I'd like to schedule",
-            "want to book", "want to schedule",
-            "when can we meet", "when can we talk", "when are you free",
-            "when are you available", "what times do you have",
-            "what's your availability", "what times work",
-            "that time works", "that works for me", "those times work",
-            "sign me up", "let's do it", "let's get started",
-            "I'm ready to get started", "ready to go ahead",
-        ]
-        stop_keywords = [
-            # ── TCPA-mandated stop words ONLY ──
-            # Everything else is an objection the bot should handle.
-            "stop", "unsubscribe", "cancel",
-            "remove me", "opt out",
-            "do not contact", "don't contact",
-            "do not call", "don't call", "do not text", "don't text",
-            "do not message", "don't message",
-        ]
-
-        obj_type, obj_nature = detect_objection_keywords(recent_lead_text)
-
-        impact_keywords = [
-            # Emotional weight / fear
-            "important to me", "worry", "worried", "scared", "what if",
-            "keep me up", "can't sleep", "burden", "devastating", "struggle",
-            "terrif", "afraid", "fear",
-            # Consequences for family
-            "my family would", "kids would", "they'd have to", "couldn't afford",
-            "leaves them", "left with nothing", "leave them with",
-            "bad for my", "hard on my", "tough on my", "rough on my",
-            "what happens to", "what would happen", "who takes care",
-            "they'd be", "they would be", "kids would be", "wife would",
-            "husband would", "family would",
-            # Personal resolve / commitment
-            "i need to make sure", "peace of mind", "gotta make sure",
-            "have to protect", "need to protect", "want to protect",
-            "can't leave them", "don't want them to",
-            "owe it to", "for their sake", "for my kids",
-            "responsible thing", "right thing to do",
-            # Gap awareness
-            "not enough", "wouldn't be enough", "won't cover",
-            "wouldn't cover", "gaps in", "no safety net",
-        ]
-
-        cls = {
-            "has_coverage":       any(_has_word(all_lead_text, kw) for kw in coverage_keywords),
-            "needs_coverage":     any(_has_word(all_lead_text, kw) for kw in need_keywords),
-            "mentioned_goal":     any(_has_word(all_lead_text, kw) for kw in goal_keywords),
-            "mentioned_obstacle": any(_has_word(all_lead_text, kw) for kw in obstacle_keywords),
-            "ready_to_book":      any(_has_word(recent_lead_text, kw) for kw in booking_keywords),
-            "resistance":         any(_has_word(recent_lead_text, kw) for kw in stop_keywords),
-            "articulated_impact": any(kw in all_lead_text for kw in impact_keywords),
-            "objection_type":     obj_type.value,
-            "objection_nature":   obj_nature.value,
-        }
+    # ─── Tier 3: Minimal keyword safety net (API completely down) ───
+    if not cls:
+        logger.warning("Both LLM tiers failed. Using minimal keyword safety net.")
+        cls = _minimal_keyword_fallback(recent_lead_text, all_lead_text)
 
     # ─── Parse objection from classification ───
     obj_type_str = cls.get("objection_type", "none")
