@@ -535,11 +535,20 @@ Every word you output is spoken aloud. Allowed cues: [pause], [long-pause], [bre
                                 call_active = False
 
                 except websockets.exceptions.ConnectionClosed:
-                    logger.info("XAI WebSocket closed")
-                    call_active = False
+                    if _taking_over:
+                        logger.info("XAI WebSocket closed (takeover — Twilio loop stays alive)")
+                        # Do NOT set call_active = False during takeover!
+                        # The Twilio loop must keep running so Twilio can fetch
+                        # the intercept TwiML and redirect the call.
+                    else:
+                        logger.info("XAI WebSocket closed")
+                        call_active = False
                 except Exception as e:
-                    logger.error(f"XAI receive error: {e}")
-                    call_active = False
+                    if _taking_over:
+                        logger.info(f"XAI receive error during takeover (non-fatal): {e}")
+                    else:
+                        logger.error(f"XAI receive error: {e}")
+                        call_active = False
 
             twilio_task = asyncio.create_task(receive_from_twilio())
             xai_task = asyncio.create_task(receive_from_xai())
