@@ -159,21 +159,21 @@ def log_call_to_ghl(
 
     headers = _ghl_headers(access_token)
 
-    call_data = {
-        "status": _map_call_status(status),
-    }
-    if duration:
-        call_data["duration"] = str(duration)
-
+    # GHL expects callStatus and callDuration at the top level, NOT nested
+    # inside a "call" object. The nested format causes "'call.status' is invalid".
     payload = {
         "type": "Call",
         "contactId": contact_id,
         "conversationProviderId": GHL_CALL_PROVIDER_ID,
-        "call": call_data,
     }
+
+    mapped_status = _map_call_status(status)
+    if mapped_status:
+        payload["callStatus"] = mapped_status
+    if duration:
+        payload["callDuration"] = int(duration)
     if phone:
         payload["phone"] = phone
-
     if recording_url:
         payload["attachments"] = [recording_url]
 
