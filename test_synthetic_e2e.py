@@ -28,8 +28,6 @@ DUMMY_ENV = {
     "GHL_APP_CLIENT_SECRET": "test_ghl_client_secret",
     "STRIPE_SECRET_KEY": "sk_test_dummy_000000000000000000000000",
     "STRIPE_PRICE_ID": "price_test_individual",
-    "STRIPE_AGENCY_STARTER_PRICE_ID": "price_test_agency_starter",
-    "STRIPE_AGENCY_PRO_PRICE_ID": "price_test_agency_pro",
     "STRIPE_WEBHOOK_SECRET": "whsec_test_dummy",
     "XAI_API_KEY": "test_xai_key",
     "MAIL_SERVER": "smtp.example.com",

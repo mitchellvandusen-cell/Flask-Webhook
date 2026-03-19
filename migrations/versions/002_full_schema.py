@@ -116,7 +116,7 @@ def upgrade() -> None:
             calendar_id TEXT,
             calendar_name TEXT,
             initial_message TEXT,
-            subscription_tier TEXT DEFAULT 'agency_starter',
+            subscription_tier TEXT DEFAULT 'individual',
             max_seats INTEGER DEFAULT 10,
             active_seats INTEGER DEFAULT 0,
             stripe_customer_id TEXT,

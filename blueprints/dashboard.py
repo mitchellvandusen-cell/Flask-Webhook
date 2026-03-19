@@ -100,12 +100,7 @@ def onboarding_status():
     dashboard_url = '/agency-dashboard' if current_user.role == 'agency_owner' else '/dashboard'
     tier          = current_user.subscription_tier or 'individual'
 
-    if tier == 'agency_pro':
-        checkout_url = '/checkout/agency-pro'
-    elif tier == 'agency_starter':
-        checkout_url = '/checkout/agency-starter'
-    else:
-        checkout_url = '/checkout'
+    checkout_url = '/checkout'
 
     if not has_subscription:
         next_url = checkout_url
