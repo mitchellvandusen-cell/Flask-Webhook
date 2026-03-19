@@ -917,7 +917,7 @@ CURRENT STAGE: {stage}
 
 {previous_transcripts_str}
 
-{f"=== UNDERWRITING CONTEXT ===" + chr(10) + underwriting_ctx if underwriting_ctx else ""}
+{f"=== UNDERWRITING CONTEXT ===" + chr(10) + underwriting_ctx + chr(10) + "HOW TO USE ON A CALL: Reference this data naturally. Do NOT read carrier names or rule text verbatim. Instead say things like 'based on what I am seeing, there are carriers that approve people in your exact situation' or 'I work with people who have [condition] regularly and most of them have options.' If the data shows a decline for their condition, pivot to guaranteed issue or simplified issue without naming the declining carrier. If the data shows approval, use it as confidence: 'carriers that specialize in this actually approve it pretty regularly.' Never say 'my underwriting data shows' — say 'from what I have seen working with people in your situation.'" if underwriting_ctx else ""}
 
 {f"=== CARRIER INTELLIGENCE ===" + chr(10) + company_ctx if company_ctx else ""}
 

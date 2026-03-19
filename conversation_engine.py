@@ -533,8 +533,8 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
         (r'(?:wife|husband|spouse|partner)\s+(?:loves?|agrees?|supports?|wants?|said yes|is on board|thinks?\s+(?:it\'?s?\s+)?(?:great|good|a good))', ObjectionType.SPOUSE_PARTNER),
         # has coverage but needs more
         (r'(?:already have|have insurance|have a policy|have coverage).*(?:but|however|need more|not enough|doesn\'t cover|gaps?|is it enough|worried)', ObjectionType.ALREADY_COVERED),
-        # "think about it all the time" / "think about my family" — expressing concern, not stalling
-        (r'think about (?:it |this )?(?:all the time|every day|constantly|a lot|my family|my kids|them)', ObjectionType.THINK_ABOUT_IT),
+        # "think about it all the time" / "think about my family" / "I think about my wife and what she'd do" — expressing concern, not stalling
+        (r'think(?:s|ing)? about (?:it |this )?(?:all the time|every day|constantly|a lot|my family|my kids|my wife|my husband|my children|my spouse|them|her|him|what (?:would|she|he|they|my))', ObjectionType.THINK_ABOUT_IT),
         # "busy protecting" / "busy working on" — commitment, not scheduling conflict
         (r'busy (?:protect|working on|taking care|making sure|getting|building)', ObjectionType.BUSY_TIMING),
         # "done researching, ready to move forward" — action, not dismissal
@@ -576,6 +576,18 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
         "mental health", "depression medication", "anxiety medication",
         "i was denied", "got denied", "been denied", "been turned down",
         "turned down before", "rejected for insurance", "couldn't get approved",
+        # Common prescription drug names that indicate health conditions
+        # Diabetes: metformin, glipizide, glyburide, jardiance, ozempic, mounjaro
+        # Blood pressure: lisinopril, amlodipine, losartan, hydrochlorothiazide
+        # Cholesterol: atorvastatin, simvastatin
+        # Heart/blood: eliquis, warfarin, plavix, nitroglycerin
+        # Mental health: sertraline/zoloft, lexapro, prozac, xanax, wellbutrin, trazodone, gabapentin
+        "metformin", "lisinopril", "atorvastatin", "amlodipine", "losartan",
+        "levothyroxine", "gabapentin", "simvastatin",
+        "sertraline", "zoloft", "lexapro", "prozac", "xanax", "wellbutrin",
+        "trazodone", "glipizide", "glyburide", "ozempic", "mounjaro",
+        "eliquis", "warfarin", "plavix", "nitroglycerin",
+        "insulin pump", "cpap machine", "oxygen tank",
     ]
 
     # ── TRUST ISSUE — distrust, bad experience, or personal loyalty ──
