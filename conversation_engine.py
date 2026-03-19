@@ -47,6 +47,8 @@ class ObjectionType(Enum):
     ALREADY_COVERED     = "already_covered"        # "already have life insurance", "I'm covered"
     BUSY_TIMING         = "busy_timing"            # "busy right now", "call back later"
     THINK_ABOUT_IT      = "think_about_it"         # "let me think about it", "need to think", "not sure yet"
+    HEALTH_CONCERN      = "health_concern"         # "I have diabetes", "I probably can't qualify", "too old"
+    TRUST_ISSUE         = "trust_issue"            # "insurance is a scam", "got burned before", "my nephew sells"
 
 class ObjectionNature(Enum):
     NONE                = "none"
@@ -418,6 +420,22 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
         "i'll let you know", "ill let you know", "let you know",
         "i'll reach out", "ill reach out", "reach out when",
         "don't call me i'll call you", "dont call me ill call you",
+        # Disguised think-about-it — all mean "I don't have a compelling reason to act now"
+        "send me an email", "send me email", "email me the info",
+        "email me the details", "email me about", "just email me",
+        "send me a quote", "send me the quote", "just send me a quote",
+        "send me a proposal", "send me the proposal",
+        "send me something", "send me some information",
+        "let me look it over", "let me look into it", "let me look at it",
+        "let me check it out", "let me review", "let me do some research",
+        "let me read up on", "let me read about",
+        "i need to do my research", "need to do some research",
+        "need to look into it", "need to look into this",
+        "i want to look into", "want to look into this",
+        "i'll check it out", "ill check it out",
+        "let me see what's out there", "let me compare",
+        "let me shop around", "want to shop around",
+        "send me the link", "just send me the link",
         # Noncommittal / ambivalent (when standalone or very short)
         "not sure", "i don't know", "i dont know", "idk",
         "we'll see", "we will see", "who knows",
@@ -521,6 +539,15 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
         (r'busy (?:protect|working on|taking care|making sure|getting|building)', ObjectionType.BUSY_TIMING),
         # "done researching, ready to move forward" — action, not dismissal
         (r'(?:done|finished|over)\s+(?:research|looking|shopping|comparing).*(?:ready|want to|let\'?s|move forward|go ahead)', ObjectionType.NOT_INTERESTED),
+        # health concern + buying intent = buying signal, not objection
+        # "I have diabetes but I want coverage" / "I know I have health issues, what are my options?"
+        (r'(?:have|had|diabetes|cancer|heart|health).*(?:but i want|but i need|what are my options|can i still|is there|what do you recommend|help me)', ObjectionType.HEALTH_CONCERN),
+        # "I was denied before but I'm still looking" — persistence through rejection
+        (r'(?:denied|turned down|rejected).*(?:but|still|looking|want|need|trying)', ObjectionType.HEALTH_CONCERN),
+        # trust concern + positive signal = buying through trust
+        # "I don't trust most agents but you seem different" / "my buddy sells but I want to compare"
+        (r"(?:don't trust|dont trust|got burned).*(?:but|you seem|your approach|still want|still need|want to compare)", ObjectionType.TRUST_ISSUE),
+        (r'(?:nephew|buddy|cousin|friend|uncle|brother|sister)\s+sells.*(?:but|compare|want to see|second opinion|shop around)', ObjectionType.TRUST_ISSUE),
     ]
 
     # Check if the message matches any buying-through-objection pattern
@@ -529,16 +556,67 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
         if re.search(pattern, text_lower):
             suppressed_types.add(obj_type)
 
-    # ── Check order: most specific first, then broad categories ──
+    # ── HEALTH CONCERN — believes they cannot qualify ──
+    # These people often WANT coverage but think they can't get it
+    health_kw = [
+        "i have diabetes", "i'm diabetic", "im diabetic", "type 2", "type 1",
+        "i had cancer", "cancer survivor", "had chemo", "in remission",
+        "heart attack", "had a stroke", "heart condition", "heart disease",
+        "high blood pressure", "hypertension", "on medication",
+        "pre-existing", "preexisting", "pre existing",
+        "can't qualify", "cant qualify", "won't qualify", "wont qualify",
+        "probably can't get", "probably cant get", "probably won't get",
+        "can i even get", "could i even get", "would i even qualify",
+        "they won't insure", "they wont insure", "uninsurable",
+        "too old for", "too old to get", "at my age",
+        "health issues", "health problems", "health conditions",
+        "i take medication", "i take meds", "on meds", "on pills",
+        "copd", "emphysema", "dialysis", "kidney disease",
+        "liver disease", "cirrhosis", "hepatitis",
+        "mental health", "depression medication", "anxiety medication",
+        "i was denied", "got denied", "been denied", "been turned down",
+        "turned down before", "rejected for insurance", "couldn't get approved",
+    ]
 
-    if ObjectionType.SPOUSE_PARTNER not in suppressed_types and _keyword_match(spouse_kw):
-        return ObjectionType.SPOUSE_PARTNER, ObjectionNature.FEAR_BASED
+    # ── TRUST ISSUE — distrust, bad experience, or personal loyalty ──
+    trust_kw = [
+        "insurance is a scam", "insurance scam", "all a scam", "it's a scam",
+        "got burned", "been burned", "got screwed", "been screwed",
+        "ripped off", "rip off", "ripped me off",
+        "bad experience", "bad agent", "terrible experience",
+        "don't trust", "dont trust", "do not trust", "can't trust", "cant trust",
+        "my last agent", "previous agent",
+        "never pays out", "never pay out",
+        "they never pay", "insurance never covers",
+        "my nephew sells", "my buddy sells", "my cousin sells",
+        "my friend sells", "my neighbor sells", "my uncle sells",
+        "my brother sells", "my sister sells",
+        "know someone who sells", "know a guy who sells", "know a gal who sells",
+        "family member sells", "friend in the business",
+        "already have a guy", "already have someone",
+        "my nephew is an agent", "my buddy is an agent", "my cousin is an agent",
+        "my friend is an agent",
+    ]
+
+    # ── Check order: COMPOUND PRIORITY HIERARCHY ──
+    # Price is ALWAYS #1 — taking money off the table unlocks everything else
+    # Then health (they want it but doubt they can get it)
+    # Then specific types, then broad dismissal last
 
     if ObjectionType.PRICE_MONEY not in suppressed_types and _keyword_match(price_kw):
         return ObjectionType.PRICE_MONEY, ObjectionNature.LOGISTICAL
 
+    if ObjectionType.HEALTH_CONCERN not in suppressed_types and _keyword_match(health_kw):
+        return ObjectionType.HEALTH_CONCERN, ObjectionNature.LOGISTICAL
+
+    if ObjectionType.SPOUSE_PARTNER not in suppressed_types and _keyword_match(spouse_kw):
+        return ObjectionType.SPOUSE_PARTNER, ObjectionNature.FEAR_BASED
+
     if ObjectionType.ALREADY_COVERED not in suppressed_types and _keyword_match(already_kw):
         return ObjectionType.ALREADY_COVERED, ObjectionNature.LOGISTICAL
+
+    if ObjectionType.TRUST_ISSUE not in suppressed_types and _keyword_match(trust_kw):
+        return ObjectionType.TRUST_ISSUE, ObjectionNature.FEAR_BASED
 
     if ObjectionType.THINK_ABOUT_IT not in suppressed_types and _keyword_match(think_kw):
         return ObjectionType.THINK_ABOUT_IT, ObjectionNature.FEAR_BASED
@@ -546,8 +624,7 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
     if ObjectionType.BUSY_TIMING not in suppressed_types and _keyword_match(busy_kw):
         return ObjectionType.BUSY_TIMING, ObjectionNature.FEAR_BASED
 
-    # Check not_interested AFTER the more specific categories
-    # so "too expensive, not interested" catches price first
+    # Check not_interested LAST — broadest category
     if ObjectionType.NOT_INTERESTED not in suppressed_types and _keyword_match(not_interested_kw):
         return ObjectionType.NOT_INTERESTED, ObjectionNature.FEAR_BASED
 
@@ -675,8 +752,8 @@ def detect_buying_signal(text: str) -> BuyingSignalType:
         "explain", "what does that mean", "what's the catch", "whats the catch",
         "what are living benefits", "what is iul", "what is term",
         "how does the process", "what's the process", "whats the process",
-        "what do i need to qualify", "do i qualify", "send me some info",
-        "send me the details", "can you explain",
+        "what do i need to qualify", "do i qualify",
+        "can you explain",
     ]
     if any(kw in t for kw in detail_kw):
         return BuyingSignalType.ASKING_DETAILS
@@ -880,7 +957,9 @@ INTENT FIELDS (true/false):
 - articulated_impact: the lead has expressed WHY coverage matters to them personally, what would happen to their family without it, the consequences of the gap, or emotional weight behind their need. Not just mentioning a goal but explaining why it is important to them or what would happen if they did not address it
 
 OBJECTION FIELDS (based on the MOST RECENT lead message only):
-- objection_type: one of "not_interested", "spouse_partner", "price_money", "already_covered", "busy_timing", "think_about_it", "none"
+- objection_type: one of "not_interested", "spouse_partner", "price_money", "already_covered", "busy_timing", "think_about_it", "health_concern", "trust_issue", "none"
+
+COMPOUND OBJECTION PRIORITY: When a message contains MULTIPLE objections, return the MOST IMPORTANT one using this hierarchy (highest priority first): price_money > health_concern > spouse_partner > already_covered > trust_issue > think_about_it > busy_timing > not_interested. Price is ALWAYS #1 because taking money off the table unlocks every other objection. Example: "too expensive and I need to ask my wife" = price_money (not spouse_partner).
 
 CLASSIFICATION MINDSET — Think like a top sales closer:
 The ONLY messages that are "none" are: answering your question, asking their own question, expressing genuine interest, agreeing to something, or providing information you asked for. EVERYTHING ELSE is an objection — and every objection is an opportunity.
@@ -897,6 +976,8 @@ CRITICAL FALSE POSITIVE RULES — these OVERRIDE the closer mindset:
 - "done researching, ready to move forward" = NONE (action, NOT dismissal)
 - When the lead NEGATES an objection keyword ("not too expensive", "don't need to ask anyone"), that is NOT an objection
 - "yes" / "sure" / "ok" answering YOUR question = NONE (providing info, not booking)
+- "I have diabetes but I want coverage" / "I know I have health issues, what are my options?" = health_concern (NOT not_interested — they WANT coverage, they doubt they can GET it)
+- "my buddy/nephew/cousin sells insurance" with no existing policy = trust_issue (loyalty objection, NOT already_covered unless they have active coverage through that person)
 
 OBJECTION TYPE DEFINITIONS:
   "not_interested" = ANY form of no, decline, dismissal, disengagement, negativity, apathy, or rejection. Includes: "no thanks", "I'm good", "nah", "pass", "whatever", "bye", "leave me alone", "don't care", "I'm done", sarcastic dismissals, or any response that signals the lead does not want to continue. If ambiguous ("hmm", "maybe", "idk"), prefer "think_about_it" — thoughtful leads deserve patience.
@@ -904,7 +985,9 @@ OBJECTION TYPE DEFINITIONS:
   "price_money" = ANY concern about cost, affordability, budget, value. "Too expensive", "can't afford", "fixed income", "not worth it", "money is tight"
   "already_covered" = claims ANY existing protection: employer, group, VA, another agent. "I'm covered", "already have", "all set", "taken care of"
   "busy_timing" = can't engage RIGHT NOW: "busy", "at work", "driving", "call back later", "not a good time"
-  "think_about_it" = stalling/delaying: "need to think", "sleep on it", "not ready", "get back to you", "rain check", "maybe" (standalone), "I'll let you know"
+  "think_about_it" = stalling/delaying: "need to think", "sleep on it", "not ready", "get back to you", "rain check", "maybe" (standalone), "I'll let you know", "send me an email", "send me info", "send me a quote", "let me look it over", "let me look into it", "let me do some research", "send me the details", "let me shop around". ALL disguised versions of "I don't have a compelling reason to act now"
+  "health_concern" = lead believes they CANNOT qualify due to health, age, or medical history. "I have diabetes", "I had cancer", "they won't insure me", "I probably can't qualify", "I'm too old for this", "I take medication for...", "I have a pre-existing condition". This is NOT not_interested — these people often WANT coverage but believe they cannot get it. Educating them on guaranteed issue, simplified issue, and graded benefit options is the correct response.
+  "trust_issue" = distrust of insurance industry, bad past experience, or loyalty to a personal relationship. "Insurance is a scam", "I got burned before", "my last agent screwed me", "I don't trust insurance companies", "my nephew/buddy/cousin sells insurance". This is NOT not_interested — these people have an emotional barrier, not a lack of need.
   "none" = genuinely positive, engaged, asking/answering questions, providing info
 
 - objection_nature: one of "fear_based", "logistical", "none"
@@ -913,6 +996,10 @@ OBJECTION TYPE DEFINITIONS:
   "none" = no objection (only when objection_type is also "none")
 
 Context examples:
+"I have diabetes, can I even get coverage?" = health_concern + logistical
+"Insurance companies are all crooks" = trust_issue + fear_based
+"My nephew is an agent" = trust_issue + fear_based
+"Too expensive and I need to ask my wife" = price_money + logistical (price takes priority)
 "I already have something through work" = already_covered + logistical
 "I can't afford that right now" = price_money (could be either)
 "Let me talk to my wife first" = spouse_partner + fear_based
@@ -1086,11 +1173,14 @@ def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "", age: i
     try:
         objection_type = ObjectionType(obj_type_str)
     except ValueError:
+        logger.warning(f"LLM returned invalid objection_type '{obj_type_str}' — defaulting to NONE. "
+                       f"Recent lead text: '{recent_lead_text[:80]}'. This may cause a real objection to be missed.")
         objection_type = ObjectionType.NONE
 
     try:
         objection_nature = ObjectionNature(obj_nature_str)
     except ValueError:
+        logger.warning(f"LLM returned invalid objection_nature '{obj_nature_str}' — defaulting to NONE.")
         objection_nature = ObjectionNature.NONE
 
     # ─── Booking confirmed by bot recently? ───

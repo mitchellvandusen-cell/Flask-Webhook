@@ -110,8 +110,18 @@ def generate_strategic_directive(
     # ─── 5. CONTEXTUAL INTELLIGENCE (Underwriting & Carriers) ───
     underwriting_ctx = ""
     full_lower = (message + narrative).lower()
-    if any(kw in full_lower for kw in ["health", "medic", "condit", "prescrip", "doctor"]):
-        underwriting_ctx = get_underwriting_context(message)
+    # Trigger underwriting context on any health-related mention OR when the
+    # objection classifier detected a HEALTH_CONCERN objection type
+    _health_triggers = [
+        "health", "medic", "condit", "prescrip", "doctor", "diabetes", "diabetic",
+        "cancer", "heart", "stroke", "blood pressure", "hypertension", "copd",
+        "kidney", "dialysis", "liver", "hepatitis", "denied", "qualify", "uninsurable",
+        "pre-existing", "preexisting", "medication", "meds", "pills", "surgery",
+        "hospital", "diagnosis", "diagnosed", "treatment", "chemo", "remission",
+    ]
+    if (any(kw in full_lower for kw in _health_triggers)
+            or logic.objection_type == ObjectionType.HEALTH_CONCERN):
+        underwriting_ctx = get_underwriting_context(message + " " + narrative)
 
     company_ctx = ""
     if raw_co := find_company_in_message(message):
@@ -587,27 +597,67 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
     # objection is not logistical. It is fear. Now you address the fear: stories,
     # perspective shifts, challenging the belief that staying where they are is safe.
 
-    # Determine if we are still in Phase 1 or have moved to Phase 2
-    # Phase 2 triggers when the SAME objection category appears 2+ times in the log.
-    # The narrative observer writes free-text log entries, so we match against multiple
-    # keywords per objection type to catch natural language variations.
-    _OBJECTION_LOG_KEYWORDS = {
-        ObjectionType.NOT_INTERESTED: ["not interested", "no thanks", "not for me", "pass", "decline", "dismissal", "disengag", "don't care", "dont care", "done", "over it", "whatever"],
-        ObjectionType.SPOUSE_PARTNER: ["spouse", "partner", "wife", "husband", "consult", "family member", "advisor", "check with", "handles", "decides", "takes care"],
-        ObjectionType.PRICE_MONEY:    ["price", "money", "expensive", "afford", "cost", "budget", "cash flow", "value"],
-        ObjectionType.ALREADY_COVERED: ["already covered", "already have", "already has", "existing coverage", "have insurance", "covered", "all set"],
-        ObjectionType.THINK_ABOUT_IT: ["think about", "sleep on", "not ready", "get back", "need time", "decision", "consider", "rain check", "maybe", "not sure", "idk", "we'll see"],
-        ObjectionType.BUSY_TIMING:    ["busy", "timing", "not a good time", "call back", "later", "schedule", "swamped", "slammed"],
-    }
-    match_keywords = _OBJECTION_LOG_KEYWORDS.get(obj, [obj.value.replace("_", " ")])
+    # ─── PHASE DETECTION: Structural tag counting (no keyword guessing) ───
+    # The narrative observer tags each OBJECTION_LOG entry with a structured type
+    # tag like [PRICE_MONEY], [SPOUSE_PARTNER], etc. Phase detection is now a
+    # simple prefix match — no fragile keyword lists, no guessing from free text.
+    #
+    # Fallback: if entries lack tags (legacy narratives from before this change),
+    # count ALL entries as same-type to err on the side of escalation.
+
+    # Valid tags that map to ObjectionType enum values
+    _VALID_TAGS = frozenset(f"[{t.value.upper()}]" for t in ObjectionType if t != ObjectionType.NONE)
+
+    obj_tag = f"[{obj.value.upper()}]"
     same_objection_count = 0
+    total_objection_count = 0
+    distinct_types_seen = set()
+
+    _TAG_RE = re.compile(r'^\s*\[([A-Z_]+)\]')
+
     if log:
         for entry in log:
-            entry_lower = entry.lower()
-            if any(kw in entry_lower for kw in match_keywords):
+            total_objection_count += 1
+            # Extract tag from entry (format: "[TYPE] Objection: ...")
+            # Uses regex to handle whitespace, casing, and malformed entries
+            m = _TAG_RE.match(entry.strip().upper())
+            if m:
+                tag = f"[{m.group(1)}]"
+                if tag in _VALID_TAGS:
+                    distinct_types_seen.add(tag)
+                    if tag == obj_tag:
+                        same_objection_count += 1
+                else:
+                    # Tag present but not a valid ObjectionType — log and skip
+                    logger.warning(f"Objection log entry has invalid tag {tag}: {entry[:80]}")
+            else:
+                # Legacy entry without tag — count as current type to avoid under-escalation
                 same_objection_count += 1
+
     in_phase_2 = same_objection_count >= 2
     in_phase_3 = same_objection_count >= 4  # Graceful exit after 4+ same objection
+
+    # ─── COMPOUND OBJECTION PRIORITY: Price is ALWAYS #1 ───
+    # If the lead is throwing multiple different objection types AND price is
+    # one of them (either current or in the log), handle price first.
+    # Taking money off the table unlocks spouse, think-about-it, and trust.
+    price_tag = "[PRICE_MONEY]"
+    if obj != ObjectionType.PRICE_MONEY and price_tag in distinct_types_seen:
+        # Price appeared in prior objections — if current objection is softer
+        # (think_about_it, busy_timing, not_interested), check if price is the
+        # root cause they keep circling back to
+        if obj in (ObjectionType.THINK_ABOUT_IT, ObjectionType.BUSY_TIMING,
+                   ObjectionType.NOT_INTERESTED) and total_objection_count >= 3:
+            # 3+ objections with price in the mix = price is likely the root cause
+            obj = ObjectionType.PRICE_MONEY
+            obj_tag = price_tag
+            # Recount for the new type using same robust regex
+            same_objection_count = sum(
+                1 for e in log
+                if (pm := _TAG_RE.match(e.strip().upper())) and f"[{pm.group(1)}]" == price_tag
+            )
+            in_phase_2 = same_objection_count >= 2
+            in_phase_3 = same_objection_count >= 4
 
     if in_phase_3:
         header += (
@@ -649,6 +699,11 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
             "for the people counting on them. One or two sentences. Be real. Be direct.\n\n"
             "DO NOT: Repeat logistical arguments. Do not re-explain pricing or coverage. "
             "They do not need more information. They need a reason to feel something.\n\n"
+            "PHASE 2 APPROACH (pick ONE per message — do not stack):\n"
+            "- Ask what happens if they do nothing. Make it specific to THEIR life, not generic.\n"
+            "- Warm leads respond to what they gain. Cool leads respond to what they lose.\n"
+            "- If the same objection keeps coming back, do not repeat the same argument. "
+            "Come at it from a different angle each time.\n\n"
         )
     else:
         header += (
@@ -660,6 +715,15 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
             "Do NOT skip to stories or emotional appeals. If the logistics genuinely do not work, "
             "no amount of emotion will fix it. But most of the time, the logistics DO work — "
             "the person just has not been shown that yet. Show them.\n\n"
+            "THIS IS TEXT — no tonality, no voice inflection. The words have to do ALL the work. "
+            "Every message must read as neutral-to-warm. Not soft, not accusatory. Curious.\n\n"
+            "RULES FOR SMS OBJECTION HANDLING:\n"
+            "- You are booking a 10-minute call, not selling a policy. Never discuss product "
+            "details, pricing, or coverage specifics over text.\n"
+            "- Ask 'How?' or 'What?' questions — they feel like conversation, not interrogation.\n"
+            "- Keep messages to 1-2 sentences. This is texting, not email.\n"
+            "- Read your message back before sending. If it could sound pushy, preachy, or "
+            "like a sales pitch when read in a flat voice with no inflection — rewrite it.\n\n"
         )
 
     if obj == ObjectionType.NOT_INTERESTED:
@@ -703,201 +767,371 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
             )
         return header + (
             "OBJECTION: Not interested.\n\n"
-            "THE FORK TECHNIQUE — Agree first, then redirect.\n\n"
-            "Step 1: AGREE. Do not fight it. Do not argue. Do not ask 'why not?' or try to "
-            "overcome it head-on. When you agree, their wall drops because there is nothing "
-            "to push against. Something like 'Yeah totally fair' or 'No I get it' or 'Hey "
-            "that is okay.' Short. Casual. Zero resistance from you.\n\n"
-            "Step 2: THE FORK. Immediately after agreeing, ask the fork question that splits "
-            "their 'not interested' into two specific paths:\n\n"
-            "The question: Was it more that the price was too high, or did you have a tough "
-            "time getting approved?\n\n"
-            "Variations (use your own natural wording, but always present these two options):\n"
+            "THE FORK — Agree first, then split it into two paths.\n\n"
+            "Step 1: AGREE. 'No I get it' or 'Yeah totally fair.' Short. Casual. No resistance.\n\n"
+            "Step 2: THE FORK. One question that turns a wall into a fork in the road:\n"
+            "'Was it more that the cost was too high, or did you have a tough time qualifying?'\n"
+            "Variations:\n"
             "- 'Was it more the cost or was it a health thing?'\n"
-            "- 'Was it more a budget thing or did you run into trouble qualifying?'\n"
-            "- 'Was it the price that turned you off or was it more getting through underwriting?'\n\n"
-            "WHY THIS WORKS: 'Not interested' is a brick wall. You cannot climb a wall. "
-            "But you can turn a wall into a fork in the road. Both paths lead back to a real "
-            "conversation. If they say price, you now know the real objection and can work it. "
-            "If they say approval, you are talking to someone who WANTED coverage and was told no — "
-            "that is a completely different person than someone who does not care. Either answer "
-            "opens the conversation back up.\n\n"
-            "CRITICAL: Do NOT skip the agree step. If you jump straight to the fork without "
-            "agreeing first, it sounds like a scripted rebuttal and they will shut down harder.\n\n"
-            "CRITICAL: Keep this to 1-2 sentences total. The agree and the fork should feel "
-            "like one natural breath: 'No for sure, totally get it. Was it more the cost or "
-            "did you have a hard time getting approved?'"
+            "- 'Was it more a budget thing or did you run into trouble getting approved?'\n\n"
+            "Both paths lead back to a real conversation. If they say cost, you now know the "
+            "real issue. If they say approval, you are talking to someone who WANTED coverage "
+            "and was told no — completely different person.\n\n"
+            "If they seem annoyed or hostile, try a different opener instead of the fork:\n"
+            "'I get it, I know you are probably getting hit up by insurance people left and right'\n"
+            "Their natural response is to clarify what is actually bothering them.\n\n"
+            "CRITICAL: 1-2 sentences. Agree + fork. That is the whole message."
         )
 
     if obj == ObjectionType.SPOUSE_PARTNER:
         if in_phase_2:
+            # Phase 2: consequence question — insurance-specific
             return header + (
                 "OBJECTION: Spouse/partner (repeated).\n"
-                "You already explored the spouse angle. They are still deferring. "
-                "Here is what is really happening: they are using their spouse as a shield "
-                "because making this decision alone means taking responsibility for whether "
-                "their family is protected. That feels heavy.\n\n"
-                "Reframe: they are not making a commitment right now. They are gathering "
-                "information. Coming to a 15-minute call does not lock them into anything. "
-                "But it DOES make them the person who showed up prepared to have that conversation "
-                "with their spouse instead of the person who put it off. Which version of themselves "
-                "do they want to be?\n\n"
-                "If they mentioned their spouse or kids in EMOTIONAL_ARC, use it: 'You mentioned "
-                "[spouse] earlier. Wouldn't they want to know you looked into this?' That is not "
-                "pressure. That is partnership."
+                "You already explored the spouse angle. They keep deferring.\n\n"
+                "From your Ethos script — flip it on the beneficiary:\n"
+                "'Do you think [spouse] would be opposed to having some extra financial help "
+                "if something happened to you?'\n"
+                "The answer is always no. Nobody says their spouse would be upset about being "
+                "protected.\n\n"
+                "If they STILL defer, use what you know from EMOTIONAL_ARC — kids, mortgage, "
+                "income. Make it specific: 'What would [spouse] have to do about the mortgage "
+                "and everything else if something did happen though?'\n\n"
+                "If they STILL say they need to talk to spouse, stop pushing and set the "
+                "appointment with both: 'No problem — what if you both hopped on the call "
+                "together? That way you can look at everything side by side instead of trying "
+                "to explain it secondhand.'\n\n"
+                "Getting the spouse ON the call is better than the lead relaying info poorly."
             )
         return header + (
             "OBJECTION: Need to consult someone else.\n"
-            "Respect the relationship. Do not undermine their spouse or whoever they want to talk to. "
-            "That never works and it makes you the enemy.\n\n"
-            "Instead, explore whether this is real or a shield:\n"
-            "- Has their spouse ever said anything about life insurance or coverage?\n"
-            "- Would getting the information first make that conversation easier?\n"
-            "- What specifically would their spouse want to know? (if they cannot answer this, "
-            "the spouse is a shield, not a real stakeholder)\n\n"
-            "The play: position the call as HELPING them have a better conversation with their "
-            "spouse. 'What if you came to that conversation with all the numbers already figured out? "
-            "That way it is a real conversation instead of both of you guessing.' You are making "
-            "them the hero of that conversation, not removing the spouse from it."
+            "Respect the relationship. Do not undermine their spouse. That backfires.\n\n"
+            "'Yeah no problem at all.'\n\n"
+            "Then figure out if the spouse is real or a shield. One question:\n"
+            "'If [spouse] was totally on board, is this something you would want to get "
+            "in place?'\n"
+            "If YES → spouse is real. They want this. Help them have a better conversation: "
+            "'What if you came with all the numbers already figured out? That way it is a "
+            "real conversation instead of both of you guessing.'\n"
+            "If they hesitate → spouse is a shield. Something else is holding them back: "
+            "'What would hold you back even if they were on board?'\n\n"
+            "The appointment is NOT a purchase. The spouse does not need to approve a "
+            "10-minute phone call. Make that distinction if needed: 'This is not signing "
+            "anything — just getting the info so you two can decide together.'"
         )
 
     if obj == ObjectionType.PRICE_MONEY:
         if in_phase_2:
             return header + (
                 "OBJECTION: Price/money (repeated).\n"
-                "You explored the budget. They know options exist. They are still saying it costs "
-                "too much. This is no longer about cash flow. This is about value. They do not "
-                "feel what this protection is worth because they have not felt what the ABSENCE "
-                "of it costs.\n\n"
-                "The premium they are resisting is probably less than their phone bill. Less than "
-                "eating out twice a month. Less than a streaming subscription. They pay those without "
-                "thinking. The difference is those things benefit them NOW. Life insurance benefits "
-                "the people they love LATER. And 'later' feels far away. Until it is not.\n\n"
-                "Use what you know about their family. If they have kids, a mortgage, a spouse who "
-                "depends on them — what does their family do about THOSE things without income? "
-                "The policy is not the cost. The policy is what stands between their family and "
-                "a GoFundMe page. Make the comparison real and specific to their life.\n\n"
-                "HARD RULE: Still no specific dollar amounts over text."
+                "You explored the budget. They are still stuck on cost.\n\n"
+                "From your script — use the beneficiary angle:\n"
+                "'Based on what you told me, it sounds like things might be a little hard on "
+                "[beneficiary] financially if something happened — is that fair to say?'\n"
+                "Let them answer. If yes:\n"
+                "'That is exactly what the call is for — we shop 50+ carriers to find the "
+                "lowest rate for your situation. Most people are paying way less than they "
+                "expected. Takes 10 minutes to find out.'\n\n"
+                "If they genuinely cannot afford it, respect that. But plant the seed: "
+                "'Insurance is based on age and health — the longer you wait the more it "
+                "costs. Just something to keep in mind.'\n\n"
+                "HARD RULE: No specific dollar amounts over text. The call is where they "
+                "see real numbers."
             )
         return header + (
             "OBJECTION: Price or money concern.\n"
-            "Two completely different problems hide behind 'too expensive':\n\n"
-            "1. REAL CASH FLOW: They genuinely cannot afford it. This is rare but real. "
-            "If this is the case, ask what they could do. Most people think life insurance costs "
-            "10x what it actually costs. A healthy 35-year-old can get $500K in term for less than "
-            "their Netflix subscription. They do not know this. The call exists to show them real "
-            "numbers for their situation.\n\n"
-            "2. VALUE PROBLEM: They can afford it but do not see why it is worth the money. "
-            "This means they have not felt the weight of the gap yet. They are comparing the "
-            "premium to what it buys them TODAY (nothing — they are alive). They need to compare "
-            "it to what their family faces WITHOUT it.\n\n"
-            "Figure out which one it is. Ask. Do not assume. One question: 'Is it that you "
-            "genuinely cannot swing it right now, or is it more that you are not sure it is worth it?' "
-            "That honest question gets you to the real answer.\n\n"
-            "HARD RULE: You cannot quote specific dollar amounts over text."
+            "You are booking a call, not selling a policy. The call is free. But if they "
+            "bring up cost:\n\n"
+            "First — figure out if money is the real issue or a shield:\n"
+            "'If money was not a factor, is this something you would want in place for "
+            "your family?'\n"
+            "If YES → they want it but think they cannot afford it. Redirect:\n"
+            "'Most people think this costs way more than it actually does. That is literally "
+            "what the call is for — to see what it actually comes in at for you.'\n"
+            "If they hesitate → money is a shield. Something else is bothering them: "
+            "'What else would hold you back even if the price was right?'\n\n"
+            "From your script: 'Insurance is all regulated based on age and health so your "
+            "rates at [age] are going to be different than a 22 year old — but we shop "
+            "50+ carriers to find whoever comes back lowest for you. Takes 10 minutes.'\n\n"
+            "HARD RULE: No specific dollar amounts over text."
         )
 
     if obj == ObjectionType.ALREADY_COVERED:
         if in_phase_2:
+            # They told you who they have or dodged. Now dig into the gap.
             return header + (
-                "OBJECTION: Already covered (repeated).\n"
-                "You asked about their coverage. They described it or dodged the question. "
-                "Either way, they are clinging to the idea that they are protected. The fear "
-                "underneath is: 'If I admit my coverage is not enough, I have to do something "
-                "about it. And that means facing the thing I do not want to face.'\n\n"
-                "Most people with 'coverage through work' have one to two times their salary. "
-                "That sounds like a lot until you do the math — that covers maybe one year of "
-                "their family's expenses, then nothing. The mortgage does not pause. The kids "
-                "still need to eat. Life does not get cheaper because they are gone.\n\n"
-                "If they told you specifics, use them. If they said 'I have something through work' "
-                "and they have a family — they almost certainly have a gap big enough to matter. "
-                "You do not need to tell them they are wrong. Just ask: 'How many years would "
-                "that actually cover your family for?' They will do the math themselves. "
-                "That is when the gap becomes real."
+                "OBJECTION: Already covered (repeated — follow the thread).\n"
+                "By now you should know what kind of coverage they have. Use that.\n\n"
+                "IF THEY HAVE A KNOWN CARRIER (Mutual of Omaha, Foresters, Transamerica, "
+                "Americo, Colonial Penn, Globe Life, AARP):\n"
+                "These carriers serve higher-risk clients. If the lead is healthy, they are "
+                "probably overpaying. 'Those guys are solid but they tend to come in higher for "
+                "healthy people. What are you paying right now if you dont mind me asking?'\n"
+                "Whatever they say: 'Yeah that is about what I figured. I can run a quick "
+                "comparison across 50+ carriers — takes 10 minutes — what time works for you?'\n\n"
+                "IF THEY HAVE EMPLOYER / GROUP / 'THROUGH WORK' COVERAGE:\n"
+                "'Do you know what happens to that when you retire or switch jobs?'\n"
+                "Most do not. That coverage dies the day they leave. Workplace policies are "
+                "usually 1-2x salary — covers maybe one year of bills. 'How many years would "
+                "that actually cover your family for?' Let them do the math.\n\n"
+                "IF THEY HAVE TERM AND ARE HEALTHY:\n"
+                "'How many years are left on it?' If 20+ years left, genuinely acknowledge it. "
+                "But: 'What is your plan when it expires? Rates at [their age + remaining years] "
+                "are going to be way different.' Plant the seed.\n\n"
+                "IF THEY HAVE GUARANTEED ISSUE (no exam, Colonial Penn, Globe Life):\n"
+                "'Those usually have a 2-3 year waiting period. How long ago did you get it?'\n"
+                "GI policies pay nothing for natural causes in the first 2-3 years. If they are "
+                "healthy, they qualify for real coverage at a fraction of the cost.\n\n"
+                "TECHNIQUE: Summarize what they told you about their coverage and confirm it: "
+                "'So you have [carrier] through work, covers about [amount], been in place for "
+                "[time] — is that right?' Once they confirm you understand their situation, "
+                "they are open to hearing what is missing. THEN ask: 'And if you left that "
+                "job tomorrow, what happens to it?' The gap reveals itself after agreement.\n\n"
+                "IF THEY GOT BURNED BEFORE (bad agent, bad experience, felt scammed):\n"
+                "Do NOT dismiss it. 'Yeah that is a rough experience, I get why you would "
+                "be cautious.' Then: 'Has that stopped you from wanting to make sure your "
+                "family is actually protected though? Or is it more about not wanting to deal "
+                "with another bad agent?'\n"
+                "If agent → you are a different person. 10 minutes, no pressure.\n"
+                "If product → find out what went wrong. Wrong type? Overpaid? The call fixes that."
             )
         return header + (
-            "OBJECTION: Already have coverage.\n"
-            "Do NOT challenge it. Do NOT say 'but is it enough?' That is adversarial.\n\n"
-            "Instead, get curious. Most people who say 'I am covered' cannot tell you "
-            "three things about their policy: the amount, whether it is portable, and how "
-            "long it lasts. They just know the box is checked.\n\n"
-            "Ask logistical questions from a place of genuine curiosity:\n"
-            "- Is it something you got on your own or through work?\n"
-            "- Do you know roughly what it would actually pay out?\n"
-            "- If you left your job tomorrow, does it go with you?\n\n"
-            "You are not poking holes. You are asking questions they probably have not thought about. "
-            "The gap reveals itself when they try to answer. You do not have to point it out. "
-            "They will feel it. When they get quiet or say 'I am not sure' — that is your opening."
+            "OBJECTION: Already have coverage.\n\n"
+            "THE CARRIER QUESTION — Get curious, not adversarial.\n\n"
+            "Do NOT challenge it. Do NOT say 'but is it enough?' That puts them on defense.\n\n"
+            "ONE QUESTION: 'Oh nice! Who did you end up going with?'\n\n"
+            "This is casual, non-threatening, and it opens a conversation. Their answer tells "
+            "you everything:\n"
+            "- If they name a carrier → you can assess fit, pricing, gaps\n"
+            "- If they say 'through work' → employer coverage = biggest gap in America\n"
+            "- If they say 'I forget' or 'not sure' → they do not actually know what they have\n"
+            "- If they dodge → the 'coverage' is probably minimal or nonexistent\n\n"
+            "Variations:\n"
+            "- 'Cool, who did you go with?'\n"
+            "- 'Good to hear. What kind of policy did you land on?'\n"
+            "- 'Nice, is that something you got on your own or through work?'\n\n"
+            "The carrier question is your gateway. It feels like small talk but it opens "
+            "every door — carrier gaps, employer portability, GI waiting periods, term "
+            "expiration. Let THEIR answer guide you, do not pre-load a pitch.\n\n"
+            "REMEMBER: You are booking an appointment, not selling a policy. The call is "
+            "where you actually review their coverage. 'I can do a quick comparison for you "
+            "— takes 5 minutes — just to make sure you are not overpaying.'"
         )
 
     if obj == ObjectionType.THINK_ABOUT_IT:
         if in_phase_2:
             return header + (
                 "OBJECTION: Think about it (repeated).\n"
-                "They have been 'thinking' since the last time you talked. Here is the truth "
-                "about 'let me think about it' in life insurance: nobody thinks about it. They "
-                "put it in the mental drawer of things they will get to eventually, and eventually "
-                "never comes. Meanwhile, every day that passes, two things happen: they get older "
-                "(premiums go up) and their health can change at any time (they might not qualify "
-                "tomorrow for what they qualify for today). Waiting is not free. Waiting has a "
-                "price and their family is the one who pays it.\n\n"
-                "Do not lecture them about this. Instead, ask them honestly: what has changed since "
-                "last time? If nothing has changed, then what will be different in another week? "
-                "Another month? The thing they are 'thinking about' does not get simpler with time. "
-                "It gets more expensive.\n\n"
-                "If they shared anything in EMOTIONAL_ARC about family or dependents, use it: "
-                "'You mentioned [person]. Are they covered right now while you are thinking it over?' "
-                "That question is not manipulative. It is the honest reality."
+                "'Let me think about it' is NEVER the real objection. Nobody goes home and "
+                "thinks about life insurance for hours. There is a real concern hiding — they "
+                "just do not want to say it.\n\n"
+                "THREE ANGLES to try (pick the one that fits):\n\n"
+                "1. THE RISK ANGLE:\n"
+                "'Which is riskier — spending 10 minutes on a call to see where you stand, or "
+                "keeping things the way they are and hoping nothing happens in the meantime?'\n\n"
+                "2. THE TIME ANGLE:\n"
+                "'What happens if 6 months from now you are in this exact same spot — still "
+                "thinking about it? What actually changes?'\n"
+                "The answer is nothing changes. Insurance does not get cheaper with time. "
+                "Health does not improve with age. Cost goes up, options go down.\n\n"
+                "3. THE EMOTIONAL ARC CALLBACK:\n"
+                "If they shared anything — kids, spouse, mortgage, health scare: "
+                "'You mentioned [person/thing]. Are they covered right now while you are "
+                "thinking it over?'\n\n"
+                "If they STILL stall, set the appointment anyway: 'No problem — are you "
+                "more of a morning or afternoon person? I can find a time that works.'\n"
+                "Book a specific time. Do NOT accept 'I will call you back.' That means never.\n\n"
+                "If all else fails: 'You are going to have to do this eventually — whether "
+                "it is now or next year. And each time you wait it just costs more. The "
+                "hardest part is deciding. After that it is just a 10-minute call.'"
             )
         return header + (
-            "OBJECTION: Need to think about it.\n"
-            "'Let me think about it' is the most dangerous objection because it SOUNDS reasonable. "
-            "Of course they should think about a big decision. But here is what actually happens: "
-            "they leave this conversation, life gets busy, and they never think about it again.\n\n"
-            "Your move is to ISOLATE what they need to think about. That one question changes "
-            "everything:\n"
-            "'Totally fair. What specifically are you weighing? Is it the cost, whether you need it, "
-            "or something else?'\n\n"
-            "If they say COST — that is a price objection. Handle it as one. A call gives them "
-            "real numbers for their situation instead of guessing.\n"
-            "If they say WHETHER THEY NEED IT — that is the gap question. Help them evaluate. "
-            "Ask about their family, who depends on them, what happens if something happens.\n"
-            "If they say SOMETHING ELSE — now you know the real objection. Handle that instead.\n"
-            "If they cannot articulate what they need to think about — they are avoiding, "
-            "not thinking. Call it out gently: 'I get it. Sometimes it is easier to put this "
-            "off than to face it. Most people feel that way until they actually sit down and look "
-            "at the numbers. That is what the call is for.'"
+            "OBJECTION: Need to think about it.\n\n"
+            "CRITICAL: 'Think about it' comes in MANY disguises. All of these are the "
+            "same objection:\n"
+            "- 'Let me think about it' / 'I need to think on it'\n"
+            "- 'Send me an email' / 'Send me some info' / 'Send me the details'\n"
+            "- 'Let me look it over' / 'Let me look into it'\n"
+            "- 'I will get back to you' / 'I will let you know'\n"
+            "- 'Not ready yet' / 'Not sure yet' / 'Maybe down the road'\n"
+            "- 'Can you send me a proposal' / 'Send me a quote'\n"
+            "ALL mean the same thing: 'I do not have a compelling enough reason to "
+            "act NOW.'\n\n"
+            "STEP 1: Disarm. 'Yeah no problem.' Takes the pressure out. Guard drops.\n\n"
+            "STEP 2: Isolate what is really behind it. NOT 'what do you need to think "
+            "about' — that is a trap and they know it. Softer version:\n"
+            "'What is the main thing you are going over in your head?'\n"
+            "This reframes 'thinking about it' into 'having a specific question' — "
+            "which leads to a follow-up, not a dead end.\n\n"
+            "STEP 3: Whatever they reveal IS the real objection. Handle THAT:\n"
+            "- If cost → 'The call gives you real numbers instead of guessing.'\n"
+            "- If need → 'That is exactly what the call covers — where you actually stand.'\n"
+            "- If trust → they got burned before. Acknowledge it.\n"
+            "- If they cannot say → they are avoiding. 'Most people feel that way until they "
+            "actually sit down and look at the numbers. Takes 10 minutes.'\n\n"
+            "NEVER agree to just send info and wait. If you send info without a commitment "
+            "for the next step, you will never hear from them again."
         )
 
     if obj == ObjectionType.BUSY_TIMING:
         if in_phase_2:
             return header + (
                 "OBJECTION: Busy/timing (repeated).\n"
-                "You offered flexible scheduling. They are still 'too busy.' Here is the thing: "
-                "everyone is busy. Nobody has free time lying around. The question is not whether "
-                "they have 15 minutes. They watch TV. They scroll their phone. They have 15 minutes. "
-                "The question is whether protecting their family matters enough to use 15 of those minutes.\n\n"
-                "Do not say that to them — it sounds judgmental. Instead, make it easy. Make it "
-                "feel like nothing: 'It is literally 10 minutes on the phone. Shorter than your "
-                "lunch break. And then you know where you stand.'\n\n"
-                "If they still dodge, this is not about timing. It is avoidance. In that case, "
-                "name it gently: 'Sounds like the timing might not be the real thing. Is there "
-                "something else holding you back?' Giving them permission to say the real reason "
-                "is sometimes all it takes."
+                "You offered flexible scheduling. They keep dodging. This is not about "
+                "their schedule anymore.\n\n"
+                "Two moves:\n\n"
+                "1. Make it impossibly small: 'It is literally 10 minutes. Shorter than your "
+                "lunch break. Then you know where you stand.'\n\n"
+                "2. If they STILL dodge, name it: 'Is there something else besides timing "
+                "that is holding you back?' Give them permission to say the real reason. "
+                "Whatever they reveal IS the actual objection — handle THAT.\n\n"
+                "When someone keeps saying they are too busy, there is usually a real concern "
+                "they do not want to say. The busyness is a reflex."
             )
         return header + (
-            "OBJECTION: Busy or bad timing.\n"
-            "This is often the most genuine objection. People are actually busy. Respect it.\n\n"
-            "Your goal is to ANCHOR a specific time. Vague is death. 'Later' means never. "
-            "'Call me next week' means forgotten.\n\n"
-            "Ask for specifics:\n"
-            "- 'When does things slow down for you? Any day this week work better?'\n"
-            "- 'Would a quick 10-minute call be easier than going back and forth over text?'\n"
-            "- 'Mornings or evenings usually better for you?'\n\n"
-            "If they give you a specific day and time — lock it in immediately. Do not keep talking. "
-            "Book it before the moment passes.\n\n"
-            "If they stay vague — 'maybe later', 'sometime', 'we will see' — that is not a timing "
-            "objection. That is avoidance in a schedule costume. Treat it like THINK_ABOUT_IT."
+            "OBJECTION: Busy or bad timing.\n\n"
+            "Most common objection in appointment booking. People ARE actually busy. "
+            "Respect it. But do NOT let them off with vague promises.\n\n"
+            "From your Ethos script: 'No problem, do you have like 60 seconds and we can "
+            "iron out a time?'\n\n"
+            "STEP 1: Agree. 'Yeah no problem' / 'Totally get it.'\n\n"
+            "STEP 2: Anchor a specific time. Vague is death. 'Later' means never.\n"
+            "'Are you more of a morning or afternoon person?' or offer two specific slots: "
+            "'I have some time tomorrow around 10 or 2 — which works better?'\n\n"
+            "STEP 3: If they stay vague — 'maybe later', 'sometime', 'I will call you' — "
+            "position yourself as busy too: 'It might be tough to randomly catch each other. "
+            "If I grab a time that works for both of us neither of us has to chase the other "
+            "one down.'\n"
+            "This positions you as someone whose time is valuable. You are busy too. You "
+            "have other clients. You are doing THEM a favor by finding a slot.\n\n"
+            "STEP 4: If they give you a day/time — LOCK IT IN. Stop talking. Book it. "
+            "Do not keep selling after they said yes to the time.\n\n"
+            "From your script — plant a seed before you let them go: 'Before I let you go "
+            "— just so I can prep some info — is this more for final expenses or to take "
+            "care of the mortgage type stuff?'\n"
+            "Now they are already thinking about it before the call.\n\n"
+            "If they absolutely cannot commit: 'Even 5 minutes works — just enough to see "
+            "if this is even worth a longer conversation.'"
+        )
+
+    if obj == ObjectionType.HEALTH_CONCERN:
+        if in_phase_2:
+            return header + (
+                "OBJECTION: Health concern (repeated).\n"
+                "You already told them options exist. They are still stuck on 'I can't qualify.'\n\n"
+                "This is fear of rejection — they applied before and got denied, or they "
+                "assume their condition is a dealbreaker without ever checking.\n\n"
+                "Your move: make it impossibly specific and personal.\n"
+                "'Here is the thing — I work with people who have [their exact condition] "
+                "every week. Not as a special case, as a regular Tuesday. The question is "
+                "not whether you can get coverage. It is which carrier gives you the best deal.'\n\n"
+                "If they were previously denied: 'When you got denied, do you know what type "
+                "of policy it was? Because a lot of the time people get denied for one thing "
+                "and there are three other options nobody told them about.'\n\n"
+                "If the UNDERWRITING DATA is attached below, reference SPECIFIC carriers and "
+                "decisions from it. 'Based on what you told me, there are carriers that approve "
+                "people in your exact situation.' Facts beat reassurance.\n\n"
+                "HARD RULE: Never say 'you definitely qualify.' Say 'most people in your "
+                "situation have options — the call is to see which ones make sense for you.'\n\n"
+                "The 10-minute call IS the answer to their objection. They do not need to "
+                "guess anymore. You have the data."
+            )
+        return header + (
+            "OBJECTION: Health concern — believes they cannot qualify.\n\n"
+            "This is one of the most important objections in insurance. This person "
+            "often WANTS coverage. They are not dismissing you. They are protecting "
+            "themselves from another rejection or assuming the worst.\n\n"
+            "STEP 1: Validate their concern immediately. Do NOT dismiss it.\n"
+            "'Yeah I hear you — that is actually something I deal with a lot.'\n\n"
+            "STEP 2: Educate without over-promising. The insurance industry has products "
+            "designed specifically for people with health issues:\n"
+            "- Guaranteed Issue: no health questions at all. Cannot be denied.\n"
+            "- Simplified Issue: limited health questions, broader approval.\n"
+            "- Graded Benefit: waiting period but accepts almost everyone.\n"
+            "Do NOT list all three — mention the ONE most relevant to what they said.\n\n"
+            "STEP 3: Bridge to the call.\n"
+            "'That is exactly what the comparison call is for — I shop across 50+ carriers "
+            "and some of them specialize in people with [their condition]. Takes 10 minutes "
+            "to see where you stand.'\n\n"
+            "If the UNDERWRITING DATA is attached, use it. Reference specific carriers "
+            "or approval patterns — facts are more persuasive than reassurance.\n\n"
+            "CRITICAL: NEVER say 'you definitely qualify' or 'no problem at all.' "
+            "Say 'most people in your situation have options' or 'there are carriers "
+            "that work with this.' Honest, not salesy.\n\n"
+            "If they mention a SPECIFIC condition (diabetes, cancer, heart), acknowledge "
+            "it by name. Do not be vague — 'health issues' when they said 'diabetes' "
+            "sounds like you are not listening."
+        )
+
+    if obj == ObjectionType.TRUST_ISSUE:
+        if in_phase_2:
+            return header + (
+                "OBJECTION: Trust issue (repeated).\n"
+                "You already acknowledged their bad experience. They are still guarded.\n\n"
+                "This is NOT about information — it is about the relationship. They have "
+                "been burned and they are screening you to see if you are different.\n\n"
+                "Two paths depending on what they told you:\n\n"
+                "IF BAD AGENT / BAD EXPERIENCE:\n"
+                "'I get it. And honestly you should be cautious — there are bad agents out "
+                "there. Here is the difference: I do not work for one company. I shop 50+ "
+                "carriers. My job is to find whoever is cheapest for your situation. If the "
+                "numbers do not make sense I will tell you. 10 minutes, zero pressure.'\n"
+                "Position yourself as the opposite of their bad experience.\n\n"
+                "IF PERSONAL LOYALTY (nephew, buddy, cousin sells):\n"
+                "By now you asked if the relative set them up. If NO active policy:\n"
+                "'No harm in seeing a comparison right? If their numbers are better you "
+                "go with them. If mine are better at least you know.'\n"
+                "If they DO have active coverage through the relative:\n"
+                "Treat as ALREADY_COVERED. Pivot to the carrier question.\n\n"
+                "IF INDUSTRY DISTRUST (insurance is a scam, never pays out):\n"
+                "'What happened?' — let them tell the story. People who feel scammed "
+                "need to be heard before they will listen. Then: 'That is a legitimate "
+                "concern. Here is how we make sure that does not happen again...'\n"
+                "Facts work: regulated by state, guaranteed by state guarantee fund, "
+                "contractual obligation to pay. But only after they feel heard."
+            )
+        return header + (
+            "OBJECTION: Trust issue — distrust, bad experience, or personal loyalty.\n\n"
+            "THREE DISTINCT VARIANTS (identify which one from their message):\n\n"
+            "1. BAD EXPERIENCE / GOT BURNED:\n"
+            "Do NOT get defensive about the industry. Stand on their side.\n"
+            "'Yeah — and honestly you are not wrong to feel that way. There are some "
+            "bad agents out there.'\n"
+            "Then separate the agent from the product:\n"
+            "'Has that stopped you from wanting to make sure your family is actually "
+            "protected? Or is it more about not wanting to deal with another bad "
+            "experience?'\n"
+            "If agent — you are a different person. Independent, shops 50+ carriers.\n"
+            "If product — find out what went wrong. Wrong type? Overpaid? Misled?\n\n"
+            "2. PERSONAL LOYALTY (nephew, buddy, cousin sells insurance):\n"
+            "Never trash the relative. Position as a second opinion.\n"
+            "'Oh nice — have they already set you up with something, or is it more "
+            "of a they offered but you have not gotten around to it?'\n"
+            "If the relative offered but never followed through (most common): "
+            "'Would it hurt to see a comparison? If their numbers are better you go "
+            "with them. If mine are better at least you know.'\n"
+            "If they have active coverage through the relative: treat as ALREADY_COVERED.\n\n"
+            "3. INDUSTRY DISTRUST (insurance is a scam, never pays out):\n"
+            "'What makes you say that?' — open it up. Let them talk.\n"
+            "Their answer tells you everything: personal experience, news story, "
+            "general cynicism. Each needs a different response.\n"
+            "If personal: acknowledge what happened, then differentiate yourself.\n"
+            "If general: 'That is fair. A lot of people feel that way until they "
+            "actually see how it works for their situation. 10 minutes.'\n\n"
+            "TRUST IS EARNED, NOT ARGUED. 1-2 sentences. Be real."
+        )
+
+    # ─── SMOKESCREEN / UNKNOWN OBJECTION FALLBACK ───
+    smokescreen_note = ""
+    if len(distinct_types_seen) >= 3:
+        smokescreen_note = (
+            "\nSMOKESCREEN DETECTED: This lead has raised 3+ DIFFERENT objection types "
+            f"({', '.join(sorted(distinct_types_seen))}). They are not truly objecting to any one thing "
+            "— they are looking for ANY reason to not move forward. None of the individual "
+            "objections are the real issue. Give them permission to say no: 'Hey it is "
+            "totally fine if this is not for you. No hard feelings. I would rather just "
+            "know than keep going back and forth.' Sometimes naming it breaks through. "
+            "Sometimes they say no and you move on. Either way you stop wasting time.\n"
         )
 
     return header + (
@@ -907,6 +1141,7 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
         "2. Ask one question that reveals whether this is a real practical barrier or "
         "a way to avoid the conversation.\n"
         "3. If practical — solve it. If emotional — make doing nothing feel specific.\n\n"
+        f"{smokescreen_note}"
         "Use what you know about them from EMOTIONAL_ARC. The more personal your response, "
         "the harder it is to dismiss."
     )

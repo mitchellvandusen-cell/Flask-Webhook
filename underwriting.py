@@ -122,16 +122,20 @@ def get_underwriting_context(message: str) -> str:
 
     # Expanded, realistic health triggers (common insurance conditions)
     health_triggers = {
-        "diabetes": "diabetes|diabetic|sugar|insulin",
-        "cancer": "cancer|tumor|chemo|oncology",
-        "heart": "heart|cardiac|attack|chf|angina",
-        "stroke": "stroke|cva|tia",
-        "copd": "copd|emphysema|chronic bronchitis",
-        "blood pressure": "blood pressure|hypertension|high bp",
-        "kidney": "kidney|renal|dialysis",
-        "liver": "liver|cirrhosis|hepatitis",
-        "medication": "taking|meds|prescription|drug",
-        "diagnosed": "diagnosed|diagnosis"
+        "diabetes": r"\bdiabetes\b|\bdiabetic\b|\bblood sugar\b|\binsulin\b|\ba1c\b|\btype [12]\b",
+        "cancer": r"\bcancer\b|\btumor\b|\bchemo\b|\boncology\b|\bremission\b|\bmalignant\b",
+        "heart": r"\bheart\b|\bcardiac\b|\bheart attack\b|\bchf\b|\bangina\b|\bstent\b|\bbypass\b|\bpacemaker\b",
+        "stroke": r"\bstroke\b|\bcva\b|\btia\b",
+        "copd": r"\bcopd\b|\bemphysema\b|\bchronic bronchitis\b|\basthma\b|\blung disease\b",
+        "blood pressure": r"\bblood pressure\b|\bhypertension\b|\bhigh bp\b",
+        "kidney": r"\bkidney\b|\brenal\b|\bdialysis\b",
+        "liver": r"\bliver\b|\bcirrhosis\b|\bhepatitis\b",
+        "mental health": r"\bdepression\b|\banxiety\b|\bbipolar\b|\bschizophren\b|\bptsd\b|\bmental health\b",
+        "medication": r"\btaking meds\b|\bprescription\b|\bon medication\b|\btake medication\b|\bon meds\b|\btake meds\b",
+        "obesity": r"\bobese\b|\bobesity\b|\bbmi\b|\boverweight\b",
+        "sleep apnea": r"\bsleep apnea\b|\bcpap\b",
+        "autoimmune": r"\blupus\b|\brheumatoid\b|\bms\b|\bmultiple sclerosis\b|\bcrohns?\b|\bcolitis\b",
+        "diagnosed": r"\bdiagnosed\b|\bdiagnosis\b",
     }
 
     detected = []
