@@ -316,7 +316,17 @@ def dashboard():
     initial_tab = request.args.get('tab', 'voicedialer') if embed_mode else ''
     embed_contact_id = request.args.get('contact_id', '') if embed_mode else ''
     embed_dial_contacts = request.args.get('dial_contacts', '') if embed_mode else ''
-    voice_wss_host = os.getenv('VOICE_WSS_HOST', '')  # e.g. "voice.insurancegrokbot.com"
+    # Voice WebSocket host — where browser connects for listen/intercept.
+    # Derive from VOICE_WSS_URL if VOICE_WSS_HOST not explicitly set,
+    # so that if calls work (VOICE_WSS_URL is set), listen works too.
+    voice_wss_host = os.getenv('VOICE_WSS_HOST', '')
+    if not voice_wss_host:
+        voice_wss_url = os.getenv('VOICE_WSS_URL', '')
+        if voice_wss_url:
+            # Extract host from "wss://voice-server.up.railway.app/voice/stream"
+            from urllib.parse import urlparse
+            parsed = urlparse(voice_wss_url)
+            voice_wss_host = parsed.netloc or ''
 
     # White-label branding — agency owners get their own, sub-users get agency's
     from db import get_whitelabel_for_user

@@ -216,27 +216,29 @@ def voice_takeover():
         target = f"client:{identity}"
         logger.info(f"Takeover (VoIP): redirecting call {call_sid} to browser client={identity}")
 
-        # Signal the WebSocket bridge to stop the AI audio loop
-        set_transfer_request(call_sid, {
-            'type': 'takeover',
-            'target': target,
-            'reason': 'Agent initiated VoIP intercept',
-        })
-
-        # Redirect the call to TwiML that dials the browser client
+        # IMPORTANT: Redirect FIRST, then signal the voice bridge.
+        # If we signal first, the voice bridge closes the Twilio media stream
+        # before the redirect takes effect, causing the call to drop.
         try:
             client = twilio_provisioning.get_sub_account_client(sub_sid)
             client.calls(call_sid).update(
                 url=f"https://{host}/voice/intercept-twiml?identity={identity}",
                 method="POST",
             )
-            update_active_call(call_sid, status='transferred')
-            logger.info(f"Takeover (VoIP): call {call_sid} redirected to {identity}")
-            return jsonify({"status": "transferred", "call_sid": call_sid, "target": "Browser (VoIP)"})
         except Exception as e:
             logger.error(f"Takeover (VoIP): redirect FAILED for call {call_sid}: {e}")
-            delete_transfer_request(call_sid)
             return jsonify({"error": f"Intercept failed: {e}"}), 400
+
+        # Now signal the voice bridge to stop AI audio (stream is already
+        # being redirected by Twilio, so closing it is safe)
+        set_transfer_request(call_sid, {
+            'type': 'takeover',
+            'target': target,
+            'reason': 'Agent initiated VoIP intercept',
+        })
+        update_active_call(call_sid, status='transferred')
+        logger.info(f"Takeover (VoIP): call {call_sid} redirected to {identity}")
+        return jsonify({"status": "transferred", "call_sid": call_sid, "target": "Browser (VoIP)"})
     else:
         # Phone intercept: transfer to agent's phone number
         target = data.get('target') or voice_cfg.get('transfer_number', '')
@@ -263,22 +265,22 @@ def voice_takeover():
 
         logger.info(f"Takeover (phone): executing transfer for call {call_sid} -> {target}")
 
-        # Signal the WebSocket bridge to stop the AI audio loop
-        set_transfer_request(call_sid, {
-            'type': 'takeover',
-            'target': target,
-            'reason': 'Agent initiated live takeover',
-        })
-
-        # Transfer the live call — Twilio automatically stops the media stream
+        # IMPORTANT: Transfer FIRST, then signal the voice bridge.
+        # If we signal first, the voice bridge closes the Twilio media stream
+        # before the transfer takes effect, causing the call to drop.
         transfer_ok = _twilio_transfer(call_sid, sub_sid, target, f"https://{host}")
         if transfer_ok:
+            # Now signal the voice bridge to stop AI audio
+            set_transfer_request(call_sid, {
+                'type': 'takeover',
+                'target': target,
+                'reason': 'Agent initiated live takeover',
+            })
             logger.info(f"Takeover (phone): call {call_sid} transferred to {target}")
             update_active_call(call_sid, status='transferred')
             return jsonify({"status": "transferred", "call_sid": call_sid, "target": target})
         else:
             logger.error(f"Takeover (phone): transfer FAILED for call {call_sid} -> {target}")
-            delete_transfer_request(call_sid)
             return jsonify({"error": "Transfer failed — the call may have ended."}), 400
 
 
