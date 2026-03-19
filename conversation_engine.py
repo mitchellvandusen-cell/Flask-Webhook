@@ -418,6 +418,22 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
         "i'll let you know", "ill let you know", "let you know",
         "i'll reach out", "ill reach out", "reach out when",
         "don't call me i'll call you", "dont call me ill call you",
+        # Disguised think-about-it — all mean "I don't have a compelling reason to act now"
+        "send me an email", "send me email", "email me the info",
+        "email me the details", "email me about", "just email me",
+        "send me a quote", "send me the quote", "just send me a quote",
+        "send me a proposal", "send me the proposal",
+        "send me something", "send me some information",
+        "let me look it over", "let me look into it", "let me look at it",
+        "let me check it out", "let me review", "let me do some research",
+        "let me read up on", "let me read about",
+        "i need to do my research", "need to do some research",
+        "need to look into it", "need to look into this",
+        "i want to look into", "want to look into this",
+        "i'll check it out", "ill check it out",
+        "let me see what's out there", "let me compare",
+        "let me shop around", "want to shop around",
+        "send me the link", "just send me the link",
         # Noncommittal / ambivalent (when standalone or very short)
         "not sure", "i don't know", "i dont know", "idk",
         "we'll see", "we will see", "who knows",
@@ -675,8 +691,8 @@ def detect_buying_signal(text: str) -> BuyingSignalType:
         "explain", "what does that mean", "what's the catch", "whats the catch",
         "what are living benefits", "what is iul", "what is term",
         "how does the process", "what's the process", "whats the process",
-        "what do i need to qualify", "do i qualify", "send me some info",
-        "send me the details", "can you explain",
+        "what do i need to qualify", "do i qualify",
+        "can you explain",
     ]
     if any(kw in t for kw in detail_kw):
         return BuyingSignalType.ASKING_DETAILS
@@ -904,7 +920,7 @@ OBJECTION TYPE DEFINITIONS:
   "price_money" = ANY concern about cost, affordability, budget, value. "Too expensive", "can't afford", "fixed income", "not worth it", "money is tight"
   "already_covered" = claims ANY existing protection: employer, group, VA, another agent. "I'm covered", "already have", "all set", "taken care of"
   "busy_timing" = can't engage RIGHT NOW: "busy", "at work", "driving", "call back later", "not a good time"
-  "think_about_it" = stalling/delaying: "need to think", "sleep on it", "not ready", "get back to you", "rain check", "maybe" (standalone), "I'll let you know"
+  "think_about_it" = stalling/delaying: "need to think", "sleep on it", "not ready", "get back to you", "rain check", "maybe" (standalone), "I'll let you know", "send me an email", "send me info", "send me a quote", "let me look it over", "let me look into it", "let me do some research", "send me the details", "let me shop around". ALL disguised versions of "I don't have a compelling reason to act now"
   "none" = genuinely positive, engaged, asking/answering questions, providing info
 
 - objection_nature: one of "fear_based", "logistical", "none"
