@@ -470,12 +470,13 @@ All tables created in `db.py`'s `init_db()` function (plus `contact_intelligence
 
 ### Agency
 - `GET|POST /agency-dashboard` — Agency owner command center (sidebar+tab layout with KPIs, agents, call log, activity, settings, billing)
-- `GET|POST /agency-login` — Agency sub-user login
+- `GET|POST /agency-login` — Agency owner login (queries `agency_billing` table, role must be `agency_owner`)
 - `POST /api/agency/invite-sub-user` — Invite sub-user
 - `POST /api/agency/resend-invite` — Resend invite email
 - `POST /api/agency/invite-all` — Invite all pending sub-users
 - `GET /api/agency/logs/<location_id>` — Agency member logs
 - `GET /api/agency/kpis?period=<today|week|month|all>` — Aggregated KPIs across all sub-accounts (calls, connected, rate, duration, messages, active agents, daily/hourly charts, prior period comparison)
+- `GET /api/agency/dashboard-stats?period=<today|week|month|all>` — Comprehensive agency dashboard stats with insurance-specific KPIs (connect rate, duration buckets 45s/2m/5m/10m, avg daily dials per agent, speed to lead, top 5 leaderboards by connect rate/calls/duration, daily/hourly charts, prior period comparison)
 - `GET /api/agency/agent-stats?period=<today|week|month|all>` — Per-agent stats breakdown (calls, connected, talk time, avg duration, messages, last call)
 - `GET /api/agency/call-log?limit=&offset=&agent=` — Paginated call log across all agents with optional agent filter
 
@@ -1146,8 +1147,47 @@ Agency owners can fully white-label the dashboard so their agents see the agency
 The agency dashboard is now integrated as tabs within the main dashboard (not a separate page). Agency owners see:
 - All individual dashboard features (dialer, voice, SMS config, workflows, etc.)
 - **Agency Members tab** (`dashboard/tabs/agency_members.html`) — view/manage all agency users
-- **Agency KPIs tab** (`dashboard/tabs/agency_kpis.html`) — aggregated metrics across all agency agents
+- **Agency KPIs tab** (`dashboard/tabs/agency_kpis.html`) — comprehensive tiled statistics dashboard with Chart.js charts
 - **White-label tab** (`dashboard/tabs/whitelabel.html`) — branding customization
+
+### Agency Owner Access
+- Agency owners are stored in the `agency_billing` table with `role = 'agency_owner'`
+- To manually upgrade a user to agency owner: INSERT into `agency_billing` with `role='agency_owner'`, `agency_email`, `company_id`, `password_hash`, and `location_id`
+- Agency owners log in via `/agency-login` which queries `agency_billing` only
+- Agency owners are FREE — no subscription paywall required
+- Regular login (`/login`) also detects agency owners and redirects to `/agency-dashboard`
+
+### Agency KPI Dashboard (Tiled Layout with Charts)
+The Agency KPIs tab provides insurance agency-specific statistics in a tiled layout with Chart.js visualizations:
+
+**Core Metric Tiles (6-up grid):**
+- Total Calls, Connected, Messages Sent, Active Agents, Unique Contacts, Avg Speed to Lead
+
+**Chart Row (3 cards):**
+- **Connect Rate Donut** — doughnut chart showing connected vs not connected percentage
+- **Call Quality Donut** — duration bucket breakdown (<45s, 45s–2m, 2–5m, 5–10m, 10m+)
+- **Daily Volume Bar Chart** — daily calls and connected calls over the selected period
+
+**Duration Bucket Tiles (4-up):**
+- Over 45 Seconds, Over 2 Minutes, Over 5 Minutes, Over 10 Minutes — each with count, percentage, and animated fill bar
+
+**Agency Averages (4-up):**
+- Avg Daily Dials per Agent, Avg Daily Dials (Agency total), Avg Connect Rate per Agent, Total Talk Time
+
+**Top Performers Leaderboards (3-up):**
+- Highest Connect Rate (top 5, min 5 calls to qualify)
+- Most Active by Calls (top 5)
+- Best Conversations by Avg Duration (top 5, min 3 connected calls)
+- Each shows rank medal (gold/silver/bronze), agent name, and key stat
+
+**All Agent Breakdown:**
+- Expandable table via "See All Agents" button
+- Columns: Agent, Calls, Connected, Rate, Avg/Day, Talk Time, Avg Duration, >45s, >2m, >5m, Messages
+
+**Hourly Heatmap:**
+- Bar chart showing call volume by hour (12a–11p) with connected overlay
+
+**API endpoint:** `GET /api/agency/dashboard-stats?period=today|week|month|all`
 
 ### Agency Auto-Import by Company ID
 - When an individual agent subscribes and their GHL `companyId` matches an agency owner's `company_id` in `agency_billing`, they are automatically linked to that agency
@@ -1379,7 +1419,7 @@ static/js/dashboard/
   pwa.js            Progressive Web App registration and offline support
   tutorial.js       Interactive dashboard tutorial (driver.js, 7 chapters, Liquid Glass UI with dark+light theme)
   whitelabel.js     White-label branding UI (color picker, font selector, company name, live preview)
-  agency.js         Agency management UI (member list, KPIs, auto-import by company_id)
+  agency.js         Agency dashboard — comprehensive KPIs with Chart.js (donut charts, bar charts, leaderboards, duration buckets, all-agent table)
 ```
 
 ### CSS

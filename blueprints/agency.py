@@ -935,6 +935,316 @@ def agency_call_log():
         return_db_connection(conn)
 
 
+# ── Agency Dashboard Stats (comprehensive insurance KPIs) ────────────────────
+
+@agency_bp.route("/api/agency/dashboard-stats")
+@login_required
+def agency_dashboard_stats():
+    """Comprehensive agency-wide statistics for the tiled dashboard.
+    Returns insurance-specific KPIs: connect rate, duration buckets,
+    daily dials per agent, top performers, speed to lead, and more."""
+    if current_user.role != 'agency_owner' and current_user.email.lower() not in [e.lower() for e in ADMIN_EMAILS]:
+        return flask_jsonify({"error": "Access denied"}), 403
+
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "DB unavailable"}), 503
+
+    try:
+        location_ids = _get_sub_location_ids(conn, current_user.email,
+                                              company_id=getattr(current_user, 'company_id', None))
+        if current_user.location_id and current_user.location_id not in location_ids:
+            location_ids.append(current_user.location_id)
+
+        if not location_ids:
+            return flask_jsonify(_empty_dashboard_stats())
+
+        period = request.args.get('period', 'month')
+        tz_name = current_user.timezone or 'America/Chicago'
+        start_utc, days, now = _get_period_range(period, tz_name)
+
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # ── Core call metrics ────────────────────────────────────────────────
+        cur.execute("""
+            SELECT
+                COUNT(*)                                                      AS total_calls,
+                COUNT(*) FILTER (WHERE direction = 'outbound')                AS outbound_calls,
+                COUNT(*) FILTER (WHERE direction = 'inbound')                 AS inbound_calls,
+                COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) AS connected_calls,
+                COALESCE(AVG(duration) FILTER (WHERE duration > 0), 0)        AS avg_duration,
+                COALESCE(SUM(duration), 0)                                    AS total_duration,
+                COUNT(*) FILTER (WHERE duration >= 45)                        AS over_45s,
+                COUNT(*) FILTER (WHERE duration >= 120)                       AS over_2min,
+                COUNT(*) FILTER (WHERE duration >= 300)                       AS over_5min,
+                COUNT(*) FILTER (WHERE duration >= 600)                       AS over_10min,
+                COUNT(*) FILTER (WHERE duration >= 60)                        AS over_1min,
+                COUNT(DISTINCT contact_id)                                    AS unique_contacts,
+                COUNT(DISTINCT location_id)                                   AS active_agents
+            FROM call_history
+            WHERE location_id = ANY(%s) AND created_at >= %s
+        """, (location_ids, start_utc))
+        r = cur.fetchone()
+        total_calls = r['total_calls'] or 0
+        connected = r['connected_calls'] or 0
+        connect_rate = round(connected / total_calls * 100, 1) if total_calls else 0.0
+
+        # Duration bucket percentages (of connected calls)
+        over_45s = r['over_45s'] or 0
+        over_2min = r['over_2min'] or 0
+        over_5min = r['over_5min'] or 0
+        over_10min = r['over_10min'] or 0
+        pct_45s = round(over_45s / connected * 100, 1) if connected else 0
+        pct_2min = round(over_2min / connected * 100, 1) if connected else 0
+        pct_5min = round(over_5min / connected * 100, 1) if connected else 0
+        pct_10min = round(over_10min / connected * 100, 1) if connected else 0
+
+        # ── Messages ─────────────────────────────────────────────────────────
+        cur.execute("""
+            SELECT COUNT(*) AS cnt
+            FROM contact_messages
+            WHERE location_id = ANY(%s) AND timestamp >= %s
+        """, (location_ids, start_utc))
+        total_messages = cur.fetchone()['cnt'] or 0
+
+        # ── Compute days for per-day averages ────────────────────────────────
+        if days == 0:
+            cur.execute("SELECT MIN(created_at) AS first FROM call_history WHERE location_id = ANY(%s)", (location_ids,))
+            first = cur.fetchone()['first']
+            if first:
+                if first.tzinfo is None:
+                    first = pytz.utc.localize(first)
+                days = max(1, (now - first).days)
+            else:
+                days = 1
+
+        # ── Per-agent detailed stats (for leaderboard + averages) ────────────
+        cur.execute("""
+            SELECT location_id,
+                   COUNT(*) AS total_calls,
+                   COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) AS connected,
+                   COALESCE(SUM(duration), 0) AS total_secs,
+                   COALESCE(AVG(duration) FILTER (WHERE duration > 0), 0) AS avg_dur,
+                   COUNT(*) FILTER (WHERE duration >= 45) AS over_45s,
+                   COUNT(*) FILTER (WHERE duration >= 120) AS over_2min,
+                   COUNT(*) FILTER (WHERE duration >= 300) AS over_5min,
+                   COUNT(*) FILTER (WHERE duration >= 600) AS over_10min,
+                   MAX(created_at) AS last_call
+            FROM call_history
+            WHERE location_id = ANY(%s) AND created_at >= %s
+            GROUP BY location_id
+        """, (location_ids, start_utc))
+        agent_call_stats = {row['location_id']: row for row in cur.fetchall()}
+
+        # Per-agent message counts
+        cur.execute("""
+            SELECT location_id, COUNT(*) AS cnt
+            FROM contact_messages
+            WHERE location_id = ANY(%s) AND timestamp >= %s
+            GROUP BY location_id
+        """, (location_ids, start_utc))
+        agent_msg_stats = {row['location_id']: row['cnt'] for row in cur.fetchall()}
+
+        # Agent names
+        _cid = getattr(current_user, 'company_id', None)
+        if _cid:
+            cur.execute("SELECT location_id, full_name, email, bot_first_name FROM subscribers WHERE company_id = %s", (_cid,))
+        else:
+            cur.execute("SELECT location_id, full_name, email, bot_first_name FROM subscribers WHERE parent_agency_email = %s", (current_user.email,))
+        agent_names = {row['location_id']: row for row in cur.fetchall()}
+
+        # Build agent list with all metrics
+        agents = []
+        for lid in location_ids:
+            cs = agent_call_stats.get(lid, {})
+            info = agent_names.get(lid, {})
+            agent_total = cs.get('total_calls', 0) or 0
+            agent_connected = cs.get('connected', 0) or 0
+            agent_connect_rate = round(agent_connected / agent_total * 100, 1) if agent_total else 0
+            agent_over_45s = cs.get('over_45s', 0) or 0
+            agent_pct_45s = round(agent_over_45s / agent_connected * 100, 1) if agent_connected else 0
+
+            agents.append({
+                "location_id": lid,
+                "name": info.get('full_name') or info.get('email') or 'Unknown',
+                "email": info.get('email', ''),
+                "total_calls": agent_total,
+                "connected": agent_connected,
+                "connect_rate": agent_connect_rate,
+                "total_secs": int(cs.get('total_secs', 0) or 0),
+                "avg_duration": round(float(cs.get('avg_dur', 0) or 0), 1),
+                "over_45s": agent_over_45s,
+                "pct_45s": agent_pct_45s,
+                "over_2min": cs.get('over_2min', 0) or 0,
+                "over_5min": cs.get('over_5min', 0) or 0,
+                "over_10min": cs.get('over_10min', 0) or 0,
+                "messages": agent_msg_stats.get(lid, 0),
+                "daily_avg_dials": round(agent_total / days, 1),
+                "last_call": str(cs['last_call']) if cs.get('last_call') else None,
+            })
+
+        # Sort by connect rate for leaderboard (with minimum call threshold)
+        agents_with_calls = [a for a in agents if a['total_calls'] >= 5]
+        agents_with_calls.sort(key=lambda a: a['connect_rate'], reverse=True)
+
+        # Top 5 by connect rate
+        top_connect_rate = agents_with_calls[:5]
+
+        # Top 5 by total calls (activity)
+        top_by_calls = sorted(agents, key=lambda a: a['total_calls'], reverse=True)[:5]
+
+        # Top 5 by avg duration (quality conversations)
+        top_by_duration = sorted(
+            [a for a in agents if a['connected'] >= 3],
+            key=lambda a: a['avg_duration'], reverse=True
+        )[:5]
+
+        # ── Agency-wide averages ─────────────────────────────────────────────
+        active_count = len([a for a in agents if a['total_calls'] > 0])
+        avg_daily_dials = round(total_calls / days / max(active_count, 1), 1)
+        avg_connect_rate_per_agent = round(
+            sum(a['connect_rate'] for a in agents if a['total_calls'] >= 5) / max(len(agents_with_calls), 1), 1
+        )
+
+        # ── Speed to lead: avg time from contact creation to first call ──────
+        cur.execute("""
+            SELECT AVG(EXTRACT(EPOCH FROM (ch.created_at - cc.created_at))) AS avg_speed
+            FROM call_history ch
+            JOIN contact_cache cc ON ch.contact_id = cc.contact_id AND ch.location_id = cc.location_id
+            WHERE ch.location_id = ANY(%s)
+              AND ch.created_at >= %s
+              AND ch.direction = 'outbound'
+              AND cc.created_at IS NOT NULL
+              AND ch.created_at > cc.created_at
+              AND EXTRACT(EPOCH FROM (ch.created_at - cc.created_at)) < 86400
+        """, (location_ids, start_utc))
+        speed_row = cur.fetchone()
+        avg_speed_to_lead = round(float(speed_row['avg_speed'] or 0), 0) if speed_row and speed_row['avg_speed'] else None
+
+        # ── Prior period comparison ──────────────────────────────────────────
+        prior = None
+        if period != 'all':
+            period_len = now - start_utc.astimezone(pytz.timezone(tz_name))
+            prior_end = start_utc
+            prior_start = start_utc - period_len
+            cur.execute("""
+                SELECT
+                    COUNT(*) AS total_calls,
+                    COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) AS connected_calls,
+                    COALESCE(SUM(duration), 0) AS total_duration,
+                    COUNT(*) FILTER (WHERE duration >= 45) AS over_45s
+                FROM call_history
+                WHERE location_id = ANY(%s) AND created_at >= %s AND created_at < %s
+            """, (location_ids, prior_start, prior_end))
+            pr = cur.fetchone()
+            p_total = pr['total_calls'] or 0
+            p_connected = pr['connected_calls'] or 0
+            p_over_45s = pr['over_45s'] or 0
+
+            def _pct(curr, prev):
+                return round((curr - prev) / prev * 100, 1) if prev else None
+
+            prior = {
+                "delta_calls": _pct(total_calls, p_total),
+                "delta_connected": _pct(connected, p_connected),
+                "delta_connect_rate": _pct(connect_rate, round(p_connected / p_total * 100, 1) if p_total else 0),
+                "delta_over_45s": _pct(over_45s, p_over_45s),
+            }
+
+        # ── Daily volume chart data ──────────────────────────────────────────
+        cur.execute("""
+            SELECT DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE %s) AS day,
+                   COUNT(*) AS calls,
+                   COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) AS connected
+            FROM call_history
+            WHERE location_id = ANY(%s) AND created_at >= %s
+            GROUP BY day ORDER BY day
+        """, (tz_name, location_ids, start_utc))
+        daily = [
+            {"day": str(row['day']), "calls": row['calls'], "connected": row['connected']}
+            for row in cur.fetchall()
+        ]
+
+        # ── Hourly distribution ──────────────────────────────────────────────
+        cur.execute("""
+            SELECT EXTRACT(HOUR FROM created_at AT TIME ZONE 'UTC' AT TIME ZONE %s)::int AS hr,
+                   COUNT(*) AS calls,
+                   COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) AS connected
+            FROM call_history
+            WHERE location_id = ANY(%s) AND created_at >= %s
+            GROUP BY hr ORDER BY hr
+        """, (tz_name, location_ids, start_utc))
+        hourly_map = {row['hr']: row for row in cur.fetchall()}
+        hourly = [{"hour": h, "calls": hourly_map.get(h, {}).get('calls', 0),
+                   "connected": hourly_map.get(h, {}).get('connected', 0)} for h in range(24)]
+
+        cur.close()
+
+        return flask_jsonify({
+            "period": period,
+            "days_in_period": days,
+            # Core metrics
+            "total_calls": total_calls,
+            "outbound_calls": r['outbound_calls'] or 0,
+            "inbound_calls": r['inbound_calls'] or 0,
+            "connected_calls": connected,
+            "connect_rate": connect_rate,
+            "avg_duration": round(float(r['avg_duration'] or 0), 1),
+            "total_duration": int(r['total_duration'] or 0),
+            "total_messages": total_messages,
+            "unique_contacts": r['unique_contacts'] or 0,
+            # Duration buckets
+            "over_45s": over_45s,
+            "over_2min": over_2min,
+            "over_5min": over_5min,
+            "over_10min": over_10min,
+            "pct_45s": pct_45s,
+            "pct_2min": pct_2min,
+            "pct_5min": pct_5min,
+            "pct_10min": pct_10min,
+            # Agency averages
+            "active_agents": r['active_agents'] or 0,
+            "total_agents": len(location_ids),
+            "avg_daily_dials": avg_daily_dials,
+            "avg_daily_dials_total": round(total_calls / days, 1),
+            "avg_connect_rate_per_agent": avg_connect_rate_per_agent,
+            "avg_speed_to_lead_secs": avg_speed_to_lead,
+            # Leaderboards (top 5)
+            "top_connect_rate": top_connect_rate,
+            "top_by_calls": top_by_calls,
+            "top_by_duration": top_by_duration,
+            # All agents (for "see more")
+            "agents": sorted(agents, key=lambda a: a['total_calls'], reverse=True),
+            # Charts
+            "daily": daily,
+            "hourly": hourly,
+            # Comparison
+            "prior": prior,
+        })
+    except Exception as e:
+        logger.error(f"agency_dashboard_stats error: {e}")
+        return flask_jsonify({"error": str(e)}), 500
+    finally:
+        return_db_connection(conn)
+
+
+def _empty_dashboard_stats():
+    """Return empty dashboard stats structure."""
+    return {
+        "period": "month", "days_in_period": 1,
+        "total_calls": 0, "outbound_calls": 0, "inbound_calls": 0,
+        "connected_calls": 0, "connect_rate": 0, "avg_duration": 0,
+        "total_duration": 0, "total_messages": 0, "unique_contacts": 0,
+        "over_45s": 0, "over_2min": 0, "over_5min": 0, "over_10min": 0,
+        "pct_45s": 0, "pct_2min": 0, "pct_5min": 0, "pct_10min": 0,
+        "active_agents": 0, "total_agents": 0, "avg_daily_dials": 0,
+        "avg_daily_dials_total": 0, "avg_connect_rate_per_agent": 0,
+        "avg_speed_to_lead_secs": None,
+        "top_connect_rate": [], "top_by_calls": [], "top_by_duration": [],
+        "agents": [], "daily": [], "hourly": [], "prior": None,
+    }
+
+
 # ── White-Label API ──────────────────────────────────────────────────────────
 
 @agency_bp.route("/api/agency/whitelabel", methods=["GET", "POST"])
