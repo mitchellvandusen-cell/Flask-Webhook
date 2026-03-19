@@ -1,156 +1,315 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Get Started | InsuranceGrokBot</title>
+    <meta name="description" content="Pick your plan and get started with InsuranceGrokBot in minutes.">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            margin: 0; padding: 0;
+            background: #050505;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+        }
 
-{% block title %}Get Started | InsuranceGrokBot{% endblock %}
+        .gs-wrap {
+            max-width: 1340px;
+            margin: 0 auto;
+            padding: 28px 20px 40px;
+        }
 
-{% block meta_description %}Set up InsuranceGrokBot in minutes. Step-by-step guide to connecting your CRM, configuring AI texting, setting up your power dialer, and booking your first automated appointment.{% endblock %}
+        /* Header */
+        .gs-header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+        .gs-header h1 {
+            font-weight: 900;
+            font-size: 1.8rem;
+            margin: 0 0 6px;
+        }
+        .gs-header h1 span { color: var(--accent, #00ff88); }
+        .gs-header p {
+            color: #888;
+            font-size: 0.92rem;
+            margin: 0;
+        }
 
-{% block content %}
-<div class="container" style="padding-top: 120px; padding-bottom: 80px;">
-    <div class="text-center mb-5" data-aos="fade-down">
-        <h1 style="font-weight: 900; font-size: 2.8rem; margin-bottom: 10px;">
-            Get Up and <span class="text-accent">Running</span>
-        </h1>
-        <p style="color: #aaa; font-size: 1.1rem; max-width: 580px; margin: 0 auto;">
-            Pick how you want to connect. Most agents are live and engaging leads within 10 minutes.
-        </p>
+        /* Pricing grid — 4 columns on desktop, 2 on tablet, 1 on mobile */
+        .gs-price-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        @media (max-width: 1100px) { .gs-price-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 600px) { .gs-price-grid { grid-template-columns: 1fr; } }
+
+        /* Glass pricing card */
+        .gs-card {
+            border-radius: 20px;
+            padding: 28px 24px;
+            position: relative;
+            overflow: visible;
+            background: var(--glass-bg, linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%));
+            backdrop-filter: var(--glass-blur, blur(20px) saturate(160%) brightness(1.1));
+            -webkit-backdrop-filter: var(--glass-blur, blur(20px) saturate(160%) brightness(1.1));
+            border-width: 1px;
+            border-style: solid;
+            border-color: var(--glass-border-top, rgba(255,255,255,0.25)) var(--glass-border-bottom, rgba(255,255,255,0.05)) var(--glass-border-bottom, rgba(255,255,255,0.05)) var(--glass-border-left, rgba(255,255,255,0.15));
+            box-shadow: var(--glass-shadow, 0 16px 32px -8px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.15));
+        }
+        .gs-card.gs-featured {
+            border-color: rgba(0,255,136,0.40);
+            box-shadow: 0 24px 48px rgba(0,0,0,0.48), inset 0 1.5px 0 rgba(255,255,255,0.55), 0 0 40px rgba(0,255,136,0.06);
+        }
+        .gs-badge {
+            position: absolute;
+            top: -11px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 3px 14px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #fff;
+            white-space: nowrap;
+        }
+        .gs-card h4 {
+            font-weight: 800;
+            font-size: 1.05rem;
+            margin: 6px 0 6px;
+            text-align: center;
+            color: #fff;
+        }
+        .gs-price {
+            text-align: center;
+            margin-bottom: 4px;
+        }
+        .gs-price-amount {
+            font-size: 2rem;
+            font-weight: 900;
+            line-height: 1;
+        }
+        .gs-price-mo { color: #888; font-size: 0.9rem; }
+        .gs-subtitle {
+            font-weight: 600;
+            font-size: 0.78rem;
+            margin-top: 6px;
+            text-align: center;
+        }
+        .gs-trial {
+            color: #00ff88;
+            font-weight: 700;
+            font-size: 0.78rem;
+            text-align: center;
+            margin: 3px 0 0;
+        }
+
+        /* Features list */
+        .gs-features {
+            list-style: none;
+            padding: 0;
+            margin: 14px 0;
+        }
+        .gs-features li {
+            padding: 3px 0;
+            color: #bbb;
+            font-size: 0.78rem;
+        }
+        .gs-features li i {
+            margin-right: 6px;
+            font-size: 0.7rem;
+        }
+
+        /* CTA button */
+        .gs-btn {
+            display: block;
+            width: 100%;
+            padding: 12px 0;
+            text-align: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+            border-radius: 12px;
+            border: none;
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .gs-btn:hover { opacity: 0.9; color: #000; text-decoration: none; }
+        .gs-btn--cyan { background: linear-gradient(135deg, #00d9ff, #0088cc); }
+        .gs-btn--green { background: var(--accent, #00ff88); }
+        .gs-btn--orange { background: linear-gradient(135deg, #ff6b35, #ff3366); color: #fff; }
+        .gs-btn--orange:hover { color: #fff; }
+        .gs-btn--purple { background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: #fff; }
+        .gs-btn--purple:hover { color: #fff; }
+
+        /* Footer CTA card */
+        .gs-footer-card {
+            border-radius: 16px;
+            padding: 24px 32px;
+            text-align: center;
+            background: var(--glass-bg, linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%));
+            backdrop-filter: var(--glass-blur, blur(20px) saturate(160%) brightness(1.1));
+            -webkit-backdrop-filter: var(--glass-blur, blur(20px) saturate(160%) brightness(1.1));
+            border-width: 1px;
+            border-style: solid;
+            border-color: var(--glass-border-top, rgba(255,255,255,0.25)) var(--glass-border-bottom, rgba(255,255,255,0.05)) var(--glass-border-bottom, rgba(255,255,255,0.05)) var(--glass-border-left, rgba(255,255,255,0.15));
+            box-shadow: var(--glass-shadow, 0 16px 32px -8px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.15));
+        }
+        .gs-footer-card h3 {
+            font-weight: 800;
+            font-size: 1.1rem;
+            margin: 0 0 6px;
+            color: #fff;
+        }
+        .gs-footer-card p {
+            color: #888;
+            font-size: 0.85rem;
+            margin: 0 0 14px;
+        }
+        .gs-footer-link {
+            display: inline-block;
+            padding: 10px 28px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 10px;
+            color: #fff;
+            font-weight: 600;
+            font-size: 0.88rem;
+            text-decoration: none;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .gs-footer-link:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: var(--accent, #00ff88);
+            color: #fff;
+            text-decoration: none;
+        }
+
+        .gs-footnote {
+            text-align: center;
+            color: #555;
+            font-size: 0.72rem;
+            margin-top: 16px;
+        }
+        .gs-footnote a { color: var(--accent, #00ff88); }
+    </style>
+</head>
+<body>
+
+<div class="gs-wrap">
+
+    <div class="gs-header">
+        <h1>Pick Your <span>Plan</span></h1>
+        <p>Everything included. No hidden fees. 7-day free trial on every plan.</p>
     </div>
 
-    <div class="row g-4 justify-content-center pb-5">
+    <div class="gs-price-grid">
 
-        <!-- Path 1: Subscribe & Connect -->
-        <div class="col-lg-5 col-md-6" data-aos="fade-up" data-aos-delay="100">
-            <div class="glass-card p-4 h-100" style="border: 2px solid rgba(0,255,136,0.3); position: relative;">
-                <span style="background: rgba(0,255,136,0.3); border: 1px solid #00ff88; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); padding: 4px 16px; border-radius: 20px; font-size: 0.78rem; font-weight: 700; color: #fff; white-space: nowrap; z-index: 1;">Recommended</span>
-                <div style="width: 56px; height: 56px; background: var(--accent); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 8px auto 20px;">
-                    <i class="fa-solid fa-bolt" style="font-size: 1.5rem; color: #000;"></i>
-                </div>
-                <h3 style="font-weight: 800; text-align: center; color: #fff; margin-bottom: 8px;">Subscribe & Connect</h3>
-                <p style="color: #888; text-align: center; font-size: 0.9rem; margin-bottom: 24px;">
-                    The fastest way to get started. Subscribe, set your password, and connect your CRM from the dashboard.
-                </p>
-
-                <div style="margin-bottom: 24px;">
-                    <div style="display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
-                        <div style="width: 32px; height: 32px; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: var(--accent); font-size: 0.85rem; flex-shrink: 0;">1</div>
-                        <div>
-                            <div style="color: #fff; font-weight: 600; font-size: 0.92rem;">Subscribe</div>
-                            <div style="color: #777; font-size: 0.82rem;">Click "Get Started" and complete checkout. Your account is created instantly.</div>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
-                        <div style="width: 32px; height: 32px; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: var(--accent); font-size: 0.85rem; flex-shrink: 0;">2</div>
-                        <div>
-                            <div style="color: #fff; font-weight: 600; font-size: 0.92rem;">Set your password</div>
-                            <div style="color: #777; font-size: 0.82rem;">After checkout you'll set a password and land directly on your dashboard.</div>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
-                        <div style="width: 32px; height: 32px; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: var(--accent); font-size: 0.85rem; flex-shrink: 0;">3</div>
-                        <div>
-                            <div style="color: #fff; font-weight: 600; font-size: 0.92rem;">Connect your CRM</div>
-                            <div style="color: #777; font-size: 0.82rem;">Go to the Connect tab on the dashboard, pick your CRM, and follow the setup guide. Works with LeadConnector, HubSpot, Salesforce, Pipedrive, Zoho, Insureio, and Zapier.</div>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: flex-start; gap: 14px; padding: 12px 0;">
-                        <div style="width: 32px; height: 32px; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: var(--accent); font-size: 0.85rem; flex-shrink: 0;">4</div>
-                        <div>
-                            <div style="color: #fff; font-weight: 600; font-size: 0.92rem;">You're live</div>
-                            <div style="color: #777; font-size: 0.82rem;">The bot starts handling leads automatically. Configure your carriers, tone, and calendar from the dashboard anytime.</div>
-                        </div>
-                    </div>
-                </div>
-
-                <a href="/checkout" class="btn btn-primary w-100 py-3" style="font-weight: 700; font-size: 1rem;">
-                    Start your Free Trial <i class="fa-solid fa-arrow-right ms-2"></i>
-                </a>
+        <!-- SMS Bot -->
+        <div class="gs-card" style="border-color: rgba(0,217,255,0.3);">
+            <span class="gs-badge" style="background: rgba(0,217,255,0.3); border: 1px solid #00d9ff;">SMS Only</span>
+            <h4>SMS Bot</h4>
+            <div class="gs-price">
+                <span class="gs-price-amount metallic-price--cyan">$99.98</span><span class="gs-price-mo">/mo</span>
             </div>
+            <p class="gs-subtitle" style="color: #00d9ff;">AI texting that sells. No dialer.</p>
+            <p class="gs-trial">7-day free trial</p>
+            <ul class="gs-features">
+                <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> <strong>AI Texting</strong> — outbound, inbound & booking</li>
+                <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Rapport-building conversation engine</li>
+                <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> 6-type objection handling</li>
+                <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Smart Filters & Lead Intelligence</li>
+                <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> 270+ carrier recognition</li>
+                <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> 7 CRM integrations</li>
+            </ul>
+            <a href="/checkout/sms-bot" class="gs-btn gs-btn--cyan">Start Free Trial <i class="fa-solid fa-arrow-right ms-1"></i></a>
         </div>
 
-        <!-- Path 2: LeadConnector Marketplace -->
-        <div class="col-lg-5 col-md-6" data-aos="fade-up" data-aos-delay="200">
-            <div class="glass-card p-4 h-100" style="border: 2px solid rgba(0,217,255,0.2);">
-                <div style="width: 56px; height: 56px; background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.25); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 8px auto 20px;">
-                    <i class="fa-solid fa-cloud-arrow-down" style="font-size: 1.5rem; color: #00d9ff;"></i>
-                </div>
-                <h3 style="font-weight: 800; text-align: center; color: #fff; margin-bottom: 8px;">LeadConnector Marketplace</h3>
-                <p style="color: #888; text-align: center; font-size: 0.9rem; margin-bottom: 24px;">
-                    Already on LeadConnector? Install directly from the marketplace for one-click CRM sync.
-                </p>
-
-                <div style="margin-bottom: 24px;">
-                    <div style="display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
-                        <div style="width: 32px; height: 32px; background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #00d9ff; font-size: 0.85rem; flex-shrink: 0;">1</div>
-                        <div>
-                            <div style="color: #fff; font-weight: 600; font-size: 0.92rem;">Open your CRM</div>
-                            <div style="color: #777; font-size: 0.82rem;">Log into your Lead Connector account and go to the Marketplace tab in the sidebar.</div>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
-                        <div style="width: 32px; height: 32px; background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #00d9ff; font-size: 0.85rem; flex-shrink: 0;">2</div>
-                        <div>
-                            <div style="color: #fff; font-weight: 600; font-size: 0.92rem;">Find InsuranceGrokBot</div>
-                            <div style="color: #777; font-size: 0.82rem;">Search for "Insurance Grok Bot" and click Install. Approve the permissions when prompted.</div>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
-                        <div style="width: 32px; height: 32px; background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #00d9ff; font-size: 0.85rem; flex-shrink: 0;">3</div>
-                        <div>
-                            <div style="color: #fff; font-weight: 600; font-size: 0.92rem;">Complete checkout</div>
-                            <div style="color: #777; font-size: 0.82rem;">You'll be redirected to subscribe. Your CRM is automatically connected — no API keys or manual setup needed.</div>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: flex-start; gap: 14px; padding: 12px 0;">
-                        <div style="width: 32px; height: 32px; background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #00d9ff; font-size: 0.85rem; flex-shrink: 0;">4</div>
-                        <div>
-                            <div style="color: #fff; font-weight: 600; font-size: 0.92rem;">You're live</div>
-                            <div style="color: #777; font-size: 0.82rem;">Your location, calendar, and contacts sync automatically. Start handling leads right away.</div>
-                        </div>
-                    </div>
-                </div>
-
-                <a href="https://marketplace.leadconnectorhq.com" target="_blank" rel="noopener noreferrer" class="btn w-100 py-3" style="background: linear-gradient(135deg, #00d9ff, #0066ff); color: #fff; font-weight: 700; border: none; font-size: 1rem;">
-                    Open Marketplace <i class="fa-solid fa-external-link ms-2"></i>
-                </a>
+        <!-- Power Dialer -->
+        <div class="gs-card gs-featured">
+            <span class="gs-badge" style="background: rgba(0,255,136,0.3); border: 1px solid #00ff88;">Most Popular</span>
+            <h4>Power Dialer</h4>
+            <div class="gs-price">
+                <span class="gs-price-amount metallic-price--green">$149.98</span><span class="gs-price-mo">/mo</span>
             </div>
+            <p class="gs-subtitle" style="color: #00ff88;">AI texting + dialer + voice. All-in-one.</p>
+            <p class="gs-trial">7-day free trial</p>
+            <ul class="gs-features">
+                <li><i class="fa-solid fa-check" style="color: #00ff88;"></i> <strong>Single-line power dialer</strong></li>
+                <li><i class="fa-solid fa-check" style="color: #00ff88;"></i> AI Texting + AI Voice Agent</li>
+                <li><i class="fa-solid fa-check" style="color: #00ff88;"></i> Lead Intelligence & Smart Filters</li>
+                <li><i class="fa-solid fa-check" style="color: #00ff88;"></i> Number rotation & geo-routing</li>
+                <li><i class="fa-solid fa-check" style="color: #00ff88;"></i> 270+ carrier recognition</li>
+                <li><i class="fa-solid fa-check" style="color: #00ff88;"></i> Unlimited minutes* included</li>
+            </ul>
+            <a href="/checkout" class="gs-btn gs-btn--green">Start Free Trial <i class="fa-solid fa-arrow-right ms-1"></i></a>
         </div>
 
-    </div>
-
-    <!-- After Setup -->
-    <div class="row justify-content-center" data-aos="fade-up">
-        <div class="col-lg-10">
-            <div class="glass-card p-4" style="border-color: rgba(255,255,255,0.08);">
-                <h3 style="font-weight: 700; color: #fff; margin-bottom: 20px; text-align: center;">
-                    <i class="fa-solid fa-circle-check me-2" style="color: var(--accent);"></i>Once You're In
-                </h3>
-                <div class="row g-4">
-                    <div class="col-md-4 text-center">
-                        <i class="fa-solid fa-sliders" style="font-size: 1.5rem; color: var(--accent); margin-bottom: 12px;"></i>
-                        <h5 style="font-weight: 700; color: #fff; font-size: 0.95rem;">Configure Your Bot</h5>
-                        <p style="color: #888; font-size: 0.85rem; margin: 0;">Set your tone, select your contracted carriers, and customize how the AI handles conversations.</p>
-                    </div>
-                    <div class="col-md-4 text-center">
-                        <i class="fa-solid fa-phone-volume" style="font-size: 1.5rem; color: #00d9ff; margin-bottom: 12px;"></i>
-                        <h5 style="font-weight: 700; color: #fff; font-size: 0.95rem;">Set Up Voice &amp; Dialer</h5>
-                        <p style="color: #888; font-size: 0.85rem; margin: 0;">Provision a phone number, choose a voice personality, and start using the smart dialer to call leads.</p>
-                    </div>
-                    <div class="col-md-4 text-center">
-                        <i class="fa-solid fa-calendar-check" style="font-size: 1.5rem; color: #e91e63; margin-bottom: 12px;"></i>
-                        <h5 style="font-weight: 700; color: #fff; font-size: 0.95rem;">Connect Your Calendar</h5>
-                        <p style="color: #888; font-size: 0.85rem; margin: 0;">Link your calendar so the AI can check your real-time availability and book appointments for you.</p>
-                    </div>
-                </div>
+        <!-- Pro Dialer -->
+        <div class="gs-card" style="border-color: rgba(255,107,53,0.3);">
+            <span class="gs-badge" style="background: linear-gradient(135deg, #ff6b35, #ff3366); border: none;">Power User</span>
+            <h4>Pro Dialer</h4>
+            <div class="gs-price">
+                <span class="gs-price-amount metallic-price--orange">$224.98</span><span class="gs-price-mo">/mo</span>
             </div>
+            <p class="gs-subtitle" style="color: #ff6b35;">Multi-line + predictive dialing.</p>
+            <p class="gs-trial">7-day free trial</p>
+            <ul class="gs-features">
+                <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> <strong>Multi-line dialer (up to 4 lines)</strong></li>
+                <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> <strong>Predictive auto-pacing</strong></li>
+                <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Everything in Power Dialer</li>
+                <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Connect rate analytics</li>
+                <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Multi-call status dashboard</li>
+                <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Unlimited minutes* included</li>
+            </ul>
+            <a href="/checkout/pro-dialer" class="gs-btn gs-btn--orange">Start Free Trial <i class="fa-solid fa-arrow-right ms-1"></i></a>
         </div>
+
+        <!-- Predictive Dialer -->
+        <div class="gs-card" style="border-color: rgba(139,92,246,0.35);">
+            <span class="gs-badge" style="background: linear-gradient(135deg, #8b5cf6, #00ff88); border: none; color: #000;">AI-Powered</span>
+            <h4>Predictive Dialer</h4>
+            <div class="gs-price">
+                <span class="gs-price-amount" style="background: linear-gradient(135deg, #a78bfa, #c4b5fd); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">$349.98</span><span class="gs-price-mo">/mo</span>
+            </div>
+            <p class="gs-subtitle" style="color: #a78bfa;">Erlang-C pacing + AI Overflow.</p>
+            <p class="gs-trial">7-day free trial</p>
+            <ul class="gs-features">
+                <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> <strong>Erlang-C predictive pacing</strong></li>
+                <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> <strong>AI Overflow — AI handles extra lines</strong></li>
+                <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> Everything in Pro Dialer</li>
+                <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> TCPA auto-throttle</li>
+                <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> Compliance dashboard</li>
+                <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> 2,000 AI minutes included</li>
+            </ul>
+            <a href="/checkout/predictive-dialer" class="gs-btn gs-btn--purple">Start Free Trial <i class="fa-solid fa-arrow-right ms-1"></i></a>
+        </div>
+
     </div>
 
-    <!-- Help CTA -->
-    <div class="text-center mt-5" data-aos="fade-up">
-        <p style="color: #666; font-size: 0.9rem;">Need help getting set up?</p>
-        <div class="d-flex justify-content-center gap-3 flex-wrap">
-            <a href="/support" class="btn btn-outline-accent btn-sm">Support Center</a>
-            <a href="/demo-chat" class="btn btn-outline-accent btn-sm" style="border-color: rgba(0,217,255,0.4); color: #00d9ff;">Try the Demo First</a>
-        </div>
+    <!-- Visit website CTA -->
+    <div class="gs-footer-card">
+        <h3><i class="fa-solid fa-globe" style="color: var(--accent, #00ff88); margin-right: 8px;"></i>Want the full picture?</h3>
+        <p>See demos, feature breakdowns, comparisons, and agency plans on our website.</p>
+        <a href="https://insurancegrokbot.click" target="_blank" rel="noopener noreferrer" class="gs-footer-link">
+            Visit InsuranceGrokBot.click <i class="fa-solid fa-external-link ms-2"></i>
+        </a>
     </div>
+
+    <p class="gs-footnote">
+        *Unlimited minutes subject to fair use. AI Dialing requires AI Minutes. No contracts, cancel anytime.
+        <br>Run an agency? <a href="https://insurancegrokbot.click/for-agencies" target="_blank" rel="noopener noreferrer">See team plans</a>
+    </p>
+
 </div>
-{% endblock %}
+
+</body>
+</html>
