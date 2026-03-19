@@ -172,9 +172,20 @@ def ws_listen_stream(ws):
 
 _secret = os.getenv("SESSION_SECRET") or os.getenv("SECRET_KEY")
 if not _secret:
+    # In production, a missing secret key means all sessions break on restart/scale.
+    # Fail loudly so this is caught during deployment, not after users lose sessions.
+    if os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RENDER") or os.getenv("GUNICORN_CMD_ARGS"):
+        raise RuntimeError(
+            "FATAL: SESSION_SECRET or SECRET_KEY environment variable is not set. "
+            "All user sessions will be invalidated on every restart or horizontal scale event. "
+            "Set SESSION_SECRET to a stable random string (e.g., python -c 'import secrets; print(secrets.token_hex(32))')."
+        )
+    # Local development only — generate a random key with a loud warning
     import secrets as _s
     _secret = _s.token_hex(32)
-    logger.warning("SESSION_SECRET / SECRET_KEY not set — using random key (sessions will not survive restarts)")
+    logger.warning("SESSION_SECRET / SECRET_KEY not set — using random key. "
+                    "This is only acceptable for local development. "
+                    "Set SESSION_SECRET before deploying to production.")
 app.secret_key = _secret
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_SECURE'] = True

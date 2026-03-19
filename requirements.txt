@@ -1,53 +1,53 @@
 # Core web framework & utilities
-flask
-gunicorn
-werkzeug
-requests
-python-dotenv
+flask==3.1.3
+gunicorn==23.0.0
+werkzeug==3.1.3
+requests==2.32.3
+python-dotenv==1.1.0
 
 # Database & ORM
-psycopg2-binary
-sqlalchemy
-flask-sqlalchemy
+psycopg2-binary==2.9.10
+sqlalchemy==2.0.36
+flask-sqlalchemy==3.1.1
 
 # Authentication & forms
-flask-login
-flask-wtf
-flask-mail
-wtforms
-email-validator
-cryptography      # Fernet AES token encryption at rest
+flask-login==0.6.3
+flask-wtf==1.2.2
+flask-mail==0.10.0
+wtforms==3.2.1
+email-validator==2.2.0
+cryptography==44.0.0      # Fernet AES token encryption at rest
 
 # AI & NLP
-openai
-spacy
+openai==1.66.3
+spacy==3.8.4
 en_core_web_md @ https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.8.0/en_core_web_md-3.8.0-py3-none-any.whl
-dateparser
+dateparser==1.2.1
 
 # Google Sheets, Calendar & OAuth
-gspread
-google-auth
-google-auth-oauthlib
-google-auth-httplib2
-google-api-python-client  # Google Calendar API
+gspread==6.1.4
+google-auth==2.38.0
+google-auth-oauthlib==1.2.1
+google-auth-httplib2==0.2.0
+google-api-python-client==2.159.0  # Google Calendar API
 oauth2client==4.1.3  # Legacy but still needed for some GHL flows
 
 # Stripe payments
-stripe
+stripe==11.4.1
 
 # Background jobs & Redis
-redis
-rq
+redis==5.2.1
+rq==2.1.0
 
 # Voice AI (Twilio Media Streams <-> XAI Realtime bridge)
-flask-sock
-websockets
-twilio
-soxr          # High-quality polyphase sinc resampler (replaces audioop.ratecv)
-scipy         # Butterworth low-pass filter for phone-line warmth EQ
+flask-sock==0.7.0
+websockets==14.2
+twilio==9.4.4
+soxr==0.5.0          # High-quality polyphase sinc resampler (replaces audioop.ratecv)
+scipy==1.15.1        # Butterworth low-pass filter for phone-line warmth EQ
 
 # Contact import (Excel parsing)
-openpyxl
+openpyxl==3.1.5
 
 # Optional (only if you use outcome_learning / classify_vibe)
-scikit-learn
+scikit-learn==1.6.1
