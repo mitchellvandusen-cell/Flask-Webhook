@@ -1155,7 +1155,7 @@ def ghl_voice_config_get():
         'max_call_duration', 'voicemail_detection', 'voicemail_message',
         'on_machine_action', 'wrap_up_time', 'require_disposition',
         'calling_hours_start', 'calling_hours_end',
-        'same_number_cooldown_hours', 'same_contact_daily_max',
+        'same_contact_daily_max',
         'max_lines_setting', 'max_abandon_rate_pct',
         'auto_disposition_no_answer', 'auto_disposition_voicemail',
         'number_rotation_enabled', 'rotation_strategy',
@@ -1193,7 +1193,7 @@ def ghl_voice_config_save():
     }
     editable_ints = {
         'max_call_duration': (30, 3600), 'wrap_up_time': (0, 120),
-        'same_number_cooldown_hours': (0, 72), 'same_contact_daily_max': (0, 10),
+        'same_contact_daily_max': (0, 10),
         'max_lines_setting': (1, 4),
     }
     editable_floats = {'max_abandon_rate_pct': (1.0, 10.0)}

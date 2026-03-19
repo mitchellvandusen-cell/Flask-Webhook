@@ -1690,7 +1690,6 @@ async function igbSecVoice(c) {
         + '<div class="igb-cfg-col"><label class="igb-cfg-label">Wrap-Up Time (sec)</label><input class="igb-cfg-input" id="igb-vc-wrapup" type="number" min="0" max="120" value="' + (vc.wrap_up_time || 15) + '"></div>'
         + '</div>';
     form.innerHTML += '<div class="igb-cfg-row">'
-        + '<div class="igb-cfg-col"><label class="igb-cfg-label">Same # Cooldown (hrs)</label><input class="igb-cfg-input" id="igb-vc-cooldown" type="number" min="0" max="72" value="' + (vc.same_number_cooldown_hours || 4) + '"></div>'
         + '<div class="igb-cfg-col"><label class="igb-cfg-label">Daily Max Per Contact</label><input class="igb-cfg-input" id="igb-vc-dailymax" type="number" min="0" max="10" value="' + (vc.same_contact_daily_max || 3) + '"></div>'
         + '</div>';
     form.innerHTML += '<button class="igb-cfg-btn-action igb-cfg-btn-save" id="igb-vc-save"><i class="fa-solid fa-floppy-disk"></i> Save Voice Config</button>';
@@ -1709,7 +1708,6 @@ async function igbSecVoice(c) {
                 on_machine_action: c.querySelector('#igb-vc-machine').value,
                 max_call_duration: parseInt(c.querySelector('#igb-vc-maxdur').value, 10),
                 wrap_up_time: parseInt(c.querySelector('#igb-vc-wrapup').value, 10),
-                same_number_cooldown_hours: parseInt(c.querySelector('#igb-vc-cooldown').value, 10),
                 same_contact_daily_max: parseInt(c.querySelector('#igb-vc-dailymax').value, 10),
             });
             igbShowToast('Voice config saved', 'success');

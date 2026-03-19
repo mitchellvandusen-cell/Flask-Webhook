@@ -207,7 +207,7 @@
         requireDisposition:      {{ 'true' if voice_config is not defined or voice_config.get('require_disposition', True) != False else 'false' }},
         callingHoursStart:       {{ (voice_config.get('calling_hours_start', '08:00'))|tojson if voice_config is defined else '"08:00"' }},
         callingHoursEnd:         {{ (voice_config.get('calling_hours_end', '21:00'))|tojson if voice_config is defined else '"21:00"' }},
-        sameNumberCooldownHours: {{ (voice_config.get('same_number_cooldown_hours', 4)|int) if voice_config is defined else 4 }},
+        sameNumberCooldownHours: 0,
         sameContactDailyMax:     {{ (voice_config.get('same_contact_daily_max', 3)|int) if voice_config is defined else 3 }},
         onMachineAction:         {{ (voice_config.get('on_machine_action', 'hangup'))|tojson if voice_config is defined else '"hangup"' }},
         autoDispositionNoAnswer: {{ 'false' if voice_config is defined and voice_config.get('auto_disposition_no_answer') == False else 'true' }},
