@@ -46,16 +46,21 @@ def init_db():
             all_revs = [rev.revision for rev in script.walk_revisions()]
             logger.info(f"Alembic: script head(s)={heads}, all revisions={all_revs}")
 
-            # Check current DB version
+            # Check current DB version using psycopg2 directly (avoids circular import)
             try:
-                from db import get_db_connection, return_db_connection
-                conn = get_db_connection()
-                cur = conn.cursor()
-                cur.execute("SELECT version_num FROM alembic_version")
-                db_versions = [r[0] for r in cur.fetchall()]
-                cur.close()
-                return_db_connection(conn)
-                logger.info(f"Alembic: DB version(s)={db_versions}")
+                import psycopg2
+                db_url = os.getenv("DATABASE_URL")
+                if db_url:
+                    dbg_conn = psycopg2.connect(db_url)
+                    dbg_cur = dbg_conn.cursor()
+                    dbg_cur.execute("SELECT version_num FROM alembic_version")
+                    db_versions = [r[0] for r in dbg_cur.fetchall()]
+                    # Also check if 003 indexes exist
+                    dbg_cur.execute("SELECT indexname FROM pg_indexes WHERE indexname = 'idx_call_history_loc_phone'")
+                    idx_exists = dbg_cur.fetchone() is not None
+                    dbg_cur.close()
+                    dbg_conn.close()
+                    logger.info(f"Alembic: DB version(s)={db_versions}, 003 index exists={idx_exists}")
             except Exception as dbg_err:
                 logger.info(f"Alembic: could not read DB version: {dbg_err}")
 
