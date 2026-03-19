@@ -827,6 +827,15 @@ def init_db() -> bool:
         except Exception as e:
             logger.debug(f"unique_msg_content migration note: {e}")
 
+        # MIGRATION: Add stage column to contact_messages for stage history tracking
+        try:
+            cur.execute("""
+                ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS stage TEXT
+            """)
+            logger.info("✅ Migration: Added stage column to contact_messages")
+        except Exception as e:
+            logger.debug(f"stage column migration note: {e}")
+
         conn.commit()
         logger.info("Database initialized: All tables ready (including contact_narratives).")
 
