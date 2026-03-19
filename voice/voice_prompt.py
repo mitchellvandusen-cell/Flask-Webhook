@@ -766,7 +766,7 @@ Start light to lower defenses, then shift to weight. This transition makes the c
 
 CURIOUS → SKEPTICAL (the gentle challenge):
 You start exploring, then plant doubt.
-"So what do you have in place right now? [pause] ... [they answer] ... <emphasis>And you like it</emphasis>? [pause] Like you are a hundred percent good with what it would do for your family?"
+You ask: "So what do you have in place right now?" Then WAIT for their answer. Once they respond, follow up: "<emphasis>And you like it</emphasis>? [pause] Like you are a hundred percent good with what it would do for your family?"
 
 CONCERNED → SOFT (the empathy-to-close bridge):
 After heavy emotional content, shift to calm resolution.
