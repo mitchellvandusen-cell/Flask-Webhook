@@ -574,22 +574,6 @@
 
                         <!-- Contact protection -->
                         <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px;margin-bottom:12px;">
-                            <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.8px;color:#555;font-weight:700;margin-bottom:12px;">
-                                <i class="fa-solid fa-user-shield me-1" style="color:#f59e0b;"></i>Contact Protection
-                            </div>
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">Daily Max Per Contact</label>
-                                    <select class="form-control" id="voiceDailyMaxContact" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;">
-                                        <option value="0" {% if voice_config.get('same_contact_daily_max',3)|int == 0 %}selected{% endif %}>No limit</option>
-                                        <option value="1" {% if voice_config.get('same_contact_daily_max',3)|int == 1 %}selected{% endif %}>1 call/day</option>
-                                        <option value="2" {% if voice_config.get('same_contact_daily_max',3)|int == 2 %}selected{% endif %}>2 calls/day</option>
-                                        <option value="3" {% if voice_config.get('same_contact_daily_max',3)|int == 3 %}selected{% endif %}>3 calls/day (recommended)</option>
-                                        <option value="5" {% if voice_config.get('same_contact_daily_max',3)|int == 5 %}selected{% endif %}>5 calls/day</option>
-                                    </select>
-                                    <small style="color:#555;font-size:0.75rem;">Max calls per contact per day</small>
-                                </div>
-                            </div>
                         </div>
                         </div><!-- /proDialerSection -->
 

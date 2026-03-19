@@ -91,41 +91,6 @@ def _check_calling_hours(voice_config, agent_tz_str=None):
     return True, None
 
 
-def _check_cooldown_and_daily_max(location_id, phones, voice_config, conn):
-    """Batch check daily max for a list of phone numbers.
-    Returns dict of phone -> reason string for phones that should be skipped."""
-    try:
-        daily_max = int(voice_config.get('same_contact_daily_max', 0))
-    except (ValueError, TypeError):
-        daily_max = 0
-    if not daily_max:
-        return {}
-
-    blocked = {}
-    if not phones or not conn:
-        return blocked
-
-    try:
-        cur = conn.cursor()
-
-        if daily_max > 0:
-            cur.execute("""
-                SELECT phone, COUNT(*) AS cnt
-                FROM call_history
-                WHERE location_id = %s AND phone = ANY(%s)
-                  AND created_at >= CURRENT_DATE
-                GROUP BY phone
-                HAVING COUNT(*) >= %s
-            """, (location_id, list(phones), daily_max))
-            for row in cur.fetchall():
-                if row['phone'] not in blocked:
-                    blocked[row['phone']] = f"Daily max: {daily_max} calls/day reached"
-
-        cur.close()
-    except Exception as e:
-        logger.warning(f"Daily-max check failed: {e}")
-
-    return blocked
 
 
 @dialer_bp.route('/voice/test', methods=['POST'])
@@ -986,19 +951,6 @@ def dial_contact():
             finally:
                 return_db_connection(_dnd_conn)
 
-    # ── Daily max enforcement (same as multi_dial) ──
-    if phone and location_id:
-        _cd_conn = get_db_connection()
-        if _cd_conn:
-            try:
-                blocked = _check_cooldown_and_daily_max(location_id, [phone], voice_config, _cd_conn)
-                if phone in blocked:
-                    return jsonify({"error": blocked[phone], "daily_max_blocked": True}), 400
-            except Exception as _cd_e:
-                logger.warning(f"Daily max check failed (non-fatal): {_cd_e}")
-            finally:
-                return_db_connection(_cd_conn)
-
     if dial_mode == 'ai' and not voice_config.get('enabled'):
         return jsonify({"error": "Voice AI is not enabled. Enable it in the Voice tab."}), 400
 
@@ -1229,19 +1181,6 @@ def multi_dial():
             finally:
                 return_db_connection(_dnd_conn)
 
-    # Batch daily max check — single query for all phones
-    blocked_phones = {}
-    batch_phones = [c.get('phone', '') for c in contacts_to_dial if c.get('phone')]
-    if batch_phones and location_id:
-        _cd_conn = get_db_connection()
-        if _cd_conn:
-            try:
-                blocked_phones = _check_cooldown_and_daily_max(location_id, batch_phones, voice_config, _cd_conn)
-            except Exception as e:
-                logger.warning(f"Multi-dial daily-max batch check failed: {e}")
-            finally:
-                return_db_connection(_cd_conn)
-
     # ── Per-contact timezone enforcement (compliance — pro_dialer+ only) ──
     tz_blocked_phones = set()
     if tier in ('pro_dialer', 'solo_predictive'):
@@ -1278,11 +1217,6 @@ def multi_dial():
         # DnD check (from batch query above)
         if c_id in dnd_contact_ids:
             results.append({"contact_id": c_id, "call_sid": None, "status": "skipped", "error": "Do Not Contact"})
-            continue
-
-        # Daily max check (from batch query above)
-        if c_phone in blocked_phones:
-            results.append({"contact_id": c_id, "call_sid": None, "status": "skipped", "error": blocked_phones[c_phone]})
             continue
 
         # Max attempts guard
