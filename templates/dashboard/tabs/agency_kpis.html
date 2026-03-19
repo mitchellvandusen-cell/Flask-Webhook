@@ -1,59 +1,198 @@
 <!-- Agency KPIs Tab — Agency Owners Only -->
 <div class="tab-pane fade" id="agency-kpis" role="tabpanel">
 
-    <div class="config-panel glass-panel">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <h3 class="config-panel-title"><i class="fa-solid fa-chart-line me-2"></i>Agency Performance</h3>
-                <p class="config-panel-desc mb-0">Aggregated KPIs across all your agents.</p>
+    <!-- Period Selector -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="config-panel-title mb-0"><i class="fa-solid fa-chart-pie me-2"></i>Agency Performance</h3>
+            <p class="config-panel-desc mb-0">Comprehensive KPIs across all your agents.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm agency-period-btn active" onclick="agencyLoadKpis('today', this)">Today</button>
+            <button class="btn btn-sm agency-period-btn" onclick="agencyLoadKpis('week', this)">Week</button>
+            <button class="btn btn-sm agency-period-btn" onclick="agencyLoadKpis('month', this)">Month</button>
+            <button class="btn btn-sm agency-period-btn" onclick="agencyLoadKpis('all', this)">All</button>
+        </div>
+    </div>
+
+    <!-- ── Row 1: Core Metric Tiles ────────────────────────────────────── -->
+    <div class="ak-tile-grid">
+        <div class="ak-tile glass-panel">
+            <div class="ak-tile-icon"><i class="fa-solid fa-phone"></i></div>
+            <div class="ak-tile-val" id="akTotalCalls">—</div>
+            <div class="ak-tile-lbl">Total Calls</div>
+            <div class="ak-tile-delta" id="akDeltaCalls"></div>
+        </div>
+        <div class="ak-tile glass-panel">
+            <div class="ak-tile-icon ak-icon-green"><i class="fa-solid fa-phone-flip"></i></div>
+            <div class="ak-tile-val" id="akConnected">—</div>
+            <div class="ak-tile-lbl">Connected</div>
+            <div class="ak-tile-delta" id="akDeltaConnected"></div>
+        </div>
+        <div class="ak-tile glass-panel">
+            <div class="ak-tile-icon ak-icon-blue"><i class="fa-solid fa-message"></i></div>
+            <div class="ak-tile-val" id="akMessages">—</div>
+            <div class="ak-tile-lbl">Messages Sent</div>
+        </div>
+        <div class="ak-tile glass-panel">
+            <div class="ak-tile-icon ak-icon-purple"><i class="fa-solid fa-users"></i></div>
+            <div class="ak-tile-val" id="akActiveAgents">—</div>
+            <div class="ak-tile-lbl">Active Agents</div>
+        </div>
+        <div class="ak-tile glass-panel">
+            <div class="ak-tile-icon ak-icon-amber"><i class="fa-solid fa-address-book"></i></div>
+            <div class="ak-tile-val" id="akUniqueContacts">—</div>
+            <div class="ak-tile-lbl">Unique Contacts</div>
+        </div>
+        <div class="ak-tile glass-panel">
+            <div class="ak-tile-icon ak-icon-cyan"><i class="fa-solid fa-bolt"></i></div>
+            <div class="ak-tile-val" id="akSpeedToLead">—</div>
+            <div class="ak-tile-lbl">Avg Speed to Lead</div>
+        </div>
+    </div>
+
+    <!-- ── Row 2: Charts Row (Connect Rate Donut + Duration Buckets + Daily Volume) ── -->
+    <div class="ak-chart-row">
+        <!-- Connect Rate Donut -->
+        <div class="ak-chart-card glass-panel">
+            <h4 class="ak-chart-title"><i class="fa-solid fa-bullseye me-2"></i>Connect Rate</h4>
+            <div class="ak-donut-wrap">
+                <canvas id="akConnectRateChart" width="200" height="200"></canvas>
+                <div class="ak-donut-center">
+                    <span class="ak-donut-val" id="akConnectRateVal">0%</span>
+                    <span class="ak-donut-sub">of calls connected</span>
+                </div>
             </div>
-            <div class="d-flex gap-2">
-                <button class="btn btn-sm agency-period-btn active" onclick="agencyLoadKpis('today', this)">Today</button>
-                <button class="btn btn-sm agency-period-btn" onclick="agencyLoadKpis('week', this)">Week</button>
-                <button class="btn btn-sm agency-period-btn" onclick="agencyLoadKpis('month', this)">Month</button>
-                <button class="btn btn-sm agency-period-btn" onclick="agencyLoadKpis('all', this)">All</button>
+            <div class="ak-donut-delta" id="akDeltaConnectRate"></div>
+        </div>
+
+        <!-- Duration Buckets Donut -->
+        <div class="ak-chart-card glass-panel">
+            <h4 class="ak-chart-title"><i class="fa-solid fa-clock me-2"></i>Call Quality</h4>
+            <div class="ak-donut-wrap">
+                <canvas id="akDurationChart" width="200" height="200"></canvas>
+                <div class="ak-donut-center">
+                    <span class="ak-donut-val" id="akAvgDuration">0s</span>
+                    <span class="ak-donut-sub">avg talk time</span>
+                </div>
+            </div>
+            <div class="ak-bucket-legend" id="akBucketLegend">
+                <span class="ak-legend-item"><span class="ak-legend-dot ak-dot-red"></span> &lt;45s</span>
+                <span class="ak-legend-item"><span class="ak-legend-dot ak-dot-amber"></span> 45s–2m</span>
+                <span class="ak-legend-item"><span class="ak-legend-dot ak-dot-green"></span> 2–5m</span>
+                <span class="ak-legend-item"><span class="ak-legend-dot ak-dot-blue"></span> 5–10m</span>
+                <span class="ak-legend-item"><span class="ak-legend-dot ak-dot-purple"></span> 10m+</span>
             </div>
         </div>
 
-        <!-- KPI Cards -->
-        <div class="agency-kpi-grid">
-            <div class="agency-kpi-card glass-panel">
-                <div class="agency-kpi-icon"><i class="fa-solid fa-phone"></i></div>
-                <div class="agency-kpi-val" id="akTotalCalls">—</div>
-                <div class="agency-kpi-lbl">Total Calls</div>
-                <div class="agency-kpi-delta" id="akDeltaCalls"></div>
+        <!-- Daily Volume Bar Chart -->
+        <div class="ak-chart-card ak-chart-wide glass-panel">
+            <h4 class="ak-chart-title"><i class="fa-solid fa-chart-bar me-2"></i>Daily Volume</h4>
+            <div class="ak-bar-wrap">
+                <canvas id="akDailyChart" height="200"></canvas>
             </div>
-            <div class="agency-kpi-card glass-panel">
-                <div class="agency-kpi-icon"><i class="fa-solid fa-phone-flip"></i></div>
-                <div class="agency-kpi-val" id="akConnected">—</div>
-                <div class="agency-kpi-lbl">Connected</div>
-                <div class="agency-kpi-delta" id="akDeltaConnected"></div>
+        </div>
+    </div>
+
+    <!-- ── Row 3: Duration Bucket Tiles ──────────────────────────────────── -->
+    <h4 class="ak-section-title"><i class="fa-solid fa-stopwatch me-2"></i>Conversation Duration Breakdown</h4>
+    <div class="ak-bucket-grid">
+        <div class="ak-bucket-tile glass-panel">
+            <div class="ak-bucket-bar" id="akBar45s"></div>
+            <div class="ak-bucket-content">
+                <div class="ak-bucket-val" id="akOver45s">0</div>
+                <div class="ak-bucket-lbl">Over 45 Seconds</div>
+                <div class="ak-bucket-pct" id="akPct45s">0%</div>
             </div>
-            <div class="agency-kpi-card glass-panel">
-                <div class="agency-kpi-icon"><i class="fa-solid fa-percent"></i></div>
-                <div class="agency-kpi-val" id="akConnectRate">—</div>
-                <div class="agency-kpi-lbl">Connect Rate</div>
+        </div>
+        <div class="ak-bucket-tile glass-panel">
+            <div class="ak-bucket-bar" id="akBar2min"></div>
+            <div class="ak-bucket-content">
+                <div class="ak-bucket-val" id="akOver2min">0</div>
+                <div class="ak-bucket-lbl">Over 2 Minutes</div>
+                <div class="ak-bucket-pct" id="akPct2min">0%</div>
             </div>
-            <div class="agency-kpi-card glass-panel">
-                <div class="agency-kpi-icon"><i class="fa-solid fa-clock"></i></div>
-                <div class="agency-kpi-val" id="akAvgDuration">—</div>
-                <div class="agency-kpi-lbl">Avg Duration</div>
-                <div class="agency-kpi-delta" id="akDeltaDuration"></div>
+        </div>
+        <div class="ak-bucket-tile glass-panel">
+            <div class="ak-bucket-bar" id="akBar5min"></div>
+            <div class="ak-bucket-content">
+                <div class="ak-bucket-val" id="akOver5min">0</div>
+                <div class="ak-bucket-lbl">Over 5 Minutes</div>
+                <div class="ak-bucket-pct" id="akPct5min">0%</div>
             </div>
-            <div class="agency-kpi-card glass-panel">
-                <div class="agency-kpi-icon"><i class="fa-solid fa-message"></i></div>
-                <div class="agency-kpi-val" id="akMessages">—</div>
-                <div class="agency-kpi-lbl">Messages</div>
+        </div>
+        <div class="ak-bucket-tile glass-panel">
+            <div class="ak-bucket-bar" id="akBar10min"></div>
+            <div class="ak-bucket-content">
+                <div class="ak-bucket-val" id="akOver10min">0</div>
+                <div class="ak-bucket-lbl">Over 10 Minutes</div>
+                <div class="ak-bucket-pct" id="akPct10min">0%</div>
             </div>
-            <div class="agency-kpi-card glass-panel">
-                <div class="agency-kpi-icon"><i class="fa-solid fa-users"></i></div>
-                <div class="agency-kpi-val" id="akActiveAgents">—</div>
-                <div class="agency-kpi-lbl">Active Agents</div>
+        </div>
+    </div>
+
+    <!-- ── Row 4: Agency Averages ────────────────────────────────────────── -->
+    <h4 class="ak-section-title"><i class="fa-solid fa-gauge-high me-2"></i>Agency Averages</h4>
+    <div class="ak-avg-grid">
+        <div class="ak-avg-tile glass-panel">
+            <div class="ak-avg-icon"><i class="fa-solid fa-phone-volume"></i></div>
+            <div class="ak-avg-val" id="akAvgDailyDials">—</div>
+            <div class="ak-avg-lbl">Avg Daily Dials per Agent</div>
+        </div>
+        <div class="ak-avg-tile glass-panel">
+            <div class="ak-avg-icon"><i class="fa-solid fa-chart-line"></i></div>
+            <div class="ak-avg-val" id="akAvgDailyTotal">—</div>
+            <div class="ak-avg-lbl">Avg Daily Dials (Agency)</div>
+        </div>
+        <div class="ak-avg-tile glass-panel">
+            <div class="ak-avg-icon"><i class="fa-solid fa-percent"></i></div>
+            <div class="ak-avg-val" id="akAvgConnectRate">—</div>
+            <div class="ak-avg-lbl">Avg Connect Rate per Agent</div>
+        </div>
+        <div class="ak-avg-tile glass-panel">
+            <div class="ak-avg-icon"><i class="fa-solid fa-hourglass-half"></i></div>
+            <div class="ak-avg-val" id="akTotalTalkTime">—</div>
+            <div class="ak-avg-lbl">Total Talk Time</div>
+        </div>
+    </div>
+
+    <!-- ── Row 5: Leaderboards ───────────────────────────────────────────── -->
+    <h4 class="ak-section-title"><i class="fa-solid fa-trophy me-2"></i>Top Performers</h4>
+    <div class="ak-leader-grid">
+
+        <!-- Top 5: Connect Rate -->
+        <div class="ak-leader-card glass-panel">
+            <h5 class="ak-leader-title"><i class="fa-solid fa-bullseye me-2"></i>Highest Connect Rate</h5>
+            <div class="ak-leader-list" id="akLeaderConnect">
+                <div class="ak-leader-empty">No data yet</div>
             </div>
         </div>
 
-        <!-- Agent Stats Table -->
-        <h4 class="mt-4 mb-3 config-panel-title"><i class="fa-solid fa-ranking-star me-2"></i>Agent Breakdown</h4>
+        <!-- Top 5: Most Calls -->
+        <div class="ak-leader-card glass-panel">
+            <h5 class="ak-leader-title"><i class="fa-solid fa-fire me-2"></i>Most Active (Calls)</h5>
+            <div class="ak-leader-list" id="akLeaderCalls">
+                <div class="ak-leader-empty">No data yet</div>
+            </div>
+        </div>
+
+        <!-- Top 5: Longest Avg Duration -->
+        <div class="ak-leader-card glass-panel">
+            <h5 class="ak-leader-title"><i class="fa-solid fa-comments me-2"></i>Best Conversations</h5>
+            <div class="ak-leader-list" id="akLeaderDuration">
+                <div class="ak-leader-empty">No data yet</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- See More: Full Agent Table -->
+    <div class="ak-see-more-wrap" id="akSeeMoreWrap">
+        <button class="btn ak-see-more-btn" onclick="akToggleAllAgents()">
+            <i class="fa-solid fa-chevron-down me-2"></i>See All Agents
+        </button>
+    </div>
+    <div class="ak-all-agents" id="akAllAgents" style="display:none">
+        <h4 class="ak-section-title"><i class="fa-solid fa-ranking-star me-2"></i>All Agent Breakdown</h4>
         <div class="table-responsive">
             <table class="table agency-members-table">
                 <thead>
@@ -61,15 +200,31 @@
                         <th>Agent</th>
                         <th>Calls</th>
                         <th>Connected</th>
+                        <th>Rate</th>
+                        <th>Avg/Day</th>
                         <th>Talk Time</th>
                         <th>Avg Duration</th>
+                        <th>&gt;45s</th>
+                        <th>&gt;2m</th>
+                        <th>&gt;5m</th>
                         <th>Messages</th>
                     </tr>
                 </thead>
-                <tbody id="agencyAgentStatsBody">
-                    <tr><td colspan="6" class="text-center dash-text-muted">Loading...</td></tr>
+                <tbody id="akAllAgentsBody">
+                    <tr><td colspan="11" class="text-center dash-text-muted">Loading...</td></tr>
                 </tbody>
             </table>
+        </div>
+        <button class="btn ak-see-more-btn mt-3" onclick="akToggleAllAgents()">
+            <i class="fa-solid fa-chevron-up me-2"></i>Collapse
+        </button>
+    </div>
+
+    <!-- ── Row 6: Hourly Heatmap ─────────────────────────────────────────── -->
+    <h4 class="ak-section-title"><i class="fa-solid fa-clock me-2"></i>Best Calling Hours</h4>
+    <div class="ak-chart-card glass-panel" style="width:100%">
+        <div class="ak-bar-wrap">
+            <canvas id="akHourlyChart" height="160"></canvas>
         </div>
     </div>
 
