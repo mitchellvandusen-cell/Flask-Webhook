@@ -423,8 +423,8 @@ def _build_tactical_guidance(logic: LogicSignal, stage_value: str, first_name: s
 # Source scripts:
 #   - "ETHOS INTRO FULL SCRIPT 2025 FINAL" (fresh/speed-to-lead)
 #   - "6moOldplus - ethos - intro - final" (very-old/6mo+)
-#   - "Prosperity Partners Full script" (aged)
-#   - "FULL SCRIPT_no-obj-2025" (default)
+#   - "Untitled document" — customer service framing (aged/default)
+#   - "FULL SCRIPT_no-obj-2025" (default fallback)
 
 def _build_cold_outbound_guidance(first_name: str, lead_type: str = "default") -> str:
     """
@@ -460,24 +460,28 @@ def _build_cold_outbound_guidance(first_name: str, lead_type: str = "default") -
         )
 
     # ── RE-ENGAGE (dormant 30+ days) ──
-    # Script source: 6moOldplus — "internal audit / flagged as incomplete"
+    # Script source: "Untitled document" — customer service / records-update framing.
     # They showed interest before, life got in the way. Circle back with a reason.
     if lead_type == "re-engage":
         if name:
             template = (
-                f"Hey {name}, this is {{{{operatorName}}}} — just circling back, we did an "
-                "internal review and your file was flagged as incomplete for that life insurance "
-                "quote. Were you ever able to get that taken care of or did it fall through the cracks?"
+                f"Hey {name}? Its just {{{{operatorName}}}}, im not sure if youre going to "
+                "remember this but I am just trying to get our records updated, hopefully you "
+                "can help me real quick. It looks like you put in some info a little while ago about "
+                "possibly looking at life insurance, did you end up finding something or what "
+                "ended up happening?"
             )
         else:
             template = (
-                "Hey, this is {{operatorName}} — just circling back, we did an "
-                "internal review and your file was flagged as incomplete for that life insurance "
-                "quote. Were you ever able to get that taken care of or did it fall through the cracks?"
+                "Hey there? Its just {{operatorName}}, im not sure if youre going to "
+                "remember this but I am just trying to get our records updated, hopefully you "
+                "can help me real quick. It looks like you put in some info a little while ago about "
+                "possibly looking at life insurance, did you end up finding something or what "
+                "ended up happening?"
             )
         return (
             "SITUATION: RE-ENGAGE — DORMANT LEAD. They showed interest 30+ days ago. "
-            "Circling back with a legitimate reason (internal audit/review).\n\n"
+            "Frame as customer service — you are updating records, not selling.\n\n"
             "SEND THIS MESSAGE EXACTLY (fill in your name where {{operatorName}} appears):\n"
             f'"{template}"\n\n'
             "Do NOT rewrite, rephrase, or add to this message. Send it as-is. "
@@ -485,27 +489,30 @@ def _build_cold_outbound_guidance(first_name: str, lead_type: str = "default") -
         )
 
     # ── AGED (purchased lead, 30-90 days) ──
-    # Script source: Prosperity Partners — "finally got that request you had shot in"
-    # They filled something out weeks/months ago. Confused-but-helpful angle works.
+    # Script source: "Untitled document" — customer service / records-update framing.
+    # "I'm just trying to get our records updated" — frames as customer service, not sales.
+    # They filled something out weeks ago. They may not remember.
     if lead_type == "aged":
         if name:
             template = (
-                f"Hey {name}? This is {{{{operatorName}}}} — I'm just getting back to you, I'm "
-                "licensed with the state. We did finally get that life insurance request you had shot "
-                "in a little while back. When you were looking into it, were you just trying to "
-                "cover yourself or did you have a loved one in mind too?"
+                f"Hey {name}? Its just {{{{operatorName}}}}, im not sure if youre going to "
+                "remember this but I am just trying to get our records updated, hopefully you "
+                "can help me real quick. It looks like you put in some info a few weeks ago about "
+                "possibly looking at life insurance, did you end up finding something or what "
+                "ended up happening?"
             )
         else:
             template = (
-                "Hey there, this is {{operatorName}} — I'm just getting back to you, I'm "
-                "licensed with the state. We did finally get that life insurance request you had shot "
-                "in a little while back. When you were looking into it, were you just trying to "
-                "cover yourself or did you have a loved one in mind too?"
+                "Hey there? Its just {{operatorName}}, im not sure if youre going to "
+                "remember this but I am just trying to get our records updated, hopefully you "
+                "can help me real quick. It looks like you put in some info a few weeks ago about "
+                "possibly looking at life insurance, did you end up finding something or what "
+                "ended up happening?"
             )
         return (
             "SITUATION: AGED LEAD — PURCHASED. They filled out a form 30-90 days ago. "
-            "They may not remember. Approach like you are finally getting back to them "
-            "on their request.\n\n"
+            "They may not remember. Frame as customer service — you are updating records, "
+            "not making a sales pitch.\n\n"
             "SEND THIS MESSAGE EXACTLY (fill in your name where {{operatorName}} appears):\n"
             f'"{template}"\n\n'
             "Do NOT rewrite, rephrase, or add to this message. Send it as-is. "
@@ -513,28 +520,30 @@ def _build_cold_outbound_guidance(first_name: str, lead_type: str = "default") -
         )
 
     # ── VERY OLD (3+ months) ──
-    # Script source: 6moOldplus ethos — "internal audit / flagged as overdue for review"
+    # Script source: "Untitled document" + "6moOldplus ethos" — customer service framing
+    # with "a while back" time reference. Internal audit angle for 6mo+.
     # They have been contacted by multiple agents. Standard outreach gets dismissed.
-    # The audit/review angle gives a legitimate reason for reaching out.
     if lead_type == "very-old":
         if name:
             template = (
-                f"Hey {name}? This is {{{{operatorName}}}} — just getting back to you to let you know "
-                "we did an internal audit and your file was flagged as incomplete or overdue for "
-                "review on that life insurance quote. Do you remember if anyone was ever able to "
-                "get back to you on that?"
+                f"Hey {name}? Its just {{{{operatorName}}}}, im not sure if youre going to "
+                "remember this but I am just trying to get our records updated, hopefully you "
+                "can help me real quick. It looks like you put in some info a while back about "
+                "possibly looking at life insurance, did you end up finding something or what "
+                "ended up happening?"
             )
         else:
             template = (
-                "Hey, this is {{operatorName}} — just getting back to you to let you know "
-                "we did an internal audit and your file was flagged as incomplete or overdue for "
-                "review on that life insurance quote. Do you remember if anyone was ever able to "
-                "get back to you on that?"
+                "Hey there? Its just {{operatorName}}, im not sure if youre going to "
+                "remember this but I am just trying to get our records updated, hopefully you "
+                "can help me real quick. It looks like you put in some info a while back about "
+                "possibly looking at life insurance, did you end up finding something or what "
+                "ended up happening?"
             )
         return (
             "SITUATION: VERY OLD LEAD — 3+ MONTHS. They almost certainly do not remember "
             "filling anything out. Multiple agents have probably already contacted them. "
-            "The audit/review angle gives a legitimate business reason.\n\n"
+            "Frame as customer service — you are updating records, not selling.\n\n"
             "SEND THIS MESSAGE EXACTLY (fill in your name where {{operatorName}} appears):\n"
             f'"{template}"\n\n'
             "Do NOT rewrite, rephrase, or add to this message. Send it as-is. "
@@ -542,22 +551,25 @@ def _build_cold_outbound_guidance(first_name: str, lead_type: str = "default") -
         )
 
     # ── DEFAULT (unknown lead age) ──
-    # Script source: FULL SCRIPT — "getting back to you about the request you sent"
+    # Script source: "Untitled document" — customer service framing, neutral time reference.
     # Safe middle ground — assumes they filled something out, doesn't assume when.
     if name:
         template = (
-            f"Hey {name}? This is {{{{operatorName}}}} getting back to you about that life "
-            "insurance request. It came across my desk — were you still looking into getting "
-            "some coverage or did you already get that taken care of?"
+            f"Hey {name}? Its just {{{{operatorName}}}}, im not sure if youre going to "
+            "remember this but I am just trying to get our records updated, hopefully you "
+            "can help me real quick. It looks like you put in some info about possibly looking "
+            "at life insurance, did you end up finding something or what ended up happening?"
         )
     else:
         template = (
-            "Hey there, this is {{operatorName}} getting back to you about that life "
-            "insurance request. It came across my desk — were you still looking into getting "
-            "some coverage or did you already get that taken care of?"
+            "Hey there? Its just {{operatorName}}, im not sure if youre going to "
+            "remember this but I am just trying to get our records updated, hopefully you "
+            "can help me real quick. It looks like you put in some info about possibly looking "
+            "at life insurance, did you end up finding something or what ended up happening?"
         )
     return (
-        "SITUATION: COLD OUTBOUND. First message. Unknown lead age.\n\n"
+        "SITUATION: COLD OUTBOUND. First message. Unknown lead age. "
+        "Frame as customer service — you are updating records, not selling.\n\n"
         "SEND THIS MESSAGE EXACTLY (fill in your name where {{operatorName}} appears):\n"
         f'"{template}"\n\n'
         "Do NOT rewrite, rephrase, or add to this message. Send it as-is. "
