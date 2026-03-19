@@ -110,8 +110,18 @@ def generate_strategic_directive(
     # ─── 5. CONTEXTUAL INTELLIGENCE (Underwriting & Carriers) ───
     underwriting_ctx = ""
     full_lower = (message + narrative).lower()
-    if any(kw in full_lower for kw in ["health", "medic", "condit", "prescrip", "doctor"]):
-        underwriting_ctx = get_underwriting_context(message)
+    # Trigger underwriting context on any health-related mention OR when the
+    # objection classifier detected a HEALTH_CONCERN objection type
+    _health_triggers = [
+        "health", "medic", "condit", "prescrip", "doctor", "diabetes", "diabetic",
+        "cancer", "heart", "stroke", "blood pressure", "hypertension", "copd",
+        "kidney", "dialysis", "liver", "hepatitis", "denied", "qualify", "uninsurable",
+        "pre-existing", "preexisting", "medication", "meds", "pills", "surgery",
+        "hospital", "diagnosis", "diagnosed", "treatment", "chemo", "remission",
+    ]
+    if (any(kw in full_lower for kw in _health_triggers)
+            or logic.objection_type == ObjectionType.HEALTH_CONCERN):
+        underwriting_ctx = get_underwriting_context(message + " " + narrative)
 
     company_ctx = ""
     if raw_co := find_company_in_message(message):
@@ -587,27 +597,56 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
     # objection is not logistical. It is fear. Now you address the fear: stories,
     # perspective shifts, challenging the belief that staying where they are is safe.
 
-    # Determine if we are still in Phase 1 or have moved to Phase 2
-    # Phase 2 triggers when the SAME objection category appears 2+ times in the log.
-    # The narrative observer writes free-text log entries, so we match against multiple
-    # keywords per objection type to catch natural language variations.
-    _OBJECTION_LOG_KEYWORDS = {
-        ObjectionType.NOT_INTERESTED: ["not interested", "no thanks", "not for me", "pass", "decline", "dismissal", "disengag", "don't care", "dont care", "done", "over it", "whatever"],
-        ObjectionType.SPOUSE_PARTNER: ["spouse", "partner", "wife", "husband", "consult", "family member", "advisor", "check with", "handles", "decides", "takes care"],
-        ObjectionType.PRICE_MONEY:    ["price", "money", "expensive", "afford", "cost", "budget", "cash flow", "value"],
-        ObjectionType.ALREADY_COVERED: ["already covered", "already have", "already has", "existing coverage", "have insurance", "covered", "all set"],
-        ObjectionType.THINK_ABOUT_IT: ["think about", "sleep on", "not ready", "get back", "need time", "decision", "consider", "rain check", "maybe", "not sure", "idk", "we'll see"],
-        ObjectionType.BUSY_TIMING:    ["busy", "timing", "not a good time", "call back", "later", "schedule", "swamped", "slammed"],
-    }
-    match_keywords = _OBJECTION_LOG_KEYWORDS.get(obj, [obj.value.replace("_", " ")])
+    # ─── PHASE DETECTION: Structural tag counting (no keyword guessing) ───
+    # The narrative observer tags each OBJECTION_LOG entry with a structured type
+    # tag like [PRICE_MONEY], [SPOUSE_PARTNER], etc. Phase detection is now a
+    # simple prefix match — no fragile keyword lists, no guessing from free text.
+    #
+    # Fallback: if entries lack tags (legacy narratives from before this change),
+    # count ALL entries as same-type to err on the side of escalation.
+
+    obj_tag = f"[{obj.value.upper()}]"
     same_objection_count = 0
+    total_objection_count = 0
+    distinct_types_seen = set()
+
     if log:
         for entry in log:
-            entry_lower = entry.lower()
-            if any(kw in entry_lower for kw in match_keywords):
+            total_objection_count += 1
+            # Extract tag from entry (format: "[TYPE] Objection: ...")
+            entry_stripped = entry.strip()
+            if entry_stripped.startswith("[") and "]" in entry_stripped:
+                tag = entry_stripped[:entry_stripped.index("]") + 1].upper()
+                distinct_types_seen.add(tag)
+                if tag == obj_tag:
+                    same_objection_count += 1
+            else:
+                # Legacy entry without tag — count as current type to avoid under-escalation
                 same_objection_count += 1
+
     in_phase_2 = same_objection_count >= 2
     in_phase_3 = same_objection_count >= 4  # Graceful exit after 4+ same objection
+
+    # ─── COMPOUND OBJECTION PRIORITY: Price is ALWAYS #1 ───
+    # If the lead is throwing multiple different objection types AND price is
+    # one of them (either current or in the log), handle price first.
+    # Taking money off the table unlocks spouse, think-about-it, and trust.
+    price_tag = "[PRICE_MONEY]"
+    if obj != ObjectionType.PRICE_MONEY and price_tag in distinct_types_seen:
+        # Price appeared in prior objections — if current objection is softer
+        # (think_about_it, busy_timing, not_interested), check if price is the
+        # root cause they keep circling back to
+        if obj in (ObjectionType.THINK_ABOUT_IT, ObjectionType.BUSY_TIMING,
+                   ObjectionType.NOT_INTERESTED) and total_objection_count >= 3:
+            # 3+ objections with price in the mix = price is likely the root cause
+            obj = ObjectionType.PRICE_MONEY
+            obj_tag = price_tag
+            # Recount for the new type
+            same_objection_count = sum(
+                1 for e in log if e.strip().upper().startswith(price_tag)
+            )
+            in_phase_2 = same_objection_count >= 2
+            in_phase_3 = same_objection_count >= 4
 
     if in_phase_3:
         header += (
@@ -964,6 +1003,126 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
             "if this is even worth a longer conversation.'"
         )
 
+    if obj == ObjectionType.HEALTH_CONCERN:
+        if in_phase_2:
+            return header + (
+                "OBJECTION: Health concern (repeated).\n"
+                "You already told them options exist. They are still stuck on 'I can't qualify.'\n\n"
+                "This is fear of rejection — they applied before and got denied, or they "
+                "assume their condition is a dealbreaker without ever checking.\n\n"
+                "Your move: make it impossibly specific and personal.\n"
+                "'Here is the thing — I work with people who have [their exact condition] "
+                "every week. Not as a special case, as a regular Tuesday. The question is "
+                "not whether you can get coverage. It is which carrier gives you the best deal.'\n\n"
+                "If they were previously denied: 'When you got denied, do you know what type "
+                "of policy it was? Because a lot of the time people get denied for one thing "
+                "and there are three other options nobody told them about.'\n\n"
+                "If the UNDERWRITING DATA is attached below, reference SPECIFIC carriers and "
+                "decisions from it. 'Based on what you told me, there are carriers that approve "
+                "people in your exact situation.' Facts beat reassurance.\n\n"
+                "HARD RULE: Never say 'you definitely qualify.' Say 'most people in your "
+                "situation have options — the call is to see which ones make sense for you.'\n\n"
+                "The 10-minute call IS the answer to their objection. They do not need to "
+                "guess anymore. You have the data."
+            )
+        return header + (
+            "OBJECTION: Health concern — believes they cannot qualify.\n\n"
+            "This is one of the most important objections in insurance. This person "
+            "often WANTS coverage. They are not dismissing you. They are protecting "
+            "themselves from another rejection or assuming the worst.\n\n"
+            "STEP 1: Validate their concern immediately. Do NOT dismiss it.\n"
+            "'Yeah I hear you — that is actually something I deal with a lot.'\n\n"
+            "STEP 2: Educate without over-promising. The insurance industry has products "
+            "designed specifically for people with health issues:\n"
+            "- Guaranteed Issue: no health questions at all. Cannot be denied.\n"
+            "- Simplified Issue: limited health questions, broader approval.\n"
+            "- Graded Benefit: waiting period but accepts almost everyone.\n"
+            "Do NOT list all three — mention the ONE most relevant to what they said.\n\n"
+            "STEP 3: Bridge to the call.\n"
+            "'That is exactly what the comparison call is for — I shop across 50+ carriers "
+            "and some of them specialize in people with [their condition]. Takes 10 minutes "
+            "to see where you stand.'\n\n"
+            "If the UNDERWRITING DATA is attached, use it. Reference specific carriers "
+            "or approval patterns — facts are more persuasive than reassurance.\n\n"
+            "CRITICAL: NEVER say 'you definitely qualify' or 'no problem at all.' "
+            "Say 'most people in your situation have options' or 'there are carriers "
+            "that work with this.' Honest, not salesy.\n\n"
+            "If they mention a SPECIFIC condition (diabetes, cancer, heart), acknowledge "
+            "it by name. Do not be vague — 'health issues' when they said 'diabetes' "
+            "sounds like you are not listening."
+        )
+
+    if obj == ObjectionType.TRUST_ISSUE:
+        if in_phase_2:
+            return header + (
+                "OBJECTION: Trust issue (repeated).\n"
+                "You already acknowledged their bad experience. They are still guarded.\n\n"
+                "This is NOT about information — it is about the relationship. They have "
+                "been burned and they are screening you to see if you are different.\n\n"
+                "Two paths depending on what they told you:\n\n"
+                "IF BAD AGENT / BAD EXPERIENCE:\n"
+                "'I get it. And honestly you should be cautious — there are bad agents out "
+                "there. Here is the difference: I do not work for one company. I shop 50+ "
+                "carriers. My job is to find whoever is cheapest for your situation. If the "
+                "numbers do not make sense I will tell you. 10 minutes, zero pressure.'\n"
+                "Position yourself as the opposite of their bad experience.\n\n"
+                "IF PERSONAL LOYALTY (nephew, buddy, cousin sells):\n"
+                "By now you asked if the relative set them up. If NO active policy:\n"
+                "'No harm in seeing a comparison right? If their numbers are better you "
+                "go with them. If mine are better at least you know.'\n"
+                "If they DO have active coverage through the relative:\n"
+                "Treat as ALREADY_COVERED. Pivot to the carrier question.\n\n"
+                "IF INDUSTRY DISTRUST (insurance is a scam, never pays out):\n"
+                "'What happened?' — let them tell the story. People who feel scammed "
+                "need to be heard before they will listen. Then: 'That is a legitimate "
+                "concern. Here is how we make sure that does not happen again...'\n"
+                "Facts work: regulated by state, guaranteed by state guarantee fund, "
+                "contractual obligation to pay. But only after they feel heard."
+            )
+        return header + (
+            "OBJECTION: Trust issue — distrust, bad experience, or personal loyalty.\n\n"
+            "THREE DISTINCT VARIANTS (identify which one from their message):\n\n"
+            "1. BAD EXPERIENCE / GOT BURNED:\n"
+            "Do NOT get defensive about the industry. Stand on their side.\n"
+            "'Yeah — and honestly you are not wrong to feel that way. There are some "
+            "bad agents out there.'\n"
+            "Then separate the agent from the product:\n"
+            "'Has that stopped you from wanting to make sure your family is actually "
+            "protected? Or is it more about not wanting to deal with another bad "
+            "experience?'\n"
+            "If agent — you are a different person. Independent, shops 50+ carriers.\n"
+            "If product — find out what went wrong. Wrong type? Overpaid? Misled?\n\n"
+            "2. PERSONAL LOYALTY (nephew, buddy, cousin sells insurance):\n"
+            "Never trash the relative. Position as a second opinion.\n"
+            "'Oh nice — have they already set you up with something, or is it more "
+            "of a they offered but you have not gotten around to it?'\n"
+            "If the relative offered but never followed through (most common): "
+            "'Would it hurt to see a comparison? If their numbers are better you go "
+            "with them. If mine are better at least you know.'\n"
+            "If they have active coverage through the relative: treat as ALREADY_COVERED.\n\n"
+            "3. INDUSTRY DISTRUST (insurance is a scam, never pays out):\n"
+            "'What makes you say that?' — open it up. Let them talk.\n"
+            "Their answer tells you everything: personal experience, news story, "
+            "general cynicism. Each needs a different response.\n"
+            "If personal: acknowledge what happened, then differentiate yourself.\n"
+            "If general: 'That is fair. A lot of people feel that way until they "
+            "actually see how it works for their situation. 10 minutes.'\n\n"
+            "TRUST IS EARNED, NOT ARGUED. 1-2 sentences. Be real."
+        )
+
+    # ─── SMOKESCREEN / UNKNOWN OBJECTION FALLBACK ───
+    smokescreen_note = ""
+    if len(distinct_types_seen) >= 3:
+        smokescreen_note = (
+            "\nSMOKESCREEN DETECTED: This lead has raised 3+ DIFFERENT objection types "
+            f"({', '.join(sorted(distinct_types_seen))}). They are not truly objecting to any one thing "
+            "— they are looking for ANY reason to not move forward. None of the individual "
+            "objections are the real issue. Give them permission to say no: 'Hey it is "
+            "totally fine if this is not for you. No hard feelings. I would rather just "
+            "know than keep going back and forth.' Sometimes naming it breaks through. "
+            "Sometimes they say no and you move on. Either way you stop wasting time.\n"
+        )
+
     return header + (
         "They raised a concern you do not have a specific playbook for. That is fine. "
         "The framework is the same:\n"
@@ -971,13 +1130,7 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
         "2. Ask one question that reveals whether this is a real practical barrier or "
         "a way to avoid the conversation.\n"
         "3. If practical — solve it. If emotional — make doing nothing feel specific.\n\n"
-        "SMOKESCREEN CHECK: If this lead has cycled through MULTIPLE different objection "
-        "types in the OBJECTION_LOG (e.g., first money, then spouse, then busy, then think "
-        "about it) — they are not objecting. They are smokescreening. None of the objections "
-        "are real. They just do not want to say NO directly. Give them permission: 'Hey it "
-        "is totally fine if this is not for you. No hard feelings. I would rather just know "
-        "than keep going back and forth.' Sometimes naming it breaks it. Sometimes they say "
-        "no and you move on. Either way you stop wasting time.\n\n"
+        f"{smokescreen_note}"
         "Use what you know about them from EMOTIONAL_ARC. The more personal your response, "
         "the harder it is to dismiss."
     )
