@@ -25,6 +25,7 @@
 
 import json
 import logging
+import os
 import requests
 from datetime import datetime
 
@@ -315,6 +316,7 @@ def dashboard():
     initial_tab = request.args.get('tab', 'voicedialer') if embed_mode else ''
     embed_contact_id = request.args.get('contact_id', '') if embed_mode else ''
     embed_dial_contacts = request.args.get('dial_contacts', '') if embed_mode else ''
+    voice_wss_host = os.getenv('VOICE_WSS_HOST', '')  # e.g. "voice.insurancegrokbot.com"
 
     # White-label branding — agency owners get their own, sub-users get agency's
     from db import get_whitelabel_for_user
@@ -348,6 +350,7 @@ def dashboard():
         embed_dial_contacts=embed_dial_contacts,
         whitelabel=whitelabel,
         is_agency=is_agency,
+        voice_wss_host=voice_wss_host,
     )
 
 

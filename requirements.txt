@@ -43,6 +43,10 @@ rq==2.1.0
 # Voice AI (Twilio Media Streams <-> XAI Realtime bridge)
 flask-sock==0.7.0
 websockets==14.2
+
+# FastAPI voice WebSocket service (runs on port 8081 alongside Flask on 8080)
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
 twilio==9.4.4
 soxr==0.5.0          # High-quality polyphase sinc resampler (replaces audioop.ratecv)
 scipy==1.15.1        # Butterworth low-pass filter for phone-line warmth EQ
