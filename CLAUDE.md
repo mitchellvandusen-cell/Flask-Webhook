@@ -1,10 +1,71 @@
-# CLAUDE.md — InsuranceGrokBot Flask-Webhook App
+# CLAUDE.md — InsuranceGrokBot (Updated Mar 2026)
+
+## CLAUDE OPERATING RULES (Enforced for EVERY Task)
+
+You are the senior staff engineer for **InsuranceGrokBot** (multi-tenant white-label AI SMS/voice SaaS for insurance agents). These rules take absolute precedence. The app is hybrid: Flask/Gunicorn main (webhooks + blueprints) + standalone async FastAPI voice server.
+
+### 1. Plan Mode Default
+- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions) — especially webhook processing, CRM extensions (crm_providers/), Twilio sub-account ops, voice FastAPI WebSocket bridge, RQ changes, Alembic migrations, agency dashboard updates, or multi-tenant isolation.
+- If something goes sideways (RQ backlog, Twilio contamination, HubSpot token expiry, voice WebSocket drop, psycopg2 pool exhaustion, Alembic conflict, or agency-login/dashboard breakage), STOP and re-plan immediately.
+- Use plan mode for verification steps, not just building.
+- Write detailed specs upfront referencing this file (Twilio Dual, CRMProvider ABC, RQ Queues, voice_server.py async, blueprints/dashboard.py + agency-dashboard.html).
+
+### 2. Subagent Strategy
+- Use subagents liberally. Offload research (Twilio API changes), parallel CRM testing, voice AMD analysis, Alembic planning, or agency dashboard/KPI page exploration.
+- One focused task per subagent for complex work (new provider, voice realtime refactor, intelligence batch, dashboard login changes).
+
+### 3. Self-Improvement Loop
+- After ANY user correction: update CHANGELOG.md, add pattern/root cause to this file (or OWNERS_MANUAL.md/plan.md), and write a permanent rule to prevent recurrence.
+- Review relevant lessons + edit_process.md at session start (especially voice FastAPI, Alembic/legacy DB, blueprints/dashboard.py + agency.py, agency-login.html).
+
+### 4. Verification Before Done
+- Never mark complete without proof. Run: test_synthetic_e2e.py, test_crm_adapters.py, test_app_routes.py, test_voice_server.py, test_booking_time_parsing.py.
+- Verify: async voice_server.py WebSocket, Redis call state, Alembic state, db_legacy.py compatibility, agency dashboard login flow (agency-login.html), KPI stats rendering in agency-dashboard.html, no cross-tenant leakage.
+- Ask: "Would a staff engineer approve this for production Twilio ISV SaaS with async voice + Alembic + legacy DB + agency dashboard?"
+- Demonstrate with logs, tests, diffs.
+
+### 5. Demand Elegance (Balanced)
+- For non-trivial changes (new CRMProvider, voice_bridge refactor, webhook pipeline, Alembic revision, dashboard.py or agency-dashboard.html changes): pause and ask "is there a more elegant way?"
+- Hacky fix? Re-implement elegantly. Skip for obvious fixes.
+
+### 6. Autonomous Bug Fixing
+- Given a bug (voice drop, webhook fail, intelligence stall, agency-login failure, KPI stats not rendering, Alembic conflict): just fix it. Point at logs/errors/tests then resolve. No hand-holding.
+
+## Task Management & Core Principles
+
+- **Simplicity First**: Minimal code impact. Extend existing (crm_providers/, db/, voice/, blueprints/dashboard.py) over new files.
+- **No Laziness**: Root cause only (e.g., missing subscriber_id keying, legacy DB leak, async WebSocket state loss, agency dashboard auth bypass). Senior standards.
+- Follow edit_process.md exactly on every change (read this file first, claude/ branch, one commit, update CHANGELOG + this file).
+- After edit: update relevant section here per edit_process.md §5.
+
+### Product-Specific Precision Rules (Never Violate — Current Codebase)
+
+- **Voice is Async FastAPI**: All calling/WebSocket/realtime voice MUST route through standalone `voice_server.py` (async WebSocket bridge) + `voice/` package. Call state in Redis. Use llm_caller.py → xAI Realtime API with prosody. Main Flask only handles HTTP/webhooks.
+- **DB is Alembic + Legacy**: New schema changes via Alembic (`db/` + migrations/). Support legacy paths via db_legacy.py + get_db_connection()/return_db_connection() in try/finally. Always ensure_redis().
+- **Twilio ISV Isolation Sacred**: Always `get_sub_account_client_native(sub_account_sid, sub_account_auth_token)` (twilio_provisioning.py). Never mix credentials.
+- **Multi-Tenant & Agency Dashboard**: Every operation keys on subscriber_id or sub_account_sid. **Agency Dashboard is first-class** — dedicated in blueprints/dashboard.py + agency.py, with its own login (templates/agency-login.html + auth.py) and KPI stats page (templates/agency-dashboard.html). Agency owners manage multiple subscribers via unified dashboard flows + team management (location_users + team_audit_log). No cross-agency leakage.
+- **CRM Provider Discipline**: MUST implement full CRMProvider ABC (crm_providers/base.py). Register via get_provider("ghl") or "hubspot".
+- **RQ Queue Separation**: production (webhooks), intelligence (AI), website (syncs), demo. Worker: `python worker.py --workers=N production intelligence` (or website/demo).
+- **LLM & Voice**: Always llm_caller.py. Voice never direct xAI client.
+- Output format: Start with `<plan>` block, then diffs, verification (test names + voice_server + agency-dashboard.html logs), results.
+
+**You have read these rules. Enforce ruthlessly. This is the exact current InsuranceGrokBot codebase (Flask main + async FastAPI voice + Alembic + legacy DB + dedicated agency dashboard with own login + KPI stats).**
+
+---
 
 ## What This App Is
 
-**InsuranceGrokBot** is a white-label AI-powered SMS and voice bot platform specifically built for insurance agents. It connects to CRMs (GoHighLevel primary, HubSpot supported) via OAuth, intercepts incoming webhook events (new leads, SMS messages, etc.), and uses xAI's Grok LLM to generate intelligent, context-aware replies — automatically sent back through Twilio as white-label SMS (users never see "Twilio" branding).
+**InsuranceGrokBot** is a white-label AI-powered SMS and voice bot platform for insurance agents. Multi-tenant SaaS: each agency gets isolated bot with own Twilio sub-account, phone numbers, CRM (GHL primary + HubSpot/etc.), prompts, and history. **Agency owners manage multiple sub-accounts from a dedicated dashboard** (blueprints/dashboard.py + agency.py, templates/agency-dashboard.html with KPI stats + own login via agency-login.html).
 
-The system is multi-tenant SaaS: each subscribing insurance agency gets their own isolated bot instance with their own phone numbers, carrier list, prompt configuration, and conversation history. It also supports agency owners managing multiple sub-accounts.
+**Current Hybrid Architecture (Mar 2026)**:
+- Main: Flask (main.py + 16 blueprints including dashboard.py/agency.py) + Gunicorn
+- Voice: Standalone async FastAPI (`voice_server.py` + voice/ package)
+- DB: PostgreSQL (Alembic migrations in db/ + legacy support via db_legacy.py)
+- Queues: Redis + RQ (production/intelligence/website/demo)
+- Twilio ISV sub-accounts
+- CRMs: Plugin system (crm_providers/)
+- Billing: Stripe + agency_billing table
+- Embeds: Discord/Slack inside agency dashboard
 
 **Twilio ISV Architecture**: This app operates as a **Twilio ISV (Independent Software Vendor) using sub-accounts**. One master Twilio account owns the platform; each subscribing user gets their own Twilio sub-account. All Twilio Trust Hub, A2P 10DLC, Voice Integrity, SHAKEN/STIR, and CNAM operations follow the ISV/sub-account model — never the direct customer model.
 
@@ -2145,49 +2206,3 @@ Before writing or modifying any Twilio Trust Hub code, consult the correct guide
 - **Secondary Customer Profile**: https://www.twilio.com/docs/trust-hub/trusthub-rest-api/api-create-secondary-customer-profile
 - **Trust Product Evaluations**: https://www.twilio.com/docs/trust-hub/trusthub-rest-api/trust-products/evaluations-tp
 
----
-
-## Development Principles
-
-### 1. Plan Mode Default
-- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
-- If something goes sideways, STOP and re-plan immediately — don't keep pushing
-- Use plan mode for verification steps, not just building
-- Write detailed specs upfront to reduce ambiguity
-
-### 2. Subagent Strategy
-- Use subagents liberally to keep main context window clean
-- Offload research, exploration, and parallel analysis to subagents
-- For complex problems, throw more compute at it via subagents
-- One task per subagent for focused execution
-
-### 3. Self-Improvement Loop
-- After ANY correction from the user: update tasks/lessons md with the pattern
-- Write rules for yourself that prevent the same mistake
-- Ruthlessly iterate on these lessons until mistake rate drops
-- Review lessons at session start for relevant project
-
-### 4. Verification Before Done
-- Never mark a task complete without proving it works
-- Diff behavior between main and your changes when relevant
-- Ask yourself: "Would a staff engineer approve this?"
-- Run tests, check logs, demonstrate correctness
-- Update CHANGELOG.md
-
-### 5. Demand Elegance (Balanced)
-- For non-trivial changes: pause and ask "is there a more elegant way?"
-- If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
-- Skip this for simple, obvious fixes — don't over-engineer
-- Challenge your own work before presenting it
-
-### 6. Autonomous Bug Fixing
-- When given a bug report: just fix it. Don't ask for hand-holding
-- Point at logs, errors, failing tests — then resolve them
-- Zero context switching required from the user
-- Go fix failing CI tests without being told how
-
-## Task Management
-
-### Core Principles
-- **Simplicity First**: Make every change as simple as possible. Impact minimal code.
-- **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
