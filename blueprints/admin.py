@@ -362,7 +362,7 @@ def api_send_install_setup_email(install_id):
     domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
     name       = target.get("user_name") or "there"
     subject    = "Complete Your InsuranceGrokBot Setup"
-    html_body  = _build_install_welcome_email(name, domain_url)
+    html_body  = _build_install_welcome_email(name, domain_url, recipient_email=email)
     text_body  = (
         f"Hi {name}, complete your InsuranceGrokBot setup to start converting leads: "
         f"{domain_url}/oauth/initiate"
@@ -397,7 +397,7 @@ def api_send_all_setup_emails():
 
         name      = inst.get("user_name") or "there"
         subject   = "Complete Your InsuranceGrokBot Setup"
-        html_body = _build_install_welcome_email(name, domain_url)
+        html_body = _build_install_welcome_email(name, domain_url, recipient_email=email)
         text_body = (
             f"Hi {name}, complete your InsuranceGrokBot setup to start converting leads: "
             f"{domain_url}/oauth/initiate"

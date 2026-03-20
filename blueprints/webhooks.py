@@ -262,7 +262,7 @@ def app_installed_webhook():
             try:
                 domain_url   = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
                 display_name = user_name or "there"
-                html_body    = _build_install_welcome_email(display_name, domain_url)
+                html_body    = _build_install_welcome_email(display_name, domain_url, recipient_email=user_email)
                 text_body    = (
                     f"Hi {display_name}, thanks for installing InsuranceGrokBot! "
                     f"Complete your setup: {domain_url}/oauth/initiate"
@@ -345,7 +345,7 @@ def _handle_uninstall(payload: dict):
     # Send farewell feedback email to the user (if we have their email)
     if user_email:
         try:
-            html_body = _build_uninstall_feedback_email(display_name, domain_url, record_id)
+            html_body = _build_uninstall_feedback_email(display_name, domain_url, record_id, recipient_email=user_email)
             text_body = (
                 f"Hi {display_name}, we're sorry to see you go. "
                 f"We'd love your feedback: {domain_url}/uninstall-feedback?id={record_id}"

@@ -9,7 +9,7 @@ from datetime import datetime
 
 from flask import Blueprint, render_template, redirect, request, make_response
 from crm_adapters.factory import list_available_crms, CRM_DISPLAY_NAMES
-from db import get_uninstall_feedback, save_uninstall_feedback
+from db import get_uninstall_feedback, save_uninstall_feedback, mark_email_unsubscribed
 from send_email_api import send_email_via_api
 
 logger = logging.getLogger(__name__)
@@ -370,3 +370,17 @@ def uninstall_feedback():
 
     return render_template("uninstall-feedback.html", valid=True,
                            feedback_id=feedback_id, reasons=UNINSTALL_REASONS)
+
+
+# ── Email unsubscribe ────────────────────────────────────────────────────────
+
+@public_bp.route("/email/unsubscribe")
+def email_unsubscribe():
+    """One-click email unsubscribe — marks user as opted out of marketing emails."""
+    email = request.args.get("email", "").strip()
+    if not email or "@" not in email:
+        return render_template("email-unsubscribe.html", success=False, error="Invalid email address.")
+
+    mark_email_unsubscribed(email)
+    logger.info(f"Email unsubscribed: {email}")
+    return render_template("email-unsubscribe.html", success=True)

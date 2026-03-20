@@ -42,7 +42,7 @@ agency_bp = Blueprint('agency', __name__)
 def _send_invite_email(to_email: str, agent_name: str, agency_name: str, invite_url: str):
     """Send the onboarding invite email to a sub-account user via Flask-Mail."""
     from email_templates import _build_agency_invite_html
-    html_body, text_body = _build_agency_invite_html(agent_name, agency_name, invite_url, YOUR_DOMAIN)
+    html_body, text_body = _build_agency_invite_html(agent_name, agency_name, invite_url, YOUR_DOMAIN, recipient_email=to_email)
     msg = Message(
         subject=f"You're invited to InsuranceGrokBot by {agency_name}",
         recipients=[to_email],

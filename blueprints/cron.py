@@ -63,14 +63,14 @@ def api_send_reminders():
             try:
                 if reminder_type == "24h":
                     subject   = "Your AI Sales Assistant is Ready — Let's Get You Live"
-                    html_body = _build_reminder_24h_email(name, domain_url, user_type, missing)
+                    html_body = _build_reminder_24h_email(name, domain_url, user_type, missing, recipient_email=email)
                     text_body = (
                         f"Hi {name}, your InsuranceGrokBot account was created 24 hours ago. "
                         f"Complete your setup to start converting leads automatically: {domain_url}/dashboard"
                     )
                 else:
                     subject   = "You're Missing Leads Right Now — Activate InsuranceGrokBot"
-                    html_body = _build_reminder_72h_email(name, domain_url, user_type, missing)
+                    html_body = _build_reminder_72h_email(name, domain_url, user_type, missing, recipient_email=email)
                     text_body = (
                         f"Hi {name}, it's been 3 days since you signed up for InsuranceGrokBot. "
                         f"Your bot is waiting to work your leads 24/7: {domain_url}/dashboard"

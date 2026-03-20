@@ -13,6 +13,7 @@ from db_legacy import (
     get_subscribers_needing_token_refresh,
     get_users_needing_reminders,
     mark_reminder_sent,
+    mark_email_unsubscribed,
 )
 
 __all__ = [
@@ -24,4 +25,5 @@ __all__ = [
     "get_subscribers_needing_token_refresh",
     "get_users_needing_reminders",
     "mark_reminder_sent",
+    "mark_email_unsubscribed",
 ]

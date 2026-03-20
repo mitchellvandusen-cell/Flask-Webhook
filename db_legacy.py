@@ -1504,6 +1504,7 @@ def get_users_needing_reminders() -> list:
                   OR calendar_id IS NULL
                   )
               AND email IS NOT NULL
+              AND COALESCE(email_unsubscribed, FALSE) = FALSE
               AND (
                   (reminder_24h_sent = FALSE AND COALESCE(install_completed_at, created_at) <= NOW() - INTERVAL '24 hours')
                   OR
@@ -1527,6 +1528,7 @@ def get_users_needing_reminders() -> list:
                   OR calendar_id IS NULL
                   )
               AND agency_email IS NOT NULL
+              AND COALESCE(email_unsubscribed, FALSE) = FALSE
               AND (
                   (reminder_24h_sent = FALSE AND COALESCE(install_completed_at, created_at) <= NOW() - INTERVAL '24 hours')
                   OR
@@ -1593,6 +1595,27 @@ def mark_reminder_sent(email: str, reminder_type: str, user_type: str = "individ
         return success
     except psycopg2.Error as e:
         logger.error(f"mark_reminder_sent failed for {email}: {e}")
+        conn.rollback()
+        return False
+    finally:
+        return_db_connection(conn)
+
+
+def mark_email_unsubscribed(email: str) -> bool:
+    """Mark a user as unsubscribed from marketing emails."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE subscribers SET email_unsubscribed = TRUE WHERE email = %s", (email,))
+        cur.execute("UPDATE agency_billing SET email_unsubscribed = TRUE WHERE agency_email = %s", (email,))
+        conn.commit()
+        success = cur.rowcount > 0
+        cur.close()
+        return success
+    except psycopg2.Error as e:
+        logger.error(f"mark_email_unsubscribed failed for {email}: {e}")
         conn.rollback()
         return False
     finally:

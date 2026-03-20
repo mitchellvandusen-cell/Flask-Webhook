@@ -861,7 +861,11 @@
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Auto-booking to your calendar</li>
                 </ul>
 
-                <a href="/checkout/sms-bot" class="btn btn-gradient-cyan w-100 py-3" style="font-weight: 700;">Start Free Trial</a>
+                <label class="consent-check">
+                    <input type="checkbox" class="consent-checkbox" data-plan="sms-bot">
+                    <span>I agree to the <a href="/terms" target="_blank">Terms of Service</a> and consent to receive SMS and email communications from InsuranceGrokBot.</span>
+                </label>
+                <a href="/checkout/sms-bot" class="btn btn-gradient-cyan w-100 py-3 checkout-btn" data-plan="sms-bot" style="font-weight: 700; pointer-events: none; opacity: 0.5;">Start Free Trial</a>
                 <div class="text-center mt-2"><a href="/sms" class="hp-price-see-all">See SMS features <i class="fa-solid fa-arrow-right ms-1"></i></a></div>
             </div>
 
@@ -883,7 +887,11 @@
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Unlimited minutes* included</li>
                 </ul>
 
-                <a href="/checkout" class="btn btn-primary w-100 py-3" style="font-weight: 700;">Start Free Trial</a>
+                <label class="consent-check">
+                    <input type="checkbox" class="consent-checkbox" data-plan="power">
+                    <span>I agree to the <a href="/terms" target="_blank">Terms of Service</a> and consent to receive SMS and email communications from InsuranceGrokBot.</span>
+                </label>
+                <a href="/checkout" class="btn btn-primary w-100 py-3 checkout-btn" data-plan="power" style="font-weight: 700; pointer-events: none; opacity: 0.5;">Start Free Trial</a>
                 <div class="text-center mt-2"><a href="/for-individuals" class="hp-price-see-all">See all features <i class="fa-solid fa-arrow-right ms-1"></i></a></div>
             </div>
 
@@ -905,7 +913,11 @@
                     <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Unlimited minutes* included</li>
                 </ul>
 
-                <a href="/checkout/pro-dialer" class="btn btn-gradient-orange w-100 py-3" style="font-weight: 700;">Start Free Trial</a>
+                <label class="consent-check">
+                    <input type="checkbox" class="consent-checkbox" data-plan="pro">
+                    <span>I agree to the <a href="/terms" target="_blank">Terms of Service</a> and consent to receive SMS and email communications from InsuranceGrokBot.</span>
+                </label>
+                <a href="/checkout/pro-dialer" class="btn btn-gradient-orange w-100 py-3 checkout-btn" data-plan="pro" style="font-weight: 700; pointer-events: none; opacity: 0.5;">Start Free Trial</a>
                 <div class="text-center mt-2"><a href="/for-individuals" class="hp-price-see-all">See all features <i class="fa-solid fa-arrow-right ms-1"></i></a></div>
             </div>
 
@@ -927,7 +939,11 @@
                     <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> 2,000 AI minutes included</li>
                 </ul>
 
-                <a href="/checkout/predictive-dialer" class="btn w-100 py-3" style="font-weight: 700; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: #fff; border: none;">Start Free Trial</a>
+                <label class="consent-check">
+                    <input type="checkbox" class="consent-checkbox" data-plan="predictive">
+                    <span>I agree to the <a href="/terms" target="_blank">Terms of Service</a> and consent to receive SMS and email communications from InsuranceGrokBot.</span>
+                </label>
+                <a href="/checkout/predictive-dialer" class="btn w-100 py-3 checkout-btn" data-plan="predictive" style="font-weight: 700; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: #fff; border: none; pointer-events: none; opacity: 0.5;">Start Free Trial</a>
                 <div class="text-center mt-2"><a href="/predictive-dialer" class="hp-price-see-all" style="color: #a78bfa;">How AI Overflow works <i class="fa-solid fa-arrow-right ms-1"></i></a></div>
             </div>
         </div>
@@ -1082,6 +1098,29 @@
             chatEl.scrollTop = chatEl.scrollHeight;
         }
     }
+    /* ── Consent checkbox toggles checkout buttons ── */
+    document.querySelectorAll('.consent-checkbox').forEach(function(cb) {
+        cb.addEventListener('change', function() {
+            var plan = cb.getAttribute('data-plan');
+            var btn = document.querySelector('.checkout-btn[data-plan="' + plan + '"]');
+            if (!btn) return;
+            if (cb.checked) {
+                btn.style.pointerEvents = 'auto';
+                btn.style.opacity = '1';
+                /* Append consent=1 query param to checkout URL */
+                var url = new URL(btn.href, window.location.origin);
+                url.searchParams.set('consent', '1');
+                btn.href = url.pathname + url.search;
+            } else {
+                btn.style.pointerEvents = 'none';
+                btn.style.opacity = '0.5';
+                /* Remove consent param */
+                var url = new URL(btn.href, window.location.origin);
+                url.searchParams.delete('consent');
+                btn.href = url.pathname + url.search;
+            }
+        });
+    });
 })();
 </script>
 {% endblock %}
