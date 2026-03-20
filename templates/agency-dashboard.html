@@ -368,21 +368,8 @@
 
         <div class="ag-content">
 
-            {% if needs_subscription %}
-            <!-- Paywall -->
-            <div class="ag-paywall">
-                <i class="fa-solid fa-exclamation-triangle" style="font-size:3rem;color:#ffc107;margin-bottom:20px;"></i>
-                <h2>Agency Subscription Required</h2>
-                <p style="color:#888;max-width:500px;margin:0 auto 30px;">Activate your agency to manage sub-accounts, view KPIs, and access the full command center.</p>
-                <div style="display:flex;justify-content:center;gap:20px;flex-wrap:wrap;">
-                    <a href="/checkout/agency-starter" class="btn" style="background:var(--accent);color:#000;font-weight:700;padding:12px 28px;border-radius:10px;">
-                        <i class="fa-solid fa-rocket me-2"></i>Agency Starter — $797.99/mo
-                    </a>
-                    <a href="/checkout/agency-pro" class="btn" style="background:var(--cyan);color:#000;font-weight:700;padding:12px 28px;border-radius:10px;">
-                        <i class="fa-solid fa-crown me-2"></i>Agency Pro — $1,597.99/mo
-                    </a>
-                </div>
-            </div>
+            {% if false %}
+            <!-- Agency owners are FREE — no paywall needed -->
             {% else %}
 
             <!-- Period Picker (shared across tabs) -->
