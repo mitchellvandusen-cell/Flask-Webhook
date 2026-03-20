@@ -1218,8 +1218,36 @@ def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "", age: i
     else:
         stage_history = ""
 
+    # ─── Tier 0: Embedding memory lookup (learned from prior conversations) ───
+    memory_result = None
+    memory_used = False
+    try:
+        from classification_memory import lookup_classification, seed_from_keywords
+        seed_from_keywords()  # No-op after first call
+        if recent_lead_text:
+            memory_result = lookup_classification(recent_lead_text)
+    except Exception as e:
+        logger.debug(f"Classification memory unavailable: {e}")
+
+    # If memory has a direct match (≥95% similarity, consensus, multi-tenant) → skip LLM
+    cls = None
+    if memory_result and memory_result.get("match_type") == "direct":
+        logger.info(
+            f"MEMORY HIT: '{recent_lead_text[:60]}' → {memory_result['objection_type']} "
+            f"(confidence: {memory_result['confidence']:.4f}) — skipping LLM"
+        )
+        cls = {
+            "objection_type": memory_result["objection_type"],
+            "objection_nature": memory_result.get("objection_nature", "none"),
+            "has_coverage": False, "needs_coverage": False, "mentioned_goal": False,
+            "mentioned_obstacle": False, "ready_to_book": False, "resistance": False,
+            "articulated_impact": False,
+        }
+        memory_used = True
+
     # ─── Tier 1: Primary LLM classification (best model, 6s timeout) ───
-    cls = _llm_classify(lead_msgs, CLASSIFY_MODEL_PRIMARY, timeout=6.0, stage_history=stage_history)
+    if not cls:
+        cls = _llm_classify(lead_msgs, CLASSIFY_MODEL_PRIMARY, timeout=6.0, stage_history=stage_history)
 
     # ─── Tier 2: Fallback LLM (faster model, 4s timeout) ───
     if not cls:
@@ -1254,6 +1282,36 @@ def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "", age: i
     objection_type, objection_nature = _cross_validate_objection(
         objection_type, objection_nature, recent_lead_text, obj_type_str
     )
+
+    # ═══════════════════════════════════════════════════════════════════
+    # CLASSIFICATION MEMORY — Store result for future lookups
+    # ═══════════════════════════════════════════════════════════════════
+    if recent_lead_text and not memory_used:
+        try:
+            from classification_memory import store_classification, handle_contradiction
+
+            # Keywords validated if cross-validation upgraded or refined the result
+            kw_type, _ = detect_objection_keywords(recent_lead_text)
+            kw_validated = (kw_type != ObjectionType.NONE and kw_type == objection_type)
+
+            store_classification(
+                message_text=recent_lead_text,
+                objection_type=objection_type.value,
+                objection_nature=objection_nature.value,
+                confidence=0.95 if kw_validated else 0.7,
+                source="llm",
+                keyword_validated=kw_validated,
+            )
+
+            # Self-correct: if memory suggested X but final result is Y, fix it
+            if memory_result and memory_result.get("match_type") == "hint":
+                if memory_result["objection_type"] != objection_type.value:
+                    handle_contradiction(
+                        recent_lead_text, objection_type.value,
+                        0.95 if kw_validated else 0.7
+                    )
+        except Exception as e:
+            logger.debug(f"Classification memory store failed: {e}")
 
     # ─── Booking confirmed by bot recently? ───
     booking_confirmed = False
