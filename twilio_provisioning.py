@@ -119,10 +119,15 @@ def _ensure_sub_account_auth_token(sub_account_sid: str, sub_account_auth_token:
     attempt to recover it from the Twilio API.  Returns the token string or raises
     ValueError if it cannot be obtained.
 
-    For master accounts this is a no-op — master credentials are used directly.
+    All Trust Hub operations are ISV-only (sub-accounts). The master account
+    handles its own Trust Hub via the Twilio Console.
     """
     if is_master_account(sub_account_sid):
-        return sub_account_auth_token  # master uses its own credentials
+        raise ValueError(
+            "Trust Hub operations are ISV-only — the master account manages "
+            "its own Business Profile, CNAM, and Voice Integrity via the Twilio Console. "
+            "This function should only be called for sub-accounts."
+        )
 
     if sub_account_auth_token:
         return sub_account_auth_token
@@ -630,11 +635,9 @@ def register_business_profile(sub_account_sid: str, business_name: str,
     """
     results = {"steps": [], "errors": []}
     profile_sid = ""
-    on_master = is_master_account(sub_account_sid)
 
-    # Sub-accounts MUST use their own credentials for TrustHub API calls.
-    # Falling back to master credentials causes Twilio to see the master account
-    # (a direct customer) and reject Secondary Customer Profile creation.
+    # All Trust Hub operations are ISV-only (sub-accounts).
+    # Master account manages its own profiles via the Twilio Console.
     try:
         sub_account_auth_token = _ensure_sub_account_auth_token(
             sub_account_sid, sub_account_auth_token
@@ -646,40 +649,26 @@ def register_business_profile(sub_account_sid: str, business_name: str,
 
     client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
 
-    # ── Step 1: Customer Profile ──
-    # Master account (direct customer): use the existing Primary Business Profile.
-    # Sub-account (ISV customer): find or create a Secondary Customer Profile.
+    # ── Step 1: Secondary Customer Profile (ISV flow) ──
+    # Per Twilio ISV docs: create a Secondary Customer Profile on the sub-account,
+    # linked to the master's Primary Business Profile.
+    # https://www.twilio.com/docs/trust-hub/trusthub-rest-api/api-create-secondary-customer-profile
     try:
         primary_profile_sid = _find_primary_profile_sid()
-        if on_master:
-            if not primary_profile_sid:
-                raise ValueError(
-                    "Primary Business Profile not found on master account. "
-                    "Create one in the Twilio Console under Trust Hub > Customer Profiles."
-                )
-            profile_sid = primary_profile_sid
-            results["steps"].append({
-                "name": "customer_profile",
-                "status": "ok",
-                "sid": profile_sid,
-                "flow": "direct_customer",
-            })
-            logger.info(f"[SpamProtection] Master account — using Primary Profile: {profile_sid}")
-        else:
-            profile_sid = _find_or_create_secondary_profile(
-                client=client,
-                sub_account_sid=sub_account_sid,
-                business_name=business_name,
-                contact_email=contact_email,
-                primary_profile_sid=primary_profile_sid,
-                sub_account_auth_token=sub_account_auth_token,
-            )
-            results["steps"].append({
-                "name": "secondary_profile",
-                "status": "ok",
-                "sid": profile_sid,
-            })
-            logger.info(f"[SpamProtection] Secondary Profile: {profile_sid}")
+        profile_sid = _find_or_create_secondary_profile(
+            client=client,
+            sub_account_sid=sub_account_sid,
+            business_name=business_name,
+            contact_email=contact_email,
+            primary_profile_sid=primary_profile_sid,
+            sub_account_auth_token=sub_account_auth_token,
+        )
+        results["steps"].append({
+            "name": "secondary_profile",
+            "status": "ok",
+            "sid": profile_sid,
+        })
+        logger.info(f"[SpamProtection] Secondary Profile: {profile_sid}")
     except Exception as e:
         logger.error(f"[SpamProtection] Customer Profile failed: {e}")
         results["errors"].append(f"Customer Profile: {e}")
@@ -697,19 +686,12 @@ def register_business_profile(sub_account_sid: str, business_name: str,
             # Use user-provided business_type, fallback to inference from EIN
             resolved_biz_type = business_type or ("Corporation" if ein else "Partnership")
 
-            # ISV sub-accounts use "isv_reseller_or_partner"; master (direct customer)
-            # uses "direct_customer".  Using the wrong value causes Twilio to reject
-            # Secondary Customer Profile creation with:
-            #   "Secondary Customer Profile for direct_customer can only be created
-            #    through Twilio console."
-            biz_identity = "direct_customer" if on_master else "isv_reseller_or_partner"
-
             end_user = client.trusthub.v1.end_users.create(
                 friendly_name=f"Business: {business_name}",
                 type="customer_profile_business_information",
                 attributes={
                     "business_name": business_name,
-                    "business_identity": biz_identity,
+                    "business_identity": "isv_reseller_or_partner",
                     "business_type": resolved_biz_type,
                     "business_industry": "INSURANCE",
                     "business_registration_identifier": "EIN",
@@ -839,13 +821,11 @@ def register_business_profile(sub_account_sid: str, business_name: str,
             logger.error(f"[SpamProtection] Number assignment failed: {e}")
             results["errors"].append(f"Number assignment: {e}")
 
-    # ── Step 7: Evaluate and submit for review ──
-    # Master account (direct customer): Primary Business Profile is already
-    # approved in the Console — skip evaluation and submission entirely.
-    # Sub-account (ISV): evaluate with Secondary policy and submit for review.
-    if profile_sid and not on_master:
+    # ── Step 7: Evaluate and submit Secondary Profile for review ──
+    # Per Twilio ISV docs: evaluate with Secondary Customer Profile policy,
+    # then submit for Twilio review.
+    if profile_sid:
         try:
-            # Run evaluation first
             eval_result = client.trusthub.v1.customer_profiles(profile_sid) \
                 .customer_profiles_evaluations.create(
                     policy_sid=SECONDARY_CUSTOMER_PROFILE_POLICY_SID,
@@ -883,15 +863,6 @@ def register_business_profile(sub_account_sid: str, business_name: str,
         except TwilioRestException as e:
             logger.warning(f"[SpamProtection] Evaluation/submit failed: {e}")
             results["errors"].append(f"Submit for review: {e}")
-    elif profile_sid and on_master:
-        # Primary Profile already approved — just log and move on
-        results["steps"].append({
-            "name": "submit_review",
-            "status": "ok",
-            "profile_status": "twilio-approved",
-            "note": "Primary Business Profile already approved on master account",
-        })
-        logger.info(f"[SpamProtection] Master account — Primary Profile already approved, skipping eval/submit")
 
     # ── Step 8: Set friendly_name on all numbers ──
     # NOTE: This sets the Twilio-internal label only. Real CNAM registration
@@ -1129,17 +1100,16 @@ def create_cnam_trust_product(
     existing_profile_sid: str = "",
 ) -> dict:
     """
-    Create a CNAM Trust Product for caller ID name registration.
+    Create a CNAM Trust Product for caller ID name registration (ISV sub-account flow).
 
-    Two distinct flows based on whether this is the master account or a sub-account:
+    ISV flow per Twilio docs:
+      1. Find or create Secondary Customer Profile on sub-account
+      2. Create CNAM Trust Product (policy_sid=RNf3db3cd1fe25fcfd3c3ded065c8fea53)
+      3. Create CNAM EndUser with display name
+      4. Link Profile → Trust Product (EntityAssignment)
+      5. Link EndUser → Trust Product (EntityAssignment)
 
-    **Master account (direct customer):**
-      Uses the Primary Business Profile directly.
-
-    **Sub-account (ISV customer):**
-      Creates a Secondary Customer Profile linked to the master's Primary.
-
-    Both flows share steps 2-5 (EndUser, Trust Product, EntityAssignments).
+    Master account manages its own CNAM via the Twilio Console.
     Returns dict with trust_product_sid, profile_sid, end_user_sid, status, cnam_display_name.
     """
     # Validate display name
@@ -1151,32 +1121,21 @@ def create_cnam_trust_product(
         sub_account_sid, sub_account_auth_token
     )
     client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
-    on_master = is_master_account(sub_account_sid)
 
     try:
-        # ── Step 1: Customer Profile ──
-        if on_master:
-            # Direct customer flow: use the Primary Business Profile directly.
-            profile_sid = _find_primary_profile_sid()
-            if not profile_sid:
-                raise ValueError(
-                    "Primary Business Profile not found on master account. "
-                    "Create one in the Twilio Console under Trust Hub > Customer Profiles."
-                )
-            logger.info(f"[CNAM] Master account — using Primary Profile: {profile_sid}")
-        else:
-            # ISV flow: find or create a Secondary Customer Profile on the sub-account,
-            # linked to the master's Primary Business Profile.
-            primary_sid = _find_primary_profile_sid()
-            profile_sid = _find_or_create_secondary_profile(
-                client=client,
-                sub_account_sid=sub_account_sid,
-                business_name=business_name,
-                contact_email=contact_email,
-                existing_profile_sid=existing_profile_sid,
-                primary_profile_sid=primary_sid,
-                sub_account_auth_token=sub_account_auth_token,
-            )
+        # ── Step 1: Secondary Customer Profile (ISV flow) ──
+        # Per Twilio ISV docs: find or create a Secondary Customer Profile
+        # on the sub-account, linked to the master's Primary Business Profile.
+        primary_sid = _find_primary_profile_sid()
+        profile_sid = _find_or_create_secondary_profile(
+            client=client,
+            sub_account_sid=sub_account_sid,
+            business_name=business_name,
+            contact_email=contact_email,
+            existing_profile_sid=existing_profile_sid,
+            primary_profile_sid=primary_sid,
+            sub_account_auth_token=sub_account_auth_token,
+        )
 
         # ── Step 2: CNAM Trust Product ──
         trust_product = client.trusthub.v1.trust_products.create(
@@ -1217,7 +1176,6 @@ def create_cnam_trust_product(
             "status": "draft",
             "cnam_display_name": cnam_display_name.upper(),
             "business_name": business_name,
-            "is_master": on_master,
         }
 
     except TwilioRestException as e:
@@ -2029,12 +1987,12 @@ def check_secondary_profile_status(
             - message (str): Human-readable status message
     """
     if is_master_account(sub_account_sid):
-        # Master account uses Primary Business Profile directly — no Secondary needed
+        # Master account manages its own profiles via Twilio Console — always approved
         return {
             "approved": True,
             "status": "twilio-approved",
             "profile_sid": "",
-            "message": "Master account uses Primary Business Profile (direct customer).",
+            "message": "Master account — profiles managed via Twilio Console.",
         }
 
     if not profile_sid:
@@ -2309,54 +2267,43 @@ def create_voice_integrity_trust_product(
     use_case: str = "Lead Management",
 ) -> dict:
     """
-    Create a Voice Integrity Trust Product.
+    Create a Voice Integrity Trust Product (ISV sub-account flow).
 
-    Two distinct flows based on whether this is the master account or a sub-account:
-
-    **Master account (direct customer):**
-      Uses the Primary Business Profile directly.
-      https://www.twilio.com/docs/voice/spam-monitoring-with-voiceintegrity/
-      voice-integrity-onboarding/voice-integrity-trust-hub-api-direct-customers
-
-    **Sub-account (ISV customer):**
-      Creates a Secondary Customer Profile linked to the master's Primary.
+    Per Twilio ISV docs:
       https://www.twilio.com/docs/voice/spam-monitoring-with-voiceintegrity/
       voice-integrity-onboarding/voice-integrity-trust-hub-api-isvs-subaccounts
 
-    Both flows share steps 2-5 (EndUser, Trust Product, EntityAssignments).
+    ISV flow:
+      1. Find or create Secondary Customer Profile on sub-account
+      2. Create EndUser (voice_integrity_information) with use case + call volume
+      3. Create Voice Integrity Trust Product (policy_sid=RN5b3660f9598883b1df4e77f77acefba0)
+      4. Link Profile → Trust Product (EntityAssignment)
+      5. Link EndUser → Trust Product (EntityAssignment)
+
+    Master account manages its own Voice Integrity via the Twilio Console.
     Returns dict with trust_product_sid, profile_sid, end_user_sid, status.
     """
     sub_account_auth_token = _ensure_sub_account_auth_token(
         sub_account_sid, sub_account_auth_token
     )
     client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
-    on_master = is_master_account(sub_account_sid)
 
     try:
-        # ── Step 1: Customer Profile ──
-        if on_master:
-            # Direct customer flow: use the Primary Business Profile directly.
-            # The master account's own business uses its approved Primary Profile.
-            profile_sid = _find_primary_profile_sid()
-            if not profile_sid:
-                raise ValueError(
-                    "Primary Business Profile not found on master account. "
-                    "Create one in the Twilio Console under Trust Hub > Customer Profiles."
-                )
-            logger.info(f"[VoiceIntegrity] Master account — using Primary Profile: {profile_sid}")
-        else:
-            # ISV flow: find or create a Secondary Customer Profile on the sub-account,
-            # linked to the master's Primary Business Profile.
-            primary_sid = _find_primary_profile_sid()
-            profile_sid = _find_or_create_secondary_profile(
-                client=client,
-                sub_account_sid=sub_account_sid,
-                business_name=business_name,
-                contact_email=contact_email,
-                existing_profile_sid=existing_profile_sid,
-                primary_profile_sid=primary_sid,
-                sub_account_auth_token=sub_account_auth_token,
-            )
+        # ── Step 1: Secondary Customer Profile (ISV flow) ──
+        # Per Twilio ISV docs: find or create a Secondary Customer Profile
+        # on the sub-account, linked to the master's Primary Business Profile.
+        # https://www.twilio.com/docs/voice/spam-monitoring-with-voiceintegrity/
+        # voice-integrity-onboarding/voice-integrity-trust-hub-api-isvs-subaccounts
+        primary_sid = _find_primary_profile_sid()
+        profile_sid = _find_or_create_secondary_profile(
+            client=client,
+            sub_account_sid=sub_account_sid,
+            business_name=business_name,
+            contact_email=contact_email,
+            existing_profile_sid=existing_profile_sid,
+            primary_profile_sid=primary_sid,
+            sub_account_auth_token=sub_account_auth_token,
+        )
 
         # ── Step 2: EndUser with voice_integrity_information ──
         end_user = client.trusthub.v1.end_users.create(
@@ -2399,7 +2346,6 @@ def create_voice_integrity_trust_product(
             "end_user_sid": end_user.sid,
             "status": "draft",
             "business_name": business_name,
-            "is_master": on_master,
         }
 
     except TwilioRestException as e:
