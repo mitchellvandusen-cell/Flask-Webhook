@@ -902,6 +902,40 @@ def oauth_callback():
                     company_metadata.get('company_owner_phone'),
                 ))
 
+                # Also upsert subscribers row so all operational code works
+                # (dialer, voice, webhooks, token refresh all query subscribers)
+                cur.execute("""
+                    INSERT INTO subscribers (
+                        email, location_id, full_name, role,
+                        subscription_tier, access_token, refresh_token,
+                        token_expires_at, timezone, crm_user_id, crm_email,
+                        oauth_app_type, company_id,
+                        created_at, updated_at
+                    ) VALUES (
+                        %s, %s, %s, %s, %s, %s, %s,
+                        NOW() + interval '%s seconds', %s, %s, %s, %s, %s,
+                        NOW(), NOW()
+                    )
+                    ON CONFLICT (email) DO UPDATE SET
+                        location_id = COALESCE(EXCLUDED.location_id, subscribers.location_id),
+                        role = 'agency_owner',
+                        access_token = EXCLUDED.access_token,
+                        refresh_token = EXCLUDED.refresh_token,
+                        token_expires_at = EXCLUDED.token_expires_at,
+                        crm_user_id = COALESCE(EXCLUDED.crm_user_id, subscribers.crm_user_id),
+                        crm_email = EXCLUDED.crm_email,
+                        oauth_app_type = EXCLUDED.oauth_app_type,
+                        company_id = COALESCE(EXCLUDED.company_id, subscribers.company_id),
+                        updated_at = NOW()
+                """, (
+                    user_email, agency_location_id, primary_name, 'agency_owner',
+                    plan_tier, enc_access_token, enc_refresh_token,
+                    expires_in, primary_timezone or 'America/Chicago', me_data.get('id'),
+                    crm_email_resolved, app_type,
+                    company_metadata.get('company_id') or company_id,
+                ))
+                logger.info(f"Agency owner {user_email} synced to both agency_billing and subscribers")
+
             # B. Reconnect/reinstall sync: update OAuth tokens on existing rows.
             # Look up by location_id (PK) first — this is the definitive match.
             # Avoids PK collision when email owns a DIFFERENT location.

@@ -44,6 +44,7 @@ from db.schema import init_db
 from db.auth import (
     User,
     clean_subaccount_contamination,
+    backfill_agency_owners_to_subscribers,
     update_subscriber_token,
     update_crm_config_token,
     get_subscribers_needing_token_refresh,
@@ -192,7 +193,8 @@ __all__ = [
     # Schema
     "init_db",
     # Auth
-    "User", "clean_subaccount_contamination", "update_subscriber_token",
+    "User", "clean_subaccount_contamination", "backfill_agency_owners_to_subscribers",
+    "update_subscriber_token",
     "update_crm_config_token", "get_subscribers_needing_token_refresh",
     "get_users_needing_reminders", "mark_reminder_sent",
     # Subscribers

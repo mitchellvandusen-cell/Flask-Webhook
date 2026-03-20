@@ -7,6 +7,7 @@
 from db_legacy import (
     User,
     clean_subaccount_contamination,
+    backfill_agency_owners_to_subscribers,
     update_subscriber_token,
     update_crm_config_token,
     get_subscribers_needing_token_refresh,
@@ -17,6 +18,7 @@ from db_legacy import (
 __all__ = [
     "User",
     "clean_subaccount_contamination",
+    "backfill_agency_owners_to_subscribers",
     "update_subscriber_token",
     "update_crm_config_token",
     "get_subscribers_needing_token_refresh",

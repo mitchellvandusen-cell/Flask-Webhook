@@ -72,7 +72,7 @@ def agency_dashboard():
 
     form = ConfigForm()
 
-    # ── Form save (POST) — updates agency_billing ─────────────────────────────
+    # ── Form save (POST) — updates BOTH subscribers and agency_billing ─────────
     conn = get_db_connection()
 
     if request.method == 'POST' and not form.validate_on_submit():
@@ -86,6 +86,31 @@ def agency_dashboard():
             try:
                 cur = conn.cursor()
                 calendar_name = request.form.get('calendar_name', '')
+                params = (
+                    form.location_id.data,
+                    form.calendar_id.data,
+                    calendar_name,
+                    form.crm_user_id.data,
+                    form.bot_name.data,
+                    form.timezone.data,
+                    form.initial_message.data,
+                    form.personal_website.data or None,
+                )
+                # Update subscribers (operational data used by dialer, voice, webhooks)
+                cur.execute("""
+                    UPDATE subscribers
+                    SET location_id      = %s,
+                        calendar_id      = %s,
+                        calendar_name    = %s,
+                        crm_user_id      = %s,
+                        bot_first_name   = %s,
+                        timezone         = %s,
+                        initial_message  = %s,
+                        personal_website = %s,
+                        updated_at       = NOW()
+                    WHERE email = %s
+                """, (*params, current_user.email))
+                # Also update agency_billing (keeps agency-specific table in sync)
                 cur.execute("""
                     UPDATE agency_billing
                     SET location_id      = %s,
@@ -98,17 +123,7 @@ def agency_dashboard():
                         personal_website = %s,
                         updated_at       = NOW()
                     WHERE agency_email = %s
-                """, (
-                    form.location_id.data,
-                    form.calendar_id.data,
-                    calendar_name,
-                    form.crm_user_id.data,
-                    form.bot_name.data,
-                    form.timezone.data,
-                    form.initial_message.data,
-                    form.personal_website.data or None,
-                    current_user.email,
-                ))
+                """, (*params, current_user.email))
                 conn.commit()
                 flash("Settings saved successfully!", "success")
                 return redirect(url_for('agency.agency_dashboard'))
