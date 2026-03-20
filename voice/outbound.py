@@ -180,7 +180,7 @@ def trigger_outbound_call():
 
     except Exception as e:
         logger.error(f"Failed to initiate outbound call: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 # ──────────────────────────────────────────────────────────────
@@ -329,7 +329,7 @@ def ghl_action_ai_call():
 
     except Exception as e:
         logger.error(f"GHL AI Call action failed: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 # ──────────────────────────────────────────────────────────────
@@ -395,7 +395,7 @@ def ghl_trigger_subscribe():
         if conn:
             conn.rollback()
         logger.error(f"GHL trigger subscription failed: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
     finally:
         if conn:
             return_db_connection(conn)
@@ -574,7 +574,7 @@ def ghl_action_loop():
         if conn:
             conn.rollback()
         logger.error(f"GHL Loop action failed: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
     finally:
         if conn:
             return_db_connection(conn)

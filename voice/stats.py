@@ -308,6 +308,6 @@ def get_dialer_stats():
         })
     except Exception as e:
         logger.error(f"get_dialer_stats failed: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
     finally:
         return_db_connection(conn)

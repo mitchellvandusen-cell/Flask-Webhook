@@ -318,7 +318,7 @@ def api_discord_bot_check(guild_id):
                           headers={"Authorization": f"Bot {bot_token}"}, timeout=8)
         return flask_jsonify({"in_server": r.status_code == 200})
     except Exception as e:
-        return flask_jsonify({"in_server": False, "error": str(e)})
+        return flask_jsonify({"in_server": False, "error": "Internal server error"})
 
 
 @discord_bp.route("/api/discord/servers", methods=["GET", "POST"])

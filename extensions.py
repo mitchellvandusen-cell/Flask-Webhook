@@ -4,6 +4,7 @@
 # Blueprints import from extensions.py; extensions.py does not import from blueprints.
 
 import os
+import hmac
 import logging
 import redis
 from rq import Queue
@@ -62,7 +63,9 @@ def _is_admin_request() -> bool:
     if cron_secret:
         auth_header = request.headers.get("Authorization", "")
         query_key = request.args.get("key", "")
-        if auth_header == f"Bearer {cron_secret}" or query_key == cron_secret:
+        expected_bearer = f"Bearer {cron_secret}"
+        if (hmac.compare_digest(auth_header, expected_bearer)
+                or hmac.compare_digest(query_key, cron_secret)):
             return True
 
     return False

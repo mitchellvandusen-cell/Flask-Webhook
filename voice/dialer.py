@@ -563,7 +563,7 @@ def fetch_contacts():
             return jsonify({"contacts": result, "total": len(result), "cached": False})
         except Exception as e:
             logger.error(f"Failed to fetch pipeline contacts: {e}")
-            return jsonify({"error": str(e)}), 500
+            return jsonify({"error": "Internal server error"}), 500
 
     # ── All contacts: persistent DB cache first ──
     import datetime
@@ -632,7 +632,7 @@ def fetch_contacts():
 
     except Exception as e:
         logger.error(f"Failed to fetch contacts: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @dialer_bp.route('/voice/contacts/sync', methods=['POST'])
@@ -1062,7 +1062,7 @@ def dial_contact():
 
     except Exception as e:
         logger.error(f"Dialer call failed: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @dialer_bp.route('/voice/multi-dial', methods=['POST'])

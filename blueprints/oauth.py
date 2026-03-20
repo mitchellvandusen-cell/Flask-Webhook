@@ -520,6 +520,7 @@ def oauth_callback():
         if not user_email:
             ghl_user_id = token_data.get('userId')
             if ghl_user_id:
+                conn_lookup = None
                 try:
                     conn_lookup = get_db_connection()
                     if conn_lookup:
@@ -533,9 +534,11 @@ def oauth_callback():
                             user_email = found['email']
                             logger.info(f"Fallback 4: Found email via userId lookup: {user_email}")
                         cur_lookup.close()
-                        return_db_connection(conn_lookup)
                 except Exception:
                     pass
+                finally:
+                    if conn_lookup:
+                        return_db_connection(conn_lookup)
 
         # Fallback 5: placeholder — onboarding completes, admin gets notified
         if not user_email:

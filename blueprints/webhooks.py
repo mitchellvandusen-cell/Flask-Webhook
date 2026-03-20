@@ -229,6 +229,19 @@ def app_installed_webhook():
     Also handles uninstall events — sends farewell feedback email.
     Configure in GHL Developer Portal > Webhooks > app.installed.
     """
+    # ── Webhook signature verification (same as main /webhook) ──────────
+    webhook_secret = os.getenv("MARKETPLACE_WEBHOOK_SECRET")
+    if webhook_secret:
+        signature = request.headers.get("X-Ghl-Signature") or request.headers.get("X-Hook-Secret") or ""
+        if signature:
+            body = request.get_data(as_text=True)
+            expected = hmac.new(webhook_secret.encode(), body.encode(), hashlib.sha256).hexdigest()
+            if not hmac.compare_digest(signature, expected):
+                logger.warning("app-installed webhook signature mismatch — rejecting")
+                return safe_jsonify({"status": "error", "reason": "invalid_signature"}), 401
+        else:
+            logger.debug("app-installed webhook without signature header — skipping verification")
+
     try:
         payload = request.get_json(force=True, silent=True) or {}
     except Exception:

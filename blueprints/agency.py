@@ -383,7 +383,7 @@ def invite_sub_user():
     except Exception as e:
         conn.rollback()
         logger.error(f"Invite sub-user error: {e}")
-        return flask_jsonify({"error": str(e)}), 500
+        return flask_jsonify({"error": "Internal server error"}), 500
     finally:
         cur.close()
         return_db_connection(conn)
@@ -455,7 +455,7 @@ def resend_invite():
     except Exception as e:
         conn.rollback()
         logger.error(f"Resend invite error: {e}")
-        return flask_jsonify({"error": str(e)}), 500
+        return flask_jsonify({"error": "Internal server error"}), 500
     finally:
         cur.close()
         return_db_connection(conn)
@@ -525,7 +525,7 @@ def invite_all_sub_users():
     except Exception as e:
         conn.rollback()
         logger.error(f"Bulk invite error: {e}")
-        return flask_jsonify({"error": str(e)}), 500
+        return flask_jsonify({"error": "Internal server error"}), 500
     finally:
         cur.close()
         return_db_connection(conn)
@@ -778,7 +778,7 @@ def agency_kpis():
         })
     except Exception as e:
         logger.error(f"agency_kpis error: {e}")
-        return flask_jsonify({"error": str(e)}), 500
+        return flask_jsonify({"error": "Internal server error"}), 500
     finally:
         return_db_connection(conn)
 
@@ -869,7 +869,7 @@ def agency_agent_stats():
         return flask_jsonify({"agents": agents})
     except Exception as e:
         logger.error(f"agency_agent_stats error: {e}")
-        return flask_jsonify({"error": str(e)}), 500
+        return flask_jsonify({"error": "Internal server error"}), 500
     finally:
         return_db_connection(conn)
 
@@ -945,7 +945,7 @@ def agency_call_log():
         return flask_jsonify({"calls": calls, "total": total})
     except Exception as e:
         logger.error(f"agency_call_log error: {e}")
-        return flask_jsonify({"error": str(e)}), 500
+        return flask_jsonify({"error": "Internal server error"}), 500
     finally:
         return_db_connection(conn)
 
@@ -1242,7 +1242,7 @@ def agency_dashboard_stats():
         })
     except Exception as e:
         logger.error(f"agency_dashboard_stats error: {e}")
-        return flask_jsonify({"error": str(e)}), 500
+        return flask_jsonify({"error": "Internal server error"}), 500
     finally:
         return_db_connection(conn)
 
@@ -1351,7 +1351,7 @@ def agency_members():
             cur.close()
         except Exception as e:
             logger.error(f"agency_members error: {e}")
-            return flask_jsonify({"error": str(e)}), 500
+            return flask_jsonify({"error": "Internal server error"}), 500
         finally:
             return_db_connection(conn)
 

@@ -386,7 +386,7 @@ def save_profile():
         return flask_jsonify({"status": "success", "message": "Profile updated"})
     except Exception as e:
         conn.rollback()
-        return flask_jsonify({"error": str(e)}), 500
+        return flask_jsonify({"error": "Internal server error"}), 500
     finally:
         cur.close()
         return_db_connection(conn)
@@ -411,7 +411,7 @@ def get_voice_config():
         config = (row['voice_config'] if row else {}) or {}
         return flask_jsonify({"voice_config": config})
     except Exception as e:
-        return flask_jsonify({"error": str(e)}), 500
+        return flask_jsonify({"error": "Internal server error"}), 500
     finally:
         return_db_connection(conn)
 
@@ -535,7 +535,7 @@ def save_voice_config():
     except Exception as e:
         conn.rollback()
         logger.error(f"Failed to save voice config: {e}")
-        return flask_jsonify({"error": str(e)}), 500
+        return flask_jsonify({"error": "Internal server error"}), 500
     finally:
         return_db_connection(conn)
 
@@ -589,7 +589,7 @@ def training_code_status():
             })
         return flask_jsonify({"has_token": False})
     except Exception as e:
-        return flask_jsonify({"error": str(e)}), 500
+        return flask_jsonify({"error": "Internal server error"}), 500
     finally:
         return_db_connection(conn)
 
@@ -823,7 +823,7 @@ def api_save_config():
     except Exception as e:
         conn.rollback()
         logger.error(f"API config save failed for {current_user.email}: {e}")
-        return safe_jsonify({"success": False, "error": str(e)}), 500
+        return safe_jsonify({"success": False, "error": "Internal server error"}), 500
     finally:
         cur.close()
         return_db_connection(conn)

@@ -967,7 +967,7 @@ def change_plan():
         return flask_jsonify({"error": "Unable to change plan. Please contact support."}), 500
     except Exception as e:
         logger.error(f"Plan change error: {e}")
-        return flask_jsonify({"error": str(e)}), 500
+        return flask_jsonify({"error": "Internal server error"}), 500
 
 
 @billing_bp.route("/subscription-info")

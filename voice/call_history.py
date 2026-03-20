@@ -380,7 +380,7 @@ def set_call_disposition():
             conn.rollback()
         except Exception:
             pass
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
     finally:
         return_db_connection(conn)
 
@@ -613,7 +613,7 @@ def get_call_history():
         return jsonify({"calls": calls, "total": len(calls)})
     except Exception as e:
         logger.error(f"Failed to fetch call history: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
     finally:
         return_db_connection(conn)
 
@@ -700,7 +700,7 @@ def get_voicemails():
         return jsonify({"voicemails": voicemails, "total": len(voicemails), "unread": unread_count})
     except Exception as e:
         logger.error(f"Failed to fetch voicemails: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
     finally:
         return_db_connection(conn)
 

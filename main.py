@@ -20,7 +20,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 from dotenv import load_dotenv
 from flask import Flask, request, send_from_directory
 from flask import jsonify as flask_jsonify
-from flask_wtf.csrf import generate_csrf
+from flask_wtf.csrf import CSRFProtect, generate_csrf
 from flask_login import LoginManager, current_user
 from rq import Queue
 
@@ -181,6 +181,32 @@ app.secret_key = _secret
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_SECURE'] = True
 
+# ── CSRF Protection ─────────────────────────────────────────────────────────
+# Enforce CSRF token validation on all POST/PUT/DELETE form submissions.
+# API routes using Bearer tokens (api_v1, webhooks, Stripe, Twilio, GHL,
+# HubSpot, cron) are exempt via WTF_CSRF_EXEMPT list or decorator.
+
+csrf = CSRFProtect(app)
+
+# Exempt routes that use token/signature auth instead of session cookies
+csrf.exempt("api_v1.api_bp")
+csrf.exempt("webhooks_bp.webhook")
+csrf.exempt("webhooks_bp.app_installed")
+csrf.exempt("billing_bp.stripe_webhook")
+csrf.exempt("cron_bp.api_send_reminders")
+csrf.exempt("cron_bp.api_refresh_tokens")
+csrf.exempt("cron_bp.api_recover_failed_webhooks")
+csrf.exempt("cron_bp.api_backfill_failed_webhooks")
+csrf.exempt("cron_bp.api_sync_ghl_data")
+csrf.exempt("hubspot_webhook_bp.hubspot_webhook")
+csrf.exempt("demo_bp.demo_chat_api")
+csrf.exempt("demo_bp.demo_init")
+csrf.exempt("demo_bp.demo_reset")
+csrf.exempt("demo_bp.api_demo_reset")
+csrf.exempt("voice_bp")
+csrf.exempt("ghl_embed_bp")
+csrf.exempt("numbers_bp")
+
 
 @app.before_request
 def handle_cors_preflight():
@@ -201,12 +227,22 @@ def handle_cors_preflight():
 
 @app.after_request
 def add_iframe_headers(response):
-    """Allow embedding in GHL iframe, grant microphone permission, and add CORS for GHL Custom JS."""
-    response.headers.pop('X-Frame-Options', None)
-    response.headers['Permissions-Policy'] = 'microphone=*, camera=*, autoplay=*'
-    response.headers['Content-Security-Policy'] = "frame-ancestors *"
-    # CORS for GHL Custom JS — uses JWT Bearer tokens, not cookies, so * origin is safe
+    """Security headers + selective iframe/CORS for embed and GHL Custom JS routes."""
     path = request.path
+
+    # Only allow framing on routes that are designed to be embedded (CRM iframes, GHL Custom JS)
+    if path.startswith('/embed/') or path.startswith('/api/ghl/') or path.startswith('/hubspot/crm-card'):
+        response.headers.pop('X-Frame-Options', None)
+        response.headers['Content-Security-Policy'] = "frame-ancestors *"
+    else:
+        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+        response.headers['Content-Security-Policy'] = "frame-ancestors 'self'"
+
+    # Microphone permission for voice routes
+    if path.startswith('/voice/') or path.startswith('/embed/') or path.startswith('/dashboard'):
+        response.headers['Permissions-Policy'] = 'microphone=*, camera=*, autoplay=*'
+
+    # CORS for GHL Custom JS — uses JWT Bearer tokens, not cookies, so * origin is safe
     if path.startswith('/api/ghl/') or path.startswith('/voice/'):
         response.headers['Access-Control-Allow-Origin'] = '*'
         response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'

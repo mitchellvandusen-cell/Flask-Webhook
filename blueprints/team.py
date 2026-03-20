@@ -301,7 +301,7 @@ def list_members():
 
     except Exception as e:
         logger.error(f"List members error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
     finally:
         cur.close()
         return_db_connection(conn)
@@ -392,7 +392,7 @@ def invite_member():
     except Exception as e:
         conn.rollback()
         logger.error(f"Invite member error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
     finally:
         cur.close()
         return_db_connection(conn)
@@ -454,7 +454,7 @@ def resend_invite():
     except Exception as e:
         conn.rollback()
         logger.error(f"Resend invite error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
     finally:
         cur.close()
         return_db_connection(conn)
@@ -609,7 +609,7 @@ def update_permissions():
     except Exception as e:
         conn.rollback()
         logger.error(f"Update permissions error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
     finally:
         cur.close()
         return_db_connection(conn)
@@ -665,7 +665,7 @@ def update_role():
     except Exception as e:
         conn.rollback()
         logger.error(f"Update role error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
     finally:
         cur.close()
         return_db_connection(conn)
@@ -726,7 +726,7 @@ def toggle_active():
     except Exception as e:
         conn.rollback()
         logger.error(f"Toggle active error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
     finally:
         cur.close()
         return_db_connection(conn)
@@ -892,7 +892,7 @@ def agent_kpis():
 
     except Exception as e:
         logger.error(f"Agent KPIs error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
     finally:
         cur.close()
         return_db_connection(conn)
@@ -931,7 +931,7 @@ def team_stats():
 
     except Exception as e:
         logger.error(f"Team stats error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
     finally:
         cur.close()
         return_db_connection(conn)
@@ -972,7 +972,7 @@ def get_audit_log():
 
     except Exception as e:
         logger.error(f"Audit log error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
     finally:
         cur.close()
         return_db_connection(conn)
@@ -1059,7 +1059,7 @@ def seat_onboarding_status():
 
     except Exception as e:
         logger.error(f"Onboarding status error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
     finally:
         cur.close()
         return_db_connection(conn)
@@ -1107,7 +1107,7 @@ def remove_member():
     except Exception as e:
         conn.rollback()
         logger.error(f"Remove member error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
     finally:
         cur.close()
         return_db_connection(conn)
@@ -1179,7 +1179,7 @@ def seat_checkout():
 
     except Exception as e:
         logger.error(f"Seat checkout error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 # ── Billing Info ──────────────────────────────────────────────────────────────
@@ -1217,7 +1217,7 @@ def seat_billing_info():
 
     except Exception as e:
         logger.error(f"Seat billing info error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
     finally:
         cur.close()
         return_db_connection(conn)
