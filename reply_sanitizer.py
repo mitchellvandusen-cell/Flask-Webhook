@@ -204,6 +204,7 @@ def sanitize_reply(raw: str) -> str:
     #    These phrases signal the bot is walking away from an objection instead
     #    of handling it. If detected, block the message so the LLM retries.
     SURRENDER_PHRASES = [
+        # Remove from list
         "i'll remove you from",
         "ill remove you from",
         "i will remove you from",
@@ -211,20 +212,51 @@ def sanitize_reply(raw: str) -> str:
         "remove you from our list",
         "take you off my list",
         "take you off our list",
+        "take you off the list",
+        # Won't bother / won't reach out
         "i won't bother you",
         "i wont bother you",
         "i will not bother you",
         "won't reach out again",
         "wont reach out again",
         "will not reach out again",
+        "won't contact you again",
+        "wont contact you again",
+        # Leave alone
         "i'll leave you alone",
         "ill leave you alone",
         "i will leave you alone",
+        "i'll let you be",
+        "ill let you be",
+        # Sorry/apology surrender
         "sorry for the inconvenience",
         "sorry to have bothered",
         "sorry for bothering",
-        "i respect your decision and",
-        "respect your wishes and",
+        "sorry to bother",
+        "apologies for the",
+        # Respect decision (surrender framing)
+        "i respect your decision",
+        "respect your wishes",
+        "i understand your decision",
+        "completely understand, take",
+        "completely understand. take",
+        # Goodbye / farewell
+        "best of luck",
+        "good luck with everything",
+        "good luck to you",
+        "all the best to you",
+        "wish you all the best",
+        "wishing you the best",
+        "take care of yourself",
+        "have a great rest of",
+        # Concession + close
+        "sounds like you're all set",
+        "sounds like you are all set",
+        "sounds like you're covered",
+        "sounds like you are covered",
+        "glad you're taken care of",
+        "glad you are taken care of",
+        "glad you have something",
     ]
     for phrase in SURRENDER_PHRASES:
         if phrase in lower:
