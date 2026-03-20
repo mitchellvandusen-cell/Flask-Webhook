@@ -195,9 +195,10 @@ def generate_strategic_directive(
             elif temp == "cold":
                 temperature_ctx = (
                     f"\nLEAD TEMPERATURE: COLD (score {score}/100, engagement {eng}/3). "
-                    f"This lead has shown little or no interest. "
-                    f"Be respectful of their position. A completely unexpected angle "
-                    f"is your best shot. If they have explicitly said stop, respect it."
+                    f"This lead has shown little or no interest so far. "
+                    f"Your previous approaches did not land. Come from a completely "
+                    f"unexpected angle they have never heard before. Different energy, "
+                    f"different topic, different everything. Cold leads are not dead leads."
                 )
             if temperature_ctx:
                 tactical = tactical + temperature_ctx
@@ -561,13 +562,15 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
     persistence_note = ""
     if persistence <= 2:
         persistence_note = (
-            f"\nPERSISTENCE: Low ({persistence}). If this is objection #{persistence}+, "
-            "exit gracefully. Do not keep pushing.\n"
+            f"\nPERSISTENCE: Conservative ({persistence}). Use the takeaway technique "
+            "earlier than usual to change the energy. But you still come back with a "
+            "new angle if they reply. You never walk away.\n"
         )
     elif persistence >= 4:
         persistence_note = (
             f"\nPERSISTENCE: High ({persistence}). Keep finding new angles even after "
-            f"multiple objections. Only exit after {persistence}+ distinct attempts.\n"
+            f"multiple objections. Use the takeaway technique to reset the dynamic "
+            f"when needed, but always come back from a new direction.\n"
         )
 
     # Build structural objection history block
@@ -770,6 +773,33 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
         )
 
     if obj == ObjectionType.NOT_INTERESTED:
+        # ─── EARLY CONVERSATION SMOKESCREEN (replies 1-6) ───
+        # "Not interested" in the first few replies is almost always a reflexive
+        # brush-off. They do not even know what they are not interested in yet.
+        # It is a smokescreen — treat it differently than a deep-conversation objection.
+        if logic.conversation_count <= 6 and same_objection_count <= 1:
+            return header + (
+                "OBJECTION: Not interested (EARLY CONVERSATION — this is a smokescreen).\n\n"
+                "They said 'not interested' within the first few messages. They do not even "
+                "know you yet. They do not know what you do, how you are different, or what "
+                "you can offer. This is a reflex — they say this to every salesperson who "
+                "texts them. It means absolutely nothing about their actual need for coverage.\n\n"
+                "DO NOT treat this as a real objection. DO NOT use the fork question yet. "
+                "DO NOT go emotional. They have not earned the emotional conversation and "
+                "you have not earned the right to go deep. This is still the opening.\n\n"
+                "YOUR MOVE: Acknowledge it casually and pivot to something unexpected.\n"
+                "- 'No I totally get it. Quick question though — do you have anything in place "
+                "right now or are you just kind of winging it?'\n"
+                "- 'Fair enough. Out of curiosity, is that because you already have something "
+                "or you just have not found the right fit?'\n"
+                "- 'Yeah no worries. Was it more that you already got something lined up or "
+                "just not the right time?'\n\n"
+                "The goal: turn their 'no' into a conversation. Every one of these pivots "
+                "forces them to give you a REASON, and once they give a reason, you have "
+                "a real objection to work with instead of a smokescreen.\n\n"
+                "CRITICAL: Keep it light. Keep it casual. One message. One question. "
+                "Do NOT lecture, do NOT pitch, do NOT sell. Just get them talking."
+            )
         if in_phase_2:
             # ─── Phase 2: They already answered the fork (price vs approval). ───
             # Now we know WHICH path they went down. Follow that thread deeper.
@@ -788,7 +818,8 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
                 "- They do not see the value yet, so any price feels like too much\n"
                 "Your move: 'Is it that you genuinely cannot swing it right now, or is it more that "
                 "you are not sure it is worth it?' That one question separates real from perceived. "
-                "If it is real, respect it and plant a seed about rates going up with age. "
+                "If it is real, acknowledge the situation and plant a seed: rates go up every year, "
+                "and what costs $30 today costs $50 next year. Just something to keep in mind. "
                 "If it is perceived, the value has not landed yet — go back to their situation. "
                 "What happens to the people they mentioned if this stays unhandled?\n\n"
                 "IF THEY SAID APPROVAL / HEALTH / COULD NOT GET APPROVED:\n"
@@ -940,25 +971,31 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
             )
         return header + (
             "OBJECTION: Already have coverage.\n\n"
-            "THE CARRIER QUESTION — Get curious, not adversarial.\n\n"
-            "Do NOT challenge it. Do NOT say 'but is it enough?' That puts them on defense.\n\n"
-            "ONE QUESTION: 'Oh nice! Who did you end up going with?'\n\n"
-            "This is casual, non-threatening, and it opens a conversation. Their answer tells "
-            "you everything:\n"
-            "- If they name a carrier → you can assess fit, pricing, gaps\n"
-            "- If they say 'through work' → employer coverage = biggest gap in America\n"
-            "- If they say 'I forget' or 'not sure' → they do not actually know what they have\n"
-            "- If they dodge → the 'coverage' is probably minimal or nonexistent\n\n"
-            "Variations:\n"
-            "- 'Cool, who did you go with?'\n"
-            "- 'Good to hear. What kind of policy did you land on?'\n"
-            "- 'Nice, is that something you got on your own or through work?'\n\n"
-            "The carrier question is your gateway. It feels like small talk but it opens "
-            "every door — carrier gaps, employer portability, GI waiting periods, term "
-            "expiration. Let THEIR answer guide you, do not pre-load a pitch.\n\n"
-            "REMEMBER: You are booking an appointment, not selling a policy. The call is "
-            "where you actually review their coverage. 'I can do a quick comparison for you "
-            "— takes 5 minutes — just to make sure you are not overpaying.'"
+            "STEP 1: ACKNOWLEDGE + PROBE THE TIMELINE.\n"
+            "Do NOT challenge it. Do NOT say 'but is it enough?' That puts them on defense.\n"
+            "Instead, figure out if this is something they have had for a while or just got:\n"
+            "'Oh nice, is that something you have had for a while or something you just got?'\n\n"
+            "WHY THIS QUESTION MATTERS:\n"
+            "- If they have had it a while → 'When is the last time you had it reviewed? Rates "
+            "change, your situation changes. A lot of people are overpaying without knowing it.'\n"
+            "- If they just got it → 'Who did you end up going with?' Then assess the carrier, "
+            "the product type, and whether it actually fits their situation.\n"
+            "- If they say 'through work' → employer coverage = biggest gap in America. 'Do you "
+            "know what happens to that when you retire or switch jobs?'\n"
+            "- If they say 'I forget' or dodge → they do not actually know what they have. "
+            "'That is actually really common. Most people set it and forget it. That is exactly "
+            "what the comparison call catches.'\n\n"
+            "STEP 2: FIND THE GAP.\n"
+            "Whatever they tell you, the next question reveals whether their coverage actually "
+            "fits their life. Do they have enough? Does it cover the right things? Is the person "
+            "they are protecting actually protected? Most people think they are covered and they "
+            "are not. Your job is to help them see that WITHOUT being adversarial.\n\n"
+            "STEP 3: BRIDGE TO THE CALL.\n"
+            "'I can run a quick comparison across 50+ carriers — takes 5 minutes — just to make "
+            "sure you are getting the best deal for what you need.'\n\n"
+            "CRITICAL: NEVER concede. NEVER say 'sounds like you are all set.' Even if their "
+            "coverage is good, there is always a reason to review it. Rates change. Life changes. "
+            "The comparison call costs them nothing and takes 10 minutes."
         )
 
     if obj == ObjectionType.THINK_ABOUT_IT:
@@ -1170,11 +1207,11 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
         smokescreen_note = (
             "\nSMOKESCREEN DETECTED: This lead has raised 3+ DIFFERENT objection types "
             f"({', '.join(sorted(distinct_types_seen))}). They are not truly objecting to any one thing "
-            "— they are looking for ANY reason to not move forward. None of the individual "
-            "objections are the real issue. Give them permission to say no: 'Hey it is "
-            "totally fine if this is not for you. No hard feelings. I would rather just "
-            "know than keep going back and forth.' Sometimes naming it breaks through. "
-            "Sometimes they say no and you move on. Either way you stop wasting time.\n"
+            "— they are throwing up smokescreens. None of the individual objections are "
+            "the real issue. Name it directly: 'I get the sense something else is going on "
+            "here. What is it really?' Cut through the smokescreens to the real concern. "
+            "Once you find the REAL objection underneath, handle THAT one. The smokescreens "
+            "disappear when the real issue is addressed.\n"
         )
 
     return header + (

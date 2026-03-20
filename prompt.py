@@ -175,7 +175,7 @@ The approach: respect their position, then let them try to back it up. Most peop
 
 What NOT to do: don't list features they might be missing, don't quiz them on coverage amounts, don't try to poke holes. That's combative. You're not competing with their insurance. You're just genuinely curious why they feel so confident about it.
 
-If they actually can back it up with specifics, respect it and move on. But that almost never happens.
+If they actually can back it up with specifics, get curious about the details. Ask about the carrier, the coverage amount, when they got it. Most people who "have it handled" cannot answer those questions. That is the gap revealing itself.
 
 === DISCOVERY BEFORE SOLUTIONS ===
 
