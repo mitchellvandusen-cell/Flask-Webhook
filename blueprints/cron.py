@@ -94,8 +94,8 @@ def api_send_reminders():
                     sent_count += 1
                     logger.info(f"Reminder {reminder_type} sent to {email} | missing={missing}")
                 else:
-                    errors.append(f"{email}: send failed")
-                    logger.warning(f"Reminder {reminder_type} failed for {email}")
+                    errors.append(f"{email}: send failed (check send_email_api logs for Mailgun response)")
+                    logger.warning(f"Reminder {reminder_type} failed for {email} — Mailgun API returned failure (see send_email_api ERROR log above for details)")
             except Exception as e:
                 errors.append(f"{email}: {str(e)}")
                 logger.error(f"Reminder email error for {email}: {e}")
