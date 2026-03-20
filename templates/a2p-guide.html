@@ -24,6 +24,43 @@
         color: #9333ea;
         background: rgba(147,51,234,0.06);
     }
+
+    .gws-referral-btn {
+        display: inline-flex;
+        align-items: center;
+        background: linear-gradient(135deg, rgba(255,165,0,0.18) 0%, rgba(255,165,0,0.08) 100%);
+        border: 1px solid rgba(255,165,0,0.4);
+        color: #ffa500;
+        font-weight: 700;
+        font-size: 0.9rem;
+        padding: 12px 24px;
+        border-radius: 10px;
+        text-decoration: none;
+        transition: background 0.2s, box-shadow 0.2s;
+        box-shadow: 0 4px 16px rgba(255,165,0,0.12);
+    }
+    .gws-referral-btn:hover {
+        background: linear-gradient(135deg, rgba(255,165,0,0.28) 0%, rgba(255,165,0,0.14) 100%);
+        box-shadow: 0 6px 24px rgba(255,165,0,0.22);
+        color: #ffb733;
+    }
+    .gws-referral-note {
+        font-size: 0.75rem;
+        color: #888;
+        margin-top: 8px;
+    }
+    body.light-theme .gws-referral-btn {
+        background: rgba(255,165,0,0.10);
+        border-color: rgba(255,140,0,0.35);
+        color: #b45a00;
+    }
+    body.light-theme .gws-referral-btn:hover {
+        background: rgba(255,165,0,0.18);
+        color: #9a4e00;
+    }
+    body.light-theme .gws-referral-note {
+        color: #6b7280;
+    }
 </style>
 <div class="container a2p-guide" style="padding-top: 120px; padding-bottom: 80px; max-width: 860px;">
 
@@ -215,6 +252,13 @@
                     <span style="color:#aaa;">Once DNS propagates (usually 1-48 hours), go to <code>mail.google.com</code> and sign in with your new branded email. It works just like regular Gmail.</span>
                 </div>
             </div>
+        </div>
+
+        <div class="text-center mt-4">
+            <a href="https://referworkspace.app.goo.gl/9CYa" target="_blank" rel="noopener" class="gws-referral-btn">
+                <i class="fa-brands fa-google me-2"></i>Get Google Workspace &mdash; 10% Off
+            </a>
+            <div class="gws-referral-note">Use our partner link to get 10% off your first year of Google Workspace</div>
         </div>
     </div>
 
