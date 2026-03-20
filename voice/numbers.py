@@ -1819,8 +1819,12 @@ def cnam_add_numbers():
 
     if not phone_number_sids:
         # Default: add all numbers not yet assigned
-        client = twilio_provisioning.get_sub_account_client(sub_sid)
-        numbers = client.incoming_phone_numbers.list()
+        try:
+            client = twilio_provisioning.get_sub_account_client(sub_sid)
+            numbers = client.incoming_phone_numbers.list()
+        except Exception as e:
+            logger.error(f"CNAM add-numbers: failed to list numbers: {e}")
+            return jsonify({"error": "Failed to fetch phone numbers from Twilio"}), 502
         already_assigned = set(cnam.get('assigned_numbers', []))
         phone_number_sids = [n.sid for n in numbers if n.sid not in already_assigned]
 

@@ -499,6 +499,7 @@ def api_discover_installs():
         results["errors"].append(f"API discovery error: {str(e)}")
 
     # Method 2: Cross-reference with our database
+    conn = None
     try:
         conn = get_db_connection()
         if conn:
@@ -542,22 +543,26 @@ def api_discover_installs():
             results["marketplace_installs"] = mkt_installs
 
             cur.close()
-            return_db_connection(conn)
-
-            db_location_ids = {u["location_id"] for u in db_users if u.get("location_id")}
-            for loc in results.get("installed_locations", []):
-                loc_id = loc.get("locationId") or loc.get("location_id") or loc.get("_id")
-                in_db  = loc_id in db_location_ids if loc_id else False
-                results["cross_reference"].append({
-                    "location_id":   loc_id,
-                    "name":          loc.get("name") or loc.get("locationName", "Unknown"),
-                    "email":         loc.get("email", ""),
-                    "company_id":    loc.get("companyId", ""),
-                    "in_our_database": in_db,
-                    "status":        "connected" if in_db else "LOST — needs OAuth",
-                })
     except Exception as e:
         results["errors"].append(f"DB cross-reference error: {str(e)}")
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+    db_users = results.get("db_subscribers", [])
+    if db_users:
+        db_location_ids = {u["location_id"] for u in db_users if u.get("location_id")}
+        for loc in results.get("installed_locations", []):
+            loc_id = loc.get("locationId") or loc.get("location_id") or loc.get("_id")
+            in_db  = loc_id in db_location_ids if loc_id else False
+            results["cross_reference"].append({
+                "location_id":   loc_id,
+                "name":          loc.get("name") or loc.get("locationName", "Unknown"),
+                "email":         loc.get("email", ""),
+                "company_id":    loc.get("companyId", ""),
+                "in_our_database": in_db,
+                "status":        "connected" if in_db else "LOST — needs OAuth",
+            })
 
     log_webhook_event(
         "admin", "discover_installs", "info",
