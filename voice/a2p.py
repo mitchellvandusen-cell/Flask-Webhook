@@ -246,7 +246,7 @@ def a2p_sync():
 
     except Exception as e:
         logger.error(f"A2P sync failed: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 def _save_a2p_to_voice_config(subscriber, vc, a2p):
@@ -432,7 +432,7 @@ def a2p_brand_status():
         return jsonify(result)
     except Exception as e:
         logger.error(f"A2P brand status error: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @a2p_bp.route('/voice/a2p/create-campaign', methods=['POST'])
@@ -561,7 +561,7 @@ def a2p_campaign_status():
         return jsonify(result)
     except Exception as e:
         logger.error(f"A2P campaign status error: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @a2p_bp.route('/voice/a2p/mark-fee-paid', methods=['POST'])

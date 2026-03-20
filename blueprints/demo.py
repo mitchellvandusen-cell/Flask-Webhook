@@ -173,7 +173,7 @@ def demo_init_api():
 
     except Exception as e:
         logger.error(f"Demo init error: {e}")
-        return flask_jsonify({"error": str(e)}), 500
+        return flask_jsonify({"error": "Internal server error"}), 500
     finally:
         if conn:
             return_db_connection(conn)

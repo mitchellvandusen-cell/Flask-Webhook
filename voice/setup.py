@@ -172,7 +172,7 @@ def generate_voice_token():
 
     except Exception as e:
         logger.error(f"[voice/token] Token generation failed: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 # ── Voice Insights Advanced Features ──

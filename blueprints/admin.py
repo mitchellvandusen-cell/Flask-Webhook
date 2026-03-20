@@ -16,6 +16,7 @@
 #   GET|POST /api/admin/audit-ai-minutes                        — AI minutes receipt audit
 
 import os
+import html as html_mod
 import logging
 
 import requests
@@ -233,10 +234,10 @@ def api_admin_send_email():
 <tr>
 <td style="padding: 0 40px 30px;">
   <h1 style="margin:0 0 16px;font-size:24px;font-weight:800;color:#ffffff;line-height:1.3;">
-    {subject}
+    {html_mod.escape(subject)}
   </h1>
   <div style="font-size:15px;color:#ccc;line-height:1.7;">
-    {message.replace(chr(10), "<br>")}
+    {html_mod.escape(message).replace(chr(10), "<br>")}
   </div>
 </td>
 </tr>
@@ -608,7 +609,7 @@ def api_admin_audit_ai_minutes():
             all_emails = [r[0] for r in cur.fetchall()]
             cur.close()
         except Exception as e:
-            return jsonify({"error": str(e)}), 500
+            return jsonify({"error": "Internal server error"}), 500
         finally:
             return_db_connection(conn)
 
@@ -747,6 +748,6 @@ def clear_subaccount_contamination():
 
     except Exception as e:
         logger.error(f"[cleanup] Sub-account contamination cleanup failed: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
     finally:
         return_db_connection(conn)

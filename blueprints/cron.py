@@ -109,7 +109,7 @@ def api_send_reminders():
 
     except Exception as e:
         logger.error(f"Cron send-reminders crashed: {e}", exc_info=True)
-        return safe_jsonify({"success": False, "error": str(e)}), 200
+        return safe_jsonify({"success": False, "error": "Internal server error"}), 200
 
 
 # ── Token refresh ─────────────────────────────────────────────────────────────
@@ -163,7 +163,7 @@ def api_cron_refresh_tokens():
         return safe_jsonify({"success": True, **stats})
     except Exception as e:
         logger.error(f"Cron refresh-tokens crashed: {e}", exc_info=True)
-        return safe_jsonify({"success": False, "error": str(e)}), 200
+        return safe_jsonify({"success": False, "error": "Internal server error"}), 200
 
 
 # ── Failed webhook recovery ───────────────────────────────────────────────────
@@ -185,7 +185,7 @@ def api_cron_recover_failed_webhooks():
         return safe_jsonify({"success": True, **stats})
     except Exception as e:
         logger.error(f"Cron recover-failed-webhooks crashed: {e}", exc_info=True)
-        return safe_jsonify({"success": False, "error": str(e)}), 200
+        return safe_jsonify({"success": False, "error": "Internal server error"}), 200
 
 
 @cron_bp.route("/api/cron/backfill-failed-webhooks", methods=["GET", "POST"])
@@ -215,7 +215,7 @@ def api_cron_backfill_failed_webhooks():
         return safe_jsonify({"success": True, "queued": True, "job_id": job.id})
     except Exception as e:
         logger.error(f"Cron backfill-failed-webhooks crashed: {e}", exc_info=True)
-        return safe_jsonify({"success": False, "error": str(e)}), 200
+        return safe_jsonify({"success": False, "error": "Internal server error"}), 200
 
 
 # ── GHL data sync ────────────────────────────────────────────────────────────
@@ -263,7 +263,7 @@ def api_cron_sync_ghl_data():
         })
     except Exception as e:
         logger.error(f"Cron sync-ghl-data crashed: {e}", exc_info=True)
-        return safe_jsonify({"success": False, "error": str(e)}), 200
+        return safe_jsonify({"success": False, "error": "Internal server error"}), 200
 
 
 # ── Number health daily maintenance ─────────────────────────────────────────
@@ -292,7 +292,7 @@ def api_cron_number_health():
         })
     except Exception as e:
         logger.error(f"Cron number-health crashed: {e}", exc_info=True)
-        return safe_jsonify({"success": False, "error": str(e)}), 200
+        return safe_jsonify({"success": False, "error": "Internal server error"}), 200
 
 
 @cron_bp.route("/api/cron/number-health-expire", methods=["GET", "POST"])
@@ -310,7 +310,7 @@ def api_cron_number_health_expire():
         return safe_jsonify({"success": True, "expired": expired_count})
     except Exception as e:
         logger.error(f"Cron number-health-expire crashed: {e}", exc_info=True)
-        return safe_jsonify({"success": False, "error": str(e)}), 200
+        return safe_jsonify({"success": False, "error": "Internal server error"}), 200
 
 
 @cron_bp.route("/api/cron/process-ghl-loops", methods=["GET", "POST"])
@@ -330,7 +330,7 @@ def api_cron_process_ghl_loops():
         return safe_jsonify({"success": True, **result})
     except Exception as e:
         logger.error(f"Cron process-ghl-loops crashed: {e}", exc_info=True)
-        return safe_jsonify({"success": False, "error": str(e)}), 200
+        return safe_jsonify({"success": False, "error": "Internal server error"}), 200
 
 
 @cron_bp.route("/api/cron/process-workflow-delays", methods=["GET", "POST"])
@@ -348,7 +348,7 @@ def api_cron_process_workflow_delays():
         return safe_jsonify({"success": True, "processed": result})
     except Exception as e:
         logger.error(f"Cron process-workflow-delays crashed: {e}", exc_info=True)
-        return safe_jsonify({"success": False, "error": str(e)}), 200
+        return safe_jsonify({"success": False, "error": "Internal server error"}), 200
 
 
 @cron_bp.route("/api/cron/process-workflow-triggers", methods=["GET", "POST"])
@@ -367,4 +367,4 @@ def api_cron_process_workflow_triggers():
         return safe_jsonify({"success": True, "runs_created": result})
     except Exception as e:
         logger.error(f"Cron process-workflow-triggers crashed: {e}", exc_info=True)
-        return safe_jsonify({"success": False, "error": str(e)}), 200
+        return safe_jsonify({"success": False, "error": "Internal server error"}), 200

@@ -349,7 +349,7 @@ def get_contact_detail(contact_id):
 
     except Exception as e:
         logger.error(f"Failed to fetch contact detail: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @contacts_bp.route('/voice/contact/<contact_id>/messages', methods=['GET'])
@@ -410,7 +410,7 @@ def get_contact_messages(contact_id):
 
     except Exception as e:
         logger.error(f"Failed to fetch contact messages: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @contacts_bp.route('/voice/contact/<contact_id>/send-sms', methods=['POST'])
@@ -521,7 +521,7 @@ def send_contact_sms(contact_id):
             return jsonify({"error": "Failed to send SMS via GHL. Check logs for details."}), 500
     except Exception as e:
         logger.error(f"SMS send error for {contact_id}: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @contacts_bp.route('/voice/sms-channels', methods=['GET'])
@@ -787,7 +787,7 @@ def create_contact_note(contact_id):
         return jsonify({"error": f"GHL returned {resp.status_code}"}), resp.status_code
     except Exception as e:
         logger.error(f"create_contact_note error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -826,4 +826,4 @@ def update_contact(contact_id):
         return jsonify({"error": f"GHL returned {resp.status_code}"}), resp.status_code
     except Exception as e:
         logger.error(f"update_contact error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500

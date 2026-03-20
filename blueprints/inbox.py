@@ -438,7 +438,7 @@ def api_sync_deep_pull():
 
     except Exception as e:
         logger.error(f"Deep sync trigger failed: {e}", exc_info=True)
-        return safe_jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": "Internal server error"}), 500
 
 
 @inbox_bp.route("/api/sync/deep-pull/status", methods=["GET"])
@@ -520,4 +520,4 @@ def api_sync_deep_pull_reset():
 
     except Exception as e:
         logger.error(f"Deep sync reset failed: {e}", exc_info=True)
-        return safe_jsonify({"error": str(e)}), 500
+        return safe_jsonify({"error": "Internal server error"}), 500

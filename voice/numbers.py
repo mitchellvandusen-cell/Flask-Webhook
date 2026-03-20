@@ -147,7 +147,7 @@ def list_voice_numbers():
 
     except Exception as e:
         logger.error(f"Failed to list numbers: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @numbers_bp.route('/voice/numbers/search', methods=['GET'])
@@ -178,7 +178,7 @@ def search_available_numbers():
 
     except Exception as e:
         logger.error(f"Number search failed: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @numbers_bp.route('/voice/numbers/buy', methods=['POST'])
@@ -261,7 +261,7 @@ def _provision_number(sub_sid, vc, phone_number):
             title="Phone Number Purchase Failed",
             message=f"Failed to purchase {phone_number}. Please try again or contact support.",
         )
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @numbers_bp.route('/voice/numbers/checkout', methods=['POST'])
@@ -567,7 +567,7 @@ def release_voice_number():
         _log_number_event(sub_sid, "phone_number_released", "error",
                           f"Phone number release failed: {phone_sid}",
                           {"sid": phone_sid, "error": str(e)})
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 # ── Trust Hub ──────────────────────────────────────────────────────────────
@@ -641,7 +641,7 @@ def get_trust_hub_status():
 
     except Exception as e:
         logger.error(f"Trust hub check failed: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @numbers_bp.route('/voice/profile-status', methods=['GET'])
@@ -690,7 +690,7 @@ def toggle_cnam(number_id):
         return jsonify({"status": "ok", "cnam_listed": bool(business_name)})
     except Exception as e:
         logger.error(f"CNAM toggle failed: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @numbers_bp.route('/voice/numbers/nickname', methods=['POST'])
@@ -1866,7 +1866,7 @@ def cnam_add_numbers():
         _log_number_event(sub_sid, "cnam_numbers_added", "error",
                           f"Caller ID: failed to add numbers",
                           {"error": str(e)})
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @numbers_bp.route('/voice/cnam/remove-number', methods=['POST'])
@@ -1920,7 +1920,7 @@ def cnam_remove_number():
         _log_number_event(sub_sid, "cnam_number_removed", "error",
                           f"Caller ID: failed to remove number",
                           {"phone_sid": phone_number_sid, "error": str(e)})
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 # ──────────────────────────────────────────────────────────────
@@ -2309,7 +2309,7 @@ def number_integrity_add_numbers():
         _log_number_event(sub_sid, "voice_integrity_numbers_added", "error",
                           f"Voice Integrity: failed to add numbers",
                           {"error": str(e), "trust_product_sid": trust_product_sid})
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @numbers_bp.route('/voice/number-integrity/remove-number', methods=['POST'])
@@ -2358,7 +2358,7 @@ def number_integrity_remove_number():
         _log_number_event(sub_sid, "voice_integrity_number_removed", "error",
                           f"Voice Integrity: failed to remove number",
                           {"phone_sid": phone_sid, "error": str(e)})
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @numbers_bp.route('/voice/number-integrity/remediate', methods=['POST'])
