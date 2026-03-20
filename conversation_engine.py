@@ -1218,6 +1218,17 @@ def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "", age: i
     else:
         stage_history = ""
 
+    # ─── Build conversational context for contextual classification ───
+    # Last 2 messages before the current inbound, with role prefixes.
+    # This lets TF-IDF distinguish "okay" after "book a call?" vs "think about it".
+    context_text = None
+    try:
+        from classification_memory import build_context_string
+        if messages:
+            context_text = build_context_string(messages)
+    except Exception:
+        pass
+
     # ─── Tier 0: Embedding memory lookup (learned from prior conversations) ───
     memory_result = None
     memory_used = False
@@ -1225,7 +1236,7 @@ def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "", age: i
         from classification_memory import lookup_classification, seed_from_keywords
         seed_from_keywords()  # No-op after first call
         if recent_lead_text:
-            memory_result = lookup_classification(recent_lead_text)
+            memory_result = lookup_classification(recent_lead_text, context_text=context_text)
     except Exception as e:
         logger.debug(f"Classification memory unavailable: {e}")
 
@@ -1288,7 +1299,9 @@ def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "", age: i
     # ═══════════════════════════════════════════════════════════════════
     if recent_lead_text and not memory_used:
         try:
-            from classification_memory import store_classification, handle_contradiction
+            from classification_memory import (
+                store_classification, handle_contradiction, contextual_enrich_async
+            )
 
             # Keywords validated if cross-validation upgraded or refined the result
             kw_type, _ = detect_objection_keywords(recent_lead_text)
@@ -1301,6 +1314,7 @@ def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "", age: i
                 confidence=0.95 if kw_validated else 0.7,
                 source="llm",
                 keyword_validated=kw_validated,
+                context_text=context_text,
             )
 
             # Self-correct: if memory suggested X but final result is Y, fix it
@@ -1308,8 +1322,17 @@ def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "", age: i
                 if memory_result["objection_type"] != objection_type.value:
                     handle_contradiction(
                         recent_lead_text, objection_type.value,
-                        0.95 if kw_validated else 0.7
+                        0.95 if kw_validated else 0.7,
+                        context_text=context_text,
                     )
+
+            # Fire-and-forget contextual enrichment for short ambiguous messages.
+            # Runs in a background thread — never blocks the bot response.
+            # Only fires for <=4 word messages that are in the ambiguous token set.
+            if context_text and message and len(message.split()) <= 4:
+                contextual_enrich_async(
+                    message, context_text, objection_type.value
+                )
         except Exception as e:
             logger.debug(f"Classification memory store failed: {e}")
 
