@@ -1249,9 +1249,9 @@ def oauth_callback():
                 else f"{domain_url}/dashboard"
             )
             if use_agency_flow:
-                welcome_html = _build_agency_owner_welcome_email(user_name, dashboard_link, domain_url)
+                welcome_html = _build_agency_owner_welcome_email(user_name, dashboard_link, domain_url, recipient_email=user_email)
             else:
-                welcome_html = _build_welcome_email(user_name, dashboard_link, domain_url)
+                welcome_html = _build_welcome_email(user_name, dashboard_link, domain_url, recipient_email=user_email)
             email_subject = (
                 "Your Agency Dashboard is Ready — InsuranceGrokBot" if use_agency_flow
                 else "Welcome to InsuranceGrokBot — Your AI Assistant is Ready"

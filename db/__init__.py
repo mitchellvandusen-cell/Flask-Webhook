@@ -50,6 +50,7 @@ from db.auth import (
     get_subscribers_needing_token_refresh,
     get_users_needing_reminders,
     mark_reminder_sent,
+    mark_email_unsubscribed,
 )
 
 # ═══════════════════════════════════════════════════════════════
@@ -196,7 +197,7 @@ __all__ = [
     "User", "clean_subaccount_contamination", "backfill_agency_owners_to_subscribers",
     "update_subscriber_token",
     "update_crm_config_token", "get_subscribers_needing_token_refresh",
-    "get_users_needing_reminders", "mark_reminder_sent",
+    "get_users_needing_reminders", "mark_reminder_sent", "mark_email_unsubscribed",
     # Subscribers
     "get_subscriber_info_sql", "get_subscriber_info_hybrid",
     "get_bot_settings", "get_bot_settings_by_location", "save_bot_settings",

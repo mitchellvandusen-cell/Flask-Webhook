@@ -3,8 +3,10 @@
 # All functions here are pure: they take string parameters and return HTML strings.
 # No Flask context, no database calls, no side effects.
 
+from urllib.parse import quote as url_quote
 
-def _email_wrapper(inner_html: str, domain_url: str) -> str:
+
+def _email_wrapper(inner_html: str, domain_url: str, recipient_email: str = "") -> str:
     """Wrap email content in the premium dark-themed InsuranceGrokBot email shell."""
     return f'''<!DOCTYPE html>
 <html lang="en">
@@ -49,10 +51,12 @@ def _email_wrapper(inner_html: str, domain_url: str) -> str:
                 <a href="{domain_url}/dashboard" style="color: #00c853; text-decoration: none;">Dashboard</a>
                 &nbsp;&nbsp;|&nbsp;&nbsp;
                 <a href="{domain_url}/terms" style="color: #00c853; text-decoration: none;">Terms</a>
+                {"&nbsp;&nbsp;|&nbsp;&nbsp;" + '<a href="' + domain_url + '/email/unsubscribe?email=' + url_quote(recipient_email) + '" style="color: #00c853; text-decoration: none;">Unsubscribe</a>' if recipient_email else ""}
             </p>
             <p style="margin: 0; font-size: 12px; color: #444;">
                 InsuranceGrokBot &mdash; AI-Powered Insurance Sales Assistant
             </p>
+            {('<p style="margin: 8px 0 0; font-size: 11px; color: #3a3a3a;">You\'re receiving this because you subscribed to InsuranceGrokBot.</p>' if recipient_email else "")}
         </td>
     </tr>
     </table>
@@ -111,7 +115,7 @@ def _build_setup_checklist_html(missing: list, domain_url: str, user_type: str) 
     return f'<table cellpadding="0" cellspacing="0" style="width: 100%;">{rows}</table>'
 
 
-def _build_uninstall_feedback_email(name: str, domain_url: str, feedback_id: int) -> str:
+def _build_uninstall_feedback_email(name: str, domain_url: str, feedback_id: int, recipient_email: str = "") -> str:
     """Build farewell email asking for uninstall feedback with link to feedback page."""
     feedback_url = f"{domain_url}/uninstall-feedback?id={feedback_id}"
     inner = f'''
@@ -163,7 +167,7 @@ def _build_uninstall_feedback_email(name: str, domain_url: str, feedback_id: int
 </td>
 </tr>
 '''
-    return _email_wrapper(inner, domain_url)
+    return _email_wrapper(inner, domain_url, recipient_email=recipient_email)
 
 
 def _build_uninstall_admin_notification(location_id: str, company_id: str,
@@ -184,7 +188,7 @@ def _build_uninstall_admin_notification(location_id: str, company_id: str,
 </body></html>'''
 
 
-def _build_install_welcome_email(name: str, domain_url: str) -> str:
+def _build_install_welcome_email(name: str, domain_url: str, recipient_email: str = "") -> str:
     """Build premium welcome email for marketplace install — guides them through full setup flow."""
     inner = f'''
 <tr>
@@ -330,10 +334,10 @@ def _build_install_welcome_email(name: str, domain_url: str) -> str:
 </td>
 </tr>
 '''
-    return _email_wrapper(inner, domain_url)
+    return _email_wrapper(inner, domain_url, recipient_email=recipient_email)
 
 
-def _build_reminder_24h_email(name: str, domain_url: str, user_type: str, missing: list = None) -> str:
+def _build_reminder_24h_email(name: str, domain_url: str, user_type: str, missing: list = None, recipient_email: str = "") -> str:
     """Build the 24-hour onboarding reminder — premium marketing email with setup checklist."""
     missing = missing or []
     dashboard = f"{domain_url}/agency-dashboard" if user_type == "agency_owner" else f"{domain_url}/dashboard"
@@ -462,10 +466,10 @@ def _build_reminder_24h_email(name: str, domain_url: str, user_type: str, missin
 </td>
 </tr>
 '''
-    return _email_wrapper(inner, domain_url)
+    return _email_wrapper(inner, domain_url, recipient_email=recipient_email)
 
 
-def _build_reminder_72h_email(name: str, domain_url: str, user_type: str, missing: list = None) -> str:
+def _build_reminder_72h_email(name: str, domain_url: str, user_type: str, missing: list = None, recipient_email: str = "") -> str:
     """Build the 72-hour onboarding reminder — urgency-driven premium marketing email."""
     missing = missing or []
     dashboard = f"{domain_url}/agency-dashboard" if user_type == "agency_owner" else f"{domain_url}/dashboard"
@@ -619,10 +623,10 @@ def _build_reminder_72h_email(name: str, domain_url: str, user_type: str, missin
 </td>
 </tr>
 '''
-    return _email_wrapper(inner, domain_url)
+    return _email_wrapper(inner, domain_url, recipient_email=recipient_email)
 
 
-def _build_welcome_email(user_name: str, dashboard_link: str, domain_url: str) -> str:
+def _build_welcome_email(user_name: str, dashboard_link: str, domain_url: str, recipient_email: str = "") -> str:
     """Build the post-OAuth welcome email — CRM connected, now subscribe + set password."""
     checkout_url = f"{domain_url}/checkout"
     set_pw_url = f"{domain_url}/set-password?type=individual"
@@ -748,10 +752,10 @@ def _build_welcome_email(user_name: str, dashboard_link: str, domain_url: str) -
 </td>
 </tr>
 '''
-    return _email_wrapper(inner, domain_url)
+    return _email_wrapper(inner, domain_url, recipient_email=recipient_email)
 
 
-def _build_agency_owner_welcome_email(user_name: str, dashboard_link: str, domain_url: str) -> str:
+def _build_agency_owner_welcome_email(user_name: str, dashboard_link: str, domain_url: str, recipient_email: str = "") -> str:
     """Build post-OAuth welcome email for agency owners — FREE account, no subscription step."""
     set_pw_url = f"{domain_url}/forgot-password"
     inner = f'''
@@ -845,7 +849,7 @@ def _build_agency_owner_welcome_email(user_name: str, dashboard_link: str, domai
 </td>
 </tr>
 '''
-    return _email_wrapper(inner, domain_url)
+    return _email_wrapper(inner, domain_url, recipient_email=recipient_email)
 
 
 # ── Transactional emails ─────────────────────────────────────────────────────
@@ -883,7 +887,8 @@ def _build_password_reset_html(reset_url: str, domain_url: str) -> str:
 
 
 def _build_agency_invite_html(agent_name: str, agency_name: str,
-                               invite_url: str, domain_url: str) -> tuple:
+                               invite_url: str, domain_url: str,
+                               recipient_email: str = "") -> tuple:
     """Build HTML + text body for the agency sub-user invite email.
     Returns (html_body, text_body).
     """
@@ -984,7 +989,7 @@ def _build_agency_invite_html(agent_name: str, agency_name: str,
     return html_body, text_body
 
 
-def build_app_update_email(domain_url: str, update_notes: str = "") -> tuple:
+def build_app_update_email(domain_url: str, update_notes: str = "", recipient_email: str = "") -> tuple:
     """
     Email sent to all subscribers when a new InsuranceGrokBot version is
     published to the GHL Marketplace and users need to accept updated permissions.
@@ -1096,7 +1101,7 @@ def build_app_update_email(domain_url: str, update_notes: str = "") -> tuple:
 </tr>
 """
 
-    html_body = _email_wrapper(inner_html, domain_url)
+    html_body = _email_wrapper(inner_html, domain_url, recipient_email=recipient_email)
 
     text_body = (
         "InsuranceGrokBot — App Update Available\n\n"
