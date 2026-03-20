@@ -949,6 +949,7 @@ _CLASSIFICATION_PROMPT = """You are classifying lead messages in a life insuranc
 
 Conversation stage history (most recent at bottom — shows where we have been):
 {stage_history}
+NOTE: Stages like "objection_handling:already_covered" mean the bot detected an already_covered objection on that turn. Use this history to understand what objections were already raised. If you see the SAME objection type repeated, the lead is stuck on that issue.
 
 Lead messages (most recent at bottom):
 {lead_messages}
@@ -1204,6 +1205,57 @@ def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "", age: i
     except ValueError:
         logger.warning(f"LLM returned invalid objection_nature '{obj_nature_str}' — defaulting to NONE.")
         objection_nature = ObjectionNature.NONE
+
+    # ═══════════════════════════════════════════════════════════════════
+    # LLM-KEYWORD CROSS-VALIDATION
+    # ═══════════════════════════════════════════════════════════════════
+    # The LLM is primary, but it can miss. Keywords ALWAYS run as a
+    # safety net. Two rules:
+    #
+    # 1. LLM says NONE but keywords found a real objection → UPGRADE
+    #    to the keyword result. An objection that gets missed = the bot
+    #    sends a qualifying question to someone who just said "no thanks."
+    #    That's worse than over-classifying.
+    #
+    # 2. LLM says NOT_INTERESTED but keywords found a more specific type
+    #    (already_covered, price_money, etc.) → PREFER the specific type.
+    #    not_interested is the catch-all bucket. A specific type gets
+    #    specific tactical guidance. Generic gets generic.
+    #
+    # 3. LLM says a specific type and keywords agree or disagree → TRUST
+    #    the LLM. It has full conversational context, keywords don't.
+    #
+    # This ensures: every real objection reaches OBJECTION_HANDLING stage.
+    # ═══════════════════════════════════════════════════════════════════
+
+    kw_obj_type, kw_obj_nature = detect_objection_keywords(recent_lead_text)
+
+    if kw_obj_type != ObjectionType.NONE:
+        if objection_type == ObjectionType.NONE:
+            # Rule 1: LLM missed it, keywords caught it → upgrade
+            logger.info(
+                f"CROSS-VALIDATION UPGRADE: LLM said 'none' but keywords detected "
+                f"'{kw_obj_type.value}' | msg='{recent_lead_text[:80]}' | Upgrading to keyword result."
+            )
+            objection_type = kw_obj_type
+            objection_nature = kw_obj_nature
+
+        elif objection_type == ObjectionType.NOT_INTERESTED and kw_obj_type != ObjectionType.NOT_INTERESTED:
+            # Rule 2: LLM said generic not_interested, keywords found specific type → prefer specific
+            logger.info(
+                f"CROSS-VALIDATION REFINE: LLM said 'not_interested' but keywords detected "
+                f"more specific '{kw_obj_type.value}' | msg='{recent_lead_text[:80]}' | Using specific type."
+            )
+            objection_type = kw_obj_type
+            objection_nature = kw_obj_nature
+    elif objection_type == ObjectionType.NONE:
+        # Neither LLM nor keywords found anything — truly no objection
+        pass
+
+    logger.info(
+        f"Classification final | msg='{recent_lead_text[:60]}' | "
+        f"llm={obj_type_str} | kw={kw_obj_type.value} | final={objection_type.value}"
+    )
 
     # ─── Booking confirmed by bot recently? ───
     booking_confirmed = False

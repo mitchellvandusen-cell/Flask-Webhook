@@ -205,10 +205,18 @@ def generate_strategic_directive(
         logger.debug(f"Temperature context unavailable for {contact_id}: {e}")
 
     # ─── 8. FINAL OUTPUT ───
+    # Enrich stage with objection type so stage history stamps carry the
+    # specific objection: "objection_handling:already_covered" instead of
+    # just "objection_handling". This feeds back into the next classification
+    # call, giving Grok full objection history.
+    enriched_stage = stage_value
+    if stage_value == ConversationStage.OBJECTION_HANDLING.value and logic.objection_type != ObjectionType.NONE:
+        enriched_stage = f"{stage_value}:{logic.objection_type.value}"
+
     return {
         "profile_str": profile_str.strip(),
         "tactical_narrative": tactical.strip(),
-        "stage": stage_value,
+        "stage": enriched_stage,
         "underwriting_context": underwriting_ctx.strip(),
         "company_context": company_ctx.strip(),
         "known_facts": known_facts,
