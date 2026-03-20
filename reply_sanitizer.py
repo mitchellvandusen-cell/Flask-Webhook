@@ -200,6 +200,38 @@ def sanitize_reply(raw: str) -> str:
         logger.warning(f"BLOCKED MESSAGE: '{cleaned[:200]}...'")
         return ""
 
+    # 6. Check for surrender language — bot should NEVER give up on a lead.
+    #    These phrases signal the bot is walking away from an objection instead
+    #    of handling it. If detected, block the message so the LLM retries.
+    SURRENDER_PHRASES = [
+        "i'll remove you from",
+        "ill remove you from",
+        "i will remove you from",
+        "remove you from my list",
+        "remove you from our list",
+        "take you off my list",
+        "take you off our list",
+        "i won't bother you",
+        "i wont bother you",
+        "i will not bother you",
+        "won't reach out again",
+        "wont reach out again",
+        "will not reach out again",
+        "i'll leave you alone",
+        "ill leave you alone",
+        "i will leave you alone",
+        "sorry for the inconvenience",
+        "sorry to have bothered",
+        "sorry for bothering",
+        "i respect your decision and",
+        "respect your wishes and",
+    ]
+    for phrase in SURRENDER_PHRASES:
+        if phrase in lower:
+            logger.warning(f"SURRENDER LANGUAGE BLOCKED: '{phrase}' found in reply — bot tried to give up")
+            logger.warning(f"BLOCKED MESSAGE: '{cleaned[:200]}...'")
+            return ""
+
     return cleaned
 
 

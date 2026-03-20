@@ -380,6 +380,14 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
         "just got a policy", "just bought", "recently purchased",
         "just renewed", "just signed up",
         "happy with what i have", "satisfied with", "content with",
+        # Chose/selected/went with a carrier or policy (completed purchasing decision)
+        "chose my", "chosen my", "i chose", "i have chosen",
+        "went with", "i went with", "signed with", "signed up with",
+        "picked a", "picked my", "selected a", "selected my",
+        "found someone", "found an agent", "found a guy", "found a broker",
+        "moved forward with", "going with", "decided to go with",
+        "got a guy", "got an agent", "got a broker",
+        "have a policyholder", "chosen my policyholder",
     ]
 
     # ── THINK ABOUT IT — stalling, delaying decision ──
@@ -990,9 +998,11 @@ CRITICAL FALSE POSITIVE RULES — these OVERRIDE the closer mindset:
 - "yes" / "sure" / "ok" answering YOUR question = NONE (providing info, not booking)
 - "I have diabetes but I want coverage" / "I know I have health issues, what are my options?" = health_concern (NOT not_interested — they WANT coverage, they doubt they can GET it)
 - "my buddy/nephew/cousin sells insurance" with no existing policy = trust_issue (loyalty objection, NOT already_covered unless they have active coverage through that person)
+- "I have chosen my policyholder" / "I went with someone else" / "I found an agent" / "I signed with [carrier]" = already_covered (NOT not_interested — they made a purchasing decision, they did not just say "no")
+- Any message that mentions CHOOSING, SELECTING, GOING WITH, or SIGNING WITH a carrier/agent/policy = already_covered. Even if combined with "thank you" or "goodbye" language, the reason is the coverage decision, not bare rejection.
 
 OBJECTION TYPE DEFINITIONS:
-  "not_interested" = ANY form of no, decline, dismissal, disengagement, negativity, apathy, or rejection. Includes: "no thanks", "I'm good", "nah", "pass", "whatever", "bye", "leave me alone", "don't care", "I'm done", sarcastic dismissals, or any response that signals the lead does not want to continue. If ambiguous ("hmm", "maybe", "idk"), prefer "think_about_it" — thoughtful leads deserve patience.
+  "not_interested" = flat rejection with NO REASON GIVEN. The lead does not explain WHY they are declining — just says no. "no thanks", "I'm good", "nah", "pass", "whatever", "bye", "don't care", "I'm done", sarcastic dismissals. CRITICAL: if they give ANY reason (already have coverage, chose someone else, too expensive, busy, need to think), that is a DIFFERENT objection type — not not_interested. "not_interested" is ONLY for bare rejections without explanation. If ambiguous ("hmm", "maybe", "idk"), prefer "think_about_it" — thoughtful leads deserve patience.
   "spouse_partner" = deferring to ANY third party: spouse, partner, family, accountant, lawyer, advisor, broker. "Let me check with...", "My wife/husband handles/decides...", "need to ask..."
   "price_money" = ANY concern about cost, affordability, budget, value. "Too expensive", "can't afford", "fixed income", "not worth it", "money is tight"
   "already_covered" = claims existing protection OR states they already chose/selected/went with a carrier or policy. "I'm covered", "already have", "all set", "taken care of", "I chose/went with/picked/signed with [carrier]", "I have chosen my [policy/carrier/provider/policyholder]", "I found someone", "I went with someone else", "moved forward with another [agent/company]". KEY: if they say they CHOSE or SELECTED a policy/carrier/agent — even if phrasing is unusual ("I have chosen my policyholder") — that is already_covered, NOT not_interested.

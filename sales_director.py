@@ -664,7 +664,11 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
                 same_objection_count += 1
 
     in_phase_2 = same_objection_count >= 2
-    in_phase_3 = same_objection_count >= 4  # Graceful exit after 4+ same objection
+    # Phase 3 threshold: not_interested is the broadest bucket — many different
+    # sentiments get lumped there. Require more repetitions before switching energy.
+    # All other types are specific enough that 4 truly means they said THE SAME THING 4 times.
+    phase_3_threshold = 6 if obj == ObjectionType.NOT_INTERESTED else 4
+    in_phase_3 = same_objection_count >= phase_3_threshold
 
     # ─── COMPOUND OBJECTION PRIORITY: Price is ALWAYS #1 ───
     # If the lead is throwing multiple different objection types AND price is
@@ -690,21 +694,23 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
 
     if in_phase_3:
         header += (
-            "=== PHASE 3: THE TAKEAWAY — PLANT THE SEED ===\n"
-            "They have said the same thing FOUR or more times. You tried the logistics. "
-            "You tried the emotional truth. They are not moving today. That is okay.\n\n"
-            "NOW you use the most counterintuitive tool in your arsenal: you let go. "
-            "Genuinely. Not as a tactic. Because pushing a fifth time does not show persistence, "
-            "it shows desperation, and they can feel it.\n\n"
-            "Send ONE message that does three things:\n"
-            "1. Acknowledge their position with real respect. Not 'I understand' (empty). "
-            "Something that shows you actually heard them across this whole conversation.\n"
-            "2. Leave one specific thought with them — not a pitch, not a benefit. Something "
-            "personal to their situation that they will think about later. If they told you about "
-            "their kids, their spouse, their fear — leave it connected to that. Plant it and walk away.\n"
-            "3. Make it clear the door is open with zero pressure. They know how to reach you.\n\n"
-            "This message is what they remember at 2 AM when they cannot sleep. "
-            "Make it worth remembering. Then stop.\n\n"
+            "=== PHASE 3: THE TAKEAWAY — CHANGE THE ENERGY ===\n"
+            "They have said the same thing FOUR or more times. Pushing the same way again "
+            "will not work. You need to SHIFT THE DYNAMIC, not give up.\n\n"
+            "IMPORTANT: You are NOT giving up. You are NOT exiting. You are NOT saying goodbye. "
+            "You are changing your approach to something they have never heard from you before. "
+            "The only thing that stops this conversation is a TCPA opt-out (stop, unsubscribe, "
+            "remove me, do not contact). Anything else, you keep going from a new angle.\n\n"
+            "THE TAKEAWAY TECHNIQUE:\n"
+            "1. Pull back the pressure completely. Say something that shows you genuinely heard "
+            "them across this whole conversation. Not 'I understand' (empty). Mirror something specific.\n"
+            "2. Leave one thought connected to THEIR life — their kids, their spouse, their fear, "
+            "whatever they shared. Not a pitch. A question they will think about later.\n"
+            "3. Make it clear you are still here. 'Hit me up whenever' or 'I'm around if anything changes.' "
+            "The door stays OPEN.\n\n"
+            "After the takeaway, if they reply with ANYTHING — even another objection — you are "
+            "back in the conversation. New angle. New energy. The takeaway resets the dynamic, "
+            "it does not end it.\n\n"
         )
     elif in_phase_2:
         header += (
