@@ -178,8 +178,20 @@ function teamCheckGhlUsers() {
             }
             _teamGhlUsers = data.users;
             if (data.count > 1) {
-                var available = data.count - 1; // exclude owner
-                if (text) text.textContent = available + ' other user' + (available > 1 ? 's' : '') + ' found on this GHL location. You can invite them as seat users.';
+                var myEmail = (window.DASHBOARD_BOOT?.userEmail || '').toLowerCase();
+                var existingEmails = {};
+                _teamMembers.forEach(function(m) { existingEmails[m.email.toLowerCase()] = true; });
+                var otherUsers = data.users.filter(function(u) {
+                    return u.email.toLowerCase() !== myEmail && !existingEmails[u.email.toLowerCase()];
+                });
+                if (otherUsers.length > 0) {
+                    var names = otherUsers.map(function(u) { return u.name || u.email; });
+                    var nameStr = names.length <= 3 ? names.join(', ') : names.slice(0, 3).join(', ') + ' +' + (names.length - 3) + ' more';
+                    if (text) text.innerHTML = '<strong>' + otherUsers.length + ' user' + (otherUsers.length > 1 ? 's' : '') + '</strong> found on this GHL location: ' + nameStr + '. You can invite them as seat users.';
+                } else {
+                    var available = data.count - 1;
+                    if (text) text.textContent = available + ' other user' + (available > 1 ? 's' : '') + ' found on this GHL location (already invited). Add more users in GHL, then click Scan.';
+                }
             } else {
                 if (text) text.textContent = 'No other users found on this GHL location. Add users in GHL, then click Scan.';
             }

@@ -1134,6 +1134,7 @@ def seat_checkout():
             session = stripe.checkout.Session.create(
                 payment_method_types=["card"],
                 mode="subscription",
+                allow_promotion_codes=True,
                 line_items=[{"price": seat_price_id, "quantity": 1}],
                 customer_email=current_user.email,
                 metadata={
@@ -1148,6 +1149,7 @@ def seat_checkout():
             session = stripe.checkout.Session.create(
                 payment_method_types=["card"],
                 mode="subscription",
+                allow_promotion_codes=True,
                 line_items=[{
                     "price_data": {
                         "currency": "usd",
