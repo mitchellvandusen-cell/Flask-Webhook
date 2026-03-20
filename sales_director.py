@@ -195,9 +195,10 @@ def generate_strategic_directive(
             elif temp == "cold":
                 temperature_ctx = (
                     f"\nLEAD TEMPERATURE: COLD (score {score}/100, engagement {eng}/3). "
-                    f"This lead has shown little or no interest. "
-                    f"Be respectful of their position. A completely unexpected angle "
-                    f"is your best shot. If they have explicitly said stop, respect it."
+                    f"This lead has shown little or no interest so far. "
+                    f"Your previous approaches did not land. Come from a completely "
+                    f"unexpected angle they have never heard before. Different energy, "
+                    f"different topic, different everything. Cold leads are not dead leads."
                 )
             if temperature_ctx:
                 tactical = tactical + temperature_ctx
@@ -205,10 +206,18 @@ def generate_strategic_directive(
         logger.debug(f"Temperature context unavailable for {contact_id}: {e}")
 
     # ─── 8. FINAL OUTPUT ───
+    # Enrich stage with objection type so stage history stamps carry the
+    # specific objection: "objection_handling:already_covered" instead of
+    # just "objection_handling". This feeds back into the next classification
+    # call, giving Grok full objection history.
+    enriched_stage = stage_value
+    if stage_value == ConversationStage.OBJECTION_HANDLING.value and logic.objection_type != ObjectionType.NONE:
+        enriched_stage = f"{stage_value}:{logic.objection_type.value}"
+
     return {
         "profile_str": profile_str.strip(),
         "tactical_narrative": tactical.strip(),
-        "stage": stage_value,
+        "stage": enriched_stage,
         "underwriting_context": underwriting_ctx.strip(),
         "company_context": company_ctx.strip(),
         "known_facts": known_facts,
@@ -644,13 +653,15 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
     persistence_note = ""
     if persistence <= 2:
         persistence_note = (
-            f"\nPERSISTENCE: Low ({persistence}). If this is objection #{persistence}+, "
-            "exit gracefully. Do not keep pushing.\n"
+            f"\nPERSISTENCE: Conservative ({persistence}). Use the takeaway technique "
+            "earlier than usual to change the energy. But you still come back with a "
+            "new angle if they reply. You never walk away.\n"
         )
     elif persistence >= 4:
         persistence_note = (
             f"\nPERSISTENCE: High ({persistence}). Keep finding new angles even after "
-            f"multiple objections. Only exit after {persistence}+ distinct attempts.\n"
+            f"multiple objections. Use the takeaway technique to reset the dynamic "
+            f"when needed, but always come back from a new direction.\n"
         )
 
     # Build structural objection history block
@@ -755,7 +766,11 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
                 same_objection_count += 1
 
     in_phase_2 = same_objection_count >= 2
-    in_phase_3 = same_objection_count >= 4  # Graceful exit after 4+ same objection
+    # Phase 3 threshold: not_interested is the broadest bucket — many different
+    # sentiments get lumped there. Require more repetitions before switching energy.
+    # All other types are specific enough that 4 truly means they said THE SAME THING 4 times.
+    phase_3_threshold = 6 if obj == ObjectionType.NOT_INTERESTED else 4
+    in_phase_3 = same_objection_count >= phase_3_threshold
 
     # ─── COMPOUND OBJECTION PRIORITY: Price is ALWAYS #1 ───
     # If the lead is throwing multiple different objection types AND price is
@@ -781,21 +796,23 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
 
     if in_phase_3:
         header += (
-            "=== PHASE 3: THE TAKEAWAY — PLANT THE SEED ===\n"
-            "They have said the same thing FOUR or more times. You tried the logistics. "
-            "You tried the emotional truth. They are not moving today. That is okay.\n\n"
-            "NOW you use the most counterintuitive tool in your arsenal: you let go. "
-            "Genuinely. Not as a tactic. Because pushing a fifth time does not show persistence, "
-            "it shows desperation, and they can feel it.\n\n"
-            "Send ONE message that does three things:\n"
-            "1. Acknowledge their position with real respect. Not 'I understand' (empty). "
-            "Something that shows you actually heard them across this whole conversation.\n"
-            "2. Leave one specific thought with them — not a pitch, not a benefit. Something "
-            "personal to their situation that they will think about later. If they told you about "
-            "their kids, their spouse, their fear — leave it connected to that. Plant it and walk away.\n"
-            "3. Make it clear the door is open with zero pressure. They know how to reach you.\n\n"
-            "This message is what they remember at 2 AM when they cannot sleep. "
-            "Make it worth remembering. Then stop.\n\n"
+            "=== PHASE 3: THE TAKEAWAY — CHANGE THE ENERGY ===\n"
+            "They have said the same thing FOUR or more times. Pushing the same way again "
+            "will not work. You need to SHIFT THE DYNAMIC, not give up.\n\n"
+            "IMPORTANT: You are NOT giving up. You are NOT exiting. You are NOT saying goodbye. "
+            "You are changing your approach to something they have never heard from you before. "
+            "The only thing that stops this conversation is a TCPA opt-out (stop, unsubscribe, "
+            "remove me, do not contact). Anything else, you keep going from a new angle.\n\n"
+            "THE TAKEAWAY TECHNIQUE:\n"
+            "1. Pull back the pressure completely. Say something that shows you genuinely heard "
+            "them across this whole conversation. Not 'I understand' (empty). Mirror something specific.\n"
+            "2. Leave one thought connected to THEIR life — their kids, their spouse, their fear, "
+            "whatever they shared. Not a pitch. A question they will think about later.\n"
+            "3. Make it clear you are still here. 'Hit me up whenever' or 'I'm around if anything changes.' "
+            "The door stays OPEN.\n\n"
+            "After the takeaway, if they reply with ANYTHING — even another objection — you are "
+            "back in the conversation. New angle. New energy. The takeaway resets the dynamic, "
+            "it does not end it.\n\n"
         )
     elif in_phase_2:
         header += (
@@ -847,6 +864,33 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
         )
 
     if obj == ObjectionType.NOT_INTERESTED:
+        # ─── EARLY CONVERSATION SMOKESCREEN (replies 1-6) ───
+        # "Not interested" in the first few replies is almost always a reflexive
+        # brush-off. They do not even know what they are not interested in yet.
+        # It is a smokescreen — treat it differently than a deep-conversation objection.
+        if logic.conversation_count <= 6 and same_objection_count <= 1:
+            return header + (
+                "OBJECTION: Not interested (EARLY CONVERSATION — this is a smokescreen).\n\n"
+                "They said 'not interested' within the first few messages. They do not even "
+                "know you yet. They do not know what you do, how you are different, or what "
+                "you can offer. This is a reflex — they say this to every salesperson who "
+                "texts them. It means absolutely nothing about their actual need for coverage.\n\n"
+                "DO NOT treat this as a real objection. DO NOT use the fork question yet. "
+                "DO NOT go emotional. They have not earned the emotional conversation and "
+                "you have not earned the right to go deep. This is still the opening.\n\n"
+                "YOUR MOVE: Acknowledge it casually and pivot to something unexpected.\n"
+                "- 'No I totally get it. Quick question though — do you have anything in place "
+                "right now or are you just kind of winging it?'\n"
+                "- 'Fair enough. Out of curiosity, is that because you already have something "
+                "or you just have not found the right fit?'\n"
+                "- 'Yeah no worries. Was it more that you already got something lined up or "
+                "just not the right time?'\n\n"
+                "The goal: turn their 'no' into a conversation. Every one of these pivots "
+                "forces them to give you a REASON, and once they give a reason, you have "
+                "a real objection to work with instead of a smokescreen.\n\n"
+                "CRITICAL: Keep it light. Keep it casual. One message. One question. "
+                "Do NOT lecture, do NOT pitch, do NOT sell. Just get them talking."
+            )
         if in_phase_2:
             # ─── Phase 2: They already answered the fork (price vs approval). ───
             # Now we know WHICH path they went down. Follow that thread deeper.
@@ -865,7 +909,8 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
                 "- They do not see the value yet, so any price feels like too much\n"
                 "Your move: 'Is it that you genuinely cannot swing it right now, or is it more that "
                 "you are not sure it is worth it?' That one question separates real from perceived. "
-                "If it is real, respect it and plant a seed about rates going up with age. "
+                "If it is real, acknowledge the situation and plant a seed: rates go up every year, "
+                "and what costs $30 today costs $50 next year. Just something to keep in mind. "
                 "If it is perceived, the value has not landed yet — go back to their situation. "
                 "What happens to the people they mentioned if this stays unhandled?\n\n"
                 "IF THEY SAID APPROVAL / HEALTH / COULD NOT GET APPROVED:\n"
@@ -1017,25 +1062,31 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
             )
         return header + (
             "OBJECTION: Already have coverage.\n\n"
-            "THE CARRIER QUESTION — Get curious, not adversarial.\n\n"
-            "Do NOT challenge it. Do NOT say 'but is it enough?' That puts them on defense.\n\n"
-            "ONE QUESTION: 'Oh nice! Who did you end up going with?'\n\n"
-            "This is casual, non-threatening, and it opens a conversation. Their answer tells "
-            "you everything:\n"
-            "- If they name a carrier → you can assess fit, pricing, gaps\n"
-            "- If they say 'through work' → employer coverage = biggest gap in America\n"
-            "- If they say 'I forget' or 'not sure' → they do not actually know what they have\n"
-            "- If they dodge → the 'coverage' is probably minimal or nonexistent\n\n"
-            "Variations:\n"
-            "- 'Cool, who did you go with?'\n"
-            "- 'Good to hear. What kind of policy did you land on?'\n"
-            "- 'Nice, is that something you got on your own or through work?'\n\n"
-            "The carrier question is your gateway. It feels like small talk but it opens "
-            "every door — carrier gaps, employer portability, GI waiting periods, term "
-            "expiration. Let THEIR answer guide you, do not pre-load a pitch.\n\n"
-            "REMEMBER: You are booking an appointment, not selling a policy. The call is "
-            "where you actually review their coverage. 'I can do a quick comparison for you "
-            "— takes 5 minutes — just to make sure you are not overpaying.'"
+            "STEP 1: ACKNOWLEDGE + PROBE THE TIMELINE.\n"
+            "Do NOT challenge it. Do NOT say 'but is it enough?' That puts them on defense.\n"
+            "Instead, figure out if this is something they have had for a while or just got:\n"
+            "'Oh nice, is that something you have had for a while or something you just got?'\n\n"
+            "WHY THIS QUESTION MATTERS:\n"
+            "- If they have had it a while → 'When is the last time you had it reviewed? Rates "
+            "change, your situation changes. A lot of people are overpaying without knowing it.'\n"
+            "- If they just got it → 'Who did you end up going with?' Then assess the carrier, "
+            "the product type, and whether it actually fits their situation.\n"
+            "- If they say 'through work' → employer coverage = biggest gap in America. 'Do you "
+            "know what happens to that when you retire or switch jobs?'\n"
+            "- If they say 'I forget' or dodge → they do not actually know what they have. "
+            "'That is actually really common. Most people set it and forget it. That is exactly "
+            "what the comparison call catches.'\n\n"
+            "STEP 2: FIND THE GAP.\n"
+            "Whatever they tell you, the next question reveals whether their coverage actually "
+            "fits their life. Do they have enough? Does it cover the right things? Is the person "
+            "they are protecting actually protected? Most people think they are covered and they "
+            "are not. Your job is to help them see that WITHOUT being adversarial.\n\n"
+            "STEP 3: BRIDGE TO THE CALL.\n"
+            "'I can run a quick comparison across 50+ carriers — takes 5 minutes — just to make "
+            "sure you are getting the best deal for what you need.'\n\n"
+            "CRITICAL: NEVER concede. NEVER say 'sounds like you are all set.' Even if their "
+            "coverage is good, there is always a reason to review it. Rates change. Life changes. "
+            "The comparison call costs them nothing and takes 10 minutes."
         )
 
     if obj == ObjectionType.THINK_ABOUT_IT:
@@ -1247,11 +1298,11 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
         smokescreen_note = (
             "\nSMOKESCREEN DETECTED: This lead has raised 3+ DIFFERENT objection types "
             f"({', '.join(sorted(distinct_types_seen))}). They are not truly objecting to any one thing "
-            "— they are looking for ANY reason to not move forward. None of the individual "
-            "objections are the real issue. Give them permission to say no: 'Hey it is "
-            "totally fine if this is not for you. No hard feelings. I would rather just "
-            "know than keep going back and forth.' Sometimes naming it breaks through. "
-            "Sometimes they say no and you move on. Either way you stop wasting time.\n"
+            "— they are throwing up smokescreens. None of the individual objections are "
+            "the real issue. Name it directly: 'I get the sense something else is going on "
+            "here. What is it really?' Cut through the smokescreens to the real concern. "
+            "Once you find the REAL objection underneath, handle THAT one. The smokescreens "
+            "disappear when the real issue is addressed.\n"
         )
 
     return header + (

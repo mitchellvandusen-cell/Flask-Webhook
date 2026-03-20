@@ -380,6 +380,14 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
         "just got a policy", "just bought", "recently purchased",
         "just renewed", "just signed up",
         "happy with what i have", "satisfied with", "content with",
+        # Chose/selected/went with a carrier or policy (completed purchasing decision)
+        "chose my", "chosen my", "i chose", "i have chosen",
+        "went with", "i went with", "signed with", "signed up with",
+        "picked a", "picked my", "selected a", "selected my",
+        "found someone", "found an agent", "found a guy", "found a broker",
+        "moved forward with", "going with", "decided to go with",
+        "got a guy", "got an agent", "got a broker",
+        "have a policyholder", "chosen my policyholder",
     ]
 
     # ── THINK ABOUT IT — stalling, delaying decision ──
@@ -941,6 +949,7 @@ _CLASSIFICATION_PROMPT = """You are classifying lead messages in a life insuranc
 
 Conversation stage history (most recent at bottom — shows where we have been):
 {stage_history}
+NOTE: Stages like "objection_handling:already_covered" mean the bot detected an already_covered objection on that turn. Use this history to understand what objections were already raised. If you see the SAME objection type repeated, the lead is stuck on that issue.
 
 Lead messages (most recent at bottom):
 {lead_messages}
@@ -990,12 +999,14 @@ CRITICAL FALSE POSITIVE RULES — these OVERRIDE the closer mindset:
 - "yes" / "sure" / "ok" answering YOUR question = NONE (providing info, not booking)
 - "I have diabetes but I want coverage" / "I know I have health issues, what are my options?" = health_concern (NOT not_interested — they WANT coverage, they doubt they can GET it)
 - "my buddy/nephew/cousin sells insurance" with no existing policy = trust_issue (loyalty objection, NOT already_covered unless they have active coverage through that person)
+- "I have chosen my policyholder" / "I went with someone else" / "I found an agent" / "I signed with [carrier]" = already_covered (NOT not_interested — they made a purchasing decision, they did not just say "no")
+- Any message that mentions CHOOSING, SELECTING, GOING WITH, or SIGNING WITH a carrier/agent/policy = already_covered. Even if combined with "thank you" or "goodbye" language, the reason is the coverage decision, not bare rejection.
 
 OBJECTION TYPE DEFINITIONS:
-  "not_interested" = ANY form of no, decline, dismissal, disengagement, negativity, apathy, or rejection. Includes: "no thanks", "I'm good", "nah", "pass", "whatever", "bye", "leave me alone", "don't care", "I'm done", sarcastic dismissals, or any response that signals the lead does not want to continue. If ambiguous ("hmm", "maybe", "idk"), prefer "think_about_it" — thoughtful leads deserve patience.
+  "not_interested" = flat rejection with NO REASON GIVEN. The lead does not explain WHY they are declining — just says no. "no thanks", "I'm good", "nah", "pass", "whatever", "bye", "don't care", "I'm done", sarcastic dismissals. CRITICAL: if they give ANY reason (already have coverage, chose someone else, too expensive, busy, need to think), that is a DIFFERENT objection type — not not_interested. "not_interested" is ONLY for bare rejections without explanation. If ambiguous ("hmm", "maybe", "idk"), prefer "think_about_it" — thoughtful leads deserve patience.
   "spouse_partner" = deferring to ANY third party: spouse, partner, family, accountant, lawyer, advisor, broker. "Let me check with...", "My wife/husband handles/decides...", "need to ask..."
   "price_money" = ANY concern about cost, affordability, budget, value. "Too expensive", "can't afford", "fixed income", "not worth it", "money is tight"
-  "already_covered" = claims ANY existing protection: employer, group, VA, another agent. "I'm covered", "already have", "all set", "taken care of"
+  "already_covered" = claims existing protection OR states they already chose/selected/went with a carrier or policy. "I'm covered", "already have", "all set", "taken care of", "I chose/went with/picked/signed with [carrier]", "I have chosen my [policy/carrier/provider/policyholder]", "I found someone", "I went with someone else", "moved forward with another [agent/company]". KEY: if they say they CHOSE or SELECTED a policy/carrier/agent — even if phrasing is unusual ("I have chosen my policyholder") — that is already_covered, NOT not_interested.
   "busy_timing" = can't engage RIGHT NOW: "busy", "at work", "driving", "call back later", "not a good time"
   "think_about_it" = stalling/delaying: "need to think", "sleep on it", "not ready", "get back to you", "rain check", "maybe" (standalone), "I'll let you know", "send me an email", "send me info", "send me a quote", "let me look it over", "let me look into it", "let me do some research", "send me the details", "let me shop around". ALL disguised versions of "I don't have a compelling reason to act now"
   "health_concern" = lead believes they CANNOT qualify due to health, age, or medical history. "I have diabetes", "I had cancer", "they won't insure me", "I probably can't qualify", "I'm too old for this", "I take medication for...", "I have a pre-existing condition". This is NOT not_interested — these people often WANT coverage but believe they cannot get it. Educating them on guaranteed issue, simplified issue, and graded benefit options is the correct response.
@@ -1194,6 +1205,57 @@ def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "", age: i
     except ValueError:
         logger.warning(f"LLM returned invalid objection_nature '{obj_nature_str}' — defaulting to NONE.")
         objection_nature = ObjectionNature.NONE
+
+    # ═══════════════════════════════════════════════════════════════════
+    # LLM-KEYWORD CROSS-VALIDATION
+    # ═══════════════════════════════════════════════════════════════════
+    # The LLM is primary, but it can miss. Keywords ALWAYS run as a
+    # safety net. Two rules:
+    #
+    # 1. LLM says NONE but keywords found a real objection → UPGRADE
+    #    to the keyword result. An objection that gets missed = the bot
+    #    sends a qualifying question to someone who just said "no thanks."
+    #    That's worse than over-classifying.
+    #
+    # 2. LLM says NOT_INTERESTED but keywords found a more specific type
+    #    (already_covered, price_money, etc.) → PREFER the specific type.
+    #    not_interested is the catch-all bucket. A specific type gets
+    #    specific tactical guidance. Generic gets generic.
+    #
+    # 3. LLM says a specific type and keywords agree or disagree → TRUST
+    #    the LLM. It has full conversational context, keywords don't.
+    #
+    # This ensures: every real objection reaches OBJECTION_HANDLING stage.
+    # ═══════════════════════════════════════════════════════════════════
+
+    kw_obj_type, kw_obj_nature = detect_objection_keywords(recent_lead_text)
+
+    if kw_obj_type != ObjectionType.NONE:
+        if objection_type == ObjectionType.NONE:
+            # Rule 1: LLM missed it, keywords caught it → upgrade
+            logger.info(
+                f"CROSS-VALIDATION UPGRADE: LLM said 'none' but keywords detected "
+                f"'{kw_obj_type.value}' | msg='{recent_lead_text[:80]}' | Upgrading to keyword result."
+            )
+            objection_type = kw_obj_type
+            objection_nature = kw_obj_nature
+
+        elif objection_type == ObjectionType.NOT_INTERESTED and kw_obj_type != ObjectionType.NOT_INTERESTED:
+            # Rule 2: LLM said generic not_interested, keywords found specific type → prefer specific
+            logger.info(
+                f"CROSS-VALIDATION REFINE: LLM said 'not_interested' but keywords detected "
+                f"more specific '{kw_obj_type.value}' | msg='{recent_lead_text[:80]}' | Using specific type."
+            )
+            objection_type = kw_obj_type
+            objection_nature = kw_obj_nature
+    elif objection_type == ObjectionType.NONE:
+        # Neither LLM nor keywords found anything — truly no objection
+        pass
+
+    logger.info(
+        f"Classification final | msg='{recent_lead_text[:60]}' | "
+        f"llm={obj_type_str} | kw={kw_obj_type.value} | final={objection_type.value}"
+    )
 
     # ─── Booking confirmed by bot recently? ───
     booking_confirmed = False
