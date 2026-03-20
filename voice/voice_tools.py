@@ -4,8 +4,9 @@ import time
 
 from db import log_webhook_event
 from ghl_calendar import consolidated_calendar_op
-from voice.redis_state import (
-    get_all_active_calls, set_transfer_request, add_overflow_alert,
+from voice.call_state import (
+    get_all_active_calls, set_transfer_request,
+    add_overflow_alert,
 )
 from voice.predictive_engine import agent_state_manager, AgentState
 

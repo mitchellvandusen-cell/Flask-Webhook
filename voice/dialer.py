@@ -16,10 +16,11 @@ from db import get_db_connection, return_db_connection
 from ghl_api import get_valid_token
 from number_health import select_outbound_number
 from voice.audio import XAI_API_KEY, VOICE_OPTIONS, DEFAULT_VOICE, _generate_voice_preview, _pcm16_to_wav
-from voice.call_state import _twilio_hangup
-from voice.redis_state import (
-    set_active_call, get_active_call, update_active_call, delete_active_call,
-    get_all_active_calls, get_active_calls_for_location, delete_transfer_request,
+from voice.call_state import (
+    set_active_call, get_active_call, update_active_call, delete_active_call, call_exists,
+    get_active_calls_for_location, get_all_active_calls,
+    delete_transfer_request, _twilio_hangup,
+    get_overflow_alerts as get_overflow_alerts_redis, set_overflow_alerts,
 )
 from voice.helpers import _get_subscriber_by_location, _get_current_subscriber_voice
 from voice.call_history_helpers import save_call_to_history, update_call_history_status
@@ -90,56 +91,6 @@ def _check_calling_hours(voice_config, agent_tz_str=None):
     return True, None
 
 
-def _check_cooldown_and_daily_max(location_id, phones, voice_config, conn):
-    """Batch check cooldown and daily max for a list of phone numbers.
-    Returns dict of phone -> reason string for phones that should be skipped."""
-    try:
-        cooldown_hours = int(voice_config.get('same_number_cooldown_hours', 0))
-    except (ValueError, TypeError):
-        cooldown_hours = 0
-    try:
-        daily_max = int(voice_config.get('same_contact_daily_max', 0))
-    except (ValueError, TypeError):
-        daily_max = 0
-    if not cooldown_hours and not daily_max:
-        return {}
-
-    blocked = {}
-    if not phones or not conn:
-        return blocked
-
-    try:
-        cur = conn.cursor()
-
-        if cooldown_hours > 0:
-            cur.execute("""
-                SELECT phone, MAX(created_at) AS last_called
-                FROM call_history
-                WHERE location_id = %s AND phone = ANY(%s)
-                  AND created_at > NOW() - make_interval(hours => %s)
-                GROUP BY phone
-            """, (location_id, list(phones), cooldown_hours))
-            for row in cur.fetchall():
-                blocked[row['phone']] = f"Cooldown: called within {cooldown_hours}h"
-
-        if daily_max > 0:
-            cur.execute("""
-                SELECT phone, COUNT(*) AS cnt
-                FROM call_history
-                WHERE location_id = %s AND phone = ANY(%s)
-                  AND created_at >= CURRENT_DATE
-                GROUP BY phone
-                HAVING COUNT(*) >= %s
-            """, (location_id, list(phones), daily_max))
-            for row in cur.fetchall():
-                if row['phone'] not in blocked:
-                    blocked[row['phone']] = f"Daily max: {daily_max} calls/day reached"
-
-        cur.close()
-    except Exception as e:
-        logger.warning(f"Cooldown/daily-max check failed: {e}")
-
-    return blocked
 
 
 @dialer_bp.route('/voice/test', methods=['POST'])
@@ -1000,19 +951,6 @@ def dial_contact():
             finally:
                 return_db_connection(_dnd_conn)
 
-    # ── Cooldown / daily max enforcement (same as multi_dial) ──
-    if phone and location_id:
-        _cd_conn = get_db_connection()
-        if _cd_conn:
-            try:
-                blocked = _check_cooldown_and_daily_max(location_id, [phone], voice_config, _cd_conn)
-                if phone in blocked:
-                    return jsonify({"error": blocked[phone], "cooldown_blocked": True}), 400
-            except Exception as _cd_e:
-                logger.warning(f"Cooldown check failed (non-fatal): {_cd_e}")
-            finally:
-                return_db_connection(_cd_conn)
-
     if dial_mode == 'ai' and not voice_config.get('enabled'):
         return jsonify({"error": "Voice AI is not enabled. Enable it in the Voice tab."}), 400
 
@@ -1055,9 +993,9 @@ def dial_contact():
 
     # Idempotency guard: prevent double-dial to the same phone number.
     # If a non-terminal call to this phone already exists for this location, return it.
-    for sid, info in get_all_active_calls().items():
+    loc_calls = get_active_calls_for_location(location_id)
+    for sid, info in loc_calls.items():
         if (info.get('phone') == phone
-                and info.get('_location_id') == location_id
                 and info.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')):
             logger.warning(f"Double-dial blocked: {phone} already has active call {sid[:16]} (status={info.get('status')})")
             return jsonify({"status": "calling", "call_sid": sid, "dial_mode": dial_mode})
@@ -1211,10 +1149,10 @@ def multi_dial():
         return jsonify({"error": hours_reason, "calling_hours_blocked": True}), 400
 
     # Enforce max concurrent lines already active for this location
+    loc_calls = get_active_calls_for_location(location_id)
     active_for_location = sum(
-        1 for sid, info in get_all_active_calls().items()
-        if info.get('_location_id') == location_id
-        and info.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')
+        1 for info in loc_calls.values()
+        if info.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')
     )
     available_lines = max(0, max_lines - active_for_location)
     if available_lines == 0:
@@ -1242,19 +1180,6 @@ def multi_dial():
                 logger.warning(f"Multi-dial DnD batch check failed: {e}")
             finally:
                 return_db_connection(_dnd_conn)
-
-    # Batch cooldown + daily max check — single query for all phones
-    blocked_phones = {}
-    batch_phones = [c.get('phone', '') for c in contacts_to_dial if c.get('phone')]
-    if batch_phones and location_id:
-        _cd_conn = get_db_connection()
-        if _cd_conn:
-            try:
-                blocked_phones = _check_cooldown_and_daily_max(location_id, batch_phones, voice_config, _cd_conn)
-            except Exception as e:
-                logger.warning(f"Multi-dial cooldown batch check failed: {e}")
-            finally:
-                return_db_connection(_cd_conn)
 
     # ── Per-contact timezone enforcement (compliance — pro_dialer+ only) ──
     tz_blocked_phones = set()
@@ -1294,11 +1219,6 @@ def multi_dial():
             results.append({"contact_id": c_id, "call_sid": None, "status": "skipped", "error": "Do Not Contact"})
             continue
 
-        # Cooldown / daily max check (from batch query above)
-        if c_phone in blocked_phones:
-            results.append({"contact_id": c_id, "call_sid": None, "status": "skipped", "error": blocked_phones[c_phone]})
-            continue
-
         # Max attempts guard
         try:
             max_attempts = int(voice_config.get('dial_attempts', 2))
@@ -1310,9 +1230,8 @@ def multi_dial():
 
         # Double-dial guard per phone
         existing_sid = None
-        for sid, info in get_all_active_calls().items():
+        for sid, info in loc_calls.items():
             if (info.get('phone') == c_phone
-                    and info.get('_location_id') == location_id
                     and info.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')):
                 existing_sid = sid
                 break
@@ -1421,9 +1340,9 @@ def get_active_lines():
     max_lines = 4 if tier in ('pro_dialer', 'solo_predictive') else 1
 
     lines = []
-    for sid, info in get_all_active_calls().items():
-        if (info.get('_location_id') == location_id
-                and info.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')):
+    loc_calls = get_active_calls_for_location(location_id)
+    for sid, info in loc_calls.items():
+        if info.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled'):
             lines.append({
                 "call_sid": sid,
                 "contact_id": info.get("contact_id"),
@@ -1480,7 +1399,7 @@ def multi_hangup():
                 continue
 
             success = _twilio_hangup(sid, sub_sid)
-            if get_active_call(sid) is not None:
+            if call_exists(sid):
                 if success:
                     update_active_call(sid, status='completed')
                 else:
@@ -1526,14 +1445,17 @@ def multi_call_status():
 
     statuses = {}
     for sid in call_sids:
-        info = get_active_call(sid)
-        if info is not None:
+        if call_exists(sid):
+            info = get_active_call(sid)
+            if not info:
+                statuses[sid] = {"status": "unknown"}
+                continue
             # Ownership check: skip calls belonging to other locations
             if _owner_location and info.get('_location_id') and info['_location_id'] != _owner_location:
                 statuses[sid] = {"status": "unknown"}
                 continue
             # Terminal state cleanup (same logic as single poll)
-            if info["status"] in ("completed", "busy", "no-answer", "failed", "canceled", "transferred"):
+            if info.get("status") in ("completed", "busy", "no-answer", "failed", "canceled", "transferred"):
                 poll_count = info.get('_terminal_polls', 0) + 1
                 update_active_call(sid, _terminal_polls=poll_count)
                 if poll_count >= 20:
@@ -1649,9 +1571,10 @@ def predictive_stats():
                 )
 
             # Count active overflow calls right now
+            loc_calls_pred = get_active_calls_for_location(location_id)
             overflow_active = sum(
-                1 for sid, info in get_all_active_calls().items()
-                if info.get('_location_id') == location_id and info.get('_overflow')
+                1 for info in loc_calls_pred.values()
+                if info.get('_overflow')
                 and info.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')
             )
 
@@ -2070,8 +1993,6 @@ def get_overflow_alerts():
     endpoint to show a notification popup giving the agent the option to accept
     the transfer or let AI book the appointment.
     """
-    from voice.redis_state import get_overflow_alerts as _get_overflow_alerts
-
     conn = get_db_connection()
     if not conn:
         return jsonify({"alerts": []})
@@ -2086,7 +2007,7 @@ def get_overflow_alerts():
     finally:
         return_db_connection(conn)
 
-    alerts = _get_overflow_alerts(location_id)
+    alerts = get_overflow_alerts_redis(location_id)
     # Return only pending alerts, auto-expire alerts older than 30 seconds
     now = time.time()
     pending = []
@@ -2095,6 +2016,7 @@ def get_overflow_alerts():
             continue
         age = now - alert.get('timestamp', 0)
         if age > 30:
+            alert['status'] = 'expired'
             continue
         pending.append({
             "call_sid": alert.get('call_sid', ''),
@@ -2105,6 +2027,10 @@ def get_overflow_alerts():
             "age_seconds": round(age, 1),
         })
 
+    # Prune expired/dismissed alerts — write back only pending ones
+    pruned = [a for a in alerts if a.get('status') == 'pending']
+    set_overflow_alerts(location_id, pruned)
+
     return jsonify({"alerts": pending})
 
 
@@ -2112,8 +2038,6 @@ def get_overflow_alerts():
 @login_required
 def dismiss_overflow_alert():
     """Dismiss an overflow transfer alert (agent chose 'Let AI Book')."""
-    from voice.redis_state import dismiss_overflow_alert as _dismiss_overflow_alert
-
     data = request.json or {}
     call_sid = data.get('call_sid', '')
     if not call_sid:
@@ -2133,6 +2057,11 @@ def dismiss_overflow_alert():
     finally:
         return_db_connection(conn)
 
-    _dismiss_overflow_alert(location_id, call_sid)
+    alerts = get_overflow_alerts_redis(location_id)
+    for alert in alerts:
+        if alert.get('call_sid') == call_sid:
+            alert['status'] = 'dismissed'
+            break
+    set_overflow_alerts(location_id, alerts)
 
     return jsonify({"ok": True})

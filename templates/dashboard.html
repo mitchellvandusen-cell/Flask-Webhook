@@ -191,7 +191,7 @@
     window.DASHBOARD_BOOT = {
         voipSetupDone:   {{ 'true' if voice_config is defined and voice_config.get('twilio_twiml_app_sid') else 'false' }},
         dialMaxAttempts: {{ (voice_config.get('dial_attempts', 2)|int) if voice_config is defined else 2 }},
-        locationId:      {{ (sub.location_id or '')|tojson if sub is defined else '""' }},
+        locationId:      {{ (sub.location_id if sub is defined else '')|tojson }},
         userEmail:       {{ current_user.email|tojson }},
         crmConfigFields: {{ crm_config_fields|tojson|safe if crm_config_fields is defined and crm_config_fields else '{}' }},
         showAiSummary:   {{ 'false' if voice_config is defined and voice_config.get('show_ai_summary') == False else 'true' }},
@@ -205,11 +205,10 @@
         maxLinesSetting:         {{ (voice_config.get('max_lines_setting', 3)|int) if voice_config is defined else 3 }},
         wrapUpTime:              {{ (voice_config.get('wrap_up_time', 15)|int) if voice_config is defined else 15 }},
         requireDisposition:      {{ 'true' if voice_config is not defined or voice_config.get('require_disposition', True) != False else 'false' }},
-        callingHoursStart:       {{ (voice_config.get('calling_hours_start', '08:00'))|tojson if voice_config is defined else '"08:00"' }},
-        callingHoursEnd:         {{ (voice_config.get('calling_hours_end', '21:00'))|tojson if voice_config is defined else '"21:00"' }},
-        sameNumberCooldownHours: {{ (voice_config.get('same_number_cooldown_hours', 4)|int) if voice_config is defined else 4 }},
-        sameContactDailyMax:     {{ (voice_config.get('same_contact_daily_max', 3)|int) if voice_config is defined else 3 }},
-        onMachineAction:         {{ (voice_config.get('on_machine_action', 'hangup'))|tojson if voice_config is defined else '"hangup"' }},
+        callingHoursStart:       {{ (voice_config.get('calling_hours_start', '08:00') if voice_config is defined else '08:00')|tojson }},
+        callingHoursEnd:         {{ (voice_config.get('calling_hours_end', '21:00') if voice_config is defined else '21:00')|tojson }},
+        sameNumberCooldownHours: 0,
+        onMachineAction:         {{ (voice_config.get('on_machine_action', 'hangup') if voice_config is defined else 'hangup')|tojson }},
         autoDispositionNoAnswer: {{ 'false' if voice_config is defined and voice_config.get('auto_disposition_no_answer') == False else 'true' }},
         autoDispositionVoicemail:{{ 'false' if voice_config is defined and voice_config.get('auto_disposition_voicemail') == False else 'true' }},
         maxAbandonRatePct:       {{ (voice_config.get('max_abandon_rate_pct', 3.0)|float) if voice_config is defined else 3.0 }},
@@ -219,9 +218,11 @@
         subscriptionTier:        {{ (current_user.subscription_tier or 'individual')|tojson }},
         // GHL embed mode
         embedMode:               {{ 'true' if embed_mode else 'false' }},
-        initialTab:              {{ initial_tab|tojson if initial_tab else '""' }},
-        embedContactId:          {{ embed_contact_id|tojson if embed_contact_id else '""' }},
-        embedDialContacts:       {{ embed_dial_contacts|tojson if embed_dial_contacts else '""' }},
+        initialTab:              {{ (initial_tab or '')|tojson }},
+        embedContactId:          {{ (embed_contact_id or '')|tojson }},
+        embedDialContacts:       {{ (embed_dial_contacts or '')|tojson }},
+        // Voice WebSocket host (FastAPI service domain, empty = same host as Flask)
+        voiceWssHost:            {{ (voice_wss_host or '')|tojson }},
     };
     </script>
 

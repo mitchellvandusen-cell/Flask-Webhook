@@ -261,7 +261,6 @@ The voice bridge has been decomposed from a single `voice_bridge.py` (~193KB) in
 - `STRIPE_PRICE_ID` — Individual plan price ID
 - `STRIPE_PRO_DIALER_PRICE_ID` — Pro Dialer plan price ID ($224.99/mo)
 - `STRIPE_PREDICTIVE_DIALER_PRICE_ID` — Predictive Dialer plan price ID ($349.98/mo)
-- `STRIPE_AGENCY_STARTER_PRICE_ID`, `STRIPE_AGENCY_PRO_PRICE_ID`
 - `AI_MINUTES_PRICE_ID_500`, `AI_MINUTES_PRICE_ID_2000`, `AI_MINUTES_PRICE_ID_5000`, `AI_MINUTES_PRICE_ID_10000` — Usage-based AI minutes packages
 
 ### Email
@@ -406,9 +405,7 @@ All tables created in `db.py`'s `init_db()` function (plus `contact_intelligence
 
 ### Stripe
 - `POST /stripe-webhook` — Stripe webhook handler (subscription lifecycle)
-- `GET /checkout` — Individual plan checkout
-- `GET /checkout/agency-starter` — Agency Starter checkout
-- `GET /checkout/agency-pro` — Agency Pro checkout
+- `GET /checkout` — Individual plan checkout (used by all users including agency owners)
 - `GET /cancel` — Subscription cancelled page
 - `GET /success` — Subscription success page
 - `POST /create-portal-session` — Stripe billing portal
@@ -471,12 +468,13 @@ All tables created in `db.py`'s `init_db()` function (plus `contact_intelligence
 
 ### Agency
 - `GET|POST /agency-dashboard` — Agency owner command center (sidebar+tab layout with KPIs, agents, call log, activity, settings, billing)
-- `GET|POST /agency-login` — Agency sub-user login
+- `GET|POST /agency-login` — Agency owner login (queries `agency_billing` table, role must be `agency_owner`)
 - `POST /api/agency/invite-sub-user` — Invite sub-user
 - `POST /api/agency/resend-invite` — Resend invite email
 - `POST /api/agency/invite-all` — Invite all pending sub-users
 - `GET /api/agency/logs/<location_id>` — Agency member logs
 - `GET /api/agency/kpis?period=<today|week|month|all>` — Aggregated KPIs across all sub-accounts (calls, connected, rate, duration, messages, active agents, daily/hourly charts, prior period comparison)
+- `GET /api/agency/dashboard-stats?period=<today|week|month|all>` — Comprehensive agency dashboard stats with insurance-specific KPIs (connect rate, duration buckets 45s/2m/5m/10m, avg daily dials per agent, speed to lead, top 5 leaderboards by connect rate/calls/duration, daily/hourly charts, prior period comparison)
 - `GET /api/agency/agent-stats?period=<today|week|month|all>` — Per-agent stats breakdown (calls, connected, talk time, avg duration, messages, last call)
 - `GET /api/agency/call-log?limit=&offset=&agent=` — Paginated call log across all agents with optional agent filter
 
@@ -1192,8 +1190,47 @@ Agency owners can fully white-label the dashboard so their agents see the agency
 The agency dashboard is now integrated as tabs within the main dashboard (not a separate page). Agency owners see:
 - All individual dashboard features (dialer, voice, SMS config, workflows, etc.)
 - **Agency Members tab** (`dashboard/tabs/agency_members.html`) — view/manage all agency users
-- **Agency KPIs tab** (`dashboard/tabs/agency_kpis.html`) — aggregated metrics across all agency agents
+- **Agency KPIs tab** (`dashboard/tabs/agency_kpis.html`) — comprehensive tiled statistics dashboard with Chart.js charts
 - **White-label tab** (`dashboard/tabs/whitelabel.html`) — branding customization
+
+### Agency Owner Access
+- Agency owners are stored in the `agency_billing` table with `role = 'agency_owner'`
+- To manually upgrade a user to agency owner: INSERT into `agency_billing` with `role='agency_owner'`, `agency_email`, `company_id`, `password_hash`, and `location_id`
+- Agency owners log in via `/agency-login` which queries `agency_billing` only
+- Agency owners are FREE — no subscription paywall required
+- Regular login (`/login`) also detects agency owners and redirects to `/agency-dashboard`
+
+### Agency KPI Dashboard (Tiled Layout with Charts)
+The Agency KPIs tab provides insurance agency-specific statistics in a tiled layout with Chart.js visualizations:
+
+**Core Metric Tiles (6-up grid):**
+- Total Calls, Connected, Messages Sent, Active Agents, Unique Contacts, Avg Speed to Lead
+
+**Chart Row (3 cards):**
+- **Connect Rate Donut** — doughnut chart showing connected vs not connected percentage
+- **Call Quality Donut** — duration bucket breakdown (<45s, 45s–2m, 2–5m, 5–10m, 10m+)
+- **Daily Volume Bar Chart** — daily calls and connected calls over the selected period
+
+**Duration Bucket Tiles (4-up):**
+- Over 45 Seconds, Over 2 Minutes, Over 5 Minutes, Over 10 Minutes — each with count, percentage, and animated fill bar
+
+**Agency Averages (4-up):**
+- Avg Daily Dials per Agent, Avg Daily Dials (Agency total), Avg Connect Rate per Agent, Total Talk Time
+
+**Top Performers Leaderboards (3-up):**
+- Highest Connect Rate (top 5, min 5 calls to qualify)
+- Most Active by Calls (top 5)
+- Best Conversations by Avg Duration (top 5, min 3 connected calls)
+- Each shows rank medal (gold/silver/bronze), agent name, and key stat
+
+**All Agent Breakdown:**
+- Expandable table via "See All Agents" button
+- Columns: Agent, Calls, Connected, Rate, Avg/Day, Talk Time, Avg Duration, >45s, >2m, >5m, Messages
+
+**Hourly Heatmap:**
+- Bar chart showing call volume by hour (12a–11p) with connected overlay
+
+**API endpoint:** `GET /api/agency/dashboard-stats?period=today|week|month|all`
 
 ### Agency Auto-Import by Company ID
 - When an individual agent subscribes and their GHL `companyId` matches an agency owner's `company_id` in `agency_billing`, they are automatically linked to that agency
@@ -1425,7 +1462,7 @@ static/js/dashboard/
   pwa.js            Progressive Web App registration and offline support
   tutorial.js       Interactive dashboard tutorial (driver.js, 7 chapters, Liquid Glass UI with dark+light theme)
   whitelabel.js     White-label branding UI (color picker, font selector, company name, live preview)
-  agency.js         Agency management UI (member list, KPIs, auto-import by company_id)
+  agency.js         Agency dashboard — comprehensive KPIs with Chart.js (donut charts, bar charts, leaderboards, duration buckets, all-agent table)
 ```
 
 ### CSS
@@ -1920,11 +1957,10 @@ python worker.py website demo              # GHL sync, backfill, demo chat
 - **Power Dialer (Individual)**: $149.99/month — single-line dialing, AI texting, AI voice, lead intelligence, Smart Filters, unlimited minutes, 5 sales frameworks. No contracts, cancel anytime. `subscription_tier = 'individual'`
 - **Pro Dialer**: $224.99/month — everything in Power Dialer PLUS multi-line dialing (up to 4 concurrent lines), predictive dialer with AI-optimized pacing, connect rate analytics, priority queue. `subscription_tier = 'pro_dialer'`. Env var: `STRIPE_PRO_DIALER_PRICE_ID`
 - **Predictive Dialer**: $349.98/month — everything in Pro Dialer PLUS Erlang-C predictive pacing, TCPA auto-throttle (rolling 3% abandon rate), recipient timezone enforcement (area code → timezone lookup), agent state machine (Ready/Not Ready/Wrap-Up/Break), compliance dashboard, recording consent tracking (two-party consent states), callback queue with scheduled re-dials. `subscription_tier = 'predictive_dialer'`. Env var: `STRIPE_PREDICTIVE_DIALER_PRICE_ID`
-- **Agency Starter**: Agency owner + up to 14 sub-users, multi-tenant dashboard
-- **Agency Pro**: Agency owner + unlimited sub-users + dedicated queue + white-glove onboarding
+- **Agency Owner**: FREE — no separate subscription. Agency owners buy the same individual plans (Power Dialer, Pro Dialer, or Predictive Dialer) as their agents. The agency dashboard, KPIs, leaderboards, and white-label features are included at no additional cost. Each agent under the agency purchases their own plan.
 - **AI Minutes**: Add-on usage-based billing for AI voice processing
 
-Subscriptions managed via Stripe. Users without active subscriptions see a paywall on the dashboard. Plan switching between Power Dialer, Pro Dialer, and Predictive Dialer is handled via `POST /change-plan` which calls `stripe.Subscription.modify()` with proration.
+Subscriptions managed via Stripe. Users without active subscriptions see a paywall on the dashboard. Plan switching between Power Dialer, Pro Dialer, and Predictive Dialer is handled via `POST /change-plan` which calls `stripe.Subscription.modify()` with proration. There are no separate agency subscription tiers — agency owners use the same plans as individuals.
 
 ---
 

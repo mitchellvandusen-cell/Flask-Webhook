@@ -11,6 +11,9 @@ import soxr
 import scipy.signal
 import websockets
 
+# Async wrappers for CPU-bound audio DSP — used by FastAPI voice server
+# to offload transcoding to the thread pool, keeping the event loop free.
+
 logger = logging.getLogger("voice_bridge.audio")
 
 # XAI Realtime API
@@ -81,10 +84,53 @@ LOG_EVENT_TYPES = [
     'session.created', 'session.updated'
 ]
 
-# Pre-compute Butterworth low-pass filter coefficients (phone-line warmth EQ).
-# Rolling off above 2800 Hz adds phone-line warmth and lowers perceived pitch
-# by removing the bright, synthetic shimmer that screams "AI" to the human ear.
-_WARMTH_B, _WARMTH_A = scipy.signal.butter(N=4, Wn=2800, fs=XAI_SAMPLE_RATE, btype='low')
+# ──────────────────────────────────────────────────────────────
+# VOICE NATURALNESS DSP CHAIN
+# AI TTS outputs audio that is too loud, too bright, and too clean
+# compared to a real person talking on a phone. This multi-stage
+# filter chain shapes xAI's output to sound like a warm, natural
+# phone conversation instead of a recording or robot.
+#
+# Chain: high-pass → warmth boost → presence cut → low-pass → gain
+# ──────────────────────────────────────────────────────────────
+
+# 1. High-pass at 80 Hz (order 2) — remove sub-bass rumble and DC offset.
+#    Real phone lines cut below 300 Hz, but we keep 80-300 for chest warmth.
+#    SOS form for numerical stability (scipy recommendation for order >= 2).
+_HP_SOS = scipy.signal.butter(N=2, Wn=80, fs=XAI_SAMPLE_RATE, btype='high', output='sos')
+
+# 2. Low-mid warmth boost — peaking EQ at 250 Hz, Q=1.0, +3.5 dB.
+#    Adds chest resonance / "talking from the diaphragm" quality.
+#    Male voice fundamentals sit 85-180 Hz; first harmonics 170-360 Hz.
+#    This boost fills out the harmonic body that makes a voice sound warm.
+_WARMTH_FREQ = 250
+_WARMTH_GAIN_DB = 3.5
+_WARMTH_Q = 1.0
+_WARM_B, _WARM_A = scipy.signal.iirpeak(_WARMTH_FREQ, _WARMTH_Q, fs=XAI_SAMPLE_RATE)
+_WARM_GAIN = 10 ** (_WARMTH_GAIN_DB / 20)  # linear gain for the peak
+
+# 3. Presence cut — peaking EQ at 2800 Hz, Q=0.8, -2.5 dB.
+#    AI voices have an unnatural brightness/presence peak here that
+#    makes them sound "too clear" — like a recording vs. a live call.
+#    Real phone calls have natural rolloff in this range from the handset.
+_PRES_FREQ = 2800
+_PRES_GAIN_DB = -2.5
+_PRES_Q = 0.8
+_PRES_B, _PRES_A = scipy.signal.iirpeak(_PRES_FREQ, _PRES_Q, fs=XAI_SAMPLE_RATE)
+_PRES_GAIN = 10 ** (_PRES_GAIN_DB / 20)
+
+# 4. Low-pass at 3200 Hz (order 3) — gentle rolloff above speech band.
+#    Order 3 (18 dB/oct) is softer than order 4 (24 dB/oct), avoiding
+#    the hard "wall" cutoff that can itself sound artificial.
+#    SOS form required for order 3+ to avoid numerical instability.
+_LP_SOS = scipy.signal.butter(N=3, Wn=3200, fs=XAI_SAMPLE_RATE, btype='low', output='sos')
+
+# 5. Gain reduction — AI outputs near 0 dBFS (full digital volume).
+#    Real phone conversations sit around -18 to -22 dBFS.
+#    -4 dB brings the level down to a natural conversational volume
+#    so it doesn't feel like someone is shouting into the phone.
+_GAIN_DB = -4.0
+_GAIN_LINEAR = 10 ** (_GAIN_DB / 20)  # ≈ 0.63
 
 
 def _is_voicemail_phrase(text: str) -> bool:
@@ -108,19 +154,33 @@ def _mulaw_to_pcm16(mulaw_bytes: bytes) -> bytes:
 def _pcm16_to_mulaw(pcm16_bytes: bytes) -> bytes:
     """Convert PCM16 16kHz audio (from xAI) to mulaw 8kHz (for Twilio).
 
-    Pipeline: low-pass EQ → anti-aliased downsample → u-law encode.
-    This eliminates the metallic/tinny high-pitched robotic sound caused by
-    naive linear-interpolation downsampling (audioop.ratecv aliasing).
+    Pipeline: HP → warmth boost → presence cut → LP → gain → downsample → u-law.
+    Shapes AI voice output to sound like a natural phone conversation:
+    warmer, quieter, less bright — like a real person on the other end.
     """
     samples = np.frombuffer(pcm16_bytes, dtype=np.int16).astype(np.float64)
 
-    # 1. Low-pass filter: cut harsh AI brightness above 2800 Hz
-    filtered = scipy.signal.lfilter(_WARMTH_B, _WARMTH_A, samples)
+    # 1. High-pass: remove sub-bass rumble / DC offset
+    samples = scipy.signal.sosfilt(_HP_SOS, samples)
 
-    # 2. Anti-aliased downsample 16kHz → 8kHz via soxr (polyphase sinc)
-    downsampled = soxr.resample(filtered.astype(np.float32), XAI_SAMPLE_RATE, TWILIO_SAMPLE_RATE)
+    # 2. Warmth boost: +3.5 dB peaking EQ at 250 Hz (chest resonance)
+    warm_filtered = scipy.signal.lfilter(_WARM_B, _WARM_A, samples)
+    samples = samples + (warm_filtered - samples) * (_WARM_GAIN - 1.0)
 
-    # 3. PCM16 → u-law
+    # 3. Presence cut: -2.5 dB peaking EQ at 2800 Hz (tame AI brightness)
+    pres_filtered = scipy.signal.lfilter(_PRES_B, _PRES_A, samples)
+    samples = samples + (pres_filtered - samples) * (1.0 - _PRES_GAIN)
+
+    # 4. Low-pass: gentle rolloff above 3200 Hz
+    samples = scipy.signal.sosfilt(_LP_SOS, samples)
+
+    # 5. Gain reduction: bring volume to conversational level (-4 dB)
+    samples = samples * _GAIN_LINEAR
+
+    # 6. Anti-aliased downsample 16kHz → 8kHz via soxr (polyphase sinc)
+    downsampled = soxr.resample(samples.astype(np.float32), XAI_SAMPLE_RATE, TWILIO_SAMPLE_RATE)
+
+    # 7. PCM16 → u-law
     return audioop.lin2ulaw(np.int16(np.clip(downsampled, -32768, 32767)).tobytes(), 2)
 
 
@@ -198,3 +258,15 @@ async def _generate_voice_preview(voice_name):
         return None
 
     return b''.join(audio_chunks) if audio_chunks else None
+
+
+# ── Async wrappers for FastAPI voice server ──────────────────────────────────
+
+async def async_mulaw_to_pcm16(mulaw_bytes: bytes) -> bytes:
+    """Async wrapper — offloads CPU-bound resampling to thread pool."""
+    return await asyncio.to_thread(_mulaw_to_pcm16, mulaw_bytes)
+
+
+async def async_pcm16_to_mulaw(pcm16_bytes: bytes) -> bytes:
+    """Async wrapper — offloads CPU-bound filter + resampling to thread pool."""
+    return await asyncio.to_thread(_pcm16_to_mulaw, pcm16_bytes)

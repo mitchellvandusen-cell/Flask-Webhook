@@ -33,8 +33,9 @@ from voice.audio import (
     _is_voicemail_phrase,
 )
 from voice.call_state import (
-    active_calls,
-    transfer_requests,
+    set_active_call, get_active_call, update_active_call, call_exists,
+    set_transfer_request, get_transfer_request, delete_transfer_request,
+    transfer_request_exists,
     call_listeners,
     voice_stream_semaphore,
     MAX_VOICE_STREAMS,
@@ -49,6 +50,191 @@ from voice.call_history_helpers import save_call_to_history, save_call_transcrip
 import twilio_provisioning
 
 logger = logging.getLogger("voice_bridge.stream")
+
+
+# ── Lead-type-aware voice greetings ─────────────────────────────────────────
+# These are the "fast greetings" — first audio the lead hears. Each template
+# is adapted from proven sales scripts with xAI-native prosody markup.
+# Tone is controlled through word choice + breathing + prosody wrappers,
+# NOT through meta-tags like <TONE:...>.
+
+def _resolve_lead_type_fast(location_id, contact_id):
+    """Resolve lead type from contact_cache (local DB, <5ms). Returns lead_type string."""
+    if not location_id or not contact_id:
+        return "default"
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT tags, date_added FROM contact_cache WHERE location_id = %s AND contact_id = %s",
+                (location_id, contact_id)
+            )
+            row = cur.fetchone()
+            if row:
+                tags = row[0] if row[0] else []
+                date_added = row[1] if row[1] else None
+                from lead_resolver import resolve_lead_type
+                info = resolve_lead_type(tags=tags, date_added=date_added)
+                return info["lead_type"]
+    except Exception as e:
+        logger.debug(f"Fast lead_type resolution failed: {e}")
+    finally:
+        if conn:
+            return_db_connection(conn)
+    return "default"
+
+
+def _build_voice_greeting(lead_type, contact_name, voice_bot_name, direction):
+    """
+    Build a lead-type-aware voice greeting with xAI Realtime prosody.
+
+    These greetings use proven insurance sales intros adapted for voice AI:
+    - Fresh leads: speed-to-lead "getting back to you" framing
+    - Aged leads (30-90d): customer service "updating records" framing
+    - Re-engage leads: casual "been a little while" framing
+    - Very-old leads (90d+): same records framing, vaguer time reference
+    - Inbound: warm, direct pickup
+
+    Prosody is controlled through:
+    - [breath] for natural breathing rhythm (every 2-4 words in opening)
+    - [pause] for dramatic/natural pauses
+    - <soft> for disarming, non-threatening moments
+    - <emphasis> for key words that anchor attention
+    - <slow> for deliberate, grounded pacing
+    - Word choice itself (contractions, casual register, downward intonation cues)
+    """
+    name = contact_name if contact_name not in ("there", "Manual", "") else ""
+
+    # Inbound calls — they called us, warm direct pickup
+    if direction != "outbound":
+        if name:
+            return (
+                f"Hey {name} [breath] this is {voice_bot_name}. "
+                f"[breath] What's going on?"
+            )
+        return f"Hey [breath] this is {voice_bot_name}. [breath] What's going on?"
+
+    # ── Outbound greetings by lead type ──
+
+    if lead_type == "fresh":
+        # Speed-to-lead: they JUST submitted — reference it immediately.
+        # Confident, direct, zero hesitation. Downward statements.
+        if name:
+            return (
+                f"Hey {name} [breath] its {voice_bot_name} [breath] "
+                f"getting back to you about that life insurance request "
+                f"you just sent in. [pause] "
+                f"It came across my desk [breath] "
+                f"were you able to get an actual quote back [breath] "
+                f"or did it come back <emphasis>way too high</emphasis>?"
+            )
+        return (
+            f"Hey [breath] its {voice_bot_name} [breath] "
+            f"getting back to you about that life insurance request "
+            f"you just sent in. [pause] "
+            f"It came across my desk [breath] "
+            f"were you able to get an actual quote back [breath] "
+            f"or did it come back <emphasis>way too high</emphasis>?"
+        )
+
+    if lead_type == "aged":
+        # 30-90 day old leads: customer service framing — soft, disarming,
+        # "updating records" angle. Non-threatening. They forgot they submitted.
+        if name:
+            return (
+                f"Hey {name} [breath] its just {voice_bot_name} [breath] "
+                f"<soft>im not sure if youre gonna remember this</soft> [pause] "
+                f"but I am just trying to get our records updated [breath] "
+                f"hopefully you can help me real quick. [pause] "
+                f"It looks like you put in some info <emphasis>a few weeks ago</emphasis> [breath] "
+                f"about possibly looking at life insurance [pause] "
+                f"did you end up finding something [breath] "
+                f"or what ended up happening?"
+            )
+        return (
+            f"Hey [breath] its just {voice_bot_name} [breath] "
+            f"<soft>im not sure if youre gonna remember this</soft> [pause] "
+            f"but I am just trying to get our records updated [breath] "
+            f"hopefully you can help me real quick. [pause] "
+            f"It looks like you put in some info <emphasis>a few weeks ago</emphasis> [breath] "
+            f"about possibly looking at life insurance [pause] "
+            f"did you end up finding something [breath] "
+            f"or what ended up happening?"
+        )
+
+    if lead_type == "re-engage":
+        # Re-engagement: same records framing but "a little while ago" timing.
+        # Slightly more casual — they've been in the CRM a while.
+        if name:
+            return (
+                f"Hey {name} [breath] its just {voice_bot_name} [breath] "
+                f"<soft>im not sure if youre gonna remember this</soft> [pause] "
+                f"but I am just trying to get our records updated [breath] "
+                f"hopefully you can help me real quick. [pause] "
+                f"It looks like you put in some info <emphasis>a little while ago</emphasis> [breath] "
+                f"about possibly looking at life insurance [pause] "
+                f"did you end up finding something [breath] "
+                f"or what ended up happening?"
+            )
+        return (
+            f"Hey [breath] its just {voice_bot_name} [breath] "
+            f"<soft>im not sure if youre gonna remember this</soft> [pause] "
+            f"but I am just trying to get our records updated [breath] "
+            f"hopefully you can help me real quick. [pause] "
+            f"It looks like you put in some info <emphasis>a little while ago</emphasis> [breath] "
+            f"about possibly looking at life insurance [pause] "
+            f"did you end up finding something [breath] "
+            f"or what ended up happening?"
+        )
+
+    if lead_type == "very-old":
+        # 90+ day leads: same records framing, vague "a while back" timing.
+        # Extra soft — they definitely forgot.
+        if name:
+            return (
+                f"Hey {name} [breath] its just {voice_bot_name} [breath] "
+                f"<soft>im not sure if youre gonna remember this</soft> [pause] "
+                f"but I am just trying to get our records updated [breath] "
+                f"hopefully you can help me real quick. [pause] "
+                f"It looks like you put in some info <emphasis>a while back</emphasis> [breath] "
+                f"about possibly looking at life insurance [pause] "
+                f"did you end up finding something [breath] "
+                f"or what ended up happening?"
+            )
+        return (
+            f"Hey [breath] its just {voice_bot_name} [breath] "
+            f"<soft>im not sure if youre gonna remember this</soft> [pause] "
+            f"but I am just trying to get our records updated [breath] "
+            f"hopefully you can help me real quick. [pause] "
+            f"It looks like you put in some info <emphasis>a while back</emphasis> [breath] "
+            f"about possibly looking at life insurance [pause] "
+            f"did you end up finding something [breath] "
+            f"or what ended up happening?"
+        )
+
+    # Default fallback — generic but still uses the records framing
+    if name:
+        return (
+            f"Hey {name} [breath] its just {voice_bot_name} [breath] "
+            f"<soft>im not sure if youre gonna remember this</soft> [pause] "
+            f"but I am just trying to get our records updated [breath] "
+            f"hopefully you can help me real quick. [pause] "
+            f"It looks like you put in some info about "
+            f"<emphasis>possibly</emphasis> looking at life insurance [pause] "
+            f"did you end up finding something [breath] "
+            f"or what ended up happening?"
+        )
+    return (
+        f"Hey [breath] its just {voice_bot_name} [breath] "
+        f"<soft>im not sure if youre gonna remember this</soft> [pause] "
+        f"but I am just trying to get our records updated [breath] "
+        f"hopefully you can help me real quick. [pause] "
+        f"It looks like you put in some info about "
+        f"<emphasis>possibly</emphasis> looking at life insurance [pause] "
+        f"did you end up finding something [breath] "
+        f"or what ended up happening?"
+    )
 
 
 async def handle_voice_stream(ws):
@@ -109,10 +295,11 @@ async def handle_voice_stream(ws):
         # Belt-and-suspenders: if this is an outbound call and the media stream
         # is connected, the call is definitely in-progress. Force the status
         # update in case out-of-order Twilio callbacks haven't set it yet.
-        if call_sid and call_sid in active_calls:
-            cur = active_calls[call_sid].get('status', '')
+        if call_sid and call_exists(call_sid):
+            call_data = get_active_call(call_sid)
+            cur = (call_data or {}).get('status', '')
             if cur in ('initiated', 'ringing'):
-                active_calls[call_sid]['status'] = 'in-progress'
+                update_active_call(call_sid, status='in-progress')
                 logger.info(f"Stream forced status to in-progress for {call_sid[:16]} (was '{cur}')")
     else:
         logger.warning(f"Voice stream: Unexpected first event: {start_data.get('event')}")
@@ -222,15 +409,14 @@ NEVER say you're an AI, a bot, or a virtual assistant. You are {voice_bot_name}.
 {f"CALL SCRIPT REFERENCE (use naturally, never read verbatim): {call_script[:2000]}" if call_script else ""}
 Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause], [breath], [inhale], [exhale], [sigh], [laugh], [chuckle], [tsk], [tongue-click], [lip-smack]. Allowed wrapper tags: <emphasis>, <slow>, <fast>, <soft>, <whisper>, <loud>, <higher-pitch>, <lower-pitch>, <build-intensity>, <decrease-intensity>. Output ONLY what {voice_bot_name} would say. Nothing else."""
 
-    # Build greeting -- DISARMING tone with breathing cues.
+    # Build greeting — lead-type-aware with xAI prosody.
+    # Custom greeting from voice config takes priority; otherwise use proven
+    # sales script intros matched to lead age.
     greeting = voice_config.get("greeting", "").strip()
     if not greeting:
-        if direction == "outbound" and contact_name not in ("there", "Manual", ""):
-            greeting = f"Hey {contact_name} [breath] it's {voice_bot_name}. [breath] How's it going?"
-        elif direction == "outbound":
-            greeting = f"Hey [breath] it's {voice_bot_name}. [breath] I was hoping to catch you for a quick second."
-        else:
-            greeting = f"Hey [breath] this is {voice_bot_name}. What's going on?"
+        lead_type = _resolve_lead_type_fast(location_id, contact_id)
+        greeting = _build_voice_greeting(lead_type, contact_name, voice_bot_name, direction)
+        logger.info(f"Voice greeting: lead_type={lead_type} dir={direction} contact={contact_name}")
 
     logger.info(f"Fast-connecting to XAI Realtime API (voice={voice_name})")
 
@@ -358,8 +544,8 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                         # Check for immediate takeover (agent barge-in)
                         # Only mute AI audio here -- the REST route handles the actual
                         # Twilio redirect to avoid double-fire race conditions.
-                        if call_sid and call_sid in transfer_requests:
-                            req = transfer_requests.get(call_sid, {})
+                        if call_sid and transfer_request_exists(call_sid):
+                            req = get_transfer_request(call_sid) or {}
                             if req.get('type') == 'takeover':
                                 logger.info(f"Instant AI audio cutoff (Twilio loop): {call_sid}")
                                 # Flush buffered AI audio from Twilio's pipeline
@@ -449,8 +635,8 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                         # -- Instant takeover check in XAI relay --
                         # Without this, AI audio keeps streaming to the caller
                         # during the gap between takeover signal and Twilio redirect.
-                        if call_sid and call_sid in transfer_requests:
-                            req = transfer_requests.get(call_sid, {})
+                        if call_sid and transfer_request_exists(call_sid):
+                            req = get_transfer_request(call_sid) or {}
                             if req.get('type') == 'takeover':
                                 logger.info(f"Instant AI audio cutoff (XAI relay): {call_sid}")
                                 # Flush any buffered AI audio from Twilio's pipeline
@@ -513,11 +699,11 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                                 t_reason = t_args.get('reason', 'lead requested transfer')
                                 t_number = (subscriber.get('voice_config') or {}).get('transfer_number', '')
                                 if call_sid and t_number:
-                                    transfer_requests[call_sid] = {
+                                    set_transfer_request(call_sid, {
                                         'type': 'transfer',
                                         'target': t_number,
                                         'reason': t_reason,
-                                    }
+                                    })
 
                             # Execute the tool
                             result = execute_voice_tool(
@@ -544,7 +730,7 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
 
                             # If a transfer was requested, let the AI finish its
                             # handoff message (response.done), then execute transfer
-                            if call_sid and call_sid in transfer_requests:
+                            if call_sid and transfer_request_exists(call_sid):
                                 # Wait for the AI to finish speaking the handoff message
                                 # by listening for response.done before transferring
                                 _pending_transfer = True
@@ -575,8 +761,8 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                                         except Exception:
                                             pass
                                         # Mark as no-answer so dialer retries
-                                        if call_sid in active_calls:
-                                            active_calls[call_sid]['_amd_result'] = 'no-answer'
+                                        if call_exists(call_sid):
+                                            update_active_call(call_sid, _amd_result='no-answer')
                                         # Hang up via Twilio REST
                                         vm_sub_sid = voice_config.get('twilio_sub_account_sid', '')
                                         if vm_sub_sid and call_sid:
@@ -602,8 +788,9 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                         # response.done -- AI finished generating a response
                         elif event_type == 'response.done':
                             # Check for pending transfer or takeover
-                            if _pending_transfer and call_sid and call_sid in transfer_requests:
-                                transfer_info = transfer_requests.pop(call_sid, {})
+                            if _pending_transfer and call_sid and transfer_request_exists(call_sid):
+                                transfer_info = get_transfer_request(call_sid) or {}
+                                delete_transfer_request(call_sid)
                                 target = transfer_info.get('target', '')
                                 t_type = transfer_info.get('type', 'transfer')
                                 reason = transfer_info.get('reason', '')
@@ -615,14 +802,14 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                                     call_active = False
                                     await asyncio.sleep(0.3)
                                     # Transfer via Twilio REST (stops media stream automatically)
-                                    host_h = active_calls.get(call_sid, {}).get('_host', '') or os.getenv('RENDER_EXTERNAL_HOSTNAME', '')
+                                    host_h = (get_active_call(call_sid) or {}).get('_host', '') or os.getenv('RENDER_EXTERNAL_HOSTNAME', '')
                                     transfer_ok = _twilio_transfer(call_sid, t_sub_sid, target, f"https://{host_h}" if host_h else '')
 
                                     if transfer_ok:
                                         logger.info(f"Call transferred to {target}")
                                         # Update call status
-                                        if call_sid in active_calls:
-                                            active_calls[call_sid]['status'] = 'transferred'
+                                        if call_exists(call_sid):
+                                            update_active_call(call_sid, status='transferred')
                                     else:
                                         logger.error(f"Transfer failed for {call_sid}")
 
@@ -639,8 +826,8 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                                         logger.info(f"Hangup sent \u2014 call {call_sid[:16]} ended by AI")
                                     except Exception as e:
                                         logger.error(f"Hangup failed: {e}")
-                                if call_sid in active_calls:
-                                    active_calls[call_sid]['status'] = 'completed'
+                                if call_exists(call_sid):
+                                    update_active_call(call_sid, status='completed')
                                 call_active = False
 
                             # Takeover (human barge-in) is handled by the instant
@@ -711,10 +898,10 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
         # Mark call as completed if still showing in-progress
         # (Twilio status callback may arrive later, but this prevents
         #  stale in-progress entries that allow intercept on ended calls)
-        if call_sid and call_sid in active_calls:
-            cur_status = active_calls[call_sid].get('status', '')
+        if call_sid and call_exists(call_sid):
+            cur_status = (get_active_call(call_sid) or {}).get('status', '')
             if cur_status in ('ringing', 'queued', 'initiated', 'in-progress'):
-                active_calls[call_sid]['status'] = 'completed'
+                update_active_call(call_sid, status='completed')
         # Push None sentinel to all listener queues so run_listen_stream
         # detects call end instantly (instead of waiting 2s for queue timeout)
         if call_sid and call_sid in call_listeners:
@@ -725,7 +912,7 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                     pass
         # Clean up any leftover transfer request and listener queues
         if call_sid:
-            transfer_requests.pop(call_sid, None)
+            delete_transfer_request(call_sid)
             call_listeners.pop(call_sid, None)
         # Log call end
         try:
@@ -823,7 +1010,7 @@ def run_listen_stream(ws):
                 pass
             return
 
-        if call_sid not in active_calls:
+        if not call_exists(call_sid):
             logger.warning(f"Listen stream: {call_sid[:16]} not in active_calls")
             try:
                 ws.send(json.dumps({"error": "Call not found or already ended"}))
@@ -831,7 +1018,7 @@ def run_listen_stream(ws):
                 pass
             return
 
-        call_status = active_calls.get(call_sid, {}).get('status', '')
+        call_status = (get_active_call(call_sid) or {}).get('status', '')
         logger.info(f"Listen stream: {call_sid[:16]} status={call_status}")
         if call_status in ('completed', 'failed', 'canceled', 'transferred', 'no-answer', 'busy'):
             logger.warning(f"Listen stream: {call_sid[:16]} already in terminal state {call_status}")
@@ -872,8 +1059,8 @@ def run_listen_stream(ws):
                     logger.info(f"Listen stream: first audio chunk sent for {call_sid[:16]}")
             except _queue_module.Empty:
                 # Check if call is still active
-                cur_status = active_calls.get(call_sid, {}).get('status', '')
-                if call_sid not in active_calls or cur_status in _LISTEN_TERMINAL:
+                cur_status = (get_active_call(call_sid) or {}).get('status', '')
+                if not call_exists(call_sid) or cur_status in _LISTEN_TERMINAL:
                     logger.info(f"Listen stream: call {call_sid[:16]} ended (status={cur_status}), closing")
                     try:
                         ws.send(json.dumps({"status": "call_ended"}))

@@ -746,7 +746,6 @@ def _handle_ai_call(cur, conn, run_id, step, config, location_id, contact_id, co
     try:
         from voice.helpers import _get_subscriber_by_location
         import twilio_provisioning
-        from voice.call_state import active_calls
         from voice.call_history_helpers import save_call_to_history
         from number_health import select_outbound_number
 

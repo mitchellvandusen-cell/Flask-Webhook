@@ -421,77 +421,168 @@ def _build_tactical_guidance(logic: LogicSignal, stage_value: str, first_name: s
 
 
 # ═══════════════════════════════════════════════════
-# COLD OUTBOUND — Lead type aware
+# COLD OUTBOUND — Fixed intro templates by lead type
 # ═══════════════════════════════════════════════════
+#
+# These intros are FIXED TEMPLATES adapted from proven phone scripts.
+# Every lead of the same type gets the same intro structure.
+# The LLM does NOT freestyle the opening — it sends the template with
+# the lead's name and operator's name filled in.
+#
+# Source scripts:
+#   - "ETHOS INTRO FULL SCRIPT 2025 FINAL" (fresh/speed-to-lead)
+#   - "6moOldplus - ethos - intro - final" (very-old/6mo+)
+#   - "Untitled document" — customer service framing (aged/default)
+#   - "FULL SCRIPT_no-obj-2025" (default fallback)
 
 def _build_cold_outbound_guidance(first_name: str, lead_type: str = "default") -> str:
     """
-    Build cold outbound guidance based on lead type.
-    Pure situational context — no templates, no example phrases, no scripted openings.
-    The LLM decides how to open based on the information provided.
+    Build cold outbound guidance with FIXED intro templates by lead type.
+    The LLM sends the template verbatim — no freestyling the opener.
+    Adapted from proven voice scripts into SMS-length format.
     """
-    name_line = f"Their name is '{first_name}'. " if first_name else "You do not have their name. "
+    name = first_name if first_name else ""
 
-    common_context = (
-        "Every message you send must be unique. Never repeat structure, wording, or angle "
-        "across different leads. One question maximum. Brief.\n\n"
-        f"{name_line}"
-        "Goal: get a reply. Nothing else matters on the first message."
-    )
-
+    # ── FRESH / SPEED-TO-LEAD ──
+    # Script source: ETHOS INTRO — "getting back to you about the request you sent"
+    # They JUST filled out a form. They are expecting contact. Speed is everything.
     if lead_type == "fresh":
+        if name:
+            template = (
+                f"Hey {name}? This is {{{{operatorName}}}} getting back to you about "
+                "that life insurance request you just sent in. It came across my desk — "
+                "were you able to get an actual quote back or did it come back way too high?"
+            )
+        else:
+            template = (
+                "Hey there, this is {{operatorName}} getting back to you about "
+                "that life insurance request you just sent in. It came across my desk — "
+                "were you able to get an actual quote back or did it come back way too high?"
+            )
         return (
-            "SITUATION: FRESH LEAD. They just requested information about life insurance. "
-            "They filled out a form or requested a quote very recently. They are expecting "
-            "to hear from someone. This is not a cold text from a stranger.\n\n"
-            "KEY CONTEXT: They are actively thinking about this right now. Your timing "
-            "advantage is everything. They know why you are contacting them. They do not "
-            "know it was specifically YOU, but they know someone would reach out.\n\n"
-            + common_context
+            "SITUATION: FRESH LEAD — SPEED TO LEAD. They just requested a quote. "
+            "They are expecting to hear from someone.\n\n"
+            "SEND THIS MESSAGE EXACTLY (fill in your name where {{operatorName}} appears):\n"
+            f'"{template}"\n\n'
+            "Do NOT rewrite, rephrase, or add to this message. Send it as-is. "
+            "This is a proven opener — do not freestyle."
         )
 
+    # ── RE-ENGAGE (dormant 30+ days) ──
+    # Script source: "Untitled document" — customer service / records-update framing.
+    # They showed interest before, life got in the way. Circle back with a reason.
     if lead_type == "re-engage":
+        if name:
+            template = (
+                f"Hey {name}? Its just {{{{operatorName}}}}, im not sure if youre going to "
+                "remember this but I am just trying to get our records updated, hopefully you "
+                "can help me real quick. It looks like you put in some info a little while ago about "
+                "possibly looking at life insurance, did you end up finding something or what "
+                "ended up happening?"
+            )
+        else:
+            template = (
+                "Hey there? Its just {{operatorName}}, im not sure if youre going to "
+                "remember this but I am just trying to get our records updated, hopefully you "
+                "can help me real quick. It looks like you put in some info a little while ago about "
+                "possibly looking at life insurance, did you end up finding something or what "
+                "ended up happening?"
+            )
         return (
-            "SITUATION: DORMANT LEAD. They showed interest at some point in the past, "
-            "at least 30 days ago, possibly months. Life got in the way. They may or may "
-            "not remember the original interaction.\n\n"
-            "KEY CONTEXT: Time has passed. Their situation may have changed. There may be "
-            "new options, market changes, or life events that make this relevant again. "
-            "They have history with this topic even if they forgot about it.\n\n"
-            + common_context
+            "SITUATION: RE-ENGAGE — DORMANT LEAD. They showed interest 30+ days ago. "
+            "Frame as customer service — you are updating records, not selling.\n\n"
+            "SEND THIS MESSAGE EXACTLY (fill in your name where {{operatorName}} appears):\n"
+            f'"{template}"\n\n'
+            "Do NOT rewrite, rephrase, or add to this message. Send it as-is. "
+            "This is a proven opener — do not freestyle."
         )
 
+    # ── AGED (purchased lead, 30-90 days) ──
+    # Script source: "Untitled document" — customer service / records-update framing.
+    # "I'm just trying to get our records updated" — frames as customer service, not sales.
+    # They filled something out weeks ago. They may not remember.
     if lead_type == "aged":
+        if name:
+            template = (
+                f"Hey {name}? Its just {{{{operatorName}}}}, im not sure if youre going to "
+                "remember this but I am just trying to get our records updated, hopefully you "
+                "can help me real quick. It looks like you put in some info a few weeks ago about "
+                "possibly looking at life insurance, did you end up finding something or what "
+                "ended up happening?"
+            )
+        else:
+            template = (
+                "Hey there? Its just {{operatorName}}, im not sure if youre going to "
+                "remember this but I am just trying to get our records updated, hopefully you "
+                "can help me real quick. It looks like you put in some info a few weeks ago about "
+                "possibly looking at life insurance, did you end up finding something or what "
+                "ended up happening?"
+            )
         return (
-            "SITUATION: AGED LEAD. This person expressed interest in life insurance at "
-            "least 30 days ago, possibly months. That lead was purchased. They may not "
-            "remember any form they filled out.\n\n"
-            "KEY CONTEXT: They will not recognize your name or number. They may not "
-            "remember ever looking into this. You are essentially a stranger to them, "
-            "but they did voluntarily provide their information at some point.\n\n"
-            + common_context
+            "SITUATION: AGED LEAD — PURCHASED. They filled out a form 30-90 days ago. "
+            "They may not remember. Frame as customer service — you are updating records, "
+            "not making a sales pitch.\n\n"
+            "SEND THIS MESSAGE EXACTLY (fill in your name where {{operatorName}} appears):\n"
+            f'"{template}"\n\n'
+            "Do NOT rewrite, rephrase, or add to this message. Send it as-is. "
+            "This is a proven opener — do not freestyle."
         )
 
+    # ── VERY OLD (3+ months) ──
+    # Script source: "Untitled document" + "6moOldplus ethos" — customer service framing
+    # with "a while back" time reference. Internal audit angle for 6mo+.
+    # They have been contacted by multiple agents. Standard outreach gets dismissed.
     if lead_type == "very-old":
+        if name:
+            template = (
+                f"Hey {name}? Its just {{{{operatorName}}}}, im not sure if youre going to "
+                "remember this but I am just trying to get our records updated, hopefully you "
+                "can help me real quick. It looks like you put in some info a while back about "
+                "possibly looking at life insurance, did you end up finding something or what "
+                "ended up happening?"
+            )
+        else:
+            template = (
+                "Hey there? Its just {{operatorName}}, im not sure if youre going to "
+                "remember this but I am just trying to get our records updated, hopefully you "
+                "can help me real quick. It looks like you put in some info a while back about "
+                "possibly looking at life insurance, did you end up finding something or what "
+                "ended up happening?"
+            )
         return (
-            "SITUATION: VERY OLD LEAD. This person filled out a form over 3 months ago. "
-            "They almost certainly do not remember it. They have "
-            "likely been contacted by multiple agents already.\n\n"
-            "KEY CONTEXT: Anything that sounds like a standard insurance outreach will be "
-            "dismissed immediately. They have heard it all. They are numb to it. You need "
-            "to come from a completely unexpected angle. Pure value, pure curiosity, or "
-            "something they have genuinely never heard before. If it sounds like something "
-            "another agent would send, do not send it.\n\n"
-            + common_context
+            "SITUATION: VERY OLD LEAD — 3+ MONTHS. They almost certainly do not remember "
+            "filling anything out. Multiple agents have probably already contacted them. "
+            "Frame as customer service — you are updating records, not selling.\n\n"
+            "SEND THIS MESSAGE EXACTLY (fill in your name where {{operatorName}} appears):\n"
+            f'"{template}"\n\n'
+            "Do NOT rewrite, rephrase, or add to this message. Send it as-is. "
+            "This is a proven opener — do not freestyle."
         )
 
-    # Default — unknown lead age
+    # ── DEFAULT (unknown lead age) ──
+    # Script source: "Untitled document" — customer service framing, neutral time reference.
+    # Safe middle ground — assumes they filled something out, doesn't assume when.
+    if name:
+        template = (
+            f"Hey {name}? Its just {{{{operatorName}}}}, im not sure if youre going to "
+            "remember this but I am just trying to get our records updated, hopefully you "
+            "can help me real quick. It looks like you put in some info about possibly looking "
+            "at life insurance, did you end up finding something or what ended up happening?"
+        )
+    else:
+        template = (
+            "Hey there? Its just {{operatorName}}, im not sure if youre going to "
+            "remember this but I am just trying to get our records updated, hopefully you "
+            "can help me real quick. It looks like you put in some info about possibly looking "
+            "at life insurance, did you end up finding something or what ended up happening?"
+        )
     return (
-        "SITUATION: COLD OUTBOUND. First message to this person. Zero conversation history.\n\n"
-        "KEY CONTEXT: This person expressed interest in life insurance at some point, "
-        "could have been recent, could have been months ago. You do not know. "
-        "They may or may not remember. You are a stranger to them.\n\n"
-        + common_context
+        "SITUATION: COLD OUTBOUND. First message. Unknown lead age. "
+        "Frame as customer service — you are updating records, not selling.\n\n"
+        "SEND THIS MESSAGE EXACTLY (fill in your name where {{operatorName}} appears):\n"
+        f'"{template}"\n\n'
+        "Do NOT rewrite, rephrase, or add to this message. Send it as-is. "
+        "This is a proven opener — do not freestyle."
     )
 
 

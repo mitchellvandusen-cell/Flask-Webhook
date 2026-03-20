@@ -1,39 +1,42 @@
 """
-voice/call_state.py — Call state, TwiML helpers, and constants.
+voice/call_state.py - Redis-backed call state and TwiML helpers.
 
-State is backed by Redis (via redis_state.py) for cross-service sharing
-between Flask and FastAPI. The in-memory dicts and daemon reaper have
-been removed — Redis TTLs handle cleanup automatically.
+Call state (active_calls, transfer_requests, overflow_transfer_alerts) is
+stored in Redis via voice/redis_state.py so that both Flask and FastAPI
+can read/write the same state.
 
-For backward compatibility, this module re-exports the Redis functions
-and constants so existing code that does `from voice.call_state import active_calls`
-can be migrated incrementally.
+call_listeners stays in-process (WebSocket-to-WebSocket audio relay on
+the same machine — no cross-process sharing needed).
+
+custom_field_defs stays in-process (per-location GHL field cache).
 """
 
 import json
 import os
 import logging
+import threading
 import base64
 import queue as _queue_module
 from xml.sax.saxutils import escape as xml_escape, quoteattr as xml_quoteattr
 
 import twilio_provisioning
 
-# Re-export Redis state functions so callers can import from here
+# Re-export Redis state functions so existing imports still work
 from voice.redis_state import (
     set_active_call,
     get_active_call,
     update_active_call,
     delete_active_call,
-    get_all_active_calls,
+    call_exists,
     get_active_calls_for_location,
+    get_all_active_calls,
     set_transfer_request,
     get_transfer_request,
     delete_transfer_request,
+    transfer_request_exists,
     add_overflow_alert,
     get_overflow_alerts,
-    dismiss_overflow_alert,
-    TERMINAL_STATUSES,
+    set_overflow_alerts,
 )
 
 logger = logging.getLogger("voice_bridge.call_state")
@@ -41,21 +44,21 @@ logger = logging.getLogger("voice_bridge.call_state")
 # ── In-process state (NOT shared via Redis) ──────────────────────────────────
 
 # Live listen: maps call_sid → set of queue.Queue objects (one per listener)
-# Audio chunks are put into each queue by the voice stream.
-# This MUST stay in-process — audio frames are too high-volume for Redis.
+# Audio chunks (mulaw base64 strings) are put into each queue by the voice stream.
+# Stays in-process because it's WebSocket-to-WebSocket audio relay on the same machine.
 call_listeners: dict = {}  # { call_sid: set(queue.Queue, ...) }
 
-# Simple in-memory cache for GHL custom field definitions.
-# Populated on first contact detail fetch per location; rarely changes.
+# Simple in-memory cache for GHL custom field definitions: { location_id: {field_id: field_name} }
+# Populated on first contact detail fetch per location; GHL field definitions rarely change.
 custom_field_defs: dict = {}
 
-# ── Concurrent voice stream limit ────────────────────────────────────────────
-# For Flask/gunicorn: threading.Semaphore limits concurrent voice streams.
-# For FastAPI: async_stream.py uses asyncio.Semaphore instead.
-import threading
+# ── Concurrent voice stream limit (backpressure for gunicorn's 40 threads) ──
+# Reserve ~10 threads for HTTP traffic; allow max 30 concurrent voice streams.
 MAX_VOICE_STREAMS = int(os.getenv("MAX_VOICE_STREAMS", "30"))
 voice_stream_semaphore = threading.Semaphore(MAX_VOICE_STREAMS)
 
+# ── Terminal statuses ────────────────────────────────────────────────────────
+TERMINAL_STATUSES = frozenset({"completed", "busy", "no-answer", "failed", "canceled", "transferred"})
 
 # ── TwiML helpers ─────────────────────────────────────────────────────────────
 

@@ -4,7 +4,7 @@ import logging
 from flask_login import current_user
 
 from db import get_db_connection, return_db_connection
-from voice.redis_state import get_active_call
+from voice.call_state import get_active_call
 
 logger = logging.getLogger("voice_bridge.helpers")
 

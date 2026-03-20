@@ -147,25 +147,14 @@ initialize_encryption()
 from api_v1 import api_bp
 app.register_blueprint(api_bp)
 
-# ── Voice Bridge Blueprint + WebSocket ───────────────────────────────────────
+# ── Voice Bridge Blueprint (HTTP routes only — WebSockets moved to FastAPI) ──
+# WebSocket endpoints /voice/stream and /voice/listen-stream are handled by
+# voice_server.py (FastAPI/uvicorn on port 8081). TwiML routes point there
+# via VOICE_WSS_URL env var. All HTTP routes remain here in Flask.
 
-from flask_sock import Sock
-from voice_bridge import voice_bp, run_voice_stream, run_listen_stream
+from voice_bridge import voice_bp
 
 app.register_blueprint(voice_bp)
-sock = Sock(app)
-
-
-@sock.route('/voice/stream')
-def ws_voice_stream(ws):
-    """WebSocket endpoint for Twilio Media Streams <-> XAI Voice bridge."""
-    run_voice_stream(ws)
-
-
-@sock.route('/voice/listen-stream')
-def ws_listen_stream(ws):
-    """WebSocket endpoint for live listen (speaker mode)."""
-    run_listen_stream(ws)
 
 
 # ── Session & cookie config ──────────────────────────────────────────────────

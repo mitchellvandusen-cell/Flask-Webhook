@@ -1,4 +1,5 @@
 import logging
+import os
 import threading
 import time
 from xml.sax.saxutils import escape as xml_escape, quoteattr as xml_quoteattr
@@ -7,10 +8,10 @@ from flask import Blueprint, request, Response
 
 import twilio_provisioning
 from number_health import select_outbound_number, update_number_health
-from voice.call_state import _encode_client_state, _build_twiml_stream, _twilio_hangup
-from voice.redis_state import (
-    set_active_call, get_active_call, update_active_call, delete_active_call,
-    get_all_active_calls, delete_transfer_request,
+from voice.call_state import (
+    set_active_call, get_active_call, update_active_call, call_exists,
+    delete_transfer_request,
+    _encode_client_state, _build_twiml_stream, _twilio_hangup,
 )
 from voice.helpers import _get_subscriber_by_phone, _get_subscriber_by_location
 from voice.predictive_engine import agent_state_manager, AgentState, tcpa_tracker
@@ -119,7 +120,7 @@ def voice_inbound():
         return Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', content_type='text/xml')
 
     host = request.host
-    stream_url = f'wss://{host}/voice/stream'
+    stream_url = os.getenv('VOICE_WSS_URL') or f'wss://{host}/voice/stream'
 
     # Encode metadata as custom parameters for the WebSocket stream
     client_state = _encode_client_state({
@@ -222,7 +223,7 @@ def outbound_twiml():
     logger.info(f"Outbound TwiML: CallSid={call_sid[:16] if call_sid else 'none'} AnsweredBy={answered_by} mode={dial_mode}")
 
     # Update active calls
-    if get_active_call(call_sid) is not None:
+    if call_exists(call_sid):
         update_active_call(call_sid, status='in-progress', _host=request.host)
 
     # Start recording in background (applies to ALL dial modes including human)
@@ -261,7 +262,7 @@ def outbound_twiml():
             _sub = _get_subscriber_by_location(location_id)
             if _sub:
                 agent_email = _sub.get('email', '')
-                if agent_email and get_active_call(call_sid) is not None:
+                if agent_email and call_exists(call_sid):
                     update_active_call(call_sid, _agent_email=agent_email)
 
         if _tier == 'solo_predictive' and agent_email:
@@ -316,11 +317,13 @@ def outbound_twiml():
                         f"{f', primary={primary_sid[:16]}' if primary_sid else ''})"
                     )
                     # Mark overflow in active_calls for frontend visibility
-                    if get_active_call(call_sid) is not None:
-                        update_active_call(call_sid,
-                                           _overflow=True,
-                                           _overflow_agent=agent_email,
-                                           _overflow_primary_sid=primary_sid or '')
+                    if call_exists(call_sid):
+                        update_active_call(
+                            call_sid,
+                            _overflow=True,
+                            _overflow_agent=agent_email,
+                            _overflow_primary_sid=primary_sid or '',
+                        )
 
     # For human VoIP mode (NOT overflow), bridge the PSTN callee to the browser agent
     if dial_mode == 'human' and not _is_overflow:
@@ -339,7 +342,7 @@ def outbound_twiml():
         return Response(twiml, content_type='text/xml')
 
     # AI mode (default) or AI overflow — connect to xAI Realtime WebSocket
-    stream_url = f'wss://{host}/voice/stream'
+    stream_url = os.getenv('VOICE_WSS_URL') or f'wss://{host}/voice/stream'
 
     client_state = _encode_client_state({
         'location_id':  location_id,
@@ -425,8 +428,8 @@ def transfer_complete():
     dial_status = request.values.get('DialCallStatus', 'unknown')
     logger.info(f"Transfer complete: original_sid={original_sid[:16] if original_sid else 'none'} dial_status={dial_status}")
 
-    # Clean up in-memory tracking so the dialer UI can move on
-    if original_sid and get_active_call(original_sid) is not None:
+    # Clean up call state so the dialer UI can move on
+    if original_sid and call_exists(original_sid):
         update_active_call(original_sid, status='completed')
     delete_transfer_request(original_sid)
 
@@ -464,7 +467,7 @@ def amd_status_callback():
     if answered_by in all_machine and sub_sid_amd and call_sid:
         # Machine detected — hang up immediately and let the dialer retry
         # Mark FIRST so /voice/status preserves 'no-answer' even if it arrives before hangup completes
-        if get_active_call(call_sid) is not None:
+        if call_exists(call_sid):
             update_active_call(call_sid, _amd_result='no-answer')
         try:
             _twilio_hangup(call_sid, sub_sid_amd)

@@ -474,23 +474,13 @@ def website_bot_webhook():
             ]
         })
 
-    if user_message == "agency_small":
+    if user_message in ["agency_small", "agency_medium", "agency_large"]:
         return flask_jsonify({
-            "text": "Perfect size to start. Here's what I solve for you: inconsistent follow-up across your team. Some agents are great, some let leads rot. With me, every sub-account gets the same AI setter - same brain, same methodology, but books to THEIR calendar. You get a dashboard to see everything. Agency Starter covers up to 14 agents — book a call for pricing.",
+            "text": "Here's what I solve for you: inconsistent follow-up across your team. Some agents are great, some let leads rot. With me, every sub-account gets the same AI setter - same brain, same methodology, but books to THEIR calendar. You get a dashboard to see everything. Your agents each buy their own plan — same pricing as individuals.",
             "options": [
                 {"label": "How does that work exactly?", "value": "agency_how"},
                 {"label": "Show me the demo",            "value": "demo"},
                 {"label": "What's included?",            "value": "agency_features"}
-            ]
-        })
-
-    if user_message in ["agency_medium", "agency_large"]:
-        return flask_jsonify({
-            "text": "At your scale, lead leakage is probably costing you six figures a year. Every single sub-account gets an AI setter. Same training, same methodology, same quality - but each one books to that agent's calendar. One dashboard for you to monitor everything. Agency Pro gives you unlimited sub-accounts — book a call for pricing.",
-            "options": [
-                {"label": "How does multi-tenant work?", "value": "agency_how"},
-                {"label": "Show me the demo",            "value": "demo"},
-                {"label": "What makes this different?",  "value": "comparison"}
             ]
         })
 
@@ -513,22 +503,12 @@ def website_bot_webhook():
             ]
         })
 
-    if user_message == "agency_features":
+    if user_message in ["agency_features", "agency_pro_info"]:
         return flask_jsonify({
-            "text": "Agency Starter includes: Up to 14 sub-accounts, multi-tenant dashboard, shared memory across your agency, priority support, all 5 sales methodologies, auto-booking to each agent's calendar, and underwriting pre-qualification. No contracts, cancel anytime.",
+            "text": "Agency owners get a free dashboard to monitor all their agents. Each agent buys their own plan — Power Dialer, Pro Dialer, or Predictive. You see all KPIs, call recordings, leaderboards, and can white-label the whole experience. Unlimited agents, no cap. No contracts, cancel anytime.",
             "options": [
-                {"label": "Get started",              "value": "signup_agency_starter"},
-                {"label": "See it work first",        "value": "demo"},
-                {"label": "What if I have more than 10?", "value": "agency_pro_info"}
-            ]
-        })
-
-    if user_message == "agency_pro_info":
-        return flask_jsonify({
-            "text": "Agency Pro gives you unlimited sub-accounts. Same features plus dedicated high-speed queue (faster responses) and white-glove onboarding. No cap on agents — scale as big as you want. Custom pricing — book a call for details.",
-            "options": [
-                {"label": "Get started",    "value": "signup_agency_pro"},
-                {"label": "Try demo first", "value": "demo"}
+                {"label": "Get started",       "value": "signup_individual"},
+                {"label": "See it work first", "value": "demo"}
             ]
         })
 
@@ -589,11 +569,10 @@ def website_bot_webhook():
 
     if user_message == "pricing_agency" or ("price" in msg_lower and "agency" in msg_lower):
         return flask_jsonify({
-            "text": "Two options: Agency Starter for up to 14 sub-accounts, or Agency Pro for unlimited. Both include the full multi-tenant dashboard and all features. Custom pricing — book a call for details. No contracts, cancel anytime.",
+            "text": "Agency owners get a FREE dashboard — no separate subscription needed. Your agents each buy their own plan: Power Dialer ($149.99/mo), Pro Dialer ($224.99/mo), or Predictive Dialer ($349.98/mo). You see all their KPIs, recordings, and can white-label the brand. No contracts, cancel anytime.",
             "options": [
-                {"label": "Agency Starter (up to 14)",  "value": "signup_agency_starter"},
-                {"label": "Agency Pro (unlimited)",     "value": "signup_agency_pro"},
-                {"label": "See demo first",            "value": "demo"}
+                {"label": "Get started", "value": "signup_individual"},
+                {"label": "See demo first", "value": "demo"}
             ]
         })
 
@@ -605,11 +584,8 @@ def website_bot_webhook():
     if user_message == "signup_individual":
         return flask_jsonify({"text": "Let's get you set up. No contracts, cancel anytime.", "redirect": "/checkout"})
 
-    if user_message == "signup_agency_starter":
-        return flask_jsonify({"text": "Good choice. Up to 14 sub-accounts, cancel anytime.", "redirect": "/checkout/agency-starter"})
-
-    if user_message == "signup_agency_pro":
-        return flask_jsonify({"text": "Let's scale. Unlimited sub-accounts, one flat price.", "redirect": "/checkout/agency-pro"})
+    if user_message in ["signup_agency_starter", "signup_agency_pro"]:
+        return flask_jsonify({"text": "Agency owners are free. Your agents each buy their own plan.", "redirect": "/checkout"})
 
     # ── FAQ / objection handling ──────────────────────────────────────────────
 
