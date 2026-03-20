@@ -786,10 +786,11 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
             # 3+ objections with price in the mix = price is likely the root cause
             obj = ObjectionType.PRICE_MONEY
             obj_tag = price_tag
-            # Recount for the new type using same robust regex
+            # Recount for the new type using same robust regex + tag normalization
             same_objection_count = sum(
                 1 for e in log
-                if (pm := _TAG_RE.match(e.strip().upper())) and f"[{pm.group(1)}]" == price_tag
+                if (pm := _TAG_RE.match(e.strip().upper()))
+                and _TAG_ALIASES.get(f"[{pm.group(1)}]", f"[{pm.group(1)}]") == price_tag
             )
             in_phase_2 = same_objection_count >= 2
             in_phase_3 = same_objection_count >= 4

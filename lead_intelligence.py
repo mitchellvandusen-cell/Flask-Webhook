@@ -682,9 +682,9 @@ def _gather_bulk_contexts(location_id, contact_ids):
         return {}
 
     results = {cid: {
-        "messages": [], "facts": [], "pipeline": None,
+        "messages": [], "messages_with_time": [], "facts": [], "pipeline": None,
         "calls": {"total": 0, "agent_called": 0, "lead_called": 0, "answered": 0, "unanswered": 0, "long_calls": 0, "last_call": None},
-        "tags": [], "narrative": None, "last_message_at": None,
+        "tags": [], "narrative": None, "last_message_at": None, "timing": {},
     } for cid in contact_ids}
 
     conn = get_db_connection()
@@ -711,9 +711,18 @@ def _gather_bulk_contexts(location_id, contact_ids):
                         results[cid]['last_message_at'] = r['created_at']
                     role = "Lead" if r['message_type'] == 'lead' else "Bot"
                     results[cid]['messages'].append((r['created_at'], f"{role}: {r['message_text']}"))
-            # Sort messages chronologically
+            # Sort messages chronologically, preserve timestamps for timing
             for cid in results:
-                results[cid]['messages'] = [m[1] for m in sorted(results[cid]['messages'], key=lambda x: x[0])]
+                sorted_msgs = sorted(results[cid]['messages'], key=lambda x: x[0])
+                results[cid]['messages_with_time'] = [
+                    {"role": m[1].split(":")[0], "text": m[1].split(": ", 1)[1] if ": " in m[1] else m[1], "at": m[0]}
+                    for m in sorted_msgs
+                ]
+                results[cid]['messages'] = [m[1] for m in sorted_msgs]
+            # Compute timing signals from preserved timestamps
+            for cid in results:
+                if results[cid]['messages_with_time']:
+                    results[cid]['timing'] = _compute_timing_signals(results[cid]['messages_with_time'])
         except Exception:
             pass
 
@@ -837,13 +846,18 @@ def _build_contact_block(contact_id, ctx):
     if calls.get('last_call'):
         calls_str += f" last:{calls['last_call'][:10]}"
 
-    return f"""[{contact_id}]
+    timing_str = _build_timing_block(ctx.get("timing", {}))
+
+    block = f"""[{contact_id}]
 CONVO:
 {convo}
 FACTS: {facts}
 TAGS: {tags}
 PIPELINE: {pipeline_str}
 CALLS: {calls_str}"""
+    if timing_str:
+        block += f"\n{timing_str}"
+    return block
 
 
 def _run_bulk_ai_analysis(location_id, contact_blocks, all_contexts=None):
