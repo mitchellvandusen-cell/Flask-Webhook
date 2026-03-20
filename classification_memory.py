@@ -27,8 +27,9 @@ logger = logging.getLogger(__name__)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 XAI_API_KEY = os.getenv("XAI_API_KEY")
-XAI_EMBEDDING_MODEL = os.getenv("XAI_EMBEDDING_MODEL", "v1")
+XAI_EMBEDDING_MODEL = os.getenv("XAI_EMBEDDING_MODEL", "grok-embedding-small")
 EMBEDDING_DIMENSIONS = int(os.getenv("EMBEDDING_DIMENSIONS", "0"))  # 0 = use model default
+_detected_dimensions = None  # Auto-detected from first API response
 
 # Thresholds
 DIRECT_USE_THRESHOLD = 0.95      # ≥ 95% similarity + consensus → skip LLM
@@ -103,28 +104,8 @@ def _ensure_table():
             CREATE INDEX IF NOT EXISTS idx_lc_type ON learned_classifications (objection_type)
         """)
 
-        # Try to add pgvector column if extension loaded
-        try:
-            cur.execute("""
-                DO $$
-                BEGIN
-                    IF NOT EXISTS (
-                        SELECT 1 FROM information_schema.columns
-                        WHERE table_name = 'learned_classifications' AND column_name = 'embedding_vec'
-                    ) THEN
-                        ALTER TABLE learned_classifications ADD COLUMN embedding_vec vector(3072);
-                    END IF;
-                END $$;
-            """)
-            cur.execute("""
-                CREATE INDEX IF NOT EXISTS idx_lc_embedding_hnsw
-                ON learned_classifications USING hnsw (embedding_vec vector_cosine_ops)
-            """)
-            conn.commit()
-        except Exception:
-            conn.rollback()
-            # pgvector not available, will use JSONB cosine in Python
-            pass
+        # pgvector column is created dynamically by _ensure_vector_column()
+        # after the first embedding call reveals the actual dimensions
 
         conn.commit()
         _table_ready = True
@@ -137,6 +118,47 @@ def _ensure_table():
         return_db_connection(conn)
 
 
+_vector_col_ready = False
+
+
+def _ensure_vector_column(dimensions: int):
+    """Add pgvector column with auto-detected dimensions. Called once after first embedding."""
+    global _vector_col_ready
+    if _vector_col_ready:
+        return
+
+    conn = get_db_connection()
+    if not conn:
+        return
+
+    try:
+        cur = conn.cursor()
+        cur.execute(f"""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'learned_classifications' AND column_name = 'embedding_vec'
+                ) THEN
+                    ALTER TABLE learned_classifications ADD COLUMN embedding_vec vector({dimensions});
+                END IF;
+            END $$;
+        """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS idx_lc_embedding_hnsw
+            ON learned_classifications USING hnsw (embedding_vec vector_cosine_ops)
+        """)
+        conn.commit()
+        _vector_col_ready = True
+        logger.info(f"pgvector column created: vector({dimensions})")
+    except Exception as e:
+        conn.rollback()
+        logger.info(f"pgvector column not created (extension may not be available): {e}")
+        _vector_col_ready = True  # Don't retry — use JSONB fallback
+    finally:
+        return_db_connection(conn)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # EMBEDDING GENERATION
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -145,8 +167,9 @@ def _get_embedding(text: str) -> list:
     """
     Generate embedding via xAI API. Returns list of floats or empty list on failure.
     Cost: ~$0.00002 per call.
+    Auto-detects embedding dimensions on first successful call.
     """
-    global _embeddings_available
+    global _embeddings_available, _detected_dimensions
     if not _client:
         return []
 
@@ -157,15 +180,23 @@ def _get_embedding(text: str) -> list:
 
         response = _client.embeddings.create(**kwargs)
         embedding = response.data[0].embedding
+
+        if not _embeddings_available:
+            _detected_dimensions = len(embedding)
+            logger.info(
+                f"Embedding API connected: model={XAI_EMBEDDING_MODEL}, "
+                f"dimensions={_detected_dimensions}"
+            )
+            # Try to create/update pgvector column with actual dimensions
+            _ensure_vector_column(_detected_dimensions)
+
         _embeddings_available = True
         return embedding
     except Exception as e:
         if _embeddings_available:
-            # Was working before, now failing — transient error
             logger.warning(f"Embedding generation failed (transient): {e}")
         else:
-            # Never worked — log once, don't spam
-            logger.info(f"Embedding API not available: {e}")
+            logger.info(f"Embedding API not available ({XAI_EMBEDDING_MODEL}): {e}")
         return []
 
 

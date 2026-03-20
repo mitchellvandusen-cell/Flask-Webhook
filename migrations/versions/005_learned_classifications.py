@@ -53,18 +53,10 @@ def upgrade() -> None:
         CREATE INDEX IF NOT EXISTS idx_lc_type ON learned_classifications (objection_type)
     """)
 
-    # Try to add pgvector column (graceful if extension not available)
-    try:
-        op.execute("""
-            ALTER TABLE learned_classifications
-            ADD COLUMN IF NOT EXISTS embedding_vec vector(3072)
-        """)
-        op.execute("""
-            CREATE INDEX IF NOT EXISTS idx_lc_embedding_hnsw
-            ON learned_classifications USING hnsw (embedding_vec vector_cosine_ops)
-        """)
-    except Exception:
-        pass
+    # pgvector column (embedding_vec) is created dynamically at runtime
+    # by classification_memory._ensure_vector_column() after the first
+    # embedding API call reveals the actual dimensions. This avoids
+    # hardcoding a dimension that may not match the model's output.
 
 
 def downgrade() -> None:
