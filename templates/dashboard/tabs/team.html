@@ -57,11 +57,11 @@
 
             <!-- GHL Users Detection Banner -->
             <div id="teamGhlBanner" class="team-ghl-banner" style="display:none;margin-bottom:20px;">
-                <div style="display:flex;align-items:center;gap:10px;">
+                <div class="team-ghl-banner-row">
                     <i class="fa-solid fa-users team-ghl-icon"></i>
                     <span class="team-ghl-text" id="teamGhlBannerText"></span>
-                    <button onclick="teamSyncGhlUsers()" class="btn btn-sm team-ghl-sync-btn" style="margin-left:auto;">
-                        <i class="fa-solid fa-sync me-1"></i>Sync Users
+                    <button onclick="teamSyncGhlUsers()" id="teamGhlSyncBtn" class="btn btn-sm team-ghl-sync-btn team-ghl-sync-btn-right">
+                        <i class="fa-solid fa-rotate me-1"></i>Scan GHL for Users
                     </button>
                 </div>
             </div>

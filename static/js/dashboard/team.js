@@ -160,22 +160,35 @@ function teamRenderMembers() {
 // ── GHL Users Detection ──────────────────────────────────────────────────────
 
 function teamCheckGhlUsers() {
+    var banner = document.getElementById('teamGhlBanner');
+    var text = document.getElementById('teamGhlBannerText');
+    var syncBtn = document.getElementById('teamGhlSyncBtn');
+    // Always show the banner so user can scan for GHL users
+    if (banner) banner.style.display = 'block';
+    if (text) text.textContent = 'Scanning GHL for users...';
+    if (syncBtn) syncBtn.disabled = true;
+
     fetch('/api/team/ghl-users')
         .then(function(r) { return r.json(); })
         .then(function(data) {
-            if (data.error || !data.users) return;
+            if (syncBtn) syncBtn.disabled = false;
+            if (data.error || !data.users) {
+                if (text) text.textContent = 'Could not reach GHL. Click Scan to retry.';
+                return;
+            }
             _teamGhlUsers = data.users;
             if (data.count > 1) {
-                var banner = document.getElementById('teamGhlBanner');
-                var text = document.getElementById('teamGhlBannerText');
-                if (banner && text) {
-                    text.textContent = data.count + ' users found on this GHL location. You can invite them as seat users.';
-                    banner.style.display = 'block';
-                }
+                var available = data.count - 1; // exclude owner
+                if (text) text.textContent = available + ' other user' + (available > 1 ? 's' : '') + ' found on this GHL location. You can invite them as seat users.';
+            } else {
+                if (text) text.textContent = 'No other users found on this GHL location. Add users in GHL, then click Scan.';
             }
             teamPopulateGhlDropdown();
         })
-        .catch(function() {});
+        .catch(function() {
+            if (syncBtn) syncBtn.disabled = false;
+            if (text) text.textContent = 'Could not reach GHL. Click Scan to retry.';
+        });
 }
 
 function teamPopulateGhlDropdown() {
@@ -209,7 +222,6 @@ function teamFillFromGhl() {
 
 function teamSyncGhlUsers() {
     teamCheckGhlUsers();
-    if (typeof _showDashToast === 'function') _showDashToast(true, 'Syncing GHL users...');
 }
 
 // ── Add Seat (Stripe Checkout) ──────────────────────────────────────────────
