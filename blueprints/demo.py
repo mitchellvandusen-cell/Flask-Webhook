@@ -279,8 +279,10 @@ def demo_chat_api():
         ]
 
         cur.close()
+    finally:
         return_db_connection(conn)
 
+    try:
         # Strategic sales intelligence layer
         from sales_director import generate_strategic_directive
         director_output = generate_strategic_directive(
@@ -346,29 +348,30 @@ def demo_chat_api():
             reply = reply.replace("—", ",").replace("–", ",").strip()
 
         if not reply or len(reply) < 5 or not any(c.isalpha() for c in reply):
-            logger.error(f"DEMO: LLM failed to produce usable reply after retry.")
+            logger.error("DEMO: LLM failed to produce usable reply after retry.")
             return safe_jsonify({"reply": "Give me a second, having a brain freeze over here."})
 
         # Save bot reply — crash-proof
-        conn = get_db_connection()
-        if conn:
-            cur = conn.cursor()
-            cur.execute("""
-                INSERT INTO contact_messages (contact_id, message_type, message_text)
-                VALUES (%s, 'assistant', %s)
-                ON CONFLICT DO NOTHING
-            """, (contact_id, reply))
-            conn.commit()
-            cur.close()
-            return_db_connection(conn)
+        save_conn = get_db_connection()
+        if save_conn:
+            try:
+                cur = save_conn.cursor()
+                cur.execute("""
+                    INSERT INTO contact_messages (contact_id, message_type, message_text)
+                    VALUES (%s, 'assistant', %s)
+                    ON CONFLICT DO NOTHING
+                """, (contact_id, reply))
+                save_conn.commit()
+                cur.close()
+            finally:
+                return_db_connection(save_conn)
 
         return flask_jsonify({"reply": reply, "stage": director_output["stage"]})
 
     except Exception as e:
         logger.error(f"Demo chat error: {e}", exc_info=True)
         return flask_jsonify({
-            "reply": "I hear you. Could you clarify that last part?",
-            "error": str(e)
+            "reply": "I hear you. Could you clarify that last part?"
         }), 200
 
 
