@@ -56,7 +56,7 @@ def _email_wrapper(inner_html: str, domain_url: str, recipient_email: str = "") 
             <p style="margin: 0; font-size: 12px; color: #444;">
                 InsuranceGrokBot &mdash; AI-Powered Insurance Sales Assistant
             </p>
-            {('<p style="margin: 8px 0 0; font-size: 11px; color: #3a3a3a;">You\'re receiving this because you subscribed to InsuranceGrokBot.</p>' if recipient_email else "")}
+            {"<p style='margin: 8px 0 0; font-size: 11px; color: #3a3a3a;'>You are receiving this because you subscribed to InsuranceGrokBot.</p>" if recipient_email else ""}
         </td>
     </tr>
     </table>
