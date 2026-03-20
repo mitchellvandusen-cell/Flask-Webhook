@@ -112,6 +112,42 @@ def get_master_client() -> TwilioClient:
     return _master_client
 
 
+def _ensure_sub_account_auth_token(sub_account_sid: str, sub_account_auth_token: str) -> str:
+    """Ensure we have a valid auth token for a sub-account.
+
+    If the token is missing from voice_config (e.g., older provisioned accounts),
+    attempt to recover it from the Twilio API.  Returns the token string or raises
+    ValueError if it cannot be obtained.
+
+    For master accounts this is a no-op — master credentials are used directly.
+    """
+    if is_master_account(sub_account_sid):
+        return sub_account_auth_token  # master uses its own credentials
+
+    if sub_account_auth_token:
+        return sub_account_auth_token
+
+    # Try to recover from Twilio
+    try:
+        master = get_master_client()
+        acct = master.api.accounts(sub_account_sid).fetch()
+        token = acct.auth_token or ""
+        if token:
+            logger.info(
+                f"[TrustHub] Recovered auth token for sub-account {sub_account_sid} "
+                "from Twilio API"
+            )
+            return token
+    except Exception as e:
+        logger.warning(f"[TrustHub] Could not fetch auth token for {sub_account_sid}: {e}")
+
+    raise ValueError(
+        f"Sub-account {sub_account_sid} has no auth token. "
+        "TrustHub API calls require native sub-account credentials. "
+        "Re-provision voice to fix this."
+    )
+
+
 def get_sub_account_client(sub_account_sid: str) -> TwilioClient:
     """Get a Twilio client authenticated for a sub-account.
     Uses master credentials but targets the sub-account for API calls.
@@ -132,15 +168,12 @@ def get_sub_account_client_native(sub_account_sid: str,
     the subscriber's sub-account resources, causing cross-account contamination.
     """
     if not sub_account_auth_token:
-        # No native credentials available — fall back to master-credential client.
-        # This is the legacy behaviour and may return master-account resources for
-        # Messaging/TrustHub endpoints. Log a warning so it's visible.
-        logger.warning(
-            f"[get_sub_account_client_native] No auth token provided for {sub_account_sid}; "
-            "falling back to master-credential client. Messaging/TrustHub API calls may "
-            "return master-account resources. Provide sub_account_auth_token to fix this."
+        # Try to recover the auth token from Twilio before falling back.
+        # Silently using master credentials causes TrustHub to see the master
+        # account (a direct customer) and reject ISV operations on sub-accounts.
+        sub_account_auth_token = _ensure_sub_account_auth_token(
+            sub_account_sid, sub_account_auth_token
         )
-        return get_sub_account_client(sub_account_sid)
     return TwilioClient(sub_account_sid, sub_account_auth_token)
 
 
@@ -595,10 +628,23 @@ def register_business_profile(sub_account_sid: str, business_name: str,
 
     The Secondary Profile is reusable across A2P, Voice Integrity, SHAKEN/STIR, CNAM.
     """
-    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
     results = {"steps": [], "errors": []}
     profile_sid = ""
     on_master = is_master_account(sub_account_sid)
+
+    # Sub-accounts MUST use their own credentials for TrustHub API calls.
+    # Falling back to master credentials causes Twilio to see the master account
+    # (a direct customer) and reject Secondary Customer Profile creation.
+    try:
+        sub_account_auth_token = _ensure_sub_account_auth_token(
+            sub_account_sid, sub_account_auth_token
+        )
+    except ValueError as e:
+        logger.error(f"[SpamProtection] {e}")
+        results["errors"].append(str(e))
+        return results
+
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
 
     # ── Step 1: Customer Profile ──
     # Master account (direct customer): use the existing Primary Business Profile.
@@ -651,12 +697,19 @@ def register_business_profile(sub_account_sid: str, business_name: str,
             # Use user-provided business_type, fallback to inference from EIN
             resolved_biz_type = business_type or ("Corporation" if ein else "Partnership")
 
+            # ISV sub-accounts use "isv_reseller_or_partner"; master (direct customer)
+            # uses "direct_customer".  Using the wrong value causes Twilio to reject
+            # Secondary Customer Profile creation with:
+            #   "Secondary Customer Profile for direct_customer can only be created
+            #    through Twilio console."
+            biz_identity = "direct_customer" if on_master else "isv_reseller_or_partner"
+
             end_user = client.trusthub.v1.end_users.create(
                 friendly_name=f"Business: {business_name}",
                 type="customer_profile_business_information",
                 attributes={
                     "business_name": business_name,
-                    "business_identity": "direct_customer",
+                    "business_identity": biz_identity,
                     "business_type": resolved_biz_type,
                     "business_industry": "INSURANCE",
                     "business_registration_identifier": "EIN",
@@ -1094,6 +1147,9 @@ def create_cnam_trust_product(
     if not valid:
         raise ValueError(result)
 
+    sub_account_auth_token = _ensure_sub_account_auth_token(
+        sub_account_sid, sub_account_auth_token
+    )
     client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
     on_master = is_master_account(sub_account_sid)
 
@@ -1495,6 +1551,9 @@ def create_a2p_brand(sub_account_sid: str,
     # Each sub-account registers its own Trust Hub profile and brand so that
     # their business identity appears in Twilio — not the master account's identity.
     # MUST use sub-account's own credentials for TrustHub/Messaging APIs.
+    sub_account_auth_token = _ensure_sub_account_auth_token(
+        sub_account_sid, sub_account_auth_token
+    )
     client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
     try:
         # ── Step 1: Secondary Customer Profile (ISV pattern) ──
@@ -2267,6 +2326,9 @@ def create_voice_integrity_trust_product(
     Both flows share steps 2-5 (EndUser, Trust Product, EntityAssignments).
     Returns dict with trust_product_sid, profile_sid, end_user_sid, status.
     """
+    sub_account_auth_token = _ensure_sub_account_auth_token(
+        sub_account_sid, sub_account_auth_token
+    )
     client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
     on_master = is_master_account(sub_account_sid)
 
@@ -2405,6 +2467,9 @@ def assign_numbers_to_voice_integrity(
     (required by Twilio for proper carrier registration), then to the Trust Product.
     Returns dict with assigned count and any failures.
     """
+    sub_account_auth_token = _ensure_sub_account_auth_token(
+        sub_account_sid, sub_account_auth_token
+    )
     client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
     assigned = 0
     failed = []
@@ -2497,6 +2562,9 @@ def submit_voice_integrity_for_review(
     then sets status to pending-review.
     After approval, numbers are registered with carrier analytics (24–48h).
     """
+    sub_account_auth_token = _ensure_sub_account_auth_token(
+        sub_account_sid, sub_account_auth_token
+    )
     client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
     try:
         # ── Check linked Customer Profile status first ──
