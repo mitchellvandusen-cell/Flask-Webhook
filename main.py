@@ -24,7 +24,7 @@ from flask_wtf.csrf import generate_csrf
 from flask_login import LoginManager, current_user
 from rq import Queue
 
-from db import init_db, User, clean_subaccount_contamination
+from db import init_db, User, clean_subaccount_contamination, backfill_agency_owners_to_subscribers
 from sync_subscribers import sync_subscribers
 from utils import make_json_serializable
 
@@ -138,6 +138,8 @@ sync_subscribers()
 init_db()
 # One-shot cleanup: wipe stale master-account Trust Hub / A2P data from sub-account voice_configs
 clean_subaccount_contamination()
+# Backfill: ensure agency owners exist in subscribers table for operational code
+backfill_agency_owners_to_subscribers()
 
 from token_encryption import initialize_encryption
 initialize_encryption()

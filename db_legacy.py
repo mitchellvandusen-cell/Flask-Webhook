@@ -777,17 +777,32 @@ class User(UserMixin):
             row = cur.fetchone()
 
             if row:
+                data = dict(row)
+                # Agency owners exist in BOTH tables. Merge agency-specific
+                # fields (whitelabel, company metadata, seats) from agency_billing.
+                if data.get('role') == 'agency_owner':
+                    cur.execute("""
+                        SELECT whitelabel_config, company_name, company_owner_name,
+                               company_owner_email, company_owner_phone, max_seats,
+                               active_seats
+                        FROM agency_billing WHERE LOWER(agency_email) = %s LIMIT 1
+                    """, (email_lookup,))
+                    agency_row = cur.fetchone()
+                    if agency_row:
+                        for key, val in dict(agency_row).items():
+                            if val is not None:
+                                data[key] = val
                 logger.debug(f"Found user in subscribers table")
-                return User(row)
+                return User(data)
 
-            # 2. Check agency_billing table (agency owners)
+            # 2. Check agency_billing table (agency owners without subscribers row)
             cur.execute("""
                 SELECT * FROM agency_billing WHERE LOWER(agency_email) = %s LIMIT 1
             """, (email_lookup,))
             row = cur.fetchone()
 
             if row:
-                logger.debug(f"Found user in agency_billing table")
+                logger.debug(f"Found user in agency_billing table (no subscribers row)")
                 return User(row)
 
             # 3. Check location_users table (seat users)
@@ -913,10 +928,22 @@ class User(UserMixin):
         try:
             cur = conn.cursor()
             if role == 'agency_owner':
+                # Agency owners exist in BOTH tables:
+                # - subscribers: operational data (tokens, voice, bot config)
+                # - agency_billing: agency-specific data (whitelabel, company, seats)
+                cur.execute(
+                    """
+                    INSERT INTO subscribers (email, password_hash, stripe_customer_id, role, location_id)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT (email) DO NOTHING
+                    """,
+                    (email, password_hash, stripe_customer_id, role, location_id)
+                )
                 cur.execute(
                     """
                     INSERT INTO agency_billing (agency_email, password_hash, stripe_customer_id, role, location_id)
                     VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT (agency_email) DO NOTHING
                     """,
                     (email, password_hash, stripe_customer_id, role, location_id)
                 )
@@ -944,6 +971,63 @@ class User(UserMixin):
                 return_db_connection(conn)
 
 
+
+
+def backfill_agency_owners_to_subscribers():
+    """
+    One-time backfill: ensure every agency owner in agency_billing also has
+    a row in subscribers. This lets all operational code (dialer, voice,
+    webhooks, token refresh) work without needing agency_billing fallbacks
+    everywhere.
+
+    Safe to run multiple times — uses ON CONFLICT DO NOTHING.
+    Called at app startup from main.py.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return 0
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO subscribers (
+                email, password_hash, full_name, phone, bio, role,
+                location_id, bot_first_name, access_token, refresh_token,
+                token_expires_at, token_type, timezone, crm_user_id,
+                calendar_id, calendar_name, initial_message,
+                subscription_tier, stripe_customer_id, stripe_status,
+                oauth_app_type, personal_website, crm_type, crm_config,
+                contracted_carriers, bot_settings, voice_config,
+                sms_send_via, google_calendar_config, preferred_language,
+                api_key, company_id, created_at, updated_at
+            )
+            SELECT
+                agency_email, password_hash, full_name, phone, bio, role,
+                location_id, bot_first_name, access_token, refresh_token,
+                token_expires_at, token_type, timezone, crm_user_id,
+                calendar_id, calendar_name, initial_message,
+                subscription_tier, stripe_customer_id, stripe_status,
+                oauth_app_type, personal_website, crm_type, crm_config,
+                contracted_carriers, bot_settings, voice_config,
+                sms_send_via, google_calendar_config, preferred_language,
+                api_key, company_id, created_at, NOW()
+            FROM agency_billing
+            WHERE agency_email NOT IN (SELECT email FROM subscribers WHERE email IS NOT NULL)
+            ON CONFLICT (email) DO NOTHING
+        """)
+        count = cur.rowcount
+        conn.commit()
+        if count > 0:
+            logger.info(f"Backfilled {count} agency owners into subscribers table")
+        return count
+    except Exception as e:
+        logger.error(f"backfill_agency_owners_to_subscribers failed: {e}")
+        conn.rollback()
+        return 0
+    finally:
+        if 'cur' in locals():
+            cur.close()
+        if conn:
+            return_db_connection(conn)
 
 
 # --- Sub-account isolation cleanup ---
@@ -1044,15 +1128,24 @@ def clean_subaccount_contamination() -> dict:
 # --- Helper Functions ---
 
 def get_subscriber_info_sql(location_id: str) -> Optional[Dict[str, Any]]:
-    """Direct SQL lookup for subscriber by location_id."""
+    """Direct SQL lookup for subscriber by location_id. Falls back to agency_billing."""
     conn = get_db_connection()
-    if not conn: 
+    if not conn:
         return None
     try:
         cur = conn.cursor()
         cur.execute("SELECT * FROM subscribers WHERE location_id = %s LIMIT 1", (location_id,))
         row = cur.fetchone()
-        return dict(row) if row else None
+        if row:
+            return dict(row)
+        # Fallback: agency owners may only be in agency_billing (pre-backfill)
+        cur.execute("SELECT * FROM agency_billing WHERE location_id = %s LIMIT 1", (location_id,))
+        row = cur.fetchone()
+        if row:
+            data = dict(row)
+            data['email'] = data.get('agency_email')  # normalize key
+            return data
+        return None
     except Exception as e:
         logger.error(f"SQL lookup failed: {e}")
         return None
@@ -1249,27 +1342,28 @@ def update_subscriber_token(
 
             updated = cur.rowcount > 0
 
-            # Fallback: agency owners have tokens in agency_billing, not subscribers
+            # Also update agency_billing to keep tokens in sync for agency owners.
+            # If subscriber row didn't exist (pre-backfill), this is the fallback.
+            if oauth_app_type:
+                cur.execute("""
+                    UPDATE agency_billing
+                    SET access_token = %s,
+                        refresh_token = COALESCE(%s, refresh_token),
+                        token_expires_at = NOW() + interval '%s seconds',
+                        oauth_app_type = %s,
+                        updated_at = NOW()
+                    WHERE location_id = %s
+                """, (access_token, refresh_token, expires_in, oauth_app_type, location_id))
+            else:
+                cur.execute("""
+                    UPDATE agency_billing
+                    SET access_token = %s,
+                        refresh_token = COALESCE(%s, refresh_token),
+                        token_expires_at = NOW() + interval '%s seconds',
+                        updated_at = NOW()
+                    WHERE location_id = %s
+                """, (access_token, refresh_token, expires_in, location_id))
             if not updated:
-                if oauth_app_type:
-                    cur.execute("""
-                        UPDATE agency_billing
-                        SET access_token = %s,
-                            refresh_token = COALESCE(%s, refresh_token),
-                            token_expires_at = NOW() + interval '%s seconds',
-                            oauth_app_type = %s,
-                            updated_at = NOW()
-                        WHERE location_id = %s
-                    """, (access_token, refresh_token, expires_in, oauth_app_type, location_id))
-                else:
-                    cur.execute("""
-                        UPDATE agency_billing
-                        SET access_token = %s,
-                            refresh_token = COALESCE(%s, refresh_token),
-                            token_expires_at = NOW() + interval '%s seconds',
-                            updated_at = NOW()
-                        WHERE location_id = %s
-                    """, (access_token, refresh_token, expires_in, location_id))
                 updated = cur.rowcount > 0
 
             conn.commit()
@@ -1342,8 +1436,9 @@ def update_crm_config_token(location_id: str, access_token: str) -> bool:
 
 def get_subscribers_needing_token_refresh() -> list:
     """
-    Get all subscribers whose OAuth tokens expire within the next 2 hours.
-    Only returns rows that have a refresh_token (i.e., OAuth-connected users).
+    Get all users whose OAuth tokens expire within the next 2 hours.
+    Checks BOTH subscribers and agency_billing tables so agency owners
+    get their tokens refreshed too.
     """
     conn = get_db_connection()
     if not conn:
@@ -1358,6 +1453,15 @@ def get_subscribers_needing_token_refresh() -> list:
               AND token_expires_at IS NOT NULL
               AND token_expires_at < NOW() + interval '2 hours'
               AND token_expires_at > NOW() - interval '30 days'
+            UNION ALL
+            SELECT location_id, access_token, refresh_token, token_expires_at, oauth_app_type
+            FROM agency_billing
+            WHERE refresh_token IS NOT NULL
+              AND refresh_token != ''
+              AND token_expires_at IS NOT NULL
+              AND token_expires_at < NOW() + interval '2 hours'
+              AND token_expires_at > NOW() - interval '30 days'
+              AND location_id NOT IN (SELECT location_id FROM subscribers WHERE location_id IS NOT NULL)
             ORDER BY token_expires_at ASC
         """)
         rows = cur.fetchall()
@@ -1825,16 +1929,16 @@ def save_contracted_carriers(email: str, carriers: list) -> bool:
         return False
     try:
         cur = conn.cursor()
+        carriers_json = json.dumps(carriers)
         cur.execute("""
             UPDATE subscribers SET contracted_carriers = %s, updated_at = NOW()
             WHERE email = %s
-        """, (json.dumps(carriers), email))
-        if cur.rowcount == 0:
-            # Try agency_billing too
-            cur.execute("""
-                UPDATE agency_billing SET contracted_carriers = %s, updated_at = NOW()
-                WHERE agency_email = %s
-            """, (json.dumps(carriers), email))
+        """, (carriers_json, email))
+        # Also sync agency_billing for agency owners
+        cur.execute("""
+            UPDATE agency_billing SET contracted_carriers = %s, updated_at = NOW()
+            WHERE agency_email = %s
+        """, (carriers_json, email))
         conn.commit()
         cur.close()
         return True
@@ -1935,6 +2039,9 @@ def get_bot_settings_by_location(location_id: str) -> dict:
         cur = conn.cursor()
         cur.execute("SELECT bot_settings FROM subscribers WHERE location_id = %s LIMIT 1", (location_id,))
         row = cur.fetchone()
+        if not row:
+            cur.execute("SELECT bot_settings FROM agency_billing WHERE location_id = %s LIMIT 1", (location_id,))
+            row = cur.fetchone()
         cur.close()
         stored = {}
         if row and row.get('bot_settings'):
@@ -1958,15 +2065,16 @@ def save_bot_settings(email: str, settings: dict) -> bool:
         return False
     try:
         cur = conn.cursor()
+        settings_json = json.dumps(settings)
         cur.execute("""
             UPDATE subscribers SET bot_settings = %s, updated_at = NOW()
             WHERE email = %s
-        """, (json.dumps(settings), email))
-        if cur.rowcount == 0:
-            cur.execute("""
-                UPDATE agency_billing SET bot_settings = %s, updated_at = NOW()
-                WHERE agency_email = %s
-            """, (json.dumps(settings), email))
+        """, (settings_json, email))
+        # Also sync agency_billing for agency owners
+        cur.execute("""
+            UPDATE agency_billing SET bot_settings = %s, updated_at = NOW()
+            WHERE agency_email = %s
+        """, (settings_json, email))
         conn.commit()
         cur.close()
         return True
