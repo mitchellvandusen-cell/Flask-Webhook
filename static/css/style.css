@@ -6515,11 +6515,16 @@ body.light-theme .sb-footer-signout { color: #dc2626; }
 }
 .team-ghl-icon { color: #00d9ff; font-size: 1.1rem; }
 .team-ghl-text { font-size: 0.88rem; color: #ccc; }
+.team-ghl-banner-row {
+    display: flex; align-items: center; gap: 10px;
+}
 .team-ghl-sync-btn {
     background: rgba(0,217,255,0.15); color: #00d9ff;
     border: 1px solid rgba(0,217,255,0.3); border-radius: 8px;
     font-size: 0.78rem; padding: 4px 12px;
 }
+.team-ghl-sync-btn-right { margin-left: auto; white-space: nowrap; }
+.team-ghl-sync-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* --- Loading States --- */
 .team-loading-text { color: #555; }
