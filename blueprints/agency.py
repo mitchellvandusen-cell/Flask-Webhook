@@ -1015,10 +1015,13 @@ def agency_dashboard_stats():
         pct_10min = round(over_10min / connected * 100, 1) if connected else 0
 
         # ── Messages ─────────────────────────────────────────────────────────
+        # contact_messages has no location_id — join through webhook_logs or
+        # use contact_cache to resolve contact_id → location_id
         cur.execute("""
             SELECT COUNT(*) AS cnt
-            FROM contact_messages
-            WHERE location_id = ANY(%s) AND timestamp >= %s
+            FROM contact_messages cm
+            JOIN contact_cache cc ON cm.contact_id = cc.contact_id
+            WHERE cc.location_id = ANY(%s) AND cm.created_at >= %s
         """, (location_ids, start_utc))
         total_messages = cur.fetchone()['cnt'] or 0
 
@@ -1053,10 +1056,11 @@ def agency_dashboard_stats():
 
         # Per-agent message counts
         cur.execute("""
-            SELECT location_id, COUNT(*) AS cnt
-            FROM contact_messages
-            WHERE location_id = ANY(%s) AND timestamp >= %s
-            GROUP BY location_id
+            SELECT cc.location_id, COUNT(*) AS cnt
+            FROM contact_messages cm
+            JOIN contact_cache cc ON cm.contact_id = cc.contact_id
+            WHERE cc.location_id = ANY(%s) AND cm.created_at >= %s
+            GROUP BY cc.location_id
         """, (location_ids, start_utc))
         agent_msg_stats = {row['location_id']: row['cnt'] for row in cur.fetchall()}
 
