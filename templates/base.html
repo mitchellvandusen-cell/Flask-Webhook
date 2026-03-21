@@ -261,7 +261,7 @@
 
             if (currentRequest) currentRequest.abort();
             currentRequest = new AbortController();
-            const timeoutId = setTimeout(() => currentRequest.abort(), 15000);
+            const timeoutId = setTimeout(() => currentRequest.abort(), 30000);
 
             // Collect conversation history from the DOM for AI context
             const history = [];

@@ -13,6 +13,13 @@
         </p>
     </div>
 
+    <!-- Live Chat CTA -->
+    <div class="text-center mb-4">
+        <button onclick="document.getElementById('chatToggleBtn').click()" class="btn btn-lg btn-accent-outline support-chat-btn">
+            <i class="fa-solid fa-comments me-2"></i> Chat with Support
+        </button>
+    </div>
+
     <!-- Quick Links -->
     <div class="row g-3 mb-5">
         <div class="col-md-3 col-6">
@@ -1350,8 +1357,12 @@
     <!-- Bottom CTA -->
     <div class="text-center mt-5">
         <p class="text-secondary mb-3" style="font-size: 1rem;">Still need help?</p>
+        <button onclick="document.getElementById('chatToggleBtn').click()" class="btn btn-accent-outline support-chat-btn mb-3" style="border-radius: 12px; padding: 12px 30px;">
+            <i class="fa-solid fa-comments me-2"></i>Chat with Support
+        </button>
+        <br>
         <a href="/contact" class="btn btn-outline-light" style="border-radius: 12px; padding: 12px 30px;">
-            <i class="fa-solid fa-envelope me-2"></i>Contact Support
+            <i class="fa-solid fa-envelope me-2"></i>Email Us
         </a>
         {% if current_user.is_authenticated %}
         <div class="mt-3">

@@ -3,7 +3,7 @@
 # Core inbound webhook handlers:
 #   POST /webhook              — Main GHL lead/SMS webhook, queues to RQ
 #   POST /webhook/app-installed — GHL Marketplace app.installed event
-#   POST /website-bot-webhook  — Scripted website chat bot (no AI needed)
+#   POST /website-bot-webhook  — AI-powered support bot with diagnostics + ticket creation
 
 import os
 import json
@@ -408,236 +408,117 @@ def _handle_uninstall(payload: dict):
     return safe_jsonify({"status": "received", "uninstall_id": record_id}), 200
 
 
-# ── Website chat bot ──────────────────────────────────────────────────────────
+# ── AI-powered support bot ───────────────────────────────────────────────────
 
 @webhooks_bp.route("/website-bot-webhook", methods=["POST"])
 def website_bot_webhook():
     """
-    Scripted website chat — instant responses with no AI overhead.
-    Qualifies visitors, answers objections, routes to signup or demo.
+    AI-powered support bot with full product knowledge, live account
+    diagnostics (with user consent), and automatic ticket creation.
     """
+    from openai import OpenAI
+    from llm_caller import generate_clean_reply
+    from support_prompt import build_support_prompt
+    from support_bot import (
+        handle_quick_action, support_rate_limited, extract_email,
+        has_consent, run_support_diagnostics, sanitize_support_reply,
+        extract_ticket_tag, extract_options, extract_redirect,
+        create_support_ticket,
+    )
+
     payload      = request.get_json(silent=True) or {}
     user_message = payload.get('message', '').strip()
+    history      = payload.get('history', [])
 
     if not user_message:
         return flask_jsonify({"status": "error"}), 400
 
-    msg_lower = user_message.lower()
-
-    # ── Init & qualification ──────────────────────────────────────────────────
-
-    if user_message == "INIT_CHAT":
+    # Rate limit
+    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr or "unknown")
+    if support_rate_limited(client_ip):
         return flask_jsonify({
-            "text": "Hey! I'm actually the product you're looking at right now. Quick question - are you a solo agent or do you run an agency?",
-            "options": [
-                {"label": "Solo Agent",    "value": "individual"},
-                {"label": "Agency Owner",  "value": "agency"}
-            ]
-        })
+            "text": "You're sending messages too quickly. Please wait a moment and try again."
+        }), 429
 
-    # ── Individual path ───────────────────────────────────────────────────────
+    # Quick-action buttons (handled without AI call — zero cost, instant)
+    quick = handle_quick_action(user_message)
+    if quick is not None:
+        return flask_jsonify(quick)
 
-    if user_message == "individual":
-        return flask_jsonify({
-            "text": "Nice. So right now you're manually following up with leads, right? Or maybe you've got some basic automation that sounds like a robot?",
-            "options": [
-                {"label": "Yeah, manual follow-up",          "value": "individual_manual"},
-                {"label": "I have automation but it sucks",  "value": "individual_bad_auto"},
-                {"label": "Just curious what this is",       "value": "individual_curious"}
-            ]
-        })
+    # Check if user has provided an email and consented to diagnostics
+    diagnostic_context = None
+    email_found = extract_email(user_message, history)
+    if email_found and has_consent(history):
+        diagnostic_context = run_support_diagnostics(email_found)
 
-    if user_message == "individual_manual":
-        return flask_jsonify({
-            "text": "That's where most leads die. You get busy, forget to follow up, and that lead who was warm 3 days ago is now cold. I fix that. I respond instantly - even at 2am - and I actually sound human. Want to see how I handle a cold lead?",
-            "options": [
-                {"label": "Show me",           "value": "demo"},
-                {"label": "What does it cost?", "value": "pricing_individual"}
-            ]
-        })
+    # Build system prompt with optional diagnostic context
+    system_prompt = build_support_prompt(diagnostic_context)
 
-    if user_message == "individual_bad_auto":
-        return flask_jsonify({
-            "text": "Let me guess - keyword triggers, canned responses, and leads can tell it's a bot within 2 messages? I'm different. I use 5 actual sales methodologies - NEPQ, Gap Selling, Chris Voss tactics. I handle objections, remember everything about the lead, and book appointments on your calendar. Want to see?",
-            "options": [
-                {"label": "Try the demo",  "value": "demo"},
-                {"label": "What's it cost?", "value": "pricing_individual"}
-            ]
-        })
+    # Build messages array (system + conversation history + current message)
+    messages = [{"role": "system", "content": system_prompt}]
+    for msg in history[-20:]:
+        role = msg.get("role", "user")
+        if role not in ("user", "assistant"):
+            role = "user"
+        content = msg.get("content", "")
+        if content:
+            messages.append({"role": role, "content": content})
+    messages.append({"role": "user", "content": user_message})
 
-    if user_message == "individual_curious":
-        return flask_jsonify({
-            "text": "Short version: I'm an AI that responds to your insurance leads via SMS. But I'm not a dumb chatbot - I use real sales frameworks, remember the entire conversation history, handle objections like a human setter, and book appointments directly on your calendar. All while you sleep.",
-            "options": [
-                {"label": "See it in action",     "value": "demo"},
-                {"label": "How is this different?", "value": "comparison"},
-                {"label": "Pricing",               "value": "pricing_individual"}
-            ]
-        })
+    # Call LLM
+    try:
+        xai_key = os.getenv("XAI_API_KEY")
+        if not xai_key:
+            logger.error("XAI_API_KEY not set — support bot cannot respond")
+            return flask_jsonify({
+                "text": "We're having a temporary issue. Please try again in a moment, or visit our contact page for help.",
+                "options": [{"label": "Contact Page", "value": "QUICK_CONTACT"}]
+            })
 
-    # ── Agency path ───────────────────────────────────────────────────────────
+        client = OpenAI(api_key=xai_key, base_url="https://api.x.ai/v1")
+        reply = generate_clean_reply(
+            client=client,
+            full_messages=messages,
+            max_tokens=400,
+            temperature=0.7,
+        )
+    except Exception as e:
+        logger.error(f"Support bot LLM call failed: {e}")
+        reply = ""
 
-    if user_message == "agency":
-        return flask_jsonify({
-            "text": "Nice. How many agents do you have under you right now?",
-            "options": [
-                {"label": "Under 10", "value": "agency_small"},
-                {"label": "10-50",    "value": "agency_medium"},
-                {"label": "50+",      "value": "agency_large"}
-            ]
-        })
+    if not reply:
+        reply = "We're having a little trouble right now. You can reach us at our contact page, or try again in a moment."
 
-    if user_message in ["agency_small", "agency_medium", "agency_large"]:
-        return flask_jsonify({
-            "text": "Here's what I solve for you: inconsistent follow-up across your team. Some agents are great, some let leads rot. With me, every sub-account gets the same AI setter - same brain, same methodology, but books to THEIR calendar. You get a dashboard to see everything. Your agents each buy their own plan — same pricing as individuals.",
-            "options": [
-                {"label": "How does that work exactly?", "value": "agency_how"},
-                {"label": "Show me the demo",            "value": "demo"},
-                {"label": "What's included?",            "value": "agency_features"}
-            ]
-        })
+    # Sanitize forbidden terms
+    reply = sanitize_support_reply(reply)
 
-    if user_message == "agency_how":
-        return flask_jsonify({
-            "text": "Simple: You connect your Lead Connector agency account. I automatically see all your sub-accounts. Each one gets their own instance of me - same sales brain, but configured for their calendar and timezone. When a lead texts into Location A, I respond as Location A's setter and book on their calendar. You see all conversations from one dashboard.",
-            "options": [
-                {"label": "What do my agents see?", "value": "agency_agent_view"},
-                {"label": "Try the demo",           "value": "demo"},
-                {"label": "Pricing",                "value": "pricing_agency"}
-            ]
-        })
-
-    if user_message == "agency_agent_view":
-        return flask_jsonify({
-            "text": "Your agents see conversations happening in their Lead Connector inbox like normal. They can jump in anytime if needed. But mostly they just see appointments showing up on their calendar with qualified leads. The AI does the grunt work, they do the closing.",
-            "options": [
-                {"label": "That sounds good", "value": "demo"},
-                {"label": "What's pricing?",  "value": "pricing_agency"}
-            ]
-        })
-
-    if user_message in ["agency_features", "agency_pro_info"]:
-        return flask_jsonify({
-            "text": "Agency owners get a free dashboard to monitor all their agents. Each agent buys their own plan — Power Dialer, Pro Dialer, or Predictive. You see all KPIs, call recordings, leaderboards, and can white-label the whole experience. Unlimited agents, no cap. No contracts, cancel anytime.",
-            "options": [
-                {"label": "Get started",       "value": "signup_individual"},
-                {"label": "See it work first", "value": "demo"}
-            ]
-        })
-
-    # ── Features & comparison ─────────────────────────────────────────────────
-
-    if user_message == "comparison" or "different" in msg_lower or "vs" in msg_lower or "compare" in msg_lower:
-        return flask_jsonify({
-            "text": "Most bots use keyword matching - they're dumb. I use 5 real sales frameworks: NEPQ for emotional gaps, Chris Voss tactics for objections, Gap Selling to create urgency, plus Straight Line and Zig Ziglar methods. I also have persistent memory and understand underwriting.",
-            "redirect": "/comparison"
-        })
-
-    if "memory" in msg_lower or "remember" in msg_lower:
-        return flask_jsonify({
-            "text": "I remember everything. If a lead mentioned their wife's name 3 months ago, I still know it. If they said they had diabetes, I factor that into underwriting. No awkward 'what was your name again?' moments.",
-            "options": [
-                {"label": "See it in action",      "value": "demo"},
-                {"label": "What else is different?", "value": "comparison"}
-            ]
-        })
-
-    if "underwriting" in msg_lower or "pre-qualify" in msg_lower or "health" in msg_lower:
-        return flask_jsonify({
-            "text": "I ask the right health questions before they ever get on your calendar. Diabetes? Heart issues? Smoker? I know what carriers need and I gather that info naturally in conversation. You get on calls with qualified leads, not people who can't get approved.",
-            "options": [
-                {"label": "Show me how", "value": "demo"},
-                {"label": "Pricing",     "value": "pricing_individual"}
-            ]
-        })
-
-    if "methodology" in msg_lower or "framework" in msg_lower or "nepq" in msg_lower or "sales" in msg_lower:
-        return flask_jsonify({
-            "text": "I blend 5 proven frameworks: NEPQ (emotional gap questions), Gap Selling (current state vs future state), Chris Voss (labeling, no-oriented questions), Straight Line (always advancing), and Zig Ziglar (help first, objections = requests for clarity). This isn't scripted - I adapt to each conversation.",
-            "options": [
-                {"label": "See it handle objections", "value": "demo"},
-                {"label": "Pricing",                  "value": "pricing_individual"}
-            ]
-        })
-
-    if "book" in msg_lower or "calendar" in msg_lower or "appointment" in msg_lower:
-        return flask_jsonify({
-            "text": "I connect directly to your Lead Connector calendar. When a lead is ready, I show them available slots and book it - no links to click, no friction. The appointment shows up with all context: what they said, health info, objections that came up.",
-            "options": [
-                {"label": "Try the demo", "value": "demo"},
-                {"label": "Pricing",      "value": "pricing_individual"}
-            ]
-        })
-
-    # ── Pricing ───────────────────────────────────────────────────────────────
-
-    if user_message == "pricing_individual" or (("price" in msg_lower or "cost" in msg_lower or "how much" in msg_lower) and "agency" not in msg_lower):
-        return flask_jsonify({
-            "text": "$149.98/month with a 7-day free trial. Unlimited conversations, full memory, all 5 sales methodologies, calendar auto-booking, underwriting logic, smart dialer, AI voice agent. No contracts, cancel anytime.",
-            "options": [
-                {"label": "Get started", "value": "signup_individual"},
-                {"label": "See it first",     "value": "demo"}
-            ]
-        })
-
-    if user_message == "pricing_agency" or ("price" in msg_lower and "agency" in msg_lower):
-        return flask_jsonify({
-            "text": "Agency owners get a FREE dashboard — no separate subscription needed. Your agents each buy their own plan: Power Dialer ($149.99/mo), Pro Dialer ($224.99/mo), or Predictive Dialer ($349.98/mo). You see all their KPIs, recordings, and can white-label the brand. No contracts, cancel anytime.",
-            "options": [
-                {"label": "Get started", "value": "signup_individual"},
-                {"label": "See demo first", "value": "demo"}
-            ]
-        })
-
-    # ── Signup routes ─────────────────────────────────────────────────────────
-
-    if user_message == "demo":
-        return flask_jsonify({"text": "Let's do it. I'll show you exactly how I talk to a cold insurance lead.", "redirect": "/demo-chat"})
-
-    if user_message == "signup_individual":
-        return flask_jsonify({"text": "Let's get you set up. No contracts, cancel anytime.", "redirect": "/checkout"})
-
-    if user_message in ["signup_agency_starter", "signup_agency_pro"]:
-        return flask_jsonify({"text": "Agency owners are free. Your agents each buy their own plan.", "redirect": "/checkout"})
-
-    # ── FAQ / objection handling ──────────────────────────────────────────────
-
-    if "trial" in msg_lower or "free" in msg_lower:
-        return flask_jsonify({
-            "text": "Yes! Every plan includes a 7-day free trial — no charge until day 8. You can also try the full AI demo right now with no signup required. When you're ready, it's $149.98/month — cancel anytime, no contracts.",
-            "options": [
-                {"label": "Try the demo",   "value": "demo"},
-                {"label": "Get started",    "value": "signup_individual"}
-            ]
-        })
-
-    if "ghl" in msg_lower or "gohighlevel" in msg_lower or "highlevel" in msg_lower or "crm" in msg_lower or "lead connector" in msg_lower:
-        return flask_jsonify({
-            "text": "I integrate directly with Lead Connector. You connect via OAuth (one click), and I automatically see your contacts, calendars, and conversations. Works with any plan - agency or location level.",
-            "options": [
-                {"label": "See integration", "value": "demo"},
-                {"label": "Get started",     "value": "signup_individual"}
-            ]
-        })
-
-    if "support" in msg_lower or "help" in msg_lower or "setup" in msg_lower:
-        return flask_jsonify({
-            "text": "Setup takes about 5 minutes - connect Lead Connector, configure your calendar, done. All plans include support. Agency Pro includes white-glove onboarding where we set everything up for you.",
-            "options": [
-                {"label": "Start setup",     "value": "signup_individual"},
-                {"label": "Questions first", "value": "contact"}
-            ]
-        })
-
-    if user_message == "contact" or "contact" in msg_lower or "talk to" in msg_lower or "human" in msg_lower:
-        return flask_jsonify({"text": "Want to talk to the team?", "redirect": "/contact"})
-
-    # ── Fallback ──────────────────────────────────────────────────────────────
-
-    return flask_jsonify({
-        "text": "Best way to understand what I do is to see it. I'll show you how I handle a real cold insurance lead.",
-        "options": [
-            {"label": "Show me",          "value": "demo"},
-            {"label": "Just tell me pricing", "value": "pricing_individual"}
+    # Parse and strip ticket tag
+    ticket_info = extract_ticket_tag(reply)
+    if ticket_info:
+        reply = reply.replace(ticket_info["raw_tag"], "").strip()
+        ticket_email = email_found or None
+        ticket_loc = diagnostic_context.get("location_id") if diagnostic_context else None
+        conversation = history + [
+            {"role": "user", "content": user_message},
+            {"role": "assistant", "content": reply},
         ]
-    })
+        create_support_ticket(
+            email=ticket_email,
+            location_id=ticket_loc,
+            conversation_log=conversation,
+            summary=ticket_info["summary"],
+            category=ticket_info["category"],
+            severity=ticket_info["severity"],
+        )
+
+    # Parse options and redirect
+    options, reply = extract_options(reply)
+    redirect_url, reply = extract_redirect(reply)
+
+    response = {"text": reply.strip()}
+    if options:
+        response["options"] = options
+    if redirect_url:
+        response["redirect"] = redirect_url
+
+    return flask_jsonify(response)

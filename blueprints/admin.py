@@ -14,6 +14,8 @@
 #   POST /api/admin/marketplace-installs/send-all-setup-emails  — Send setup emails (bulk)
 #   GET|POST /api/admin/discover-installs                       — Discover via GHL API
 #   GET|POST /api/admin/audit-ai-minutes                        — AI minutes receipt audit
+#   GET  /admin/god-mode/tickets                                — Support ticket management
+#   POST /admin/god-mode/tickets/<id>/status                    — Update ticket status
 
 import os
 import html as html_mod
@@ -751,3 +753,57 @@ def clear_subaccount_contamination():
         return jsonify({"error": "Internal server error"}), 500
     finally:
         return_db_connection(conn)
+
+
+# ── Support Tickets ──────────────────────────────────────────────────────────
+
+@admin_bp.route("/admin/god-mode/tickets")
+@login_required
+@super_admin_required
+def god_mode_tickets():
+    """View and manage support tickets."""
+    from support_bot import get_support_tickets
+
+    status_filter = request.args.get("status", "")
+    severity_filter = request.args.get("severity", "")
+    limit = min(int(request.args.get("limit", 50)), 200)
+    offset = int(request.args.get("offset", 0))
+
+    tickets = get_support_tickets(
+        status=status_filter or None,
+        severity=severity_filter or None,
+        limit=limit,
+        offset=offset,
+    )
+
+    # Convert to safe JSON (datetime handling)
+    for t in tickets:
+        for key in ("created_at", "reviewed_at", "resolved_at"):
+            if t.get(key):
+                t[key] = t[key].isoformat() if hasattr(t[key], "isoformat") else str(t[key])
+
+    return safe_jsonify({
+        "tickets": tickets,
+        "filters": {"status": status_filter, "severity": severity_filter},
+        "count": len(tickets),
+    })
+
+
+@admin_bp.route("/admin/god-mode/tickets/<int:ticket_id>/status", methods=["POST"])
+@login_required
+@super_admin_required
+def update_ticket(ticket_id):
+    """Update a support ticket's status and optional admin notes."""
+    from support_bot import update_ticket_status
+
+    data = request.get_json(silent=True) or {}
+    new_status = data.get("status", "")
+    admin_notes = data.get("admin_notes", "")
+
+    if new_status not in ("open", "reviewed", "resolved"):
+        return jsonify({"error": "Invalid status"}), 400
+
+    success = update_ticket_status(ticket_id, new_status, admin_notes or None)
+    if success:
+        return jsonify({"success": True, "ticket_id": ticket_id, "status": new_status})
+    return jsonify({"error": "Failed to update ticket"}), 500
