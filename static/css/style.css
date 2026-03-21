@@ -11297,3 +11297,72 @@ body.light-theme .ak-see-more-btn:hover {
     background: var(--lt-accent-bg);
     border-color: var(--lt-accent);
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   THEME-SAFE UTILITY CLASSES — for inline icons/text in templates
+   Replace inline style="color:#xxx" with these classes.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Text color utilities — adapt to dark/light */
+.t-primary   { color: #fff; }
+.t-secondary { color: #ccc; }
+.t-muted     { color: #aaa; }
+.t-faint     { color: #888; }
+.t-dim       { color: #666; }
+.t-subtle    { color: #555; }
+
+body.light-theme .t-primary   { color: var(--lt-text-primary); }
+body.light-theme .t-secondary { color: var(--lt-text-secondary); }
+body.light-theme .t-muted     { color: var(--lt-text-muted); }
+body.light-theme .t-faint     { color: var(--lt-text-faint); }
+body.light-theme .t-dim       { color: var(--lt-text-muted); }
+body.light-theme .t-subtle    { color: var(--lt-text-faint); }
+
+/* Icon color utilities — common accent/status colors that stay readable */
+.ic-accent   { color: #00ff88; }
+.ic-cyan     { color: #00d9ff; }
+.ic-purple   { color: #a78bfa; }
+.ic-orange   { color: #ffa500; }
+.ic-gold     { color: #ffd700; }
+.ic-pink     { color: #e91e63; }
+.ic-red      { color: #ef4444; }
+.ic-blue     { color: #3b82f6; }
+
+body.light-theme .ic-accent { color: #059669; }
+body.light-theme .ic-cyan   { color: #0891b2; }
+body.light-theme .ic-purple { color: #7c3aed; }
+body.light-theme .ic-orange { color: #d97706; }
+body.light-theme .ic-gold   { color: #b8860b; }
+body.light-theme .ic-pink   { color: #db2777; }
+body.light-theme .ic-red    { color: #dc2626; }
+body.light-theme .ic-blue   { color: #2563eb; }
+
+/* Guide/doc page text classes */
+.guide-text      { font-size: 0.85rem; color: #ccc; line-height: 1.8; }
+.guide-text-sm   { font-size: 0.82rem; color: #aaa; line-height: 1.6; }
+.guide-text-xs   { font-size: 0.78rem; color: #888; line-height: 1.5; }
+.guide-label     { font-size: 0.78rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+.guide-code      { font-family: monospace; font-size: 0.82rem; color: #ccc; line-height: 1.6; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 6px; }
+.guide-nav-link  { color: #ccc; text-decoration: none; font-size: 0.88rem; display: flex; align-items: center; gap: 8px; padding: 6px 0; transition: color 0.2s; }
+.guide-nav-link:hover { color: #fff; }
+
+body.light-theme .guide-text      { color: var(--lt-text-secondary); }
+body.light-theme .guide-text-sm   { color: var(--lt-text-muted); }
+body.light-theme .guide-text-xs   { color: var(--lt-text-faint); }
+body.light-theme .guide-label     { color: var(--lt-text-muted); }
+body.light-theme .guide-code      { color: var(--lt-text-secondary); background: rgba(0,0,0,0.04); }
+body.light-theme .guide-nav-link  { color: var(--lt-text-secondary); }
+body.light-theme .guide-nav-link:hover { color: var(--lt-text-primary); }
+
+/* Dashboard loading/placeholder text */
+.dash-loading   { text-align: center; padding: 30px; color: #555; }
+.dash-page-info { font-size: 0.82rem; color: #666; }
+.dash-placeholder { text-align: center; color: #555; }
+
+body.light-theme .dash-loading   { color: var(--lt-text-muted); }
+body.light-theme .dash-page-info { color: var(--lt-text-muted); }
+body.light-theme .dash-placeholder { color: var(--lt-text-muted); }
+
+/* Form hint text */
+.form-hint { font-size: 0.85rem; color: #888; }
+body.light-theme .form-hint { color: var(--lt-text-muted); }

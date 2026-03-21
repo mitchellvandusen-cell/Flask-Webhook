@@ -12,3 +12,30 @@ attached_assets/
 .DS_Store
 check_accounts.py
 underwriting_fallback.json
+
+# Local config — contains API keys
+.mcp.json
+.claude/settings.local.json
+.claude/projects/
+
+# Community skills (large, not project code)
+.claude/skills/superpowers/
+.claude/skills/marketing-skills/
+.claude/skills/claude-seo/
+.claude/skills/trailofbits/
+.claude/skills/context-engineering/
+.claude/skills/frontend-design/
+.claude/skills/web-artifacts-builder/
+.claude/skills/canvas-design/
+.claude/skills/pdf/
+.claude/skills/webapp-testing/
+.claude/skills/theme-factory/
+.claude/skills/mcp-builder/
+.claude/skills/skill-creator/
+.claude/skills/brand-guidelines/
+
+# Old nested repo clone
+Flask-Webhook/
+
+# Backup files
+CLAUDE.md.local

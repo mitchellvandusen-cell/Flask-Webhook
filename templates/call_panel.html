@@ -659,7 +659,7 @@
     function getStatusIcon(status, attempts) {
         const attemptStr = attempts > 0 ? ` <span style="opacity:0.5;font-size:0.75rem;">${attempts}/${MAX_DIAL_ATTEMPTS}</span>` : '';
         const map = {
-            'pending': '<span style="color:#555;">Waiting</span>' + attemptStr,
+            'pending': '<span class="t-subtle">Waiting</span>' + attemptStr,
             'initiated': '<i class="fa-solid fa-spinner fa-spin" style="color:var(--cyan);"></i>' + attemptStr,
             'ringing': '<span style="color:var(--cyan);">Ringing</span>' + attemptStr,
             'in-progress': '<span style="color:var(--accent);">On Call</span>',

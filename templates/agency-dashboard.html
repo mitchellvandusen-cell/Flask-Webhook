@@ -172,6 +172,9 @@
         .ag-call-dur { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: #aaa; flex-shrink: 0; }
         .ag-call-badges { display: flex; gap: 4px; flex-shrink: 0; }
         .ag-call-badge { font-size: 0.7rem; padding: 2px 7px; border-radius: 6px; font-weight: 600; }
+        .ag-call-badge.rec { background: rgba(239,68,68,0.1); color: #ef4444; }
+        .ag-call-badge.rec i { font-size: 0.5rem; }
+        .ag-call-badge.txt { background: rgba(59,130,246,0.1); color: #60a5fa; }
 
         /* Sub-account card */
         .ag-agent-card {
@@ -340,7 +343,7 @@
         <div class="ag-footer">
             <a href="/support"><i class="fa-solid fa-circle-question"></i><span>Support</span></a>
             <a href="/"><i class="fa-solid fa-house"></i><span>Homepage</span></a>
-            <a href="/logout" style="color:#ef4444;"><i class="fa-solid fa-right-from-bracket"></i><span>Sign Out</span></a>
+            <a href="/logout" class="ic-red"><i class="fa-solid fa-right-from-bracket"></i><span>Sign Out</span></a>
         </div>
     </div>
 
@@ -426,7 +429,7 @@
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
                     <!-- Daily Volume -->
                     <div class="ag-card">
-                        <div class="ag-card-header"><h3><i class="fa-solid fa-chart-bar me-2" style="color:var(--cyan);"></i>Daily Volume</h3></div>
+                        <div class="ag-card-header"><h3><i class="fa-solid fa-chart-bar me-2 ic-cyan"></i>Daily Volume</h3></div>
                         <div class="ag-card-body">
                             <div class="ag-chart-bars" id="agDailyChart" style="height:140px;"></div>
                             <div class="ag-chart-labels" id="agDailyLabels"></div>
@@ -434,10 +437,10 @@
                     </div>
                     <!-- Hourly Heatmap -->
                     <div class="ag-card">
-                        <div class="ag-card-header"><h3><i class="fa-solid fa-clock me-2" style="color:var(--cyan);"></i>Hourly Distribution</h3></div>
+                        <div class="ag-card-header"><h3><i class="fa-solid fa-clock me-2 ic-cyan"></i>Hourly Distribution</h3></div>
                         <div class="ag-card-body">
                             <div class="ag-heatmap" id="agHourlyChart"></div>
-                            <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:0.7rem;color:#555;">
+                            <div class="t-subtle" style="display:flex;justify-content:space-between;margin-top:6px;font-size:0.7rem;">
                                 <span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>11pm</span>
                             </div>
                         </div>
@@ -447,7 +450,7 @@
                 <!-- Top Agents Quick View -->
                 <div class="ag-card" style="margin-top:20px;">
                     <div class="ag-card-header">
-                        <h3><i class="fa-solid fa-trophy me-2" style="color:#ffd700;"></i>Top Performing Agents</h3>
+                        <h3><i class="fa-solid fa-trophy me-2 ic-gold"></i>Top Performing Agents</h3>
                         <button class="ag-period-btn" onclick="agNav('agents', document.getElementById('agNavAgents'))">View All</button>
                     </div>
                     <div class="ag-card-body" style="padding:0;">
@@ -457,7 +460,7 @@
                                     <tr><th>Agent</th><th>Calls</th><th>Connected</th><th>Talk Time</th><th>Messages</th></tr>
                                 </thead>
                                 <tbody id="agTopAgentsBody">
-                                    <tr><td colspan="5" style="text-align:center;color:#555;padding:24px;">Loading...</td></tr>
+                                    <tr><td colspan="5" class="dash-loading" style="text-align:center;padding:24px;">Loading...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -468,10 +471,10 @@
             <!-- ═══ AGENTS TAB ═══ -->
             <div class="ag-tab" id="agTabAgents">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-                    <h3 style="margin:0;font-weight:700;color:#fff;">
-                        <i class="fa-solid fa-users me-2" style="color:var(--accent);"></i>
+                    <h3 class="t-primary" style="margin:0;font-weight:700;">
+                        <i class="fa-solid fa-users me-2 ic-accent"></i>
                         {{ stats.active_seats }} Agent{{ 's' if stats.active_seats != 1 else '' }}
-                        <span style="font-size:0.8rem;color:#666;font-weight:400;">({{ stats.max_seats }} seats)</span>
+                        <span class="t-dim" style="font-size:0.8rem;font-weight:400;">({{ stats.max_seats }} seats)</span>
                     </h3>
                     <button class="ag-period-btn" onclick="agInviteAll()" id="agInviteAllBtn" style="color:var(--accent);">
                         <i class="fa-solid fa-paper-plane me-1"></i>Invite All Pending
@@ -503,7 +506,7 @@
 
                 <!-- Per-Agent Stats Table -->
                 <div class="ag-card" style="margin-top:20px;">
-                    <div class="ag-card-header"><h3><i class="fa-solid fa-chart-simple me-2" style="color:var(--cyan);"></i>Agent Performance</h3></div>
+                    <div class="ag-card-header"><h3><i class="fa-solid fa-chart-simple me-2 ic-cyan"></i>Agent Performance</h3></div>
                     <div class="ag-card-body" style="padding:0;">
                         <div class="ag-table-wrap">
                             <table class="ag-table" id="agAgentStatsTable">
@@ -511,7 +514,7 @@
                                     <tr><th>Agent</th><th>Calls</th><th>Connected</th><th>Rate</th><th>Talk Time</th><th>Avg Call</th><th>Messages</th><th>Last Call</th></tr>
                                 </thead>
                                 <tbody id="agAgentStatsBody">
-                                    <tr><td colspan="8" style="text-align:center;color:#555;padding:24px;">Loading...</td></tr>
+                                    <tr><td colspan="8" class="dash-loading" style="text-align:center;padding:24px;">Loading...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -522,7 +525,7 @@
             <!-- ═══ CALL LOG TAB ═══ -->
             <div class="ag-tab" id="agTabCalls">
                 <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-                    <h3 style="margin:0;font-weight:700;color:#fff;"><i class="fa-solid fa-phone-volume me-2" style="color:var(--cyan);"></i>Call Log</h3>
+                    <h3 class="t-primary" style="margin:0;font-weight:700;"><i class="fa-solid fa-phone-volume me-2 ic-cyan"></i>Call Log</h3>
                     <!-- Agent filter dropdown -->
                     <select id="agCallAgentFilter" onchange="agLoadCallLog(0)" style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;padding:6px 12px;font-size:0.82rem;">
                         <option value="">All Agents</option>
@@ -534,11 +537,11 @@
 
                 <div class="ag-card">
                     <div class="ag-card-body" id="agCallLogBody" style="padding:0;">
-                        <div style="text-align:center;padding:30px;color:#555;">Loading call log...</div>
+                        <div class="dash-loading" style="text-align:center;padding:30px;">Loading call log...</div>
                     </div>
                     <div style="display:flex;justify-content:center;gap:10px;padding:14px;border-top:1px solid var(--border);">
                         <button class="ag-period-btn" id="agCallPrev" onclick="agCallLogPage(-1)" disabled>Previous</button>
-                        <span id="agCallPageInfo" style="font-size:0.82rem;color:#666;display:flex;align-items:center;"></span>
+                        <span id="agCallPageInfo" class="dash-page-info" style="font-size:0.82rem;display:flex;align-items:center;"></span>
                         <button class="ag-period-btn" id="agCallNext" onclick="agCallLogPage(1)">Next</button>
                     </div>
                 </div>
@@ -547,7 +550,7 @@
             <!-- ═══ ACTIVITY TAB ═══ -->
             <div class="ag-tab" id="agTabActivity">
                 <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-                    <h3 style="margin:0;font-weight:700;color:#fff;"><i class="fa-solid fa-list-check me-2" style="color:var(--accent);"></i>Activity Logs</h3>
+                    <h3 class="t-primary" style="margin:0;font-weight:700;"><i class="fa-solid fa-list-check me-2 ic-accent"></i>Activity Logs</h3>
                     <select id="agActivityAgent" onchange="agLoadActivity(0)" style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;padding:6px 12px;font-size:0.82rem;">
                         <option value="">Select Agent</option>
                         {% for sub in sub_accounts %}
@@ -557,14 +560,14 @@
                 </div>
                 <div class="ag-card">
                     <div class="ag-card-body" id="agActivityBody">
-                        <p style="text-align:center;color:#555;">Select an agent to view activity logs.</p>
+                        <p class="dash-placeholder" style="text-align:center;">Select an agent to view activity logs.</p>
                     </div>
                 </div>
             </div>
 
             <!-- ═══ SETTINGS TAB ═══ -->
             <div class="ag-tab" id="agTabSettings">
-                <h3 style="margin-bottom:20px;font-weight:700;color:#fff;"><i class="fa-solid fa-gear me-2" style="color:var(--accent);"></i>Agency Settings</h3>
+                <h3 class="t-primary" style="margin-bottom:20px;font-weight:700;"><i class="fa-solid fa-gear me-2 ic-accent"></i>Agency Settings</h3>
 
                 <div class="ag-card">
                     <div class="ag-card-header"><h3>Agency Profile</h3></div>
@@ -573,32 +576,32 @@
                             {{ form.hidden_tag() }}
                             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                                 <div>
-                                    <label style="font-size:0.78rem;color:#888;margin-bottom:4px;display:block;">Location ID</label>
+                                    <label class="t-faint" style="font-size:0.78rem;margin-bottom:4px;display:block;">Location ID</label>
                                     {{ form.location_id(class="form-control", style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;") }}
                                 </div>
                                 <div>
-                                    <label style="font-size:0.78rem;color:#888;margin-bottom:4px;display:block;">Bot Name</label>
+                                    <label class="t-faint" style="font-size:0.78rem;margin-bottom:4px;display:block;">Bot Name</label>
                                     {{ form.bot_name(class="form-control", style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;") }}
                                 </div>
                                 <div>
-                                    <label style="font-size:0.78rem;color:#888;margin-bottom:4px;display:block;">Calendar ID</label>
+                                    <label class="t-faint" style="font-size:0.78rem;margin-bottom:4px;display:block;">Calendar ID</label>
                                     {{ form.calendar_id(class="form-control", style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;") }}
                                 </div>
                                 <div>
-                                    <label style="font-size:0.78rem;color:#888;margin-bottom:4px;display:block;">CRM User ID</label>
+                                    <label class="t-faint" style="font-size:0.78rem;margin-bottom:4px;display:block;">CRM User ID</label>
                                     {{ form.crm_user_id(class="form-control", style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;") }}
                                 </div>
                                 <div>
-                                    <label style="font-size:0.78rem;color:#888;margin-bottom:4px;display:block;">Timezone</label>
+                                    <label class="t-faint" style="font-size:0.78rem;margin-bottom:4px;display:block;">Timezone</label>
                                     {{ form.timezone(class="form-control", style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;") }}
                                 </div>
                                 <div>
-                                    <label style="font-size:0.78rem;color:#888;margin-bottom:4px;display:block;">Website</label>
+                                    <label class="t-faint" style="font-size:0.78rem;margin-bottom:4px;display:block;">Website</label>
                                     {{ form.personal_website(class="form-control", placeholder="https://...", style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;") }}
                                 </div>
                             </div>
                             <div style="margin-top:16px;">
-                                <label style="font-size:0.78rem;color:#888;margin-bottom:4px;display:block;">Initial Message</label>
+                                <label class="t-faint" style="font-size:0.78rem;margin-bottom:4px;display:block;">Initial Message</label>
                                 {{ form.initial_message(class="form-control", rows="3", style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;resize:none;") }}
                             </div>
                             <button type="submit" style="margin-top:16px;background:var(--accent);color:#000;font-weight:700;border:none;padding:10px 24px;border-radius:10px;cursor:pointer;font-size:0.9rem;">
@@ -614,10 +617,10 @@
                     <div class="ag-card-body">
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                             <div>
-                                <label style="font-size:0.72rem;color:#555;text-transform:uppercase;letter-spacing:0.5px;">Access Token</label>
-                                <div style="font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:#888;padding:8px 0;">
+                                <label class="t-subtle" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;">Access Token</label>
+                                <div class="t-faint" style="font-family:'JetBrains Mono',monospace;font-size:0.82rem;padding:8px 0;">
                                     {{ access_token_display or 'Not connected' }}
-                                    {% if expires_in_str %}<span style="font-size:0.75rem;color:#555;"> &middot; {{ expires_in_str }}</span>{% endif %}
+                                    {% if expires_in_str %}<span class="t-subtle" style="font-size:0.75rem;"> &middot; {{ expires_in_str }}</span>{% endif %}
                                 </div>
                             </div>
                         </div>
@@ -630,13 +633,13 @@
 
             <!-- ═══ BILLING TAB ═══ -->
             <div class="ag-tab" id="agTabBilling">
-                <h3 style="margin-bottom:20px;font-weight:700;color:#fff;"><i class="fa-solid fa-credit-card me-2" style="color:var(--cyan);"></i>Billing</h3>
+                <h3 class="t-primary" style="margin-bottom:20px;font-weight:700;"><i class="fa-solid fa-credit-card me-2 ic-cyan"></i>Billing</h3>
                 <div class="ag-card">
                     <div class="ag-card-body" style="text-align:center;padding:30px;">
                         <div style="margin-bottom:16px;">
                             <span class="ag-badge" style="font-size:0.9rem;padding:6px 18px;">{{ stats.tier }}</span>
                         </div>
-                        <p style="color:#888;margin-bottom:20px;">{{ stats.active_seats }} / {{ stats.max_seats }} seats used</p>
+                        <p class="t-faint" style="margin-bottom:20px;">{{ stats.active_seats }} / {{ stats.max_seats }} seats used</p>
                         <div style="background:rgba(255,255,255,0.03);border-radius:12px;padding:4px;max-width:300px;margin:0 auto 20px;">
                             <div style="height:8px;border-radius:8px;background:var(--accent);width:{{ ((stats.active_seats / stats.max_seats * 100) if stats.max_seats else 0)|int }}%;transition:width 0.5s;"></div>
                         </div>
@@ -808,7 +811,7 @@
             var container = document.getElementById('agDailyChart');
             var labels = document.getElementById('agDailyLabels');
             if (!daily || !daily.length) {
-                container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#555;font-size:0.85rem;">No data for this period</div>';
+                container.innerHTML = '<div class="t-subtle" style="display:flex;align-items:center;justify-content:center;height:100%;font-size:0.85rem;">No data for this period</div>';
                 labels.innerHTML = '';
                 return;
             }
@@ -852,14 +855,14 @@
                     // Top agents (overview)
                     var topBody = document.getElementById('agTopAgentsBody');
                     if (!agents.length) {
-                        topBody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#555;padding:24px;">No agent activity for this period</td></tr>';
+                        topBody.innerHTML = '<tr><td colspan="5" class="dash-placeholder" style="text-align:center;padding:24px;">No agent activity for this period</td></tr>';
                     } else {
                         var html = '';
                         var top5 = agents.slice(0, 5);
                         for (var i = 0; i < top5.length; i++) {
                             var a = top5[i];
                             html += '<tr>'
-                                + '<td><strong style="color:#fff;">' + a.name + '</strong></td>'
+                                + '<td><strong class="t-primary">' + a.name + '</strong></td>'
                                 + '<td class="mono">' + a.total_calls + '</td>'
                                 + '<td class="mono">' + a.connected + '</td>'
                                 + '<td class="mono">' + fmtDur(a.total_secs) + '</td>'
@@ -872,21 +875,21 @@
                     // Full agent stats table
                     var fullBody = document.getElementById('agAgentStatsBody');
                     if (!agents.length) {
-                        fullBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#555;padding:24px;">No agent activity</td></tr>';
+                        fullBody.innerHTML = '<tr><td colspan="8" class="dash-placeholder" style="text-align:center;padding:24px;">No agent activity</td></tr>';
                     } else {
                         var html2 = '';
                         for (var i = 0; i < agents.length; i++) {
                             var a = agents[i];
                             var rate = a.total_calls ? Math.round(a.connected / a.total_calls * 100) : 0;
                             html2 += '<tr>'
-                                + '<td><strong style="color:#fff;">' + a.name + '</strong><br><span style="font-size:0.75rem;color:#555;">' + a.email + '</span></td>'
+                                + '<td><strong class="t-primary">' + a.name + '</strong><br><span class="t-subtle" style="font-size:0.75rem;">' + a.email + '</span></td>'
                                 + '<td class="mono">' + a.total_calls + '</td>'
                                 + '<td class="mono">' + a.connected + '</td>'
                                 + '<td class="mono">' + rate + '%</td>'
                                 + '<td class="mono">' + fmtDur(a.total_secs) + '</td>'
                                 + '<td class="mono">' + Math.round(a.avg_duration) + 's</td>'
                                 + '<td class="mono">' + a.messages + '</td>'
-                                + '<td style="color:#666;">' + fmtTime(a.last_call) + '</td>'
+                                + '<td class="t-dim">' + fmtTime(a.last_call) + '</td>'
                                 + '</tr>';
                         }
                         fullBody.innerHTML = html2;
@@ -908,7 +911,7 @@
                     var body = document.getElementById('agCallLogBody');
                     var calls = d.calls || [];
                     if (!calls.length) {
-                        body.innerHTML = '<div style="text-align:center;padding:30px;color:#555;">No calls found</div>';
+                        body.innerHTML = '<div class="dash-placeholder" style="text-align:center;padding:30px;">No calls found</div>';
                     } else {
                         var html = '';
                         for (var i = 0; i < calls.length; i++) {
@@ -923,8 +926,8 @@
                                 + '</div>'
                                 + '<div class="ag-call-dur">' + fmtDur(c.duration) + '</div>'
                                 + '<div class="ag-call-badges">'
-                                + (c.has_recording ? '<span class="ag-call-badge" style="background:rgba(239,68,68,0.1);color:#ef4444;"><i class="fa-solid fa-circle" style="font-size:0.5rem;"></i> REC</span>' : '')
-                                + (c.has_transcript ? '<span class="ag-call-badge" style="background:rgba(59,130,246,0.1);color:#60a5fa;">TXT</span>' : '')
+                                + (c.has_recording ? '<span class="ag-call-badge rec"><i class="fa-solid fa-circle"></i> REC</span>' : '')
+                                + (c.has_transcript ? '<span class="ag-call-badge txt">TXT</span>' : '')
                                 + '</div>'
                                 + '</div>';
                         }
@@ -951,34 +954,34 @@
             var lid = document.getElementById('agActivityAgent').value;
             var body = document.getElementById('agActivityBody');
             if (!lid) {
-                body.innerHTML = '<p style="text-align:center;color:#555;">Select an agent to view activity logs.</p>';
+                body.innerHTML = '<p class="dash-placeholder" style="text-align:center;">Select an agent to view activity logs.</p>';
                 return;
             }
-            body.innerHTML = '<p style="text-align:center;color:#555;">Loading...</p>';
+            body.innerHTML = '<p class="dash-loading" style="text-align:center;">Loading...</p>';
             fetch('/api/agency/logs/' + lid + '?limit=100')
                 .then(function(r) { return r.json(); })
                 .then(function(d) {
                     var logs = d.logs || [];
                     if (!logs.length) {
-                        body.innerHTML = '<p style="text-align:center;color:#555;">No activity logs found.</p>';
+                        body.innerHTML = '<p class="dash-placeholder" style="text-align:center;">No activity logs found.</p>';
                         return;
                     }
                     var html = '<table class="ag-table"><thead><tr><th>Time</th><th>Event</th><th>Status</th><th>Details</th></tr></thead><tbody>';
                     for (var i = 0; i < logs.length; i++) {
                         var l = logs[i];
-                        var statusColor = l.status === 'success' ? '#4ade80' : l.status === 'error' ? '#ef4444' : '#ffc107';
+                        var statusCls = l.status === 'success' ? 'ic-accent' : l.status === 'error' ? 'ic-red' : 'ic-gold';
                         html += '<tr>'
-                            + '<td style="white-space:nowrap;color:#666;">' + fmtTime(l.created_at) + '</td>'
+                            + '<td class="t-dim" style="white-space:nowrap;">' + fmtTime(l.created_at) + '</td>'
                             + '<td>' + (l.event_type || '—') + '</td>'
-                            + '<td><span style="color:' + statusColor + ';font-weight:600;">' + (l.status || '—') + '</span></td>'
-                            + '<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#666;">' + (l.message || l.details || '—') + '</td>'
+                            + '<td><span class="' + statusCls + '" style="font-weight:600;">' + (l.status || '—') + '</span></td>'
+                            + '<td class="t-dim" style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (l.message || l.details || '—') + '</td>'
                             + '</tr>';
                     }
                     html += '</tbody></table>';
                     body.innerHTML = html;
                 })
                 .catch(function() {
-                    body.innerHTML = '<p style="text-align:center;color:#ef4444;">Failed to load logs.</p>';
+                    body.innerHTML = '<p class="ic-red" style="text-align:center;">Failed to load logs.</p>';
                 });
         };
         window.agViewLogs = function(lid) {
