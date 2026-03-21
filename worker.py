@@ -38,6 +38,11 @@ def run_worker(listen_queues, worker_num):
         logger.critical(f"Worker-{worker_num} Redis connection failed: {e}")
         return
 
+    # Attach error feed handler for event-driven monitoring
+    from error_feed import attach_error_handler
+    svc = f"worker-{listen_queues[0]}"
+    attach_error_handler(svc, lambda: redis_conn)
+
     unique_id = uuid.uuid4().hex[:8]
     worker_name = f"worker-{listen_queues[0]}-{worker_num}-{unique_id}"
     queues = [Queue(name, connection=redis_conn) for name in listen_queues]

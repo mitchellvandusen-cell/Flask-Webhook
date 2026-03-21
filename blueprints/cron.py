@@ -351,6 +351,42 @@ def api_cron_process_workflow_delays():
         return safe_jsonify({"success": False, "error": "Internal server error"}), 200
 
 
+@cron_bp.route("/api/cron/error-feed", methods=["GET"])
+def api_error_feed():
+    """
+    Event-driven error monitoring endpoint. Returns recent ERROR+ logs
+    captured across all services (Flask, Voice, Workers) via Redis.
+
+    Query params:
+        since: Unix epoch timestamp — only return errors after this time
+        limit: max entries (default 50)
+
+    Returns JSON: {errors: [...], count: N, latest_epoch: float}
+    """
+    if not _cron_authorized():
+        return safe_jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        from error_feed import get_recent_errors
+        since = request.args.get("since", type=float)
+        limit = request.args.get("limit", 50, type=int)
+
+        if not extensions.ensure_redis():
+            return safe_jsonify({"errors": [], "count": 0, "redis": False}), 503
+
+        errors = get_recent_errors(extensions.redis_conn, since_epoch=since, limit=limit)
+        latest = errors[0]["epoch"] if errors else (since or 0)
+
+        return safe_jsonify({
+            "errors": errors,
+            "count": len(errors),
+            "latest_epoch": latest,
+        })
+    except Exception as e:
+        logger.error(f"Error feed crashed: {e}", exc_info=True)
+        return safe_jsonify({"errors": [], "count": 0, "error": str(e)}), 200
+
+
 @cron_bp.route("/api/cron/process-workflow-triggers", methods=["GET", "POST"])
 def api_cron_process_workflow_triggers():
     """

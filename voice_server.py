@@ -56,6 +56,16 @@ async def lifespan(app):
     except Exception as e:
         logger.warning(f"Token encryption init failed (non-fatal): {e}")
 
+    # Attach error feed handler for event-driven monitoring
+    try:
+        import redis as _redis
+        _r = _redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"))
+        _r.ping()
+        from error_feed import attach_error_handler
+        attach_error_handler("voice-server", lambda: _r)
+    except Exception:
+        pass  # non-fatal — monitoring degrades to polling
+
     port = os.getenv("PORT", os.getenv("VOICE_PORT", "8081"))
     logger.info(f"Voice server started — port={port}, thread pool: 100 workers")
     yield

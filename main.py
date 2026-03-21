@@ -132,6 +132,10 @@ def ensure_redis():
 
 ensure_redis()
 
+# ── Error Feed (event-driven monitoring) ─────────────────────────────────────
+from error_feed import attach_error_handler, get_recent_errors
+attach_error_handler("flask-webhook", lambda: redis_conn)
+
 # ── Initialization ───────────────────────────────────────────────────────────
 
 sync_subscribers()
