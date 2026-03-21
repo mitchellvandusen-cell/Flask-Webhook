@@ -408,22 +408,37 @@ def _handle_uninstall(payload: dict):
     return safe_jsonify({"status": "received", "uninstall_id": record_id}), 200
 
 
-# ── AI-powered support bot ───────────────────────────────────────────────────
+# ── AI-powered autonomous support agent ─────────────────────────────────────
+
+# Max tool-calling rounds per request (prevents infinite loops)
+_SUPPORT_MAX_TOOL_ROUNDS = 5
+# Model for the support agent
+_SUPPORT_MODEL = "grok-3-fast"
+
 
 @webhooks_bp.route("/website-bot-webhook", methods=["POST"])
 def website_bot_webhook():
     """
-    AI-powered support bot with full product knowledge, live account
-    diagnostics (with user consent), and automatic ticket creation.
+    Autonomous AI support agent with function-calling tools.
+
+    The agent can: look up accounts, check phone system registrations,
+    read error logs, search the knowledge base, fix registration issues
+    (with consent), and escalate to human support via tickets.
+
+    Uses xAI Grok with OpenAI-compatible tool_use for multi-turn
+    tool-calling loops — same pattern as blueprints/workflows.py.
     """
+    import json as _json
     from openai import OpenAI
-    from llm_caller import generate_clean_reply
     from support_prompt import build_support_prompt
     from support_bot import (
         handle_quick_action, support_rate_limited, extract_email,
-        has_consent, run_support_diagnostics, sanitize_support_reply,
-        extract_ticket_tag, extract_options, extract_redirect,
-        create_support_ticket,
+        has_consent, sanitize_support_reply,
+        extract_options, extract_redirect,
+    )
+    from support_tools import (
+        get_support_tool_definitions, execute_support_tool,
+        execute_approved_action,
     )
 
     payload      = request.get_json(silent=True) or {}
@@ -445,16 +460,33 @@ def website_bot_webhook():
     if quick is not None:
         return flask_jsonify(quick)
 
-    # Check if user has provided an email and consented to diagnostics
-    diagnostic_context = None
+    # Handle consent-approved write actions
+    if user_message.startswith("APPROVE_ACTION:"):
+        action_id = user_message.split(":", 1)[1].strip()
+        email_found = extract_email("", history)
+        result = execute_approved_action(action_id, {
+            "email": email_found,
+            "location_id": None,
+            "conversation_log": history,
+        })
+        if result.get("success"):
+            return flask_jsonify({"text": result.get("message", "Done!")})
+        else:
+            return flask_jsonify({"text": result.get("error", "Something went wrong. Please try again.")})
+
+    # Build user context from conversation history
     email_found = extract_email(user_message, history)
-    if email_found and has_consent(history):
-        diagnostic_context = run_support_diagnostics(email_found)
+    user_context = {
+        "email": email_found,
+        "location_id": None,
+        "has_consent": has_consent(history),
+        "conversation_log": history,
+    }
 
-    # Build system prompt with optional diagnostic context
-    system_prompt = build_support_prompt(diagnostic_context)
+    # Build system prompt (diagnostics now handled via tools, not prompt injection)
+    system_prompt = build_support_prompt()
 
-    # Build messages array (system + conversation history + current message)
+    # Build messages array
     messages = [{"role": "system", "content": system_prompt}]
     for msg in history[-20:]:
         role = msg.get("role", "user")
@@ -465,53 +497,89 @@ def website_bot_webhook():
             messages.append({"role": role, "content": content})
     messages.append({"role": "user", "content": user_message})
 
-    # Call LLM
-    try:
-        xai_key = os.getenv("XAI_API_KEY")
-        if not xai_key:
-            logger.error("XAI_API_KEY not set — support bot cannot respond")
-            return flask_jsonify({
-                "text": "We're having a temporary issue. Please try again in a moment, or visit our contact page for help.",
-                "options": [{"label": "Contact Page", "value": "QUICK_CONTACT"}]
-            })
+    # Tool definitions for function calling
+    tools = get_support_tool_definitions()
 
-        client = OpenAI(api_key=xai_key, base_url="https://api.x.ai/v1")
-        reply = generate_clean_reply(
-            client=client,
-            full_messages=messages,
-            max_tokens=400,
-            temperature=0.7,
-        )
+    # LLM client
+    xai_key = os.getenv("XAI_API_KEY")
+    if not xai_key:
+        logger.error("XAI_API_KEY not set — support bot cannot respond")
+        return flask_jsonify({
+            "text": "We're having a temporary issue. Please try again in a moment, or visit our contact page for help.",
+            "options": [{"label": "Contact Page", "value": "QUICK_CONTACT"}]
+        })
+
+    client = OpenAI(api_key=xai_key, base_url="https://api.x.ai/v1")
+    reply = ""
+
+    # ── Multi-turn tool-calling loop ────────────────────────────
+    try:
+        for _round in range(_SUPPORT_MAX_TOOL_ROUNDS):
+            response = client.chat.completions.create(
+                model=_SUPPORT_MODEL,
+                messages=messages,
+                tools=tools,
+                temperature=0.7,
+                max_tokens=800,
+            )
+
+            msg = response.choices[0].message
+
+            if msg.tool_calls:
+                # Append assistant message with tool calls
+                messages.append(msg)
+
+                for tool_call in msg.tool_calls:
+                    tool_name = tool_call.function.name
+                    try:
+                        tool_args = _json.loads(tool_call.function.arguments)
+                    except (_json.JSONDecodeError, TypeError):
+                        tool_args = {}
+
+                    logger.info(f"Support agent tool call: {tool_name}({list(tool_args.keys())})")
+
+                    # Execute the tool
+                    tool_result = execute_support_tool(
+                        tool_name, tool_args, user_context
+                    )
+
+                    # Check if this is a consent-required write action
+                    if isinstance(tool_result, dict) and tool_result.get("needs_consent"):
+                        # Return consent prompt to user immediately
+                        action_id = tool_result["action_id"]
+                        description = tool_result["action_description"]
+                        consent_text = tool_result.get("message", f"I can {description.lower()}. Would you like me to go ahead?")
+                        consent_text = sanitize_support_reply(consent_text)
+                        return flask_jsonify({
+                            "text": consent_text,
+                            "options": [
+                                {"label": "Yes, Fix It", "value": f"APPROVE_ACTION:{action_id}"},
+                                {"label": "No Thanks", "value": "no_thanks"},
+                            ]
+                        })
+
+                    # Append tool result for the next LLM round
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": _json.dumps(tool_result, default=str),
+                    })
+            else:
+                # No tool calls — final response
+                reply = (msg.content or "").strip()
+                break
+
     except Exception as e:
-        logger.error(f"Support bot LLM call failed: {e}")
+        logger.error(f"Support agent loop failed: {e}", exc_info=True)
         reply = ""
 
     if not reply:
         reply = "We're having a little trouble right now. You can reach us at our contact page, or try again in a moment."
 
-    # Sanitize forbidden terms
+    # Sanitize forbidden terms from final output
     reply = sanitize_support_reply(reply)
 
-    # Parse and strip ticket tag
-    ticket_info = extract_ticket_tag(reply)
-    if ticket_info:
-        reply = reply.replace(ticket_info["raw_tag"], "").strip()
-        ticket_email = email_found or None
-        ticket_loc = diagnostic_context.get("location_id") if diagnostic_context else None
-        conversation = history + [
-            {"role": "user", "content": user_message},
-            {"role": "assistant", "content": reply},
-        ]
-        create_support_ticket(
-            email=ticket_email,
-            location_id=ticket_loc,
-            conversation_log=conversation,
-            summary=ticket_info["summary"],
-            category=ticket_info["category"],
-            severity=ticket_info["severity"],
-        )
-
-    # Parse options and redirect
+    # Parse options and redirect tags from AI output
     options, reply = extract_options(reply)
     redirect_url, reply = extract_redirect(reply)
 

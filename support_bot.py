@@ -25,6 +25,17 @@ logger = logging.getLogger(__name__)
 _FORBIDDEN_PATTERNS = [
     (re.compile(r'\bTwilio\b', re.IGNORECASE), 'our phone system'),
     (re.compile(r'\bsub[\-\s]?account\b', re.IGNORECASE), 'your account'),
+    (re.compile(r'\bTrust\s*Hub\b', re.IGNORECASE), 'carrier registration'),
+    (re.compile(r'\bTrust\s*Product\b', re.IGNORECASE), 'registration'),
+    (re.compile(r'\bA2P\s*10DLC\b', re.IGNORECASE), 'text messaging registration'),
+    (re.compile(r'\bA2P\b', re.IGNORECASE), 'text messaging'),
+    (re.compile(r'\b10DLC\b', re.IGNORECASE), 'carrier registration'),
+    (re.compile(r'\bVoice\s*Integrity\b', re.IGNORECASE), 'spam protection'),
+    (re.compile(r'\bCNAM\b'), 'caller ID'),
+    (re.compile(r'\bSecondary\s*Customer\s*Profile\b', re.IGNORECASE), 'business profile'),
+    (re.compile(r'\bEndUser\b', re.IGNORECASE), 'business details'),
+    (re.compile(r'\bEntityAssignment\b', re.IGNORECASE), 'connection'),
+    (re.compile(r'\bChannelEndpoint\b', re.IGNORECASE), 'number assignment'),
     (re.compile(r'\bxAI\b', re.IGNORECASE), 'our AI engine'),
     (re.compile(r'\bGrok\b', re.IGNORECASE), 'our AI'),
     (re.compile(r'\bOpenAI\b', re.IGNORECASE), 'our AI engine'),
@@ -44,6 +55,8 @@ _FORBIDDEN_PATTERNS = [
     (re.compile(r'\bAlembic\b', re.IGNORECASE), 'our system'),
     (re.compile(r'\bmigration\b', re.IGNORECASE), 'update'),
     (re.compile(r'\bconnection pool\b', re.IGNORECASE), 'our system'),
+    (re.compile(r'\bpolicy_sid\b', re.IGNORECASE), 'policy'),
+    (re.compile(r'\b[A-Z]{2}[a-f0-9]{32}\b'), ''),  # strip any Twilio SIDs
     (re.compile(r'\.py\b'), ''),  # strip any .py file references
 ]
 

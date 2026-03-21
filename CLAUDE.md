@@ -53,7 +53,7 @@ When editing **ANY** logic, prompts, responses, sanitizers, workflows, or intell
 ### Product-Specific Precision Rules (Never Violate — Current Codebase)
 
 - **Voice is Async FastAPI**: All calling/WebSocket/realtime voice MUST route through standalone `voice_server.py` (async WebSocket bridge) + `voice/` package. Call state in Redis. Use llm_caller.py → xAI Realtime API with prosody. Main Flask only handles HTTP/webhooks.
-- **DB is Alembic + Legacy**: New schema changes via Alembic (`db/` + migrations/). Support legacy paths via db_legacy.py + get_db_connection()/return_db_connection() in try/finally. Always ensure_redis().
+- **DB is Alembic + Legacy**: **ALL new tables and schema changes MUST use Alembic migrations** in `migrations/versions/`. Never add CREATE TABLE to `db.py` or any other file. The `init_db()` in `db/schema.py` runs `alembic upgrade head` — it contains no DDL. Support legacy read paths via db_legacy.py + get_db_connection()/return_db_connection() in try/finally. Always ensure_redis().
 - **Twilio ISV Isolation Sacred**: Always `get_sub_account_client_native(sub_account_sid, sub_account_auth_token)` (twilio_provisioning.py). Never mix credentials.
 - **Multi-Tenant & Agency Dashboard**: Every operation keys on subscriber_id or sub_account_sid. **Agency Dashboard is first-class** — dedicated in blueprints/dashboard.py + agency.py, with its own login (templates/agency-login.html + auth.py) and KPI stats page (templates/agency-dashboard.html). Agency owners manage multiple subscribers via unified dashboard flows + team management (location_users + team_audit_log). No cross-agency leakage.
 - **CRM Provider Discipline**: MUST implement full CRMProvider ABC (crm_providers/base.py). Register via get_provider("ghl") or "hubspot".
