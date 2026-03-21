@@ -16,6 +16,7 @@ import os
 import logging
 import asyncio
 import concurrent.futures
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -36,11 +37,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="InsuranceGrokBot Voice Service", version="1.0.0")
 
-
-@app.on_event("startup")
-async def startup():
+@asynccontextmanager
+async def lifespan(app):
     """Bump default thread pool so DSP + DB calls don't starve each other."""
     loop = asyncio.get_running_loop()
     loop.set_default_executor(
@@ -59,6 +58,10 @@ async def startup():
 
     port = os.getenv("PORT", os.getenv("VOICE_PORT", "8081"))
     logger.info(f"Voice server started — port={port}, thread pool: 100 workers")
+    yield
+
+
+app = FastAPI(title="InsuranceGrokBot Voice Service", version="1.0.0", lifespan=lifespan)
 
 
 @app.websocket("/voice/stream")
