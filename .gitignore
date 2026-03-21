@@ -8,6 +8,7 @@ __pycache__/
 dist/
 build/
 attached_assets/
+.agents/
 *.log
 .DS_Store
 check_accounts.py
