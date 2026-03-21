@@ -27,6 +27,7 @@ from flask import jsonify as flask_jsonify
 from flask_login import login_required, login_user, current_user
 
 from extensions import YOUR_DOMAIN, safe_jsonify, ADMIN_EMAILS
+from psycopg2.extras import RealDictCursor
 from db import (
     get_db_connection, return_db_connection, User,
     get_ai_minute_balance, get_ai_minute_purchases,
@@ -396,20 +397,21 @@ def stripe_webhook():
                     cur.close()
                     return_db_connection(conn)
 
-    # ── Subscription cancelled / deleted — handle seat deactivation ──────
+    # ── Subscription cancelled / deleted — deactivate seat or main subscriber ──
     elif event["type"] in ("customer.subscription.deleted", "customer.subscription.updated"):
         subscription = event["data"]["object"]
         sub_id = subscription.id
         status = subscription.status  # 'canceled', 'unpaid', 'past_due', etc.
 
         if status in ('canceled', 'unpaid', 'incomplete_expired'):
-            # Check if this is a seat subscription
             try:
                 conn = get_db_connection()
                 if conn:
                     cur = None
                     try:
                         cur = conn.cursor(cursor_factory=RealDictCursor)
+
+                        # Check if this is a seat subscription
                         cur.execute("""
                             SELECT id, email, location_id FROM location_users
                             WHERE stripe_seat_subscription_id = %s
@@ -418,21 +420,37 @@ def stripe_webhook():
                         if seat:
                             cur.execute("""
                                 UPDATE location_users
-                                SET is_active = false, updated_at = NOW()
+                                SET is_active = false, session_revoked_at = NOW(), updated_at = NOW()
                                 WHERE id = %s
                             """, (seat['id'],))
                             conn.commit()
                             logger.info(f"Seat user {seat['email']} deactivated — subscription {sub_id} {status}")
+                        else:
+                            # Not a seat — check if this is a main subscriber subscription
+                            customer_id = subscription.get("customer", "")
+                            if customer_id:
+                                cur.execute("""
+                                    SELECT email, subscription_tier FROM subscribers
+                                    WHERE stripe_customer_id = %s
+                                """, (customer_id,))
+                                subscriber = cur.fetchone()
+                                if subscriber:
+                                    cur.execute("""
+                                        UPDATE subscribers
+                                        SET stripe_customer_id = NULL,
+                                            subscription_tier = NULL,
+                                            updated_at = NOW()
+                                        WHERE stripe_customer_id = %s
+                                    """, (customer_id,))
+                                    conn.commit()
+                                    logger.info(
+                                        f"Main subscription {status} for {subscriber['email']} "
+                                        f"(was {subscriber['subscription_tier']}) — "
+                                        f"stripe_customer_id cleared, paywall re-enabled"
+                                    )
 
-                            # Revoke sessions
-                            cur.execute("""
-                                UPDATE location_users
-                                SET session_revoked_at = NOW()
-                                WHERE id = %s
-                            """, (seat['id'],))
-                            conn.commit()
                     except Exception as e:
-                        logger.error(f"Seat deactivation on subscription cancel failed: {e}")
+                        logger.error(f"Subscription cancellation handler failed: {e}")
                         try:
                             conn.rollback()
                         except Exception:
@@ -445,7 +463,7 @@ def stripe_webhook():
                                 pass
                         return_db_connection(conn)
             except Exception as e:
-                logger.error(f"Seat subscription lifecycle error: {e}")
+                logger.error(f"Subscription lifecycle error: {e}")
 
     # ── Recurring invoice paid — credit included AI minutes for solo_predictive ──
     elif event["type"] == "invoice.paid":
@@ -483,6 +501,257 @@ def stripe_webhook():
                         return_db_connection(conn)
             except Exception as e:
                 logger.error(f"Invoice.paid handler error: {e}")
+
+    # ── Payment failed — notify subscriber before they churn ──────────────────
+    elif event["type"] == "invoice.payment_failed":
+        invoice = event["data"]["object"]
+        customer_id = invoice.get("customer", "")
+        attempt_count = invoice.get("attempt_count", 0)
+        if customer_id:
+            try:
+                conn = get_db_connection()
+                if conn:
+                    cur = None
+                    try:
+                        cur = conn.cursor(cursor_factory=RealDictCursor)
+                        cur.execute(
+                            "SELECT email, bot_first_name FROM subscribers WHERE stripe_customer_id = %s",
+                            (customer_id,)
+                        )
+                        row = cur.fetchone()
+                        if row:
+                            email = row['email']
+                            name = row.get('bot_first_name') or 'there'
+                            logger.warning(
+                                f"Payment failed for {email} — attempt #{attempt_count}, "
+                                f"invoice {invoice.get('id', '?')}"
+                            )
+                            try:
+                                from send_email_api import send_email_via_api
+                                send_email_via_api(
+                                    to_email=email,
+                                    subject="Action required — your InsuranceGrokBot payment failed",
+                                    html_body=(
+                                        f"<p>Hey {name},</p>"
+                                        f"<p>We weren't able to process your payment "
+                                        f"(attempt #{attempt_count}). Your subscription will be "
+                                        f"paused if we can't collect payment soon.</p>"
+                                        f"<p>Please update your card to keep your AI dialer, "
+                                        f"Smart Filters, and all your settings running:</p>"
+                                        f'<p><a href="{YOUR_DOMAIN}/dashboard?tab=billing"'
+                                        f' style="background:#00ff88;color:#000;padding:12px 24px;'
+                                        f'border-radius:8px;text-decoration:none;font-weight:bold;">'
+                                        f'Update Payment Method</a></p>'
+                                        f"<p>— The InsuranceGrokBot Team</p>"
+                                    ),
+                                )
+                            except Exception as mail_err:
+                                logger.warning(f"Payment failed email to {email} failed: {mail_err}")
+                    except Exception as e:
+                        logger.error(f"Payment failed handler error: {e}")
+                    finally:
+                        if cur:
+                            cur.close()
+                        return_db_connection(conn)
+            except Exception as e:
+                logger.error(f"Invoice.payment_failed handler error: {e}")
+
+    # ── Trial ending soon — remind user to keep their subscription ─────────
+    elif event["type"] == "customer.subscription.trial_will_end":
+        subscription = event["data"]["object"]
+        customer_id = subscription.get("customer", "")
+        trial_end = subscription.get("trial_end")
+        if customer_id:
+            try:
+                conn = get_db_connection()
+                if conn:
+                    cur = None
+                    try:
+                        cur = conn.cursor(cursor_factory=RealDictCursor)
+                        cur.execute(
+                            "SELECT email, bot_first_name FROM subscribers WHERE stripe_customer_id = %s",
+                            (customer_id,)
+                        )
+                        row = cur.fetchone()
+                        if row:
+                            email = row['email']
+                            name = row.get('bot_first_name') or 'there'
+                            logger.info(f"Trial ending soon for {email} — trial_end={trial_end}")
+                            try:
+                                from send_email_api import send_email_via_api
+                                send_email_via_api(
+                                    to_email=email,
+                                    subject="Your InsuranceGrokBot trial ends in 3 days",
+                                    html_body=(
+                                        f"<p>Hey {name},</p>"
+                                        f"<p>Your free trial is wrapping up in 3 days. "
+                                        f"After that, your subscription will start automatically "
+                                        f"— no action needed if you want to keep going.</p>"
+                                        f"<p>Everything you've set up (your AI agent, Smart Filters, "
+                                        f"phone numbers, and conversation history) will keep working "
+                                        f"seamlessly.</p>"
+                                        f"<p>If you have any questions before your trial ends, "
+                                        f"just reply to this email.</p>"
+                                        f'<p><a href="{YOUR_DOMAIN}/dashboard"'
+                                        f' style="background:#00ff88;color:#000;padding:12px 24px;'
+                                        f'border-radius:8px;text-decoration:none;font-weight:bold;">'
+                                        f'Go to Dashboard</a></p>'
+                                        f"<p>— The InsuranceGrokBot Team</p>"
+                                    ),
+                                )
+                            except Exception as mail_err:
+                                logger.warning(f"Trial ending email to {email} failed: {mail_err}")
+                    except Exception as e:
+                        logger.error(f"Trial will end handler error: {e}")
+                    finally:
+                        if cur:
+                            cur.close()
+                        return_db_connection(conn)
+            except Exception as e:
+                logger.error(f"Trial_will_end handler error: {e}")
+
+    # ── Subscription paused — log for now ──────────────────────────────────
+    elif event["type"] == "customer.subscription.paused":
+        subscription = event["data"]["object"]
+        customer_id = subscription.get("customer", "")
+        logger.info(f"Subscription paused — customer={customer_id} sub={subscription.get('id')}")
+
+    # ── Subscription resumed — re-enable access ───────────────────────────
+    elif event["type"] == "customer.subscription.resumed":
+        subscription = event["data"]["object"]
+        customer_id = subscription.get("customer", "")
+        if customer_id and subscription.get("status") == "active":
+            try:
+                conn = get_db_connection()
+                if conn:
+                    cur = None
+                    try:
+                        cur = conn.cursor(cursor_factory=RealDictCursor)
+                        # Look up the customer's email from Stripe, then re-enable
+                        customer_obj = stripe.Customer.retrieve(customer_id)
+                        cust_email = (customer_obj.email or "").lower()
+                        if cust_email:
+                            # Determine tier from the resumed subscription's price
+                            items = subscription.get("items", {}).get("data", [])
+                            price_id = items[0]["price"]["id"] if items else ""
+                            price_to_tier = {v: k for k, v in {
+                                "sms_bot": os.getenv("STRIPE_SMS_BOT_PRICE_ID"),
+                                "individual": os.getenv("STRIPE_PRICE_ID"),
+                                "pro_dialer": os.getenv("STRIPE_PRO_DIALER_PRICE_ID"),
+                                "solo_predictive": os.getenv("STRIPE_PREDICTIVE_DIALER_PRICE_ID"),
+                            }.items() if v}
+                            tier = price_to_tier.get(price_id, "individual")
+
+                            cur.execute("""
+                                UPDATE subscribers
+                                SET stripe_customer_id = %s,
+                                    subscription_tier = %s,
+                                    updated_at = NOW()
+                                WHERE email = %s
+                            """, (customer_id, tier, cust_email))
+                            conn.commit()
+                            logger.info(f"Subscription resumed for {cust_email} — tier={tier}")
+                        conn.commit()
+                        logger.info(f"Subscription resumed — customer={customer_id}")
+                    except Exception as e:
+                        logger.error(f"Subscription resume handler error: {e}")
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
+                    finally:
+                        if cur:
+                            cur.close()
+                        return_db_connection(conn)
+            except Exception as e:
+                logger.error(f"Subscription resumed error: {e}")
+
+    # ── Charge disputed — alert admins immediately ─────────────────────────
+    elif event["type"] == "charge.dispute.created":
+        dispute = event["data"]["object"]
+        amount = dispute.get("amount", 0)
+        reason = dispute.get("reason", "unknown")
+        customer_id = dispute.get("customer", "")
+        logger.critical(
+            f"DISPUTE CREATED — customer={customer_id} amount=${amount/100:.2f} "
+            f"reason={reason} dispute={dispute.get('id')}"
+        )
+        try:
+            from send_email_api import send_email_via_api
+            for admin_email in ADMIN_EMAILS:
+                send_email_via_api(
+                    to_email=admin_email,
+                    subject=f"DISPUTE ALERT — ${amount/100:.2f} — {reason}",
+                    html_body=(
+                        f"<p><strong>A charge dispute was filed.</strong></p>"
+                        f"<p>Amount: <strong>${amount/100:.2f}</strong><br>"
+                        f"Reason: <strong>{reason}</strong><br>"
+                        f"Customer: {customer_id}<br>"
+                        f"Dispute ID: {dispute.get('id', '?')}</p>"
+                        f'<p><a href="https://dashboard.stripe.com/disputes/{dispute.get("id", "")}">'
+                        f'View in Stripe Dashboard</a></p>'
+                    ),
+                )
+        except Exception as mail_err:
+            logger.warning(f"Dispute alert email failed: {mail_err}")
+
+    # ── Charge refunded — log for records ──────────────────────────────────
+    elif event["type"] == "charge.refunded":
+        charge = event["data"]["object"]
+        amount_refunded = charge.get("amount_refunded", 0)
+        customer_id = charge.get("customer", "")
+        logger.info(
+            f"Charge refunded — customer={customer_id} "
+            f"refunded=${amount_refunded/100:.2f} charge={charge.get('id')}"
+        )
+
+    # ── Customer updated — sync email changes ─────────────────────────────
+    elif event["type"] == "customer.updated":
+        customer = event["data"]["object"]
+        customer_id = customer.get("id", "")
+        new_email = (customer.get("email") or "").lower()
+        previous = event["data"].get("previous_attributes", {})
+        old_email = (previous.get("email") or "").lower()
+
+        if old_email and new_email and old_email != new_email:
+            logger.info(f"Customer email changed: {old_email} → {new_email} (customer={customer_id})")
+            try:
+                conn = get_db_connection()
+                if conn:
+                    cur = None
+                    try:
+                        cur = conn.cursor()
+                        cur.execute(
+                            "UPDATE subscribers SET email = %s, updated_at = NOW() WHERE stripe_customer_id = %s AND email = %s",
+                            (new_email, customer_id, old_email)
+                        )
+                        if cur.rowcount:
+                            conn.commit()
+                            logger.info(f"Subscriber email synced: {old_email} → {new_email}")
+                        else:
+                            conn.rollback()
+                    except Exception as e:
+                        logger.error(f"Customer email sync failed: {e}")
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
+                    finally:
+                        if cur:
+                            cur.close()
+                        return_db_connection(conn)
+            except Exception as e:
+                logger.error(f"Customer.updated handler error: {e}")
+
+    # ── Subscription created — log for analytics ───────────────────────────
+    elif event["type"] == "customer.subscription.created":
+        subscription = event["data"]["object"]
+        customer_id = subscription.get("customer", "")
+        status = subscription.get("status", "")
+        logger.info(
+            f"Subscription created — customer={customer_id} status={status} "
+            f"sub={subscription.get('id')}"
+        )
 
     return '', 200
 
