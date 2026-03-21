@@ -413,7 +413,7 @@ def _handle_uninstall(payload: dict):
 # Max tool-calling rounds per request (prevents infinite loops)
 _SUPPORT_MAX_TOOL_ROUNDS = 5
 # Model for the support agent
-_SUPPORT_MODEL = "grok-3-fast"
+_SUPPORT_MODEL = "grok-4-1-fast-non-reasoning"
 
 
 @webhooks_bp.route("/website-bot-webhook", methods=["POST"])

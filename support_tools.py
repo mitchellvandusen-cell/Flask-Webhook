@@ -51,7 +51,6 @@ _SECRET_PATTERNS = [
     (re.compile(r'MG[a-f0-9]{32}'), '[SERVICE_ID]'),
     (re.compile(r'PN[a-f0-9]{32}'), '[NUMBER_ID]'),
     (re.compile(r'auth_token[\s:="\']+[a-f0-9]{32}', re.IGNORECASE), 'auth_token=[REDACTED]'),
-    (re.compile(r'[a-f0-9]{32}(?=[a-f0-9]{0,2}[^a-f0-9])'), '[REDACTED]'),
 ]
 
 
@@ -701,7 +700,7 @@ def _exec_fix_registration(args: dict, ctx: dict) -> dict:
         return {"error": f"Unknown action '{action}'. Supported actions: {', '.join(sorted(ALLOWED_WRITE_ACTIONS))}"}
 
     # Generate consent request — don't execute yet
-    action_id = str(uuid.uuid4())[:8]
+    action_id = str(uuid.uuid4())
     action_descriptions = {
         "resubmit_voice_integrity": "Resubmit your spam protection registration for carrier review",
         "submit_voice_integrity": "Submit your spam protection registration for the first time",

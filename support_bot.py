@@ -37,7 +37,7 @@ _FORBIDDEN_PATTERNS = [
     (re.compile(r'\bEntityAssignment\b', re.IGNORECASE), 'connection'),
     (re.compile(r'\bChannelEndpoint\b', re.IGNORECASE), 'number assignment'),
     (re.compile(r'\bxAI\b', re.IGNORECASE), 'our AI engine'),
-    (re.compile(r'\bGrok\b', re.IGNORECASE), 'our AI'),
+    (re.compile(r'(?<!Insurance)\bGrok\b(?!Bot)', re.IGNORECASE), 'our AI'),
     (re.compile(r'\bOpenAI\b', re.IGNORECASE), 'our AI engine'),
     (re.compile(r'\bRedis\b', re.IGNORECASE), 'our servers'),
     (re.compile(r'\bPostgreSQL\b', re.IGNORECASE), 'our database'),
@@ -45,7 +45,7 @@ _FORBIDDEN_PATTERNS = [
     (re.compile(r'\bFlask\b', re.IGNORECASE), 'our platform'),
     (re.compile(r'\bGunicorn\b', re.IGNORECASE), 'our servers'),
     (re.compile(r'\bRQ\b'), 'our processing system'),
-    (re.compile(r'\bworker\b', re.IGNORECASE), 'our processing system'),
+    (re.compile(r'\b(?:RQ |background |queue )worker\b', re.IGNORECASE), 'our processing system'),
     (re.compile(r'\bwebhook\b', re.IGNORECASE), 'notification'),
     (re.compile(r'\bOAuth\b', re.IGNORECASE), 'CRM connection'),
     (re.compile(r'\bAPI endpoint\b', re.IGNORECASE), 'the connection'),
@@ -57,7 +57,7 @@ _FORBIDDEN_PATTERNS = [
     (re.compile(r'\bconnection pool\b', re.IGNORECASE), 'our system'),
     (re.compile(r'\bpolicy_sid\b', re.IGNORECASE), 'policy'),
     (re.compile(r'\b[A-Z]{2}[a-f0-9]{32}\b'), ''),  # strip any Twilio SIDs
-    (re.compile(r'\.py\b'), ''),  # strip any .py file references
+    (re.compile(r'\b\w+\.py\b'), ''),  # strip Python file references like tasks.py
 ]
 
 

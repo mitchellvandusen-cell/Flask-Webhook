@@ -422,7 +422,7 @@ def api_refresh_support_logs():
         return safe_jsonify({"error": "Unauthorized"}), 401
 
     import subprocess
-    from db import get_db_connection, return_db_connection
+    from db_legacy import get_db_connection, return_db_connection
 
     conn = None
     captured = 0
