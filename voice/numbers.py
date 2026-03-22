@@ -2541,3 +2541,139 @@ def number_integrity_update_info():
     except Exception as e:
         logger.error(f"[NumberIntegrity] Update info failed: {e}", exc_info=True)
         return jsonify({"error": f"Update failed: {str(e)}"}), 500
+
+
+# ──────────────────────────────────────────────────────────────
+# TRUST HUB STATUS CALLBACK
+# Twilio POSTs here when a Customer Profile, Trust Product, or
+# Brand Registration changes status (e.g., pending → approved).
+# ──────────────────────────────────────────────────────────────
+
+
+@numbers_bp.route('/voice/trust-hub-status', methods=['POST'])
+def trust_hub_status_callback():
+    """
+    Twilio Trust Hub status callback webhook.
+    Receives status change notifications for Customer Profiles,
+    Trust Products (CNAM, Voice Integrity, A2P), and Brand Registrations.
+
+    No @login_required — Twilio calls this server-to-server.
+    Validates request via Twilio signature.
+    """
+    from twilio.request_validator import RequestValidator
+
+    auth_token = os.getenv('TWILIO_AUTH_TOKEN', '')
+    validator = RequestValidator(auth_token)
+
+    # Build the full URL Twilio signed against
+    url = request.url
+    # If behind a proxy, use the X-Forwarded-Proto scheme
+    if request.headers.get('X-Forwarded-Proto') == 'https':
+        url = url.replace('http://', 'https://', 1)
+
+    signature = request.headers.get('X-Twilio-Signature', '')
+    params = request.form.to_dict()
+
+    if not validator.validate(url, params, signature):
+        logger.warning("[TrustHub-Callback] Invalid Twilio signature — rejecting")
+        return '', 403
+
+    # Extract status update fields from Twilio's POST body
+    resource_sid = params.get('ResourceSid', '')
+    status = params.get('Status', '')
+    resource_type = params.get('ResourceType', '')  # e.g. customer_profile, trust_product
+    account_sid = params.get('AccountSid', '')
+
+    logger.info(
+        f"[TrustHub-Callback] {resource_type} {resource_sid} → {status} "
+        f"(account={account_sid})"
+    )
+
+    # Find the subscriber whose voice_config references this SID
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Search voice_config JSONB for the resource SID across all relevant keys
+        cur.execute("""
+            SELECT location_id, email, voice_config
+            FROM subscribers
+            WHERE voice_config::text LIKE %s
+            LIMIT 1
+        """, (f'%{resource_sid}%',))
+        row = cur.fetchone()
+
+        if not row:
+            logger.info(f"[TrustHub-Callback] No subscriber found for SID {resource_sid} — may be master account")
+            return '', 204
+
+        location_id, email, vc = row
+        vc = vc or {}
+
+        updated = False
+
+        # Update the matching section in voice_config
+        # Customer Profile status
+        trust_hub = vc.get('trust_hub', {})
+        if trust_hub.get('profile_sid') == resource_sid:
+            trust_hub['review_status'] = status
+            if status in ('twilio-approved', 'approved', 'compliant'):
+                trust_hub['protection_active'] = True
+            vc['trust_hub'] = trust_hub
+            updated = True
+            logger.info(f"[TrustHub-Callback] Updated trust_hub.review_status={status} for {email}")
+
+        # CNAM Trust Product
+        cnam = vc.get('cnam', {})
+        if cnam.get('trust_product_sid') == resource_sid:
+            cnam['status'] = status
+            vc['cnam'] = cnam
+            updated = True
+            logger.info(f"[TrustHub-Callback] Updated cnam.status={status} for {email}")
+
+        # Voice Integrity Trust Product
+        ni = vc.get('number_integrity', {})
+        if ni.get('trust_product_sid') == resource_sid:
+            ni['status'] = status
+            vc['number_integrity'] = ni
+            updated = True
+            logger.info(f"[TrustHub-Callback] Updated number_integrity.status={status} for {email}")
+
+        # A2P Brand/Campaign
+        a2p = vc.get('a2p', {})
+        if a2p.get('brand_sid') == resource_sid:
+            a2p['brand_status'] = status
+            vc['a2p'] = a2p
+            updated = True
+            logger.info(f"[TrustHub-Callback] Updated a2p.brand_status={status} for {email}")
+        if a2p.get('campaign_sid') == resource_sid:
+            a2p['campaign_status'] = status
+            vc['a2p'] = a2p
+            updated = True
+            logger.info(f"[TrustHub-Callback] Updated a2p.campaign_status={status} for {email}")
+
+        if updated:
+            import json as _json
+            cur.execute(
+                "UPDATE subscribers SET voice_config = %s WHERE location_id = %s",
+                (_json.dumps(vc), location_id)
+            )
+            conn.commit()
+
+            # Log it as an activity event
+            log_webhook_event(
+                location_id,
+                f"Trust Hub status update: {resource_type} → {status}",
+                {"resource_sid": resource_sid, "status": status, "type": resource_type},
+            )
+        else:
+            logger.info(f"[TrustHub-Callback] SID {resource_sid} found in text but no matching field for {email}")
+
+    except Exception as e:
+        logger.error(f"[TrustHub-Callback] Error processing status update: {e}", exc_info=True)
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+    return '', 204
