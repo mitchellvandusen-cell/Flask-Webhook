@@ -295,8 +295,7 @@
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Auto-booking to your calendar</li>
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> AI Assistant (80 actions)</li>
                 </ul>
-                <label class="consent-check"><input type="checkbox" class="consent-checkbox" data-plan="sms-bot"><span>I agree to the <a href="/terms" target="_blank">Terms of Service</a></span></label>
-                <a href="/checkout/sms-bot" class="btn btn-gradient-cyan w-100 py-3 checkout-btn" data-plan="sms-bot" style="font-weight: 700; pointer-events: none; opacity: 0.5;">Start Free Trial</a>
+                <a href="/checkout/sms-bot" class="btn btn-gradient-cyan w-100 py-3" style="font-weight: 700;">Start Free Trial</a>
             </div>
 
             <!-- Power Dialer -->
@@ -314,8 +313,7 @@
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> AI Assistant (80 actions + voice)</li>
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Unlimited dialing minutes*</li>
                 </ul>
-                <label class="consent-check"><input type="checkbox" class="consent-checkbox" data-plan="power"><span>I agree to the <a href="/terms" target="_blank">Terms of Service</a></span></label>
-                <a href="/checkout" class="btn btn-primary w-100 py-3 checkout-btn" data-plan="power" style="font-weight: 700; pointer-events: none; opacity: 0.5;">Start Free Trial</a>
+                <a href="/checkout" class="btn btn-primary w-100 py-3" style="font-weight: 700;">Start Free Trial</a>
             </div>
 
             <!-- Pro Dialer -->
@@ -332,8 +330,7 @@
                     <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Priority queue</li>
                     <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Unlimited dialing minutes*</li>
                 </ul>
-                <label class="consent-check"><input type="checkbox" class="consent-checkbox" data-plan="pro"><span>I agree to the <a href="/terms" target="_blank">Terms of Service</a></span></label>
-                <a href="/checkout/pro-dialer" class="btn btn-gradient-orange w-100 py-3 checkout-btn" data-plan="pro" style="font-weight: 700; pointer-events: none; opacity: 0.5;">Start Free Trial</a>
+                <a href="/checkout/pro-dialer" class="btn btn-gradient-orange w-100 py-3" style="font-weight: 700;">Start Free Trial</a>
             </div>
 
             <!-- Solo Predictive -->
@@ -350,8 +347,7 @@
                     <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> TCPA compliance dashboard</li>
                     <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> Callback queue + timezone enforcement</li>
                 </ul>
-                <label class="consent-check"><input type="checkbox" class="consent-checkbox" data-plan="predictive"><span>I agree to the <a href="/terms" target="_blank">Terms of Service</a></span></label>
-                <a href="/checkout/predictive-dialer" class="btn w-100 py-3 checkout-btn" data-plan="predictive" style="font-weight: 700; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: #fff; border: none; pointer-events: none; opacity: 0.5;">Start Free Trial</a>
+                <a href="/checkout/predictive-dialer" class="btn w-100 py-3" style="font-weight: 700; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: #fff; border: none;">Start Free Trial</a>
             </div>
         </div>
 
@@ -448,25 +444,6 @@
         }
     }
 
-    /* ── Consent checkbox toggles checkout buttons ── */
-    document.querySelectorAll('.consent-checkbox').forEach(function(cb) {
-        cb.addEventListener('change', function() {
-            var plan = cb.getAttribute('data-plan');
-            var btn = document.querySelector('.checkout-btn[data-plan="' + plan + '"]');
-            if (!btn) return;
-            if (cb.checked) {
-                btn.style.pointerEvents = 'auto'; btn.style.opacity = '1';
-                var url = new URL(btn.href, window.location.origin);
-                url.searchParams.set('consent', '1');
-                btn.href = url.pathname + url.search;
-            } else {
-                btn.style.pointerEvents = 'none'; btn.style.opacity = '0.5';
-                var url = new URL(btn.href, window.location.origin);
-                url.searchParams.delete('consent');
-                btn.href = url.pathname + url.search;
-            }
-        });
-    });
 })();
 </script>
 {% endblock %}
