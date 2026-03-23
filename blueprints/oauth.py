@@ -484,6 +484,40 @@ def oauth_callback():
         else:
             logger.info("No userId in token_data — skipping /users/ call")
 
+        # ── Extract locationId from user roles ─────────────────────────────────
+        # When GHL returns a Company-scoped token (no locationId), the user's
+        # roles.locationIds tells us which location(s) they belong to.
+        # This is the authoritative source for sub-account user → location mapping.
+        user_roles = me_data.get('roles', {}) if isinstance(me_data.get('roles'), dict) else {}
+        user_role_type = user_roles.get('type', '')  # 'account' = sub-account user, 'agency' = agency-level
+        user_location_ids = user_roles.get('locationIds', []) or []
+
+        if not primary_location_id and user_location_ids:
+            if len(user_location_ids) == 1:
+                primary_location_id = user_location_ids[0]
+                logger.info(
+                    f"Resolved locationId from user roles: {primary_location_id} "
+                    f"(user has 1 location, role_type={user_role_type})"
+                )
+            else:
+                # User has multiple locations — pick first one for now.
+                # Agency owners will be detected in Step 3 via role_type check.
+                primary_location_id = user_location_ids[0]
+                logger.info(
+                    f"User has {len(user_location_ids)} locations in roles: {user_location_ids}. "
+                    f"Using first: {primary_location_id} (role_type={user_role_type})"
+                )
+        elif not primary_location_id:
+            logger.warning(
+                f"No locationId from token, URL, or user roles. "
+                f"role_type={user_role_type}, locationIds={user_location_ids}"
+            )
+
+        logger.info(
+            f"User roles: type={user_role_type}, locationIds={user_location_ids}, "
+            f"resolved primary_location_id={primary_location_id}"
+        )
+
         # ── Capture CRM email from GHL ───────────────────────────────────────
         # The email from /users/{userId} or token_data is the CRM email.
         # This is stored separately so it never overwrites the login email.
@@ -613,39 +647,63 @@ def oauth_callback():
 
         logger.info(f"Step 2 complete: User info retrieved. email={user_email}")
 
-        # ── Step 3: Detect agency status via companyId ────────────────────────
-        # Agency owner = has companyId but NO locationId (regardless of token scope).
-        # GHL marketplace installs for agency owners come in as Location-scoped
-        # tokens with companyId present but locationId=None.
-        # Individual agent = has locationId (regardless of whether companyId is also present).
+        # ── Step 3: Detect agency status ────────────────────────────────────
+        # Three-signal agency detection (all must agree):
+        #   1. roles.type == 'agency' from /users/{userId} (strongest signal)
+        #   2. companyId present with NO locationId (even after roles extraction)
+        #   3. No existing agency owner for this companyId (or this IS the owner)
+        #
+        # Sub-account users: roles.type == 'account', have locationIds → NEVER agency owner
+        # Agency owners: roles.type == 'agency', no specific locationIds → agency owner
         is_agency_owner = False
         company_metadata = {}
 
-        if company_id and not primary_location_id:
-            # companyId present but no locationId — COULD be agency owner OR
-            # a regular GHL user with admin access getting a company-scoped token.
-            # CHECK: does an agency owner already exist for this companyId?
+        if company_id and primary_location_id and user_role_type == 'account':
+            # User has a companyId but also a resolved locationId and is an 'account' type.
+            # This is a sub-account user (individual agent), NOT an agency owner.
+            logger.info(
+                f"Sub-account user detected: companyId={company_id}, "
+                f"locationId={primary_location_id}, role_type=account. "
+                f"NOT agency owner."
+            )
+        elif company_id and not primary_location_id:
+            # companyId present but no locationId even after roles extraction —
+            # likely an agency-level user. Verify against existing agency records.
             existing_agency = get_agency_by_company_id(company_id)
 
             if existing_agency and existing_agency.get('agency_email', '').lower() != user_email.lower():
                 # Agency already has an owner and it's NOT this user.
-                # This is an individual agent under that agency, not the owner.
                 is_agency_owner = False
                 logger.info(
                     f"companyId={company_id} already owned by {existing_agency.get('agency_email')}. "
-                    f"User {user_email} is an individual agent, NOT agency owner."
+                    f"User {user_email} is an individual agent, NOT agency owner. "
+                    f"role_type={user_role_type}"
                 )
             else:
-                # Either no agency exists yet for this companyId, or THIS user
-                # is the existing agency owner reconnecting. Safe to treat as agency owner.
                 is_agency_owner = True
                 logger.info(
                     f"Agency owner detected: companyId={company_id}, no locationId, "
-                    f"token_type={token_user_type_used}, "
+                    f"role_type={user_role_type}, token_type={token_user_type_used}, "
                     f"existing_agency={'reconnect' if existing_agency else 'NEW'}"
                 )
+        elif company_id and primary_location_id and user_role_type == 'agency':
+            # Has locationId but roles say 'agency' — this is an agency owner
+            # who also has a primary location. Check existing agency records.
+            existing_agency = get_agency_by_company_id(company_id)
+            if not existing_agency or existing_agency.get('agency_email', '').lower() == user_email.lower():
+                is_agency_owner = True
+                logger.info(
+                    f"Agency owner with primary location: companyId={company_id}, "
+                    f"locationId={primary_location_id}, role_type=agency"
+                )
+            else:
+                logger.info(
+                    f"User has role_type=agency but agency already owned by "
+                    f"{existing_agency.get('agency_email')}. Treating as individual."
+                )
 
-            # Capture company metadata regardless (useful for auto-linking)
+        # Capture company metadata if companyId present (useful for auto-linking)
+        if company_id:
             company_metadata = {
                 'company_id': company_id,
                 'company_name': None,
@@ -666,10 +724,8 @@ def oauth_callback():
                 company_metadata['company_owner_name'] = f"{first} {last}".strip() or None
 
             logger.info(f"Company metadata captured: {company_metadata}")
-        elif company_id:
-            logger.info(f"Individual install with companyId={company_id} — will auto-link to agency if exists")
         else:
-            logger.info("Location-scoped token without companyId — individual user")
+            logger.info("No companyId — individual user without agency")
 
         logger.info(f"Step 3 complete: Agency detection. is_agency={is_agency_owner}, companyId={company_id}")
 
