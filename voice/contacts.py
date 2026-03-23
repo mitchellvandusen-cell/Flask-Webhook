@@ -720,11 +720,25 @@ def get_pipelines():
             params={"locationId": location_id},
             timeout=10
         )
+        # On 401, try one forced token refresh before giving up
+        if resp.status_code == 401:
+            logger.info("Pipelines 401 — attempting forced token refresh")
+            from ghl_api import get_valid_token_with_status
+            refreshed_token, was_refreshed, err = get_valid_token_with_status(
+                location_id, force_refresh=True
+            )
+            if refreshed_token and was_refreshed:
+                headers["Authorization"] = f"Bearer {refreshed_token}"
+                resp = http_requests.get(
+                    f"{GHL_API_BASE}/opportunities/pipelines",
+                    headers=headers,
+                    params={"locationId": location_id},
+                    timeout=10
+                )
+                logger.info(f"Pipelines retry after refresh: {resp.status_code}")
         if resp.status_code in (401, 403, 422):
-            # opportunities.readonly scope not yet granted — GHL returns 401/403
-            # for missing scopes, but PITs sometimes return 422 instead.
             logger.warning(f"Pipelines fetch returned {resp.status_code} — "
-                           f"opportunities.readonly scope likely not granted. "
+                           f"token may need re-auth or scope missing. "
                            f"Response: {resp.text[:300]}")
             return jsonify({"pipelines": [], "scope_missing": True})
         if resp.status_code != 200:
