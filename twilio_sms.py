@@ -181,7 +181,7 @@ def get_twilio_credentials(location_id):
         sms_via = row.get('sms_send_via', 'ghl')
 
         sub_sid = vc.get('twilio_sub_account_sid')
-        auth_token = vc.get('twilio_auth_token')
+        auth_tok = vc.get('twilio_auth_token')
 
         # Determine the "from" number
         # If sms_send_via is a phone number (starts with +), use that
@@ -191,7 +191,29 @@ def get_twilio_credentials(location_id):
         else:
             from_number = vc.get('twilio_phone_number')
 
-        return sub_sid, auth_token, from_number
+        # Fallback: if no primary number set, find any active number from number_health
+        if not from_number and sub_sid and auth_tok:
+            try:
+                nh_conn = get_db_connection()
+                if nh_conn:
+                    try:
+                        nh_cur = nh_conn.cursor()
+                        nh_cur.execute("""
+                            SELECT phone FROM number_health
+                            WHERE location_id = %s AND status = 'active'
+                            ORDER BY created_at ASC LIMIT 1
+                        """, (location_id,))
+                        nh_row = nh_cur.fetchone()
+                        if nh_row and nh_row.get('phone'):
+                            from_number = nh_row['phone']
+                            logger.info(f"Twilio fallback: using number_health phone {from_number} for {location_id}")
+                        nh_cur.close()
+                    finally:
+                        return_db_connection(nh_conn)
+            except Exception as nh_err:
+                logger.debug(f"number_health phone lookup failed: {nh_err}")
+
+        return sub_sid, auth_tok, from_number
 
     except Exception as e:
         logger.error(f"Failed to get Twilio credentials for {location_id}: {e}")

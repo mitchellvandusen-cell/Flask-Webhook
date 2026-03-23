@@ -206,6 +206,12 @@ def process_webhook_task(payload: dict):
 
                 return {"status": "error", "reason": f"token refresh failed: {token_error}"}
 
+            # If GHL OAuth creds are missing, log once and continue — Twilio
+            # fallback will handle SMS delivery downstream
+            if token_error == 'no_credentials':
+                logger.warning(f"⚠️ GHL OAuth credentials missing for {location_id} — "
+                              f"will use Twilio fallback for SMS delivery")
+
             # If we got an expired token as last resort, log a warning but continue
             if token_error == 'expired':
                 logger.warning(f"⚠️ Using possibly-expired token for {location_id} — "
@@ -225,6 +231,10 @@ def process_webhook_task(payload: dict):
                         severity="warning",
                         location_id=location_id
                     )
+
+        # Track if GHL OAuth credentials are missing — skip GHL SMS entirely
+        # to avoid wasting time on 3 retries with an expired/unusable token
+        _ghl_creds_missing = (token_error == 'no_credentials') if not is_demo and not is_api_source else False
 
         # Inject fresh token (empty for API sources without GHL)
         subscriber['access_token'] = auth_token
@@ -913,13 +923,23 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                         fail_reason = 'adapter'
                 else:
                     # GHL (default): Use existing direct code path
-                    sent, fail_reason, http_detail = send_sms_via_ghl(contact_id, reply, auth_token, location_id, conversation_id=conversation_id)
+                    # Skip GHL entirely when OAuth credentials are missing — avoids 3
+                    # wasted retries (~45s) with an expired token that can never refresh.
+                    # Go straight to Twilio fallback below instead.
+                    if _ghl_creds_missing:
+                        logger.warning(f"🔄 GHL OAuth creds missing — skipping GHL SMS for "
+                                      f"{contact_id}, will try Twilio fallback")
+                        sent = False
+                        fail_reason = 'no_credentials'
+                    else:
+                        sent, fail_reason, http_detail = send_sms_via_ghl(contact_id, reply, auth_token, location_id, conversation_id=conversation_id)
 
                 # === TOKEN RECOVERY ===
                 # If SMS failed due to 401/403 auth, force-refresh the token and retry.
                 # Works for BOTH Public (marketplace) and Private app credentials —
                 # get_valid_token_with_status tries all configured credential sets.
-                if not sent and fail_reason == 'auth':
+                # Skip recovery when we already know OAuth creds are missing.
+                if not sent and fail_reason == 'auth' and not _ghl_creds_missing:
                     logger.warning(f"🔄 TOKEN RECOVERY: SMS auth failure for {contact_id} — "
                                   f"force-refreshing token for {location_id}")
                     recovered_token, was_refreshed, recovery_err = get_valid_token_with_status(
@@ -961,10 +981,10 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                                           details={"error": recovery_err})
 
                 # === TWILIO SMS FALLBACK ===
-                # If GHL SMS failed (auth, error, network) and subscriber has Twilio
-                # sub-account credentials, try sending via Twilio direct as last resort.
-                # This keeps messages flowing even when GHL OAuth credentials are
-                # unavailable (e.g. missing env vars on worker service).
+                # If GHL SMS failed (auth, error, network, no_credentials) and subscriber
+                # has Twilio sub-account credentials, try sending via Twilio direct as
+                # last resort. This keeps messages flowing even when GHL OAuth credentials
+                # are unavailable (e.g. missing env vars on worker service).
                 if not sent and sub_tier != 'sms_bot':
                     try:
                         from twilio_sms import send_sms_via_twilio, get_twilio_credentials
@@ -999,6 +1019,19 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                                     )
                                 except Exception as ghl_log_err:
                                     logger.debug(f"GHL conversation log skipped (fallback): {ghl_log_err}")
+                        else:
+                            # Log exactly what's missing so we can diagnose
+                            missing = []
+                            if not fb_sub_sid:
+                                missing.append("twilio_sub_account_sid")
+                            if not fb_sub_auth:
+                                missing.append("twilio_auth_token")
+                            if not fb_from_number:
+                                missing.append("from_number")
+                            if not contact_phone:
+                                missing.append("contact_phone")
+                            logger.error(f"❌ TWILIO FALLBACK UNAVAILABLE for {contact_id}: "
+                                        f"missing {', '.join(missing)} | location={location_id}")
                     except Exception as fb_err:
                         logger.warning(f"Twilio fallback not available for {contact_id}: {fb_err}")
 
