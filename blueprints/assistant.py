@@ -207,9 +207,21 @@ def assistant_chat():
 
                     tool_result = execute_assistant_tool(tool_name, tool_args, user_ctx)
 
-                    # Check for navigation action
-                    if isinstance(tool_result, dict) and tool_result.get("action") == "navigate":
-                        navigate_tab = tool_result.get("tab_id")
+                    # Check for frontend actions
+                    if isinstance(tool_result, dict):
+                        action = tool_result.get("action")
+                        if action == "navigate":
+                            navigate_tab = tool_result.get("tab_id")
+                        elif action == "call":
+                            # Return immediately — frontend will initiate the call
+                            return flask_jsonify({
+                                "text": tool_result.get("message", "Calling now..."),
+                                "call": {
+                                    "contact_id": tool_result.get("contact_id"),
+                                    "phone": tool_result.get("phone"),
+                                    "first_name": tool_result.get("first_name"),
+                                },
+                            })
 
                     messages.append({
                         "role": "tool",

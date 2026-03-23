@@ -87,16 +87,31 @@
             if (data.text) {
                 _renderMessage('assistant', data.text);
             }
+            // Handle navigation
             if (data.navigate && typeof sidebarNavigate === 'function') {
-                // Navigate to the tab
                 var btn = document.getElementById('sbn' + data.navigate.charAt(0).toUpperCase() + data.navigate.slice(1));
                 if (btn) {
                     sidebarNavigate(data.navigate, btn);
                 } else {
-                    // Fallback: try clicking sidebar nav by data-tab attribute
                     var navBtn = document.querySelector('.sb-nav-item[onclick*="' + data.navigate + '"]');
                     if (navBtn) navBtn.click();
                 }
+            }
+            // Handle call initiation
+            if (data.call && typeof dialContact === 'function') {
+                dialContact(data.call.contact_id, data.call.phone, data.call.first_name);
+            } else if (data.call) {
+                // Fallback: POST to /voice/dial
+                fetch('/voice/dial', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contact_id: data.call.contact_id,
+                        phone: data.call.phone,
+                        first_name: data.call.first_name || 'there',
+                        dial_mode: 'ai',
+                    }),
+                }).catch(function() {});
             }
         })
         .catch(function(err) {

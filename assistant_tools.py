@@ -179,6 +179,31 @@ def get_assistant_tool_definitions():
                 }
             }
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "make_call",
+                "description": "Initiate an outbound phone call to a contact. Requires contact_id and phone number (use search_contact first). The call will start immediately.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "contact_id": {
+                            "type": "string",
+                            "description": "The GHL contact ID"
+                        },
+                        "phone": {
+                            "type": "string",
+                            "description": "The contact's phone number"
+                        },
+                        "first_name": {
+                            "type": "string",
+                            "description": "Contact's first name"
+                        }
+                    },
+                    "required": ["contact_id", "phone"]
+                }
+            }
+        },
     ]
 
 
@@ -498,6 +523,24 @@ def _handle_get_contact_intelligence(args, ctx):
             return_db_connection(conn)
 
 
+def _handle_make_call(args, ctx):
+    """Initiate an outbound call — returns action for frontend to execute."""
+    contact_id = args.get("contact_id", "").strip()
+    phone = args.get("phone", "").strip()
+    first_name = args.get("first_name", "").strip() or "there"
+
+    if not contact_id or not phone:
+        return {"error": "Both contact_id and phone are required. Search for the contact first."}
+
+    return {
+        "action": "call",
+        "contact_id": contact_id,
+        "phone": phone,
+        "first_name": first_name,
+        "message": f"Calling {first_name} at {phone}",
+    }
+
+
 # ── Tool handler registry ────────────────────────────────────────────────────
 
 _TOOL_HANDLERS = {
@@ -508,4 +551,5 @@ _TOOL_HANDLERS = {
     "get_call_stats": _handle_get_call_stats,
     "navigate_dashboard": _handle_navigate_dashboard,
     "get_contact_intelligence": _handle_get_contact_intelligence,
+    "make_call": _handle_make_call,
 }
