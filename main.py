@@ -410,6 +410,21 @@ csrf.exempt(inbox_bp)
 csrf.exempt(team_bp)
 csrf.exempt(contacts_import_bp)
 csrf.exempt(workflows_bp)
+# Voice sub-blueprints (CSRF exempt doesn't cascade to sub-blueprints)
+from voice.intelligence import intelligence_bp as voice_intel_bp
+from voice.dialer import dialer_bp as voice_dialer_bp
+from voice.contacts import contacts_bp as voice_contacts_bp
+from voice.outbound import outbound_bp as voice_outbound_bp
+from voice.twiml_routes import twiml_bp as voice_twiml_bp
+from voice.call_history import call_history_bp as voice_call_history_bp
+from voice.recordings import recordings_bp as voice_recordings_bp
+from voice.stats import stats_bp as voice_stats_bp
+from voice.a2p import a2p_bp as voice_a2p_bp
+from voice.setup import setup_bp as voice_setup_bp
+for _bp in [voice_intel_bp, voice_dialer_bp, voice_contacts_bp, voice_outbound_bp,
+            voice_twiml_bp, voice_call_history_bp, voice_recordings_bp,
+            voice_stats_bp, voice_a2p_bp, voice_setup_bp]:
+    csrf.exempt(_bp)
 
 
 if __name__ == "__main__":
