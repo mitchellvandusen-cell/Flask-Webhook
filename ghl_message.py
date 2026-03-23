@@ -6,6 +6,7 @@ import requests
 from datetime import datetime, timedelta
 from db import get_db_connection, return_db_connection
 from reply_sanitizer import is_safe_to_send
+from ghl_api import has_oauth_credentials as _has_ghl_oauth_creds
 
 logger = logging.getLogger(__name__)
 
@@ -137,13 +138,9 @@ def send_sms_via_ghl(
     # If no OAuth credentials are configured, the token can never be refreshed.
     # Bail immediately — no HTTP calls, no retries — to avoid wasting time
     # on doomed requests and generating noisy error logs.
-    try:
-        from ghl_api import has_oauth_credentials
-        if not has_oauth_credentials():
-            logger.debug(f"Skipping GHL SMS for {contact_id} — no OAuth credentials configured")
-            return False, 'no_credentials', None
-    except Exception:
-        pass
+    if not _has_ghl_oauth_creds():
+        logger.debug(f"Skipping GHL SMS for {contact_id} — no OAuth credentials configured")
+        return False, 'no_credentials', None
 
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -189,21 +186,23 @@ def send_sms_via_ghl(
             if last_status == 429:  # Rate limit — longer wait
                 last_failure = 'rate_limit'
                 time_module.sleep(10)
+            elif last_status == 400:  # Bad request — retrying won't help
+                logger.warning(f"GHL SMS bad request (HTTP 400) for {contact_id}: {last_body[:200]}")
+                return False, 'error', {
+                    "status_code": 400,
+                    "response_body": last_body,
+                    "attempts": attempt,
+                }
             elif last_status in (401, 403):  # Auth issue — try one force-refresh then abort
                 if not _token_refreshed:
-                    # Skip refresh attempt if no OAuth credentials are configured —
-                    # avoids error spam and wasted retries when env vars are missing
-                    try:
-                        from ghl_api import has_oauth_credentials
-                        if not has_oauth_credentials():
-                            logger.debug(f"Skipping token refresh — no OAuth creds configured for {location_id}")
-                            return False, 'auth', {
-                                "status_code": last_status,
-                                "response_body": last_body,
-                                "attempts": attempt,
-                            }
-                    except Exception:
-                        pass
+                    # Skip refresh attempt if no OAuth credentials are configured
+                    if not _has_ghl_oauth_creds():
+                        logger.debug(f"Skipping token refresh — no OAuth creds configured for {location_id}")
+                        return False, 'auth', {
+                            "status_code": last_status,
+                            "response_body": last_body,
+                            "attempts": attempt,
+                        }
                     logger.warning(f"Auth failure (HTTP {last_status}) — force-refreshing token for {location_id}")
                     try:
                         from ghl_api import get_valid_token_with_status

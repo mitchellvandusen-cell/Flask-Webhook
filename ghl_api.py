@@ -37,7 +37,6 @@ def _load_oauth_credentials():
 
 # Cached at module load — env vars don't change at runtime
 _OAUTH_CREDS_AVAILABLE = None
-_NO_CREDS_LOGGED = False  # Track whether we've already logged the missing-creds error
 
 def has_oauth_credentials():
     """Check if ANY GHL OAuth credentials are configured in environment.
@@ -202,15 +201,11 @@ def get_valid_token(location_id: str, subscriber: dict = None) -> str | None:
                                  private_id, private_secret)
 
     if not cred_sets:
-        global _NO_CREDS_LOGGED
-        # Log ERROR only once to avoid spamming; subsequent calls use WARNING
-        _log = logger.error if not _NO_CREDS_LOGGED else logger.warning
-        _log(f"No OAuth credentials configured for app_type={oauth_app_type} | "
-             f"GHL_CLIENT_ID={'set' if marketplace_id else 'MISSING'} | "
-             f"GHL_CLIENT_SECRET={'set' if marketplace_secret else 'MISSING'} | "
-             f"PRIVATE_APP_CLIENT_ID={'set' if private_id else 'MISSING'} | "
-             f"PRIVATE_APP_SECRET_ID={'set' if private_secret else 'MISSING'}")
-        _NO_CREDS_LOGGED = True
+        logger.warning(f"No OAuth credentials configured for app_type={oauth_app_type} | "
+                       f"GHL_CLIENT_ID={'set' if marketplace_id else 'MISSING'} | "
+                       f"GHL_CLIENT_SECRET={'set' if marketplace_secret else 'MISSING'} | "
+                       f"PRIVATE_APP_CLIENT_ID={'set' if private_id else 'MISSING'} | "
+                       f"PRIVATE_APP_SECRET_ID={'set' if private_secret else 'MISSING'}")
         if access_token:
             logger.debug(f"Returning possibly-expired token for {location_id} (no creds to refresh)")
             return access_token
@@ -346,14 +341,11 @@ def get_valid_token_with_status(location_id: str, subscriber: dict = None,
                                  private_id, private_secret)
 
     if not cred_sets:
-        global _NO_CREDS_LOGGED
-        _log = logger.error if not _NO_CREDS_LOGGED else logger.warning
-        _log(f"No OAuth credentials configured for app_type={oauth_app_type} | "
-             f"GHL_CLIENT_ID={'set' if marketplace_id else 'MISSING'} | "
-             f"GHL_CLIENT_SECRET={'set' if marketplace_secret else 'MISSING'} | "
-             f"PRIVATE_APP_CLIENT_ID={'set' if private_id else 'MISSING'} | "
-             f"PRIVATE_APP_SECRET_ID={'set' if private_secret else 'MISSING'}")
-        _NO_CREDS_LOGGED = True
+        logger.warning(f"No OAuth credentials configured for app_type={oauth_app_type} | "
+                       f"GHL_CLIENT_ID={'set' if marketplace_id else 'MISSING'} | "
+                       f"GHL_CLIENT_SECRET={'set' if marketplace_secret else 'MISSING'} | "
+                       f"PRIVATE_APP_CLIENT_ID={'set' if private_id else 'MISSING'} | "
+                       f"PRIVATE_APP_SECRET_ID={'set' if private_secret else 'MISSING'}")
         if access_token:
             return access_token, False, 'no_credentials'
         return None, False, 'no_credentials'
