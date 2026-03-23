@@ -194,9 +194,7 @@ csrf = CSRFProtect(app)
 
 # Exempt routes that use token/signature auth instead of session cookies
 csrf.exempt("api_v1.api_bp")
-csrf.exempt("webhooks_bp.webhook")
-csrf.exempt("webhooks_bp.app_installed")
-csrf.exempt("webhooks_bp.website_bot_webhook")
+csrf.exempt("webhooks_bp")
 csrf.exempt("billing_bp.stripe_webhook")
 csrf.exempt("cron_bp.api_send_reminders")
 csrf.exempt("cron_bp.api_refresh_tokens")
