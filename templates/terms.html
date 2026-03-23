@@ -1,118 +1,158 @@
 {% extends "base.html" %}
 
-{% block title %}Terms and Conditions - InsuranceGrokBot{% endblock %}
+{% block title %}Terms of Service — InsuranceGrokBot{% endblock %}
 
 {% block content %}
 <div class="container page-top-pad">
     <div class="legal-container">
-        <h1>Terms and Conditions</h1>
-        <p class="text-center text-muted mb-5">Last updated: March 13, 2026</p>
+        <h1>Terms of Service</h1>
+        <p class="text-center text-muted mb-5">Last updated: March 23, 2026</p>
 
         <h2>1. Agreement to Terms</h2>
-        <p>By accessing or using InsuranceGrokBot ("the Service"), you agree to be bound by these Terms and Conditions. If you do not agree, you may not use the Service. These terms apply to all subscribers, including individual agents, agency owners, and sub-users added under an agency plan.</p>
+        <p>By accessing or using InsuranceGrokBot ("the Service," "the Platform," "we," "us," or "our"), you ("User," "you," or "your") agree to be bound by these Terms of Service ("Terms"). If you do not agree, you may not use the Service. These Terms apply to all users, including individual agents, agency owners, sub-users added under an agency, and team members invited via seat management.</p>
 
         <h2>2. Description of Service</h2>
-        <p>InsuranceGrokBot is a white-label AI-powered sales automation platform built for life insurance agents. The Service connects to your CRM via OAuth and includes the following features depending on your subscription tier:</p>
+        <p>InsuranceGrokBot is a white-label AI-powered sales automation and dialing platform built exclusively for life insurance agents and agencies. The Service connects to your CRM via OAuth and includes the following features depending on your subscription tier:</p>
         <ul>
-            <li><strong>AI SMS Handler:</strong> Outbound and inbound SMS automation via Twilio. Handles objections, maintains conversation context, and books calendar appointments. Powered by xAI's Grok LLM with 270+ carrier and deep insurance product knowledge.</li>
-            <li><strong>AI Voice Agent:</strong> Fully autonomous outbound calling powered by xAI Grok Realtime speech-to-speech API. The AI cold-calls leads, qualifies prospects, handles objections, and books appointments. Human agents can monitor live and intercept at any time.</li>
-            <li><strong>Smart Dialer (Power Dialer):</strong> Queue-based single-line power dialing with auto-retry, voicemail detection, answering machine detection (AMD), number health rotation, and geo-routing. Includes AI-powered Lead Intelligence scoring and Smart Filters.</li>
-            <li><strong>Pro Dialer (Multi-Line):</strong> Up to 4 concurrent outbound call lines with AI-optimized dial ratio pacing, connect rate analytics, and configurable dialer settings including wrap-up time and daily max.</li>
-            <li><strong>Predictive Dialer:</strong> Enterprise-grade Erlang-C M/M/N queue model for automated dial pacing. Includes TCPA auto-throttle (rolling 30-day abandon rate), recipient timezone enforcement (area code mapping), recording consent tracking for two-party consent states, agent state machine (Ready/Not Ready/Wrap-Up/Break), and callback queue management.</li>
-            <li><strong>GoHighLevel CRM Integration:</strong> OAuth-based connection to GoHighLevel / LeadConnector. Bidirectional sync of conversations, contacts, opportunities, and pipeline stages. Additional CRM adapters available for HubSpot, Salesforce, Pipedrive, Zoho, Insureio, and Zapier.</li>
-            <li><strong>Lead Intelligence:</strong> AI-powered contact analysis (temperature, score, should-respond flag, next-best-actions). Cached in database; invalidated only when new messages arrive.</li>
-            <li><strong>Phone Number Management:</strong> Twilio sub-account provisioning. First 5 numbers free; local numbers $0.90/mo, toll-free $2.15/mo. Number health monitoring, CNAM registration, and spam protection.</li>
-            <li><strong>A2P 10DLC Compliance:</strong> Brand registration, campaign creation, and messaging service provisioning through Twilio's A2P infrastructure. Sub-users pay a one-time $19 registration fee.</li>
-            <li><strong>Agency Dashboard:</strong> Multi-tenant command center for agency owners. Real-time KPIs, per-agent stats, call log, and sub-user management.</li>
-            <li><strong>Unified Dashboard:</strong> Inbox, dialer, AI texting, voice configuration, carrier management, carrier intelligence, Discord team chat integration, and activity logs — all in one platform.</li>
+            <li><strong>AI SMS Handler:</strong> Outbound and inbound SMS automation. Handles objections using a 290+ phrase classification engine, maintains full conversation context across 20+ message turns, and books calendar appointments autonomously. Powered by xAI Grok with 270+ insurance carrier knowledge and real underwriting awareness.</li>
+            <li><strong>AI Voice Agent:</strong> Fully autonomous outbound calling powered by xAI Grok Realtime speech-to-speech API. The AI cold-calls leads, qualifies prospects, handles objections in real time, and books appointments. Human agents can monitor live calls and intercept (take over) at any time.</li>
+            <li><strong>AI Dashboard Assistant:</strong> An in-dashboard AI co-pilot with 80+ tool-calling actions accessible by text or voice input. Can search contacts, make calls, send SMS, book appointments, check statistics, manage workflows, generate reports, provide coaching insights, and navigate the dashboard on the user's behalf. Uses Web Speech API for voice input where supported by the browser.</li>
+            <li><strong>Power Dialer:</strong> Queue-based single-line power dialing with auto-retry, answering machine detection (AMD), number health rotation, geo-routing, and configurable calling hours enforcement. Includes AI-powered Lead Intelligence scoring and Smart Filters.</li>
+            <li><strong>Pro Dialer (Multi-Line):</strong> Up to 4 concurrent outbound call lines with AI-optimized dial ratio pacing, connect rate analytics, wrap-up time configuration, daily max per contact, and same-number cooldown enforcement.</li>
+            <li><strong>Solo Predictive Dialer:</strong> Erlang-C M/M/N queue model for automated dial pacing. Includes AI Overflow (when multiple calls answer simultaneously, AI voice agent handles overflow calls). TCPA auto-throttle with rolling 30-day abandon rate tracking, recipient timezone enforcement via area code mapping, recording consent tracking for 12 two-party consent states, agent state machine (Ready/Not Ready/Wrap-Up/Break), and callback queue management.</li>
+            <li><strong>SMS Bot:</strong> AI texting only (no dialer). Includes all SMS automation, lead intelligence, Smart Filters, workflow automation, and AI Assistant features.</li>
+            <li><strong>CRM Integrations:</strong> OAuth-based connection to GoHighLevel / LeadConnector (primary) and HubSpot (full integration including webhooks, data sync, activity logging, and CRM Card). Additional adapters available for Salesforce, Pipedrive, Zoho CRM, Insureio, and Zapier.</li>
+            <li><strong>Lead Intelligence:</strong> AI-powered contact analysis providing temperature rating (hot/warm/cool/cold), engagement score (0-100), should-respond flag, engagement level, summary, and next-best-actions. Cached with 24-hour TTL; invalidated when new messages arrive. Bulk analysis of ~1,000 contacts in ~30 seconds.</li>
+            <li><strong>Workflow Automation:</strong> Event-triggered automation sequences including Speed to Lead, Aged Lead Re-engagement, SMS Response Handler, and Re-engage Cold Leads. Supports AI-generated workflows, manual enrollment via assistant, and cron-based triggers.</li>
+            <li><strong>Phone Number Management:</strong> Phone numbers provisioned on isolated sub-accounts. First 5 numbers free with any subscription; local numbers $0.90/mo, toll-free $2.15/mo. Number health monitoring, CNAM caller ID registration, Voice Integrity registration, STIR/SHAKEN attestation, and smart number rotation.</li>
+            <li><strong>A2P 10DLC Compliance:</strong> Brand registration, campaign creation, and messaging service provisioning. Sub-users may be required to pay a one-time $19 registration fee.</li>
+            <li><strong>Spam Protection:</strong> CNAM (Caller Name) registration, Voice Integrity registration with AT&T/Hiya, T-Mobile, and Verizon, A2P 10DLC registration for SMS deliverability, and smart number rotation that automatically rests flagged numbers.</li>
+            <li><strong>Agency Dashboard:</strong> Multi-tenant command center for agency owners (free). Real-time KPIs, per-agent statistics, leaderboards (connect rate, call volume, conversation duration), AI-powered weekly reports with per-agent coaching insights, period comparison, conversion funnel analysis, and call log across all agents.</li>
+            <li><strong>White-Label Branding:</strong> Agency owners can customize the dashboard with their own company name, logo, accent color, and font family. Agents under the agency see the agency brand instead of InsuranceGrokBot. Includes branded invite emails and claim-seat pages.</li>
+            <li><strong>Team Management:</strong> Account owners can invite team members with role-based access (admin, agent, viewer). Each team member can be provisioned with their own phone numbers for independent calling.</li>
+            <li><strong>Reminders:</strong> The AI Assistant can create scheduled reminders stored in Redis with configurable delay. Reminders are best-effort notifications and are not guaranteed to fire at the exact specified time.</li>
+            <li><strong>Training API:</strong> RESTful API for exporting call recordings and AI transcripts for training and quality assurance purposes.</li>
         </ul>
-        <p>The Service is provided on a subscription basis. You are responsible for compliance with all applicable laws, including TCPA, CAN-SPAM, FCC regulations, and applicable state insurance regulations.</p>
+        <p>The Service is provided on a subscription basis. You are solely responsible for compliance with all applicable federal, state, and local laws, including but not limited to the Telephone Consumer Protection Act (TCPA), CAN-SPAM Act, FCC regulations, state Do-Not-Call laws, and all applicable state insurance licensing and communication regulations.</p>
 
         <h2>3. Subscription Plans and Pricing</h2>
         <p>The following subscription plans are available, billed monthly via Stripe:</p>
         <ul>
-            <li><strong>Power Dialer (Individual):</strong> $149.99/month — single-line dialing, AI texting, AI voice agent, lead intelligence, smart filters, unlimited human dialing minutes, 5 sales frameworks, 7 CRM integrations.</li>
-            <li><strong>Pro Dialer:</strong> $224.99/month — everything in Power Dialer plus multi-line dialing (up to 4 concurrent lines), AI-optimized dial ratio, connect rate analytics, and configurable dialer settings.</li>
-            <li><strong>Predictive Dialer:</strong> $349.98/month — everything in Pro Dialer plus Erlang-C predictive pacing, TCPA auto-throttle, recipient timezone enforcement, agent state machine, recording consent tracking, compliance dashboard, and callback queue.</li>
-            <li><strong>Agency Owner:</strong> Free agency dashboard for monitoring agents. Agency owners do not pay a separate subscription — each agent under the agency purchases their own individual plan (Power Dialer, Pro Dialer, or Predictive Dialer).</li>
-            <li><strong>AI Minutes (Add-On):</strong> Usage-based billing for AI voice calls. Available in packages of 500, 2,000, 5,000, and 10,000 minutes. AI Minutes are consumed only for AI Voice Agent calls; human-to-human dialing uses unlimited minutes.</li>
+            <li><strong>SMS Bot:</strong> $99.98/month — AI texting only, no dialer. Includes AI SMS handler, lead intelligence, Smart Filters, workflow automation, AI Assistant, 270+ carrier knowledge, and calendar booking.</li>
+            <li><strong>Power Dialer:</strong> $149.99/month — single-line dialing, AI texting, AI voice agent, lead intelligence, Smart Filters, workflow automation, AI Assistant (80 actions + voice input), spam protection, unlimited human dialing minutes.</li>
+            <li><strong>Pro Dialer:</strong> $224.99/month — everything in Power Dialer plus multi-line dialing (up to 4 concurrent lines), connect rate analytics, priority queue, and configurable dialer settings.</li>
+            <li><strong>Solo Predictive Dialer:</strong> $349.98/month — everything in Pro Dialer plus Erlang-C predictive pacing, AI Overflow (AI handles overflow calls), TCPA auto-throttle, compliance dashboard, recipient timezone enforcement, recording consent tracking, agent state machine, and callback queue.</li>
+            <li><strong>Agency Owner:</strong> Free. Agency owners install the platform and receive the agency dashboard (KPIs, leaderboards, coaching insights, white-label branding, AI weekly reports) at no cost. Each agent under the agency subscribes individually to the tier of their choice.</li>
+            <li><strong>AI Minutes (Add-On):</strong> Usage-based billing for AI voice calls. Available in packages of 500 ($35), 2,000 ($140), 5,000 ($350), and 10,000 ($700) minutes. AI Minutes are consumed only for AI Voice Agent calls; human-to-human dialing uses unlimited included minutes.</li>
         </ul>
-        <p>Prices are subject to change with 30 days' notice. Plan switching between tiers is supported at any time via the billing dashboard with Stripe proration.</p>
+        <p>Prices are subject to change with 30 days' notice via email to your registered address. Plan switching between tiers is supported at any time via the billing dashboard with Stripe proration. Downgrading may result in loss of access to features available only on higher tiers.</p>
 
         <h2>4. Fair Use Policy — Unlimited Human Dialing Minutes</h2>
-        <p>All plans include "unlimited" human-to-human dialing minutes subject to the following fair use policy:</p>
+        <p>All plans that include dialing provide "unlimited" human-to-human dialing minutes subject to the following fair use policy:</p>
         <ul>
             <li>Each account is allocated up to <strong>5,000 connected minutes per calendar month</strong> at no additional cost.</li>
             <li>Usage beyond 5,000 minutes in a calendar month will be billed at <strong>$0.02 per additional minute</strong>.</li>
             <li>Connected minutes are calculated from answer to hangup on human-to-human calls through the dialer.</li>
             <li><strong>AI Voice Agent calls are not included in unlimited minutes</strong> — they consume AI Minutes from your purchased balance.</li>
             <li>Unused unlimited minutes do not roll over to subsequent months.</li>
-            <li>InsuranceGrokBot reserves the right to review accounts with consistently excessive usage and may contact you regarding an appropriate plan.</li>
+            <li>InsuranceGrokBot reserves the right to review accounts with consistently excessive usage and may contact you regarding an appropriate plan or terminate service for abuse.</li>
         </ul>
 
-        <h2>5. Payment and Billing</h2>
-        <p>All subscriptions are billed monthly in advance via Stripe. By subscribing, you authorize recurring charges to your payment method. You may cancel anytime through the billing portal. <strong>No refunds are issued for partial months.</strong> Cancellation takes effect at the end of the current billing period. Phone numbers provisioned through the Service are billed separately and released upon account cancellation. A2P 10DLC registration fees are non-refundable.</p>
+        <h2>5. Free Trial</h2>
+        <p>New subscribers receive a 7-day free trial. During the trial, you have full access to all features of your selected plan. Your payment method will be charged at the end of the trial period unless you cancel before the trial expires. Cancellation during the trial incurs no charge. Each individual is entitled to one free trial per email address. Abuse of the trial system (multiple accounts, fraudulent signups) may result in immediate termination.</p>
 
-        <h2>6. Account Responsibility</h2>
+        <h2>6. Payment and Billing</h2>
+        <p>All subscriptions are billed monthly in advance via Stripe. By subscribing, you authorize recurring charges to your payment method. You may cancel anytime through the billing portal or by contacting support. <strong>No refunds are issued for partial months, unused AI Minutes, or unused portions of any billing period.</strong> Cancellation takes effect at the end of the current billing period. Phone numbers provisioned through the Service are released upon account cancellation. A2P 10DLC registration fees are non-refundable. Failed payments may result in service suspension after a 3-day grace period.</p>
+
+        <h2>7. Account Responsibility</h2>
         <p>You are responsible for:</p>
         <ul>
-            <li>Maintaining the security of your account credentials and API keys.</li>
-            <li>All activity that occurs under your account, including activity by sub-users you invite.</li>
-            <li>Ensuring your use of the Service complies with all applicable laws in your jurisdiction.</li>
-            <li>Keeping your CRM OAuth credentials current — expired tokens may cause webhook processing failures.</li>
+            <li>Maintaining the security of your account credentials, API keys, and training tokens.</li>
+            <li>All activity that occurs under your account, including activity by sub-users, team members, and the AI Assistant acting on your behalf.</li>
+            <li>Ensuring your use of the Service, including all AI-generated communications, complies with all applicable laws in your jurisdiction.</li>
+            <li>Keeping your CRM OAuth credentials current — expired tokens may cause webhook processing failures and service interruptions.</li>
             <li>Notifying us immediately at <a href="mailto:support@insurancegrokbot.com">support@insurancegrokbot.com</a> of any unauthorized account access.</li>
+            <li>Reviewing AI-generated content (SMS messages, voice conversations, assistant actions) before and after they are sent to your leads. You are solely responsible for all communications sent through the platform.</li>
         </ul>
 
-        <h2>7. Prohibited Use</h2>
+        <h2>8. AI-Generated Content and Actions</h2>
+        <p>The AI SMS handler, AI Voice Agent, and AI Dashboard Assistant generate responses and take actions using large language models (xAI Grok). While the AI is configured with insurance-specific knowledge, sales frameworks, and your account parameters:</p>
+        <ul>
+            <li><strong>You are solely responsible</strong> for reviewing, approving, and taking responsibility for any AI-generated communications sent to your leads and customers, and any actions taken by the AI Assistant on your behalf.</li>
+            <li>InsuranceGrokBot makes <strong>no warranty</strong> that AI-generated content is accurate, compliant, appropriate, or suitable for every situation.</li>
+            <li>AI may produce errors, inaccuracies, or hallucinations. Important details should always be verified independently.</li>
+            <li>The AI Assistant can execute real actions (send SMS, make calls, book appointments, modify contacts, enroll in workflows) on your behalf. By using the assistant, you authorize it to take these actions using your CRM credentials and account data.</li>
+            <li>The AI Voice Agent represents itself as a human during calls. You acknowledge and accept this behavior as part of the Service design.</li>
+            <li>InsuranceGrokBot is not liable for any consequences arising from AI-generated content or actions, including but not limited to lost leads, missed appointments, incorrect information, regulatory violations, or reputational harm.</li>
+        </ul>
+
+        <h2>9. Prohibited Use</h2>
         <p>You may not use the Service for:</p>
         <ul>
-            <li>Sending spam, unsolicited messages, or messages to contacts who have opted out.</li>
-            <li>Violating the TCPA, CAN-SPAM Act, FCC regulations, or any applicable communication laws.</li>
+            <li>Sending spam, unsolicited messages, or messages to contacts who have opted out or are on a Do-Not-Call registry.</li>
+            <li>Violating the TCPA, CAN-SPAM Act, FCC regulations, state Do-Not-Call laws, or any applicable communication laws.</li>
             <li>Calling recipients outside of legally permitted hours in their timezone.</li>
             <li>Exceeding a 3% abandonment rate on predictive dialer sessions (FTC Telemarketing Sales Rule safe harbor).</li>
-            <li>Misrepresenting yourself, your agency, or the AI bot to prospects.</li>
+            <li>Misrepresenting yourself, your agency, your licensing status, or the AI to prospects in a manner that violates applicable law.</li>
             <li>Using the Service for purposes unrelated to licensed insurance sales activity.</li>
-            <li>Reverse engineering, scraping, or attempting to extract proprietary data, prompts, or code from the Service.</li>
-            <li>Sharing your account credentials or API keys with unauthorized third parties.</li>
-            <li>Using the AI Voice Agent or SMS handler in ways designed to deceive, defraud, or harm recipients.</li>
+            <li>Reverse engineering, scraping, decompiling, or attempting to extract proprietary data, AI prompts, training data, system prompts, or source code from the Service.</li>
+            <li>Sharing your account credentials, API keys, or training tokens with unauthorized third parties.</li>
+            <li>Using the AI Voice Agent, SMS handler, or AI Assistant in ways designed to deceive, defraud, harass, or harm recipients.</li>
+            <li>Circumventing rate limits, fair use policies, subscription tier restrictions, or any technical limitations of the Service.</li>
+            <li>Using the Service to contact individuals who have not provided prior express consent where such consent is legally required.</li>
+            <li>Reselling, sublicensing, or redistributing the Service or any portion thereof without prior written consent.</li>
         </ul>
 
-        <h2>8. Twilio and Carrier Compliance</h2>
-        <p>Outbound SMS and voice calls are delivered through Twilio sub-accounts provisioned under your account. You agree to comply with Twilio's Acceptable Use Policy and all applicable carrier regulations, including A2P 10DLC registration requirements for business SMS. InsuranceGrokBot provides tools to facilitate A2P registration but is not responsible for carrier filtering, message deliverability, or regulatory outcomes.</p>
+        <h2>10. Carrier and Telecommunications Compliance</h2>
+        <p>Outbound SMS and voice calls are delivered through telecommunications infrastructure provisioned under your account. You agree to comply with all applicable carrier regulations, including A2P 10DLC registration requirements for business SMS, STIR/SHAKEN attestation requirements, and carrier-specific acceptable use policies. InsuranceGrokBot provides tools to facilitate carrier registration but is not responsible for carrier filtering, message deliverability, call completion rates, spam labeling by carriers, or regulatory outcomes. You acknowledge that carrier regulations may change and that compliance is your ongoing responsibility.</p>
 
-        <h2>9. AI-Generated Content</h2>
-        <p>The AI SMS and Voice features generate responses using large language models (xAI Grok). While the AI is trained with insurance knowledge and your configured parameters, <strong>you are solely responsible for reviewing, approving, and taking responsibility for any AI-generated communications sent to your leads and customers.</strong> InsuranceGrokBot makes no warranty that AI-generated content is accurate, compliant, or appropriate for every situation.</p>
+        <h2>11. Intellectual Property</h2>
+        <p>The Service, including all source code, AI models, AI prompts, system prompts, training data, interface designs, visual elements (including the Liquid Glass design system), documentation, and content, is owned by InsuranceGrokBot and protected by copyright, trade secret, and other intellectual property laws. You are granted a limited, non-exclusive, non-transferable, revocable license to use the Service during your active subscription period. You may not copy, modify, create derivative works from, sublicense, sell, distribute, or reverse engineer any part of the Service. White-label branding grants you the right to display your own brand identity within the dashboard; it does not transfer any ownership of the underlying platform.</p>
 
-        <h2>10. Intellectual Property</h2>
-        <p>The Service, including all code, design, AI prompts, training data, interface elements, and content, is owned by InsuranceGrokBot. You are granted a limited, non-exclusive, non-transferable license to use the Service during your subscription period. You may not copy, modify, sublicense, sell, or reverse engineer any part of the Service.</p>
+        <h2>12. Data and Privacy</h2>
+        <p>By using the Service, you grant InsuranceGrokBot the right to process contact data (names, phone numbers, email addresses, conversation history, call recordings, CRM data) on your behalf for the purpose of delivering the Service. We act as a data processor on your behalf. We do not sell your data or your contacts' data to third parties. You are the data controller and are responsible for obtaining any necessary consents from your contacts. See our <a href="/privacy">Privacy Policy</a> for full details on data handling, retention, third-party sharing, and your rights.</p>
 
-        <h2>11. Data and Privacy</h2>
-        <p>By using the Service, you grant InsuranceGrokBot the right to process contact data (names, phone numbers, conversation history) on your behalf for the purpose of delivering the Service. We do not sell your data or your contacts' data to third parties. See our <a href="/privacy">Privacy Policy</a> for full details on data handling, retention, and your rights.</p>
+        <h2>13. Disclaimer of Warranties</h2>
+        <p>THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, AND ANY WARRANTIES ARISING FROM COURSE OF DEALING OR USAGE OF TRADE. WE DO NOT WARRANT THAT THE SERVICE WILL BE UNINTERRUPTED, ERROR-FREE, SECURE, OR FREE OF VIRUSES OR OTHER HARMFUL COMPONENTS. WE DO NOT WARRANT THE ACCURACY, RELIABILITY, OR COMPLETENESS OF ANY AI-GENERATED CONTENT.</p>
 
-        <h2>12. Limitation of Liability</h2>
-        <p>InsuranceGrokBot is provided "as is" and "as available." To the maximum extent permitted by applicable law, InsuranceGrokBot and its operators are not liable for:</p>
+        <h2>14. Limitation of Liability</h2>
+        <p>TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, INSURANCEGROKBOT AND ITS OFFICERS, DIRECTORS, EMPLOYEES, AGENTS, AND AFFILIATES SHALL NOT BE LIABLE FOR:</p>
         <ul>
-            <li>Lost leads, missed appointments, or lost revenue resulting from AI errors, outages, or delivery failures.</li>
-            <li>Call quality issues, carrier filtering, or message deliverability problems.</li>
-            <li>Regulatory violations, fines, or penalties arising from your use of the Service.</li>
-            <li>Any indirect, incidental, consequential, or punitive damages arising from use of the Service.</li>
+            <li>Lost leads, missed appointments, lost revenue, or lost business opportunities resulting from AI errors, service outages, delivery failures, or any other aspect of the Service.</li>
+            <li>Call quality issues, carrier filtering, message deliverability problems, spam labeling, or number blocking by carriers.</li>
+            <li>Regulatory violations, fines, penalties, or legal actions arising from your use of the Service, including use of AI-generated content.</li>
+            <li>Any indirect, incidental, special, consequential, exemplary, or punitive damages, regardless of the theory of liability.</li>
+            <li>Any damages arising from the AI Assistant taking actions on your behalf, including but not limited to sending messages, making calls, booking appointments, or modifying contact records.</li>
+            <li>Loss or corruption of data, including contact data, conversation history, or CRM data.</li>
         </ul>
-        <p>Our total liability to you for any claim arising from or related to these terms or the Service will not exceed the amount you paid for the Service in the three months preceding the claim.</p>
+        <p>OUR TOTAL AGGREGATE LIABILITY TO YOU FOR ANY AND ALL CLAIMS ARISING FROM OR RELATED TO THESE TERMS OR THE SERVICE SHALL NOT EXCEED THE TOTAL AMOUNT YOU PAID FOR THE SERVICE IN THE THREE (3) MONTHS IMMEDIATELY PRECEDING THE EVENT GIVING RISE TO THE CLAIM.</p>
 
-        <h2>13. Termination</h2>
-        <p>You may cancel your subscription at any time through the billing portal. InsuranceGrokBot may suspend or terminate your access immediately, without notice, for violation of these terms, abuse of the fair use policy, failure to maintain payment, or any activity that poses a risk to the Service or other users. Upon termination, your access to the dashboard, phone numbers, and data will be suspended. Data may be retained for up to 90 days after termination for legal compliance purposes.</p>
+        <h2>15. Indemnification</h2>
+        <p>You agree to indemnify, defend, and hold harmless InsuranceGrokBot and its officers, directors, employees, agents, and affiliates from and against any and all claims, damages, losses, liabilities, costs, and expenses (including reasonable attorneys' fees) arising from or related to: (a) your use of the Service; (b) your violation of these Terms; (c) your violation of any applicable law or regulation; (d) any AI-generated content sent through your account; (e) any claim by a third party arising from communications sent through the Service on your behalf; or (f) your infringement of any third party's rights.</p>
 
-        <h2>14. Changes to Terms</h2>
-        <p>We may update these Terms at any time. Material changes will be communicated via email to your registered address or via a dashboard notification. Continued use of the Service after changes are published constitutes acceptance of the updated Terms.</p>
+        <h2>16. Termination</h2>
+        <p>You may cancel your subscription at any time through the billing portal or by contacting support. InsuranceGrokBot may suspend or terminate your access immediately, without prior notice, for: violation of these Terms; abuse of the fair use policy; failure to maintain payment; fraudulent activity; excessive chargebacks; or any activity that poses a risk to the Service, other users, or our telecommunications infrastructure. Upon termination, your access to the dashboard, phone numbers, AI Assistant, and all data will be suspended. Phone numbers will be released. Data may be retained for up to 90 days after termination for legal compliance and dispute resolution purposes, after which it will be permanently deleted.</p>
 
-        <h2>15. Governing Law</h2>
-        <p>These Terms are governed by the laws of the United States. Any disputes arising from these Terms or your use of the Service shall be resolved through binding arbitration, except where prohibited by law.</p>
+        <h2>17. Dispute Resolution and Arbitration</h2>
+        <p>Any dispute, claim, or controversy arising from or relating to these Terms or the Service shall be resolved through binding individual arbitration administered by the American Arbitration Association (AAA) under its Consumer Arbitration Rules. <strong>You agree to waive your right to a jury trial and your right to participate in a class action, collective action, or representative proceeding.</strong> The arbitration shall take place in the United States. The arbitrator's decision shall be final and binding. Notwithstanding the foregoing, either party may seek injunctive or equitable relief in any court of competent jurisdiction to prevent the actual or threatened infringement of intellectual property rights.</p>
 
-        <h2>16. Contact</h2>
-        <p>For questions about these terms, contact us at <a href="mailto:support@insurancegrokbot.com">support@insurancegrokbot.com</a> or through the support form in your dashboard.</p>
+        <h2>18. Governing Law</h2>
+        <p>These Terms are governed by and construed in accordance with the laws of the United States and the State of [Your State], without regard to conflict of law principles. Any legal action not subject to arbitration shall be brought exclusively in the federal or state courts located in [Your State].</p>
+
+        <h2>19. Severability</h2>
+        <p>If any provision of these Terms is held to be invalid, illegal, or unenforceable, the remaining provisions shall continue in full force and effect. The invalid provision shall be modified to the minimum extent necessary to make it valid and enforceable while preserving its original intent.</p>
+
+        <h2>20. Entire Agreement</h2>
+        <p>These Terms, together with the Privacy Policy and any other policies referenced herein, constitute the entire agreement between you and InsuranceGrokBot regarding the use of the Service and supersede all prior agreements, understandings, and communications, whether oral or written.</p>
+
+        <h2>21. Changes to Terms</h2>
+        <p>We may update these Terms at any time. Material changes will be communicated via email to your registered address and/or via a dashboard notification at least 30 days before taking effect. Continued use of the Service after the effective date of changes constitutes acceptance of the updated Terms. If you do not agree with any changes, you must discontinue use of the Service before the effective date.</p>
+
+        <h2>22. Contact</h2>
+        <p>For questions about these Terms, contact us at <a href="mailto:support@insurancegrokbot.com">support@insurancegrokbot.com</a>.</p>
 
         <div class="text-center mt-5">
-            <a href="/" class="btn btn-outline-light">← Back to Home</a>
+            <a href="/" class="btn btn-outline-light">&larr; Back to Home</a>
         </div>
     </div>
 </div>
