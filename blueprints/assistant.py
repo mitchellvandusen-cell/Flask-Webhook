@@ -66,11 +66,96 @@ def _try_fast_path(msg: str):
     if tab_id and len(lower.split()) <= 3:
         return {"text": f"Opening {lower}.", "navigate": tab_id}
 
-    # Stats shortcuts: "stats", "my stats", "call stats", "how many calls"
-    if lower in ("stats", "my stats", "call stats", "calls today"):
-        return None  # Let LLM handle with tool — but it's a known pattern
+    # Stats — execute directly without LLM
+    if lower in ("stats", "my stats", "call stats", "calls today", "how many calls", "how many calls today",
+                  "my calls", "daily stats", "today stats"):
+        from assistant_tools import _handle_get_call_stats
+        return {"text": _format_stats(_handle_get_call_stats({"period": "today"}, _quick_ctx()))}
+
+    if lower in ("daily summary", "my daily summary", "give me my daily summary", "end of day report",
+                  "how did today go", "how did today go?", "daily recap", "recap"):
+        from assistant_tools import _handle_get_daily_summary
+        return {"text": _format_daily_summary(_handle_get_daily_summary({"period": "today"}, _quick_ctx()))}
+
+    if lower in ("my reminders", "reminders", "show reminders", "show my reminders", "what reminders"):
+        from assistant_tools import _handle_list_reminders
+        result = _handle_list_reminders({}, _quick_ctx())
+        if result.get("count", 0) == 0:
+            return {"text": "No pending reminders."}
+        lines = [f"- {r.get('message', '')} (at {r.get('remind_at', '')[:16]})" for r in result.get("reminders", [])[:5]]
+        return {"text": f"**{result['count']} reminders:**\n" + "\n".join(lines)}
+
+    if lower in ("my plan", "what plan am i on", "what plan am i on?", "subscription", "subscription info"):
+        from assistant_tools import _handle_get_subscription_info
+        result = _handle_get_subscription_info({}, _quick_ctx())
+        return {"text": f"You're on the **{result.get('plan', 'unknown')}** plan."}
+
+    if lower in ("ai minutes", "how many minutes", "minutes balance", "ai minutes balance",
+                  "how many ai minutes", "how many ai minutes?"):
+        from assistant_tools import _handle_get_ai_minutes_balance
+        result = _handle_get_ai_minutes_balance({}, _quick_ctx())
+        return {"text": f"**{result.get('balance_minutes', 0)} AI minutes** remaining ({result.get('level', 'ok')})."}
+
+    if lower in ("my carriers", "carriers", "what carriers", "what carriers do i have", "show carriers"):
+        from assistant_tools import _handle_list_carriers
+        result = _handle_list_carriers({}, _quick_ctx())
+        if result.get("count", 0) == 0:
+            return {"text": "No carriers selected. Go to the Carriers tab to set them up.", "navigate": "carriers"}
+        return {"text": f"**{result['count']} carriers:** " + ", ".join(result.get("carriers", []))}
+
+    if lower in ("my workflows", "workflows", "show workflows", "list workflows"):
+        from assistant_tools import _handle_list_workflows
+        result = _handle_list_workflows({}, _quick_ctx())
+        if result.get("count", 0) == 0:
+            return {"text": "No workflows yet. Create one in the Workflows tab.", "navigate": "workflows"}
+        lines = [f"- **{w['name']}** ({w['status']})" for w in result.get("workflows", [])[:10]]
+        return {"text": f"**{result['count']} workflows:**\n" + "\n".join(lines)}
+
+    if lower in ("my team", "team", "show team", "team members", "who is on my team"):
+        from assistant_tools import _handle_list_team_members
+        result = _handle_list_team_members({}, _quick_ctx())
+        if result.get("count", 0) == 0:
+            return {"text": "No team members yet."}
+        lines = [f"- **{m['name'] or m['email']}** ({m['role']}, {m['status']})" for m in result.get("members", [])[:10]]
+        return {"text": f"**{result['count']} members:**\n" + "\n".join(lines)}
 
     return None
+
+
+def _quick_ctx():
+    """Build minimal user context for fast-path tool calls."""
+    from token_encryption import decrypt_token
+    raw = getattr(current_user, "access_token", "") or ""
+    try:
+        tok = decrypt_token(raw) if raw else ""
+    except Exception:
+        tok = raw
+    return {
+        "location_id": current_user.location_id,
+        "email": current_user.email,
+        "access_token": tok,
+        "calendar_id": getattr(current_user, "calendar_id", "") or "",
+        "timezone": getattr(current_user, "timezone", "America/Chicago") or "America/Chicago",
+        "subscription_tier": getattr(current_user, "subscription_tier", "individual") or "individual",
+        "bot_first_name": getattr(current_user, "bot_first_name", "") or "",
+        "crm_user_id": getattr(current_user, "crm_user_id", "") or "",
+    }
+
+
+def _format_stats(result):
+    if "error" in result: return result["error"]
+    return (f"**Today:** {result.get('total_calls', 0)} calls, {result.get('connected', 0)} connected "
+            f"({result.get('connect_rate', '0%')}), {result.get('talk_time', '0m')} talk time.")
+
+
+def _format_daily_summary(result):
+    if "error" in result: return result["error"]
+    return (f"**Daily Summary:**\n"
+            f"- Calls: {result.get('calls_made', 0)} made, {result.get('calls_connected', 0)} connected ({result.get('connect_rate', '0%')})\n"
+            f"- Talk time: {result.get('talk_time', '0m')}\n"
+            f"- Missed calls: {result.get('missed_calls', 0)}\n"
+            f"- Texts sent: {result.get('texts_sent', 0)}, received: {result.get('texts_received', 0)}\n"
+            f"- Hot leads: {result.get('hot_leads', 0)}")
 
 
 def _match_nav(dest: str):
