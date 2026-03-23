@@ -1133,11 +1133,11 @@
                 dialerPipelines = d.pipelines || [];
                 console.log('[Dialer] Pipelines loaded:', dialerPipelines.length, dialerPipelines.map(p => p.name));
                 if (d.scope_missing) {
-                    // opportunities.readonly not yet approved — show manual ID input
+                    // opportunities.readonly not in current token — reconnect OAuth to fix
                     sel.style.display = 'none';
                     manualWrap.style.display = 'block';
                     stageSel.disabled = true;
-                    stageSel.innerHTML = '<option value="">All Stages (pipeline scope pending)</option>';
+                    stageSel.innerHTML = '<option value="">All Stages (reconnect CRM to enable)</option>';
                 } else if (dialerPipelines.length === 0) {
                     sel.style.display = 'block';
                     manualWrap.style.display = 'none';
