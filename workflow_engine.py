@@ -679,12 +679,11 @@ def _handle_send_sms(cur, conn, run_id, step, config, location_id, contact_id, c
         elif from_strategy == "rotate":
             from_number = _get_rotated_number(subscriber) or from_number
 
-        sub_sid = subscriber.get("twilio_sub_account_sid")
-        sub_token = subscriber.get("twilio_auth_token")
+        from twilio_sms import send_sms_via_twilio, get_twilio_credentials
+        sub_sid, sub_token, _fb_from = get_twilio_credentials(location_id)
         if not sub_sid or not sub_token:
             return {"status": "error", "error": "Twilio sub-account not configured", "continue": True}
 
-        from twilio_sms import send_sms_via_twilio
         success, fail_reason, detail = send_sms_via_twilio(
             phone_to=phone,
             message=message,
@@ -709,19 +708,9 @@ def _handle_send_sms(cur, conn, run_id, step, config, location_id, contact_id, c
         if not has_oauth_credentials():
             # GHL OAuth env vars are missing — skip GHL entirely and try Twilio
             # fallback to avoid burning 3 retries with an unrefreshable token.
-            vc = subscriber.get("voice_config") or {}
-            fb_sid = vc.get("twilio_sub_account_sid")
-            fb_auth = vc.get("twilio_auth_token")
-            fb_from = vc.get("twilio_phone_number")
-            if not fb_from and fb_sid:
-                # Try number_health table for a fallback number
-                try:
-                    from twilio_sms import get_twilio_credentials
-                    fb_sid, fb_auth, fb_from = get_twilio_credentials(location_id)
-                except Exception:
-                    pass
+            from twilio_sms import send_sms_via_twilio, get_twilio_credentials
+            fb_sid, fb_auth, fb_from = get_twilio_credentials(location_id)
             if fb_sid and fb_auth and fb_from and phone:
-                from twilio_sms import send_sms_via_twilio
                 success, fail_reason, detail = send_sms_via_twilio(
                     phone_to=phone,
                     message=message,

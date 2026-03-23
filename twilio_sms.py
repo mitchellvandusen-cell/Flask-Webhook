@@ -148,12 +148,20 @@ def send_sms_via_twilio(
 
 def get_twilio_credentials(location_id):
     """
-    Get Twilio sub-account credentials for a subscriber.
-    Returns (sub_account_sid, auth_token, from_number) or (None, None, None).
+    Get Twilio credentials for a subscriber.
+
+    Resolution order:
+    1. Subscriber's own Twilio sub-account (voice_config JSONB)
+    2. Master Twilio account (TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN env vars)
+
+    Returns (account_sid, auth_token, from_number) or (None, None, None).
     """
+    import os
+
     conn = get_db_connection()
     if not conn:
-        return None, None, None
+        # Even without DB, try master account as last resort
+        return _get_master_twilio_credentials()
 
     try:
         cur = conn.cursor()
@@ -175,7 +183,7 @@ def get_twilio_credentials(location_id):
         cur.close()
 
         if not row:
-            return None, None, None
+            return _get_master_twilio_credentials()
 
         vc = row.get('voice_config') or {}
         sms_via = row.get('sms_send_via', 'ghl')
@@ -213,10 +221,36 @@ def get_twilio_credentials(location_id):
             except Exception as nh_err:
                 logger.debug(f"number_health phone lookup failed: {nh_err}")
 
-        return sub_sid, auth_tok, from_number
+        # If subscriber has their own sub-account creds, use them
+        if sub_sid and auth_tok:
+            return sub_sid, auth_tok, from_number
+
+        # Subscriber has no Twilio sub-account — fall back to master account
+        # so SMS can still be delivered when GHL OAuth is also unavailable
+        master_sid, master_auth, master_phone = _get_master_twilio_credentials()
+        if master_sid and master_auth and master_phone:
+            logger.info(f"Twilio fallback: using master account for {location_id} (no sub-account provisioned)")
+            return master_sid, master_auth, from_number or master_phone
+
+        return None, None, None
 
     except Exception as e:
         logger.error(f"Failed to get Twilio credentials for {location_id}: {e}")
-        return None, None, None
+        return _get_master_twilio_credentials()
     finally:
         return_db_connection(conn)
+
+
+def _get_master_twilio_credentials():
+    """
+    Get master Twilio account credentials from environment variables.
+    Used as last-resort fallback when subscriber has no sub-account.
+    Returns (account_sid, auth_token, phone_number) or (None, None, None).
+    """
+    import os
+    master_sid = os.getenv('TWILIO_ACCOUNT_SID')
+    master_auth = os.getenv('TWILIO_AUTH_TOKEN')
+    master_phone = os.getenv('TWILIO_PHONE_NUMBER')
+    if master_sid and master_auth and master_phone:
+        return master_sid, master_auth, master_phone
+    return None, None, None
