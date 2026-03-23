@@ -5,7 +5,10 @@
 # Multi-turn tool-calling loop with grok-3-mini-fast.
 #
 # The assistant can search contacts, book appointments, send SMS,
-# check stats, navigate tabs, and troubleshoot errors.
+# check stats, navigate tabs, troubleshoot errors, AND provide
+# support diagnostics (account lookup, registration checks, error
+# logs, knowledge base search, ticket creation) — auto-detected
+# from message intent.
 
 import json
 import os
@@ -24,6 +27,38 @@ _ASSISTANT_MODEL = "grok-3-mini-fast"
 _ASSISTANT_MAX_TOOL_ROUNDS = 3
 _ASSISTANT_MAX_TOKENS = 400
 _RATE_LIMIT_RPM = 30
+
+# ── Support intent detection ──────────────────────────────────────────────────
+# Keywords that signal the user wants support/diagnostics rather than dashboard actions.
+# When detected, support tools are merged into the tool set automatically.
+
+_SUPPORT_KEYWORDS = {
+    # Troubleshooting
+    "not working", "broken", "issue", "problem", "error", "bug", "fix",
+    "help me", "trouble", "wrong", "failing", "failed", "can't", "won't",
+    "doesn't work", "stopped working", "down", "outage",
+    # Registration / phone system
+    "registration", "a2p", "spam likely", "spam protection", "caller id",
+    "voice integrity", "cnam", "trust hub", "carrier registration",
+    "text registration", "messages blocked", "texts not going",
+    "calls showing spam", "spam label",
+    # Account / setup
+    "my account", "account status", "crm connection", "crm expired",
+    "token expired", "reconnect", "onboarding",
+    # Billing support (not billing nav)
+    "billing issue", "charged", "refund", "overcharged", "payment failed",
+    "invoice", "charge",
+    # Support escalation
+    "support ticket", "create ticket", "escalate", "speak to human",
+    "talk to someone", "human support", "contact support",
+    # Knowledge base
+    "how do i", "how does", "what is", "documentation", "docs",
+    "getting started", "setup guide", "tutorial",
+    # Diagnostics
+    "diagnose", "diagnostic", "check my account", "what's wrong",
+    "why isn't", "why can't", "why won't", "look into",
+    "check my registration", "check my numbers",
+}
 
 
 # ── Fast path: instant responses for common patterns (no LLM) ────────────────
@@ -156,6 +191,53 @@ def _format_daily_summary(result):
             f"- Missed calls: {result.get('missed_calls', 0)}\n"
             f"- Texts sent: {result.get('texts_sent', 0)}, received: {result.get('texts_received', 0)}\n"
             f"- Hot leads: {result.get('hot_leads', 0)}")
+
+
+def _is_support_intent(message: str) -> bool:
+    """Detect whether the user's message is a support/troubleshooting question."""
+    lower = message.lower()
+    for keyword in _SUPPORT_KEYWORDS:
+        if keyword in lower:
+            return True
+    return False
+
+
+def _get_support_tools_for_assistant():
+    """Get support tool definitions adapted for authenticated dashboard use.
+
+    Modifies the support tools to NOT require an email parameter (we inject
+    it automatically from the authenticated session).
+    """
+    from support_tools import get_support_tool_definitions
+
+    adapted = []
+    for tool in get_support_tool_definitions():
+        func = tool.get("function", {})
+        name = func.get("name", "")
+
+        # Prefix support tool names to avoid collisions
+        adapted_tool = {
+            "type": "function",
+            "function": {
+                "name": f"support_{name}",
+                "description": func.get("description", ""),
+                "parameters": dict(func.get("parameters", {})),
+            }
+        }
+
+        # Remove email from required params — we inject it from session
+        params = adapted_tool["function"]["parameters"]
+        props = params.get("properties", {})
+        if "email" in props:
+            props["email"]["description"] = "(Auto-filled from your account — leave empty)"
+
+        req = params.get("required", [])
+        if "email" in req:
+            params["required"] = [r for r in req if r != "email"]
+
+        adapted.append(adapted_tool)
+
+    return adapted
 
 
 def _filter_tools(all_tools, message):
@@ -315,6 +397,20 @@ def assistant_chat():
     if fast is not None:
         return flask_jsonify(fast)
 
+    # Handle consent-approved support write actions (e.g. fix registration)
+    if user_message.startswith("APPROVE_ACTION:"):
+        from support_tools import execute_approved_action
+        action_id = user_message.split(":", 1)[1].strip()
+        result = execute_approved_action(action_id, {
+            "email": current_user.email,
+            "location_id": current_user.location_id,
+            "conversation_log": history,
+        })
+        if result.get("success"):
+            return flask_jsonify({"text": result.get("message", "Done!")})
+        else:
+            return flask_jsonify({"text": result.get("error", "Something went wrong. Please try again.")})
+
     # Build user context from authenticated session
     raw_token = getattr(current_user, "access_token", "") or ""
     try:
@@ -333,8 +429,17 @@ def assistant_chat():
         "crm_user_id": getattr(current_user, "crm_user_id", "") or "",
     }
 
+    # Detect support intent from message (or recent history)
+    support_mode = _is_support_intent(user_message)
+    if not support_mode:
+        # Also check last 3 history messages for ongoing support conversation
+        for msg in history[-3:]:
+            if msg.get("role") == "user" and _is_support_intent(msg.get("content", "")):
+                support_mode = True
+                break
+
     # Build system prompt
-    system_prompt = build_assistant_prompt(user_ctx, error_context)
+    system_prompt = build_assistant_prompt(user_ctx, error_context, support_mode=support_mode)
 
     # Build messages array
     messages = [{"role": "system", "content": system_prompt}]
@@ -349,6 +454,10 @@ def assistant_chat():
 
     # Tool definitions — filter to relevant subset for faster processing
     tools = _filter_tools(get_assistant_tool_definitions(), user_message)
+
+    # Merge support tools when support intent is detected
+    if support_mode:
+        tools = tools + _get_support_tools_for_assistant()
 
     # LLM client
     xai_key = os.getenv("XAI_API_KEY")
@@ -385,7 +494,23 @@ def assistant_chat():
 
                     logger.info(f"Assistant tool: {tool_name}({list(tool_args.keys())})")
 
-                    tool_result = execute_assistant_tool(tool_name, tool_args, user_ctx)
+                    # Route support_* tools to support tool executor
+                    if tool_name.startswith("support_"):
+                        from support_tools import execute_support_tool
+                        from support_bot import sanitize_support_reply
+                        real_name = tool_name[len("support_"):]
+                        # Auto-inject email from authenticated session
+                        if "email" not in tool_args or not tool_args["email"]:
+                            tool_args["email"] = current_user.email
+                        support_ctx = {
+                            "email": current_user.email,
+                            "location_id": current_user.location_id,
+                            "has_consent": True,  # Authenticated user = implicit consent
+                            "conversation_log": history,
+                        }
+                        tool_result = execute_support_tool(real_name, tool_args, support_ctx)
+                    else:
+                        tool_result = execute_assistant_tool(tool_name, tool_args, user_ctx)
 
                     # Check for frontend actions
                     if isinstance(tool_result, dict):
@@ -439,6 +564,17 @@ def assistant_chat():
     if not reply:
         reply = "Something went wrong on my end. Try again in a moment."
 
+    # Sanitize support replies to strip forbidden technical terms
+    if support_mode:
+        from support_bot import sanitize_support_reply, extract_options, extract_redirect
+        reply = sanitize_support_reply(reply)
+
+        # Parse [OPTIONS:...] from support-style responses
+        options, reply = extract_options(reply)
+
+        # Parse [REDIRECT:...] from support-style responses
+        redirect_url, reply = extract_redirect(reply)
+
     # Extract [NAVIGATE:tab_id] from reply text
     nav_match = _extract_navigate(reply)
     if nav_match:
@@ -448,6 +584,11 @@ def assistant_chat():
     result = {"text": reply}
     if navigate_tab:
         result["navigate"] = navigate_tab
+    if support_mode:
+        if options:
+            result["options"] = options
+        if redirect_url:
+            result["redirect"] = redirect_url
 
     return flask_jsonify(result)
 

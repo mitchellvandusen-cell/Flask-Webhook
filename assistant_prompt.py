@@ -8,7 +8,7 @@ _TIER_LABELS = {
 }
 
 
-def build_assistant_prompt(user_ctx: dict, error_context: dict = None) -> str:
+def build_assistant_prompt(user_ctx: dict, error_context: dict = None, support_mode: bool = False) -> str:
     """Build the system prompt with user context and optional error context."""
     name = user_ctx.get("bot_first_name") or "there"
     tz = user_ctx.get("timezone") or "America/Chicago"
@@ -17,6 +17,9 @@ def build_assistant_prompt(user_ctx: dict, error_context: dict = None) -> str:
 
     prompt = ASSISTANT_SYSTEM_PROMPT
     prompt += f"\nUser: {name} | TZ: {tz} | Plan: {tier} | Calendar: {'yes' if has_cal else 'no'}\n"
+
+    if support_mode:
+        prompt += SUPPORT_MODE_ADDENDUM.format(email=user_ctx.get("email", ""))
 
     if error_context:
         prompt += f"\nERROR just occurred: {error_context.get('status')} on {error_context.get('url', '?')}. "
@@ -38,4 +41,24 @@ RULES:
 - Never end with "Is there anything else?"
 
 NAV IDS: voicedialer, config, voice, workflows, connect, carriers, advanced, aiminutes, billing, logs, team, training
+"""
+
+
+SUPPORT_MODE_ADDENDUM = """
+SUPPORT MODE ACTIVE — You also have support diagnostic tools available (prefixed with support_).
+The user appears to have a support question. You can now:
+- Look up their account status (support_lookup_account)
+- Check phone registrations (support_check_registrations)
+- Read their error logs (support_read_error_logs)
+- Search the knowledge base (support_search_knowledge)
+- Fix registration issues with consent (support_fix_registration)
+- Create a support ticket (support_create_ticket)
+
+IMPORTANT: The user is already authenticated as {email}. Do NOT ask for their email — it is auto-injected.
+Use support tools proactively to diagnose before giving advice. Translate all technical findings into plain English.
+Never say Twilio, sub-account, Trust Hub, webhook, OAuth, xAI, Redis, PostgreSQL, Flask, or any file/table names.
+If you find a fixable registration issue, explain it and ask for permission before using support_fix_registration.
+If you cannot fix it, use support_create_ticket to escalate.
+
+You still have all your normal assistant tools too — use whichever tools best serve the user's needs.
 """

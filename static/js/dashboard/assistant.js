@@ -99,6 +99,14 @@
                     if (navBtn) navBtn.click();
                 }
             }
+            // Handle support options buttons
+            if (data.options && data.options.length) {
+                _renderOptions(data.options);
+            }
+            // Handle support redirect
+            if (data.redirect) {
+                setTimeout(function() { window.location.href = data.redirect; }, 1500);
+            }
             // Handle call mode choice (AI or human?)
             if (data.call_choice) {
                 _renderCallChoice(data.call_choice);
@@ -233,6 +241,32 @@
         // Track history
         _history.push({ role: role, content: text });
         if (!skipSave) _saveHistory();
+    }
+
+    // ── Support options buttons ──────────────────────────────────────────────
+
+    function _renderOptions(options) {
+        var container = document.getElementById('assistantMessages');
+        if (!container || !options.length) return;
+
+        var wrap = document.createElement('div');
+        wrap.className = 'd-flex gap-2 flex-wrap mt-1 mb-2';
+        wrap.style.paddingLeft = '4px';
+
+        options.forEach(function(opt) {
+            var btn = document.createElement('button');
+            btn.className = 'btn btn-sm';
+            btn.style.cssText = 'background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.2);color:#00ff88;border-radius:20px;font-size:0.8rem;font-weight:600;padding:6px 16px;cursor:pointer;';
+            btn.textContent = opt.label;
+            btn.onclick = function() {
+                wrap.remove();
+                _sendMessage(opt.value);
+            };
+            wrap.appendChild(btn);
+        });
+
+        container.appendChild(wrap);
+        container.scrollTop = container.scrollHeight;
     }
 
     // ── Call choice buttons ─────────────────────────────────────────────────
