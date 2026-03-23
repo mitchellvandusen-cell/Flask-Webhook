@@ -1126,6 +1126,9 @@ def oauth_callback():
                     sub_timezone or 'America/Chicago', me_data.get('id'),
                     'pending', app_type
                 )
+                # Use savepoint so rollback on email conflict doesn't
+                # kill prior work in the same transaction (multi-location flows).
+                cur.execute("SAVEPOINT sub_upsert")
                 try:
                     cur.execute("""
                         INSERT INTO subscribers (
@@ -1150,12 +1153,10 @@ def oauth_callback():
                             parent_agency_email = COALESCE(EXCLUDED.parent_agency_email, subscribers.parent_agency_email),
                             updated_at = NOW()
                     """, _sub_params)
+                    cur.execute("RELEASE SAVEPOINT sub_upsert")
                 except Exception as _upsert_err:
+                    cur.execute("ROLLBACK TO SAVEPOINT sub_upsert")
                     if 'idx_subscribers_email' in str(_upsert_err) or 'unique' in str(_upsert_err).lower():
-                        # Email already exists with a different location_id.
-                        # Update the existing record's tokens + location_id without
-                        # overwriting subscription_tier or role (preserve billing state).
-                        conn.rollback()
                         logger.warning(
                             f"Email {user_email} already in subscribers with different location_id. "
                             f"Updating tokens and location to {sub_id}."
