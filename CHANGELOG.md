@@ -41,6 +41,22 @@
 
 ---
 
+## 2026-03-23 (AI Intelligence JSON Repair — Regex Extraction + Unescaped Quote Handling)
+
+### Problem
+Production bulk AI intelligence analysis was dropping entire batches (5 contacts each) when xAI Grok returned malformed JSON. 17 batch failures in ~15 minutes, affecting ~85 contacts. Root causes: (1) unescaped double quotes inside string values, (2) `_extract_individual_objects` brace-matching fails when string delimiters are broken, (3) no last-resort extraction when all JSON parsing fails.
+
+### What Changed
+
+#### `lead_intelligence.py`
+- **New `_fix_unescaped_quotes_in_values()`**: Detects and escapes double quotes embedded inside JSON string values (e.g. `"Lead said "no thanks" firmly"` → properly escaped). Uses forward-scanning to find the "real" closing quote by checking for structural delimiters after it.
+- **New `_regex_extract_contacts()`**: Last-resort regex-based field extraction that pulls contact data without any JSON parsing. Extracts `contact_id`, `summary`, `temperature`, `score`, `should_respond`, `engagement_level`, and other fields via individual regex patterns. Works even on completely garbled responses.
+- **`_repair_json()` enhanced**: Added unescaped-quote fix step + aggressive leading/trailing non-JSON content stripping (finds outermost `{}`/`[]` pair from both ends).
+- **Bulk analysis fallback chain**: `_repair_json` → `_extract_individual_objects` → `_regex_extract_contacts` (new) → retry → drop batch. The regex extractor is the safety net that prevents batch drops.
+- **Better error logging**: Raw response logged at WARNING (not DEBUG) on first failure, and at ERROR with 1000 chars (up from 500) on final failure.
+
+---
+
 ## 2026-03-19 (Redis Call State — Phase 1 of Voice WebSocket Extraction)
 
 ### Problem

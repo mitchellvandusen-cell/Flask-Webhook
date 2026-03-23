@@ -171,6 +171,77 @@ def _fix_unquoted_keys(text):
     return ''.join(result)
 
 
+def _fix_unescaped_quotes_in_values(text):
+    """Fix unescaped double quotes inside JSON string values.
+
+    LLMs sometimes emit: "summary": "Lead said "no thanks" firmly"
+    This should be: "summary": "Lead said \\"no thanks\\" firmly"
+
+    Strategy: after a value-opening quote (preceded by : and optional whitespace),
+    scan forward. The "real" closing quote is the last one before a structural
+    delimiter (, } ]). Any quote between opening and real closing gets escaped.
+    """
+    # Find all ": " value openings: colon, optional whitespace, opening quote
+    result = []
+    i = 0
+    while i < len(text):
+        c = text[i]
+        # Detect value opening: we just saw : then whitespace then "
+        # Look for pattern: :\s*" at current position minus the colon
+        if c == '"':
+            # Check if this is a value-opening quote (preceded by : and optional whitespace)
+            j = i - 1
+            while j >= 0 and text[j] in (' ', '\t'):
+                j -= 1
+            if j >= 0 and text[j] == ':':
+                # This is a value-opening quote — find the real closing quote
+                # The real closing quote is a " followed by , } ] or end-of-content
+                # Scan forward to find all " positions
+                result.append(c)  # opening quote
+                i += 1
+                quote_positions = []
+                k = i
+                esc = False
+                while k < len(text):
+                    if esc:
+                        esc = False
+                        k += 1
+                        continue
+                    if text[k] == '\\':
+                        esc = True
+                        k += 1
+                        continue
+                    if text[k] == '"':
+                        quote_positions.append(k)
+                        # Check if this is the real closing quote
+                        after = k + 1
+                        while after < len(text) and text[after] in (' ', '\t', '\n', '\r'):
+                            after += 1
+                        if after >= len(text) or text[after] in (',', '}', ']'):
+                            # This is the real closing quote
+                            break
+                    k += 1
+                # Now: quote_positions has all " positions between opening and closing
+                # The last one is the real closing quote — escape all others
+                if quote_positions:
+                    real_close = quote_positions[-1]
+                    inner_quotes = set(quote_positions[:-1])
+                    while i <= real_close:
+                        if i in inner_quotes:
+                            result.append('\\"')
+                        else:
+                            result.append(text[i])
+                        i += 1
+                    continue
+            # Not a value-opening quote — just append
+            result.append(c)
+            i += 1
+        else:
+            result.append(c)
+            i += 1
+    return ''.join(result)
+
+
 def _escape_raw_newlines_in_strings(text):
     """Escape raw newlines/carriage returns inside JSON string values.
 
@@ -344,6 +415,42 @@ def _repair_json(raw):
             return json.loads(kitchen)
         except (json.JSONDecodeError, ValueError):
             pass
+
+    # Fix unescaped double quotes inside JSON string values
+    # e.g. "summary": "Lead said "no thanks" firmly" → properly escaped
+    try:
+        uq_fixed = _fix_unescaped_quotes_in_values(text)
+        if uq_fixed != text:
+            uq_fixed = _escape_raw_newlines_in_strings(uq_fixed)
+            uq_fixed = _fix_python_literals(uq_fixed)
+            uq_fixed = re.sub(r',\s*([}\]])', r'\1', uq_fixed)
+            return json.loads(uq_fixed)
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    # Try stripping leading/trailing non-JSON content more aggressively:
+    # Find the outermost { } or [ ] pair by scanning from both ends
+    first_open = -1
+    for ci, cc in enumerate(text):
+        if cc in ('{', '['):
+            first_open = ci
+            break
+    last_close = -1
+    for ci in range(len(text) - 1, -1, -1):
+        if text[ci] in ('}', ']'):
+            last_close = ci
+            break
+    if first_open >= 0 and last_close > first_open:
+        stripped = text[first_open:last_close + 1]
+        if stripped != text:
+            stripped_fixed = _escape_raw_newlines_in_strings(stripped)
+            stripped_fixed = _fix_python_literals(stripped_fixed)
+            stripped_fixed = _fix_unquoted_keys(stripped_fixed)
+            stripped_fixed = re.sub(r',\s*([}\]])', r'\1', stripped_fixed)
+            try:
+                return json.loads(stripped_fixed)
+            except json.JSONDecodeError:
+                pass
 
     # Handle truncated JSON: close unclosed brackets/braces
     # Build closing sequence by scanning the text to determine nesting order
@@ -1017,7 +1124,7 @@ HARD CALIBRATION RULES (these override your intuition):
                 if attempt == 0:
                     logger.warning(f"AI intelligence JSON parse failed for {contact_id} (retrying): {e}")
                     if raw:
-                        logger.debug(f"AI raw response for {contact_id}: {raw[:300]}")
+                        logger.warning(f"AI raw response for {contact_id}: {raw[:500]}")
                     continue
                 logger.error(f"AI intelligence JSON parse failed for {contact_id}: {e}")
                 logger.error(f"AI raw response for {contact_id}: {raw[:300]}")
@@ -1343,6 +1450,72 @@ CALLS: {calls_str}"""
     return block
 
 
+def _regex_extract_contacts(raw, all_contexts=None):
+    """
+    Last-resort regex-based extraction of contact data from severely malformed JSON.
+    Extracts known fields by pattern matching without relying on JSON parsing.
+    Returns: {contact_id: validated_dict} for successfully extracted contacts.
+    """
+    if not raw:
+        return {}
+    all_contexts = all_contexts or {}
+    results = {}
+
+    def _rx_str(region, field):
+        """Extract a string field value via regex."""
+        m = re.search(rf'"{field}"\s*:\s*"((?:[^"\\]|\\.)*)"', region)
+        return m.group(1).replace('\\"', '"').replace('\\n', ' ').strip() if m else None
+
+    def _rx_int(region, field):
+        """Extract an integer field value via regex."""
+        m = re.search(rf'"{field}"\s*:\s*(\d+)', region)
+        return int(m.group(1)) if m else None
+
+    def _rx_bool(region, field):
+        """Extract a boolean field value via regex."""
+        m = re.search(rf'"{field}"\s*:\s*(true|false)', region)
+        return m.group(1) == 'true' if m else None
+
+    for m in re.finditer(r'"contact_id"\s*:\s*"([^"]+)"', raw):
+        cid = m.group(1)
+        if cid in results:
+            continue  # already extracted
+
+        # Find the region around this contact_id (look back to nearest {, forward ~2000 chars)
+        start = raw.rfind('{', max(0, m.start() - 200), m.start())
+        if start < 0:
+            start = max(0, m.start() - 50)
+        region = raw[start:start + 2000]
+
+        summary = _rx_str(region, 'summary')
+        temperature = _rx_str(region, 'temperature')
+        score = _rx_int(region, 'score')
+        should_respond = _rx_bool(region, 'should_respond')
+        engagement = _rx_int(region, 'engagement_level')
+        temp_reason = _rx_str(region, 'temperature_reason')
+        respond_reason = _rx_str(region, 'should_respond_reason')
+        under_contract = _rx_bool(region, 'under_contract')
+
+        if summary or temperature:  # at least some data extracted
+            obj = {
+                'contact_id': cid,
+                'summary': summary or 'Analysis partially recovered',
+                'temperature': temperature if temperature in ('hot', 'warm', 'cool', 'cold') else 'warm',
+                'temperature_reason': temp_reason or '',
+                'score': score if score is not None else 50,
+                'should_respond': should_respond if should_respond is not None else False,
+                'should_respond_reason': respond_reason or '',
+                'engagement_level': engagement if engagement is not None else 1,
+                'under_contract': under_contract if under_contract is not None else False,
+                'actions': [],
+            }
+            ctx = all_contexts.get(cid, {"messages": [], "timing": {}})
+            obj = _validate_and_calibrate(obj, ctx)
+            results[cid] = obj
+
+    return results
+
+
 def _extract_individual_objects(raw, all_contexts=None):
     """
     Extract individual contact JSON objects from a partially valid bulk response.
@@ -1524,6 +1697,9 @@ You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact 
             except ValueError as e:
                 # Try to extract individual contact objects from partial JSON
                 partial = _extract_individual_objects(raw, all_contexts)
+                if not partial:
+                    # Last resort: regex-based field extraction (no JSON parsing)
+                    partial = _regex_extract_contacts(raw, all_contexts)
                 if partial:
                     logger.warning(f"Bulk AI JSON repair failed but extracted {len(partial)}/{len(contact_blocks)} contacts from partial response")
                     return partial
@@ -1532,7 +1708,7 @@ You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact 
                     logger.warning(f"Bulk AI raw (first 500 chars): {raw[:500]}")
                     continue
                 logger.error(f"Bulk AI JSON repair failed, dropping batch ({len(contact_blocks)} contacts): {e}")
-                logger.error(f"Bulk AI raw response (first 500 chars): {raw[:500]}")
+                logger.error(f"Bulk AI raw response (first 1000 chars): {raw[:1000]}")
                 return {}
 
             # Extract results array from wrapper object if needed
