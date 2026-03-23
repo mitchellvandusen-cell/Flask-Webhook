@@ -770,18 +770,42 @@ def _handle_send_sms(args, ctx):
     if not contact_id or not message:
         return {"error": "Both contact_id and message are required"}
 
-    from ghl_api import get_valid_token
-    access_token = get_valid_token(ctx["location_id"]) or ctx["access_token"]
+    from ghl_api import get_valid_token, has_oauth_credentials
+    location_id = ctx["location_id"]
+
+    # If GHL OAuth creds are missing, try Twilio fallback instead of wasting
+    # retries with an expired token that can never be refreshed.
+    if not has_oauth_credentials():
+        try:
+            from twilio_sms import send_sms_via_twilio, get_twilio_credentials
+            fb_sid, fb_auth, fb_from = get_twilio_credentials(location_id)
+            contact_phone = ctx.get("contact_phone") or ""
+            if fb_sid and fb_auth and fb_from and contact_phone:
+                success, fail_reason, http_detail = send_sms_via_twilio(
+                    phone_to=contact_phone,
+                    message=message,
+                    from_number=fb_from,
+                    twilio_sub_account_sid=fb_sid,
+                    twilio_auth_token=fb_auth,
+                    contact_id=contact_id,
+                )
+                if success:
+                    return {"sent": True, "message": "SMS sent via Twilio fallback"}
+        except Exception:
+            pass
+        return {"sent": False, "error": "No GHL OAuth credentials and Twilio fallback unavailable"}
+
+    access_token = get_valid_token(location_id) or ctx["access_token"]
 
     success, fail_reason, http_detail = send_sms_via_ghl(
         contact_id=contact_id,
         message=message,
         access_token=access_token,
-        location_id=ctx["location_id"],
+        location_id=location_id,
     )
 
     if success:
-        return {"sent": True, "message": f"SMS sent successfully"}
+        return {"sent": True, "message": "SMS sent successfully"}
     else:
         return {"sent": False, "error": fail_reason or "Failed to send SMS"}
 

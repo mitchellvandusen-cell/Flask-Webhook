@@ -705,17 +705,49 @@ def _handle_send_sms(cur, conn, run_id, step, config, location_id, contact_id, c
             success, fail_reason, detail = False, f"adapter_error: {e}", str(e)
     else:
         # Send via GHL
-        token = get_valid_token(location_id)
-        if not token:
-            return {"status": "error", "error": "No valid GHL token", "continue": True}
+        from ghl_api import has_oauth_credentials
+        if not has_oauth_credentials():
+            # GHL OAuth env vars are missing — skip GHL entirely and try Twilio
+            # fallback to avoid burning 3 retries with an unrefreshable token.
+            vc = subscriber.get("voice_config") or {}
+            fb_sid = vc.get("twilio_sub_account_sid")
+            fb_auth = vc.get("twilio_auth_token")
+            fb_from = vc.get("twilio_phone_number")
+            if not fb_from and fb_sid:
+                # Try number_health table for a fallback number
+                try:
+                    from twilio_sms import get_twilio_credentials
+                    fb_sid, fb_auth, fb_from = get_twilio_credentials(location_id)
+                except Exception:
+                    pass
+            if fb_sid and fb_auth and fb_from and phone:
+                from twilio_sms import send_sms_via_twilio
+                success, fail_reason, detail = send_sms_via_twilio(
+                    phone_to=phone,
+                    message=message,
+                    from_number=fb_from,
+                    twilio_sub_account_sid=fb_sid,
+                    twilio_auth_token=fb_auth,
+                    contact_id=contact_id,
+                )
+                if success:
+                    logger.info(f"Workflow SMS sent via Twilio fallback to {contact_id} (run={run_id})")
+            else:
+                logger.warning(f"Workflow SMS skipped for {contact_id}: no GHL OAuth creds "
+                              f"and no Twilio fallback available (run={run_id})")
+                success, fail_reason, detail = False, "no_credentials", None
+        else:
+            token = get_valid_token(location_id)
+            if not token:
+                return {"status": "error", "error": "No valid GHL token", "continue": True}
 
-        from ghl_message import send_sms_via_ghl
-        success, fail_reason, detail = send_sms_via_ghl(
-            contact_id=contact_id,
-            message=message,
-            access_token=token,
-            location_id=location_id,
-        )
+            from ghl_message import send_sms_via_ghl
+            success, fail_reason, detail = send_sms_via_ghl(
+                contact_id=contact_id,
+                message=message,
+                access_token=token,
+                location_id=location_id,
+            )
 
     if success:
         logger.info(f"Workflow SMS sent to {contact_id} (run={run_id})")

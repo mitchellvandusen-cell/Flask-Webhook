@@ -134,6 +134,15 @@ def send_sms_via_ghl(
                 cur.close()
             return_db_connection(conn)
 
+    # If no OAuth credentials are configured, the token can never be refreshed.
+    # Reduce to 1 attempt to avoid wasting ~45s on doomed retries.
+    try:
+        from ghl_api import has_oauth_credentials
+        if not has_oauth_credentials():
+            max_retries = 1
+    except Exception:
+        pass
+
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Version": "2021-04-15",

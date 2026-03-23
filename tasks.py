@@ -911,12 +911,20 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                                 except Exception as ghl_log_err:
                                     logger.debug(f"GHL conversation log skipped: {ghl_log_err}")
                         else:
-                            # Fallback to GHL if Twilio creds missing
-                            logger.warning(f"Twilio direct SMS fallback: missing creds for {location_id}, using GHL")
-                            sent, fail_reason, http_detail = send_sms_via_ghl(contact_id, reply, auth_token, location_id, conversation_id=conversation_id)
+                            # Fallback to GHL if Twilio creds missing (skip if GHL creds also missing)
+                            if _ghl_creds_missing:
+                                logger.warning(f"Twilio direct SMS fallback: missing Twilio AND GHL creds for {location_id}")
+                                sent, fail_reason = False, 'no_credentials'
+                            else:
+                                logger.warning(f"Twilio direct SMS fallback: missing creds for {location_id}, using GHL")
+                                sent, fail_reason, http_detail = send_sms_via_ghl(contact_id, reply, auth_token, location_id, conversation_id=conversation_id)
                     except Exception as twilio_err:
-                        logger.error(f"Twilio direct SMS error: {twilio_err}, falling back to GHL")
-                        sent, fail_reason, http_detail = send_sms_via_ghl(contact_id, reply, auth_token, location_id, conversation_id=conversation_id)
+                        if _ghl_creds_missing:
+                            logger.error(f"Twilio direct SMS error: {twilio_err}, GHL also unavailable")
+                            sent, fail_reason = False, 'no_credentials'
+                        else:
+                            logger.error(f"Twilio direct SMS error: {twilio_err}, falling back to GHL")
+                            sent, fail_reason, http_detail = send_sms_via_ghl(contact_id, reply, auth_token, location_id, conversation_id=conversation_id)
 
                 elif use_crm_adapter:
                     # Non-GHL CRM: Use adapter for messaging
