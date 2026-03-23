@@ -260,6 +260,12 @@
                     _sv('spState',        d.state);
                     _sv('spZip',          d.zip);
                     _sv('spContactName',  d.contact_name);
+                    // Split contact_name into first/last for new split fields
+                    if (d.contact_name) {
+                        var _parts = d.contact_name.trim().split(/\s+/);
+                        _sv('spContactFirstName', _parts[0] || '');
+                        _sv('spContactLastName', _parts.slice(1).join(' ') || '');
+                    }
                     _sv('spContactEmail', d.contact_email);
                     _sv('spContactPhone', d.contact_phone);
                     // Collapse form if already registered
@@ -322,9 +328,35 @@
             }
         }
 
+        // Toggle UI hints when business type changes (sole proprietorship vs other)
+        function spBizTypeChanged() {
+            var bt = document.getElementById('spBizType')?.value || '';
+            var isSoleProp = bt === 'Sole Proprietorship';
+            var hint = document.getElementById('spSolePropHint');
+            var einLabel = document.getElementById('spEINLabel');
+            var einInput = document.getElementById('spEIN');
+            var bizNameLabel = document.getElementById('spBizNameLabel');
+            var bizNameInput = document.getElementById('spBizName');
+
+            if (hint) hint.style.display = isSoleProp ? 'block' : 'none';
+            if (einLabel) einLabel.textContent = isSoleProp ? 'SSN (Social Security Number)' : 'EIN (Tax ID)';
+            if (einInput) einInput.placeholder = isSoleProp ? 'XXX-XX-XXXX' : 'XX-XXXXXXX';
+            if (bizNameLabel) bizNameLabel.textContent = isSoleProp ? 'Full Legal Name (as on SSN card)' : 'Business Name (must match IRS docs)';
+            if (bizNameInput) bizNameInput.placeholder = isSoleProp ? 'John Michael Doe' : 'ACME Insurance LLC';
+        }
+        window.spBizTypeChanged = spBizTypeChanged;
+
         async function registerSpamProtection() {
             const btn = document.getElementById('spRegisterBtn');
             const result = document.getElementById('spRegisterResult');
+            // Build contact_name from separate first/last name fields
+            var firstName = (document.getElementById('spContactFirstName')?.value || '').trim();
+            var lastName = (document.getElementById('spContactLastName')?.value || '').trim();
+            var contactName = (firstName + ' ' + lastName).trim();
+            // Also populate the hidden field for backward compat
+            var hiddenName = document.getElementById('spContactName');
+            if (hiddenName) hiddenName.value = contactName;
+
             const payload = {
                 business_name: document.getElementById('spBizName')?.value?.trim() || '',
                 ein: document.getElementById('spEIN')?.value?.trim() || '',
@@ -334,14 +366,18 @@
                 city: document.getElementById('spCity')?.value?.trim() || '',
                 state: document.getElementById('spState')?.value?.trim() || '',
                 zip: document.getElementById('spZip')?.value?.trim() || '',
-                contact_name: document.getElementById('spContactName')?.value?.trim() || '',
+                contact_name: contactName,
                 contact_title: document.getElementById('spContactTitle')?.value?.trim() || '',
                 contact_email: document.getElementById('spContactEmail')?.value?.trim() || '',
                 contact_phone: document.getElementById('spContactPhone')?.value?.trim() || '',
             };
             if (!payload.business_name) { result.innerHTML = '<span style="color:#ef4444;">Business name is required</span>'; return; }
-            if (!payload.ein) { result.innerHTML = '<span style="color:#ef4444;">EIN is required</span>'; return; }
+            if (!payload.ein) { result.innerHTML = '<span style="color:#ef4444;">' + (payload.business_type === 'Sole Proprietorship' ? 'SSN is required' : 'EIN is required') + '</span>'; return; }
             if (!payload.business_type) { result.innerHTML = '<span style="color:#ef4444;">Business type is required</span>'; return; }
+            if (!firstName || !lastName) { result.innerHTML = '<span style="color:#ef4444;">Authorized representative first and last name are required</span>'; return; }
+            if (!payload.contact_email) { result.innerHTML = '<span style="color:#ef4444;">Authorized representative email is required</span>'; return; }
+            if (!payload.contact_phone) { result.innerHTML = '<span style="color:#ef4444;">Authorized representative phone is required</span>'; return; }
+            if (!payload.street || !payload.city || !payload.state || !payload.zip) { result.innerHTML = '<span style="color:#ef4444;">Complete business address is required</span>'; return; }
 
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Registering & protecting numbers...';

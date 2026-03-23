@@ -112,6 +112,23 @@ def get_master_client() -> TwilioClient:
     return _master_client
 
 
+def _normalize_phone_e164(phone: str) -> str:
+    """Normalize a phone number to E.164 format (+1XXXXXXXXXX).
+
+    Handles common user input formats: (555) 123-4567, 555-123-4567,
+    5551234567, +15551234567, 1-555-123-4567, etc.
+    """
+    import re
+    digits = re.sub(r'\D', '', phone)
+    if len(digits) == 10:
+        return f"+1{digits}"
+    elif len(digits) == 11 and digits[0] == '1':
+        return f"+{digits}"
+    elif digits.startswith('+'):
+        return digits
+    return f"+{digits}" if digits else phone
+
+
 def _ensure_sub_account_auth_token(sub_account_sid: str, sub_account_auth_token: str) -> str:
     """Ensure we have a valid auth token for a sub-account.
 
@@ -676,32 +693,55 @@ def register_business_profile(sub_account_sid: str, business_name: str,
 
     # ── Step 2: Create EndUser (business info) ──
     end_user_sid = ""
+    state_upper = (state or "").strip().upper()
     if profile_sid:
         try:
             # Normalize state to 2-letter abbreviation
-            state_upper = (state or "").strip().upper()
             if len(state_upper) > 2:
                 state_upper = US_STATE_ABBREVS.get(state_upper.lower(), state_upper[:2])
 
-            # Use user-provided business_type, fallback to inference from EIN
-            resolved_biz_type = business_type or ("Corporation" if ein else "Partnership")
+            # Map UI business_type to Twilio's expected values
+            # Twilio API expects specific strings — NOT the display labels from our UI
+            _BIZ_TYPE_MAP = {
+                "Corporation": "Corporation",
+                "Limited Liability Company": "Limited Liability Company",
+                "LLC": "Limited Liability Company",
+                "Partnership": "Partnership",
+                "Sole Proprietorship": "Sole Proprietorship",
+                "Non-profit Corporation": "Non-profit Corporation",
+                "Non-Profit": "Non-profit Corporation",
+                "Co-operative": "Co-operative",
+            }
+            resolved_biz_type = _BIZ_TYPE_MAP.get(
+                business_type, business_type or "Corporation"
+            )
+
+            # Sole proprietors use SSN, not EIN — and identity is "direct_customer"
+            is_sole_prop = resolved_biz_type == "Sole Proprietorship"
+            reg_identifier = "SSN" if is_sole_prop else "EIN"
+
+            # business_identity: sub-account customers are "direct_customer"
+            # (the platform/ISV is "isv_reseller_or_partner" — but that's the
+            # master account, not the sub-account's customer)
+            biz_identity = "direct_customer"
 
             end_user = client.trusthub.v1.end_users.create(
                 friendly_name=f"Business: {business_name}",
                 type="customer_profile_business_information",
                 attributes={
                     "business_name": business_name,
-                    "business_identity": "isv_reseller_or_partner",
+                    "business_identity": biz_identity,
                     "business_type": resolved_biz_type,
                     "business_industry": "INSURANCE",
-                    "business_registration_identifier": "EIN",
+                    "business_registration_identifier": reg_identifier,
                     "business_registration_number": ein,
                     "business_regions_of_operation": "USA_AND_CANADA",
-                    "website_url": website or "",
+                    "website_url": website if website else "https://none.com",
                     "social_media_profile_urls": "",
                 },
             )
             end_user_sid = end_user.sid
+            results["end_user_sid"] = end_user_sid
             results["steps"].append({
                 "name": "end_user_business",
                 "status": "ok",
@@ -716,13 +756,16 @@ def register_business_profile(sub_account_sid: str, business_name: str,
     auth_rep_sid = ""
     if profile_sid and contact_name:
         try:
-            # Split contact name into first/last
+            # Split contact name into first/last — last_name is REQUIRED by Twilio
             name_parts = contact_name.strip().split(None, 1)
             first_name = name_parts[0] if name_parts else contact_name
-            last_name = name_parts[1] if len(name_parts) > 1 else ""
+            last_name = name_parts[1] if len(name_parts) > 1 else first_name
 
             # Use user-provided title, fallback to "Owner"
             resolved_title = contact_title or "Owner"
+
+            # Normalize phone to E.164 format for Twilio
+            norm_phone = _normalize_phone_e164(contact_phone)
 
             auth_rep = client.trusthub.v1.end_users.create(
                 friendly_name=f"Auth Rep: {contact_name}",
@@ -731,7 +774,7 @@ def register_business_profile(sub_account_sid: str, business_name: str,
                     "first_name": first_name,
                     "last_name": last_name,
                     "email": contact_email,
-                    "phone_number": contact_phone,
+                    "phone_number": norm_phone,
                     "business_title": resolved_title,
                     "job_position": resolved_title,
                 },
@@ -748,6 +791,9 @@ def register_business_profile(sub_account_sid: str, business_name: str,
             results["errors"].append(f"Auth Rep: {e}")
 
     # ── Step 4: Create Address ──
+    # Twilio requires an Address resource AND its SID must be listed in the
+    # EndUser's address_sids attribute. Without this, evaluation fails with
+    # "Address sids list is empty".
     address_sid = ""
     if profile_sid and street:
         try:
@@ -756,7 +802,7 @@ def register_business_profile(sub_account_sid: str, business_name: str,
                 customer_name=business_name,
                 street=street,
                 city=city,
-                region=state_upper if 'state_upper' in dir() else state,
+                region=state_upper,
                 postal_code=zip_code,
                 iso_country="US",
             )
@@ -767,6 +813,25 @@ def register_business_profile(sub_account_sid: str, business_name: str,
                 "sid": address_sid,
             })
             logger.info(f"[SpamProtection] Created Address: {address_sid}")
+
+            # Update the EndUser to include the address SID
+            # This is CRITICAL — Twilio evaluations fail with "Address sids list is empty"
+            # if address_sids is not set on the business info EndUser.
+            if end_user_sid:
+                try:
+                    existing_eu = client.trusthub.v1.end_users(end_user_sid).fetch()
+                    existing_attrs = getattr(existing_eu, "attributes", {}) or {}
+                    if isinstance(existing_attrs, str):
+                        import json as _json
+                        existing_attrs = _json.loads(existing_attrs)
+                    existing_attrs["address_sids"] = [address_sid]
+                    client.trusthub.v1.end_users(end_user_sid).update(
+                        attributes=existing_attrs,
+                    )
+                    logger.info(f"[SpamProtection] Updated EndUser {end_user_sid} with address_sids=[{address_sid}]")
+                except Exception as addr_upd_err:
+                    logger.warning(f"[SpamProtection] Could not update EndUser with address_sids: {addr_upd_err}")
+
         except TwilioRestException as e:
             logger.error(f"[SpamProtection] Address creation failed: {e}")
             results["errors"].append(f"Address: {e}")
@@ -2332,44 +2397,13 @@ def _find_or_create_secondary_profile(
             else:
                 logger.warning(f"[VoiceIntegrity] Could not link to Primary: {e}")
 
-    # ── Submit the Secondary Profile for review ──
-    # Per Twilio ISV docs Step 2: the Secondary Business Profile must be
-    # submitted for review before the Trust Product can transition from draft.
-    # https://www.twilio.com/docs/voice/spam-monitoring-with-voiceintegrity/
-    # voice-integrity-onboarding/voice-integrity-trust-hub-api-isvs-subaccounts
-    try:
-        # Run evaluation first
-        try:
-            eval_result = client.trusthub.v1.customer_profiles(profile_sid) \
-                .customer_profiles_evaluations.create(
-                    policy_sid=SECONDARY_CUSTOMER_PROFILE_POLICY_SID,
-                )
-            eval_status = getattr(eval_result, "status", "unknown")
-            logger.info(f"[VoiceIntegrity] Secondary Profile evaluation: {eval_status}")
-            if eval_status == "noncompliant":
-                eval_results = getattr(eval_result, "results", None) or []
-                noncompliant = [
-                    r.get("friendly_name", r.get("requirement_key", "unknown"))
-                    for r in eval_results
-                    if isinstance(r, dict) and r.get("status") == "noncompliant"
-                ]
-                logger.warning(f"[VoiceIntegrity] Secondary Profile evaluation noncompliant: {noncompliant}")
-                # Proceed anyway — Twilio may still allow review submission
-        except Exception as eval_err:
-            logger.warning(f"[VoiceIntegrity] Secondary Profile evaluation failed: {eval_err}")
-
-        profile_resp = _trusthub_update_status(
-            "CustomerProfiles", profile_sid, "pending-review",
-            sub_account_sid, sub_account_auth_token,
-        )
-        logger.info(
-            f"[VoiceIntegrity] Submitted Secondary Profile {profile_sid} for review → "
-            f"{profile_resp.get('status', 'unknown')}"
-        )
-    except TwilioRestException as e:
-        # Profile submission failed — log but don't block entirely,
-        # the Trust Product submission will surface the real error.
-        logger.warning(f"[VoiceIntegrity] Secondary Profile review submission failed: {e}")
+    # NOTE: Do NOT evaluate or submit the Secondary Profile for review here.
+    # The profile is created empty (no EndUser, Address, or Auth Rep attached yet).
+    # Evaluating/submitting an empty profile causes Twilio to reject it with
+    # "Business Information is missing", "Address sids list is empty", etc.
+    #
+    # The CALLER (register_business_profile or create_voice_integrity_trust_product)
+    # is responsible for attaching all entities and THEN evaluating + submitting.
 
     return profile_sid
 
