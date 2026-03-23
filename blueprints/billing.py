@@ -1318,9 +1318,11 @@ def subscription_info():
     }
 
     info = tier_info.get(tier, tier_info["individual"])
+    has_subscription = bool(getattr(current_user, 'stripe_customer_id', None))
     return flask_jsonify({
         "tier": tier,
         "is_admin": is_admin,
+        "has_subscription": has_subscription,
         **info
     })
 

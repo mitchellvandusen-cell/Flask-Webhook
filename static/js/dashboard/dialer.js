@@ -7777,6 +7777,7 @@
 
         let _billingCurrentTier = 'individual';
         let _billingSelectedTier = null;
+        let _billingHasSubscription = false;
 
         async function billingLoadPlanInfo() {
             try {
@@ -7784,10 +7785,15 @@
                 if (!r.ok) return;
                 const info = await r.json();
                 _billingCurrentTier = info.tier || 'individual';
+                _billingHasSubscription = info.has_subscription || false;
 
                 const planEl = document.getElementById('billingCurrentPlan');
                 if (planEl) {
-                    planEl.textContent = 'Current plan: ' + info.name + ' (' + info.price + ')';
+                    if (_billingHasSubscription) {
+                        planEl.textContent = 'Current plan: ' + info.name + ' (' + info.price + ')';
+                    } else {
+                        planEl.textContent = 'No active subscription — select a plan to get started';
+                    }
                 }
 
                 // Highlight current plan card
@@ -7846,9 +7852,26 @@
             const btn = document.getElementById('billingChangePlanBtn');
             if (btn) {
                 btn.style.display = 'inline-flex';
-                const tierNames = { sms_bot: 'SMS Bot ($99.98/mo)', individual: 'Power Dialer ($149.98/mo)', pro_dialer: 'Pro Dialer ($224.98/mo)', solo_predictive: 'Solo Predictive + AI Overflow ($349/mo)' };
-                btn.innerHTML = '<i class="fa-solid fa-arrows-rotate me-2"></i>Switch to ' + (tierNames[tier] || tier);
+                const tierNames = { sms_bot: 'SMS Bot ($99.98/mo)', individual: 'Power Dialer ($149.99/mo)', pro_dialer: 'Pro Dialer ($224.99/mo)', solo_predictive: 'Solo Predictive ($349.98/mo)' };
+                if (_billingHasSubscription) {
+                    btn.innerHTML = '<i class="fa-solid fa-arrows-rotate me-2"></i>Switch to ' + (tierNames[tier] || tier);
+                    btn.onclick = billingChangePlan;
+                } else {
+                    btn.innerHTML = '<i class="fa-solid fa-credit-card me-2"></i>Subscribe to ' + (tierNames[tier] || tier);
+                    btn.onclick = function() { billingCheckout(tier); };
+                }
             }
+        }
+
+        function billingCheckout(tier) {
+            const checkoutUrls = {
+                sms_bot: '/checkout/sms-bot',
+                individual: '/checkout',
+                pro_dialer: '/checkout/pro-dialer',
+                solo_predictive: '/checkout/predictive-dialer',
+            };
+            const url = checkoutUrls[tier] || '/checkout';
+            window.location.href = url;
         }
 
         async function billingChangePlan() {
