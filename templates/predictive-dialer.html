@@ -128,7 +128,7 @@
         <h1 class="pd-h1">The Predictive Dialer That<br><span>Doesn't Need a Team</span></h1>
         <p class="pd-sub">Erlang-C math paces your calls. If all 4 lines answer — you take one, AI handles the rest simultaneously. You talk to humans while AI qualifies, books, and transfers hot leads. Zero dropped leads. Ever.</p>
         <a href="/checkout/predictive-dialer" class="pd-hero-cta">
-            <i class="fa-solid fa-rocket"></i> Start 7-Day Free Trial
+            Start 7-Day Free Trial
         </a>
         <div class="pd-price-tag">$349/mo &middot; 2,000 AI minutes included &middot; Cancel anytime</div>
     </div>
@@ -371,7 +371,7 @@
             <h2>Stop burning leads. Start every call with a "Hello."</h2>
             <p>7-day free trial. 2,000 AI minutes included. Cancel anytime. No contracts.</p>
             <a href="/checkout/predictive-dialer" class="pd-hero-cta">
-                <i class="fa-solid fa-rocket"></i> Start Free Trial — $349/mo
+                Start Free Trial — $349/mo
             </a>
         </div>
     </div>
@@ -457,7 +457,12 @@
             }
         }
 
-        var recommended = Math.min(4, Math.max(1, Math.round(bestRatio)));
+        /* Recommended lines = how many lines to dial simultaneously.
+           At low answer rates (<20%), you need more lines to get a pickup.
+           Formula: lines = ceil(1 / answerRate), capped at 4. */
+        var recommended = Math.min(4, Math.max(2, Math.ceil(1 / answerRate)));
+        /* Ensure dial ratio reflects multi-line reality */
+        if (bestRatio < recommended) bestRatio = recommended;
 
         /* Dials/hour: how many total outbound dials the system makes
            = (3600 / avg_cycle_time) * dial_ratio
