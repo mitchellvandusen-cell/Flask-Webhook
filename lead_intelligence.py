@@ -1126,6 +1126,20 @@ HARD CALIBRATION RULES (these override your intuition):
                     if raw:
                         logger.warning(f"AI raw response for {contact_id}: {raw[:500]}")
                     continue
+                # Last resort: regex-based field extraction (no JSON parsing needed)
+                fake_ctx = {contact_id: ctx}
+                partial = _regex_extract_contacts(raw, fake_ctx)
+                if partial and contact_id in partial:
+                    logger.warning(f"AI intelligence JSON repair failed for {contact_id} but regex extracted fields successfully")
+                    return partial[contact_id]
+                # Also try injecting the contact_id into raw if it's not present
+                # (single-contact responses often omit contact_id)
+                if contact_id not in raw:
+                    raw_with_id = raw.replace('{', '{"contact_id": "' + contact_id + '", ', 1)
+                    partial = _regex_extract_contacts(raw_with_id, fake_ctx)
+                    if partial and contact_id in partial:
+                        logger.warning(f"AI intelligence JSON repair failed for {contact_id} but regex extracted fields (injected id)")
+                        return partial[contact_id]
                 logger.error(f"AI intelligence JSON parse failed for {contact_id}: {e}")
                 logger.error(f"AI raw response for {contact_id}: {raw[:300]}")
                 return None
@@ -1454,6 +1468,7 @@ def _regex_extract_contacts(raw, all_contexts=None):
     """
     Last-resort regex-based extraction of contact data from severely malformed JSON.
     Extracts known fields by pattern matching without relying on JSON parsing.
+    Handles double-quoted, single-quoted, and unquoted keys/values.
     Returns: {contact_id: validated_dict} for successfully extracted contacts.
     """
     if not raw:
@@ -1462,21 +1477,36 @@ def _regex_extract_contacts(raw, all_contexts=None):
     results = {}
 
     def _rx_str(region, field):
-        """Extract a string field value via regex."""
+        """Extract a string field value via regex (handles quoted/unquoted keys, double/single-quoted values)."""
+        # Try double-quoted key + double-quoted value
         m = re.search(rf'"{field}"\s*:\s*"((?:[^"\\]|\\.)*)"', region)
-        return m.group(1).replace('\\"', '"').replace('\\n', ' ').strip() if m else None
+        if m:
+            return m.group(1).replace('\\"', '"').replace('\\n', ' ').strip()
+        # Try unquoted/single-quoted key + double-quoted value
+        m = re.search(rf"(?:'{field}'|{field})\s*:\s*\"((?:[^\"\\]|\\.)*)\"", region)
+        if m:
+            return m.group(1).replace('\\"', '"').replace('\\n', ' ').strip()
+        # Try any key quoting + single-quoted value
+        sq_pat = rf"""(?:"{field}"|'{field}'|{field})\s*:\s*'((?:[^'\\\\]|\\\\.)*)'"""
+        m = re.search(sq_pat, region)
+        if m:
+            return m.group(1).replace("\\'", "'").replace('\\n', ' ').strip()
+        return None
 
     def _rx_int(region, field):
-        """Extract an integer field value via regex."""
-        m = re.search(rf'"{field}"\s*:\s*(\d+)', region)
+        """Extract an integer field value via regex (handles quoted/unquoted keys)."""
+        m = re.search(rf"""(?:"{field}"|'{field}'|{field})\s*:\s*(\d+)""", region)
         return int(m.group(1)) if m else None
 
     def _rx_bool(region, field):
-        """Extract a boolean field value via regex."""
-        m = re.search(rf'"{field}"\s*:\s*(true|false)', region)
-        return m.group(1) == 'true' if m else None
+        """Extract a boolean field value via regex (handles quoted/unquoted keys + Python True/False)."""
+        m = re.search(rf"""(?:"{field}"|'{field}'|{field})\s*:\s*(true|false|True|False)""", region)
+        if not m:
+            return None
+        return m.group(1).lower() == 'true'
 
-    for m in re.finditer(r'"contact_id"\s*:\s*"([^"]+)"', raw):
+    # Match contact_id with any quoting style: "contact_id": "val", 'contact_id': 'val', contact_id: "val"
+    for m in re.finditer(r'''(?:"contact_id"|'contact_id'|contact_id)\s*:\s*["']([^"']+)["']''', raw):
         cid = m.group(1)
         if cid in results:
             continue  # already extracted
@@ -1582,6 +1612,10 @@ def _extract_individual_objects(raw, all_contexts=None):
             try:
                 obj = _repair_json(candidate)
             except ValueError:
+                # Fall back to regex extraction on this individual candidate
+                partial = _regex_extract_contacts(candidate, all_contexts)
+                if partial:
+                    results.update(partial)
                 continue
         if isinstance(obj, dict):
             if obj.get("contact_id"):
