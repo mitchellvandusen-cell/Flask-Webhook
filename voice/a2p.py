@@ -365,6 +365,9 @@ def a2p_register_brand():
             website=data.get('website', ''),
             vertical=data.get('vertical', 'INSURANCE'),
             sub_account_auth_token=sub_auth_token,
+            first_name=data.get('first_name', ''),
+            last_name=data.get('last_name', ''),
+            brand_type=brand_type,
         )
 
         # Persist to voice_config

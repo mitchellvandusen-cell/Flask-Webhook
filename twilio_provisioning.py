@@ -1489,43 +1489,176 @@ def create_a2p_brand(sub_account_sid: str,
                      stock_ticker: str = "",
                      website: str = "",
                      vertical: str = "INSURANCE",
-                     sub_account_auth_token: str = "") -> dict:
+                     sub_account_auth_token: str = "",
+                     first_name: str = "", last_name: str = "",
+                     brand_type: str = "LOW_VOLUME") -> dict:
     """
     Register a new A2P 10DLC Brand via Twilio's Trust Hub + Brand
-    Registration API.  Follows the ISV onboarding flow:
+    Registration API. Supports three brand types with distinct flows:
 
-    1. Create Secondary Customer Profile
-    2. Create EndUser (us_a2p_messaging_profile_information) with biz details
-    3. Create TrustProduct (A2P Messaging Profile Bundle)
-    4. Attach EndUser → TrustProduct
-    5. Attach CustomerProfile → TrustProduct
-    6. Submit TrustProduct for evaluation
-    7. Create BrandRegistration (customer_profile_bundle_sid = profile,
-       a2p_profile_bundle_sid = trust_product)
+    SOLE PROPRIETOR (brand_type='SOLE_PROPRIETOR'):
+      - Uses Starter Customer Profile (policy RN806dd6cd175f314e1f96a9727ee271f4)
+      - EndUser type: sole_proprietor_information
+      - Trust Bundle policy: RN670d5d2e282a6130ae063b234b6019c8
+      - No EIN required (uses mobile phone OTP verification)
+      Docs: https://www.twilio.com/docs/messaging/compliance/a2p-10dlc/onboarding-isv-api-sole-prop-new
 
-    Twilio docs:
-      https://www.twilio.com/docs/messaging/compliance/a2p-10dlc/onboarding-isv-api
+    LOW_VOLUME / STANDARD (brand_type='LOW_VOLUME' or 'STANDARD'):
+      - Uses Secondary Customer Profile (policy RNdfbf3fae0e1107f8aded0e7cead80bf5)
+      - EndUser type: us_a2p_messaging_profile_information
+      - Trust Product policy: RNb0d4771c2c98518d916a3d4cd70a8f8b
+      - EIN required
+      Docs: https://www.twilio.com/docs/messaging/compliance/a2p-10dlc/onboarding-isv-api
     """
-    # Each sub-account registers its own Trust Hub profile and brand so that
-    # their business identity appears in Twilio — not the master account's identity.
-    # MUST use sub-account's own credentials for TrustHub/Messaging APIs.
     sub_account_auth_token = _ensure_sub_account_auth_token(
         sub_account_sid, sub_account_auth_token
     )
     client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
+
+    # ── Route to the correct flow based on brand type ──
+    if brand_type == "SOLE_PROPRIETOR":
+        return _create_a2p_brand_sole_prop(
+            client, sub_account_sid, sub_account_auth_token,
+            business_name, contact_email, contact_phone,
+            first_name, last_name, vertical,
+        )
+    else:
+        return _create_a2p_brand_standard(
+            client, sub_account_sid, sub_account_auth_token,
+            business_name, ein, street, city, state, zip_code,
+            contact_email, contact_phone, business_type,
+            stock_exchange, stock_ticker, website, vertical,
+        )
+
+
+# ── Policy SIDs for A2P registration ──
+_A2P_STARTER_PROFILE_POLICY = "RN806dd6cd175f314e1f96a9727ee271f4"  # Sole Prop Starter Profile
+_A2P_SOLE_PROP_BUNDLE_POLICY = "RN670d5d2e282a6130ae063b234b6019c8"  # Sole Prop Trust Bundle
+_A2P_STANDARD_PROFILE_POLICY = "RNb0d4771c2c98518d916a3d4cd70a8f8b"  # Standard/LV Trust Product
+
+
+def _create_a2p_brand_sole_prop(client, sub_sid, sub_auth,
+                                 business_name, email, phone,
+                                 first_name, last_name, vertical):
+    """
+    Sole Proprietor A2P registration — different flow than Standard/LV.
+
+    1. Create Starter Customer Profile (policy RN806dd6...)
+    2. Create EndUser (sole_proprietor_information) with mobile phone for OTP
+    3. Create Sole Prop Trust Bundle (policy RN670d5d...)
+    4. Attach EndUser + Profile to Bundle
+    5. Submit for evaluation
+    6. Create Brand Registration
+
+    Twilio sends OTP to the mobile_phone_number for verification.
+    """
     try:
-        # ── Step 1: Secondary Customer Profile (ISV pattern) ──
-        # Reuse existing approved Secondary Profile or create new one with
-        # correct policy SID and linkage to Primary Business Profile.
+        primary_sid = _find_primary_profile_sid()
+
+        # Step 1: Starter Customer Profile
+        profile = client.trusthub.v1.customer_profiles.create(
+            friendly_name=f"SP Profile: {business_name}",
+            email=email,
+            policy_sid=_A2P_STARTER_PROFILE_POLICY,
+        )
+        profile_sid = profile.sid
+        logger.info(f"Created Sole Prop Starter Profile: {profile_sid}")
+
+        # Link to Primary Business Profile
+        if primary_sid:
+            try:
+                client.trusthub.v1.customer_profiles(profile_sid) \
+                    .customer_profiles_entity_assignments.create(object_sid=primary_sid)
+            except Exception as link_err:
+                logger.warning(f"Primary profile link failed (non-fatal): {link_err}")
+
+        # Step 2: EndUser (sole_proprietor_information)
+        end_user = client.trusthub.v1.end_users.create(
+            friendly_name=f"{business_name} SP EndUser",
+            type="sole_proprietor_information",
+            attributes={
+                "business_name": business_name,
+                "mobile_phone_number": phone,
+                "vertical": vertical,
+            },
+        )
+        logger.info(f"Created Sole Prop EndUser: {end_user.sid}")
+
+        # Attach EndUser to Profile
+        client.trusthub.v1.customer_profiles(profile_sid) \
+            .customer_profiles_entity_assignments.create(object_sid=end_user.sid)
+
+        # Submit Profile for evaluation
+        _trusthub_update_status(
+            "CustomerProfiles", profile_sid, "pending-review",
+            sub_sid, sub_auth,
+        )
+
+        # Step 3: Sole Prop Trust Bundle
+        trust_bundle = client.trusthub.v1.trust_products.create(
+            friendly_name=f"SP Bundle: {business_name}",
+            email=email,
+            policy_sid=_A2P_SOLE_PROP_BUNDLE_POLICY,
+        )
+        logger.info(f"Created Sole Prop Trust Bundle: {trust_bundle.sid}")
+
+        # Step 4: Attach EndUser + Profile to Bundle
+        client.trusthub.v1.trust_products(trust_bundle.sid) \
+            .trust_products_entity_assignments.create(object_sid=end_user.sid)
+        client.trusthub.v1.trust_products(trust_bundle.sid) \
+            .trust_products_entity_assignments.create(object_sid=profile_sid)
+
+        # Step 5: Submit Bundle for evaluation
+        _trusthub_update_status(
+            "TrustProducts", trust_bundle.sid, "pending-review",
+            sub_sid, sub_auth,
+        )
+
+        # Step 6: Register Brand
+        brand = client.messaging.v1.brand_registrations.create(
+            customer_profile_bundle_sid=profile_sid,
+            a2p_profile_bundle_sid=trust_bundle.sid,
+        )
+
+        logger.info(f"Created Sole Prop A2P Brand: {brand.sid} status={brand.status}")
+        return {
+            "brand_sid": brand.sid,
+            "status": brand.status,
+            "profile_sid": profile_sid,
+            "trust_product_sid": trust_bundle.sid,
+            "end_user_sid": end_user.sid,
+            "business_name": business_name,
+            "brand_type": "SOLE_PROPRIETOR",
+        }
+    except TwilioRestException as e:
+        logger.error(f"Sole Prop A2P Brand registration failed: {e}")
+        raise
+
+
+def _create_a2p_brand_standard(client, sub_sid, sub_auth,
+                                business_name, ein, street, city, state, zip_code,
+                                contact_email, contact_phone, business_type,
+                                stock_exchange, stock_ticker, website, vertical):
+    """
+    Standard / Low-Volume Standard A2P registration.
+
+    1. Secondary Customer Profile (ISV pattern)
+    2. EndUser (us_a2p_messaging_profile_information)
+    3. TrustProduct (A2P Messaging Profile Bundle)
+    4. Attach EndUser + Profile to TrustProduct
+    5. Submit for evaluation
+    6. Create Brand Registration
+    """
+    try:
         primary_sid = _find_primary_profile_sid()
         profile_sid = _find_or_create_secondary_profile(
-            client, sub_account_sid, business_name, contact_email,
+            client, sub_sid, business_name, contact_email,
             primary_profile_sid=primary_sid,
-            sub_account_auth_token=sub_account_auth_token,
+            sub_account_auth_token=sub_auth,
         )
         logger.info(f"Created/reused A2P Secondary Customer Profile: {profile_sid}")
 
-        # ── Step 2: EndUser with business information ──
+        # EndUser with business information
         end_user = client.trusthub.v1.end_users.create(
             friendly_name=f"{business_name} A2P EndUser",
             type="us_a2p_messaging_profile_information",
@@ -1549,36 +1682,28 @@ def create_a2p_brand(sub_account_sid: str,
         )
         logger.info(f"Created A2P EndUser: {end_user.sid}")
 
-        # ── Step 3: TrustProduct (A2P Messaging Profile Bundle) ──
+        # TrustProduct
         trust_product = client.trusthub.v1.trust_products.create(
             friendly_name=f"A2P Profile: {business_name}",
             email=contact_email,
-            policy_sid="RNb0d4771c2c98518d916a3d4cd70a8f8b",
+            policy_sid=_A2P_STANDARD_PROFILE_POLICY,
         )
         logger.info(f"Created A2P TrustProduct: {trust_product.sid}")
 
-        # ── Step 4: Attach EndUser → TrustProduct ──
+        # Attach EndUser + Profile
         client.trusthub.v1.trust_products(trust_product.sid) \
-            .trust_products_entity_assignments.create(
-                object_sid=end_user.sid,
-            )
-
-        # ── Step 5: Attach CustomerProfile → TrustProduct ──
+            .trust_products_entity_assignments.create(object_sid=end_user.sid)
         client.trusthub.v1.trust_products(trust_product.sid) \
-            .trust_products_entity_assignments.create(
-                object_sid=profile_sid,
-            )
+            .trust_products_entity_assignments.create(object_sid=profile_sid)
 
-        # ── Step 6: Submit TrustProduct for evaluation ──
+        # Submit for evaluation
         _trusthub_update_status(
             "TrustProducts", trust_product.sid, "pending-review",
-            sub_account_sid, sub_account_auth_token,
+            sub_sid, sub_auth,
         )
         logger.info(f"Submitted TrustProduct {trust_product.sid} for review")
 
-        # ── Step 7: Register Brand ──
-        # customer_profile_bundle_sid = Customer Profile SID (BU...)
-        # a2p_profile_bundle_sid      = TrustProduct SID (BU...)  ← NOT the profile!
+        # Register Brand
         brand = client.messaging.v1.brand_registrations.create(
             customer_profile_bundle_sid=profile_sid,
             a2p_profile_bundle_sid=trust_product.sid,
@@ -1592,6 +1717,7 @@ def create_a2p_brand(sub_account_sid: str,
             "trust_product_sid": trust_product.sid,
             "end_user_sid": end_user.sid,
             "business_name": business_name,
+            "brand_type": "STANDARD",
         }
     except TwilioRestException as e:
         logger.error(f"A2P Brand registration failed: {e}")
