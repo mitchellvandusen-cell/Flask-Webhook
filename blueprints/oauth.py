@@ -1100,6 +1100,17 @@ def oauth_callback():
                         f"{auto_linked_agency_email} via companyId={company_id}"
                     )
 
+            # Individual agents get ONE location only (their primary).
+            # Agency owners get all locations provisioned separately.
+            # Without this guard, an individual install with a company-scoped token
+            # would try to INSERT the same email for every location → unique constraint failure.
+            if not use_agency_flow and len(locations_to_provision) > 1:
+                if primary_location_id:
+                    locations_to_provision = [s for s in locations_to_provision if s['id'] == primary_location_id]
+                else:
+                    locations_to_provision = locations_to_provision[:1]
+                logger.info(f"Individual user — limited to {len(locations_to_provision)} location(s)")
+
             for sub in locations_to_provision:
                 sub_id = sub['id']
                 sub_name = sub.get('name', 'Unknown Location')
