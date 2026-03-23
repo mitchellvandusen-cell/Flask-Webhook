@@ -21,9 +21,68 @@ logger = logging.getLogger(__name__)
 assistant_bp = Blueprint('assistant', __name__)
 
 _ASSISTANT_MODEL = "grok-3-mini-fast"
-_ASSISTANT_MAX_TOOL_ROUNDS = 5
-_ASSISTANT_MAX_TOKENS = 600
+_ASSISTANT_MAX_TOOL_ROUNDS = 3
+_ASSISTANT_MAX_TOKENS = 400
 _RATE_LIMIT_RPM = 30
+
+
+# ── Fast path: instant responses for common patterns (no LLM) ────────────────
+
+_NAV_KEYWORDS = {
+    "dialer": "voicedialer", "dial": "voicedialer", "phone": "voicedialer", "calls": "voicedialer",
+    "bot config": "config", "sms settings": "config", "sms config": "config", "bot settings": "config",
+    "voice config": "voice", "voice settings": "voice",
+    "workflows": "workflows", "automations": "workflows", "automation": "workflows",
+    "connect crm": "connect", "integrations": "connect", "connect": "connect", "crm": "connect",
+    "carriers": "carriers",
+    "advanced": "advanced", "advanced settings": "advanced",
+    "ai minutes": "aiminutes", "minutes": "aiminutes",
+    "billing": "billing", "subscription": "billing", "plan": "billing",
+    "logs": "logs", "activity": "logs", "activity logs": "logs",
+    "team": "team", "members": "team",
+    "training": "training",
+    "white label": "whitelabel", "whitelabel": "whitelabel",
+}
+
+
+def _try_fast_path(msg: str):
+    """Try to handle common requests instantly without LLM. Returns response dict or None."""
+    lower = msg.lower().strip()
+
+    # INIT_CHAT greeting
+    if lower == "init_chat":
+        return {"text": "What can I help you with?"}
+
+    # Navigation: "go to X", "take me to X", "open X", "show X"
+    for prefix in ("go to ", "take me to ", "open ", "show ", "show me ", "navigate to ", "switch to "):
+        if lower.startswith(prefix):
+            dest = lower[len(prefix):].strip()
+            tab_id = _match_nav(dest)
+            if tab_id:
+                return {"text": f"Opening {dest}.", "navigate": tab_id}
+
+    # Direct tab name match (user just types "billing", "dialer", etc.)
+    tab_id = _match_nav(lower)
+    if tab_id and len(lower.split()) <= 3:
+        return {"text": f"Opening {lower}.", "navigate": tab_id}
+
+    # Stats shortcuts: "stats", "my stats", "call stats", "how many calls"
+    if lower in ("stats", "my stats", "call stats", "calls today"):
+        return None  # Let LLM handle with tool — but it's a known pattern
+
+    return None
+
+
+def _match_nav(dest: str):
+    """Match a destination string to a tab ID."""
+    # Exact match
+    if dest in _NAV_KEYWORDS:
+        return _NAV_KEYWORDS[dest]
+    # Substring match
+    for key, tid in _NAV_KEYWORDS.items():
+        if key in dest or dest in key:
+            return tid
+    return None
 
 
 # ── Rate limiter (per-user, Redis sliding window) ────────────────────────────
@@ -70,6 +129,11 @@ def assistant_chat():
     # Rate limit
     if _is_rate_limited(current_user.email):
         return flask_jsonify({"text": "You're sending messages too quickly. Give it a moment."}), 429
+
+    # ── Fast path: handle common requests without LLM ─────────────
+    fast = _try_fast_path(user_message)
+    if fast is not None:
+        return flask_jsonify(fast)
 
     # Build user context from authenticated session
     raw_token = getattr(current_user, "access_token", "") or ""
@@ -123,8 +187,8 @@ def assistant_chat():
                 model=_ASSISTANT_MODEL,
                 messages=messages,
                 tools=tools,
-                temperature=0.5,
-                max_tokens=_ASSISTANT_MAX_TOKENS,
+                temperature=0.3,
+                max_tokens=300,
             )
 
             msg = response.choices[0].message

@@ -214,7 +214,7 @@
         window.fetch = function(url, opts) {
             return _origFetch.apply(this, arguments).then(function(response) {
                 // Only intercept dashboard API errors, not the assistant's own calls
-                if (response.status >= 400
+                if (response.status >= 500
                     && typeof url === 'string'
                     && url.startsWith('/api/')
                     && !url.startsWith('/api/assistant/')
