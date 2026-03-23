@@ -20,9 +20,9 @@ logger = logging.getLogger(__name__)
 def _repair_json(raw):
     """
     Attempt to repair common LLM JSON issues:
+    - Text preamble before JSON (e.g. "Here is the analysis:")
     - Trailing commas before } or ]
     - Truncated output (incomplete JSON from max_tokens cutoff)
-    - Single quotes instead of double quotes (only outside strings)
     - Control characters inside strings
     Returns parsed object or raises ValueError.
     """
@@ -38,6 +38,15 @@ def _repair_json(raw):
     # Remove control chars except \n \r \t
     text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
 
+    # Strip text preamble before first [ or {
+    first_bracket = len(text)
+    for ch in ('[', '{'):
+        idx = text.find(ch)
+        if idx >= 0 and idx < first_bracket:
+            first_bracket = idx
+    if first_bracket > 0 and first_bracket < len(text):
+        text = text[first_bracket:]
+
     # Try direct parse first
     try:
         return json.loads(text)
@@ -51,8 +60,9 @@ def _repair_json(raw):
     except json.JSONDecodeError:
         pass
 
-    # Handle truncated JSON: close open brackets/braces
-    # Find the last valid complete object in an array
+    # Handle truncated JSON: find last complete object in the array
+    # by locating the last '}' that could close a complete object,
+    # then close the array after it
     truncated = fixed
     # Strip trailing incomplete key-value or string
     truncated = re.sub(r',\s*"[^"]*"?\s*:?\s*"?[^"]*$', '', truncated)
@@ -66,22 +76,56 @@ def _repair_json(raw):
     except json.JSONDecodeError:
         pass
 
-    # Last resort: extract the largest valid JSON array from the text
-    # Find first [ and try progressively shorter substrings
-    start = text.find('[')
-    if start >= 0:
-        for end in range(len(text), start, -1):
-            candidate = text[start:end]
-            # Balance brackets
-            o = candidate.count('[') - candidate.count(']')
-            ob = candidate.count('{') - candidate.count('}')
-            candidate += '}' * max(0, ob) + ']' * max(0, o)
-            # Remove trailing commas
+    # Smart truncation: find last complete JSON object boundary "},\n  {"
+    # and close the array there (handles mid-object truncation)
+    last_obj_end = fixed.rfind('},')
+    if last_obj_end > 0:
+        candidate = fixed[:last_obj_end + 1]  # up to and including the }
+        opens_c = candidate.count('[') - candidate.count(']')
+        ob_c = candidate.count('{') - candidate.count('}')
+        candidate += '}' * max(0, ob_c) + ']' * max(0, opens_c)
+        candidate = re.sub(r',\s*([}\]])', r'\1', candidate)
+        try:
+            result = json.loads(candidate)
+            if isinstance(result, (list, dict)):
+                return result
+        except json.JSONDecodeError:
+            pass
+
+    # Last resort: extract first { ... } or [ ... ] via brace matching
+    for open_ch, close_ch in (('[', ']'), ('{', '}')):
+        start = text.find(open_ch)
+        if start < 0:
+            continue
+        depth = 0
+        in_string = False
+        escape = False
+        last_zero = -1
+        for i in range(start, len(text)):
+            c = text[i]
+            if escape:
+                escape = False
+                continue
+            if c == '\\' and in_string:
+                escape = True
+                continue
+            if c == '"':
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if c == open_ch:
+                depth += 1
+            elif c == close_ch:
+                depth -= 1
+                if depth == 0:
+                    last_zero = i
+                    break
+        if last_zero > start:
+            candidate = text[start:last_zero + 1]
             candidate = re.sub(r',\s*([}\]])', r'\1', candidate)
             try:
-                result = json.loads(candidate)
-                if isinstance(result, list) and len(result) > 0:
-                    return result
+                return json.loads(candidate)
             except json.JSONDecodeError:
                 continue
 
@@ -602,6 +646,7 @@ HARD CALIBRATION RULES (these override your intuition):
             temperature=0.3,
             max_tokens=500,
             timeout=15.0,
+            response_format={"type": "json_object"},
         )
         raw = (response.choices[0].message.content or "").strip()
 
@@ -952,29 +997,31 @@ Each contact has a "CONVO" section showing Bot/Lead message exchanges. You MUST 
 
 CURRENT DATE: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}
 
-Respond with ONLY a valid JSON array (no markdown, no code fences). Each element MUST include the contact's ID from the [brackets] above. Use this exact structure:
+Respond with ONLY valid JSON (no markdown, no code fences). Each element MUST include the contact's ID from the [brackets] above. Use this exact structure:
 
-[
-  {{
-    "contact_id": "<id from brackets>",
-    "summary": "2-sentence snapshot. Be specific — reference actual conversation details.",
-    "temperature": "hot | warm | cool | cold",
-    "temperature_reason": "One sentence why.",
-    "score": 0-100,
-    "should_respond": true or false,
-    "should_respond_reason": "Why the agent should or should not respond now.",
-    "engagement_level": 0-3,
-    "under_contract": true or false,
-    "actions": [
-      {{
-        "action": "Short imperative action",
-        "reason": "Why this matters",
-        "priority": "high | medium | low",
-        "icon": "fa-solid fa-<icon>"
-      }}
-    ]
-  }}
-]
+{{
+  "results": [
+    {{
+      "contact_id": "<id from brackets>",
+      "summary": "2-sentence snapshot. Be specific — reference actual conversation details.",
+      "temperature": "hot | warm | cool | cold",
+      "temperature_reason": "One sentence why.",
+      "score": 0-100,
+      "should_respond": true or false,
+      "should_respond_reason": "Why the agent should or should not respond now.",
+      "engagement_level": 0-3,
+      "under_contract": true or false,
+      "actions": [
+        {{
+          "action": "Short imperative action",
+          "reason": "Why this matters",
+          "priority": "high | medium | low",
+          "icon": "fa-solid fa-<icon>"
+        }}
+      ]
+    }}
+  ]
+}}
 
 CLASSIFICATION RULES:
 - temperature: hot=actively buying/quoting/ready. warm=engaged/sharing info/positive. cool=went quiet/short replies/objections like "not interested" or "no thanks"/2+ bot messages unanswered (objections are COOL not cold — bot keeps trying). cold=TCPA opt-out only (stop/unsubscribe/remove me/do not contact) OR ghosted 3+ attempts over multiple days. TIMING: if no lead reply in 7+ days despite outreach, AT MOST "cool."
@@ -998,6 +1045,7 @@ You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact 
             temperature=0.3,
             max_tokens=max_tokens,
             timeout=timeout,
+            response_format={"type": "json_object"},
         )
         raw = (response.choices[0].message.content or "").strip()
         finish_reason = getattr(response.choices[0], 'finish_reason', None)
@@ -1013,6 +1061,9 @@ You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact 
                 logger.debug(f"Bulk AI raw tail: ...{raw[-300:]}")
             return {}
 
+        # Extract results array from wrapper object if needed
+        if isinstance(parsed, dict):
+            parsed = parsed.get("results", [])
         if not isinstance(parsed, list):
             logger.error("Bulk AI response was not a JSON array")
             return {}
