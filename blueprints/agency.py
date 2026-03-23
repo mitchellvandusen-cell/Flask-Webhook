@@ -1314,6 +1314,20 @@ def agency_whitelabel():
         config['name_italic'] = data['name_italic']
     if isinstance(data.get('name_underline'), bool):
         config['name_underline'] = data['name_underline']
+    # Accent color
+    if data.get('accent_color'):
+        import re
+        color = str(data['accent_color']).strip()
+        if re.match(r'^#[0-9a-fA-F]{6}$', color):
+            config['accent_color'] = color
+    # Dashboard font
+    if data.get('font_family'):
+        allowed_dash_fonts = [
+            'Inter', 'Roboto', 'Poppins', 'Montserrat', 'Open Sans',
+            'Lato', 'Nunito', 'Source Sans 3', 'DM Sans', 'Manrope',
+        ]
+        if data['font_family'] in allowed_dash_fonts:
+            config['font_family'] = data['font_family']
 
     ok = save_whitelabel_config(current_user.email, config)
     if ok:

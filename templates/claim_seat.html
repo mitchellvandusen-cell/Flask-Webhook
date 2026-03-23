@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Join Your Team | InsuranceGrokBot{% endblock %}
+{% block title %}Join Your Team | {{ brand_name }}{% endblock %}
 
 {% block content %}
 <div class="auth-wrapper">
     <div class="auth-card">
         <div class="auth-logo">
-            Insurance<span class="text-accent">Grok</span>Bot
+            {% if brand_logo %}<img src="{{ brand_logo }}" alt="{{ brand_name }}" style="max-height:48px; max-width:280px;">{% else %}{{ brand_name }}{% endif %}
         </div>
         <p class="auth-subtitle">Join your team's dialer</p>
 
@@ -24,7 +24,7 @@
 
         <div class="alert alert-info mb-4" style="font-size: 0.9rem;">
             <i class="fa-solid fa-users me-2"></i>
-            <strong>{{ manager_name }}</strong> invited you to join their InsuranceGrokBot team.
+            <strong>{{ manager_name }}</strong> invited you to join their {{ brand_name }} team.
             {% if name %}<br>Welcome, {{ name }}!{% endif %}
         </div>
 

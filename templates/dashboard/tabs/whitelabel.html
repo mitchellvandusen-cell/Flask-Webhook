@@ -58,6 +58,43 @@
                 </div>
             </div>
 
+            <!-- Accent Color -->
+            <div class="mb-4">
+                <label class="form-label dash-form-label">Accent Color</label>
+                <div class="d-flex align-items-center gap-3">
+                    <input type="color" id="wlAccentColor" class="form-control form-control-color"
+                           value="{{ whitelabel.accent_color if whitelabel and whitelabel.get('accent_color') else '#00ff88' }}"
+                           title="Choose accent color">
+                    <input type="text" id="wlAccentColorHex" class="form-control dash-input" maxlength="7"
+                           placeholder="#00ff88" style="max-width: 120px;"
+                           value="{{ whitelabel.accent_color if whitelabel and whitelabel.get('accent_color') else '' }}">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('wlAccentColor').value='#00ff88'; document.getElementById('wlAccentColorHex').value=''; wlUpdateAccentPreview();" title="Reset to default">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </button>
+                </div>
+                <small class="form-text dash-form-hint">Applied to buttons, links, highlights, and sidebar accents throughout the dashboard.</small>
+            </div>
+
+            <!-- Dashboard Font -->
+            <div class="mb-4">
+                <label class="form-label dash-form-label">Dashboard Font</label>
+                {% set df = whitelabel.font_family if whitelabel and whitelabel.get('font_family') else '' %}
+                <select id="wlDashFont" class="form-select dash-select">
+                    <option value="">Default (Outfit)</option>
+                    <option value="Inter" {{ 'selected' if df == 'Inter' else '' }}>Inter</option>
+                    <option value="Roboto" {{ 'selected' if df == 'Roboto' else '' }}>Roboto</option>
+                    <option value="Poppins" {{ 'selected' if df == 'Poppins' else '' }}>Poppins</option>
+                    <option value="Montserrat" {{ 'selected' if df == 'Montserrat' else '' }}>Montserrat</option>
+                    <option value="Open Sans" {{ 'selected' if df == 'Open Sans' else '' }}>Open Sans</option>
+                    <option value="Lato" {{ 'selected' if df == 'Lato' else '' }}>Lato</option>
+                    <option value="Nunito" {{ 'selected' if df == 'Nunito' else '' }}>Nunito</option>
+                    <option value="Source Sans 3" {{ 'selected' if df == 'Source Sans 3' else '' }}>Source Sans 3</option>
+                    <option value="DM Sans" {{ 'selected' if df == 'DM Sans' else '' }}>DM Sans</option>
+                    <option value="Manrope" {{ 'selected' if df == 'Manrope' else '' }}>Manrope</option>
+                </select>
+                <small class="form-text dash-form-hint">Applied to all dashboard text for your agents.</small>
+            </div>
+
             <hr class="dash-divider">
 
             <!-- Logo Upload -->

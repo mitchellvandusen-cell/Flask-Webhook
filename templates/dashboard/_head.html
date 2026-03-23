@@ -7,9 +7,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="IGB">
-    <meta name="application-name" content="InsuranceGrokBot">
+    <meta name="application-name" content="{{ whitelabel.company_name if whitelabel and whitelabel.get('company_name') else 'InsuranceGrokBot' }}">
     <meta name="mobile-web-app-capable" content="yes">
-    <title>Dashboard | InsuranceGrokBot</title>
+    <title>Dashboard | {{ whitelabel.company_name if whitelabel and whitelabel.get('company_name') else 'InsuranceGrokBot' }}</title>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">

@@ -1,5 +1,5 @@
 // whitelabel.js — White-label branding management for agency owners
-// Handles logo upload, company name styling, and save/load operations.
+// Handles logo upload, company name styling, accent color, dashboard font, and save/load.
 
 (function() {
     'use strict';
@@ -40,6 +40,18 @@
                     _wlState.underline = true;
                     document.getElementById('wlUnderlineBtn').classList.add('active');
                 }
+                // Accent color
+                if (wl.accent_color) {
+                    var colorPicker = document.getElementById('wlAccentColor');
+                    var colorHex = document.getElementById('wlAccentColorHex');
+                    if (colorPicker) colorPicker.value = wl.accent_color;
+                    if (colorHex) colorHex.value = wl.accent_color;
+                }
+                // Dashboard font
+                if (wl.font_family) {
+                    var dashFont = document.getElementById('wlDashFont');
+                    if (dashFont) dashFont.value = wl.font_family;
+                }
                 _wlUpdatePreview();
             })
             .catch(function(e) { console.warn('wlInit error:', e); });
@@ -53,7 +65,6 @@
         if (fontSelect) {
             fontSelect.addEventListener('change', function() {
                 _wlState.font = this.value;
-                // Load Google Font dynamically
                 if (this.value) {
                     var link = document.createElement('link');
                     link.rel = 'stylesheet';
@@ -62,6 +73,35 @@
                     document.head.appendChild(link);
                 }
                 _wlUpdatePreview();
+            });
+        }
+
+        // Accent color sync between picker and hex input
+        var colorPicker = document.getElementById('wlAccentColor');
+        var colorHex = document.getElementById('wlAccentColorHex');
+        if (colorPicker && colorHex) {
+            colorPicker.addEventListener('input', function() {
+                colorHex.value = this.value;
+            });
+            colorHex.addEventListener('input', function() {
+                var v = this.value.trim();
+                if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+                    colorPicker.value = v;
+                }
+            });
+        }
+
+        // Dashboard font: load preview
+        var dashFontSelect = document.getElementById('wlDashFont');
+        if (dashFontSelect) {
+            dashFontSelect.addEventListener('change', function() {
+                if (this.value) {
+                    var link = document.createElement('link');
+                    link.rel = 'stylesheet';
+                    link.href = 'https://fonts.googleapis.com/css2?family=' +
+                                encodeURIComponent(this.value) + ':wght@300;400;500;600;700&display=swap';
+                    document.head.appendChild(link);
+                }
             });
         }
 
@@ -75,7 +115,6 @@
                     _wlHandleLogoFile(this.files[0]);
                 }
             });
-            // Drag & drop
             dropZone.addEventListener('dragover', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -118,6 +157,15 @@
         _wlUpdatePreview();
     };
 
+    // ── Update accent color preview ──────────────────────────────────────────
+    window.wlUpdateAccentPreview = function() {
+        var colorPicker = document.getElementById('wlAccentColor');
+        var colorHex = document.getElementById('wlAccentColorHex');
+        if (colorPicker && colorHex) {
+            colorHex.value = colorPicker.value;
+        }
+    };
+
     // ── Update name preview ──────────────────────────────────────────────────
     function _wlUpdatePreview() {
         var text = (document.getElementById('wlCompanyName').value || '').trim() || 'Your Agency Name';
@@ -132,8 +180,7 @@
 
     // ── Handle logo file (convert to data URL for preview, store URL) ────────
     function _wlHandleLogoFile(file) {
-        // Validate
-        var maxSize = 2 * 1024 * 1024; // 2MB
+        var maxSize = 2 * 1024 * 1024;
         if (file.size > maxSize) {
             if (typeof _showDashToast === 'function') _showDashToast(false, 'Logo must be under 2MB');
             return;
@@ -144,7 +191,6 @@
             return;
         }
 
-        // Validate dimensions
         var reader = new FileReader();
         reader.onload = function(e) {
             var img = new Image();
@@ -155,10 +201,7 @@
                     }
                     return;
                 }
-                // Show preview
                 _wlShowLogoPreview(e.target.result);
-                // Store the data URL — on save, the backend will need a real URL
-                // For now, users should paste a hosted URL instead
                 document.getElementById('wlLogoUrl').value = '';
                 if (typeof _showDashToast === 'function') {
                     _showDashToast(true, 'Logo preview loaded. Paste a hosted URL to save permanently.');
@@ -172,7 +215,6 @@
     function _wlShowLogoPreview(url) {
         var preview = document.getElementById('wlLogoPreview');
         if (!preview) return;
-        // Build with DOM APIs to prevent XSS via URL injection
         preview.innerHTML = '';
         var img = document.createElement('img');
         img.src = url;
@@ -208,9 +250,17 @@
         var companyName = (document.getElementById('wlCompanyName').value || '').trim();
         var logoUrl = (document.getElementById('wlLogoUrl').value || '').trim();
         var nameFont = document.getElementById('wlNameFont').value;
+        var accentColor = (document.getElementById('wlAccentColorHex').value || '').trim();
+        var dashFont = document.getElementById('wlDashFont').value;
 
-        if (!companyName && !logoUrl) {
-            if (typeof _showDashToast === 'function') _showDashToast(false, 'Enter a company name or logo URL.');
+        // Validate accent color format
+        if (accentColor && !/^#[0-9a-fA-F]{6}$/.test(accentColor)) {
+            if (typeof _showDashToast === 'function') _showDashToast(false, 'Invalid color format. Use #RRGGBB.');
+            return;
+        }
+
+        if (!companyName && !logoUrl && !accentColor) {
+            if (typeof _showDashToast === 'function') _showDashToast(false, 'Enter a company name, logo, or accent color.');
             return;
         }
 
@@ -221,6 +271,8 @@
             name_bold: _wlState.bold,
             name_italic: _wlState.italic,
             name_underline: _wlState.underline,
+            accent_color: accentColor || undefined,
+            font_family: dashFont || undefined,
         };
 
         fetch('/api/agency/whitelabel', {
@@ -239,6 +291,33 @@
         .catch(function(e) {
             if (typeof _showDashToast === 'function') _showDashToast(false, 'Network error: ' + e.message);
         });
+    };
+
+    // ── Apply white-label overrides on page load ─────────────────────────────
+    // Called from dashboard.html after DASHBOARD_BOOT is available
+    window.wlApplyOverrides = function(wl) {
+        if (!wl) return;
+
+        // Accent color override
+        if (wl.accent_color) {
+            document.documentElement.style.setProperty('--accent', wl.accent_color);
+            // Compute a dimmed version for backgrounds
+            var r = parseInt(wl.accent_color.slice(1, 3), 16);
+            var g = parseInt(wl.accent_color.slice(3, 5), 16);
+            var b = parseInt(wl.accent_color.slice(5, 7), 16);
+            document.documentElement.style.setProperty('--accent-dim', 'rgba(' + r + ',' + g + ',' + b + ',0.12)');
+        }
+
+        // Dashboard font override
+        if (wl.font_family) {
+            var link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = 'https://fonts.googleapis.com/css2?family=' +
+                        encodeURIComponent(wl.font_family) + ':wght@300;400;500;600;700;800&display=swap';
+            document.head.appendChild(link);
+            document.documentElement.style.setProperty('--font-primary', "'" + wl.font_family + "', sans-serif");
+            document.body.style.fontFamily = "'" + wl.font_family + "', sans-serif";
+        }
     };
 
 })();

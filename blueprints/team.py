@@ -196,19 +196,21 @@ def _get_ghl_users(location_id, access_token):
         return []
 
 
-def _send_seat_invite_email(to_email, seat_name, manager_name, invite_url):
-    """Send invite email to a seat user."""
+def _send_seat_invite_email(to_email, seat_name, manager_name, invite_url, brand_name=None, accent_color=None):
+    """Send invite email to a seat user. Uses white-label branding if available."""
     try:
         from send_email_api import send_email
-        subject = f"{manager_name} invited you to InsuranceGrokBot"
+        _brand = brand_name or 'InsuranceGrokBot'
+        _color = accent_color or '#00ff88'
+        subject = f"{manager_name} invited you to {_brand}"
         html_body = f"""
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
-            <h2 style="color:#00ff88;">You've been invited!</h2>
+            <h2 style="color:{_color};">You've been invited!</h2>
             <p>Hi{' ' + seat_name if seat_name else ''},</p>
-            <p><strong>{manager_name}</strong> has invited you to join their InsuranceGrokBot dialer team.</p>
+            <p><strong>{manager_name}</strong> has invited you to join their {_brand} dialer team.</p>
             <p>Click the button below to set up your account and start dialing:</p>
             <div style="text-align:center;margin:30px 0;">
-                <a href="{invite_url}" style="background:#00ff88;color:#000;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:16px;">
+                <a href="{invite_url}" style="background:{_color};color:#000;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:16px;">
                     Activate Your Account
                 </a>
             </div>
@@ -375,11 +377,14 @@ def invite_member():
         )
 
         invite_url = f"{YOUR_DOMAIN}/claim-seat?token={invite_token}"
+        wl = _get_whitelabel_for_location(current_user.location_id, cur)
         email_sent = _send_seat_invite_email(
             to_email=email,
             seat_name=full_name,
             manager_name=current_user.full_name or current_user.email,
             invite_url=invite_url,
+            brand_name=wl.get('company_name'),
+            accent_color=wl.get('accent_color'),
         )
 
         return jsonify({
@@ -442,11 +447,14 @@ def resend_invite():
                    'invite_resent', member['email'])
 
         invite_url = f"{YOUR_DOMAIN}/claim-seat?token={invite_token}"
+        wl = _get_whitelabel_for_location(current_user.location_id, cur)
         _send_seat_invite_email(
             to_email=member['email'],
             seat_name=member['full_name'],
             manager_name=current_user.full_name or current_user.email,
             invite_url=invite_url,
+            brand_name=wl.get('company_name'),
+            accent_color=wl.get('accent_color'),
         )
 
         return jsonify({"status": "success", "message": f"Invite resent to {member['email']}"})
@@ -500,14 +508,21 @@ def claim_seat():
                 return redirect(url_for('public.home'))
 
         if request.method == 'GET':
+            wl = _get_whitelabel_for_location(seat['location_id'], cur)
             return render_template('claim_seat.html',
                                    email=seat['email'],
                                    name=seat['full_name'],
                                    manager_name=seat.get('manager_name', ''),
-                                   token=token)
+                                   token=token,
+                                   brand_name=wl.get('company_name') or 'InsuranceGrokBot',
+                                   brand_logo=wl.get('logo_url', ''))
 
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
+
+        wl = _get_whitelabel_for_location(seat['location_id'], cur)
+        _brand = wl.get('company_name') or 'InsuranceGrokBot'
+        _logo = wl.get('logo_url', '')
 
         if not password or len(password) < 8:
             flash("Password must be at least 8 characters.", "danger")
@@ -515,7 +530,8 @@ def claim_seat():
                                    email=seat['email'],
                                    name=seat['full_name'],
                                    manager_name=seat.get('manager_name', ''),
-                                   token=token)
+                                   token=token,
+                                   brand_name=_brand, brand_logo=_logo)
 
         if password != confirm_password:
             flash("Passwords do not match.", "danger")
@@ -523,7 +539,8 @@ def claim_seat():
                                    email=seat['email'],
                                    name=seat['full_name'],
                                    manager_name=seat.get('manager_name', ''),
-                                   token=token)
+                                   token=token,
+                                   brand_name=_brand, brand_logo=_logo)
 
         password_hash = generate_password_hash(password)
         cur.execute("""
@@ -1233,3 +1250,23 @@ def get_roles():
         {"key": k, "label": k.capitalize(), "description": v}
         for k, v in ROLES.items()
     ]})
+
+
+# ── White-Label Helper ────────────────────────────────────────────────────────
+
+def _get_whitelabel_for_location(location_id, cur):
+    """Look up white-label config for a location via its agency owner."""
+    try:
+        cur.execute("""
+            SELECT ab.whitelabel_config
+            FROM subscribers s
+            JOIN agency_billing ab ON ab.company_id = s.company_id
+            WHERE s.location_id = %s AND ab.whitelabel_config IS NOT NULL
+            LIMIT 1
+        """, (location_id,))
+        row = cur.fetchone()
+        if row and row.get('whitelabel_config'):
+            return dict(row['whitelabel_config'])
+    except Exception as e:
+        logger.warning(f"_get_whitelabel_for_location failed: {e}")
+    return {}
