@@ -139,7 +139,7 @@ attach_error_handler("flask-webhook", lambda: redis_conn)
 
 # ── Initialization ───────────────────────────────────────────────────────────
 
-sync_subscribers()
+# sync_subscribers() — disabled, Google Sheet no longer used
 init_db()
 # One-shot cleanup: wipe stale master-account Trust Hub / A2P data from sub-account voice_configs
 clean_subaccount_contamination()
