@@ -1140,6 +1140,11 @@ HARD CALIBRATION RULES (these override your intuition):
                     if partial and contact_id in partial:
                         logger.warning(f"AI intelligence JSON repair failed for {contact_id} but regex extracted fields (injected id)")
                         return partial[contact_id]
+                # Ultimate fallback: extract fields directly from raw without needing contact_id key
+                single_result = _extract_fields_from_single_response(raw, contact_id, ctx)
+                if single_result:
+                    logger.warning(f"AI intelligence JSON repair failed for {contact_id} but direct field extraction succeeded")
+                    return single_result
                 logger.error(f"AI intelligence JSON parse failed for {contact_id}: {e}")
                 logger.error(f"AI raw response for {contact_id}: {raw[:300]}")
                 return None
@@ -1464,6 +1469,68 @@ CALLS: {calls_str}"""
     return block
 
 
+def _extract_fields_from_single_response(raw, contact_id, ctx):
+    """
+    Extract intelligence fields directly from a single-contact raw response
+    without needing the contact_id key to exist in the text. This handles
+    completely garbled JSON where only field values survive.
+    Returns a validated dict or None.
+    """
+    if not raw or len(raw) < 15:
+        return None
+
+    # Extract string fields with any quoting style
+    def _rx_str(field):
+        m = re.search(rf'"{field}"\s*:\s*"((?:[^"\\]|\\.)*)"', raw)
+        if m:
+            return m.group(1).replace('\\"', '"').replace('\\n', ' ').strip()
+        m = re.search(rf"(?:'{field}'|{field})\s*:\s*\"((?:[^\"\\]|\\.)*)\"", raw)
+        if m:
+            return m.group(1).replace('\\"', '"').replace('\\n', ' ').strip()
+        m = re.search(rf"""(?:"{field}"|'{field}'|{field})\s*:\s*'((?:[^'\\\\]|\\\\.)*)'""", raw)
+        if m:
+            return m.group(1).replace("\\'", "'").replace('\\n', ' ').strip()
+        return None
+
+    def _rx_int(field):
+        m = re.search(rf"""(?:"{field}"|'{field}'|{field})\s*:\s*(\d+)""", raw)
+        return int(m.group(1)) if m else None
+
+    def _rx_bool(field):
+        m = re.search(rf"""(?:"{field}"|'{field}'|{field})\s*:\s*(true|false|True|False)""", raw)
+        if not m:
+            return None
+        return m.group(1).lower() == 'true'
+
+    summary = _rx_str('summary')
+    temperature = _rx_str('temperature')
+    score = _rx_int('score')
+    should_respond = _rx_bool('should_respond')
+    engagement = _rx_int('engagement_level')
+    temp_reason = _rx_str('temperature_reason')
+    respond_reason = _rx_str('should_respond_reason')
+    under_contract = _rx_bool('under_contract')
+
+    # Need at least summary or temperature to consider this a valid extraction
+    if not summary and not temperature:
+        return None
+
+    obj = {
+        'contact_id': contact_id,
+        'summary': summary or 'Analysis partially recovered',
+        'temperature': temperature if temperature in ('hot', 'warm', 'cool', 'cold') else 'warm',
+        'temperature_reason': temp_reason or '',
+        'score': score if score is not None else 50,
+        'should_respond': should_respond if should_respond is not None else False,
+        'should_respond_reason': respond_reason or '',
+        'engagement_level': engagement if engagement is not None else 1,
+        'under_contract': under_contract if under_contract is not None else False,
+        'actions': [],
+    }
+    obj = _validate_and_calibrate(obj, ctx)
+    return obj
+
+
 def _regex_extract_contacts(raw, all_contexts=None):
     """
     Last-resort regex-based extraction of contact data from severely malformed JSON.
@@ -1527,6 +1594,88 @@ def _regex_extract_contacts(raw, all_contexts=None):
         under_contract = _rx_bool(region, 'under_contract')
 
         if summary or temperature:  # at least some data extracted
+            obj = {
+                'contact_id': cid,
+                'summary': summary or 'Analysis partially recovered',
+                'temperature': temperature if temperature in ('hot', 'warm', 'cool', 'cold') else 'warm',
+                'temperature_reason': temp_reason or '',
+                'score': score if score is not None else 50,
+                'should_respond': should_respond if should_respond is not None else False,
+                'should_respond_reason': respond_reason or '',
+                'engagement_level': engagement if engagement is not None else 1,
+                'under_contract': under_contract if under_contract is not None else False,
+                'actions': [],
+            }
+            ctx = all_contexts.get(cid, {"messages": [], "timing": {}})
+            obj = _validate_and_calibrate(obj, ctx)
+            results[cid] = obj
+
+    # If regex found nothing via contact_id keys, try searching for known IDs directly
+    # This handles cases where the LLM omits the "contact_id" field but includes the ID value
+    if not results and all_contexts:
+        results = _extract_by_known_ids(raw, all_contexts, _rx_str, _rx_int, _rx_bool)
+
+    return results
+
+
+def _extract_by_known_ids(raw, all_contexts, _rx_str=None, _rx_int=None, _rx_bool=None):
+    """
+    Search for known contact IDs directly in the raw text and extract fields
+    from the surrounding region. Handles cases where the LLM response contains
+    the contact data but with garbled/missing contact_id keys.
+    """
+    if not raw or not all_contexts:
+        return {}
+
+    # Build local regex helpers if not passed in
+    if _rx_str is None:
+        def _rx_str(region, field):
+            m = re.search(rf'"{field}"\s*:\s*"((?:[^"\\]|\\.)*)"', region)
+            if m:
+                return m.group(1).replace('\\"', '"').replace('\\n', ' ').strip()
+            m = re.search(rf"(?:'{field}'|{field})\s*:\s*\"((?:[^\"\\]|\\.)*)\"", region)
+            if m:
+                return m.group(1).replace('\\"', '"').replace('\\n', ' ').strip()
+            sq_pat = rf"""(?:"{field}"|'{field}'|{field})\s*:\s*'((?:[^'\\\\]|\\\\.)*)'"""
+            m = re.search(sq_pat, region)
+            if m:
+                return m.group(1).replace("\\'", "'").replace('\\n', ' ').strip()
+            return None
+    if _rx_int is None:
+        def _rx_int(region, field):
+            m = re.search(rf"""(?:"{field}"|'{field}'|{field})\s*:\s*(\d+)""", region)
+            return int(m.group(1)) if m else None
+    if _rx_bool is None:
+        def _rx_bool(region, field):
+            m = re.search(rf"""(?:"{field}"|'{field}'|{field})\s*:\s*(true|false|True|False)""", region)
+            if not m:
+                return None
+            return m.group(1).lower() == 'true'
+
+    results = {}
+    # Search for each known contact ID in the raw text
+    for cid in all_contexts:
+        # Find the ID string in the response (may appear as value without a key)
+        idx = raw.find(cid)
+        if idx < 0:
+            continue
+
+        # Extract a region around this ID: look back to nearest { and forward ~2000 chars
+        start = raw.rfind('{', max(0, idx - 300), idx)
+        if start < 0:
+            start = max(0, idx - 100)
+        region = raw[start:start + 2500]
+
+        summary = _rx_str(region, 'summary')
+        temperature = _rx_str(region, 'temperature')
+        score = _rx_int(region, 'score')
+        should_respond = _rx_bool(region, 'should_respond')
+        engagement = _rx_int(region, 'engagement_level')
+        temp_reason = _rx_str(region, 'temperature_reason')
+        respond_reason = _rx_str(region, 'should_respond_reason')
+        under_contract = _rx_bool(region, 'under_contract')
+
+        if summary or temperature:
             obj = {
                 'contact_id': cid,
                 'summary': summary or 'Analysis partially recovered',
