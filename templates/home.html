@@ -2,7 +2,7 @@
 
 {% block title %}InsuranceGrokBot — AI That Texts, Calls & Books Appointments{% endblock %}
 
-{% block meta_description %}AI-powered sales assistant built for life insurance agents. Automates SMS follow-up, AI voice calls, and appointment booking with 270+ carrier knowledge. Integrates with GoHighLevel, Salesforce, HubSpot. From $149.99/mo.{% endblock %}
+{% block meta_description %}The only AI platform built exclusively for life insurance. Dials your leads, handles objections by text and voice, books appointments on your calendar, and gives agency owners the visibility to coach their team. From $149.99/mo.{% endblock %}
 
 {% block json_ld %}
 <script type="application/ld+json">
@@ -15,14 +15,9 @@
       "name": "InsuranceGrokBot",
       "url": "https://insurancegrokbot.com",
       "logo": "https://insurancegrokbot.com/static/favicon.svg",
-      "description": "AI-powered sales assistant platform built specifically for life insurance agents and agencies.",
+      "description": "AI-powered sales platform built specifically for life insurance agents and agencies.",
       "foundingDate": "2025",
-      "sameAs": [],
-      "contactPoint": {
-        "@type": "ContactPoint",
-        "contactType": "customer support",
-        "url": "https://insurancegrokbot.com/support"
-      }
+      "contactPoint": {"@type": "ContactPoint", "contactType": "customer support", "url": "https://insurancegrokbot.com/support"}
     },
     {
       "@type": "SoftwareApplication",
@@ -30,65 +25,15 @@
       "name": "InsuranceGrokBot",
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web",
-      "description": "AI sales assistant for life insurance agents that automates SMS lead follow-up, AI-powered voice calls, appointment booking, and multi-line power dialing. Built-in knowledge of 270+ insurance carriers, underwriting rules, and sales frameworks.",
+      "description": "AI sales platform for life insurance agents — automates SMS, voice calls, appointment booking, lead intelligence, and agency management.",
       "url": "https://insurancegrokbot.com",
-      "provider": { "@id": "https://insurancegrokbot.com/#organization" },
+      "provider": {"@id": "https://insurancegrokbot.com/#organization"},
       "offers": [
-        {
-          "@type": "Offer",
-          "name": "Power Dialer",
-          "price": "149.99",
-          "priceCurrency": "USD",
-          "billingDuration": "P1M",
-          "description": "Single-line AI dialer with SMS texting, voice calls, lead intelligence, Smart Filters, and 270+ carrier knowledge. No contracts.",
-          "url": "https://insurancegrokbot.com/#pricing"
-        },
-        {
-          "@type": "Offer",
-          "name": "Pro Dialer",
-          "price": "224.99",
-          "priceCurrency": "USD",
-          "billingDuration": "P1M",
-          "description": "Multi-line power dialer with up to 4 concurrent lines, predictive pacing, connect rate analytics, and priority queue.",
-          "url": "https://insurancegrokbot.com/#pricing"
-        },
-        {
-          "@type": "Offer",
-          "name": "Predictive Dialer",
-          "price": "349.98",
-          "priceCurrency": "USD",
-          "billingDuration": "P1M",
-          "description": "Enterprise predictive dialer with Erlang-C pacing, TCPA auto-throttle, compliance dashboard, and callback queue.",
-          "url": "https://insurancegrokbot.com/#pricing"
-        }
+        {"@type": "Offer", "name": "Power Dialer", "price": "149.99", "priceCurrency": "USD", "billingDuration": "P1M"},
+        {"@type": "Offer", "name": "Pro Dialer", "price": "224.99", "priceCurrency": "USD", "billingDuration": "P1M"},
+        {"@type": "Offer", "name": "Predictive Dialer", "price": "349.98", "priceCurrency": "USD", "billingDuration": "P1M"}
       ],
-      "featureList": [
-        "AI-powered SMS lead follow-up",
-        "AI voice calls with real-time conversation",
-        "Multi-line power dialer (up to 4 lines)",
-        "Predictive dialing with Erlang-C pacing",
-        "Automatic appointment booking",
-        "270+ insurance carrier knowledge",
-        "Underwriting rules awareness",
-        "AI lead intelligence and scoring",
-        "Smart Filters (hot/warm/cool/cold leads)",
-        "GoHighLevel CRM integration",
-        "Salesforce integration",
-        "HubSpot integration",
-        "Spam protection and number health monitoring",
-        "A2P 10DLC compliance",
-        "TCPA compliance dashboard",
-        "White-label SMS with dedicated phone numbers",
-        "Team management with roles and permissions",
-        "Agency multi-tenant dashboard"
-      ],
-      "screenshot": "https://insurancegrokbot.com/static/og-image.png",
-      "aggregateRating": {
-        "@type": "AggregateRating",
-        "ratingValue": "4.8",
-        "ratingCount": "6",
-        "bestRating": "5"
-      }
+      "featureList": ["AI-powered SMS", "AI voice calls", "Multi-line power dialer", "Predictive dialing", "Appointment booking", "270+ carrier knowledge", "AI lead intelligence", "Smart Filters", "Workflow automation", "Spam protection", "White-label branding", "Team management", "AI dashboard assistant with 80 actions"]
     }
   ]
 }
@@ -103,25 +48,23 @@
     .hero-tag { display: inline-block; background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.25); color: var(--accent); padding: 6px 20px; border-radius: 24px; font-size: 0.78rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 20px; }
     .hero-h1 { font-size: clamp(2.6rem, 5vw, 4rem); font-weight: 900; line-height: 1.08; margin-bottom: 20px; }
     .hero-h1 span { background: linear-gradient(135deg, var(--accent), #00d9ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .hero-sub { color: #999; font-size: 1.15rem; max-width: 620px; margin: 0 auto 32px; line-height: 1.6; }
-
-    /* ── Stats bar ── */
+    .hero-sub { color: #999; font-size: 1.15rem; max-width: 640px; margin: 0 auto 32px; line-height: 1.6; }
     .stats-bar { display: flex; justify-content: center; gap: 48px; flex-wrap: wrap; padding: 40px 0; }
     .stat-block { text-align: center; }
     .stat-block .lbl { color: #666; font-size: 0.78rem; margin-top: 4px; font-weight: 500; }
 
-    /* ── Bleed section (the pain) ── */
-    .bleed-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; border: 1px solid rgba(255,255,255,0.06); border-radius: 20px; overflow: hidden; background: rgba(255,255,255,0.02); max-width: 960px; margin: 0 auto; }
-    .bleed-cell { padding: 36px 28px; border-right: 1px solid rgba(255,255,255,0.06); text-align: center; }
-    .bleed-cell:last-child { border-right: none; }
-    .bleed-num { font-size: 2.4rem; font-weight: 900; line-height: 1; margin-bottom: 8px; }
-    .bleed-num--red { color: #ef4444; }
-    .bleed-num--amber { color: #f59e0b; }
-    .bleed-num--gray { color: #6b7280; }
-    .bleed-label { font-size: 0.82rem; color: #888; line-height: 1.5; }
-    @media (max-width: 767px) { .bleed-grid { grid-template-columns: 1fr; } .bleed-cell { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); } .bleed-cell:last-child { border-bottom: none; } }
+    /* ── Split audience cards ── */
+    .audience-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 900px; margin: 0 auto; }
+    .audience-card { border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 40px 36px; position: relative; background: rgba(255,255,255,0.02); transition: border-color 0.3s, transform 0.3s; }
+    .audience-card:hover { transform: translateY(-4px); }
+    .audience-card h3 { font-weight: 800; font-size: 1.3rem; margin-bottom: 8px; }
+    .audience-card p { color: #888; font-size: 0.9rem; line-height: 1.65; margin-bottom: 20px; }
+    .audience-card ul { list-style: none; padding: 0; margin: 0 0 24px; }
+    .audience-card ul li { padding: 5px 0; color: #bbb; font-size: 0.85rem; }
+    .audience-card ul li i { margin-right: 8px; }
+    @media (max-width: 767px) { .audience-grid { grid-template-columns: 1fr; } }
 
-    /* ── Live AI phone mockup ── */
+    /* ── Phone mockup ── */
     .phone-mock { width: 340px; margin: 0 auto; border: 2px solid rgba(255,255,255,0.1); border-radius: 36px; padding: 16px; background: rgba(0,0,0,0.6); backdrop-filter: blur(20px); position: relative; overflow: hidden; }
     .phone-notch { width: 120px; height: 24px; background: #000; border-radius: 0 0 16px 16px; margin: 0 auto 12px; }
     .phone-header { text-align: center; padding: 8px 0 12px; border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 12px; }
@@ -138,120 +81,16 @@
     .ph-typing-dot:nth-child(3) { animation-delay: 0.4s; }
     @keyframes bubbleIn { to { opacity: 1; transform: translateY(0); } }
     @keyframes typingPulse { 0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); } 30% { opacity: 1; transform: scale(1); } }
-
-    .phone-mock-col { display: flex; flex-direction: column; align-items: center; }
     .ai-convo-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; max-width: 1000px; margin: 0 auto; }
     @media (max-width: 991px) { .ai-convo-layout { grid-template-columns: 1fr; gap: 40px; } }
-    .ai-convo-hooks { display: flex; flex-direction: column; gap: 20px; }
-    .ai-hook { display: flex; gap: 16px; align-items: flex-start; }
-    .ai-hook-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
-    .ai-hook h4 { font-weight: 800; font-size: 1rem; margin-bottom: 4px; color: #fff; }
-    .ai-hook p { color: #888; font-size: 0.85rem; line-height: 1.55; margin: 0; }
 
-    /* ── Platform strip ── */
-    .platform-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border: 1px solid rgba(255,255,255,0.06); border-radius: 20px; overflow: hidden; background: rgba(255,255,255,0.02); }
-    .ps-cell { padding: 40px 32px; border-right: 1px solid rgba(255,255,255,0.06); position: relative; transition: background 0.3s; }
-    .ps-cell:last-child { border-right: none; }
-    .ps-cell:hover { background: rgba(255,255,255,0.03); }
-    .ps-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; font-size: 1.2rem; }
-    .ps-cell h4 { font-weight: 800; font-size: 1.1rem; margin-bottom: 8px; }
-    .ps-cell p { color: #888; font-size: 0.88rem; line-height: 1.6; margin-bottom: 14px; }
-    .ps-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-    .ps-tag { font-size: 0.72rem; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
-    .ps-link { font-size: 0.82rem; font-weight: 600; text-decoration: none; display: inline-block; margin-top: 10px; transition: all 0.2s; }
-    .ps-link:hover { transform: translateX(4px); }
-    @media (max-width: 991px) { .platform-strip { grid-template-columns: 1fr; } .ps-cell { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); } .ps-cell:last-child { border-bottom: none; } }
-
-    /* ── Number Health mockup ── */
-    .nh-teaser-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; max-width: 1000px; margin: 0 auto; }
-    @media (max-width: 991px) { .nh-teaser-layout { grid-template-columns: 1fr; gap: 40px; } }
-    .nh-dashboard { border: 1px solid rgba(0,217,255,0.15); border-radius: 20px; padding: 28px; background: rgba(0,0,0,0.4); backdrop-filter: blur(20px); }
-    .nh-dash-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.06); }
-    .nh-dash-title { font-weight: 800; font-size: 0.95rem; color: #fff; }
-    .nh-dash-badge { font-size: 0.68rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; background: rgba(0,255,136,0.1); color: var(--accent); }
-    .nh-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
-    .nh-row:last-child { border-bottom: none; }
-    .nh-phone { color: #ddd; font-size: 0.82rem; font-weight: 600; font-family: monospace; min-width: 110px; }
-    .nh-bar { flex: 1; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
-    .nh-fill { height: 100%; border-radius: 3px; transition: width 1.5s ease; }
-    .nh-fill--green { background: linear-gradient(90deg, var(--accent), #00d9ff); }
-    .nh-fill--amber { background: linear-gradient(90deg, #f59e0b, #ef4444); }
-    .nh-fill--red { background: linear-gradient(90deg, #ef4444, #dc2626); }
-    .nh-score { font-weight: 800; font-size: 0.85rem; min-width: 28px; text-align: right; }
-    .nh-score--green { color: var(--accent); }
-    .nh-score--amber { color: #f59e0b; }
-    .nh-score--red { color: #ef4444; }
-    .nh-status { font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
-    .nh-status--active { background: rgba(0,255,136,0.1); color: var(--accent); }
-    .nh-status--resting { background: rgba(245,158,11,0.1); color: #f59e0b; }
-    .nh-status--frozen { background: rgba(239,68,68,0.1); color: #ef4444; }
-
-    .nh-hooks { display: flex; flex-direction: column; gap: 24px; }
-    .nh-hook-stat { display: flex; align-items: baseline; gap: 10px; }
-    .nh-hook-num { font-size: 2rem; font-weight: 900; line-height: 1; }
-    .nh-hook-num--cyan { color: #00d9ff; }
-    .nh-hook-num--accent { color: var(--accent); }
-    .nh-hook-desc { color: #888; font-size: 0.88rem; }
-
-    /* ── Comparison section ── */
-    .vs-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; max-width: 960px; margin: 0 auto; }
-    @media (max-width: 767px) { .vs-grid { grid-template-columns: 1fr; } }
-    .vs-card { border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 32px 24px; background: rgba(255,255,255,0.02); text-align: center; transition: all 0.3s; text-decoration: none; color: inherit; display: flex; flex-direction: column; }
-    .vs-card:hover { transform: translateY(-4px); background: rgba(255,255,255,0.04); }
-    .vs-card-icon { width: 56px; height: 56px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; margin: 0 auto 16px; }
-    .vs-card h4 { font-weight: 800; font-size: 1rem; margin-bottom: 6px; color: #fff; }
-    .vs-card p { color: #777; font-size: 0.82rem; line-height: 1.5; margin-bottom: 16px; flex: 1; }
-    .vs-card-hook { font-size: 0.95rem; font-weight: 900; margin-bottom: 12px; line-height: 1.3; }
-    .vs-card-cta { font-weight: 700; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; transition: gap 0.2s; }
-    .vs-card:hover .vs-card-cta { gap: 10px; }
-
-    /* ── How It Works ── */
-    .hiw-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; max-width: 900px; margin: 0 auto; position: relative; }
-    .hiw-step { text-align: center; padding: 40px 32px; position: relative; }
-    .hiw-num { width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.2rem; margin: 0 auto 18px; }
-    .hiw-step h4 { font-weight: 800; font-size: 1.05rem; margin-bottom: 8px; }
-    .hiw-step p { color: #888; font-size: 0.88rem; line-height: 1.6; margin: 0; }
-    .hiw-arrow { position: absolute; top: 62px; right: -12px; color: rgba(255,255,255,0.15); font-size: 1.2rem; }
-    @media (max-width: 767px) { .hiw-grid { grid-template-columns: 1fr; gap: 16px; } .hiw-arrow { display: none; } }
-
-    /* ── Testimonials ── */
-    .testimonial-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 960px; margin: 0 auto; }
-    @media (max-width: 767px) { .testimonial-grid { grid-template-columns: 1fr; } }
-    .founder-result { border: 1px solid rgba(0,255,136,0.15); border-radius: 20px; padding: 40px 44px; background: rgba(0,255,136,0.02); position: relative; }
-    .founder-result::before { content: '\201C'; position: absolute; top: 16px; left: 24px; font-size: 4rem; line-height: 1; color: rgba(0,255,136,0.12); font-family: Georgia, serif; }
-    .founder-result blockquote { color: #ccc; font-size: 1.05rem; line-height: 1.7; margin: 0 0 20px; font-style: italic; padding-left: 12px; }
-    .founder-result .fr-stats { display: flex; gap: 32px; flex-wrap: wrap; }
-    .founder-result .fr-stat { text-align: center; }
-    .founder-result .fr-stat .val { font-size: 1.6rem; font-weight: 900; line-height: 1; }
-    .founder-result .fr-stat .desc { color: #666; font-size: 0.78rem; margin-top: 4px; }
-    .founder-result .fr-attr { color: #666; font-size: 0.82rem; margin-top: 16px; }
-    @media (max-width: 575px) { .founder-result { padding: 28px 24px; } }
-
-    /* ── Audience cards ── */
-    .audience-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 860px; margin: 0 auto; }
-    .audience-card { border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 40px 36px; position: relative; background: rgba(255,255,255,0.02); transition: border-color 0.3s, transform 0.3s; }
-    .audience-card:hover { transform: translateY(-4px); }
-    .audience-card h3 { font-weight: 800; font-size: 1.3rem; margin-bottom: 8px; }
-    .audience-card p { color: #888; font-size: 0.9rem; line-height: 1.65; margin-bottom: 20px; }
-    .audience-card ul { list-style: none; padding: 0; margin: 0 0 24px; }
-    .audience-card ul li { padding: 5px 0; color: #bbb; font-size: 0.85rem; }
-    .audience-card ul li i { margin-right: 8px; }
-    @media (max-width: 767px) { .audience-grid { grid-template-columns: 1fr; } }
-
-    /* ── CRM bar ── */
-    .crm-bar { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; }
-    .crm-chip { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 8px 18px; border-radius: 30px; color: #aaa; font-size: 0.82rem; font-weight: 600; transition: all 0.3s; }
-    .crm-chip:hover { background: rgba(0,255,136,0.04); border-color: rgba(0,255,136,0.15); color: #fff; transform: translateY(-2px); }
-    .hp-crm-label { color: #555; font-size: 0.82rem; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 16px; }
-
-    /* ── Resources strip ── */
-    .hp-resource-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; max-width: 960px; margin: 0 auto; }
-    @media (max-width: 991px) { .hp-resource-strip { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 575px) { .hp-resource-strip { grid-template-columns: 1fr; } }
-    .hp-resource-chip { display: flex; align-items: center; gap: 12px; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 16px 18px; background: rgba(255,255,255,0.02); transition: all 0.3s; text-decoration: none; color: #ccc; }
-    .hp-resource-chip:hover { background: rgba(255,255,255,0.04); transform: translateY(-2px); color: #fff; }
-    .hp-resource-chip i { font-size: 1rem; width: 20px; text-align: center; }
-    .hp-resource-chip span { font-weight: 600; font-size: 0.85rem; }
+    /* ── Why different ── */
+    .diff-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border: 1px solid rgba(255,255,255,0.06); border-radius: 20px; overflow: hidden; background: rgba(255,255,255,0.02); max-width: 960px; margin: 0 auto; }
+    .diff-cell { padding: 40px 28px; border-right: 1px solid rgba(255,255,255,0.06); }
+    .diff-cell:last-child { border-right: none; }
+    .diff-cell h4 { font-weight: 800; font-size: 1rem; margin-bottom: 8px; color: #fff; }
+    .diff-cell p { color: #888; font-size: 0.85rem; line-height: 1.6; margin: 0; }
+    @media (max-width: 767px) { .diff-grid { grid-template-columns: 1fr; } .diff-cell { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); } .diff-cell:last-child { border-bottom: none; } }
 
     /* ── Pricing ── */
     .price-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; max-width: 1320px; margin: 0 auto; }
@@ -267,8 +106,6 @@
     .price-features li i { margin-right: 8px; }
     @media (max-width: 991px) { .price-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 600px) { .price-grid { grid-template-columns: 1fr; } }
-
-    /* ── Pricing helpers ── */
     .hp-pricing-footnote { color: #555; font-size: 0.78rem; max-width: 600px; margin: 0 auto; }
     .hp-pricing-footnote a { color: var(--accent); }
     .hp-agency-link { color: #8b5cf6; font-weight: 600; font-size: 0.88rem; margin-top: 12px; display: inline-block; }
@@ -279,44 +116,25 @@
     .hp-price-subtitle-orange { color: #ff6b35; font-weight: 600; font-size: 0.85rem; margin-top: 8px; }
     .hp-price-see-all { color: #888; font-size: 0.78rem; }
     .hp-price-see-all i { font-size: 0.65rem; }
-
-    /* ── Closing CTA ── */
     .closing-cta-inner { position: relative; }
     .closing-cta-inner::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 60%, rgba(0,255,136,0.05) 0%, transparent 60%); pointer-events: none; }
     .closing-cta-inner h2 { font-size: clamp(2rem, 4vw, 3rem); font-weight: 900; margin-bottom: 16px; }
     .closing-cta-inner h2 span { background: linear-gradient(135deg, var(--accent), #00d9ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .closing-cta-inner p { color: #888; font-size: 1.05rem; max-width: 520px; margin: 0 auto 32px; line-height: 1.6; }
-
-    /* ── Solo Predictive centerpiece responsive ── */
-    @media (max-width: 767px) {
-        #iosSection1b [style*="grid-template-columns:repeat(3"] { grid-template-columns: 1fr !important; }
-        #iosSection1b [style*="grid-template-columns:1fr 1fr;"] { grid-template-columns: 1fr !important; }
-    }
-
-    /* ── GHL Marketplace button ── */
     .btn-ghl-marketplace { display: inline-flex; align-items: center; gap: 8px; }
-
-    /* ── Section link arrows ── */
-    .section-explore { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.88rem; text-decoration: none; transition: all 0.2s; margin-top: 8px; }
-    .section-explore:hover { gap: 12px; }
-    .section-explore i { font-size: 0.72rem; transition: transform 0.2s; }
-    .section-explore:hover i { transform: translateX(3px); }
+    .consent-check { display: flex; align-items: flex-start; gap: 8px; font-size: 0.72rem; color: #666; margin: 16px 0 12px; cursor: pointer; line-height: 1.4; }
+    .consent-check a { color: var(--accent); }
+    .consent-checkbox { margin-top: 2px; accent-color: var(--accent); }
 </style>
 
 <!-- ── Side Dots Navigation ── -->
 <nav class="ios-section-dots" id="iosSectionDots">
     <div class="ios-section-dot active" data-section="0" title="Hero"></div>
-    <div class="ios-section-dot" data-section="1" title="The Problem"></div>
-    <div class="ios-section-dot" data-section="1b" title="Predictive Dialer"></div>
+    <div class="ios-section-dot" data-section="1" title="Who It's For"></div>
     <div class="ios-section-dot" data-section="2" title="Watch the AI"></div>
-    <div class="ios-section-dot" data-section="3" title="The Platform"></div>
-    <div class="ios-section-dot" data-section="4" title="Number Health"></div>
-    <div class="ios-section-dot" data-section="5" title="Compare"></div>
-    <div class="ios-section-dot" data-section="6" title="Real Results"></div>
-    <div class="ios-section-dot" data-section="7" title="Built For You"></div>
-    <div class="ios-section-dot" data-section="8" title="Pricing"></div>
-    <div class="ios-section-dot" data-section="9" title="Resources"></div>
-    <div class="ios-section-dot" data-section="10" title="Get Started"></div>
+    <div class="ios-section-dot" data-section="3" title="Why Different"></div>
+    <div class="ios-section-dot" data-section="4" title="Pricing"></div>
+    <div class="ios-section-dot" data-section="5" title="Get Started"></div>
 </nav>
 
 
@@ -324,522 +142,142 @@
 <section class="ios-snap-section ios-hero igb-hero-bg" id="iosSection0">
     <div class="container igb-hero-inner">
         <div class="text-center" data-aos="fade-up">
-            <span class="hero-tag">Built Exclusively for Insurance</span>
-            <h1 class="hero-h1">Stop Chasing Leads.<br><span>Let AI Close Them.</span></h1>
+            <span class="hero-tag">Built Exclusively for Life Insurance</span>
+            <h1 class="hero-h1">Your Leads Deserve Better<br><span>Than a Text Drip and a Wish.</span></h1>
             <p class="hero-sub">
-                The only platform that texts, calls, and books appointments from your insurance leads automatically.
-                Replaces your dialer, text bot, CRM inbox, and calendar tool — one login, one bill.
+                You paid for those leads. They should be getting called, texted, qualified, and booked &mdash; not sitting
+                in a CRM going cold. InsuranceGrokBot is the AI that does the work between "lead comes in" and "appointment booked"
+                so you can focus on the one thing that actually pays: closing.
             </p>
             <div class="d-flex justify-content-center gap-3 flex-wrap">
                 <a href="#pricing" class="btn btn-primary btn-lg">Start 7-Day Free Trial</a>
                 <a href="/demo-chat" class="btn btn-outline-accent btn-lg">Try the AI Live</a>
-                <a href="https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&redirect_uri=https%3A%2F%2Finsurancegrokbot.click%2Foauth%2Fcallback&client_id=695e99698a5ae81dbb426515-mkaz316h&scope=calendars.readonly+calendars%2Fevents.readonly+calendars%2Fevents.write+conversations%2Fmessage.write+conversations%2Fmessage.readonly+contacts.readonly+locations%2FcustomFields.readonly+locations%2FcustomValues.readonly+calendars%2Fgroups.readonly+conversations.readonly+conversations.write+locations%2Ftags.readonly+oauth.readonly+locations.readonly+users.readonly+opportunities.readonly+workflows.readonly+twilioaccount.read+contacts.write+locations%2Ftags.write+locations%2FcustomFields.write+phonenumbers.read&version_id=69a20babaec7c63e20613b09"
-                   target="_blank" rel="noopener noreferrer"
-                   class="btn btn-lg btn-gradient-blue btn-ghl-marketplace">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2ZM12 3c1.66 0 3 1.34 3 3v2H9V6c0-1.66 1.34-3 3-3Zm6 17H6V10h12v10Zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2Z" fill="currentColor"/></svg>
-                    GHL Marketplace
-                </a>
             </div>
         </div>
 
-        <!-- Stats bar -->
         <div class="stats-bar" data-aos="fade-up" data-aos-delay="200">
             <div class="stat-block"><div class="metallic-stat">270+</div><div class="lbl">Carriers Known</div></div>
-            <div class="stat-block"><div class="metallic-stat">&infin;</div><div class="lbl">Minutes Included</div></div>
-            <div class="stat-block"><div class="metallic-stat metallic-stat--cyan">7</div><div class="lbl">CRM Integrations</div></div>
+            <div class="stat-block"><div class="metallic-stat metallic-stat--cyan">80</div><div class="lbl">AI Actions</div></div>
+            <div class="stat-block"><div class="metallic-stat" style="--metallic-from:#8b5cf6;--metallic-to:#a78bfa;"><i class="fa-solid fa-microphone" style="font-size:1.4rem;"></i></div><div class="lbl">Voice Input</div></div>
             <div class="stat-block"><div class="metallic-stat">24/7</div><div class="lbl">AI Coverage</div></div>
         </div>
     </div>
 </section>
 
 
-<!-- ═══════════════ SECTION 1: THE BLEED (pain-point hook) ═══════════════ -->
+<!-- ═══════════════ SECTION 1: WHO IT'S FOR ═══════════════ -->
 <section class="ios-snap-section" id="iosSection1">
     <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <span class="ios-section-label ios-section-label--pink">The Problem</span>
-            <h2 class="ios-section-h2">Right Now, Your Leads <span>Are Going Cold</span></h2>
-            <p class="ios-section-sub">While you're on the phone with one prospect, dozens of others are texting you back — and hearing silence. Here's what that silence costs.</p>
+            <h2 class="ios-section-h2">One Platform. <span>Two Ways to Win.</span></h2>
         </div>
 
-        <div class="bleed-grid" data-aos="fade-up">
-            <div class="bleed-cell">
-                <div class="bleed-num bleed-num--red" id="bleedLeads">78%</div>
-                <div class="bleed-label">of leads buy from whoever<br><strong>responds first</strong></div>
+        <div class="audience-grid" data-aos="fade-up">
+            <div class="audience-card" style="border-color: rgba(0,255,136,0.15);">
+                <h3><i class="fa-solid fa-user" style="color:var(--accent);margin-right:8px;font-size:1rem;"></i>Solo Agents</h3>
+                <p>You bought the leads. You've got the drive. But you can't dial, text, follow up, book, and close all at the same time. The AI handles everything except the conversation that closes the deal.</p>
+                <ul>
+                    <li><i class="fa-solid fa-check" style="color:var(--accent);"></i> AI texts your leads while you're on calls</li>
+                    <li><i class="fa-solid fa-check" style="color:var(--accent);"></i> AI voice agent handles overflow lines</li>
+                    <li><i class="fa-solid fa-check" style="color:var(--accent);"></i> Smart Filters tell you who to call first</li>
+                    <li><i class="fa-solid fa-check" style="color:var(--accent);"></i> AI assistant: "Book John for Tuesday at 3" &mdash; done</li>
+                    <li><i class="fa-solid fa-check" style="color:var(--accent);"></i> Workflows follow up while you sleep</li>
+                </ul>
+                <a href="/for-individuals" class="btn btn-accent" style="font-weight:700;">See How It Works <i class="fa-solid fa-arrow-right ms-2"></i></a>
             </div>
-            <div class="bleed-cell">
-                <div class="bleed-num bleed-num--amber">5 min</div>
-                <div class="bleed-label">is all you have before a lead<br>goes from <strong>hot to cold</strong></div>
+            <div class="audience-card" style="border-color: rgba(139,92,246,0.2);">
+                <h3><i class="fa-solid fa-building" style="color:#a78bfa;margin-right:8px;font-size:1rem;"></i>Agency Owners</h3>
+                <p>Your agents are working their leads every day. But you can't coach what you can't see, manage what you can't measure, or improve what you don't understand. This gives you the visibility to do all three.</p>
+                <ul>
+                    <li><i class="fa-solid fa-check" style="color:#a78bfa;"></i> AI weekly report with per-agent coaching</li>
+                    <li><i class="fa-solid fa-check" style="color:#a78bfa;"></i> Leaderboards, connect rates, call quality</li>
+                    <li><i class="fa-solid fa-check" style="color:#a78bfa;"></i> "Compare Sarah and Mike" &mdash; instant</li>
+                    <li><i class="fa-solid fa-check" style="color:#a78bfa;"></i> White-label it as your own platform</li>
+                    <li><i class="fa-solid fa-check" style="color:#a78bfa;"></i> Agency dashboard is free</li>
+                </ul>
+                <a href="/for-agencies" class="btn" style="font-weight:700;background:linear-gradient(135deg,#8b5cf6,#6366f1);color:#fff;border:none;">See Agency Features <i class="fa-solid fa-arrow-right ms-2"></i></a>
             </div>
-            <div class="bleed-cell">
-                <div class="bleed-num bleed-num--gray">$0</div>
-                <div class="bleed-label">is what you earned from every<br>lead you <strong>didn't answer fast enough</strong></div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══════════════ SECTION 2: WATCH THE AI (animated phone) ═══════════════ -->
+<section class="ios-snap-section" id="iosSection2">
+    <div class="container" style="width: 100%;">
+        <div class="ai-convo-layout" data-aos="fade-up">
+            <div>
+                <span class="ios-section-label ios-section-label--accent">Watch It Work</span>
+                <h2 class="ios-section-h2">This Is What Your Bot <span>Sounds Like.</span></h2>
+                <p style="color: #888; font-size: 0.95rem; line-height: 1.7; margin-bottom: 24px;">
+                    Not a keyword-matching chatbot. Not a generic drip sequence. The AI reads the full conversation,
+                    understands the lead's objection, and responds like your best closer would &mdash; with product knowledge
+                    across 270+ carriers and real underwriting awareness. Watch it handle a cold lead who "isn't interested"
+                    and turn it into a booked appointment.
+                </p>
+                <p style="color:#666;font-size:0.82rem;font-style:italic;">This is a real conversation flow. The AI wrote every green bubble.</p>
+            </div>
+            <div>
+                <div class="phone-mock" data-aos="fade-left">
+                    <div class="phone-notch"></div>
+                    <div class="phone-header">
+                        <div class="phone-header-name">Sarah M.</div>
+                        <div class="phone-header-sub">Lead &middot; Final Expense</div>
+                    </div>
+                    <div class="phone-chat" id="phoneChatDemo"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══════════════ SECTION 3: WHY DIFFERENT ═══════════════ -->
+<section class="ios-snap-section" id="iosSection3">
+    <div class="container" style="width: 100%;">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <h2 class="ios-section-h2">Why This Is <span>Different.</span></h2>
+            <p class="ios-section-sub" style="max-width:620px;margin:8px auto 0;">
+                There are plenty of dialers. Plenty of text bots. None of them were built by an insurance agent
+                who was tired of paying for 4 tools that don't talk to each other.
+            </p>
+        </div>
+
+        <div class="diff-grid" data-aos="fade-up">
+            <div class="diff-cell">
+                <div style="font-size:1.4rem;margin-bottom:12px;"><i class="fa-solid fa-brain" style="color:var(--accent);"></i></div>
+                <h4>It Actually Knows Insurance</h4>
+                <p>270+ carriers. Term, whole life, IUL, final expense. Underwriting rules. Health conditions. Carrier-specific eligibility. This isn't a generic sales bot &mdash; it thinks like an agent because it was built by one.</p>
+            </div>
+            <div class="diff-cell">
+                <div style="font-size:1.4rem;margin-bottom:12px;"><i class="fa-solid fa-robot" style="color:#00d9ff;"></i></div>
+                <h4>An AI Assistant That Does the Work</h4>
+                <p>80 real actions by voice or text. "Call everyone in New Leads." "Book John for Tuesday." "Give me my weekly report." It doesn't tell you how to do things &mdash; it does them.</p>
+            </div>
+            <div class="diff-cell">
+                <div style="font-size:1.4rem;margin-bottom:12px;"><i class="fa-solid fa-puzzle-piece" style="color:#a78bfa;"></i></div>
+                <h4>One Platform, Not Four</h4>
+                <p>Dialer, text bot, lead intelligence, workflow automation, CRM sync, spam protection, calendar booking, team management, AI assistant &mdash; one login, one bill, nothing duct-taped together.</p>
             </div>
         </div>
 
         <div class="text-center mt-4" data-aos="fade-up">
-            <p style="color: #666; font-size: 0.92rem; max-width: 560px; margin: 16px auto 0; line-height: 1.6;">
-                You can't clone yourself. But you can put an AI that knows 270+ insurance carriers, 5 elite sales frameworks, and your exact book of business on every single lead — instantly.
+            <p style="color: #666; font-size: 0.88rem; max-width: 560px; margin: 16px auto 0; line-height: 1.6;">
+                Built by an active life insurance agent. Not a tech company guessing what agents need.
+                Every feature exists because it solved a real problem in a real agency.
             </p>
         </div>
     </div>
 </section>
 
 
-<!-- ═══════════════ SECTION 1b: SOLO PREDICTIVE + AI OVERFLOW (centerpiece) ═══════════════ -->
-<section class="ios-snap-section auto-height" id="iosSection1b" style="padding:100px 0">
-    <div class="container" style="width:100%;">
-        <div class="text-center mb-5" data-aos="fade-up">
-            <span class="ios-section-label" style="background:rgba(139,92,246,0.08);color:#a78bfa;border-color:rgba(139,92,246,0.25)">Category-Defining Feature</span>
-            <h2 class="ios-section-h2">The First Predictive Dialer<br><span style="background:linear-gradient(135deg,#a78bfa,var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent">That Doesn't Need a Team</span></h2>
-            <p class="ios-section-sub">Traditional predictive dialers need a team to handle collisions. We replaced the team with AI. Erlang-C math paces your calls. If all 4 lines answer at once — you take one, AI takes the other three. Every call gets a real conversation.</p>
-        </div>
-
-        <!-- Three lanes: Manual → Power → Solo Predictive -->
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;max-width:960px;margin:0 auto 48px" data-aos="fade-up">
-            <div style="background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:28px 22px;text-align:center">
-                <div style="width:44px;height:44px;border-radius:12px;background:rgba(239,68,68,0.1);display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><i class="fa-solid fa-hourglass-half" style="color:#ef4444"></i></div>
-                <div style="font-size:0.68rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#ef4444;margin-bottom:8px">The Slow Lane</div>
-                <div style="font-weight:700;color:#fff;margin-bottom:6px">Manual Dialing</div>
-                <div style="font-size:0.82rem;color:#888;line-height:1.55">80% of your day listening to ringtones. Dial, ring, voicemail, hang up, repeat.</div>
-            </div>
-            <div style="background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:28px 22px;text-align:center">
-                <div style="width:44px;height:44px;border-radius:12px;background:rgba(234,179,8,0.1);display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><i class="fa-solid fa-bolt" style="color:#eab308"></i></div>
-                <div style="font-size:0.68rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#eab308;margin-bottom:8px">The Reckless Lane</div>
-                <div style="font-weight:700;color:#fff;margin-bottom:6px">Power Dialer</div>
-                <div style="font-size:0.82rem;color:#888;line-height:1.55">Blasts 3 numbers. Two pick up? One hears dead air. You just burned an expensive lead.</div>
-            </div>
-            <div style="background:linear-gradient(135deg,rgba(139,92,246,0.08),rgba(0,255,136,0.05));backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border:1px solid rgba(139,92,246,0.25);border-radius:16px;padding:28px 22px;text-align:center;position:relative;overflow:hidden">
-                <div style="position:absolute;top:0;right:0;background:linear-gradient(135deg,#a78bfa,var(--accent));color:#000;font-size:0.6rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:4px 14px;border-radius:0 0 0 12px">NEW</div>
-                <div style="width:44px;height:44px;border-radius:12px;background:rgba(0,255,136,0.12);display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><i class="fa-solid fa-brain" style="color:var(--accent)"></i></div>
-                <div style="font-size:0.68rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--accent);margin-bottom:8px">Smart Cruise Control</div>
-                <div style="font-weight:700;color:#fff;margin-bottom:6px">Solo Predictive + AI Overflow</div>
-                <div style="font-size:0.82rem;color:#888;line-height:1.55">Erlang-C math paces your calls. AI catches every collision and books the appointment. Zero dropped leads.</div>
-            </div>
-        </div>
-
-        <!-- How AI Overflow works: 4-step visual -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;max-width:960px;margin:0 auto" data-aos="fade-up">
-            <div>
-                <h3 style="font-weight:800;font-size:1.3rem;color:#fff;margin-bottom:20px">What happens when two leads answer at once?</h3>
-                <div style="display:flex;flex-direction:column;gap:20px">
-                    <div style="display:flex;gap:14px;align-items:flex-start">
-                        <div style="width:32px;height:32px;border-radius:50%;background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.3);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.8rem;color:#a78bfa;flex-shrink:0">1</div>
-                        <div><div style="font-weight:700;color:#fff;font-size:0.92rem">Dialer fires 4 lines</div><div style="font-size:0.82rem;color:#888;line-height:1.5">Erlang-C calculated your connect rate needs 4 simultaneous dials.</div></div>
-                    </div>
-                    <div style="display:flex;gap:14px;align-items:flex-start">
-                        <div style="width:32px;height:32px;border-radius:50%;background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.3);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.8rem;color:#a78bfa;flex-shrink:0">2</div>
-                        <div><div style="font-weight:700;color:#fff;font-size:0.92rem">All 4 leads answer at once</div><div style="font-size:0.82rem;color:#888;line-height:1.5">Worst case scenario on any other dialer. Best case on yours.</div></div>
-                    </div>
-                    <div style="display:flex;gap:14px;align-items:flex-start">
-                        <div style="width:32px;height:32px;border-radius:50%;background:rgba(0,255,136,0.15);border:1px solid rgba(0,255,136,0.3);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.8rem;color:var(--accent);flex-shrink:0">3</div>
-                        <div><div style="font-weight:700;color:#fff;font-size:0.92rem">You take 1. AI takes the other 3.</div><div style="font-size:0.82rem;color:#888;line-height:1.5">Each overflow call gets its own AI agent — qualifying, handling objections, booking appointments simultaneously.</div></div>
-                    </div>
-                    <div style="display:flex;gap:14px;align-items:flex-start">
-                        <div style="width:32px;height:32px;border-radius:50%;background:rgba(0,255,136,0.15);border:1px solid rgba(0,255,136,0.3);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.8rem;color:var(--accent);flex-shrink:0">4</div>
-                        <div><div style="font-weight:700;color:#fff;font-size:0.92rem">Take Over or let AI book it</div><div style="font-size:0.82rem;color:#888;line-height:1.5">Click Take Over mid-conversation, or the AI books and moves on. Every call gets a shot.</div></div>
-                    </div>
-                </div>
-            </div>
-            <div style="text-align:center" data-aos="fade-left">
-                <div style="background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:40px 28px;box-shadow:var(--glass-shadow)">
-                    <div style="font-size:3.5rem;margin-bottom:16px"><i class="fa-solid fa-phone-volume" style="color:#a78bfa"></i> <span style="color:#555;font-size:1.2rem;margin:0 6px">+</span> <i class="fa-solid fa-robot" style="color:var(--accent)"></i></div>
-                    <div style="font-size:1.3rem;font-weight:800;color:#fff;margin-bottom:6px">Zero Dropped Leads</div>
-                    <div style="font-size:0.88rem;color:#888;line-height:1.6;max-width:280px;margin:0 auto 20px">Every answered call gets a real conversation. Human or AI. No dead air. No burned leads.</div>
-                    <a href="/predictive-dialer" style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff;padding:12px 28px;border-radius:12px;font-weight:700;font-size:0.9rem;text-decoration:none;transition:all .3s">
-                        <i class="fa-solid fa-rocket"></i> See How It Works
-                    </a>
-                    <div style="margin-top:12px;font-size:0.78rem;color:#888">$349/mo &middot; 2,000 AI minutes included</div>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-
-<!-- ═══════════════ SECTION 2: WATCH THE AI WORK (animated phone mockup) ═══════════════ -->
-<section class="ios-snap-section auto-height" id="iosSection2">
-    <div class="container" style="width: 100%;">
-        <div class="text-center mb-5" data-aos="fade-up">
-            <span class="ios-section-label ios-section-label--accent">Watch It Work</span>
-            <h2 class="ios-section-h2">This Is What Your Leads <span>Experience at 2 AM</span></h2>
-            <p class="ios-section-sub">While you're asleep, the AI is qualifying leads, handling objections, and booking appointments. This is a real conversation flow.</p>
-        </div>
-
-        <div class="ai-convo-layout" data-aos="fade-up">
-            <!-- Phone mockup with animated conversation -->
-            <div class="phone-mock-col">
-                <div class="phone-mock">
-                    <div class="phone-notch"></div>
-                    <div class="phone-header">
-                        <div class="phone-header-name">Sarah M.</div>
-                        <div class="phone-header-sub">Lead &bull; Final Expense &bull; Age 64</div>
-                    </div>
-                    <div class="phone-chat" id="phoneChatDemo">
-                        <!-- Messages populated by JS animation -->
-                    </div>
-                </div>
-                <div class="text-center mt-3">
-                    <a href="/demo-chat" class="section-explore" style="color: var(--accent);">Try it yourself — talk to the AI live <i class="fa-solid fa-arrow-right"></i></a>
-                </div>
-            </div>
-
-            <!-- Hook points -->
-            <div class="ai-convo-hooks">
-                <div class="ai-hook">
-                    <div class="ai-hook-icon mkt-icon-box--accent"><i class="fa-solid fa-brain" style="color: var(--accent);"></i></div>
-                    <div>
-                        <h4>Not a Drip Campaign</h4>
-                        <p>Every reply is contextual. The AI reads the full conversation, detects the lead type, and picks the right sales framework in real time.</p>
-                    </div>
-                </div>
-                <div class="ai-hook">
-                    <div class="ai-hook-icon mkt-icon-box--cyan"><i class="fa-solid fa-shield-halved" style="color: #00d9ff;"></i></div>
-                    <div>
-                        <h4>Handles "No" Like a Pro</h4>
-                        <p>6 objection types detected and countered: price, timing, trust, competitor, spouse, and "not interested." Each one gets a framework-specific response.</p>
-                    </div>
-                </div>
-                <div class="ai-hook">
-                    <div class="ai-hook-icon mkt-icon-box--pink"><i class="fa-solid fa-calendar-check" style="color: #e91e63;"></i></div>
-                    <div>
-                        <h4>Books the Appointment</h4>
-                        <p>When the lead is ready, the AI checks your real calendar availability and books the call — no human intervention needed.</p>
-                    </div>
-                </div>
-                <div>
-                    <a href="/sms" class="section-explore" style="color: var(--accent);">See the full AI texting deep dive <i class="fa-solid fa-arrow-right"></i></a>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-
-<!-- ═══════════════ SECTION 3: THREE PILLARS ═══════════════ -->
-<section class="ios-snap-section" id="iosSection3">
-    <div class="container" style="width: 100%;">
-        <div class="text-center mb-5" data-aos="fade-up">
-            <span class="ios-section-label ios-section-label--pink">The Platform</span>
-            <h2 class="ios-section-h2">Three Products. <span>One Subscription.</span></h2>
-            <p class="ios-section-sub">Everything you need to work leads — texting, calling, and voice AI — built into a single platform.</p>
-        </div>
-
-        <div class="platform-strip" data-aos="fade-up">
-            <!-- Solo Predictive Dialer -->
-            <div class="ps-cell" style="border-bottom:2px solid rgba(139,92,246,0.2)">
-                <div class="ps-icon" style="background:rgba(139,92,246,0.1)">
-                    <i class="fa-solid fa-brain" style="color: #a78bfa;"></i>
-                </div>
-                <h4 style="color: #a78bfa;">Solo Predictive Dialer</h4>
-                <p>Erlang-C math paces your calls. AI Overflow catches collisions and books appointments. The first predictive dialer built for a solo agent — no team needed.</p>
-                <div class="ps-tags">
-                    <span class="ps-tag" style="background:rgba(139,92,246,0.1);color:#a78bfa">Erlang-C Pacing</span>
-                    <span class="ps-tag" style="background:rgba(139,92,246,0.1);color:#a78bfa">AI Overflow</span>
-                    <span class="ps-tag" style="background:rgba(139,92,246,0.1);color:#a78bfa">Zero Dropped Leads</span>
-                </div>
-                <a href="/predictive-dialer" class="ps-link" style="color: #a78bfa;">See the full breakdown <i class="fa-solid fa-arrow-right ms-1" style="font-size: 0.75rem;"></i></a>
-            </div>
-
-            <!-- AI Texting -->
-            <div class="ps-cell">
-                <div class="ps-icon mkt-icon-box--accent">
-                    <i class="fa-solid fa-comment-sms" style="color: var(--accent);"></i>
-                </div>
-                <h4 style="color: var(--accent);">AI Texting</h4>
-                <p>7-stage conversation engine, 6 objection types, 5 sales frameworks. Reads the full thread and responds in context — not a drip campaign.</p>
-                <div class="ps-tags">
-                    <span class="ps-tag mkt-tag--accent">Objection Handling</span>
-                    <span class="ps-tag mkt-tag--accent">Auto-Booking</span>
-                    <span class="ps-tag mkt-tag--accent">5 Frameworks</span>
-                </div>
-                <a href="/sms" class="ps-link" style="color: var(--accent);">Deep dive into AI Texting <i class="fa-solid fa-arrow-right ms-1" style="font-size: 0.75rem;"></i></a>
-            </div>
-
-            <!-- AI Voice Agent -->
-            <div class="ps-cell">
-                <div class="ps-icon mkt-icon-box--pink">
-                    <i class="fa-solid fa-robot" style="color: #e91e63;"></i>
-                </div>
-                <h4 style="color: #e91e63;">AI Voice Agent</h4>
-                <p>Outbound AI calling powered by Grok speech-to-speech. Sounds human, qualifies leads, handles objections, and books — or transfers hot leads to you live.</p>
-                <div class="ps-tags">
-                    <span class="ps-tag mkt-tag--pink">Speech-to-Speech</span>
-                    <span class="ps-tag mkt-tag--pink">Live Intercept</span>
-                    <span class="ps-tag mkt-tag--pink">Hot Transfer</span>
-                </div>
-                <a href="/for-individuals" class="ps-link" style="color: #e91e63;">See Voice AI in action <i class="fa-solid fa-arrow-right ms-1" style="font-size: 0.75rem;"></i></a>
-            </div>
-        </div>
-    </div>
-</section>
-
-
-<!-- ═══════════════ SECTION 4: NUMBER HEALTH TEASER (dashboard mockup) ═══════════════ -->
+<!-- ═══════════════ SECTION 4: PRICING ═══════════════ -->
 <section class="ios-snap-section auto-height" id="iosSection4">
-    <div class="container" style="width: 100%;">
-        <div class="text-center mb-5" data-aos="fade-up">
-            <span class="ios-section-label ios-section-label--cyan">Spam Protection</span>
-            <h2 class="ios-section-h2">Your Numbers Are Getting <span>Flagged as Spam</span></h2>
-            <p class="ios-section-sub">You're dialing 200 calls a day on numbers with no carrier registration, no health monitoring, and no rotation. Carriers are killing your connect rate and you don't even know it.</p>
-        </div>
-
-        <div class="nh-teaser-layout" data-aos="fade-up">
-            <!-- Dashboard mockup -->
-            <div>
-                <div class="nh-dashboard">
-                    <div class="nh-dash-header">
-                        <span class="nh-dash-title"><i class="fa-solid fa-shield-halved me-2" style="color: #00d9ff;"></i>Number Health</span>
-                        <span class="nh-dash-badge">5 Numbers</span>
-                    </div>
-                    <div class="nh-row">
-                        <span class="nh-phone">(469) 555-0142</span>
-                        <div class="nh-bar"><div class="nh-fill nh-fill--green" style="width: 92%;"></div></div>
-                        <span class="nh-score nh-score--green">92</span>
-                        <span class="nh-status nh-status--active">Active</span>
-                    </div>
-                    <div class="nh-row">
-                        <span class="nh-phone">(214) 555-0387</span>
-                        <div class="nh-bar"><div class="nh-fill nh-fill--green" style="width: 87%;"></div></div>
-                        <span class="nh-score nh-score--green">87</span>
-                        <span class="nh-status nh-status--active">Active</span>
-                    </div>
-                    <div class="nh-row">
-                        <span class="nh-phone">(972) 555-0219</span>
-                        <div class="nh-bar"><div class="nh-fill nh-fill--amber" style="width: 54%;"></div></div>
-                        <span class="nh-score nh-score--amber">54</span>
-                        <span class="nh-status nh-status--resting">Resting</span>
-                    </div>
-                    <div class="nh-row">
-                        <span class="nh-phone">(817) 555-0501</span>
-                        <div class="nh-bar"><div class="nh-fill nh-fill--red" style="width: 23%;"></div></div>
-                        <span class="nh-score nh-score--red">23</span>
-                        <span class="nh-status nh-status--frozen">Frozen</span>
-                    </div>
-                    <div class="nh-row">
-                        <span class="nh-phone">(469) 555-0788</span>
-                        <div class="nh-bar"><div class="nh-fill nh-fill--green" style="width: 95%;"></div></div>
-                        <span class="nh-score nh-score--green">95</span>
-                        <span class="nh-status nh-status--active">Active</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Hooks -->
-            <div class="nh-hooks">
-                <h3 style="color: #fff; font-weight: 800; font-size: 1.4rem; margin-bottom: 4px;">Nobody else has this.</h3>
-                <p style="color: #888; font-size: 0.92rem; line-height: 1.6; margin-bottom: 20px;">8-dimensional health scoring. Smart rotation that rests numbers before carriers flag them. Carrier-level registration with AT&T, T-Mobile, and Verizon. Real-time SIP analysis.</p>
-
-                <div class="nh-hook-stat">
-                    <div class="nh-hook-num nh-hook-num--cyan">8</div>
-                    <div class="nh-hook-desc">health score dimensions analyzed per number</div>
-                </div>
-                <div class="nh-hook-stat">
-                    <div class="nh-hook-num nh-hook-num--accent">3</div>
-                    <div class="nh-hook-desc">major carriers registered — AT&T, T-Mobile, Verizon</div>
-                </div>
-                <div class="nh-hook-stat">
-                    <div class="nh-hook-num nh-hook-num--cyan">0</div>
-                    <div class="nh-hook-desc">other insurance platforms that do any of this</div>
-                </div>
-
-                <a href="/spam-protection" class="section-explore" style="color: #00d9ff;">See the full protection stack <i class="fa-solid fa-arrow-right"></i></a>
-            </div>
-        </div>
-    </div>
-</section>
-
-
-<!-- ═══════════════ SECTION 5: THE COMPARISON (cost-of-inaction) ═══════════════ -->
-<section class="ios-snap-section" id="iosSection5">
-    <div class="container" style="width: 100%;">
-        <div class="text-center mb-5" data-aos="fade-up">
-            <span class="ios-section-label ios-section-label--orange">Compare</span>
-            <h2 class="ios-section-h2">You're Paying for 4 Tools.<br><span>You Need One.</span></h2>
-            <p class="ios-section-sub">Text drip + dialer + CRM inbox + calendar booking. We've done the math on every combination. The numbers aren't close.</p>
-        </div>
-
-        <div class="vs-grid" data-aos="fade-up">
-            <a href="/comparison" class="vs-card">
-                <div class="vs-card-icon" style="background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.2); color: #8b5cf6;">
-                    <i class="fa-solid fa-table-columns"></i>
-                </div>
-                <h4>Full Feature Comparison</h4>
-                <p>Side-by-side breakdown of InsuranceGrokBot vs. every tool you're currently paying for. Feature by feature, dollar by dollar.</p>
-                <span class="vs-card-cta" style="color: #8b5cf6;">See the comparison <i class="fa-solid fa-arrow-right"></i></span>
-            </a>
-
-            <a href="/comparison/text-drip" class="vs-card">
-                <div class="vs-card-icon" style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: #ef4444;">
-                    <i class="fa-solid fa-money-bill-trend-up"></i>
-                </div>
-                <div class="vs-card-hook" style="color: #ef4444;">$96K — $384K/yr</div>
-                <h4>The Text Drip Tax</h4>
-                <p>That's what your static text drip is costing you in lost conversions. We did the ROI math. It's brutal.</p>
-                <span class="vs-card-cta" style="color: #ef4444;">See the math <i class="fa-solid fa-arrow-right"></i></span>
-            </a>
-
-            <a href="/comparison/dialers" class="vs-card">
-                <div class="vs-card-icon" style="background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2); color: #00d9ff;">
-                    <i class="fa-solid fa-phone"></i>
-                </div>
-                <h4>vs. WAVV, Mojo & PhoneBurner</h4>
-                <p>A dialer is a gas pedal. This is a self-driving car. AI lead scoring, Smart Filters, and voice AI — features they'll never build.</p>
-                <span class="vs-card-cta" style="color: #00d9ff;">See the breakdown <i class="fa-solid fa-arrow-right"></i></span>
-            </a>
-        </div>
-    </div>
-</section>
-
-
-<!-- ═══════════════ SECTION 6: REAL RESULTS ═══════════════ -->
-<section class="ios-snap-section" id="iosSection6">
-    <div class="container" style="width: 100%;">
-        <div class="text-center mb-4" data-aos="fade-up">
-            <span class="ios-section-label ios-section-label--accent">Real Results</span>
-            <h2 class="ios-section-h2">Agents Are Booking Appointments <span>in Hours, Not Weeks</span></h2>
-        </div>
-
-        <div class="testimonial-grid">
-            <div class="founder-result" data-aos="fade-up">
-                <blockquote>
-                    "It booked me 3 appointments in 2 hours of first launch and I wrote $3,895.72 AP — on 6-month-old leads I thought were dead."
-                </blockquote>
-                <div class="fr-stats">
-                    <div class="fr-stat">
-                        <div class="val" style="color: var(--accent);">3</div>
-                        <div class="desc">Appointments Booked</div>
-                    </div>
-                    <div class="fr-stat">
-                        <div class="val" style="color: #00d9ff;">2 hrs</div>
-                        <div class="desc">Time to First Results</div>
-                    </div>
-                    <div class="fr-stat">
-                        <div class="val" style="color: #e91e63;">$3,895</div>
-                        <div class="desc">Annual Premium</div>
-                    </div>
-                    <div class="fr-stat">
-                        <div class="val" style="color: #ff6b35;">6 mo</div>
-                        <div class="desc">"Dead" Lead Age</div>
-                    </div>
-                </div>
-                <p class="fr-attr">— Mitchell, InsuranceGrokBot Founder &amp; Licensed Agent</p>
-            </div>
-
-            <div class="founder-result" data-aos="fade-up" data-aos-delay="100">
-                <blockquote>
-                    "Running an agency is busy. Wanted something that could create more time for me. I downloaded InsuranceGrokBot and within 2 hours it booked me an appointment from start to finish."
-                </blockquote>
-                <div class="fr-stats">
-                    <div class="fr-stat">
-                        <div class="val" style="color: var(--accent);">1</div>
-                        <div class="desc">Appointment Booked</div>
-                    </div>
-                    <div class="fr-stat">
-                        <div class="val" style="color: #00d9ff;">2 hrs</div>
-                        <div class="desc">Start to Finish</div>
-                    </div>
-                </div>
-                <p class="fr-attr">— Devon Tyerman, Agency Owner at Family First Life</p>
-            </div>
-        </div>
-
-    </div>
-</section>
-
-
-<!-- ═══════════════ SECTION 7: HOW IT WORKS + AUDIENCE ═══════════════ -->
-<section class="ios-snap-section auto-height" id="iosSection7">
-    <div class="container" style="width: 100%;">
-        <!-- How it works -->
-        <div class="text-center mb-5" data-aos="fade-up">
-            <span class="ios-section-label ios-section-label--accent">Setup</span>
-            <h2 class="ios-section-h2"><span>Live in Under 10 Minutes</span></h2>
-            <p class="ios-section-sub">Connect your CRM, import your leads, and let the AI start working them immediately.</p>
-        </div>
-
-        <div class="hiw-grid" data-aos="fade-up">
-            <div class="hiw-step">
-                <div class="hiw-num" style="background: rgba(0,255,136,0.1); color: var(--accent);">1</div>
-                <h4 class="text-white">Connect Your CRM</h4>
-                <p>One-click OAuth with GoHighLevel. Also works with Salesforce, HubSpot, Pipedrive, Zoho, and more.</p>
-                <span class="hiw-arrow"><i class="fa-solid fa-chevron-right"></i></span>
-            </div>
-            <div class="hiw-step">
-                <div class="hiw-num" style="background: rgba(0,217,255,0.1); color: #00d9ff;">2</div>
-                <h4 class="text-white">AI Learns Your Book</h4>
-                <p>Select your contracted carriers, set your tone, and the AI configures itself around your insurance products.</p>
-                <span class="hiw-arrow"><i class="fa-solid fa-chevron-right"></i></span>
-            </div>
-            <div class="hiw-step">
-                <div class="hiw-num" style="background: rgba(233,30,99,0.1); color: #e91e63;">3</div>
-                <h4 class="text-white">Leads Get Worked</h4>
-                <p>The AI texts, calls, qualifies, overcomes objections, and books appointments — automatically, 24/7.</p>
-            </div>
-        </div>
-
-        <div class="text-center mt-4 mb-5" data-aos="fade-up">
-            <a href="/getting-started" class="section-explore" style="color: var(--accent);">See the full setup guide <i class="fa-solid fa-arrow-right"></i></a>
-        </div>
-
-        <!-- Audience split -->
-        <div class="text-center mb-5 mt-5" data-aos="fade-up">
-            <h2 class="ios-section-h2">Built for <span>How You Work</span></h2>
-            <p class="ios-section-sub">Whether you're a solo agent or running a team, the platform scales with you.</p>
-        </div>
-
-        <div class="audience-grid" data-aos="fade-up">
-            <!-- Individual -->
-            <div class="audience-card" style="border-color: rgba(0,255,136,0.15);">
-                <h3 style="color: var(--accent);">For Individual Agents</h3>
-                <p>Everything you need to work your leads faster — AI texting, a smart dialer with lead intelligence, and an AI voice agent that books appointments while you sleep.</p>
-                <ul>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Single-line or multi-line dialing</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> AI-powered lead scoring & Smart Filters</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> 270+ carrier recognition</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> 5 elite sales frameworks</li>
-                </ul>
-                <a href="/for-individuals" class="btn btn-primary w-100 py-3" style="font-weight: 700;">See Individual Plans <i class="fa-solid fa-arrow-right ms-2"></i></a>
-            </div>
-
-            <!-- Agency -->
-            <div class="audience-card" style="border-color: rgba(0,217,255,0.15);">
-                <h3 style="color: #00d9ff;">For Agencies</h3>
-                <p>Multi-tenant command center with per-agent KPIs, predictive dialing, TCPA compliance automation, and centralized billing for your entire team.</p>
-                <ul>
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Agency dashboard with real-time KPIs</li>
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Predictive dialer with TCPA auto-throttle</li>
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Sub-account management + team billing</li>
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Built-in compliance + recording consent</li>
-                </ul>
-                <a href="/for-agencies" class="btn btn-gradient-cyan w-100 py-3" style="font-weight: 700;">See Agency Plans <i class="fa-solid fa-arrow-right ms-2"></i></a>
-            </div>
-        </div>
-
-        <!-- CRM Bar -->
-        <div class="text-center mt-5" data-aos="fade-up">
-            <p class="hp-crm-label">Works with your CRM</p>
-            <div class="crm-bar">
-                <div class="crm-chip"><i class="fa-solid fa-bolt" style="color: var(--accent);"></i>LeadConnector</div>
-                <div class="crm-chip"><i class="fa-solid fa-cloud" style="color: #03a9f4;"></i>Salesforce</div>
-                <div class="crm-chip"><i class="fa-solid fa-h" style="color: #ff5722;"></i>HubSpot</div>
-                <div class="crm-chip"><i class="fa-solid fa-filter" style="color: #4caf50;"></i>Pipedrive</div>
-                <div class="crm-chip"><i class="fa-solid fa-z" style="color: #ffc107;"></i>Zoho CRM</div>
-                <div class="crm-chip"><i class="fa-solid fa-plug" style="color: #9c27b0;"></i>Zapier</div>
-                <div class="crm-chip"><i class="fa-solid fa-shield-halved" style="color: #607d8b;"></i>Insureio</div>
-            </div>
-        </div>
-    </div>
-</section>
-
-
-<!-- ═══════════════ SECTION 8: PRICING ═══════════════ -->
-<section class="ios-snap-section auto-height" id="iosSection8">
     <div class="container" id="pricing" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
             <span class="ios-section-label ios-section-label--accent">Pricing</span>
-            <h2 class="ios-section-h2">Simple <span>Pricing</span></h2>
-            <p class="ios-section-sub">Everything included. No per-minute charges. No hidden fees.</p>
+            <h2 class="ios-section-h2">Pick Your Plan. <span>Start Closing.</span></h2>
+            <p class="ios-section-sub">Everything included. No per-minute charges for human dialing. No hidden fees. 7-day free trial.</p>
         </div>
 
         <div class="price-grid" data-aos="fade-up" style="padding-top: 16px;">
@@ -848,153 +286,92 @@
                 <span class="price-badge" style="background: rgba(0,217,255,0.3); border: 1px solid #00d9ff;">SMS Only</span>
                 <h4 class="text-white" style="margin-top: 8px;">SMS Bot</h4>
                 <div><span class="price-amount metallic-price--cyan" style="font-size:2.4rem; font-weight:900;">$99.98</span><span style="color: #888;">/mo</span></div>
-                <p class="hp-price-subtitle-cyan">AI texting that sells. No dialer needed.</p>
+                <p class="hp-price-subtitle-cyan">AI texting only. No dialer.</p>
                 <p class="hp-price-trial">7-day free trial. Cancel anytime.</p>
-
                 <ul class="price-features carved-features">
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> <strong>AI Texting — outbound, inbound & booking</strong></li>
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Rapport-building conversation engine</li>
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> 6-type objection handling with persistence</li>
+                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> <strong>AI Texting + objection handling</strong></li>
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Smart Filters & Lead Intelligence</li>
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> 270+ carrier recognition</li>
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> 7 CRM integrations</li>
                     <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Auto-booking to your calendar</li>
+                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> AI Assistant (80 actions)</li>
                 </ul>
-
-                <label class="consent-check">
-                    <input type="checkbox" class="consent-checkbox" data-plan="sms-bot">
-                    <span>I agree to the <a href="/terms" target="_blank">Terms of Service</a> and consent to receive SMS and email communications from InsuranceGrokBot.</span>
-                </label>
+                <label class="consent-check"><input type="checkbox" class="consent-checkbox" data-plan="sms-bot"><span>I agree to the <a href="/terms" target="_blank">Terms of Service</a></span></label>
                 <a href="/checkout/sms-bot" class="btn btn-gradient-cyan w-100 py-3 checkout-btn" data-plan="sms-bot" style="font-weight: 700; pointer-events: none; opacity: 0.5;">Start Free Trial</a>
-                <div class="text-center mt-2"><a href="/sms" class="hp-price-see-all">See SMS features <i class="fa-solid fa-arrow-right ms-1"></i></a></div>
             </div>
 
             <!-- Power Dialer -->
             <div class="price-card featured">
                 <span class="price-badge" style="background: rgba(0,255,136,0.3); border: 1px solid #00ff88;">Most Popular</span>
                 <h4 class="text-white" style="margin-top: 8px;">Power Dialer</h4>
-                <div><span class="price-amount metallic-price--green" style="font-size:2.4rem; font-weight:900;">$149.98</span><span style="color: #888;">/mo</span></div>
-                <p class="hp-price-subtitle-green">AI texting + dialer + voice agent. All-in-one.</p>
+                <div><span class="price-amount metallic-price--green" style="font-size:2.4rem; font-weight:900;">$149.99</span><span style="color: #888;">/mo</span></div>
+                <p class="hp-price-subtitle-green">AI texting + dialer + voice agent.</p>
                 <p class="hp-price-trial">7-day free trial. Cancel anytime.</p>
-
                 <ul class="price-features carved-features">
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> <strong>Single-line power dialer</strong></li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> AI Texting — outbound, inbound & booking</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> AI Voice Agent — outbound calling + hot lead transfer</li>
+                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> AI Voice Agent + hot lead transfer</li>
+                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> AI Texting + objection handling</li>
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Lead Intelligence & Smart Filters</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Number rotation & geo-routing</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> 270+ carrier recognition</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Unlimited minutes* included</li>
+                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> AI Assistant (80 actions + voice)</li>
+                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Unlimited dialing minutes*</li>
                 </ul>
-
-                <label class="consent-check">
-                    <input type="checkbox" class="consent-checkbox" data-plan="power">
-                    <span>I agree to the <a href="/terms" target="_blank">Terms of Service</a> and consent to receive SMS and email communications from InsuranceGrokBot.</span>
-                </label>
+                <label class="consent-check"><input type="checkbox" class="consent-checkbox" data-plan="power"><span>I agree to the <a href="/terms" target="_blank">Terms of Service</a></span></label>
                 <a href="/checkout" class="btn btn-primary w-100 py-3 checkout-btn" data-plan="power" style="font-weight: 700; pointer-events: none; opacity: 0.5;">Start Free Trial</a>
-                <div class="text-center mt-2"><a href="/for-individuals" class="hp-price-see-all">See all features <i class="fa-solid fa-arrow-right ms-1"></i></a></div>
             </div>
 
             <!-- Pro Dialer -->
             <div class="price-card" style="border-color: rgba(255,107,53,0.3);">
-                <span class="price-badge" style="background: linear-gradient(135deg, #ff6b35, #ff3366); border: none;">Power User</span>
+                <span class="price-badge" style="background: linear-gradient(135deg, #ff6b35, #ff3366); border: none;">Multi-Line</span>
                 <h4 class="text-white" style="margin-top: 8px;">Pro Dialer</h4>
-                <div><span class="price-amount metallic-price--orange" style="font-size:2.4rem; font-weight:900;">$224.98</span><span style="color: #888;">/mo</span></div>
-                <p class="hp-price-subtitle-orange">Multi-line power + predictive dialing.</p>
+                <div><span class="price-amount metallic-price--orange" style="font-size:2.4rem; font-weight:900;">$224.99</span><span style="color: #888;">/mo</span></div>
+                <p class="hp-price-subtitle-orange">4 lines dialing simultaneously.</p>
                 <p class="hp-price-trial">7-day free trial. Cancel anytime.</p>
-
                 <ul class="price-features carved-features">
                     <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> <strong>Multi-line dialer (up to 4 lines)</strong></li>
-                    <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> <strong>Predictive dialer with auto-pacing</strong></li>
                     <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Everything in Power Dialer</li>
                     <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Connect rate analytics</li>
-                    <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Multi-call status dashboard</li>
-                    <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Priority queue processing</li>
-                    <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Unlimited minutes* included</li>
+                    <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Priority queue</li>
+                    <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Unlimited dialing minutes*</li>
                 </ul>
-
-                <label class="consent-check">
-                    <input type="checkbox" class="consent-checkbox" data-plan="pro">
-                    <span>I agree to the <a href="/terms" target="_blank">Terms of Service</a> and consent to receive SMS and email communications from InsuranceGrokBot.</span>
-                </label>
+                <label class="consent-check"><input type="checkbox" class="consent-checkbox" data-plan="pro"><span>I agree to the <a href="/terms" target="_blank">Terms of Service</a></span></label>
                 <a href="/checkout/pro-dialer" class="btn btn-gradient-orange w-100 py-3 checkout-btn" data-plan="pro" style="font-weight: 700; pointer-events: none; opacity: 0.5;">Start Free Trial</a>
-                <div class="text-center mt-2"><a href="/for-individuals" class="hp-price-see-all">See all features <i class="fa-solid fa-arrow-right ms-1"></i></a></div>
             </div>
 
-            <!-- Solo Predictive Dialer -->
+            <!-- Solo Predictive -->
             <div class="price-card" style="border-color: rgba(139,92,246,0.35); background: linear-gradient(135deg, rgba(139,92,246,0.08), rgba(255,255,255,0.065));">
                 <span class="price-badge" style="background: linear-gradient(135deg, #8b5cf6, var(--accent)); border: none; color: #000;">AI-Powered</span>
-                <h4 class="text-white" style="margin-top: 8px;">Predictive Dialer</h4>
+                <h4 class="text-white" style="margin-top: 8px;">Solo Predictive</h4>
                 <div><span class="price-amount" style="font-size:2.4rem; font-weight:900; background: linear-gradient(135deg, #a78bfa, #c4b5fd); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">$349.98</span><span style="color: #888;">/mo</span></div>
-                <p style="color: #a78bfa; font-size: 0.82rem; font-weight: 600; margin-top: 8px;">Erlang-C pacing + AI Overflow. Solo or team.</p>
+                <p style="color: #a78bfa; font-size: 0.82rem; font-weight: 600; margin-top: 8px;">Erlang-C pacing + AI handles overflow.</p>
                 <p class="hp-price-trial">7-day free trial. Cancel anytime.</p>
-
                 <ul class="price-features carved-features">
                     <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> <strong>Erlang-C predictive pacing</strong></li>
-                    <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> <strong>AI Overflow — AI handles all extra lines</strong></li>
+                    <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> <strong>AI handles all overflow calls</strong></li>
                     <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> Everything in Pro Dialer</li>
-                    <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> TCPA auto-throttle (3% safe harbor)</li>
-                    <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> Compliance dashboard</li>
+                    <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> TCPA compliance dashboard</li>
                     <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> Callback queue + timezone enforcement</li>
-                    <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> 2,000 AI minutes included</li>
                 </ul>
-
-                <label class="consent-check">
-                    <input type="checkbox" class="consent-checkbox" data-plan="predictive">
-                    <span>I agree to the <a href="/terms" target="_blank">Terms of Service</a> and consent to receive SMS and email communications from InsuranceGrokBot.</span>
-                </label>
+                <label class="consent-check"><input type="checkbox" class="consent-checkbox" data-plan="predictive"><span>I agree to the <a href="/terms" target="_blank">Terms of Service</a></span></label>
                 <a href="/checkout/predictive-dialer" class="btn w-100 py-3 checkout-btn" data-plan="predictive" style="font-weight: 700; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: #fff; border: none; pointer-events: none; opacity: 0.5;">Start Free Trial</a>
-                <div class="text-center mt-2"><a href="/predictive-dialer" class="hp-price-see-all" style="color: #a78bfa;">How AI Overflow works <i class="fa-solid fa-arrow-right ms-1"></i></a></div>
             </div>
         </div>
 
         <div class="text-center mt-4" data-aos="fade-up">
             <p class="hp-pricing-footnote">
-                *Unlimited minutes subject to fair use policy, and only with human to human dialing. AI Dialing requires purchased minutes in the <a href="/ai-minutes">AI Minute Marketplace</a>.
-                See <a href="/terms">Terms of Service</a> for details.
+                *Unlimited minutes for human-to-human dialing. AI voice calls use AI Minutes.
+                See <a href="/terms">Terms</a> for details.
             </p>
-            <a href="/for-agencies" class="hp-agency-link">Run an agency? See team plans with centralized billing <i class="fa-solid fa-arrow-right ms-1"></i></a>
+            <a href="/for-agencies" class="hp-agency-link">Agency owner? Dashboard is free &mdash; your agents pick their own plan <i class="fa-solid fa-arrow-right ms-1"></i></a>
         </div>
     </div>
 </section>
 
 
-<!-- ═══════════════ SECTION 9: RESOURCES ═══════════════ -->
-<section class="ios-snap-section auto-height" id="iosSection9">
-    <div class="container" style="width: 100%;">
-        <div class="text-center mb-4" data-aos="fade-up">
-            <span class="ios-section-label">Resources</span>
-            <h2 class="ios-section-h2">Learn More. <span>Go Deeper.</span></h2>
-        </div>
-
-        <div class="hp-resource-strip" data-aos="fade-up">
-            <a href="/about" class="hp-resource-chip">
-                <i class="fa-solid fa-user-tie" style="color: var(--accent);"></i>
-                <span>Our Story</span>
-            </a>
-            <a href="/articles" class="hp-resource-chip">
-                <i class="fa-solid fa-newspaper" style="color: #00d9ff;"></i>
-                <span>Articles & Guides</span>
-            </a>
-            <a href="/a2p-guide" class="hp-resource-chip">
-                <i class="fa-solid fa-file-shield" style="color: #ff6b35;"></i>
-                <span>A2P 10DLC Guide</span>
-            </a>
-            <a href="/affiliate" class="hp-resource-chip">
-                <i class="fa-solid fa-hand-holding-dollar" style="color: #8b5cf6;"></i>
-                <span>Earn 20% Forever</span>
-            </a>
-        </div>
-    </div>
-</section>
-
-
-<!-- ═══════════════ SECTION 10: CLOSING CTA ═══════════════ -->
-<section class="ios-snap-section" id="iosSection10">
+<!-- ═══════════════ SECTION 5: CLOSING CTA ═══════════════ -->
+<section class="ios-snap-section" id="iosSection5">
     <div class="container closing-cta-inner" data-aos="fade-up">
         <div class="text-center">
-            <h2>Your Leads Are Already Responding.<br><span>Is Anyone Answering?</span></h2>
-            <p>Every hour without AI is leads going cold, appointments not booked, and premium left on the table. Start your free trial today.</p>
+            <h2>Built by an Agent.<br><span>For Every Agent.</span></h2>
+            <p>This platform exists because the tools that were supposed to help insurance agents were built by people who never sold a policy. We built the one we actually needed. Now it's yours.</p>
             <div class="d-flex justify-content-center gap-3 flex-wrap">
                 <a href="#pricing" class="btn btn-primary btn-lg" style="font-weight: 700;">Start 7-Day Free Trial</a>
                 <a href="/demo-chat" class="btn btn-outline-accent btn-lg">Talk to the AI First</a>
@@ -1017,22 +394,16 @@
             if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
     });
-
     function updateDots() {
         var scrollTop = window.scrollY + window.innerHeight * 0.35;
         var activeIdx = 0;
-        sections.forEach(function(s, i) {
-            if (s.offsetTop <= scrollTop) activeIdx = i;
-        });
-        dots.forEach(function(d, i) {
-            d.classList.toggle('active', i === activeIdx);
-        });
+        sections.forEach(function(s, i) { if (s.offsetTop <= scrollTop) activeIdx = i; });
+        dots.forEach(function(d, i) { d.classList.toggle('active', i === activeIdx); });
     }
-
     window.addEventListener('scroll', updateDots, { passive: true });
     updateDots();
 
-    /* ── Animated SMS conversation in phone mockup ── */
+    /* ── Animated SMS conversation ── */
     var chatEl = document.getElementById('phoneChatDemo');
     if (chatEl) {
         var msgs = [
@@ -1047,22 +418,15 @@
             { type: 'lead', text: "Yeah that works" },
             { type: 'system', text: "Appointment booked: Tomorrow 2:00 PM" }
         ];
-
-        var delay = 800;
-        var msgIndex = 0;
+        var delay = 800, msgIndex = 0;
         var observer = new IntersectionObserver(function(entries) {
-            if (entries[0].isIntersecting) {
-                observer.disconnect();
-                playConversation();
-            }
+            if (entries[0].isIntersecting) { observer.disconnect(); playConversation(); }
         }, { threshold: 0.3 });
         observer.observe(chatEl.closest('.ios-snap-section'));
 
         function playConversation() {
             if (msgIndex >= msgs.length) return;
             var m = msgs[msgIndex];
-
-            /* Show typing indicator for bot messages */
             if (m.type === 'bot') {
                 var typing = document.createElement('div');
                 typing.className = 'ph-typing';
@@ -1070,34 +434,20 @@
                 typing.style.opacity = '1';
                 chatEl.appendChild(typing);
                 chatEl.scrollTop = chatEl.scrollHeight;
-
-                setTimeout(function() {
-                    typing.remove();
-                    addBubble(m);
-                    msgIndex++;
-                    setTimeout(playConversation, delay + Math.random() * 600);
-                }, 1200 + Math.random() * 800);
+                setTimeout(function() { typing.remove(); addBubble(m); msgIndex++; setTimeout(playConversation, delay + Math.random() * 600); }, 1200 + Math.random() * 800);
             } else {
-                addBubble(m);
-                msgIndex++;
-                setTimeout(playConversation, delay + Math.random() * 600);
+                addBubble(m); msgIndex++; setTimeout(playConversation, delay + Math.random() * 600);
             }
         }
-
         function addBubble(m) {
             var div = document.createElement('div');
-            if (m.type === 'system') {
-                div.className = 'ph-bubble ph-bubble--system';
-                div.textContent = m.text;
-                div.style.animationDelay = '0s';
-            } else {
-                div.className = 'ph-bubble ph-bubble--' + m.type;
-                div.textContent = m.text;
-            }
+            div.className = m.type === 'system' ? 'ph-bubble ph-bubble--system' : 'ph-bubble ph-bubble--' + m.type;
+            div.textContent = m.text;
             chatEl.appendChild(div);
             chatEl.scrollTop = chatEl.scrollHeight;
         }
     }
+
     /* ── Consent checkbox toggles checkout buttons ── */
     document.querySelectorAll('.consent-checkbox').forEach(function(cb) {
         cb.addEventListener('change', function() {
@@ -1105,16 +455,12 @@
             var btn = document.querySelector('.checkout-btn[data-plan="' + plan + '"]');
             if (!btn) return;
             if (cb.checked) {
-                btn.style.pointerEvents = 'auto';
-                btn.style.opacity = '1';
-                /* Append consent=1 query param to checkout URL */
+                btn.style.pointerEvents = 'auto'; btn.style.opacity = '1';
                 var url = new URL(btn.href, window.location.origin);
                 url.searchParams.set('consent', '1');
                 btn.href = url.pathname + url.search;
             } else {
-                btn.style.pointerEvents = 'none';
-                btn.style.opacity = '0.5';
-                /* Remove consent param */
+                btn.style.pointerEvents = 'none'; btn.style.opacity = '0.5';
                 var url = new URL(btn.href, window.location.origin);
                 url.searchParams.delete('consent');
                 btn.href = url.pathname + url.search;
