@@ -214,7 +214,7 @@
                     var isRejected = (rs === 'twilio-rejected' || rs === 'noncompliant');
                     var isDraft = (rs === 'draft');
 
-                    // Dynamic banner colors based on REAL Twilio status
+                    // Dynamic banner colors based on real review status
                     var bannerColor, bannerBg, bannerBorder, iconClass, statusLabel;
                     if (isApproved) {
                         bannerColor = '#00ff88'; bannerBg = 'rgba(0,255,136,0.06)'; bannerBorder = 'rgba(0,255,136,0.2)';
@@ -237,9 +237,9 @@
                         statusDetail += (d.auto_cnam ? ' &bull; Auto-protect ON' : '');
                         statusDetail += ' &bull; STIR/SHAKEN A';
                     } else if (isPending) {
-                        statusDetail += ' &mdash; Twilio is reviewing your business profile. Typical approval time is ~24 hours.';
+                        statusDetail += ' &mdash; Your business profile is under review. Typical approval time is ~24 hours.';
                     } else if (isRejected) {
-                        statusDetail += ' &mdash; Twilio rejected your profile. Edit your info below and re-submit.';
+                        statusDetail += ' &mdash; Your profile was rejected. Edit your info below and re-submit.';
                     } else {
                         statusDetail += ' &mdash; Profile submitted, awaiting review (~24 hours).';
                     }
@@ -425,7 +425,7 @@
                         stepsHtml += '<div style="font-size:.75rem;color:#ccc;padding:2px 0;">' + icon + ' ' + _esc(label) + '</div>';
                     });
                     var cnamMsg = d.cnam?.status === 'ok' ? '<div style="color:#00ff88;font-size:.78rem;margin-top:4px;"><i class="fa-solid fa-circle-check me-1"></i>Caller ID: ' + _esc(d.cnam_display_name || '') + '</div>' :
-                                  d.cnam?.status === 'deferred' ? '<div style="color:#ffa500;font-size:.78rem;margin-top:4px;"><i class="fa-solid fa-clock me-1"></i>Caller ID (CNAM) will register automatically once your profile is approved by Twilio.</div>' :
+                                  d.cnam?.status === 'deferred' ? '<div style="color:#ffa500;font-size:.78rem;margin-top:4px;"><i class="fa-solid fa-clock me-1"></i>Caller ID (CNAM) will register automatically once your profile is approved.</div>' :
                                   d.cnam?.status === 'error' ? '<div style="color:#ffa500;font-size:.78rem;margin-top:4px;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Caller ID: ' + _esc(d.cnam.error || 'Failed') + '</div>' : '';
                     result.innerHTML = '<div style="color:#00ff88;font-weight:600;margin-bottom:4px;"><i class="fa-solid fa-circle-check me-1"></i>Registration submitted!</div>' + stepsHtml + cnamMsg;
                     setTimeout(() => loadSpamProtectionStatus(), 500);
@@ -805,7 +805,7 @@
 
                     if (isRejected) {
                         // Build rejection banner with reasons + action buttons
-                        detailText += 'Registration was rejected by Twilio.';
+                        detailText += 'Registration was rejected. See reasons below.';
                         var failureReasons = d.failure_reasons || [];
                         var bannerHtml =
                             '<div class="d-flex align-items-start gap-3">' +

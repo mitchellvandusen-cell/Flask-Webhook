@@ -1142,7 +1142,7 @@ def register_spam_protection():
     elif not profile_is_approved:
         cnam_result = {
             "status": "deferred",
-            "reason": "CNAM registration will proceed automatically once your business profile is approved by Twilio.",
+            "reason": "CNAM registration will proceed automatically once your business profile is approved.",
         }
         logger.info(f"[CNAM] Deferred — profile status is '{review_status}', not approved yet")
     elif profile_sid:

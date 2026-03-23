@@ -2248,8 +2248,8 @@ def check_secondary_profile_status(
                 "approved": False,
                 "status": status,
                 "profile_sid": profile_sid,
-                "message": "Your business profile is still under review by Twilio. "
-                           "This typically takes 1-3 business days. You can proceed "
+                "message": "Your business profile is still under review. "
+                           "This typically takes ~24 hours. You can proceed "
                            "with other registrations once it's approved.",
             }
         elif status == "twilio-rejected":
@@ -2272,7 +2272,7 @@ def check_secondary_profile_status(
                 "approved": False,
                 "status": status,
                 "profile_sid": profile_sid,
-                "message": f"Your business profile was rejected by Twilio.{reason_str} "
+                "message": f"Your business profile was rejected.{reason_str} "
                            "Please update your Spam Protection registration and resubmit.",
             }
         else:
