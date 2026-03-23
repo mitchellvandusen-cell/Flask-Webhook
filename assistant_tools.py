@@ -723,27 +723,39 @@ def _handle_send_sms(args, ctx):
 def _handle_check_calendar(args, ctx):
     """Check available calendar slots."""
     from ghl_calendar import consolidated_calendar_op
+    from ghl_api import get_valid_token
 
     if not ctx.get("calendar_id"):
-        return {"error": "No calendar configured. Go to Bot Config to set one up."}
+        return {"error": "No calendar configured. Go to Bot Config → Calendar & CRM."}
+
+    access_token = get_valid_token(ctx["location_id"])
+    if not access_token:
+        return {"error": "CRM connection expired. Reconnect in Bot Config."}
 
     subscriber_data = {
         "location_id": ctx["location_id"],
         "calendar_id": ctx["calendar_id"],
         "crm_user_id": ctx.get("crm_user_id"),
         "timezone": ctx.get("timezone", "America/Chicago"),
-        "access_token": ctx["access_token"],
+        "access_token": access_token,
     }
 
-    result = consolidated_calendar_op(
-        operation="fetch_slots",
-        subscriber_data=subscriber_data,
-    )
+    try:
+        result = consolidated_calendar_op(
+            operation="fetch_slots",
+            subscriber_data=subscriber_data,
+        )
 
-    if isinstance(result, str):
-        return {"slots": result}
-    else:
-        return {"error": "Could not fetch calendar slots"}
+        if isinstance(result, str) and result.strip():
+            return {"slots": result}
+        elif isinstance(result, dict):
+            return {"slots": json.dumps(result)}
+        else:
+            logger.warning(f"check_calendar returned unexpected: {type(result)} = {str(result)[:200]}")
+            return {"error": "Calendar returned no available slots. Your calendar may have no open times in the next few days."}
+    except Exception as e:
+        logger.error(f"check_calendar failed: {type(e).__name__}: {e}", exc_info=True)
+        return {"error": f"Calendar error: {str(e)[:150]}"}
 
 
 def _handle_book_appointment(args, ctx):
@@ -1342,8 +1354,8 @@ def _handle_get_upcoming_appointments(args, ctx):
         return {"count": len(appointments), "appointments": appointments}
 
     except Exception as e:
-        logger.error(f"Calendar events fetch failed: {e}")
-        return {"error": "Could not fetch appointments."}
+        logger.error(f"Calendar events fetch failed: {type(e).__name__}: {e}", exc_info=True)
+        return {"error": f"Calendar error: {type(e).__name__}: {str(e)[:150]}"}
 
 
 def _handle_get_recent_messages(args, ctx):
