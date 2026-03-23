@@ -532,4 +532,10 @@
     // Start nudge schedule on load
     _scheduleNudge();
 
+    // Hide mic button if browser doesn't support speech recognition
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        var micBtn = document.getElementById('assistantMicBtn');
+        if (micBtn) micBtn.style.display = 'none';
+    }
+
 })();

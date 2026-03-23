@@ -1405,6 +1405,7 @@ def _handle_get_stale_leads(args, ctx):
         cur = conn.cursor()
 
         # Find contacts in cache that have NO recent call or message
+        # Use make_interval() for safe parameterized interval
         cur.execute("""
             SELECT cc.contact_id, cc.first_name, cc.last_name, cc.phone, cc.email,
                    ci.analysis->>'temperature' as temperature,
@@ -1421,12 +1422,12 @@ def _handle_get_stale_leads(args, ctx):
               AND NOT EXISTS (
                   SELECT 1 FROM call_history ch
                   WHERE ch.contact_id = cc.contact_id
-                    AND ch.created_at >= CURRENT_DATE - INTERVAL '%s days'
+                    AND ch.created_at >= CURRENT_DATE - make_interval(days => %s)
               )
               AND NOT EXISTS (
                   SELECT 1 FROM contact_messages cm
                   WHERE cm.contact_id = cc.contact_id
-                    AND cm.created_at >= CURRENT_DATE - INTERVAL '%s days'
+                    AND cm.created_at >= CURRENT_DATE - make_interval(days => %s)
               )
             ORDER BY last_contact ASC NULLS FIRST
             LIMIT %s
@@ -1716,7 +1717,9 @@ def _handle_list_workflows(args, ctx):
 
 def _handle_assign_contact_to_workflow(args, ctx):
     from db import get_db_connection, return_db_connection
-    from workflow_engine import trigger_workflow_for_contact
+    import uuid
+    from datetime import datetime, timezone
+
     cid = args.get("contact_id", "")
     wf_name = args.get("workflow_name", "")
     if not cid or not wf_name: return {"error": "contact_id and workflow_name required"}
@@ -1726,10 +1729,35 @@ def _handle_assign_contact_to_workflow(args, ctx):
         cur = conn.cursor()
         cur.execute("SELECT id, name FROM workflows WHERE location_id = %s AND LOWER(name) LIKE %s AND status = 'active' LIMIT 1", (ctx["location_id"], f"%{wf_name.lower()}%"))
         row = cur.fetchone()
+        if not row:
+            cur.close()
+            return {"error": f"No active workflow matching '{wf_name}'"}
+
+        wf_id = row[0]
+        wf_real_name = row[1]
+        run_id = str(uuid.uuid4())[:12]
+        now = datetime.now(timezone.utc).isoformat()
+
+        cur.execute("""
+            INSERT INTO workflow_runs (id, workflow_id, contact_id, status, started_at, context)
+            VALUES (%s, %s, %s, 'running', %s, %s)
+        """, (run_id, wf_id, cid, now, json.dumps({"triggered_by": "assistant", "email": ctx.get("email", "")})))
+        conn.commit()
         cur.close()
-        if not row: return {"error": f"No active workflow matching '{wf_name}'"}
-        trigger_workflow_for_contact(row[0], cid, ctx["location_id"], "manual_assistant")
-        return {"enrolled": True, "workflow": row[1], "contact_id": cid}
+
+        # Enqueue for background execution
+        try:
+            from extensions import ensure_redis
+            r = ensure_redis()
+            if r:
+                from rq import Queue
+                q = Queue("production", connection=r)
+                from workflow_engine import execute_workflow_run
+                q.enqueue(execute_workflow_run, run_id, job_timeout=120, job_id=f"wf-assist-{run_id[:8]}")
+        except Exception as e:
+            logger.warning(f"Failed to enqueue workflow run: {e}")
+
+        return {"enrolled": True, "workflow": wf_real_name, "contact_id": cid, "run_id": run_id}
     except Exception as e: return {"error": str(e)[:200]}
     finally:
         if conn: return_db_connection(conn)

@@ -158,6 +158,74 @@ def _format_daily_summary(result):
             f"- Hot leads: {result.get('hot_leads', 0)}")
 
 
+def _filter_tools(all_tools, message):
+    """Select relevant tools based on message keywords to reduce token count.
+    Returns max ~15 tools instead of all 50."""
+    lower = message.lower()
+
+    # Always include these core tools
+    core = {"search_contact", "navigate_dashboard", "get_call_stats"}
+
+    # Keyword → tool name mappings
+    _KEYWORD_TOOLS = {
+        "call": {"make_call", "query_call_history", "queue_dial_session", "search_contact"},
+        "dial": {"make_call", "queue_dial_session", "search_contact"},
+        "text": {"send_sms", "send_bulk_sms", "get_recent_messages", "search_contact"},
+        "sms": {"send_sms", "send_bulk_sms", "get_recent_messages", "search_contact"},
+        "message": {"send_sms", "get_recent_messages", "get_inbox_conversations", "search_contact"},
+        "book": {"book_appointment", "check_calendar", "get_upcoming_appointments", "search_contact"},
+        "appointment": {"book_appointment", "check_calendar", "get_upcoming_appointments"},
+        "calendar": {"check_calendar", "get_upcoming_appointments", "book_appointment"},
+        "schedule": {"get_upcoming_appointments", "book_appointment", "set_reminder"},
+        "remind": {"set_reminder", "list_reminders"},
+        "workflow": {"list_workflows", "assign_contact_to_workflow", "assign_bulk_to_workflow", "toggle_workflow", "create_workflow_ai"},
+        "automat": {"list_workflows", "toggle_workflow", "create_workflow_ai"},
+        "contact": {"search_contact", "edit_contact", "add_contact_tag", "add_contact_note", "create_contact", "get_contact_history"},
+        "tag": {"add_contact_tag", "remove_contact_tag", "search_contact"},
+        "note": {"add_contact_note", "search_contact"},
+        "pipeline": {"move_contact_pipeline", "get_pipeline_summary", "queue_dial_session"},
+        "stage": {"move_contact_pipeline", "get_pipeline_summary"},
+        "carrier": {"set_carriers", "list_carriers"},
+        "hot": {"get_hot_leads"},
+        "warm": {"get_hot_leads"},
+        "cold": {"get_hot_leads", "get_stale_leads"},
+        "stale": {"get_stale_leads"},
+        "follow up": {"get_stale_leads", "set_reminder"},
+        "team": {"list_team_members", "invite_team_member", "get_agent_performance"},
+        "agent": {"get_agent_performance", "get_agency_kpis", "list_agency_members"},
+        "agency": {"get_agency_kpis", "get_agent_performance", "get_agency_call_log", "get_agency_leaderboard", "list_agency_members"},
+        "leaderboard": {"get_agency_leaderboard"},
+        "billing": {"get_subscription_info"},
+        "plan": {"get_subscription_info"},
+        "minute": {"get_ai_minutes_balance"},
+        "number": {"list_phone_numbers"},
+        "phone": {"list_phone_numbers", "make_call", "search_contact"},
+        "record": {"search_recordings", "query_call_history"},
+        "inbox": {"get_inbox_conversations", "get_recent_messages"},
+        "log": {"get_activity_logs"},
+        "summary": {"get_daily_summary", "get_call_stats"},
+        "stat": {"get_call_stats", "get_daily_summary"},
+        "dnc": {"mark_do_not_contact", "search_contact"},
+        "do not": {"mark_do_not_contact", "search_contact"},
+        "setting": {"get_bot_config", "update_bot_config"},
+        "config": {"get_bot_config", "update_bot_config"},
+        "who": {"get_hot_leads", "get_stale_leads", "get_recent_messages", "query_call_history", "search_contact"},
+    }
+
+    matched = set(core)
+    for keyword, tools in _KEYWORD_TOOLS.items():
+        if keyword in lower:
+            matched.update(tools)
+
+    # If nothing matched beyond core, send all tools (fallback for unusual queries)
+    if len(matched) <= len(core):
+        return all_tools
+
+    # Filter tool list
+    filtered = [t for t in all_tools if t["function"]["name"] in matched]
+    return filtered if filtered else all_tools
+
+
 def _match_nav(dest: str):
     """Match a destination string to a tab ID."""
     # Exact match
@@ -252,8 +320,8 @@ def assistant_chat():
             messages.append({"role": role, "content": content})
     messages.append({"role": "user", "content": user_message})
 
-    # Tool definitions
-    tools = get_assistant_tool_definitions()
+    # Tool definitions — filter to relevant subset for faster processing
+    tools = _filter_tools(get_assistant_tool_definitions(), user_message)
 
     # LLM client
     xai_key = os.getenv("XAI_API_KEY")

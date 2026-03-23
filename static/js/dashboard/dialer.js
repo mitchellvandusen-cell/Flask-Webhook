@@ -848,14 +848,18 @@
                     const wfId = this.dataset.wfId;
                     const wfName = this.dataset.wfName;
                     overlay.remove();
-                    fetch('/api/assistant/chat', {
+                    fetch('/api/workflows/' + wfId + '/test', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ message: 'Assign contact ' + contact.id + ' to workflow ' + wfName, history: [] }),
+                        body: JSON.stringify({ contact_id: contact.id }),
                     })
                     .then(r => r.json())
                     .then(d => {
-                        if (typeof _showDashToast === 'function') _showDashToast(true, (contact.name || 'Contact') + ' enrolled in ' + wfName);
+                        if (d.error) {
+                            if (typeof _showDashToast === 'function') _showDashToast(false, d.error);
+                        } else {
+                            if (typeof _showDashToast === 'function') _showDashToast(true, (contact.name || 'Contact') + ' enrolled in ' + wfName);
+                        }
                     })
                     .catch(() => {
                         if (typeof _showDashToast === 'function') _showDashToast(false, 'Failed to enroll contact');
