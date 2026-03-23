@@ -628,7 +628,8 @@ def _handle_search_contact(args, ctx):
     query = (args.get("query") or "").strip()
     search_type = args.get("search_type", "name")
     location_id = ctx["location_id"]
-    access_token = ctx["access_token"]
+    from ghl_api import get_valid_token
+    access_token = get_valid_token(location_id) or ctx["access_token"]
 
     if not query:
         return {"error": "No search query provided"}
@@ -707,10 +708,13 @@ def _handle_send_sms(args, ctx):
     if not contact_id or not message:
         return {"error": "Both contact_id and message are required"}
 
+    from ghl_api import get_valid_token
+    access_token = get_valid_token(ctx["location_id"]) or ctx["access_token"]
+
     success, fail_reason, http_detail = send_sms_via_ghl(
         contact_id=contact_id,
         message=message,
-        access_token=ctx["access_token"],
+        access_token=access_token,
         location_id=ctx["location_id"],
     )
 
@@ -772,12 +776,15 @@ def _handle_book_appointment(args, ctx):
     if not ctx.get("calendar_id"):
         return {"error": "No calendar configured. Go to Bot Config to set one up."}
 
+    from ghl_api import get_valid_token
+    access_token = get_valid_token(ctx["location_id"]) or ctx["access_token"]
+
     subscriber_data = {
         "location_id": ctx["location_id"],
         "calendar_id": ctx["calendar_id"],
         "crm_user_id": ctx.get("crm_user_id"),
         "timezone": ctx.get("timezone", "America/Chicago"),
-        "access_token": ctx["access_token"],
+        "access_token": access_token,
     }
 
     result = consolidated_calendar_op(
@@ -971,7 +978,8 @@ def _handle_queue_dial_session(args, ctx):
         return {"error": "Pipeline name is required. Ask which pipeline to dial."}
 
     location_id = ctx["location_id"]
-    access_token = ctx["access_token"]
+    from ghl_api import get_valid_token
+    access_token = get_valid_token(location_id) or ctx.get("access_token")
 
     if not access_token:
         return {"error": "No CRM connection. Connect your CRM first."}
@@ -1550,11 +1558,13 @@ def _handle_send_bulk_sms(args, ctx):
     if not contacts: return {"error": "No contacts found matching criteria"}
     # Send to each
     from ghl_message import send_sms_via_ghl
+    from ghl_api import get_valid_token
+    access_token = get_valid_token(ctx["location_id"]) or ctx.get("access_token", "")
     sent = 0
     failed = 0
     for c in contacts:
         try:
-            ok, _, _ = send_sms_via_ghl(c["id"], message, ctx["access_token"], ctx["location_id"])
+            ok, _, _ = send_sms_via_ghl(c["id"], message, access_token, ctx["location_id"])
             if ok: sent += 1
             else: failed += 1
         except Exception:
