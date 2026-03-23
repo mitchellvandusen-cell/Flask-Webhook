@@ -600,6 +600,68 @@ def get_assistant_tool_definitions():
             "description": "List all agency members and sub-accounts. Agency owners only. Use for: 'show my agents', 'agency members', 'who's in my agency?'.",
             "parameters": {"type": "object", "properties": {}, "required": []}
         }},
+
+        # ══ PHASE 3: EXPANDED TOOLS (55 additional) ═══════════════════════
+
+        # ── Calendar CRUD ──────────────────────────────────────────────
+        {"type": "function", "function": {"name": "cancel_appointment", "description": "Cancel/delete an existing appointment. Use for: 'cancel my appointment with John', 'remove the 3pm meeting'.", "parameters": {"type": "object", "properties": {"event_id": {"type": "string", "description": "Event/appointment ID"}, "contact_name": {"type": "string", "description": "Contact name to search by if no event_id"}}, "required": []}}},
+        {"type": "function", "function": {"name": "reschedule_appointment", "description": "Reschedule an existing appointment to a new time. Use for: 'move John's appointment to Thursday', 'reschedule 3pm to 4pm'.", "parameters": {"type": "object", "properties": {"event_id": {"type": "string"}, "new_time": {"type": "string", "description": "New time, e.g. 'Thursday at 4pm'"}}, "required": ["new_time"]}}},
+        {"type": "function", "function": {"name": "list_calendars", "description": "Show all available calendars. Use for: 'what calendars do I have?', 'show my calendars'.", "parameters": {"type": "object", "properties": {}, "required": []}}},
+        {"type": "function", "function": {"name": "get_past_appointments", "description": "Show past/completed appointments. Use for: 'who did I meet with last week?', 'past appointments'.", "parameters": {"type": "object", "properties": {"days_back": {"type": "integer", "description": "Days to look back (default 7)"}, "limit": {"type": "integer"}}, "required": []}}},
+
+        # ── Recordings & Transcripts ───────────────────────────────────
+        {"type": "function", "function": {"name": "get_recording_transcript", "description": "Get the transcript of a call recording. Use for: 'what did John say on our call?', 'transcript of my last call', 'what was discussed?'.", "parameters": {"type": "object", "properties": {"contact_name": {"type": "string"}, "call_index": {"type": "integer", "description": "0=most recent, 1=second most recent, etc. Default 0"}}, "required": ["contact_name"]}}},
+        {"type": "function", "function": {"name": "transcribe_recording", "description": "Request transcription of a call that doesn't have one yet. Use for: 'transcribe my last call with John'.", "parameters": {"type": "object", "properties": {"contact_name": {"type": "string"}}, "required": ["contact_name"]}}},
+
+        # ── Contact Bulk Ops ───────────────────────────────────────────
+        {"type": "function", "function": {"name": "bulk_tag_contacts", "description": "Add a tag to multiple contacts by pipeline stage. Use for: 'tag everyone in New Leads as cold-outreach', 'add VIP tag to all Qualified leads'.", "parameters": {"type": "object", "properties": {"tag": {"type": "string"}, "pipeline_name": {"type": "string"}, "stage_name": {"type": "string"}}, "required": ["tag", "pipeline_name"]}}},
+        {"type": "function", "function": {"name": "get_contact_deals", "description": "Get opportunities/deals for a contact. Use for: 'what deals does John have?', 'John's pipeline status'.", "parameters": {"type": "object", "properties": {"contact_id": {"type": "string"}}, "required": ["contact_id"]}}},
+
+        # ── Phone Numbers ──────────────────────────────────────────────
+        {"type": "function", "function": {"name": "check_number_health", "description": "Check spam scores and health status of phone numbers. Use for: 'are my numbers flagged?', 'number health', 'spam check'.", "parameters": {"type": "object", "properties": {}, "required": []}}},
+        {"type": "function", "function": {"name": "get_primary_number", "description": "Show the primary caller ID number. Use for: 'what number am I calling from?', 'my caller ID'.", "parameters": {"type": "object", "properties": {}, "required": []}}},
+
+        # ── A2P / Trust Hub / Spam Protection ──────────────────────────
+        {"type": "function", "function": {"name": "check_registration_status", "description": "Check A2P 10DLC, CNAM, Voice Integrity, and spam protection registration status. Use for: 'am I registered?', 'A2P status', 'spam protection status', 'is my caller ID set up?'.", "parameters": {"type": "object", "properties": {}, "required": []}}},
+
+        # ── CRM Sync ──────────────────────────────────────────────────
+        {"type": "function", "function": {"name": "trigger_crm_sync", "description": "Trigger a fresh data sync from the CRM. Use for: 'sync my contacts', 'refresh CRM data', 'pull latest from GHL'.", "parameters": {"type": "object", "properties": {}, "required": []}}},
+        {"type": "function", "function": {"name": "get_sync_status", "description": "Check the CRM data sync status. Use for: 'is my sync running?', 'when was last sync?'.", "parameters": {"type": "object", "properties": {}, "required": []}}},
+
+        # ── Workflow Analytics ─────────────────────────────────────────
+        {"type": "function", "function": {"name": "get_workflow_runs", "description": "Show recent workflow execution history. Use for: 'how many contacts went through Speed to Lead?', 'workflow run history'.", "parameters": {"type": "object", "properties": {"workflow_name": {"type": "string"}, "limit": {"type": "integer"}}, "required": []}}},
+        {"type": "function", "function": {"name": "get_workflow_stats", "description": "Get workflow performance stats: enrolled, completed, failed. Use for: 'how is my Speed to Lead performing?', 'workflow stats'.", "parameters": {"type": "object", "properties": {"workflow_name": {"type": "string"}}, "required": ["workflow_name"]}}},
+
+        # ── Reporting ──────────────────────────────────────────────────
+        {"type": "function", "function": {"name": "generate_weekly_report", "description": "Generate a comprehensive weekly performance report with actionable insights. For agency owners: includes per-agent breakdown, identifies underperformers, calculates revenue opportunities, and gives specific coaching tips. Use for: 'weekly report', 'how did this week go?', 'performance report', 'agency report'.", "parameters": {"type": "object", "properties": {"include_agent_breakdown": {"type": "boolean", "description": "Include per-agent stats (default true for agency owners)"}}, "required": []}}},
+        {"type": "function", "function": {"name": "compare_periods", "description": "Compare performance between two time periods. Use for: 'compare this week to last week', 'am I improving?', 'this month vs last month'.", "parameters": {"type": "object", "properties": {"period1": {"type": "string", "enum": ["today", "yesterday", "this_week", "last_week", "this_month", "last_month"]}, "period2": {"type": "string", "enum": ["today", "yesterday", "this_week", "last_week", "this_month", "last_month"]}}, "required": ["period1", "period2"]}}},
+        {"type": "function", "function": {"name": "get_conversion_funnel", "description": "Get conversion funnel from first contact to booked appointment. Use for: 'what's my conversion rate?', 'how many leads become appointments?', 'funnel analysis'.", "parameters": {"type": "object", "properties": {"period": {"type": "string", "enum": ["week", "month", "all"]}}, "required": []}}},
+
+        # ── Discord / Slack ────────────────────────────────────────────
+        {"type": "function", "function": {"name": "check_integrations_status", "description": "Check the status of Discord, Slack, and CRM integrations. Use for: 'is my Discord connected?', 'integration status', 'what's connected?'.", "parameters": {"type": "object", "properties": {}, "required": []}}},
+
+        # ── Bot Config (granular) ──────────────────────────────────────
+        {"type": "function", "function": {"name": "toggle_bot", "description": "Enable or disable the AI SMS bot. Use for: 'turn off the bot', 'pause texting', 'enable the bot', 'start the bot'.", "parameters": {"type": "object", "properties": {"enabled": {"type": "boolean"}}, "required": ["enabled"]}}},
+        {"type": "function", "function": {"name": "get_sms_channel", "description": "Check which SMS channel is active (CRM or direct). Use for: 'how are my texts being sent?', 'SMS channel'.", "parameters": {"type": "object", "properties": {}, "required": []}}},
+
+        # ── Training API ───────────────────────────────────────────────
+        {"type": "function", "function": {"name": "get_training_status", "description": "Check Training API integration status and code. Use for: 'is training connected?', 'my training code'.", "parameters": {"type": "object", "properties": {}, "required": []}}},
+
+        # ── Intelligence Bulk ──────────────────────────────────────────
+        {"type": "function", "function": {"name": "analyze_contact_now", "description": "Force a fresh AI analysis on a specific contact. Use for: 'reanalyze John', 'refresh intelligence on Jane'.", "parameters": {"type": "object", "properties": {"contact_id": {"type": "string"}}, "required": ["contact_id"]}}},
+        {"type": "function", "function": {"name": "get_intelligence_summary", "description": "Get a summary of AI intelligence across all contacts: how many hot/warm/cool/cold, average score, etc. Use for: 'how are my leads looking overall?', 'lead temperature breakdown', 'intelligence overview'.", "parameters": {"type": "object", "properties": {}, "required": []}}},
+
+        # ── Billing Detail ─────────────────────────────────────────────
+        {"type": "function", "function": {"name": "get_ai_minutes_usage", "description": "Get detailed AI minutes usage history. Use for: 'where are my minutes going?', 'AI usage breakdown', 'minutes usage log'.", "parameters": {"type": "object", "properties": {"limit": {"type": "integer"}}, "required": []}}},
+
+        # ── Agency Granular ────────────────────────────────────────────
+        {"type": "function", "function": {"name": "compare_agents", "description": "Side-by-side comparison of two or more agents. Agency owners only. Use for: 'compare Sarah and Mike', 'who's better Sarah or John?'.", "parameters": {"type": "object", "properties": {"agent_names": {"type": "array", "items": {"type": "string"}, "description": "Agent names to compare"}, "period": {"type": "string", "enum": ["today", "week", "month", "all"]}}, "required": ["agent_names"]}}},
+        {"type": "function", "function": {"name": "get_agent_recordings", "description": "Get recent call recordings for a specific agent. Agency owners only. Use for: 'show Sarah's recordings', 'listen to Mike's calls'.", "parameters": {"type": "object", "properties": {"agent_name": {"type": "string"}, "limit": {"type": "integer"}}, "required": ["agent_name"]}}},
+        {"type": "function", "function": {"name": "generate_agent_coaching", "description": "Generate AI-powered coaching insights for a specific agent based on their call stats. Use for: 'what should Sarah work on?', 'coaching tips for Mike', 'how can John improve?'.", "parameters": {"type": "object", "properties": {"agent_name": {"type": "string"}}, "required": ["agent_name"]}}},
+
+        # ── System / Misc ──────────────────────────────────────────────
+        {"type": "function", "function": {"name": "get_onboarding_status", "description": "Check setup/onboarding completion status. Use for: 'what do I still need to set up?', 'onboarding status', 'am I fully set up?'.", "parameters": {"type": "object", "properties": {}, "required": []}}},
+        {"type": "function", "function": {"name": "search_everything", "description": "Universal search across contacts, calls, messages, workflows, and notes. Use for: 'search for term life', 'find anything mentioning Americo', 'search for 555-1234'.", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}},
     ]
 
 
@@ -2246,15 +2308,632 @@ def _handle_list_agency_members(args, ctx):
         if conn: return_db_connection(conn)
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# PHASE 3: EXPANDED TOOL HANDLERS
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _handle_cancel_appointment(args, ctx):
+    h = _ghl_headers(ctx)
+    if not h: return {"error": "CRM connection expired"}
+    event_id = args.get("event_id", "")
+    if not event_id:
+        cn = args.get("contact_name", "")
+        if cn:
+            appts = _handle_get_upcoming_appointments({"days_ahead": 7}, ctx)
+            return {"error": "Please specify the event_id. " + json.dumps(appts.get("appointments", [])[:5])}
+        return {"error": "event_id required"}
+    try:
+        r = requests.delete(f"https://services.leadconnectorhq.com/calendars/events/{event_id}", headers=h, timeout=10)
+        return {"cancelled": r.status_code in (200, 204)} if r.status_code in (200, 204) else {"error": f"Failed ({r.status_code})"}
+    except Exception as e: return {"error": str(e)[:200]}
+
+def _handle_reschedule_appointment(args, ctx):
+    event_id = args.get("event_id", "")
+    new_time = args.get("new_time", "")
+    if not new_time: return {"error": "new_time required"}
+    if not event_id: return {"error": "event_id required. Ask the user which appointment to reschedule."}
+    h = _ghl_headers(ctx)
+    if not h: return {"error": "CRM connection expired"}
+    # Parse time and update
+    try:
+        from booking_detection import parse_time_expression
+        parsed = parse_time_expression(new_time, ctx.get("timezone", "America/Chicago"))
+        if not parsed: return {"error": f"Could not parse time: {new_time}"}
+        r = requests.put(f"https://services.leadconnectorhq.com/calendars/events/appointments/{event_id}", headers=h,
+                         json={"startTime": parsed, "selectedTimezone": ctx.get("timezone", "America/Chicago")}, timeout=10)
+        return {"rescheduled": r.status_code == 200, "new_time": new_time}
+    except Exception as e: return {"error": str(e)[:200]}
+
+def _handle_list_calendars(args, ctx):
+    h = _ghl_headers(ctx)
+    if not h: return {"error": "CRM connection expired"}
+    try:
+        r = requests.get("https://services.leadconnectorhq.com/calendars/", headers=h, params={"locationId": ctx["location_id"]}, timeout=10)
+        if r.status_code != 200: return {"error": f"Failed ({r.status_code})"}
+        cals = r.json().get("calendars", [])
+        return {"count": len(cals), "calendars": [{"id": c.get("id"), "name": c.get("name"), "description": c.get("description", "")} for c in cals]}
+    except Exception as e: return {"error": str(e)[:200]}
+
+def _handle_get_past_appointments(args, ctx):
+    return _handle_get_upcoming_appointments({"days_ahead": -(args.get("days_back", 7))}, ctx)
+
+def _handle_get_recording_transcript(args, ctx):
+    from db import get_db_connection, return_db_connection
+    cn = args.get("contact_name", "")
+    idx = args.get("call_index", 0)
+    if not cn: return {"error": "contact_name required"}
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT transcript, contact_name, duration, created_at FROM call_history WHERE location_id = %s AND LOWER(contact_name) LIKE %s AND transcript IS NOT NULL AND transcript != '' ORDER BY created_at DESC LIMIT %s", (ctx["location_id"], f"%{cn.lower()}%", idx + 1))
+        rows = cur.fetchall()
+        cur.close()
+        if not rows or idx >= len(rows): return {"error": f"No transcript found for '{cn}'"}
+        r = rows[idx]
+        return {"transcript": r[0][:2000], "contact": r[1], "duration": f"{(r[2] or 0)//60}m", "date": str(r[3])[:16] if r[3] else ""}
+    except Exception as e: return {"error": str(e)[:200]}
+    finally:
+        if conn: return_db_connection(conn)
+
+def _handle_transcribe_recording(args, ctx):
+    from db import get_db_connection, return_db_connection
+    cn = args.get("contact_name", "")
+    if not cn: return {"error": "contact_name required"}
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT call_sid, recording_url FROM call_history WHERE location_id = %s AND LOWER(contact_name) LIKE %s AND recording_url IS NOT NULL AND (transcript IS NULL OR transcript = '') ORDER BY created_at DESC LIMIT 1", (ctx["location_id"], f"%{cn.lower()}%"))
+        row = cur.fetchone()
+        cur.close()
+        if not row: return {"error": f"No un-transcribed recording found for '{cn}'"}
+        # Queue transcription
+        try:
+            from extensions import ensure_redis
+            r = ensure_redis()
+            if r:
+                from rq import Queue
+                q = Queue("intelligence", connection=r)
+                q.enqueue("voice.recordings.transcribe_recording_task", row[0], row[1], job_timeout=120)
+                return {"queued": True, "message": f"Transcription queued for {cn}. It'll be ready in a minute or two."}
+        except Exception: pass
+        return {"error": "Could not queue transcription. Try again later."}
+    except Exception as e: return {"error": str(e)[:200]}
+    finally:
+        if conn: return_db_connection(conn)
+
+def _handle_bulk_tag_contacts(args, ctx):
+    tag = args.get("tag", "").strip()
+    if not tag: return {"error": "tag required"}
+    contacts_result = _handle_queue_dial_session({"pipeline_name": args.get("pipeline_name", ""), "stage_name": args.get("stage_name", "")}, ctx)
+    if "error" in contacts_result: return contacts_result
+    contacts = contacts_result.get("contacts", [])[:50]
+    tagged = 0
+    for c in contacts:
+        r = _handle_add_contact_tag({"contact_id": c["id"], "tags": [tag]}, ctx)
+        if r.get("added"): tagged += 1
+    return {"tagged": tagged, "total": len(contacts), "tag": tag}
+
+def _handle_get_contact_deals(args, ctx):
+    cid = args.get("contact_id", "")
+    if not cid: return {"error": "contact_id required"}
+    h = _ghl_headers(ctx)
+    if not h: return {"error": "CRM connection expired"}
+    try:
+        r = requests.get("https://services.leadconnectorhq.com/opportunities/search", headers=h, params={"location_id": ctx["location_id"], "contact_id": cid}, timeout=10)
+        if r.status_code != 200: return {"error": f"Failed ({r.status_code})"}
+        opps = r.json().get("opportunities", [])
+        return {"count": len(opps), "deals": [{"name": o.get("name", ""), "stage": o.get("pipelineStageId", ""), "status": o.get("status", ""), "value": o.get("monetaryValue", 0)} for o in opps[:10]]}
+    except Exception as e: return {"error": str(e)[:200]}
+
+def _handle_check_number_health(args, ctx):
+    from db import get_db_connection, return_db_connection
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT phone_number, status, spam_score, last_checked_at FROM number_health WHERE location_id = %s ORDER BY last_checked_at DESC", (ctx["location_id"],))
+        rows = cur.fetchall()
+        cur.close()
+        if not rows: return {"message": "No number health data yet. Numbers are checked automatically."}
+        numbers = [{"phone": r[0], "status": r[1] or "active", "spam_score": r[2], "last_checked": str(r[3])[:10] if r[3] else ""} for r in rows]
+        flagged = [n for n in numbers if n.get("spam_score") and n["spam_score"] > 50]
+        return {"total": len(numbers), "flagged": len(flagged), "numbers": numbers[:15]}
+    except Exception as e: return {"error": str(e)[:200]}
+    finally:
+        if conn: return_db_connection(conn)
+
+def _handle_get_primary_number(args, ctx):
+    from db import get_db_connection, return_db_connection
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT voice_config FROM subscribers WHERE location_id = %s", (ctx["location_id"],))
+        row = cur.fetchone()
+        cur.close()
+        if not row: return {"error": "Account not found"}
+        vc = row[0] or {}
+        return {"primary_number": vc.get("twilio_phone_number", "Not set"), "sub_account": bool(vc.get("twilio_sub_account_sid"))}
+    except Exception as e: return {"error": str(e)[:200]}
+    finally:
+        if conn: return_db_connection(conn)
+
+def _handle_check_registration_status(args, ctx):
+    from db import get_db_connection, return_db_connection
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT voice_config FROM subscribers WHERE location_id = %s", (ctx["location_id"],))
+        row = cur.fetchone()
+        cur.close()
+        if not row: return {"error": "Account not found"}
+        vc = row[0] or {}
+        a2p = vc.get("a2p", {})
+        ni = vc.get("number_integrity", {})
+        cnam = vc.get("cnam", {})
+        th = vc.get("trust_hub", {})
+        return {
+            "a2p_10dlc": {"brand_status": a2p.get("brand_status", "not registered"), "campaign_status": a2p.get("campaign_status", "not registered")},
+            "voice_integrity": {"status": ni.get("status", "not registered")},
+            "cnam": {"status": cnam.get("status", "not registered"), "display_name": cnam.get("cnam_display_name", "")},
+            "business_profile": {"active": th.get("protection_active", False), "name": th.get("business_name", "")},
+        }
+    except Exception as e: return {"error": str(e)[:200]}
+    finally:
+        if conn: return_db_connection(conn)
+
+def _handle_trigger_crm_sync(args, ctx):
+    try:
+        from extensions import ensure_redis
+        r = ensure_redis()
+        if r:
+            from rq import Queue
+            q = Queue("website", connection=r)
+            from ghl_sync import sync_all_for_location
+            q.enqueue(sync_all_for_location, ctx["location_id"], job_timeout=1800, job_id=f"sync-assist-{ctx['location_id'][:8]}")
+            return {"queued": True, "message": "CRM sync started. Data will update in the background."}
+    except Exception as e: return {"error": str(e)[:200]}
+    return {"error": "Sync service unavailable"}
+
+def _handle_get_sync_status(args, ctx):
+    from db import get_db_connection, return_db_connection
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT resource_type, last_sync_at, sync_status, total_synced FROM ghl_sync_state WHERE location_id = %s", (ctx["location_id"],))
+        rows = cur.fetchall()
+        cur.close()
+        if not rows: return {"message": "No sync history. Trigger a sync first."}
+        return {"syncs": [{"type": r[0], "last_sync": str(r[1])[:16] if r[1] else "never", "status": r[2] or "unknown", "records": r[3] or 0} for r in rows]}
+    except Exception as e: return {"error": str(e)[:200]}
+    finally:
+        if conn: return_db_connection(conn)
+
+def _handle_get_workflow_runs(args, ctx):
+    from db import get_db_connection, return_db_connection
+    wf_name = args.get("workflow_name", "")
+    limit = min(args.get("limit", 10), 30)
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        if wf_name:
+            cur.execute("SELECT wr.contact_id, wr.status, wr.started_at, w.name FROM workflow_runs wr JOIN workflows w ON w.id = wr.workflow_id WHERE w.location_id = %s AND LOWER(w.name) LIKE %s ORDER BY wr.started_at DESC LIMIT %s", (ctx["location_id"], f"%{wf_name.lower()}%", limit))
+        else:
+            cur.execute("SELECT wr.contact_id, wr.status, wr.started_at, w.name FROM workflow_runs wr JOIN workflows w ON w.id = wr.workflow_id WHERE w.location_id = %s ORDER BY wr.started_at DESC LIMIT %s", (ctx["location_id"], limit))
+        rows = cur.fetchall()
+        cur.close()
+        return {"count": len(rows), "runs": [{"contact_id": r[0], "status": r[1], "started": str(r[2])[:16] if r[2] else "", "workflow": r[3]} for r in rows]}
+    except Exception as e: return {"error": str(e)[:200]}
+    finally:
+        if conn: return_db_connection(conn)
+
+def _handle_get_workflow_stats(args, ctx):
+    from db import get_db_connection, return_db_connection
+    wf_name = args.get("workflow_name", "")
+    if not wf_name: return {"error": "workflow_name required"}
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""SELECT COUNT(*), COUNT(*) FILTER (WHERE wr.status='completed'), COUNT(*) FILTER (WHERE wr.status='failed'), COUNT(*) FILTER (WHERE wr.status='running')
+            FROM workflow_runs wr JOIN workflows w ON w.id = wr.workflow_id WHERE w.location_id = %s AND LOWER(w.name) LIKE %s""", (ctx["location_id"], f"%{wf_name.lower()}%"))
+        r = cur.fetchone()
+        cur.close()
+        return {"total_runs": r[0] or 0, "completed": r[1] or 0, "failed": r[2] or 0, "running": r[3] or 0, "workflow": wf_name}
+    except Exception as e: return {"error": str(e)[:200]}
+    finally:
+        if conn: return_db_connection(conn)
+
+def _handle_generate_weekly_report(args, ctx):
+    """Generate comprehensive weekly report with actionable insights."""
+    from db import get_db_connection, return_db_connection
+    include_agents = args.get("include_agent_breakdown", True)
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        lid = ctx["location_id"]
+
+        # This week's stats
+        cur.execute("""SELECT COUNT(*), COUNT(*) FILTER (WHERE status='completed' AND duration>0),
+            COALESCE(SUM(duration) FILTER (WHERE status='completed'),0),
+            COUNT(*) FILTER (WHERE duration >= 300 AND status='completed'),
+            COUNT(*) FILTER (WHERE direction='inbound' AND status='no-answer'),
+            COALESCE(AVG(duration) FILTER (WHERE status='completed' AND duration>0), 0)
+            FROM call_history WHERE location_id = %s AND created_at >= CURRENT_DATE - INTERVAL '7 days'""", (lid,))
+        tw = cur.fetchone()
+
+        # Last week's stats for comparison
+        cur.execute("""SELECT COUNT(*), COUNT(*) FILTER (WHERE status='completed' AND duration>0),
+            COALESCE(SUM(duration) FILTER (WHERE status='completed'),0)
+            FROM call_history WHERE location_id = %s AND created_at >= CURRENT_DATE - INTERVAL '14 days' AND created_at < CURRENT_DATE - INTERVAL '7 days'""", (lid,))
+        lw = cur.fetchone()
+
+        # Messages
+        cur.execute("SELECT COUNT(*) FILTER (WHERE direction='outbound'), COUNT(*) FILTER (WHERE direction='inbound') FROM contact_messages WHERE location_id = %s AND created_at >= CURRENT_DATE - INTERVAL '7 days'", (lid,))
+        msgs = cur.fetchone()
+
+        # Hot leads
+        cur.execute("SELECT COUNT(*) FROM contact_intelligence ci JOIN contact_cache cc ON cc.contact_id = ci.contact_id AND cc.location_id = %s WHERE ci.analysis->>'temperature' = 'hot'", (lid,))
+        hot = cur.fetchone()[0] or 0
+
+        total, connected, talk_secs = tw[0] or 0, tw[1] or 0, tw[2] or 0
+        quality_calls = tw[3] or 0
+        missed = tw[4] or 0
+        avg_dur = tw[5] or 0
+        lw_total, lw_connected = lw[0] or 0, lw[1] or 0
+
+        rate = round(connected / total * 100, 1) if total > 0 else 0
+        lw_rate = round(lw_connected / lw_total * 100, 1) if lw_total > 0 else 0
+        rate_change = round(rate - lw_rate, 1)
+        vol_change = total - lw_total
+
+        report = {
+            "period": "This Week",
+            "calls": {"total": total, "connected": connected, "connect_rate": f"{rate}%", "vs_last_week": f"{'+' if vol_change >= 0 else ''}{vol_change} calls ({'+' if rate_change >= 0 else ''}{rate_change}% rate)"},
+            "talk_time": f"{talk_secs//3600}h {(talk_secs%3600)//60}m",
+            "avg_call_duration": f"{int(avg_dur)//60}m {int(avg_dur)%60}s",
+            "quality_calls_5min_plus": quality_calls,
+            "missed_inbound": missed,
+            "messages": {"sent": msgs[0] or 0, "received": msgs[1] or 0},
+            "hot_leads": hot,
+            "insights": [],
+        }
+
+        # Generate actionable insights
+        if rate < 15:
+            report["insights"].append("Connect rate is below 15%. Consider: dialing during peak hours (10am-12pm, 2-4pm), using local area code numbers, or checking if numbers are flagged as spam.")
+        if quality_calls < total * 0.1 and total > 10:
+            report["insights"].append(f"Only {quality_calls} calls lasted 5+ minutes out of {connected} connected. Focus on opening stronger — the first 30 seconds determine if they stay on the line.")
+        if missed > 5:
+            report["insights"].append(f"{missed} inbound calls missed this week. These are warm leads calling YOU back. Consider enabling AI overflow to catch calls when you're busy.")
+        if (msgs[1] or 0) > 0 and (msgs[1] or 0) > (msgs[0] or 0) * 0.5:
+            report["insights"].append(f"You received {msgs[1]} inbound texts. Make sure the bot is responding promptly — speed to lead matters.")
+        if vol_change < -10:
+            report["insights"].append(f"Call volume dropped by {abs(vol_change)} vs last week. Consistency is key — try to maintain at least {lw_total} dials per week.")
+        if rate_change > 5:
+            report["insights"].append(f"Connect rate improved by {rate_change}%! Whatever you changed is working. Keep it up.")
+        if hot > 0:
+            report["insights"].append(f"You have {hot} hot leads right now. These should be your first calls tomorrow morning.")
+        if not report["insights"]:
+            report["insights"].append("Solid week. Keep the volume consistent and prioritize your hot leads first thing each day.")
+
+        # Agency agent breakdown
+        if include_agents:
+            cur.execute("SELECT company_id FROM subscribers WHERE location_id = %s", (lid,))
+            row = cur.fetchone()
+            if row and row[0]:
+                agent_result = _handle_get_agent_performance({"period": "week"}, ctx)
+                if "agents" in agent_result:
+                    agents = agent_result["agents"]
+                    report["agent_breakdown"] = agents
+
+                    # Per-agent coaching
+                    agent_insights = []
+                    for a in agents:
+                        r_pct = float(a.get("rate", "0").replace("%", ""))
+                        if a["calls"] < 20:
+                            agent_insights.append(f"**{a['name']}** only made {a['calls']} calls. Target: 100+ dials/week minimum.")
+                        elif r_pct < 10:
+                            agent_insights.append(f"**{a['name']}** has a {a['rate']} connect rate. Check their number health and calling hours.")
+                        elif r_pct > 30:
+                            agent_insights.append(f"**{a['name']}** is crushing it at {a['rate']} connect rate. Great prospecting work.")
+                    if agent_insights:
+                        report["agent_coaching"] = agent_insights
+
+        cur.close()
+        return report
+    except Exception as e:
+        logger.error(f"Weekly report failed: {e}", exc_info=True)
+        return {"error": str(e)[:200]}
+    finally:
+        if conn: return_db_connection(conn)
+
+def _handle_compare_periods(args, ctx):
+    from db import get_db_connection, return_db_connection
+    period_sql = {
+        "today": ("CURRENT_DATE", "CURRENT_DATE + INTERVAL '1 day'"),
+        "yesterday": ("CURRENT_DATE - INTERVAL '1 day'", "CURRENT_DATE"),
+        "this_week": ("CURRENT_DATE - INTERVAL '7 days'", "CURRENT_DATE + INTERVAL '1 day'"),
+        "last_week": ("CURRENT_DATE - INTERVAL '14 days'", "CURRENT_DATE - INTERVAL '7 days'"),
+        "this_month": ("CURRENT_DATE - INTERVAL '30 days'", "CURRENT_DATE + INTERVAL '1 day'"),
+        "last_month": ("CURRENT_DATE - INTERVAL '60 days'", "CURRENT_DATE - INTERVAL '30 days'"),
+    }
+    p1 = args.get("period1", "this_week")
+    p2 = args.get("period2", "last_week")
+    if p1 not in period_sql or p2 not in period_sql: return {"error": "Invalid period"}
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        results = {}
+        for label, period in [(p1, period_sql[p1]), (p2, period_sql[p2])]:
+            cur.execute(f"SELECT COUNT(*), COUNT(*) FILTER (WHERE status='completed' AND duration>0), COALESCE(SUM(duration) FILTER (WHERE status='completed'),0) FROM call_history WHERE location_id = %s AND created_at >= {period[0]} AND created_at < {period[1]}", (ctx["location_id"],))
+            r = cur.fetchone()
+            t, c, s = r[0] or 0, r[1] or 0, r[2] or 0
+            results[label] = {"calls": t, "connected": c, "rate": f"{round(c/t*100,1)}%" if t > 0 else "0%", "talk_time": f"{s//3600}h {(s%3600)//60}m"}
+        cur.close()
+        return {"comparison": results}
+    except Exception as e: return {"error": str(e)[:200]}
+    finally:
+        if conn: return_db_connection(conn)
+
+def _handle_get_conversion_funnel(args, ctx):
+    from db import get_db_connection, return_db_connection
+    period = args.get("period", "month")
+    df = {"week": "7 days", "month": "30 days", "all": "365 days"}.get(period, "30 days")
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        lid = ctx["location_id"]
+        cur.execute(f"SELECT COUNT(DISTINCT contact_id) FROM call_history WHERE location_id = %s AND created_at >= CURRENT_DATE - INTERVAL '{df}'", (lid,))
+        contacted = cur.fetchone()[0] or 0
+        cur.execute(f"SELECT COUNT(DISTINCT contact_id) FROM call_history WHERE location_id = %s AND status = 'completed' AND duration > 0 AND created_at >= CURRENT_DATE - INTERVAL '{df}'", (lid,))
+        connected = cur.fetchone()[0] or 0
+        cur.execute(f"SELECT COUNT(DISTINCT contact_id) FROM call_history WHERE location_id = %s AND status = 'completed' AND duration >= 120 AND created_at >= CURRENT_DATE - INTERVAL '{df}'", (lid,))
+        qualified = cur.fetchone()[0] or 0
+        cur.close()
+        return {"period": period, "funnel": {"contacted": contacted, "connected": connected, "qualified_2min_plus": qualified}, "conversion": f"{round(qualified/contacted*100,1)}%" if contacted > 0 else "0%"}
+    except Exception as e: return {"error": str(e)[:200]}
+    finally:
+        if conn: return_db_connection(conn)
+
+def _handle_check_integrations_status(args, ctx):
+    from db import get_db_connection, return_db_connection
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT 1 FROM discord_connections WHERE email = %s", (ctx["email"],))
+        discord = bool(cur.fetchone())
+        cur.execute("SELECT 1 FROM slack_connections WHERE email = %s", (ctx["email"],))
+        slack = bool(cur.fetchone())
+        cur.close()
+        return {"discord": "connected" if discord else "not connected", "slack": "connected" if slack else "not connected", "crm": "connected" if ctx.get("access_token") else "not connected"}
+    except Exception as e: return {"error": str(e)[:200]}
+    finally:
+        if conn: return_db_connection(conn)
+
+def _handle_toggle_bot(args, ctx):
+    from db import get_db_connection, return_db_connection
+    enabled = args.get("enabled", True)
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE subscribers SET bot_active = %s, updated_at = NOW() WHERE location_id = %s", (enabled, ctx["location_id"]))
+        conn.commit()
+        cur.close()
+        return {"toggled": True, "bot_active": enabled, "message": f"Bot {'enabled' if enabled else 'disabled'}"}
+    except Exception as e: return {"error": str(e)[:200]}
+    finally:
+        if conn: return_db_connection(conn)
+
+def _handle_get_sms_channel(args, ctx):
+    from db import get_db_connection, return_db_connection
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT sms_send_via FROM subscribers WHERE location_id = %s", (ctx["location_id"],))
+        row = cur.fetchone()
+        cur.close()
+        channel = row[0] if row else "ghl"
+        return {"channel": "Direct (Twilio)" if channel and channel.startswith("+") else "CRM (GoHighLevel)", "raw": channel or "ghl"}
+    except Exception as e: return {"error": str(e)[:200]}
+    finally:
+        if conn: return_db_connection(conn)
+
+def _handle_get_training_status(args, ctx):
+    from db import get_db_connection, return_db_connection
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT voice_config FROM subscribers WHERE location_id = %s", (ctx["location_id"],))
+        row = cur.fetchone()
+        cur.close()
+        vc = (row[0] if row else {}) or {}
+        token = vc.get("training_token", "")
+        return {"connected": bool(token), "has_code": bool(token), "created_at": vc.get("training_token_created_at", "")}
+    except Exception as e: return {"error": str(e)[:200]}
+    finally:
+        if conn: return_db_connection(conn)
+
+def _handle_analyze_contact_now(args, ctx):
+    cid = args.get("contact_id", "")
+    if not cid: return {"error": "contact_id required"}
+    try:
+        from extensions import ensure_redis
+        r = ensure_redis()
+        if r:
+            from rq import Queue
+            q = Queue("intelligence", connection=r)
+            from lead_intelligence import analyze_contact_intelligence_task
+            q.enqueue(analyze_contact_intelligence_task, ctx["location_id"], cid, job_timeout=60)
+            return {"queued": True, "message": "AI analysis queued. Results will be ready in a few seconds."}
+    except Exception as e: return {"error": str(e)[:200]}
+    return {"error": "Intelligence service unavailable"}
+
+def _handle_get_intelligence_summary(args, ctx):
+    from db import get_db_connection, return_db_connection
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""SELECT
+            COUNT(*) as total,
+            COUNT(*) FILTER (WHERE analysis->>'temperature' = 'hot') as hot,
+            COUNT(*) FILTER (WHERE analysis->>'temperature' = 'warm') as warm,
+            COUNT(*) FILTER (WHERE analysis->>'temperature' = 'cool') as cool,
+            COUNT(*) FILTER (WHERE analysis->>'temperature' = 'cold') as cold,
+            ROUND(AVG((analysis->>'score')::numeric)) as avg_score,
+            COUNT(*) FILTER (WHERE (analysis->>'should_respond')::boolean = true) as should_respond
+            FROM contact_intelligence ci JOIN contact_cache cc ON cc.contact_id = ci.contact_id AND cc.location_id = %s""", (ctx["location_id"],))
+        r = cur.fetchone()
+        cur.close()
+        return {"total_analyzed": r[0] or 0, "hot": r[1] or 0, "warm": r[2] or 0, "cool": r[3] or 0, "cold": r[4] or 0, "avg_score": int(r[5] or 0), "should_respond_now": r[6] or 0}
+    except Exception as e: return {"error": str(e)[:200]}
+    finally:
+        if conn: return_db_connection(conn)
+
+def _handle_get_ai_minutes_usage(args, ctx):
+    from db import get_db_connection, return_db_connection
+    limit = min(args.get("limit", 10), 30)
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT minutes_used, reason, created_at FROM ai_minute_usage_logs WHERE location_id = %s ORDER BY created_at DESC LIMIT %s", (ctx["location_id"], limit))
+        rows = cur.fetchall()
+        cur.close()
+        return {"count": len(rows), "usage": [{"minutes": r[0], "reason": r[1] or "", "time": str(r[2])[:16] if r[2] else ""} for r in rows]}
+    except Exception as e: return {"error": str(e)[:200]}
+    finally:
+        if conn: return_db_connection(conn)
+
+def _handle_compare_agents(args, ctx):
+    names = args.get("agent_names", [])
+    if len(names) < 2: return {"error": "Need at least 2 agent names to compare"}
+    period = args.get("period", "week")
+    results = []
+    for name in names[:5]:
+        r = _handle_get_agent_performance({"period": period, "agent_name": name}, ctx)
+        if "agents" in r and r["agents"]:
+            results.append(r["agents"][0])
+    if len(results) < 2: return {"error": "Could not find enough matching agents"}
+    return {"comparison": results, "period": period}
+
+def _handle_get_agent_recordings(args, ctx):
+    from db import get_db_connection, return_db_connection
+    name = args.get("agent_name", "")
+    limit = min(args.get("limit", 10), 20)
+    if not name: return {"error": "agent_name required"}
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT company_id FROM subscribers WHERE location_id = %s", (ctx["location_id"],))
+        row = cur.fetchone()
+        if not row or not row[0]: return {"error": "Not an agency account"}
+        cur.execute("SELECT location_id FROM subscribers WHERE company_id = %s AND LOWER(full_name) LIKE %s", (row[0], f"%{name.lower()}%"))
+        agent_row = cur.fetchone()
+        if not agent_row: return {"error": f"No agent matching '{name}'"}
+        cur.execute("SELECT contact_name, duration, created_at, recording_url IS NOT NULL as has_rec, transcript IS NOT NULL as has_trans FROM call_history WHERE location_id = %s AND recording_url IS NOT NULL ORDER BY created_at DESC LIMIT %s", (agent_row[0], limit))
+        recs = [{"contact": r[0] or "Unknown", "duration": f"{(r[1] or 0)//60}m", "date": str(r[2])[:16] if r[2] else "", "has_transcript": r[4]} for r in cur.fetchall()]
+        cur.close()
+        return {"count": len(recs), "agent": name, "recordings": recs}
+    except Exception as e: return {"error": str(e)[:200]}
+    finally:
+        if conn: return_db_connection(conn)
+
+def _handle_generate_agent_coaching(args, ctx):
+    """AI-powered coaching insights for a specific agent."""
+    name = args.get("agent_name", "")
+    if not name: return {"error": "agent_name required"}
+    perf = _handle_get_agent_performance({"period": "week", "agent_name": name}, ctx)
+    if "error" in perf: return perf
+    if not perf.get("agents"): return {"error": f"No stats found for '{name}'"}
+    a = perf["agents"][0]
+    rate = float(a.get("rate", "0").replace("%", ""))
+    calls = a.get("calls", 0)
+    insights = []
+    if calls < 20: insights.append(f"Only {calls} calls this week. Top performers make 100-150 dials/week. Set a daily target of 25-30 dials.")
+    elif calls < 50: insights.append(f"{calls} calls this week — decent, but aim for 100+. Block out 2-3 hours of pure dial time each day.")
+    if rate < 10: insights.append(f"Connect rate is {a['rate']}. Check: Are they calling during peak hours (10a-12p, 2-4p)? Are their numbers flagged? Try local presence dialing.")
+    elif rate < 20: insights.append(f"Connect rate is {a['rate']} — room to improve. Use Smart Filters to prioritize 'Should Respond' leads — they're more likely to pick up.")
+    elif rate > 30: insights.append(f"Connect rate is {a['rate']} — excellent! Focus on talk time quality. Aim for 5+ minute conversations.")
+    if not insights: insights.append(f"{name} is performing well. Encourage them to focus on booking appointments during connected calls.")
+    return {"agent": name, "stats": a, "coaching": insights}
+
+def _handle_get_onboarding_status(args, ctx):
+    from db import get_db_connection, return_db_connection
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT bot_first_name, calendar_id, access_token, voice_config FROM subscribers WHERE location_id = %s", (ctx["location_id"],))
+        row = cur.fetchone()
+        cur.close()
+        if not row: return {"error": "Account not found"}
+        vc = row[3] or {}
+        steps = {
+            "CRM connected": bool(row[2]),
+            "Bot name set": bool(row[0]),
+            "Calendar configured": bool(row[1]),
+            "Voice activated": bool(vc.get("twilio_sub_account_sid")),
+            "Phone number": bool(vc.get("twilio_phone_number")),
+            "Spam protection": bool(vc.get("trust_hub", {}).get("protection_active")),
+        }
+        done = sum(1 for v in steps.values() if v)
+        return {"completed": done, "total": len(steps), "steps": steps, "percentage": f"{round(done/len(steps)*100)}%"}
+    except Exception as e: return {"error": str(e)[:200]}
+    finally:
+        if conn: return_db_connection(conn)
+
+def _handle_search_everything(args, ctx):
+    from db import get_db_connection, return_db_connection
+    query = args.get("query", "").strip()
+    if not query: return {"error": "query required"}
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        lid = ctx["location_id"]
+        ql = f"%{query.lower()}%"
+        results = {"contacts": [], "messages": [], "calls": []}
+        # Search contacts
+        cur.execute("SELECT contact_id, first_name, last_name, phone FROM contact_cache WHERE location_id = %s AND (LOWER(first_name) LIKE %s OR LOWER(last_name) LIKE %s OR phone LIKE %s) LIMIT 5", (lid, ql, ql, ql))
+        results["contacts"] = [{"id": r[0], "name": f"{r[1] or ''} {r[2] or ''}".strip(), "phone": r[3] or ""} for r in cur.fetchall()]
+        # Search messages
+        cur.execute("SELECT contact_id, message, direction, created_at FROM contact_messages WHERE location_id = %s AND LOWER(message) LIKE %s ORDER BY created_at DESC LIMIT 5", (lid, ql))
+        results["messages"] = [{"contact_id": r[0], "text": (r[1] or "")[:100], "direction": r[2], "time": str(r[3])[:16] if r[3] else ""} for r in cur.fetchall()]
+        # Search calls
+        cur.execute("SELECT contact_name, phone_number, created_at FROM call_history WHERE location_id = %s AND (LOWER(contact_name) LIKE %s OR phone_number LIKE %s) ORDER BY created_at DESC LIMIT 5", (lid, ql, ql))
+        results["calls"] = [{"name": r[0] or "Unknown", "phone": r[1] or "", "time": str(r[2])[:16] if r[2] else ""} for r in cur.fetchall()]
+        cur.close()
+        total = len(results["contacts"]) + len(results["messages"]) + len(results["calls"])
+        return {"total_results": total, "results": results}
+    except Exception as e: return {"error": str(e)[:200]}
+    finally:
+        if conn: return_db_connection(conn)
+
+
 # ── Tool handler registry ────────────────────────────────────────────────────
 
 _TOOL_HANDLERS = {
-    # Additional queries (4)
+    # Phase 1 queries (4)
     "get_pipeline_summary": _handle_get_pipeline_summary,
     "search_recordings": _handle_search_recordings,
     "send_bulk_sms": _handle_send_bulk_sms,
     "get_daily_summary": _handle_get_daily_summary,
-    # Core (14 original)
+    # Core (14)
     "search_contact": _handle_search_contact,
     "send_sms": _handle_send_sms,
     "check_calendar": _handle_check_calendar,
@@ -2292,7 +2971,7 @@ _TOOL_HANDLERS = {
     "list_phone_numbers": _handle_list_phone_numbers,
     "get_subscription_info": _handle_get_subscription_info,
     "get_ai_minutes_balance": _handle_get_ai_minutes_balance,
-    # Inbox & conversations (1)
+    # Inbox (1)
     "get_inbox_conversations": _handle_get_inbox_conversations,
     # Reminders (2)
     "set_reminder": _handle_set_reminder,
@@ -2309,4 +2988,49 @@ _TOOL_HANDLERS = {
     "get_agency_leaderboard": _handle_get_agency_leaderboard,
     "invite_agency_agent": _handle_invite_agency_agent,
     "list_agency_members": _handle_list_agency_members,
+    # Phase 3: Calendar CRUD (4)
+    "cancel_appointment": _handle_cancel_appointment,
+    "reschedule_appointment": _handle_reschedule_appointment,
+    "list_calendars": _handle_list_calendars,
+    "get_past_appointments": _handle_get_past_appointments,
+    # Phase 3: Recordings (2)
+    "get_recording_transcript": _handle_get_recording_transcript,
+    "transcribe_recording": _handle_transcribe_recording,
+    # Phase 3: Contact bulk (2)
+    "bulk_tag_contacts": _handle_bulk_tag_contacts,
+    "get_contact_deals": _handle_get_contact_deals,
+    # Phase 3: Numbers (2)
+    "check_number_health": _handle_check_number_health,
+    "get_primary_number": _handle_get_primary_number,
+    # Phase 3: Registration (1)
+    "check_registration_status": _handle_check_registration_status,
+    # Phase 3: CRM sync (2)
+    "trigger_crm_sync": _handle_trigger_crm_sync,
+    "get_sync_status": _handle_get_sync_status,
+    # Phase 3: Workflow analytics (2)
+    "get_workflow_runs": _handle_get_workflow_runs,
+    "get_workflow_stats": _handle_get_workflow_stats,
+    # Phase 3: Reporting (3)
+    "generate_weekly_report": _handle_generate_weekly_report,
+    "compare_periods": _handle_compare_periods,
+    "get_conversion_funnel": _handle_get_conversion_funnel,
+    # Phase 3: Integrations (1)
+    "check_integrations_status": _handle_check_integrations_status,
+    # Phase 3: Bot config (2)
+    "toggle_bot": _handle_toggle_bot,
+    "get_sms_channel": _handle_get_sms_channel,
+    # Phase 3: Training (1)
+    "get_training_status": _handle_get_training_status,
+    # Phase 3: Intelligence (2)
+    "analyze_contact_now": _handle_analyze_contact_now,
+    "get_intelligence_summary": _handle_get_intelligence_summary,
+    # Phase 3: Billing (1)
+    "get_ai_minutes_usage": _handle_get_ai_minutes_usage,
+    # Phase 3: Agency advanced (3)
+    "compare_agents": _handle_compare_agents,
+    "get_agent_recordings": _handle_get_agent_recordings,
+    "generate_agent_coaching": _handle_generate_agent_coaching,
+    # Phase 3: System (2)
+    "get_onboarding_status": _handle_get_onboarding_status,
+    "search_everything": _handle_search_everything,
 }
