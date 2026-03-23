@@ -1114,37 +1114,74 @@ def oauth_callback():
                     role = 'individual'
                 parent_agency_email = user_email if use_agency_flow else auto_linked_agency_email
 
-                cur.execute("""
-                    INSERT INTO subscribers (
-                        location_id, email, crm_email, full_name, role,
-                        subscription_tier, parent_agency_email, company_id,
-                        access_token, refresh_token,
-                        token_expires_at, timezone, crm_user_id,
-                        onboarding_status, oauth_app_type, created_at, updated_at
-                    ) VALUES (
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                        NOW() + interval '%s seconds',
-                        %s, %s, %s, %s, NOW(), NOW()
-                    )
-                    ON CONFLICT (email) DO UPDATE SET
-                        location_id = EXCLUDED.location_id,
-                        crm_email = EXCLUDED.crm_email,
-                        access_token = EXCLUDED.access_token,
-                        refresh_token = EXCLUDED.refresh_token,
-                        token_expires_at = EXCLUDED.token_expires_at,
-                        crm_user_id = COALESCE(EXCLUDED.crm_user_id, subscribers.crm_user_id),
-                        oauth_app_type = EXCLUDED.oauth_app_type,
-                        company_id = COALESCE(EXCLUDED.company_id, subscribers.company_id),
-                        parent_agency_email = COALESCE(EXCLUDED.parent_agency_email, subscribers.parent_agency_email),
-                        updated_at = NOW()
-                """, (
+                # Upsert subscriber — try location_id conflict first, fall back to
+                # email conflict if the email already exists with a different location_id.
+                # This handles: re-installs, location switches, and users who were
+                # pre-created by agency auto-linking or Google Sheet sync.
+                _sub_params = (
                     sub_id, user_email, crm_email_resolved, sub_name, role,
                     plan_tier, parent_agency_email, company_id,
                     enc_access_token, enc_refresh_token,
                     expires_in,
                     sub_timezone or 'America/Chicago', me_data.get('id'),
                     'pending', app_type
-                ))
+                )
+                try:
+                    cur.execute("""
+                        INSERT INTO subscribers (
+                            location_id, email, crm_email, full_name, role,
+                            subscription_tier, parent_agency_email, company_id,
+                            access_token, refresh_token,
+                            token_expires_at, timezone, crm_user_id,
+                            onboarding_status, oauth_app_type, created_at, updated_at
+                        ) VALUES (
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                            NOW() + interval '%s seconds',
+                            %s, %s, %s, %s, NOW(), NOW()
+                        )
+                        ON CONFLICT (location_id) DO UPDATE SET
+                            crm_email = EXCLUDED.crm_email,
+                            access_token = EXCLUDED.access_token,
+                            refresh_token = EXCLUDED.refresh_token,
+                            token_expires_at = EXCLUDED.token_expires_at,
+                            crm_user_id = COALESCE(EXCLUDED.crm_user_id, subscribers.crm_user_id),
+                            oauth_app_type = EXCLUDED.oauth_app_type,
+                            company_id = COALESCE(EXCLUDED.company_id, subscribers.company_id),
+                            parent_agency_email = COALESCE(EXCLUDED.parent_agency_email, subscribers.parent_agency_email),
+                            updated_at = NOW()
+                    """, _sub_params)
+                except Exception as _upsert_err:
+                    if 'idx_subscribers_email' in str(_upsert_err) or 'unique' in str(_upsert_err).lower():
+                        # Email already exists with a different location_id.
+                        # Update the existing record's tokens + location_id without
+                        # overwriting subscription_tier or role (preserve billing state).
+                        conn.rollback()
+                        logger.warning(
+                            f"Email {user_email} already in subscribers with different location_id. "
+                            f"Updating tokens and location to {sub_id}."
+                        )
+                        cur.execute("""
+                            UPDATE subscribers SET
+                                location_id = %s,
+                                crm_email = %s,
+                                access_token = %s,
+                                refresh_token = %s,
+                                token_expires_at = NOW() + interval '%s seconds',
+                                crm_user_id = COALESCE(%s, crm_user_id),
+                                oauth_app_type = %s,
+                                company_id = COALESCE(%s, company_id),
+                                parent_agency_email = COALESCE(%s, parent_agency_email),
+                                updated_at = NOW()
+                            WHERE email = %s
+                        """, (
+                            sub_id, crm_email_resolved,
+                            enc_access_token, enc_refresh_token,
+                            expires_in, me_data.get('id'), app_type,
+                            company_id, parent_agency_email,
+                            user_email
+                        ))
+                    else:
+                        raise
 
             conn.commit()
             logger.info(
