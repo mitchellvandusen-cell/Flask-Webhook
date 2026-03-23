@@ -105,6 +105,10 @@
             if (data.call) {
                 _initiateCall(data.call);
             }
+            // Handle dial queue (power dial session)
+            if (data.dial_queue) {
+                _loadDialQueue(data.dial_queue);
+            }
         })
         .catch(function(err) {
             _loading = false;
@@ -219,6 +223,89 @@
                 _renderMessage('assistant', 'Could not start the call. Check your voice setup.');
             });
         }
+    }
+
+    // ── Dial queue loader ──────────────────────────────────────────────────
+
+    function _loadDialQueue(data) {
+        var contacts = data.contacts || [];
+        if (!contacts.length) return;
+
+        // Navigate to dialer tab first
+        if (typeof sidebarNavigate === 'function') {
+            var btn = document.getElementById('sbnVoicedialer');
+            if (btn) sidebarNavigate('voicedialer', btn);
+        }
+
+        // Load contacts into the dialer queue
+        setTimeout(function() {
+            // dialerQueue is the global queue array in dialer.js
+            if (typeof dialerQueue !== 'undefined') {
+                contacts.forEach(function(c) {
+                    if (!dialerQueue.some(function(q) { return q.id === c.id; })) {
+                        dialerQueue.push({
+                            id: c.id,
+                            name: c.name,
+                            firstName: c.firstName,
+                            phone: c.phone,
+                            status: 'pending',
+                        });
+                    }
+                });
+                // Re-render the queue UI
+                if (typeof dialerRenderQueue === 'function') dialerRenderQueue();
+                // Open the queue panel if it's collapsed
+                if (typeof dialerToggleQueue === 'function') dialerToggleQueue();
+
+                // Show start button with mode choice
+                _renderQueueStartChoice(contacts.length, data.dial_mode);
+            } else {
+                _renderMessage('assistant', 'Contacts queued but the dialer needs to load first. Switch to the Dialer tab and the queue will be ready.');
+            }
+        }, 500);
+    }
+
+    function _renderQueueStartChoice(count, defaultMode) {
+        var container = document.getElementById('assistantMessages');
+        if (!container) return;
+
+        var wrap = document.createElement('div');
+        wrap.className = 'd-flex gap-2 flex-wrap mt-1 mb-2';
+        wrap.style.paddingLeft = '4px';
+
+        var startBtn = document.createElement('button');
+        startBtn.className = 'btn btn-sm';
+        startBtn.style.cssText = 'background:rgba(0,255,136,0.15);border:1px solid rgba(0,255,136,0.3);color:#00ff88;border-radius:20px;font-size:0.8rem;font-weight:600;padding:6px 16px;';
+        startBtn.innerHTML = '<i class="fa-solid fa-play" style="margin-right:5px"></i>Start Dialing (' + count + ')';
+        startBtn.onclick = function() {
+            wrap.remove();
+            _renderMessage('user', 'Start dialing');
+            _renderMessage('assistant', 'Dialing session started with ' + count + ' contacts.');
+            // Start the queue
+            if (typeof multiLineStartQueue === 'function') {
+                multiLineStartQueue();
+            } else if (typeof dialerToggleQueue === 'function') {
+                // Single-line fallback: just start the queue
+                if (typeof dialerQueueRunning !== 'undefined' && !dialerQueueRunning) {
+                    dialerToggleQueue();
+                }
+            }
+        };
+
+        var cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn btn-sm';
+        cancelBtn.style.cssText = 'background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#888;border-radius:20px;font-size:0.8rem;font-weight:600;padding:6px 16px;';
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.onclick = function() {
+            wrap.remove();
+            _renderMessage('user', 'Cancel');
+            _renderMessage('assistant', 'Queue loaded but not started. You can start it manually from the dialer.');
+        };
+
+        wrap.appendChild(startBtn);
+        wrap.appendChild(cancelBtn);
+        container.appendChild(wrap);
+        container.scrollTop = container.scrollHeight;
     }
 
     // ── Markdown-lite renderer ───────────────────────────────────────────────

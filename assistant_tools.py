@@ -209,6 +209,32 @@ def get_assistant_tool_definitions():
                 }
             }
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "queue_dial_session",
+                "description": "Queue contacts from a pipeline stage for a power dial session. Fetches all contacts in the specified pipeline/stage and starts dialing. Use when the user says things like 'call everyone in New Leads' or 'dial my hot leads' or 'power dial the Qualified stage'.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "pipeline_name": {
+                            "type": "string",
+                            "description": "Name of the pipeline (e.g. 'Sales Pipeline', 'New Leads')"
+                        },
+                        "stage_name": {
+                            "type": "string",
+                            "description": "Name of the stage within the pipeline (e.g. 'Qualified', 'Hot Leads', 'Follow Up'). If not specified, queues ALL contacts in the pipeline."
+                        },
+                        "dial_mode": {
+                            "type": "string",
+                            "enum": ["ai", "human"],
+                            "description": "Who handles connected calls: 'ai' for AI voice agent, 'human' for the user. Default: ai"
+                        }
+                    },
+                    "required": ["pipeline_name"]
+                }
+            }
+        },
     ]
 
 
@@ -558,6 +584,132 @@ def _handle_make_call(args, ctx):
     }
 
 
+def _handle_queue_dial_session(args, ctx):
+    """Fetch contacts by pipeline/stage and return them for the dialer queue."""
+    pipeline_name = (args.get("pipeline_name") or "").strip()
+    stage_name = (args.get("stage_name") or "").strip()
+    dial_mode = args.get("dial_mode", "ai")
+
+    if not pipeline_name:
+        return {"error": "Pipeline name is required. Ask which pipeline to dial."}
+
+    location_id = ctx["location_id"]
+    access_token = ctx["access_token"]
+
+    if not access_token:
+        return {"error": "No CRM connection. Connect your CRM first."}
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Version": "2021-07-28",
+    }
+
+    # Step 1: Fetch pipelines to find matching pipeline_id and stage_id
+    try:
+        resp = requests.get(
+            "https://services.leadconnectorhq.com/opportunities/pipelines",
+            headers=headers,
+            params={"locationId": location_id},
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return {"error": "Could not fetch pipelines from your CRM."}
+
+        pipelines = resp.json().get("pipelines", [])
+    except Exception as e:
+        logger.error(f"Pipeline fetch failed: {e}")
+        return {"error": "Could not connect to your CRM."}
+
+    # Match pipeline by name (case-insensitive fuzzy)
+    pipeline = None
+    pl_lower = pipeline_name.lower()
+    for p in pipelines:
+        if p.get("name", "").lower() == pl_lower:
+            pipeline = p
+            break
+    if not pipeline:
+        for p in pipelines:
+            if pl_lower in p.get("name", "").lower() or p.get("name", "").lower() in pl_lower:
+                pipeline = p
+                break
+    if not pipeline:
+        available = [p.get("name") for p in pipelines]
+        return {"error": f"No pipeline matching '{pipeline_name}'. Available: {', '.join(available)}"}
+
+    pipeline_id = pipeline["id"]
+
+    # Match stage if specified
+    stage_id = None
+    if stage_name:
+        st_lower = stage_name.lower()
+        for s in pipeline.get("stages", []):
+            if s.get("name", "").lower() == st_lower:
+                stage_id = s["id"]
+                break
+        if not stage_id:
+            for s in pipeline.get("stages", []):
+                if st_lower in s.get("name", "").lower() or s.get("name", "").lower() in st_lower:
+                    stage_id = s["id"]
+                    break
+        if not stage_id:
+            available = [s.get("name") for s in pipeline.get("stages", [])]
+            return {"error": f"No stage matching '{stage_name}' in {pipeline.get('name')}. Available: {', '.join(available)}"}
+
+    # Step 2: Fetch contacts in this pipeline/stage via opportunities API
+    try:
+        opp_params = {"location_id": location_id, "pipeline_id": pipeline_id, "limit": "100"}
+        if stage_id:
+            opp_params["pipeline_stage_id"] = stage_id
+
+        opp_resp = requests.get(
+            "https://services.leadconnectorhq.com/opportunities/search",
+            headers=headers,
+            params=opp_params,
+            timeout=15,
+        )
+        if opp_resp.status_code != 200:
+            return {"error": "Could not fetch contacts from pipeline."}
+
+        opportunities = opp_resp.json().get("opportunities", [])
+    except Exception as e:
+        logger.error(f"Opportunities fetch failed: {e}")
+        return {"error": "Could not fetch pipeline contacts."}
+
+    if not opportunities:
+        stage_label = f" / {stage_name}" if stage_name else ""
+        return {"error": f"No contacts found in {pipeline.get('name')}{stage_label}."}
+
+    # Build contact list for the queue
+    contacts = []
+    for opp in opportunities:
+        contact = opp.get("contact", {})
+        contact_id = contact.get("id") or opp.get("contactId", "")
+        name = f"{contact.get('firstName', '')} {contact.get('lastName', '')}".strip()
+        phone = contact.get("phone", "")
+        first_name = contact.get("firstName", "")
+
+        if contact_id and phone:
+            contacts.append({
+                "id": contact_id,
+                "name": name or "Unknown",
+                "firstName": first_name or name.split()[0] if name else "there",
+                "phone": phone,
+            })
+
+    if not contacts:
+        return {"error": "Found opportunities but none have phone numbers."}
+
+    stage_label = f" / {stage_name}" if stage_name else ""
+    return {
+        "action": "dial_queue",
+        "contacts": contacts,
+        "dial_mode": dial_mode,
+        "pipeline_name": pipeline.get("name"),
+        "stage_name": stage_name,
+        "message": f"Queued {len(contacts)} contacts from {pipeline.get('name')}{stage_label}. Ready to start dialing.",
+    }
+
+
 # ── Tool handler registry ────────────────────────────────────────────────────
 
 _TOOL_HANDLERS = {
@@ -569,4 +721,5 @@ _TOOL_HANDLERS = {
     "navigate_dashboard": _handle_navigate_dashboard,
     "get_contact_intelligence": _handle_get_contact_intelligence,
     "make_call": _handle_make_call,
+    "queue_dial_session": _handle_queue_dial_session,
 }

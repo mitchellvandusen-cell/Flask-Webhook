@@ -223,7 +223,6 @@ def assistant_chat():
                                 },
                             })
                         elif action == "call":
-                            # Return immediately — frontend will initiate the call
                             return flask_jsonify({
                                 "text": tool_result.get("message", "Calling now..."),
                                 "call": {
@@ -231,6 +230,16 @@ def assistant_chat():
                                     "phone": tool_result.get("phone"),
                                     "first_name": tool_result.get("first_name"),
                                     "dial_mode": tool_result.get("dial_mode", "ai"),
+                                },
+                            })
+                        elif action == "dial_queue":
+                            return flask_jsonify({
+                                "text": tool_result.get("message"),
+                                "dial_queue": {
+                                    "contacts": tool_result.get("contacts", []),
+                                    "dial_mode": tool_result.get("dial_mode", "ai"),
+                                    "pipeline_name": tool_result.get("pipeline_name"),
+                                    "stage_name": tool_result.get("stage_name"),
                                 },
                             })
 
