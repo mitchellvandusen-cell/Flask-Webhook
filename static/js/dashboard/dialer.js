@@ -4895,6 +4895,9 @@
                 // Show call panel immediately with connecting status
                 document.getElementById('voipCallPanel').style.display = 'flex';
                 document.getElementById('voipCallTimer').textContent = 'Connecting...';
+                // Reset transfer button for new call
+                const _xferBtn = document.getElementById('voipTransferBtn');
+                if (_xferBtn) { _xferBtn.disabled = false; _xferBtn.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left"></i>'; }
 
                 // V2 SDK: attach event listeners to the Call object
                 call.on('ringing', (hasEarlyMedia) => {
@@ -4975,6 +4978,49 @@
         function voipToggleKeypad() { const kp = document.getElementById('voipKeypad'); kp.style.display = kp.style.display === 'none' ? 'block' : 'none'; }
         function voipSendDTMF(digit) { if (voipConnection) voipConnection.sendDigits(digit); }
         function voipHangup() { if (voipConnection) voipConnection.disconnect(); else if (voipDevice) voipDevice.disconnectAll(); }
+
+        async function voipTransfer() {
+            if (!dialerCallSid) { alert('No active call to transfer'); return; }
+            const btn = document.getElementById('voipTransferBtn');
+            // Read saved transfer number from Voice Config, fall back to prompt
+            const savedNum = (document.getElementById('voiceTransferNumber')?.value || '').trim();
+            let target = savedNum;
+            if (!target) {
+                target = prompt('Enter phone number to transfer to (e.g. +15551234567):');
+                if (!target) return;
+            }
+            let cleanTarget = target.replace(/[\s\-\(\)\.]/g, '');
+            if (!cleanTarget.startsWith('+')) cleanTarget = '+1' + cleanTarget;
+            if (cleanTarget.replace(/[^0-9]/g, '').length < 10) {
+                alert('Invalid transfer number — must be at least 10 digits');
+                return;
+            }
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            try {
+                const r = await _fetchRetry('/voice/transfer', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ call_sid: dialerCallSid, transfer_to: cleanTarget })
+                }, { retries: 1, timeout: 15000, label: 'voip-transfer' });
+                const d = await r.json();
+                if (r.ok) {
+                    btn.innerHTML = '<i class="fa-solid fa-check" style="color:var(--accent)"></i>';
+                    document.getElementById('voipCallTimer').textContent = 'Transferred';
+                    _showDashToast(true, 'Call transferred to ' + cleanTarget);
+                } else {
+                    alert(d.error || 'Transfer failed');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left"></i>';
+                }
+            } catch(e) {
+                console.error('[VoIP] Transfer error:', e);
+                alert('Network error during transfer');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left"></i>';
+            }
+        }
+
         function voipStartTimer() {
             voipTimerSeconds = 0; voipStopTimer();
             voipTimerInterval = setInterval(() => { voipTimerSeconds++; const m = Math.floor(voipTimerSeconds/60); const s = voipTimerSeconds%60; document.getElementById('voipCallTimer').textContent = String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'); }, 1000);
