@@ -56,8 +56,12 @@ def _single_to_double_quotes(text):
 
 
 def _fix_python_literals(text):
-    """Replace Python True/False/None with JSON true/false/null outside strings."""
+    """Replace Python True/False/None and JS NaN/Infinity/undefined with JSON equivalents outside strings."""
     # Only replace when not inside a quoted string — use a simple state machine
+    REPLACEMENTS = (
+        ('True', 'true'), ('False', 'false'), ('None', 'null'),
+        ('NaN', 'null'), ('Infinity', 'null'), ('undefined', 'null'),
+    )
     result = []
     i = 0
     in_str = False
@@ -83,8 +87,8 @@ def _fix_python_literals(text):
             result.append(c)
             i += 1
             continue
-        # Outside string — check for Python literals at word boundary
-        for py_lit, js_lit in (('True', 'true'), ('False', 'false'), ('None', 'null')):
+        # Outside string — check for Python/JS literals at word boundary
+        for py_lit, js_lit in REPLACEMENTS:
             if text[i:i+len(py_lit)] == py_lit:
                 # Check word boundary after
                 after = i + len(py_lit)
@@ -93,8 +97,77 @@ def _fix_python_literals(text):
                     i += len(py_lit)
                     break
         else:
+            # Handle -Infinity (negative infinity)
+            if text[i:i+9] == '-Infinity':
+                after = i + 9
+                if after >= len(text) or not text[after].isalnum():
+                    result.append('null')
+                    i += 9
+                    continue
             result.append(c)
             i += 1
+    return ''.join(result)
+
+
+def _fix_unquoted_keys(text):
+    """Quote bare property keys in JS-style objects: {key: val} → {"key": val}.
+
+    Uses a state machine to skip strings, only fixing keys outside quoted regions.
+    Handles both double-quoted and single-quoted strings.
+    """
+    result = []
+    i = 0
+    in_str = False
+    str_char = None
+    esc = False
+    while i < len(text):
+        c = text[i]
+        if esc:
+            result.append(c)
+            esc = False
+            i += 1
+            continue
+        if c == '\\' and in_str:
+            result.append(c)
+            esc = True
+            i += 1
+            continue
+        if not in_str and c in ('"', "'"):
+            in_str = True
+            str_char = c
+            result.append(c)
+            i += 1
+            continue
+        if in_str and c == str_char:
+            in_str = False
+            str_char = None
+            result.append(c)
+            i += 1
+            continue
+        if in_str:
+            result.append(c)
+            i += 1
+            continue
+        # Outside string — look for bare identifier followed by ':'
+        if c.isalpha() or c == '_':
+            # Scan ahead for the full identifier
+            j = i
+            while j < len(text) and (text[j].isalnum() or text[j] == '_'):
+                j += 1
+            # Skip whitespace between identifier and colon
+            k = j
+            while k < len(text) and text[k] in (' ', '\t'):
+                k += 1
+            if k < len(text) and text[k] == ':':
+                key = text[i:j]
+                # Don't re-quote if the preceding non-whitespace is already a quote
+                result.append('"')
+                result.append(key)
+                result.append('"')
+                i = j
+                continue
+        result.append(c)
+        i += 1
     return ''.join(result)
 
 
@@ -107,6 +180,8 @@ def _repair_json(raw):
     - Control characters inside strings
     - Single-quoted JSON
     - Python literals (True/False/None)
+    - JS literals (NaN/Infinity/undefined)
+    - Unquoted property keys ({key: val} → {"key": val})
     Returns parsed object or raises ValueError.
     """
     if not raw or not raw.strip():
@@ -173,6 +248,22 @@ def _repair_json(raw):
     except json.JSONDecodeError:
         pass
 
+    # Fix unquoted property keys: {key: val} → {"key": val}
+    try:
+        quoted_keys = _fix_unquoted_keys(fixed)
+        if quoted_keys != fixed:
+            return json.loads(quoted_keys)
+    except json.JSONDecodeError:
+        pass
+    # Try unquoted keys combined with trailing comma removal
+    try:
+        quoted_keys = _fix_unquoted_keys(fixed)
+        quoted_keys = re.sub(r',\s*([}\]])', r'\1', quoted_keys)
+        if quoted_keys != fixed:
+            return json.loads(quoted_keys)
+    except json.JSONDecodeError:
+        pass
+
     # Handle truncated JSON: close unclosed brackets/braces
     # Build closing sequence by scanning the text to determine nesting order
     truncated = fixed
@@ -204,11 +295,22 @@ def _repair_json(raw):
         stack.reverse()
         return ''.join(stack)
 
+    # Helper: try parsing with optional unquoted-key fix
+    def _try_parse_with_key_fix(s):
+        try:
+            return json.loads(s)
+        except json.JSONDecodeError:
+            pass
+        try:
+            return json.loads(_fix_unquoted_keys(s))
+        except json.JSONDecodeError:
+            raise
+
     # First try without stripping (preserves complete trailing values)
     closing = _build_closing(truncated)
     if closing:
         try:
-            return json.loads(truncated + closing)
+            return _try_parse_with_key_fix(truncated + closing)
         except json.JSONDecodeError:
             pass
 
@@ -220,7 +322,7 @@ def _repair_json(raw):
     closing = _build_closing(truncated)
     if closing:
         try:
-            return json.loads(truncated + closing)
+            return _try_parse_with_key_fix(truncated + closing)
         except json.JSONDecodeError:
             pass
 
@@ -233,7 +335,7 @@ def _repair_json(raw):
         closing_c = _build_closing(candidate)
         if closing_c:
             try:
-                result = json.loads(candidate + closing_c)
+                result = _try_parse_with_key_fix(candidate + closing_c)
                 if isinstance(result, (list, dict)):
                     return result
             except json.JSONDecodeError:
@@ -273,6 +375,10 @@ def _repair_json(raw):
             candidate = re.sub(r',\s*([}\]])', r'\1', candidate)
             try:
                 return json.loads(candidate)
+            except json.JSONDecodeError:
+                pass
+            try:
+                return json.loads(_fix_unquoted_keys(candidate))
             except json.JSONDecodeError:
                 continue
 
