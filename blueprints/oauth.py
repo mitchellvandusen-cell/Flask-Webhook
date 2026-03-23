@@ -1100,16 +1100,22 @@ def oauth_callback():
                         f"{auto_linked_agency_email} via companyId={company_id}"
                     )
 
-            # Individual agents get ONE location only (their primary).
-            # Agency owners get all locations provisioned separately.
-            # Without this guard, an individual install with a company-scoped token
-            # would try to INSERT the same email for every location → unique constraint failure.
-            if not use_agency_flow and len(locations_to_provision) > 1:
-                if primary_location_id:
-                    locations_to_provision = [s for s in locations_to_provision if s['id'] == primary_location_id]
-                else:
-                    locations_to_provision = locations_to_provision[:1]
-                logger.info(f"Individual user — limited to {len(locations_to_provision)} location(s)")
+            # CRITICAL: Individual agents get EXACTLY ONE location.
+            # email is UNIQUE in subscribers — one email = one row = one location.
+            # Agency owners get multiple locations (each sub-account is a separate row
+            # with a different email in agency_billing, not in subscribers).
+            if not use_agency_flow:
+                if len(locations_to_provision) > 1:
+                    if primary_location_id:
+                        match = [s for s in locations_to_provision if s['id'] == primary_location_id]
+                        locations_to_provision = match if match else locations_to_provision[:1]
+                    else:
+                        locations_to_provision = locations_to_provision[:1]
+                    logger.info(f"Individual user — forced to 1 location: {locations_to_provision[0]['id'] if locations_to_provision else 'NONE'}")
+                elif len(locations_to_provision) == 0 and primary_location_id:
+                    # No locations found but we have a primary — synthesize one
+                    locations_to_provision = [{'id': primary_location_id, 'name': user_name or 'Primary', 'timezone': None}]
+                    logger.info(f"Individual user — synthesized location: {primary_location_id}")
 
             for sub in locations_to_provision:
                 sub_id = sub['id']
