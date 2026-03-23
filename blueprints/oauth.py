@@ -1377,6 +1377,10 @@ def oauth_callback():
             except Exception:
                 pass
             if user:
+                # If user has no password, send them to set one first
+                if not getattr(user, 'password_hash', None):
+                    flash("App installed! Set a password so you can log back in anytime.", "success")
+                    return redirect(f"/set-password?type={'agency' if use_agency_flow else 'individual'}")
                 flash("App installed successfully! Complete your dashboard setup to activate your bot.", "success")
                 if use_agency_flow:
                     return redirect(url_for('agency.agency_dashboard'))
