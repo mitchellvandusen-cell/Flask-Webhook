@@ -135,11 +135,13 @@ def send_sms_via_ghl(
             return_db_connection(conn)
 
     # If no OAuth credentials are configured, the token can never be refreshed.
-    # Reduce to 1 attempt to avoid wasting ~45s on doomed retries.
+    # Bail immediately — no HTTP calls, no retries — to avoid wasting time
+    # on doomed requests and generating noisy error logs.
     try:
         from ghl_api import has_oauth_credentials
         if not has_oauth_credentials():
-            max_retries = 1
+            logger.debug(f"Skipping GHL SMS for {contact_id} — no OAuth credentials configured")
+            return False, 'no_credentials', None
     except Exception:
         pass
 

@@ -937,7 +937,12 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                         else:
                             # CRM doesn't support messaging - use GHL as messaging fallback
                             # (some users use Zapier for booking but GHL for SMS)
-                            sent, fail_reason, http_detail = send_sms_via_ghl(contact_id, reply, auth_token, location_id, conversation_id=conversation_id)
+                            if _ghl_creds_missing:
+                                logger.warning(f"CRM adapter no messaging + GHL creds missing — "
+                                              f"skipping GHL fallback for {contact_id}")
+                                sent, fail_reason = False, 'no_credentials'
+                            else:
+                                sent, fail_reason, http_detail = send_sms_via_ghl(contact_id, reply, auth_token, location_id, conversation_id=conversation_id)
                     except Exception as adapter_err:
                         logger.error(f"CRM adapter send_message error: {adapter_err}")
                         sent = False

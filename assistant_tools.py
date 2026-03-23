@@ -1642,19 +1642,44 @@ def _handle_send_bulk_sms(args, ctx):
     if "error" in contacts_result: return contacts_result
     contacts = contacts_result.get("contacts", [])[:limit]
     if not contacts: return {"error": "No contacts found matching criteria"}
-    # Send to each
-    from ghl_message import send_sms_via_ghl
-    from ghl_api import get_valid_token
-    access_token = get_valid_token(ctx["location_id"]) or ctx.get("access_token", "")
+    # Send to each — try GHL first, fall back to Twilio if no OAuth creds
+    from ghl_api import get_valid_token, has_oauth_credentials
+    location_id = ctx["location_id"]
+    use_twilio = not has_oauth_credentials()
     sent = 0
     failed = 0
-    for c in contacts:
+    if use_twilio:
         try:
-            ok, _, _ = send_sms_via_ghl(c["id"], message, access_token, ctx["location_id"])
-            if ok: sent += 1
-            else: failed += 1
+            from twilio_sms import send_sms_via_twilio, get_twilio_credentials
+            fb_sid, fb_auth, fb_from = get_twilio_credentials(location_id)
+            if fb_sid and fb_auth and fb_from:
+                for c in contacts:
+                    try:
+                        phone = c.get("phone", "")
+                        if phone:
+                            ok, _, _ = send_sms_via_twilio(phone_to=phone, message=message,
+                                from_number=fb_from, twilio_sub_account_sid=fb_sid,
+                                twilio_auth_token=fb_auth, contact_id=c["id"])
+                            if ok: sent += 1
+                            else: failed += 1
+                        else:
+                            failed += 1
+                    except Exception:
+                        failed += 1
+            else:
+                failed = len(contacts)
         except Exception:
-            failed += 1
+            failed = len(contacts)
+    else:
+        from ghl_message import send_sms_via_ghl
+        access_token = get_valid_token(location_id) or ctx.get("access_token", "")
+        for c in contacts:
+            try:
+                ok, _, _ = send_sms_via_ghl(c["id"], message, access_token, location_id)
+                if ok: sent += 1
+                else: failed += 1
+            except Exception:
+                failed += 1
     return {"sent": sent, "failed": failed, "total": len(contacts), "message": f"Sent to {sent}/{len(contacts)} contacts"}
 
 def _handle_get_daily_summary(args, ctx):
