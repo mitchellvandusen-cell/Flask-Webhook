@@ -960,47 +960,78 @@ def _handle_get_hot_leads(args, ctx):
 def _handle_get_upcoming_appointments(args, ctx):
     """Fetch upcoming appointments from GHL calendar."""
     days_ahead = min(args.get("days_ahead", 1), 7)
-    access_token = ctx["access_token"]
     location_id = ctx["location_id"]
     cal_id = ctx.get("calendar_id")
     tz_str = ctx.get("timezone", "America/Chicago")
 
     if not cal_id:
         return {"error": "No calendar configured. Set one up in Bot Config."}
+
+    # Use get_valid_token for proper decryption + refresh
+    from ghl_api import get_valid_token
+    access_token = get_valid_token(location_id)
     if not access_token:
-        return {"error": "No CRM connection."}
+        return {"error": "CRM connection expired. Reconnect in Bot Config."}
 
     from datetime import datetime, timedelta, timezone
-    now_utc = datetime.now(timezone.utc)
-    start_ts = int(now_utc.timestamp() * 1000)
-    end_ts = int((now_utc + timedelta(days=days_ahead)).timestamp() * 1000)
+    from zoneinfo import ZoneInfo
+
+    local_tz = ZoneInfo(tz_str)
+    now = datetime.now(local_tz)
+    start_dt = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_dt = start_dt + timedelta(days=days_ahead, hours=23, minutes=59)
 
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Version": "2021-07-28",
+        "Content-Type": "application/json",
+    }
+    params = {
+        "locationId": location_id,
+        "calendarId": cal_id,
+        "startTime": start_dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+        "endTime": end_dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
     }
 
     try:
         resp = requests.get(
-            f"https://services.leadconnectorhq.com/calendars/events",
+            "https://services.leadconnectorhq.com/calendars/events",
             headers=headers,
-            params={"locationId": location_id, "calendarId": cal_id, "startTime": start_ts, "endTime": end_ts},
-            timeout=10,
+            params=params,
+            timeout=15,
         )
+        if resp.status_code in (401, 403):
+            return {"error": "CRM connection expired. Reconnect in Bot Config."}
         if resp.status_code != 200:
+            logger.warning(f"Calendar events {resp.status_code}: {resp.text[:200]}")
             return {"error": "Could not fetch calendar events."}
 
-        events = resp.json().get("events", [])
-        if not events:
+        data = resp.json()
+        raw_events = data.get("events", [])
+        if not raw_events and isinstance(data, list):
+            raw_events = data
+
+        if not raw_events:
             return {"count": 0, "message": f"No appointments in the next {days_ahead} day{'s' if days_ahead > 1 else ''}."}
 
         appointments = []
-        for ev in events[:20]:
+        for ev in raw_events[:20]:
+            start_time = ev.get("startTime") or ev.get("start") or ""
+            # Format for display
+            display_time = ""
+            if start_time:
+                try:
+                    if start_time.endswith("Z"):
+                        start_time = start_time.replace("Z", "+00:00")
+                    dt = datetime.fromisoformat(start_time).astimezone(local_tz)
+                    display_time = dt.strftime("%a %b %d, %I:%M %p")
+                except Exception:
+                    display_time = start_time[:16]
+
             appointments.append({
-                "title": ev.get("title") or ev.get("name") or "Appointment",
-                "start": ev.get("startTime", ""),
-                "end": ev.get("endTime", ""),
-                "contact_name": ev.get("contact", {}).get("name") or ev.get("contactName") or "",
+                "title": ev.get("title") or "Appointment",
+                "time": display_time,
+                "contact_name": ev.get("contactId", ""),
                 "status": ev.get("appointmentStatus") or ev.get("status") or "",
             })
 
