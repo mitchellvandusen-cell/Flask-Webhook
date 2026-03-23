@@ -404,6 +404,8 @@ logger.info("All modular blueprints registered successfully.")
 
 # ── CSRF exemptions (must be AFTER blueprint registration) ───────────────────
 # Webhooks, voice, API routes use token/signature auth, not session cookies.
+csrf.exempt(auth_bp)
+csrf.exempt(oauth_bp)
 csrf.exempt(webhooks_bp)
 csrf.exempt(billing_bp)
 csrf.exempt(cron_bp)
