@@ -60,37 +60,71 @@ def _repair_json(raw):
     except json.JSONDecodeError:
         pass
 
-    # Handle truncated JSON: find last complete object in the array
-    # by locating the last '}' that could close a complete object,
-    # then close the array after it
+    # Handle truncated JSON: close unclosed brackets/braces
+    # Build closing sequence by scanning the text to determine nesting order
     truncated = fixed
-    # Strip trailing incomplete key-value or string
-    truncated = re.sub(r',\s*"[^"]*"?\s*:?\s*"?[^"]*$', '', truncated)
-    truncated = re.sub(r',\s*"[^"]*$', '', truncated)
-    # Count unclosed brackets
-    opens = truncated.count('[') - truncated.count(']')
-    open_braces = truncated.count('{') - truncated.count('}')
-    truncated += '}' * max(0, open_braces) + ']' * max(0, opens)
-    try:
-        return json.loads(truncated)
-    except json.JSONDecodeError:
-        pass
 
-    # Smart truncation: find last complete JSON object boundary "},\n  {"
+    def _build_closing(s):
+        """Build correct closing sequence by tracking nesting order."""
+        stack = []
+        in_str = False
+        esc = False
+        for c in s:
+            if esc:
+                esc = False
+                continue
+            if c == '\\' and in_str:
+                esc = True
+                continue
+            if c == '"':
+                in_str = not in_str
+                continue
+            if in_str:
+                continue
+            if c == '{':
+                stack.append('}')
+            elif c == '[':
+                stack.append(']')
+            elif c in ('}', ']') and stack and stack[-1] == c:
+                stack.pop()
+        # Return closers in reverse (innermost first)
+        stack.reverse()
+        return ''.join(stack)
+
+    # First try without stripping (preserves complete trailing values)
+    closing = _build_closing(truncated)
+    if closing:
+        try:
+            return json.loads(truncated + closing)
+        except json.JSONDecodeError:
+            pass
+
+    # Strip trailing incomplete key-value or string, then retry
+    # Only strip if text does NOT end with } or ] (those are complete)
+    if not truncated.rstrip().endswith(('}', ']')):
+        truncated = re.sub(r',\s*"[^"]*"?\s*:?\s*"?[^"]*$', '', truncated)
+        truncated = re.sub(r',\s*"[^"]*$', '', truncated)
+    closing = _build_closing(truncated)
+    if closing:
+        try:
+            return json.loads(truncated + closing)
+        except json.JSONDecodeError:
+            pass
+
+    # Smart truncation: find last complete JSON object boundary "},"
     # and close the array there (handles mid-object truncation)
     last_obj_end = fixed.rfind('},')
     if last_obj_end > 0:
         candidate = fixed[:last_obj_end + 1]  # up to and including the }
-        opens_c = candidate.count('[') - candidate.count(']')
-        ob_c = candidate.count('{') - candidate.count('}')
-        candidate += '}' * max(0, ob_c) + ']' * max(0, opens_c)
         candidate = re.sub(r',\s*([}\]])', r'\1', candidate)
-        try:
-            result = json.loads(candidate)
-            if isinstance(result, (list, dict)):
-                return result
-        except json.JSONDecodeError:
-            pass
+        closing_c = _build_closing(candidate)
+        if closing_c:
+            try:
+                result = json.loads(candidate + closing_c)
+                if isinstance(result, (list, dict)):
+                    return result
+            except json.JSONDecodeError:
+                pass
 
     # Last resort: extract first { ... } or [ ... ] via brace matching
     for open_ch, close_ch in (('[', ']'), ('{', '}')):
@@ -984,6 +1018,81 @@ CALLS: {calls_str}"""
     return block
 
 
+def _extract_individual_objects(raw, all_contexts=None):
+    """
+    Extract individual contact JSON objects from a partially valid bulk response.
+    Uses regex to find complete {"contact_id": ...} objects even when the
+    surrounding array/wrapper is malformed or truncated.
+    Returns: {contact_id: validated_dict} for successfully extracted contacts.
+    """
+    if not raw:
+        return {}
+    all_contexts = all_contexts or {}
+
+    results = {}
+    # Find all complete JSON objects that contain contact_id
+    # Match from { to } handling nested braces via iterative depth tracking
+    i = 0
+    while i < len(raw):
+        if raw[i] != '{':
+            i += 1
+            continue
+        # Track depth to find matching closing brace
+        depth = 0
+        in_string = False
+        escape = False
+        end = -1
+        for j in range(i, len(raw)):
+            c = raw[j]
+            if escape:
+                escape = False
+                continue
+            if c == '\\' and in_string:
+                escape = True
+                continue
+            if c == '"':
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if c == '{':
+                depth += 1
+            elif c == '}':
+                depth -= 1
+                if depth == 0:
+                    end = j
+                    break
+        if end < 0:
+            # No matching brace — skip this { and try next one
+            i += 1
+            continue
+        candidate = raw[i:end + 1]
+        i = end + 1
+        # Must contain contact_id to be a result object (skip wrapper objects)
+        if '"contact_id"' not in candidate:
+            continue
+        try:
+            obj = json.loads(candidate)
+            if isinstance(obj, dict) and obj.get("contact_id"):
+                cid = obj["contact_id"]
+                ctx = all_contexts.get(cid, {"messages": [], "timing": {}})
+                obj = _validate_and_calibrate(obj, ctx)
+                results[cid] = obj
+        except (json.JSONDecodeError, ValueError):
+            # Try removing trailing commas
+            cleaned = re.sub(r',\s*([}\]])', r'\1', candidate)
+            try:
+                obj = json.loads(cleaned)
+                if isinstance(obj, dict) and obj.get("contact_id"):
+                    cid = obj["contact_id"]
+                    ctx = all_contexts.get(cid, {"messages": [], "timing": {}})
+                    obj = _validate_and_calibrate(obj, ctx)
+                    results[cid] = obj
+            except (json.JSONDecodeError, ValueError):
+                continue
+    return results
+
+
 def _run_bulk_ai_analysis(location_id, contact_blocks, all_contexts=None):
     """
     Analyze multiple contacts in a single LLM call.
@@ -1045,10 +1154,10 @@ CLASSIFICATION RULES:
 
 You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact IDs: {id_list}"""
 
-    # Scale max tokens: ~300 tokens per contact (summaries + actions are verbose) + buffer
-    max_tokens = min(32000, len(contact_blocks) * 350 + 500)
-    # Scale timeout: ~0.8s per contact + base
-    timeout = min(180.0, len(contact_blocks) * 1.2 + 15)
+    # Scale max tokens: ~400 tokens per contact (summaries + actions are verbose) + buffer
+    max_tokens = min(32000, len(contact_blocks) * 400 + 500)
+    # Scale timeout: ~1.5s per contact + base
+    timeout = min(180.0, len(contact_blocks) * 1.5 + 15)
 
     for attempt in range(2):
         try:
@@ -1069,19 +1178,34 @@ You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact 
             try:
                 parsed = _repair_json(raw)
             except ValueError as e:
+                # Try to extract individual contact objects from partial JSON
+                partial = _extract_individual_objects(raw, all_contexts)
+                if partial:
+                    logger.warning(f"Bulk AI JSON repair failed but extracted {len(partial)}/{len(contact_blocks)} contacts from partial response")
+                    return partial
                 if attempt == 0:
                     logger.warning(f"Bulk AI JSON repair failed (retrying batch, {len(contact_blocks)} contacts): {e}")
                     if raw:
-                        logger.debug(f"Bulk AI raw tail: ...{raw[-300:]}")
+                        logger.warning(f"Bulk AI raw (first 500 chars): {raw[:500]}")
                     continue
                 logger.error(f"Bulk AI JSON repair failed, dropping batch ({len(contact_blocks)} contacts): {e}")
                 if raw:
-                    logger.debug(f"Bulk AI raw tail: ...{raw[-300:]}")
+                    logger.warning(f"Bulk AI raw (first 500 chars): {raw[:500]}")
                 return {}
 
             # Extract results array from wrapper object if needed
             if isinstance(parsed, dict):
-                parsed = parsed.get("results", [])
+                arr = parsed.get("results") or parsed.get("contacts")
+                if isinstance(arr, list):
+                    parsed = arr
+                else:
+                    # Dict might have contact_ids as keys (e.g. {"abc123": {...}})
+                    candidate = []
+                    for k, v in parsed.items():
+                        if isinstance(v, dict):
+                            v["contact_id"] = v.get("contact_id", k)
+                            candidate.append(v)
+                    parsed = candidate if candidate else []
             if not isinstance(parsed, list):
                 if attempt == 0:
                     logger.warning("Bulk AI response was not a JSON array, retrying")
@@ -1137,9 +1261,10 @@ def bulk_analyze_and_cache(location_id, contact_ids):
     if not contact_blocks:
         return 0
 
-    # Process in sub-batches of 25 per LLM call, run up to 10 concurrently
-    # 1000 contacts = 40 sub-batches / 10 concurrent = 4 rounds * ~8s = ~32s total
-    SUB_BATCH = 25
+    # Process in sub-batches of 10 per LLM call, run up to 10 concurrently
+    # Smaller batches = less truncation risk = more reliable JSON parsing
+    # 1000 contacts = 100 sub-batches / 10 concurrent = 10 rounds * ~5s = ~50s total
+    SUB_BATCH = 10
     MAX_CONCURRENT = 10
     total_analyzed = 0
 
