@@ -700,12 +700,13 @@ def register_business_profile(sub_account_sid: str, business_name: str,
             if len(state_upper) > 2:
                 state_upper = US_STATE_ABBREVS.get(state_upper.lower(), state_upper[:2])
 
-            # Map UI business_type to Twilio's expected values
-            # Twilio API expects specific strings — NOT the display labels from our UI
+            # Map UI business_type to Twilio's expected enum values.
+            # Twilio requires EXACT strings — "Limited Liability Corporation"
+            # (NOT "Limited Liability Company" which is the common legal term).
             _BIZ_TYPE_MAP = {
                 "Corporation": "Corporation",
-                "Limited Liability Company": "Limited Liability Company",
-                "LLC": "Limited Liability Company",
+                "Limited Liability Company": "Limited Liability Corporation",
+                "LLC": "Limited Liability Corporation",
                 "Partnership": "Partnership",
                 "Sole Proprietorship": "Sole Proprietorship",
                 "Non-profit Corporation": "Non-profit Corporation",
@@ -764,6 +765,22 @@ def register_business_profile(sub_account_sid: str, business_name: str,
             # Use user-provided title, fallback to "Owner"
             resolved_title = contact_title or "Owner"
 
+            # Twilio requires job_position to be one of these exact enum values:
+            # Director, GM, VP, CEO, CFO, General Counsel
+            # business_title is free-text. Map common titles to valid job_position.
+            _JOB_POSITION_MAP = {
+                "owner": "CEO", "ceo": "CEO", "president": "CEO",
+                "cfo": "CFO", "finance": "CFO",
+                "director": "Director", "manager": "Director",
+                "vp": "VP", "vice president": "VP",
+                "gm": "GM", "general manager": "GM",
+                "counsel": "General Counsel", "attorney": "General Counsel",
+                "agent": "Director", "broker": "Director",
+            }
+            job_position = _JOB_POSITION_MAP.get(
+                resolved_title.lower().strip(), "CEO"
+            )
+
             # Normalize phone to E.164 format for Twilio
             norm_phone = _normalize_phone_e164(contact_phone)
 
@@ -776,7 +793,7 @@ def register_business_profile(sub_account_sid: str, business_name: str,
                     "email": contact_email,
                     "phone_number": norm_phone,
                     "business_title": resolved_title,
-                    "job_position": resolved_title,
+                    "job_position": job_position,
                 },
             )
             auth_rep_sid = auth_rep.sid
@@ -790,11 +807,15 @@ def register_business_profile(sub_account_sid: str, business_name: str,
             logger.error(f"[SpamProtection] Auth Rep creation failed: {e}")
             results["errors"].append(f"Auth Rep: {e}")
 
-    # ── Step 4: Create Address ──
-    # Twilio requires an Address resource AND its SID must be listed in the
-    # EndUser's address_sids attribute. Without this, evaluation fails with
-    # "Address sids list is empty".
+    # ── Step 4: Create Address + SupportingDocument ──
+    # Twilio requires a TWO-STEP address process:
+    #   1. Create an Address resource (AD... SID)
+    #   2. Wrap it in a SupportingDocument of type "customer_profile_address"
+    #      with attributes.address_sids = the AD SID (RD... SID)
+    #   3. Assign the RD SID (not AD SID) to the profile
+    # Without the SupportingDocument, evaluation fails with "Address sids list is empty".
     address_sid = ""
+    supporting_doc_sid = ""
     if profile_sid and street:
         try:
             address = client.addresses.create(
@@ -807,41 +828,37 @@ def register_business_profile(sub_account_sid: str, business_name: str,
                 iso_country="US",
             )
             address_sid = address.sid
+            logger.info(f"[SpamProtection] Created Address: {address_sid}")
+
+            # Wrap in SupportingDocument — this is what gets assigned to the profile
+            supporting_doc = client.trusthub.v1.supporting_documents.create(
+                friendly_name=f"{business_name} Address Document",
+                type="customer_profile_address",
+                attributes={
+                    "address_sids": address_sid,
+                },
+            )
+            supporting_doc_sid = supporting_doc.sid
             results["steps"].append({
                 "name": "address",
                 "status": "ok",
-                "sid": address_sid,
+                "sid": supporting_doc_sid,
+                "address_sid": address_sid,
             })
-            logger.info(f"[SpamProtection] Created Address: {address_sid}")
-
-            # Update the EndUser to include the address SID
-            # This is CRITICAL — Twilio evaluations fail with "Address sids list is empty"
-            # if address_sids is not set on the business info EndUser.
-            if end_user_sid:
-                try:
-                    existing_eu = client.trusthub.v1.end_users(end_user_sid).fetch()
-                    existing_attrs = getattr(existing_eu, "attributes", {}) or {}
-                    if isinstance(existing_attrs, str):
-                        import json as _json
-                        existing_attrs = _json.loads(existing_attrs)
-                    existing_attrs["address_sids"] = [address_sid]
-                    client.trusthub.v1.end_users(end_user_sid).update(
-                        attributes=existing_attrs,
-                    )
-                    logger.info(f"[SpamProtection] Updated EndUser {end_user_sid} with address_sids=[{address_sid}]")
-                except Exception as addr_upd_err:
-                    logger.warning(f"[SpamProtection] Could not update EndUser with address_sids: {addr_upd_err}")
+            logger.info(f"[SpamProtection] Created SupportingDocument: {supporting_doc_sid} (wraps {address_sid})")
 
         except TwilioRestException as e:
-            logger.error(f"[SpamProtection] Address creation failed: {e}")
+            logger.error(f"[SpamProtection] Address/SupportingDocument creation failed: {e}")
             results["errors"].append(f"Address: {e}")
 
     # ── Step 5: EntityAssignments — link entities to profile ──
+    # NOTE: Address is assigned via its SupportingDocument SID (RD...), not the
+    # raw Address SID (AD...). This is per Twilio docs.
     if profile_sid:
         for entity_name, entity_sid in [
             ("end_user_business", end_user_sid),
             ("auth_representative", auth_rep_sid),
-            ("address", address_sid),
+            ("address_document", supporting_doc_sid),
         ]:
             if not entity_sid:
                 continue
