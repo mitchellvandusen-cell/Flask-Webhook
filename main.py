@@ -402,6 +402,14 @@ csrf.exempt(ghl_embed_bp)
 csrf.exempt(numbers_bp)
 csrf.exempt(embed_bp)
 csrf.exempt(assistant_bp)
+csrf.exempt(admin_bp)
+csrf.exempt(agency_bp)
+csrf.exempt(dashboard_bp)
+csrf.exempt(calendar_bp)
+csrf.exempt(inbox_bp)
+csrf.exempt(team_bp)
+csrf.exempt(contacts_import_bp)
+csrf.exempt(workflows_bp)
 
 
 if __name__ == "__main__":

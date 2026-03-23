@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 
-{% block title %}AI Dashboard Assistant — InsuranceGrokBot{% endblock %}
+{% block title %}AI Assistant — InsuranceGrokBot{% endblock %}
 
-{% block meta_description %}Your personal AI co-pilot inside the dashboard. Talk to it, tell it what to do — call leads, book appointments, send texts, check stats, manage workflows. 50 tools, voice input, zero learning curve.{% endblock %}
+{% block meta_description %}Stop clicking through menus. Just say what you need. The AI assistant inside your dashboard calls leads, books appointments, sends texts, pulls reports, and coaches your team — all by voice or text.{% endblock %}
 
 {% block json_ld %}
 <script type="application/ld+json">
@@ -10,7 +10,7 @@
     "@context": "https://schema.org",
     "@type": "WebPage",
     "name": "AI Dashboard Assistant — InsuranceGrokBot",
-    "description": "AI-powered dashboard assistant for insurance agents. Execute actions by voice or text — call, text, book, search, manage workflows, and more.",
+    "description": "AI-powered dashboard assistant for insurance agents and agencies. Execute real actions by voice or text — no menus, no clicks, no learning curve.",
     "url": "{{ request.url }}"
 }
 </script>
@@ -24,127 +24,196 @@
     .ast-h1 { font-size: clamp(2.4rem, 4.5vw, 3.6rem); font-weight: 900; line-height: 1.08; margin-bottom: 20px; }
     .ast-h1 span { background: linear-gradient(135deg, var(--accent), #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
     .ast-sub { color: #999; font-size: 1.1rem; max-width: 640px; margin: 0 auto 32px; line-height: 1.65; }
-
-    .ast-cmd-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; max-width: 900px; margin: 48px auto 0; }
-    @media (max-width: 768px) { .ast-cmd-grid { grid-template-columns: 1fr; } }
-    .ast-cmd { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 20px; text-align: left; }
-    .ast-cmd .cmd-example { font-size: 0.88rem; color: var(--accent); font-weight: 700; margin-bottom: 6px; font-style: italic; }
-    .ast-cmd .cmd-desc { font-size: 0.78rem; color: #888; line-height: 1.5; }
-    .ast-cmd .cmd-icon { font-size: 1.2rem; margin-bottom: 10px; }
-
-    .ast-cat { max-width: 900px; margin: 0 auto; }
-    .ast-cat-title { font-size: 1.1rem; font-weight: 800; margin: 48px 0 20px; color: #fff; }
-    .ast-cat-title i { margin-right: 8px; }
-
-    .ast-stat-row { display: flex; justify-content: center; gap: 40px; margin: 48px 0; flex-wrap: wrap; }
+    .ast-section { padding: 80px 0; }
+    .ast-section-alt { background: rgba(255,255,255,0.01); }
+    .ast-section-h2 { font-size: clamp(1.8rem, 3vw, 2.4rem); font-weight: 900; margin-bottom: 12px; line-height: 1.15; }
+    .ast-section-h2 span { background: linear-gradient(135deg, var(--accent), #00d9ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .ast-section-sub { color: #888; font-size: 1rem; max-width: 580px; line-height: 1.65; margin-bottom: 40px; }
+    .ast-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: center; }
+    @media (max-width: 768px) { .ast-grid-2 { grid-template-columns: 1fr; } }
+    .ast-convo { max-width: 380px; margin: 0 auto; }
+    .ast-bubble { padding: 12px 16px; border-radius: 16px; font-size: 0.85rem; margin-bottom: 8px; max-width: 85%; line-height: 1.5; }
+    .ast-bubble.user { background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.15); color: #ccc; margin-left: auto; border-bottom-right-radius: 4px; }
+    .ast-bubble.bot { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); color: #aaa; border-bottom-left-radius: 4px; }
+    .ast-bubble .highlight { color: var(--accent); font-weight: 700; }
+    .ast-pain-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    @media (max-width: 768px) { .ast-pain-grid { grid-template-columns: 1fr; } }
+    .ast-pain { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 28px 24px; }
+    .ast-pain .pain-old { color: #ef4444; font-size: 0.82rem; margin-bottom: 12px; font-weight: 600; }
+    .ast-pain .pain-new { color: var(--accent); font-size: 0.82rem; font-weight: 600; }
+    .ast-pain .pain-label { color: #fff; font-size: 1rem; font-weight: 800; margin-bottom: 6px; }
+    .ast-pain p { color: #888; font-size: 0.82rem; line-height: 1.5; margin: 0 0 10px; }
+    .ast-agency-card { background: rgba(139,92,246,0.06); border: 1px solid rgba(139,92,246,0.15); border-radius: 16px; padding: 32px; }
+    .ast-stat-row { display: flex; justify-content: center; gap: 40px; margin: 40px 0 0; flex-wrap: wrap; }
     .ast-stat { text-align: center; }
-    .ast-stat-val { font-size: 2.4rem; font-weight: 900; background: linear-gradient(135deg, var(--accent), #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .ast-stat-lbl { font-size: 0.8rem; color: #888; margin-top: 4px; }
-
-    body.light-theme .ast-h1 { color: var(--lt-text-primary); }
-    body.light-theme .ast-sub { color: var(--lt-text-secondary); }
-    body.light-theme .ast-cmd { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.06); }
-    body.light-theme .ast-cmd .cmd-desc { color: var(--lt-text-muted); }
-    body.light-theme .ast-cat-title { color: var(--lt-text-primary); }
-    body.light-theme .ast-stat-lbl { color: var(--lt-text-muted); }
+    .ast-stat-val { font-size: 2.2rem; font-weight: 900; background: linear-gradient(135deg, var(--accent), #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .ast-stat-lbl { font-size: 0.78rem; color: #888; margin-top: 4px; }
+    body.light-theme .ast-h1, body.light-theme .ast-section-h2 { color: var(--lt-text-primary); }
+    body.light-theme .ast-sub, body.light-theme .ast-section-sub { color: var(--lt-text-secondary); }
+    body.light-theme .ast-pain { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.06); }
+    body.light-theme .ast-pain .pain-label { color: var(--lt-text-primary); }
+    body.light-theme .ast-pain p { color: var(--lt-text-muted); }
+    body.light-theme .ast-bubble.user { background: rgba(0,170,94,0.06); border-color: rgba(0,170,94,0.12); color: var(--lt-text-primary); }
+    body.light-theme .ast-bubble.bot { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.06); color: var(--lt-text-secondary); }
+    body.light-theme .ast-agency-card { background: rgba(139,92,246,0.04); border-color: rgba(139,92,246,0.1); }
 </style>
 
-<!-- Hero -->
+<!-- ═══ HERO ═══ -->
 <section class="ast-hero">
     <div class="container text-center" style="position:relative;z-index:2;">
         <span class="ast-tag">AI Assistant</span>
-        <h1 class="ast-h1">Just Tell It <span>What To Do.</span></h1>
-        <p class="ast-sub">Your personal AI co-pilot lives inside the dashboard. Talk to it like a teammate. It calls leads, books appointments, sends texts, pulls stats, and manages your entire workflow &mdash; hands-free.</p>
+        <h1 class="ast-h1">Stop Clicking.<br><span>Start Closing.</span></h1>
+        <p class="ast-sub">Every minute you spend navigating menus, searching contacts, and switching tabs is a minute you're not on the phone. The AI assistant eliminates that overhead entirely. Just say what you need.</p>
         <div class="d-flex justify-content-center gap-3 flex-wrap">
             <a href="/checkout" class="btn btn-primary btn-lg">Start Free Trial</a>
             <a href="/demo-chat" class="btn btn-outline-accent btn-lg">Try the Demo</a>
         </div>
-
         <div class="ast-stat-row" data-aos="fade-up" data-aos-delay="200">
-            <div class="ast-stat"><div class="ast-stat-val">50</div><div class="ast-stat-lbl">Tools Built In</div></div>
-            <div class="ast-stat"><div class="ast-stat-val"><i class="fa-solid fa-microphone" style="font-size:1.8rem"></i></div><div class="ast-stat-lbl">Voice Input</div></div>
-            <div class="ast-stat"><div class="ast-stat-val">&lt;5s</div><div class="ast-stat-lbl">Response Time</div></div>
-            <div class="ast-stat"><div class="ast-stat-val">24/7</div><div class="ast-stat-lbl">Always Ready</div></div>
+            <div class="ast-stat"><div class="ast-stat-val">80</div><div class="ast-stat-lbl">Actions Available</div></div>
+            <div class="ast-stat"><div class="ast-stat-val"><i class="fa-solid fa-microphone" style="font-size:1.6rem"></i></div><div class="ast-stat-lbl">Voice Input</div></div>
+            <div class="ast-stat"><div class="ast-stat-val">5s</div><div class="ast-stat-lbl">Average Response</div></div>
         </div>
     </div>
 </section>
 
-<!-- Command Examples -->
-<section class="section" style="padding-top: 0;">
+<!-- ═══ THE PROBLEM ═══ -->
+<section class="ast-section" data-aos="fade-up">
     <div class="container">
-
-        <div class="ast-cat">
-            <h3 class="ast-cat-title" data-aos="fade-up"><i class="fa-solid fa-phone" style="color:#4ade80"></i> Calling &amp; Dialing</h3>
+        <div class="text-center mb-5">
+            <h2 class="ast-section-h2">The Average Agent Wastes <span>47 Minutes a Day</span></h2>
+            <p class="ast-section-sub" style="margin-left:auto;margin-right:auto;">Searching for contacts. Switching tabs. Clicking through settings. Checking stats. That's almost an hour every day that isn't spent talking to prospects. The assistant gives you that hour back.</p>
         </div>
-        <div class="ast-cmd-grid" data-aos="fade-up">
-            <div class="ast-cmd"><div class="cmd-example">"Call John Smith"</div><div class="cmd-desc">Finds the contact, asks AI or human call, dials immediately.</div></div>
-            <div class="ast-cmd"><div class="cmd-example">"Call everyone in New Leads"</div><div class="cmd-desc">Queues the entire pipeline stage and starts a power dial session.</div></div>
-            <div class="ast-cmd"><div class="cmd-example">"Show calls over 5 minutes today"</div><div class="cmd-desc">Filters call history by duration, direction, status, or recordings.</div></div>
+        <div class="ast-pain-grid">
+            <div class="ast-pain" data-aos="fade-up">
+                <div class="pain-label">Finding Who to Call</div>
+                <p>Scrolling through contacts, checking who's hot, who responded, who needs follow-up. You're doing detective work instead of selling.</p>
+                <div class="pain-old"><i class="fa-solid fa-xmark me-1"></i> Before: 10 clicks, 3 tabs, 5 minutes</div>
+                <div class="pain-new"><i class="fa-solid fa-check me-1"></i> Now: "Who should I call first?"</div>
+            </div>
+            <div class="ast-pain" data-aos="fade-up" data-aos-delay="100">
+                <div class="pain-label">Booking Appointments</div>
+                <p>Open contact. Check calendar. Find a slot. Type the details. Confirm. It's 2026 &mdash; you shouldn't need 6 clicks to book a meeting.</p>
+                <div class="pain-old"><i class="fa-solid fa-xmark me-1"></i> Before: Open calendar, find slot, enter details, save</div>
+                <div class="pain-new"><i class="fa-solid fa-check me-1"></i> Now: "Book John for Tuesday at 3"</div>
+            </div>
+            <div class="ast-pain" data-aos="fade-up" data-aos-delay="200">
+                <div class="pain-label">End-of-Day Reporting</div>
+                <p>How many calls? Connect rate? Who's hot? What did I miss? Pulling stats from three different screens to figure out how your day went.</p>
+                <div class="pain-old"><i class="fa-solid fa-xmark me-1"></i> Before: Stats tab, filter, calculate, compare</div>
+                <div class="pain-new"><i class="fa-solid fa-check me-1"></i> Now: "Give me my daily summary"</div>
+            </div>
         </div>
-
-        <div class="ast-cat">
-            <h3 class="ast-cat-title" data-aos="fade-up"><i class="fa-solid fa-comment-sms" style="color:#00d9ff"></i> Texting &amp; Messages</h3>
-        </div>
-        <div class="ast-cmd-grid" data-aos="fade-up">
-            <div class="ast-cmd"><div class="cmd-example">"Text Jane: I'll call you tomorrow"</div><div class="cmd-desc">Finds the contact and sends the SMS instantly through your CRM.</div></div>
-            <div class="ast-cmd"><div class="cmd-example">"Who texted me back today?"</div><div class="cmd-desc">Shows all inbound messages with contact names and timestamps.</div></div>
-            <div class="ast-cmd"><div class="cmd-example">"Blast everyone in Hot Leads"</div><div class="cmd-desc">Sends the same message to all contacts in a pipeline stage.</div></div>
-        </div>
-
-        <div class="ast-cat">
-            <h3 class="ast-cat-title" data-aos="fade-up"><i class="fa-solid fa-calendar" style="color:#FF3B30"></i> Calendar &amp; Booking</h3>
-        </div>
-        <div class="ast-cmd-grid" data-aos="fade-up">
-            <div class="ast-cmd"><div class="cmd-example">"Book John for Tuesday at 3pm"</div><div class="cmd-desc">Searches contact, checks availability, books the appointment.</div></div>
-            <div class="ast-cmd"><div class="cmd-example">"What's on my calendar today?"</div><div class="cmd-desc">Shows all upcoming appointments with contact names and times.</div></div>
-            <div class="ast-cmd"><div class="cmd-example">"Remind me to call Jane in 2 hours"</div><div class="cmd-desc">Sets a scheduled reminder that pops up when it's time.</div></div>
-        </div>
-
-        <div class="ast-cat">
-            <h3 class="ast-cat-title" data-aos="fade-up"><i class="fa-solid fa-brain" style="color:#a78bfa"></i> Lead Intelligence</h3>
-        </div>
-        <div class="ast-cmd-grid" data-aos="fade-up">
-            <div class="ast-cmd"><div class="cmd-example">"Who should I call first?"</div><div class="cmd-desc">Returns your hottest leads ranked by AI score and temperature.</div></div>
-            <div class="ast-cmd"><div class="cmd-example">"Who hasn't been contacted in a week?"</div><div class="cmd-desc">Finds stale leads that need follow-up before they go cold.</div></div>
-            <div class="ast-cmd"><div class="cmd-example">"Give me my daily summary"</div><div class="cmd-desc">Calls, texts, connect rate, missed calls, hot leads &mdash; one snapshot.</div></div>
-        </div>
-
-        <div class="ast-cat">
-            <h3 class="ast-cat-title" data-aos="fade-up"><i class="fa-solid fa-address-card" style="color:#f59e0b"></i> Contact Management</h3>
-        </div>
-        <div class="ast-cmd-grid" data-aos="fade-up">
-            <div class="ast-cmd"><div class="cmd-example">"Add a note on John: prefers term life"</div><div class="cmd-desc">Adds a note directly to the contact's CRM record.</div></div>
-            <div class="ast-cmd"><div class="cmd-example">"Tag Jane as VIP"</div><div class="cmd-desc">Adds tags, updates fields, moves pipeline stages &mdash; all by voice.</div></div>
-            <div class="ast-cmd"><div class="cmd-example">"Create a new lead: Mike 555-1234"</div><div class="cmd-desc">Creates a contact in your CRM with name and phone instantly.</div></div>
-        </div>
-
-        <div class="ast-cat">
-            <h3 class="ast-cat-title" data-aos="fade-up"><i class="fa-solid fa-diagram-project" style="color:#e91e63"></i> Workflows &amp; Automation</h3>
-        </div>
-        <div class="ast-cmd-grid" data-aos="fade-up">
-            <div class="ast-cmd"><div class="cmd-example">"Put John in Speed to Lead"</div><div class="cmd-desc">Enrolls a contact into any active workflow instantly.</div></div>
-            <div class="ast-cmd"><div class="cmd-example">"Assign all New Leads to re-engagement"</div><div class="cmd-desc">Bulk-enrolls an entire pipeline stage into a workflow.</div></div>
-            <div class="ast-cmd"><div class="cmd-example">"Turn on the cold leads workflow"</div><div class="cmd-desc">Activates or pauses workflows by name.</div></div>
-        </div>
-
-        <div class="ast-cat">
-            <h3 class="ast-cat-title" data-aos="fade-up"><i class="fa-solid fa-building" style="color:#00d9ff"></i> Agency Owners</h3>
-        </div>
-        <div class="ast-cmd-grid" data-aos="fade-up">
-            <div class="ast-cmd"><div class="cmd-example">"How is the team doing this week?"</div><div class="cmd-desc">Aggregated agency KPIs: calls, connect rate, talk time, active agents.</div></div>
-            <div class="ast-cmd"><div class="cmd-example">"Who's my top agent?"</div><div class="cmd-desc">Leaderboard ranked by connect rate, call volume, or duration.</div></div>
-            <div class="ast-cmd"><div class="cmd-example">"Show the agency call log"</div><div class="cmd-desc">Call history across all agents with filtering.</div></div>
-        </div>
-
     </div>
 </section>
 
-<!-- CTA -->
+<!-- ═══ HOW IT WORKS ═══ -->
+<section class="ast-section ast-section-alt" data-aos="fade-up">
+    <div class="container">
+        <div class="ast-grid-2">
+            <div>
+                <h2 class="ast-section-h2">Talk to It Like <span>a Teammate</span></h2>
+                <p class="ast-section-sub">No commands to memorize. No syntax to learn. Just say what you need in plain English &mdash; by voice or text. The assistant figures out what to do, uses the right tools, and gets it done.</p>
+                <p style="color:#888;font-size:0.88rem;line-height:1.65;">It reads your CRM data, checks your calendar, searches your contacts, and takes real actions &mdash; all in the background, in seconds. You never leave the conversation.</p>
+            </div>
+            <div class="ast-convo" data-aos="fade-left">
+                <div class="ast-bubble user">"Call everyone in my New Leads pipeline"</div>
+                <div class="ast-bubble bot">Queued <span class="highlight">24 contacts</span> from New Leads. Ready to start dialing.</div>
+                <div class="ast-bubble bot" style="margin-top:-4px;"><button style="background:rgba(0,255,136,0.12);border:1px solid rgba(0,255,136,0.25);color:#00ff88;border-radius:20px;padding:5px 14px;font-size:0.78rem;font-weight:600;border:1px solid rgba(0,255,136,0.2);cursor:default;"><i class="fa-solid fa-play" style="margin-right:4px"></i> Start Dialing (24)</button></div>
+                <div class="ast-bubble user" style="margin-top:12px;">"How did I do today?"</div>
+                <div class="ast-bubble bot"><strong>Daily Summary:</strong><br>28 calls, 9 connected (32%)<br>42m talk time, 3 missed inbound<br><span class="highlight">4 hot leads</span> ready to close</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══ VOICE INPUT ═══ -->
+<section class="ast-section" data-aos="fade-up">
+    <div class="container">
+        <div class="ast-grid-2">
+            <div class="ast-convo" data-aos="fade-right">
+                <div style="text-align:center;margin-bottom:20px;">
+                    <div style="width:64px;height:64px;border-radius:50%;background:rgba(239,68,68,0.12);border:2px solid rgba(239,68,68,0.3);display:inline-flex;align-items:center;justify-content:center;animation:assistantMicPulse 1.5s infinite;">
+                        <i class="fa-solid fa-microphone" style="font-size:1.4rem;color:#ef4444;"></i>
+                    </div>
+                    <div style="color:#ef4444;font-size:0.75rem;font-weight:600;margin-top:8px;">Listening...</div>
+                </div>
+                <div class="ast-bubble user">"Text Jane Doe, tell her I'll call her tomorrow morning"</div>
+                <div class="ast-bubble bot">SMS sent to <span class="highlight">Jane Doe</span>: "I'll call you tomorrow morning"</div>
+            </div>
+            <div>
+                <h2 class="ast-section-h2">Your Voice. <span>Real Actions.</span></h2>
+                <p class="ast-section-sub">Insurance agents talk for a living. So we built the assistant to listen. Tap the mic, say what you need, and it's done. No typing required.</p>
+                <p style="color:#888;font-size:0.88rem;line-height:1.65;">Between calls, in the car, or walking into a meeting &mdash; just speak. "Remind me to call John in two hours." "Add a note on Jane: prefers whole life." "Tag Mike as VIP." Done before you finish your coffee.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══ AGENCY OWNERS ═══ -->
+<section class="ast-section ast-section-alt" data-aos="fade-up">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="ast-section-h2">Agency Owners: Your <span>Command Center Got Smarter</span></h2>
+            <p class="ast-section-sub" style="margin-left:auto;margin-right:auto;">Managing 10 agents means 10 sets of stats, 10 performance reviews, 10 coaching conversations. The assistant compresses all of that into a single question.</p>
+        </div>
+        <div class="ast-grid-2">
+            <div class="ast-agency-card" data-aos="fade-right">
+                <div class="ast-bubble user">"Give me the weekly report"</div>
+                <div class="ast-bubble bot">
+                    <strong>Weekly Report:</strong><br>
+                    247 calls (+15 vs last week), 34% connect rate (+2.1%)<br>
+                    12.4h talk time, 8 active agents<br><br>
+                    <strong>Coaching:</strong><br>
+                    &bull; <span class="highlight">Sarah J.</span> only made 15 calls &mdash; target 100+<br>
+                    &bull; <span class="highlight">Mike T.</span> has 8% connect rate &mdash; check number health<br>
+                    &bull; <span class="highlight">Emily R.</span> crushing it at 41% &mdash; great prospecting<br><br>
+                    <strong>Revenue Opportunity:</strong><br>
+                    6 missed inbound calls = warm leads calling back and getting no answer. Enable AI overflow.
+                </div>
+            </div>
+            <div>
+                <h2 class="ast-section-h2" style="font-size:1.5rem;">Every Number Tells a Story</h2>
+                <p style="color:#888;font-size:0.88rem;line-height:1.65;margin-bottom:20px;">The weekly report isn't just stats. It's analysis. It identifies which agents need coaching, where calls are dropping off, what revenue you're leaving on the table, and exactly what to do about it &mdash; all based on real calling data, not guesswork.</p>
+                <div style="color:#888;font-size:0.85rem;line-height:1.8;">
+                    <div><i class="fa-solid fa-check" style="color:var(--accent);margin-right:8px;"></i>"Compare Sarah and Mike" &mdash; side-by-side stats</div>
+                    <div><i class="fa-solid fa-check" style="color:var(--accent);margin-right:8px;"></i>"What should Sarah work on?" &mdash; AI coaching tips</div>
+                    <div><i class="fa-solid fa-check" style="color:var(--accent);margin-right:8px;"></i>"Who's my top agent this month?" &mdash; leaderboard</div>
+                    <div><i class="fa-solid fa-check" style="color:var(--accent);margin-right:8px;"></i>"Show the agency call log" &mdash; all agents, one view</div>
+                    <div><i class="fa-solid fa-check" style="color:var(--accent);margin-right:8px;"></i>"Am I improving?" &mdash; this week vs last week</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══ THE SHIFT ═══ -->
+<section class="ast-section" data-aos="fade-up">
+    <div class="container text-center">
+        <h2 class="ast-section-h2">Every Other Dialer Makes You <span>Work the Software.</span><br>This One <span>Works for You.</span></h2>
+        <p class="ast-section-sub" style="margin-left:auto;margin-right:auto;">Most platforms give you buttons to click. We gave you a teammate that listens. The difference is the time between "I need to do something" and "it's done."</p>
+        <div class="ast-pain-grid" style="max-width:900px;margin:40px auto 0;">
+            <div class="ast-pain" data-aos="fade-up">
+                <div class="pain-label"><i class="fa-solid fa-phone-volume" style="color:var(--accent);margin-right:6px;"></i>Calling</div>
+                <p>"Call John" &mdash; finds the contact, asks AI or you, dials. "Call everyone in New Leads" &mdash; queues 24 contacts, starts power dialing.</p>
+            </div>
+            <div class="ast-pain" data-aos="fade-up" data-aos-delay="100">
+                <div class="pain-label"><i class="fa-solid fa-comment-sms" style="color:#00d9ff;margin-right:6px;"></i>Texting</div>
+                <p>"Text Jane: I'll call tomorrow" &mdash; sent. "Blast everyone in Hot Leads" &mdash; done. No forms, no templates, no clicks.</p>
+            </div>
+            <div class="ast-pain" data-aos="fade-up" data-aos-delay="200">
+                <div class="pain-label"><i class="fa-solid fa-brain" style="color:#a78bfa;margin-right:6px;"></i>Intelligence</div>
+                <p>"Who should I call first?" &mdash; shows your hottest leads ranked by AI score. "Who hasn't been contacted in a week?" &mdash; finds the gaps before they become lost deals.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══ CTA ═══ -->
 <section style="padding: 60px 0 100px;">
     <div class="container text-center">
         <div class="glass-card p-5" data-aos="fade-up" style="max-width:680px;margin:0 auto;overflow:visible;height:auto;">
-            <h2 style="font-size:1.6rem;font-weight:800;margin-bottom:12px;">Stop clicking. Start talking.</h2>
-            <p style="color:#888;font-size:1rem;margin-bottom:24px;">50 tools. Voice input. Instant actions. The first AI assistant that actually does the work inside your dashboard.</p>
+            <h2 style="font-size:1.6rem;font-weight:800;margin-bottom:12px;">The first AI that doesn't just answer questions.<br>It does the work.</h2>
+            <p style="color:#888;font-size:1rem;margin-bottom:24px;">80 real actions. Voice input. Instant execution. Built for the way insurance agents actually work &mdash; fast, on the phone, no time for menus.</p>
             <div class="d-flex justify-content-center gap-3 flex-wrap">
                 <a href="/checkout" class="btn btn-primary btn-lg">Start Free Trial</a>
                 <a href="/demo-chat" class="btn btn-outline-accent btn-lg">Try the Demo</a>
