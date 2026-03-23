@@ -1126,7 +1126,8 @@ def oauth_callback():
                         NOW() + interval '%s seconds',
                         %s, %s, %s, %s, NOW(), NOW()
                     )
-                    ON CONFLICT (location_id) DO UPDATE SET
+                    ON CONFLICT (email) DO UPDATE SET
+                        location_id = EXCLUDED.location_id,
                         crm_email = EXCLUDED.crm_email,
                         access_token = EXCLUDED.access_token,
                         refresh_token = EXCLUDED.refresh_token,
