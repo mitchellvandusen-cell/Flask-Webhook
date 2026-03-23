@@ -960,6 +960,48 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                                           contact_id=contact_id,
                                           details={"error": recovery_err})
 
+                # === TWILIO SMS FALLBACK ===
+                # If GHL SMS failed (auth, error, network) and subscriber has Twilio
+                # sub-account credentials, try sending via Twilio direct as last resort.
+                # This keeps messages flowing even when GHL OAuth credentials are
+                # unavailable (e.g. missing env vars on worker service).
+                if not sent and sub_tier != 'sms_bot':
+                    try:
+                        from twilio_sms import send_sms_via_twilio, get_twilio_credentials
+                        fb_sub_sid, fb_sub_auth, fb_from_number = get_twilio_credentials(location_id)
+                        contact_phone = payload.get('phone') or payload.get('contact_phone', '')
+                        if fb_sub_sid and fb_sub_auth and fb_from_number and contact_phone:
+                            logger.warning(f"🔄 TWILIO FALLBACK: GHL SMS failed ({fail_reason}) — "
+                                          f"attempting Twilio direct for {contact_id}")
+                            sent, fail_reason, http_detail = send_sms_via_twilio(
+                                phone_to=contact_phone,
+                                message=reply,
+                                from_number=fb_from_number,
+                                twilio_sub_account_sid=fb_sub_sid,
+                                twilio_auth_token=fb_sub_auth,
+                                contact_id=contact_id,
+                            )
+                            if sent:
+                                logger.info(f"✅ TWILIO FALLBACK SUCCESS: SMS sent to {contact_id} "
+                                           f"via Twilio direct after GHL failure")
+                                log_webhook_event(location_id, "twilio_fallback", "success",
+                                                  f"SMS delivered via Twilio fallback for {contact_id}",
+                                                  contact_id=contact_id)
+                                # Log to GHL conversation so CRM stays in sync
+                                try:
+                                    from ghl_logger import log_outbound_sms_to_ghl
+                                    log_outbound_sms_to_ghl(
+                                        contact_id=contact_id,
+                                        message=reply,
+                                        access_token=auth_token,
+                                        location_id=location_id,
+                                        contact_phone=contact_phone,
+                                    )
+                                except Exception as ghl_log_err:
+                                    logger.debug(f"GHL conversation log skipped (fallback): {ghl_log_err}")
+                    except Exception as fb_err:
+                        logger.warning(f"Twilio fallback not available for {contact_id}: {fb_err}")
+
                 if sent:
                     save_message(contact_id, reply, "assistant", stage=effective_stage)
                     logger.info(f"✅ Message sent via {crm_type.upper()}")

@@ -22,6 +22,22 @@ logger = logging.getLogger(__name__)
 
 REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379')
 
+# ── Startup credential validation ────────────────────────────────────────────
+# Workers process webhooks that need GHL OAuth token refresh. Without these
+# credentials, every token refresh fails and SMS delivery cascades into errors.
+_CRITICAL_ENV_VARS = {
+    'GHL_CLIENT_ID': 'GHL OAuth token refresh',
+    'GHL_CLIENT_SECRET': 'GHL OAuth token refresh',
+}
+_missing = [name for name in _CRITICAL_ENV_VARS if not os.getenv(name)]
+if _missing:
+    logger.critical(
+        f"🚨 MISSING CRITICAL ENV VARS on worker: {', '.join(_missing)}. "
+        f"Token refresh will fail for all GHL subscribers. "
+        f"SMS will fall back to Twilio direct (if available). "
+        f"Set these env vars on the worker service to restore GHL SMS delivery."
+    )
+
 
 def run_worker(listen_queues, worker_num):
     """Run a single RQ worker. Called in each child process."""
