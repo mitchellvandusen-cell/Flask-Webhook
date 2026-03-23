@@ -1117,13 +1117,35 @@ def register_spam_protection():
 
     # Step 4: Create CNAM Trust Product for proper carrier registration
     # This is the real CNAM — not just setting friendly_name on numbers.
+    # GATE: Only create CNAM Trust Product if the Secondary Customer Profile
+    # is already approved by Twilio. Submitting CNAM against an unapproved
+    # profile wastes API calls and creates orphaned Trust Products.
     cnam_display_name = data.get('cnam_display_name', '').strip()
     if not cnam_display_name:
         cnam_display_name = business_name[:15].strip()
 
     cnam_result = {"status": "skipped"}
     profile_sid = trust_hub.get('profile_sid', '')
-    if profile_sid:
+    review_status = trust_hub.get('review_status', '')
+    profile_is_approved = review_status in ('twilio-approved', 'compliant', 'approved')
+
+    # Idempotency: check if CNAM Trust Product already exists
+    existing_cnam = vc.get('cnam', {})
+    existing_cnam_tp = existing_cnam.get('trust_product_sid', '')
+    if existing_cnam_tp:
+        cnam_result = {
+            "status": "already_registered",
+            "trust_product_sid": existing_cnam_tp,
+            "cnam_display_name": existing_cnam.get('cnam_display_name', ''),
+        }
+        logger.info(f"[CNAM] Already registered — TP {existing_cnam_tp}, skipping duplicate creation")
+    elif not profile_is_approved:
+        cnam_result = {
+            "status": "deferred",
+            "reason": "CNAM registration will proceed automatically once your business profile is approved by Twilio.",
+        }
+        logger.info(f"[CNAM] Deferred — profile status is '{review_status}', not approved yet")
+    elif profile_sid:
         try:
             # Validate display name
             valid, validation_msg = twilio_provisioning.validate_cnam_display_name(cnam_display_name)
@@ -1468,6 +1490,10 @@ def spam_protection_status():
         except Exception as e:
             logger.warning(f"[spam-protection] Could not check live profile status: {e}")
 
+    # Recompute profile_approved using live Twilio status (may have changed above)
+    profile_approved = (protection_active and profile_exists
+                        and profile_review_status in ('twilio-approved', 'compliant', 'approved'))
+
     # Include CNAM Trust Product status
     cnam = (vc or {}).get('cnam', {})
     cnam_info = {
@@ -1480,6 +1506,7 @@ def spam_protection_status():
 
     return jsonify({
         "protection_active": protection_active,
+        "profile_approved": profile_approved,
         "business_name": business_name,
         "ein": trust_hub.get('ein', ''),
         "street": trust_hub.get('street', ''),
