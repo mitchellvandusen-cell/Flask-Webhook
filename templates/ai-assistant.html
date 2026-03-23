@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}AI Dashboard Assistant — InsuranceGrokBot{% endblock %}
+
+{% block meta_description %}Your personal AI co-pilot inside the dashboard. Talk to it, tell it what to do — call leads, book appointments, send texts, check stats, manage workflows. 50 tools, voice input, zero learning curve.{% endblock %}
+
+{% block json_ld %}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": "AI Dashboard Assistant — InsuranceGrokBot",
+    "description": "AI-powered dashboard assistant for insurance agents. Execute actions by voice or text — call, text, book, search, manage workflows, and more.",
+    "url": "{{ request.url }}"
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<style>
+    .ast-hero { padding: 150px 0 80px; position: relative; overflow: hidden; }
+    .ast-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 30% 20%, rgba(0,255,136,0.08) 0%, transparent 55%), radial-gradient(ellipse at 70% 80%, rgba(139,92,246,0.06) 0%, transparent 50%); pointer-events: none; }
+    .ast-tag { display: inline-block; background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.25); color: var(--accent); padding: 6px 20px; border-radius: 24px; font-size: 0.78rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 20px; }
+    .ast-h1 { font-size: clamp(2.4rem, 4.5vw, 3.6rem); font-weight: 900; line-height: 1.08; margin-bottom: 20px; }
+    .ast-h1 span { background: linear-gradient(135deg, var(--accent), #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .ast-sub { color: #999; font-size: 1.1rem; max-width: 640px; margin: 0 auto 32px; line-height: 1.65; }
+
+    .ast-cmd-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; max-width: 900px; margin: 48px auto 0; }
+    @media (max-width: 768px) { .ast-cmd-grid { grid-template-columns: 1fr; } }
+    .ast-cmd { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 20px; text-align: left; }
+    .ast-cmd .cmd-example { font-size: 0.88rem; color: var(--accent); font-weight: 700; margin-bottom: 6px; font-style: italic; }
+    .ast-cmd .cmd-desc { font-size: 0.78rem; color: #888; line-height: 1.5; }
+    .ast-cmd .cmd-icon { font-size: 1.2rem; margin-bottom: 10px; }
+
+    .ast-cat { max-width: 900px; margin: 0 auto; }
+    .ast-cat-title { font-size: 1.1rem; font-weight: 800; margin: 48px 0 20px; color: #fff; }
+    .ast-cat-title i { margin-right: 8px; }
+
+    .ast-stat-row { display: flex; justify-content: center; gap: 40px; margin: 48px 0; flex-wrap: wrap; }
+    .ast-stat { text-align: center; }
+    .ast-stat-val { font-size: 2.4rem; font-weight: 900; background: linear-gradient(135deg, var(--accent), #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .ast-stat-lbl { font-size: 0.8rem; color: #888; margin-top: 4px; }
+
+    body.light-theme .ast-h1 { color: var(--lt-text-primary); }
+    body.light-theme .ast-sub { color: var(--lt-text-secondary); }
+    body.light-theme .ast-cmd { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.06); }
+    body.light-theme .ast-cmd .cmd-desc { color: var(--lt-text-muted); }
+    body.light-theme .ast-cat-title { color: var(--lt-text-primary); }
+    body.light-theme .ast-stat-lbl { color: var(--lt-text-muted); }
+</style>
+
+<!-- Hero -->
+<section class="ast-hero">
+    <div class="container text-center" style="position:relative;z-index:2;">
+        <span class="ast-tag">AI Assistant</span>
+        <h1 class="ast-h1">Just Tell It <span>What To Do.</span></h1>
+        <p class="ast-sub">Your personal AI co-pilot lives inside the dashboard. Talk to it like a teammate. It calls leads, books appointments, sends texts, pulls stats, and manages your entire workflow &mdash; hands-free.</p>
+        <div class="d-flex justify-content-center gap-3 flex-wrap">
+            <a href="/checkout" class="btn btn-primary btn-lg">Start Free Trial</a>
+            <a href="/demo-chat" class="btn btn-outline-accent btn-lg">Try the Demo</a>
+        </div>
+
+        <div class="ast-stat-row" data-aos="fade-up" data-aos-delay="200">
+            <div class="ast-stat"><div class="ast-stat-val">50</div><div class="ast-stat-lbl">Tools Built In</div></div>
+            <div class="ast-stat"><div class="ast-stat-val"><i class="fa-solid fa-microphone" style="font-size:1.8rem"></i></div><div class="ast-stat-lbl">Voice Input</div></div>
+            <div class="ast-stat"><div class="ast-stat-val">&lt;5s</div><div class="ast-stat-lbl">Response Time</div></div>
+            <div class="ast-stat"><div class="ast-stat-val">24/7</div><div class="ast-stat-lbl">Always Ready</div></div>
+        </div>
+    </div>
+</section>
+
+<!-- Command Examples -->
+<section class="section" style="padding-top: 0;">
+    <div class="container">
+
+        <div class="ast-cat">
+            <h3 class="ast-cat-title" data-aos="fade-up"><i class="fa-solid fa-phone" style="color:#4ade80"></i> Calling &amp; Dialing</h3>
+        </div>
+        <div class="ast-cmd-grid" data-aos="fade-up">
+            <div class="ast-cmd"><div class="cmd-example">"Call John Smith"</div><div class="cmd-desc">Finds the contact, asks AI or human call, dials immediately.</div></div>
+            <div class="ast-cmd"><div class="cmd-example">"Call everyone in New Leads"</div><div class="cmd-desc">Queues the entire pipeline stage and starts a power dial session.</div></div>
+            <div class="ast-cmd"><div class="cmd-example">"Show calls over 5 minutes today"</div><div class="cmd-desc">Filters call history by duration, direction, status, or recordings.</div></div>
+        </div>
+
+        <div class="ast-cat">
+            <h3 class="ast-cat-title" data-aos="fade-up"><i class="fa-solid fa-comment-sms" style="color:#00d9ff"></i> Texting &amp; Messages</h3>
+        </div>
+        <div class="ast-cmd-grid" data-aos="fade-up">
+            <div class="ast-cmd"><div class="cmd-example">"Text Jane: I'll call you tomorrow"</div><div class="cmd-desc">Finds the contact and sends the SMS instantly through your CRM.</div></div>
+            <div class="ast-cmd"><div class="cmd-example">"Who texted me back today?"</div><div class="cmd-desc">Shows all inbound messages with contact names and timestamps.</div></div>
+            <div class="ast-cmd"><div class="cmd-example">"Blast everyone in Hot Leads"</div><div class="cmd-desc">Sends the same message to all contacts in a pipeline stage.</div></div>
+        </div>
+
+        <div class="ast-cat">
+            <h3 class="ast-cat-title" data-aos="fade-up"><i class="fa-solid fa-calendar" style="color:#FF3B30"></i> Calendar &amp; Booking</h3>
+        </div>
+        <div class="ast-cmd-grid" data-aos="fade-up">
+            <div class="ast-cmd"><div class="cmd-example">"Book John for Tuesday at 3pm"</div><div class="cmd-desc">Searches contact, checks availability, books the appointment.</div></div>
+            <div class="ast-cmd"><div class="cmd-example">"What's on my calendar today?"</div><div class="cmd-desc">Shows all upcoming appointments with contact names and times.</div></div>
+            <div class="ast-cmd"><div class="cmd-example">"Remind me to call Jane in 2 hours"</div><div class="cmd-desc">Sets a scheduled reminder that pops up when it's time.</div></div>
+        </div>
+
+        <div class="ast-cat">
+            <h3 class="ast-cat-title" data-aos="fade-up"><i class="fa-solid fa-brain" style="color:#a78bfa"></i> Lead Intelligence</h3>
+        </div>
+        <div class="ast-cmd-grid" data-aos="fade-up">
+            <div class="ast-cmd"><div class="cmd-example">"Who should I call first?"</div><div class="cmd-desc">Returns your hottest leads ranked by AI score and temperature.</div></div>
+            <div class="ast-cmd"><div class="cmd-example">"Who hasn't been contacted in a week?"</div><div class="cmd-desc">Finds stale leads that need follow-up before they go cold.</div></div>
+            <div class="ast-cmd"><div class="cmd-example">"Give me my daily summary"</div><div class="cmd-desc">Calls, texts, connect rate, missed calls, hot leads &mdash; one snapshot.</div></div>
+        </div>
+
+        <div class="ast-cat">
+            <h3 class="ast-cat-title" data-aos="fade-up"><i class="fa-solid fa-address-card" style="color:#f59e0b"></i> Contact Management</h3>
+        </div>
+        <div class="ast-cmd-grid" data-aos="fade-up">
+            <div class="ast-cmd"><div class="cmd-example">"Add a note on John: prefers term life"</div><div class="cmd-desc">Adds a note directly to the contact's CRM record.</div></div>
+            <div class="ast-cmd"><div class="cmd-example">"Tag Jane as VIP"</div><div class="cmd-desc">Adds tags, updates fields, moves pipeline stages &mdash; all by voice.</div></div>
+            <div class="ast-cmd"><div class="cmd-example">"Create a new lead: Mike 555-1234"</div><div class="cmd-desc">Creates a contact in your CRM with name and phone instantly.</div></div>
+        </div>
+
+        <div class="ast-cat">
+            <h3 class="ast-cat-title" data-aos="fade-up"><i class="fa-solid fa-diagram-project" style="color:#e91e63"></i> Workflows &amp; Automation</h3>
+        </div>
+        <div class="ast-cmd-grid" data-aos="fade-up">
+            <div class="ast-cmd"><div class="cmd-example">"Put John in Speed to Lead"</div><div class="cmd-desc">Enrolls a contact into any active workflow instantly.</div></div>
+            <div class="ast-cmd"><div class="cmd-example">"Assign all New Leads to re-engagement"</div><div class="cmd-desc">Bulk-enrolls an entire pipeline stage into a workflow.</div></div>
+            <div class="ast-cmd"><div class="cmd-example">"Turn on the cold leads workflow"</div><div class="cmd-desc">Activates or pauses workflows by name.</div></div>
+        </div>
+
+        <div class="ast-cat">
+            <h3 class="ast-cat-title" data-aos="fade-up"><i class="fa-solid fa-building" style="color:#00d9ff"></i> Agency Owners</h3>
+        </div>
+        <div class="ast-cmd-grid" data-aos="fade-up">
+            <div class="ast-cmd"><div class="cmd-example">"How is the team doing this week?"</div><div class="cmd-desc">Aggregated agency KPIs: calls, connect rate, talk time, active agents.</div></div>
+            <div class="ast-cmd"><div class="cmd-example">"Who's my top agent?"</div><div class="cmd-desc">Leaderboard ranked by connect rate, call volume, or duration.</div></div>
+            <div class="ast-cmd"><div class="cmd-example">"Show the agency call log"</div><div class="cmd-desc">Call history across all agents with filtering.</div></div>
+        </div>
+
+    </div>
+</section>
+
+<!-- CTA -->
+<section style="padding: 60px 0 100px;">
+    <div class="container text-center">
+        <div class="glass-card p-5" data-aos="fade-up" style="max-width:680px;margin:0 auto;overflow:visible;height:auto;">
+            <h2 style="font-size:1.6rem;font-weight:800;margin-bottom:12px;">Stop clicking. Start talking.</h2>
+            <p style="color:#888;font-size:1rem;margin-bottom:24px;">50 tools. Voice input. Instant actions. The first AI assistant that actually does the work inside your dashboard.</p>
+            <div class="d-flex justify-content-center gap-3 flex-wrap">
+                <a href="/checkout" class="btn btn-primary btn-lg">Start Free Trial</a>
+                <a href="/demo-chat" class="btn btn-outline-accent btn-lg">Try the Demo</a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -69,6 +69,11 @@ def sms():
     return render_template('sms.html')
 
 
+@public_bp.route("/ai-assistant")
+def ai_assistant():
+    return render_template('ai-assistant.html')
+
+
 @public_bp.route("/workflows")
 def workflows_marketing():
     return render_template('workflows-marketing.html')
@@ -258,6 +263,7 @@ def sitemap_xml():
         ('/comparison/text-drip',   'monthly',  '0.7'),
         ('/comparison/dialers',     'monthly',  '0.7'),
         ('/sms',                    'weekly',   '0.8'),
+        ('/ai-assistant',           'weekly',   '0.8'),
         ('/spam-protection',        'weekly',   '0.8'),
         ('/faq',                    'monthly',  '0.8'),
         ('/about',                  'monthly',  '0.6'),

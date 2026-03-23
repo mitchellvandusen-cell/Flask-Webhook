@@ -8,6 +8,8 @@
     var _open = false;
     var _history = [];
     var _loading = false;
+    var _recognition = null;
+    var _micActive = false;
     var _pendingError = null;
     var _initialized = false;
     var STORAGE_KEY = 'igb_assistant_history';
@@ -133,6 +135,78 @@
             assistantToggle();
         }
     });
+
+    // ── Speech-to-text (Web Speech API) ──────────────────────────────────
+
+    window.assistantMicToggle = function() {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            if (typeof _showDashToast === 'function') _showDashToast(false, 'Speech recognition not supported in this browser');
+            return;
+        }
+
+        if (_micActive) {
+            _micStop();
+            return;
+        }
+
+        var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        _recognition = new SpeechRecognition();
+        _recognition.continuous = false;
+        _recognition.interimResults = true;
+        _recognition.lang = 'en-US';
+        _recognition.maxAlternatives = 1;
+
+        var input = document.getElementById('assistantInput');
+        var micBtn = document.getElementById('assistantMicBtn');
+        var micIcon = document.getElementById('assistantMicIcon');
+
+        _recognition.onstart = function() {
+            _micActive = true;
+            micBtn.classList.add('assistant-mic-btn--active');
+            micIcon.className = 'fa-solid fa-stop';
+            input.placeholder = 'Listening...';
+        };
+
+        _recognition.onresult = function(e) {
+            var transcript = '';
+            for (var i = e.resultIndex; i < e.results.length; i++) {
+                transcript += e.results[i][0].transcript;
+            }
+            input.value = transcript;
+            _autoResize(input);
+
+            // If final result, auto-send
+            if (e.results[e.results.length - 1].isFinal) {
+                setTimeout(function() {
+                    if (input.value.trim()) _sendMessage();
+                }, 300);
+            }
+        };
+
+        _recognition.onerror = function(e) {
+            _micStop();
+            if (e.error === 'not-allowed') {
+                if (typeof _showDashToast === 'function') _showDashToast(false, 'Microphone access denied. Check browser permissions.');
+            }
+        };
+
+        _recognition.onend = function() {
+            _micStop();
+        };
+
+        _recognition.start();
+    };
+
+    function _micStop() {
+        _micActive = false;
+        if (_recognition) { try { _recognition.stop(); } catch(e) {} }
+        var micBtn = document.getElementById('assistantMicBtn');
+        var micIcon = document.getElementById('assistantMicIcon');
+        var input = document.getElementById('assistantInput');
+        if (micBtn) micBtn.classList.remove('assistant-mic-btn--active');
+        if (micIcon) micIcon.className = 'fa-solid fa-microphone';
+        if (input) input.placeholder = 'Ask or speak...';
+    }
 
     // ── Render message ───────────────────────────────────────────────────────
 
@@ -405,5 +479,57 @@
     window.assistantReportError = function(url, status, body) {
         _interceptError(url, status, body);
     };
+
+    // ── Proactive nudge notifications ────────────────────────────────────────
+
+    var _NUDGE_MESSAGES = [
+        "Talk to me like ChatGPT — I can call, text, book, and more.",
+        "Want to see your upcoming appointments? Just ask me.",
+        "Say \"call everyone in New Leads\" and I'll queue them up.",
+        "Try: \"Who should I call first?\"",
+        "I can send texts for you — just say who and what.",
+        "Ask me for your daily summary anytime.",
+        "Say \"remind me to call John in 2 hours\" — I'll remember.",
+        "I can update contacts, add notes, and manage your pipeline.",
+    ];
+
+    function _scheduleNudge() {
+        // Show a nudge after 45 seconds, then every 5 minutes, max 3 per session
+        var nudgeCount = parseInt(sessionStorage.getItem('igb_assist_nudge_count') || '0');
+        if (nudgeCount >= 3) return;
+
+        var delay = nudgeCount === 0 ? 45000 : 300000;
+        setTimeout(function() {
+            if (_open || _loading) return; // Don't nudge if panel is open or busy
+            var idx = nudgeCount % _NUDGE_MESSAGES.length;
+            _showNudgeToast(_NUDGE_MESSAGES[idx]);
+            sessionStorage.setItem('igb_assist_nudge_count', String(nudgeCount + 1));
+            _scheduleNudge(); // Schedule next
+        }, delay);
+    }
+
+    function _showNudgeToast(msg) {
+        var fab = document.getElementById('assistantFab');
+        if (!fab) return;
+
+        // Create floating tooltip above the FAB
+        var tip = document.createElement('div');
+        tip.className = 'assistant-nudge';
+        tip.textContent = msg;
+        tip.onclick = function() { tip.remove(); assistantToggle(); };
+        document.body.appendChild(tip);
+
+        // Position near the FAB
+        var rect = fab.getBoundingClientRect();
+        tip.style.position = 'fixed';
+        tip.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
+        tip.style.right = '24px';
+
+        // Auto-dismiss after 6 seconds
+        setTimeout(function() { if (tip.parentNode) tip.remove(); }, 6000);
+    }
+
+    // Start nudge schedule on load
+    _scheduleNudge();
 
 })();

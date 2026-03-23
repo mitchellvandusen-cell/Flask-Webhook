@@ -11574,3 +11574,35 @@ body.light-theme .assistant-composer textarea::placeholder { color: var(--lt-tex
 body.light-theme .assistant-composer button { background: var(--lt-accent); }
 body.light-theme .assistant-typing-dot { background: rgba(0,0,0,0.2); }
 body.light-theme .assistant-composer { border-top-color: rgba(0,0,0,0.06); }
+
+/* Microphone button */
+.assistant-mic-btn {
+    background: none; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
+    width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+    color: #888; cursor: pointer; font-size: 0.85rem; flex-shrink: 0;
+    transition: all 0.2s;
+}
+.assistant-mic-btn:hover { color: var(--accent); border-color: var(--accent); }
+.assistant-mic-btn--active {
+    color: #ef4444; border-color: #ef4444; background: rgba(239,68,68,0.1);
+    animation: assistantMicPulse 1.5s infinite;
+}
+@keyframes assistantMicPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.3); } 50% { box-shadow: 0 0 0 6px rgba(239,68,68,0); } }
+body.light-theme .assistant-mic-btn { border-color: rgba(0,0,0,0.08); color: var(--lt-text-muted); }
+body.light-theme .assistant-mic-btn:hover { color: var(--lt-accent); border-color: var(--lt-accent); }
+
+/* Nudge tooltip */
+.assistant-nudge {
+    z-index: 9989; max-width: 280px; padding: 10px 16px;
+    background: rgba(16,16,24,0.95); backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;
+    color: #ccc; font-size: 0.8rem; line-height: 1.5;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    cursor: pointer;
+    animation: assistantNudgeIn 0.3s ease;
+}
+@keyframes assistantNudgeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+body.light-theme .assistant-nudge {
+    background: rgba(255,255,255,0.95); border-color: rgba(0,0,0,0.08);
+    color: var(--lt-text-secondary); box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}

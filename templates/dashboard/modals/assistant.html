@@ -28,7 +28,10 @@
     </div>
 
     <div class="assistant-composer">
-        <textarea id="assistantInput" rows="1" placeholder="Ask me anything..."
+        <button onclick="assistantMicToggle()" id="assistantMicBtn" class="assistant-mic-btn" title="Hold to talk">
+            <i class="fa-solid fa-microphone" id="assistantMicIcon"></i>
+        </button>
+        <textarea id="assistantInput" rows="1" placeholder="Ask or speak..."
                   onkeydown="assistantKeydown(event)" maxlength="1000"></textarea>
         <button onclick="assistantSend()" id="assistantSendBtn" title="Send">
             <i class="fa-solid fa-paper-plane"></i>

@@ -802,6 +802,70 @@
             iosOpenApp('calendar');
         }
 
+        // ── Add to Workflow ──────────────────────────────────────────────────
+        function dialerAddToWorkflow() {
+            if (!dialerActiveContact) return;
+            const c = dialerActiveContact;
+            // Fetch available workflows and show picker
+            fetch('/api/workflows')
+                .then(r => r.json())
+                .then(data => {
+                    const workflows = (data.workflows || []).filter(w => w.status === 'active');
+                    if (!workflows.length) {
+                        if (typeof _showDashToast === 'function') _showDashToast(false, 'No active workflows. Create one in the Workflows tab.');
+                        return;
+                    }
+                    _showWorkflowPicker(c, workflows);
+                })
+                .catch(() => { if (typeof _showDashToast === 'function') _showDashToast(false, 'Could not load workflows'); });
+        }
+
+        function _showWorkflowPicker(contact, workflows) {
+            // Remove existing picker if any
+            const existing = document.getElementById('wfPickerOverlay');
+            if (existing) existing.remove();
+
+            const overlay = document.createElement('div');
+            overlay.id = 'wfPickerOverlay';
+            overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;';
+            overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+            let html = '<div style="background:rgba(16,16,24,0.98);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:20px;max-width:340px;width:90%;">';
+            html += '<h4 style="color:#fff;font-size:0.95rem;margin:0 0 4px;">Add to Workflow</h4>';
+            html += '<p style="color:#888;font-size:0.8rem;margin:0 0 14px;">Enroll <strong style="color:#ccc;">' + (contact.name || 'Contact') + '</strong> into a workflow:</p>';
+            workflows.forEach(function(wf) {
+                html += '<button class="wf-pick-btn" data-wf-id="' + wf.id + '" data-wf-name="' + (wf.name || '') + '" style="display:block;width:100%;text-align:left;padding:10px 14px;margin-bottom:6px;border-radius:8px;border:1px solid rgba(139,92,246,0.2);background:rgba(139,92,246,0.06);color:#a78bfa;font-size:0.82rem;font-weight:600;cursor:pointer;">';
+                html += '<i class="fa-solid fa-diagram-project" style="margin-right:6px;"></i>' + (wf.name || 'Unnamed');
+                html += '</button>';
+            });
+            html += '<button onclick="this.closest(\'#wfPickerOverlay\').remove()" style="display:block;width:100%;margin-top:8px;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:none;color:#888;font-size:0.8rem;cursor:pointer;">Cancel</button>';
+            html += '</div>';
+            overlay.innerHTML = html;
+
+            // Wire up workflow buttons
+            overlay.querySelectorAll('.wf-pick-btn').forEach(function(btn) {
+                btn.onclick = function() {
+                    const wfId = this.dataset.wfId;
+                    const wfName = this.dataset.wfName;
+                    overlay.remove();
+                    fetch('/api/assistant/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: 'Assign contact ' + contact.id + ' to workflow ' + wfName, history: [] }),
+                    })
+                    .then(r => r.json())
+                    .then(d => {
+                        if (typeof _showDashToast === 'function') _showDashToast(true, (contact.name || 'Contact') + ' enrolled in ' + wfName);
+                    })
+                    .catch(() => {
+                        if (typeof _showDashToast === 'function') _showDashToast(false, 'Failed to enroll contact');
+                    });
+                };
+            });
+
+            document.body.appendChild(overlay);
+        }
+
         // ═══════════════════════════════════════════════
         //  VOICEMAIL APP — iPhone-style voicemail inbox
         // ═══════════════════════════════════════════════
@@ -1878,6 +1942,7 @@
                 html += '<button class="igb-action-btn act-sms" onclick="if(_iosCurrentApp!==\'messages\')iosOpenApp(\'messages\');"><i class="fa-solid fa-message"></i> SMS</button>';
                 html += '<button class="igb-action-btn act-queue" onclick="dialerAddActiveToQueue()"><i class="fa-solid fa-plus"></i> Queue</button>';
                 html += '<button class="igb-action-btn act-schedule" onclick="dialerScheduleActiveContact()"><i class="fa-solid fa-calendar"></i> Schedule</button>';
+                html += '<button class="igb-action-btn act-workflow" onclick="dialerAddToWorkflow()"><i class="fa-solid fa-diagram-project"></i> Workflow</button>';
                 html += '</div>';
 
                 // ── Name Header with Lead Score Ring ──
