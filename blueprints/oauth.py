@@ -905,6 +905,18 @@ def oauth_callback():
                     company_metadata.get('company_owner_phone'),
                 ))
 
+                # Auto-populate white-label branding from GHL company name
+                # so agency agents immediately see agency branding on install
+                _wl_company = company_metadata.get('company_name')
+                if _wl_company:
+                    cur.execute("""
+                        UPDATE agency_billing
+                        SET whitelabel_config = COALESCE(whitelabel_config, '{}'::jsonb) || %s::jsonb
+                        WHERE agency_email = %s
+                          AND (whitelabel_config IS NULL OR NOT (whitelabel_config ? 'company_name'))
+                    """, (json.dumps({'company_name': _wl_company}), user_email))
+                    logger.info(f"Auto-set white-label company_name='{_wl_company}' for {user_email}")
+
                 # Also upsert subscribers row so all operational code works
                 # (dialer, voice, webhooks, token refresh all query subscribers)
                 cur.execute("""
