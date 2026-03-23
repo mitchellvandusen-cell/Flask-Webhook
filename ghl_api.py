@@ -35,6 +35,19 @@ def _load_oauth_credentials():
     return marketplace_id, marketplace_secret, private_id, private_secret
 
 
+# Cached at module load — env vars don't change at runtime
+_OAUTH_CREDS_AVAILABLE = None
+
+def has_oauth_credentials():
+    """Check if ANY GHL OAuth credentials are configured in environment.
+    Result is cached after first call since env vars don't change at runtime."""
+    global _OAUTH_CREDS_AVAILABLE
+    if _OAUTH_CREDS_AVAILABLE is None:
+        m_id, m_sec, p_id, p_sec = _load_oauth_credentials()
+        _OAUTH_CREDS_AVAILABLE = bool((m_id and m_sec) or (p_id and p_sec))
+    return _OAUTH_CREDS_AVAILABLE
+
+
 def _build_cred_sets(oauth_app_type, marketplace_id, marketplace_secret, private_id, private_secret):
     """Build ordered list of credential sets to try based on stored app_type.
     Primary credentials first, then fallback."""

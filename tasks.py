@@ -14,7 +14,7 @@ from prompt import build_system_prompt
 from ghl_message import send_sms_via_ghl
 from llm_caller import generate_clean_reply
 from ghl_calendar import consolidated_calendar_op
-from ghl_api import fetch_targeted_ghl_history, get_valid_token, get_valid_token_with_status
+from ghl_api import fetch_targeted_ghl_history, get_valid_token, get_valid_token_with_status, has_oauth_credentials
 from contact_validator import validate_and_resolve_contact
 from booking_detection import detect_booking_request, BookingDetectionResult
 from message_utils import collect_unanswered_lead_messages as _collect_unanswered_lead_messages
@@ -148,63 +148,72 @@ def process_webhook_task(payload: dict):
                 oauth_type = subscriber.get('oauth_app_type', 'unknown')
                 has_access = bool(subscriber.get('access_token'))
                 has_refresh = bool(subscriber.get('refresh_token'))
-                logger.error(f"❌ ABORT: Token refresh failed for {location_id} | "
-                            f"oauth_app_type={oauth_type} | has_access_token={has_access} | "
-                            f"has_refresh_token={has_refresh} | error={token_error}")
 
-                # Create persistent dashboard alert so subscriber sees the issue
-                sub_email = subscriber.get('email')
-                if sub_email:
-                    save_persistent_alert(
-                        email=sub_email,
-                        alert_type="oauth_token_failure",
-                        title="CRM Connection Lost",
-                        message=(
-                            "Your GoHighLevel connection needs to be re-authorized. "
-                            "Incoming messages are not being processed. "
-                            "Please click 'Connect CRM' to reconnect."
-                        ),
-                        severity="error",
-                        location_id=location_id
-                    )
+                # When OAuth env vars are missing entirely, don't abort — continue
+                # through the pipeline using payload data + cached history, then
+                # deliver SMS via Twilio fallback instead of GHL.
+                if token_error == 'no_credentials':
+                    logger.warning(f"⚠️ No GHL token and no OAuth credentials for {location_id} — "
+                                  f"continuing with Twilio fallback path")
+                    auth_token = ''  # Empty string so downstream code doesn't crash on None
+                else:
+                    logger.error(f"❌ ABORT: Token refresh failed for {location_id} | "
+                                f"oauth_app_type={oauth_type} | has_access_token={has_access} | "
+                                f"has_refresh_token={has_refresh} | error={token_error}")
 
-                log_webhook_event(location_id, "error", "error",
-                                  f"Token refresh failed ({token_error}) — message dropped",
-                                  contact_id=contact_id,
-                                  details={"oauth_app_type": oauth_type, "error": token_error})
+                    # Create persistent dashboard alert so subscriber sees the issue
+                    sub_email = subscriber.get('email')
+                    if sub_email:
+                        save_persistent_alert(
+                            email=sub_email,
+                            alert_type="oauth_token_failure",
+                            title="CRM Connection Lost",
+                            message=(
+                                "Your GoHighLevel connection needs to be re-authorized. "
+                                "Incoming messages are not being processed. "
+                                "Please click 'Connect CRM' to reconnect."
+                            ),
+                            severity="error",
+                            location_id=location_id
+                        )
 
-                # Re-queue with backoff for transient failures (network, server errors)
-                # Don't retry auth errors — those need user action (re-auth)
-                if token_error in ('network_error', 'server_error'):
-                    retry_count = payload.get("_retry_count", 0)
-                    if retry_count < 3:
-                        payload["_retry_count"] = retry_count + 1
-                        delay_seconds = 30 * (2 ** retry_count)  # 30s, 60s, 120s
-                        try:
-                            import redis
-                            from rq import Queue
-                            redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
-                            r = redis.from_url(redis_url, socket_timeout=5,
-                                               socket_connect_timeout=5)
-                            q = Queue('production', connection=r)
-                            q.enqueue_in(
-                                timedelta(seconds=delay_seconds),
-                                process_webhook_task,
-                                payload,
-                                job_timeout=120,
-                                result_ttl=86400,
-                            )
-                            logger.info(f"🔄 Re-queued task for {contact_id} with "
-                                       f"{delay_seconds}s delay (retry {retry_count + 1}/3)")
-                        except Exception as retry_err:
-                            logger.error(f"Failed to re-queue task: {retry_err}")
+                    log_webhook_event(location_id, "error", "error",
+                                      f"Token refresh failed ({token_error}) — message dropped",
+                                      contact_id=contact_id,
+                                      details={"oauth_app_type": oauth_type, "error": token_error})
 
-                # Persist payload so the scourer can replay it once token is fixed
-                save_failed_webhook_payload(location_id, contact_id, payload, token_error)
-                logger.info(f"💾 Saved failed webhook payload for {contact_id} "
-                           f"(reason={token_error}) — scourer will retry later")
+                    # Re-queue with backoff for transient failures (network, server errors)
+                    # Don't retry auth errors — those need user action (re-auth)
+                    if token_error in ('network_error', 'server_error'):
+                        retry_count = payload.get("_retry_count", 0)
+                        if retry_count < 3:
+                            payload["_retry_count"] = retry_count + 1
+                            delay_seconds = 30 * (2 ** retry_count)  # 30s, 60s, 120s
+                            try:
+                                import redis
+                                from rq import Queue
+                                redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
+                                r = redis.from_url(redis_url, socket_timeout=5,
+                                                   socket_connect_timeout=5)
+                                q = Queue('production', connection=r)
+                                q.enqueue_in(
+                                    timedelta(seconds=delay_seconds),
+                                    process_webhook_task,
+                                    payload,
+                                    job_timeout=120,
+                                    result_ttl=86400,
+                                )
+                                logger.info(f"🔄 Re-queued task for {contact_id} with "
+                                           f"{delay_seconds}s delay (retry {retry_count + 1}/3)")
+                            except Exception as retry_err:
+                                logger.error(f"Failed to re-queue task: {retry_err}")
 
-                return {"status": "error", "reason": f"token refresh failed: {token_error}"}
+                    # Persist payload so the scourer can replay it once token is fixed
+                    save_failed_webhook_payload(location_id, contact_id, payload, token_error)
+                    logger.info(f"💾 Saved failed webhook payload for {contact_id} "
+                               f"(reason={token_error}) — scourer will retry later")
+
+                    return {"status": "error", "reason": f"token refresh failed: {token_error}"}
 
             # If GHL OAuth creds are missing, log once and continue — Twilio
             # fallback will handle SMS delivery downstream
@@ -233,8 +242,12 @@ def process_webhook_task(payload: dict):
                     )
 
         # Track if GHL OAuth credentials are missing — skip GHL SMS entirely
-        # to avoid wasting time on 3 retries with an expired/unusable token
-        _ghl_creds_missing = (token_error == 'no_credentials') if not is_demo and not is_api_source else False
+        # to avoid wasting time on 3 retries with an expired/unusable token.
+        # Also check has_oauth_credentials() to catch the case where the token
+        # appears valid by expiry but env vars are missing (can't refresh later).
+        _ghl_creds_missing = False
+        if not is_demo and not is_api_source:
+            _ghl_creds_missing = (token_error == 'no_credentials') or not has_oauth_credentials()
 
         # Inject fresh token (empty for API sources without GHL)
         subscriber['access_token'] = auth_token
@@ -292,7 +305,7 @@ def process_webhook_task(payload: dict):
 
         # === History Sync (only if DB empty or gap, skip for API sources) ===
         db_count = get_message_count(contact_id)
-        if not is_demo and not is_api_source:
+        if not is_demo and not is_api_source and not _ghl_creds_missing:
             if db_count == 0:
                 logger.info(f"🚨 DB empty for {contact_id} — fetching full GHL history")
                 ghl_history = fetch_targeted_ghl_history(contact_id, location_id, auth_token, limit=50)

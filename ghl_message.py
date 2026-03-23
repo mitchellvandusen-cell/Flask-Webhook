@@ -34,7 +34,10 @@ def _lookup_conversation_id(contact_id: str, location_id: str, access_token: str
         # Auto-retry on 401/403 with a force-refreshed token
         if resp.status_code in (401, 403) and not _token_refreshed:
             try:
-                from ghl_api import get_valid_token_with_status
+                from ghl_api import get_valid_token_with_status, has_oauth_credentials
+                if not has_oauth_credentials():
+                    logger.debug(f"Skipping token refresh in conversation lookup — no OAuth creds configured")
+                    return None, current_token
                 fresh_token, was_refreshed, _err = get_valid_token_with_status(location_id, force_refresh=True)
                 if fresh_token and was_refreshed:
                     current_token = fresh_token
@@ -177,6 +180,19 @@ def send_sms_via_ghl(
                 time_module.sleep(10)
             elif last_status in (401, 403):  # Auth issue — try one force-refresh then abort
                 if not _token_refreshed:
+                    # Skip refresh attempt if no OAuth credentials are configured —
+                    # avoids error spam and wasted retries when env vars are missing
+                    try:
+                        from ghl_api import has_oauth_credentials
+                        if not has_oauth_credentials():
+                            logger.debug(f"Skipping token refresh — no OAuth creds configured for {location_id}")
+                            return False, 'auth', {
+                                "status_code": last_status,
+                                "response_body": last_body,
+                                "attempts": attempt,
+                            }
+                    except Exception:
+                        pass
                     logger.warning(f"Auth failure (HTTP {last_status}) — force-refreshing token for {location_id}")
                     try:
                         from ghl_api import get_valid_token_with_status
