@@ -55,6 +55,49 @@ def _single_to_double_quotes(text):
     return ''.join(result)
 
 
+def _fix_python_literals(text):
+    """Replace Python True/False/None with JSON true/false/null outside strings."""
+    # Only replace when not inside a quoted string — use a simple state machine
+    result = []
+    i = 0
+    in_str = False
+    esc = False
+    while i < len(text):
+        c = text[i]
+        if esc:
+            result.append(c)
+            esc = False
+            i += 1
+            continue
+        if c == '\\' and in_str:
+            result.append(c)
+            esc = True
+            i += 1
+            continue
+        if c == '"':
+            in_str = not in_str
+            result.append(c)
+            i += 1
+            continue
+        if in_str:
+            result.append(c)
+            i += 1
+            continue
+        # Outside string — check for Python literals at word boundary
+        for py_lit, js_lit in (('True', 'true'), ('False', 'false'), ('None', 'null')):
+            if text[i:i+len(py_lit)] == py_lit:
+                # Check word boundary after
+                after = i + len(py_lit)
+                if after >= len(text) or not text[after].isalnum():
+                    result.append(js_lit)
+                    i += len(py_lit)
+                    break
+        else:
+            result.append(c)
+            i += 1
+    return ''.join(result)
+
+
 def _repair_json(raw):
     """
     Attempt to repair common LLM JSON issues:
@@ -63,12 +106,16 @@ def _repair_json(raw):
     - Truncated output (incomplete JSON from max_tokens cutoff)
     - Control characters inside strings
     - Single-quoted JSON
+    - Python literals (True/False/None)
     Returns parsed object or raises ValueError.
     """
     if not raw or not raw.strip():
         raise ValueError("Empty response")
 
     text = raw.strip()
+
+    # Strip BOM and zero-width characters
+    text = text.lstrip('\ufeff\u200b\u200c\u200d\u2060')
 
     # Strip markdown fences
     text = re.sub(r'^```(?:json)?\s*', '', text)
@@ -96,11 +143,25 @@ def _repair_json(raw):
     except json.JSONDecodeError:
         pass
 
+    # Replace Python literals (True/False/None → true/false/null)
+    text_fixed = _fix_python_literals(text)
+    if text_fixed != text:
+        try:
+            return json.loads(text_fixed)
+        except json.JSONDecodeError:
+            text = text_fixed  # keep the fix for subsequent steps
+
     # Handle single-quoted JSON (LLMs sometimes output {'key': 'value'})
-    # Only attempt if single quotes are present and double quotes are scarce
-    if "'" in text and text.count("'") > text.count('"'):
+    if "'" in text:
         try:
             dq = _single_to_double_quotes(text)
+            return json.loads(dq)
+        except (json.JSONDecodeError, ValueError):
+            pass
+        # Single-quoted JSON may also have Python literals — try both fixes
+        try:
+            dq = _single_to_double_quotes(text)
+            dq = _fix_python_literals(dq)
             return json.loads(dq)
         except (json.JSONDecodeError, ValueError):
             pass
@@ -1096,9 +1157,10 @@ def _extract_individual_objects(raw, all_contexts=None):
         if raw[i] != '{':
             i += 1
             continue
-        # Track depth to find matching closing brace
+        # Track depth to find matching closing brace (handles both " and ' strings)
         depth = 0
         in_string = False
+        str_char = None
         escape = False
         end = -1
         for j in range(i, len(raw)):
@@ -1109,8 +1171,13 @@ def _extract_individual_objects(raw, all_contexts=None):
             if c == '\\' and in_string:
                 escape = True
                 continue
-            if c == '"':
-                in_string = not in_string
+            if not in_string and c in ('"', "'"):
+                in_string = True
+                str_char = c
+                continue
+            if in_string and c == str_char:
+                in_string = False
+                str_char = None
                 continue
             if in_string:
                 continue
@@ -1128,27 +1195,32 @@ def _extract_individual_objects(raw, all_contexts=None):
         candidate = raw[i:end + 1]
         i = end + 1
         # Must contain contact_id to be a result object (skip wrapper objects)
-        if '"contact_id"' not in candidate:
+        if 'contact_id' not in candidate:
             continue
         try:
             obj = json.loads(candidate)
-            if isinstance(obj, dict) and obj.get("contact_id"):
+        except (json.JSONDecodeError, ValueError):
+            # Apply full repair pipeline to individual candidate
+            try:
+                obj = _repair_json(candidate)
+            except ValueError:
+                continue
+        if isinstance(obj, dict):
+            if obj.get("contact_id"):
                 cid = obj["contact_id"]
                 ctx = all_contexts.get(cid, {"messages": [], "timing": {}})
                 obj = _validate_and_calibrate(obj, ctx)
                 results[cid] = obj
-        except (json.JSONDecodeError, ValueError):
-            # Try removing trailing commas
-            cleaned = re.sub(r',\s*([}\]])', r'\1', candidate)
-            try:
-                obj = json.loads(cleaned)
-                if isinstance(obj, dict) and obj.get("contact_id"):
-                    cid = obj["contact_id"]
-                    ctx = all_contexts.get(cid, {"messages": [], "timing": {}})
-                    obj = _validate_and_calibrate(obj, ctx)
-                    results[cid] = obj
-            except (json.JSONDecodeError, ValueError):
-                continue
+            else:
+                # Wrapper object — extract inner contact objects from results/contacts array
+                arr = obj.get("results") or obj.get("contacts") or []
+                if isinstance(arr, list):
+                    for item in arr:
+                        if isinstance(item, dict) and item.get("contact_id"):
+                            cid = item["contact_id"]
+                            ctx = all_contexts.get(cid, {"messages": [], "timing": {}})
+                            item = _validate_and_calibrate(item, ctx)
+                            results[cid] = item
     return results
 
 
