@@ -2236,18 +2236,25 @@ def _find_primary_profile_sid() -> str:
     Find the Primary Business Profile SID on the master Twilio account.
     This is created once in the Twilio Console and reused for all sub-accounts.
     Returns the SID (BU...) or empty string if not found.
+
+    Checks TWILIO_PRIMARY_PROFILE_SID env var first for instant lookup,
+    falls back to API discovery if not set.
     """
+    # Fast path: env var set by operator
+    env_sid = os.getenv("TWILIO_PRIMARY_PROFILE_SID", "").strip()
+    if env_sid and env_sid.startswith("BU"):
+        return env_sid
+
+    # Fallback: discover via API
     try:
         master = get_master_client()
         profiles = master.trusthub.v1.customer_profiles.list(
             status="twilio-approved", limit=50)
         for p in profiles:
-            # Primary profiles are typically named "Primary" or are the first approved one
             fname = getattr(p, "friendly_name", "")
             if "primary" in fname.lower() or "business" in fname.lower():
                 logger.info(f"[VoiceIntegrity] Found Primary Profile: {p.sid} ({fname})")
                 return p.sid
-        # Fall back to the first approved profile on master
         if profiles:
             logger.info(f"[VoiceIntegrity] Using first master profile as Primary: {profiles[0].sid}")
             return profiles[0].sid

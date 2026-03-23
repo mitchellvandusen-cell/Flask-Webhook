@@ -379,6 +379,39 @@ def stripe_webhook():
                     except Exception as rw_err:
                         logger.warning(f"Rewardful auto-affiliate skipped for {email}: {rw_err}")
 
+                    # Auto-provision Twilio sub-account (voice activation)
+                    # Removes the need for users to click "Activate Voice" separately
+                    if target_tier != "sms_bot":
+                        try:
+                            from twilio_provisioning import provision_subscriber as _twilio_provision
+                            webhook_base_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+                            # Need location_id — fetch from the subscriber we just created/updated
+                            cur.execute("SELECT location_id, voice_config FROM subscribers WHERE email = %s", (email,))
+                            _sub_row = cur.fetchone()
+                            _loc_id = _sub_row["location_id"] if _sub_row else ""
+                            _vc = (_sub_row["voice_config"] if _sub_row else None) or {}
+                            if _loc_id and not _vc.get("twilio_sub_account_sid"):
+                                _prov_result = _twilio_provision(
+                                    subscriber_email=email,
+                                    location_id=_loc_id,
+                                    webhook_base_url=webhook_base_url,
+                                )
+                                if _prov_result and not _prov_result.get("error"):
+                                    _vc.update(_prov_result)
+                                    _vc["enabled"] = True
+                                    cur.execute(
+                                        "UPDATE subscribers SET voice_config = %s WHERE email = %s",
+                                        (json.dumps(_vc), email)
+                                    )
+                                    conn.commit()
+                                    logger.info(f"Auto-provisioned voice for {email} (sub_sid={_prov_result.get('twilio_sub_account_sid', '?')})")
+                                else:
+                                    logger.warning(f"Voice auto-provision returned error for {email}: {_prov_result}")
+                            elif _vc.get("twilio_sub_account_sid"):
+                                logger.info(f"Voice already provisioned for {email} — skipping auto-provision")
+                        except Exception as voice_err:
+                            logger.warning(f"Voice auto-provision failed for {email} (non-fatal): {voice_err}")
+
                     # Legacy Google Sheets redundant backup (non-critical)
                     try:
                         import extensions as _ext
