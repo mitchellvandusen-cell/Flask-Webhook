@@ -12,31 +12,56 @@ logger = logging.getLogger(__name__)
 GHL_MESSAGES_URL = "https://services.leadconnectorhq.com/conversations/messages"
 
 
-def _lookup_conversation_id(contact_id: str, location_id: str, access_token: str) -> str:
+def _lookup_conversation_id(contact_id: str, location_id: str, access_token: str) -> tuple:
     """
     Look up the GHL conversation ID for a contact via the Conversations Search API.
-    Returns conversation_id string or None.
+    Returns (conversation_id, possibly_refreshed_token) tuple.
+    conversation_id is a string or None; token may be updated if a 401 refresh occurred.
     """
+    _token_refreshed = False
+    current_token = access_token
     try:
         resp = requests.get(
             "https://services.leadconnectorhq.com/conversations/search",
             params={"locationId": location_id, "contactId": contact_id},
             headers={
-                "Authorization": f"Bearer {access_token}",
+                "Authorization": f"Bearer {current_token}",
                 "Version": "2021-04-15",
             },
             timeout=10,
         )
+
+        # Auto-retry on 401/403 with a force-refreshed token
+        if resp.status_code in (401, 403) and not _token_refreshed:
+            try:
+                from ghl_api import get_valid_token_with_status
+                fresh_token, was_refreshed, _err = get_valid_token_with_status(location_id, force_refresh=True)
+                if fresh_token and was_refreshed:
+                    current_token = fresh_token
+                    _token_refreshed = True
+                    logger.info(f"Token force-refreshed for {location_id} — retrying conversationId lookup")
+                    resp = requests.get(
+                        "https://services.leadconnectorhq.com/conversations/search",
+                        params={"locationId": location_id, "contactId": contact_id},
+                        headers={
+                            "Authorization": f"Bearer {current_token}",
+                            "Version": "2021-04-15",
+                        },
+                        timeout=10,
+                    )
+            except Exception as _refresh_err:
+                logger.warning(f"Token refresh failed during conversationId lookup: {_refresh_err}")
+
         resp.raise_for_status()
         convos = resp.json().get("conversations", [])
         if convos:
             cid = convos[0].get("id")
             if cid:
                 logger.info(f"Resolved conversationId={cid} for contact={contact_id}")
-                return cid
+                return cid, current_token
     except Exception as e:
         logger.warning(f"Failed to look up conversationId for {contact_id}: {e}")
-    return None
+    return None, current_token
 
 
 def send_sms_via_ghl(
@@ -114,7 +139,9 @@ def send_sms_via_ghl(
 
     # Resolve conversationId so the message threads correctly in GHL (green bar)
     if not conversation_id:
-        conversation_id = _lookup_conversation_id(contact_id, location_id, access_token)
+        conversation_id, access_token = _lookup_conversation_id(contact_id, location_id, access_token)
+        # Update headers if token was refreshed during conversation lookup
+        headers["Authorization"] = f"Bearer {access_token}"
 
     payload = {
         "type": "SMS",

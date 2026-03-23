@@ -292,6 +292,15 @@ def process_webhook_task(payload: dict):
                 ghl_history = fetch_targeted_ghl_history(contact_id, location_id, auth_token, limit=10)
                 sync_messages_to_db(contact_id, location_id, ghl_history)
 
+            # Re-fetch token from DB in case fetch_targeted_ghl_history refreshed it
+            # internally during a 401 retry — prevents stale token from propagating
+            # to downstream SMS send and other API calls
+            refreshed_token = get_valid_token(location_id)
+            if refreshed_token and refreshed_token != auth_token:
+                logger.info(f"🔄 Token was refreshed during history sync for {location_id} — updating")
+                auth_token = refreshed_token
+                subscriber['access_token'] = refreshed_token
+
         # === Message Extraction ===
         # Normalized payload has "message" and "body" as top-level fields
         # Handle both direct string and nested dict formats
