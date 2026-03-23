@@ -97,21 +97,13 @@
                     if (navBtn) navBtn.click();
                 }
             }
+            // Handle call mode choice (AI or human?)
+            if (data.call_choice) {
+                _renderCallChoice(data.call_choice);
+            }
             // Handle call initiation
-            if (data.call && typeof dialContact === 'function') {
-                dialContact(data.call.contact_id, data.call.phone, data.call.first_name);
-            } else if (data.call) {
-                // Fallback: POST to /voice/dial
-                fetch('/voice/dial', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contact_id: data.call.contact_id,
-                        phone: data.call.phone,
-                        first_name: data.call.first_name || 'there',
-                        dial_mode: 'ai',
-                    }),
-                }).catch(function() {});
+            if (data.call) {
+                _initiateCall(data.call);
             }
         })
         .catch(function(err) {
@@ -163,6 +155,70 @@
         // Track history
         _history.push({ role: role, content: text });
         if (!skipSave) _saveHistory();
+    }
+
+    // ── Call choice buttons ─────────────────────────────────────────────────
+
+    function _renderCallChoice(info) {
+        var container = document.getElementById('assistantMessages');
+        if (!container) return;
+
+        var wrap = document.createElement('div');
+        wrap.className = 'd-flex gap-2 flex-wrap mt-1 mb-2';
+        wrap.style.paddingLeft = '4px';
+
+        var aiBtn = document.createElement('button');
+        aiBtn.className = 'btn btn-sm';
+        aiBtn.style.cssText = 'background:rgba(0,255,136,0.12);border:1px solid rgba(0,255,136,0.25);color:#00ff88;border-radius:20px;font-size:0.8rem;font-weight:600;padding:6px 16px;';
+        aiBtn.innerHTML = '<i class="fa-solid fa-robot" style="margin-right:5px"></i>AI Call';
+        aiBtn.onclick = function() {
+            wrap.remove();
+            _renderMessage('user', 'AI call');
+            info.dial_mode = 'ai';
+            _initiateCall(info);
+        };
+
+        var humanBtn = document.createElement('button');
+        humanBtn.className = 'btn btn-sm';
+        humanBtn.style.cssText = 'background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.25);color:#00d9ff;border-radius:20px;font-size:0.8rem;font-weight:600;padding:6px 16px;';
+        humanBtn.innerHTML = '<i class="fa-solid fa-phone" style="margin-right:5px"></i>I\'ll Talk';
+        humanBtn.onclick = function() {
+            wrap.remove();
+            _renderMessage('user', 'I\'ll talk');
+            info.dial_mode = 'human';
+            _initiateCall(info);
+        };
+
+        wrap.appendChild(aiBtn);
+        wrap.appendChild(humanBtn);
+        container.appendChild(wrap);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function _initiateCall(info) {
+        var mode = info.dial_mode || 'ai';
+        _renderMessage('assistant', 'Calling ' + (info.first_name || 'contact') + ' now...');
+
+        if (typeof dialContact === 'function') {
+            dialContact(info.contact_id, info.phone, info.first_name, mode);
+        } else {
+            fetch('/voice/dial', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contact_id: info.contact_id,
+                    phone: info.phone,
+                    first_name: info.first_name || 'there',
+                    dial_mode: mode,
+                }),
+            }).then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (d.error) _renderMessage('assistant', 'Call failed: ' + d.error);
+            })
+            .catch(function() {
+                _renderMessage('assistant', 'Could not start the call. Check your voice setup.');
+            });
+        }
     }
 
     // ── Markdown-lite renderer ───────────────────────────────────────────────

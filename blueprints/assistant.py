@@ -212,6 +212,16 @@ def assistant_chat():
                         action = tool_result.get("action")
                         if action == "navigate":
                             navigate_tab = tool_result.get("tab_id")
+                        elif action == "ask_call_mode":
+                            # Return choice buttons — frontend renders them
+                            return flask_jsonify({
+                                "text": tool_result.get("message"),
+                                "call_choice": {
+                                    "contact_id": tool_result.get("contact_id"),
+                                    "phone": tool_result.get("phone"),
+                                    "first_name": tool_result.get("first_name"),
+                                },
+                            })
                         elif action == "call":
                             # Return immediately — frontend will initiate the call
                             return flask_jsonify({
@@ -220,6 +230,7 @@ def assistant_chat():
                                     "contact_id": tool_result.get("contact_id"),
                                     "phone": tool_result.get("phone"),
                                     "first_name": tool_result.get("first_name"),
+                                    "dial_mode": tool_result.get("dial_mode", "ai"),
                                 },
                             })
 

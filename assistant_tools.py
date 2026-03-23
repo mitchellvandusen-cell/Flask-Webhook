@@ -183,7 +183,7 @@ def get_assistant_tool_definitions():
             "type": "function",
             "function": {
                 "name": "make_call",
-                "description": "Initiate an outbound phone call to a contact. Requires contact_id and phone number (use search_contact first). The call will start immediately.",
+                "description": "Initiate an outbound phone call to a contact. Requires contact_id and phone number (use search_contact first). If the user hasn't specified whether AI or they should talk, call WITHOUT dial_mode to ask them first.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -198,6 +198,11 @@ def get_assistant_tool_definitions():
                         "first_name": {
                             "type": "string",
                             "description": "Contact's first name"
+                        },
+                        "dial_mode": {
+                            "type": "string",
+                            "enum": ["ai", "human"],
+                            "description": "Who handles the call: 'ai' for AI voice agent, 'human' for the user to talk directly. ONLY set this if the user explicitly chose. Omit to ask them."
                         }
                     },
                     "required": ["contact_id", "phone"]
@@ -524,20 +529,32 @@ def _handle_get_contact_intelligence(args, ctx):
 
 
 def _handle_make_call(args, ctx):
-    """Initiate an outbound call — returns action for frontend to execute."""
+    """Initiate an outbound call — returns action for frontend to show call mode choice."""
     contact_id = args.get("contact_id", "").strip()
     phone = args.get("phone", "").strip()
     first_name = args.get("first_name", "").strip() or "there"
+    dial_mode = args.get("dial_mode", "").strip().lower()
 
     if not contact_id or not phone:
         return {"error": "Both contact_id and phone are required. Search for the contact first."}
+
+    # If no dial_mode specified, ask the user
+    if not dial_mode:
+        return {
+            "action": "ask_call_mode",
+            "contact_id": contact_id,
+            "phone": phone,
+            "first_name": first_name,
+            "message": f"Do you want AI to call {first_name}, or do you want to talk to them yourself?",
+        }
 
     return {
         "action": "call",
         "contact_id": contact_id,
         "phone": phone,
         "first_name": first_name,
-        "message": f"Calling {first_name} at {phone}",
+        "dial_mode": dial_mode,
+        "message": f"Calling {first_name} now...",
     }
 
 
