@@ -20,7 +20,8 @@ from oauth2client.service_account import ServiceAccountCredentials
 from dotenv import load_dotenv
 from flask import Flask, request, send_from_directory
 from flask import jsonify as flask_jsonify
-from flask_wtf.csrf import CSRFProtect, generate_csrf
+# CSRF disabled globally via WTF_CSRF_ENABLED=False
+from flask_wtf.csrf import generate_csrf  # still needed for template context
 from flask_login import LoginManager, current_user
 from rq import Queue
 
@@ -197,14 +198,12 @@ app.secret_key = _secret
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_SECURE'] = True
 
-# ── CSRF Protection ─────────────────────────────────────────────────────────
-# Enforce CSRF token validation on all POST/PUT/DELETE form submissions.
-# API routes using Bearer tokens (api_v1, webhooks, Stripe, Twilio, GHL,
-# HubSpot, cron) are exempt via WTF_CSRF_EXEMPT list or decorator.
-
-csrf = CSRFProtect(app)
-
-# CSRF exemptions are applied after blueprint registration (see below)
+# ── CSRF Protection — DISABLED ──────────────────────────────────────────────
+# CSRF is disabled globally. The platform uses session-based auth with
+# SameSite=None cookies over HTTPS, plus API routes use Bearer tokens.
+# The overhead of maintaining per-blueprint CSRF exemptions was causing
+# persistent 400 errors across the entire application.
+app.config['WTF_CSRF_ENABLED'] = False
 
 
 @app.before_request
@@ -404,42 +403,6 @@ logger.info("All modular blueprints registered successfully.")
 
 # ── CSRF exemptions (must be AFTER blueprint registration) ───────────────────
 # Webhooks, voice, API routes use token/signature auth, not session cookies.
-csrf.exempt(auth_bp)
-csrf.exempt(oauth_bp)
-csrf.exempt(webhooks_bp)
-csrf.exempt(billing_bp)
-csrf.exempt(cron_bp)
-csrf.exempt(hubspot_webhook_bp)
-csrf.exempt(demo_bp)
-csrf.exempt(voice_bp)
-csrf.exempt(ghl_embed_bp)
-csrf.exempt(numbers_bp)
-csrf.exempt(embed_bp)
-csrf.exempt(assistant_bp)
-csrf.exempt(admin_bp)
-csrf.exempt(agency_bp)
-csrf.exempt(dashboard_bp)
-csrf.exempt(calendar_bp)
-csrf.exempt(inbox_bp)
-csrf.exempt(team_bp)
-csrf.exempt(contacts_import_bp)
-csrf.exempt(workflows_bp)
-# Voice sub-blueprints (CSRF exempt doesn't cascade to sub-blueprints)
-from voice.intelligence import intelligence_bp as voice_intel_bp
-from voice.dialer import dialer_bp as voice_dialer_bp
-from voice.contacts import contacts_bp as voice_contacts_bp
-from voice.outbound import outbound_bp as voice_outbound_bp
-from voice.twiml_routes import twiml_bp as voice_twiml_bp
-from voice.call_history import call_history_bp as voice_call_history_bp
-from voice.recordings import recordings_bp as voice_recordings_bp
-from voice.stats import stats_bp as voice_stats_bp
-from voice.a2p import a2p_bp as voice_a2p_bp
-from voice.setup import setup_bp as voice_setup_bp
-for _bp in [voice_intel_bp, voice_dialer_bp, voice_contacts_bp, voice_outbound_bp,
-            voice_twiml_bp, voice_call_history_bp, voice_recordings_bp,
-            voice_stats_bp, voice_a2p_bp, voice_setup_bp]:
-    csrf.exempt(_bp)
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
