@@ -228,23 +228,65 @@
         const chatCloseBtn = document.getElementById('chatCloseBtn');
         const chatSendBtn = document.getElementById('chatSendBtn');
         let currentRequest = null;
+        const STORAGE_KEY = 'igb_chat_history';
+
+        // ── Simple markdown → safe HTML ──────────────────────────────────
+        function renderMarkdown(text) {
+            // Escape HTML entities first (XSS prevention)
+            let s = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            // Bold: **text**
+            s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            // Italic: *text*
+            s = s.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+            // Numbered lists: lines starting with 1. 2. etc
+            s = s.replace(/^(\d+)\.\s+(.+)$/gm, '<div style="padding-left:16px;margin:2px 0;"><strong>$1.</strong> $2</div>');
+            // Bullet lists: lines starting with -
+            s = s.replace(/^[-•]\s+(.+)$/gm, '<div style="padding-left:16px;margin:2px 0;">&#8226; $1</div>');
+            // Line breaks
+            s = s.replace(/\n/g, '<br>');
+            return s;
+        }
+
+        // ── Session persistence ──────────────────────────────────────────
+        function saveHistory() {
+            try {
+                const msgs = [];
+                chatBody.querySelectorAll('.msg').forEach(m => {
+                    const role = m.classList.contains('user') ? 'user' : 'bot';
+                    const content = m.querySelector('.msg-content');
+                    if (content) msgs.push({ role: role, text: content.textContent.trim() });
+                });
+                sessionStorage.setItem(STORAGE_KEY, JSON.stringify(msgs));
+            } catch(e) {}
+        }
+
+        function restoreHistory() {
+            try {
+                const saved = sessionStorage.getItem(STORAGE_KEY);
+                if (!saved) return false;
+                const msgs = JSON.parse(saved);
+                if (!msgs || !msgs.length) return false;
+                msgs.forEach(m => appendMessage(m.role, m.text, null, true));
+                return true;
+            } catch(e) { return false; }
+        }
 
         // Toggle chat open/close
         function toggleChat() {
             chatWindow.classList.toggle('active');
             if (chatWindow.classList.contains('active')) {
-                if (chatBody.children.length === 0) sendMessage("INIT_CHAT", true);
+                if (chatBody.children.length === 0) {
+                    if (!restoreHistory()) sendMessage("INIT_CHAT", true);
+                }
                 chatInput.focus();
             }
         }
 
-        // Event listeners (no inline onclick)
+        // Event listeners
         chatToggleBtn.addEventListener('click', toggleChat);
         chatCloseBtn.addEventListener('click', toggleChat);
         chatSendBtn.addEventListener('click', () => sendMessage());
         chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
-
-        // Keyboard: Escape closes chat
         chatWindow.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggleChat(); });
 
         // Send message with AbortController timeout
@@ -263,7 +305,7 @@
             currentRequest = new AbortController();
             const timeoutId = setTimeout(() => currentRequest.abort(), 30000);
 
-            // Collect conversation history from the DOM for AI context
+            // Collect conversation history from the DOM
             const history = [];
             chatBody.querySelectorAll('.msg').forEach(m => {
                 const role = m.classList.contains('user') ? 'user' : 'assistant';
@@ -286,23 +328,27 @@
             .catch((err) => {
                 if (err.name === 'AbortError') return;
                 typingIndicator.style.display = 'none';
-                appendMessage('bot', "Something went wrong. Please try again.");
+                appendMessage('bot', "We're having a brief hiccup. Try again in a moment, or visit our contact page for help.");
             })
             .finally(() => clearTimeout(timeoutId));
         }
 
-        // Add message to chat — uses textContent instead of innerHTML to prevent XSS
-        function appendMessage(role, text, options = null) {
+        // Add message to chat with markdown rendering
+        function appendMessage(role, text, options, skipSave) {
             if (!text) return;
 
             const existing = Array.from(chatBody.querySelectorAll('.msg-content')).map(m => m.textContent.trim());
             if (existing.includes(text.trim())) return;
 
             const div = document.createElement('div');
-            div.className = `msg ${role} mb-3`;
+            div.className = 'msg ' + role + ' mb-3';
             const content = document.createElement('div');
             content.className = 'msg-content p-3 shadow-sm';
-            content.textContent = text;
+            if (role === 'bot') {
+                content.innerHTML = renderMarkdown(text);
+            } else {
+                content.textContent = text;
+            }
             div.appendChild(content);
             chatBody.appendChild(div);
 
@@ -325,11 +371,30 @@
             }
 
             chatBody.scrollTop = chatBody.scrollHeight;
+            if (!skipSave) saveHistory();
+        }
+
+        // ── Proactive nudge on key pages ─────────────────────────────────
+        function maybeShowNudge() {
+            var nudgePages = ['/comparison', '/#pricing', '/for-agencies', '/for-individuals', '/faq'];
+            var path = window.location.pathname;
+            var hash = window.location.hash;
+            var onNudgePage = nudgePages.some(function(p) { return path === p || (path + hash) === p; });
+            if (!onNudgePage) return;
+            if (sessionStorage.getItem('igb_nudge_shown')) return;
+            setTimeout(function() {
+                if (chatWindow.classList.contains('active')) return;
+                chatToggleBtn.setAttribute('title', 'Have questions? We can help!');
+                chatToggleBtn.classList.add('chat-nudge');
+                sessionStorage.setItem('igb_nudge_shown', '1');
+                setTimeout(function() { chatToggleBtn.classList.remove('chat-nudge'); }, 6000);
+            }, 20000);
         }
 
         // Init on page load
         document.addEventListener("DOMContentLoaded", function() {
             AOS.init({ duration: 1000, once: true, offset: 50 });
+            maybeShowNudge();
 
             // Close mobile nav when a nav link is clicked
             document.querySelectorAll('#navbarNav .nav-link:not(.nav-dropdown-toggle), #navbarNav .nav-btn').forEach(function(link) {

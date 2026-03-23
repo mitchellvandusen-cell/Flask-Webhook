@@ -413,7 +413,7 @@ def _handle_uninstall(payload: dict):
 # Max tool-calling rounds per request (prevents infinite loops)
 _SUPPORT_MAX_TOOL_ROUNDS = 5
 # Model for the support agent
-_SUPPORT_MODEL = "grok-3-fast"
+_SUPPORT_MODEL = "grok-3-mini-fast"
 
 
 @webhooks_bp.route("/website-bot-webhook", methods=["POST"])
@@ -570,7 +570,7 @@ def website_bot_webhook():
                 break
 
     except Exception as e:
-        logger.error(f"Support agent loop failed: {e}", exc_info=True)
+        logger.error(f"Support agent loop failed: {type(e).__name__}: {e}", exc_info=True)
         reply = ""
 
     if not reply:
