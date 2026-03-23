@@ -23,6 +23,7 @@ from db import (
     get_db_connection, return_db_connection, get_db_connection_with_retry,
     User, log_webhook_event, save_persistent_alert,
     mark_install_oauth_complete, find_marketplace_email,
+    get_agency_by_company_id,
 )
 from extensions import ADMIN_EMAILS, YOUR_DOMAIN
 from email_templates import _email_wrapper, _build_welcome_email, _build_agency_owner_welcome_email
@@ -621,11 +622,30 @@ def oauth_callback():
         company_metadata = {}
 
         if company_id and not primary_location_id:
-            # companyId present but no locationId = agency owner install
-            is_agency_owner = True
-            logger.info(f"Agency owner detected: companyId={company_id}, no locationId, token_type={token_user_type_used}")
+            # companyId present but no locationId — COULD be agency owner OR
+            # a regular GHL user with admin access getting a company-scoped token.
+            # CHECK: does an agency owner already exist for this companyId?
+            existing_agency = get_agency_by_company_id(company_id)
 
-            # Capture all available company/owner metadata from GHL
+            if existing_agency and existing_agency.get('agency_email', '').lower() != user_email.lower():
+                # Agency already has an owner and it's NOT this user.
+                # This is an individual agent under that agency, not the owner.
+                is_agency_owner = False
+                logger.info(
+                    f"companyId={company_id} already owned by {existing_agency.get('agency_email')}. "
+                    f"User {user_email} is an individual agent, NOT agency owner."
+                )
+            else:
+                # Either no agency exists yet for this companyId, or THIS user
+                # is the existing agency owner reconnecting. Safe to treat as agency owner.
+                is_agency_owner = True
+                logger.info(
+                    f"Agency owner detected: companyId={company_id}, no locationId, "
+                    f"token_type={token_user_type_used}, "
+                    f"existing_agency={'reconnect' if existing_agency else 'NEW'}"
+                )
+
+            # Capture company metadata regardless (useful for auto-linking)
             company_metadata = {
                 'company_id': company_id,
                 'company_name': None,
@@ -1091,7 +1111,7 @@ def oauth_callback():
             # check if an agency with this companyId exists and auto-set parent_agency_email.
             auto_linked_agency_email = None
             if not use_agency_flow and company_id:
-                from db import get_agency_by_company_id
+
                 agency_row = get_agency_by_company_id(company_id)
                 if agency_row:
                     auto_linked_agency_email = agency_row.get('agency_email')
@@ -1130,6 +1150,33 @@ def oauth_callback():
                 else:
                     role = 'individual'
                 parent_agency_email = user_email if use_agency_flow else auto_linked_agency_email
+
+                # ── CRITICAL: Never overwrite another user's subscriber row ──
+                # Check if this location_id already belongs to a different user.
+                # If so, SKIP — only the location's owner should update their own row.
+                cur.execute(
+                    "SELECT email FROM subscribers WHERE location_id = %s",
+                    (sub_id,)
+                )
+                existing_owner = cur.fetchone()
+                if existing_owner and existing_owner['email'].lower() != user_email.lower():
+                    logger.warning(
+                        f"SKIPPING location {sub_id} — already owned by {existing_owner['email']}, "
+                        f"refusing to overwrite with {user_email}'s data. "
+                        f"Setting parent_agency_email instead."
+                    )
+                    # Only safe update: set parent_agency_email + company_id so
+                    # this agent is linked to the agency without corrupting their data.
+                    if use_agency_flow or auto_linked_agency_email:
+                        _agency_email = user_email if use_agency_flow else auto_linked_agency_email
+                        cur.execute("""
+                            UPDATE subscribers
+                            SET parent_agency_email = COALESCE(%s, parent_agency_email),
+                                company_id = COALESCE(%s, company_id),
+                                updated_at = NOW()
+                            WHERE location_id = %s
+                        """, (_agency_email, company_id, sub_id))
+                    continue
 
                 # Upsert subscriber — try location_id conflict first, fall back to
                 # email conflict if the email already exists with a different location_id.
