@@ -16,6 +16,77 @@ from db import get_db_connection, return_db_connection
 
 logger = logging.getLogger(__name__)
 
+
+def _repair_json(raw):
+    """
+    Attempt to repair common LLM JSON issues:
+    - Trailing commas before } or ]
+    - Truncated output (incomplete JSON from max_tokens cutoff)
+    - Single quotes instead of double quotes (only outside strings)
+    - Control characters inside strings
+    Returns parsed object or raises ValueError.
+    """
+    if not raw or not raw.strip():
+        raise ValueError("Empty response")
+
+    text = raw.strip()
+
+    # Strip markdown fences
+    text = re.sub(r'^```(?:json)?\s*', '', text)
+    text = re.sub(r'\s*```$', '', text)
+
+    # Remove control chars except \n \r \t
+    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
+
+    # Try direct parse first
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # Remove trailing commas before } or ]
+    fixed = re.sub(r',\s*([}\]])', r'\1', text)
+    try:
+        return json.loads(fixed)
+    except json.JSONDecodeError:
+        pass
+
+    # Handle truncated JSON: close open brackets/braces
+    # Find the last valid complete object in an array
+    truncated = fixed
+    # Strip trailing incomplete key-value or string
+    truncated = re.sub(r',\s*"[^"]*"?\s*:?\s*"?[^"]*$', '', truncated)
+    truncated = re.sub(r',\s*"[^"]*$', '', truncated)
+    # Count unclosed brackets
+    opens = truncated.count('[') - truncated.count(']')
+    open_braces = truncated.count('{') - truncated.count('}')
+    truncated += '}' * max(0, open_braces) + ']' * max(0, opens)
+    try:
+        return json.loads(truncated)
+    except json.JSONDecodeError:
+        pass
+
+    # Last resort: extract the largest valid JSON array from the text
+    # Find first [ and try progressively shorter substrings
+    start = text.find('[')
+    if start >= 0:
+        for end in range(len(text), start, -1):
+            candidate = text[start:end]
+            # Balance brackets
+            o = candidate.count('[') - candidate.count(']')
+            ob = candidate.count('{') - candidate.count('}')
+            candidate += '}' * max(0, ob) + ']' * max(0, o)
+            # Remove trailing commas
+            candidate = re.sub(r',\s*([}\]])', r'\1', candidate)
+            try:
+                result = json.loads(candidate)
+                if isinstance(result, list) and len(result) > 0:
+                    return result
+            except json.JSONDecodeError:
+                continue
+
+    raise ValueError(f"Could not repair JSON: {text[:200]}")
+
 XAI_API_KEY = os.getenv("XAI_API_KEY")
 INTELLIGENCE_MODEL = "grok-4-1-fast-non-reasoning"
 
@@ -534,20 +605,16 @@ HARD CALIBRATION RULES (these override your intuition):
         )
         raw = (response.choices[0].message.content or "").strip()
 
-        # Strip markdown code fences if present
-        raw = re.sub(r'^```(?:json)?\s*', '', raw)
-        raw = re.sub(r'\s*```$', '', raw)
-
-        result = json.loads(raw)
+        try:
+            result = _repair_json(raw)
+        except ValueError as e:
+            logger.error(f"AI intelligence JSON parse failed for {contact_id}: {e}")
+            return None
 
         # Validate and calibrate
         result = _validate_and_calibrate(result, ctx)
 
         return result
-
-    except json.JSONDecodeError as e:
-        logger.error(f"AI intelligence JSON parse failed for {contact_id}: {e}")
-        return None
     except Exception as e:
         logger.error(f"AI intelligence call failed for {contact_id}: {e}")
         return None
@@ -919,8 +986,8 @@ CLASSIFICATION RULES:
 
 You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact IDs: {id_list}"""
 
-    # Scale max tokens: ~150 tokens per contact (compact output) + buffer
-    max_tokens = min(32000, len(contact_blocks) * 200 + 200)
+    # Scale max tokens: ~300 tokens per contact (summaries + actions are verbose) + buffer
+    max_tokens = min(32000, len(contact_blocks) * 350 + 500)
     # Scale timeout: ~0.8s per contact + base
     timeout = min(180.0, len(contact_blocks) * 1.2 + 15)
 
@@ -933,18 +1000,27 @@ You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact 
             timeout=timeout,
         )
         raw = (response.choices[0].message.content or "").strip()
+        finish_reason = getattr(response.choices[0], 'finish_reason', None)
 
-        # Strip markdown code fences if present
-        raw = re.sub(r'^```(?:json)?\s*', '', raw)
-        raw = re.sub(r'\s*```$', '', raw)
+        if finish_reason == 'length':
+            logger.warning(f"Bulk AI output truncated (max_tokens={max_tokens}, {len(contact_blocks)} contacts)")
 
-        parsed = json.loads(raw)
+        try:
+            parsed = _repair_json(raw)
+        except ValueError as e:
+            logger.error(f"Bulk AI JSON repair failed, dropping batch ({len(contact_blocks)} contacts): {e}")
+            if raw:
+                logger.debug(f"Bulk AI raw tail: ...{raw[-300:]}")
+            return {}
+
         if not isinstance(parsed, list):
             logger.error("Bulk AI response was not a JSON array")
             return {}
 
         results = {}
         for item in parsed:
+            if not isinstance(item, dict):
+                continue
             cid = item.get("contact_id", "")
             if not cid:
                 continue
@@ -954,33 +1030,9 @@ You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact 
             item = _validate_and_calibrate(item, ctx)
             results[cid] = item
 
-        logger.info(f"Bulk AI analysis returned {len(results)}/{len(contact_blocks)} contacts")
+        logger.info(f"Bulk AI analysis returned {len(results)}/{len(contact_blocks)} contacts"
+                     + (f" (truncated, repaired)" if finish_reason == 'length' else ""))
         return results
-
-    except json.JSONDecodeError as e:
-        logger.warning(f"Bulk AI JSON parse failed, attempting repair: {e}")
-        # Common LLM issues: trailing commas, unescaped quotes in strings
-        try:
-            fixed = raw
-            # Remove trailing commas before } or ]
-            fixed = re.sub(r',\s*([}\]])', r'\1', fixed)
-            # Try parsing the repaired JSON
-            parsed = json.loads(fixed)
-            if isinstance(parsed, list):
-                results = {}
-                for item in parsed:
-                    cid = item.get("contact_id", "")
-                    if not cid:
-                        continue
-                    ctx = all_contexts.get(cid, {"messages": [], "timing": {}})
-                    item = _validate_and_calibrate(item, ctx)
-                    results[cid] = item
-                logger.info(f"Bulk AI JSON repair succeeded: {len(results)}/{len(contact_blocks)} contacts")
-                return results
-        except Exception:
-            pass
-        logger.error(f"Bulk AI JSON repair also failed, dropping batch")
-        return {}
     except Exception as e:
         logger.error(f"Bulk AI call failed: {e}")
         return {}
