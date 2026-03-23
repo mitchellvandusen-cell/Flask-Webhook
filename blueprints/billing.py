@@ -793,8 +793,7 @@ def stripe_webhook():
 
 @billing_bp.route("/checkout")
 def checkout():
-    if request.args.get("consent") != "1":
-        return redirect("/#pricing")
+    # Terms acceptance handled in Stripe Checkout
     try:
         price_id = os.getenv("STRIPE_PRICE_ID")
         if not price_id:
@@ -864,8 +863,7 @@ def checkout():
 @billing_bp.route("/checkout/sms-bot")
 def checkout_sms_bot():
     """SMS Bot plan checkout — AI texting only, no dialer/voice features."""
-    if request.args.get("consent") != "1":
-        return redirect("/#pricing")
+    # Terms acceptance handled in Stripe Checkout
     try:
         price_id = os.getenv("STRIPE_SMS_BOT_PRICE_ID")
         if not price_id:
@@ -923,8 +921,7 @@ def checkout_sms_bot():
 @billing_bp.route("/checkout/pro-dialer")
 def checkout_pro_dialer():
     """Pro Dialer plan checkout — multi-line dialing + predictive features."""
-    if request.args.get("consent") != "1":
-        return redirect("/#pricing")
+    # Terms acceptance handled in Stripe Checkout
     try:
         price_id = os.getenv("STRIPE_PRO_DIALER_PRICE_ID")
         if not price_id:
@@ -998,8 +995,7 @@ def checkout_solo_predictive():
     lines and more than one lead answers, the first call bridges to the human
     and overflow calls bridge to Voice AI which books the appointment.
     """
-    if request.args.get("consent") != "1":
-        return redirect("/#pricing")
+    # Terms acceptance handled in Stripe Checkout
     try:
         price_id = os.getenv("STRIPE_PREDICTIVE_DIALER_PRICE_ID")
         if not price_id:
