@@ -1,0 +1,37 @@
+<!-- Dashboard AI Agent Assistant — persistent footer widget -->
+
+<!-- FAB button (always visible, bottom-right) -->
+<button id="assistantFab" class="assistant-fab" onclick="assistantToggle()" title="Assistant (Ctrl+/)">
+    <i class="fa-solid fa-robot"></i>
+    <span class="assistant-fab-label">Assistant</span>
+    <span id="assistantErrorBadge" class="assistant-error-badge"></span>
+</button>
+
+<!-- Expanded chat panel -->
+<div id="assistantPanel" class="assistant-panel">
+    <div class="assistant-panel-header">
+        <div class="assistant-header-left">
+            <i class="fa-solid fa-robot"></i>
+            <span>Assistant</span>
+        </div>
+        <button class="assistant-header-btn" onclick="assistantToggle()" title="Minimize">
+            <i class="fa-solid fa-minus"></i>
+        </button>
+    </div>
+
+    <div id="assistantMessages" class="assistant-messages"></div>
+
+    <div id="assistantTyping" class="assistant-typing">
+        <div class="assistant-typing-dot"></div>
+        <div class="assistant-typing-dot"></div>
+        <div class="assistant-typing-dot"></div>
+    </div>
+
+    <div class="assistant-composer">
+        <textarea id="assistantInput" rows="1" placeholder="Ask me anything..."
+                  onkeydown="assistantKeydown(event)" maxlength="1000"></textarea>
+        <button onclick="assistantSend()" id="assistantSendBtn" title="Send">
+            <i class="fa-solid fa-paper-plane"></i>
+        </button>
+    </div>
+</div>

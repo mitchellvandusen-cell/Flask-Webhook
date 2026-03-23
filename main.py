@@ -384,6 +384,10 @@ app.register_blueprint(hubspot_card_bp)
 app.register_blueprint(embed_bp)
 app.register_blueprint(ghl_embed_bp)
 
+# Dashboard AI Agent Assistant
+from blueprints.assistant import assistant_bp
+app.register_blueprint(assistant_bp)
+
 logger.info("All modular blueprints registered successfully.")
 
 # ── CSRF exemptions (must be AFTER blueprint registration) ───────────────────
@@ -397,6 +401,7 @@ csrf.exempt(voice_bp)
 csrf.exempt(ghl_embed_bp)
 csrf.exempt(numbers_bp)
 csrf.exempt(embed_bp)
+csrf.exempt(assistant_bp)
 
 
 if __name__ == "__main__":

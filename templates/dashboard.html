@@ -180,6 +180,7 @@
     {% include "dashboard/modals/discord_modal.html" %}
     {% include "dashboard/modals/slack_panel.html" %}
     {% include "dashboard/modals/import_contacts.html" %}
+    {% include "dashboard/modals/assistant.html" %}
 
     <!-- ── Vendor JS ── -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -327,6 +328,9 @@
     {% if is_agency %}
     <script src="{{ url_for('static', filename='js/dashboard/agency.js') }}?v={{ _sv }}"></script>
     {% endif %}
+
+    <!-- ── Dashboard AI Agent Assistant ── -->
+    <script src="{{ url_for('static', filename='js/dashboard/assistant.js') }}?v={{ _sv }}"></script>
 
     <!-- ── PWA: Service Worker Registration + Install Prompt ── -->
     <script src="{{ url_for('static', filename='js/dashboard/pwa.js') }}?v={{ _sv }}"></script>
