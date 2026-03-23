@@ -192,23 +192,7 @@ app.config['SESSION_COOKIE_SECURE'] = True
 
 csrf = CSRFProtect(app)
 
-# Exempt routes that use token/signature auth instead of session cookies
-csrf.exempt("api_v1.api_bp")
-csrf.exempt("webhooks_bp")
-csrf.exempt("billing_bp.stripe_webhook")
-csrf.exempt("cron_bp.api_send_reminders")
-csrf.exempt("cron_bp.api_refresh_tokens")
-csrf.exempt("cron_bp.api_recover_failed_webhooks")
-csrf.exempt("cron_bp.api_backfill_failed_webhooks")
-csrf.exempt("cron_bp.api_sync_ghl_data")
-csrf.exempt("hubspot_webhook_bp.hubspot_webhook")
-csrf.exempt("demo_bp.demo_chat_api")
-csrf.exempt("demo_bp.demo_init")
-csrf.exempt("demo_bp.demo_reset")
-csrf.exempt("demo_bp.api_demo_reset")
-csrf.exempt("voice_bp")
-csrf.exempt("ghl_embed_bp")
-csrf.exempt("numbers_bp")
+# CSRF exemptions are applied after blueprint registration (see below)
 
 
 @app.before_request
@@ -401,6 +385,18 @@ app.register_blueprint(embed_bp)
 app.register_blueprint(ghl_embed_bp)
 
 logger.info("All modular blueprints registered successfully.")
+
+# ── CSRF exemptions (must be AFTER blueprint registration) ───────────────────
+# Webhooks, voice, API routes use token/signature auth, not session cookies.
+csrf.exempt(webhooks_bp)
+csrf.exempt(billing_bp)
+csrf.exempt(cron_bp)
+csrf.exempt(hubspot_webhook_bp)
+csrf.exempt(demo_bp)
+csrf.exempt(voice_bp)
+csrf.exempt(ghl_embed_bp)
+csrf.exempt(numbers_bp)
+csrf.exempt(embed_bp)
 
 
 if __name__ == "__main__":
