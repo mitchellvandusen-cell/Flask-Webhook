@@ -235,6 +235,87 @@ def get_assistant_tool_definitions():
                 }
             }
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "query_call_history",
+                "description": "Search call history with filters. Use for: 'show calls over 5 minutes', 'did anyone call me today?', 'missed calls', 'who did I talk to longest?', 'show my recordings', 'inbound calls today'. Returns call records with contact name, duration, direction, and status.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "period": {"type": "string", "enum": ["today", "yesterday", "week", "month", "all"], "description": "Time period. Default: today"},
+                        "direction": {"type": "string", "enum": ["inbound", "outbound", "all"], "description": "Call direction filter. Default: all"},
+                        "min_duration_seconds": {"type": "integer", "description": "Minimum call duration in seconds (e.g. 300 for 5 minutes)"},
+                        "status": {"type": "string", "enum": ["completed", "no-answer", "busy", "failed", "all"], "description": "Call status filter. Use 'no-answer' for missed calls. Default: all"},
+                        "has_recording": {"type": "boolean", "description": "Only show calls with recordings"},
+                        "sort": {"type": "string", "enum": ["duration_desc", "duration_asc", "recent", "oldest"], "description": "Sort order. Default: recent"},
+                        "limit": {"type": "integer", "description": "Max results (default 10, max 50)"}
+                    },
+                    "required": []
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_hot_leads",
+                "description": "Get the user's hottest leads ranked by AI intelligence score. Use for: 'who should I call first?', 'show my hottest leads', 'who's ready to buy?', 'priority leads', 'best leads to call'. Returns contacts sorted by temperature and score.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "temperature": {"type": "string", "enum": ["hot", "warm", "cool", "cold", "all"], "description": "Filter by AI temperature. Default: hot"},
+                        "limit": {"type": "integer", "description": "Max results (default 10, max 30)"},
+                        "should_respond_only": {"type": "boolean", "description": "Only show leads where AI says you should respond now. Default: false"}
+                    },
+                    "required": []
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_upcoming_appointments",
+                "description": "Check upcoming appointments on the user's calendar. Use for: 'what's on my calendar today?', 'do I have appointments tomorrow?', 'when's my next call?', 'show my schedule'.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "days_ahead": {"type": "integer", "description": "Days to look ahead (default 1, max 7)"}
+                    },
+                    "required": []
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_recent_messages",
+                "description": "Get recent SMS messages. Use for: 'who texted me?', 'any new messages?', 'show texts from today', 'who responded?', 'unread messages', 'did anyone reply?'. Returns recent inbound messages with contact info.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "direction": {"type": "string", "enum": ["inbound", "outbound", "all"], "description": "Message direction. Use 'inbound' for 'who texted me'. Default: inbound"},
+                        "period": {"type": "string", "enum": ["today", "yesterday", "week"], "description": "Time period. Default: today"},
+                        "limit": {"type": "integer", "description": "Max results (default 10, max 30)"}
+                    },
+                    "required": []
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_stale_leads",
+                "description": "Find leads that haven't been contacted recently. Use for: 'who hasn't been contacted in a week?', 'stale leads', 'leads going cold', 'who needs follow up?', 'neglected contacts', 'who should I follow up with?'.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "days_since_contact": {"type": "integer", "description": "Minimum days since last contact (default 7)"},
+                        "limit": {"type": "integer", "description": "Max results (default 15, max 50)"}
+                    },
+                    "required": []
+                }
+            }
+        },
     ]
 
 
@@ -710,6 +791,361 @@ def _handle_queue_dial_session(args, ctx):
     }
 
 
+def _handle_query_call_history(args, ctx):
+    """Query call history with flexible filters."""
+    from db import get_db_connection, return_db_connection
+
+    period = args.get("period", "today")
+    direction = args.get("direction", "all")
+    min_dur = args.get("min_duration_seconds", 0)
+    status = args.get("status", "all")
+    has_rec = args.get("has_recording", False)
+    sort = args.get("sort", "recent")
+    limit = min(args.get("limit", 10), 50)
+
+    location_id = ctx["location_id"]
+
+    # Build date filter
+    date_filters = {
+        "today": "AND ch.created_at >= CURRENT_DATE",
+        "yesterday": "AND ch.created_at >= CURRENT_DATE - INTERVAL '1 day' AND ch.created_at < CURRENT_DATE",
+        "week": "AND ch.created_at >= CURRENT_DATE - INTERVAL '7 days'",
+        "month": "AND ch.created_at >= CURRENT_DATE - INTERVAL '30 days'",
+        "all": "",
+    }
+    date_sql = date_filters.get(period, "")
+
+    wheres = [f"ch.location_id = %s {date_sql}"]
+    params = [location_id]
+
+    if direction != "all":
+        wheres.append("ch.direction = %s")
+        params.append(direction)
+    if min_dur > 0:
+        wheres.append("ch.duration >= %s")
+        params.append(min_dur)
+    if status != "all":
+        wheres.append("ch.status = %s")
+        params.append(status)
+    if has_rec:
+        wheres.append("ch.recording_url IS NOT NULL AND ch.recording_url != ''")
+
+    sort_map = {
+        "duration_desc": "ch.duration DESC NULLS LAST",
+        "duration_asc": "ch.duration ASC NULLS LAST",
+        "recent": "ch.created_at DESC",
+        "oldest": "ch.created_at ASC",
+    }
+    order = sort_map.get(sort, "ch.created_at DESC")
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(f"""
+            SELECT ch.contact_name, ch.phone_number, ch.direction, ch.status,
+                   ch.duration, ch.created_at, ch.contact_id,
+                   CASE WHEN ch.recording_url IS NOT NULL AND ch.recording_url != '' THEN true ELSE false END as has_recording,
+                   CASE WHEN ch.transcript IS NOT NULL AND ch.transcript != '' THEN true ELSE false END as has_transcript
+            FROM call_history ch
+            WHERE {' AND '.join(wheres)}
+            ORDER BY {order}
+            LIMIT %s
+        """, params + [limit])
+
+        rows = cur.fetchall()
+        cur.close()
+
+        calls = []
+        for r in rows:
+            dur = r[4] or 0
+            mins = dur // 60
+            secs = dur % 60
+            calls.append({
+                "name": r[0] or "Unknown",
+                "phone": r[1] or "",
+                "direction": r[2] or "outbound",
+                "status": r[3] or "unknown",
+                "duration": f"{mins}m {secs}s" if mins > 0 else f"{secs}s",
+                "duration_seconds": dur,
+                "time": str(r[5])[:16] if r[5] else "",
+                "contact_id": r[6] or "",
+                "has_recording": r[7],
+                "has_transcript": r[8],
+            })
+
+        if not calls:
+            return {"count": 0, "message": "No calls found matching your criteria."}
+
+        return {"count": len(calls), "calls": calls}
+
+    except Exception as e:
+        logger.error(f"Call history query failed: {e}")
+        return {"error": "Could not query call history."}
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
+def _handle_get_hot_leads(args, ctx):
+    """Get leads ranked by AI intelligence score."""
+    from db import get_db_connection, return_db_connection
+
+    temperature = args.get("temperature", "hot")
+    limit = min(args.get("limit", 10), 30)
+    respond_only = args.get("should_respond_only", False)
+
+    location_id = ctx["location_id"]
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Join contact_intelligence with contact_cache for names/phones
+        wheres = ["cc.location_id = %s", "ci.analysis IS NOT NULL"]
+        params = [location_id]
+
+        if temperature != "all":
+            wheres.append("ci.analysis->>'temperature' = %s")
+            params.append(temperature)
+
+        if respond_only:
+            wheres.append("(ci.analysis->>'should_respond')::boolean = true")
+
+        cur.execute(f"""
+            SELECT cc.contact_id, cc.first_name, cc.last_name, cc.phone, cc.email,
+                   ci.analysis->>'temperature' as temperature,
+                   (ci.analysis->>'score')::int as score,
+                   ci.analysis->>'summary' as summary,
+                   (ci.analysis->>'should_respond')::boolean as should_respond,
+                   ci.analysis->>'should_respond_reason' as respond_reason
+            FROM contact_cache cc
+            JOIN contact_intelligence ci ON ci.contact_id = cc.contact_id
+            WHERE {' AND '.join(wheres)}
+            ORDER BY (ci.analysis->>'score')::int DESC NULLS LAST
+            LIMIT %s
+        """, params + [limit])
+
+        rows = cur.fetchall()
+        cur.close()
+
+        leads = []
+        for r in rows:
+            leads.append({
+                "contact_id": r[0],
+                "name": f"{r[1] or ''} {r[2] or ''}".strip() or "Unknown",
+                "phone": r[3] or "",
+                "email": r[4] or "",
+                "temperature": r[5] or "unknown",
+                "score": r[6] or 0,
+                "summary": r[7] or "",
+                "should_respond": r[8],
+                "respond_reason": r[9] or "",
+            })
+
+        if not leads:
+            return {"count": 0, "message": f"No {temperature} leads found."}
+
+        return {"count": len(leads), "leads": leads}
+
+    except Exception as e:
+        logger.error(f"Hot leads query failed: {e}")
+        return {"error": "Could not fetch leads."}
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
+def _handle_get_upcoming_appointments(args, ctx):
+    """Fetch upcoming appointments from GHL calendar."""
+    days_ahead = min(args.get("days_ahead", 1), 7)
+    access_token = ctx["access_token"]
+    location_id = ctx["location_id"]
+    cal_id = ctx.get("calendar_id")
+    tz_str = ctx.get("timezone", "America/Chicago")
+
+    if not cal_id:
+        return {"error": "No calendar configured. Set one up in Bot Config."}
+    if not access_token:
+        return {"error": "No CRM connection."}
+
+    from datetime import datetime, timedelta, timezone
+    now_utc = datetime.now(timezone.utc)
+    start_ts = int(now_utc.timestamp() * 1000)
+    end_ts = int((now_utc + timedelta(days=days_ahead)).timestamp() * 1000)
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Version": "2021-07-28",
+    }
+
+    try:
+        resp = requests.get(
+            f"https://services.leadconnectorhq.com/calendars/events",
+            headers=headers,
+            params={"locationId": location_id, "calendarId": cal_id, "startTime": start_ts, "endTime": end_ts},
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return {"error": "Could not fetch calendar events."}
+
+        events = resp.json().get("events", [])
+        if not events:
+            return {"count": 0, "message": f"No appointments in the next {days_ahead} day{'s' if days_ahead > 1 else ''}."}
+
+        appointments = []
+        for ev in events[:20]:
+            appointments.append({
+                "title": ev.get("title") or ev.get("name") or "Appointment",
+                "start": ev.get("startTime", ""),
+                "end": ev.get("endTime", ""),
+                "contact_name": ev.get("contact", {}).get("name") or ev.get("contactName") or "",
+                "status": ev.get("appointmentStatus") or ev.get("status") or "",
+            })
+
+        return {"count": len(appointments), "appointments": appointments}
+
+    except Exception as e:
+        logger.error(f"Calendar events fetch failed: {e}")
+        return {"error": "Could not fetch appointments."}
+
+
+def _handle_get_recent_messages(args, ctx):
+    """Get recent SMS messages."""
+    from db import get_db_connection, return_db_connection
+
+    direction = args.get("direction", "inbound")
+    period = args.get("period", "today")
+    limit = min(args.get("limit", 10), 30)
+    location_id = ctx["location_id"]
+
+    date_filters = {
+        "today": "AND cm.created_at >= CURRENT_DATE",
+        "yesterday": "AND cm.created_at >= CURRENT_DATE - INTERVAL '1 day' AND cm.created_at < CURRENT_DATE",
+        "week": "AND cm.created_at >= CURRENT_DATE - INTERVAL '7 days'",
+    }
+    date_sql = date_filters.get(period, "AND cm.created_at >= CURRENT_DATE")
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        dir_filter = ""
+        if direction == "inbound":
+            dir_filter = "AND cm.direction = 'inbound'"
+        elif direction == "outbound":
+            dir_filter = "AND cm.direction = 'outbound'"
+
+        cur.execute(f"""
+            SELECT cm.contact_id, cm.message, cm.direction, cm.created_at,
+                   cc.first_name, cc.last_name, cc.phone
+            FROM contact_messages cm
+            LEFT JOIN contact_cache cc ON cc.contact_id = cm.contact_id AND cc.location_id = %s
+            WHERE cm.location_id = %s {date_sql} {dir_filter}
+            ORDER BY cm.created_at DESC
+            LIMIT %s
+        """, (location_id, location_id, limit))
+
+        rows = cur.fetchall()
+        cur.close()
+
+        messages = []
+        for r in rows:
+            messages.append({
+                "contact_id": r[0] or "",
+                "message": (r[1] or "")[:150],
+                "direction": r[2] or "inbound",
+                "time": str(r[3])[:16] if r[3] else "",
+                "name": f"{r[4] or ''} {r[5] or ''}".strip() or "Unknown",
+                "phone": r[6] or "",
+            })
+
+        if not messages:
+            dir_label = {"inbound": "inbound", "outbound": "outbound", "all": ""}
+            return {"count": 0, "message": f"No {dir_label.get(direction, '')} messages found for {period}."}
+
+        return {"count": len(messages), "messages": messages}
+
+    except Exception as e:
+        logger.error(f"Messages query failed: {e}")
+        return {"error": "Could not fetch messages."}
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
+def _handle_get_stale_leads(args, ctx):
+    """Find leads that haven't been contacted recently."""
+    from db import get_db_connection, return_db_connection
+
+    days = args.get("days_since_contact", 7)
+    limit = min(args.get("limit", 15), 50)
+    location_id = ctx["location_id"]
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Find contacts in cache that have NO recent call or message
+        cur.execute("""
+            SELECT cc.contact_id, cc.first_name, cc.last_name, cc.phone, cc.email,
+                   ci.analysis->>'temperature' as temperature,
+                   (ci.analysis->>'score')::int as score,
+                   ci.analysis->>'summary' as summary,
+                   GREATEST(
+                       (SELECT MAX(created_at) FROM call_history WHERE contact_id = cc.contact_id),
+                       (SELECT MAX(created_at) FROM contact_messages WHERE contact_id = cc.contact_id)
+                   ) as last_contact
+            FROM contact_cache cc
+            LEFT JOIN contact_intelligence ci ON ci.contact_id = cc.contact_id
+            WHERE cc.location_id = %s
+              AND cc.phone IS NOT NULL AND cc.phone != ''
+              AND NOT EXISTS (
+                  SELECT 1 FROM call_history ch
+                  WHERE ch.contact_id = cc.contact_id
+                    AND ch.created_at >= CURRENT_DATE - INTERVAL '%s days'
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM contact_messages cm
+                  WHERE cm.contact_id = cc.contact_id
+                    AND cm.created_at >= CURRENT_DATE - INTERVAL '%s days'
+              )
+            ORDER BY last_contact ASC NULLS FIRST
+            LIMIT %s
+        """, (location_id, days, days, limit))
+
+        rows = cur.fetchall()
+        cur.close()
+
+        leads = []
+        for r in rows:
+            leads.append({
+                "contact_id": r[0],
+                "name": f"{r[1] or ''} {r[2] or ''}".strip() or "Unknown",
+                "phone": r[3] or "",
+                "email": r[4] or "",
+                "temperature": r[5] or "unknown",
+                "score": r[6] or 0,
+                "summary": r[7] or "",
+                "last_contact": str(r[8])[:10] if r[8] else "Never",
+            })
+
+        if not leads:
+            return {"count": 0, "message": f"All your leads have been contacted within the last {days} days. Nice work!"}
+
+        return {"count": len(leads), "leads": leads}
+
+    except Exception as e:
+        logger.error(f"Stale leads query failed: {e}")
+        return {"error": "Could not fetch stale leads."}
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
 # ── Tool handler registry ────────────────────────────────────────────────────
 
 _TOOL_HANDLERS = {
@@ -722,4 +1158,9 @@ _TOOL_HANDLERS = {
     "get_contact_intelligence": _handle_get_contact_intelligence,
     "make_call": _handle_make_call,
     "queue_dial_session": _handle_queue_dial_session,
+    "query_call_history": _handle_query_call_history,
+    "get_hot_leads": _handle_get_hot_leads,
+    "get_upcoming_appointments": _handle_get_upcoming_appointments,
+    "get_recent_messages": _handle_get_recent_messages,
+    "get_stale_leads": _handle_get_stale_leads,
 }
