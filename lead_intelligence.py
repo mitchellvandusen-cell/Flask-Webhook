@@ -17,6 +17,44 @@ from db import get_db_connection, return_db_connection
 logger = logging.getLogger(__name__)
 
 
+def _single_to_double_quotes(text):
+    """Convert single-quoted JSON to double-quoted JSON, handling nested quotes."""
+    result = []
+    in_str = False
+    str_char = None
+    i = 0
+    while i < len(text):
+        c = text[i]
+        if not in_str:
+            if c == "'":
+                result.append('"')
+                in_str = True
+                str_char = "'"
+            elif c == '"':
+                result.append('"')
+                in_str = True
+                str_char = '"'
+            else:
+                result.append(c)
+        else:
+            if c == '\\':
+                result.append(c)
+                if i + 1 < len(text):
+                    result.append(text[i + 1])
+                    i += 1
+            elif c == str_char:
+                result.append('"')
+                in_str = False
+                str_char = None
+            elif c == '"' and str_char == "'":
+                # Escape double quote inside single-quoted string
+                result.append('\\"')
+            else:
+                result.append(c)
+        i += 1
+    return ''.join(result)
+
+
 def _repair_json(raw):
     """
     Attempt to repair common LLM JSON issues:
@@ -24,6 +62,7 @@ def _repair_json(raw):
     - Trailing commas before } or ]
     - Truncated output (incomplete JSON from max_tokens cutoff)
     - Control characters inside strings
+    - Single-quoted JSON
     Returns parsed object or raises ValueError.
     """
     if not raw or not raw.strip():
@@ -37,6 +76,10 @@ def _repair_json(raw):
 
     # Remove control chars except \n \r \t
     text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
+
+    # Strip JS-style line comments (// ...) that LLMs sometimes add outside strings
+    # Only strip if line starts with optional whitespace + // (avoids URLs inside values)
+    text = re.sub(r'^\s*//[^\n]*$', '', text, flags=re.MULTILINE)
 
     # Strip text preamble before first [ or {
     first_bracket = len(text)
@@ -52,6 +95,15 @@ def _repair_json(raw):
         return json.loads(text)
     except json.JSONDecodeError:
         pass
+
+    # Handle single-quoted JSON (LLMs sometimes output {'key': 'value'})
+    # Only attempt if single quotes are present and double quotes are scarce
+    if "'" in text and text.count("'") > text.count('"'):
+        try:
+            dq = _single_to_double_quotes(text)
+            return json.loads(dq)
+        except (json.JSONDecodeError, ValueError):
+            pass
 
     # Remove trailing commas before } or ]
     fixed = re.sub(r',\s*([}\]])', r'\1', text)
@@ -685,6 +737,14 @@ HARD CALIBRATION RULES (these override your intuition):
             )
             raw = (response.choices[0].message.content or "").strip()
 
+            # Degenerate response — empty or tiny
+            if not raw or len(raw) < 10:
+                if attempt == 0:
+                    logger.warning(f"AI intelligence returned empty/tiny response for {contact_id} ({len(raw) if raw else 0} chars), retrying")
+                    continue
+                logger.error(f"AI intelligence returned empty/tiny response for {contact_id} after retry: {raw!r}")
+                return None
+
             try:
                 result = _repair_json(raw)
             except ValueError as e:
@@ -694,8 +754,7 @@ HARD CALIBRATION RULES (these override your intuition):
                         logger.debug(f"AI raw response for {contact_id}: {raw[:300]}")
                     continue
                 logger.error(f"AI intelligence JSON parse failed for {contact_id}: {e}")
-                if raw:
-                    logger.debug(f"AI raw response for {contact_id}: {raw[:300]}")
+                logger.error(f"AI raw response for {contact_id}: {raw[:300]}")
                 return None
 
             # Validate and calibrate
@@ -1172,6 +1231,14 @@ You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact 
             raw = (response.choices[0].message.content or "").strip()
             finish_reason = getattr(response.choices[0], 'finish_reason', None)
 
+            # Degenerate response — empty, tiny, or clearly not JSON
+            if not raw or len(raw) < 20:
+                if attempt == 0:
+                    logger.warning(f"Bulk AI returned empty/tiny response ({len(raw) if raw else 0} chars), retrying")
+                    continue
+                logger.error(f"Bulk AI returned empty/tiny response after retry ({len(raw) if raw else 0} chars): {raw!r}")
+                return {}
+
             if finish_reason == 'length':
                 logger.warning(f"Bulk AI output truncated (max_tokens={max_tokens}, {len(contact_blocks)} contacts)")
 
@@ -1185,12 +1252,10 @@ You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact 
                     return partial
                 if attempt == 0:
                     logger.warning(f"Bulk AI JSON repair failed (retrying batch, {len(contact_blocks)} contacts): {e}")
-                    if raw:
-                        logger.warning(f"Bulk AI raw (first 500 chars): {raw[:500]}")
+                    logger.warning(f"Bulk AI raw (first 500 chars): {raw[:500]}")
                     continue
                 logger.error(f"Bulk AI JSON repair failed, dropping batch ({len(contact_blocks)} contacts): {e}")
-                if raw:
-                    logger.warning(f"Bulk AI raw (first 500 chars): {raw[:500]}")
+                logger.error(f"Bulk AI raw response (first 500 chars): {raw[:500]}")
                 return {}
 
             # Extract results array from wrapper object if needed
@@ -1261,10 +1326,10 @@ def bulk_analyze_and_cache(location_id, contact_ids):
     if not contact_blocks:
         return 0
 
-    # Process in sub-batches of 10 per LLM call, run up to 10 concurrently
+    # Process in sub-batches of 5 per LLM call, run up to 10 concurrently
     # Smaller batches = less truncation risk = more reliable JSON parsing
-    # 1000 contacts = 100 sub-batches / 10 concurrent = 10 rounds * ~5s = ~50s total
-    SUB_BATCH = 10
+    # 1000 contacts = 200 sub-batches / 10 concurrent = 20 rounds * ~3s = ~60s total
+    SUB_BATCH = 5
     MAX_CONCURRENT = 10
     total_analyzed = 0
 
