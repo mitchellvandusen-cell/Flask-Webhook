@@ -71,6 +71,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s | %(levelname)s | %(name)s | %(message)s',
     handlers=[_handler],
+    force=True,
 )
 logger = logging.getLogger(__name__)
 

@@ -8,7 +8,6 @@ import psycopg2
 from psycopg2.extras import execute_values
 from db import get_db_connection, return_db_connection
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 SHEET_CSV_URL = os.getenv("SUBSCRIBER_SHEET_URL")
