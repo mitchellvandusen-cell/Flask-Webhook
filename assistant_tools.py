@@ -1249,7 +1249,7 @@ def _handle_get_upcoming_appointments(args, ctx):
     tz_str = ctx.get("timezone", "America/Chicago")
 
     if not cal_id:
-        return {"error": "No calendar configured. Set one up in Bot Config."}
+        return {"error": "No calendar configured. Set one in Bot Config → Calendar."}
 
     # Use get_valid_token for proper decryption + refresh
     from ghl_api import get_valid_token
@@ -1267,14 +1267,18 @@ def _handle_get_upcoming_appointments(args, ctx):
 
     headers = {
         "Authorization": f"Bearer {access_token}",
-        "Version": "2021-07-28",
-        "Content-Type": "application/json",
+        "Version": "2021-04-15",
     }
+
+    # Try millisecond timestamps first (GHL primary format per docs)
+    start_ms = int(start_dt.astimezone(timezone.utc).timestamp() * 1000)
+    end_ms = int(end_dt.astimezone(timezone.utc).timestamp() * 1000)
+
     params = {
         "locationId": location_id,
         "calendarId": cal_id,
-        "startTime": start_dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
-        "endTime": end_dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+        "startTime": str(start_ms),
+        "endTime": str(end_ms),
     }
 
     try:
@@ -1284,11 +1288,27 @@ def _handle_get_upcoming_appointments(args, ctx):
             params=params,
             timeout=15,
         )
+        logger.info(f"Calendar events response: {resp.status_code} for {location_id} cal={cal_id}")
+
+        # If millisecond format fails, retry with ISO string format
+        if resp.status_code == 400:
+            logger.info("Calendar: retrying with ISO datetime format")
+            headers["Version"] = "2021-07-28"
+            params["startTime"] = start_dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+            params["endTime"] = end_dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+            resp = requests.get(
+                "https://services.leadconnectorhq.com/calendars/events",
+                headers=headers,
+                params=params,
+                timeout=15,
+            )
+            logger.info(f"Calendar events retry: {resp.status_code}")
+
         if resp.status_code in (401, 403):
             return {"error": "CRM connection expired. Reconnect in Bot Config."}
         if resp.status_code != 200:
-            logger.warning(f"Calendar events {resp.status_code}: {resp.text[:200]}")
-            return {"error": "Could not fetch calendar events."}
+            logger.warning(f"Calendar events {resp.status_code}: {resp.text[:300]}")
+            return {"error": f"Calendar API returned {resp.status_code}. Check your calendar configuration."}
 
         data = resp.json()
         raw_events = data.get("events", [])
