@@ -1371,15 +1371,22 @@ def spam_protection_status():
                 try:
                     profiles = twilio_provisioning.discover_trust_hub_profiles(
                         sub_sid, sub_auth_token)
-                    approved = [p for p in profiles if p.get('status', '').lower() in
-                                ('twilio-approved', 'compliant', 'approved')]
-                    if approved:
+                    # Accept any profile that exists on this sub-account and isn't rejected.
+                    # Profiles in draft/pending-review/in-review are legitimate — they just
+                    # haven't been approved yet. Only clear if NO profiles exist at all
+                    # (meaning the registration was on the wrong account).
+                    _VALID_STATUSES = ('twilio-approved', 'compliant', 'approved',
+                                       'in-review', 'pending-review', 'draft')
+                    valid = [p for p in profiles if p.get('status', '').lower() in _VALID_STATUSES]
+                    if valid:
                         trust_hub['_validated'] = True
+                        # Store the live status so the UI can reflect reality
+                        trust_hub['review_status'] = valid[0].get('status', '')
                         vc['trust_hub'] = trust_hub
                         _save_voice_config(current_user.email, vc)
                     else:
                         logger.warning(
-                            f"[spam-protection] No approved profiles on sub {sub_sid}; "
+                            f"[spam-protection] No profiles on sub {sub_sid}; "
                             "clearing cross-account trust_hub data"
                         )
                         for k in ('protection_active', 'profile_sid', 'business_name',
@@ -1411,24 +1418,28 @@ def spam_protection_status():
     cnam = (vc or {}).get('cnam', {})
     cnam_tp_submitted = cnam.get('status', '') in ('pending-review', 'in-review', 'twilio-approved', 'approved')
     cnam_assigned_sids = set(cnam.get('assigned_numbers', []))
-    profile_validated = protection_active and trust_hub.get('_validated', False)
+    # _validated means profile EXISTS on this sub-account (not cross-account contamination).
+    # profile_approved means Twilio has actually approved the profile.
+    profile_exists = protection_active and trust_hub.get('_validated', False)
+    review_st = trust_hub.get('review_status', '')
+    profile_approved = profile_exists and review_st in ('twilio-approved', 'compliant', 'approved')
 
     # Voice Integrity: numbers assigned to an approved/pending VI Trust Product
     ni = (vc or {}).get('number_integrity', {})
     vi_active = ni.get('status', '') in ('pending-review', 'in-review', 'twilio-approved', 'approved')
     vi_assigned_sids = set(ni.get('assigned_numbers', [])) if vi_active else set()
 
-    # STIR/SHAKEN: when profile is approved, ALL numbers on the account get full attestation.
-    # The profile approval + STIR/SHAKEN status means every number is protected.
-    stir_shaken_active = profile_validated
+    # STIR/SHAKEN: when profile is APPROVED, ALL numbers on the account get full attestation.
+    # Profile under review does NOT grant protection yet.
+    stir_shaken_active = profile_approved
 
     numbers_detail = []
     protected_count = 0
     for n in status.get('numbers', []):
         phone = n.get('phone', '')
         sid = n.get('sid', '')
-        # Number is protected if covered by ANY active protection mechanism
-        cnam_protected = profile_validated and cnam_tp_submitted and sid in cnam_assigned_sids
+        # Number is protected if covered by ANY active APPROVED protection mechanism
+        cnam_protected = profile_approved and cnam_tp_submitted and sid in cnam_assigned_sids
         vi_protected = sid in vi_assigned_sids
         is_protected = cnam_protected or vi_protected or stir_shaken_active
         if is_protected:
@@ -1482,7 +1493,7 @@ def spam_protection_status():
         "numbers_protected": protected_count,
         "numbers_total": len(numbers_detail),
         "numbers": numbers_detail,
-        "stir_shaken": "active",
+        "stir_shaken": "active" if profile_approved else ("pending" if profile_exists else "inactive"),
         "auto_cnam": trust_hub.get('auto_cnam', False),
         "profile_sid": profile_sid,
         "review_status": profile_review_status,

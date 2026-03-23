@@ -205,21 +205,46 @@
                     return;
                 }
 
-                // Show status banner if protection is active
+                // Show status banner if protection has been submitted
                 if (d.protection_active && statusEl) {
                     statusEl.style.display = 'block';
-                    // Profile review status badge
-                    var reviewBadge = '';
                     var rs = d.review_status || '';
-                    if (rs === 'twilio-approved' || rs === 'compliant') {
-                        reviewBadge = ' &bull; <span style="color:#00ff88;">Profile Approved</span>';
-                    } else if (rs === 'pending-review' || rs === 'in-review') {
-                        reviewBadge = ' &bull; <span style="color:#ffa500;">Profile Under Review</span>';
-                    } else if (rs === 'twilio-rejected' || rs === 'noncompliant') {
-                        reviewBadge = ' &bull; <span style="color:#ef4444;">Profile Needs Attention</span>';
-                    } else if (rs === 'draft') {
-                        reviewBadge = ' &bull; <span style="color:#888;">Profile Draft</span>';
+                    var isApproved = (rs === 'twilio-approved' || rs === 'compliant');
+                    var isPending = (rs === 'pending-review' || rs === 'in-review');
+                    var isRejected = (rs === 'twilio-rejected' || rs === 'noncompliant');
+                    var isDraft = (rs === 'draft');
+
+                    // Dynamic banner colors based on REAL Twilio status
+                    var bannerColor, bannerBg, bannerBorder, iconClass, statusLabel;
+                    if (isApproved) {
+                        bannerColor = '#00ff88'; bannerBg = 'rgba(0,255,136,0.06)'; bannerBorder = 'rgba(0,255,136,0.2)';
+                        iconClass = 'fa-solid fa-shield-halved'; statusLabel = 'Spam Protection Active';
+                    } else if (isPending) {
+                        bannerColor = '#ffa500'; bannerBg = 'rgba(255,165,0,0.06)'; bannerBorder = 'rgba(255,165,0,0.2)';
+                        iconClass = 'fa-solid fa-clock'; statusLabel = 'Profile Under Review';
+                    } else if (isRejected) {
+                        bannerColor = '#ef4444'; bannerBg = 'rgba(239,68,68,0.06)'; bannerBorder = 'rgba(239,68,68,0.2)';
+                        iconClass = 'fa-solid fa-triangle-exclamation'; statusLabel = 'Profile Rejected — Needs Attention';
+                    } else {
+                        bannerColor = '#888'; bannerBg = 'rgba(255,255,255,0.03)'; bannerBorder = 'rgba(255,255,255,0.08)';
+                        iconClass = 'fa-solid fa-shield'; statusLabel = 'Profile Submitted';
                     }
+
+                    // Status detail line
+                    var statusDetail = '<strong>' + _esc(d.business_name) + '</strong>';
+                    if (isApproved) {
+                        statusDetail += ' &mdash; ' + d.numbers_protected + '/' + d.numbers_total + ' numbers protected';
+                        statusDetail += (d.auto_cnam ? ' &bull; Auto-protect ON' : '');
+                        statusDetail += ' &bull; STIR/SHAKEN A';
+                    } else if (isPending) {
+                        statusDetail += ' &mdash; Twilio is reviewing your business profile. This can take a few hours to a few days.';
+                    } else if (isRejected) {
+                        statusDetail += ' &mdash; Twilio rejected your profile. Edit your info below and re-submit.';
+                    } else {
+                        statusDetail += ' &mdash; Profile submitted, awaiting review.';
+                    }
+                    statusDetail += ' &bull; Registered ' + (d.registered_at ? new Date(d.registered_at).toLocaleDateString() : '');
+
                     // Evaluation issues
                     var issuesHtml = '';
                     var issues = d.evaluation_issues || [];
@@ -229,21 +254,14 @@
                         '</div>';
                     }
                     statusEl.innerHTML =
-                        '<div class="mb-3 p-3" style="background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.2);border-radius:10px;">' +
+                        '<div class="mb-3 p-3" style="background:' + bannerBg + ';border:1px solid ' + bannerBorder + ';border-radius:10px;">' +
                             '<div class="d-flex align-items-center gap-3">' +
-                                '<div style="width:36px;height:36px;border-radius:50%;background:rgba(0,255,136,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-                                    '<i class="fa-solid fa-shield-halved" style="color:#00ff88;"></i>' +
+                                '<div style="width:36px;height:36px;border-radius:50%;background:' + bannerBg + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+                                    '<i class="' + iconClass + '" style="color:' + bannerColor + ';"></i>' +
                                 '</div>' +
                                 '<div style="flex:1;">' +
-                                    '<div style="font-weight:700;color:#00ff88;font-size:0.9rem;">Spam Protection Active</div>' +
-                                    '<div style="font-size:0.75rem;color:#aaa;">' +
-                                        '<strong>' + _esc(d.business_name) + '</strong> &mdash; ' +
-                                        d.numbers_protected + '/' + d.numbers_total + ' numbers protected' +
-                                        (d.auto_cnam ? ' &bull; Auto-protect ON' : '') +
-                                        ' &bull; STIR/SHAKEN A' +
-                                        reviewBadge +
-                                        ' &bull; Registered ' + (d.registered_at ? new Date(d.registered_at).toLocaleDateString() : '') +
-                                    '</div>' +
+                                    '<div style="font-weight:700;color:' + bannerColor + ';font-size:0.9rem;">' + statusLabel + '</div>' +
+                                    '<div style="font-size:0.75rem;color:#aaa;">' + statusDetail + '</div>' +
                                     issuesHtml +
                                 '</div>' +
                                 '<button onclick="document.getElementById(\'spamProtectionForm\').style.display=document.getElementById(\'spamProtectionForm\').style.display===\'none\'?\'block\':\'none\'" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:5px 12px;font-size:0.75rem;cursor:pointer;white-space:nowrap;">' +
@@ -306,12 +324,15 @@
                     if (d.protection_active && (rs === 'twilio-approved' || rs === 'compliant')) {
                         bpBadge.textContent = 'Approved';
                         bpBadge.style.cssText = 'display:inline-block;background:rgba(0,255,136,0.12);color:#00ff88;font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
-                    } else if (rs === 'pending-review' || rs === 'in-review') {
+                    } else if (d.protection_active && (rs === 'pending-review' || rs === 'in-review')) {
                         bpBadge.textContent = 'Under Review';
                         bpBadge.style.cssText = 'display:inline-block;background:rgba(255,165,0,0.12);color:#ffa500;font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
-                    } else if (rs === 'twilio-rejected' || rs === 'noncompliant') {
-                        bpBadge.textContent = 'Needs Attention';
+                    } else if (d.protection_active && (rs === 'twilio-rejected' || rs === 'noncompliant')) {
+                        bpBadge.textContent = 'Rejected';
                         bpBadge.style.cssText = 'display:inline-block;background:rgba(239,68,68,0.12);color:#ef4444;font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
+                    } else if (d.protection_active && rs === 'draft') {
+                        bpBadge.textContent = 'Draft';
+                        bpBadge.style.cssText = 'display:inline-block;background:rgba(255,255,255,0.06);color:#888;font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
                     } else if (!d.protection_active) {
                         bpBadge.textContent = 'Not registered';
                         bpBadge.style.cssText = 'display:inline-block;background:rgba(255,255,255,0.06);color:#888;font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
