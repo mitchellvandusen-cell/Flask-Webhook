@@ -2,20 +2,18 @@
 
 {% block title %}For Agencies — InsuranceGrokBot{% endblock %}
 
-{% block meta_description %}Run your insurance agency with AI-powered insights. Weekly reports with agent coaching, predictive dialing, automated compliance, white-label branding, and an AI assistant that manages it all by voice. Agency dashboard is free.{% endblock %}
+{% block meta_description %}See exactly who's producing, who's coasting, and why — without asking. AI-powered agency insights, automated coaching, and a dialer your agents actually want to use. Free for agency owners.{% endblock %}
 
 {% block content %}
 
 <!-- ── Side Dots Navigation ── -->
 <nav class="ios-section-dots" id="iosSectionDots">
     <div class="ios-section-dot active" data-section="0" title="Hero"></div>
-    <div class="ios-section-dot" data-section="1" title="The Problem"></div>
-    <div class="ios-section-dot" data-section="2" title="Weekly Report"></div>
-    <div class="ios-section-dot" data-section="3" title="AI Assistant"></div>
-    <div class="ios-section-dot" data-section="4" title="Command Center"></div>
-    <div class="ios-section-dot" data-section="5" title="White Label"></div>
-    <div class="ios-section-dot" data-section="6" title="Everything Included"></div>
-    <div class="ios-section-dot" data-section="7" title="Pricing"></div>
+    <div class="ios-section-dot" data-section="1" title="The Math"></div>
+    <div class="ios-section-dot" data-section="2" title="What Changes"></div>
+    <div class="ios-section-dot" data-section="3" title="Weekly Report"></div>
+    <div class="ios-section-dot" data-section="4" title="Your Brand"></div>
+    <div class="ios-section-dot" data-section="5" title="Get Started"></div>
 </nav>
 
 
@@ -23,143 +21,132 @@
 <section class="ios-snap-section ios-hero" id="iosSection0">
     <div class="container" style="position: relative; z-index: 2; width: 100%;">
         <div class="text-center" data-aos="fade-up">
-            <span class="agency-tag">Built for Agency Owners</span>
-            <h1 class="agency-h1">Know Exactly Who's Producing,<br><span>Who's Coasting, and Why.</span></h1>
+            <span class="agency-tag">Built by an Agent, for Agency Owners</span>
+            <h1 class="agency-h1">You Gave Them Leads.<br><span>Do You Know What Happened Next?</span></h1>
             <p class="agency-sub">
-                Most agency owners fly blind &mdash; checking in with agents individually, guessing who's performing,
-                hoping the numbers work out at the end of the month. This platform gives you the truth, in real time,
-                and coaches your team automatically.
+                Right now, somewhere in your agency, an agent is making 15 calls a day and telling you
+                they're "grinding." Another one has a 41% connect rate and you don't even know it.
+                A third one missed 6 inbound callbacks today because they were on another line. You found out
+                about none of this. That changes today.
             </p>
             <div class="d-flex justify-content-center gap-3 flex-wrap">
                 <a href="https://api.leadconnectorhq.com/widget/booking/S4knucFaXO769HDFlRtv" target="_blank" rel="noopener noreferrer" class="btn btn-lg btn-gradient-cyan" style="font-weight: 700;">
                     <i class="fa-solid fa-calendar-check me-2"></i>Book a Demo
                 </a>
-                <a href="#iosSection7" class="btn btn-outline-accent btn-lg">See Pricing</a>
-            </div>
-        </div>
-
-        <div class="kpi-row" data-aos="fade-up" data-aos-delay="200">
-            <div class="kpi-card">
-                <div class="metallic-stat metallic-stat--cyan">80</div>
-                <div class="lbl">AI Actions Available</div>
-            </div>
-            <div class="kpi-card">
-                <div class="metallic-stat">4x</div>
-                <div class="lbl">Lines Dialing at Once</div>
-            </div>
-            <div class="kpi-card">
-                <div class="metallic-stat" style="--metallic-from:#8b5cf6;--metallic-to:#a78bfa;">FREE</div>
-                <div class="lbl">Agency Dashboard</div>
-            </div>
-            <div class="kpi-card">
-                <div class="metallic-stat" style="--metallic-from:#e91e63;--metallic-to:#ff6b9d;">24/7</div>
-                <div class="lbl">AI Handling Leads</div>
+                <a href="#iosSection5" class="btn btn-outline-accent btn-lg">How It Works</a>
             </div>
         </div>
     </div>
 </section>
 
 
-<!-- ═══ SECTION 1: THE REAL PROBLEM ═══ -->
+<!-- ═══ SECTION 1: THE MATH ═══ -->
 <section class="ios-snap-section" id="iosSection1">
     <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <span class="ios-section-label">The Real Problem</span>
-            <h2 class="ios-section-h2">You're Running an Agency <span>in the Dark.</span></h2>
-            <p class="ios-section-sub" style="max-width:620px; margin:8px auto 0;">
-                You hired good people. You gave them leads. But you have no idea what's happening between
-                "here are your leads" and "I didn't close any this week." The gap between those two moments is where revenue dies.
-            </p>
+            <h2 class="ios-section-h2">Let's Do the Math on <span>What You're Losing.</span></h2>
         </div>
 
         <div class="agency-proof" data-aos="fade-up">
             <div class="ap-card">
-                <i class="fa-solid fa-eye-slash" style="color: #ef4444; font-size: 1.2rem; margin-bottom: 12px; display: block;"></i>
-                <h5 style="font-weight: 700; color: #fff; margin-bottom: 8px;">You Don't Know Who's Dialing</h5>
-                <p style="color: #bbb; font-size: 0.88rem; line-height: 1.65; margin: 0;">Is Sarah making 100 calls a day or 15? Is Mike's connect rate 8% because his numbers are flagged, or because he's calling at 7pm? You shouldn't have to ask.</p>
+                <div style="font-size: 2.2rem; font-weight: 900; color: #ef4444; margin-bottom: 8px;">6</div>
+                <h5 style="font-weight: 700; color: #fff; margin-bottom: 8px;">Missed Inbound Calls per Agent, per Week</h5>
+                <p style="color: #bbb; font-size: 0.88rem; line-height: 1.65; margin: 0;">
+                    These aren't cold leads. These are people your agents already texted who called back &mdash; and got voicemail.
+                    At a conservative $800 annual premium, that's <strong style="color:#ef4444;">$4,800/year in lost revenue per agent</strong> from missed callbacks alone.
+                    Multiply that by your team size.
+                </p>
             </div>
             <div class="ap-card">
-                <i class="fa-solid fa-phone-slash" style="color: #f59e0b; font-size: 1.2rem; margin-bottom: 12px; display: block;"></i>
-                <h5 style="font-weight: 700; color: #fff; margin-bottom: 8px;">Warm Leads Are Calling Back and Nobody Answers</h5>
-                <p style="color: #bbb; font-size: 0.88rem; line-height: 1.65; margin: 0;">Your agents texted 200 people. 30 called back. 8 got voicemail because the agent was on another call. Those 8 people aren't calling again. That's revenue you'll never see.</p>
+                <div style="font-size: 2.2rem; font-weight: 900; color: #f59e0b; margin-bottom: 8px;">47 min</div>
+                <h5 style="font-weight: 700; color: #fff; margin-bottom: 8px;">Wasted Daily per Agent on Non-Selling Tasks</h5>
+                <p style="color: #bbb; font-size: 0.88rem; line-height: 1.65; margin: 0;">
+                    Searching contacts, checking who to call next, switching tabs, updating CRM fields, pulling stats for you.
+                    That's almost <strong style="color:#f59e0b;">4 hours a week per agent</strong> not spent on the phone.
+                    For a 10-agent team, that's 40 hours &mdash; an entire person's work week, gone.
+                </p>
             </div>
             <div class="ap-card">
-                <i class="fa-solid fa-clipboard-question" style="color: #8b5cf6; font-size: 1.2rem; margin-bottom: 12px; display: block;"></i>
-                <h5 style="font-weight: 700; color: #fff; margin-bottom: 8px;">Coaching Is a Guess</h5>
-                <p style="color: #bbb; font-size: 0.88rem; line-height: 1.65; margin: 0;">"How's it going?" isn't coaching. Without per-agent connect rates, average call duration, and conversation quality data, you're just hoping your agents figure it out on their own.</p>
+                <div style="font-size: 2.2rem; font-weight: 900; color: #8b5cf6; margin-bottom: 8px;">$0</div>
+                <h5 style="font-weight: 700; color: #fff; margin-bottom: 8px;">What Most Agency Owners Spend on Visibility</h5>
+                <p style="color: #bbb; font-size: 0.88rem; line-height: 1.65; margin: 0;">
+                    No per-agent connect rates. No call quality metrics. No way to know if someone's dialing at 7pm into voicemail
+                    vs. 10am into live answers. You're managing with feelings instead of data. And it's costing you agents who
+                    churn because nobody taught them how to improve.
+                </p>
             </div>
         </div>
     </div>
 </section>
 
 
-<!-- ═══ SECTION 2: AI WEEKLY REPORT ═══ -->
+<!-- ═══ SECTION 2: WHAT CHANGES ═══ -->
 <section class="ios-snap-section auto-height" id="iosSection2">
     <div class="container" style="width: 100%;">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <h2 class="ios-section-h2">Here's What Monday Morning <span>Looks Like Now.</span></h2>
+            <p class="ios-section-sub" style="max-width:640px; margin:8px auto 0;">
+                You open your phone. You tap the assistant. You say five words.
+            </p>
+        </div>
+
         <div class="ios-feat-grid" data-aos="fade-up">
             <div>
-                <span class="ios-section-label ios-section-label--accent">AI-Powered Insights</span>
-                <h2 class="ios-section-h2">Your Weekly Report <span>Writes Itself.</span></h2>
-                <p style="color: #888; font-size: 0.95rem; line-height: 1.7; margin-bottom: 20px;">
-                    Every Monday, ask the AI assistant "give me the weekly report." In 5 seconds you get a full
-                    breakdown of your agency's performance &mdash; with specific, actionable coaching for each agent
-                    based on their real calling data. Not opinions. Numbers.
-                </p>
-                <p style="color: #888; font-size: 0.88rem; line-height: 1.7;">
-                    It identifies which agents need more dials, whose numbers might be flagged, who's having
-                    quality conversations, and where you're leaving revenue on the table. It's the kind of analysis
-                    that would take you an hour to compile manually &mdash; delivered in one sentence.
-                </p>
-            </div>
-            <div class="mock-panel mock-panel--accent">
-                <div class="mock-fw-name mb-2" style="font-size:0.85rem;"><i class="fa-solid fa-robot me-2" style="color:var(--accent);"></i>AI Weekly Report</div>
-                <div style="font-size:0.78rem;color:#ccc;line-height:1.6;">
-                    <strong>This Week:</strong> 247 calls (+15 vs last week), 34% connect rate (+2.1%)<br>
-                    12.4h talk time, 8 active agents<br><br>
-                    <strong style="color:var(--accent);">Coaching:</strong><br>
-                    &bull; <strong>Sarah J.</strong> &mdash; 15 calls this week. Target: 100+. Needs accountability.<br>
-                    &bull; <strong>Mike T.</strong> &mdash; 8% connect rate. Numbers may be flagged. Check health.<br>
-                    &bull; <strong>Emily R.</strong> &mdash; 41% connect rate. Top performer. Have her mentor Sarah.<br><br>
-                    <strong style="color:#ef4444;">Revenue Opportunity:</strong><br>
-                    6 missed inbound calls = warm leads calling back with no answer.<br>
-                    Enable AI overflow to catch calls when agents are busy.
+                <div style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.1);border-radius:14px;padding:24px;margin-bottom:20px;">
+                    <div style="color:var(--accent);font-weight:800;font-size:0.85rem;margin-bottom:12px;"><i class="fa-solid fa-microphone me-2" style="color:#ef4444;"></i>"Give me the weekly report."</div>
+                    <div style="color:#bbb;font-size:0.82rem;line-height:1.7;">
+                        In 5 seconds, you know everything:<br><br>
+                        &bull; Your team made 247 calls this week &mdash; up 15 from last week<br>
+                        &bull; Connect rate improved from 32% to 34%<br>
+                        &bull; Sarah only made 15 calls. She needs accountability.<br>
+                        &bull; Mike's connect rate is 8%. His numbers are probably flagged.<br>
+                        &bull; Emily is at 41%. Have her mentor Sarah.<br>
+                        &bull; 6 missed inbound calls &mdash; warm leads lost to voicemail.<br><br>
+                        You didn't check a single dashboard. You didn't open a spreadsheet.
+                        You didn't ask anyone "how's it going." You just <em>knew</em>.
+                    </div>
+                </div>
+
+                <div style="background:rgba(139,92,246,0.04);border:1px solid rgba(139,92,246,0.1);border-radius:14px;padding:24px;">
+                    <div style="color:#a78bfa;font-weight:800;font-size:0.85rem;margin-bottom:12px;"><i class="fa-solid fa-microphone me-2" style="color:#ef4444;"></i>"What should Mike work on?"</div>
+                    <div style="color:#bbb;font-size:0.82rem;line-height:1.7;">
+                        The AI analyzes Mike's actual calling data and tells you:<br><br>
+                        &bull; He made 38 calls &mdash; decent, but aim for 100+<br>
+                        &bull; His connect rate is 8% &mdash; check if his numbers are flagged as spam<br>
+                        &bull; He's calling mostly after 5pm &mdash; peak hours are 10am-12pm and 2-4pm<br><br>
+                        Now you have a coaching conversation with <em>specifics</em>, not a pep talk.
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
-</section>
-
-
-<!-- ═══ SECTION 3: AI ASSISTANT FOR AGENCIES ═══ -->
-<section class="ios-snap-section" id="iosSection3">
-    <div class="container" style="width: 100%;">
-        <div class="ios-feat-grid reverse" data-aos="fade-up">
             <div>
-                <span class="ios-section-label ios-section-label--purple">AI Assistant</span>
-                <h2 class="ios-section-h2">Manage Your Agency <span>by Voice.</span></h2>
-                <p style="color: #888; font-size: 0.95rem; line-height: 1.7; margin-bottom: 20px;">
-                    The AI assistant lives inside every dashboard. It's not a chatbot &mdash; it's a teammate
-                    with 80 real actions. For agency owners, it becomes your command center in a conversation.
-                </p>
-                <div style="color:#888;font-size:0.85rem;line-height:1.8;">
-                    <div><i class="fa-solid fa-microphone" style="color:#ef4444;margin-right:8px;"></i>"How is the team doing this week?" &mdash; instant KPIs</div>
-                    <div><i class="fa-solid fa-microphone" style="color:#ef4444;margin-right:8px;"></i>"Compare Sarah and Mike" &mdash; side-by-side stats</div>
-                    <div><i class="fa-solid fa-microphone" style="color:#ef4444;margin-right:8px;"></i>"What should Sarah work on?" &mdash; AI coaching tips</div>
-                    <div><i class="fa-solid fa-microphone" style="color:#ef4444;margin-right:8px;"></i>"Show the agency call log" &mdash; all calls, all agents</div>
-                    <div><i class="fa-solid fa-microphone" style="color:#ef4444;margin-right:8px;"></i>"Am I improving vs last week?" &mdash; period comparison</div>
-                    <div><i class="fa-solid fa-microphone" style="color:#ef4444;margin-right:8px;"></i>"What's my conversion rate?" &mdash; lead-to-appointment funnel</div>
+                <div style="background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.1);border-radius:14px;padding:24px;margin-bottom:20px;">
+                    <div style="color:#00d9ff;font-weight:800;font-size:0.85rem;margin-bottom:12px;"><i class="fa-solid fa-microphone me-2" style="color:#ef4444;"></i>"Compare Sarah and Emily."</div>
+                    <div style="color:#bbb;font-size:0.82rem;line-height:1.7;">
+                        Side-by-side, instantly:<br><br>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;">
+                            <div style="background:rgba(0,0,0,0.2);border-radius:8px;padding:10px;text-align:center;">
+                                <div style="color:#888;font-size:0.7rem;">SARAH J.</div>
+                                <div style="color:#fff;font-weight:800;">15 calls</div>
+                                <div style="color:#ef4444;font-size:0.75rem;">12% rate &middot; 0.8h talk</div>
+                            </div>
+                            <div style="background:rgba(0,0,0,0.2);border-radius:8px;padding:10px;text-align:center;">
+                                <div style="color:#888;font-size:0.7rem;">EMILY R.</div>
+                                <div style="color:#fff;font-weight:800;">142 calls</div>
+                                <div style="color:var(--accent);font-size:0.75rem;">41% rate &middot; 8.2h talk</div>
+                            </div>
+                        </div>
+                        <div style="margin-top:8px;">The data speaks for itself. No awkward conversations needed.</div>
+                    </div>
                 </div>
-            </div>
-            <div class="mock-panel mock-panel--purple">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-                    <i class="fa-solid fa-robot" style="color:#a78bfa;font-size:1rem;"></i>
-                    <span style="color:#fff;font-weight:700;font-size:0.85rem;">Assistant</span>
-                </div>
-                <div style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.15);border-radius:12px;padding:10px 14px;font-size:0.78rem;color:#ccc;margin-bottom:8px;margin-left:auto;max-width:80%;text-align:right;">
-                    "What should Mike work on?"
-                </div>
-                <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:10px 14px;font-size:0.78rem;color:#aaa;max-width:90%;line-height:1.5;">
-                    <strong>Mike T.</strong> made 38 calls this week (decent, aim for 100+). Connect rate is 8% &mdash; check if his numbers are flagged as spam. Focus on calling during peak hours (10am-12pm, 2-4pm) when answer rates are highest.
+
+                <div style="background:rgba(255,59,48,0.04);border:1px solid rgba(255,59,48,0.1);border-radius:14px;padding:24px;">
+                    <div style="color:#FF3B30;font-weight:800;font-size:0.85rem;margin-bottom:12px;"><i class="fa-solid fa-microphone me-2" style="color:#ef4444;"></i>"Am I improving vs last month?"</div>
+                    <div style="color:#bbb;font-size:0.82rem;line-height:1.7;">
+                        Calls up 12%. Connect rate up 3.2%. Talk time up 18%.
+                        Two agents still below 50 dials/week.<br><br>
+                        You can see trajectory &mdash; not just snapshots.
+                        You know if changes you made are working before the month ends.
+                    </div>
                 </div>
             </div>
         </div>
@@ -167,64 +154,69 @@
 </section>
 
 
-<!-- ═══ SECTION 4: COMMAND CENTER ═══ -->
+<!-- ═══ SECTION 3: WHAT YOUR AGENTS GET ═══ -->
+<section class="ios-snap-section auto-height" id="iosSection3">
+    <div class="container" style="width: 100%;">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <h2 class="ios-section-h2">Your Agents Get a Platform <span>They'll Actually Use.</span></h2>
+            <p class="ios-section-sub" style="max-width:620px; margin:8px auto 0;">
+                The best tool in the world doesn't matter if your agents won't open it. This one replaces 4 separate apps
+                with one dashboard they can control by voice. Less friction means more dials. More dials means more money &mdash; for them and for you.
+            </p>
+        </div>
+
+        <div class="ios-cap-grid" data-aos="fade-up">
+            <div class="ios-cap-item">
+                <i class="fa-solid fa-robot" style="color: var(--accent);"></i>
+                <h6>AI Assistant</h6>
+                <p>"Call everyone in New Leads." "Book John for Tuesday." "Who should I call first?" 80 actions, voice or text, no learning curve.</p>
+            </div>
+            <div class="ios-cap-item">
+                <i class="fa-solid fa-phone-volume" style="color: #00d9ff;"></i>
+                <h6>Multi-Line Dialer</h6>
+                <p>Up to 4 lines at once. When multiple people pick up, AI handles the overflow. Your agent talks to one, AI qualifies the rest.</p>
+            </div>
+            <div class="ios-cap-item">
+                <i class="fa-solid fa-comment-sms" style="color: #e91e63;"></i>
+                <h6>AI Texting</h6>
+                <p>The bot knows 270+ insurance carriers, handles objections like a closer, and books appointments without your agent lifting a finger.</p>
+            </div>
+            <div class="ios-cap-item">
+                <i class="fa-solid fa-crosshairs" style="color: #8b5cf6;"></i>
+                <h6>Smart Filters</h6>
+                <p>AI reads every conversation and scores leads hot/warm/cool/cold. Your agents call the right people first, every time. No guessing.</p>
+            </div>
+            <div class="ios-cap-item">
+                <i class="fa-solid fa-diagram-project" style="color: var(--accent);"></i>
+                <h6>Workflow Automation</h6>
+                <p>Speed to Lead texts in 30 seconds. Re-engagement campaigns on autopilot. Cold lead revival while they sleep. Pre-built templates included.</p>
+            </div>
+            <div class="ios-cap-item">
+                <i class="fa-solid fa-shield-halved" style="color: #00d9ff;"></i>
+                <h6>Spam Protection</h6>
+                <p>CNAM caller ID, Voice Integrity, A2P 10DLC, smart number rotation. Your agents' numbers stay clean so people actually answer.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══ SECTION 4: WHITE LABEL ═══ -->
 <section class="ios-snap-section" id="iosSection4">
-    <div class="container" style="width: 100%;">
-        <div class="ios-feat-grid" data-aos="fade-up">
-            <div>
-                <span class="ios-section-label">Command Center</span>
-                <h2 class="ios-section-h2">Every Number. <span>Every Agent. Live.</span></h2>
-                <p style="color: #888; font-size: 0.95rem; line-height: 1.7;">
-                    Real-time visibility into every agent, every call, and every lead &mdash; without hovering
-                    over anyone's shoulder. Your dashboard shows live KPIs, leaderboards,
-                    and daily volume trends so you can coach smarter, not harder.
-                </p>
-                <ul class="ios-feat-list">
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Total calls, connected rate, talk hours, messages &mdash; all live</li>
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Leaderboards: top connect rate, most calls, best conversations</li>
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Duration buckets: 45s, 2m, 5m, 10m+ conversation quality</li>
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Hourly heatmap &mdash; see when your team is most effective</li>
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Period comparison: this week vs last, this month vs last</li>
-                </ul>
-            </div>
-            <div class="mock-panel mock-panel--cyan">
-                <div class="d-grid gap-2 mb-3" style="grid-template-columns:1fr 1fr;">
-                    <div class="mock-stat-box"><div class="mock-stat-val" style="color:var(--accent);">247</div><div class="mock-stat-lbl">Total Calls</div></div>
-                    <div class="mock-stat-box"><div class="mock-stat-val text-cyan">34%</div><div class="mock-stat-lbl">Connect Rate</div></div>
-                    <div class="mock-stat-box"><div class="mock-stat-val text-purple">12.4h</div><div class="mock-stat-lbl">Talk Hours</div></div>
-                    <div class="mock-stat-box"><div class="mock-stat-val text-pink">8</div><div class="mock-stat-lbl">Active Agents</div></div>
-                </div>
-                <div class="mock-fw-row">
-                    <div class="mock-fw-name mb-2">Top Connect Rate</div>
-                    <div class="d-flex justify-content-between py-1" style="border-bottom:1px solid rgba(255,255,255,0.04);"><span class="mock-fw-desc"><span style="color:gold;">1.</span> Marcus T.</span><span class="mock-fw-name text-cyan">41%</span></div>
-                    <div class="d-flex justify-content-between py-1" style="border-bottom:1px solid rgba(255,255,255,0.04);"><span class="mock-fw-desc"><span style="color:silver;">2.</span> Sarah J.</span><span class="mock-fw-name" style="color:var(--accent);">38%</span></div>
-                    <div class="d-flex justify-content-between py-1"><span class="mock-fw-desc"><span style="color:#cd7f32;">3.</span> Emily R.</span><span class="mock-fw-name text-purple">36%</span></div>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-
-<!-- ═══ SECTION 5: WHITE LABEL ═══ -->
-<section class="ios-snap-section" id="iosSection5">
     <div class="container" style="width: 100%;">
         <div class="ios-feat-grid reverse" data-aos="fade-up">
             <div>
                 <span class="ios-section-label ios-section-label--purple">Your Brand</span>
-                <h2 class="ios-section-h2">White-Label It. <span>Make It Yours.</span></h2>
+                <h2 class="ios-section-h2">Put Your Name on It. <span>Not Ours.</span></h2>
                 <p style="color: #888; font-size: 0.95rem; line-height: 1.7; margin-bottom: 20px;">
-                    Your agents never see InsuranceGrokBot. They see your agency name, your logo, your colors,
-                    your fonts. The dashboard, the emails, the login page &mdash; everything is branded as
-                    <em>[Your Agency] AI Dialer &amp; SMS</em>.
+                    When your agents log in, they see <em>your</em> agency name, <em>your</em> logo, <em>your</em> colors.
+                    The sidebar says "Acme Insurance Group AI Dialer &amp; SMS" &mdash; not InsuranceGrokBot.
+                    They think it's yours. Because it is.
                 </p>
-                <ul class="ios-feat-list">
-                    <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> Custom company name, logo, accent color, and font</li>
-                    <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> Branded invite emails when you add agents</li>
-                    <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> Auto-populated from your CRM company name on install</li>
-                    <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> Enable/disable toggle &mdash; opt in when you're ready</li>
-                    <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> Free with any agency plan</li>
-                </ul>
+                <p style="color:#888;font-size:0.88rem;line-height:1.7;">
+                    Custom accent color. Custom font. Custom logo. Branded invite emails when you add new agents.
+                    Toggle it on when you're ready, off if you're not. Free with every plan.
+                </p>
             </div>
             <div class="mock-panel mock-panel--purple">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.06);">
@@ -235,7 +227,7 @@
                 <div style="background:rgba(0,0,0,0.2);height:6px;border-radius:3px;margin-bottom:6px;width:50%;"></div>
                 <div style="background:rgba(0,0,0,0.2);height:6px;border-radius:3px;width:85%;"></div>
                 <div style="margin-top:16px;padding:10px 14px;background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.15);border-radius:8px;font-size:0.75rem;color:#a78bfa;">
-                    <i class="fa-solid fa-palette me-1"></i> Your accent color, your font, your identity &mdash; everywhere.
+                    <i class="fa-solid fa-eye-slash me-1"></i> Your agents never see InsuranceGrokBot. Ever.
                 </div>
             </div>
         </div>
@@ -243,144 +235,49 @@
 </section>
 
 
-<!-- ═══ SECTION 6: EVERYTHING INCLUDED ═══ -->
-<section class="ios-snap-section auto-height" id="iosSection6">
+<!-- ═══ SECTION 5: HOW IT WORKS + CTA ═══ -->
+<section class="ios-snap-section auto-height" id="iosSection5" style="padding-bottom: 60px;">
     <div class="container" style="width: 100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <span class="ios-section-label ios-section-label--accent">One Platform</span>
-            <h2 class="ios-section-h2">Every Agent Gets <span>Everything.</span></h2>
-            <p class="ios-section-sub" style="max-width:580px; margin:8px auto 0;">
-                Each agent on your team gets the complete platform. Not a watered-down version. Not "upgrade for more."
-                The full AI engine, from day one.
-            </p>
+            <h2 class="ios-section-h2">Here's How It Works. <span>It's Simple.</span></h2>
         </div>
 
-        <div class="ios-cap-grid" data-aos="fade-up">
-            <div class="ios-cap-item">
-                <i class="fa-solid fa-robot" style="color: var(--accent);"></i>
-                <h6>AI Assistant (80 tools)</h6>
-                <p>Voice or text. Call leads, book appointments, send SMS, check stats, manage workflows &mdash; all hands-free.</p>
+        <div style="max-width:700px;margin:0 auto;" data-aos="fade-up">
+            <div style="display:flex;gap:20px;align-items:flex-start;margin-bottom:28px;">
+                <div style="width:40px;height:40px;border-radius:50%;background:var(--accent);color:#000;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1rem;flex-shrink:0;">1</div>
+                <div>
+                    <div style="color:#fff;font-weight:700;font-size:1rem;margin-bottom:4px;">You install it free from the GHL Marketplace.</div>
+                    <div style="color:#888;font-size:0.88rem;">No credit card. No subscription. The agency dashboard, KPIs, weekly reports, coaching tools, and white-label branding are all free for you.</div>
+                </div>
             </div>
-            <div class="ios-cap-item">
-                <i class="fa-solid fa-comment-sms" style="color: #00d9ff;"></i>
-                <h6>AI Texting</h6>
-                <p>Automated SMS with objection handling, 5 sales frameworks, 270+ carrier knowledge, and auto-booking.</p>
+            <div style="display:flex;gap:20px;align-items:flex-start;margin-bottom:28px;">
+                <div style="width:40px;height:40px;border-radius:50%;background:#00d9ff;color:#000;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1rem;flex-shrink:0;">2</div>
+                <div>
+                    <div style="color:#fff;font-weight:700;font-size:1rem;margin-bottom:4px;">Your agents install and pick the plan that fits their workflow.</div>
+                    <div style="color:#888;font-size:0.88rem;">Power Dialer ($149.99/mo), Pro Dialer with 4 lines ($224.99/mo), or Solo Predictive with AI overflow ($349.98/mo). Each agent subscribes individually. 7-day free trial, cancel anytime.</div>
+                </div>
             </div>
-            <div class="ios-cap-item">
-                <i class="fa-solid fa-phone-volume" style="color: #e91e63;"></i>
-                <h6>AI Voice Agent</h6>
-                <p>Real-time voice AI that qualifies leads, handles objections, and books appointments on the call.</p>
+            <div style="display:flex;gap:20px;align-items:flex-start;margin-bottom:28px;">
+                <div style="width:40px;height:40px;border-radius:50%;background:#a78bfa;color:#000;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1rem;flex-shrink:0;">3</div>
+                <div>
+                    <div style="color:#fff;font-weight:700;font-size:1rem;margin-bottom:4px;">You see everything. They see your brand.</div>
+                    <div style="color:#888;font-size:0.88rem;">As agents make calls, send texts, and book appointments, their data flows into your agency dashboard automatically. Connect rates, talk time, leaderboards, coaching insights &mdash; all in real time. White-label makes it look like your own platform.</div>
+                </div>
             </div>
-            <div class="ios-cap-item">
-                <i class="fa-solid fa-phone" style="color: #ff6b35;"></i>
-                <h6>Multi-Line Power Dialer</h6>
-                <p>Up to 4 lines simultaneously. Predictive pacing. AI overflow for simultaneous answers. Compliance built in.</p>
-            </div>
-            <div class="ios-cap-item">
-                <i class="fa-solid fa-crosshairs" style="color: #8b5cf6;"></i>
-                <h6>AI Lead Intelligence</h6>
-                <p>Every contact scored 0-100. Temperature, engagement, should-respond signals. Smart Filters group by readiness.</p>
-            </div>
-            <div class="ios-cap-item">
-                <i class="fa-solid fa-diagram-project" style="color: var(--accent);"></i>
-                <h6>Workflow Automation</h6>
-                <p>Speed to Lead, re-engagement, cold lead revival. Pre-built templates or build custom with AI.</p>
-            </div>
-            <div class="ios-cap-item">
-                <i class="fa-solid fa-shield-halved" style="color: #00d9ff;"></i>
-                <h6>Spam Protection</h6>
-                <p>CNAM caller ID, Voice Integrity, A2P 10DLC, STIR/SHAKEN, smart number rotation. All from one dashboard.</p>
-            </div>
-            <div class="ios-cap-item">
-                <i class="fa-solid fa-graduation-cap" style="color: #e91e63;"></i>
-                <h6>Training API</h6>
-                <p>Export call recordings and AI transcripts via API. Build training libraries from real conversations.</p>
-            </div>
-        </div>
-    </div>
-</section>
-
-
-<!-- ═══ SECTION 7: PRICING + CTA ═══ -->
-<section class="ios-snap-section auto-height" id="iosSection7" style="padding-bottom: 60px;">
-    <div class="container" style="width: 100%;">
-        <div class="text-center mb-5" data-aos="fade-up">
-            <span class="ios-section-label ios-section-label--accent">Pricing</span>
-            <h2 class="ios-section-h2">You Download It Free. <span>Your Agents Pick Their Plan.</span></h2>
-            <p class="ios-section-sub" style="max-width:620px; margin:8px auto 0;">
-                The agency dashboard &mdash; KPIs, leaderboards, weekly reports, coaching insights, white-label branding &mdash;
-                costs you nothing. Each agent on your team subscribes individually to the tier that fits their workflow.
-                You get the same plans at the same price.
-            </p>
-        </div>
-
-        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:20px; max-width:960px; margin:0 auto;" data-aos="fade-up">
-            <div class="tier-card">
-                <h4 style="color: #fff; margin-top: 4px;">Power Dialer</h4>
-                <div><span class="tier-amount metallic-stat" style="font-size:2rem;">$149.99</span><span style="color: #888;">/mo</span></div>
-                <p style="color: var(--accent); font-size: 0.78rem; font-weight: 600; margin-top: 6px;">Single-line dialing + full AI platform</p>
-                <ul class="tier-features" style="font-size:0.78rem;">
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> AI Assistant (80 actions + voice)</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> AI texting + AI voice agent</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Lead intelligence + Smart Filters</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Workflow automation</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Spam protection</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Unlimited dialing minutes</li>
-                </ul>
-                <a href="/checkout" class="btn btn-accent w-100 py-2" style="font-weight:700;">Start Free Trial</a>
-            </div>
-
-            <div class="tier-card featured" style="border-color: rgba(0,217,255,0.3);">
-                <span class="tier-badge" style="background: linear-gradient(135deg, #00d9ff, #0099cc);">Popular</span>
-                <h4 style="color: #fff; margin-top: 4px;">Pro Dialer</h4>
-                <div><span class="tier-amount metallic-stat metallic-stat--cyan" style="font-size:2rem;">$224.99</span><span style="color: #888;">/mo</span></div>
-                <p style="color: #00d9ff; font-size: 0.78rem; font-weight: 600; margin-top: 6px;">Multi-line dialing &mdash; up to 4 lines</p>
-                <ul class="tier-features" style="font-size:0.78rem;">
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Everything in Power Dialer</li>
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> <strong>4 concurrent lines</strong></li>
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Connect rate analytics</li>
-                    <li><i class="fa-solid fa-check" style="color: #00d9ff;"></i> Priority queue</li>
-                </ul>
-                <a href="/checkout" class="btn w-100 py-2" style="font-weight:700;background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;">Start Free Trial</a>
-            </div>
-
-            <div class="tier-card" style="border-color: rgba(139,92,246,0.25);">
-                <h4 style="color: #fff; margin-top: 4px;">Solo Predictive</h4>
-                <div><span class="tier-amount metallic-stat" style="--metallic-from:#8b5cf6;--metallic-to:#a78bfa;font-size:2rem;">$349.98</span><span style="color: #888;">/mo</span></div>
-                <p style="color: #a78bfa; font-size: 0.78rem; font-weight: 600; margin-top: 6px;">Erlang-C pacing + AI overflow</p>
-                <ul class="tier-features" style="font-size:0.78rem;">
-                    <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> Everything in Pro Dialer</li>
-                    <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> <strong>Erlang-C auto-pacing</strong></li>
-                    <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> <strong>AI handles overflow calls</strong></li>
-                    <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> TCPA compliance dashboard</li>
-                    <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> Callback queue</li>
-                </ul>
-                <a href="/checkout/predictive-dialer" class="btn w-100 py-2" style="font-weight:700;background:linear-gradient(135deg,#8b5cf6,#6366f1);color:#fff;">Start Free Trial</a>
-            </div>
-        </div>
-
-        <div class="text-center mt-4" data-aos="fade-up" style="max-width:640px;margin-left:auto;margin-right:auto;">
-            <div style="background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.15);border-radius:12px;padding:16px 24px;margin-bottom:16px;">
-                <div style="color:var(--accent);font-weight:800;font-size:0.9rem;margin-bottom:4px;">Agency Dashboard &mdash; FREE with any plan</div>
-                <div style="color:#888;font-size:0.8rem;">KPIs, leaderboards, AI weekly reports, agent coaching, white-label branding, AI assistant agency tools &mdash; all included at no extra cost for agency owners.</div>
-            </div>
-            <p style="color: #555; font-size: 0.78rem;">
-                All plans: 7-day free trial. No contracts. Cancel anytime. Unlimited human dialing minutes.
-                AI voice calls require AI Minutes.
-            </p>
         </div>
 
         <!-- Final CTA -->
-        <div class="text-center mt-5" data-aos="fade-up">
+        <div class="text-center mt-4" data-aos="fade-up">
             <div class="mkt-glass-card mkt-glass-card--cyan" style="padding: 60px 40px; max-width: 720px; margin: 0 auto;">
-                <h2 style="font-weight: 900; font-size: 2rem; margin-bottom: 12px;">Your agents have the leads. Give them the edge.</h2>
-                <p style="color: #888; font-size: 0.95rem; max-width: 480px; margin: 0 auto 24px;">
-                    Book a 15-minute demo and see the AI weekly report, agent coaching, predictive dialer,
-                    and white-label branding live. You'll wonder how you managed without it.
+                <h2 style="font-weight: 900; font-size: 1.8rem; margin-bottom: 12px;">The leads you're buying are expensive.<br>The agents you're losing are expensive.<br>The visibility is free.</h2>
+                <p style="color: #888; font-size: 0.95rem; max-width: 520px; margin: 0 auto 24px;">
+                    15 minutes. We'll show you what your agency looks like with data &mdash;
+                    the weekly report, the coaching insights, the leaderboards, and the AI assistant.
+                    You'll wonder how you managed without it.
                 </p>
                 <div class="d-flex justify-content-center gap-3 flex-wrap">
                     <a href="https://api.leadconnectorhq.com/widget/booking/S4knucFaXO769HDFlRtv" target="_blank" rel="noopener noreferrer" class="btn btn-lg btn-gradient-cyan" style="font-weight: 700;">
-                        <i class="fa-solid fa-calendar-check me-2"></i>Book a Demo
+                        <i class="fa-solid fa-calendar-check me-2"></i>Book a 15-Minute Demo
                     </a>
                     <a href="/ai-assistant" class="btn btn-outline-accent btn-lg">See the AI Assistant</a>
                 </div>
