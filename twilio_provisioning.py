@@ -632,7 +632,8 @@ def register_business_profile(sub_account_sid: str, business_name: str,
                                 sub_account_auth_token: str = "",
                                 business_type: str = "",
                                 website: str = "",
-                                contact_title: str = "") -> dict:
+                                contact_title: str = "",
+                                existing_profile_sid: str = "") -> dict:
     """
     Register a business profile for CNAM / spam protection on a Twilio sub-account.
 
@@ -677,6 +678,7 @@ def register_business_profile(sub_account_sid: str, business_name: str,
             sub_account_sid=sub_account_sid,
             business_name=business_name,
             contact_email=contact_email,
+            existing_profile_sid=existing_profile_sid,
             primary_profile_sid=primary_profile_sid,
             sub_account_auth_token=sub_account_auth_token,
         )
@@ -2339,52 +2341,57 @@ def _find_or_create_secondary_profile(
     # IMPORTANT: Never reuse the Primary Business Profile as a Secondary Profile.
     # The Primary is on the master account and has a different policy. Twilio
     # evaluations will reject Trust Products linked to the wrong profile type.
+    # Accept any non-terminal status: draft, pending-review, in-review, twilio-approved.
+    # Only skip twilio-rejected profiles (they need to be recreated).
+    _REUSABLE_STATUSES = ("draft", "pending-review", "in-review", "twilio-approved")
     if existing_profile_sid and existing_profile_sid != primary_profile_sid:
         try:
             profile = client.trusthub.v1.customer_profiles(existing_profile_sid).fetch()
             status = getattr(profile, "status", "")
             policy = getattr(profile, "policy_sid", "")
-            logger.info(f"[VoiceIntegrity] Existing profile {existing_profile_sid} status: {status}, policy: {policy}")
-            if status in ("twilio-approved", "in-review", "pending-review"):
+            logger.info(f"[SecondaryProfile] Existing profile {existing_profile_sid} status: {status}, policy: {policy}")
+            if status in _REUSABLE_STATUSES:
                 # Verify it's actually a Secondary profile (correct policy), not a Primary
                 if policy and policy != SECONDARY_CUSTOMER_PROFILE_POLICY_SID:
                     logger.warning(
-                        f"[VoiceIntegrity] Profile {existing_profile_sid} has policy {policy}, "
+                        f"[SecondaryProfile] Profile {existing_profile_sid} has policy {policy}, "
                         f"expected Secondary policy {SECONDARY_CUSTOMER_PROFILE_POLICY_SID}. Skipping."
                     )
                 else:
                     return existing_profile_sid
             else:
                 logger.warning(
-                    f"[VoiceIntegrity] Existing profile {existing_profile_sid} status '{status}' "
-                    "is not approved; will search for another."
+                    f"[SecondaryProfile] Existing profile {existing_profile_sid} status '{status}' "
+                    "is terminal (rejected); will search for another."
                 )
         except TwilioRestException as e:
-            logger.warning(f"[VoiceIntegrity] Could not fetch profile {existing_profile_sid}: {e}")
+            logger.warning(f"[SecondaryProfile] Could not fetch profile {existing_profile_sid}: {e}")
     elif existing_profile_sid == primary_profile_sid:
-        logger.info(f"[VoiceIntegrity] Skipping existing_profile_sid — it's the Primary Business Profile")
+        logger.info(f"[SecondaryProfile] Skipping existing_profile_sid — it's the Primary Business Profile")
 
-    # ── Discover approved Secondary profiles on the sub-account ──
+    # ── Discover reusable Secondary profiles on the sub-account ──
+    # Search ALL non-terminal statuses (approved first, then in-review, pending, draft).
     # Skip the Primary Business Profile and any profiles with the wrong policy.
-    try:
-        profiles = client.trusthub.v1.customer_profiles.list(
-            status="twilio-approved", limit=20)
-        for p in profiles:
-            # Skip the Primary Business Profile
-            if p.sid == primary_profile_sid:
-                continue
-            # Prefer profiles with the Secondary Customer Profile policy
-            policy = getattr(p, "policy_sid", "")
-            if policy and policy != SECONDARY_CUSTOMER_PROFILE_POLICY_SID:
-                logger.info(f"[VoiceIntegrity] Skipping profile {p.sid} (policy={policy}, not Secondary)")
-                continue
-            logger.info(
-                f"[VoiceIntegrity] Discovered approved Secondary profile: {p.sid} "
-                f"({getattr(p, 'friendly_name', '')})"
-            )
-            return p.sid
-    except Exception as e:
-        logger.warning(f"[VoiceIntegrity] Profile discovery failed: {e}")
+    for search_status in ("twilio-approved", "in-review", "pending-review", "draft"):
+        try:
+            profiles = client.trusthub.v1.customer_profiles.list(
+                status=search_status, limit=20)
+            for p in profiles:
+                # Skip the Primary Business Profile
+                if p.sid == primary_profile_sid:
+                    continue
+                # Only reuse profiles with the correct Secondary policy
+                policy = getattr(p, "policy_sid", "")
+                if policy and policy != SECONDARY_CUSTOMER_PROFILE_POLICY_SID:
+                    logger.info(f"[SecondaryProfile] Skipping profile {p.sid} (policy={policy}, not Secondary)")
+                    continue
+                logger.info(
+                    f"[SecondaryProfile] Discovered reusable Secondary profile: {p.sid} "
+                    f"(status={search_status}, {getattr(p, 'friendly_name', '')})"
+                )
+                return p.sid
+        except Exception as e:
+            logger.warning(f"[SecondaryProfile] Profile discovery (status={search_status}) failed: {e}")
 
     # ── Create a new Secondary Customer Profile ──
     # Uses the Secondary Customer Profile policy, NOT the Voice Integrity policy.
@@ -2394,7 +2401,7 @@ def _find_or_create_secondary_profile(
         policy_sid=SECONDARY_CUSTOMER_PROFILE_POLICY_SID,
     )
     profile_sid = profile.sid
-    logger.info(f"[VoiceIntegrity] Created Secondary Customer Profile: {profile_sid}")
+    logger.info(f"[SecondaryProfile] Created Secondary Customer Profile: {profile_sid}")
 
     # ── Link to Primary Business Profile on master account ──
     if primary_profile_sid:
@@ -2404,15 +2411,15 @@ def _find_or_create_secondary_profile(
                     object_sid=primary_profile_sid,
                 )
             logger.info(
-                f"[VoiceIntegrity] Linked Secondary {profile_sid} → "
+                f"[SecondaryProfile] Linked Secondary {profile_sid} → "
                 f"Primary {primary_profile_sid}"
             )
         except TwilioRestException as e:
             # 20409 = already assigned
             if e.code == 20409:
-                logger.info(f"[VoiceIntegrity] Secondary already linked to Primary (20409)")
+                logger.info(f"[SecondaryProfile] Secondary already linked to Primary (20409)")
             else:
-                logger.warning(f"[VoiceIntegrity] Could not link to Primary: {e}")
+                logger.warning(f"[SecondaryProfile] Could not link to Primary: {e}")
 
     # NOTE: Do NOT evaluate or submit the Secondary Profile for review here.
     # The profile is created empty (no EndUser, Address, or Auth Rep attached yet).

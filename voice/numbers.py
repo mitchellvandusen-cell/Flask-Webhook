@@ -1049,6 +1049,7 @@ def register_spam_protection():
 
     # Step 2: Register with Twilio Trust Hub (Customer Profile)
     sub_auth_token = (vc or {}).get('twilio_auth_token', '')
+    existing_profile = trust_hub.get('profile_sid', '')
     results = twilio_provisioning.register_business_profile(
         sub_account_sid=sub_sid,
         business_name=business_name,
@@ -1064,6 +1065,7 @@ def register_spam_protection():
         contact_email=contact_email or current_user.email,
         contact_phone=contact_phone,
         sub_account_auth_token=sub_auth_token,
+        existing_profile_sid=existing_profile,
     )
 
     # Step 3: Only mark protection active if a profile was actually created
