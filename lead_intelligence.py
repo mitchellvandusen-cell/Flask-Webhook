@@ -171,6 +171,50 @@ def _fix_unquoted_keys(text):
     return ''.join(result)
 
 
+def _escape_raw_newlines_in_strings(text):
+    """Escape raw newlines/carriage returns inside JSON string values.
+
+    LLMs sometimes emit multi-line summaries with actual newline characters
+    inside string values, which is invalid JSON. This replaces them with
+    proper escape sequences while preserving newlines outside strings
+    (which are valid JSON whitespace).
+    """
+    result = []
+    in_str = False
+    esc = False
+    i = 0
+    while i < len(text):
+        c = text[i]
+        if esc:
+            result.append(c)
+            esc = False
+            i += 1
+            continue
+        if c == '\\' and in_str:
+            result.append(c)
+            esc = True
+            i += 1
+            continue
+        if c == '"':
+            in_str = not in_str
+            result.append(c)
+            i += 1
+            continue
+        if in_str:
+            if c == '\n':
+                result.append('\\n')
+            elif c == '\r':
+                result.append('\\r')
+            elif c == '\t':
+                result.append('\\t')
+            else:
+                result.append(c)
+        else:
+            result.append(c)
+        i += 1
+    return ''.join(result)
+
+
 def _repair_json(raw):
     """
     Attempt to repair common LLM JSON issues:
@@ -178,10 +222,12 @@ def _repair_json(raw):
     - Trailing commas before } or ]
     - Truncated output (incomplete JSON from max_tokens cutoff)
     - Control characters inside strings
+    - Raw newlines inside string values (multi-line summaries)
     - Single-quoted JSON
     - Python literals (True/False/None)
     - JS literals (NaN/Infinity/undefined)
     - Unquoted property keys ({key: val} → {"key": val})
+    - Combined multi-issue responses (kitchen sink fix)
     Returns parsed object or raises ValueError.
     """
     if not raw or not raw.strip():
@@ -195,6 +241,9 @@ def _repair_json(raw):
     # Strip markdown fences
     text = re.sub(r'^```(?:json)?\s*', '', text)
     text = re.sub(r'\s*```$', '', text)
+
+    # Normalize line endings: \r\n → \n, standalone \r → \n
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
 
     # Remove control chars except \n \r \t
     text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
@@ -217,6 +266,15 @@ def _repair_json(raw):
         return json.loads(text)
     except json.JSONDecodeError:
         pass
+
+    # Escape raw newlines inside JSON string values — LLMs often emit
+    # multi-line summaries with actual newline chars inside strings
+    text_nl = _escape_raw_newlines_in_strings(text)
+    if text_nl != text:
+        try:
+            return json.loads(text_nl)
+        except json.JSONDecodeError:
+            pass
 
     # Replace Python literals (True/False/None → true/false/null)
     text_fixed = _fix_python_literals(text)
@@ -264,6 +322,29 @@ def _repair_json(raw):
     except json.JSONDecodeError:
         pass
 
+    # Kitchen sink: apply ALL fixes together (newline escaping + Python literals +
+    # unquoted keys + trailing commas). Needed when LLM output has multiple issues.
+    try:
+        kitchen = _escape_raw_newlines_in_strings(text)
+        kitchen = _fix_python_literals(kitchen)
+        kitchen = _fix_unquoted_keys(kitchen)
+        kitchen = re.sub(r',\s*([}\]])', r'\1', kitchen)
+        if kitchen != text:
+            return json.loads(kitchen)
+    except json.JSONDecodeError:
+        pass
+    # Kitchen sink with single-quote conversion
+    if "'" in text:
+        try:
+            kitchen = _single_to_double_quotes(text)
+            kitchen = _escape_raw_newlines_in_strings(kitchen)
+            kitchen = _fix_python_literals(kitchen)
+            kitchen = _fix_unquoted_keys(kitchen)
+            kitchen = re.sub(r',\s*([}\]])', r'\1', kitchen)
+            return json.loads(kitchen)
+        except (json.JSONDecodeError, ValueError):
+            pass
+
     # Handle truncated JSON: close unclosed brackets/braces
     # Build closing sequence by scanning the text to determine nesting order
     truncated = fixed
@@ -295,7 +376,7 @@ def _repair_json(raw):
         stack.reverse()
         return ''.join(stack)
 
-    # Helper: try parsing with optional unquoted-key fix
+    # Helper: try parsing with progressive fix escalation
     def _try_parse_with_key_fix(s):
         try:
             return json.loads(s)
@@ -303,6 +384,15 @@ def _repair_json(raw):
             pass
         try:
             return json.loads(_fix_unquoted_keys(s))
+        except json.JSONDecodeError:
+            pass
+        # Try with newline escaping + all fixes combined
+        try:
+            patched = _escape_raw_newlines_in_strings(s)
+            patched = _fix_python_literals(patched)
+            patched = _fix_unquoted_keys(patched)
+            patched = re.sub(r',\s*([}\]])', r'\1', patched)
+            return json.loads(patched)
         except json.JSONDecodeError:
             raise
 
@@ -379,6 +469,15 @@ def _repair_json(raw):
                 pass
             try:
                 return json.loads(_fix_unquoted_keys(candidate))
+            except json.JSONDecodeError:
+                pass
+            # Try with full fix pipeline on extracted candidate
+            try:
+                patched = _escape_raw_newlines_in_strings(candidate)
+                patched = _fix_python_literals(patched)
+                patched = _fix_unquoted_keys(patched)
+                patched = re.sub(r',\s*([}\]])', r'\1', patched)
+                return json.loads(patched)
             except json.JSONDecodeError:
                 continue
 
