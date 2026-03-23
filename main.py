@@ -141,6 +141,17 @@ attach_error_handler("flask-webhook", lambda: redis_conn)
 
 # sync_subscribers() — disabled, Google Sheet no longer used
 init_db()
+
+# Re-apply our logging config after init_db() — Alembic's fileConfig()
+# reads alembic.ini and replaces the root logger (format + level).
+# This restores our PII filter, format, and INFO level.
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(levelname)s | %(name)s | %(message)s',
+    handlers=[_handler],
+    force=True,
+)
+
 # One-shot cleanup: wipe stale master-account Trust Hub / A2P data from sub-account voice_configs
 clean_subaccount_contamination()
 # Backfill: ensure agency owners exist in subscribers table for operational code
