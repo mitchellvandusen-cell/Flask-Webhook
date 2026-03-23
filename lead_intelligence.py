@@ -574,7 +574,7 @@ PRIOR NARRATIVE: {narrative_str}
 CURRENT DATE: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}
 
 Respond with ONLY valid JSON (no markdown, no code fences, no explanation). Use this exact structure:
-{{{{
+{{
   "summary": "2-sentence situational snapshot. What does the agent need to know RIGHT NOW about this lead? Be specific — reference actual conversation details, names, products, objections. Include timing context (e.g. 'Last replied 3 days ago' or 'Responded within minutes').",
   "temperature": "hot | warm | cool | cold",
   "temperature_reason": "One sentence explaining why, referencing BOTH what they said AND their behavioral pattern (timing, responsiveness, message depth).",
@@ -584,14 +584,14 @@ Respond with ONLY valid JSON (no markdown, no code fences, no explanation). Use 
   "engagement_level": 0-3,
   "under_contract": true or false,
   "actions": [
-    {{{{
+    {{
       "action": "Short imperative action (e.g. 'Call back about the term quote')",
       "reason": "Why this action matters right now",
       "priority": "high | medium | low",
       "icon": "fa-solid fa-<appropriate-icon>"
-    }}}}
+    }}
   ]
-}}}}
+}}
 
 CRITICAL CLASSIFICATION RULES — READ THESE CAREFULLY:
 
@@ -639,30 +639,42 @@ HARD CALIBRATION RULES (these override your intuition):
 - If call transcripts show specific topics discussed, reference them in actions.
 - Be direct and actionable. No fluff."""
 
-    try:
-        response = _client.chat.completions.create(
-            model=INTELLIGENCE_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            max_tokens=500,
-            timeout=15.0,
-            response_format={"type": "json_object"},
-        )
-        raw = (response.choices[0].message.content or "").strip()
-
+    for attempt in range(2):
         try:
-            result = _repair_json(raw)
-        except ValueError as e:
-            logger.error(f"AI intelligence JSON parse failed for {contact_id}: {e}")
+            response = _client.chat.completions.create(
+                model=INTELLIGENCE_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3 if attempt == 0 else 0.1,
+                max_tokens=500,
+                timeout=15.0,
+                response_format={"type": "json_object"},
+            )
+            raw = (response.choices[0].message.content or "").strip()
+
+            try:
+                result = _repair_json(raw)
+            except ValueError as e:
+                if attempt == 0:
+                    logger.warning(f"AI intelligence JSON parse failed for {contact_id} (retrying): {e}")
+                    if raw:
+                        logger.debug(f"AI raw response for {contact_id}: {raw[:300]}")
+                    continue
+                logger.error(f"AI intelligence JSON parse failed for {contact_id}: {e}")
+                if raw:
+                    logger.debug(f"AI raw response for {contact_id}: {raw[:300]}")
+                return None
+
+            # Validate and calibrate
+            result = _validate_and_calibrate(result, ctx)
+
+            return result
+        except Exception as e:
+            if attempt == 0:
+                logger.warning(f"AI intelligence call failed for {contact_id} (retrying): {e}")
+                continue
+            logger.error(f"AI intelligence call failed for {contact_id}: {e}")
             return None
-
-        # Validate and calibrate
-        result = _validate_and_calibrate(result, ctx)
-
-        return result
-    except Exception as e:
-        logger.error(f"AI intelligence call failed for {contact_id}: {e}")
-        return None
+    return None
 
 
 def _validate_and_calibrate(result, ctx):
@@ -1038,55 +1050,68 @@ You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact 
     # Scale timeout: ~0.8s per contact + base
     timeout = min(180.0, len(contact_blocks) * 1.2 + 15)
 
-    try:
-        response = _client.chat.completions.create(
-            model=INTELLIGENCE_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            max_tokens=max_tokens,
-            timeout=timeout,
-            response_format={"type": "json_object"},
-        )
-        raw = (response.choices[0].message.content or "").strip()
-        finish_reason = getattr(response.choices[0], 'finish_reason', None)
-
-        if finish_reason == 'length':
-            logger.warning(f"Bulk AI output truncated (max_tokens={max_tokens}, {len(contact_blocks)} contacts)")
-
+    for attempt in range(2):
         try:
-            parsed = _repair_json(raw)
-        except ValueError as e:
-            logger.error(f"Bulk AI JSON repair failed, dropping batch ({len(contact_blocks)} contacts): {e}")
-            if raw:
-                logger.debug(f"Bulk AI raw tail: ...{raw[-300:]}")
-            return {}
+            response = _client.chat.completions.create(
+                model=INTELLIGENCE_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3 if attempt == 0 else 0.1,
+                max_tokens=max_tokens,
+                timeout=timeout,
+                response_format={"type": "json_object"},
+            )
+            raw = (response.choices[0].message.content or "").strip()
+            finish_reason = getattr(response.choices[0], 'finish_reason', None)
 
-        # Extract results array from wrapper object if needed
-        if isinstance(parsed, dict):
-            parsed = parsed.get("results", [])
-        if not isinstance(parsed, list):
-            logger.error("Bulk AI response was not a JSON array")
-            return {}
+            if finish_reason == 'length':
+                logger.warning(f"Bulk AI output truncated (max_tokens={max_tokens}, {len(contact_blocks)} contacts)")
 
-        results = {}
-        for item in parsed:
-            if not isinstance(item, dict):
+            try:
+                parsed = _repair_json(raw)
+            except ValueError as e:
+                if attempt == 0:
+                    logger.warning(f"Bulk AI JSON repair failed (retrying batch, {len(contact_blocks)} contacts): {e}")
+                    if raw:
+                        logger.debug(f"Bulk AI raw tail: ...{raw[-300:]}")
+                    continue
+                logger.error(f"Bulk AI JSON repair failed, dropping batch ({len(contact_blocks)} contacts): {e}")
+                if raw:
+                    logger.debug(f"Bulk AI raw tail: ...{raw[-300:]}")
+                return {}
+
+            # Extract results array from wrapper object if needed
+            if isinstance(parsed, dict):
+                parsed = parsed.get("results", [])
+            if not isinstance(parsed, list):
+                if attempt == 0:
+                    logger.warning("Bulk AI response was not a JSON array, retrying")
+                    continue
+                logger.error("Bulk AI response was not a JSON array")
+                return {}
+
+            results = {}
+            for item in parsed:
+                if not isinstance(item, dict):
+                    continue
+                cid = item.get("contact_id", "")
+                if not cid:
+                    continue
+
+                # Validate + calibrate using same rules as single analysis
+                ctx = all_contexts.get(cid, {"messages": [], "timing": {}})
+                item = _validate_and_calibrate(item, ctx)
+                results[cid] = item
+
+            logger.info(f"Bulk AI analysis returned {len(results)}/{len(contact_blocks)} contacts"
+                         + (f" (truncated, repaired)" if finish_reason == 'length' else ""))
+            return results
+        except Exception as e:
+            if attempt == 0:
+                logger.warning(f"Bulk AI call failed (retrying): {e}")
                 continue
-            cid = item.get("contact_id", "")
-            if not cid:
-                continue
-
-            # Validate + calibrate using same rules as single analysis
-            ctx = all_contexts.get(cid, {"messages": [], "timing": {}})
-            item = _validate_and_calibrate(item, ctx)
-            results[cid] = item
-
-        logger.info(f"Bulk AI analysis returned {len(results)}/{len(contact_blocks)} contacts"
-                     + (f" (truncated, repaired)" if finish_reason == 'length' else ""))
-        return results
-    except Exception as e:
-        logger.error(f"Bulk AI call failed: {e}")
-        return {}
+            logger.error(f"Bulk AI call failed: {e}")
+            return {}
+    return {}
 
 
 def bulk_analyze_and_cache(location_id, contact_ids):
