@@ -1848,11 +1848,16 @@
                 contact_email: (document.getElementById('a2pContactEmail')?.value || '').trim(),
                 contact_phone: (document.getElementById('a2pContactPhone')?.value || '').trim(),
                 website: (document.getElementById('a2pWebsite')?.value || '').trim(),
+                first_name: (document.getElementById('a2pFirstName')?.value || '').trim(),
+                last_name: (document.getElementById('a2pLastName')?.value || '').trim(),
+                job_title: (document.getElementById('a2pJobTitle')?.value || '').trim(),
+                job_position: (document.getElementById('a2pJobPosition')?.value || 'CEO').trim(),
                 brand_type: brandType,
             };
             if (!payload.business_name) { result.innerHTML = '<span style="color:#ef4444;">Business name required</span>'; return; }
             if (brandType !== 'SOLE_PROPRIETOR' && !payload.ein) { result.innerHTML = '<span style="color:#ef4444;">EIN required for ' + (_a2pFees[brandType]?.label || brandType) + ' brands</span>'; return; }
             if (!payload.contact_email) { result.innerHTML = '<span style="color:#ef4444;">Contact email required</span>'; return; }
+            if (!payload.first_name || !payload.last_name) { result.innerHTML = '<span style="color:#ef4444;">First and last name required</span>'; return; }
 
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Submitting brand...';

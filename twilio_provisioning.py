@@ -1491,7 +1491,8 @@ def create_a2p_brand(sub_account_sid: str,
                      vertical: str = "INSURANCE",
                      sub_account_auth_token: str = "",
                      first_name: str = "", last_name: str = "",
-                     brand_type: str = "LOW_VOLUME") -> dict:
+                     brand_type: str = "LOW_VOLUME",
+                     job_title: str = "", job_position: str = "CEO") -> dict:
     """
     Register a new A2P 10DLC Brand via Twilio's Trust Hub + Brand
     Registration API. Supports three brand types with distinct flows:
@@ -1528,6 +1529,8 @@ def create_a2p_brand(sub_account_sid: str,
             business_name, ein, street, city, state, zip_code,
             contact_email, contact_phone, business_type,
             stock_exchange, stock_ticker, website, vertical,
+            first_name=first_name, last_name=last_name,
+            job_title=job_title, job_position=job_position,
         )
 
 
@@ -1638,7 +1641,9 @@ def _create_a2p_brand_sole_prop(client, sub_sid, sub_auth,
 def _create_a2p_brand_standard(client, sub_sid, sub_auth,
                                 business_name, ein, street, city, state, zip_code,
                                 contact_email, contact_phone, business_type,
-                                stock_exchange, stock_ticker, website, vertical):
+                                stock_exchange, stock_ticker, website, vertical,
+                                first_name="", last_name="",
+                                job_title="", job_position="CEO"):
     """
     Standard / Low-Volume Standard A2P registration.
 
@@ -1658,27 +1663,39 @@ def _create_a2p_brand_standard(client, sub_sid, sub_auth,
         )
         logger.info(f"Created/reused A2P Secondary Customer Profile: {profile_sid}")
 
-        # EndUser with business information
+        # EndUser with business information + authorized rep
+        attrs = {
+            "company_type": business_type,
+            "stock_exchange": stock_exchange,
+            "stock_ticker": stock_ticker,
+            "brand_name": business_name,
+            "ein": ein,
+            "ein_issuing_country": "US",
+            "street": street,
+            "city": city,
+            "state": state,
+            "postal_code": zip_code,
+            "country": "US",
+            "website": website or "",
+            "vertical": vertical,
+            "phone_number": contact_phone,
+            "email": contact_email,
+            "business_regions_of_operation": "USA_AND_CANADA",
+        }
+        # Authorized representative info (Twilio docs: required for brand vetting)
+        if first_name:
+            attrs["first_name"] = first_name
+        if last_name:
+            attrs["last_name"] = last_name
+        if job_title:
+            attrs["business_title"] = job_title
+        if job_position:
+            attrs["job_position"] = job_position
+
         end_user = client.trusthub.v1.end_users.create(
             friendly_name=f"{business_name} A2P EndUser",
             type="us_a2p_messaging_profile_information",
-            attributes={
-                "company_type": business_type,
-                "stock_exchange": stock_exchange,
-                "stock_ticker": stock_ticker,
-                "brand_name": business_name,
-                "ein": ein,
-                "ein_issuing_country": "US",
-                "street": street,
-                "city": city,
-                "state": state,
-                "postal_code": zip_code,
-                "country": "US",
-                "website": website or "",
-                "vertical": vertical,
-                "phone_number": contact_phone,
-                "email": contact_email,
-            },
+            attributes=attrs,
         )
         logger.info(f"Created A2P EndUser: {end_user.sid}")
 

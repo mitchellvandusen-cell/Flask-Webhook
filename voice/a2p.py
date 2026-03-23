@@ -368,6 +368,8 @@ def a2p_register_brand():
             first_name=data.get('first_name', ''),
             last_name=data.get('last_name', ''),
             brand_type=brand_type,
+            job_title=data.get('job_title', ''),
+            job_position=data.get('job_position', 'CEO'),
         )
 
         # Persist to voice_config
