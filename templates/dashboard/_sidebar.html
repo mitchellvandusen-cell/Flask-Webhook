@@ -1,15 +1,16 @@
     <div class="sidebar" id="mainSidebar">
 
         <!-- Brand Row (white-label aware) -->
+        {% set wl_active = whitelabel and whitelabel.get('enabled') %}
         <div class="sb-brand">
-            {% if whitelabel and whitelabel.get('logo_url') %}
+            {% if wl_active and whitelabel.get('logo_url') %}
             <div class="sb-brand-logo"><img src="{{ whitelabel.logo_url }}" alt="{{ whitelabel.get('company_name', 'Logo') }}" class="whitelabel-logo"></div>
             {% else %}
             <div class="sb-brand-logo"><img src="{{ url_for('static', filename='favicon.svg') }}" alt="IGB" style="width:22px;height:22px;"></div>
             {% endif %}
-            {% if whitelabel and whitelabel.get('company_name') %}
+            {% if wl_active and whitelabel.get('company_name') %}
             <span class="sb-brand-text whitelabel-brand-name"
-                  {% if whitelabel.get('name_font') %}style="font-family: '{{ whitelabel.name_font }}', sans-serif;{% if whitelabel.get('name_bold') %} font-weight: 700;{% endif %}{% if whitelabel.get('name_italic') %} font-style: italic;{% endif %}{% if whitelabel.get('name_underline') %} text-decoration: underline;{% endif %}"{% endif %}>{{ whitelabel.company_name }}</span>
+                  {% if whitelabel.get('name_font') %}style="font-family: '{{ whitelabel.name_font }}', sans-serif;{% if whitelabel.get('name_bold') %} font-weight: 700;{% endif %}{% if whitelabel.get('name_italic') %} font-style: italic;{% endif %}{% if whitelabel.get('name_underline') %} text-decoration: underline;{% endif %}"{% endif %}>{{ whitelabel.company_name }} AI Dialer &amp; SMS</span>
             {% else %}
             <span class="sb-brand-text">IGB</span>
             {% endif %}

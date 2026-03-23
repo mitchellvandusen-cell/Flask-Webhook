@@ -5,7 +5,7 @@
             </button>
             <div>
                 <h1 id="dashPageTitle">Dialer</h1>
-                <p class="dash-subtitle">{{ whitelabel.company_name if whitelabel and whitelabel.get('company_name') else 'InsuranceGrokBot' }} Command Center</p>
+                <p class="dash-subtitle">{% if whitelabel and whitelabel.get('enabled') and whitelabel.get('company_name') %}{{ whitelabel.company_name }} AI Dialer &amp; SMS{% else %}InsuranceGrokBot{% endif %} Command Center</p>
             </div>
             <div class="dash-topbar-right">
                 <div class="status-badge"><div class="dot"></div> <span>Active</span></div>

@@ -1286,6 +1286,8 @@ def agency_whitelabel():
 
     # Validate and sanitize
     config = {}
+    if isinstance(data.get('enabled'), bool):
+        config['enabled'] = data['enabled']
     if data.get('company_name'):
         name = str(data['company_name']).strip()[:100]
         if name:

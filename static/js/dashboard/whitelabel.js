@@ -1,8 +1,10 @@
 // whitelabel.js — White-label branding management for agency owners
-// Handles logo upload, company name styling, accent color, dashboard font, and save/load.
+// Handles enable/disable toggle, logo, company name, accent color, dashboard font.
 
 (function() {
     'use strict';
+
+    var BRAND_SUFFIX = ' AI Dialer & SMS';
 
     // ── State ────────────────────────────────────────────────────────────────
     var _wlState = {
@@ -52,6 +54,12 @@
                     var dashFont = document.getElementById('wlDashFont');
                     if (dashFont) dashFont.value = wl.font_family;
                 }
+                // Enabled toggle
+                var toggle = document.getElementById('wlEnabled');
+                if (toggle && wl.enabled) {
+                    toggle.checked = true;
+                    _wlSetBodyEnabled(true);
+                }
                 _wlUpdatePreview();
             })
             .catch(function(e) { console.warn('wlInit error:', e); });
@@ -91,7 +99,7 @@
             });
         }
 
-        // Dashboard font: load preview
+        // Dashboard font preview
         var dashFontSelect = document.getElementById('wlDashFont');
         if (dashFontSelect) {
             dashFontSelect.addEventListener('change', function() {
@@ -111,13 +119,10 @@
         if (dropZone && fileInput) {
             dropZone.addEventListener('click', function() { fileInput.click(); });
             fileInput.addEventListener('change', function() {
-                if (this.files && this.files[0]) {
-                    _wlHandleLogoFile(this.files[0]);
-                }
+                if (this.files && this.files[0]) _wlHandleLogoFile(this.files[0]);
             });
             dropZone.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
+                e.preventDefault(); e.stopPropagation();
                 this.querySelector('.wl-logo-preview').style.borderColor = 'var(--accent)';
             });
             dropZone.addEventListener('dragleave', function(e) {
@@ -125,12 +130,9 @@
                 this.querySelector('.wl-logo-preview').style.borderColor = '';
             });
             dropZone.addEventListener('drop', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
+                e.preventDefault(); e.stopPropagation();
                 this.querySelector('.wl-logo-preview').style.borderColor = '';
-                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                    _wlHandleLogoFile(e.dataTransfer.files[0]);
-                }
+                if (e.dataTransfer.files && e.dataTransfer.files[0]) _wlHandleLogoFile(e.dataTransfer.files[0]);
             });
         }
 
@@ -139,21 +141,45 @@
         if (logoUrlInput) {
             logoUrlInput.addEventListener('change', function() {
                 var url = this.value.trim();
-                if (url && (url.startsWith('https://') || url.startsWith('http://'))) {
-                    _wlShowLogoPreview(url);
-                }
+                if (url && (url.startsWith('https://') || url.startsWith('http://'))) _wlShowLogoPreview(url);
             });
         }
     };
+
+    // ── Enable/disable toggle ────────────────────────────────────────────────
+    window.wlToggleEnabled = function() {
+        var checked = document.getElementById('wlEnabled').checked;
+        _wlSetBodyEnabled(checked);
+        // Auto-save the toggle immediately
+        fetch('/api/agency/whitelabel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: checked }),
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.status === 'ok') {
+                if (typeof _showDashToast === 'function')
+                    _showDashToast(true, checked ? 'White label enabled. Reload to see changes.' : 'White label disabled. Reload to see default branding.');
+            }
+        })
+        .catch(function() {});
+    };
+
+    function _wlSetBodyEnabled(enabled) {
+        var body = document.getElementById('wlConfigBody');
+        if (body) {
+            body.style.opacity = enabled ? '' : '0.4';
+            body.style.pointerEvents = enabled ? '' : 'none';
+        }
+    }
 
     // ── Toggle bold/italic/underline ─────────────────────────────────────────
     window.wlToggleStyle = function(style) {
         _wlState[style] = !_wlState[style];
         var btnId = 'wl' + style.charAt(0).toUpperCase() + style.slice(1) + 'Btn';
         var btn = document.getElementById(btnId);
-        if (btn) {
-            btn.classList.toggle('active', _wlState[style]);
-        }
+        if (btn) btn.classList.toggle('active', _wlState[style]);
         _wlUpdatePreview();
     };
 
@@ -161,24 +187,22 @@
     window.wlUpdateAccentPreview = function() {
         var colorPicker = document.getElementById('wlAccentColor');
         var colorHex = document.getElementById('wlAccentColorHex');
-        if (colorPicker && colorHex) {
-            colorHex.value = colorPicker.value;
-        }
+        if (colorPicker && colorHex) colorHex.value = colorPicker.value;
     };
 
     // ── Update name preview ──────────────────────────────────────────────────
     function _wlUpdatePreview() {
-        var text = (document.getElementById('wlCompanyName').value || '').trim() || 'Your Agency Name';
+        var name = (document.getElementById('wlCompanyName').value || '').trim() || 'Your Agency Name';
         var el = document.getElementById('wlPreviewText');
         if (!el) return;
-        el.textContent = text;
+        el.textContent = name + BRAND_SUFFIX;
         el.style.fontFamily = _wlState.font ? ("'" + _wlState.font + "', sans-serif") : '';
         el.style.fontWeight = _wlState.bold ? '700' : '400';
         el.style.fontStyle = _wlState.italic ? 'italic' : 'normal';
         el.style.textDecoration = _wlState.underline ? 'underline' : 'none';
     }
 
-    // ── Handle logo file (convert to data URL for preview, store URL) ────────
+    // ── Handle logo file ─────────────────────────────────────────────────────
     function _wlHandleLogoFile(file) {
         var maxSize = 2 * 1024 * 1024;
         if (file.size > maxSize) {
@@ -190,22 +214,19 @@
             if (typeof _showDashToast === 'function') _showDashToast(false, 'Invalid file type. Use PNG, SVG, JPG, or WebP.');
             return;
         }
-
         var reader = new FileReader();
         reader.onload = function(e) {
             var img = new Image();
             img.onload = function() {
                 if (img.width > 400 || img.height > 120) {
-                    if (typeof _showDashToast === 'function') {
+                    if (typeof _showDashToast === 'function')
                         _showDashToast(false, 'Logo too large: max 400x120px. Yours is ' + img.width + 'x' + img.height + 'px.');
-                    }
                     return;
                 }
                 _wlShowLogoPreview(e.target.result);
                 document.getElementById('wlLogoUrl').value = '';
-                if (typeof _showDashToast === 'function') {
+                if (typeof _showDashToast === 'function')
                     _showDashToast(true, 'Logo preview loaded. Paste a hosted URL to save permanently.');
-                }
             };
             img.src = e.target.result;
         };
@@ -217,19 +238,13 @@
         if (!preview) return;
         preview.innerHTML = '';
         var img = document.createElement('img');
-        img.src = url;
-        img.alt = 'Logo preview';
-        img.id = 'wlLogoImg';
+        img.src = url; img.alt = 'Logo preview'; img.id = 'wlLogoImg';
         preview.appendChild(img);
         var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'btn btn-sm wl-logo-remove';
-        btn.title = 'Remove logo';
+        btn.type = 'button'; btn.className = 'btn btn-sm wl-logo-remove'; btn.title = 'Remove logo';
         btn.onclick = function() { wlRemoveLogo(); };
-        var icon = document.createElement('i');
-        icon.className = 'fa-solid fa-xmark';
-        btn.appendChild(icon);
-        preview.appendChild(btn);
+        var icon = document.createElement('i'); icon.className = 'fa-solid fa-xmark';
+        btn.appendChild(icon); preview.appendChild(btn);
     }
 
     window.wlRemoveLogo = function() {
@@ -252,19 +267,15 @@
         var nameFont = document.getElementById('wlNameFont').value;
         var accentColor = (document.getElementById('wlAccentColorHex').value || '').trim();
         var dashFont = document.getElementById('wlDashFont').value;
+        var enabled = document.getElementById('wlEnabled').checked;
 
-        // Validate accent color format
         if (accentColor && !/^#[0-9a-fA-F]{6}$/.test(accentColor)) {
             if (typeof _showDashToast === 'function') _showDashToast(false, 'Invalid color format. Use #RRGGBB.');
             return;
         }
 
-        if (!companyName && !logoUrl && !accentColor) {
-            if (typeof _showDashToast === 'function') _showDashToast(false, 'Enter a company name, logo, or accent color.');
-            return;
-        }
-
         var payload = {
+            enabled: enabled,
             company_name: companyName || undefined,
             logo_url: logoUrl || undefined,
             name_font: nameFont || undefined,
@@ -294,14 +305,12 @@
     };
 
     // ── Apply white-label overrides on page load ─────────────────────────────
-    // Called from dashboard.html after DASHBOARD_BOOT is available
     window.wlApplyOverrides = function(wl) {
-        if (!wl) return;
+        if (!wl || !wl.enabled) return;
 
         // Accent color override
         if (wl.accent_color) {
             document.documentElement.style.setProperty('--accent', wl.accent_color);
-            // Compute a dimmed version for backgrounds
             var r = parseInt(wl.accent_color.slice(1, 3), 16);
             var g = parseInt(wl.accent_color.slice(3, 5), 16);
             var b = parseInt(wl.accent_color.slice(5, 7), 16);
