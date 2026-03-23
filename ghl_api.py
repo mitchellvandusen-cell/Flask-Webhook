@@ -506,15 +506,15 @@ def fetch_targeted_ghl_history(contact_id: str, location_id: str, access_token: 
         search_url = f"https://services.leadconnectorhq.com/conversations/search?locationId={location_id}&contactId={contact_id}"
         search_res = requests.get(search_url, headers=headers, timeout=10)
 
-        # Auto-retry on 401/403 with a fresh token (same pattern as ghl_message.py)
+        # Auto-retry on 401/403 with a force-refreshed token
         if search_res.status_code in (401, 403) and not _token_refreshed:
-            logger.warning(f"GHL history fetch auth failure (HTTP {search_res.status_code}) — refreshing token for {location_id}")
-            fresh_token = get_valid_token(location_id)
-            if fresh_token and fresh_token != access_token:
+            logger.warning(f"GHL history fetch auth failure (HTTP {search_res.status_code}) — force-refreshing token for {location_id}")
+            fresh_token, was_refreshed, _err = get_valid_token_with_status(location_id, force_refresh=True)
+            if fresh_token and was_refreshed:
                 access_token = fresh_token
                 headers["Authorization"] = f"Bearer {fresh_token}"
                 _token_refreshed = True
-                logger.info(f"Token refreshed for {location_id} — retrying history fetch")
+                logger.info(f"Token force-refreshed for {location_id} — retrying history fetch")
                 search_res = requests.get(search_url, headers=headers, timeout=10)
 
         search_res.raise_for_status()
@@ -598,11 +598,23 @@ def fetch_contact_data_from_ghl(contact_id: str, location_id: str, access_token:
         return {}
 
     headers = {**GHL_HEADERS, "Authorization": f"Bearer {access_token}"}
+    _token_refreshed = False
 
     try:
         # Fetch contact details from GHL API
         url = f"https://services.leadconnectorhq.com/contacts/{contact_id}"
         response = requests.get(url, headers=headers, timeout=10)
+
+        # Auto-retry on 401/403 with a force-refreshed token
+        if response.status_code in (401, 403) and not _token_refreshed:
+            logger.warning(f"GHL contact fetch auth failure (HTTP {response.status_code}) — force-refreshing token for {location_id}")
+            fresh_token, was_refreshed, _err = get_valid_token_with_status(location_id, force_refresh=True)
+            if fresh_token and was_refreshed:
+                headers["Authorization"] = f"Bearer {fresh_token}"
+                _token_refreshed = True
+                logger.info(f"Token force-refreshed for {location_id} — retrying contact fetch")
+                response = requests.get(url, headers=headers, timeout=10)
+
         response.raise_for_status()
 
         contact_data = response.json().get("contact", {})
