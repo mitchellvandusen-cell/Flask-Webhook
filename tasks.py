@@ -241,17 +241,25 @@ def process_webhook_task(payload: dict):
                         location_id=location_id
                     )
 
-        # Track if GHL OAuth credentials are ACTUALLY unusable — skip GHL SMS
-        # when OAuth env vars are missing on this worker.  Even if the token
-        # hasn't expired *yet*, it will soon and can never be refreshed, so
-        # sending via GHL burns 3 retries (~45s) then fails anyway.  Go
-        # straight to Twilio fallback instead.
+        # Track if GHL OAuth credentials are ACTUALLY unusable — skip GHL
+        # operations when the token itself is missing or unresolvable.
+        #
+        # Previously this also checked `not has_oauth_credentials()` which
+        # caused ALL GHL operations to be skipped on workers without OAuth
+        # env vars — even when the DB-cached token was still valid (refreshed
+        # by the web service's proactive cron).  That broke history sync
+        # (less AI context), CRM logging (agent can't see bot replies in GHL),
+        # and calendar booking.
+        #
+        # Now we only skip when token_error confirms the token is unusable.
+        # When the token IS valid, GHL operations proceed normally.  If the
+        # token turns out to be expired at call time, each GHL function
+        # handles the 401 gracefully (ghl_message returns after 1 attempt
+        # when has_oauth_credentials() is False, ghl_logger is best-effort,
+        # fetch_targeted_ghl_history returns empty list).
         _ghl_creds_missing = False
         if not is_demo and not is_api_source:
-            _ghl_creds_missing = (
-                token_error in ('no_credentials', 'no_tokens')
-                or not has_oauth_credentials()
-            )
+            _ghl_creds_missing = token_error in ('no_credentials', 'no_tokens')
 
         # Inject fresh token (empty for API sources without GHL)
         subscriber['access_token'] = auth_token
