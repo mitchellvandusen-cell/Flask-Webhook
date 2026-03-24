@@ -86,7 +86,7 @@ def send_sms_via_ghl(
         (False, 'network',    {...}) — Network/timeout error after all retries
         (False, 'safety',     None)  — Blocked by safety filter
         (False, 'invalid',    None)  — Invalid contact_id or missing token
-        (False, 'error',      {...}) — Other/unknown error
+        (False, 'server_error', {...}) — GHL 5xx after all retries
 
     http_detail dict (when present):
         {"status_code": int, "response_body": str, "attempts": int}
@@ -168,7 +168,7 @@ def send_sms_via_ghl(
         # Fallback: include locationId when conversationId not available
         payload["locationId"] = location_id
 
-    last_failure = 'error'
+    last_failure = 'unknown'
     last_status = 0
     last_body = ''
     total_attempts = 0

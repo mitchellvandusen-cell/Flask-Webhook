@@ -42,8 +42,7 @@ def send_sms_via_twilio(
         (False, 'invalid',    None)  — Missing required params
         (False, 'auth',       {...}) — Twilio auth error
         (False, 'rate_limit', {...}) — Rate limited
-        (False, 'network',    {...}) — Network/timeout error
-        (False, 'error',      {...}) — Other error
+        (False, 'network',    {...}) — Network/timeout/other error
     """
     if not phone_to or not message or not from_number:
         logger.warning(f"Cannot send Twilio SMS: missing params (to={bool(phone_to)}, "
@@ -87,7 +86,7 @@ def send_sms_via_twilio(
     # Send via Twilio REST API
     from twilio.rest import Client as TwilioClient
 
-    last_failure = 'error'
+    last_failure = 'unknown'
     last_status = 0
     last_body = ''
     total_attempts = 0

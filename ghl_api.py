@@ -29,6 +29,9 @@ def _get_env_with_fallback(*names):
 _REDIS_OAUTH_KEY = "igb:ghl_oauth_creds"
 _DB_OAUTH_KEY = "ghl_oauth_creds"
 
+# Throttle for "no creds" error log — only log once per 60 seconds per process
+_NO_CREDS_LAST_LOG = 0
+
 
 def _share_creds_to_redis(marketplace_id, marketplace_secret, private_id, private_secret):
     """Store OAuth credentials in Redis so worker processes can access them.
@@ -183,15 +186,21 @@ def _load_oauth_credentials():
             marketplace_id, marketplace_secret, private_id, private_secret = _read_creds_from_db()
             has_any = (marketplace_id and marketplace_secret) or (private_id and private_secret)
             if not has_any:
-                logger.error(
-                    f"No OAuth credentials configured | "
-                    f"GHL_CLIENT_ID={'SET' if os.getenv('GHL_CLIENT_ID') else 'MISSING'} | "
-                    f"GHL_CLIENT_SECRET={'SET' if os.getenv('GHL_CLIENT_SECRET') else 'MISSING'} | "
-                    f"PRIVATE_APP_CLIENT_ID={'SET' if os.getenv('PRIVATE_APP_CLIENT_ID') else 'MISSING'} | "
-                    f"PRIVATE_APP_SECRET_ID={'SET' if os.getenv('PRIVATE_APP_SECRET_ID') else 'MISSING'} | "
-                    f"Redis={'EMPTY' if not marketplace_id else 'OK'} | "
-                    f"DB={'EMPTY'} — token refresh will fail, SMS will use Twilio fallback"
-                )
+                # Throttle this log — concurrent webhook tasks all hit this path,
+                # generating N identical entries that spam monitoring dashboards.
+                # Log once per 60 seconds per process; silent otherwise.
+                global _NO_CREDS_LAST_LOG
+                _now = _time.time()
+                if _now - _NO_CREDS_LAST_LOG >= 60:
+                    _NO_CREDS_LAST_LOG = _now
+                    logger.warning(
+                        f"No OAuth credentials configured | "
+                        f"GHL_CLIENT_ID={'SET' if os.getenv('GHL_CLIENT_ID') else 'MISSING'} | "
+                        f"GHL_CLIENT_SECRET={'SET' if os.getenv('GHL_CLIENT_SECRET') else 'MISSING'} | "
+                        f"PRIVATE_APP_CLIENT_ID={'SET' if os.getenv('PRIVATE_APP_CLIENT_ID') else 'MISSING'} | "
+                        f"PRIVATE_APP_SECRET_ID={'SET' if os.getenv('PRIVATE_APP_SECRET_ID') else 'MISSING'} | "
+                        f"Redis=EMPTY | DB=EMPTY — token refresh will fail, SMS will use Twilio fallback"
+                    )
 
     return marketplace_id, marketplace_secret, private_id, private_secret
 
