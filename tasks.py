@@ -259,7 +259,7 @@ def process_webhook_task(payload: dict):
         # fetch_targeted_ghl_history returns empty list).
         _ghl_creds_missing = False
         if not is_demo and not is_api_source:
-            _ghl_creds_missing = token_error in ('no_credentials', 'no_tokens')
+            _ghl_creds_missing = token_error in ('no_credentials', 'no_tokens', 'all_creds_exhausted')
             # Also skip GHL when token is expired and we're on a worker
             # that can't refresh it (no OAuth env vars).  Go straight to
             # Twilio fallback instead of wasting an HTTP call that will 401.
@@ -274,12 +274,20 @@ def process_webhook_task(payload: dict):
                     # the cron already refreshed it in DB, or we can now refresh
                     # it ourselves with the Redis-shared creds.  This avoids a
                     # wasted 401 round-trip with the stale expired token.
-                    retry_token = get_valid_token(location_id)
+                    retry_token = get_valid_token(location_id, subscriber=subscriber)
                     if retry_token and retry_token != auth_token:
                         logger.info(f"🔄 Token re-fetched after Redis creds appeared for "
                                    f"{location_id} — using fresh token")
                         auth_token = retry_token
                         token_error = None
+                    else:
+                        # Creds available but refresh still failed (revoked
+                        # refresh_token, GHL API down, etc.).  Skip GHL to
+                        # avoid wasting ~15s on a 401 round-trip + failed
+                        # recovery — go straight to Twilio fallback.
+                        _ghl_creds_missing = True
+                        logger.warning(f"OAuth creds available but token refresh failed for "
+                                      f"{location_id} — skipping GHL, using Twilio fallback")
 
         # Inject fresh token (empty for API sources without GHL)
         subscriber['access_token'] = auth_token
