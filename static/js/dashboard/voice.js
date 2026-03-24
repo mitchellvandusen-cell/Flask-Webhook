@@ -27,7 +27,7 @@
 
             if (status.stale) {
                 // Stale config from old Twilio account
-                subtitle.innerHTML = '<i class="fa-solid fa-triangle-exclamation me-1"></i>Configured on previous Twilio account — needs re-activation';
+                subtitle.innerHTML = '<i class="fa-solid fa-triangle-exclamation me-1"></i>Configured on a previous account — needs re-activation';
                 subtitle.className = 'vc-activation-subtitle vc-stale';
                 if (staleWarn) staleWarn.style.display = '';
                 if (activateBtn) activateBtn.style.display = '';
