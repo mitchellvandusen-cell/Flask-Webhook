@@ -213,11 +213,10 @@ def get_valid_token(location_id: str, subscriber: dict = None) -> str | None:
 
     # --- Token needs refresh ---
     # Fast path: skip credential loading entirely when no OAuth env vars configured.
-    # Avoids _log_no_creds noise on workers that intentionally lack GHL credentials.
+    # The token IS expired (passed the expiry check above) and we have no way to
+    # refresh it — returning the stale token just wastes time on doomed API calls.
     if not has_oauth_credentials():
-        if access_token:
-            logger.debug(f"Returning possibly-expired token for {location_id} (no OAuth env vars)")
-            return access_token
+        logger.debug(f"Token expired for {location_id} and no OAuth env vars to refresh — returning None")
         return None
 
     marketplace_id, marketplace_secret, private_id, private_secret = _load_oauth_credentials()
@@ -356,10 +355,9 @@ def get_valid_token_with_status(location_id: str, subscriber: dict = None,
         logger.info(f"🔄 Force-refresh requested for {location_id} — skipping expiry check")
 
     # --- Token needs refresh ---
-    # Fast path: skip credential loading entirely when no OAuth env vars configured.
+    # Fast path: token IS expired and no OAuth env vars to refresh — return None.
+    # Returning a stale token would cause doomed API calls across all callers.
     if not has_oauth_credentials():
-        if access_token:
-            return access_token, False, 'no_credentials'
         return None, False, 'no_credentials'
 
     marketplace_id, marketplace_secret, private_id, private_secret = _load_oauth_credentials()
