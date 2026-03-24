@@ -912,17 +912,19 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                             if sent:
                                 logger.info(f"✅ Twilio direct SMS sent to {contact_id} from {sms_send_via}")
                                 # Log to GHL via Conversation Provider so CRM stays in sync
-                                try:
-                                    from ghl_logger import log_outbound_sms_to_ghl
-                                    log_outbound_sms_to_ghl(
-                                        contact_id=contact_id,
-                                        message=reply,
-                                        access_token=auth_token,
-                                        location_id=location_id,
-                                        contact_phone=contact_phone,
-                                    )
-                                except Exception as ghl_log_err:
-                                    logger.debug(f"GHL conversation log skipped: {ghl_log_err}")
+                                # Skip when GHL creds are missing — token is empty/expired
+                                if not _ghl_creds_missing and auth_token:
+                                    try:
+                                        from ghl_logger import log_outbound_sms_to_ghl
+                                        log_outbound_sms_to_ghl(
+                                            contact_id=contact_id,
+                                            message=reply,
+                                            access_token=auth_token,
+                                            location_id=location_id,
+                                            contact_phone=contact_phone,
+                                        )
+                                    except Exception as ghl_log_err:
+                                        logger.debug(f"GHL conversation log skipped: {ghl_log_err}")
                         else:
                             # Fallback to GHL if Twilio creds missing (skip if GHL creds also missing)
                             if _ghl_creds_missing:
