@@ -21,6 +21,11 @@ class GHLAdapter(CRMAdapter):
     SUPPORTS_CONTACTS = True
 
     def send_message(self, contact_id: str, message: str, **kwargs) -> bool:
+        from ghl_api import has_oauth_credentials
+        if not has_oauth_credentials() and not self.access_token:
+            logger.warning(f"GHL adapter: no OAuth credentials and no token — "
+                          f"cannot send SMS to {contact_id}")
+            return False
         from ghl_message import send_sms_via_ghl
         sent, _reason, _http_detail = send_sms_via_ghl(
             contact_id=contact_id,
