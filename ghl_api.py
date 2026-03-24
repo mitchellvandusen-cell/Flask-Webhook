@@ -34,8 +34,8 @@ def _share_creds_to_redis(marketplace_id, marketplace_secret, private_id, privat
     Called once when the web service (which has env vars) loads credentials."""
     try:
         import json
-        from extensions import ensure_redis, redis_conn
-        if not ensure_redis():
+        import extensions
+        if not extensions.ensure_redis():
             return
         creds = {}
         if marketplace_id and marketplace_secret:
@@ -45,7 +45,9 @@ def _share_creds_to_redis(marketplace_id, marketplace_secret, private_id, privat
             creds["p_id"] = private_id
             creds["p_sec"] = private_secret
         if creds:
-            redis_conn.set(_REDIS_OAUTH_KEY, json.dumps(creds), ex=86400 * 7)
+            # Access extensions.redis_conn AFTER ensure_redis() to get the
+            # live reference (not a stale local binding from import time).
+            extensions.redis_conn.set(_REDIS_OAUTH_KEY, json.dumps(creds), ex=86400 * 7)
             logger.debug("GHL OAuth creds shared to Redis for worker processes")
     except Exception as e:
         logger.warning(f"Could not share OAuth creds to Redis: {e}")
@@ -56,10 +58,14 @@ def _read_creds_from_redis():
     Returns (marketplace_id, marketplace_secret, private_id, private_secret)."""
     try:
         import json
-        from extensions import ensure_redis, redis_conn
-        if not ensure_redis():
+        import extensions
+        if not extensions.ensure_redis():
             return None, None, None, None
-        raw = redis_conn.get(_REDIS_OAUTH_KEY)
+        # Access extensions.redis_conn AFTER ensure_redis() to get the live
+        # reference.  Using `from extensions import redis_conn` would capture
+        # the value at import time (often None before ensure_redis runs),
+        # causing silent failures on first call or after Redis reconnections.
+        raw = extensions.redis_conn.get(_REDIS_OAUTH_KEY)
         if raw:
             creds = json.loads(raw)
             logger.info("GHL OAuth creds loaded from Redis (shared by web service)")

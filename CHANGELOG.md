@@ -41,6 +41,16 @@
 
 ---
 
+## 2026-03-24 (Fix: Redis credential sharing — stale import binding)
+
+**Root cause**: Python `from extensions import redis_conn` inside `_share_creds_to_redis()` and `_read_creds_from_redis()` captures the module-level `redis_conn` value at import time. When `redis_conn` is `None` (before `ensure_redis()` runs), the local binding stays `None` even after `ensure_redis()` creates a real connection. This caused: (1) web service silently failed to write OAuth creds to Redis on first startup call, (2) worker silently failed to read creds from Redis on first call, (3) after any Redis reconnection, the stale local binding caused the same failure. The web service had a self-healing retry (main.py lines 173-178) that masked the bug, but workers had no such safety net — leading to 50+ SMS failures during token expiry windows.
+
+**Fix**: Changed `from extensions import redis_conn` to `import extensions` and access `extensions.redis_conn` after `ensure_redis()`. This always gets the live reference, not a stale snapshot. Applied to `_share_creds_to_redis()`, `_read_creds_from_redis()`, and the startup check in `main.py`.
+
+**Pattern rule**: Never `from extensions import redis_conn` before calling `ensure_redis()`. Always use `import extensions` + `extensions.redis_conn` when the connection may not yet be initialized.
+
+---
+
 ## 2026-03-24 (Worker SMS: Share OAuth Credentials via Redis)
 
 **Root cause**: Worker processes lack GHL OAuth env vars (`GHL_CLIENT_ID`, `GHL_CLIENT_SECRET`), so they cannot refresh expired tokens. When the proactive cron hasn't refreshed a token before a worker needs it, GHL SMS delivery fails — 3 wasted retries per message, 50+ errors in 7 minutes during a token expiry window.

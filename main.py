@@ -170,8 +170,8 @@ initialize_encryption()
 from ghl_api import has_oauth_credentials as _check_oauth
 _check_oauth()
 try:
-    from extensions import ensure_redis, redis_conn
-    if ensure_redis() and not redis_conn.get("igb:ghl_oauth_creds"):
+    import extensions as _ext
+    if _ext.ensure_redis() and not _ext.redis_conn.get("igb:ghl_oauth_creds"):
         import time as _t; _t.sleep(2)
         _check_oauth(force_recheck=True)
 except Exception:
