@@ -965,10 +965,56 @@
                         <button id="dialerTakeoverBtn" onclick="dialerTakeover()" disabled class="dialer-ctrl-btn dlr-panel-orange" style="display:flex;align-items:center;gap:4px;width:auto;height:32px;border-radius:6px;cursor:not-allowed;font-size:0.85rem;font-weight:600;padding:0 10px;transition:all .2s" title="Take over this AI call (Human Intercept)">
                             <i class="fa-solid fa-hand"></i><span>Intercept</span>
                         </button>
-                        <!-- Live Transfer -->
-                        <button id="dialerTransferBtn" onclick="dialerTransfer()" disabled class="dialer-ctrl-btn dlr-panel-cyan-3" style="display:flex;align-items:center;gap:4px;width:auto;height:32px;border-radius:6px;cursor:not-allowed;font-size:0.85rem;font-weight:600;padding:0 10px;transition:all .2s" title="Transfer call to another number">
-                            <i class="fa-solid fa-arrow-right-arrow-left"></i><span>Transfer</span>
-                        </button>
+                        <!-- Live Transfer (Warm) -->
+                        <div class="position-relative">
+                            <button id="dialerTransferBtn" onclick="_toggleWarmTransferPopover()" disabled class="dialer-ctrl-btn dlr-panel-cyan-3" style="display:flex;align-items:center;gap:4px;width:auto;height:32px;border-radius:6px;cursor:not-allowed;font-size:0.85rem;font-weight:600;padding:0 10px;transition:all .2s" title="Warm transfer call">
+                                <i class="fa-solid fa-arrow-right-arrow-left"></i><span>Transfer</span>
+                            </button>
+                            <!-- Warm Transfer Popover -->
+                            <div id="warmXferPopover" class="warm-xfer-popover">
+                                <!-- Dial state (initial) -->
+                                <div id="warmXferDialState">
+                                    <div class="warm-xfer-popover-title">Warm Transfer</div>
+                                    <div id="warmXferPresets" class="warm-xfer-presets"></div>
+                                    <div id="warmXferDivider" class="warm-xfer-divider">or enter number</div>
+                                    <input type="tel" id="warmXferInput" class="warm-xfer-input" placeholder="+1 (555) 123-4567" maxlength="20" autocomplete="off">
+                                    <div id="warmXferKeypad" class="warm-xfer-keypad">
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferKey('1')">1</button>
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferKey('2')">2</button>
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferKey('3')">3</button>
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferKey('4')">4</button>
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferKey('5')">5</button>
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferKey('6')">6</button>
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferKey('7')">7</button>
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferKey('8')">8</button>
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferKey('9')">9</button>
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferKey('+')">+</button>
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferKey('0')">0</button>
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferBackspace()"><i class="fa-solid fa-delete-left"></i></button>
+                                    </div>
+                                    <div class="warm-xfer-actions">
+                                        <button type="button" id="warmXferDialBtn" class="warm-xfer-dial-btn" onclick="_warmXferDial()">
+                                            <i class="fa-solid fa-phone"></i> Dial
+                                        </button>
+                                        <button type="button" class="warm-xfer-close-btn" onclick="_closeWarmXferPopover()">Cancel</button>
+                                    </div>
+                                </div>
+                                <!-- Consulting state -->
+                                <div id="warmXferConsultState" class="warm-xfer-consulting" style="display:none">
+                                    <div class="warm-xfer-consulting-label">Consulting...</div>
+                                    <div id="warmXferConsultTarget" class="warm-xfer-consulting-target"></div>
+                                    <div id="warmXferConsultTimer" class="warm-xfer-consulting-timer">0:00</div>
+                                    <div class="warm-xfer-actions">
+                                        <button type="button" id="warmXferCompleteBtn" class="warm-xfer-complete-btn" onclick="_warmXferComplete()">
+                                            <i class="fa-solid fa-check"></i> Complete Transfer
+                                        </button>
+                                        <button type="button" id="warmXferCancelBtn" class="warm-xfer-cancel-btn" onclick="_warmXferCancel()">
+                                            <i class="fa-solid fa-xmark"></i> Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <!-- Call Disposition (shown after call ends) -->

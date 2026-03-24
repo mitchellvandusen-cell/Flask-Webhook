@@ -807,3 +807,89 @@ def update_ticket(ticket_id):
     if success:
         return jsonify({"success": True, "ticket_id": ticket_id, "status": new_status})
     return jsonify({"error": "Failed to update ticket"}), 500
+
+
+# ── Reset Stale Voice Configs ─────────────────────────────────────────────────
+
+@admin_bp.route("/api/admin/reset-stale-voice-configs", methods=["POST"])
+@super_admin_required
+def reset_stale_voice_configs():
+    """
+    Validate all subscribers' Twilio sub-accounts against the current master.
+    If a sub-account doesn't exist under the current master (stale from old account),
+    wipe the Twilio provisioning fields but preserve user settings.
+    """
+    import json
+    import twilio_provisioning
+
+    TWILIO_FIELDS_TO_CLEAR = [
+        'twilio_sub_account_sid', 'twilio_sub_account_auth_token',
+        'twilio_twiml_app_sid', 'twilio_phone_number', 'twilio_number_sid',
+        'twilio_api_key_sid', 'twilio_api_key_secret',
+    ]
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+
+    report = {"checked": 0, "cleared": [], "valid": [], "errors": []}
+
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT email, voice_config FROM subscribers
+            WHERE voice_config IS NOT NULL
+              AND voice_config::text != '{}'
+              AND voice_config::text != 'null'
+              AND voice_config->>'twilio_sub_account_sid' IS NOT NULL
+              AND voice_config->>'twilio_sub_account_sid' != ''
+        """)
+        rows = cur.fetchall()
+        cur.close()
+
+        master_client = twilio_provisioning.get_master_client()
+
+        for row in rows:
+            email = row['email']
+            vc = row['voice_config'] if isinstance(row['voice_config'], dict) else json.loads(row['voice_config'])
+            sub_sid = vc.get('twilio_sub_account_sid', '')
+            if not sub_sid:
+                continue
+
+            report["checked"] += 1
+
+            # Verify sub-account exists under current master
+            try:
+                account = master_client.api.accounts(sub_sid).fetch()
+                if account.status == 'active':
+                    report["valid"].append({"email": email, "sub_sid": sub_sid})
+                    continue
+                else:
+                    logger.info(f"[stale-reset] {email}: sub-account {sub_sid} status={account.status} — clearing")
+            except Exception as e:
+                logger.info(f"[stale-reset] {email}: sub-account {sub_sid} not found on current master — clearing ({e})")
+
+            # Stale — clear Twilio fields, preserve everything else
+            old_phone = vc.get('twilio_phone_number', '')
+            for field in TWILIO_FIELDS_TO_CLEAR:
+                vc.pop(field, None)
+            vc['enabled'] = False
+
+            cur2 = conn.cursor()
+            cur2.execute(
+                "UPDATE subscribers SET voice_config = %s WHERE email = %s",
+                (json.dumps(vc), email)
+            )
+            cur2.close()
+            conn.commit()
+
+            report["cleared"].append({"email": email, "old_sub_sid": sub_sid, "old_phone": old_phone})
+            logger.info(f"[stale-reset] Cleared stale voice config for {email} (old sub={sub_sid}, old phone={old_phone})")
+
+    except Exception as e:
+        logger.error(f"[stale-reset] Error: {e}", exc_info=True)
+        report["errors"].append(str(e))
+    finally:
+        return_db_connection(conn)
+
+    return jsonify(report)

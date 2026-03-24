@@ -11606,3 +11606,482 @@ body.light-theme .assistant-nudge {
     background: rgba(255,255,255,0.95); border-color: rgba(0,0,0,0.08);
     color: var(--lt-text-secondary); box-shadow: 0 4px 16px rgba(0,0,0,0.1);
 }
+
+/* ── Warm Transfer Popover (Liquid Glass) ── */
+.warm-xfer-popover {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 280px;
+    z-index: 2000;
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--glass-border-top) var(--glass-border-bottom) var(--glass-border-bottom) var(--glass-border-left);
+    border-radius: 14px;
+    box-shadow: var(--glass-shadow);
+    padding: 14px;
+    display: none;
+    animation: warmXferIn 0.2s ease;
+}
+@keyframes warmXferIn { from { opacity: 0; transform: translateX(-50%) translateY(6px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+.warm-xfer-popover-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #00d9ff;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+}
+
+.warm-xfer-presets {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.warm-xfer-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: rgba(0,217,255,0.06);
+    border: 1px solid rgba(0,217,255,0.15);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 0.8rem;
+    color: #ddd;
+}
+.warm-xfer-chip:hover {
+    background: rgba(0,217,255,0.14);
+    border-color: rgba(0,217,255,0.3);
+    box-shadow: 0 2px 12px rgba(0,217,255,0.1);
+}
+.warm-xfer-chip-label {
+    font-weight: 600;
+    color: #fff;
+    flex: 1;
+}
+.warm-xfer-chip-number {
+    font-size: 0.72rem;
+    color: #888;
+    font-family: monospace;
+}
+.warm-xfer-chip-icon {
+    color: #00d9ff;
+    font-size: 0.7rem;
+}
+
+.warm-xfer-divider {
+    text-align: center;
+    font-size: 0.7rem;
+    color: #555;
+    margin: 6px 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.warm-xfer-input {
+    width: 100%;
+    padding: 8px 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    color: #fff;
+    font-size: 0.85rem;
+    font-family: monospace;
+    outline: none;
+    transition: border-color 0.15s;
+}
+.warm-xfer-input:focus {
+    border-color: rgba(0,217,255,0.4);
+    box-shadow: 0 0 0 2px rgba(0,217,255,0.08);
+}
+.warm-xfer-input::placeholder { color: #555; }
+
+.warm-xfer-keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    margin-top: 8px;
+}
+.warm-xfer-keypad-btn {
+    padding: 8px 0;
+    text-align: center;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #ccc;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.12s;
+    user-select: none;
+}
+.warm-xfer-keypad-btn:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(255,255,255,0.15);
+    color: #fff;
+}
+.warm-xfer-keypad-btn:active {
+    background: rgba(0,217,255,0.15);
+    border-color: rgba(0,217,255,0.3);
+}
+
+.warm-xfer-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.warm-xfer-dial-btn {
+    flex: 1;
+    padding: 8px 0;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #000;
+    background: linear-gradient(135deg, var(--accent), #00cc6a);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.warm-xfer-dial-btn:hover {
+    box-shadow: 0 4px 16px rgba(0,255,136,0.25);
+    transform: translateY(-1px);
+}
+.warm-xfer-dial-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.warm-xfer-close-btn {
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    color: #888;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.12s;
+}
+.warm-xfer-close-btn:hover {
+    color: #ccc;
+    background: rgba(255,255,255,0.08);
+}
+
+/* Consulting state */
+.warm-xfer-consulting {
+    text-align: center;
+    padding: 6px 0;
+}
+.warm-xfer-consulting-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #00d9ff;
+    margin-bottom: 4px;
+}
+.warm-xfer-consulting-target {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 2px;
+}
+.warm-xfer-consulting-timer {
+    font-size: 0.72rem;
+    color: #888;
+    font-family: monospace;
+    margin-bottom: 10px;
+}
+
+.warm-xfer-complete-btn {
+    flex: 1;
+    padding: 8px 0;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #000;
+    background: linear-gradient(135deg, var(--accent), #00cc6a);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.warm-xfer-complete-btn:hover {
+    box-shadow: 0 4px 16px rgba(0,255,136,0.25);
+}
+
+.warm-xfer-cancel-btn {
+    flex: 1;
+    padding: 8px 0;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #ff4444;
+    background: rgba(255,68,68,0.08);
+    border: 1px solid rgba(255,68,68,0.2);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.warm-xfer-cancel-btn:hover {
+    background: rgba(255,68,68,0.15);
+    border-color: rgba(255,68,68,0.35);
+}
+
+/* Voice Config transfer number rows */
+.warm-xfer-number-row {
+    gap: 8px;
+}
+.warm-xfer-label-input { max-width: 200px; }
+.warm-xfer-number-input { max-width: 180px; }
+.warm-xfer-remove-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,68,68,0.08);
+    border: 1px solid rgba(255,68,68,0.2);
+    border-radius: 6px;
+    color: #ff4444;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.12s;
+    flex-shrink: 0;
+}
+.warm-xfer-remove-btn:hover {
+    background: rgba(255,68,68,0.2);
+    border-color: rgba(255,68,68,0.4);
+}
+.warm-xfer-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 14px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #00d9ff;
+    background: rgba(0,217,255,0.06);
+    border: 1px solid rgba(0,217,255,0.15);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.warm-xfer-add-btn:hover {
+    background: rgba(0,217,255,0.12);
+    border-color: rgba(0,217,255,0.25);
+}
+.vc-field-label {
+    color: #aaa;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+    display: block;
+}
+.vc-field-hint {
+    color: #555;
+    font-size: 0.75rem;
+}
+.vc-glass-input {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #fff;
+    border-radius: 10px;
+    font-size: 0.85rem;
+}
+
+/* ── Warm Transfer Light Theme ── */
+body.light-theme .warm-xfer-popover {
+    background: rgba(255,255,255,0.92);
+    border-color: rgba(0,0,0,0.10) rgba(0,0,0,0.06) rgba(0,0,0,0.06) rgba(0,0,0,0.08);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+body.light-theme .warm-xfer-popover-title { color: #0078b8; }
+body.light-theme .warm-xfer-chip {
+    background: rgba(0,120,184,0.06);
+    border-color: rgba(0,120,184,0.15);
+    color: var(--lt-text-secondary);
+}
+body.light-theme .warm-xfer-chip:hover {
+    background: rgba(0,120,184,0.12);
+    border-color: rgba(0,120,184,0.25);
+}
+body.light-theme .warm-xfer-chip-label { color: var(--lt-text-primary); }
+body.light-theme .warm-xfer-chip-number { color: var(--lt-text-muted); }
+body.light-theme .warm-xfer-chip-icon { color: #0078b8; }
+body.light-theme .warm-xfer-divider { color: var(--lt-text-faint); }
+body.light-theme .warm-xfer-input {
+    background: var(--lt-input-bg);
+    border-color: var(--lt-border);
+    color: var(--lt-input-text);
+}
+body.light-theme .warm-xfer-input:focus {
+    border-color: rgba(0,120,184,0.4);
+    box-shadow: 0 0 0 2px rgba(0,120,184,0.08);
+}
+body.light-theme .warm-xfer-input::placeholder { color: var(--lt-text-faint); }
+body.light-theme .warm-xfer-keypad-btn {
+    background: rgba(0,0,0,0.03);
+    border-color: rgba(0,0,0,0.08);
+    color: var(--lt-text-secondary);
+}
+body.light-theme .warm-xfer-keypad-btn:hover {
+    background: rgba(0,0,0,0.06);
+    color: var(--lt-text-primary);
+}
+body.light-theme .warm-xfer-keypad-btn:active {
+    background: rgba(0,120,184,0.1);
+    border-color: rgba(0,120,184,0.2);
+}
+body.light-theme .warm-xfer-dial-btn {
+    background: linear-gradient(135deg, var(--lt-accent), #00995a);
+    color: #fff;
+}
+body.light-theme .warm-xfer-dial-btn:hover {
+    box-shadow: 0 4px 16px rgba(0,170,94,0.2);
+}
+body.light-theme .warm-xfer-close-btn {
+    color: var(--lt-text-muted);
+    background: rgba(0,0,0,0.03);
+    border-color: rgba(0,0,0,0.08);
+}
+body.light-theme .warm-xfer-close-btn:hover {
+    color: var(--lt-text-primary);
+    background: rgba(0,0,0,0.06);
+}
+body.light-theme .warm-xfer-consulting-label { color: #0078b8; }
+body.light-theme .warm-xfer-consulting-target { color: var(--lt-text-primary); }
+body.light-theme .warm-xfer-consulting-timer { color: var(--lt-text-muted); }
+body.light-theme .warm-xfer-complete-btn {
+    background: linear-gradient(135deg, var(--lt-accent), #00995a);
+    color: #fff;
+}
+body.light-theme .warm-xfer-cancel-btn {
+    color: #cc0000;
+    background: rgba(204,0,0,0.06);
+    border-color: rgba(204,0,0,0.15);
+}
+body.light-theme .warm-xfer-cancel-btn:hover {
+    background: rgba(204,0,0,0.12);
+    border-color: rgba(204,0,0,0.25);
+}
+body.light-theme .warm-xfer-remove-btn {
+    background: rgba(204,0,0,0.06);
+    border-color: rgba(204,0,0,0.15);
+    color: #cc0000;
+}
+body.light-theme .warm-xfer-remove-btn:hover {
+    background: rgba(204,0,0,0.12);
+}
+body.light-theme .warm-xfer-add-btn {
+    color: #0078b8;
+    background: rgba(0,120,184,0.06);
+    border-color: rgba(0,120,184,0.15);
+}
+body.light-theme .warm-xfer-add-btn:hover {
+    background: rgba(0,120,184,0.12);
+}
+body.light-theme .vc-field-label { color: var(--lt-text-secondary); }
+body.light-theme .vc-field-hint { color: var(--lt-text-muted); }
+body.light-theme .vc-glass-input {
+    background: var(--lt-input-bg);
+    border-color: var(--lt-border);
+    color: var(--lt-input-text);
+}
+
+/* ── Voice Config Activation Panel ── */
+.vc-activation-card {
+    background: rgba(0,217,255,0.04);
+    border: 1px solid rgba(0,217,255,0.15);
+    border-radius: 14px;
+}
+.vc-activation-icon {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: rgba(0,217,255,0.12);
+    border: 1px solid rgba(0,217,255,0.25);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    color: #00d9ff;
+}
+.vc-activation-title {
+    margin: 0; font-weight: 700; color: #fff;
+}
+.vc-activation-subtitle {
+    margin: 0; font-size: 0.8rem; color: #888;
+}
+.vc-activation-subtitle.vc-active {
+    color: #00ff88;
+}
+.vc-activation-subtitle.vc-stale {
+    color: #fbbf24;
+}
+.vc-activate-btn {
+    background: linear-gradient(135deg, #00d9ff, #0099cc);
+    border: none; color: #000; border-radius: 10px;
+    padding: 9px 20px; font-weight: 700; font-size: 0.85rem;
+    cursor: pointer; white-space: nowrap;
+}
+.vc-activate-btn:hover {
+    box-shadow: 0 4px 16px rgba(0,217,255,0.25);
+}
+.vc-status-indicator {
+    display: flex; align-items: center; gap: 4px; font-size: 0.75rem;
+}
+.vc-status-icon-ok { color: #00ff88; }
+.vc-status-icon-bad { color: #444; }
+.vc-status-icon-warn { color: #fbbf24; }
+.vc-status-icon-loading { color: #555; font-size: 0.65rem; }
+.vc-status-text-ok { color: #ccc; }
+.vc-status-text-muted { color: #555; }
+.vc-status-text-warn { color: #fbbf24; }
+.vc-stale-warning {
+    background: rgba(251,191,36,0.08);
+    border: 1px solid rgba(251,191,36,0.2);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    font-size: 0.82rem;
+    color: #fbbf24;
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+/* Voice Config Light Theme */
+body.light-theme .vc-activation-card {
+    background: rgba(0,120,184,0.04);
+    border-color: rgba(0,120,184,0.12);
+}
+body.light-theme .vc-activation-icon {
+    background: rgba(0,120,184,0.08);
+    border-color: rgba(0,120,184,0.2);
+    color: #0078b8;
+}
+body.light-theme .vc-activation-title { color: var(--lt-text-primary); }
+body.light-theme .vc-activation-subtitle { color: var(--lt-text-muted); }
+body.light-theme .vc-activation-subtitle.vc-active { color: var(--lt-accent); }
+body.light-theme .vc-activation-subtitle.vc-stale { color: #b45309; }
+body.light-theme .vc-activate-btn {
+    background: linear-gradient(135deg, #0099cc, #007ab8);
+    color: #fff;
+}
+body.light-theme .vc-status-icon-ok { color: var(--lt-accent); }
+body.light-theme .vc-status-icon-bad { color: var(--lt-text-faint); }
+body.light-theme .vc-status-icon-warn { color: #b45309; }
+body.light-theme .vc-status-text-ok { color: var(--lt-text-secondary); }
+body.light-theme .vc-status-text-muted { color: var(--lt-text-faint); }
+body.light-theme .vc-status-text-warn { color: #b45309; }
+body.light-theme .vc-stale-warning {
+    background: rgba(180,83,9,0.06);
+    border-color: rgba(180,83,9,0.15);
+    color: #b45309;
+}

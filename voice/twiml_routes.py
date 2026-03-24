@@ -439,6 +439,165 @@ def transfer_complete():
     )
 
 
+# ──────────────────────────────────────────────────────────────
+# WARM TRANSFER TwiML ENDPOINTS
+# ──────────────────────────────────────────────────────────────
+
+@twiml_bp.route('/voice/warm-transfer/conference-twiml', methods=['POST'])
+def warm_transfer_conference_twiml():
+    """
+    TwiML for the CALLER leg: joins the Conference room with hold music.
+    Twilio fetches this when we redirect the caller's call.
+    """
+    conf_name = request.values.get('conf_name', '')
+    call_sid = request.values.get('CallSid', '')
+    host = request.host
+
+    logger.info(f"Warm transfer conference TwiML: CallSid={call_sid[:16] if call_sid else 'none'} conf={conf_name}")
+
+    if not conf_name:
+        return Response(
+            '<?xml version="1.0" encoding="UTF-8"?><Response><Say>Transfer failed.</Say></Response>',
+            content_type='text/xml'
+        )
+
+    safe_conf = xml_escape(conf_name)
+    hold_url = xml_escape(f"https://{host}/voice/warm-transfer/hold-music")
+    status_cb = xml_escape(f"https://{host}/voice/warm-transfer/conference-status?conf_name={conf_name}")
+
+    twiml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<Response>'
+        '<Dial>'
+        f'<Conference beep="false" startConferenceOnEnter="true" '
+        f'endConferenceOnExit="false" waitUrl="{hold_url}" '
+        f'statusCallback="{status_cb}" statusCallbackEvent="join leave end">'
+        f'{safe_conf}'
+        '</Conference>'
+        '</Dial>'
+        '</Response>'
+    )
+    return Response(twiml, content_type='text/xml')
+
+
+@twiml_bp.route('/voice/warm-transfer/target-twiml', methods=['POST'])
+def warm_transfer_target_twiml():
+    """
+    TwiML for the TRANSFER TARGET leg: joins the same Conference.
+    endConferenceOnExit=true so conference ends when target hangs up
+    (after agent has dropped off, leaving only caller + target).
+    """
+    conf_name = request.values.get('conf_name', '')
+    call_sid = request.values.get('CallSid', '')
+
+    logger.info(f"Warm transfer target TwiML: CallSid={call_sid[:16] if call_sid else 'none'} conf={conf_name}")
+
+    if not conf_name:
+        return Response(
+            '<?xml version="1.0" encoding="UTF-8"?><Response><Say>Transfer failed.</Say></Response>',
+            content_type='text/xml'
+        )
+
+    safe_conf = xml_escape(conf_name)
+
+    twiml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<Response>'
+        '<Dial>'
+        f'<Conference beep="false" startConferenceOnEnter="true" '
+        f'endConferenceOnExit="true">'
+        f'{safe_conf}'
+        '</Conference>'
+        '</Dial>'
+        '</Response>'
+    )
+    return Response(twiml, content_type='text/xml')
+
+
+@twiml_bp.route('/voice/warm-transfer/hold-music', methods=['POST', 'GET'])
+def warm_transfer_hold_music():
+    """Hold music TwiML for Conference waitUrl."""
+    twiml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<Response>'
+        '<Play loop="0">http://com.twilio.music.classical.s3.amazonaws.com/BusssyBoy_-_Its_Only.mp3</Play>'
+        '</Response>'
+    )
+    return Response(twiml, content_type='text/xml')
+
+
+@twiml_bp.route('/voice/warm-transfer/agent-twiml', methods=['POST'])
+def warm_transfer_agent_twiml():
+    """
+    TwiML for the AGENT leg: joins the Conference for consultative transfer.
+    endConferenceOnExit=false so conference continues when agent drops off.
+    """
+    conf_name = request.values.get('conf_name', '')
+    call_sid = request.values.get('CallSid', '')
+
+    logger.info(f"Warm transfer agent TwiML: CallSid={call_sid[:16] if call_sid else 'none'} conf={conf_name}")
+
+    if not conf_name:
+        return Response(
+            '<?xml version="1.0" encoding="UTF-8"?><Response><Say>Transfer failed.</Say></Response>',
+            content_type='text/xml'
+        )
+
+    safe_conf = xml_escape(conf_name)
+
+    twiml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<Response>'
+        '<Dial>'
+        f'<Conference beep="false" startConferenceOnEnter="true" '
+        f'endConferenceOnExit="false">'
+        f'{safe_conf}'
+        '</Conference>'
+        '</Dial>'
+        '</Response>'
+    )
+    return Response(twiml, content_type='text/xml')
+
+
+@twiml_bp.route('/voice/warm-transfer/conference-status', methods=['POST'])
+def warm_transfer_conference_status():
+    """Status callback for warm transfer Conference events."""
+    conf_name = request.values.get('conf_name', '') or request.values.get('FriendlyName', '')
+    event = request.values.get('StatusCallbackEvent', '')
+    call_sid = request.values.get('CallSid', '')
+
+    logger.info(f"Warm transfer conf status: conf={conf_name} event={event} call={call_sid[:16] if call_sid else 'none'}")
+
+    return Response('', status=200)
+
+
+@twiml_bp.route('/voice/warm-transfer/reconnect-twiml', methods=['POST'])
+def warm_transfer_reconnect_twiml():
+    """
+    TwiML to reconnect the caller back to the agent after a cancelled warm transfer.
+    Dials the agent's browser client directly.
+    """
+    identity = request.values.get('identity', '')
+    call_sid = request.values.get('CallSid', '')
+
+    logger.info(f"Warm transfer reconnect TwiML: CallSid={call_sid[:16] if call_sid else 'none'} -> client:{identity}")
+
+    if not identity:
+        return Response(
+            '<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>',
+            content_type='text/xml'
+        )
+
+    safe_identity = xml_escape(identity)
+    twiml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<Response>'
+        f'<Dial><Client>{safe_identity}</Client></Dial>'
+        '</Response>'
+    )
+    return Response(twiml, content_type='text/xml')
+
+
 @twiml_bp.route('/voice/amd-status', methods=['POST'])
 def amd_status_callback():
     """

@@ -468,6 +468,26 @@ def save_voice_config():
         except (TypeError, ValueError):
             return default
 
+    def _parse_transfer_numbers(raw):
+        """Parse transfer_numbers from JSON string or list. Returns list of {number, label} dicts (max 5)."""
+        if not raw:
+            return []
+        if isinstance(raw, str):
+            try:
+                raw = json.loads(raw)
+            except (json.JSONDecodeError, ValueError):
+                return []
+        if not isinstance(raw, list):
+            return []
+        result = []
+        for item in raw[:5]:
+            if isinstance(item, dict):
+                num = (item.get('number') or '').strip()
+                label = (item.get('label') or '').strip()[:50]
+                if num and len(num.replace('-', '').replace(' ', '').replace('(', '').replace(')', '')) >= 10:
+                    result.append({"number": num, "label": label})
+        return result
+
     # Merge user-facing settings onto existing config (preserves Twilio provisioned fields)
     voice_config = dict(existing_vc)
     voice_config.update({
@@ -481,6 +501,7 @@ def save_voice_config():
         "auto_transcribe":    bool(data.get("auto_transcribe", False)),
         "local_presence":     bool(data.get("local_presence", False)),
         "transfer_number":    (data.get("transfer_number") or "").strip(),
+        "transfer_numbers":   _parse_transfer_numbers(data.get("transfer_numbers")),
         "voicemail_drop":     bool(data.get("voicemail_drop", False)),
         # Enterprise dialer tuning
         "ring_timeout":          max(15, min(120, _safe_int(data.get("ring_timeout"), 45))),

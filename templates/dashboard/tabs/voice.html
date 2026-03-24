@@ -47,49 +47,40 @@
 
                     <!-- ── Activate Voice panel (default) ── -->
                     <div id="vstab-panel-activation">
-                        <div class="p-4" style="background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.15);border-radius:14px;">
+                        <div class="vc-activation-card p-4">
                             <div class="d-flex align-items-center gap-3 mb-3">
-                                <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                    <i class="fa-solid fa-wand-magic-sparkles" style="color:#00d9ff;"></i>
+                                <div class="vc-activation-icon">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i>
                                 </div>
                                 <div>
-                                    <h6 style="margin:0;font-weight:700;color:#fff;">Voice Service</h6>
-                                    {% if voice_config.get('twilio_sub_account_sid') %}
-                                    <p style="margin:0;color:#00ff88;font-size:0.8rem;"><i class="fa-solid fa-circle-check me-1"></i>Active — phone number and dialer ready</p>
-                                    {% else %}
-                                    <p style="margin:0;color:#888;font-size:0.8rem;">Click activate to create your voice account, then buy a phone number in the Numbers tab</p>
-                                    {% endif %}
+                                    <h6 class="vc-activation-title">Voice Service</h6>
+                                    <p id="voiceServiceSubtitle" class="vc-activation-subtitle">
+                                        <i class="fa-solid fa-spinner fa-spin me-1"></i>Checking status...
+                                    </p>
                                 </div>
                             </div>
-                            {% if not voice_config.get('twilio_sub_account_sid') %}
+                            <!-- Stale config warning (hidden by default, shown by JS) -->
+                            <div id="voiceStaleWarning" class="vc-stale-warning" style="display:none">
+                                <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                                <span>Voice was configured on a previous Twilio account. Click <strong>Activate Voice</strong> to re-provision on the current account.</span>
+                            </div>
+                            <!-- Activate button (always rendered, JS controls visibility) -->
                             <button onclick="activateVoiceService()" id="activateVoiceBtn"
-                                style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:10px;padding:9px 20px;font-weight:700;font-size:0.85rem;cursor:pointer;white-space:nowrap;">
+                                class="vc-activate-btn" style="display:none">
                                 <i class="fa-solid fa-wand-magic-sparkles me-2"></i>Activate Voice
                             </button>
-                            {% endif %}
                             <div class="d-flex gap-3 flex-wrap mt-3">
-                                <div class="d-flex align-items-center gap-1" style="font-size:0.75rem;">
-                                    {% if voice_config.get('twilio_sub_account_sid') %}
-                                        <i class="fa-solid fa-circle-check" style="color:#00ff88;"></i><span style="color:#ccc;">Voice Account</span>
-                                    {% else %}
-                                        <i class="fa-solid fa-circle-xmark" style="color:#444;"></i><span style="color:#555;">Voice Account</span>
-                                    {% endif %}
+                                <div id="voiceStatusAccount" class="vc-status-indicator">
+                                    <i class="fa-solid fa-spinner fa-spin vc-status-icon-loading"></i>
+                                    <span class="vc-status-text-muted">Voice Account</span>
                                 </div>
-                                <div class="d-flex align-items-center gap-1" style="font-size:0.75rem;">
-                                    {% if voice_config.get('twilio_twiml_app_sid') %}
-                                        <i class="fa-solid fa-circle-check" style="color:#00ff88;"></i><span style="color:#ccc;">Voice App</span>
-                                    {% else %}
-                                        <i class="fa-solid fa-circle-xmark" style="color:#444;"></i><span style="color:#555;">Voice App</span>
-                                    {% endif %}
+                                <div id="voiceStatusApp" class="vc-status-indicator">
+                                    <i class="fa-solid fa-spinner fa-spin vc-status-icon-loading"></i>
+                                    <span class="vc-status-text-muted">Voice App</span>
                                 </div>
-                                <div class="d-flex align-items-center gap-1" style="font-size:0.75rem;">
-                                    {% if voice_config.get('twilio_phone_number') %}
-                                        <i class="fa-solid fa-circle-check" style="color:#00ff88;"></i><span style="color:#ccc;">Phone Number: {{ voice_config.get('twilio_phone_number', '') }}</span>
-                                    {% elif voice_config.get('twilio_sub_account_sid') %}
-                                        <i class="fa-solid fa-circle-exclamation" style="color:#fbbf24;"></i><span style="color:#fbbf24;">No number — buy one in the <strong>Numbers</strong> tab</span>
-                                    {% else %}
-                                        <i class="fa-solid fa-circle-xmark" style="color:#444;"></i><span style="color:#555;">Phone Number</span>
-                                    {% endif %}
+                                <div id="voiceStatusNumber" class="vc-status-indicator">
+                                    <i class="fa-solid fa-spinner fa-spin vc-status-icon-loading"></i>
+                                    <span class="vc-status-text-muted">Phone Number</span>
                                 </div>
                             </div>
                             <div id="activateVoiceResult" class="mt-2" style="display:none;font-size:0.8rem;"></div>
@@ -108,7 +99,7 @@
                         {% endif %}
                         <div class="form-check form-switch d-flex align-items-center gap-3" style="margin:0;">
                             <input class="form-check-input" type="checkbox" id="voiceEnabled" {% if voice_config.get('enabled') %}checked{% endif %}
-                                {% if not voice_config.get('twilio_sub_account_sid') %}disabled{% endif %}
+                                disabled
                                 style="width: 3em; height: 1.5em; cursor: pointer;">
                             <label class="form-check-label" for="voiceEnabled" style="color: #fff; font-weight: 600; font-size: 0.95rem;">
                                 Enable Voice AI Agent
@@ -358,12 +349,28 @@
                                     <small style="color:#555;font-size:0.75rem;">Wait before retrying a no-answer contact</small>
                                 </div>
                                 <div class="col-md-4">
-                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">Transfer Number (Hot Handoff)</label>
-                                    <input type="tel" class="form-control" id="voiceTransferNumber"
+                                    <label class="vc-field-label">Transfer Number (Hot Handoff)</label>
+                                    <input type="tel" class="form-control vc-glass-input" id="voiceTransferNumber"
                                         value="{{ voice_config.get('transfer_number','') }}"
-                                        placeholder="+1XXXXXXXXXX"
-                                        style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;font-size:0.85rem;">
-                                    <small style="color:#555;font-size:0.75rem;">Agent number for AI warm transfers. E.164 format.</small>
+                                        placeholder="+1XXXXXXXXXX">
+                                    <small class="vc-field-hint">Primary transfer number for AI warm transfers.</small>
+                                </div>
+                                <!-- Preset Transfer Numbers for Warm Transfer -->
+                                <div class="col-12 mt-3">
+                                    <label class="vc-field-label">Preset Transfer Numbers <small class="vc-field-hint">(up to 5 — appear in warm transfer popover)</small></label>
+                                    <div id="transferNumbersList" class="d-flex flex-column gap-2 mt-1">
+                                        {% set xfer_nums = voice_config.get('transfer_numbers', []) %}
+                                        {% for entry in xfer_nums %}
+                                        <div class="warm-xfer-number-row d-flex align-items-center gap-2">
+                                            <input type="text" class="form-control vc-glass-input warm-xfer-label-input" value="{{ entry.get('label','') }}" placeholder="Label (e.g. Sales Manager)" maxlength="50">
+                                            <input type="tel" class="form-control vc-glass-input warm-xfer-number-input" value="{{ entry.get('number','') }}" placeholder="+15551234567" maxlength="20">
+                                            <button type="button" class="warm-xfer-remove-btn" onclick="this.closest('.warm-xfer-number-row').remove()" title="Remove">&times;</button>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    <button type="button" class="warm-xfer-add-btn mt-2" onclick="_addTransferNumberRow()">
+                                        <i class="fa-solid fa-plus"></i> Add Number
+                                    </button>
                                 </div>
                                 <div class="col-md-4">
                                     <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">Auto-Record All Calls</label>

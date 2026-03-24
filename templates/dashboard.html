@@ -224,6 +224,8 @@
         embedDialContacts:       {{ (embed_dial_contacts or '')|tojson }},
         // Voice WebSocket host (FastAPI service domain, empty = same host as Flask)
         voiceWssHost:            {{ (voice_wss_host or '')|tojson }},
+        // Warm transfer preset numbers
+        transfer_numbers:        {{ (voice_config.get('transfer_numbers', []) if voice_config is defined else [])|tojson }},
         // White-label branding (accent color, font, company name)
         whitelabel:              {{ whitelabel|tojson|safe if whitelabel else '{}' }},
     };

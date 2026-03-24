@@ -9,6 +9,7 @@ Redis key patterns:
   xfer:{call_sid}              → JSON string (transfer request, TTL 30s)
   overflow:{location_id}       → Redis List of JSON strings (TTL 60s per entry)
   call_sids_by_loc:{location_id} → Redis Set of call_sids (TTL 3600s)
+  warmxfer:{call_sid}          → JSON string (warm transfer state, TTL 300s)
 """
 
 import json
@@ -26,6 +27,7 @@ _redis_client = None
 ACTIVE_CALL_TTL = 3600       # 1 hour
 TRANSFER_REQUEST_TTL = 30    # 30 seconds
 OVERFLOW_ALERT_TTL = 60      # 60 seconds
+WARM_TRANSFER_TTL = 300      # 5 minutes
 
 
 def _get_redis():
@@ -197,6 +199,36 @@ def set_overflow_alerts(location_id: str, alerts: list) -> None:
     if alerts:
         pipe.expire(key, OVERFLOW_ALERT_TTL)
     pipe.execute()
+
+
+# ── warm_transfer state (sync API for Flask) ─────────────────────────────────
+
+def set_warm_transfer(call_sid: str, data: dict) -> None:
+    """Store warm transfer state in Redis."""
+    r = _get_redis()
+    r.set(f"warmxfer:{call_sid}", json.dumps(data, default=str), ex=WARM_TRANSFER_TTL)
+
+
+def get_warm_transfer(call_sid: str) -> dict | None:
+    """Get warm transfer state from Redis."""
+    r = _get_redis()
+    raw = r.get(f"warmxfer:{call_sid}")
+    return json.loads(raw) if raw else None
+
+
+def update_warm_transfer(call_sid: str, **fields) -> None:
+    """Update specific fields on an existing warm transfer state."""
+    data = get_warm_transfer(call_sid)
+    if data is None:
+        return
+    data.update(fields)
+    set_warm_transfer(call_sid, data)
+
+
+def delete_warm_transfer(call_sid: str) -> None:
+    """Remove warm transfer state from Redis."""
+    r = _get_redis()
+    r.delete(f"warmxfer:{call_sid}")
 
 
 # ── Async API (for FastAPI — wraps sync via asyncio.to_thread) ───────────────

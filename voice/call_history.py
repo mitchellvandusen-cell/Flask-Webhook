@@ -350,6 +350,248 @@ def voice_transfer():
 
 
 # ──────────────────────────────────────────────────────────────
+# ROUTE: Enterprise Warm Transfer (Conference-based)
+# ──────────────────────────────────────────────────────────────
+
+from voice.redis_state import (
+    set_warm_transfer, get_warm_transfer, update_warm_transfer, delete_warm_transfer,
+)
+
+
+@call_history_bp.route('/voice/warm-transfer/initiate', methods=['POST'])
+@login_required
+def warm_transfer_initiate():
+    """
+    Initiate a warm (consultative) transfer.
+    1. Move the caller into a Conference room
+    2. Dial the transfer target into the same Conference
+    3. Agent joins the Conference to consult with target
+    All three parties can talk; agent drops off when ready.
+    """
+    data = request.json or {}
+    call_sid = data.get('call_sid', '').strip()
+    transfer_to = data.get('transfer_to', '').strip()
+
+    if not call_sid:
+        return jsonify({"error": "call_sid required"}), 400
+    if not transfer_to:
+        return jsonify({"error": "transfer_to number required"}), 400
+
+    # Normalize phone number
+    if not transfer_to.startswith('+'):
+        clean = transfer_to.replace('-', '').replace(' ', '').replace('(', '').replace(')', '').replace('.', '')
+        transfer_to = '+1' + clean.lstrip('1') if len(clean) <= 10 else '+' + clean
+
+    # Verify call is active and belongs to this user
+    if not call_exists(call_sid):
+        return jsonify({"error": "Call not found or already ended"}), 404
+    if not _verify_call_ownership(call_sid):
+        return jsonify({"error": "Call not found or already ended"}), 404
+
+    call_info = get_active_call(call_sid)
+    if call_info is None:
+        return jsonify({"error": "Call not found or already ended"}), 404
+    if call_info.get('status') in ('completed', 'failed', 'transferred', 'no-answer'):
+        return jsonify({"error": f"Call already in terminal state: {call_info.get('status')}"}), 400
+
+    # Check if already in a warm transfer
+    existing = get_warm_transfer(call_sid)
+    if existing and existing.get('status') == 'consulting':
+        return jsonify({"error": "Warm transfer already in progress"}), 400
+
+    # Get subscriber voice config
+    subscriber, voice_cfg, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    from_number = call_info.get('_from_number', '') or voice_cfg.get('twilio_phone_number', '')
+    if not from_number:
+        return jsonify({"error": "No caller ID number available"}), 400
+
+    location_id = call_info.get('_location_id', '')
+    host = request.host
+    webhook_base = f"https://{host}"
+    conf_name = f"warmxfer_{call_sid[-12:]}"
+
+    try:
+        # Step 1: Redirect the caller's call to Conference TwiML
+        from urllib.parse import quote
+        conf_twiml_url = f"{webhook_base}/voice/warm-transfer/conference-twiml?conf_name={quote(conf_name)}"
+        ok = twilio_provisioning.redirect_call_to_twiml(sub_sid, call_sid, conf_twiml_url)
+        if not ok:
+            return jsonify({"error": "Failed to move caller to conference — call may have ended"}), 400
+
+        # Step 2: Dial the transfer target into the same Conference
+        target_twiml_url = f"{webhook_base}/voice/warm-transfer/target-twiml?conf_name={quote(conf_name)}"
+        target_status_cb = f"{webhook_base}/voice/warm-transfer/conference-status?conf_name={quote(conf_name)}"
+
+        target_result = twilio_provisioning.add_conference_participant(
+            sub_account_sid=sub_sid,
+            conference_name=conf_name,
+            to=transfer_to,
+            from_number=from_number,
+            twiml_url=target_twiml_url,
+            status_callback=target_status_cb,
+        )
+        target_call_sid = target_result.get('call_sid', '')
+
+        # Step 3: Store warm transfer state
+        set_warm_transfer(call_sid, {
+            "conference_name": conf_name,
+            "transfer_to": transfer_to,
+            "transfer_call_sid": target_call_sid,
+            "caller_call_sid": call_sid,
+            "location_id": location_id,
+            "agent_identity": f"agent_{location_id}",
+            "status": "consulting",
+            "initiated_at": datetime.utcnow().isoformat(),
+        })
+
+        update_active_call(call_sid, status='warm-transfer', _warm_transfer_conf=conf_name)
+
+        logger.info(f"Warm transfer initiated: caller={call_sid[:16]} -> target={transfer_to} conf={conf_name}")
+        return jsonify({
+            "status": "consulting",
+            "conference_name": conf_name,
+            "transfer_call_sid": target_call_sid,
+            "transfer_to": transfer_to,
+        })
+
+    except Exception as e:
+        logger.error(f"Warm transfer initiate failed: {e}", exc_info=True)
+        # Try to recover — redirect caller back to agent
+        try:
+            identity = f"agent_{location_id}"
+            reconnect_url = f"{webhook_base}/voice/warm-transfer/reconnect-twiml?identity={quote(identity)}"
+            twilio_provisioning.redirect_call_to_twiml(sub_sid, call_sid, reconnect_url)
+        except Exception:
+            pass
+        delete_warm_transfer(call_sid)
+        return jsonify({"error": "Warm transfer failed — recovered caller connection"}), 500
+
+
+@call_history_bp.route('/voice/warm-transfer/complete', methods=['POST'])
+@login_required
+def warm_transfer_complete():
+    """
+    Complete a warm transfer: agent drops from Conference.
+    Caller and transfer target continue talking.
+    """
+    data = request.json or {}
+    call_sid = data.get('call_sid', '').strip()
+
+    if not call_sid:
+        return jsonify({"error": "call_sid required"}), 400
+
+    xfer = get_warm_transfer(call_sid)
+    if not xfer:
+        return jsonify({"error": "No warm transfer in progress for this call"}), 404
+
+    if xfer.get('status') != 'consulting':
+        return jsonify({"error": f"Warm transfer not in consulting state: {xfer.get('status')}"}), 400
+
+    subscriber, voice_cfg, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    conf_name = xfer['conference_name']
+
+    # Update state
+    update_warm_transfer(call_sid, status='completed')
+    update_active_call(call_sid, status='transferred')
+
+    # Persist to call history DB
+    try:
+        update_call_history_status(call_sid, 'completed', 0)
+    except Exception as e:
+        logger.warning(f"Warm transfer complete DB persist failed for {call_sid}: {e}")
+
+    logger.info(f"Warm transfer completed: agent dropped from conf={conf_name}, caller+target continue")
+
+    # Clean up after a delay (let the conference settle)
+    def _cleanup():
+        time.sleep(5)
+        delete_warm_transfer(call_sid)
+
+    threading.Thread(target=_cleanup, daemon=True).start()
+
+    return jsonify({"status": "completed", "conference_name": conf_name})
+
+
+@call_history_bp.route('/voice/warm-transfer/cancel', methods=['POST'])
+@login_required
+def warm_transfer_cancel():
+    """
+    Cancel a warm transfer: hang up the transfer target, reconnect caller to agent.
+    """
+    data = request.json or {}
+    call_sid = data.get('call_sid', '').strip()
+
+    if not call_sid:
+        return jsonify({"error": "call_sid required"}), 400
+
+    xfer = get_warm_transfer(call_sid)
+    if not xfer:
+        return jsonify({"error": "No warm transfer in progress for this call"}), 404
+
+    subscriber, voice_cfg, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    conf_name = xfer['conference_name']
+    target_call_sid = xfer.get('transfer_call_sid', '')
+    location_id = xfer.get('location_id', '')
+    identity = xfer.get('agent_identity', f"agent_{location_id}")
+
+    host = request.host
+    webhook_base = f"https://{host}"
+
+    try:
+        # Step 1: Hang up the transfer target
+        if target_call_sid:
+            try:
+                twilio_provisioning.hangup_call(sub_sid, target_call_sid)
+                logger.info(f"Warm transfer cancel: hung up target {target_call_sid}")
+            except Exception as e:
+                logger.warning(f"Failed to hang up transfer target {target_call_sid}: {e}")
+
+        # Step 2: Redirect the caller back to agent's browser client
+        from urllib.parse import quote
+        reconnect_url = f"{webhook_base}/voice/warm-transfer/reconnect-twiml?identity={quote(identity)}"
+        ok = twilio_provisioning.redirect_call_to_twiml(sub_sid, call_sid, reconnect_url)
+        if not ok:
+            logger.warning(f"Failed to reconnect caller {call_sid} to agent — call may have ended")
+
+        # Clean up state
+        update_warm_transfer(call_sid, status='canceled')
+        update_active_call(call_sid, status='in-progress', _warm_transfer_conf='')
+        delete_warm_transfer(call_sid)
+
+        logger.info(f"Warm transfer canceled: caller {call_sid} reconnected to agent")
+        return jsonify({"status": "canceled", "reconnected": ok})
+
+    except Exception as e:
+        logger.error(f"Warm transfer cancel failed: {e}", exc_info=True)
+        delete_warm_transfer(call_sid)
+        return jsonify({"error": "Cancel failed"}), 500
+
+
+@call_history_bp.route('/voice/warm-transfer/status', methods=['GET'])
+@login_required
+def warm_transfer_status():
+    """Check the current warm transfer state for a call."""
+    call_sid = request.args.get('call_sid', '').strip()
+    if not call_sid:
+        return jsonify({"error": "call_sid required"}), 400
+
+    xfer = get_warm_transfer(call_sid)
+    if not xfer:
+        return jsonify({"status": "none"})
+
+    return jsonify(xfer)
+
+
+# ──────────────────────────────────────────────────────────────
 # ROUTE: Call disposition
 # ──────────────────────────────────────────────────────────────
 

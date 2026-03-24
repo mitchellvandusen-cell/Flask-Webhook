@@ -621,6 +621,84 @@ def get_recording_url(sub_account_sid: str, recording_sid: str) -> str:
 
 
 # ──────────────────────────────────────────────────────────────
+# CONFERENCE PARTICIPANT MANAGEMENT (Warm Transfer)
+# ──────────────────────────────────────────────────────────────
+
+def add_conference_participant(sub_account_sid: str, conference_name: str,
+                                to: str, from_number: str,
+                                twiml_url: str,
+                                status_callback: str = None) -> dict:
+    """
+    Add a participant to a Conference by creating an outbound call.
+    The call's TwiML should join the same Conference room.
+    Returns {call_sid, status} or raises on failure.
+    """
+    client = get_sub_account_client(sub_account_sid)
+    try:
+        kwargs = {
+            "to": to,
+            "from_": from_number,
+            "url": twiml_url,
+            "method": "POST",
+            "status_callback_event": ["initiated", "ringing", "answered", "completed"],
+            "timeout": 30,
+        }
+        if status_callback:
+            kwargs["status_callback"] = status_callback
+            kwargs["status_callback_method"] = "POST"
+
+        call = client.calls.create(**kwargs)
+        logger.info(f"Conference participant added: {call.sid} -> {to} (conf={conference_name})")
+        return {"call_sid": call.sid, "status": call.status}
+    except TwilioRestException as e:
+        logger.error(f"Failed to add conference participant {to}: {e}")
+        raise
+
+
+def remove_conference_participant(sub_account_sid: str, conference_name: str,
+                                   call_sid: str) -> bool:
+    """
+    Remove a participant from a Conference by hanging up their call leg.
+    """
+    client = get_sub_account_client(sub_account_sid)
+    try:
+        # Find the conference by friendly name
+        conferences = client.conferences.list(
+            friendly_name=conference_name, status="in-progress", limit=1
+        )
+        if not conferences:
+            logger.warning(f"Conference '{conference_name}' not found or not in-progress")
+            return False
+
+        conf_sid = conferences[0].sid
+        participants = client.conferences(conf_sid).participants.list()
+        for p in participants:
+            if p.call_sid == call_sid:
+                p.update(status="completed")
+                logger.info(f"Removed participant {call_sid} from conference {conference_name}")
+                return True
+
+        logger.warning(f"Participant {call_sid} not found in conference {conference_name}")
+        return False
+    except TwilioRestException as e:
+        logger.error(f"Failed to remove conference participant {call_sid}: {e}")
+        return False
+
+
+def redirect_call_to_twiml(sub_account_sid: str, call_sid: str,
+                            twiml_url: str) -> bool:
+    """Redirect a live call to a new TwiML URL."""
+    client = get_sub_account_client(sub_account_sid)
+    try:
+        client.calls(call_sid).update(url=twiml_url, method="POST")
+        logger.info(f"Redirected call {call_sid} to {twiml_url}")
+        return True
+    except TwilioRestException as e:
+        logger.error(f"Failed to redirect call {call_sid}: {e}")
+        return False
+
+
+# ──────────────────────────────────────────────────────────────
 # SPAM PROTECTION / TRUST HUB
 # ──────────────────────────────────────────────────────────────
 

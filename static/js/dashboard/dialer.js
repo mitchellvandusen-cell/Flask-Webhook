@@ -3741,52 +3741,213 @@
             }
         }
 
-        // ── Live Transfer: transfer call to another number ──
-        async function dialerTransfer() {
-            if (!dialerCallSid || document.getElementById('dialerTransferBtn').disabled) return;
-            const transferNum = (document.getElementById('voiceTransferNumber')?.value || '').trim();
-            let target = transferNum;
-            if (!target) {
-                target = prompt('Enter phone number to transfer to (e.g. +15551234567):');
-                if (!target) return;
-            }
-            const btn = document.getElementById('dialerTransferBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Transferring...</span>';
-            // Validate phone format
-            let cleanTarget = target.replace(/[\s\-\(\)\.]/g, '');
-            if (!cleanTarget.startsWith('+')) cleanTarget = '+1' + cleanTarget;
-            if (cleanTarget.replace(/[^0-9]/g, '').length < 10) {
-                alert('Invalid transfer number — must be at least 10 digits');
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left"></i><span>Transfer</span>';
-                return;
-            }
-            try {
-                const r = await _fetchRetry('/voice/transfer', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ call_sid: dialerCallSid, transfer_to: cleanTarget })
-                }, { retries: 1, timeout: 15000, label: 'transfer' });
-                const d = await r.json();
-                if (r.ok) {
-                    btn.innerHTML = '<i class="fa-solid fa-check"></i><span>Transferred</span>';
-                    btn.style.color = 'var(--accent)';
-                    btn.style.borderColor = 'rgba(74,222,128,0.3)';
-                    document.getElementById('dialerCallStatus').textContent = 'Transferred';
-                    document.getElementById('dialerCallStatus').style.color = '#ffa500';
-                } else {
-                    alert(d.error || 'Transfer failed');
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left"></i><span>Transfer</span>';
-                }
-            } catch(e) {
-                console.error('[Dialer] Transfer network error:', e);
-                alert('Network error during transfer — please try again');
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left"></i><span>Transfer</span>';
+        // ── Warm Transfer (Conference-based enterprise transfer) ──
+        let _warmXferState = 'idle'; // idle | consulting | completed
+        let _warmXferTimerInterval = null;
+        let _warmXferTimerStart = 0;
+
+        function _toggleWarmTransferPopover() {
+            const pop = document.getElementById('warmXferPopover');
+            if (!pop) return;
+            if (pop.style.display === 'block') {
+                _closeWarmXferPopover();
+            } else {
+                _openWarmXferPopover();
             }
         }
+
+        function _openWarmXferPopover() {
+            const pop = document.getElementById('warmXferPopover');
+            if (!pop || !dialerCallSid) return;
+
+            // Load preset numbers from voice config (DASHBOARD_BOOT)
+            const presets = window.DASHBOARD_BOOT?.transfer_numbers || [];
+            const primaryNum = (document.getElementById('voiceTransferNumber')?.value || '').trim();
+            const presetsEl = document.getElementById('warmXferPresets');
+            const dividerEl = document.getElementById('warmXferDivider');
+            presetsEl.innerHTML = '';
+
+            // Add primary transfer number as first preset if set
+            const allPresets = [];
+            if (primaryNum) allPresets.push({ label: 'Primary', number: primaryNum });
+            presets.forEach(p => { if (p.number && p.number !== primaryNum) allPresets.push(p); });
+
+            allPresets.forEach(p => {
+                const chip = document.createElement('div');
+                chip.className = 'warm-xfer-chip';
+                chip.innerHTML = '<i class="warm-xfer-chip-icon fa-solid fa-phone"></i>'
+                    + '<span class="warm-xfer-chip-label">' + (p.label || 'Transfer') + '</span>'
+                    + '<span class="warm-xfer-chip-number">' + p.number + '</span>';
+                chip.onclick = () => { document.getElementById('warmXferInput').value = p.number; _warmXferDial(); };
+                presetsEl.appendChild(chip);
+            });
+
+            dividerEl.style.display = allPresets.length > 0 ? '' : 'none';
+
+            // Reset to dial state
+            document.getElementById('warmXferDialState').style.display = '';
+            document.getElementById('warmXferConsultState').style.display = 'none';
+            document.getElementById('warmXferInput').value = '';
+            _warmXferState = 'idle';
+
+            pop.style.display = 'block';
+            document.getElementById('warmXferInput').focus();
+        }
+
+        function _closeWarmXferPopover() {
+            const pop = document.getElementById('warmXferPopover');
+            if (pop) pop.style.display = 'none';
+            if (_warmXferTimerInterval) { clearInterval(_warmXferTimerInterval); _warmXferTimerInterval = null; }
+        }
+
+        function _warmXferKey(digit) {
+            const input = document.getElementById('warmXferInput');
+            if (input) input.value += digit;
+        }
+
+        function _warmXferBackspace() {
+            const input = document.getElementById('warmXferInput');
+            if (input && input.value.length > 0) input.value = input.value.slice(0, -1);
+        }
+
+        async function _warmXferDial() {
+            if (!dialerCallSid) return;
+            const input = document.getElementById('warmXferInput');
+            let target = (input?.value || '').trim();
+            if (!target) return;
+
+            let clean = target.replace(/[\s\-\(\)\.]/g, '');
+            if (!clean.startsWith('+')) clean = '+1' + clean.replace(/^1/, '');
+            if (clean.replace(/[^0-9]/g, '').length < 10) {
+                _showDashToast(false, 'Invalid number — must be at least 10 digits');
+                return;
+            }
+
+            const dialBtn = document.getElementById('warmXferDialBtn');
+            dialBtn.disabled = true;
+            dialBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Dialing...';
+
+            try {
+                const r = await _fetchRetry('/voice/warm-transfer/initiate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ call_sid: dialerCallSid, transfer_to: clean })
+                }, { retries: 0, timeout: 20000, label: 'warm-transfer-initiate' });
+                const d = await r.json();
+
+                if (r.ok) {
+                    _warmXferState = 'consulting';
+                    // Switch to consulting UI
+                    document.getElementById('warmXferDialState').style.display = 'none';
+                    document.getElementById('warmXferConsultState').style.display = '';
+                    document.getElementById('warmXferConsultTarget').textContent = clean;
+
+                    // Start timer
+                    _warmXferTimerStart = Date.now();
+                    if (_warmXferTimerInterval) clearInterval(_warmXferTimerInterval);
+                    _warmXferTimerInterval = setInterval(() => {
+                        const elapsed = Math.floor((Date.now() - _warmXferTimerStart) / 1000);
+                        const m = Math.floor(elapsed / 60);
+                        const s = elapsed % 60;
+                        const el = document.getElementById('warmXferConsultTimer');
+                        if (el) el.textContent = m + ':' + String(s).padStart(2, '0');
+                    }, 1000);
+
+                    // Update transfer button
+                    const btn = document.getElementById('dialerTransferBtn');
+                    if (btn) {
+                        btn.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left"></i><span>Consulting</span>';
+                    }
+                    document.getElementById('dialerCallStatus').textContent = 'Warm Transfer';
+                } else {
+                    _showDashToast(false, d.error || 'Transfer failed');
+                    dialBtn.disabled = false;
+                    dialBtn.innerHTML = '<i class="fa-solid fa-phone"></i> Dial';
+                }
+            } catch(e) {
+                console.error('[WarmXfer] Initiate error:', e);
+                _showDashToast(false, 'Network error during transfer');
+                dialBtn.disabled = false;
+                dialBtn.innerHTML = '<i class="fa-solid fa-phone"></i> Dial';
+            }
+        }
+
+        async function _warmXferComplete() {
+            if (!dialerCallSid || _warmXferState !== 'consulting') return;
+            const btn = document.getElementById('warmXferCompleteBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Completing...';
+
+            try {
+                const r = await _fetchRetry('/voice/warm-transfer/complete', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ call_sid: dialerCallSid })
+                }, { retries: 0, timeout: 15000, label: 'warm-transfer-complete' });
+                const d = await r.json();
+
+                if (r.ok) {
+                    _warmXferState = 'completed';
+                    _showDashToast(true, 'Transfer completed — caller connected to target');
+                    _closeWarmXferPopover();
+                    const xferBtn = document.getElementById('dialerTransferBtn');
+                    if (xferBtn) {
+                        xferBtn.innerHTML = '<i class="fa-solid fa-check"></i><span>Transferred</span>';
+                        xferBtn.disabled = true;
+                    }
+                    document.getElementById('dialerCallStatus').textContent = 'Transferred';
+                } else {
+                    _showDashToast(false, d.error || 'Complete transfer failed');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-check"></i> Complete Transfer';
+                }
+            } catch(e) {
+                console.error('[WarmXfer] Complete error:', e);
+                _showDashToast(false, 'Network error');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Complete Transfer';
+            }
+        }
+
+        async function _warmXferCancel() {
+            if (!dialerCallSid || _warmXferState !== 'consulting') return;
+            const btn = document.getElementById('warmXferCancelBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Canceling...';
+
+            try {
+                const r = await _fetchRetry('/voice/warm-transfer/cancel', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ call_sid: dialerCallSid })
+                }, { retries: 0, timeout: 15000, label: 'warm-transfer-cancel' });
+                const d = await r.json();
+
+                if (r.ok) {
+                    _warmXferState = 'idle';
+                    _showDashToast(true, 'Transfer canceled — reconnected to caller');
+                    _closeWarmXferPopover();
+                    const xferBtn = document.getElementById('dialerTransferBtn');
+                    if (xferBtn) {
+                        xferBtn.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left"></i><span>Transfer</span>';
+                        xferBtn.disabled = false;
+                    }
+                    document.getElementById('dialerCallStatus').textContent = 'Connected';
+                } else {
+                    _showDashToast(false, d.error || 'Cancel failed');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-xmark"></i> Cancel';
+                }
+            } catch(e) {
+                console.error('[WarmXfer] Cancel error:', e);
+                _showDashToast(false, 'Network error');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-xmark"></i> Cancel';
+            }
+        }
+
+        // Legacy alias for any remaining references
+        function dialerTransfer() { _toggleWarmTransferPopover(); }
 
         // ── Call Disposition ──
         let _dialerLastCallSid = null;
@@ -4979,47 +5140,8 @@
         function voipSendDTMF(digit) { if (voipConnection) voipConnection.sendDigits(digit); }
         function voipHangup() { if (voipConnection) voipConnection.disconnect(); else if (voipDevice) voipDevice.disconnectAll(); }
 
-        async function voipTransfer() {
-            if (!dialerCallSid) { alert('No active call to transfer'); return; }
-            const btn = document.getElementById('voipTransferBtn');
-            // Read saved transfer number from Voice Config, fall back to prompt
-            const savedNum = (document.getElementById('voiceTransferNumber')?.value || '').trim();
-            let target = savedNum;
-            if (!target) {
-                target = prompt('Enter phone number to transfer to (e.g. +15551234567):');
-                if (!target) return;
-            }
-            let cleanTarget = target.replace(/[\s\-\(\)\.]/g, '');
-            if (!cleanTarget.startsWith('+')) cleanTarget = '+1' + cleanTarget;
-            if (cleanTarget.replace(/[^0-9]/g, '').length < 10) {
-                alert('Invalid transfer number — must be at least 10 digits');
-                return;
-            }
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-            try {
-                const r = await _fetchRetry('/voice/transfer', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ call_sid: dialerCallSid, transfer_to: cleanTarget })
-                }, { retries: 1, timeout: 15000, label: 'voip-transfer' });
-                const d = await r.json();
-                if (r.ok) {
-                    btn.innerHTML = '<i class="fa-solid fa-check" style="color:var(--accent)"></i>';
-                    document.getElementById('voipCallTimer').textContent = 'Transferred';
-                    _showDashToast(true, 'Call transferred to ' + cleanTarget);
-                } else {
-                    alert(d.error || 'Transfer failed');
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left"></i>';
-                }
-            } catch(e) {
-                console.error('[VoIP] Transfer error:', e);
-                alert('Network error during transfer');
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left"></i>';
-            }
-        }
+        // VoIP transfer now uses the same warm transfer system
+        function voipTransfer() { _toggleWarmTransferPopover(); }
 
         function voipStartTimer() {
             voipTimerSeconds = 0; voipStopTimer();

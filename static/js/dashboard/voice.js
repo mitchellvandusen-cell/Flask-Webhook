@@ -1,4 +1,83 @@
         // ===== VOICE TAB =====
+
+        // ── Real-time voice config status validation ──
+        async function _fetchVoiceConfigStatus() {
+            try {
+                const r = await fetch('/voice/config-status');
+                if (!r.ok) throw new Error('Failed to fetch');
+                const d = await r.json();
+                _updateVoiceStatusUI(d);
+            } catch(e) {
+                console.error('[voice] Config status fetch failed:', e);
+                // Show as unconfigured on error
+                _updateVoiceStatusUI({ account_valid: false, app_valid: false, number_valid: false, number: '', stale: false });
+            }
+        }
+
+        function _updateVoiceStatusUI(status) {
+            const subtitle = document.getElementById('voiceServiceSubtitle');
+            const staleWarn = document.getElementById('voiceStaleWarning');
+            const activateBtn = document.getElementById('activateVoiceBtn');
+            const accountEl = document.getElementById('voiceStatusAccount');
+            const appEl = document.getElementById('voiceStatusApp');
+            const numberEl = document.getElementById('voiceStatusNumber');
+            const enabledCb = document.getElementById('voiceEnabled');
+
+            if (!subtitle) return;
+
+            if (status.stale) {
+                // Stale config from old Twilio account
+                subtitle.innerHTML = '<i class="fa-solid fa-triangle-exclamation me-1"></i>Configured on previous Twilio account — needs re-activation';
+                subtitle.className = 'vc-activation-subtitle vc-stale';
+                if (staleWarn) staleWarn.style.display = '';
+                if (activateBtn) activateBtn.style.display = '';
+                if (enabledCb) enabledCb.disabled = true;
+            } else if (status.account_valid) {
+                // Valid config
+                const hasNumber = status.number_valid && status.number;
+                subtitle.innerHTML = hasNumber
+                    ? '<i class="fa-solid fa-circle-check me-1"></i>Active — phone number and dialer ready'
+                    : '<i class="fa-solid fa-circle-check me-1"></i>Active — buy a phone number in the Numbers tab';
+                subtitle.className = 'vc-activation-subtitle vc-active';
+                if (staleWarn) staleWarn.style.display = 'none';
+                if (activateBtn) activateBtn.style.display = 'none';
+                if (enabledCb) enabledCb.disabled = false;
+            } else {
+                // Not provisioned
+                subtitle.innerHTML = 'Click activate to create your voice account';
+                subtitle.className = 'vc-activation-subtitle';
+                if (staleWarn) staleWarn.style.display = 'none';
+                if (activateBtn) activateBtn.style.display = '';
+                if (enabledCb) enabledCb.disabled = true;
+            }
+
+            // Update individual status indicators
+            _setStatusIndicator(accountEl, status.account_valid, 'Voice Account');
+            _setStatusIndicator(appEl, status.account_valid && status.app_valid, 'Voice App');
+
+            if (status.number_valid && status.number) {
+                numberEl.innerHTML = '<i class="fa-solid fa-circle-check vc-status-icon-ok"></i><span class="vc-status-text-ok">Phone Number: ' + status.number + '</span>';
+            } else if (status.account_valid && !status.number_valid) {
+                numberEl.innerHTML = '<i class="fa-solid fa-circle-exclamation vc-status-icon-warn"></i><span class="vc-status-text-warn">No number — buy one in the <strong>Numbers</strong> tab</span>';
+            } else {
+                numberEl.innerHTML = '<i class="fa-solid fa-circle-xmark vc-status-icon-bad"></i><span class="vc-status-text-muted">Phone Number</span>';
+            }
+        }
+
+        function _setStatusIndicator(el, valid, label) {
+            if (!el) return;
+            if (valid) {
+                el.innerHTML = '<i class="fa-solid fa-circle-check vc-status-icon-ok"></i><span class="vc-status-text-ok">' + label + '</span>';
+            } else {
+                el.innerHTML = '<i class="fa-solid fa-circle-xmark vc-status-icon-bad"></i><span class="vc-status-text-muted">' + label + '</span>';
+            }
+        }
+
+        // Fetch on load
+        if (document.getElementById('voiceServiceSubtitle')) {
+            _fetchVoiceConfigStatus();
+        }
+
         function clearCallScript() {
             document.getElementById('voiceCallScript').value = '';
         }
@@ -111,6 +190,7 @@
                 auto_transcribe: document.getElementById('voiceAutoTranscribe')?.checked ?? false,
                 local_presence: document.getElementById('voiceLocalPresence')?.checked ?? false,
                 transfer_number: document.getElementById('voiceTransferNumber')?.value?.trim() || '',
+                transfer_numbers: _collectTransferNumbers(),
                 voicemail_drop: document.getElementById('voiceVoicemailDrop')?.checked ?? false,
                 // Enterprise dialer tuning
                 ring_timeout: parseInt(document.getElementById('voiceRingTimeout')?.value || '45'),
@@ -344,4 +424,29 @@
         }
 
         // configureVoiceNumber() removed — routing is auto-provisioned.
+
+        // ── Transfer Numbers helpers ──
+        function _collectTransferNumbers() {
+            const rows = document.querySelectorAll('#transferNumbersList .warm-xfer-number-row');
+            const result = [];
+            rows.forEach(row => {
+                const label = row.querySelector('.warm-xfer-label-input')?.value?.trim() || '';
+                const number = row.querySelector('.warm-xfer-number-input')?.value?.trim() || '';
+                if (number) result.push({ label, number });
+            });
+            return result;
+        }
+
+        function _addTransferNumberRow() {
+            const list = document.getElementById('transferNumbersList');
+            if (!list) return;
+            const count = list.querySelectorAll('.warm-xfer-number-row').length;
+            if (count >= 5) { alert('Maximum 5 preset numbers'); return; }
+            const row = document.createElement('div');
+            row.className = 'warm-xfer-number-row d-flex align-items-center gap-2';
+            row.innerHTML = '<input type="text" class="form-control vc-glass-input warm-xfer-label-input" value="" placeholder="Label (e.g. Sales Manager)" maxlength="50">'
+                + '<input type="tel" class="form-control vc-glass-input warm-xfer-number-input" value="" placeholder="+15551234567" maxlength="20">'
+                + '<button type="button" class="warm-xfer-remove-btn" onclick="this.closest(\'.warm-xfer-number-row\').remove()" title="Remove">&times;</button>';
+            list.appendChild(row);
+        }
 

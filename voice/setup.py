@@ -15,11 +15,96 @@ TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
 
 setup_bp = Blueprint('voice_setup', __name__)
 
+TWILIO_FIELDS = [
+    'twilio_sub_account_sid', 'twilio_sub_account_auth_token',
+    'twilio_twiml_app_sid', 'twilio_phone_number', 'twilio_number_sid',
+    'twilio_api_key_sid', 'twilio_api_key_secret',
+]
+
+
+def _clear_twilio_fields(vc: dict):
+    """Clear all Twilio provisioning fields from voice_config, preserving user settings."""
+    for field in TWILIO_FIELDS:
+        vc.pop(field, None)
+    vc['enabled'] = False
+
 
 @setup_bp.route('/voice/ping', methods=['GET', 'HEAD'])
 def voice_ping():
     """Health check endpoint — used by Railway/Render platform health monitors."""
     return '', 200
+
+
+@setup_bp.route('/voice/config-status', methods=['GET'])
+@login_required
+def voice_config_status():
+    """
+    Real-time validation of voice config against live Twilio account.
+    Returns whether the stored sub-account, TwiML app, and phone number
+    actually exist on the current Twilio master. Used by the dashboard
+    to show accurate status instead of trusting stale DB fields.
+    """
+    import redis as _redis
+
+    subscriber, vc, _ = _get_current_subscriber_voice()
+    if not subscriber:
+        return jsonify({"account_valid": False, "app_valid": False, "number_valid": False, "number": ""})
+
+    sub_sid = vc.get('twilio_sub_account_sid', '')
+    twiml_app_sid = vc.get('twilio_twiml_app_sid', '')
+    phone = vc.get('twilio_phone_number', '')
+
+    # If nothing is provisioned, return immediately
+    if not sub_sid:
+        return jsonify({"account_valid": False, "app_valid": False, "number_valid": False, "number": "", "stale": False})
+
+    # Check Redis cache first (5 min TTL)
+    cache_key = f"voice_config_status:{sub_sid}"
+    try:
+        redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
+        r = _redis.from_url(redis_url, decode_responses=True)
+        cached = r.get(cache_key)
+        if cached:
+            return jsonify(json.loads(cached))
+    except Exception:
+        pass
+
+    # Validate against live Twilio
+    result = {
+        "account_valid": False,
+        "app_valid": bool(twiml_app_sid),
+        "number_valid": False,
+        "number": phone,
+        "stale": False,
+    }
+
+    try:
+        master_client = twilio_provisioning.get_master_client()
+        account = master_client.api.accounts(sub_sid).fetch()
+        result["account_valid"] = account.status == 'active'
+        if not result["account_valid"]:
+            result["stale"] = True
+    except Exception:
+        # Sub-account doesn't exist on current master → stale
+        result["stale"] = True
+        logger.info(f"[config-status] Sub-account {sub_sid} not found on current master for {current_user.email}")
+
+    # If account is valid and has a phone number, verify the number exists
+    if result["account_valid"] and phone:
+        try:
+            client = twilio_provisioning.get_sub_account_client(sub_sid)
+            numbers = client.incoming_phone_numbers.list(phone_number=phone, limit=1)
+            result["number_valid"] = len(numbers) > 0
+        except Exception:
+            result["number_valid"] = False
+
+    # Cache result for 5 minutes
+    try:
+        r.set(cache_key, json.dumps(result), ex=300)
+    except Exception:
+        pass
+
+    return jsonify(result)
 
 
 @setup_bp.route('/voice/automate-setup', methods=['POST'])
@@ -43,13 +128,22 @@ def automate_voice_setup():
         # If super_admin was incorrectly provisioned with a sub-account, re-provision with master
         if current_user.is_super_admin and existing_sub_sid != TWILIO_ACCOUNT_SID:
             logger.info(f"[activate] Super admin {current_user.email} has sub-account {existing_sub_sid}, re-provisioning with master account")
-            # Clear old voice_config entirely — do NOT preserve twilio_number_sid because
-            # it was purchased on the old sub-account (existing_sub_sid) and is invalid on
-            # the master account. provision_master() will find the correct SID via API lookup.
-            vc.clear()
-            vc['enabled'] = False
+            _clear_twilio_fields(vc)
             _save_voice_config(current_user.email, vc)
             # Fall through to re-provision below
+
+        # Detect stale sub-account from old Twilio master (ISV migration)
+        elif not current_user.is_super_admin:
+            try:
+                master_client = twilio_provisioning.get_master_client()
+                account = master_client.api.accounts(existing_sub_sid).fetch()
+                if account.status != 'active':
+                    raise ValueError(f"Sub-account status: {account.status}")
+            except Exception as e:
+                logger.info(f"[activate] {current_user.email}: stale sub-account {existing_sub_sid} — clearing and re-provisioning ({e})")
+                _clear_twilio_fields(vc)
+                _save_voice_config(current_user.email, vc)
+                # Fall through to re-provision below
         else:
             return jsonify({
                 "status": "success",
