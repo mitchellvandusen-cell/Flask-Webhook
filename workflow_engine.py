@@ -738,6 +738,27 @@ def _handle_send_sms(cur, conn, run_id, step, config, location_id, contact_id, c
                 location_id=location_id,
             )
 
+            # Twilio fallback when GHL SMS fails (expired token, API error, etc.)
+            if not success and phone:
+                try:
+                    from twilio_sms import send_sms_via_twilio, get_twilio_credentials
+                    fb_sid, fb_auth, fb_from = get_twilio_credentials(location_id)
+                    if fb_sid and fb_auth and fb_from:
+                        logger.warning(f"Workflow GHL SMS failed ({fail_reason}) — "
+                                      f"trying Twilio fallback for {contact_id} (run={run_id})")
+                        success, fail_reason, detail = send_sms_via_twilio(
+                            phone_to=phone,
+                            message=message,
+                            from_number=fb_from,
+                            twilio_sub_account_sid=fb_sid,
+                            twilio_auth_token=fb_auth,
+                            contact_id=contact_id,
+                        )
+                        if success:
+                            logger.info(f"Workflow SMS sent via Twilio fallback to {contact_id} (run={run_id})")
+                except Exception as fb_err:
+                    logger.debug(f"Twilio fallback unavailable for workflow SMS: {fb_err}")
+
     if success:
         logger.info(f"Workflow SMS sent to {contact_id} (run={run_id})")
         log_webhook_event(location_id, "workflow_sms", "success",

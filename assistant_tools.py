@@ -804,6 +804,24 @@ def _handle_send_sms(args, ctx):
         location_id=location_id,
     )
 
+    # Twilio fallback when GHL SMS fails (expired token, API error, etc.)
+    if not success:
+        try:
+            from twilio_sms import send_sms_via_twilio, get_twilio_credentials
+            contact_phone = ctx.get("contact_phone") or ""
+            fb_sid, fb_auth, fb_from = get_twilio_credentials(location_id)
+            if fb_sid and fb_auth and fb_from and contact_phone:
+                success, fail_reason, http_detail = send_sms_via_twilio(
+                    phone_to=contact_phone,
+                    message=message,
+                    from_number=fb_from,
+                    twilio_sub_account_sid=fb_sid,
+                    twilio_auth_token=fb_auth,
+                    contact_id=contact_id,
+                )
+        except Exception:
+            pass
+
     if success:
         return {"sent": True, "message": "SMS sent successfully"}
     else:
