@@ -25,21 +25,77 @@ def _get_env_with_fallback(*names):
     return None
 
 
+# Redis key for sharing OAuth creds across services (web → workers)
+_REDIS_OAUTH_KEY = "igb:ghl_oauth_creds"
+
+
+def _share_creds_to_redis(marketplace_id, marketplace_secret, private_id, private_secret):
+    """Store OAuth credentials in Redis so worker processes can access them.
+    Called once when the web service (which has env vars) loads credentials."""
+    try:
+        import json
+        from extensions import ensure_redis, redis_conn
+        if not ensure_redis():
+            return
+        creds = {}
+        if marketplace_id and marketplace_secret:
+            creds["m_id"] = marketplace_id
+            creds["m_sec"] = marketplace_secret
+        if private_id and private_secret:
+            creds["p_id"] = private_id
+            creds["p_sec"] = private_secret
+        if creds:
+            redis_conn.set(_REDIS_OAUTH_KEY, json.dumps(creds), ex=86400 * 7)
+            logger.debug("GHL OAuth creds shared to Redis for worker processes")
+    except Exception as e:
+        logger.debug(f"Could not share OAuth creds to Redis: {e}")
+
+
+def _read_creds_from_redis():
+    """Read OAuth credentials from Redis (fallback when env vars are missing).
+    Returns (marketplace_id, marketplace_secret, private_id, private_secret)."""
+    try:
+        import json
+        from extensions import ensure_redis, redis_conn
+        if not ensure_redis():
+            return None, None, None, None
+        raw = redis_conn.get(_REDIS_OAUTH_KEY)
+        if raw:
+            creds = json.loads(raw)
+            logger.info("GHL OAuth creds loaded from Redis (shared by web service)")
+            return (creds.get("m_id"), creds.get("m_sec"),
+                    creds.get("p_id"), creds.get("p_sec"))
+    except Exception as e:
+        logger.debug(f"Could not read OAuth creds from Redis: {e}")
+    return None, None, None, None
+
+
 def _load_oauth_credentials():
-    """Load both marketplace and private OAuth credential sets from environment.
+    """Load both marketplace and private OAuth credential sets.
+    Primary: environment variables. Fallback: Redis (shared by web service).
     Returns (marketplace_id, marketplace_secret, private_id, private_secret)."""
     marketplace_id = _get_env_with_fallback("GHL_CLIENT_ID")
     marketplace_secret = _get_env_with_fallback("GHL_CLIENT_SECRET")
     private_id = _get_env_with_fallback("PRIVATE_APP_CLIENT_ID", "GHL_PRIVATE_CLIENT_ID")
     private_secret = _get_env_with_fallback("PRIVATE_APP_SECRET_ID", "GHL_PRIVATE_CLIENT_SECRET")
+
+    has_any = (marketplace_id and marketplace_secret) or (private_id and private_secret)
+
+    if has_any:
+        # Web service has env vars — share to Redis for workers
+        _share_creds_to_redis(marketplace_id, marketplace_secret, private_id, private_secret)
+    else:
+        # Worker without env vars — try reading from Redis
+        marketplace_id, marketplace_secret, private_id, private_secret = _read_creds_from_redis()
+
     return marketplace_id, marketplace_secret, private_id, private_secret
 
 
-# Cached at module load — env vars don't change at runtime
+# Cached after first call — credentials don't change at runtime
 _OAUTH_CREDS_AVAILABLE = None
 def has_oauth_credentials():
-    """Check if ANY GHL OAuth credentials are configured in environment.
-    Result is cached after first call since env vars don't change at runtime."""
+    """Check if ANY GHL OAuth credentials are available (env vars or Redis).
+    Result is cached after first call."""
     global _OAUTH_CREDS_AVAILABLE
     if _OAUTH_CREDS_AVAILABLE is None:
         m_id, m_sec, p_id, p_sec = _load_oauth_credentials()

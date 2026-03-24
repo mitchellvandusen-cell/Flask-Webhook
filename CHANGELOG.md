@@ -41,6 +41,16 @@
 
 ---
 
+## 2026-03-24 (Worker SMS: Share OAuth Credentials via Redis)
+
+**Root cause**: Worker processes lack GHL OAuth env vars (`GHL_CLIENT_ID`, `GHL_CLIENT_SECRET`), so they cannot refresh expired tokens. When the proactive cron hasn't refreshed a token before a worker needs it, GHL SMS delivery fails — 3 wasted retries per message, 50+ errors in 7 minutes during a token expiry window.
+
+**Fix**: OAuth credentials are now shared from the web service to workers via Redis. When the web service loads credentials from env vars, it writes them to Redis (`igb:ghl_oauth_creds`, 7-day TTL). Worker processes that lack env vars read from Redis instead. Workers can now refresh tokens themselves — no more dependency on the proactive cron for token freshness.
+
+**Fallback chain**: env vars → Redis → skip GHL + Twilio fallback (unchanged).
+
+---
+
 ## 2026-03-23 (AI Intelligence JSON Repair — Regex Extraction + Unescaped Quote Handling)
 
 ### Problem
