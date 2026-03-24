@@ -231,7 +231,9 @@
 
                     /* Nav Bar */
                     .ios-nav-bar{flex-shrink:0;display:flex;align-items:center;gap:clamp(6px, 0.31vw, 11px);padding:clamp(50px, 2.60vw, 95px) clamp(10px, 0.52vw, 19px) clamp(8px, 0.42vw, 15px);background:rgba(18,18,18,0.94);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,0.06);}
-                    .ios-back-btn{background:none;border:none;color:#007AFF;font-size:clamp(1rem, 0.83vw, 1.5rem);cursor:pointer;padding:3px 5px;display:flex;align-items:center;gap:2px;flex-shrink:0;}
+                    .ios-back-btn{background:none;border:none;color:#007AFF;font-size:clamp(1rem, 0.83vw, 1.5rem);cursor:pointer;padding:4px 8px 4px 4px;display:flex;align-items:center;gap:3px;flex-shrink:0;border-radius:6px;transition:background 0.15s;}
+                    .ios-back-btn:hover{background:rgba(0,122,255,0.1);}
+                    .ios-back-btn .ios-back-label{font-size:clamp(0.75rem, 0.62vw, 1.1rem);font-weight:500;}
                     .ios-nav-title{flex:1;display:flex;align-items:center;gap:clamp(6px, 0.31vw, 11px);min-width:0;}
                     .ios-nav-name{font-weight:700;font-size:clamp(0.88rem, 0.73vw, 1.3rem);color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
                     .ios-nav-subtitle{font-size:clamp(0.72rem, 0.6vw, 1.1rem);color:#8E8E93;margin-top:1px;}
@@ -644,6 +646,7 @@
                     body.light-theme .iphone-bezel { background: linear-gradient(145deg,#d4d4d8 0%,#c0c0c4 20%,#b4b4b8 50%,#c0c0c4 80%,#d4d4d8 100%) !important; box-shadow: 0 0 0 1px rgba(0,0,0,0.06), 0 clamp(12px, 1.3vw, 40px) clamp(30px, 3.1vw, 96px) rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.6) !important; }
                     /* Light theme — phone interior elements */
                     body.light-theme .iphone-frame .ios-back-btn { color: #007AFF !important; }
+                    body.light-theme .iphone-frame .ios-back-btn:hover { background: rgba(0,122,255,0.12) !important; }
                     body.light-theme .iphone-frame .ios-nav-subtitle { color: #636366 !important; }
                     body.light-theme .iphone-frame .ios-nav-action { color: #007AFF !important; }
                     body.light-theme .iphone-frame .ios-compose-input { color: #1a1a2e !important; }
@@ -1497,7 +1500,7 @@
                                         <!-- Nav bar -->
                                         <div class="ios-nav-bar">
                                             <button class="ios-back-btn" onclick="iosGoHome()">
-                                                <i class="fa-solid fa-chevron-left"></i> <span style="font-size:0.78rem;">Back</span>
+                                                <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Back</span>
                                             </button>
                                             <div class="ios-nav-title">
                                                 <div id="iosMsgAvatar" class="ios-contact-avatar-sm">?</div>
@@ -1573,7 +1576,7 @@
                                     <div class="ios-app-view" id="iosAppCalls" style="display:none;">
                                         <div class="ios-nav-bar">
                                             <button class="ios-back-btn" onclick="iosGoHome()">
-                                                <i class="fa-solid fa-chevron-left"></i>
+                                                <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Back</span>
                                             </button>
                                             <div class="ios-nav-title">
                                                 <div style="font-weight:700;font-size:0.95rem;">Recents</div>
@@ -1605,7 +1608,7 @@
                                     <div class="ios-app-view" id="iosAppRecordings" style="display:none;">
                                         <div class="ios-nav-bar">
                                             <button class="ios-back-btn" onclick="iosGoHome()">
-                                                <i class="fa-solid fa-chevron-left"></i>
+                                                <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Back</span>
                                             </button>
                                             <div class="ios-nav-title">
                                                 <div style="font-weight:700;font-size:0.95rem;">Voicemail</div>
@@ -1637,7 +1640,7 @@
                                     <div class="ios-app-view" id="iosAppVoicemail" style="display:none;">
                                         <div class="ios-nav-bar dlr-misc-12" >
                                             <button class="ios-back-btn" onclick="iosGoHome()">
-                                                <i class="fa-solid fa-chevron-left"></i>
+                                                <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Back</span>
                                             </button>
                                             <div class="ios-nav-title">
                                                 <div style="font-weight:700;font-size:0.95rem;">Voicemail</div>
@@ -1673,7 +1676,7 @@
                                         <div class="dlr-misc-14" style="padding:66px 16px 0;flex-shrink:0">
                                             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
                                                 <button class="ios-back-btn" onclick="iosGoHome()" style="margin:0;">
-                                                    <i class="fa-solid fa-chevron-left"></i>
+                                                    <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Back</span>
                                                 </button>
                                                 <div class="dlr-label-6" style="font-weight:800;font-size:1.15rem;letter-spacing:-0.3px">Conversations</div>
                                                 <button onclick="inboxRefresh()" class="ios-nav-action" title="Refresh" style="margin:0;">
@@ -1770,7 +1773,7 @@
                                     <div class="ios-app-view" id="iosAppCalendar" style="display:none;">
                                         <div class="ios-nav-bar dlr-misc-18" >
                                             <button class="ios-back-btn" onclick="iosGoHome()">
-                                                <i class="fa-solid fa-chevron-left"></i>
+                                                <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Back</span>
                                             </button>
                                             <div class="ios-nav-title">
                                                 <div style="font-weight:700;font-size:0.95rem;">Calendar</div>
@@ -1969,7 +1972,7 @@
                                         <div class="dlr-misc-24" style="padding:66px 0 0;flex-shrink:0">
                                             <div class="dlr-misc-25" style="display:flex;align-items:center;gap:10px;padding:0 16px 10px">
                                                 <button class="ios-back-btn dlr-misc-26" onclick="_iosDiscordActiveChannel ? _iosDiscordBackToServers() : iosGoHome()" style="margin:0">
-                                                    <i class="fa-solid fa-chevron-left"></i>
+                                                    <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Back</span>
                                                 </button>
                                                 <i class="fa-solid fa-hashtag dlr-icon-c72767d" style="font-size:0.85rem"></i>
                                                 <span id="iosDiscordChannelName" class="dlr-heading-9" style="font-weight:700;font-size:0.95rem;flex:1">Discord</span>
@@ -2026,7 +2029,7 @@
                                         <div class="dlr-misc-30" style="padding:66px 0 0;flex-shrink:0">
                                             <div class="dlr-misc-25" style="display:flex;align-items:center;gap:10px;padding:0 16px 10px">
                                                 <button class="ios-back-btn dlr-misc-31" onclick="_iosSlackActiveChannel ? _iosSlackBackToChannels() : iosGoHome()" style="margin:0">
-                                                    <i class="fa-solid fa-chevron-left"></i>
+                                                    <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Back</span>
                                                 </button>
                                                 <i class="fa-solid fa-hashtag dlr-icon-cababad" style="font-size:0.85rem"></i>
                                                 <span id="iosSlackChannelName" class="dlr-heading-9" style="font-weight:700;font-size:0.95rem;flex:1">Slack</span>

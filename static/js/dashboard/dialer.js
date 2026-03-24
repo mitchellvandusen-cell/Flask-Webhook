@@ -4602,7 +4602,8 @@
                 humanBtn.style.background = 'linear-gradient(135deg,var(--accent),#00b36b)'; humanBtn.style.color = '#000';
                 aiBtn.style.background = 'transparent'; aiBtn.style.color = '#888';
                 if (!voipSetupDone) {
-                    document.getElementById('voipSetupBanner').style.display = 'block';
+                    // Silently set up VoIP in background so it's ready when they dial
+                    setupVoIP().catch(e => console.error('[VoIP] Background setup failed:', e));
                 } else if (!voipReady && !_voipInitializing) {
                     initVoIPDevice();
                 }
@@ -4830,6 +4831,9 @@
                         call.accept();
                         voipConnection = call;
                         voipStartTimer();
+                        // In human dial mode, the ringing banner is shown by _origStartCall.
+                        // Hide it now — voipCallPanel takes over as the in-call UI.
+                        if (dialerMode === 'human') dialerHideBanner();
                         // Show call panel and update contact info
                         const callPanel = document.getElementById('voipCallPanel');
                         if (callPanel) callPanel.style.display = 'flex';
@@ -5063,25 +5067,29 @@
         dialerStartCall = async function(phone, firstName, contactId, displayName) {
             if (dialerMode === 'human') {
                 if (!voipReady || !voipDevice) {
-                    if (voipSetupDone && !_voipInitializing) {
-                        _showVoipStatus('VoIP initializing — please wait…');
-                        await initVoIPDevice();
-                        // Wait briefly for registration
-                        await new Promise(r => setTimeout(r, 2000));
-                        if (!voipReady) {
-                            _showVoipStatus('VoIP not ready yet — try again in a moment');
-                            return;
-                        }
-                    } else if (!voipSetupDone) {
-                        document.getElementById('voipSetupBanner').style.display = 'block';
-                        _showVoipStatus('Click "Setup VoIP" to enable browser calling');
+                    if (_voipInitializing) {
+                        _showVoipStatus('Connecting — try again in a moment…');
                         return;
+                    }
+                    // Silently set up VoIP on first dial — no manual step needed
+                    if (!voipSetupDone) {
+                        _showVoipStatus('Setting up voice — one moment…');
+                        await setupVoIP(); // creates credential + inits device
                     } else {
-                        _showVoipStatus('VoIP still connecting — please wait…');
+                        _showVoipStatus('Connecting voice…');
+                        await initVoIPDevice();
+                    }
+                    // Wait for registration to complete
+                    await new Promise(r => setTimeout(r, 2500));
+                    if (!voipReady) {
+                        _showVoipStatus('Voice connecting — try dialing again in a moment');
                         return;
                     }
                 }
-                voipMakeCall(phone, firstName, contactId, displayName);
+                // Route through /voice/dial (same as AI mode) so call history, Redis
+                // tracking, AMD detection, and retry logic all work correctly.
+                // The backend bridges to browser via <Dial><Client>, VoIP auto-accepts below.
+                await _origStartCall(phone, firstName, contactId, displayName);
             } else {
                 await _origStartCall(phone, firstName, contactId, displayName);
             }
