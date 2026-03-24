@@ -782,7 +782,7 @@ class User(UserMixin):
                 # fields (whitelabel, company metadata, seats) from agency_billing.
                 if data.get('role') == 'agency_owner':
                     cur.execute("""
-                        SELECT whitelabel_config, company_name, company_owner_name,
+                        SELECT company_id, whitelabel_config, company_name, company_owner_name,
                                company_owner_email, company_owner_phone, max_seats,
                                active_seats
                         FROM agency_billing WHERE LOWER(agency_email) = %s LIMIT 1

@@ -1340,36 +1340,45 @@ def agency_whitelabel():
 @agency_bp.route("/api/agency/members")
 @login_required
 def agency_members():
-    """List all agency members via company_id (preferred) or parent_agency_email."""
+    """List all agency members via company_id AND parent_agency_email (unioned, deduped)."""
     if current_user.role != 'agency_owner' and current_user.email.lower() not in [e.lower() for e in ADMIN_EMAILS]:
         return flask_jsonify({"error": "Access denied"}), 403
 
     company_id = getattr(current_user, 'company_id', None)
-    if company_id:
-        from db import get_agency_members_by_company_id
-        members = get_agency_members_by_company_id(company_id)
-    else:
-        conn = get_db_connection()
-        if not conn:
-            return flask_jsonify({"error": "DB unavailable"}), 503
-        try:
-            cur = conn.cursor(cursor_factory=RealDictCursor)
+    agency_email = current_user.email
+
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "DB unavailable"}), 503
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        if company_id:
             cur.execute("""
                 SELECT location_id, email, full_name, phone, role, subscription_tier,
                        bot_first_name, timezone, access_token, token_expires_at,
                        onboarding_status, agent_email, invite_sent_at, invite_claimed_at,
                        created_at, voice_config, sms_send_via
                 FROM subscribers
-                WHERE parent_agency_email = %s
+                WHERE company_id = %s OR LOWER(parent_agency_email) = LOWER(%s)
                 ORDER BY created_at DESC
-            """, (current_user.email,))
-            members = [dict(r) for r in cur.fetchall()]
-            cur.close()
-        except Exception as e:
-            logger.error(f"agency_members error: {e}")
-            return flask_jsonify({"error": "Internal server error"}), 500
-        finally:
-            return_db_connection(conn)
+            """, (company_id, agency_email))
+        else:
+            cur.execute("""
+                SELECT location_id, email, full_name, phone, role, subscription_tier,
+                       bot_first_name, timezone, access_token, token_expires_at,
+                       onboarding_status, agent_email, invite_sent_at, invite_claimed_at,
+                       created_at, voice_config, sms_send_via
+                FROM subscribers
+                WHERE LOWER(parent_agency_email) = LOWER(%s)
+                ORDER BY created_at DESC
+            """, (agency_email,))
+        members = [dict(r) for r in cur.fetchall()]
+        cur.close()
+    except Exception as e:
+        logger.error(f"agency_members error: {e}")
+        return flask_jsonify({"error": "Internal server error"}), 500
+    finally:
+        return_db_connection(conn)
 
     # Sanitize for JSON response
     result = []
