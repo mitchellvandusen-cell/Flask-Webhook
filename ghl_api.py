@@ -31,6 +31,8 @@ _DB_OAUTH_KEY = "ghl_oauth_creds"
 
 # Throttle for "no creds" error log — only log once per 60 seconds per process
 _NO_CREDS_LAST_LOG = 0
+# Throttle for cross-propagation writes — only propagate once per 120 seconds
+_LAST_CROSS_PROPAGATE = 0
 
 
 def _share_creds_to_redis(marketplace_id, marketplace_secret, private_id, private_secret):
@@ -182,9 +184,11 @@ def _load_oauth_credentials():
         # Worker without env vars — try Redis first, then DB (persistent fallback)
         marketplace_id, marketplace_secret, private_id, private_secret = _read_creds_from_redis()
         has_any = (marketplace_id and marketplace_secret) or (private_id and private_secret)
+        _found_in = 'redis' if has_any else None
         if not has_any:
             marketplace_id, marketplace_secret, private_id, private_secret = _read_creds_from_db()
             has_any = (marketplace_id and marketplace_secret) or (private_id and private_secret)
+            _found_in = 'db' if has_any else None
             if not has_any:
                 # Throttle this log — concurrent webhook tasks all hit this path,
                 # generating N identical entries that spam monitoring dashboards.
@@ -201,6 +205,20 @@ def _load_oauth_credentials():
                         f"PRIVATE_APP_SECRET_ID={'SET' if os.getenv('PRIVATE_APP_SECRET_ID') else 'MISSING'} | "
                         f"Redis=EMPTY | DB=EMPTY — token refresh will fail, SMS will use Twilio fallback"
                     )
+
+        # Cross-propagate: if creds found in one store, ensure the other has
+        # a copy too.  This heals gaps after Redis restarts (DB → Redis) or
+        # DB failures during initial publish (Redis → DB).  Throttled to once
+        # per 120s to avoid write amplification under high webhook volume.
+        if has_any and _found_in:
+            global _LAST_CROSS_PROPAGATE
+            _cp_now = _time.time()
+            if _cp_now - _LAST_CROSS_PROPAGATE >= 120:
+                _LAST_CROSS_PROPAGATE = _cp_now
+                if _found_in == 'redis':
+                    _share_creds_to_db(marketplace_id, marketplace_secret, private_id, private_secret)
+                elif _found_in == 'db':
+                    _share_creds_to_redis(marketplace_id, marketplace_secret, private_id, private_secret)
 
     return marketplace_id, marketplace_secret, private_id, private_secret
 
