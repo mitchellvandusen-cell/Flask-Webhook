@@ -1125,17 +1125,18 @@ def agency_dashboard_stats():
             sum(a['connect_rate'] for a in agents if a['total_calls'] >= 5) / max(len(agents_with_calls), 1), 1
         )
 
-        # ── Speed to lead: avg time from contact creation to first call ──────
+        # ── Speed to lead: contact_cache uses synced_at not created_at ──────
+        # Use synced_at as a proxy for contact creation time
         cur.execute("""
-            SELECT AVG(EXTRACT(EPOCH FROM (ch.created_at - cc.created_at))) AS avg_speed
+            SELECT AVG(EXTRACT(EPOCH FROM (ch.created_at - cc.synced_at))) AS avg_speed
             FROM call_history ch
             JOIN contact_cache cc ON ch.contact_id = cc.contact_id AND ch.location_id = cc.location_id
             WHERE ch.location_id = ANY(%s)
               AND ch.created_at >= %s
               AND ch.direction = 'outbound'
-              AND cc.created_at IS NOT NULL
-              AND ch.created_at > cc.created_at
-              AND EXTRACT(EPOCH FROM (ch.created_at - cc.created_at)) < 86400
+              AND cc.synced_at IS NOT NULL
+              AND ch.created_at > cc.synced_at
+              AND EXTRACT(EPOCH FROM (ch.created_at - cc.synced_at)) < 86400
         """, (location_ids, start_utc))
         speed_row = cur.fetchone()
         avg_speed_to_lead = round(float(speed_row['avg_speed'] or 0), 0) if speed_row and speed_row['avg_speed'] else None
