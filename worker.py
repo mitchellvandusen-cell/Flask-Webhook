@@ -70,7 +70,7 @@ def run_worker(listen_queues, worker_num):
     # running Alembic migrations or starting up during a simultaneous deploy.
     try:
         import time as _t
-        from ghl_api import has_oauth_credentials, _OAUTH_CREDS_SOURCE
+        from ghl_api import has_oauth_credentials
         _creds_found = False
         for _attempt in range(10):
             if has_oauth_credentials(force_recheck=(_attempt > 0)):

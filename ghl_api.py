@@ -184,9 +184,13 @@ def _load_oauth_credentials():
             has_any = (marketplace_id and marketplace_secret) or (private_id and private_secret)
             if not has_any:
                 logger.error(
-                    "No GHL OAuth credentials found — env vars MISSING, Redis EMPTY, DB EMPTY. "
-                    "Token refresh will fail. Ensure the web service is running and has "
-                    "GHL_CLIENT_ID + GHL_CLIENT_SECRET env vars set."
+                    f"No OAuth credentials configured | "
+                    f"GHL_CLIENT_ID={'SET' if os.getenv('GHL_CLIENT_ID') else 'MISSING'} | "
+                    f"GHL_CLIENT_SECRET={'SET' if os.getenv('GHL_CLIENT_SECRET') else 'MISSING'} | "
+                    f"PRIVATE_APP_CLIENT_ID={'SET' if os.getenv('PRIVATE_APP_CLIENT_ID') else 'MISSING'} | "
+                    f"PRIVATE_APP_SECRET_ID={'SET' if os.getenv('PRIVATE_APP_SECRET_ID') else 'MISSING'} | "
+                    f"Redis={'EMPTY' if not marketplace_id else 'OK'} | "
+                    f"DB={'EMPTY'} — token refresh will fail, SMS will use Twilio fallback"
                 )
 
     return marketplace_id, marketplace_secret, private_id, private_secret
