@@ -220,15 +220,23 @@ def get_twilio_credentials(location_id):
             except Exception as nh_err:
                 logger.debug(f"number_health phone lookup failed: {nh_err}")
 
-        # If subscriber has their own sub-account creds, use them
-        if sub_sid and auth_tok:
+        # If subscriber has their own sub-account creds AND a from number, use them
+        if sub_sid and auth_tok and from_number:
             return sub_sid, auth_tok, from_number
 
-        # Subscriber has no Twilio sub-account — fall back to master account
-        # so SMS can still be delivered when GHL OAuth is also unavailable
+        # Subscriber has no Twilio sub-account, OR sub-account has no usable
+        # from_number (no primary number set, no active numbers in number_health).
+        # Fall back to master account so SMS can still be delivered when GHL
+        # OAuth is also unavailable.  Previously, sub-accounts without a
+        # from_number returned (sid, token, None), causing the Twilio fallback
+        # in tasks.py to silently skip (it checks all three values are truthy).
         master_sid, master_auth, master_phone = _get_master_twilio_credentials()
         if master_sid and master_auth and master_phone:
-            logger.info(f"Twilio fallback: using master account for {location_id} (no sub-account provisioned)")
+            if sub_sid and auth_tok:
+                logger.warning(f"Twilio fallback: sub-account for {location_id} has no usable "
+                              f"from_number — falling through to master account")
+            else:
+                logger.info(f"Twilio fallback: using master account for {location_id} (no sub-account provisioned)")
             return master_sid, master_auth, from_number or master_phone
 
         return None, None, None
