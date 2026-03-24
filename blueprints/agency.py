@@ -1356,7 +1356,7 @@ def agency_members():
         select_cols = """
                 SELECT location_id, email, full_name, phone, role, subscription_tier,
                        bot_first_name, timezone, access_token, token_expires_at,
-                       onboarding_status, created_at
+                       onboarding_status, created_at, stripe_customer_id, stripe_status
         """
         if company_id:
             cur.execute(select_cols + """
@@ -1380,12 +1380,26 @@ def agency_members():
     finally:
         return_db_connection(conn)
 
-    # Sanitize for JSON response
+    # Sanitize for JSON response — determine real status from Stripe + OAuth
     result = []
     for m in members:
         has_token = bool(m.get('access_token'))
         expires = m.get('token_expires_at')
-        is_connected = has_token and expires and expires > datetime.utcnow() if expires else False
+        token_valid = has_token and expires and expires > datetime.utcnow() if expires else False
+        tier = m.get('subscription_tier')
+        stripe_status = m.get('stripe_status')
+        has_stripe = bool(m.get('stripe_customer_id'))
+
+        # Status priority: Cancelled > Active > Token Expired > Pending
+        if tier is None and (stripe_status in ('canceled', 'unpaid') or has_stripe):
+            status = 'Cancelled'
+        elif tier and token_valid:
+            status = 'Active'
+        elif tier and not token_valid:
+            status = 'Token Expired'
+        else:
+            status = 'Pending'
+
         result.append({
             'location_id': m['location_id'],
             'email': m.get('email'),
@@ -1395,7 +1409,8 @@ def agency_members():
             'subscription_tier': m.get('subscription_tier'),
             'bot_name': m.get('bot_first_name'),
             'timezone': m.get('timezone'),
-            'status': 'Active' if is_connected else 'Pending Auth',
+            'status': status,
+            'stripe_status': stripe_status,
             'onboarding_status': m.get('onboarding_status'),
             'created_at': m['created_at'].isoformat() + 'Z' if m.get('created_at') else None,
         })

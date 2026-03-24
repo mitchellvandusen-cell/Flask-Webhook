@@ -320,13 +320,14 @@ def stripe_webhook():
                     cur.execute("""
                         INSERT INTO subscribers (
                             location_id, email, stripe_customer_id, role, subscription_tier,
-                            crm_user_id, bot_first_name, timezone
+                            stripe_status, crm_user_id, bot_first_name, timezone
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        VALUES (%s, %s, %s, %s, %s, 'active', %s, %s, %s)
                         ON CONFLICT (email) DO UPDATE SET
                             stripe_customer_id = EXCLUDED.stripe_customer_id,
                             role = EXCLUDED.role,
-                            subscription_tier = EXCLUDED.subscription_tier;
+                            subscription_tier = EXCLUDED.subscription_tier,
+                            stripe_status = 'active';
                     """, (temp_id, email, customer_id, target_role, target_tier,
                           '', 'Grok', 'America/Chicago'))
 
@@ -470,16 +471,16 @@ def stripe_webhook():
                                 if subscriber:
                                     cur.execute("""
                                         UPDATE subscribers
-                                        SET stripe_customer_id = NULL,
+                                        SET stripe_status = %s,
                                             subscription_tier = NULL,
                                             updated_at = NOW()
                                         WHERE stripe_customer_id = %s
-                                    """, (customer_id,))
+                                    """, (status, customer_id))
                                     conn.commit()
                                     logger.info(
                                         f"Main subscription {status} for {subscriber['email']} "
                                         f"(was {subscriber['subscription_tier']}) — "
-                                        f"stripe_customer_id cleared, paywall re-enabled"
+                                        f"stripe_status={status}, paywall re-enabled"
                                     )
 
                     except Exception as e:
@@ -679,6 +680,7 @@ def stripe_webhook():
                                 UPDATE subscribers
                                 SET stripe_customer_id = %s,
                                     subscription_tier = %s,
+                                    stripe_status = 'active',
                                     updated_at = NOW()
                                 WHERE email = %s
                             """, (customer_id, tier, cust_email))

@@ -10820,6 +10820,14 @@ body.light-theme .ghl-embed-tab.active {
     background: rgba(255,170,0,0.12);
     color: #ffaa00;
 }
+.agency-badge.cancelled {
+    background: rgba(255,60,60,0.12);
+    color: #ff5555;
+}
+.agency-badge.expired {
+    background: rgba(255,140,0,0.12);
+    color: #ff8c00;
+}
 
 /* ── Light Theme Overrides ── */
 body.light-theme .wl-style-btn {
@@ -10894,6 +10902,14 @@ body.light-theme .agency-badge.active {
 body.light-theme .agency-badge.pending {
     background: rgba(255,170,0,0.08);
     color: #cc8800;
+}
+body.light-theme .agency-badge.cancelled {
+    background: rgba(220,40,40,0.08);
+    color: #cc2020;
+}
+body.light-theme .agency-badge.expired {
+    background: rgba(200,120,0,0.08);
+    color: #b06800;
 }
 
 /* ═══════════════════════════════════════════════════════════════

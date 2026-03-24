@@ -23,7 +23,7 @@
                 var el;
                 el = document.getElementById('agencyMemberCount'); if (el) el.textContent = members.length;
                 el = document.getElementById('agencyActiveCount'); if (el) el.textContent = members.filter(function(m) { return m.status === 'Active'; }).length;
-                el = document.getElementById('agencyPendingCount'); if (el) el.textContent = members.filter(function(m) { return m.status !== 'Active'; }).length;
+                el = document.getElementById('agencyPendingCount'); if (el) el.textContent = members.filter(function(m) { return m.status !== 'Active' && m.status !== 'Cancelled'; }).length;
 
                 if (!members.length) {
                     tbody.innerHTML = '<tr><td colspan="5" class="text-center dash-text-muted">No members found. Agents will appear here when they connect their GHL account under your company.</td></tr>';
@@ -34,11 +34,14 @@
                 for (var i = 0; i < members.length; i++) {
                     var m = members[i];
                     var tier = m.subscription_tier || 'individual';
-                    var tierLabel = tier === 'sms_bot' ? 'SMS Bot' :
+                    var tierLabel = !tier ? '—' :
+                                   tier === 'sms_bot' ? 'SMS Bot' :
                                    tier === 'pro_dialer' ? 'Pro Dialer' :
                                    tier === 'solo_predictive' ? 'Solo Predictive' :
                                    tier === 'individual' ? 'Power Dialer' : tier;
-                    var statusClass = m.status === 'Active' ? 'active' : 'pending';
+                    var statusClass = m.status === 'Active' ? 'active' :
+                                     m.status === 'Cancelled' ? 'cancelled' :
+                                     m.status === 'Token Expired' ? 'expired' : 'pending';
                     var joined = m.created_at ? new Date(m.created_at).toLocaleDateString() : '—';
 
                     html += '<tr>' +
