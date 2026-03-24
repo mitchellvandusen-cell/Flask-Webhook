@@ -111,22 +111,32 @@ def _invalidate_oauth_cache():
     _OAUTH_CREDS_SOURCE = None
 
 
-def has_oauth_credentials():
+def has_oauth_credentials(force_recheck=False):
     """Check if ANY GHL OAuth credentials are available (env vars or Redis).
     Env-var results are cached permanently. Redis results are re-verified
-    every 60s. Negative results are re-checked every 5s so workers pick up
-    Redis-shared creds from the web service quickly."""
+    every 60s. Negative results are re-checked every 2s so workers pick up
+    Redis-shared creds from the web service quickly.
+
+    Args:
+        force_recheck: If True, bypass all caches and re-check Redis/env vars
+                       immediately. Use this when a 401 triggers force-refresh
+                       and we need to be sure we haven't missed recently-published
+                       Redis creds.
+    """
     global _OAUTH_CREDS_AVAILABLE, _OAUTH_CREDS_LAST_CHECK, _OAUTH_CREDS_SOURCE
-    # Env vars never disappear — permanent cache
-    if _OAUTH_CREDS_SOURCE == "env":
-        return True
-    # Redis-sourced creds: re-verify every 60s (key may expire)
-    now = _time.time()
-    if _OAUTH_CREDS_SOURCE == "redis" and now - _OAUTH_CREDS_LAST_CHECK < 60:
-        return True
-    # Negative cache: re-check every 5s (fast warm-up for workers)
-    if _OAUTH_CREDS_AVAILABLE is False and _OAUTH_CREDS_LAST_CHECK and now - _OAUTH_CREDS_LAST_CHECK < 5:
-        return False
+    if not force_recheck:
+        # Env vars never disappear — permanent cache
+        if _OAUTH_CREDS_SOURCE == "env":
+            return True
+        # Redis-sourced creds: re-verify every 60s (key may expire)
+        now = _time.time()
+        if _OAUTH_CREDS_SOURCE == "redis" and now - _OAUTH_CREDS_LAST_CHECK < 60:
+            return True
+        # Negative cache: re-check every 2s (fast warm-up for workers)
+        if _OAUTH_CREDS_AVAILABLE is False and _OAUTH_CREDS_LAST_CHECK and now - _OAUTH_CREDS_LAST_CHECK < 2:
+            return False
+    else:
+        now = _time.time()
     _OAUTH_CREDS_LAST_CHECK = now
     m_id, m_sec, p_id, p_sec = _load_oauth_credentials()
     has_any = bool((m_id and m_sec) or (p_id and p_sec))
@@ -293,44 +303,48 @@ def get_valid_token(location_id: str, subscriber: dict = None) -> str | None:
     # --- Token needs refresh ---
     # When no OAuth env vars are configured (e.g. worker processes), we cannot
     # refresh the token ourselves.  However, the web service's proactive cron
-    # may have already refreshed it in the DB.  If the caller passed a
-    # (possibly stale) subscriber dict, re-fetch from DB to pick up the
-    # freshly refreshed token before giving up.
+    # may have already refreshed it in the DB, OR the web service may have
+    # published OAuth creds to Redis since our last check.
+    #
+    # Strategy: force-recheck Redis (bypass negative cache), and if still no
+    # creds, re-fetch the DB token in case cron already refreshed it.
     if not has_oauth_credentials():
-        # Worker processes lack OAuth env vars — always re-fetch from DB
-        # in case the web service's proactive cron already refreshed the token.
-        fresh_sub = get_subscriber_info_hybrid(location_id)
-        if fresh_sub:
-            fresh_raw = fresh_sub.get('access_token') or fresh_sub.get('crm_api_key')
-            fresh_expires = fresh_sub.get('token_expires_at')
-            fresh_access = decrypt_token(fresh_raw) if fresh_raw else None
-            if fresh_access and fresh_expires:
-                if isinstance(fresh_expires, str):
-                    try:
-                        fresh_expires = datetime.fromisoformat(fresh_expires.replace('Z', '+00:00'))
-                    except Exception:
-                        fresh_expires = None
-                if fresh_expires:
-                    try:
-                        now = datetime.now()
-                        if hasattr(fresh_expires, 'tzinfo') and fresh_expires.tzinfo is not None:
-                            fresh_expires = fresh_expires.replace(tzinfo=None)
-                        if fresh_expires > now + timedelta(minutes=5):
-                            logger.info(f"Token for {location_id} was refreshed by cron — using fresh DB token")
-                            return fresh_access
-                    except TypeError:
-                        pass
-            # Fresh DB token is also expired — return it as last resort
-            # (one HTTP call vs total failure; GHL may still accept briefly)
-            if fresh_access:
-                logger.warning(f"⚠️ No OAuth env vars for {location_id} — returning DB token as last resort (may be expired)")
-                return fresh_access
-        # DB had no token either — fall back to whatever was passed in
-        if access_token:
-            logger.warning(f"⚠️ No OAuth env vars for {location_id} — returning existing token as last resort")
-            return access_token
-        logger.debug(f"Token expired for {location_id} and no OAuth env vars to refresh — returning None")
-        return None
+        # Negative cache may be stale — force a fresh Redis check
+        if has_oauth_credentials(force_recheck=True):
+            logger.info("OAuth creds found on force-recheck (Redis published since last check)")
+            # Fall through to the normal refresh path below
+        else:
+            # Genuinely no creds — re-read DB for cron-refreshed token
+            fresh_sub = get_subscriber_info_hybrid(location_id)
+            if fresh_sub:
+                fresh_raw = fresh_sub.get('access_token') or fresh_sub.get('crm_api_key')
+                fresh_expires = fresh_sub.get('token_expires_at')
+                fresh_access = decrypt_token(fresh_raw) if fresh_raw else None
+                if fresh_access and fresh_expires:
+                    if isinstance(fresh_expires, str):
+                        try:
+                            fresh_expires = datetime.fromisoformat(fresh_expires.replace('Z', '+00:00'))
+                        except Exception:
+                            fresh_expires = None
+                    if fresh_expires:
+                        try:
+                            now = datetime.now()
+                            if hasattr(fresh_expires, 'tzinfo') and fresh_expires.tzinfo is not None:
+                                fresh_expires = fresh_expires.replace(tzinfo=None)
+                            if fresh_expires > now + timedelta(minutes=5):
+                                logger.info(f"Token for {location_id} was refreshed by cron — using fresh DB token")
+                                return fresh_access
+                        except TypeError:
+                            pass
+                # Fresh DB token is also expired — return it as last resort
+                if fresh_access:
+                    logger.warning(f"⚠️ No OAuth env vars for {location_id} — returning DB token as last resort (may be expired)")
+                    return fresh_access
+            if access_token:
+                logger.warning(f"⚠️ No OAuth env vars for {location_id} — returning existing token as last resort")
+                return access_token
+            logger.debug(f"Token expired for {location_id} and no OAuth env vars to refresh — returning None")
+            return None
 
     marketplace_id, marketplace_secret, private_id, private_secret = _load_oauth_credentials()
     cred_sets = _build_cred_sets(oauth_app_type, marketplace_id, marketplace_secret,
@@ -470,38 +484,46 @@ def get_valid_token_with_status(location_id: str, subscriber: dict = None,
         logger.info(f"🔄 Force-refresh requested for {location_id} — skipping expiry check")
 
     # --- Token needs refresh ---
-    # When no OAuth env vars are configured (e.g. worker processes), re-fetch
-    # from DB in case the web service's proactive cron refreshed the token.
-    if not has_oauth_credentials():
-        # Worker processes lack OAuth env vars — always re-fetch from DB
-        # in case the web service's proactive cron already refreshed the token.
-        fresh_sub = get_subscriber_info_hybrid(location_id)
-        if fresh_sub:
-            fresh_raw = fresh_sub.get('access_token') or fresh_sub.get('crm_api_key')
-            fresh_expires = fresh_sub.get('token_expires_at')
-            fresh_access = decrypt_token(fresh_raw) if fresh_raw else None
-            if fresh_access and fresh_expires:
-                if isinstance(fresh_expires, str):
-                    try:
-                        fresh_expires = datetime.fromisoformat(fresh_expires.replace('Z', '+00:00'))
-                    except Exception:
-                        fresh_expires = None
-                if fresh_expires:
-                    try:
-                        now = datetime.now()
-                        if hasattr(fresh_expires, 'tzinfo') and fresh_expires.tzinfo is not None:
-                            fresh_expires = fresh_expires.replace(tzinfo=None)
-                        if fresh_expires > now + timedelta(minutes=5):
-                            logger.info(f"Token for {location_id} was refreshed by cron — using fresh DB token")
-                            return fresh_access, False, None
-                    except TypeError:
-                        pass
-            if fresh_access:
-                logger.warning(f"⚠️ No OAuth env vars for {location_id} — returning DB token as last resort")
-                return fresh_access, False, 'expired'
-        if access_token:
-            return access_token, False, 'expired'
-        return None, False, 'no_credentials'
+    # When no OAuth env vars are configured (e.g. worker processes), force
+    # a fresh Redis check (bypass negative cache), then re-fetch from DB
+    # in case the web service's proactive cron refreshed the token.
+    #
+    # When force_refresh=True (401 recovery), always bypass the cache — the
+    # caller is telling us the current token is definitely bad.
+    if not has_oauth_credentials(force_recheck=force_refresh):
+        # Negative cache may be stale — force a fresh Redis check
+        if has_oauth_credentials(force_recheck=True):
+            logger.info("OAuth creds found on force-recheck (Redis published since last check)")
+            # Fall through to the normal refresh path below
+        else:
+            # Genuinely no creds — re-read DB for cron-refreshed token
+            fresh_sub = get_subscriber_info_hybrid(location_id)
+            if fresh_sub:
+                fresh_raw = fresh_sub.get('access_token') or fresh_sub.get('crm_api_key')
+                fresh_expires = fresh_sub.get('token_expires_at')
+                fresh_access = decrypt_token(fresh_raw) if fresh_raw else None
+                if fresh_access and fresh_expires:
+                    if isinstance(fresh_expires, str):
+                        try:
+                            fresh_expires = datetime.fromisoformat(fresh_expires.replace('Z', '+00:00'))
+                        except Exception:
+                            fresh_expires = None
+                    if fresh_expires:
+                        try:
+                            now = datetime.now()
+                            if hasattr(fresh_expires, 'tzinfo') and fresh_expires.tzinfo is not None:
+                                fresh_expires = fresh_expires.replace(tzinfo=None)
+                            if fresh_expires > now + timedelta(minutes=5):
+                                logger.info(f"Token for {location_id} was refreshed by cron — using fresh DB token")
+                                return fresh_access, False, None
+                        except TypeError:
+                            pass
+                if fresh_access:
+                    logger.warning(f"⚠️ No OAuth env vars for {location_id} — returning DB token as last resort")
+                    return fresh_access, False, 'expired'
+            if access_token:
+                return access_token, False, 'expired'
+            return None, False, 'no_credentials'
 
     marketplace_id, marketplace_secret, private_id, private_secret = _load_oauth_credentials()
     cred_sets = _build_cred_sets(oauth_app_type, marketplace_id, marketplace_secret,

@@ -264,7 +264,7 @@ def process_webhook_task(payload: dict):
             # that can't refresh it (no OAuth env vars).  Go straight to
             # Twilio fallback instead of wasting an HTTP call that will 401.
             if not _ghl_creds_missing and token_error == 'expired':
-                if not has_oauth_credentials():
+                if not has_oauth_credentials(force_recheck=True):
                     _ghl_creds_missing = True
                     logger.info(f"Worker without OAuth env vars + expired token — "
                                f"will skip GHL and use Twilio fallback for {location_id}")
