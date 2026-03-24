@@ -4410,7 +4410,7 @@
         setTimeout(_dialerFetchMinutes, 2000);
 
         // ===== CALL MODE MANAGEMENT =====
-        let dialerMode = 'ai';
+        let dialerMode = 'human';
         let voipDevice = null;
         let voipConnection = null;  // Active Call object (v2 SDK)
         let voipReady = false;
@@ -4445,6 +4445,21 @@
                 } else if (!voipReady && !_voipInitializing) {
                     initVoIPDevice();
                 }
+            }
+            // Show/hide AI-only call controls (Listen, Mute AI, Intercept) based on mode
+            const _aiOnlyBtns = ['dialerListenBtn', 'dialerMuteBtn', 'dialerTakeoverBtn'];
+            _aiOnlyBtns.forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) btn.style.display = (mode === 'ai') ? 'flex' : 'none';
+            });
+            // Multi-line toggle: hide in human mode (VoIP supports single call only)
+            const mlToggle = document.getElementById('multiLineToggle');
+            if (mlToggle && _multiLineEnabled) {
+                mlToggle.style.display = (mode === 'ai') ? 'flex' : 'none';
+            }
+            const mlBadge = document.getElementById('multiLineBadge');
+            if (mlBadge && _multiLineEnabled) {
+                mlBadge.style.display = (mode === 'ai') ? 'inline-block' : 'none';
             }
             // Show/hide AI minutes chip based on mode
             _dialerUpdateMinutesChip();
@@ -4677,7 +4692,12 @@
                             const kp = document.getElementById('voipKeypad');
                             if (kp) kp.style.display = 'none';
                             dialerHideBanner();
-                            if (dialerQueueRunning) _dialerQueueTimeout(dialerAdvance, 2000);
+                            // Refresh KPI banner so today's numbers update after each call
+                            setTimeout(dialerLoadKpiBanner, 2000);
+                            // Use configured wrap-up time for queue advancement
+                            const _wrapMs = (window.DASHBOARD_BOOT?.wrapUpTime ?? 15) * 1000;
+                            const _advanceDelay = Math.max(_wrapMs, 1500);
+                            if (dialerQueueRunning) _dialerQueueTimeout(dialerAdvance, _advanceDelay);
                         });
                         call.on('cancel', () => {
                             console.log('[VoIP] Incoming call cancelled');
@@ -4962,10 +4982,15 @@
                     document.getElementById('voipCallPanel').style.display = 'none';
                     document.getElementById('voipKeypad').style.display = 'none';
                     dialerHideBanner();
+                    // Refresh KPI banner so today's numbers update after each call
+                    setTimeout(dialerLoadKpiBanner, 2000);
+                    // Use configured wrap-up time for queue advancement
+                    const _wrapMs = (window.DASHBOARD_BOOT?.wrapUpTime ?? 15) * 1000;
+                    const _advanceDelay = Math.max(_wrapMs, 1500);
                     if (!dialerQueueRunning) {
                         dialerShowDisposition();
                     } else {
-                        _dialerQueueTimeout(dialerAdvance, 2000);
+                        _dialerQueueTimeout(dialerAdvance, _advanceDelay);
                     }
                 });
 
@@ -7112,6 +7137,10 @@
          * Dials multiple contacts simultaneously from the queue.
          */
         async function multiLineStartQueue() {
+            if (dialerMode === 'human') {
+                _showDashToast(false, 'Multi-line dialing is only available in AI mode — browser calling supports one call at a time');
+                return;
+            }
             if (!_multiLineEnabled) {
                 _showDashToast(false, 'Multi-line dialing requires Pro Dialer or Predictive Dialer plan');
                 return;
@@ -8119,11 +8148,16 @@
         window.dlrExportDownload = dlrExportDownload;
 
         // Auto-init on page load
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => { multiLineInit(); billingLoadPlanInfo(); dialerLoadKpiBanner(); });
-        } else {
+        function _dialerPageInit() {
             multiLineInit();
             billingLoadPlanInfo();
             dialerLoadKpiBanner();
+            // Human mode is default — apply initial mode state (button styling, VoIP init, AI-only controls hidden)
+            setDialerMode(dialerMode);
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', _dialerPageInit);
+        } else {
+            _dialerPageInit();
         }
 
