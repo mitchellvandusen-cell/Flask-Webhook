@@ -268,6 +268,18 @@ def process_webhook_task(payload: dict):
                     _ghl_creds_missing = True
                     logger.info(f"Worker without OAuth env vars + expired token — "
                                f"will skip GHL and use Twilio fallback for {location_id}")
+                else:
+                    # Creds just appeared in Redis since the initial token check
+                    # (web service published them).  Re-fetch the token — either
+                    # the cron already refreshed it in DB, or we can now refresh
+                    # it ourselves with the Redis-shared creds.  This avoids a
+                    # wasted 401 round-trip with the stale expired token.
+                    retry_token = get_valid_token(location_id)
+                    if retry_token and retry_token != auth_token:
+                        logger.info(f"🔄 Token re-fetched after Redis creds appeared for "
+                                   f"{location_id} — using fresh token")
+                        auth_token = retry_token
+                        token_error = None
 
         # Inject fresh token (empty for API sources without GHL)
         subscriber['access_token'] = auth_token
