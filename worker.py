@@ -58,9 +58,11 @@ def run_worker(listen_queues, worker_num):
     # (Redis → DB) can use the shared connection pool.
     try:
         import extensions
-        extensions.ensure_redis()
-    except Exception:
-        pass
+        if not extensions.ensure_redis():
+            logger.warning(f"Worker-{worker_num}: extensions.ensure_redis() returned False — "
+                          f"OAuth credential fallback via Redis will be unavailable")
+    except Exception as e:
+        logger.error(f"Worker-{worker_num}: extensions.ensure_redis() failed: {e}")
 
     # Eagerly try loading GHL OAuth creds from Redis/DB (shared by web service).
     # This warms the cache so the first webhook doesn't hit a cold path.

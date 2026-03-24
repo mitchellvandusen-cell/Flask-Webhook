@@ -60,7 +60,7 @@ def _share_creds_to_db(marketplace_id, marketplace_secret, private_id, private_s
     The DB is always available to workers, unlike Redis which can be flushed."""
     try:
         import json
-        from db import get_db_connection, return_db_connection
+        from db_legacy import get_db_connection_with_retry, return_db_connection
         creds = {}
         if marketplace_id and marketplace_secret:
             creds["m_id"] = marketplace_id
@@ -70,9 +70,9 @@ def _share_creds_to_db(marketplace_id, marketplace_secret, private_id, private_s
             creds["p_sec"] = private_secret
         if not creds:
             return
-        conn = get_db_connection()
+        conn = get_db_connection_with_retry(max_attempts=2)
         if not conn:
-            logger.warning("Cannot persist OAuth creds to DB — no DB connection available")
+            logger.error("Cannot persist OAuth creds to DB — no DB connection after retries")
             return
         try:
             cur = conn.cursor()
@@ -96,6 +96,7 @@ def _read_creds_from_redis():
         import json
         import extensions
         if not extensions.ensure_redis():
+            logger.warning("Cannot read OAuth creds from Redis — Redis unavailable")
             return None, None, None, None
         # Access extensions.redis_conn AFTER ensure_redis() to get the live
         # reference.  Using `from extensions import redis_conn` would capture
@@ -107,8 +108,10 @@ def _read_creds_from_redis():
             logger.info("GHL OAuth creds loaded from Redis (shared by web service)")
             return (creds.get("m_id"), creds.get("m_sec"),
                     creds.get("p_id"), creds.get("p_sec"))
+        else:
+            logger.debug("Redis key %s not found — web service may not have published yet", _REDIS_OAUTH_KEY)
     except Exception as e:
-        logger.debug(f"Could not read OAuth creds from Redis: {e}")
+        logger.warning(f"Could not read OAuth creds from Redis: {e}")
     return None, None, None, None
 
 
@@ -117,9 +120,10 @@ def _read_creds_from_db():
     Used when both env vars and Redis are unavailable."""
     try:
         import json
-        from db import get_db_connection, return_db_connection
-        conn = get_db_connection()
+        from db_legacy import get_db_connection_with_retry, return_db_connection
+        conn = get_db_connection_with_retry(max_attempts=2)
         if not conn:
+            logger.warning("Cannot read OAuth creds from DB — no DB connection after retries")
             return None, None, None, None
         try:
             cur = conn.cursor()
@@ -159,6 +163,13 @@ def _load_oauth_credentials():
         has_any = (marketplace_id and marketplace_secret) or (private_id and private_secret)
         if not has_any:
             marketplace_id, marketplace_secret, private_id, private_secret = _read_creds_from_db()
+            has_any = (marketplace_id and marketplace_secret) or (private_id and private_secret)
+            if not has_any:
+                logger.error(
+                    "No GHL OAuth credentials found — env vars MISSING, Redis EMPTY, DB EMPTY. "
+                    "Token refresh will fail. Ensure the web service is running and has "
+                    "GHL_CLIENT_ID + GHL_CLIENT_SECRET env vars set."
+                )
 
     return marketplace_id, marketplace_secret, private_id, private_secret
 
