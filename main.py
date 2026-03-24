@@ -163,10 +163,19 @@ initialize_encryption()
 
 # ── Eagerly share GHL OAuth creds to Redis for worker processes ──────────────
 # Workers lack GHL_CLIENT_ID/GHL_CLIENT_SECRET env vars and rely on the web
-# service to publish them to Redis.  Calling has_oauth_credentials() here
-# ensures creds are in Redis before workers process their first webhook.
+# service to publish them to Redis.  has_oauth_credentials() calls
+# _load_oauth_credentials() which shares env-var creds to Redis as a side
+# effect.  Verify the Redis key exists; retry once after 2s if Redis wasn't
+# ready at startup (common during simultaneous service deploys on Railway).
 from ghl_api import has_oauth_credentials as _check_oauth
 _check_oauth()
+try:
+    from extensions import ensure_redis, redis_conn
+    if ensure_redis() and not redis_conn.get("igb:ghl_oauth_creds"):
+        import time as _t; _t.sleep(2)
+        _check_oauth(force_recheck=True)
+except Exception:
+    pass
 
 # ── API v1 Blueprint ─────────────────────────────────────────────────────────
 

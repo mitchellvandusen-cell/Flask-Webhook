@@ -48,7 +48,7 @@ def _share_creds_to_redis(marketplace_id, marketplace_secret, private_id, privat
             redis_conn.set(_REDIS_OAUTH_KEY, json.dumps(creds), ex=86400 * 7)
             logger.debug("GHL OAuth creds shared to Redis for worker processes")
     except Exception as e:
-        logger.debug(f"Could not share OAuth creds to Redis: {e}")
+        logger.warning(f"Could not share OAuth creds to Redis: {e}")
 
 
 def _read_creds_from_redis():
@@ -596,6 +596,12 @@ def refresh_tokens_proactively(buffer_minutes: int = 60):
     """
     from db import get_db_connection, return_db_connection
     stats = {"refreshed": 0, "failed": 0, "skipped": 0, "errors": 0}
+
+    # Always re-share OAuth creds to Redis on every cron run so workers can
+    # refresh tokens.  Without this, the Redis key may expire or be lost after
+    # a Redis restart, and workers silently lose the ability to refresh tokens.
+    # This is cheap (one env-var read + one Redis SET) and idempotent.
+    _load_oauth_credentials()
 
     conn = get_db_connection()
     if not conn:
