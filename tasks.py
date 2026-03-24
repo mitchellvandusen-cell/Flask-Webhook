@@ -159,10 +159,10 @@ def process_webhook_task(payload: dict):
                     logger.warning(f"⚠️ No GHL token and no OAuth credentials for {location_id} — "
                                   f"continuing with Twilio fallback path")
                 else:
-                    logger.error(f"⚠️ Token refresh failed for {location_id} | "
-                                f"oauth_app_type={oauth_type} | has_access_token={has_access} | "
-                                f"has_refresh_token={has_refresh} | error={token_error} | "
-                                f"continuing with Twilio fallback")
+                    logger.warning(f"Token refresh failed for {location_id} | "
+                                  f"oauth_app_type={oauth_type} | has_access_token={has_access} | "
+                                  f"has_refresh_token={has_refresh} | error={token_error} | "
+                                  f"continuing with Twilio fallback")
 
                     # Create persistent dashboard alert so subscriber sees the issue
                     sub_email = subscriber.get('email')

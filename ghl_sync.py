@@ -1203,7 +1203,7 @@ def deep_sync_conversations(location_id, access_token=None):
 
                 # If we hit too many consecutive auth failures, stop
                 if auth_failures > 5:
-                    logger.error(f"[DEEP_SYNC] {location_id} | Too many auth failures, stopping")
+                    logger.warning(f"[DEEP_SYNC] {location_id} | Too many auth failures, stopping")
                     break
 
             except Exception as e:
@@ -1253,7 +1253,7 @@ def _deep_list_all_conversations(location_id, headers):
             if _deep_refresh_token(location_id, headers):
                 data, err = _api_get_paced(url, headers, params=params)
             else:
-                logger.error(f"[DEEP_SYNC] {location_id} | Token refresh failed, stopping listing")
+                logger.warning(f"[DEEP_SYNC] {location_id} | Token refresh failed, stopping listing")
                 break
         if err:
             logger.warning(f"[DEEP_SYNC] {location_id} | Conversation list error: {err} "

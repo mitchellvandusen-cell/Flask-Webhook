@@ -875,7 +875,7 @@ def fetch_targeted_ghl_history(contact_id: str, location_id: str, access_token: 
     if not access_token:
         access_token = get_valid_token(location_id)
         if not access_token:
-            logger.error(f"No valid token for history fetch {location_id}/{contact_id}")
+            logger.warning(f"No valid token for history fetch {location_id}/{contact_id}")
             return []
     if access_token == 'DEMO':
         return []
@@ -988,7 +988,7 @@ def fetch_contact_data_from_ghl(contact_id: str, location_id: str, access_token:
     if not access_token:
         access_token = get_valid_token(location_id)
         if not access_token:
-            logger.error(f"No valid token for contact fetch {location_id}/{contact_id}")
+            logger.warning(f"No valid token for contact fetch {location_id}/{contact_id}")
             return {}
 
     if access_token == 'DEMO':
@@ -1026,7 +1026,7 @@ def fetch_contact_data_from_ghl(contact_id: str, location_id: str, access_token:
             return {}
 
     except requests.HTTPError as e:
-        logger.error(f"❌ GHL contact fetch HTTP error {e.response.status_code} for {contact_id}: {e.response.text}")
+        logger.warning(f"GHL contact fetch HTTP error {e.response.status_code} for {contact_id}: {e.response.text[:300]}")
         return {}
     except Exception as e:
         logger.error(f"❌ GHL contact fetch failed for {contact_id}: {e}", exc_info=True)
