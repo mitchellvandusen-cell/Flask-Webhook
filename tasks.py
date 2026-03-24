@@ -14,7 +14,7 @@ from prompt import build_system_prompt
 from ghl_message import send_sms_via_ghl
 from llm_caller import generate_clean_reply
 from ghl_calendar import consolidated_calendar_op
-from ghl_api import fetch_targeted_ghl_history, get_valid_token, get_valid_token_with_status
+from ghl_api import fetch_targeted_ghl_history, get_valid_token, get_valid_token_with_status, has_oauth_credentials
 from contact_validator import validate_and_resolve_contact
 from booking_detection import detect_booking_request, BookingDetectionResult
 from message_utils import collect_unanswered_lead_messages as _collect_unanswered_lead_messages
@@ -260,6 +260,14 @@ def process_webhook_task(payload: dict):
         _ghl_creds_missing = False
         if not is_demo and not is_api_source:
             _ghl_creds_missing = token_error in ('no_credentials', 'no_tokens')
+            # Also skip GHL when token is expired and we're on a worker
+            # that can't refresh it (no OAuth env vars).  Go straight to
+            # Twilio fallback instead of wasting an HTTP call that will 401.
+            if not _ghl_creds_missing and token_error == 'expired':
+                if not has_oauth_credentials():
+                    _ghl_creds_missing = True
+                    logger.info(f"Worker without OAuth env vars + expired token — "
+                               f"will skip GHL and use Twilio fallback for {location_id}")
 
         # Inject fresh token (empty for API sources without GHL)
         subscriber['access_token'] = auth_token
