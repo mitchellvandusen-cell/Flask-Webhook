@@ -246,6 +246,19 @@ def validate_and_resolve_contact(payload: Dict[str, Any]) -> Optional[str]:
             logger.error(f"CRM provider contact resolution failed: {e}")
         # Fall through to GHL methods as fallback
 
+    # Skip GHL API lookups when OAuth credentials are missing on this worker —
+    # the stored token may be expired and can never be refreshed, so API calls
+    # would produce 401 errors and spam the error feed.
+    try:
+        from ghl_api import has_oauth_credentials
+        _skip_ghl_api = not has_oauth_credentials()
+    except Exception:
+        _skip_ghl_api = False
+
+    if _skip_ghl_api:
+        logger.debug(f"Skipping GHL API contact resolution — no OAuth credentials configured")
+        return None
+
     # Step 2: PRIMARY METHOD - Phone + First Name (99% match)
     if phone and first_name:
         logger.critical(f"🔍 PRIMARY RESOLUTION METHOD: Phone + First Name | phone={phone} | first_name={first_name}")

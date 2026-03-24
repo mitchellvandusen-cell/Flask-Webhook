@@ -545,24 +545,29 @@ def process_webhook_task(payload: dict):
                     logger.error(f"CRM adapter booking error: {adapter_err}", exc_info=True)
             else:
                 # GHL: Use existing direct code path
-                # Pass all contact location fields for timezone resolution fallback chain
-                contact_state = payload.get('state') or ''
-                contact_phone_tz = payload.get('phone') or payload.get('contact_phone', '')
-                contact_city = payload.get('city') or ''
-                contact_zip = payload.get('zip') or payload.get('postal_code') or ''
-                contact_address = payload.get('address') or ''
-                ghl_book_result = consolidated_calendar_op(
-                    operation="book",
-                    subscriber_data=subscriber,
-                    contact_id=contact_id,
-                    first_name=first_name,
-                    selected_time=booking_time_str,
-                    contact_phone=contact_phone_tz,
-                    contact_state=contact_state,
-                    contact_city=contact_city,
-                    contact_zip=contact_zip,
-                    contact_address=contact_address,
-                )
+                # Skip when OAuth creds are missing — calendar API will fail
+                if _ghl_creds_missing:
+                    logger.warning(f"⚠️ GHL creds missing — skipping calendar booking for {contact_id}")
+                    ghl_book_result = False
+                else:
+                    # Pass all contact location fields for timezone resolution fallback chain
+                    contact_state = payload.get('state') or ''
+                    contact_phone_tz = payload.get('phone') or payload.get('contact_phone', '')
+                    contact_city = payload.get('city') or ''
+                    contact_zip = payload.get('zip') or payload.get('postal_code') or ''
+                    contact_address = payload.get('address') or ''
+                    ghl_book_result = consolidated_calendar_op(
+                        operation="book",
+                        subscriber_data=subscriber,
+                        contact_id=contact_id,
+                        first_name=first_name,
+                        selected_time=booking_time_str,
+                        contact_phone=contact_phone_tz,
+                        contact_state=contact_state,
+                        contact_city=contact_city,
+                        contact_zip=contact_zip,
+                        contact_address=contact_address,
+                    )
 
                 if ghl_book_result:
                     logger.info(f"✅ APPOINTMENT BOOKED for {contact_id}")
@@ -595,20 +600,24 @@ def process_webhook_task(payload: dict):
                     calendar_slots = "CALENDAR_UNAVAILABLE"
             else:
                 # GHL: Use existing direct code path
-                # Pass all contact location fields for timezone resolution fallback chain
-                contact_state_tz = payload.get('state') or ''
-                contact_phone_tz2 = payload.get('phone') or payload.get('contact_phone', '')
-                contact_city_tz = payload.get('city') or ''
-                contact_zip_tz = payload.get('zip') or payload.get('postal_code') or ''
-                contact_address_tz = payload.get('address') or ''
-                calendar_slots = consolidated_calendar_op(
-                    "fetch_slots", subscriber,
-                    contact_phone=contact_phone_tz2,
-                    contact_state=contact_state_tz,
-                    contact_city=contact_city_tz,
-                    contact_zip=contact_zip_tz,
-                    contact_address=contact_address_tz,
-                )
+                # Skip when OAuth creds are missing — calendar API will fail
+                if _ghl_creds_missing:
+                    calendar_slots = "CALENDAR_UNAVAILABLE"
+                else:
+                    # Pass all contact location fields for timezone resolution fallback chain
+                    contact_state_tz = payload.get('state') or ''
+                    contact_phone_tz2 = payload.get('phone') or payload.get('contact_phone', '')
+                    contact_city_tz = payload.get('city') or ''
+                    contact_zip_tz = payload.get('zip') or payload.get('postal_code') or ''
+                    contact_address_tz = payload.get('address') or ''
+                    calendar_slots = consolidated_calendar_op(
+                        "fetch_slots", subscriber,
+                        contact_phone=contact_phone_tz2,
+                        contact_state=contact_state_tz,
+                        contact_city=contact_city_tz,
+                        contact_zip=contact_zip_tz,
+                        contact_address=contact_address_tz,
+                    )
 
         # Handle calendar unavailability — convert sentinel to actionable guidance
         calendar_unavailable = False
@@ -1057,17 +1066,19 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                                                   f"SMS delivered via Twilio fallback for {contact_id}",
                                                   contact_id=contact_id)
                                 # Log to GHL conversation so CRM stays in sync
-                                try:
-                                    from ghl_logger import log_outbound_sms_to_ghl
-                                    log_outbound_sms_to_ghl(
-                                        contact_id=contact_id,
-                                        message=reply,
-                                        access_token=auth_token,
-                                        location_id=location_id,
-                                        contact_phone=contact_phone,
-                                    )
-                                except Exception as ghl_log_err:
-                                    logger.debug(f"GHL conversation log skipped (fallback): {ghl_log_err}")
+                                # Skip when GHL creds are missing — token is empty
+                                if not _ghl_creds_missing and auth_token:
+                                    try:
+                                        from ghl_logger import log_outbound_sms_to_ghl
+                                        log_outbound_sms_to_ghl(
+                                            contact_id=contact_id,
+                                            message=reply,
+                                            access_token=auth_token,
+                                            location_id=location_id,
+                                            contact_phone=contact_phone,
+                                        )
+                                    except Exception as ghl_log_err:
+                                        logger.debug(f"GHL conversation log skipped (fallback): {ghl_log_err}")
                         else:
                             # Log exactly what's missing so we can diagnose
                             missing = []
