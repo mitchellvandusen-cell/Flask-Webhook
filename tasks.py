@@ -241,13 +241,13 @@ def process_webhook_task(payload: dict):
                         location_id=location_id
                     )
 
-        # Track if GHL OAuth credentials are missing — skip GHL SMS entirely
-        # to avoid wasting time on 3 retries with an expired/unusable token.
-        # Also check has_oauth_credentials() to catch the case where the token
-        # appears valid by expiry but env vars are missing (can't refresh later).
+        # Track if GHL OAuth credentials are ACTUALLY unusable — skip GHL SMS
+        # only when the token is expired/missing AND cannot be refreshed.
+        # When the token is still valid (not yet expired), allow GHL SMS even if
+        # env vars are missing — the valid token will work until it expires.
         _ghl_creds_missing = False
         if not is_demo and not is_api_source:
-            _ghl_creds_missing = (token_error == 'no_credentials') or not has_oauth_credentials()
+            _ghl_creds_missing = token_error in ('no_credentials', 'no_tokens')
 
         # Inject fresh token (empty for API sources without GHL)
         subscriber['access_token'] = auth_token
@@ -964,8 +964,8 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                 # If SMS failed due to 401/403 auth, force-refresh the token and retry.
                 # Works for BOTH Public (marketplace) and Private app credentials —
                 # get_valid_token_with_status tries all configured credential sets.
-                # Skip recovery when we already know OAuth creds are missing.
-                if not sent and fail_reason == 'auth' and not _ghl_creds_missing:
+                # Skip recovery when OAuth env vars are missing (can't refresh).
+                if not sent and fail_reason == 'auth' and has_oauth_credentials():
                     logger.warning(f"🔄 TOKEN RECOVERY: SMS auth failure for {contact_id} — "
                                   f"force-refreshing token for {location_id}")
                     recovered_token, was_refreshed, recovery_err = get_valid_token_with_status(

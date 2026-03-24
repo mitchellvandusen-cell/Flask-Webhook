@@ -135,12 +135,10 @@ def send_sms_via_ghl(
                 cur.close()
             return_db_connection(conn)
 
-    # If no OAuth credentials are configured, the token can never be refreshed.
-    # Bail immediately — no HTTP calls, no retries — to avoid wasting time
-    # on doomed requests and generating noisy error logs.
-    if not _has_ghl_oauth_creds():
-        logger.debug(f"Skipping GHL SMS for {contact_id} — no OAuth credentials configured")
-        return False, 'no_credentials', None
+    # NOTE: We do NOT bail here when OAuth env vars are missing.  The caller's
+    # token may still be valid (not yet expired).  If the token IS expired,
+    # the 401 handler below (line ~199) bails after a single request instead
+    # of retrying 3 times — so the worst-case overhead is one fast HTTP call.
 
     headers = {
         "Authorization": f"Bearer {access_token}",
