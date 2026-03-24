@@ -982,10 +982,10 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                                 sent, fail_reason, http_detail = send_sms_via_ghl(contact_id, reply, auth_token, location_id, conversation_id=conversation_id)
                     except Exception as twilio_err:
                         if _ghl_creds_missing:
-                            logger.error(f"Twilio direct SMS error: {twilio_err}, GHL also unavailable")
+                            logger.warning(f"Twilio direct SMS error: {twilio_err}, GHL also unavailable")
                             sent, fail_reason = False, 'no_credentials'
                         else:
-                            logger.error(f"Twilio direct SMS error: {twilio_err}, falling back to GHL")
+                            logger.warning(f"Twilio direct SMS error: {twilio_err}, falling back to GHL")
                             sent, fail_reason, http_detail = send_sms_via_ghl(contact_id, reply, auth_token, location_id, conversation_id=conversation_id)
 
                 elif use_crm_adapter:
@@ -1050,8 +1050,9 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                             # Audit and retry ALL recent auth-failed messages for this location
                             _audit_and_retry_failed_tasks(location_id, recovered_token)
                         else:
-                            logger.error(f"❌ TOKEN RECOVERY: Got new token but SMS still "
-                                        f"failed ({fail_reason}) for {contact_id}")
+                            logger.warning(f"⚠️ TOKEN RECOVERY: Got new token but SMS still "
+                                          f"failed ({fail_reason}) for {contact_id} — "
+                                          f"will try Twilio fallback")
                             log_webhook_event(location_id, "token_recovery", "warning",
                                               f"Token refreshed but SMS retry failed ({fail_reason})",
                                               contact_id=contact_id)
@@ -1061,8 +1062,9 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                                       f"for {location_id} — token may be valid but GHL "
                                       f"rejected the SMS for another reason")
                     else:
-                        logger.error(f"❌ TOKEN RECOVERY FAILED: Could not refresh token "
-                                    f"for {location_id} (error={recovery_err})")
+                        logger.warning(f"⚠️ TOKEN RECOVERY FAILED: Could not refresh token "
+                                      f"for {location_id} (error={recovery_err}) — "
+                                      f"will try Twilio fallback")
                         log_webhook_event(location_id, "token_recovery", "error",
                                           f"Token recovery failed: {recovery_err}",
                                           contact_id=contact_id,
@@ -1141,8 +1143,8 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                                 missing.append("from_number")
                             if not contact_phone:
                                 missing.append("contact_phone")
-                            logger.error(f"❌ TWILIO FALLBACK UNAVAILABLE for {contact_id}: "
-                                        f"missing {', '.join(missing)} | location={location_id}")
+                            logger.warning(f"⚠️ TWILIO FALLBACK UNAVAILABLE for {contact_id}: "
+                                          f"missing {', '.join(missing)} | location={location_id}")
                     except Exception as fb_err:
                         logger.warning(f"Twilio fallback not available for {contact_id}: {fb_err}")
 
