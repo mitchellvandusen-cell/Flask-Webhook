@@ -4669,6 +4669,9 @@
                         call.accept();
                         voipConnection = call;
                         voipStartTimer();
+                        // In human dial mode, the ringing banner is shown by _origStartCall.
+                        // Hide it now — voipCallPanel takes over as the in-call UI.
+                        if (dialerMode === 'human') dialerHideBanner();
                         // Show call panel and update contact info
                         const callPanel = document.getElementById('voipCallPanel');
                         if (callPanel) callPanel.style.display = 'flex';
@@ -4920,7 +4923,10 @@
                         return;
                     }
                 }
-                voipMakeCall(phone, firstName, contactId, displayName);
+                // Route through /voice/dial (same as AI mode) so call history, Redis
+                // tracking, AMD detection, and retry logic all work correctly.
+                // The backend bridges to browser via <Dial><Client>, VoIP auto-accepts below.
+                await _origStartCall(phone, firstName, contactId, displayName);
             } else {
                 await _origStartCall(phone, firstName, contactId, displayName);
             }
