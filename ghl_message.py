@@ -190,9 +190,22 @@ def send_sms_via_ghl(
                 time_module.sleep(10)
             elif last_status in (401, 403):  # Auth issue — try one force-refresh then abort
                 if not _token_refreshed:
-                    # Skip refresh attempt if no OAuth credentials are configured
                     if not _has_ghl_oauth_creds():
-                        logger.debug(f"Skipping token refresh — no OAuth creds configured for {location_id}")
+                        # No OAuth env vars (worker process) — can't refresh, but
+                        # the cron may have saved a fresh token in the DB.  Re-read
+                        # it before giving up.
+                        try:
+                            from ghl_api import get_valid_token
+                            db_token = get_valid_token(location_id)
+                            if db_token and db_token != access_token:
+                                access_token = db_token
+                                headers["Authorization"] = f"Bearer {db_token}"
+                                _token_refreshed = True
+                                logger.info(f"Picked up cron-refreshed token for {location_id} — retrying SMS send")
+                                continue  # retry with fresh DB token
+                        except Exception as _db_err:
+                            logger.debug(f"DB token re-read failed for {location_id}: {_db_err}")
+                        logger.debug(f"No fresh token available for {location_id} — aborting after auth failure")
                         return False, 'auth', {
                             "status_code": last_status,
                             "response_body": last_body,

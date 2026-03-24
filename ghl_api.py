@@ -195,10 +195,43 @@ def get_valid_token(location_id: str, subscriber: dict = None) -> str | None:
             logger.warning(f"Timezone comparison error for {location_id}, proceeding to refresh")
 
     # --- Token needs refresh ---
-    # Fast path: skip credential loading entirely when no OAuth env vars configured.
-    # The token IS expired (passed the expiry check above) and we have no way to
-    # refresh it — returning the stale token just wastes time on doomed API calls.
+    # When no OAuth env vars are configured (e.g. worker processes), we cannot
+    # refresh the token ourselves.  However, the web service's proactive cron
+    # may have already refreshed it in the DB.  If the caller passed a
+    # (possibly stale) subscriber dict, re-fetch from DB to pick up the
+    # freshly refreshed token before giving up.
     if not has_oauth_credentials():
+        if subscriber:
+            fresh_sub = get_subscriber_info_hybrid(location_id)
+            if fresh_sub:
+                fresh_raw = fresh_sub.get('access_token') or fresh_sub.get('crm_api_key')
+                fresh_expires = fresh_sub.get('token_expires_at')
+                fresh_access = decrypt_token(fresh_raw) if fresh_raw else None
+                if fresh_access and fresh_expires:
+                    if isinstance(fresh_expires, str):
+                        try:
+                            fresh_expires = datetime.fromisoformat(fresh_expires.replace('Z', '+00:00'))
+                        except Exception:
+                            fresh_expires = None
+                    if fresh_expires:
+                        try:
+                            now = datetime.now()
+                            if hasattr(fresh_expires, 'tzinfo') and fresh_expires.tzinfo is not None:
+                                fresh_expires = fresh_expires.replace(tzinfo=None)
+                            if fresh_expires > now + timedelta(minutes=5):
+                                logger.info(f"Token for {location_id} was refreshed by cron — using fresh DB token")
+                                return fresh_access
+                        except TypeError:
+                            pass
+                # Fresh DB token is also expired — return it as last resort
+                # (one HTTP call vs total failure; GHL may still accept briefly)
+                if fresh_access:
+                    logger.warning(f"⚠️ No OAuth env vars for {location_id} — returning DB token as last resort (may be expired)")
+                    return fresh_access
+        # No subscriber was passed (already fetched fresh) or no token at all
+        if access_token:
+            logger.warning(f"⚠️ No OAuth env vars for {location_id} — returning existing token as last resort")
+            return access_token
         logger.debug(f"Token expired for {location_id} and no OAuth env vars to refresh — returning None")
         return None
 
@@ -337,9 +370,36 @@ def get_valid_token_with_status(location_id: str, subscriber: dict = None,
         logger.info(f"🔄 Force-refresh requested for {location_id} — skipping expiry check")
 
     # --- Token needs refresh ---
-    # Fast path: token IS expired and no OAuth env vars to refresh — return None.
-    # Returning a stale token would cause doomed API calls across all callers.
+    # When no OAuth env vars are configured (e.g. worker processes), re-fetch
+    # from DB in case the web service's proactive cron refreshed the token.
     if not has_oauth_credentials():
+        if subscriber:
+            fresh_sub = get_subscriber_info_hybrid(location_id)
+            if fresh_sub:
+                fresh_raw = fresh_sub.get('access_token') or fresh_sub.get('crm_api_key')
+                fresh_expires = fresh_sub.get('token_expires_at')
+                fresh_access = decrypt_token(fresh_raw) if fresh_raw else None
+                if fresh_access and fresh_expires:
+                    if isinstance(fresh_expires, str):
+                        try:
+                            fresh_expires = datetime.fromisoformat(fresh_expires.replace('Z', '+00:00'))
+                        except Exception:
+                            fresh_expires = None
+                    if fresh_expires:
+                        try:
+                            now = datetime.now()
+                            if hasattr(fresh_expires, 'tzinfo') and fresh_expires.tzinfo is not None:
+                                fresh_expires = fresh_expires.replace(tzinfo=None)
+                            if fresh_expires > now + timedelta(minutes=5):
+                                logger.info(f"Token for {location_id} was refreshed by cron — using fresh DB token")
+                                return fresh_access, False, None
+                        except TypeError:
+                            pass
+                if fresh_access:
+                    logger.warning(f"⚠️ No OAuth env vars for {location_id} — returning DB token as last resort")
+                    return fresh_access, False, 'expired'
+        if access_token:
+            return access_token, False, 'expired'
         return None, False, 'no_credentials'
 
     marketplace_id, marketplace_secret, private_id, private_secret = _load_oauth_credentials()
