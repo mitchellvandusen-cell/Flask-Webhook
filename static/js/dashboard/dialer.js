@@ -4685,6 +4685,7 @@
 
                         call.on('disconnect', () => {
                             console.log('[VoIP] Incoming call disconnected');
+                            const _endedSid = dialerCallSid;
                             voipConnection = null;
                             voipStopTimer();
                             const cp = document.getElementById('voipCallPanel');
@@ -4692,12 +4693,31 @@
                             const kp = document.getElementById('voipKeypad');
                             if (kp) kp.style.display = 'none';
                             dialerHideBanner();
-                            // Refresh KPI banner so today's numbers update after each call
-                            setTimeout(dialerLoadKpiBanner, 2000);
-                            // Use configured wrap-up time for queue advancement
-                            const _wrapMs = (window.DASHBOARD_BOOT?.wrapUpTime ?? 15) * 1000;
-                            const _advanceDelay = Math.max(_wrapMs, 1500);
-                            if (dialerQueueRunning) _dialerQueueTimeout(dialerAdvance, _advanceDelay);
+                            if (dialerQueueRunning) {
+                                // Fetch final status for AMD/retry parity with AI mode
+                                (async () => {
+                                    let finalStatus = 'completed';
+                                    if (_endedSid) {
+                                        try {
+                                            const sr = await fetch('/voice/call-status/' + _endedSid);
+                                            if (sr.ok) {
+                                                const sd = await sr.json();
+                                                if (sd._amd_result) {
+                                                    finalStatus = 'no-answer';
+                                                } else if (['no-answer','busy','failed','canceled'].includes(sd.status)) {
+                                                    finalStatus = sd.status;
+                                                }
+                                            }
+                                        } catch(e) { /* non-fatal */ }
+                                    }
+                                    if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
+                                        dialerQueue[dialerCallIdx].status = finalStatus;
+                                    }
+                                    dialerCallSid = null;
+                                    dialerRenderQueue();
+                                    _dialerQueueTimeout(dialerAdvance, 1200);
+                                })();
+                            }
                         });
                         call.on('cancel', () => {
                             console.log('[VoIP] Incoming call cancelled');
@@ -4972,35 +4992,72 @@
 
                 call.on('accept', () => {
                     console.log('[VoIP] Call accepted/connected');
+                    // Capture Twilio call SID so we can poll final status on disconnect
+                    const _voipCallSid = call.parameters?.CallSid || '';
+                    if (_voipCallSid) dialerCallSid = _voipCallSid;
                     voipStartTimer();
                 });
 
                 call.on('disconnect', () => {
                     console.log('[VoIP] Call disconnected');
+                    const _endedSid = dialerCallSid;
                     voipConnection = null;
                     voipStopTimer();
                     document.getElementById('voipCallPanel').style.display = 'none';
                     document.getElementById('voipKeypad').style.display = 'none';
                     dialerHideBanner();
-                    // Refresh KPI banner so today's numbers update after each call
-                    setTimeout(dialerLoadKpiBanner, 2000);
-                    // Use configured wrap-up time for queue advancement
-                    const _wrapMs = (window.DASHBOARD_BOOT?.wrapUpTime ?? 15) * 1000;
-                    const _advanceDelay = Math.max(_wrapMs, 1500);
-                    if (!dialerQueueRunning) {
-                        dialerShowDisposition();
-                    } else {
-                        _dialerQueueTimeout(dialerAdvance, _advanceDelay);
-                    }
+                    // Fetch final call status for AMD detection + correct queue item status (enables retry logic)
+                    const _finalize = async () => {
+                        let finalStatus = 'completed';
+                        if (_endedSid) {
+                            try {
+                                const sr = await fetch('/voice/call-status/' + _endedSid);
+                                if (sr.ok) {
+                                    const sd = await sr.json();
+                                    if (sd._amd_result) {
+                                        finalStatus = 'no-answer';
+                                        if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
+                                            if (_dialerAutoDispVoicemail) dialerQueue[dialerCallIdx].disposition = 'voicemail';
+                                        }
+                                        console.log('[VoIP] AMD detected: ' + sd._amd_result + ' — marking no-answer for retry');
+                                    } else if (['no-answer','busy','failed','canceled'].includes(sd.status)) {
+                                        finalStatus = sd.status;
+                                    }
+                                }
+                            } catch(e) { console.warn('[VoIP] Final status check failed (non-fatal):', e.message); }
+                        }
+                        if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
+                            dialerQueue[dialerCallIdx].status = finalStatus;
+                        }
+                        dialerCallSid = null;
+                        dialerRenderQueue();
+                        if (!dialerQueueRunning) {
+                            dialerShowDisposition();
+                        } else {
+                            _dialerQueueTimeout(dialerAdvance, 1200);
+                        }
+                    };
+                    _finalize();
                 });
 
                 call.on('cancel', () => {
-                    console.log('[VoIP] Call cancelled');
+                    console.log('[VoIP] Call cancelled (no-answer)');
                     voipConnection = null;
                     voipStopTimer();
+                    dialerCallSid = null;
                     document.getElementById('voipCallPanel').style.display = 'none';
                     document.getElementById('voipKeypad').style.display = 'none';
-                    if (dialerQueueRunning) _dialerQueueTimeout(dialerAdvance, 2000);
+                    // Mark no-answer so retry logic fires in dialerAdvance()
+                    if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
+                        dialerQueue[dialerCallIdx].status = 'no-answer';
+                        if (_dialerAutoDispNoAnswer) dialerQueue[dialerCallIdx].disposition = 'not_answered';
+                        dialerRenderQueue();
+                    }
+                    if (!dialerQueueRunning) {
+                        dialerShowDisposition();
+                    } else {
+                        _dialerQueueTimeout(dialerAdvance, 1200);
+                    }
                 });
 
                 call.on('error', (err) => {
