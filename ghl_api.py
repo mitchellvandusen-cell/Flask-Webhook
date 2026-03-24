@@ -70,9 +70,9 @@ def _share_creds_to_db(marketplace_id, marketplace_secret, private_id, private_s
             creds["p_sec"] = private_secret
         if not creds:
             return
-        conn = get_db_connection_with_retry(max_attempts=2)
+        conn = get_db_connection_with_retry(max_attempts=3)
         if not conn:
-            logger.error("Cannot persist OAuth creds to DB — no DB connection after retries")
+            logger.error("Cannot persist OAuth creds to DB — no DB connection after 3 retries")
             return
         try:
             cur = conn.cursor()
@@ -121,9 +121,9 @@ def _read_creds_from_db():
     try:
         import json
         from db_legacy import get_db_connection_with_retry, return_db_connection
-        conn = get_db_connection_with_retry(max_attempts=2)
+        conn = get_db_connection_with_retry(max_attempts=3)
         if not conn:
-            logger.warning("Cannot read OAuth creds from DB — no DB connection after retries")
+            logger.warning("Cannot read OAuth creds from DB — no DB connection after 3 retries")
             return None, None, None, None
         try:
             cur = conn.cursor()
@@ -135,6 +135,8 @@ def _read_creds_from_db():
                 logger.info("GHL OAuth creds loaded from DB (persistent fallback)")
                 return (creds.get("m_id"), creds.get("m_sec"),
                         creds.get("p_id"), creds.get("p_sec"))
+            else:
+                logger.info("No OAuth creds row in app_settings — web service has not persisted yet")
         finally:
             return_db_connection(conn)
     except Exception as e:

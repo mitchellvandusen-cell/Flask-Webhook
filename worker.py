@@ -66,22 +66,28 @@ def run_worker(listen_queues, worker_num):
 
     # Eagerly try loading GHL OAuth creds from Redis/DB (shared by web service).
     # This warms the cache so the first webhook doesn't hit a cold path.
-    # Retry up to 3 times with backoff — web service may still be writing
-    # creds to Redis during a simultaneous deploy.
+    # Retry up to 5 times with backoff — web service may still be writing
+    # creds to Redis during a simultaneous deploy (Alembic migrations etc).
     try:
         import time as _t
-        from ghl_api import has_oauth_credentials
+        from ghl_api import has_oauth_credentials, _OAUTH_CREDS_SOURCE
         _creds_found = False
-        for _attempt in range(3):
+        for _attempt in range(5):
             if has_oauth_credentials(force_recheck=(_attempt > 0)):
-                logger.info("GHL OAuth credentials available — token refresh enabled")
+                # Import the source tracking variable to log WHERE creds came from
+                from ghl_api import _OAUTH_CREDS_SOURCE as _src
+                logger.info(f"GHL OAuth credentials available (source={_src}) — "
+                           f"token refresh enabled (attempt {_attempt + 1})")
                 _creds_found = True
                 break
-            if _attempt < 2:
+            if _attempt < 4:
                 _t.sleep(2)  # Wait for web service to publish creds
         if not _creds_found:
-            logger.warning("GHL OAuth credentials not available after 3 checks (Redis/DB) — "
-                          "will re-check on demand per webhook")
+            logger.warning("GHL OAuth credentials not available after 5 checks "
+                          "(env=MISSING, Redis=EMPTY, DB=EMPTY) — "
+                          "will re-check on demand per webhook. "
+                          "Ensure the web service has GHL_CLIENT_ID + GHL_CLIENT_SECRET "
+                          "env vars set and is running.")
     except Exception as e:
         logger.warning(f"Could not pre-load OAuth credentials: {e}")
 

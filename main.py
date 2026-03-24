@@ -161,19 +161,39 @@ backfill_agency_owners_to_subscribers()
 from token_encryption import initialize_encryption
 initialize_encryption()
 
-# ── Eagerly share GHL OAuth creds to Redis for worker processes ──────────────
+# ── Eagerly share GHL OAuth creds to Redis + DB for worker processes ──────────
 # Workers lack GHL_CLIENT_ID/GHL_CLIENT_SECRET env vars and rely on the web
-# service to publish them to Redis.  has_oauth_credentials() calls
-# _load_oauth_credentials() which shares env-var creds to Redis as a side
-# effect.  Verify the Redis key exists; retry once after 2s if Redis wasn't
-# ready at startup (common during simultaneous service deploys on Railway).
+# service to publish them to Redis and DB (app_settings table).
+# has_oauth_credentials() calls _load_oauth_credentials() which shares env-var
+# creds to Redis + DB as a side effect.  Verify both destinations; retry if
+# either failed (common during simultaneous service deploys on Railway).
 from ghl_api import has_oauth_credentials as _check_oauth
 _check_oauth()
 try:
     import extensions as _ext
-    if _ext.ensure_redis() and not _ext.redis_conn.get("igb:ghl_oauth_creds"):
+    _redis_ok = False
+    _db_ok = False
+    if _ext.ensure_redis():
+        _redis_ok = bool(_ext.redis_conn.get("igb:ghl_oauth_creds"))
+    # Check DB too — it's the persistent fallback when Redis is flushed
+    try:
+        from db_legacy import get_db_connection, return_db_connection as _ret_conn
+        _ck = get_db_connection()
+        if _ck:
+            try:
+                _cur = _ck.cursor()
+                _cur.execute("SELECT 1 FROM app_settings WHERE key = 'ghl_oauth_creds'")
+                _db_ok = bool(_cur.fetchone())
+                _cur.close()
+            finally:
+                _ret_conn(_ck)
+    except Exception:
+        pass
+    if not _redis_ok or not _db_ok:
         import time as _t; _t.sleep(2)
         _check_oauth(force_recheck=True)
+        logger.info(f"OAuth cred publish retry: Redis={'OK' if _redis_ok else 'RETRIED'}, "
+                   f"DB={'OK' if _db_ok else 'RETRIED'}")
 except Exception:
     pass
 
