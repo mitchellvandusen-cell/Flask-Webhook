@@ -149,13 +149,13 @@ def get_assistant_tool_definitions():
             "type": "function",
             "function": {
                 "name": "navigate_dashboard",
-                "description": "Navigate the user to a specific dashboard tab. Use when they ask to go somewhere or see a specific page.",
+                "description": "Navigate the user to a specific dashboard tab or sub-panel. Use when they ask to go somewhere or see a specific page.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "destination": {
                             "type": "string",
-                            "description": "Where to navigate, e.g. 'voice settings', 'billing', 'dialer', 'team', 'workflows'"
+                            "description": "Where to navigate. Tabs: 'dialer', 'voice settings', 'billing', 'workflows', 'team', 'logs', 'carriers', 'advanced'. Sub-panels: 'business profile' (spam monitoring), 'numbers' (phone numbers), 'spam monitoring', 'trust hub', 'a2p', 'dialer settings', 'transfer number'."
                         }
                     },
                     "required": ["destination"]
@@ -983,20 +983,33 @@ def _handle_navigate_dashboard(args, ctx):
         "team": "team", "members": "team",
         "training": "training",
         "white label": "whitelabel", "whitelabel": "whitelabel", "branding": "whitelabel",
+        # Voice sub-panels
+        "business profile": "voice:spammonitoring", "spam monitoring": "voice:spammonitoring",
+        "spam protection": "voice:spammonitoring", "trust hub": "voice:spammonitoring",
+        "caller id": "voice:spammonitoring", "cnam": "voice:spammonitoring",
+        "voice integrity": "voice:spammonitoring",
+        "numbers": "voice:numbers", "phone numbers": "voice:numbers",
+        "a2p": "voice:a2p", "10dlc": "voice:a2p", "a2p registration": "voice:a2p",
+        "dialer settings": "voice:dialer",
+        "voice activation": "voice:activation",
+        "transfer number": "voice:settings", "transfer settings": "voice:settings",
     }
 
-    tab_id = _NAV_MAP.get(dest)
-    if not tab_id:
+    nav = _NAV_MAP.get(dest)
+    if not nav:
         # Fuzzy match: check if destination contains any key
         for key, tid in _NAV_MAP.items():
             if key in dest or dest in key:
-                tab_id = tid
+                nav = tid
                 break
 
-    if tab_id:
-        return {"action": "navigate", "tab_id": tab_id, "message": f"Navigating to {dest}"}
+    if nav:
+        if ":" in nav:
+            tab_id, sub_panel = nav.split(":", 1)
+            return {"action": "navigate", "tab_id": tab_id, "sub_panel": sub_panel, "message": f"Navigating to {dest}"}
+        return {"action": "navigate", "tab_id": nav, "message": f"Navigating to {dest}"}
     else:
-        return {"error": f"I don't recognize '{dest}'. Try: dialer, voice settings, billing, workflows, team, logs, or carriers."}
+        return {"error": f"I don't recognize '{dest}'. Try: dialer, voice settings, billing, workflows, team, logs, business profile, numbers, or carriers."}
 
 
 def _handle_get_contact_intelligence(args, ctx):

@@ -77,6 +77,17 @@ _NAV_KEYWORDS = {
     "team": "team", "members": "team",
     "training": "training",
     "white label": "whitelabel", "whitelabel": "whitelabel",
+    # Voice sub-panels (tab=voice, sub_panel=X)
+    "business profile": "voice:spammonitoring", "spam monitoring": "voice:spammonitoring",
+    "spam protection": "voice:spammonitoring", "trust hub": "voice:spammonitoring",
+    "caller id": "voice:spammonitoring", "cnam": "voice:spammonitoring",
+    "voice integrity": "voice:spammonitoring",
+    "numbers": "voice:numbers", "phone numbers": "voice:numbers",
+    "a2p": "voice:a2p", "10dlc": "voice:a2p", "a2p registration": "voice:a2p",
+    "dialer settings": "voice:dialer",
+    "voice activation": "voice:activation",
+    # Config sub-panels (tab=config, sub_panel=X)
+    "transfer number": "voice:settings", "transfer": "voice:settings",
 }
 
 
@@ -92,14 +103,14 @@ def _try_fast_path(msg: str):
     for prefix in ("go to ", "take me to ", "open ", "show ", "show me ", "navigate to ", "switch to "):
         if lower.startswith(prefix):
             dest = lower[len(prefix):].strip()
-            tab_id = _match_nav(dest)
-            if tab_id:
-                return {"text": f"Opening {dest}.", "navigate": tab_id}
+            nav = _match_nav(dest)
+            if nav:
+                return _build_nav_response(dest, nav)
 
     # Direct tab name match (user just types "billing", "dialer", etc.)
-    tab_id = _match_nav(lower)
-    if tab_id and len(lower.split()) <= 3:
-        return {"text": f"Opening {lower}.", "navigate": tab_id}
+    nav = _match_nav(lower)
+    if nav and len(lower.split()) <= 3:
+        return _build_nav_response(lower, nav)
 
     # Stats — execute directly without LLM
     if lower in ("stats", "my stats", "call stats", "calls today", "how many calls", "how many calls today",
@@ -336,7 +347,7 @@ def _filter_tools(all_tools, message):
 
 
 def _match_nav(dest: str):
-    """Match a destination string to a tab ID."""
+    """Match a destination string to a tab ID (or tab:subpanel)."""
     # Exact match
     if dest in _NAV_KEYWORDS:
         return _NAV_KEYWORDS[dest]
@@ -345,6 +356,14 @@ def _match_nav(dest: str):
         if key in dest or dest in key:
             return tid
     return None
+
+
+def _build_nav_response(dest: str, nav: str):
+    """Build a navigation response dict, handling tab:subpanel format."""
+    if ":" in nav:
+        tab_id, sub_panel = nav.split(":", 1)
+        return {"text": f"Opening {dest}.", "navigate": tab_id, "sub_panel": sub_panel}
+    return {"text": f"Opening {dest}.", "navigate": nav}
 
 
 # ── Rate limiter (per-user, Redis sliding window) ────────────────────────────
@@ -468,6 +487,7 @@ def assistant_chat():
     client = OpenAI(api_key=xai_key, base_url="https://api.x.ai/v1")
     reply = ""
     navigate_tab = None
+    navigate_sub_panel = None
 
     # ── Multi-turn tool-calling loop ──────────────────────────────
     try:
@@ -517,6 +537,7 @@ def assistant_chat():
                         action = tool_result.get("action")
                         if action == "navigate":
                             navigate_tab = tool_result.get("tab_id")
+                            navigate_sub_panel = tool_result.get("sub_panel")
                         elif action == "ask_call_mode":
                             # Return choice buttons — frontend renders them
                             return flask_jsonify({
@@ -584,6 +605,8 @@ def assistant_chat():
     result = {"text": reply}
     if navigate_tab:
         result["navigate"] = navigate_tab
+    if navigate_sub_panel:
+        result["sub_panel"] = navigate_sub_panel
     if support_mode:
         if options:
             result["options"] = options

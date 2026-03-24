@@ -89,7 +89,7 @@
             if (data.text) {
                 _renderMessage('assistant', data.text);
             }
-            // Handle navigation
+            // Handle navigation (with optional sub-panel)
             if (data.navigate && typeof sidebarNavigate === 'function') {
                 var btn = document.getElementById('sbn' + data.navigate.charAt(0).toUpperCase() + data.navigate.slice(1));
                 if (btn) {
@@ -97,6 +97,16 @@
                 } else {
                     var navBtn = document.querySelector('.sb-nav-item[onclick*="' + data.navigate + '"]');
                     if (navBtn) navBtn.click();
+                }
+                // Navigate to sub-panel if specified (e.g. Voice Config -> Spam Monitoring)
+                if (data.sub_panel) {
+                    var sp = data.sub_panel;
+                    var tabId = data.navigate;
+                    setTimeout(function() {
+                        if (tabId === 'voice' && typeof switchVoicePanel === 'function') switchVoicePanel(sp);
+                        else if (tabId === 'config' && typeof switchConfigPanel === 'function') switchConfigPanel(sp);
+                        else if (tabId === 'connect' && typeof switchConnectPanel === 'function') switchConnectPanel(sp);
+                    }, 150);
                 }
             }
             // Handle support options buttons
