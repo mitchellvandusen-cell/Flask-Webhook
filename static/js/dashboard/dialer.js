@@ -3122,10 +3122,55 @@
                 }
                 try {
                     const r = await fetch('/voice/call-status/' + dialerCallSid);
-                    if (!r.ok) { if (++errorCount >= MAX_ERRORS) { clearInterval(dialerPollTimer); dialerCallSid = null; dialerHideBanner(); dialerStopAiTimer(); _dialerClearCallDurationTimer(); } return; }
+                    if (!r.ok) {
+                        // 404 means call no longer in Redis — treat as completed immediately
+                        if (r.status === 404) {
+                            console.log('[Dialer] Poll 404 — call no longer tracked, treating as completed');
+                            clearInterval(dialerPollTimer); dialerPollTimer = null;
+                            dialerStopAiTimer(); _dialerClearCallDurationTimer();
+                            _stopRingTone(); if (_autoListenActive) { _stopListenStream(); _resetListenBtn(); _autoListenActive = false; }
+                            _dialerLastCallSid = dialerCallSid;
+                            if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) dialerQueue[dialerCallIdx].status = 'completed';
+                            dialerCallSid = null; dialerRenderQueue();
+                            if (!dialerQueueRunning) { dialerHideBanner(); dialerShowDisposition(); }
+                            else { _dialerQueueTimeout(dialerAdvance, 1200); }
+                            return;
+                        }
+                        if (++errorCount >= MAX_ERRORS) { clearInterval(dialerPollTimer); dialerCallSid = null; dialerHideBanner(); dialerStopAiTimer(); _dialerClearCallDurationTimer(); }
+                        return;
+                    }
                     errorCount = 0;
                     const d = await r.json();
                     const el = document.getElementById('dialerCallStatus');
+                    // ── AMD / Voicemail detection (human mode) ──
+                    // Server sets _amd_result when machine detected and auto-hangs up.
+                    // Frontend must: stop poll, mark as no-answer for retry, advance queue.
+                    if (d._amd_result && d.status !== 'ringing' && d.status !== 'initiated') {
+                        console.log(`[Dialer] AMD detected: ${d._amd_result} — action: ${_dialerOnMachineAction}`);
+                        clearInterval(dialerPollTimer);
+                        dialerPollTimer = null;
+                        dialerStopAiTimer();
+                        _dialerClearCallDurationTimer();
+                        _stopRingTone();
+                        if (_autoListenActive) { _stopListenStream(); _resetListenBtn(); _autoListenActive = false; }
+                        el.textContent = 'Voicemail'; el.style.color = '#ffa500';
+                        _dialerBannerState('ended');
+                        _dialerLastCallSid = dialerCallSid;
+                        // Mark queue item as no-answer so retry logic picks it up
+                        if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
+                            dialerQueue[dialerCallIdx].status = 'no-answer';
+                            if (_dialerAutoDispVoicemail) dialerQueue[dialerCallIdx].disposition = 'voicemail';
+                        }
+                        dialerCallSid = null;
+                        dialerRenderQueue();
+                        if (!dialerQueueRunning) {
+                            dialerHideBanner();
+                            dialerShowDisposition();
+                        } else {
+                            _dialerQueueTimeout(dialerAdvance, 1500);
+                        }
+                        return;
+                    }
                     if (d.status === 'in-progress') {
                         _dialerCallConnected = true;
                         el.textContent = 'Connected'; el.style.color = 'var(--accent)';
@@ -4526,7 +4571,7 @@
         setTimeout(_dialerFetchMinutes, 2000);
 
         // ===== CALL MODE MANAGEMENT =====
-        let dialerMode = 'ai';
+        let dialerMode = 'human';
         let voipDevice = null;
         let voipConnection = null;  // Active Call object (v2 SDK)
         let voipReady = false;
@@ -4561,6 +4606,21 @@
                 } else if (!voipReady && !_voipInitializing) {
                     initVoIPDevice();
                 }
+            }
+            // Show/hide AI-only call controls (Listen, Mute AI, Intercept) based on mode
+            const _aiOnlyBtns = ['dialerListenBtn', 'dialerMuteBtn', 'dialerTakeoverBtn'];
+            _aiOnlyBtns.forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) btn.style.display = (mode === 'ai') ? 'flex' : 'none';
+            });
+            // Multi-line toggle: hide in human mode (VoIP supports single call only)
+            const mlToggle = document.getElementById('multiLineToggle');
+            if (mlToggle && _multiLineEnabled) {
+                mlToggle.style.display = (mode === 'ai') ? 'flex' : 'none';
+            }
+            const mlBadge = document.getElementById('multiLineBadge');
+            if (mlBadge && _multiLineEnabled) {
+                mlBadge.style.display = (mode === 'ai') ? 'inline-block' : 'none';
             }
             // Show/hide AI minutes chip based on mode
             _dialerUpdateMinutesChip();
@@ -4786,6 +4846,7 @@
 
                         call.on('disconnect', () => {
                             console.log('[VoIP] Incoming call disconnected');
+                            const _endedSid = dialerCallSid;
                             voipConnection = null;
                             voipStopTimer();
                             const cp = document.getElementById('voipCallPanel');
@@ -4793,7 +4854,31 @@
                             const kp = document.getElementById('voipKeypad');
                             if (kp) kp.style.display = 'none';
                             dialerHideBanner();
-                            if (dialerQueueRunning) _dialerQueueTimeout(dialerAdvance, 2000);
+                            if (dialerQueueRunning) {
+                                // Fetch final status for AMD/retry parity with AI mode
+                                (async () => {
+                                    let finalStatus = 'completed';
+                                    if (_endedSid) {
+                                        try {
+                                            const sr = await fetch('/voice/call-status/' + _endedSid);
+                                            if (sr.ok) {
+                                                const sd = await sr.json();
+                                                if (sd._amd_result) {
+                                                    finalStatus = 'no-answer';
+                                                } else if (['no-answer','busy','failed','canceled'].includes(sd.status)) {
+                                                    finalStatus = sd.status;
+                                                }
+                                            }
+                                        } catch(e) { /* non-fatal */ }
+                                    }
+                                    if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
+                                        dialerQueue[dialerCallIdx].status = finalStatus;
+                                    }
+                                    dialerCallSid = null;
+                                    dialerRenderQueue();
+                                    _dialerQueueTimeout(dialerAdvance, 1200);
+                                })();
+                            }
                         });
                         call.on('cancel', () => {
                             console.log('[VoIP] Incoming call cancelled');
@@ -5068,30 +5153,72 @@
 
                 call.on('accept', () => {
                     console.log('[VoIP] Call accepted/connected');
+                    // Capture Twilio call SID so we can poll final status on disconnect
+                    const _voipCallSid = call.parameters?.CallSid || '';
+                    if (_voipCallSid) dialerCallSid = _voipCallSid;
                     voipStartTimer();
                 });
 
                 call.on('disconnect', () => {
                     console.log('[VoIP] Call disconnected');
+                    const _endedSid = dialerCallSid;
                     voipConnection = null;
                     voipStopTimer();
                     document.getElementById('voipCallPanel').style.display = 'none';
                     document.getElementById('voipKeypad').style.display = 'none';
                     dialerHideBanner();
-                    if (!dialerQueueRunning) {
-                        dialerShowDisposition();
-                    } else {
-                        _dialerQueueTimeout(dialerAdvance, 2000);
-                    }
+                    // Fetch final call status for AMD detection + correct queue item status (enables retry logic)
+                    const _finalize = async () => {
+                        let finalStatus = 'completed';
+                        if (_endedSid) {
+                            try {
+                                const sr = await fetch('/voice/call-status/' + _endedSid);
+                                if (sr.ok) {
+                                    const sd = await sr.json();
+                                    if (sd._amd_result) {
+                                        finalStatus = 'no-answer';
+                                        if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
+                                            if (_dialerAutoDispVoicemail) dialerQueue[dialerCallIdx].disposition = 'voicemail';
+                                        }
+                                        console.log('[VoIP] AMD detected: ' + sd._amd_result + ' — marking no-answer for retry');
+                                    } else if (['no-answer','busy','failed','canceled'].includes(sd.status)) {
+                                        finalStatus = sd.status;
+                                    }
+                                }
+                            } catch(e) { console.warn('[VoIP] Final status check failed (non-fatal):', e.message); }
+                        }
+                        if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
+                            dialerQueue[dialerCallIdx].status = finalStatus;
+                        }
+                        dialerCallSid = null;
+                        dialerRenderQueue();
+                        if (!dialerQueueRunning) {
+                            dialerShowDisposition();
+                        } else {
+                            _dialerQueueTimeout(dialerAdvance, 1200);
+                        }
+                    };
+                    _finalize();
                 });
 
                 call.on('cancel', () => {
-                    console.log('[VoIP] Call cancelled');
+                    console.log('[VoIP] Call cancelled (no-answer)');
                     voipConnection = null;
                     voipStopTimer();
+                    dialerCallSid = null;
                     document.getElementById('voipCallPanel').style.display = 'none';
                     document.getElementById('voipKeypad').style.display = 'none';
-                    if (dialerQueueRunning) _dialerQueueTimeout(dialerAdvance, 2000);
+                    // Mark no-answer so retry logic fires in dialerAdvance()
+                    if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
+                        dialerQueue[dialerCallIdx].status = 'no-answer';
+                        if (_dialerAutoDispNoAnswer) dialerQueue[dialerCallIdx].disposition = 'not_answered';
+                        dialerRenderQueue();
+                    }
+                    if (!dialerQueueRunning) {
+                        dialerShowDisposition();
+                    } else {
+                        _dialerQueueTimeout(dialerAdvance, 1200);
+                    }
                 });
 
                 call.on('error', (err) => {
@@ -7189,6 +7316,10 @@
          * Dials multiple contacts simultaneously from the queue.
          */
         async function multiLineStartQueue() {
+            if (dialerMode === 'human') {
+                _showDashToast(false, 'Multi-line dialing is only available in AI mode — browser calling supports one call at a time');
+                return;
+            }
             if (!_multiLineEnabled) {
                 _showDashToast(false, 'Multi-line dialing requires Pro Dialer or Predictive Dialer plan');
                 return;
@@ -7490,6 +7621,14 @@
                 let anyTerminated = false;
                 let anyConnected = false;
 
+                // Safety net: if server didn't return a SID we asked about, treat as completed
+                for (const sid of sids) {
+                    if (!statuses[sid]) {
+                        console.log(`[MultiLine] SID ${sid.slice(0,16)} missing from server response — treating as completed`);
+                        statuses[sid] = { status: 'completed' };
+                    }
+                }
+
                 for (const [sid, serverInfo] of Object.entries(statuses)) {
                     const lineInfo = _multiLineActive.get(sid);
                     if (!lineInfo) continue;
@@ -7535,7 +7674,7 @@
                                 // Server sets amd_result='no-answer' for ALL AMD detections (machine_start, fax, etc.)
                                 // The field only exists when AMD was triggered, so its presence means voicemail
                                 qi.disposition = 'voicemail';
-                                qi.status = 'completed'; // AMD-detected VM
+                                qi.status = 'no-answer'; // AMD-detected VM — use no-answer so retry logic picks it up
                             }
                         }
 
@@ -8188,11 +8327,16 @@
         window.dlrExportDownload = dlrExportDownload;
 
         // Auto-init on page load
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => { multiLineInit(); billingLoadPlanInfo(); dialerLoadKpiBanner(); });
-        } else {
+        function _dialerPageInit() {
             multiLineInit();
             billingLoadPlanInfo();
             dialerLoadKpiBanner();
+            // Human mode is default — apply initial mode state (button styling, VoIP init, AI-only controls hidden)
+            setDialerMode(dialerMode);
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', _dialerPageInit);
+        } else {
+            _dialerPageInit();
         }
 

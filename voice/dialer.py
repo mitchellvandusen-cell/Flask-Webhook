@@ -988,8 +988,8 @@ def dial_contact():
     if not sub_sid or not from_number:
         return jsonify({"error": "Voice service not fully provisioned"}), 400
 
-    # AMD: always on for AI mode (needs to detect voicemail); for human mode, respect user setting
-    use_amd = True if dial_mode == 'ai' else voice_config.get('use_amd', False)
+    # AMD: always on — needed for voicemail detection, auto-hangup, and retry in both AI and human modes
+    use_amd = True
 
     # Idempotency guard: prevent double-dial to the same phone number.
     # If a non-terminal call to this phone already exists for this location, return it.
@@ -1116,25 +1116,30 @@ def multi_dial():
     if dial_mode == 'ai' and not voice_config.get('enabled'):
         return jsonify({"error": "Voice AI is not enabled"}), 400
 
-    # ── AI Minutes warning for solo_predictive (overflow uses AI minutes) ──
+    # ── AI Minutes balance check ──
+    # AI mode: block at zero (same as single-line dial_contact)
+    # Solo predictive human mode: warn for overflow (uses AI minutes)
     minutes_warning = None
-    if tier == 'solo_predictive' and dial_mode == 'human':
+    if not is_admin:
         try:
             from db import get_ai_minute_balance
             bal = get_ai_minute_balance(current_user.email)
             balance = bal.get('balance_minutes', 0)
             purchased = bal.get('total_purchased', 0)
             if purchased > 0:
+                if dial_mode == 'ai' and balance <= 0:
+                    return jsonify({"error": "You're out of AI minutes. Purchase more to continue making AI calls.",
+                                    "minutes_required": True}), 402
                 if balance <= 0:
                     minutes_warning = "empty"
-                    # Force single-line: no overflow possible without AI minutes
-                    max_lines = 1
+                    if tier == 'solo_predictive':
+                        max_lines = 1
                 elif balance <= 20:
                     minutes_warning = "critical"
                 elif balance <= 100:
                     minutes_warning = "low"
         except Exception as e:
-            logger.warning(f"AI minutes check for overflow warning failed: {e}")
+            logger.warning(f"AI minutes check failed (non-fatal): {e}")
 
     sub_sid = voice_config.get('twilio_sub_account_sid', '')
     from_number = voice_config.get('twilio_phone_number', '')
@@ -1243,7 +1248,7 @@ def multi_dial():
         rotation_result = select_outbound_number(location_id, voice_config, dest_phone=c_phone)
         call_from = rotation_result["phone"] if rotation_result else from_number
 
-        use_amd = True if dial_mode == 'ai' else voice_config.get('use_amd', False)
+        use_amd = True  # Always on for voicemail detection + retry in both modes
 
         try:
             host = request.host
