@@ -662,6 +662,9 @@ class User(UserMixin):
         self.timezone = data.get('timezone', 'America/Chicago')
         self.initial_message = data.get('initial_message', '')
         self.bot_active = data.get('bot_active')
+        # Normalize timezone: pytz requires underscores ('America/New_York' not 'America/New York')
+        if self.timezone:
+            self.timezone = self.timezone.replace(' ', '_')
 
         # OAuth / Token fields
         self.access_token = data.get('access_token')
