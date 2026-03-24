@@ -772,6 +772,9 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                 reply = outbound_msgs[drip_index]
                 logger.info(f"📨 OUTBOUND DRIP #{drip_index + 1}/{len(outbound_msgs)} | contact={contact_id} | msg='{reply[:60]}'")
 
+        # Default stage for pre-set replies (initial msg, drip, workflow)
+        effective_stage = director_output.get("stage", "INITIAL_OUTREACH") if director_output else "INITIAL_OUTREACH"
+
         if not reply:
             # === NORMAL LLM FLOW ===
             # Effective stage for this turn — used both in system prompt and message history
@@ -918,8 +921,8 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                                 ORDER BY created_at DESC LIMIT 1
                             """, (location_id, contact_id))
                             row = cur.fetchone()
-                            if row and row[0]:
-                                resolved_number = row[0]
+                            if row and row.get('phone'):
+                                resolved_number = row['phone']
                                 logger.info(f"[last_used] Resolved to {resolved_number} from call history for {contact_id}")
                             cur.close()
                         finally:
