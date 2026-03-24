@@ -192,8 +192,26 @@ try:
     if not _redis_ok or not _db_ok:
         import time as _t; _t.sleep(2)
         _check_oauth(force_recheck=True)
-        logger.info(f"OAuth cred publish retry: Redis={'OK' if _redis_ok else 'RETRIED'}, "
-                   f"DB={'OK' if _db_ok else 'RETRIED'}")
+        # Re-verify after retry to confirm creds actually landed
+        if not _redis_ok and _ext.redis_conn:
+            _redis_ok = bool(_ext.redis_conn.get("igb:ghl_oauth_creds"))
+        if not _db_ok:
+            try:
+                _ck2 = get_db_connection()
+                if _ck2:
+                    try:
+                        _cur2 = _ck2.cursor()
+                        _cur2.execute("SELECT 1 FROM app_settings WHERE key = 'ghl_oauth_creds'")
+                        _db_ok = bool(_cur2.fetchone())
+                        _cur2.close()
+                    finally:
+                        _ret_conn(_ck2)
+            except Exception:
+                pass
+        logger.info(f"OAuth cred publish: Redis={'OK' if _redis_ok else 'FAILED'}, "
+                   f"DB={'OK' if _db_ok else 'FAILED'}")
+        if not _db_ok:
+            logger.error("CRITICAL: OAuth creds NOT in DB after retry — workers will not be able to refresh tokens")
 except Exception:
     pass
 

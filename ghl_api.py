@@ -81,12 +81,22 @@ def _share_creds_to_db(marketplace_id, marketplace_secret, private_id, private_s
                 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
             """, (_DB_OAUTH_KEY, json.dumps(creds)))
             conn.commit()
+            # Verify the write actually landed
+            cur.execute("SELECT 1 FROM app_settings WHERE key = %s", (_DB_OAUTH_KEY,))
+            if not cur.fetchone():
+                logger.error("OAuth creds DB write committed but row not found — silent write failure")
             cur.close()
             logger.info("GHL OAuth creds persisted to DB for worker fallback")
+        except Exception as db_err:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise db_err
         finally:
             return_db_connection(conn)
     except Exception as e:
-        logger.warning(f"Could not persist OAuth creds to DB: {e}")
+        logger.error(f"CRITICAL: Could not persist OAuth creds to DB: {e}")
 
 
 def _read_creds_from_redis():
@@ -123,7 +133,7 @@ def _read_creds_from_db():
         from db_legacy import get_db_connection_with_retry, return_db_connection
         conn = get_db_connection_with_retry(max_attempts=3)
         if not conn:
-            logger.warning("Cannot read OAuth creds from DB — no DB connection after 3 retries")
+            logger.error("Cannot read OAuth creds from DB — no DB connection after 3 retries")
             return None, None, None, None
         try:
             cur = conn.cursor()
@@ -136,11 +146,17 @@ def _read_creds_from_db():
                 return (creds.get("m_id"), creds.get("m_sec"),
                         creds.get("p_id"), creds.get("p_sec"))
             else:
-                logger.info("No OAuth creds row in app_settings — web service has not persisted yet")
+                logger.warning("No OAuth creds row in app_settings — web service has not persisted yet")
+        except Exception as db_err:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise db_err
         finally:
             return_db_connection(conn)
     except Exception as e:
-        logger.warning(f"Could not read OAuth creds from DB: {e}")
+        logger.error(f"Could not read OAuth creds from DB: {e}")
     return None, None, None, None
 
 
