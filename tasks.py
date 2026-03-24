@@ -1084,8 +1084,10 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                                             "SELECT phone FROM contact_cache WHERE contact_id = %s LIMIT 1",
                                             (contact_id,))
                                         _fb_row = _fb_cur.fetchone()
-                                        if _fb_row and _fb_row[0]:
-                                            contact_phone = _fb_row[0]
+                                        _fb_phone = (_fb_row.get('phone') if isinstance(_fb_row, dict)
+                                                     else _fb_row[0] if _fb_row else None)
+                                        if _fb_phone:
+                                            contact_phone = _fb_phone
                                             logger.info(f"Resolved contact_phone from cache for {contact_id}: {contact_phone[:4]}***")
                                         _fb_cur.close()
                                     finally:
