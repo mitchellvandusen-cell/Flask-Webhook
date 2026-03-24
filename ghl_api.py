@@ -165,6 +165,26 @@ def _read_creds_from_db():
     return None, None, None, None
 
 
+def _promote_creds_to_env(marketplace_id, marketplace_secret, private_id, private_secret):
+    """Inject credentials into os.environ so they survive Redis/DB outages.
+
+    When a worker process successfully loads creds from Redis or DB, this
+    promotes them into the process's environment.  Subsequent calls to
+    _load_oauth_credentials() then take the 'has env vars' fast path, which:
+      1. Makes _OAUTH_CREDS_SOURCE = 'env' — enabling the 5-minute re-publish
+         loop that keeps Redis+DB in sync.
+      2. Survives Redis flushes, DB blips, and deployment restarts for the
+         lifetime of the worker process.
+    """
+    if marketplace_id and marketplace_secret:
+        os.environ.setdefault("GHL_CLIENT_ID", marketplace_id)
+        os.environ.setdefault("GHL_CLIENT_SECRET", marketplace_secret)
+    if private_id and private_secret:
+        os.environ.setdefault("PRIVATE_APP_CLIENT_ID", private_id)
+        os.environ.setdefault("PRIVATE_APP_SECRET_ID", private_secret)
+    logger.info("OAuth creds promoted to process env vars — will survive Redis/DB outages")
+
+
 def _load_oauth_credentials():
     """Load both marketplace and private OAuth credential sets.
     Primary: environment variables. Fallback chain: Redis → DB (app_settings).
@@ -205,6 +225,14 @@ def _load_oauth_credentials():
                         f"PRIVATE_APP_SECRET_ID={'SET' if os.getenv('PRIVATE_APP_SECRET_ID') else 'MISSING'} | "
                         f"Redis=EMPTY | DB=EMPTY — token refresh will fail, SMS will use Twilio fallback"
                     )
+
+        # Promote to env vars: once creds are found in Redis/DB, inject them
+        # into this process's os.environ so they survive Redis flushes for the
+        # worker's entire lifetime.  Subsequent calls to _load_oauth_credentials()
+        # will find them via _get_env_with_fallback() and take the "has env vars"
+        # path, which also re-publishes to Redis+DB every 5 minutes.
+        if has_any:
+            _promote_creds_to_env(marketplace_id, marketplace_secret, private_id, private_secret)
 
         # Cross-propagate: if creds found in one store, ensure the other has
         # a copy too.  This heals gaps after Redis restarts (DB → Redis) or
