@@ -91,29 +91,56 @@ def _load_oauth_credentials():
     return marketplace_id, marketplace_secret, private_id, private_secret
 
 
-# Credential availability cache — True is cached permanently (env vars don't
-# disappear at runtime), but False is re-checked every 30 seconds so workers
-# pick up credentials once the web service publishes them to Redis.
-_OAUTH_CREDS_AVAILABLE = None
+# Credential availability cache — True means env vars are present (permanent,
+# they don't disappear at runtime). "redis" means creds were loaded from Redis
+# (re-verified every 60s in case the key expires). False is re-checked every
+# 5 seconds so workers pick up credentials quickly after the web service
+# publishes them.
+_OAUTH_CREDS_AVAILABLE = None  # None | True | "redis" | False
 _OAUTH_CREDS_LAST_CHECK = 0
+_OAUTH_CREDS_SOURCE = None  # "env" | "redis" | None
+
+
+def _invalidate_oauth_cache():
+    """Reset the credential cache so the next has_oauth_credentials() call
+    re-checks env vars and Redis. Called when credentials that were believed
+    to be available turn out to be missing (e.g. Redis key expired)."""
+    global _OAUTH_CREDS_AVAILABLE, _OAUTH_CREDS_LAST_CHECK, _OAUTH_CREDS_SOURCE
+    _OAUTH_CREDS_AVAILABLE = None
+    _OAUTH_CREDS_LAST_CHECK = 0
+    _OAUTH_CREDS_SOURCE = None
+
 
 def has_oauth_credentials():
     """Check if ANY GHL OAuth credentials are available (env vars or Redis).
-    Positive results are cached permanently. Negative results are re-checked
-    every 30s so worker processes pick up Redis-shared creds from the web service."""
-    global _OAUTH_CREDS_AVAILABLE, _OAUTH_CREDS_LAST_CHECK
-    if _OAUTH_CREDS_AVAILABLE is True:
+    Env-var results are cached permanently. Redis results are re-verified
+    every 60s. Negative results are re-checked every 5s so workers pick up
+    Redis-shared creds from the web service quickly."""
+    global _OAUTH_CREDS_AVAILABLE, _OAUTH_CREDS_LAST_CHECK, _OAUTH_CREDS_SOURCE
+    # Env vars never disappear — permanent cache
+    if _OAUTH_CREDS_SOURCE == "env":
         return True
-    # Re-check periodically — creds may have appeared in Redis since last check
+    # Redis-sourced creds: re-verify every 60s (key may expire)
     now = _time.time()
-    if _OAUTH_CREDS_LAST_CHECK and now - _OAUTH_CREDS_LAST_CHECK < 30:
+    if _OAUTH_CREDS_SOURCE == "redis" and now - _OAUTH_CREDS_LAST_CHECK < 60:
+        return True
+    # Negative cache: re-check every 5s (fast warm-up for workers)
+    if _OAUTH_CREDS_AVAILABLE is False and _OAUTH_CREDS_LAST_CHECK and now - _OAUTH_CREDS_LAST_CHECK < 5:
         return False
     _OAUTH_CREDS_LAST_CHECK = now
     m_id, m_sec, p_id, p_sec = _load_oauth_credentials()
-    _OAUTH_CREDS_AVAILABLE = bool((m_id and m_sec) or (p_id and p_sec))
-    if _OAUTH_CREDS_AVAILABLE:
-        logger.info("GHL OAuth credentials now available (env vars or Redis)")
-    return _OAUTH_CREDS_AVAILABLE
+    has_any = bool((m_id and m_sec) or (p_id and p_sec))
+    if has_any:
+        # Determine source: if env vars are set, it's "env"; otherwise "redis"
+        env_id = _get_env_with_fallback("GHL_CLIENT_ID")
+        env_sec = _get_env_with_fallback("GHL_CLIENT_SECRET")
+        _OAUTH_CREDS_SOURCE = "env" if (env_id and env_sec) else "redis"
+        _OAUTH_CREDS_AVAILABLE = True
+        logger.info(f"GHL OAuth credentials available (source={_OAUTH_CREDS_SOURCE})")
+    else:
+        _OAUTH_CREDS_SOURCE = None
+        _OAUTH_CREDS_AVAILABLE = False
+    return has_any
 
 
 def _build_cred_sets(oauth_app_type, marketplace_id, marketplace_secret, private_id, private_secret):
@@ -310,9 +337,12 @@ def get_valid_token(location_id: str, subscriber: dict = None) -> str | None:
                                  private_id, private_secret)
 
     if not cred_sets:
-        # Defensive: has_oauth_credentials() should have caught this above.
-        # If we reach here, return None — don't return stale tokens.
-        logger.debug(f"No credential sets for {location_id} (app_type={oauth_app_type})")
+        # Cache said creds were available but they weren't loadable (e.g.
+        # Redis key expired). Invalidate cache and fall back to DB token.
+        _invalidate_oauth_cache()
+        logger.warning(f"OAuth creds disappeared for {location_id} — cache invalidated, returning DB token")
+        if access_token:
+            return access_token
         return None
 
     # Try each credential set with both user_types
@@ -478,8 +508,12 @@ def get_valid_token_with_status(location_id: str, subscriber: dict = None,
                                  private_id, private_secret)
 
     if not cred_sets:
-        # Defensive: has_oauth_credentials() should have caught this above.
-        logger.debug(f"No credential sets for {location_id} (app_type={oauth_app_type})")
+        # Cache said creds were available but they weren't loadable (e.g.
+        # Redis key expired). Invalidate cache and fall back to DB token.
+        _invalidate_oauth_cache()
+        logger.warning(f"OAuth creds disappeared for {location_id} — cache invalidated, returning DB token")
+        if access_token:
+            return access_token, False, 'expired'
         return None, False, 'no_credentials'
 
     last_error = None
