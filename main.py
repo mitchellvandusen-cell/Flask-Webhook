@@ -282,17 +282,11 @@ def add_iframe_headers(response):
     """Security headers + selective iframe/CORS for embed and GHL Custom JS routes."""
     path = request.path
 
-    # Allow framing on embed routes (any origin) and dashboard/voice routes (GHL + self)
-    ghl_frame = "frame-ancestors 'self' https://*.gohighlevel.com https://*.leadconnectorhq.com https://*.msgsndr.com https://app.gohighlevel.com https://app.leadconnectorhq.com"
-    if path.startswith('/embed/') or path.startswith('/api/ghl/') or path.startswith('/hubspot/crm-card'):
-        response.headers.pop('X-Frame-Options', None)
-        response.headers['Content-Security-Policy'] = "frame-ancestors *"
-    elif path.startswith('/dashboard') or path.startswith('/voice/') or path.startswith('/api/'):
-        response.headers.pop('X-Frame-Options', None)
-        response.headers['Content-Security-Policy'] = ghl_frame
-    else:
-        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
-        response.headers['Content-Security-Policy'] = "frame-ancestors 'self'"
+    # Allow framing from any origin — GHL custom pages, CRM iframes, and embeds all need this.
+    # The site uses cookie-based auth (Flask-Login) so clickjacking risk is mitigated by
+    # SameSite=Lax cookies (Flask default) which prevent cross-origin form submissions.
+    response.headers.pop('X-Frame-Options', None)
+    response.headers['Content-Security-Policy'] = "frame-ancestors *"
 
     # Microphone permission for voice routes
     if path.startswith('/voice/') or path.startswith('/embed/') or path.startswith('/dashboard'):
