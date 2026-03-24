@@ -184,13 +184,6 @@ def send_sms_via_ghl(
             if last_status == 429:  # Rate limit — longer wait
                 last_failure = 'rate_limit'
                 time_module.sleep(10)
-            elif last_status == 400:  # Bad request — retrying won't help
-                logger.warning(f"GHL SMS bad request (HTTP 400) for {contact_id}: {last_body[:200]}")
-                return False, 'error', {
-                    "status_code": 400,
-                    "response_body": last_body,
-                    "attempts": attempt,
-                }
             elif last_status in (401, 403):  # Auth issue — try one force-refresh then abort
                 if not _token_refreshed:
                     # Skip refresh attempt if no OAuth credentials are configured
@@ -219,6 +212,19 @@ def send_sms_via_ghl(
                     "response_body": last_body,
                     "attempts": attempt,
                 }
+            elif 400 <= last_status < 500:
+                # Any other 4xx (400, 404, 409, 422, etc.) — client error,
+                # retrying with the same payload won't help
+                last_failure = 'client_error'
+                logger.warning(f"GHL SMS client error (HTTP {last_status}) for {contact_id} — not retrying: {last_body[:200]}")
+                return False, last_failure, {
+                    "status_code": last_status,
+                    "response_body": last_body,
+                    "attempts": attempt,
+                }
+            else:
+                # 5xx server errors — retryable
+                last_failure = 'server_error'
         except requests.RequestException as e:
             last_failure = 'network'
             last_body = str(e)[:500]
