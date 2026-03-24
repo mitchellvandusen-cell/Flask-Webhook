@@ -1064,11 +1064,11 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                                           details={"error": recovery_err})
 
                 # === TWILIO SMS FALLBACK ===
-                # If GHL SMS failed (auth, error, network, no_credentials) and subscriber
-                # has Twilio sub-account credentials, try sending via Twilio direct as
-                # last resort. This keeps messages flowing even when GHL OAuth credentials
-                # are unavailable (e.g. missing env vars on worker service).
-                if not sent and sub_tier != 'sms_bot':
+                # If GHL SMS failed due to a channel issue (auth, network, server_error,
+                # no_credentials) and subscriber has Twilio sub-account credentials, try
+                # sending via Twilio direct as last resort. Skip fallback for message-level
+                # blocks (safety, duplicate) — those apply regardless of channel.
+                if not sent and sub_tier != 'sms_bot' and fail_reason not in ('safety', 'duplicate'):
                     try:
                         from twilio_sms import send_sms_via_twilio, get_twilio_credentials
                         fb_sub_sid, fb_sub_auth, fb_from_number = get_twilio_credentials(location_id)
