@@ -223,14 +223,16 @@ def _load_oauth_credentials():
     return marketplace_id, marketplace_secret, private_id, private_secret
 
 
-# Credential availability cache — True means env vars are present (permanent,
-# they don't disappear at runtime). "redis"/"db" means creds were loaded from
-# Redis/DB (re-verified every 60s in case the key expires). False is re-checked
-# every 2 seconds so workers pick up credentials quickly after the web service
-# publishes them.
+# Credential availability cache — "env" means env vars are present (re-published
+# to Redis/DB every 300s so workers survive Redis flushes). "redis"/"db" means
+# creds were loaded from Redis/DB (re-verified every 60s in case the key expires).
+# False is re-checked every 2 seconds so workers pick up credentials quickly
+# after the web service publishes them.
 _OAUTH_CREDS_AVAILABLE = None  # None | True | "redis" | "db" | False
 _OAUTH_CREDS_LAST_CHECK = 0
 _OAUTH_CREDS_SOURCE = None  # "env" | "redis" | "db" | None
+_ENV_LAST_REPUBLISH = 0  # Last time env-sourced creds were re-published to Redis+DB
+_ENV_REPUBLISH_INTERVAL = 300  # Re-publish env creds every 5 minutes
 
 
 def _invalidate_oauth_cache():
@@ -245,9 +247,10 @@ def _invalidate_oauth_cache():
 
 def has_oauth_credentials(force_recheck=False):
     """Check if ANY GHL OAuth credentials are available (env vars, Redis, or DB).
-    Env-var results are cached permanently. Redis/DB results are re-verified
-    every 60s. Negative results are re-checked every 2s so workers pick up
-    credentials from the web service quickly.
+    Env-var results are cached but re-published to Redis+DB every 300s so
+    workers survive Redis flushes. Redis/DB results are re-verified every 60s.
+    Negative results are re-checked every 2s so workers pick up credentials
+    from the web service quickly.
 
     Args:
         force_recheck: If True, bypass all caches and re-check immediately.
@@ -255,9 +258,15 @@ def has_oauth_credentials(force_recheck=False):
                        to be sure we haven't missed recently-published creds.
     """
     global _OAUTH_CREDS_AVAILABLE, _OAUTH_CREDS_LAST_CHECK, _OAUTH_CREDS_SOURCE
+    global _ENV_LAST_REPUBLISH
     if not force_recheck:
-        # Env vars never disappear — permanent cache
+        # Env vars never disappear — but we must periodically re-publish to
+        # Redis + DB so workers survive Redis flushes/restarts.
         if _OAUTH_CREDS_SOURCE == "env":
+            now = _time.time()
+            if now - _ENV_LAST_REPUBLISH >= _ENV_REPUBLISH_INTERVAL:
+                _ENV_LAST_REPUBLISH = now
+                _load_oauth_credentials()  # re-shares to Redis + DB
             return True
         # Redis/DB-sourced creds: re-verify every 60s (key may expire)
         now = _time.time()
@@ -277,6 +286,7 @@ def has_oauth_credentials(force_recheck=False):
         env_sec = _get_env_with_fallback("GHL_CLIENT_SECRET")
         if env_id and env_sec:
             _OAUTH_CREDS_SOURCE = "env"
+            _ENV_LAST_REPUBLISH = now  # first publish already done by _load_oauth_credentials()
         else:
             # Check if Redis had them (try Redis read without DB fallback)
             r_id, r_sec, _, _ = _read_creds_from_redis()
