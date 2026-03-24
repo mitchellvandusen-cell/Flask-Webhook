@@ -649,7 +649,7 @@ def agency_kpis():
             })
 
         period = request.args.get('period', 'month')
-        tz_name = current_user.timezone or 'America/Chicago'
+        tz_name = (current_user.timezone or 'America/Chicago').replace(' ', '_')
         start_utc, days, now = _get_period_range(period, tz_name)
 
         cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -796,7 +796,7 @@ def agency_agent_stats():
 
     try:
         period = request.args.get('period', 'month')
-        tz_name = current_user.timezone or 'America/Chicago'
+        tz_name = (current_user.timezone or 'America/Chicago').replace(' ', '_')
         start_utc, _, _ = _get_period_range(period, tz_name)
 
         cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -975,7 +975,7 @@ def agency_dashboard_stats():
             return flask_jsonify(_empty_dashboard_stats())
 
         period = request.args.get('period', 'month')
-        tz_name = current_user.timezone or 'America/Chicago'
+        tz_name = (current_user.timezone or 'America/Chicago').replace(' ', '_')
         start_utc, days, now = _get_period_range(period, tz_name)
 
         cur = conn.cursor(cursor_factory=RealDictCursor)
