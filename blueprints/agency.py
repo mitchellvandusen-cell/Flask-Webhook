@@ -1359,9 +1359,10 @@ def agency_members():
                        onboarding_status, agent_email, invite_sent_at, invite_claimed_at,
                        created_at, voice_config, sms_send_via
                 FROM subscribers
-                WHERE company_id = %s OR LOWER(parent_agency_email) = LOWER(%s)
+                WHERE (company_id = %s OR LOWER(parent_agency_email) = LOWER(%s))
+                  AND LOWER(email) != LOWER(%s)
                 ORDER BY created_at DESC
-            """, (company_id, agency_email))
+            """, (company_id, agency_email, agency_email))
         else:
             cur.execute("""
                 SELECT location_id, email, full_name, phone, role, subscription_tier,
@@ -1370,8 +1371,9 @@ def agency_members():
                        created_at, voice_config, sms_send_via
                 FROM subscribers
                 WHERE LOWER(parent_agency_email) = LOWER(%s)
+                  AND LOWER(email) != LOWER(%s)
                 ORDER BY created_at DESC
-            """, (agency_email,))
+            """, (agency_email, agency_email))
         members = [dict(r) for r in cur.fetchall()]
         cur.close()
     except Exception as e:
