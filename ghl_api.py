@@ -911,6 +911,18 @@ def fetch_targeted_ghl_history(contact_id: str, location_id: str, access_token: 
         # Step 2: Fetch messages
         msg_url = f"https://services.leadconnectorhq.com/conversations/{convo_id}/messages?limit={limit}"
         msg_res = requests.get(msg_url, headers=headers, timeout=10)
+
+        # Auto-retry on 401/403 (token may have expired between Step 1 and Step 2)
+        if msg_res.status_code in (401, 403) and not _token_refreshed:
+            logger.warning(f"GHL messages fetch auth failure (HTTP {msg_res.status_code}) — force-refreshing token for {location_id}")
+            fresh_token, _was_refreshed, _err = get_valid_token_with_status(location_id, force_refresh=True)
+            if fresh_token and fresh_token != access_token:
+                access_token = fresh_token
+                headers["Authorization"] = f"Bearer {fresh_token}"
+                _token_refreshed = True
+                logger.info(f"Token recovered for {location_id} — retrying messages fetch")
+                msg_res = requests.get(msg_url, headers=headers, timeout=10)
+
         msg_res.raise_for_status()
 
         # GHL returns either:
@@ -949,7 +961,11 @@ def fetch_targeted_ghl_history(contact_id: str, location_id: str, access_token: 
         return formatted_history[::-1]  # oldest first
 
     except requests.RequestException as e:
-        logger.error(f"GHL history fetch failed {location_id}/{contact_id}: {e}")
+        # WARNING not ERROR: this is a per-subscriber issue (expired/revoked token,
+        # GHL API hiccup), not a systemic failure.  Caller handles empty return
+        # gracefully — pipeline continues, SMS routes through Twilio fallback.
+        # Logging at ERROR created false-alarm noise in the error feed.
+        logger.warning(f"GHL history fetch failed {location_id}/{contact_id}: {e}")
         return []
     except Exception as e:
         logger.error(f"Unexpected history error {location_id}/{contact_id}: {e}", exc_info=True)
