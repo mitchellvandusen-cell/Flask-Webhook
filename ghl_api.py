@@ -212,6 +212,14 @@ def get_valid_token(location_id: str, subscriber: dict = None) -> str | None:
             logger.warning(f"Timezone comparison error for {location_id}, proceeding to refresh")
 
     # --- Token needs refresh ---
+    # Fast path: skip credential loading entirely when no OAuth env vars configured.
+    # Avoids _log_no_creds noise on workers that intentionally lack GHL credentials.
+    if not has_oauth_credentials():
+        if access_token:
+            logger.debug(f"Returning possibly-expired token for {location_id} (no OAuth env vars)")
+            return access_token
+        return None
+
     marketplace_id, marketplace_secret, private_id, private_secret = _load_oauth_credentials()
     cred_sets = _build_cred_sets(oauth_app_type, marketplace_id, marketplace_secret,
                                  private_id, private_secret)
@@ -348,6 +356,12 @@ def get_valid_token_with_status(location_id: str, subscriber: dict = None,
         logger.info(f"🔄 Force-refresh requested for {location_id} — skipping expiry check")
 
     # --- Token needs refresh ---
+    # Fast path: skip credential loading entirely when no OAuth env vars configured.
+    if not has_oauth_credentials():
+        if access_token:
+            return access_token, False, 'no_credentials'
+        return None, False, 'no_credentials'
+
     marketplace_id, marketplace_secret, private_id, private_secret = _load_oauth_credentials()
     cred_sets = _build_cred_sets(oauth_app_type, marketplace_id, marketplace_secret,
                                  private_id, private_secret)

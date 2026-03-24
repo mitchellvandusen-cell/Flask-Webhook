@@ -517,11 +517,28 @@ def send_contact_sms(contact_id):
         if success:
             logger.info(f"Manual SMS sent to {contact_id} via GHL by {current_user.email}")
             return jsonify({"status": "sent", "channel": "ghl"})
-        else:
-            return jsonify({"error": "Failed to send SMS via GHL. Check logs for details."}), 500
     except Exception as e:
         logger.error(f"SMS send error for {contact_id}: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+        success = False
+
+    # GHL failed — try Twilio fallback
+    if not success:
+        try:
+            from twilio_sms import send_sms_via_twilio, get_twilio_credentials
+            fb_sid, fb_auth, fb_from = get_twilio_credentials(location_id)
+            contact_phone = (data.get('contact_phone') or '').strip()
+            if fb_sid and fb_auth and fb_from and contact_phone:
+                logger.warning(f"GHL SMS failed for {contact_id} — trying Twilio fallback")
+                tw_ok, _, _ = send_sms_via_twilio(
+                    phone_to=contact_phone, message=message,
+                    from_number=fb_from, twilio_sub_account_sid=fb_sid,
+                    twilio_auth_token=fb_auth, contact_id=contact_id)
+                if tw_ok:
+                    logger.info(f"Manual SMS sent to {contact_id} via Twilio fallback by {current_user.email}")
+                    return jsonify({"status": "sent", "channel": "twilio"})
+        except Exception as fb_err:
+            logger.warning(f"Twilio fallback also failed for {contact_id}: {fb_err}")
+        return jsonify({"error": "Failed to send SMS via GHL. Check logs for details."}), 500
 
 
 @contacts_bp.route('/voice/sms-channels', methods=['GET'])

@@ -1694,8 +1694,24 @@ def _handle_send_bulk_sms(args, ctx):
         for c in contacts:
             try:
                 ok, _, _ = send_sms_via_ghl(c["id"], message, access_token, location_id)
-                if ok: sent += 1
-                else: failed += 1
+                if ok:
+                    sent += 1
+                else:
+                    # GHL failed — try Twilio fallback for this contact
+                    try:
+                        from twilio_sms import send_sms_via_twilio, get_twilio_credentials
+                        fb_sid, fb_auth, fb_from = get_twilio_credentials(location_id)
+                        phone = c.get("phone", "")
+                        if fb_sid and fb_auth and fb_from and phone:
+                            tw_ok, _, _ = send_sms_via_twilio(phone_to=phone, message=message,
+                                from_number=fb_from, twilio_sub_account_sid=fb_sid,
+                                twilio_auth_token=fb_auth, contact_id=c["id"])
+                            if tw_ok: sent += 1
+                            else: failed += 1
+                        else:
+                            failed += 1
+                    except Exception:
+                        failed += 1
             except Exception:
                 failed += 1
     return {"sent": sent, "failed": failed, "total": len(contacts), "message": f"Sent to {sent}/{len(contacts)} contacts"}
