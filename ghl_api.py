@@ -80,11 +80,11 @@ def _share_creds_to_db(marketplace_id, marketplace_secret, private_id, private_s
             """, (_DB_OAUTH_KEY, json.dumps(creds)))
             conn.commit()
             cur.close()
-            logger.debug("GHL OAuth creds persisted to DB for worker fallback")
+            logger.info("GHL OAuth creds persisted to DB for worker fallback")
         finally:
             return_db_connection(conn)
     except Exception as e:
-        logger.debug(f"Could not persist OAuth creds to DB: {e}")
+        logger.warning(f"Could not persist OAuth creds to DB: {e}")
 
 
 def _read_creds_from_redis():
@@ -132,7 +132,7 @@ def _read_creds_from_db():
         finally:
             return_db_connection(conn)
     except Exception as e:
-        logger.debug(f"Could not read OAuth creds from DB: {e}")
+        logger.warning(f"Could not read OAuth creds from DB: {e}")
     return None, None, None, None
 
 
@@ -565,8 +565,9 @@ def get_valid_token_with_status(location_id: str, subscriber: dict = None,
     # When force_refresh=True (401 recovery), always bypass the cache — the
     # caller is telling us the current token is definitely bad.
     if not has_oauth_credentials(force_recheck=force_refresh):
-        # Negative cache may be stale — force a fresh Redis check
-        if has_oauth_credentials(force_recheck=True):
+        # Negative cache may be stale — force a fresh Redis check.
+        # Skip redundant recheck when force_refresh already did a full check.
+        if not force_refresh and has_oauth_credentials(force_recheck=True):
             logger.info("OAuth creds found on force-recheck (Redis published since last check)")
             # Fall through to the normal refresh path below
         else:

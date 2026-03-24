@@ -54,14 +54,22 @@ def run_worker(listen_queues, worker_num):
         logger.critical(f"Worker-{worker_num} Redis connection failed: {e}")
         return
 
-    # Eagerly try loading GHL OAuth creds from Redis (shared by web service).
+    # Initialize extensions.redis_conn so ghl_api credential fallback
+    # (Redis → DB) can use the shared connection pool.
+    try:
+        import extensions
+        extensions.ensure_redis()
+    except Exception:
+        pass
+
+    # Eagerly try loading GHL OAuth creds from Redis/DB (shared by web service).
     # This warms the cache so the first webhook doesn't hit a cold path.
     try:
         from ghl_api import has_oauth_credentials
         if has_oauth_credentials():
-            logger.info("GHL OAuth credentials loaded from Redis — token refresh enabled")
+            logger.info("GHL OAuth credentials available — token refresh enabled")
         else:
-            logger.warning("GHL OAuth credentials not yet in Redis — will re-check on demand")
+            logger.warning("GHL OAuth credentials not yet available (Redis/DB) — will re-check on demand")
     except Exception as e:
         logger.warning(f"Could not pre-load OAuth credentials: {e}")
 
