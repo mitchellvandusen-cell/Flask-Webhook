@@ -229,6 +229,11 @@ def send_sms_via_ghl(
             last_failure = 'network'
             last_body = str(e)[:500]
             logger.warning(f"GHL SMS attempt {attempt} network error: {e}")
+        except Exception as e:
+            # Catch-all for unexpected exceptions (SSL, encoding, etc.)
+            last_failure = 'unexpected'
+            last_body = str(e)[:500]
+            logger.error(f"GHL SMS attempt {attempt} unexpected error: {e}", exc_info=True)
 
         if attempt < max_retries:
             time_module.sleep(retry_delay * attempt)  # Exponential backoff feel

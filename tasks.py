@@ -242,12 +242,16 @@ def process_webhook_task(payload: dict):
                     )
 
         # Track if GHL OAuth credentials are ACTUALLY unusable — skip GHL SMS
-        # only when the token is expired/missing AND cannot be refreshed.
-        # When the token is still valid (not yet expired), allow GHL SMS even if
-        # env vars are missing — the valid token will work until it expires.
+        # when OAuth env vars are missing on this worker.  Even if the token
+        # hasn't expired *yet*, it will soon and can never be refreshed, so
+        # sending via GHL burns 3 retries (~45s) then fails anyway.  Go
+        # straight to Twilio fallback instead.
         _ghl_creds_missing = False
         if not is_demo and not is_api_source:
-            _ghl_creds_missing = token_error in ('no_credentials', 'no_tokens')
+            _ghl_creds_missing = (
+                token_error in ('no_credentials', 'no_tokens')
+                or not has_oauth_credentials()
+            )
 
         # Inject fresh token (empty for API sources without GHL)
         subscriber['access_token'] = auth_token
