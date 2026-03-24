@@ -6,7 +6,6 @@ import requests
 from datetime import datetime, timedelta
 from db import get_db_connection, return_db_connection
 from reply_sanitizer import is_safe_to_send
-from ghl_api import has_oauth_credentials as _has_ghl_oauth_creds
 
 logger = logging.getLogger(__name__)
 
@@ -32,15 +31,12 @@ def _lookup_conversation_id(contact_id: str, location_id: str, access_token: str
             timeout=10,
         )
 
-        # Auto-retry on 401/403 with a force-refreshed token
+        # Auto-retry on 401/403 with a force-refreshed token (or DB re-read on workers)
         if resp.status_code in (401, 403) and not _token_refreshed:
             try:
-                from ghl_api import get_valid_token_with_status, has_oauth_credentials
-                if not has_oauth_credentials():
-                    logger.debug(f"Skipping token refresh in conversation lookup — no OAuth creds configured")
-                    return None, current_token
+                from ghl_api import get_valid_token_with_status
                 fresh_token, was_refreshed, _err = get_valid_token_with_status(location_id, force_refresh=True)
-                if fresh_token and was_refreshed:
+                if fresh_token and fresh_token != current_token:
                     current_token = fresh_token
                     _token_refreshed = True
                     logger.info(f"Token force-refreshed for {location_id} — retrying conversationId lookup")
@@ -147,8 +143,7 @@ def send_sms_via_ghl(
     }
 
     # Resolve conversationId so the message threads correctly in GHL (green bar).
-    # The lookup function handles 401 gracefully (bails without refresh when
-    # OAuth creds are missing), so no need to gate on _has_ghl_oauth_creds()
+    # The lookup function handles 401 by re-reading fresh tokens from DB
     # here — that would skip the lookup even when the DB-cached token is valid,
     # causing messages from workers to not thread in GHL conversations.
     if not conversation_id:
@@ -190,39 +185,21 @@ def send_sms_via_ghl(
                 time_module.sleep(10)
             elif last_status in (401, 403):  # Auth issue — try one force-refresh then abort
                 if not _token_refreshed:
-                    if not _has_ghl_oauth_creds():
-                        # No OAuth env vars (worker process) — can't refresh, but
-                        # the cron may have saved a fresh token in the DB.  Re-read
-                        # it before giving up.
-                        try:
-                            from ghl_api import get_valid_token
-                            db_token = get_valid_token(location_id)
-                            if db_token and db_token != access_token:
-                                access_token = db_token
-                                headers["Authorization"] = f"Bearer {db_token}"
-                                _token_refreshed = True
-                                logger.info(f"Picked up cron-refreshed token for {location_id} — retrying SMS send")
-                                continue  # retry with fresh DB token
-                        except Exception as _db_err:
-                            logger.debug(f"DB token re-read failed for {location_id}: {_db_err}")
-                        logger.debug(f"No fresh token available for {location_id} — aborting after auth failure")
-                        return False, 'auth', {
-                            "status_code": last_status,
-                            "response_body": last_body,
-                            "attempts": attempt,
-                        }
-                    logger.warning(f"Auth failure (HTTP {last_status}) — force-refreshing token for {location_id}")
+                    # Unified recovery: with OAuth env vars this performs a real
+                    # refresh; without them (worker process) it re-reads from DB
+                    # to pick up tokens the proactive cron already refreshed.
+                    logger.warning(f"Auth failure (HTTP {last_status}) — attempting token recovery for {location_id}")
                     try:
                         from ghl_api import get_valid_token_with_status
-                        fresh_token, was_refreshed, _err = get_valid_token_with_status(location_id, force_refresh=True)
-                        if fresh_token and was_refreshed:
+                        fresh_token, _was_refreshed, _err = get_valid_token_with_status(location_id, force_refresh=True)
+                        if fresh_token and fresh_token != access_token:
                             access_token = fresh_token
                             headers["Authorization"] = f"Bearer {fresh_token}"
                             _token_refreshed = True
-                            logger.info(f"Token force-refreshed for {location_id} — retrying SMS send")
+                            logger.info(f"Token recovered for {location_id} — retrying SMS send")
                             continue  # retry with fresh token
                     except Exception as _refresh_err:
-                        logger.error(f"Token refresh attempt failed for {location_id}: {_refresh_err}")
+                        logger.error(f"Token recovery failed for {location_id}: {_refresh_err}")
                 logger.error(f"Auth failure (HTTP {last_status}) — no valid token available, aborting")
                 return False, 'auth', {
                     "status_code": last_status,

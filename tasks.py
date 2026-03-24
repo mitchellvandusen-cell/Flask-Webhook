@@ -14,7 +14,7 @@ from prompt import build_system_prompt
 from ghl_message import send_sms_via_ghl
 from llm_caller import generate_clean_reply
 from ghl_calendar import consolidated_calendar_op
-from ghl_api import fetch_targeted_ghl_history, get_valid_token, get_valid_token_with_status, has_oauth_credentials
+from ghl_api import fetch_targeted_ghl_history, get_valid_token, get_valid_token_with_status
 from contact_validator import validate_and_resolve_contact
 from booking_detection import detect_booking_request, BookingDetectionResult
 from message_utils import collect_unanswered_lead_messages as _collect_unanswered_lead_messages
@@ -985,10 +985,10 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
 
                 # === TOKEN RECOVERY ===
                 # If SMS failed due to 401/403 auth, force-refresh the token and retry.
-                # Works for BOTH Public (marketplace) and Private app credentials —
-                # get_valid_token_with_status tries all configured credential sets.
-                # Skip recovery when OAuth env vars are missing (can't refresh).
-                if not sent and fail_reason == 'auth' and has_oauth_credentials():
+                # With OAuth env vars: performs a real token refresh via GHL API.
+                # Without OAuth env vars (workers): re-reads from DB to pick up
+                # tokens that were refreshed by the proactive cron job.
+                if not sent and fail_reason == 'auth':
                     logger.warning(f"🔄 TOKEN RECOVERY: SMS auth failure for {contact_id} — "
                                   f"force-refreshing token for {location_id}")
                     recovered_token, was_refreshed, recovery_err = get_valid_token_with_status(
