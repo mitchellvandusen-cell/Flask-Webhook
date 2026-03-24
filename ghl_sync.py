@@ -1074,7 +1074,7 @@ def _deep_refresh_token(location_id, headers):
             logger.info(f"[DEEP_SYNC] {location_id} | Token refreshed mid-sync")
             return True
     except Exception as e:
-        logger.error(f"[DEEP_SYNC] {location_id} | Token refresh failed: {e}")
+        logger.warning(f"[DEEP_SYNC] {location_id} | Token refresh failed: {e}")
     return False
 
 
@@ -1143,7 +1143,7 @@ def deep_sync_conversations(location_id, access_token=None):
             test_data, test_err = _api_get_paced(
                 test_url, headers, params={"locationId": location_id, "limit": 1})
             if test_err == "auth_error":
-                logger.error(f"[DEEP_SYNC] {location_id} | Auth error — refreshing token")
+                logger.warning(f"[DEEP_SYNC] {location_id} | Auth error — refreshing token")
                 if _deep_refresh_token(location_id, headers):
                     conversations = _deep_list_all_conversations(location_id, headers)
                     total_convos = len(conversations)
