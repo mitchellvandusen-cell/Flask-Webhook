@@ -41,6 +41,14 @@
 
 ---
 
+## 2026-03-24 (Fix: Never abort webhook on token failure — always try Twilio fallback)
+
+**Root cause**: When `get_valid_token_with_status()` returned `(None, error)` with any error other than `'no_credentials'` (e.g., `'no_tokens'`, `'auth_error'`, `'all_creds_exhausted'`), `process_webhook_task()` hard-aborted the entire webhook pipeline with `return {"status": "error"}`. This silently dropped incoming messages even when the subscriber had Twilio sub-account credentials that could have delivered the SMS. Only the `'no_credentials'` case continued to Twilio fallback — all other token failures were dead ends.
+
+**Fix**: Removed the hard abort. ALL token failure cases now continue through the pipeline with `auth_token = ''` and `_ghl_creds_missing = True`, which skips GHL API calls and routes SMS via Twilio fallback. Dashboard alerts, failed payload persistence, and transient error re-queuing are preserved. The `_ghl_creds_missing` check was also simplified from an explicit allowlist to `token_error is not None and token_error != 'expired'` to catch all failure reasons.
+
+---
+
 ## 2026-03-24 (Fix: Redis credential sharing — stale import binding)
 
 **Root cause**: Python `from extensions import redis_conn` inside `_share_creds_to_redis()` and `_read_creds_from_redis()` captures the module-level `redis_conn` value at import time. When `redis_conn` is `None` (before `ensure_redis()` runs), the local binding stays `None` even after `ensure_redis()` creates a real connection. This caused: (1) web service silently failed to write OAuth creds to Redis on first startup call, (2) worker silently failed to read creds from Redis on first call, (3) after any Redis reconnection, the stale local binding caused the same failure. The web service had a self-healing retry (main.py lines 173-178) that masked the bug, but workers had no such safety net — leading to 50+ SMS failures during token expiry windows.

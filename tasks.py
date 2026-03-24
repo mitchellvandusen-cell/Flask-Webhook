@@ -149,17 +149,20 @@ def process_webhook_task(payload: dict):
                 has_access = bool(subscriber.get('access_token'))
                 has_refresh = bool(subscriber.get('refresh_token'))
 
-                # When OAuth env vars are missing entirely, don't abort — continue
-                # through the pipeline using payload data + cached history, then
-                # deliver SMS via Twilio fallback instead of GHL.
+                # NEVER abort when token is unavailable — continue through the
+                # pipeline and deliver SMS via Twilio fallback instead of GHL.
+                # Previously only 'no_credentials' continued; all other errors
+                # (no_tokens, auth_error, all_creds_exhausted, etc.) aborted
+                # the entire webhook, silently dropping messages even when the
+                # subscriber had Twilio sub-account credentials that could deliver.
                 if token_error == 'no_credentials':
                     logger.warning(f"⚠️ No GHL token and no OAuth credentials for {location_id} — "
                                   f"continuing with Twilio fallback path")
-                    auth_token = ''  # Empty string so downstream code doesn't crash on None
                 else:
-                    logger.error(f"❌ ABORT: Token refresh failed for {location_id} | "
+                    logger.error(f"⚠️ Token refresh failed for {location_id} | "
                                 f"oauth_app_type={oauth_type} | has_access_token={has_access} | "
-                                f"has_refresh_token={has_refresh} | error={token_error}")
+                                f"has_refresh_token={has_refresh} | error={token_error} | "
+                                f"continuing with Twilio fallback")
 
                     # Create persistent dashboard alert so subscriber sees the issue
                     sub_email = subscriber.get('email')
@@ -178,7 +181,7 @@ def process_webhook_task(payload: dict):
                         )
 
                     log_webhook_event(location_id, "error", "error",
-                                      f"Token refresh failed ({token_error}) — message dropped",
+                                      f"Token refresh failed ({token_error}) — trying Twilio fallback",
                                       contact_id=contact_id,
                                       details={"oauth_app_type": oauth_type, "error": token_error})
 
@@ -213,7 +216,10 @@ def process_webhook_task(payload: dict):
                     logger.info(f"💾 Saved failed webhook payload for {contact_id} "
                                f"(reason={token_error}) — scourer will retry later")
 
-                    return {"status": "error", "reason": f"token refresh failed: {token_error}"}
+                # Continue with empty token — downstream _ghl_creds_missing
+                # flag (line ~262) will skip GHL API calls and route SMS
+                # through Twilio fallback instead
+                auth_token = ''
 
             # If GHL OAuth creds are missing, log once and continue — Twilio
             # fallback will handle SMS delivery downstream
@@ -259,7 +265,7 @@ def process_webhook_task(payload: dict):
         # fetch_targeted_ghl_history returns empty list).
         _ghl_creds_missing = False
         if not is_demo and not is_api_source:
-            _ghl_creds_missing = token_error in ('no_credentials', 'no_tokens', 'all_creds_exhausted')
+            _ghl_creds_missing = token_error is not None and token_error != 'expired'
             # Also skip GHL when token is expired and we're on a worker
             # that can't refresh it (no OAuth env vars).  Go straight to
             # Twilio fallback instead of wasting an HTTP call that will 401.
