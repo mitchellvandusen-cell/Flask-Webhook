@@ -25,8 +25,9 @@ def _get_env_with_fallback(*names):
     return None
 
 
-# Redis key for sharing OAuth creds across services (web → workers)
+# Keys for sharing OAuth creds across services (web → workers)
 _REDIS_OAUTH_KEY = "igb:ghl_oauth_creds"
+_DB_OAUTH_KEY = "ghl_oauth_creds"
 
 
 def _share_creds_to_redis(marketplace_id, marketplace_secret, private_id, private_secret):
@@ -53,6 +54,39 @@ def _share_creds_to_redis(marketplace_id, marketplace_secret, private_id, privat
         logger.warning(f"Could not share OAuth creds to Redis: {e}")
 
 
+def _share_creds_to_db(marketplace_id, marketplace_secret, private_id, private_secret):
+    """Store OAuth credentials in app_settings table as persistent fallback.
+    The DB is always available to workers, unlike Redis which can be flushed."""
+    try:
+        import json
+        from db import get_db_connection, return_db_connection
+        creds = {}
+        if marketplace_id and marketplace_secret:
+            creds["m_id"] = marketplace_id
+            creds["m_sec"] = marketplace_secret
+        if private_id and private_secret:
+            creds["p_id"] = private_id
+            creds["p_sec"] = private_secret
+        if not creds:
+            return
+        conn = get_db_connection()
+        if not conn:
+            return
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO app_settings (key, value) VALUES (%s, %s)
+                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+            """, (_DB_OAUTH_KEY, json.dumps(creds)))
+            conn.commit()
+            cur.close()
+            logger.debug("GHL OAuth creds persisted to DB for worker fallback")
+        finally:
+            return_db_connection(conn)
+    except Exception as e:
+        logger.debug(f"Could not persist OAuth creds to DB: {e}")
+
+
 def _read_creds_from_redis():
     """Read OAuth credentials from Redis (fallback when env vars are missing).
     Returns (marketplace_id, marketplace_secret, private_id, private_secret)."""
@@ -76,9 +110,35 @@ def _read_creds_from_redis():
     return None, None, None, None
 
 
+def _read_creds_from_db():
+    """Read OAuth credentials from app_settings table (persistent fallback).
+    Used when both env vars and Redis are unavailable."""
+    try:
+        import json
+        from db import get_db_connection, return_db_connection
+        conn = get_db_connection()
+        if not conn:
+            return None, None, None, None
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT value FROM app_settings WHERE key = %s", (_DB_OAUTH_KEY,))
+            row = cur.fetchone()
+            cur.close()
+            if row:
+                creds = json.loads(row['value'] if isinstance(row, dict) else row[0])
+                logger.info("GHL OAuth creds loaded from DB (persistent fallback)")
+                return (creds.get("m_id"), creds.get("m_sec"),
+                        creds.get("p_id"), creds.get("p_sec"))
+        finally:
+            return_db_connection(conn)
+    except Exception as e:
+        logger.debug(f"Could not read OAuth creds from DB: {e}")
+    return None, None, None, None
+
+
 def _load_oauth_credentials():
     """Load both marketplace and private OAuth credential sets.
-    Primary: environment variables. Fallback: Redis (shared by web service).
+    Primary: environment variables. Fallback chain: Redis → DB (app_settings).
     Returns (marketplace_id, marketplace_secret, private_id, private_secret)."""
     marketplace_id = _get_env_with_fallback("GHL_CLIENT_ID")
     marketplace_secret = _get_env_with_fallback("GHL_CLIENT_SECRET")
@@ -88,23 +148,27 @@ def _load_oauth_credentials():
     has_any = (marketplace_id and marketplace_secret) or (private_id and private_secret)
 
     if has_any:
-        # Web service has env vars — share to Redis for workers
+        # Web service has env vars — share to Redis + DB for workers
         _share_creds_to_redis(marketplace_id, marketplace_secret, private_id, private_secret)
+        _share_creds_to_db(marketplace_id, marketplace_secret, private_id, private_secret)
     else:
-        # Worker without env vars — try reading from Redis
+        # Worker without env vars — try Redis first, then DB (persistent fallback)
         marketplace_id, marketplace_secret, private_id, private_secret = _read_creds_from_redis()
+        has_any = (marketplace_id and marketplace_secret) or (private_id and private_secret)
+        if not has_any:
+            marketplace_id, marketplace_secret, private_id, private_secret = _read_creds_from_db()
 
     return marketplace_id, marketplace_secret, private_id, private_secret
 
 
 # Credential availability cache — True means env vars are present (permanent,
-# they don't disappear at runtime). "redis" means creds were loaded from Redis
-# (re-verified every 60s in case the key expires). False is re-checked every
-# 5 seconds so workers pick up credentials quickly after the web service
+# they don't disappear at runtime). "redis"/"db" means creds were loaded from
+# Redis/DB (re-verified every 60s in case the key expires). False is re-checked
+# every 2 seconds so workers pick up credentials quickly after the web service
 # publishes them.
-_OAUTH_CREDS_AVAILABLE = None  # None | True | "redis" | False
+_OAUTH_CREDS_AVAILABLE = None  # None | True | "redis" | "db" | False
 _OAUTH_CREDS_LAST_CHECK = 0
-_OAUTH_CREDS_SOURCE = None  # "env" | "redis" | None
+_OAUTH_CREDS_SOURCE = None  # "env" | "redis" | "db" | None
 
 
 def _invalidate_oauth_cache():
@@ -118,25 +182,24 @@ def _invalidate_oauth_cache():
 
 
 def has_oauth_credentials(force_recheck=False):
-    """Check if ANY GHL OAuth credentials are available (env vars or Redis).
-    Env-var results are cached permanently. Redis results are re-verified
+    """Check if ANY GHL OAuth credentials are available (env vars, Redis, or DB).
+    Env-var results are cached permanently. Redis/DB results are re-verified
     every 60s. Negative results are re-checked every 2s so workers pick up
-    Redis-shared creds from the web service quickly.
+    credentials from the web service quickly.
 
     Args:
-        force_recheck: If True, bypass all caches and re-check Redis/env vars
-                       immediately. Use this when a 401 triggers force-refresh
-                       and we need to be sure we haven't missed recently-published
-                       Redis creds.
+        force_recheck: If True, bypass all caches and re-check immediately.
+                       Use this when a 401 triggers force-refresh and we need
+                       to be sure we haven't missed recently-published creds.
     """
     global _OAUTH_CREDS_AVAILABLE, _OAUTH_CREDS_LAST_CHECK, _OAUTH_CREDS_SOURCE
     if not force_recheck:
         # Env vars never disappear — permanent cache
         if _OAUTH_CREDS_SOURCE == "env":
             return True
-        # Redis-sourced creds: re-verify every 60s (key may expire)
+        # Redis/DB-sourced creds: re-verify every 60s (key may expire)
         now = _time.time()
-        if _OAUTH_CREDS_SOURCE == "redis" and now - _OAUTH_CREDS_LAST_CHECK < 60:
+        if _OAUTH_CREDS_SOURCE in ("redis", "db") and now - _OAUTH_CREDS_LAST_CHECK < 60:
             return True
         # Negative cache: re-check every 2s (fast warm-up for workers)
         if _OAUTH_CREDS_AVAILABLE is False and _OAUTH_CREDS_LAST_CHECK and now - _OAUTH_CREDS_LAST_CHECK < 2:
@@ -147,10 +210,15 @@ def has_oauth_credentials(force_recheck=False):
     m_id, m_sec, p_id, p_sec = _load_oauth_credentials()
     has_any = bool((m_id and m_sec) or (p_id and p_sec))
     if has_any:
-        # Determine source: if env vars are set, it's "env"; otherwise "redis"
+        # Determine source: env > redis > db
         env_id = _get_env_with_fallback("GHL_CLIENT_ID")
         env_sec = _get_env_with_fallback("GHL_CLIENT_SECRET")
-        _OAUTH_CREDS_SOURCE = "env" if (env_id and env_sec) else "redis"
+        if env_id and env_sec:
+            _OAUTH_CREDS_SOURCE = "env"
+        else:
+            # Check if Redis had them (try Redis read without DB fallback)
+            r_id, r_sec, _, _ = _read_creds_from_redis()
+            _OAUTH_CREDS_SOURCE = "redis" if (r_id and r_sec) else "db"
         _OAUTH_CREDS_AVAILABLE = True
         logger.info(f"GHL OAuth credentials available (source={_OAUTH_CREDS_SOURCE})")
     else:
