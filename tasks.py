@@ -1020,6 +1020,25 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                         from twilio_sms import send_sms_via_twilio, get_twilio_credentials
                         fb_sub_sid, fb_sub_auth, fb_from_number = get_twilio_credentials(location_id)
                         contact_phone = payload.get('phone') or payload.get('contact_phone', '')
+                        # If phone not in payload, try contact_cache as fallback
+                        if not contact_phone and contact_id and contact_id != 'unknown':
+                            try:
+                                _fb_conn = get_db_connection()
+                                if _fb_conn:
+                                    try:
+                                        _fb_cur = _fb_conn.cursor()
+                                        _fb_cur.execute(
+                                            "SELECT phone FROM contact_cache WHERE contact_id = %s LIMIT 1",
+                                            (contact_id,))
+                                        _fb_row = _fb_cur.fetchone()
+                                        if _fb_row and _fb_row.get('phone'):
+                                            contact_phone = _fb_row['phone']
+                                            logger.info(f"Resolved contact_phone from cache for {contact_id}: {contact_phone[:4]}***")
+                                        _fb_cur.close()
+                                    finally:
+                                        return_db_connection(_fb_conn)
+                            except Exception:
+                                pass  # Best-effort lookup
                         if fb_sub_sid and fb_sub_auth and fb_from_number and contact_phone:
                             logger.warning(f"🔄 TWILIO FALLBACK: GHL SMS failed ({fail_reason}) — "
                                           f"attempting Twilio direct for {contact_id}")

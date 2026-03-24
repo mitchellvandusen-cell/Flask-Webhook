@@ -146,8 +146,10 @@ def send_sms_via_ghl(
         "Content-Type": "application/json"
     }
 
-    # Resolve conversationId so the message threads correctly in GHL (green bar)
-    if not conversation_id:
+    # Resolve conversationId so the message threads correctly in GHL (green bar).
+    # Skip the lookup when OAuth creds are missing — saves a wasted HTTP call
+    # with an expired token that can never be refreshed.
+    if not conversation_id and _has_ghl_oauth_creds():
         conversation_id, access_token = _lookup_conversation_id(contact_id, location_id, access_token)
         # Update headers if token was refreshed during conversation lookup
         headers["Authorization"] = f"Bearer {access_token}"

@@ -503,25 +503,32 @@ def send_contact_sms(contact_id):
             return jsonify({"error": f"Twilio send failed: {str(e)}"}), 500
 
     # ── Channel: GHL (default) ──
-    access_token = get_valid_token(location_id)
-    if not access_token:
-        return jsonify({"error": "No valid GHL auth token. Reconnect your CRM."}), 401
+    # When GHL OAuth env vars are missing, skip GHL entirely and go straight
+    # to Twilio fallback — avoids wasted HTTP calls with an unrefreshable token.
+    from ghl_api import has_oauth_credentials
+    success = False
+    if has_oauth_credentials():
+        access_token = get_valid_token(location_id)
+        if not access_token:
+            # Token expired AND refresh failed — fall through to Twilio fallback
+            logger.warning(f"No valid GHL token for {location_id} — trying Twilio fallback")
+        else:
+            try:
+                success, _fail_reason, _http_detail = send_sms_via_ghl(
+                    contact_id=contact_id,
+                    message=message,
+                    access_token=access_token,
+                    location_id=location_id,
+                )
+                if success:
+                    logger.info(f"Manual SMS sent to {contact_id} via GHL by {current_user.email}")
+                    return jsonify({"status": "sent", "channel": "ghl"})
+            except Exception as e:
+                logger.error(f"SMS send error for {contact_id}: {e}")
+    else:
+        logger.debug(f"GHL OAuth creds missing — skipping GHL SMS for {contact_id}")
 
-    try:
-        success, _fail_reason, _http_detail = send_sms_via_ghl(
-            contact_id=contact_id,
-            message=message,
-            access_token=access_token,
-            location_id=location_id,
-        )
-        if success:
-            logger.info(f"Manual SMS sent to {contact_id} via GHL by {current_user.email}")
-            return jsonify({"status": "sent", "channel": "ghl"})
-    except Exception as e:
-        logger.error(f"SMS send error for {contact_id}: {e}")
-        success = False
-
-    # GHL failed — try Twilio fallback
+    # GHL skipped or failed — try Twilio fallback
     if not success:
         try:
             from twilio_sms import send_sms_via_twilio, get_twilio_credentials
@@ -538,7 +545,7 @@ def send_contact_sms(contact_id):
                     return jsonify({"status": "sent", "channel": "twilio"})
         except Exception as fb_err:
             logger.warning(f"Twilio fallback also failed for {contact_id}: {fb_err}")
-        return jsonify({"error": "Failed to send SMS via GHL. Check logs for details."}), 500
+        return jsonify({"error": "Failed to send SMS. Check CRM connection or Twilio setup."}), 500
 
 
 @contacts_bp.route('/voice/sms-channels', methods=['GET'])
