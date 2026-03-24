@@ -205,8 +205,8 @@ def send_sms_via_ghl(
                             logger.info(f"Token recovered for {location_id} — retrying SMS send")
                             continue  # retry with fresh token
                     except Exception as _refresh_err:
-                        logger.error(f"Token recovery failed for {location_id}: {_refresh_err}")
-                logger.error(f"Auth failure (HTTP {last_status}) — no valid token available, aborting")
+                        logger.warning(f"Token recovery failed for {location_id}: {_refresh_err}")
+                logger.warning(f"Auth failure (HTTP {last_status}) — no valid token available, aborting (Twilio fallback may follow)")
                 return False, 'auth', {
                     "status_code": last_status,
                     "response_body": last_body,
@@ -238,7 +238,7 @@ def send_sms_via_ghl(
         if attempt < max_retries:
             time_module.sleep(retry_delay * attempt)  # Exponential backoff feel
 
-    logger.error(f"Failed to send SMS to {contact_id} after {max_retries} attempts ({last_failure})")
+    logger.warning(f"GHL SMS failed for {contact_id} after {max_retries} attempts ({last_failure}) — caller may try Twilio fallback")
     return False, last_failure, {
         "status_code": last_status,
         "response_body": last_body,

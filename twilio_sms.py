@@ -137,7 +137,7 @@ def send_sms_via_twilio(
         if attempt < max_retries:
             time_module.sleep(retry_delay * attempt)
 
-    logger.error(f"Failed Twilio SMS to {phone_to} after {max_retries} attempts ({last_failure})")
+    logger.warning(f"Twilio SMS failed for {phone_to} after {max_retries} attempts ({last_failure}) — caller determines final outcome")
     return False, last_failure, {
         "status_code": last_status,
         "response_body": last_body,
