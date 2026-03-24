@@ -3122,10 +3122,55 @@
                 }
                 try {
                     const r = await fetch('/voice/call-status/' + dialerCallSid);
-                    if (!r.ok) { if (++errorCount >= MAX_ERRORS) { clearInterval(dialerPollTimer); dialerCallSid = null; dialerHideBanner(); dialerStopAiTimer(); _dialerClearCallDurationTimer(); } return; }
+                    if (!r.ok) {
+                        // 404 means call no longer in Redis — treat as completed immediately
+                        if (r.status === 404) {
+                            console.log('[Dialer] Poll 404 — call no longer tracked, treating as completed');
+                            clearInterval(dialerPollTimer); dialerPollTimer = null;
+                            dialerStopAiTimer(); _dialerClearCallDurationTimer();
+                            _stopRingTone(); if (_autoListenActive) { _stopListenStream(); _resetListenBtn(); _autoListenActive = false; }
+                            _dialerLastCallSid = dialerCallSid;
+                            if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) dialerQueue[dialerCallIdx].status = 'completed';
+                            dialerCallSid = null; dialerRenderQueue();
+                            if (!dialerQueueRunning) { dialerHideBanner(); dialerShowDisposition(); }
+                            else { _dialerQueueTimeout(dialerAdvance, 1200); }
+                            return;
+                        }
+                        if (++errorCount >= MAX_ERRORS) { clearInterval(dialerPollTimer); dialerCallSid = null; dialerHideBanner(); dialerStopAiTimer(); _dialerClearCallDurationTimer(); }
+                        return;
+                    }
                     errorCount = 0;
                     const d = await r.json();
                     const el = document.getElementById('dialerCallStatus');
+                    // ── AMD / Voicemail detection (human mode) ──
+                    // Server sets _amd_result when machine detected and auto-hangs up.
+                    // Frontend must: stop poll, mark as no-answer for retry, advance queue.
+                    if (d._amd_result && d.status !== 'ringing' && d.status !== 'initiated') {
+                        console.log(`[Dialer] AMD detected: ${d._amd_result} — action: ${_dialerOnMachineAction}`);
+                        clearInterval(dialerPollTimer);
+                        dialerPollTimer = null;
+                        dialerStopAiTimer();
+                        _dialerClearCallDurationTimer();
+                        _stopRingTone();
+                        if (_autoListenActive) { _stopListenStream(); _resetListenBtn(); _autoListenActive = false; }
+                        el.textContent = 'Voicemail'; el.style.color = '#ffa500';
+                        _dialerBannerState('ended');
+                        _dialerLastCallSid = dialerCallSid;
+                        // Mark queue item as no-answer so retry logic picks it up
+                        if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
+                            dialerQueue[dialerCallIdx].status = 'no-answer';
+                            if (_dialerAutoDispVoicemail) dialerQueue[dialerCallIdx].disposition = 'voicemail';
+                        }
+                        dialerCallSid = null;
+                        dialerRenderQueue();
+                        if (!dialerQueueRunning) {
+                            dialerHideBanner();
+                            dialerShowDisposition();
+                        } else {
+                            _dialerQueueTimeout(dialerAdvance, 1500);
+                        }
+                        return;
+                    }
                     if (d.status === 'in-progress') {
                         _dialerCallConnected = true;
                         el.textContent = 'Connected'; el.style.color = 'var(--accent)';
@@ -7368,6 +7413,14 @@
                 let anyTerminated = false;
                 let anyConnected = false;
 
+                // Safety net: if server didn't return a SID we asked about, treat as completed
+                for (const sid of sids) {
+                    if (!statuses[sid]) {
+                        console.log(`[MultiLine] SID ${sid.slice(0,16)} missing from server response — treating as completed`);
+                        statuses[sid] = { status: 'completed' };
+                    }
+                }
+
                 for (const [sid, serverInfo] of Object.entries(statuses)) {
                     const lineInfo = _multiLineActive.get(sid);
                     if (!lineInfo) continue;
@@ -7413,7 +7466,7 @@
                                 // Server sets amd_result='no-answer' for ALL AMD detections (machine_start, fax, etc.)
                                 // The field only exists when AMD was triggered, so its presence means voicemail
                                 qi.disposition = 'voicemail';
-                                qi.status = 'completed'; // AMD-detected VM
+                                qi.status = 'no-answer'; // AMD-detected VM — use no-answer so retry logic picks it up
                             }
                         }
 
