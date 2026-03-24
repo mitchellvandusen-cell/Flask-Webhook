@@ -1352,23 +1352,20 @@ def agency_members():
         return flask_jsonify({"error": "DB unavailable"}), 503
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        if company_id:
-            cur.execute("""
+        select_cols = """
                 SELECT location_id, email, full_name, phone, role, subscription_tier,
                        bot_first_name, timezone, access_token, token_expires_at,
-                       onboarding_status, agent_email, invite_sent_at, invite_claimed_at,
-                       created_at, voice_config, sms_send_via
+                       onboarding_status, created_at
+        """
+        if company_id:
+            cur.execute(select_cols + """
                 FROM subscribers
                 WHERE (company_id = %s OR LOWER(parent_agency_email) = LOWER(%s))
                   AND LOWER(email) != LOWER(%s)
                 ORDER BY created_at DESC
             """, (company_id, agency_email, agency_email))
         else:
-            cur.execute("""
-                SELECT location_id, email, full_name, phone, role, subscription_tier,
-                       bot_first_name, timezone, access_token, token_expires_at,
-                       onboarding_status, agent_email, invite_sent_at, invite_claimed_at,
-                       created_at, voice_config, sms_send_via
+            cur.execute(select_cols + """
                 FROM subscribers
                 WHERE LOWER(parent_agency_email) = LOWER(%s)
                   AND LOWER(email) != LOWER(%s)
