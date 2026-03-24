@@ -1094,7 +1094,9 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                     http_status = (http_detail or {}).get('status_code', 0)
                     http_body = (http_detail or {}).get('response_body', '')
                     http_attempts = (http_detail or {}).get('attempts', 0)
-                    logger.warning(f"Message send failed ({fail_reason}, HTTP {http_status}) — saved locally")
+                    logger.error(f"❌ SMS delivery failed for {contact_id} "
+                                f"({fail_reason}, HTTP {http_status}) — "
+                                f"all channels exhausted, saved locally only")
                     save_message(contact_id, reply, "assistant", stage=effective_stage)
                     log_webhook_event(location_id, "message_failed", "error",
                                       f"SMS HTTP {http_status} — {fail_reason}",
@@ -1105,6 +1107,10 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                                                "http_attempts": http_attempts,
                                                "reply": reply[:500],
                                                "contact_id": contact_id})
+                    # Persist failed payload so the recovery cron can retry later
+                    save_failed_webhook_payload(
+                        location_id, contact_id, payload,
+                        f"sms_delivery_failed:{fail_reason}")
             else:
                 save_message(contact_id, reply, "assistant", stage=effective_stage)
                 logger.info("⚠ DEMO MODE: Message saved internally")

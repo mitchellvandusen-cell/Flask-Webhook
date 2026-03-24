@@ -37,8 +37,6 @@ def _load_oauth_credentials():
 
 # Cached at module load — env vars don't change at runtime
 _OAUTH_CREDS_AVAILABLE = None
-_NO_CREDS_LOGGED = False  # Log "no credentials" warning once, then demote to debug
-
 def has_oauth_credentials():
     """Check if ANY GHL OAuth credentials are configured in environment.
     Result is cached after first call since env vars don't change at runtime."""
@@ -47,21 +45,6 @@ def has_oauth_credentials():
         m_id, m_sec, p_id, p_sec = _load_oauth_credentials()
         _OAUTH_CREDS_AVAILABLE = bool((m_id and m_sec) or (p_id and p_sec))
     return _OAUTH_CREDS_AVAILABLE
-
-
-def _log_no_creds(oauth_app_type, marketplace_id, marketplace_secret, private_id, private_secret):
-    """Log missing OAuth credentials — WARNING once, then DEBUG to avoid spam."""
-    global _NO_CREDS_LOGGED
-    msg = (f"No OAuth credentials configured for app_type={oauth_app_type} | "
-           f"GHL_CLIENT_ID={'set' if marketplace_id else 'MISSING'} | "
-           f"GHL_CLIENT_SECRET={'set' if marketplace_secret else 'MISSING'} | "
-           f"PRIVATE_APP_CLIENT_ID={'set' if private_id else 'MISSING'} | "
-           f"PRIVATE_APP_SECRET_ID={'set' if private_secret else 'MISSING'}")
-    if not _NO_CREDS_LOGGED:
-        logger.warning(msg)
-        _NO_CREDS_LOGGED = True
-    else:
-        logger.debug(msg)
 
 
 def _build_cred_sets(oauth_app_type, marketplace_id, marketplace_secret, private_id, private_secret):
@@ -224,10 +207,9 @@ def get_valid_token(location_id: str, subscriber: dict = None) -> str | None:
                                  private_id, private_secret)
 
     if not cred_sets:
-        _log_no_creds(oauth_app_type, marketplace_id, marketplace_secret, private_id, private_secret)
-        if access_token:
-            logger.debug(f"Returning possibly-expired token for {location_id} (no creds to refresh)")
-            return access_token
+        # Defensive: has_oauth_credentials() should have caught this above.
+        # If we reach here, return None — don't return stale tokens.
+        logger.debug(f"No credential sets for {location_id} (app_type={oauth_app_type})")
         return None
 
     # Try each credential set with both user_types
@@ -365,9 +347,8 @@ def get_valid_token_with_status(location_id: str, subscriber: dict = None,
                                  private_id, private_secret)
 
     if not cred_sets:
-        _log_no_creds(oauth_app_type, marketplace_id, marketplace_secret, private_id, private_secret)
-        if access_token:
-            return access_token, False, 'no_credentials'
+        # Defensive: has_oauth_credentials() should have caught this above.
+        logger.debug(f"No credential sets for {location_id} (app_type={oauth_app_type})")
         return None, False, 'no_credentials'
 
     last_error = None

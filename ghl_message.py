@@ -165,7 +165,7 @@ def send_sms_via_ghl(
         # Fallback: include locationId when conversationId not available
         payload["locationId"] = location_id
 
-    last_failure = 'error'
+    last_failure = 'unknown'
     last_status = 0
     last_body = ''
     total_attempts = 0
