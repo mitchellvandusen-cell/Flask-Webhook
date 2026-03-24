@@ -91,15 +91,28 @@ def _load_oauth_credentials():
     return marketplace_id, marketplace_secret, private_id, private_secret
 
 
-# Cached after first call — credentials don't change at runtime
+# Credential availability cache — True is cached permanently (env vars don't
+# disappear at runtime), but False is re-checked every 30 seconds so workers
+# pick up credentials once the web service publishes them to Redis.
 _OAUTH_CREDS_AVAILABLE = None
+_OAUTH_CREDS_LAST_CHECK = 0
+
 def has_oauth_credentials():
     """Check if ANY GHL OAuth credentials are available (env vars or Redis).
-    Result is cached after first call."""
-    global _OAUTH_CREDS_AVAILABLE
-    if _OAUTH_CREDS_AVAILABLE is None:
-        m_id, m_sec, p_id, p_sec = _load_oauth_credentials()
-        _OAUTH_CREDS_AVAILABLE = bool((m_id and m_sec) or (p_id and p_sec))
+    Positive results are cached permanently. Negative results are re-checked
+    every 30s so worker processes pick up Redis-shared creds from the web service."""
+    global _OAUTH_CREDS_AVAILABLE, _OAUTH_CREDS_LAST_CHECK
+    if _OAUTH_CREDS_AVAILABLE is True:
+        return True
+    # Re-check periodically — creds may have appeared in Redis since last check
+    now = _time.time()
+    if _OAUTH_CREDS_LAST_CHECK and now - _OAUTH_CREDS_LAST_CHECK < 30:
+        return False
+    _OAUTH_CREDS_LAST_CHECK = now
+    m_id, m_sec, p_id, p_sec = _load_oauth_credentials()
+    _OAUTH_CREDS_AVAILABLE = bool((m_id and m_sec) or (p_id and p_sec))
+    if _OAUTH_CREDS_AVAILABLE:
+        logger.info("GHL OAuth credentials now available (env vars or Redis)")
     return _OAUTH_CREDS_AVAILABLE
 
 

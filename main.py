@@ -161,6 +161,13 @@ backfill_agency_owners_to_subscribers()
 from token_encryption import initialize_encryption
 initialize_encryption()
 
+# ── Eagerly share GHL OAuth creds to Redis for worker processes ──────────────
+# Workers lack GHL_CLIENT_ID/GHL_CLIENT_SECRET env vars and rely on the web
+# service to publish them to Redis.  Calling has_oauth_credentials() here
+# ensures creds are in Redis before workers process their first webhook.
+from ghl_api import has_oauth_credentials as _check_oauth
+_check_oauth()
+
 # ── API v1 Blueprint ─────────────────────────────────────────────────────────
 
 from api_v1 import api_bp
