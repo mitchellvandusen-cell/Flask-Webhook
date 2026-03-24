@@ -943,16 +943,21 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                         sub_sid, sub_auth, from_number = get_twilio_credentials(location_id)
                         contact_phone = payload.get('phone') or payload.get('contact_phone', '')
                         if sub_sid and sub_auth and contact_phone:
+                            # Use from_number from get_twilio_credentials — it returns
+                            # the subscriber's chosen number when sub-account creds are
+                            # available, or master_phone when falling back to master.
+                            # Using sms_send_via directly would break master fallback
+                            # (master account can't send from a sub-account number).
                             sent, fail_reason, http_detail = send_sms_via_twilio(
                                 phone_to=contact_phone,
                                 message=reply,
-                                from_number=sms_send_via,  # The specific number they chose
+                                from_number=from_number,
                                 twilio_sub_account_sid=sub_sid,
                                 twilio_auth_token=sub_auth,
                                 contact_id=contact_id,
                             )
                             if sent:
-                                logger.info(f"✅ Twilio direct SMS sent to {contact_id} from {sms_send_via}")
+                                logger.info(f"✅ Twilio direct SMS sent to {contact_id} from {from_number}")
                                 # Log to GHL via Conversation Provider so CRM stays in sync
                                 # Skip when GHL creds are missing — token is empty/expired
                                 if not _ghl_creds_missing and auth_token:

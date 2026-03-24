@@ -237,7 +237,13 @@ def get_twilio_credentials(location_id):
                               f"from_number — falling through to master account")
             else:
                 logger.info(f"Twilio fallback: using master account for {location_id} (no sub-account provisioned)")
-            return master_sid, master_auth, from_number or master_phone
+            # Always use master_phone when sending with master credentials.
+            # A subscriber's from_number (from voice_config or sms_send_via)
+            # belongs to their sub-account — the master account can't send
+            # from a number it doesn't own.  Using from_number here caused
+            # Twilio to reject the send with "not a valid phone number for
+            # your account", silently killing the fallback path.
+            return master_sid, master_auth, master_phone
 
         return None, None, None
 
