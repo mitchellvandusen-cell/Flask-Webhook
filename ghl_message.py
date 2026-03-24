@@ -147,9 +147,11 @@ def send_sms_via_ghl(
     }
 
     # Resolve conversationId so the message threads correctly in GHL (green bar).
-    # Skip the lookup when OAuth creds are missing — saves a wasted HTTP call
-    # with an expired token that can never be refreshed.
-    if not conversation_id and _has_ghl_oauth_creds():
+    # The lookup function handles 401 gracefully (bails without refresh when
+    # OAuth creds are missing), so no need to gate on _has_ghl_oauth_creds()
+    # here — that would skip the lookup even when the DB-cached token is valid,
+    # causing messages from workers to not thread in GHL conversations.
+    if not conversation_id:
         conversation_id, access_token = _lookup_conversation_id(contact_id, location_id, access_token)
         # Update headers if token was refreshed during conversation lookup
         headers["Authorization"] = f"Bearer {access_token}"
