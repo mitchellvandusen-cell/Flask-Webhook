@@ -10789,15 +10789,19 @@ body.light-theme .ghl-embed-tab.active {
     padding: 10px 14px;
     border-bottom: 1px solid rgba(255,255,255,0.06);
 }
+.agency-members-table tbody tr {
+    background: transparent;
+}
 .agency-members-table tbody td {
     padding: 12px 14px;
     border-bottom: 1px solid rgba(255,255,255,0.04);
     color: #ccc;
     font-size: 0.85rem;
     vertical-align: middle;
+    background: transparent;
 }
 .agency-members-table tbody tr:hover td {
-    background: rgba(255,255,255,0.02);
+    background: rgba(255,255,255,0.04);
 }
 
 /* Status badges */
