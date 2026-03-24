@@ -37,6 +37,7 @@ def _share_creds_to_redis(marketplace_id, marketplace_secret, private_id, privat
         import json
         import extensions
         if not extensions.ensure_redis():
+            logger.warning("Cannot share OAuth creds to Redis — Redis unavailable")
             return
         creds = {}
         if marketplace_id and marketplace_secret:
@@ -71,6 +72,7 @@ def _share_creds_to_db(marketplace_id, marketplace_secret, private_id, private_s
             return
         conn = get_db_connection()
         if not conn:
+            logger.warning("Cannot persist OAuth creds to DB — no DB connection available")
             return
         try:
             cur = conn.cursor()

@@ -20,6 +20,8 @@ def _lookup_conversation_id(contact_id: str, location_id: str, access_token: str
     """
     _token_refreshed = False
     current_token = access_token
+    if not current_token or not current_token.strip():
+        return None, current_token
     try:
         resp = requests.get(
             "https://services.leadconnectorhq.com/conversations/search",
@@ -131,10 +133,14 @@ def send_sms_via_ghl(
                 cur.close()
             return_db_connection(conn)
 
-    # NOTE: We do NOT bail here when OAuth env vars are missing.  The caller's
-    # token may still be valid (not yet expired).  If the token IS expired,
-    # the 401 handler below (line ~199) bails after a single request instead
-    # of retrying 3 times — so the worst-case overhead is one fast HTTP call.
+    # When OAuth env vars are missing AND the token is empty/blank, bail
+    # immediately — there's no way to recover from a 401 and every retry
+    # is wasted time.  Non-empty tokens may still be valid (not yet expired),
+    # so only bail on the clearly-dead case.
+    if not access_token or not access_token.strip():
+        logger.warning(f"Cannot send SMS to {contact_id}: access_token is empty "
+                       f"(OAuth creds likely missing on this worker)")
+        return False, 'auth', {"status_code": 0, "response_body": "empty token", "attempts": 0}
 
     headers = {
         "Authorization": f"Bearer {access_token}",

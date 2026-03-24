@@ -64,12 +64,22 @@ def run_worker(listen_queues, worker_num):
 
     # Eagerly try loading GHL OAuth creds from Redis/DB (shared by web service).
     # This warms the cache so the first webhook doesn't hit a cold path.
+    # Retry up to 3 times with backoff — web service may still be writing
+    # creds to Redis during a simultaneous deploy.
     try:
+        import time as _t
         from ghl_api import has_oauth_credentials
-        if has_oauth_credentials():
-            logger.info("GHL OAuth credentials available — token refresh enabled")
-        else:
-            logger.warning("GHL OAuth credentials not yet available (Redis/DB) — will re-check on demand")
+        _creds_found = False
+        for _attempt in range(3):
+            if has_oauth_credentials(force_recheck=(_attempt > 0)):
+                logger.info("GHL OAuth credentials available — token refresh enabled")
+                _creds_found = True
+                break
+            if _attempt < 2:
+                _t.sleep(2)  # Wait for web service to publish creds
+        if not _creds_found:
+            logger.warning("GHL OAuth credentials not available after 3 checks (Redis/DB) — "
+                          "will re-check on demand per webhook")
     except Exception as e:
         logger.warning(f"Could not pre-load OAuth credentials: {e}")
 
