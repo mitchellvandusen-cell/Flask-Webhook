@@ -470,8 +470,8 @@ def meet_schedule():
         if err:
             return flask_jsonify({"error": err}), 500
 
-    # If no email but phone provided, SMS the Meet link
-    if result and result["meet_link"] and attendee_phone and not attendee_email:
+    # SMS the Meet link if phone provided (belt and suspenders — email gets calendar invite, SMS is backup)
+    if result and result["meet_link"] and attendee_phone:
         try:
             from twilio_sms import send_sms_via_twilio
             from db import get_subscriber_info_hybrid

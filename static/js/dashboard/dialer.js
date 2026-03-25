@@ -3848,7 +3848,14 @@
                 }
                 if (d.meet_link) {
                     window.open(d.meet_link, '_blank');
-                    _showDashToast(true, 'Google Meet started' + (d.sms_sent ? ' — link sent via SMS' : ''));
+                    if (d.sms_sent) {
+                        _showDashToast(true, 'Google Meet started — link sent via SMS');
+                    } else if (email) {
+                        _showDashToast(true, 'Google Meet started — calendar invite sent to ' + email);
+                    } else {
+                        // No SMS and no email — show link so agent can share verbally
+                        _showDashToast(false, 'Meet started — share link with lead: ' + d.meet_link);
+                    }
                 }
             } catch(e) {
                 _showDashToast(false, 'Network error creating Meet');
