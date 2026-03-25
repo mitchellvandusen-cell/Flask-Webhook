@@ -934,10 +934,7 @@ def oauth_callback():
                 f"primary_location_id={primary_location_id}"
             )
             if use_agency_flow:
-                # Agency owners are FREE — no seat caps, no subscription required.
-                # They download to appear on agents' GHL sidebars. Agents pay individually.
-                max_seats = 9999
-                active_seats = 0
+                # Agency owners are FREE — no subscription required.
                 app_type = 'private' if is_private_app else ('website' if is_website_user else 'marketplace')
 
                 # For agency owners with no locationId, use companyId as location_id
@@ -981,9 +978,8 @@ def oauth_callback():
                     INSERT INTO agency_billing (
                         agency_email, company_id, company_name,
                         company_owner_name, company_owner_email, company_owner_phone,
-                        max_seats, active_seats,
                         created_at, updated_at
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                    ) VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())
                     ON CONFLICT (agency_email) DO UPDATE SET
                         company_id = COALESCE(EXCLUDED.company_id, agency_billing.company_id),
                         company_name = COALESCE(EXCLUDED.company_name, agency_billing.company_name),
@@ -998,7 +994,6 @@ def oauth_callback():
                     company_metadata.get('company_owner_name'),
                     company_metadata.get('company_owner_email'),
                     company_metadata.get('company_owner_phone'),
-                    max_seats, active_seats,
                 ))
 
                 # Auto-populate white-label branding from GHL company name

@@ -332,14 +332,11 @@ def stripe_webhook():
                           '', 'Grok', 'America/Chicago'))
 
                     if target_role == "agency_owner":
-                        max_seats = 10 if target_tier == "starter" else 9999
                         cur.execute("""
-                            INSERT INTO agency_billing (agency_email, subscription_tier, max_seats, active_seats)
-                            VALUES (%s, %s, %s, 0)
-                            ON CONFLICT (agency_email) DO UPDATE SET
-                                subscription_tier = EXCLUDED.subscription_tier,
-                                max_seats = EXCLUDED.max_seats;
-                        """, (email, target_tier, max_seats))
+                            INSERT INTO agency_billing (agency_email)
+                            VALUES (%s)
+                            ON CONFLICT (agency_email) DO NOTHING;
+                        """, (email,))
 
                     conn.commit()
                     logger.info(f"Provisioned {target_tier.upper()} {target_role} account for: {email}")
