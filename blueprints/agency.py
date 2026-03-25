@@ -910,7 +910,7 @@ def agency_call_log():
 
         cur.execute(f"""
             SELECT ch.call_sid, ch.location_id, ch.contact_id, ch.contact_name,
-                   ch.direction, ch.status, ch.duration, ch.from_number, ch.to_number,
+                   ch.direction, ch.status, ch.duration, ch.from_number, ch.phone,
                    ch.created_at, ch.recording_url, ch.transcript,
                    COALESCE(ch.stir_status, '') AS stir_status,
                    s.full_name AS agent_name, s.email AS agent_email
@@ -932,7 +932,7 @@ def agency_call_log():
                 "status": row['status'],
                 "duration": row['duration'] or 0,
                 "from_number": row['from_number'],
-                "to_number": row['to_number'],
+                "to_number": row.get('phone', ''),
                 "created_at": row['created_at'].isoformat() + "Z" if row['created_at'] else None,
                 "has_recording": bool(row['recording_url']),
                 "has_transcript": bool(row['transcript']),
