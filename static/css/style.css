@@ -9150,11 +9150,16 @@ body.light-theme .dlr-btn-ios-delete:hover { background:rgba(220,38,38,0.25); }
 .chr-action-tx { background: rgba(74,222,128,0.15) !important; color: #4ade80 !important; border: 1px solid rgba(74,222,128,0.28) !important; }
 .chr-action-transcribe { background: rgba(255,180,0,0.15) !important; color: #ffb400 !important; border: 1px solid rgba(255,180,0,0.28) !important; }
 .chr-action-callback { background: rgba(74,222,128,0.15) !important; color: #4ade80 !important; border: 1px solid rgba(74,222,128,0.28) !important; margin-left: auto; }
-/* Light theme — solid pastel backgrounds with readable text */
+/* Light theme — solid pastel backgrounds. Triple-class specificity to beat .iphone-frame .ios-app-view color override */
+body.light-theme .iphone-frame .chr-action-play,
 body.light-theme .chr-action-play { background: #e8f4fd !important; color: #0077a8 !important; border: 1px solid #c5e3f3 !important; }
+body.light-theme .iphone-frame .chr-action-dl,
 body.light-theme .chr-action-dl { background: #e6f7ed !important; color: #007a3d !important; border: 1px solid #c2ebd3 !important; }
+body.light-theme .iphone-frame .chr-action-tx,
 body.light-theme .chr-action-tx { background: #e6f7ed !important; color: #007a3d !important; border: 1px solid #c2ebd3 !important; }
+body.light-theme .iphone-frame .chr-action-transcribe,
 body.light-theme .chr-action-transcribe { background: #fff4de !important; color: #8a6300 !important; border: 1px solid #f0deb0 !important; }
+body.light-theme .iphone-frame .chr-action-callback,
 body.light-theme .chr-action-callback { background: #e6f7ed !important; color: #007a3d !important; border: 1px solid #c2ebd3 !important; }
 body.light-theme .chr-action-btn:hover { transform: scale(1.05); }
 .stir-badge {
