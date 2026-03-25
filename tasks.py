@@ -2120,14 +2120,14 @@ def provision_agency_subaccounts_task(agency_email, company_id):
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
-        # Get agency's Company token from agency_billing (single source of truth)
+        # Get agency's Company token from subscribers (single source of truth)
         cur.execute(
-            "SELECT access_token, refresh_token FROM agency_billing WHERE LOWER(agency_email) = LOWER(%s)",
+            "SELECT access_token, refresh_token FROM subscribers WHERE LOWER(email) = LOWER(%s) AND role = 'agency_owner'",
             (agency_email,)
         )
         agency = cur.fetchone()
         if not agency or not agency.get('access_token'):
-            logger.error(f"[agency-provision] No agency_billing row or token for {agency_email}")
+            logger.error(f"[agency-provision] No subscriber row or token for agency {agency_email}")
             return {"error": "no_agency_token"}
 
         company_token = decrypt_token(agency['access_token'])

@@ -189,7 +189,7 @@ def forgot_password():
             if conn:
                 try:
                     cur = conn.cursor(cursor_factory=RealDictCursor)
-                    cur.execute("SELECT agency_email FROM agency_billing WHERE agency_email = %s", (email,))
+                    cur.execute("SELECT email FROM subscribers WHERE LOWER(email) = LOWER(%s)", (email,))
                     user = cur.fetchone()
                 except Exception:
                     pass
@@ -248,10 +248,6 @@ def reset_password(token):
             UPDATE subscribers SET password_hash = %s, updated_at = NOW()
             WHERE LOWER(email) = %s
         """, (password_hash, email.lower()))
-        cur.execute("""
-            UPDATE agency_billing SET password_hash = %s, updated_at = NOW()
-            WHERE LOWER(agency_email) = %s
-        """, (password_hash, email.lower()))
         conn.commit()
         logger.info(f"Password reset completed for {email}")
         flash("Password reset successfully! You can now log in.", "success")
@@ -298,20 +294,13 @@ def set_password():
 
     try:
         cur = conn.cursor()
-        if current_user.role == 'agency_owner':
-            cur.execute("""
-                UPDATE agency_billing
-                SET password_hash = %s, updated_at = NOW()
-                WHERE agency_email = %s
-            """, (password_hash, current_user.email))
-        else:
-            cur.execute("""
-                UPDATE subscribers
-                SET password_hash = %s,
-                    onboarding_status = 'claimed',
-                    updated_at = NOW()
-                WHERE email = %s
-            """, (password_hash, current_user.email))
+        cur.execute("""
+            UPDATE subscribers
+            SET password_hash = %s,
+                onboarding_status = 'claimed',
+                updated_at = NOW()
+            WHERE email = %s
+        """, (password_hash, current_user.email))
         conn.commit()
         logger.info(f"Password set for {current_user.email} ({current_user.role})")
         logout_user()

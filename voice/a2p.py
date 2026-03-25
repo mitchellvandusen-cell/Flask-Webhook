@@ -261,17 +261,10 @@ def _save_a2p_to_voice_config(subscriber, vc, a2p):
         vc = vc or {}
         vc['a2p'] = a2p
         email = (subscriber or {}).get('email', '')
-        is_agency = getattr(current_user, 'role', '') == 'agency_owner'
-        if is_agency:
-            cur.execute(
-                "UPDATE agency_billing SET voice_config = %s::jsonb, updated_at = NOW() WHERE agency_email = %s",
-                (_json.dumps(vc), email)
-            )
-        else:
-            cur.execute(
-                "UPDATE subscribers SET voice_config = %s::jsonb, updated_at = NOW() WHERE email = %s",
-                (_json.dumps(vc), email)
-            )
+        cur.execute(
+            "UPDATE subscribers SET voice_config = %s::jsonb, updated_at = NOW() WHERE email = %s",
+            (_json.dumps(vc), email)
+        )
         conn.commit()
         cur.close()
     except Exception as e:

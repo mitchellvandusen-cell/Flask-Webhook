@@ -940,61 +940,7 @@ def oauth_callback():
                 # so they can log in and use the dashboard
                 agency_location_id = primary_location_id or company_id
 
-                cur.execute("""
-                    INSERT INTO agency_billing (
-                        agency_email, location_id, full_name, subscription_tier,
-                        max_seats, active_seats, access_token, refresh_token,
-                        token_expires_at, timezone, crm_user_id, crm_email,
-                        oauth_app_type,
-                        company_id, company_name, company_owner_name,
-                        company_owner_email, company_owner_phone,
-                        created_at, updated_at
-                    ) VALUES (
-                        %s, %s, %s, %s, %s, %s, %s, %s,
-                        NOW() + interval '%s seconds', %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s,
-                        NOW(), NOW()
-                    )
-                    ON CONFLICT (agency_email) DO UPDATE SET
-                        location_id = COALESCE(EXCLUDED.location_id, agency_billing.location_id),
-                        access_token = EXCLUDED.access_token,
-                        refresh_token = EXCLUDED.refresh_token,
-                        token_expires_at = EXCLUDED.token_expires_at,
-                        crm_user_id = COALESCE(EXCLUDED.crm_user_id, agency_billing.crm_user_id),
-                        crm_email = EXCLUDED.crm_email,
-                        oauth_app_type = EXCLUDED.oauth_app_type,
-                        company_id = COALESCE(EXCLUDED.company_id, agency_billing.company_id),
-                        company_name = COALESCE(EXCLUDED.company_name, agency_billing.company_name),
-                        company_owner_name = COALESCE(EXCLUDED.company_owner_name, agency_billing.company_owner_name),
-                        company_owner_email = COALESCE(EXCLUDED.company_owner_email, agency_billing.company_owner_email),
-                        company_owner_phone = COALESCE(EXCLUDED.company_owner_phone, agency_billing.company_owner_phone),
-                        updated_at = NOW()
-                """, (
-                    user_email, agency_location_id, primary_name, plan_tier,
-                    max_seats, active_seats, enc_access_token, enc_refresh_token,
-                    expires_in, primary_timezone or 'America/Chicago', me_data.get('id'),
-                    crm_email_resolved, app_type,
-                    company_metadata.get('company_id') or company_id,
-                    company_metadata.get('company_name'),
-                    company_metadata.get('company_owner_name'),
-                    company_metadata.get('company_owner_email'),
-                    company_metadata.get('company_owner_phone'),
-                ))
-
-                # Auto-populate white-label branding from GHL company name
-                # so agency agents immediately see agency branding on install
-                _wl_company = company_metadata.get('company_name')
-                if _wl_company:
-                    cur.execute("""
-                        UPDATE agency_billing
-                        SET whitelabel_config = COALESCE(whitelabel_config, '{}'::jsonb) || %s::jsonb
-                        WHERE agency_email = %s
-                          AND (whitelabel_config IS NULL OR NOT (whitelabel_config ? 'company_name'))
-                    """, (json.dumps({'company_name': _wl_company}), user_email))
-                    logger.info(f"Auto-set white-label company_name='{_wl_company}' for {user_email}")
-
-                # Also upsert subscribers row so all operational code works
-                # (dialer, voice, webhooks, token refresh all query subscribers)
+                # SUBSCRIBERS FIRST (single source of truth for all operational data)
                 cur.execute("""
                     INSERT INTO subscribers (
                         email, location_id, full_name, role,
@@ -1025,7 +971,43 @@ def oauth_callback():
                     crm_email_resolved, app_type,
                     company_metadata.get('company_id') or company_id,
                 ))
-                logger.info(f"Agency owner {user_email} synced to both agency_billing and subscribers")
+
+                # THIN agency_billing: only agency-specific metadata (FK depends on subscribers.email)
+                cur.execute("""
+                    INSERT INTO agency_billing (
+                        agency_email, company_id, company_name,
+                        company_owner_name, company_owner_email, company_owner_phone,
+                        max_seats, active_seats,
+                        created_at, updated_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                    ON CONFLICT (agency_email) DO UPDATE SET
+                        company_id = COALESCE(EXCLUDED.company_id, agency_billing.company_id),
+                        company_name = COALESCE(EXCLUDED.company_name, agency_billing.company_name),
+                        company_owner_name = COALESCE(EXCLUDED.company_owner_name, agency_billing.company_owner_name),
+                        company_owner_email = COALESCE(EXCLUDED.company_owner_email, agency_billing.company_owner_email),
+                        company_owner_phone = COALESCE(EXCLUDED.company_owner_phone, agency_billing.company_owner_phone),
+                        updated_at = NOW()
+                """, (
+                    user_email,
+                    company_metadata.get('company_id') or company_id,
+                    company_metadata.get('company_name'),
+                    company_metadata.get('company_owner_name'),
+                    company_metadata.get('company_owner_email'),
+                    company_metadata.get('company_owner_phone'),
+                    max_seats, active_seats,
+                ))
+
+                # Auto-populate white-label branding from GHL company name
+                _wl_company = company_metadata.get('company_name')
+                if _wl_company:
+                    cur.execute("""
+                        UPDATE agency_billing
+                        SET whitelabel_config = COALESCE(whitelabel_config, '{}'::jsonb) || %s::jsonb
+                        WHERE agency_email = %s
+                          AND (whitelabel_config IS NULL OR NOT (whitelabel_config ? 'company_name'))
+                    """, (json.dumps({'company_name': _wl_company}), user_email))
+
+                logger.info(f"Agency owner {user_email}: subscribers (operational) + agency_billing (metadata)")
 
                 # Queue background task to discover + provision all sub-accounts.
                 # This avoids OAuth callback timeout and GHL rate limits (40 req/10s).

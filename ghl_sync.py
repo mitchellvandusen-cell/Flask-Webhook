@@ -643,13 +643,6 @@ def sync_ghl_phone_numbers(location_id, access_token=None):
                     WHERE location_id = %s
                 """, (json.dumps({"ghl_numbers": numbers}), location_id))
 
-                # Also update agency_billing if exists
-                cur.execute("""
-                    UPDATE agency_billing
-                    SET voice_config = voice_config || %s::jsonb
-                    WHERE location_id = %s
-                """, (json.dumps({"ghl_numbers": numbers}), location_id))
-
                 conn.commit()
                 cur.close()
                 logger.info(f"[GHL_SYNC] {location_id} | phone_numbers | stored {len(numbers)} numbers")
@@ -888,11 +881,8 @@ def sync_location_task(location_id):
         cur.execute("""
             SELECT location_id, access_token, refresh_token, token_expires_at
             FROM subscribers WHERE location_id = %s
-            UNION ALL
-            SELECT location_id, access_token, refresh_token, token_expires_at
-            FROM agency_billing WHERE location_id = %s
             LIMIT 1
-        """, (location_id, location_id))
+        """, (location_id,))
         row = cur.fetchone()
         cur.close()
     except Exception as e:
@@ -938,12 +928,6 @@ def run_incremental_sync_all():
         cur.execute("""
             SELECT location_id, access_token, refresh_token, token_expires_at
             FROM subscribers
-            WHERE location_id IS NOT NULL
-              AND access_token IS NOT NULL
-              AND stripe_status IN ('active', 'trialing')
-            UNION ALL
-            SELECT location_id, access_token, refresh_token, token_expires_at
-            FROM agency_billing
             WHERE location_id IS NOT NULL
               AND access_token IS NOT NULL
               AND stripe_status IN ('active', 'trialing')

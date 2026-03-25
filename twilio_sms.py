@@ -171,14 +171,6 @@ def get_twilio_credentials(location_id):
         """, (location_id,))
         row = cur.fetchone()
 
-        if not row:
-            # Check agency_billing
-            cur.execute("""
-                SELECT voice_config, sms_send_via FROM agency_billing
-                WHERE location_id = %s LIMIT 1
-            """, (location_id,))
-            row = cur.fetchone()
-
         cur.close()
 
         if not row:

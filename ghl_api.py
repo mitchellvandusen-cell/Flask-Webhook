@@ -450,7 +450,7 @@ def get_valid_token(location_id: str, subscriber: dict = None) -> str | None:
                 if _conn:
                     _cur = _conn.cursor(cursor_factory=_RDC)
                     _cur.execute(
-                        "SELECT access_token FROM agency_billing WHERE LOWER(agency_email) = LOWER(%s)",
+                        "SELECT access_token FROM subscribers WHERE LOWER(email) = LOWER(%s) AND role = 'agency_owner'",
                         (parent_email,)
                     )
                     _agency = _cur.fetchone()
@@ -655,7 +655,7 @@ def get_valid_token_with_status(location_id: str, subscriber: dict = None,
                 if _conn:
                     _cur = _conn.cursor(cursor_factory=_RDC)
                     _cur.execute(
-                        "SELECT access_token FROM agency_billing WHERE LOWER(agency_email) = LOWER(%s)",
+                        "SELECT access_token FROM subscribers WHERE LOWER(email) = LOWER(%s) AND role = 'agency_owner'",
                         (parent_email,)
                     )
                     _agency = _cur.fetchone()
@@ -837,9 +837,7 @@ def refresh_tokens_proactively(buffer_minutes: int = 60):
 
     try:
         cur = conn.cursor()
-        # Find tokens expiring soon from BOTH subscribers and agency_billing tables.
-        # Agency owners have tokens in agency_billing — without this UNION their
-        # tokens would never be proactively refreshed.
+        # Find tokens expiring soon — subscribers is single source of truth
         cur.execute("""
             SELECT location_id, email, oauth_app_type, access_token, refresh_token,
                    token_expires_at
@@ -848,15 +846,7 @@ def refresh_tokens_proactively(buffer_minutes: int = 60):
               AND token_expires_at IS NOT NULL
               AND token_expires_at < NOW() + make_interval(mins => %s)
               AND token_expires_at > NOW() - interval '7 days'
-            UNION ALL
-            SELECT location_id, agency_email AS email, oauth_app_type, access_token,
-                   refresh_token, token_expires_at
-            FROM agency_billing
-            WHERE refresh_token IS NOT NULL
-              AND token_expires_at IS NOT NULL
-              AND token_expires_at < NOW() + make_interval(mins => %s)
-              AND token_expires_at > NOW() - interval '7 days'
-        """, (buffer_minutes, buffer_minutes))
+        """, (buffer_minutes,))
         expiring = cur.fetchall()
         cur.close()
     except Exception as e:

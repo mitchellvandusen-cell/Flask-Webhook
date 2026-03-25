@@ -370,18 +370,11 @@ def save_profile():
         return flask_jsonify({"error": "Database error"}), 500
     try:
         cur = conn.cursor()
-        if current_user.role == 'agency_owner':
-            cur.execute("""
-                UPDATE agency_billing
-                SET full_name = %s, phone = %s, bio = %s, updated_at = NOW()
-                WHERE agency_email = %s
-            """, (data.get('name'), data.get('phone'), data.get('bio'), current_user.email))
-        else:
-            cur.execute("""
-                UPDATE subscribers
-                SET full_name = %s, phone = %s, bio = %s, updated_at = NOW()
-                WHERE email = %s
-            """, (data.get('name'), data.get('phone'), data.get('bio'), current_user.email))
+        cur.execute("""
+            UPDATE subscribers
+            SET full_name = %s, phone = %s, bio = %s, updated_at = NOW()
+            WHERE email = %s
+        """, (data.get('name'), data.get('phone'), data.get('bio'), current_user.email))
         conn.commit()
         return flask_jsonify({"status": "success", "message": "Profile updated"})
     except Exception as e:
@@ -402,10 +395,7 @@ def get_voice_config():
         return flask_jsonify({"error": "Database error"}), 500
     try:
         cur = conn.cursor()
-        if current_user.role == 'agency_owner':
-            cur.execute("SELECT voice_config FROM agency_billing WHERE agency_email = %s", (current_user.email,))
-        else:
-            cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
+        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
         row    = cur.fetchone()
         cur.close()
         config = (row['voice_config'] if row else {}) or {}
@@ -432,10 +422,7 @@ def save_voice_config():
     existing_vc = {}
     try:
         cur = conn.cursor()
-        if is_agency:
-            cur.execute("SELECT voice_config FROM agency_billing WHERE agency_email = %s", (current_user.email,))
-        else:
-            cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
+        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
         row = cur.fetchone()
         cur.close()
         if row and row['voice_config']:
@@ -533,18 +520,11 @@ def save_voice_config():
         return flask_jsonify({"error": "Database error"}), 500
     try:
         cur = conn.cursor()
-        if is_agency:
-            cur.execute("""
-                UPDATE agency_billing
-                SET voice_config = %s::jsonb, updated_at = NOW()
-                WHERE agency_email = %s
-            """, (json.dumps(voice_config), current_user.email))
-        else:
-            cur.execute("""
-                UPDATE subscribers
-                SET voice_config = %s::jsonb, updated_at = NOW()
-                WHERE email = %s
-            """, (json.dumps(voice_config), current_user.email))
+        cur.execute("""
+            UPDATE subscribers
+            SET voice_config = %s::jsonb, updated_at = NOW()
+            WHERE email = %s
+        """, (json.dumps(voice_config), current_user.email))
         rows_updated = cur.rowcount
         conn.commit()
         cur.close()
@@ -730,12 +710,6 @@ def api_status_endpoint():
             FROM subscribers WHERE email = %s LIMIT 1
         """, (current_user.email,))
         row = cur.fetchone()
-        if not row:
-            cur.execute("""
-                SELECT api_key, webhook_secret, outbound_webhook_url, api_key_created_at
-                FROM agency_billing WHERE agency_email = %s LIMIT 1
-            """, (current_user.email,))
-            row = cur.fetchone()
         cur.close()
         if not row:
             return flask_jsonify({"has_key": False})
@@ -776,57 +750,30 @@ def api_save_config():
 
         sms_send_via = data.get('sms_send_via', 'ghl')
 
-        if current_user.role == 'agency_owner':
-            cur.execute("""
-                UPDATE agency_billing
-                SET location_id      = %s,
-                    calendar_id      = %s,
-                    calendar_name    = %s,
-                    crm_user_id      = %s,
-                    bot_first_name   = %s,
-                    timezone         = %s,
-                    initial_message  = %s,
-                    personal_website = %s,
-                    sms_send_via     = %s,
-                    updated_at       = NOW()
-                WHERE agency_email = %s
-            """, (
-                data.get('location_id', ''),
-                data.get('calendar_id', ''),
-                calendar_name,
-                data.get('crm_user_id', ''),
-                data.get('bot_name', ''),
-                data.get('timezone', ''),
-                data.get('initial_message', ''),
-                data.get('personal_website') or None,
-                sms_send_via,
-                current_user.email,
-            ))
-        else:
-            cur.execute("""
-                UPDATE subscribers
-                SET location_id      = %s,
-                    calendar_id      = %s,
-                    calendar_name    = %s,
-                    crm_user_id      = %s,
-                    bot_first_name   = %s,
-                    timezone         = %s,
-                    initial_message  = %s,
-                    personal_website = %s,
-                    sms_send_via     = %s,
-                    updated_at       = NOW()
-                WHERE email = %s
-            """, (
-                data.get('location_id', ''),
-                data.get('calendar_id', ''),
-                calendar_name,
-                data.get('crm_user_id', ''),
-                data.get('bot_name', ''),
-                data.get('timezone', ''),
-                data.get('initial_message', ''),
-                data.get('personal_website') or None,
-                sms_send_via,
-                current_user.email,
+        cur.execute("""
+            UPDATE subscribers
+            SET location_id      = %s,
+                calendar_id      = %s,
+                calendar_name    = %s,
+                crm_user_id      = %s,
+                bot_first_name   = %s,
+                timezone         = %s,
+                initial_message  = %s,
+                personal_website = %s,
+                sms_send_via     = %s,
+                updated_at       = NOW()
+            WHERE email = %s
+        """, (
+            data.get('location_id', ''),
+            data.get('calendar_id', ''),
+            calendar_name,
+            data.get('crm_user_id', ''),
+            data.get('bot_name', ''),
+            data.get('timezone', ''),
+            data.get('initial_message', ''),
+            data.get('personal_website') or None,
+            sms_send_via,
+            current_user.email,
             ))
 
         rows = cur.rowcount
@@ -872,16 +819,10 @@ def save_integration_config():
 
     try:
         cur = conn.cursor()
-        if current_user.role == 'agency_owner':
-            cur.execute("""
-                UPDATE agency_billing SET crm_type = %s, crm_config = %s, updated_at = NOW()
-                WHERE agency_email = %s
-            """, (crm_type, json.dumps(crm_config), current_user.email))
-        else:
-            cur.execute("""
-                UPDATE subscribers SET crm_type = %s, crm_config = %s, updated_at = NOW()
-                WHERE email = %s
-            """, (crm_type, json.dumps(crm_config), current_user.email))
+        cur.execute("""
+            UPDATE subscribers SET crm_type = %s, crm_config = %s, updated_at = NOW()
+            WHERE email = %s
+        """, (crm_type, json.dumps(crm_config), current_user.email))
 
         conn.commit()
         logger.info(f"Integration saved: {crm_type} for {current_user.email}")
@@ -1020,9 +961,7 @@ def api_set_language():
     result = None
     try:
         cur = conn.cursor()
-        table = "agency_billing" if current_user.role == 'agency_owner' else "subscribers"
-        id_col = "agency_email" if current_user.role == 'agency_owner' else "email"
-        cur.execute(f"UPDATE {table} SET preferred_language = %s WHERE {id_col} = %s",
+        cur.execute("UPDATE subscribers SET preferred_language = %s WHERE email = %s",
                     (lang, current_user.email))
         conn.commit()
         cur.close()

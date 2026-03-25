@@ -642,7 +642,7 @@ def mark_failed_webhook_retried(payload_id: int, success: bool,
 
 class User(UserMixin):
     def __init__(self, data: dict):
-        # Core identification (works for both agency_billing and subscribers)
+        # Core identification (subscribers is single source of truth)
         self.email = data.get('agency_email') or data.get('email')
         self.id = self.email  # Flask-Login requires this
 
@@ -1110,7 +1110,7 @@ def clean_subaccount_contamination() -> dict:
 # --- Helper Functions ---
 
 def get_subscriber_info_sql(location_id: str) -> Optional[Dict[str, Any]]:
-    """Direct SQL lookup for subscriber by location_id. Falls back to agency_billing."""
+    """Direct SQL lookup for subscriber by location_id."""
     conn = get_db_connection()
     if not conn:
         return None
@@ -1385,11 +1385,7 @@ def update_crm_config_token(location_id: str, access_token: str) -> bool:
 
 
 def get_subscribers_needing_token_refresh() -> list:
-    """
-    Get all users whose OAuth tokens expire within the next 2 hours.
-    Checks BOTH subscribers and agency_billing tables so agency owners
-    get their tokens refreshed too.
-    """
+    """Get all users whose OAuth tokens expire within the next 2 hours."""
     conn = get_db_connection()
     if not conn:
         return []
@@ -1403,15 +1399,6 @@ def get_subscribers_needing_token_refresh() -> list:
               AND token_expires_at IS NOT NULL
               AND token_expires_at < NOW() + interval '2 hours'
               AND token_expires_at > NOW() - interval '30 days'
-            UNION ALL
-            SELECT location_id, access_token, refresh_token, token_expires_at, oauth_app_type
-            FROM agency_billing
-            WHERE refresh_token IS NOT NULL
-              AND refresh_token != ''
-              AND token_expires_at IS NOT NULL
-              AND token_expires_at < NOW() + interval '2 hours'
-              AND token_expires_at > NOW() - interval '30 days'
-              AND location_id NOT IN (SELECT location_id FROM subscribers WHERE location_id IS NOT NULL)
             ORDER BY token_expires_at ASC
         """)
         rows = cur.fetchall()
@@ -1463,32 +1450,8 @@ def get_users_needing_reminders() -> list:
         """)
         individual_rows = cur.fetchall()
 
-        # Agency owners
-        cur.execute("""
-            SELECT agency_email as email, full_name, location_id, access_token,
-                   stripe_customer_id, calendar_id, crm_user_id,
-                   reminder_24h_sent, reminder_72h_sent,
-                   COALESCE(install_completed_at, created_at) as ref_time,
-                   'agency_owner' as user_type
-            FROM agency_billing
-            WHERE (
-                  stripe_customer_id IS NULL
-                  OR access_token IS NULL
-                  OR location_id LIKE 'temp_%%'
-                  OR calendar_id IS NULL
-                  )
-              AND agency_email IS NOT NULL
-              AND COALESCE(email_unsubscribed, FALSE) = FALSE
-              AND (
-                  (reminder_24h_sent = FALSE AND COALESCE(install_completed_at, created_at) <= NOW() - INTERVAL '24 hours')
-                  OR
-                  (reminder_72h_sent = FALSE AND COALESCE(install_completed_at, created_at) <= NOW() - INTERVAL '72 hours')
-              )
-        """)
-        agency_rows = cur.fetchall()
-
         results = []
-        for row in list(individual_rows) + list(agency_rows):
+        for row in list(individual_rows):
             r = dict(row)
             ref_time = r.get("ref_time")
             if not ref_time:
@@ -1535,10 +1498,7 @@ def mark_reminder_sent(email: str, reminder_type: str, user_type: str = "individ
     try:
         cur = conn.cursor()
         col = "reminder_24h_sent" if reminder_type == "24h" else "reminder_72h_sent"
-        if user_type == "agency_owner":
-            cur.execute(f"UPDATE agency_billing SET {col} = TRUE WHERE agency_email = %s", (email,))
-        else:
-            cur.execute(f"UPDATE subscribers SET {col} = TRUE WHERE email = %s", (email,))
+        cur.execute(f"UPDATE subscribers SET {col} = TRUE WHERE email = %s", (email,))
         conn.commit()
         success = cur.rowcount > 0
         cur.close()
@@ -1559,7 +1519,6 @@ def mark_email_unsubscribed(email: str) -> bool:
     try:
         cur = conn.cursor()
         cur.execute("UPDATE subscribers SET email_unsubscribed = TRUE WHERE email = %s", (email,))
-        cur.execute("UPDATE agency_billing SET email_unsubscribed = TRUE WHERE agency_email = %s", (email,))
         conn.commit()
         success = cur.rowcount > 0
         cur.close()
@@ -1907,11 +1866,6 @@ def save_contracted_carriers(email: str, carriers: list) -> bool:
             UPDATE subscribers SET contracted_carriers = %s, updated_at = NOW()
             WHERE email = %s
         """, (carriers_json, email))
-        # Also sync agency_billing for agency owners
-        cur.execute("""
-            UPDATE agency_billing SET contracted_carriers = %s, updated_at = NOW()
-            WHERE agency_email = %s
-        """, (carriers_json, email))
         conn.commit()
         cur.close()
         return True
@@ -1932,9 +1886,6 @@ def get_contracted_carriers(email: str) -> list:
         cur = conn.cursor()
         cur.execute("SELECT contracted_carriers FROM subscribers WHERE email = %s LIMIT 1", (email,))
         row = cur.fetchone()
-        if not row:
-            cur.execute("SELECT contracted_carriers FROM agency_billing WHERE agency_email = %s LIMIT 1", (email,))
-            row = cur.fetchone()
         cur.close()
         if row and row.get('contracted_carriers'):
             carriers = row['contracted_carriers']
@@ -1983,9 +1934,6 @@ def get_bot_settings(email: str) -> dict:
         cur = conn.cursor()
         cur.execute("SELECT bot_settings FROM subscribers WHERE email = %s LIMIT 1", (email,))
         row = cur.fetchone()
-        if not row:
-            cur.execute("SELECT bot_settings FROM agency_billing WHERE agency_email = %s LIMIT 1", (email,))
-            row = cur.fetchone()
         cur.close()
         stored = {}
         if row and row.get('bot_settings'):
@@ -2012,9 +1960,6 @@ def get_bot_settings_by_location(location_id: str) -> dict:
         cur = conn.cursor()
         cur.execute("SELECT bot_settings FROM subscribers WHERE location_id = %s LIMIT 1", (location_id,))
         row = cur.fetchone()
-        if not row:
-            cur.execute("SELECT bot_settings FROM agency_billing WHERE location_id = %s LIMIT 1", (location_id,))
-            row = cur.fetchone()
         cur.close()
         stored = {}
         if row and row.get('bot_settings'):
@@ -2042,11 +1987,6 @@ def save_bot_settings(email: str, settings: dict) -> bool:
         cur.execute("""
             UPDATE subscribers SET bot_settings = %s, updated_at = NOW()
             WHERE email = %s
-        """, (settings_json, email))
-        # Also sync agency_billing for agency owners
-        cur.execute("""
-            UPDATE agency_billing SET bot_settings = %s, updated_at = NOW()
-            WHERE agency_email = %s
         """, (settings_json, email))
         conn.commit()
         cur.close()
@@ -2090,18 +2030,11 @@ def create_api_key_for_user(email: str) -> dict:
         return {"error": "Database unavailable"}
     try:
         cur = conn.cursor()
-        # Try subscribers first
         cur.execute("""
             UPDATE subscribers
             SET api_key = %s, webhook_secret = %s, api_key_created_at = NOW(), updated_at = NOW()
             WHERE email = %s
         """, (api_key, webhook_secret, email))
-        if cur.rowcount == 0:
-            cur.execute("""
-                UPDATE agency_billing
-                SET api_key = %s, webhook_secret = %s, api_key_created_at = NOW(), updated_at = NOW()
-                WHERE agency_email = %s
-            """, (api_key, webhook_secret, email))
         conn.commit()
         cur.close()
         return {"api_key": api_key, "webhook_secret": webhook_secret}
@@ -2124,11 +2057,6 @@ def revoke_api_key(email: str) -> bool:
             UPDATE subscribers SET api_key = NULL, webhook_secret = NULL, updated_at = NOW()
             WHERE email = %s
         """, (email,))
-        if cur.rowcount == 0:
-            cur.execute("""
-                UPDATE agency_billing SET api_key = NULL, webhook_secret = NULL, updated_at = NOW()
-                WHERE agency_email = %s
-            """, (email,))
         conn.commit()
         cur.close()
         return True
@@ -2247,11 +2175,6 @@ def save_outbound_webhook_url(email: str, url: str) -> bool:
             UPDATE subscribers SET outbound_webhook_url = %s, updated_at = NOW()
             WHERE email = %s
         """, (url, email))
-        if cur.rowcount == 0:
-            cur.execute("""
-                UPDATE agency_billing SET outbound_webhook_url = %s, updated_at = NOW()
-                WHERE agency_email = %s
-            """, (url, email))
         conn.commit()
         cur.close()
         return True
@@ -2272,9 +2195,6 @@ def get_subscriber_by_api_key(api_key: str) -> dict:
         cur = conn.cursor()
         cur.execute("SELECT * FROM subscribers WHERE api_key = %s LIMIT 1", (api_key,))
         row = cur.fetchone()
-        if not row:
-            cur.execute("SELECT * FROM agency_billing WHERE api_key = %s LIMIT 1", (api_key,))
-            row = cur.fetchone()
         cur.close()
         return dict(row) if row else None
     except Exception as e:
@@ -2978,13 +2898,6 @@ def save_google_calendar_config(location_id: str, config: dict) -> bool:
                 updated_at = NOW()
             WHERE location_id = %s
         """, (_json.dumps(config), location_id))
-        if cur.rowcount == 0:
-            cur.execute("""
-                UPDATE agency_billing
-                SET google_calendar_config = %s::jsonb,
-                    updated_at = NOW()
-                WHERE location_id = %s
-            """, (_json.dumps(config), location_id))
         conn.commit()
         cur.close()
         return True
@@ -3007,11 +2920,6 @@ def get_google_calendar_config(location_id: str) -> dict:
             SELECT google_calendar_config FROM subscribers WHERE location_id = %s
         """, (location_id,))
         row = cur.fetchone()
-        if not row:
-            cur.execute("""
-                SELECT google_calendar_config FROM agency_billing WHERE location_id = %s
-            """, (location_id,))
-            row = cur.fetchone()
         cur.close()
         return dict(row['google_calendar_config']) if row and row.get('google_calendar_config') else {}
     except Exception as e:
