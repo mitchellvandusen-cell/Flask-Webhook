@@ -955,7 +955,7 @@
                 html += '<button onclick="event.stopPropagation();vmTranscribe(' + idx + ')" class="chr-action-btn chr-action-transcribe" title="Transcribe"><i class="fa-solid fa-wand-magic-sparkles"></i></button>';
             }
             if (vm.phone) {
-                html += '<button onclick="event.stopPropagation();vmCallback(' + idx + ')" class="chr-action-btn" style="background:rgba(74,222,128,0.06);color:var(--accent);margin-left:auto;" title="Call Back"><i class="fa-solid fa-phone"></i></button>';
+                html += '<button onclick="event.stopPropagation();vmCallback(' + idx + ')" class="chr-action-btn chr-action-callback" title="Call Back"><i class="fa-solid fa-phone"></i></button>';
             }
             html += '</div>';
             // Expanded area (hidden by default)
@@ -2568,8 +2568,8 @@
                             '<div style="flex:1;min-width:0;"><div style="font-weight:600;">' + dialerEsc(c.direction || 'outbound') + '</div><div style="font-size:.75rem;color:#555;">' + dt + '</div></div>' +
                             '<div style="color:' + statusColor + ';font-size:.75rem;font-weight:600;">' + dialerEsc((c.status || '').replace('-',' ')) + '</div>' +
                             '<div style="color:#888;font-size:.75rem;">' + durMin + '</div>' +
-                            (hasRec ? '<button onclick="playRecording(\'' + dialerEsc(c.recording_url) + '\')" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:4px;padding:2px 6px;font-size:.75rem;cursor:pointer;" title="Play"><i class="fa-solid fa-play"></i></button>' : '') +
-                            (hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/</g, '\\x3c') + ')\' style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.75rem;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
+                            (hasRec ? '<button onclick="playRecording(\'' + dialerEsc(c.recording_url) + '\')" class="chr-action-btn chr-action-play" title="Play"><i class="fa-solid fa-play"></i></button>' : '') +
+                            (hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/</g, '\\x3c') + ')\' class="chr-action-btn chr-action-tx" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
                         '</div>';
                     }).join('');
                 }
