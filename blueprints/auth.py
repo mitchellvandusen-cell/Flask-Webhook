@@ -206,8 +206,20 @@ def ghl_sso_initiate():
         flash("Please enter your email address.", "error")
         return render_template("login.html", form=LoginForm(), ghl_sso_mode=True)
 
-    # Look up subscriber
+    # Look up subscriber by email, then by crm_email (GHL email may differ from IGB email)
     user = User.get(email)
+    if not user or not user.location_id:
+        conn = get_db_connection()
+        if conn:
+            try:
+                cur = conn.cursor()
+                cur.execute("SELECT email FROM subscribers WHERE LOWER(crm_email) = %s LIMIT 1", (email,))
+                row = cur.fetchone()
+                cur.close()
+                if row:
+                    user = User.get(row['email'])
+            finally:
+                return_db_connection(conn)
     if not user or not user.location_id:
         flash("No InsuranceGrokBot account found for that email.", "error")
         return render_template("login.html", form=LoginForm(), ghl_sso_mode=True)
