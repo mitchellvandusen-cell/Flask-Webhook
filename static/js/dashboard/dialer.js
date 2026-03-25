@@ -4657,36 +4657,81 @@
         }
 
         function _dialerRenderNumberPicker() {
-            const sel = document.getElementById('dialerFromNumber');
-            if (!sel) return;
-            sel.innerHTML = '<option value="">Auto (Smart Rotation)</option>';
+            const menu = document.getElementById('dfnMenu');
+            const trigger = document.getElementById('dfnTriggerText');
+            if (!menu || !trigger) return;
+
+            // Build menu items
+            let html = '<div class="dfn-item' + (!_dialerSelectedNumber ? ' active' : '') + '" data-val="" onclick="_dfnSelect(this,\'\')"><i class="fa-solid fa-shuffle" style="font-size:0.68rem;color:#00d9ff;"></i> Auto (Smart Rotation)</div>';
             _dialerNumbers.forEach(n => {
-                const opt = document.createElement('option');
-                opt.value = n.phone;
-                const label = n.nickname ? n.nickname + ' — ' + _dialerFmtPhone(n.phone) : _dialerFmtPhone(n.phone);
-                opt.textContent = label + (n.is_primary ? ' ★' : '');
-                sel.appendChild(opt);
+                const isActive = _dialerSelectedNumber === n.phone;
+                const esc = n.phone.replace(/'/g, "\\'");
+                html += '<div class="dfn-item' + (isActive ? ' active' : '') + '" data-val="' + n.phone + '" onclick="_dfnSelect(this,\'' + esc + '\')">';
+                if (n.nickname) html += '<span class="dfn-nick">' + _dialerEscHtml(n.nickname) + '</span>';
+                html += '<span class="dfn-phone">' + _dialerFmtPhone(n.phone) + '</span>';
+                if (n.is_primary) html += ' <i class="fa-solid fa-star dfn-star"></i>';
+                html += '</div>';
             });
-            // Restore saved selection (validate it still exists)
-            if (_dialerSelectedNumber && _dialerNumbers.some(n => n.phone === _dialerSelectedNumber)) {
-                sel.value = _dialerSelectedNumber;
-            } else {
+            menu.innerHTML = html;
+
+            // Validate saved selection still exists
+            if (_dialerSelectedNumber && !_dialerNumbers.some(n => n.phone === _dialerSelectedNumber)) {
                 _dialerSelectedNumber = '';
-                sel.value = '';
+                _lsDel('dialerFromNumber');
             }
-            // Show picker if user has 2+ voice numbers (otherwise nothing to pick)
+            // Update trigger text
+            _dfnUpdateTrigger();
+
+            // Show picker if user has 2+ voice numbers
             const wrap = document.getElementById('dialerFromNumberWrap');
             if (wrap) wrap.style.display = _dialerNumbers.length >= 2 ? '' : 'none';
         }
 
-        function _dialerOnNumberChange(val) {
-            _dialerSelectedNumber = val;
-            if (val) {
-                _lsSet('dialerFromNumber', val);
-            } else {
-                _lsDel('dialerFromNumber');
+        function _dfnUpdateTrigger() {
+            const trigger = document.getElementById('dfnTriggerText');
+            if (!trigger) return;
+            if (!_dialerSelectedNumber) {
+                trigger.textContent = 'Auto (Smart Rotation)';
+                return;
+            }
+            const num = _dialerNumbers.find(n => n.phone === _dialerSelectedNumber);
+            trigger.textContent = num && num.nickname ? num.nickname + ' — ' + _dialerFmtPhone(num.phone) : _dialerFmtPhone(_dialerSelectedNumber);
+        }
+
+        function _dfnToggle() {
+            const menu = document.getElementById('dfnMenu');
+            const trig = document.getElementById('dfnTrigger');
+            if (!menu) return;
+            const open = menu.classList.toggle('show');
+            if (trig) trig.classList.toggle('open', open);
+            if (open) {
+                // Close on outside click
+                setTimeout(() => document.addEventListener('click', _dfnOutside, { once: true }), 0);
             }
         }
+        function _dfnOutside(e) {
+            const wrap = document.getElementById('dialerFromNumberWrap');
+            if (wrap && !wrap.contains(e.target)) _dfnClose();
+            else setTimeout(() => document.addEventListener('click', _dfnOutside, { once: true }), 0);
+        }
+        function _dfnClose() {
+            const menu = document.getElementById('dfnMenu');
+            const trig = document.getElementById('dfnTrigger');
+            if (menu) menu.classList.remove('show');
+            if (trig) trig.classList.remove('open');
+        }
+
+        function _dfnSelect(el, val) {
+            _dialerSelectedNumber = val;
+            if (val) { _lsSet('dialerFromNumber', val); } else { _lsDel('dialerFromNumber'); }
+            // Update active state
+            const menu = document.getElementById('dfnMenu');
+            if (menu) menu.querySelectorAll('.dfn-item').forEach(i => i.classList.toggle('active', i.dataset.val === val));
+            _dfnUpdateTrigger();
+            _dfnClose();
+        }
+
+        function _dialerEscHtml(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 
         function _dialerFmtPhone(p) {
             if (!p) return '';
