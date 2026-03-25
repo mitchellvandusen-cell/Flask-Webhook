@@ -10962,12 +10962,14 @@ body.light-theme .ghl-embed-tab.active {
 .agency-stat-mini { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 14px; text-align: center; }
 .agency-stat-mini-val { font-size: 1.4rem; font-weight: 800; color: #fff; font-family: 'JetBrains Mono', monospace; }
 .agency-stat-mini-lbl { font-size: 0.72rem; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
-/* Light theme */
+/* Light theme — !important to beat any parent cascade */
 body.light-theme .agency-member-row:hover { background: rgba(0,0,0,0.02); }
-body.light-theme .agency-detail-panel { background: rgba(0,0,0,0.02); border-top-color: rgba(0,0,0,0.06); }
-body.light-theme .agency-detail-btn { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.08); color: #777; }
-body.light-theme .agency-detail-btn:hover { background: rgba(0,0,0,0.06); color: #333; }
-body.light-theme .agency-detail-btn.active { background: rgba(0,170,94,0.08); border-color: rgba(0,170,94,0.2); color: var(--lt-accent); }
+body.light-theme .agency-detail-panel { background: rgba(245,246,248,0.95) !important; border-top-color: rgba(0,0,0,0.06); }
+body.light-theme .agency-detail-btn { background: #fff !important; border: 1px solid rgba(0,0,0,0.12) !important; color: #555 !important; }
+body.light-theme .agency-detail-btn:hover { background: #f0f0f0 !important; color: #222 !important; }
+body.light-theme .agency-detail-btn.active { background: #e6f7ed !important; border-color: rgba(0,170,94,0.3) !important; color: #007a3d !important; }
+body.light-theme .agency-detail-btn-meet { color: #1a73e8 !important; border-color: rgba(66,133,244,0.25) !important; }
+body.light-theme .agency-detail-btn-meet:hover { background: #e8f0fe !important; }
 body.light-theme .agency-detail-empty { color: #999; }
 body.light-theme .agency-rec-row { border-bottom-color: rgba(0,0,0,0.04); }
 body.light-theme .agency-log-row { border-bottom-color: rgba(0,0,0,0.04); }

@@ -113,7 +113,7 @@
         if (!el) return;
         el.innerHTML = '<div class="agency-detail-loading"><i class="fa-solid fa-spinner fa-spin"></i></div>';
         fetch('/api/agency/call-log?agent=' + encodeURIComponent(locId) + '&limit=50')
-            .then(function(r) { return r.json(); })
+            .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
             .then(function(d) {
                 var calls = d.calls || [];
                 if (!calls.length) { el.innerHTML = '<div class="agency-detail-empty">No recordings found</div>'; return; }
@@ -139,7 +139,7 @@
                     return row;
                 }).join('');
             })
-            .catch(function() { el.innerHTML = '<div class="agency-detail-empty">Error loading recordings</div>'; });
+            .catch(function(e) { console.error('[Agency] Recordings error:', e); el.innerHTML = '<div class="agency-detail-empty">Error loading recordings</div>'; });
     };
 
     window.agencyLoadMessages = function(locId) {
