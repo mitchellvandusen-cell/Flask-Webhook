@@ -505,3 +505,104 @@ def api_refresh_support_logs():
     finally:
         if conn:
             return_db_connection(conn)
+
+
+# ── Stripe Sync (daily reconciliation) ───────────────────────────────────────
+
+@cron_bp.route("/api/cron/stripe-sync", methods=["GET", "POST"])
+def cron_stripe_sync():
+    """Daily Stripe reconciliation: sync stripe_status and subscription_tier
+    with live Stripe data for all subscribers with a stripe_customer_id.
+    Catches any webhook events that were missed or fired before code updates.
+    Schedule: once daily (e.g. 3:00 AM UTC).
+    """
+    if not _cron_authorized():
+        return flask_jsonify({"error": "Unauthorized"}), 401
+
+    import stripe as stripe_lib
+    from psycopg2.extras import RealDictCursor
+    from db import get_db_connection, return_db_connection
+
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "DB unavailable"}), 503
+
+    report = {"synced": [], "unchanged": 0, "total": 0, "errors": []}
+
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""
+            SELECT email, stripe_customer_id, stripe_status, subscription_tier
+            FROM subscribers
+            WHERE stripe_customer_id IS NOT NULL
+              AND stripe_customer_id != ''
+              AND stripe_customer_id NOT LIKE 'admin%%'
+              AND stripe_customer_id NOT LIKE 'cus_demo%%'
+        """)
+        rows = cur.fetchall()
+        report["total"] = len(rows)
+
+        # Build price→tier mapping from env
+        price_to_tier = {v: k for k, v in {
+            "sms_bot": os.getenv("STRIPE_SMS_BOT_PRICE_ID"),
+            "individual": os.getenv("STRIPE_PRICE_ID"),
+            "pro_dialer": os.getenv("STRIPE_PRO_DIALER_PRICE_ID"),
+            "solo_predictive": os.getenv("STRIPE_PREDICTIVE_DIALER_PRICE_ID"),
+        }.items() if v}
+
+        for row in rows:
+            email = row['email']
+            cust_id = row['stripe_customer_id']
+            db_status = row.get('stripe_status')
+            db_tier = row.get('subscription_tier')
+
+            try:
+                subs = stripe_lib.Subscription.list(customer=cust_id, limit=10)
+                if not subs.data:
+                    if db_status != 'canceled' or db_tier is not None:
+                        cur.execute(
+                            "UPDATE subscribers SET stripe_status='canceled', subscription_tier=NULL, updated_at=NOW() WHERE stripe_customer_id=%s",
+                            (cust_id,))
+                        conn.commit()
+                        report["synced"].append({"email": email, "change": f"{db_status}->canceled, {db_tier}->NULL"})
+                    else:
+                        report["unchanged"] += 1
+                    continue
+
+                priority = {'active': 0, 'trialing': 1, 'past_due': 2, 'unpaid': 3,
+                            'incomplete': 4, 'paused': 5, 'canceled': 6, 'incomplete_expired': 7}
+                best = min(subs.data, key=lambda s: priority.get(s.status, 99))
+                live_status = best.status
+                items = best.get("items", {}).get("data", [])
+                price_id = items[0]["price"]["id"] if items else ""
+                live_tier = price_to_tier.get(price_id)
+                if live_status in ('canceled', 'unpaid', 'incomplete_expired'):
+                    live_tier = None
+                elif live_tier is None and live_status in ('active', 'trialing'):
+                    live_tier = 'individual'
+
+                if db_status != live_status or db_tier != live_tier:
+                    cur.execute(
+                        "UPDATE subscribers SET stripe_status=%s, subscription_tier=%s, updated_at=NOW() WHERE stripe_customer_id=%s",
+                        (live_status, live_tier, cust_id))
+                    conn.commit()
+                    report["synced"].append({"email": email, "change": f"status:{db_status}->{live_status}, tier:{db_tier}->{live_tier}"})
+                else:
+                    report["unchanged"] += 1
+
+            except Exception as e:
+                report["errors"].append({"email": email, "error": str(e)})
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+
+        cur.close()
+    except Exception as e:
+        logger.error(f"Cron stripe-sync failed: {e}", exc_info=True)
+        return flask_jsonify({"error": str(e)}), 500
+    finally:
+        return_db_connection(conn)
+
+    logger.info(f"Cron stripe-sync: {len(report['synced'])} synced, {report['unchanged']} unchanged, {len(report['errors'])} errors")
+    return flask_jsonify(report)
