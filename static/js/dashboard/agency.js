@@ -30,9 +30,12 @@
                     return;
                 }
 
+                window._agencyMembers = members;
                 var html = '';
                 for (var i = 0; i < members.length; i++) {
                     var m = members[i];
+                    var loc = _esc(m.location_id || '');
+                    var email = _esc(m.email || '');
                     var tier = m.subscription_tier || 'individual';
                     var tierLabel = !tier ? '—' :
                                    tier === 'sms_bot' ? 'SMS Bot' :
@@ -44,13 +47,24 @@
                                      m.status === 'Token Expired' ? 'expired' : 'pending';
                     var joined = m.created_at ? new Date(m.created_at).toLocaleDateString() : '—';
 
-                    html += '<tr>' +
-                        '<td>' + _esc(m.full_name || '—') + '</td>' +
-                        '<td>' + _esc(m.email || '—') + '</td>' +
+                    html += '<tr class="agency-member-row" onclick="agencyToggleMember(\'' + loc + '\')" style="cursor:pointer;">' +
+                        '<td><i class="fa-solid fa-chevron-right agency-chevron" id="agencyChev_' + loc + '" style="font-size:.65rem;color:#555;margin-right:6px;transition:transform .2s;"></i>' + _esc(m.full_name || '—') + '</td>' +
+                        '<td>' + email + '</td>' +
                         '<td>' + _esc(tierLabel) + '</td>' +
                         '<td><span class="agency-badge ' + statusClass + '">' + _esc(m.status) + '</span></td>' +
                         '<td>' + joined + '</td>' +
                         '</tr>';
+                    html += '<tr class="agency-member-detail" id="agencyDetail_' + loc + '" style="display:none;">' +
+                        '<td colspan="5" style="padding:0;border-top:none;">' +
+                        '<div class="agency-detail-panel">' +
+                        '<div class="agency-detail-actions">' +
+                        '<button onclick="event.stopPropagation();agencyDetailTab(\'' + loc + '\',\'recordings\',this)" class="agency-detail-btn active"><i class="fa-solid fa-record-vinyl"></i> Recordings</button>' +
+                        '<button onclick="event.stopPropagation();agencyDetailTab(\'' + loc + '\',\'messages\',this)" class="agency-detail-btn"><i class="fa-solid fa-message"></i> Messages</button>' +
+                        '<button onclick="event.stopPropagation();agencyDetailTab(\'' + loc + '\',\'stats\',this)" class="agency-detail-btn"><i class="fa-solid fa-chart-bar"></i> Stats</button>' +
+                        '<button onclick="event.stopPropagation();agencyStartMeet(\'' + email + '\')" class="agency-detail-btn agency-detail-btn-meet"><i class="fa-solid fa-video"></i> Meet</button>' +
+                        '</div>' +
+                        '<div id="agencyDetailContent_' + loc + '" class="agency-detail-content"><div class="agency-detail-loading"><i class="fa-solid fa-spinner fa-spin"></i></div></div>' +
+                        '</div></td></tr>';
                 }
                 tbody.innerHTML = html;
             })
@@ -58,6 +72,138 @@
                 tbody.innerHTML = '<tr><td colspan="5" class="text-center dash-text-muted">Error loading members</td></tr>';
                 console.error('agencyLoadMembers error:', e);
             });
+    };
+
+    // ── Member Detail Accordion ──────────────────────────────────────────────
+    var _agencyOpenMember = null;
+
+    window.agencyToggleMember = function(locId) {
+        var detail = document.getElementById('agencyDetail_' + locId);
+        var chev = document.getElementById('agencyChev_' + locId);
+        if (!detail) return;
+        // Collapse previous
+        if (_agencyOpenMember && _agencyOpenMember !== locId) {
+            var prev = document.getElementById('agencyDetail_' + _agencyOpenMember);
+            var prevChev = document.getElementById('agencyChev_' + _agencyOpenMember);
+            if (prev) prev.style.display = 'none';
+            if (prevChev) prevChev.style.transform = '';
+        }
+        // Toggle current
+        var isOpen = detail.style.display !== 'none';
+        detail.style.display = isOpen ? 'none' : '';
+        if (chev) chev.style.transform = isOpen ? '' : 'rotate(90deg)';
+        _agencyOpenMember = isOpen ? null : locId;
+        // Auto-load recordings on first open
+        if (!isOpen) agencyLoadRecordings(locId);
+    };
+
+    window.agencyDetailTab = function(locId, tab, btnEl) {
+        // Update active button
+        var panel = document.getElementById('agencyDetail_' + locId);
+        if (panel) panel.querySelectorAll('.agency-detail-btn').forEach(function(b) { b.classList.remove('active'); });
+        if (btnEl) btnEl.classList.add('active');
+        // Load content
+        if (tab === 'recordings') agencyLoadRecordings(locId);
+        else if (tab === 'messages') agencyLoadMessages(locId);
+        else if (tab === 'stats') agencyLoadStats(locId);
+    };
+
+    window.agencyLoadRecordings = function(locId) {
+        var el = document.getElementById('agencyDetailContent_' + locId);
+        if (!el) return;
+        el.innerHTML = '<div class="agency-detail-loading"><i class="fa-solid fa-spinner fa-spin"></i></div>';
+        fetch('/api/agency/call-log?agent=' + encodeURIComponent(locId) + '&limit=50')
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                var calls = d.calls || [];
+                if (!calls.length) { el.innerHTML = '<div class="agency-detail-empty">No recordings found</div>'; return; }
+                el.innerHTML = calls.map(function(c) {
+                    var dur = c.duration ? Math.floor(c.duration/60) + ':' + String(c.duration%60).padStart(2,'0') : '--:--';
+                    var dt = c.created_at ? new Date(c.created_at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
+                    var sc = {completed:'var(--accent)','no-answer':'#ffa500',busy:'#ffa500',failed:'#ef4444'}[c.status] || '#888';
+                    var hasRec = !!c.recording_url;
+                    var hasTx = c.transcript && c.transcript.length > 0;
+                    var row = '<div class="agency-rec-row">';
+                    row += '<div style="display:flex;align-items:center;gap:6px;min-width:0;">';
+                    row += '<span class="chr-name">' + _esc(c.contact_name || c.to_number || 'Unknown') + '</span>';
+                    row += '<span class="chr-dir">' + _esc(c.direction || 'outbound') + '</span>';
+                    row += '<span class="chr-date">' + dt + '</span>';
+                    row += '</div>';
+                    row += '<div style="display:flex;align-items:center;gap:6px;margin-top:2px;">';
+                    row += '<span class="chr-status" style="color:' + sc + ';">' + _esc((c.status||'').replace(/-/g,' ')) + '</span>';
+                    row += '<span class="chr-dur">' + dur + '</span>';
+                    if (hasRec) row += '<button onclick="playRecording(\'' + _esc(c.recording_url) + '\')" class="chr-action-btn chr-action-play" title="Play"><i class="fa-solid fa-play"></i></button>';
+                    if (hasRec) row += '<a href="' + _esc(c.recording_url) + '?dl=1" download class="chr-action-btn chr-action-dl" title="Download"><i class="fa-solid fa-download"></i></a>';
+                    if (hasTx) row += '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g,"\\'") + ')\' class="chr-action-btn chr-action-tx" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>';
+                    row += '</div></div>';
+                    return row;
+                }).join('');
+            })
+            .catch(function() { el.innerHTML = '<div class="agency-detail-empty">Error loading recordings</div>'; });
+    };
+
+    window.agencyLoadMessages = function(locId) {
+        var el = document.getElementById('agencyDetailContent_' + locId);
+        if (!el) return;
+        el.innerHTML = '<div class="agency-detail-loading"><i class="fa-solid fa-spinner fa-spin"></i></div>';
+        fetch('/api/agency/logs/' + encodeURIComponent(locId))
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                var logs = d.logs || [];
+                if (!logs.length) { el.innerHTML = '<div class="agency-detail-empty">No activity logs found</div>'; return; }
+                el.innerHTML = logs.slice(0, 100).map(function(l) {
+                    var dt = l.created_at ? new Date(l.created_at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
+                    var icon = l.event_type === 'sms_sent' ? 'fa-paper-plane' : l.event_type === 'sms_received' ? 'fa-inbox' : 'fa-circle-info';
+                    return '<div class="agency-log-row">' +
+                        '<i class="fa-solid ' + icon + ' agency-log-icon"></i>' +
+                        '<div class="agency-log-body">' + _esc(l.description || l.event_type || '—') + '</div>' +
+                        '<span class="agency-log-date">' + dt + '</span>' +
+                        '</div>';
+                }).join('');
+            })
+            .catch(function() { el.innerHTML = '<div class="agency-detail-empty">Error loading messages</div>'; });
+    };
+
+    window.agencyLoadStats = function(locId) {
+        var el = document.getElementById('agencyDetailContent_' + locId);
+        if (!el) return;
+        el.innerHTML = '<div class="agency-detail-loading"><i class="fa-solid fa-spinner fa-spin"></i></div>';
+        fetch('/api/agency/agent-stats?period=month')
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                var agents = d.agents || [];
+                var agent = agents.find(function(a) { return a.location_id === locId; });
+                if (!agent) { el.innerHTML = '<div class="agency-detail-empty">No stats available for this agent</div>'; return; }
+                var talkMin = Math.floor((agent.total_talk_time || 0) / 60);
+                var avgDur = agent.avg_duration ? Math.floor(agent.avg_duration) + 's' : '—';
+                el.innerHTML = '<div class="agency-stats-grid">' +
+                    '<div class="agency-stat-mini"><div class="agency-stat-mini-val">' + (agent.total_calls || 0) + '</div><div class="agency-stat-mini-lbl">Total Calls</div></div>' +
+                    '<div class="agency-stat-mini"><div class="agency-stat-mini-val">' + (agent.connected_calls || 0) + '</div><div class="agency-stat-mini-lbl">Connected</div></div>' +
+                    '<div class="agency-stat-mini"><div class="agency-stat-mini-val">' + talkMin + 'm</div><div class="agency-stat-mini-lbl">Talk Time</div></div>' +
+                    '<div class="agency-stat-mini"><div class="agency-stat-mini-val">' + avgDur + '</div><div class="agency-stat-mini-lbl">Avg Duration</div></div>' +
+                    '</div>';
+            })
+            .catch(function() { el.innerHTML = '<div class="agency-detail-empty">Error loading stats</div>'; });
+    };
+
+    window.agencyStartMeet = function(email) {
+        if (!email) return;
+        if (typeof _showDashToast === 'function') _showDashToast(true, 'Creating meeting...');
+        fetch('/google-calendar/meet/start-now', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ contact_name: email.split('@')[0], attendee_email: email })
+        }).then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.meet_link) {
+                window.open(d.meet_link, '_blank');
+                if (typeof _showDashToast === 'function') _showDashToast(true, 'Meeting created — invite sent to ' + email);
+            } else {
+                if (typeof _showDashToast === 'function') _showDashToast(false, d.error || 'Failed to create meeting');
+            }
+        }).catch(function() {
+            if (typeof _showDashToast === 'function') _showDashToast(false, 'Network error creating meeting');
+        });
     };
 
     // ── KPIs (enhanced dashboard stats) ─────────────────────────────────────
