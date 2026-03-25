@@ -3258,7 +3258,14 @@
                         _stopRingTone();
                         if (_autoListenActive) { _stopListenStream(); _resetListenBtn(); _autoListenActive = false; }
                         _dialerLastCallSid = dialerCallSid;
-                        if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) dialerQueue[dialerCallIdx].status = d.status;
+                        // Short calls (<10s) that "completed" are likely voicemail that
+                        // slipped through AMD — treat as no-answer so retry picks them up
+                        let effectiveStatus = d.status;
+                        if (d.status === 'completed' && parseInt(d.duration || 0) < 10) {
+                            effectiveStatus = 'no-answer';
+                            console.log(`[Dialer] Short call (${d.duration}s) — treating as no-answer for retry`);
+                        }
+                        if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) dialerQueue[dialerCallIdx].status = effectiveStatus;
                         dialerCallSid = null;
                         dialerRenderQueue();
                         if (!dialerQueueRunning) {

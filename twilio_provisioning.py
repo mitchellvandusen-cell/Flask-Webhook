@@ -543,7 +543,10 @@ def create_outbound_call(sub_account_sid: str, to: str, from_number: str,
 
         if machine_detection:
             kwargs["machine_detection"] = machine_detection
-            kwargs["machine_detection_timeout"] = 4
+            kwargs["machine_detection_timeout"] = 8
+            kwargs["machine_detection_speech_threshold"] = 2400
+            kwargs["machine_detection_speech_end_threshold"] = 1200
+            kwargs["machine_detection_silence_timeout"] = 5000
             kwargs["async_amd"] = True
             kwargs["async_amd_status_callback"] = f"{webhook_base_url}/voice/amd-status"
             kwargs["async_amd_status_callback_method"] = "POST"

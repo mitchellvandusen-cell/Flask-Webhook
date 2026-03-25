@@ -995,8 +995,9 @@ def dial_contact():
     if not sub_sid or not from_number:
         return jsonify({"error": "Voice service not fully provisioned"}), 400
 
-    # AMD: always on for AI mode (needs to detect voicemail); for human mode, respect user setting
-    use_amd = True if dial_mode == 'ai' else voice_config.get('use_amd', False)
+    # AMD: always on for dialer calls (both AI and human mode).
+    # Agents don't want to waste time listening to voicemail greetings.
+    use_amd = True
 
     # Idempotency guard: prevent double-dial to the same phone number.
     # If a non-terminal call to this phone already exists for this location, return it.
@@ -1261,7 +1262,7 @@ def multi_dial():
         rotation_result = select_outbound_number(location_id, voice_config, dest_phone=c_phone)
         call_from = rotation_result["phone"] if rotation_result else from_number
 
-        use_amd = True if dial_mode == 'ai' else voice_config.get('use_amd', False)
+        use_amd = True  # Always detect voicemail for dialer calls
 
         try:
             host = request.host
