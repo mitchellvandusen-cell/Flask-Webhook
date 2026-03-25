@@ -1076,7 +1076,7 @@ def dial_contact():
 @dialer_bp.route('/voice/screen-share/send-link', methods=['POST'])
 @jwt_or_session_required
 def screen_share_send_link():
-    """SMS a CrankWheel viewer link (or any screen share URL) to a phone number."""
+    """SMS a screen share viewer link to a phone number."""
     data = request.json or {}
     phone = data.get('phone', '')
     link = data.get('link', '')
