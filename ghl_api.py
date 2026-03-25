@@ -9,6 +9,13 @@ from token_encryption import encrypt_token, decrypt_token
 
 logger = logging.getLogger(__name__)
 
+# Circuit breaker: cache failed token refreshes per location_id.
+# Prevents hammering GHL + DB when a token is dead (wrong scopes, revoked, etc).
+# Key: location_id, Value: timestamp when the failure was recorded.
+# Entries expire after 5 minutes — then retry is allowed.
+_TOKEN_FAILURE_CACHE = {}
+_TOKEN_FAILURE_TTL = 300  # seconds
+
 GHL_TOKEN_URL = "https://services.leadconnectorhq.com/oauth/token"
 GHL_HEADERS = {"Version": "2021-04-15", "Content-Type": "application/json"}
 
@@ -431,6 +438,12 @@ def get_valid_token(location_id: str, subscriber: dict = None) -> str | None:
         logger.debug(f"Internal Mode: Skipping auth for {location_id}")
         return 'DEMO'
 
+    # Circuit breaker: skip refresh if this location recently failed
+    fail_time = _TOKEN_FAILURE_CACHE.get(location_id)
+    if fail_time and (_time.time() - fail_time) < _TOKEN_FAILURE_TTL:
+        logger.debug(f"Token circuit breaker: {location_id} failed recently, skipping refresh")
+        return None
+
     sub = subscriber or get_subscriber_info_hybrid(location_id)
     if not sub:
         logger.error(f"No subscriber config for {location_id}")
@@ -611,7 +624,8 @@ def get_valid_token(location_id: str, subscriber: dict = None) -> str | None:
         return access_token
 
     logger.error(f"Token refresh failed for {location_id}: all credential sets exhausted, "
-                f"no existing token")
+                f"no existing token — circuit breaker engaged for {_TOKEN_FAILURE_TTL}s")
+    _TOKEN_FAILURE_CACHE[location_id] = _time.time()
     return None
 
 

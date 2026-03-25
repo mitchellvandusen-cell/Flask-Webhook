@@ -51,9 +51,8 @@ _POOL_MIN = int(os.getenv("DB_POOL_MIN", "5"))
 _POOL_MAX = int(os.getenv("DB_POOL_MAX", "40"))
 # How many requests can wait for a connection before we reject/fallback
 _POOL_WAITERS_MAX = int(os.getenv("DB_POOL_WAITERS", "500"))
-# Seconds to wait before falling back to direct connection. Keep short — it's
-# better to open a direct connection fast than to block a thread for 10s.
-_POOL_WAIT_TIMEOUT = float(os.getenv("DB_POOL_TIMEOUT", "3"))
+# Seconds to wait before falling back to direct connection.
+_POOL_WAIT_TIMEOUT = float(os.getenv("DB_POOL_TIMEOUT", "8"))
 
 # Pool utilization tracking (lightweight counters for monitoring)
 _pool_stats_lock = threading.Lock()
