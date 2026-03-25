@@ -9144,11 +9144,16 @@ body.light-theme .dlr-btn-ios-delete:hover { background:rgba(220,38,38,0.25); }
     justify-content: center;
 }
 .chr-action-btn:hover { transform: scale(1.05); }
-/* Dark theme — solid colored backgrounds (!important to override iOS app view color inheritance) */
+/* Dark theme — solid colored backgrounds. .iphone-frame prefix for specificity parity */
+.iphone-frame .chr-action-play,
 .chr-action-play { background: rgba(0,217,255,0.18) !important; color: #00d9ff !important; border: 1px solid rgba(0,217,255,0.30) !important; }
+.iphone-frame .chr-action-dl,
 .chr-action-dl { background: rgba(74,222,128,0.15) !important; color: #4ade80 !important; border: 1px solid rgba(74,222,128,0.28) !important; }
+.iphone-frame .chr-action-tx,
 .chr-action-tx { background: rgba(74,222,128,0.15) !important; color: #4ade80 !important; border: 1px solid rgba(74,222,128,0.28) !important; }
+.iphone-frame .chr-action-transcribe,
 .chr-action-transcribe { background: rgba(255,180,0,0.15) !important; color: #ffb400 !important; border: 1px solid rgba(255,180,0,0.28) !important; }
+.iphone-frame .chr-action-callback,
 .chr-action-callback { background: rgba(74,222,128,0.15) !important; color: #4ade80 !important; border: 1px solid rgba(74,222,128,0.28) !important; margin-left: auto; }
 /* Light theme — solid pastel backgrounds. Triple-class specificity to beat .iphone-frame .ios-app-view color override */
 body.light-theme .iphone-frame .chr-action-play,
