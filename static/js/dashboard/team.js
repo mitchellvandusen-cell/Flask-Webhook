@@ -238,6 +238,28 @@ function teamSyncGhlUsers() {
 
 // ── Add Seat (Stripe Checkout) ──────────────────────────────────────────────
 
+async function teamStartMeet() {
+    const btn = document.querySelector('.team-meet-btn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Creating...'; }
+    try {
+        const r = await fetch('/google-calendar/meet/team', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ summary: 'Team Meeting' })
+        });
+        const d = await r.json();
+        if (!r.ok) {
+            if (typeof _showDashToast === 'function') _showDashToast(false, d.error || 'Failed to create meeting');
+        } else if (d.meet_link) {
+            window.open(d.meet_link, '_blank');
+            if (typeof _showDashToast === 'function') _showDashToast(true, 'Team meeting created — ' + d.attendee_count + ' members invited');
+        }
+    } catch(e) {
+        if (typeof _showDashToast === 'function') _showDashToast(false, 'Network error creating meeting');
+    }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-video me-2"></i>Team Meeting'; }
+}
+
 function teamAddSeat() {
     if (typeof _showDashToast === 'function') _showDashToast(true, 'Redirecting to checkout...');
     fetch('/api/team/checkout', {

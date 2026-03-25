@@ -373,9 +373,11 @@ def google_calendar_events():
 
 
 def _create_meet_event(access_token, summary, start_iso, end_iso, tz_str,
-                       attendee_email=None, description=""):
+                       attendee_email=None, attendee_emails=None, description=""):
     """
     Create a Google Calendar event with an auto-generated Google Meet link.
+    attendee_email: single email (string)
+    attendee_emails: list of emails (for team meetings)
     Returns (event_data, error_string). event_data has meet_link, event_id, html_link.
     """
     import uuid
@@ -392,8 +394,14 @@ def _create_meet_event(access_token, summary, start_iso, end_iso, tz_str,
     }
     if description:
         body["description"] = description
-    if attendee_email:
-        body["attendees"] = [{"email": attendee_email}]
+    # Support single email or list of emails
+    emails = []
+    if attendee_emails:
+        emails = [e for e in attendee_emails if e and "@" in e]
+    if attendee_email and attendee_email not in emails:
+        emails.append(attendee_email)
+    if emails:
+        body["attendees"] = [{"email": e} for e in emails]
 
     try:
         resp = requests.post(
@@ -556,4 +564,78 @@ def meet_start_now():
             result["sms_sent"] = False
 
     logger.info(f"Google Meet started now for {location_id}: {result.get('meet_link', 'no link')}")
+    return flask_jsonify(result)
+
+
+@google_calendar_bp.route("/google-calendar/meet/team", methods=["POST"])
+@login_required
+def meet_team():
+    """
+    Create a Google Meet for a team meeting. Pulls team member emails
+    from location_users and adds them all as attendees.
+    Body: {summary?, description?, member_ids? (optional filter)}
+    Returns: {meet_link, event_id, html_link, attendee_count}
+    """
+    location_id = current_user.location_id
+    if not location_id:
+        return flask_jsonify({"error": "No location configured"}), 400
+
+    access_token, config = _get_valid_google_token(location_id)
+    if not access_token:
+        return flask_jsonify({"error": "Google Calendar not connected. Connect in the Integrations tab.", "connected": False}), 401
+
+    data = request.json or {}
+    summary = data.get("summary", "Team Meeting")
+    description = data.get("description", "")
+    member_ids = data.get("member_ids")  # Optional: filter to specific members
+
+    # Fetch team member emails
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "Database unavailable"}), 500
+
+    emails = []
+    try:
+        cur = conn.cursor()
+        if member_ids and isinstance(member_ids, list):
+            cur.execute(
+                "SELECT email FROM location_users WHERE location_id = %s AND id = ANY(%s) AND is_active = true",
+                (location_id, member_ids)
+            )
+        else:
+            cur.execute(
+                "SELECT email FROM location_users WHERE location_id = %s AND is_active = true",
+                (location_id,)
+            )
+        rows = cur.fetchall()
+        cur.close()
+        emails = [r['email'] for r in rows if r.get('email')]
+    finally:
+        return_db_connection(conn)
+
+    # Also include the agency owner's email
+    if current_user.email and current_user.email not in emails:
+        emails.append(current_user.email)
+
+    if len(emails) < 2:
+        return flask_jsonify({"error": "No team members found. Invite team members first."}), 400
+
+    tz_str = getattr(current_user, 'timezone', None) or "America/Chicago"
+    now = datetime.now(timezone.utc)
+    start_iso = now.strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    end_iso = (now + timedelta(minutes=30)).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+
+    result, err = _create_meet_event(access_token, summary, start_iso, end_iso, tz_str,
+                                     attendee_emails=emails, description=description)
+    if err:
+        if "401" in str(err) or "403" in str(err):
+            new_token = _refresh_google_token(location_id, config)
+            if new_token:
+                result, err = _create_meet_event(new_token, summary, start_iso, end_iso, tz_str,
+                                                 attendee_emails=emails, description=description)
+        if err:
+            return flask_jsonify({"error": err}), 500
+
+    result["attendee_count"] = len(emails)
+    logger.info(f"Team meeting created for {location_id}: {result.get('meet_link', 'no link')} ({len(emails)} attendees)")
     return flask_jsonify(result)

@@ -6532,6 +6532,12 @@ body.light-theme .sb-footer-signout { color: #dc2626; }
 .team-seat-highlight { color: var(--accent); font-weight: 600; }
 
 /* --- Buttons --- */
+.team-meet-btn {
+    background: linear-gradient(135deg, #4285F4, #1a73e8); color: #fff; font-weight: 700;
+    padding: 10px 16px; border-radius: 10px; font-size: 0.85rem; border: none; cursor: pointer;
+    transition: all 0.2s;
+}
+.team-meet-btn:hover { box-shadow: 0 4px 12px rgba(66,133,244,0.3); transform: translateY(-1px); color: #fff; }
 .team-add-seat-btn {
     background: var(--accent); color: #000; font-weight: 700;
     padding: 10px 20px; border-radius: 10px; font-size: 0.88rem; border: none;
@@ -6675,6 +6681,8 @@ body.light-theme .sb-footer-signout { color: #dc2626; }
 body.light-theme .team-section-title { color: #111827; }
 body.light-theme .team-section-subtitle { color: #6b7280; }
 body.light-theme .team-seat-highlight { color: var(--lt-accent); }
+body.light-theme .team-meet-btn { background: linear-gradient(135deg, #4285F4, #1a73e8); color: #fff; }
+body.light-theme .team-meet-btn:hover { box-shadow: 0 4px 12px rgba(66,133,244,0.2); }
 body.light-theme .team-add-seat-btn { background: var(--lt-accent); color: #fff; }
 body.light-theme .team-invite-user-btn {
     background: rgba(0,0,0,0.04); color: #374151;
