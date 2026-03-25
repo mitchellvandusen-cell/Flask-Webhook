@@ -59,7 +59,6 @@
                         '<div class="agency-detail-panel">' +
                         '<div class="agency-detail-actions">' +
                         '<button onclick="event.stopPropagation();agencyDetailTab(\'' + loc + '\',\'recordings\',this)" class="agency-detail-btn active"><i class="fa-solid fa-record-vinyl"></i> Recordings</button>' +
-                        '<button onclick="event.stopPropagation();agencyDetailTab(\'' + loc + '\',\'messages\',this)" class="agency-detail-btn"><i class="fa-solid fa-message"></i> Messages</button>' +
                         '<button onclick="event.stopPropagation();agencyDetailTab(\'' + loc + '\',\'stats\',this)" class="agency-detail-btn"><i class="fa-solid fa-chart-bar"></i> Stats</button>' +
                         '<button onclick="event.stopPropagation();agencyStartMeet(\'' + email + '\')" class="agency-detail-btn agency-detail-btn-meet"><i class="fa-solid fa-video"></i> Meet</button>' +
                         '</div>' +
@@ -104,7 +103,6 @@
         if (btnEl) btnEl.classList.add('active');
         // Load content
         if (tab === 'recordings') agencyLoadRecordings(locId);
-        else if (tab === 'messages') agencyLoadMessages(locId);
         else if (tab === 'stats') agencyLoadStats(locId);
     };
 
@@ -140,28 +138,6 @@
                 }).join('');
             })
             .catch(function(e) { console.error('[Agency] Recordings error:', e); el.innerHTML = '<div class="agency-detail-empty">Error loading recordings</div>'; });
-    };
-
-    window.agencyLoadMessages = function(locId) {
-        var el = document.getElementById('agencyDetailContent_' + locId);
-        if (!el) return;
-        el.innerHTML = '<div class="agency-detail-loading"><i class="fa-solid fa-spinner fa-spin"></i></div>';
-        fetch('/api/agency/logs/' + encodeURIComponent(locId))
-            .then(function(r) { return r.json(); })
-            .then(function(d) {
-                var logs = d.logs || [];
-                if (!logs.length) { el.innerHTML = '<div class="agency-detail-empty">No activity logs found</div>'; return; }
-                el.innerHTML = logs.slice(0, 100).map(function(l) {
-                    var dt = l.created_at ? new Date(l.created_at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
-                    var icon = l.event_type === 'sms_sent' ? 'fa-paper-plane' : l.event_type === 'sms_received' ? 'fa-inbox' : 'fa-circle-info';
-                    return '<div class="agency-log-row">' +
-                        '<i class="fa-solid ' + icon + ' agency-log-icon"></i>' +
-                        '<div class="agency-log-body">' + _esc(l.description || l.event_type || '—') + '</div>' +
-                        '<span class="agency-log-date">' + dt + '</span>' +
-                        '</div>';
-                }).join('');
-            })
-            .catch(function() { el.innerHTML = '<div class="agency-detail-empty">Error loading messages</div>'; });
     };
 
     window.agencyLoadStats = function(locId) {
