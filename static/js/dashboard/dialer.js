@@ -4609,20 +4609,14 @@
                 }
             }
             // Show/hide AI-only call controls (Listen, Mute AI, Intercept) based on mode
+            // These only apply when AI is handling the call
             const _aiOnlyBtns = ['dialerListenBtn', 'dialerMuteBtn', 'dialerTakeoverBtn'];
             _aiOnlyBtns.forEach(id => {
                 const btn = document.getElementById(id);
                 if (btn) btn.style.display = (mode === 'ai') ? 'flex' : 'none';
             });
-            // Multi-line toggle: hide in human mode (VoIP supports single call only)
-            const mlToggle = document.getElementById('multiLineToggle');
-            if (mlToggle && _multiLineEnabled) {
-                mlToggle.style.display = (mode === 'ai') ? 'flex' : 'none';
-            }
-            const mlBadge = document.getElementById('multiLineBadge');
-            if (mlBadge && _multiLineEnabled) {
-                mlBadge.style.display = (mode === 'ai') ? 'inline-block' : 'none';
-            }
+            // Multi-line toggle: visible in BOTH modes for pro_dialer+
+            // Human vs AI just changes who talks — dialing capability stays the same
             // Show/hide AI minutes chip based on mode
             _dialerUpdateMinutesChip();
         }
@@ -4821,9 +4815,17 @@
 
                 // Handle incoming calls (agent intercept OR human dialer mode)
                 voipDevice.on('incoming', (call) => {
-                    console.log('[VoIP] Incoming call from:', call.parameters?.From || 'unknown', '| _takingOver:', _takingOver, '| mode:', dialerMode);
+                    console.log('[VoIP] Incoming call from:', call.parameters?.From || 'unknown', '| _takingOver:', _takingOver, '| mode:', dialerMode, '| hasActive:', !!voipConnection);
                     // Accept if: (a) agent just clicked Intercept, OR (b) already in human dialer mode
                     const shouldAccept = _takingOver || dialerMode === 'human';
+                    // Multi-line guard: if we already have an active VoIP call, reject
+                    // the extra incoming call (Pro Dialer fires multiple calls, only
+                    // the first to connect bridges to the human — the rest drop)
+                    if (shouldAccept && voipConnection) {
+                        console.log('[VoIP] Already on a call — rejecting extra incoming (multi-line collision)');
+                        call.reject();
+                        return;
+                    }
                     if (shouldAccept) {
                         const reason = _takingOver ? 'intercept takeover' : 'human mode';
                         console.log('[VoIP] Auto-accepting incoming call (' + reason + ')');
@@ -7065,6 +7067,14 @@
                 const configuredLines = window.DASHBOARD_BOOT?.maxLinesSetting ?? 3;
                 _multiLineMaxLines = _multiLineEnabled ? Math.min(info.max_lines || 4, configuredLines) : 1;
 
+                // Update dialer header to reflect actual tier
+                const titleEl = document.getElementById('dialerTierTitle');
+                if (titleEl) {
+                    if (_predictiveEnabled) titleEl.textContent = 'Solo Predictive';
+                    else if (_multiLineEnabled) titleEl.textContent = 'Pro Dialer';
+                    else titleEl.textContent = 'Power Dialer';
+                }
+
                 // Show/hide multi-line UI elements
                 const mlToggle = document.getElementById('multiLineToggle');
                 if (mlToggle) mlToggle.style.display = _multiLineEnabled ? 'flex' : 'none';
@@ -7073,11 +7083,11 @@
                 if (mlBadge) {
                     if (_predictiveEnabled) {
                         mlBadge.style.display = 'inline-flex';
-                        mlBadge.textContent = 'ENTERPRISE';
+                        mlBadge.textContent = 'PREDICTIVE';
                         mlBadge.style.background = 'linear-gradient(135deg,#8b5cf6,#6366f1)';
                     } else if (_multiLineEnabled) {
                         mlBadge.style.display = 'inline-flex';
-                        mlBadge.textContent = 'PRO';
+                        mlBadge.textContent = 'MULTI-LINE';
                         mlBadge.style.background = 'linear-gradient(135deg,#ff6b35,#ff3366)';
                     } else {
                         mlBadge.style.display = 'none';
@@ -7324,10 +7334,6 @@
          * Dials multiple contacts simultaneously from the queue.
          */
         async function multiLineStartQueue() {
-            if (dialerMode === 'human') {
-                _showDashToast(false, 'Multi-line dialing is only available in AI mode — browser calling supports one call at a time');
-                return;
-            }
             if (!_multiLineEnabled) {
                 _showDashToast(false, 'Multi-line dialing requires Pro Dialer or Predictive Dialer plan');
                 return;
