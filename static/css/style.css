@@ -9136,18 +9136,18 @@ body.light-theme .dlr-btn-ios-delete:hover { background:rgba(220,38,38,0.25); }
     justify-content: center;
 }
 .chr-action-btn:hover { transform: scale(1.05); }
-/* Dark theme — solid colored backgrounds */
-.chr-action-play { background: rgba(0,217,255,0.18); color: #00d9ff; border: 1px solid rgba(0,217,255,0.30); }
-.chr-action-dl { background: rgba(74,222,128,0.15); color: #4ade80; border: 1px solid rgba(74,222,128,0.28); }
-.chr-action-tx { background: rgba(74,222,128,0.15); color: #4ade80; border: 1px solid rgba(74,222,128,0.28); }
-.chr-action-transcribe { background: rgba(255,180,0,0.15); color: #ffb400; border: 1px solid rgba(255,180,0,0.28); }
-.chr-action-callback { background: rgba(74,222,128,0.15); color: #4ade80; border: 1px solid rgba(74,222,128,0.28); margin-left: auto; }
-/* Light theme — stronger backgrounds with readable text */
-body.light-theme .chr-action-play { background: #e8f4fd; color: #0077a8; border: 1px solid #c5e3f3; }
-body.light-theme .chr-action-dl { background: #e6f7ed; color: #007a3d; border: 1px solid #c2ebd3; }
-body.light-theme .chr-action-tx { background: #e6f7ed; color: #007a3d; border: 1px solid #c2ebd3; }
-body.light-theme .chr-action-transcribe { background: #fff4de; color: #8a6300; border: 1px solid #f0deb0; }
-body.light-theme .chr-action-callback { background: #e6f7ed; color: #007a3d; border: 1px solid #c2ebd3; }
+/* Dark theme — solid colored backgrounds (!important to override iOS app view color inheritance) */
+.chr-action-play { background: rgba(0,217,255,0.18) !important; color: #00d9ff !important; border: 1px solid rgba(0,217,255,0.30) !important; }
+.chr-action-dl { background: rgba(74,222,128,0.15) !important; color: #4ade80 !important; border: 1px solid rgba(74,222,128,0.28) !important; }
+.chr-action-tx { background: rgba(74,222,128,0.15) !important; color: #4ade80 !important; border: 1px solid rgba(74,222,128,0.28) !important; }
+.chr-action-transcribe { background: rgba(255,180,0,0.15) !important; color: #ffb400 !important; border: 1px solid rgba(255,180,0,0.28) !important; }
+.chr-action-callback { background: rgba(74,222,128,0.15) !important; color: #4ade80 !important; border: 1px solid rgba(74,222,128,0.28) !important; margin-left: auto; }
+/* Light theme — solid pastel backgrounds with readable text */
+body.light-theme .chr-action-play { background: #e8f4fd !important; color: #0077a8 !important; border: 1px solid #c5e3f3 !important; }
+body.light-theme .chr-action-dl { background: #e6f7ed !important; color: #007a3d !important; border: 1px solid #c2ebd3 !important; }
+body.light-theme .chr-action-tx { background: #e6f7ed !important; color: #007a3d !important; border: 1px solid #c2ebd3 !important; }
+body.light-theme .chr-action-transcribe { background: #fff4de !important; color: #8a6300 !important; border: 1px solid #f0deb0 !important; }
+body.light-theme .chr-action-callback { background: #e6f7ed !important; color: #007a3d !important; border: 1px solid #c2ebd3 !important; }
 body.light-theme .chr-action-btn:hover { transform: scale(1.05); }
 .stir-badge {
     font-size: .65rem;
