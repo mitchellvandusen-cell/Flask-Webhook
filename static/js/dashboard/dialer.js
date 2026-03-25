@@ -3121,10 +3121,18 @@
                 ++pollCount;
                 // Only enforce poll limit while ringing/initiated — once connected, poll indefinitely
                 if (pollCount > MAX_POLLS_RINGING && !_dialerCallConnected) {
-                    clearInterval(dialerPollTimer); dialerCallSid = null;
-                    dialerHideBanner(); dialerStopAiTimer(); _dialerClearCallDurationTimer();
+                    clearInterval(dialerPollTimer); dialerPollTimer = null;
+                    // Mark as no-answer so retry logic picks it up
+                    if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
+                        dialerQueue[dialerCallIdx].status = 'no-answer';
+                    }
+                    _dialerLastCallSid = dialerCallSid;
+                    dialerCallSid = null;
+                    dialerStopAiTimer(); _dialerClearCallDurationTimer();
                     _stopRingTone(); if (_autoListenActive) { _stopListenStream(); _resetListenBtn(); _autoListenActive = false; }
-                    if (dialerQueueRunning) dialerAdvance();
+                    dialerRenderQueue();
+                    if (!dialerQueueRunning) { dialerHideBanner(); dialerShowDisposition(); }
+                    else { _dialerQueueTimeout(dialerAdvance, 1200); }
                     return;
                 }
                 try {
