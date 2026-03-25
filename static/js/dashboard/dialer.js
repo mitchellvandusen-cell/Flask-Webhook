@@ -939,12 +939,12 @@
             // Line 1: dot · name · date
             html += '<div style="display:flex;align-items:center;gap:6px;min-width:0;">';
             html += '<div class="call-history-dot" style="background:' + dotClr + ';flex-shrink:0;"></div>';
-            html += '<span style="font-weight:' + nameWt + ';color:' + nameClr + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(name) + '</span>';
-            html += '<span style="color:#444;font-size:.72rem;white-space:nowrap;margin-left:auto;">' + dt + '</span>';
+            html += '<span class="chr-name" style="font-weight:' + nameWt + ';">' + dialerEsc(name) + '</span>';
+            html += '<span class="chr-date">' + dt + '</span>';
             html += '</div>';
             // Line 2: duration · play/dl/transcribe · call back
             html += '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;padding-left:16px;">';
-            html += '<span style="color:#666;font-size:.75rem;font-family:monospace;">' + dur + '</span>';
+            html += '<span class="chr-dur">' + dur + '</span>';
             if (vm.recording_url) {
                 html += '<button onclick="event.stopPropagation();vmPlay(' + idx + ')" id="vmPlayBtn' + idx + '" class="chr-action-btn chr-action-play" title="Play"><i class="fa-solid fa-play"></i></button>';
                 html += '<a href="' + dialerEsc(vm.recording_url) + '?dl=1" download class="chr-action-btn chr-action-dl" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-download"></i></a>';
@@ -959,11 +959,11 @@
             }
             html += '</div>';
             // Expanded area (hidden by default)
-            html += '<div id="vmExpand' + idx + '" style="display:none;margin-top:8px;padding:8px 10px 4px 16px;border-top:1px solid rgba(255,255,255,0.04);">';
+            html += '<div id="vmExpand' + idx + '" class="chr-expand" style="display:none;margin-top:8px;padding:8px 10px 4px 16px;">';
             if (preview) {
-                html += '<div style="color:#ccc;font-size:.82rem;line-height:1.5;">' + dialerEsc(preview) + '</div>';
+                html += '<div class="chr-preview">' + dialerEsc(preview) + '</div>';
             } else {
-                html += '<div style="color:#666;font-size:.78rem;font-style:italic;">Tap to transcribe</div>';
+                html += '<div class="chr-hint">Tap to transcribe</div>';
             }
             html += '</div>';
             html += '</div>';
@@ -4126,15 +4126,15 @@
                     let row = '<div class="call-history-row" onclick="dialerHistoryClickContact(\'' + (c.contact_id||'') + '\')">';
                     row += '<div style="display:flex;align-items:center;gap:6px;min-width:0;">';
                     row += '<div class="call-history-dot" style="background:' + sc + ';flex-shrink:0;"></div>';
-                    row += '<span style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(c.contact_name || c.phone || 'Unknown') + '</span>';
-                    row += '<span style="color:#555;font-size:.72rem;white-space:nowrap;">' + dirIcon + ' ' + (c.direction||'outbound') + '</span>';
-                    row += '<span style="color:#444;font-size:.72rem;white-space:nowrap;margin-left:auto;">' + dt + '</span>';
+                    row += '<span class="chr-name">' + dialerEsc(c.contact_name || c.phone || 'Unknown') + '</span>';
+                    row += '<span class="chr-dir">' + dirIcon + ' ' + (c.direction||'outbound') + '</span>';
+                    row += '<span class="chr-date">' + dt + '</span>';
                     row += '</div>';
                     // Line 2: stir · status · duration · actions
                     row += '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;padding-left:16px;">';
                     row += stirBadge;
-                    row += '<span style="color:' + sc + ';font-size:.75rem;font-weight:600;">' + (c.status||'').replace(/-/g,' ') + '</span>';
-                    row += '<span style="color:#666;font-size:.75rem;font-family:monospace;">' + dur + '</span>';
+                    row += '<span class="chr-status" style="color:' + sc + ';">' + (c.status||'').replace(/-/g,' ') + '</span>';
+                    row += '<span class="chr-dur">' + dur + '</span>';
                     if (hasRec) row += '<button onclick="event.stopPropagation();playRecording(\'' + dialerEsc(c.recording_url) + '\')" class="chr-action-btn chr-action-play" title="Play"><i class="fa-solid fa-play"></i></button>';
                     if (hasRec) row += '<a href="' + dialerEsc(c.recording_url) + '?dl=1" download class="chr-action-btn chr-action-dl" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-download"></i></a>';
                     if (hasTx) row += '<button onclick=\'event.stopPropagation();showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' class="chr-action-btn chr-action-tx" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>';
@@ -4190,13 +4190,13 @@
                     let row = '<div class="call-history-row">';
                     // Line 1: name · direction · date
                     row += '<div style="display:flex;align-items:center;gap:6px;min-width:0;">';
-                    row += '<span style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(c.contact_name || c.phone || 'Unknown') + '</span>';
-                    row += '<span style="color:#555;font-size:.72rem;white-space:nowrap;">' + dirIcon + ' ' + (c.direction||'outbound') + '</span>';
-                    row += '<span style="color:#444;font-size:.72rem;white-space:nowrap;margin-left:auto;">' + dt + '</span>';
+                    row += '<span class="chr-name">' + dialerEsc(c.contact_name || c.phone || 'Unknown') + '</span>';
+                    row += '<span class="chr-dir">' + dirIcon + ' ' + (c.direction||'outbound') + '</span>';
+                    row += '<span class="chr-date">' + dt + '</span>';
                     row += '</div>';
                     // Line 2: duration · action buttons
                     row += '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;">';
-                    row += '<span style="color:#666;font-size:.75rem;font-family:monospace;">' + dur + '</span>';
+                    row += '<span class="chr-dur">' + dur + '</span>';
                     row += '<button onclick="playRecording(\'' + recUrl + '\')" class="chr-action-btn chr-action-play" title="Play"><i class="fa-solid fa-play"></i></button>';
                     row += '<a href="' + recUrl + '?dl=1" download class="chr-action-btn chr-action-dl" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-download"></i></a>';
                     row += hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' class="chr-action-btn chr-action-tx" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '';

@@ -9118,6 +9118,23 @@ body.light-theme .chr-action-transcribe { background: rgba(160,100,0,0.10); colo
     border: 1px solid rgba(239,68,68,0.20);
 }
 body.light-theme .call-history-row { border-bottom-color: rgba(0,0,0,0.06); }
+body.light-theme .call-history-row:hover { background: rgba(0,0,0,0.02); }
+/* Call history row text classes for theme-safe inline rendering */
+.chr-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ddd; }
+.chr-dir { color: #555; font-size: .72rem; white-space: nowrap; }
+.chr-date { color: #444; font-size: .72rem; white-space: nowrap; margin-left: auto; }
+.chr-dur { color: #666; font-size: .75rem; font-family: monospace; }
+.chr-status { font-size: .75rem; font-weight: 600; }
+body.light-theme .chr-name { color: #1a1a2e; }
+body.light-theme .chr-dir { color: #888; }
+body.light-theme .chr-date { color: #999; }
+body.light-theme .chr-dur { color: #777; }
+.chr-expand { border-top: 1px solid rgba(255,255,255,0.04); }
+.chr-preview { color: #ccc; font-size: .82rem; line-height: 1.5; }
+.chr-hint { color: #666; font-size: .78rem; font-style: italic; }
+body.light-theme .chr-expand { border-top-color: rgba(0,0,0,0.06); }
+body.light-theme .chr-preview { color: #444; }
+body.light-theme .chr-hint { color: #999; }
 body.light-theme .stir-badge-a { background: rgba(0,170,94,0.10); color: #00884d; border-color: rgba(0,170,94,0.25); }
 body.light-theme .stir-badge-b { background: rgba(217,119,6,0.10); color: #b45309; border-color: rgba(217,119,6,0.25); }
 body.light-theme .stir-badge-c { background: rgba(220,38,38,0.10); color: #dc2626; border-color: rgba(220,38,38,0.25); }
