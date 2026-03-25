@@ -23,7 +23,7 @@ from db import (
     get_db_connection, return_db_connection, get_db_connection_with_retry,
     User, log_webhook_event, save_persistent_alert,
     mark_install_oauth_complete, find_marketplace_email,
-    get_agency_by_company_id,
+    get_agency_by_company_id, update_subscriber_token,
 )
 from extensions import ADMIN_EMAILS, YOUR_DOMAIN
 from email_templates import _email_wrapper, _build_welcome_email, _build_agency_owner_welcome_email
@@ -1524,8 +1524,40 @@ def oauth_callback():
                         return_db_connection(sso_conn)
 
             if sso_user:
+                # Save Company token if this was a Company-scoped authorization
+                if token_user_type_used == "Company" and company_id:
+                    try:
+                        ct_conn = get_db_connection()
+                        if ct_conn:
+                            try:
+                                ct_cur = ct_conn.cursor()
+                                ct_cur.execute("""
+                                    UPDATE subscribers
+                                    SET company_access_token = %s,
+                                        company_refresh_token = %s,
+                                        company_token_expires_at = NOW() + INTERVAL '%s seconds'
+                                    WHERE LOWER(email) = LOWER(%s)
+                                """, (enc_access_token, enc_refresh_token, expires_in, sso_user.email))
+                                ct_conn.commit()
+                                ct_cur.close()
+                                logger.info(f"GHL SSO: Company token saved for {sso_user.email} (company={company_id})")
+                            finally:
+                                return_db_connection(ct_conn)
+                    except Exception as ct_err:
+                        logger.warning(f"GHL SSO: Failed to save company token (non-fatal): {ct_err}")
+
+                # Also save the regular Location token if we have a location
+                if primary_location_id and access_token:
+                    try:
+                        update_subscriber_token(
+                            primary_location_id, enc_access_token,
+                            enc_refresh_token, expires_in
+                        )
+                    except Exception as tok_err:
+                        logger.warning(f"GHL SSO: Failed to save location token (non-fatal): {tok_err}")
+
                 login_user(sso_user, remember=True)
-                logger.info(f"=== GHL SSO LOGIN: {sso_user.email} (location={primary_location_id}) ===")
+                logger.info(f"=== GHL SSO LOGIN: {sso_user.email} (location={primary_location_id}, company={company_id}) ===")
                 flash("Signed in with GoHighLevel!", "success")
                 role = (sso_user.role or 'individual').lower()
                 is_admin = sso_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
