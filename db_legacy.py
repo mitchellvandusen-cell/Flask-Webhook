@@ -48,7 +48,7 @@ _pool_lock = threading.Lock()
 # at least 40 pool slots to avoid threads blocking each other waiting for DB.
 # Workers (4x production + 1x demo) each get their own pool via fork.
 _POOL_MIN = int(os.getenv("DB_POOL_MIN", "5"))
-_POOL_MAX = int(os.getenv("DB_POOL_MAX", "40"))
+_POOL_MAX = int(os.getenv("DB_POOL_MAX", "60"))
 # How many requests can wait for a connection before we reject/fallback
 _POOL_WAITERS_MAX = int(os.getenv("DB_POOL_WAITERS", "500"))
 # Seconds to wait before falling back to direct connection.
