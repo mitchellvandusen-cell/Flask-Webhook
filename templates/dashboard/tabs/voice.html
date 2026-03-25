@@ -36,6 +36,9 @@
                             <button class="voice-menu-item" onclick="switchVoicePanel('spammonitoring')" id="vmenu-spammonitoring" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
                                 <i class="fa-solid fa-shield-halved" style="width:16px;text-align:center;"></i> Spam Monitoring
                             </button>
+                            <button class="voice-menu-item" onclick="switchVoicePanel('integrations')" id="vmenu-integrations" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                                <i class="fa-solid fa-puzzle-piece" style="width:16px;text-align:center;"></i> Integrations
+                            </button>
                             <div style="height:1px;background:rgba(255,255,255,0.06);margin:8px 6px;"></div>
                             <button class="voice-menu-item" onclick="switchVoicePanel('training')" id="vmenu-training" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
                                 <i class="fa-solid fa-graduation-cap" style="width:16px;text-align:center;"></i> Training
@@ -1023,6 +1026,52 @@
 
                         </div>
                     </div><!-- /vstab-panel-training -->
+
+                    <!-- ── Integrations panel (CrankWheel, Google Meet) ── -->
+                    <div id="vstab-panel-integrations" style="display:none;">
+                        <h6 class="vc-section-title"><i class="fa-solid fa-puzzle-piece me-2"></i>Dialer Integrations</h6>
+                        <p class="vc-section-desc">Connect third-party tools to use during live calls.</p>
+
+                        <!-- CrankWheel -->
+                        <div class="vc-card">
+                            <div class="vc-card-header">
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <i class="fa-solid fa-display vc-card-icon"></i>
+                                    <span class="vc-card-label">CrankWheel Screen Sharing</span>
+                                </div>
+                            </div>
+                            <p class="vc-help-text">Share your screen with leads during live calls. Show quotes, proposals, and illustrations in real time — leads view on their phone browser, no app needed.</p>
+                            <div class="vc-steps-card">
+                                <div class="vc-step"><span class="vc-step-num">1</span> Create a free account at <a href="https://meeting.is/ss/signup#email" target="_blank" class="vc-link">crankwheel.com</a></div>
+                                <div class="vc-step"><span class="vc-step-num">2</span> Log in to CrankWheel in your browser</div>
+                                <div class="vc-step"><span class="vc-step-num">3</span> During a live call, click the <strong>Screen</strong> button in call controls</div>
+                                <div class="vc-step"><span class="vc-step-num">4</span> CrankWheel opens — pick what to share, send the link to the lead via SMS</div>
+                            </div>
+                            <a href="https://meeting.is/ss/" target="_blank" class="vc-connect-btn"><i class="fa-solid fa-arrow-up-right-from-square me-1"></i>Open CrankWheel Dashboard</a>
+                        </div>
+
+                        <!-- Google Meet -->
+                        <div class="vc-card" style="margin-top:16px;">
+                            <div class="vc-card-header">
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <i class="fa-solid fa-video vc-card-icon"></i>
+                                    <span class="vc-card-label">Google Meet Video Calls</span>
+                                </div>
+                                <span id="voiceGoogleMeetStatus" class="vc-badge-optional">Not connected</span>
+                            </div>
+                            <p class="vc-help-text">Start or schedule Google Meet video consultations with leads during calls. Uses your Google Calendar to create events with Meet links.</p>
+                            <div id="voiceGoogleMeetConnect">
+                                <a href="/google-calendar/connect" class="vc-connect-btn"><i class="fa-brands fa-google me-1"></i>Connect Google Calendar</a>
+                            </div>
+                            <div id="voiceGoogleMeetConnected" style="display:none;">
+                                <div class="vc-connected-info">
+                                    <i class="fa-solid fa-circle-check" style="color:var(--accent);"></i>
+                                    <span id="voiceGoogleMeetEmail" class="vc-connected-email"></span>
+                                    <a href="/google-calendar/disconnect" class="vc-disconnect-link">Disconnect</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div><!-- /vstab-panel-integrations -->
 
                         </div><!-- /right column -->
                     </div><!-- /two-column settings menu -->
