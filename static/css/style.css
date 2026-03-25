@@ -8126,6 +8126,27 @@ body.light-theme .conn-outbound-panel {
     background: var(--lt-surface);
     border-color: var(--lt-border);
 }
+/* Google Calendar/Meet connection panel */
+.conn-google-icon { width: 40px; height: 40px; border-radius: 10px; background: rgba(66,133,244,0.08); border: 1px solid rgba(66,133,244,0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.conn-google-icon-connected { background: rgba(0,255,136,0.06); border-color: rgba(0,255,136,0.15); }
+.conn-google-title { font-weight: 700; font-size: 0.92rem; color: #ddd; }
+.conn-google-sub { font-size: 0.78rem; color: #888; }
+.conn-google-btn { display: inline-flex; align-items: center; gap: 6px; background: linear-gradient(135deg, #4285F4, #3367D6); color: #fff; border: none; border-radius: 8px; padding: 10px 20px; font-size: 0.88rem; font-weight: 600; text-decoration: none; cursor: pointer; transition: opacity 0.15s; }
+.conn-google-btn:hover { opacity: 0.9; color: #fff; text-decoration: none; }
+.conn-google-disconnect { font-size: 0.78rem; color: #888; text-decoration: none; margin-left: auto; }
+.conn-google-disconnect:hover { color: #ef4444; }
+.conn-google-features { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+.conn-google-feature { font-size: 0.82rem; color: #999; display: flex; align-items: center; gap: 8px; }
+.conn-google-feature i { font-size: 0.7rem; color: var(--accent); width: 14px; text-align: center; }
+/* Light theme */
+body.light-theme .conn-google-icon { background: rgba(66,133,244,0.06); border-color: rgba(66,133,244,0.12); }
+body.light-theme .conn-google-icon-connected { background: rgba(0,170,94,0.06); border-color: rgba(0,170,94,0.12); }
+body.light-theme .conn-google-title { color: #1a1a2e; }
+body.light-theme .conn-google-sub { color: #777; }
+body.light-theme .conn-google-disconnect { color: #999; }
+body.light-theme .conn-google-disconnect:hover { color: #dc2626; }
+body.light-theme .conn-google-feature { color: #555; }
+body.light-theme .conn-google-feature i { color: var(--lt-accent); }
 body.light-theme .conn-outbound-code {
     background: rgba(0,170,94,0.05);
     border-color: rgba(0,170,94,0.12);

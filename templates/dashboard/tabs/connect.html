@@ -50,6 +50,9 @@
                             <button type="button" class="conn-menu-item" onclick="switchConnectPanel('outbound')" id="cnmenu-outbound">
                                 <i class="fa-solid fa-arrow-right-from-bracket" style="width:16px;text-align:center;"></i> Outbound Calls
                             </button>
+                            <button type="button" class="conn-menu-item" onclick="switchConnectPanel('google')" id="cnmenu-google">
+                                <i class="fa-brands fa-google" style="width:16px;text-align:center;"></i> Google
+                            </button>
                         </div>
 
                         <!-- Right column: panel content -->
@@ -308,6 +311,62 @@
                                     Voice must be activated and a phone number must be provisioned before outbound calls will work.
                                     Go to the <strong>Voice</strong> tab to activate and provision a number.
                                 </div>
+                            </div>
+
+                            <!-- ── Panel: Google Calendar + Meet ── -->
+                            <div id="cntab-panel-google" style="display:none;">
+                                <h5 style="font-weight:700;margin-bottom:4px;"><i class="fa-brands fa-google me-2" style="color:var(--accent);"></i>Google Calendar &amp; Meet</h5>
+                                <p class="conn-api-desc" style="margin-bottom:16px;">Connect your Google Calendar to schedule appointments and start Google Meet video consultations with leads directly from the dialer.</p>
+
+                                <div id="googleCalNotConnected" class="p-3 conn-outbound-panel">
+                                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+                                        <div class="conn-google-icon">
+                                            <i class="fa-solid fa-calendar-days" style="color:#4285F4;font-size:1.2rem;"></i>
+                                        </div>
+                                        <div>
+                                            <div class="conn-google-title">Google Calendar</div>
+                                            <div class="conn-google-sub">Not connected</div>
+                                        </div>
+                                    </div>
+                                    <a href="/google-calendar/connect" class="conn-google-btn">
+                                        <i class="fa-brands fa-google me-1"></i> Connect Google Calendar
+                                    </a>
+                                    <div class="conn-google-features">
+                                        <div class="conn-google-feature"><i class="fa-solid fa-check"></i> View your calendar in the dialer</div>
+                                        <div class="conn-google-feature"><i class="fa-solid fa-check"></i> Schedule appointments with leads</div>
+                                        <div class="conn-google-feature"><i class="fa-solid fa-check"></i> Start Google Meet video calls during live calls</div>
+                                        <div class="conn-google-feature"><i class="fa-solid fa-check"></i> Auto-send Meet links to leads via SMS</div>
+                                    </div>
+                                </div>
+
+                                <div id="googleCalConnected" class="p-3 conn-outbound-panel" style="display:none;">
+                                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+                                        <div class="conn-google-icon conn-google-icon-connected">
+                                            <i class="fa-solid fa-circle-check" style="color:var(--accent);font-size:1.2rem;"></i>
+                                        </div>
+                                        <div>
+                                            <div class="conn-google-title">Google Calendar Connected</div>
+                                            <div class="conn-google-sub" id="googleCalEmail"></div>
+                                        </div>
+                                        <a href="/google-calendar/disconnect" class="conn-google-disconnect">Disconnect</a>
+                                    </div>
+                                    <div class="conn-google-features">
+                                        <div class="conn-google-feature"><i class="fa-solid fa-circle-check" style="color:var(--accent);"></i> Calendar synced</div>
+                                        <div class="conn-google-feature"><i class="fa-solid fa-circle-check" style="color:var(--accent);"></i> Google Meet enabled — use the <strong>Meet</strong> button during calls</div>
+                                    </div>
+                                </div>
+
+                                <script>
+                                (function() {
+                                    fetch('/api/google-calendar/status').then(r => r.json()).then(d => {
+                                        if (d.connected) {
+                                            document.getElementById('googleCalNotConnected').style.display = 'none';
+                                            document.getElementById('googleCalConnected').style.display = '';
+                                            document.getElementById('googleCalEmail').textContent = d.email || 'Connected';
+                                        }
+                                    }).catch(function() {});
+                                })();
+                                </script>
                             </div>
 
                         </div><!-- /right column -->
