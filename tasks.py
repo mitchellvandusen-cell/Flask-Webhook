@@ -2138,11 +2138,32 @@ def provision_agency_subaccounts_task(agency_email, company_id):
         locations = fetch_all_ghl_items(locations_url, headers, item_key='locations')
         logger.info(f"[agency-provision] Found {len(locations)} locations for company={company_id}")
 
+        # Store location summary on agency_billing for dashboard visibility
+        loc_summary = [
+            {
+                'id': l.get('id') or l.get('_id'),
+                'name': l.get('name'),
+                'email': l.get('email'),
+                'phone': l.get('phone'),
+                'timezone': l.get('timezone'),
+            }
+            for l in locations if l.get('id') or l.get('_id')
+        ]
+        try:
+            cur.execute("""
+                UPDATE agency_billing
+                SET crm_config = COALESCE(crm_config, '{}'::jsonb) || %s::jsonb,
+                    updated_at = NOW()
+                WHERE LOWER(agency_email) = LOWER(%s)
+            """, (json.dumps({'installed_locations': loc_summary, 'total_locations': len(locations)}), agency_email))
+        except Exception as e:
+            logger.warning(f"[agency-provision] Failed to store location summary: {e}")
+
         provisioned = 0
         skipped = 0
         errors = []
 
-        # 2. For each location, get admin user + create subscriber row
+        # 2. For each location, pull ALL available data + create subscriber row
         for loc in locations:
             loc_id = loc.get('id') or loc.get('_id')
             if not loc_id:
@@ -2151,31 +2172,51 @@ def provision_agency_subaccounts_task(agency_email, company_id):
             # Rate limit: GHL allows 40 req/10s — sleep 0.3s between calls
             time.sleep(0.3)
 
-            # Get admin user for this location
-            loc_email = None
+            # ── Extract location metadata from /locations/search response ──
             loc_name = loc.get('name', 'Unknown')
+            loc_phone = loc.get('phone') or ''
+            loc_email_fallback = loc.get('email') or ''
+            loc_address = loc.get('address') or ''
+            loc_city = loc.get('city') or ''
+            loc_state = loc.get('state') or ''
+            loc_country = loc.get('country') or 'US'
+            loc_postal = loc.get('postalCode') or loc.get('postal_code') or ''
+            loc_timezone = loc.get('timezone') or 'America/Chicago'
+            loc_website = loc.get('website') or ''
+
+            # ── Get ALL users for this location ──
+            loc_email = None
+            loc_user_name = None
+            loc_crm_user_id = None
+            all_users = []
             try:
                 users_resp = http_requests.get(
                     f"https://services.leadconnectorhq.com/users/?locationId={loc_id}",
                     headers=headers, timeout=10
                 )
                 if users_resp.ok:
-                    users = users_resp.json().get('users', [])
-                    # Prefer admin/owner, fallback to first user
+                    all_users = users_resp.json().get('users', [])
+                    # Priority: admin > user > any other role
                     admin = next(
-                        (u for u in users if u.get('role') in ('admin',)),
-                        next((u for u in users if u.get('role') == 'user'), users[0] if users else None)
+                        (u for u in all_users if u.get('role') == 'admin'),
+                        next((u for u in all_users if u.get('role') == 'user'),
+                             all_users[0] if all_users else None)
                     )
                     if admin:
                         loc_email = admin.get('email', '')
-                        loc_name = admin.get('name') or admin.get('firstName', '') or loc_name
+                        loc_user_name = (
+                            admin.get('name')
+                            or f"{admin.get('firstName', '')} {admin.get('lastName', '')}".strip()
+                            or loc_name
+                        )
+                        loc_crm_user_id = admin.get('id', '')
             except Exception as e:
                 logger.warning(f"[agency-provision] Failed to get users for location={loc_id}: {e}")
                 errors.append({"location_id": loc_id, "error": str(e)})
 
             # Fallback to location-level email
             if not loc_email:
-                loc_email = loc.get('email') or ''
+                loc_email = loc_email_fallback
             if not loc_email:
                 logger.warning(f"[agency-provision] No email found for location={loc_id}, skipping")
                 skipped += 1
@@ -2186,30 +2227,74 @@ def provision_agency_subaccounts_task(agency_email, company_id):
                 skipped += 1
                 continue
 
-            # Create subscriber row — NO token duplication
+            # ── Create subscriber row with ALL available data ──
             # oauth_app_type='company_token' = "look up token from agency_billing at runtime"
+            # No token duplication — token is resolved via parent_agency_email → agency_billing
             try:
                 cur.execute("""
                     INSERT INTO subscribers (
-                        email, location_id, full_name, role, subscription_tier,
+                        email, location_id, full_name, phone, role, subscription_tier,
                         timezone, company_id, parent_agency_email,
+                        crm_user_id, crm_email, personal_website,
                         oauth_app_type, created_at, updated_at
-                    ) VALUES (%s, %s, %s, 'individual', NULL, %s, %s, %s,
-                              'company_token', NOW(), NOW())
+                    ) VALUES (%s, %s, %s, %s, 'individual', NULL, %s, %s, %s,
+                              %s, %s, %s, 'company_token', NOW(), NOW())
                     ON CONFLICT (email) DO UPDATE SET
                         location_id = COALESCE(EXCLUDED.location_id, subscribers.location_id),
+                        full_name = COALESCE(EXCLUDED.full_name, subscribers.full_name),
+                        phone = COALESCE(EXCLUDED.phone, subscribers.phone),
+                        timezone = COALESCE(EXCLUDED.timezone, subscribers.timezone),
                         company_id = COALESCE(EXCLUDED.company_id, subscribers.company_id),
                         parent_agency_email = COALESCE(EXCLUDED.parent_agency_email, subscribers.parent_agency_email),
+                        crm_user_id = COALESCE(EXCLUDED.crm_user_id, subscribers.crm_user_id),
+                        crm_email = COALESCE(EXCLUDED.crm_email, subscribers.crm_email),
+                        personal_website = COALESCE(EXCLUDED.personal_website, subscribers.personal_website),
                         updated_at = NOW()
                     WHERE subscribers.oauth_app_type IS NULL
                        OR subscribers.oauth_app_type = 'company_token'
                 """, (
-                    loc_email, loc_id, loc_name,
-                    loc.get('timezone', 'America/Chicago'),
-                    company_id, agency_email,
+                    loc_email, loc_id, loc_user_name or loc_name, loc_phone,
+                    loc_timezone, company_id, agency_email,
+                    loc_crm_user_id, loc_email, loc_website,
                 ))
+                # Store full location metadata + all users in crm_config JSONB
+                # so nothing from GHL is lost — agency dashboard can display it all
+                ghl_metadata = {
+                    'ghl_location': {
+                        'name': loc_name,
+                        'email': loc_email_fallback,
+                        'phone': loc_phone,
+                        'address': loc_address,
+                        'city': loc_city,
+                        'state': loc_state,
+                        'country': loc_country,
+                        'postalCode': loc_postal,
+                        'website': loc_website,
+                    },
+                    'ghl_users': [
+                        {
+                            'id': u.get('id'),
+                            'email': u.get('email'),
+                            'name': u.get('name') or f"{u.get('firstName', '')} {u.get('lastName', '')}".strip(),
+                            'role': u.get('role'),
+                            'phone': u.get('phone', ''),
+                        }
+                        for u in all_users
+                    ],
+                    'provisioned_by': 'agency_bulk_install',
+                    'provisioned_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+                }
+                cur.execute("""
+                    UPDATE subscribers
+                    SET crm_config = COALESCE(crm_config, '{}'::jsonb) || %s::jsonb
+                    WHERE email = %s AND (oauth_app_type IS NULL OR oauth_app_type = 'company_token')
+                """, (json.dumps(ghl_metadata), loc_email))
+
                 provisioned += 1
-                logger.info(f"[agency-provision] Provisioned: {loc_email} location={loc_id}")
+                logger.info(
+                    f"[agency-provision] Provisioned: {loc_email} location={loc_id} "
+                    f"name={loc_name} phone={loc_phone} users={len(all_users)}"
+                )
             except Exception as e:
                 logger.warning(f"[agency-provision] DB error for {loc_email}: {e}")
                 errors.append({"email": loc_email, "error": str(e)})
