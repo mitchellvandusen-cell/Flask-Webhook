@@ -3006,6 +3006,15 @@
                 dialerCallSid = d.call_sid;
                 _isDialing = false; // SID locked in — safe to clear the in-flight guard
 
+                // Update banner with actual from number (server picks for auto rotation)
+                if (d.from_number) {
+                    const fromEl = document.getElementById('dialerCallFrom');
+                    if (fromEl) {
+                        const isAuto = !_dialerGetFromNumber();
+                        fromEl.textContent = 'from ' + (isAuto ? 'auto \u2014 ' : '') + _dialerFmtPhone(d.from_number);
+                    }
+                }
+
                 // Race: Hang Up was clicked while this API request was in-flight.
                 // dialerCallSid was null then, so dialerStopQueue() set _hangupPending
                 // instead. Now that we have the real SID, hang it up immediately.
@@ -3294,16 +3303,16 @@
                 s.style.color = '#00d9ff';
                 _dialerBannerState('ringing');
             }
-            // Show which number we're calling from
+            // Show which number we're calling from (updated after dial response)
             const fromEl = document.getElementById('dialerCallFrom');
             if (fromEl) {
-                const fromNum = _dialerGetFromNumber();
-                if (fromNum) {
-                    fromEl.textContent = 'from ' + _dialerFmtPhone(fromNum);
-                    fromEl.style.display = '';
+                const manualNum = _dialerGetFromNumber();
+                if (manualNum) {
+                    fromEl.textContent = 'from ' + _dialerFmtPhone(manualNum);
                 } else {
-                    fromEl.style.display = 'none';
+                    fromEl.textContent = 'from auto';
                 }
+                fromEl.style.display = '';
             }
             // Reset timer
             document.getElementById('dialerBannerTimer').style.display = 'none';

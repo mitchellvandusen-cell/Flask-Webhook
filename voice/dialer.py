@@ -1066,7 +1066,7 @@ def dial_contact():
         )
 
         logger.info(f"Dialer call [{dial_mode}]: {from_number} -> {phone} ({first_name}) attempt={dial_attempt} sid={call_sid}")
-        return jsonify({"status": "calling", "call_sid": call_sid, "dial_mode": dial_mode})
+        return jsonify({"status": "calling", "call_sid": call_sid, "dial_mode": dial_mode, "from_number": from_number})
 
     except Exception as e:
         logger.error(f"Dialer call failed: {e}")
