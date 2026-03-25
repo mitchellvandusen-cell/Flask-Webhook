@@ -130,9 +130,9 @@
                     row += '<div style="display:flex;align-items:center;gap:6px;margin-top:2px;">';
                     row += '<span class="chr-status" style="color:' + sc + ';">' + _esc((c.status||'').replace(/-/g,' ')) + '</span>';
                     row += '<span class="chr-dur">' + dur + '</span>';
-                    if (hasRec) row += '<button onclick="playRecording(\'' + _esc(c.recording_url) + '\')" class="chr-action-btn chr-action-play" title="Play"><i class="fa-solid fa-play"></i></button>';
-                    if (hasRec) row += '<a href="' + _esc(c.recording_url) + '?dl=1" download class="chr-action-btn chr-action-dl" title="Download"><i class="fa-solid fa-download"></i></a>';
-                    if (hasTx) row += '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g,"\\'") + ')\' class="chr-action-btn chr-action-tx" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>';
+                    if (hasRec) row += '<button onclick="playRecording(\'' + _esc(c.recording_url) + '\')" style="background:#0088aa;color:#fff;border:none;border-radius:5px;padding:4px 10px;font-size:.75rem;font-weight:600;cursor:pointer;" title="Play"><i class="fa-solid fa-play"></i> Play</button>';
+                    if (hasRec) row += '<a href="' + _esc(c.recording_url) + '?dl=1" download style="background:#007a3d;color:#fff;border:none;border-radius:5px;padding:4px 10px;font-size:.75rem;font-weight:600;cursor:pointer;text-decoration:none;" title="Download"><i class="fa-solid fa-download"></i> DL</a>';
+                    if (hasTx) row += '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g,"\\'") + ')\' style="background:#6b21a8;color:#fff;border:none;border-radius:5px;padding:4px 10px;font-size:.75rem;font-weight:600;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>';
                     row += '</div></div>';
                     return row;
                 }).join('');
