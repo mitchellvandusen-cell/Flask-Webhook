@@ -902,10 +902,10 @@ def agency_call_log():
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
         # Build query
-        where = "location_id = ANY(%s)"
+        where = "ch.location_id = ANY(%s)"
         params = [location_ids]
         if agent_filter:
-            where += " AND location_id = %s"
+            where += " AND ch.location_id = %s"
             params.append(agent_filter)
 
         cur.execute(f"""
