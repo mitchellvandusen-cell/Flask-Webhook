@@ -3854,21 +3854,159 @@
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-video"></i><span>Meet</span>'; }
         }
 
-        // ── CrankWheel — Screen share during live call ──
-        function dialerStartScreenShare() {
-            if (!dialerCallSid) return;
+        // ── Native Screen Share (WebRTC) ──
+        let _screenShareActive = false;
+        let _screenShareSessionId = null;
+        let _screenShareStream = null;
+        let _screenSharePc = null;
+        let _screenShareWs = null;
+
+        async function dialerStartScreenShare() {
+            if (_screenShareActive) { dialerStopScreenShare(); return; }
+            if (!dialerCallSid) { _showDashToast(false, 'No active call'); return; }
+
             const contact = dialerActiveContact;
-            const name = contact ? (contact.firstName || contact.name || '') : '';
             const phone = contact ? (contact.phone || '') : '';
-            const email = contact ? (contact.email || '') : '';
-            // Build CrankWheel URL Command with contact params
-            const params = [];
-            if (name) params.push('name=' + encodeURIComponent(name));
-            if (phone) params.push('phone=' + encodeURIComponent(phone));
-            if (email) params.push('email=' + encodeURIComponent(email));
-            const extraParams = params.length ? ':' + params.join(':') + ':' : '';
-            const cwUrl = 'https://meeting.is/ss/ui' + extraParams;
-            window.open(cwUrl, 'crankwheel_share', 'width=420,height=600,menubar=no,toolbar=no,location=no');
+            const name = contact ? (contact.firstName || contact.name || '') : '';
+            const btn = document.getElementById('dialerScreenShareBtn');
+
+            // 1. Capture screen
+            try {
+                _screenShareStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+            } catch(e) {
+                _showDashToast(false, 'Screen sharing was cancelled');
+                return;
+            }
+
+            // Handle user stopping via browser's native "Stop sharing" button
+            _screenShareStream.getVideoTracks()[0].onended = function() {
+                dialerStopScreenShare();
+            };
+
+            if (btn) { btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Screen</span>'; btn.disabled = true; }
+
+            // 2. Create session + SMS link to lead
+            let sessionId, shareUrl;
+            try {
+                const r = await fetch('/voice/share/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contact_phone: phone, contact_name: name })
+                });
+                const d = await r.json();
+                if (!r.ok) {
+                    _screenShareStream.getTracks().forEach(t => t.stop());
+                    _screenShareStream = null;
+                    _showDashToast(false, d.error || 'Failed to start screen share');
+                    if (btn) { btn.innerHTML = '<i class="fa-solid fa-display"></i><span>Screen</span>'; btn.disabled = false; }
+                    return;
+                }
+                sessionId = d.session_id;
+                shareUrl = d.share_url;
+                _screenShareSessionId = sessionId;
+                _showDashToast(d.sms_sent, d.sms_sent ? 'Screen share link sent to ' + (name || phone) : 'Could not SMS link — share manually: ' + shareUrl);
+            } catch(e) {
+                _screenShareStream.getTracks().forEach(t => t.stop());
+                _screenShareStream = null;
+                _showDashToast(false, 'Network error starting screen share');
+                if (btn) { btn.innerHTML = '<i class="fa-solid fa-display"></i><span>Screen</span>'; btn.disabled = false; }
+                return;
+            }
+
+            // 3. Get ICE servers
+            let iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+            try {
+                const iceResp = await fetch('/voice/share/ice-servers');
+                if (iceResp.ok) {
+                    const iceData = await iceResp.json();
+                    if (iceData.ice_servers && iceData.ice_servers.length) iceServers = iceData.ice_servers;
+                }
+            } catch(e) {
+                console.warn('[ScreenShare] ICE server fetch failed, using STUN fallback');
+            }
+
+            // 4. Create peer connection + add screen tracks
+            _screenSharePc = new RTCPeerConnection({ iceServers: iceServers });
+            _screenShareStream.getTracks().forEach(function(track) {
+                _screenSharePc.addTrack(track, _screenShareStream);
+            });
+
+            // 5. Connect to signaling WebSocket
+            const wssHost = window.DASHBOARD_BOOT?.voiceWssHost || window.location.host;
+            const proto = wssHost.includes('localhost') ? 'ws' : 'wss';
+            _screenShareWs = new WebSocket(proto + '://' + wssHost + '/voice/share/signal/' + sessionId + '?role=agent');
+
+            _screenSharePc.onicecandidate = function(event) {
+                if (event.candidate && _screenShareWs && _screenShareWs.readyState === WebSocket.OPEN) {
+                    _screenShareWs.send(JSON.stringify({ type: 'ice', candidate: event.candidate }));
+                }
+            };
+
+            _screenSharePc.oniceconnectionstatechange = function() {
+                if (_screenSharePc && (_screenSharePc.iceConnectionState === 'disconnected' || _screenSharePc.iceConnectionState === 'failed')) {
+                    _showDashToast(false, 'Screen share connection lost');
+                    dialerStopScreenShare();
+                }
+            };
+
+            _screenShareWs.onopen = async function() {
+                try {
+                    const offer = await _screenSharePc.createOffer();
+                    await _screenSharePc.setLocalDescription(offer);
+                    _screenShareWs.send(JSON.stringify({ type: 'offer', sdp: offer.sdp }));
+                } catch(e) {
+                    console.error('[ScreenShare] Offer creation failed:', e);
+                    _showDashToast(false, 'Screen share setup failed');
+                    dialerStopScreenShare();
+                }
+            };
+
+            _screenShareWs.onmessage = async function(event) {
+                let msg;
+                try { msg = JSON.parse(event.data); } catch(e) { return; }
+
+                if (msg.type === 'answer') {
+                    try {
+                        await _screenSharePc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: msg.sdp }));
+                    } catch(e) { console.error('[ScreenShare] Answer handling failed:', e); }
+                } else if (msg.type === 'ice' && msg.candidate) {
+                    try { await _screenSharePc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch(e) {}
+                } else if (msg.type === 'peer_joined') {
+                    _showDashToast(true, 'Lead is viewing your screen');
+                } else if (msg.type === 'peer_left') {
+                    _showDashToast(false, 'Lead stopped viewing');
+                }
+            };
+
+            _screenShareWs.onerror = function() { console.error('[ScreenShare] WebSocket error'); };
+
+            // Update button to active state
+            _screenShareActive = true;
+            if (btn) {
+                btn.innerHTML = '<i class="fa-solid fa-display"></i><span>Stop</span>';
+                btn.style.color = 'var(--accent)';
+                btn.style.background = 'rgba(0,255,136,0.12)';
+                btn.style.borderColor = 'rgba(0,255,136,0.25)';
+                btn.disabled = false;
+                btn.style.cursor = 'pointer';
+            }
+        }
+
+        function dialerStopScreenShare() {
+            if (_screenShareStream) { _screenShareStream.getTracks().forEach(function(t) { t.stop(); }); _screenShareStream = null; }
+            if (_screenShareWs && _screenShareWs.readyState === WebSocket.OPEN) {
+                try { _screenShareWs.send(JSON.stringify({ type: 'end' })); } catch(e) {}
+                try { _screenShareWs.close(); } catch(e) {}
+            }
+            _screenShareWs = null;
+            if (_screenSharePc) { try { _screenSharePc.close(); } catch(e) {} _screenSharePc = null; }
+            if (_screenShareSessionId) {
+                fetch('/voice/share/end', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: _screenShareSessionId }) }).catch(function() {});
+                _screenShareSessionId = null;
+            }
+            _screenShareActive = false;
+            const btn = document.getElementById('dialerScreenShareBtn');
+            if (btn) { btn.innerHTML = '<i class="fa-solid fa-display"></i><span>Screen</span>'; btn.style.color = ''; btn.style.background = ''; btn.style.borderColor = ''; }
         }
 
         // ── Warm Transfer (Conference-based enterprise transfer) ──

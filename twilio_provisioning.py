@@ -510,6 +510,38 @@ def generate_voice_token(identity: str, twiml_app_sid: str,
 
 
 # ──────────────────────────────────────────────────────────────
+# TURN/STUN — Twilio Network Traversal Service (for WebRTC)
+# ──────────────────────────────────────────────────────────────
+
+def generate_turn_credentials(sub_account_sid=None):
+    """
+    Get TURN/STUN ICE server credentials from Twilio Network Traversal Service.
+    Returns a list of ICE server dicts: [{url, urls, username, credential}, ...]
+    TTL: credentials are valid for ~24 hours from Twilio.
+    """
+    try:
+        client = get_sub_account_client(sub_account_sid) if sub_account_sid else get_master_client()
+        token = client.tokens.create()
+        ice_servers = []
+        for s in token.ice_servers:
+            server = {"urls": s.get("urls") or s.get("url", "")}
+            if s.get("username"):
+                server["username"] = s["username"]
+            if s.get("credential"):
+                server["credential"] = s["credential"]
+            ice_servers.append(server)
+        logger.info(f"Generated TURN/STUN credentials: {len(ice_servers)} servers")
+        return ice_servers
+    except TwilioRestException as e:
+        logger.error(f"Failed to generate TURN credentials: {e}")
+        # Fallback to public STUN only (works on most networks)
+        return [{"urls": "stun:stun.l.google.com:19302"}]
+    except Exception as e:
+        logger.error(f"TURN credential generation error: {e}")
+        return [{"urls": "stun:stun.l.google.com:19302"}]
+
+
+# ──────────────────────────────────────────────────────────────
 # CALL MANAGEMENT — Twilio REST API
 # ──────────────────────────────────────────────────────────────
 

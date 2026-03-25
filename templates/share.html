@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Screen Share</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0a0a0f; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        .share-header { padding: 12px 16px; background: rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        .share-dot { width: 8px; height: 8px; border-radius: 50%; background: #00ff88; animation: pulse 1.5s infinite; }
+        .share-dot.ended { background: #666; animation: none; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .share-label { font-size: 0.85rem; color: #aaa; }
+        .share-label strong { color: #ddd; }
+        .share-video-wrap { flex: 1; display: flex; align-items: center; justify-content: center; background: #000; position: relative; }
+        #shareVideo { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .share-status { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 12px; color: #888; font-size: 0.9rem; }
+        .share-spinner { width: 32px; height: 32px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #00d9ff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .share-ended { text-align: center; }
+        .share-ended-icon { font-size: 2rem; color: #444; margin-bottom: 8px; }
+        .share-ended-text { color: #888; font-size: 0.9rem; }
+        .share-fullscreen-btn { position: absolute; bottom: 16px; right: 16px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: #aaa; border-radius: 8px; padding: 8px 12px; font-size: 0.8rem; cursor: pointer; z-index: 10; }
+        .share-fullscreen-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+    </style>
+</head>
+<body>
+    <div class="share-header">
+        <div class="share-dot" id="shareDot"></div>
+        <span class="share-label" id="shareLabel">Connecting to screen share...</span>
+    </div>
+    <div class="share-video-wrap">
+        <video id="shareVideo" autoplay playsinline style="display:none;"></video>
+        <div class="share-status" id="shareStatus">
+            <div class="share-spinner"></div>
+            <span>Waiting for screen share...</span>
+        </div>
+        <button class="share-fullscreen-btn" id="shareFullscreenBtn" style="display:none;" onclick="toggleFullscreen()">
+            &#x26F6; Fullscreen
+        </button>
+    </div>
+
+    <script>
+    (function() {
+        const SESSION_ID = {{ session_id|tojson }};
+        const WSS_HOST = {{ voice_wss_host|tojson }};
+        const video = document.getElementById('shareVideo');
+        const status = document.getElementById('shareStatus');
+        const dot = document.getElementById('shareDot');
+        const label = document.getElementById('shareLabel');
+        const fsBtn = document.getElementById('shareFullscreenBtn');
+
+        let pc = null;
+        let ws = null;
+        let reconnects = 0;
+        const MAX_RECONNECTS = 5;
+
+        async function fetchIceServers() {
+            try {
+                // Public endpoint — viewer doesn't need auth, use defaults
+                return [{ urls: 'stun:stun.l.google.com:19302' }];
+            } catch(e) {
+                return [{ urls: 'stun:stun.l.google.com:19302' }];
+            }
+        }
+
+        async function connect() {
+            const iceServers = await fetchIceServers();
+            pc = new RTCPeerConnection({ iceServers: iceServers });
+
+            pc.ontrack = function(event) {
+                video.srcObject = event.streams[0];
+                video.style.display = 'block';
+                status.style.display = 'none';
+                fsBtn.style.display = 'block';
+                dot.classList.remove('ended');
+                label.innerHTML = '<strong>Screen share active</strong>';
+            };
+
+            pc.onicecandidate = function(event) {
+                if (event.candidate && ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'ice', candidate: event.candidate }));
+                }
+            };
+
+            pc.oniceconnectionstatechange = function() {
+                if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+                    showEnded('Connection lost');
+                }
+            };
+
+            // Connect to signaling server
+            const proto = WSS_HOST.includes('localhost') ? 'ws' : 'wss';
+            const wsUrl = proto + '://' + WSS_HOST + '/voice/share/signal/' + SESSION_ID + '?role=viewer';
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = function() {
+                reconnects = 0;
+                label.textContent = 'Connected — waiting for screen...';
+            };
+
+            ws.onmessage = async function(event) {
+                let msg;
+                try { msg = JSON.parse(event.data); } catch(e) { return; }
+
+                if (msg.type === 'offer') {
+                    try {
+                        await pc.setRemoteDescription(new RTCSessionDescription(msg));
+                        const answer = await pc.createAnswer();
+                        await pc.setLocalDescription(answer);
+                        ws.send(JSON.stringify({ type: 'answer', sdp: answer.sdp }));
+                    } catch(e) {
+                        console.error('[Share] Failed to handle offer:', e);
+                        showEnded('Connection error');
+                    }
+                } else if (msg.type === 'ice' && msg.candidate) {
+                    try {
+                        await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+                    } catch(e) {
+                        console.warn('[Share] ICE candidate error:', e);
+                    }
+                } else if (msg.type === 'end' || msg.type === 'peer_left') {
+                    showEnded('Screen share ended');
+                }
+            };
+
+            ws.onclose = function() {
+                if (reconnects < MAX_RECONNECTS && !dot.classList.contains('ended')) {
+                    reconnects++;
+                    label.textContent = 'Reconnecting...';
+                    setTimeout(connect, 2000);
+                }
+            };
+
+            ws.onerror = function() {
+                console.error('[Share] WebSocket error');
+            };
+        }
+
+        function showEnded(msg) {
+            video.style.display = 'none';
+            fsBtn.style.display = 'none';
+            dot.classList.add('ended');
+            label.textContent = msg || 'Screen share ended';
+            status.innerHTML = '<div class="share-ended"><div class="share-ended-icon">&#x1F4BB;</div><div class="share-ended-text">' + (msg || 'Screen share ended') + '</div></div>';
+            status.style.display = 'flex';
+            if (pc) { try { pc.close(); } catch(e) {} pc = null; }
+            if (ws) { try { ws.close(); } catch(e) {} ws = null; }
+        }
+
+        function toggleFullscreen() {
+            const el = document.querySelector('.share-video-wrap');
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            } else if (el.requestFullscreen) {
+                el.requestFullscreen();
+            } else if (el.webkitRequestFullscreen) {
+                el.webkitRequestFullscreen();
+            }
+        }
+        window.toggleFullscreen = toggleFullscreen;
+
+        // Start
+        connect();
+    })();
+    </script>
+</body>
+</html>
