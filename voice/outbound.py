@@ -1190,6 +1190,7 @@ def voice_status():
                         status=call_status,
                         duration=int(duration or 0),
                         from_number=ghl_from,
+                        contact_name=call_info.get('name', ''),
                     )
             except Exception as ghl_call_err:
                 logger.debug(f"GHL call log skipped for {call_sid}: {ghl_call_err}")

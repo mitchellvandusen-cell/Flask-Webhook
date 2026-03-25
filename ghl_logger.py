@@ -144,6 +144,7 @@ def log_call_to_ghl(
     duration: int = 0,
     from_number: str = None,
     recording_url: str = None,
+    contact_name: str = None,
 ) -> bool:
     """
     Log a call (made/received via Twilio dialer) into GHL conversation history.
@@ -170,11 +171,25 @@ def log_call_to_ghl(
     if mapped_status:
         call_obj["status"] = mapped_status
 
+    # Build descriptive body for the call log entry
+    dir_text = "Outbound" if direction.startswith("outbound") else "Inbound"
+    dur_min = duration // 60
+    dur_sec = duration % 60
+    dur_text = f"{dur_min}:{dur_sec:02d}" if duration else ""
+    body_parts = [f"{dir_text} call"]
+    if contact_name:
+        body_parts.append(f"with {contact_name}")
+    if dur_text:
+        body_parts.append(f"({dur_text})")
+    if mapped_status and mapped_status != "completed":
+        body_parts.append(f"— {mapped_status}")
+
     payload = {
         "type": "Call",
         "contactId": contact_id,
         "conversationProviderId": GHL_CALL_PROVIDER_ID,
         "call": call_obj,
+        "body": " ".join(body_parts),
     }
 
     if recording_url:
