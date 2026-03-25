@@ -940,7 +940,7 @@ def agency_call_log():
             })
 
         # Total count
-        cur.execute(f"SELECT COUNT(*) AS cnt FROM call_history WHERE {where}", params)
+        cur.execute(f"SELECT COUNT(*) AS cnt FROM call_history ch WHERE {where}", params)
         total = cur.fetchone()['cnt']
 
         cur.close()
