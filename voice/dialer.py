@@ -835,6 +835,7 @@ def dial_contact():
     phone         = data.get('phone', '')
     first_name    = data.get('first_name', 'there')
     dial_mode     = data.get('dial_mode', 'human')
+    override_from = data.get('from_number', '')  # Manual caller ID override
     try:
         dial_attempt = int(data.get('dial_attempt', 1))
     except (ValueError, TypeError):
@@ -969,22 +970,27 @@ def dial_contact():
     sub_sid      = voice_config.get('twilio_sub_account_sid', '')
     from_number  = voice_config.get('twilio_phone_number', '')
 
-    # Smart number rotation: if enabled, let the health engine pick the best number
-    rotation_result = select_outbound_number(location_id, voice_config, dest_phone=phone)
-    if rotation_result:
-        from_number = rotation_result["phone"]
-        logger.info(f"Smart rotation selected {from_number} (reason={rotation_result['reason']}, health={rotation_result.get('health_score', '?')}, daily={rotation_result.get('daily_calls', '?')}/{rotation_result.get('daily_cap', '?')})")
+    # Manual caller ID override from dialer number picker
+    if override_from and override_from.startswith('+'):
+        from_number = override_from
+        logger.info(f"Manual caller ID override: {from_number} (user selected)")
     else:
-        # Rotation disabled — use legacy local presence logic
-        local_presence_enabled = voice_config.get('local_presence', False)
-        if local_presence_enabled:
-            dest_area = phone.lstrip('+').lstrip('1')[:3] if phone else ''
-            local_pool = voice_config.get('local_presence_numbers', [])
-            for lp_num in local_pool:
-                lp_area = lp_num.lstrip('+').lstrip('1')[:3]
-                if lp_area == dest_area:
-                    from_number = lp_num
-                    break
+        # Smart number rotation: if enabled, let the health engine pick the best number
+        rotation_result = select_outbound_number(location_id, voice_config, dest_phone=phone)
+        if rotation_result:
+            from_number = rotation_result["phone"]
+            logger.info(f"Smart rotation selected {from_number} (reason={rotation_result['reason']}, health={rotation_result.get('health_score', '?')}, daily={rotation_result.get('daily_calls', '?')}/{rotation_result.get('daily_cap', '?')})")
+        else:
+            # Rotation disabled — use legacy local presence logic
+            local_presence_enabled = voice_config.get('local_presence', False)
+            if local_presence_enabled:
+                dest_area = phone.lstrip('+').lstrip('1')[:3] if phone else ''
+                local_pool = voice_config.get('local_presence_numbers', [])
+                for lp_num in local_pool:
+                    lp_area = lp_num.lstrip('+').lstrip('1')[:3]
+                    if lp_area == dest_area:
+                        from_number = lp_num
+                        break
 
     if not sub_sid or not from_number:
         return jsonify({"error": "Voice service not fully provisioned"}), 400

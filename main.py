@@ -76,6 +76,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Silence noisy Twilio SDK HTTP logging (dumps full headers/responses at INFO)
+logging.getLogger('twilio.http_client').setLevel(logging.WARNING)
+
 
 def safe_jsonify(data):
     return flask_jsonify(make_json_serializable(data))

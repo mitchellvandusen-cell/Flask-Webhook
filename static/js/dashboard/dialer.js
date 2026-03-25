@@ -19,6 +19,10 @@
         let dialerPollTimer = null;
         let _dialerCallConnected = false;
 
+        // ── Caller Number Selection State ──
+        let _dialerNumbers = [];          // [{phone, nickname, is_primary, capabilities}]
+        let _dialerSelectedNumber = localStorage.getItem('dialerFromNumber') || '';  // '' = auto
+
         // ── AI Minutes Balance State ──
         let _aiMinutesBalance = null;  // null = not loaded yet, number = current balance
         let _aiMinutesHasPurchased = false;  // true if user has ever purchased minutes
@@ -2985,7 +2989,7 @@
                 const r = await _fetchRetry('/voice/dial', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ phone, first_name: firstName, contact_id: contactId, dial_mode: dialerMode, dial_attempt: (dialerCallIdx >= 0 && dialerQueue[dialerCallIdx]) ? (dialerQueue[dialerCallIdx].attempts || 1) : 1 })
+                    body: JSON.stringify({ phone, first_name: firstName, contact_id: contactId, dial_mode: dialerMode, dial_attempt: (dialerCallIdx >= 0 && dialerQueue[dialerCallIdx]) ? (dialerQueue[dialerCallIdx].attempts || 1) : 1, from_number: _dialerGetFromNumber() })
                 }, { retries: 0, timeout: 25000, label: 'dial' });
                 const d = await r.json();
                 if (!r.ok) {
@@ -4623,6 +4627,66 @@
             // Show/hide AI minutes chip based on mode
             _dialerUpdateMinutesChip();
         }
+
+        // ===== CALLER NUMBER PICKER =====
+        async function _dialerLoadNumbers() {
+            try {
+                const r = await fetch('/voice/numbers');
+                if (!r.ok) return;
+                const d = await r.json();
+                _dialerNumbers = (d.numbers || []).filter(n => n.capabilities && n.capabilities.voice);
+                _dialerRenderNumberPicker();
+            } catch(e) {
+                console.warn('[Dialer] Failed to load numbers:', e);
+            }
+        }
+
+        function _dialerRenderNumberPicker() {
+            const sel = document.getElementById('dialerFromNumber');
+            if (!sel) return;
+            sel.innerHTML = '<option value="">Auto (Smart Rotation)</option>';
+            _dialerNumbers.forEach(n => {
+                const opt = document.createElement('option');
+                opt.value = n.phone;
+                const label = n.nickname ? n.nickname + ' — ' + _dialerFmtPhone(n.phone) : _dialerFmtPhone(n.phone);
+                opt.textContent = label + (n.is_primary ? ' ★' : '');
+                sel.appendChild(opt);
+            });
+            // Restore saved selection (validate it still exists)
+            if (_dialerSelectedNumber && _dialerNumbers.some(n => n.phone === _dialerSelectedNumber)) {
+                sel.value = _dialerSelectedNumber;
+            } else {
+                _dialerSelectedNumber = '';
+                sel.value = '';
+            }
+            // Show picker if user has 2+ voice numbers (otherwise nothing to pick)
+            const wrap = document.getElementById('dialerFromNumberWrap');
+            if (wrap) wrap.style.display = _dialerNumbers.length >= 2 ? '' : 'none';
+        }
+
+        function _dialerOnNumberChange(val) {
+            _dialerSelectedNumber = val;
+            if (val) {
+                _lsSet('dialerFromNumber', val);
+            } else {
+                _lsDel('dialerFromNumber');
+            }
+        }
+
+        function _dialerFmtPhone(p) {
+            if (!p) return '';
+            const d = p.replace(/\D/g, '');
+            if (d.length === 11 && d[0] === '1') return '+1 (' + d.substr(1,3) + ') ' + d.substr(4,3) + '-' + d.substr(7);
+            if (d.length === 10) return '(' + d.substr(0,3) + ') ' + d.substr(3,3) + '-' + d.substr(6);
+            return p;
+        }
+
+        function _dialerGetFromNumber() {
+            return _dialerSelectedNumber || '';
+        }
+
+        // Load numbers on dialer init (after a short delay to prioritize contacts)
+        setTimeout(_dialerLoadNumbers, 1500);
 
         // Show VoIP status messages (visible in banner and setup areas)
         function _showVoipStatus(msg) {

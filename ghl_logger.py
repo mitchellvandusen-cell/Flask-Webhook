@@ -159,21 +159,24 @@ def log_call_to_ghl(
 
     headers = _ghl_headers(access_token)
 
-    # GHL expects callStatus and callDuration at the top level, NOT nested
-    # inside a "call" object. The nested format causes "'call.status' is invalid".
+    # GHL Conversation Provider API requires a nested "call" object
+    # with to/from/status. See: marketplace.gohighlevel.com/docs/ghl/conversations/add-an-outbound-message
+    mapped_status = _map_call_status(status)
+    call_obj = {}
+    if phone:
+        call_obj["to"] = phone
+    if from_number:
+        call_obj["from"] = from_number
+    if mapped_status:
+        call_obj["status"] = mapped_status
+
     payload = {
         "type": "Call",
         "contactId": contact_id,
         "conversationProviderId": GHL_CALL_PROVIDER_ID,
+        "call": call_obj,
     }
 
-    mapped_status = _map_call_status(status)
-    if mapped_status:
-        payload["callStatus"] = mapped_status
-    if duration:
-        payload["callDuration"] = int(duration)
-    if phone:
-        payload["phone"] = phone
     if recording_url:
         payload["attachments"] = [recording_url]
 
@@ -202,16 +205,16 @@ def log_call_to_ghl(
 
 def _map_call_status(status: str) -> str:
     """Map internal call status to GHL-accepted call status values.
-    Valid: Answered, Busy, Canceled, Completed, Pending, Failed, Voicemail, No-answer."""
+    GHL valid: pending, completed, answered, busy, no-answer, failed, canceled, voicemail."""
     mapping = {
-        "completed": "Completed",
-        "busy": "Busy",
-        "no-answer": "No-answer",
-        "failed": "Failed",
-        "canceled": "Canceled",
-        "initiated": "Pending",
-        "ringing": "Pending",
-        "in-progress": "Answered",
-        "voicemail": "Voicemail",
+        "completed": "completed",
+        "busy": "busy",
+        "no-answer": "no-answer",
+        "failed": "failed",
+        "canceled": "canceled",
+        "initiated": "pending",
+        "ringing": "pending",
+        "in-progress": "answered",
+        "voicemail": "voicemail",
     }
-    return mapping.get(status.lower(), "Completed")
+    return mapping.get(status.lower(), "completed")

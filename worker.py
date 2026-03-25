@@ -18,6 +18,7 @@ from rq import Worker, Queue
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(name)s | %(levelname)s | %(message)s')
+logging.getLogger('twilio.http_client').setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379')
