@@ -1219,6 +1219,15 @@ def success():
 
     user = User.get(email)
     if user:
+        # If subscriber has no GHL OAuth token, redirect to connect.
+        # Handles: (a) agent who subscribed before connecting GHL, or
+        # (b) agency bulk-installed but agent subscribed directly on our site.
+        if not user.access_token or getattr(user, 'oauth_app_type', '') == 'company_token':
+            if not current_user.is_authenticated:
+                login_user(user)
+            flash("Payment confirmed! Now connect your GoHighLevel account to activate your bot.", "info")
+            return redirect("/oauth/initiate")
+
         if user.password_hash:
             flash("Payment confirmed! Please log in to continue.", "success")
             return redirect("/login")

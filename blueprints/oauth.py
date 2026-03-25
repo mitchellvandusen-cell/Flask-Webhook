@@ -1027,6 +1027,24 @@ def oauth_callback():
                 ))
                 logger.info(f"Agency owner {user_email} synced to both agency_billing and subscribers")
 
+                # Queue background task to discover + provision all sub-accounts.
+                # This avoids OAuth callback timeout and GHL rate limits (40 req/10s).
+                # The task uses the Company token from agency_billing to pull location
+                # details and create pending subscriber rows for each sub-account.
+                if token_user_type_used == 'Company' and company_id:
+                    try:
+                        from extensions import get_rq_queue
+                        q = get_rq_queue('production')
+                        q.enqueue(
+                            'tasks.provision_agency_subaccounts_task',
+                            agency_email=user_email,
+                            company_id=company_id,
+                            job_timeout=300,
+                        )
+                        logger.info(f"Queued provision_agency_subaccounts_task for {user_email} company={company_id}")
+                    except Exception as rq_err:
+                        logger.warning(f"Failed to queue agency provisioning task: {rq_err}")
+
             # B. Reconnect/reinstall sync: update OAuth tokens on existing rows.
             # Look up by location_id (PK) first — this is the definitive match.
             # Avoids PK collision when email owns a DIFFERENT location.

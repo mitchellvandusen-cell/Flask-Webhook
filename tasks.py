@@ -2088,3 +2088,152 @@ def _add_contact_note(api_base, headers, contact_id, note_text):
         )
     except Exception:
         pass
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  AGENCY BULK INSTALL — Sub-Account Provisioning (RQ background task)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def provision_agency_subaccounts_task(agency_email, company_id):
+    """Discover all sub-accounts under a GHL agency and create pending subscriber rows.
+
+    Called from OAuth callback when an agency owner bulk-installs the app
+    (userType=Company, isBulkInstallation=true). Runs in RQ background to avoid
+    OAuth callback timeout and GHL rate limits.
+
+    The Company token is stored ONCE on agency_billing. Subscriber rows get
+    oauth_app_type='company_token' (no token duplication) — at runtime, the token
+    is looked up from agency_billing via parent_agency_email.
+    """
+    import requests as http_requests
+    from psycopg2.extras import RealDictCursor
+    from token_encryption import decrypt_token
+    from ghl_api import fetch_all_ghl_items
+
+    logger.info(f"[agency-provision] Starting for agency={agency_email} company={company_id}")
+
+    conn = get_db_connection()
+    if not conn:
+        logger.error("[agency-provision] DB connection failed")
+        return {"error": "DB unavailable"}
+
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Get agency's Company token from agency_billing (single source of truth)
+        cur.execute(
+            "SELECT access_token, refresh_token FROM agency_billing WHERE LOWER(agency_email) = LOWER(%s)",
+            (agency_email,)
+        )
+        agency = cur.fetchone()
+        if not agency or not agency.get('access_token'):
+            logger.error(f"[agency-provision] No agency_billing row or token for {agency_email}")
+            return {"error": "no_agency_token"}
+
+        company_token = decrypt_token(agency['access_token'])
+        headers = {'Authorization': f'Bearer {company_token}', 'Version': '2021-07-28'}
+
+        # 1. Get all sub-accounts (paginated via fetch_all_ghl_items)
+        locations_url = f"https://services.leadconnectorhq.com/locations/search?companyId={company_id}&limit=100"
+        locations = fetch_all_ghl_items(locations_url, headers, item_key='locations')
+        logger.info(f"[agency-provision] Found {len(locations)} locations for company={company_id}")
+
+        provisioned = 0
+        skipped = 0
+        errors = []
+
+        # 2. For each location, get admin user + create subscriber row
+        for loc in locations:
+            loc_id = loc.get('id') or loc.get('_id')
+            if not loc_id:
+                continue
+
+            # Rate limit: GHL allows 40 req/10s — sleep 0.3s between calls
+            time.sleep(0.3)
+
+            # Get admin user for this location
+            loc_email = None
+            loc_name = loc.get('name', 'Unknown')
+            try:
+                users_resp = http_requests.get(
+                    f"https://services.leadconnectorhq.com/users/?locationId={loc_id}",
+                    headers=headers, timeout=10
+                )
+                if users_resp.ok:
+                    users = users_resp.json().get('users', [])
+                    # Prefer admin/owner, fallback to first user
+                    admin = next(
+                        (u for u in users if u.get('role') in ('admin',)),
+                        next((u for u in users if u.get('role') == 'user'), users[0] if users else None)
+                    )
+                    if admin:
+                        loc_email = admin.get('email', '')
+                        loc_name = admin.get('name') or admin.get('firstName', '') or loc_name
+            except Exception as e:
+                logger.warning(f"[agency-provision] Failed to get users for location={loc_id}: {e}")
+                errors.append({"location_id": loc_id, "error": str(e)})
+
+            # Fallback to location-level email
+            if not loc_email:
+                loc_email = loc.get('email') or ''
+            if not loc_email:
+                logger.warning(f"[agency-provision] No email found for location={loc_id}, skipping")
+                skipped += 1
+                continue
+
+            # Skip agency owner's own email
+            if loc_email.lower() == agency_email.lower():
+                skipped += 1
+                continue
+
+            # Create subscriber row — NO token duplication
+            # oauth_app_type='company_token' = "look up token from agency_billing at runtime"
+            try:
+                cur.execute("""
+                    INSERT INTO subscribers (
+                        email, location_id, full_name, role, subscription_tier,
+                        timezone, company_id, parent_agency_email,
+                        oauth_app_type, created_at, updated_at
+                    ) VALUES (%s, %s, %s, 'individual', NULL, %s, %s, %s,
+                              'company_token', NOW(), NOW())
+                    ON CONFLICT (email) DO UPDATE SET
+                        location_id = COALESCE(EXCLUDED.location_id, subscribers.location_id),
+                        company_id = COALESCE(EXCLUDED.company_id, subscribers.company_id),
+                        parent_agency_email = COALESCE(EXCLUDED.parent_agency_email, subscribers.parent_agency_email),
+                        updated_at = NOW()
+                    WHERE subscribers.oauth_app_type IS NULL
+                       OR subscribers.oauth_app_type = 'company_token'
+                """, (
+                    loc_email, loc_id, loc_name,
+                    loc.get('timezone', 'America/Chicago'),
+                    company_id, agency_email,
+                ))
+                provisioned += 1
+                logger.info(f"[agency-provision] Provisioned: {loc_email} location={loc_id}")
+            except Exception as e:
+                logger.warning(f"[agency-provision] DB error for {loc_email}: {e}")
+                errors.append({"email": loc_email, "error": str(e)})
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+
+        conn.commit()
+        cur.close()
+
+        result = {
+            "agency_email": agency_email,
+            "company_id": company_id,
+            "total_locations": len(locations),
+            "provisioned": provisioned,
+            "skipped": skipped,
+            "errors": len(errors),
+        }
+        logger.info(f"[agency-provision] Complete: {result}")
+        return result
+
+    except Exception as e:
+        logger.error(f"[agency-provision] Failed: {e}", exc_info=True)
+        return {"error": str(e)}
+    finally:
+        return_db_connection(conn)

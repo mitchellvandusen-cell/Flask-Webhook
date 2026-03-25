@@ -436,10 +436,37 @@ def get_valid_token(location_id: str, subscriber: dict = None) -> str | None:
         logger.error(f"No subscriber config for {location_id}")
         return None
 
+    oauth_app_type = sub.get('oauth_app_type', 'marketplace')
+
+    # Company token subscribers: token lives on agency_billing, not on subscriber row.
+    # Look up the agency's Company token and return it directly — it works for
+    # location-specific API calls when locationId is included in the request.
+    if oauth_app_type == 'company_token':
+        parent_email = sub.get('parent_agency_email')
+        if parent_email:
+            try:
+                from psycopg2.extras import RealDictCursor as _RDC
+                _conn = get_db_connection()
+                if _conn:
+                    _cur = _conn.cursor(cursor_factory=_RDC)
+                    _cur.execute(
+                        "SELECT access_token FROM agency_billing WHERE LOWER(agency_email) = LOWER(%s)",
+                        (parent_email,)
+                    )
+                    _agency = _cur.fetchone()
+                    _cur.close()
+                    return_db_connection(_conn)
+                    if _agency and _agency.get('access_token'):
+                        from token_encryption import decrypt_token
+                        return decrypt_token(_agency['access_token'])
+            except Exception as e:
+                logger.warning(f"Company token lookup failed for agency={parent_email}: {e}")
+        logger.warning(f"No Company token for location={location_id} (parent_agency={sub.get('parent_agency_email')})")
+        return None
+
     raw_access = sub.get('access_token') or sub.get('crm_api_key')
     raw_refresh = sub.get('refresh_token')
     expires_at = sub.get('token_expires_at')
-    oauth_app_type = sub.get('oauth_app_type', 'marketplace')
 
     # Decrypt tokens (handles both encrypted and legacy plaintext transparently)
     access_token = decrypt_token(raw_access) if raw_access else None
@@ -616,10 +643,35 @@ def get_valid_token_with_status(location_id: str, subscriber: dict = None,
         logger.error(f"No subscriber config for {location_id}")
         return None, False, 'no_subscriber'
 
+    oauth_app_type = sub.get('oauth_app_type', 'marketplace')
+
+    # Company token subscribers: look up from agency_billing
+    if oauth_app_type == 'company_token':
+        parent_email = sub.get('parent_agency_email')
+        if parent_email:
+            try:
+                from psycopg2.extras import RealDictCursor as _RDC
+                _conn = get_db_connection()
+                if _conn:
+                    _cur = _conn.cursor(cursor_factory=_RDC)
+                    _cur.execute(
+                        "SELECT access_token FROM agency_billing WHERE LOWER(agency_email) = LOWER(%s)",
+                        (parent_email,)
+                    )
+                    _agency = _cur.fetchone()
+                    _cur.close()
+                    return_db_connection(_conn)
+                    if _agency and _agency.get('access_token'):
+                        from token_encryption import decrypt_token
+                        return decrypt_token(_agency['access_token']), False, None
+            except Exception as e:
+                logger.warning(f"Company token lookup failed for agency={parent_email}: {e}")
+        return None, False, 'no_company_token'
+
     raw_access = sub.get('access_token') or sub.get('crm_api_key')
     raw_refresh = sub.get('refresh_token')
     expires_at = sub.get('token_expires_at')
-    oauth_app_type = sub.get('oauth_app_type', 'marketplace')
+    # oauth_app_type already set above
 
     # Decrypt tokens (handles both encrypted and legacy plaintext transparently)
     access_token = decrypt_token(raw_access) if raw_access else None
