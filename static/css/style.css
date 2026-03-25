@@ -9059,19 +9059,40 @@ body.light-theme .dlr-btn-ios-delete:hover { background:rgba(220,38,38,0.25); }
 /* ── STIR/SHAKEN Attestation Badges ── */
 .call-history-row {
     display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 7px 8px;
+    flex-direction: column;
+    gap: 0;
+    padding: 8px 10px;
     border-bottom: 1px solid rgba(255,255,255,0.03);
-    font-size: .88rem;
+    font-size: .85rem;
     cursor: pointer;
+    transition: background .12s;
 }
+.call-history-row:hover { background: rgba(255,255,255,0.02); }
 .call-history-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
     flex-shrink: 0;
 }
+.chr-action-btn {
+    border: none;
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-size: .7rem;
+    cursor: pointer;
+    transition: opacity .15s;
+    text-decoration: none;
+    line-height: 1.4;
+}
+.chr-action-btn:hover { opacity: 0.8; }
+.chr-action-play { background: rgba(0,217,255,0.08); color: #00d9ff; }
+.chr-action-dl { background: rgba(74,222,128,0.08); color: var(--accent); }
+.chr-action-tx { background: rgba(74,222,128,0.08); color: var(--accent); }
+.chr-action-transcribe { background: rgba(255,180,0,0.07); color: #ffb400; }
+body.light-theme .chr-action-play { background: rgba(0,150,200,0.08); color: #0088aa; }
+body.light-theme .chr-action-dl { background: rgba(0,140,70,0.08); color: #008844; }
+body.light-theme .chr-action-tx { background: rgba(0,140,70,0.08); color: #008844; }
+body.light-theme .chr-action-transcribe { background: rgba(180,120,0,0.08); color: #996600; }
 .stir-badge {
     font-size: .65rem;
     font-weight: 700;

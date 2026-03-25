@@ -931,50 +931,41 @@
             const dur = vm.duration ? Math.floor(vm.duration / 60) + ':' + String(vm.duration % 60).padStart(2, '0') : '0:00';
             const isNew = vm.is_new;
             const preview = vm.transcript_preview || '';
-            const nameColor = isNew ? '#fff' : '#aaa';
-            const newDot = isNew ? '<div style="width:8px;height:8px;border-radius:50%;background:#FF9500;flex-shrink:0;"></div>' : '<div style="width:8px;flex-shrink:0;"></div>';
+            const nameWt = isNew ? '700' : '500';
+            const nameClr = isNew ? '#fff' : '#aaa';
+            const dotClr = isNew ? '#FF9500' : 'transparent';
 
-            let html = '<div style="padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;" onclick="vmToggleExpand(' + idx + ')">';
-            html += '<div style="display:flex;align-items:center;gap:10px;">';
-            html += newDot;
-            // Contact info
-            html += '<div style="flex:1;min-width:0;">';
-            html += '<div style="display:flex;align-items:baseline;justify-content:space-between;">';
-            html += '<span style="font-weight:' + (isNew ? '700' : '500') + ';font-size:.92rem;color:' + nameColor + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(name) + '</span>';
-            html += '<span style="color:#666;font-size:.75rem;white-space:nowrap;margin-left:8px;">' + dt + '</span>';
+            let html = '<div class="call-history-row" onclick="vmToggleExpand(' + idx + ')">';
+            // Line 1: dot · name · date
+            html += '<div style="display:flex;align-items:center;gap:6px;min-width:0;">';
+            html += '<div class="call-history-dot" style="background:' + dotClr + ';flex-shrink:0;"></div>';
+            html += '<span style="font-weight:' + nameWt + ';color:' + nameClr + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(name) + '</span>';
+            html += '<span style="color:#444;font-size:.72rem;white-space:nowrap;margin-left:auto;">' + dt + '</span>';
             html += '</div>';
-            // Transcript preview or "Tap to transcribe"
-            if (preview) {
-                html += '<div style="color:#888;font-size:.78rem;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(preview) + '</div>';
-            } else {
-                html += '<div style="color:#666;font-size:.75rem;margin-top:2px;font-style:italic;">Tap to transcribe</div>';
-            }
-            html += '</div>';
-            // Duration
-            html += '<span style="color:#888;font-size:.78rem;font-family:monospace;flex-shrink:0;">' + dur + '</span>';
-            html += '</div>';
-
-            // Expanded area (hidden by default)
-            html += '<div id="vmExpand' + idx + '" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.04);">';
-            // Full transcript
-            html += '<div id="vmTranscript' + idx + '" style="margin-bottom:10px;">';
-            if (preview) {
-                html += '<div style="color:#ccc;font-size:.82rem;line-height:1.5;background:rgba(255,255,255,0.02);padding:8px 10px;border-radius:8px;">' + dialerEsc(vm.transcript_preview || '') + '</div>';
-            } else {
-                html += '<div style="text-align:center;"><button onclick="event.stopPropagation();vmTranscribe(' + idx + ')" style="background:rgba(255,180,0,0.08);border:1px solid rgba(255,180,0,0.15);color:#ffb400;border-radius:8px;padding:6px 16px;font-size:.82rem;cursor:pointer;"><i class="fa-solid fa-wand-magic-sparkles me-1"></i>Transcribe</button></div>';
-            }
-            html += '</div>';
-            // Action buttons
-            html += '<div style="display:flex;gap:8px;">';
+            // Line 2: duration · play/dl/transcribe · call back
+            html += '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;padding-left:16px;">';
+            html += '<span style="color:#666;font-size:.75rem;font-family:monospace;">' + dur + '</span>';
             if (vm.recording_url) {
-                html += '<button onclick="event.stopPropagation();vmPlay(' + idx + ')" id="vmPlayBtn' + idx + '" style="flex:1;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.15);color:#00d9ff;border-radius:8px;padding:6px;font-size:.82rem;cursor:pointer;"><i class="fa-solid fa-play me-1"></i>Play</button>';
+                html += '<button onclick="event.stopPropagation();vmPlay(' + idx + ')" id="vmPlayBtn' + idx + '" class="chr-action-btn chr-action-play" title="Play"><i class="fa-solid fa-play"></i></button>';
+                html += '<a href="' + dialerEsc(vm.recording_url) + '?dl=1" download class="chr-action-btn chr-action-dl" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-download"></i></a>';
+            }
+            if (preview) {
+                html += '<button onclick=\'event.stopPropagation();showTranscript([{role:"call_recording",text:"' + dialerEsc(preview).replace(/"/g,'&quot;') + '"}])\' class="chr-action-btn chr-action-tx" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>';
+            } else if (vm.recording_url && vm.call_sid) {
+                html += '<button onclick="event.stopPropagation();vmTranscribe(' + idx + ')" class="chr-action-btn chr-action-transcribe" title="Transcribe"><i class="fa-solid fa-wand-magic-sparkles"></i></button>';
             }
             if (vm.phone) {
-                html += '<button onclick="event.stopPropagation();vmCallback(' + idx + ')" style="flex:1;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.15);color:var(--accent);border-radius:8px;padding:6px;font-size:.82rem;cursor:pointer;"><i class="fa-solid fa-phone me-1"></i>Call Back</button>';
+                html += '<button onclick="event.stopPropagation();vmCallback(' + idx + ')" class="chr-action-btn" style="background:rgba(74,222,128,0.06);color:var(--accent);margin-left:auto;" title="Call Back"><i class="fa-solid fa-phone"></i></button>';
             }
             html += '</div>';
+            // Expanded area (hidden by default)
+            html += '<div id="vmExpand' + idx + '" style="display:none;margin-top:8px;padding:8px 10px 4px 16px;border-top:1px solid rgba(255,255,255,0.04);">';
+            if (preview) {
+                html += '<div style="color:#ccc;font-size:.82rem;line-height:1.5;">' + dialerEsc(preview) + '</div>';
+            } else {
+                html += '<div style="color:#666;font-size:.78rem;font-style:italic;">Tap to transcribe</div>';
+            }
             html += '</div>';
-
             html += '</div>';
             return html;
         }
@@ -3303,6 +3294,17 @@
                 s.style.color = '#00d9ff';
                 _dialerBannerState('ringing');
             }
+            // Show which number we're calling from
+            const fromEl = document.getElementById('dialerCallFrom');
+            if (fromEl) {
+                const fromNum = _dialerGetFromNumber();
+                if (fromNum) {
+                    fromEl.textContent = 'from ' + _dialerFmtPhone(fromNum);
+                    fromEl.style.display = '';
+                } else {
+                    fromEl.style.display = 'none';
+                }
+            }
             // Reset timer
             document.getElementById('dialerBannerTimer').style.display = 'none';
             document.getElementById('dialerBannerTimer').textContent = '00:00';
@@ -4109,22 +4111,28 @@
                     const dt = c.created_at ? new Date(c.created_at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
                     const hasRec = !!c.recording_url;
                     const hasTx = c.transcript && c.transcript.length > 0;
-                    const disp = c.disposition ? ' <span style="color:#888;font-size:.75rem;">(' + c.disposition.replace(/_/g,' ') + ')</span>' : '';
-                    const stirBadge = c.stir_status ? '<span class="stir-badge stir-badge-' + dialerEsc(c.stir_status).toLowerCase() + '" title="STIR/SHAKEN Attestation ' + dialerEsc(c.stir_status) + '">' + dialerEsc(c.stir_status) + '</span>' : '';
-                    return '<div class="call-history-row" onclick="dialerHistoryClickContact(\'' + (c.contact_id||'') + '\')">' +
-                        '<div class="call-history-dot" style="background:' + sc + ';"></div>' +
-                        '<div style="flex:1;min-width:0;">' +
-                            '<div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(c.contact_name || c.phone || 'Unknown') + disp + '</div>' +
-                            '<div style="font-size:.78rem;color:#555;">' + (c.direction||'outbound') + ' &middot; ' + dt + '</div>' +
-                        '</div>' +
-                        stirBadge +
-                        '<div style="color:' + sc + ';font-size:.78rem;font-weight:600;white-space:nowrap;">' + (c.status||'').replace(/-/g,' ') + '</div>' +
-                        '<div style="color:#888;font-size:.82rem;font-family:monospace;">' + dur + '</div>' +
-                        (hasRec ? '<button onclick="event.stopPropagation();playRecording(\'' + dialerEsc(c.recording_url) + '\')" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:4px;padding:2px 6px;font-size:.75rem;cursor:pointer;" title="Play"><i class="fa-solid fa-play"></i></button>' : '') +
-                        (hasRec ? '<a href="' + dialerEsc(c.recording_url) + '?dl=1" download style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.75rem;text-decoration:none;cursor:pointer;" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-download"></i></a>' : '') +
-                        (hasTx ? '<button onclick=\'event.stopPropagation();showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.75rem;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
-                        (!hasTx && hasRec && c.call_sid ? '<button onclick="event.stopPropagation();transcribeNow(\'' + dialerEsc(c.call_sid) + '\',\'' + dialerEsc(c.recording_url) + '\',this)" style="background:rgba(255,180,0,0.07);border:1px solid rgba(255,180,0,0.14);color:#ffb400;border-radius:4px;padding:2px 6px;font-size:.75rem;cursor:pointer;" title="Generate Transcript"><i class="fa-solid fa-wand-magic-sparkles"></i></button>' : '') +
-                    '</div>';
+                    const stirBadge = c.stir_status ? '<span class="stir-badge stir-badge-' + dialerEsc(c.stir_status).toLowerCase() + '">' + dialerEsc(c.stir_status) + '</span>' : '';
+                    const dirIcon = (c.direction||'outbound') === 'inbound' ? '<i class="fa-solid fa-phone-arrow-down-left" style="font-size:.65rem;"></i>' : '<i class="fa-solid fa-phone-arrow-up-right" style="font-size:.65rem;"></i>';
+                    // Line 1: name · direction · date
+                    let row = '<div class="call-history-row" onclick="dialerHistoryClickContact(\'' + (c.contact_id||'') + '\')">';
+                    row += '<div style="display:flex;align-items:center;gap:6px;min-width:0;">';
+                    row += '<div class="call-history-dot" style="background:' + sc + ';flex-shrink:0;"></div>';
+                    row += '<span style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(c.contact_name || c.phone || 'Unknown') + '</span>';
+                    row += '<span style="color:#555;font-size:.72rem;white-space:nowrap;">' + dirIcon + ' ' + (c.direction||'outbound') + '</span>';
+                    row += '<span style="color:#444;font-size:.72rem;white-space:nowrap;margin-left:auto;">' + dt + '</span>';
+                    row += '</div>';
+                    // Line 2: stir · status · duration · actions
+                    row += '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;padding-left:16px;">';
+                    row += stirBadge;
+                    row += '<span style="color:' + sc + ';font-size:.75rem;font-weight:600;">' + (c.status||'').replace(/-/g,' ') + '</span>';
+                    row += '<span style="color:#666;font-size:.75rem;font-family:monospace;">' + dur + '</span>';
+                    if (hasRec) row += '<button onclick="event.stopPropagation();playRecording(\'' + dialerEsc(c.recording_url) + '\')" class="chr-action-btn chr-action-play" title="Play"><i class="fa-solid fa-play"></i></button>';
+                    if (hasRec) row += '<a href="' + dialerEsc(c.recording_url) + '?dl=1" download class="chr-action-btn chr-action-dl" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-download"></i></a>';
+                    if (hasTx) row += '<button onclick=\'event.stopPropagation();showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' class="chr-action-btn chr-action-tx" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>';
+                    if (!hasTx && hasRec && c.call_sid) row += '<button onclick="event.stopPropagation();transcribeNow(\'' + dialerEsc(c.call_sid) + '\',\'' + dialerEsc(c.recording_url) + '\',this)" class="chr-action-btn chr-action-transcribe" title="Transcribe"><i class="fa-solid fa-wand-magic-sparkles"></i></button>';
+                    row += '</div>';
+                    row += '</div>';
+                    return row;
                 }).join('');
             } catch(e) { panel.innerHTML = '<div style="color:#ef4444;padding:12px;text-align:center;font-size:.88rem;">Error loading history</div>'; }
         }
@@ -4662,15 +4670,18 @@
             if (!menu || !trigger) return;
 
             // Build menu items
-            let html = '<div class="dfn-item' + (!_dialerSelectedNumber ? ' active' : '') + '" data-val="" onclick="_dfnSelect(this,\'\')"><i class="fa-solid fa-shuffle" style="font-size:0.68rem;color:#00d9ff;"></i> Auto (Smart Rotation)</div>';
+            let html = '<div class="dfn-item' + (!_dialerSelectedNumber ? ' active' : '') + '" data-val="" onclick="_dfnSelect(this,\'\')">' +
+                '<span class="dfn-dot"></span><span class="dfn-item-label">Auto (Smart Rotation)</span></div>';
             _dialerNumbers.forEach(n => {
                 const isActive = _dialerSelectedNumber === n.phone;
                 const esc = n.phone.replace(/'/g, "\\'");
-                html += '<div class="dfn-item' + (isActive ? ' active' : '') + '" data-val="' + n.phone + '" onclick="_dfnSelect(this,\'' + esc + '\')">';
-                if (n.nickname) html += '<span class="dfn-nick">' + _dialerEscHtml(n.nickname) + '</span>';
-                html += '<span class="dfn-phone">' + _dialerFmtPhone(n.phone) + '</span>';
-                if (n.is_primary) html += ' <i class="fa-solid fa-star dfn-star"></i>';
-                html += '</div>';
+                const label = n.nickname ? _dialerEscHtml(n.nickname) : _dialerFmtPhone(n.phone);
+                const sub = n.nickname ? _dialerFmtPhone(n.phone) : '';
+                html += '<div class="dfn-item' + (isActive ? ' active' : '') + '" data-val="' + n.phone + '" onclick="_dfnSelect(this,\'' + esc + '\')">' +
+                    '<span class="dfn-dot"></span>' +
+                    '<span class="dfn-item-label">' + label + '</span>' +
+                    (sub ? '<span class="dfn-item-sub">' + sub + '</span>' : '') +
+                    '</div>';
             });
             menu.innerHTML = html;
 
