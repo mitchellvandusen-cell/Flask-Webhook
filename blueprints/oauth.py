@@ -1498,18 +1498,28 @@ def oauth_callback():
 
         # ── GHL SSO: auto-login after successful token exchange ──────────────
         if is_ghl_sso:
-            # Find the user to log in — try email first, then location_id
+            # Find the user — try email, then location_id, then company_id (agency owners)
             sso_user = User.get(user_email) if user_email else None
-            if not sso_user and primary_location_id:
+
+            if not sso_user:
                 sso_conn = get_db_connection()
                 if sso_conn:
                     try:
                         sso_cur = sso_conn.cursor()
-                        sso_cur.execute("SELECT email FROM subscribers WHERE location_id = %s", (primary_location_id,))
-                        sso_row = sso_cur.fetchone()
+                        # Try by location_id
+                        if primary_location_id:
+                            sso_cur.execute("SELECT email FROM subscribers WHERE location_id = %s", (primary_location_id,))
+                            sso_row = sso_cur.fetchone()
+                            if sso_row:
+                                sso_user = User.get(sso_row['email'])
+                        # Try by company_id (agency owners authorize at Company level, no locationId)
+                        if not sso_user and company_id:
+                            sso_cur.execute("SELECT agency_email FROM agency_billing WHERE company_id = %s LIMIT 1", (company_id,))
+                            sso_row = sso_cur.fetchone()
+                            if sso_row:
+                                sso_user = User.get(sso_row['agency_email'])
+                                logger.info(f"GHL SSO: Found agency owner by company_id={company_id}")
                         sso_cur.close()
-                        if sso_row:
-                            sso_user = User.get(sso_row['email'])
                     finally:
                         return_db_connection(sso_conn)
 
