@@ -3044,6 +3044,9 @@
                 dialerShowBanner(displayName, 'Ringing...');
                 dialerStartPoll();
 
+                // ── Start ring tone for ALL dial modes ──
+                _startRingTone();
+
                 // ── Auto-speaker: play ring tone + prepare listen stream in AI mode ──
                 if (dialerMode === 'ai') {
                     _autoListenActive = true;
@@ -4830,6 +4833,9 @@
                         const reason = _takingOver ? 'intercept takeover' : 'human mode';
                         console.log('[VoIP] Auto-accepting incoming call (' + reason + ')');
                         _takingOver = false; // reset flag immediately
+
+                        _stopRingTone(); // <-- Stop the ringing when the agent connects
+                        
                         call.accept();
                         voipConnection = call;
                         voipStartTimer();
