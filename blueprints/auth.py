@@ -8,7 +8,7 @@ import secrets
 from datetime import datetime, timedelta
 
 from flask import (Blueprint, render_template, redirect, url_for, flash,
-                   request, session)
+                   request, session, jsonify as flask_jsonify)
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_mail import Message
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
@@ -147,6 +147,19 @@ def login():
             flash("Incorrect password.", "error")
             return render_template("login.html", form=form)
 
+        # ── Two-Factor Authentication ──
+        if getattr(user, 'two_factor_enabled', False) and getattr(user, 'two_factor_phone', None):
+            from two_factor import send_verification_code
+            result = send_verification_code(user.two_factor_phone)
+            if result.get('success'):
+                # Store email in session for the verify step (don't log in yet)
+                session['_2fa_email'] = email
+                session['_2fa_remember'] = form.remember.data
+                return redirect(url_for('auth.verify_2fa'))
+            else:
+                # 2FA send failed — let them in with a warning
+                logger.warning(f"2FA send failed for {email}, allowing login: {result.get('error')}")
+
         login_user(user, remember=form.remember.data)
 
         # Track login time for seat users (used for session revocation)
@@ -165,6 +178,73 @@ def login():
     return render_template("login.html", form=form)
 
 
+@auth_bp.route("/verify-2fa", methods=["GET", "POST"])
+def verify_2fa():
+    """Second step of login: enter the 6-digit SMS code."""
+    email = session.get('_2fa_email')
+    if not email:
+        return redirect(url_for('auth.login'))
+
+    if request.method == "GET":
+        user = User.get(email)
+        # Mask phone for display: +1***...1234
+        phone = getattr(user, 'two_factor_phone', '') or ''
+        masked = phone[:3] + '***' + phone[-4:] if len(phone) > 7 else '***'
+        return render_template("verify-2fa.html", masked_phone=masked)
+
+    # POST: verify the code
+    code = request.form.get('code', '').strip()
+    if not code or len(code) != 6:
+        flash("Please enter the 6-digit code.", "error")
+        return redirect(url_for('auth.verify_2fa'))
+
+    user = User.get(email)
+    if not user:
+        session.pop('_2fa_email', None)
+        return redirect(url_for('auth.login'))
+
+    from two_factor import check_verification_code
+    result = check_verification_code(user.two_factor_phone, code)
+
+    if result.get('success') and result.get('valid'):
+        # Code verified — complete login
+        remember = session.pop('_2fa_remember', False)
+        session.pop('_2fa_email', None)
+        login_user(user, remember=remember)
+
+        if getattr(user, 'is_seat_user', False):
+            from datetime import datetime as _dt
+            session['_seat_login_at'] = _dt.utcnow().isoformat()
+
+        role     = (user.role or 'individual').lower()
+        is_admin = user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+        if not is_admin and role == 'agency_owner':
+            return redirect(url_for("agency.agency_dashboard"))
+        return redirect(url_for("dashboard.dashboard"))
+    else:
+        flash("Invalid or expired code. Please try again.", "error")
+        return redirect(url_for('auth.verify_2fa'))
+
+
+@auth_bp.route("/resend-2fa", methods=["POST"])
+def resend_2fa():
+    """Resend the 2FA code."""
+    email = session.get('_2fa_email')
+    if not email:
+        return redirect(url_for('auth.login'))
+
+    user = User.get(email)
+    if user and getattr(user, 'two_factor_phone', None):
+        from two_factor import send_verification_code
+        result = send_verification_code(user.two_factor_phone)
+        if result.get('success'):
+            flash("New code sent. Check your phone.", "info")
+        else:
+            flash("Failed to send code. Please try again.", "error")
+
+    return redirect(url_for('auth.verify_2fa'))
+
+
 @auth_bp.route("/logout")
 @login_required
 def logout():
@@ -180,7 +260,7 @@ def forgot_password():
         return render_template("forgot-password.html")
 
     email = request.form.get("email", "").strip().lower()
-    flash("If an account is registered with that email, you will receive a reset link.", "info")
+    flash("If an account is registered with that email, you will receive a reset link. Check your spam or junk folder if you don't see it within a few minutes.", "info")
 
     if email:
         user = User.get(email)
@@ -403,3 +483,116 @@ def claim_account():
     finally:
         cur.close()
         return_db_connection(conn)
+
+
+# ── Two-Factor Authentication Setup ─────────────────────────────────────────
+
+@auth_bp.route("/api/2fa/status", methods=["GET"])
+@login_required
+def twofa_status():
+    """Get current 2FA status for the logged-in user."""
+    phone = getattr(current_user, 'two_factor_phone', None) or ''
+    enabled = getattr(current_user, 'two_factor_enabled', False)
+    masked = phone[:3] + '***' + phone[-4:] if len(phone) > 7 else ''
+    return flask_jsonify({
+        "enabled": enabled,
+        "phone": masked,
+    })
+
+
+@auth_bp.route("/api/2fa/setup", methods=["POST"])
+@login_required
+def twofa_setup():
+    """Start 2FA setup: send verification code to provided phone number."""
+    import re
+    data = request.get_json() or {}
+    phone = data.get('phone', '').strip()
+
+    # Basic E.164 validation
+    if not phone.startswith('+') or len(phone) < 10:
+        return flask_jsonify({"error": "Please enter a valid phone number with country code (e.g. +14155551234)"}), 400
+    if not re.match(r'^\+\d{10,15}$', phone):
+        return flask_jsonify({"error": "Invalid phone number format"}), 400
+
+    from two_factor import send_verification_code
+    result = send_verification_code(phone)
+    if result.get('success'):
+        session['_2fa_setup_phone'] = phone
+        return flask_jsonify({"status": "code_sent"})
+    else:
+        return flask_jsonify({"error": "Failed to send verification code. Please check the number and try again."}), 500
+
+
+@auth_bp.route("/api/2fa/confirm", methods=["POST"])
+@login_required
+def twofa_confirm():
+    """Confirm 2FA setup: verify the code and enable 2FA."""
+    data = request.get_json() or {}
+    code = data.get('code', '').strip()
+    phone = session.get('_2fa_setup_phone')
+
+    if not phone:
+        return flask_jsonify({"error": "No phone number in setup flow. Please start over."}), 400
+    if not code or len(code) != 6:
+        return flask_jsonify({"error": "Please enter the 6-digit code"}), 400
+
+    from two_factor import check_verification_code
+    result = check_verification_code(phone, code)
+
+    if result.get('success') and result.get('valid'):
+        # Enable 2FA in database
+        conn = get_db_connection()
+        if conn:
+            try:
+                cur = conn.cursor()
+                cur.execute("""
+                    UPDATE subscribers
+                    SET two_factor_enabled = TRUE, two_factor_phone = %s, updated_at = NOW()
+                    WHERE email = %s
+                """, (phone, current_user.email))
+                conn.commit()
+                cur.close()
+                session.pop('_2fa_setup_phone', None)
+                logger.info(f"2FA enabled for {current_user.email}")
+                return flask_jsonify({"status": "enabled"})
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"2FA enable DB error: {e}")
+                return flask_jsonify({"error": "Database error"}), 500
+            finally:
+                return_db_connection(conn)
+        return flask_jsonify({"error": "Database unavailable"}), 503
+    else:
+        return flask_jsonify({"error": "Invalid or expired code. Please try again."}), 400
+
+
+@auth_bp.route("/api/2fa/disable", methods=["POST"])
+@login_required
+def twofa_disable():
+    """Disable 2FA for the logged-in user. Requires current password."""
+    data = request.get_json() or {}
+    password = data.get('password', '')
+
+    if not password or not check_password_hash(current_user.password_hash, password):
+        return flask_jsonify({"error": "Incorrect password"}), 403
+
+    conn = get_db_connection()
+    if conn:
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                UPDATE subscribers
+                SET two_factor_enabled = FALSE, two_factor_phone = NULL, updated_at = NOW()
+                WHERE email = %s
+            """, (current_user.email,))
+            conn.commit()
+            cur.close()
+            logger.info(f"2FA disabled for {current_user.email}")
+            return flask_jsonify({"status": "disabled"})
+        except Exception as e:
+            conn.rollback()
+            logger.error(f"2FA disable DB error: {e}")
+            return flask_jsonify({"error": "Database error"}), 500
+        finally:
+            return_db_connection(conn)
+    return flask_jsonify({"error": "Database unavailable"}), 503

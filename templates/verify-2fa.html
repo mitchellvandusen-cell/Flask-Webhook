@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Verify Your Identity | InsuranceGrokBot{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <div class="auth-logo">
+            Insurance<span class="text-accent">Grok</span>Bot
+        </div>
+        <p class="auth-subtitle">Two-factor authentication</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert" style="font-size: 0.9rem;">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="text-center" style="margin-bottom: 24px;">
+            <div style="width: 60px; height: 60px; border-radius: 50%; background: rgba(0,255,136,0.1); border: 2px solid rgba(0,255,136,0.3); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                <i class="fa-solid fa-shield-halved" style="font-size: 1.5rem; color: var(--accent);"></i>
+            </div>
+            <p style="color: #aaa; font-size: 0.95rem;">
+                We sent a 6-digit code to <strong style="color: #fff;">{{ masked_phone }}</strong>
+            </p>
+        </div>
+
+        <form method="post" action="{{ url_for('auth.verify_2fa') }}">
+            <div class="mb-3">
+                <label class="form-label">Verification Code</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-lock"></i></span>
+                    <input type="text" name="code" class="form-control"
+                           placeholder="000000" maxlength="6" pattern="\d{6}"
+                           inputmode="numeric" autocomplete="one-time-code"
+                           autofocus required
+                           style="font-size: 1.3rem; letter-spacing: 8px; text-align: center; font-weight: 700;">
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-accent w-100 mb-3">
+                <i class="fa-solid fa-check me-2"></i>Verify
+            </button>
+        </form>
+
+        <div class="text-center">
+            <form method="post" action="{{ url_for('auth.resend_2fa') }}" style="display: inline;">
+                <button type="submit" class="btn btn-link" style="color: var(--accent); font-size: 0.9rem; text-decoration: none;">
+                    Didn't get it? Resend code
+                </button>
+            </form>
+        </div>
+
+        <div class="text-center" style="margin-top: 16px;">
+            <a href="{{ url_for('auth.login') }}" style="color: #666; font-size: 0.85rem; text-decoration: none;">
+                <i class="fa-solid fa-arrow-left me-1"></i>Back to login
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

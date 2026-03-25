@@ -719,6 +719,10 @@ class User(UserMixin):
         # SMS channel selection: 'ghl' (default) or '+1234567890' (Twilio number)
         self.sms_send_via = data.get('sms_send_via', 'ghl')
 
+        # Two-factor authentication
+        self.two_factor_enabled = data.get('two_factor_enabled', False)
+        self.two_factor_phone = data.get('two_factor_phone')
+
         # Google Calendar integration
         self.google_calendar_config = data.get('google_calendar_config') or {}
 
