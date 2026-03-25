@@ -3,9 +3,11 @@
 # Handles user registration, login, logout, password reset, set-password,
 # and sub-user account claim. No GHL OAuth here — that's in blueprints/oauth.py.
 
+import os
 import logging
 import secrets
 from datetime import datetime, timedelta
+from urllib.parse import urlencode
 
 from flask import (Blueprint, render_template, redirect, url_for, flash,
                    request, session, jsonify as flask_jsonify)
@@ -176,6 +178,42 @@ def login():
         return redirect(url_for("dashboard.dashboard"))
 
     return render_template("login.html", form=form)
+
+
+# ── Sign in with GoHighLevel (SSO via OAuth) ─────────────────────────────────
+
+@auth_bp.route("/auth/ghl")
+def ghl_sso_initiate():
+    """
+    Start GHL SSO login flow. Same OAuth as /oauth/initiate but without
+    @login_required — user authenticates via GHL and we log them in.
+    Every sign-in refreshes their GHL OAuth tokens automatically.
+    """
+    from blueprints.oauth import GHL_OAUTH_SCOPES
+
+    client_id = os.getenv("GHL_CLIENT_ID")
+    domain = os.getenv("YOUR_DOMAIN")
+    if not client_id or not domain:
+        flash("GoHighLevel sign-in is not available.", "error")
+        return redirect(url_for('auth.login'))
+
+    redirect_uri = f"{domain}/oauth/callback"
+    scope_string = " ".join(GHL_OAUTH_SCOPES)
+    nonce = secrets.token_urlsafe(32)
+    state = f"ghl_sso:{nonce}"
+    session["ghl_oauth_state"] = state
+
+    params = urlencode({
+        'response_type': 'code',
+        'redirect_uri': redirect_uri,
+        'client_id': client_id,
+        'scope': scope_string,
+        'state': state,
+    })
+    oauth_url = f"https://marketplace.gohighlevel.com/oauth/chooselocation?{params}"
+
+    logger.info(f"GHL SSO initiated — redirecting to GHL consent page")
+    return redirect(oauth_url)
 
 
 @auth_bp.route("/verify-2fa", methods=["GET", "POST"])

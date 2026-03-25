@@ -211,6 +211,9 @@ def oauth_callback():
                     f"stored={'present' if stored_state else 'NONE'})"
                 )
                 flash("OAuth session expired or invalid. Please try connecting again.", "danger")
+                # SSO flow redirects to login; other flows to dashboard
+                if raw_state and raw_state.startswith("ghl_sso:"):
+                    return redirect(url_for('auth.login'))
                 return redirect(url_for('dashboard.dashboard'))
             flow_type = raw_state.split(":", 1)[0]
             session.pop("ghl_pkce_verifier", None)  # Clean up legacy session key
@@ -224,6 +227,7 @@ def oauth_callback():
             logger.info("OAuth callback: Marketplace installation flow (no state)")
 
         is_website_user = flow_type in ("website_user", "private_app")
+        is_ghl_sso = flow_type == "ghl_sso"
 
         if is_website_user:
             if not current_user.is_authenticated:
@@ -1490,6 +1494,37 @@ def oauth_callback():
                 return redirect(url_for('dashboard.dashboard'))
             else:
                 flash("App installed! Please log in or create a password to access your dashboard.", "success")
+                return redirect(url_for('auth.login'))
+
+        # ── GHL SSO: auto-login after successful token exchange ──────────────
+        if is_ghl_sso:
+            # Find the user to log in — try email first, then location_id
+            sso_user = User.get(user_email) if user_email else None
+            if not sso_user and primary_location_id:
+                sso_conn = get_db_connection()
+                if sso_conn:
+                    try:
+                        sso_cur = sso_conn.cursor()
+                        sso_cur.execute("SELECT email FROM subscribers WHERE location_id = %s", (primary_location_id,))
+                        sso_row = sso_cur.fetchone()
+                        sso_cur.close()
+                        if sso_row:
+                            sso_user = User.get(sso_row['email'])
+                    finally:
+                        return_db_connection(sso_conn)
+
+            if sso_user:
+                login_user(sso_user, remember=True)
+                logger.info(f"=== GHL SSO LOGIN: {sso_user.email} (location={primary_location_id}) ===")
+                flash("Signed in with GoHighLevel!", "success")
+                role = (sso_user.role or 'individual').lower()
+                is_admin = sso_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+                if not is_admin and role == 'agency_owner':
+                    return redirect(url_for('agency.agency_dashboard'))
+                return redirect(url_for('dashboard.dashboard'))
+            else:
+                logger.warning(f"GHL SSO: No account found for email={user_email}, location={primary_location_id}")
+                flash("No InsuranceGrokBot account found for this GoHighLevel location. Please register first or install from the GHL Marketplace.", "error")
                 return redirect(url_for('auth.login'))
 
         # Website user flow → dashboard (same as marketplace)
