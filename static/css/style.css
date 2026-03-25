@@ -9089,10 +9089,10 @@ body.light-theme .dlr-btn-ios-delete:hover { background:rgba(220,38,38,0.25); }
 .chr-action-dl { background: rgba(74,222,128,0.08); color: var(--accent); }
 .chr-action-tx { background: rgba(74,222,128,0.08); color: var(--accent); }
 .chr-action-transcribe { background: rgba(255,180,0,0.07); color: #ffb400; }
-body.light-theme .chr-action-play { background: rgba(0,150,200,0.08); color: #0088aa; }
-body.light-theme .chr-action-dl { background: rgba(0,140,70,0.08); color: #008844; }
-body.light-theme .chr-action-tx { background: rgba(0,140,70,0.08); color: #008844; }
-body.light-theme .chr-action-transcribe { background: rgba(180,120,0,0.08); color: #996600; }
+body.light-theme .chr-action-play { background: rgba(0,130,180,0.12); color: #006d99; border: 1px solid rgba(0,130,180,0.18); }
+body.light-theme .chr-action-dl { background: rgba(0,120,60,0.10); color: #006633; border: 1px solid rgba(0,120,60,0.16); }
+body.light-theme .chr-action-tx { background: rgba(0,120,60,0.10); color: #006633; border: 1px solid rgba(0,120,60,0.16); }
+body.light-theme .chr-action-transcribe { background: rgba(160,100,0,0.10); color: #7a5200; border: 1px solid rgba(160,100,0,0.16); }
 .stir-badge {
     font-size: .65rem;
     font-weight: 700;
