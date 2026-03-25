@@ -3424,7 +3424,7 @@
 
         // ── Enable / disable all in-call control buttons ──
         function _dialerEnableControls(enabled) {
-            const btns = ['dialerListenBtn', 'dialerMuteBtn', 'dialerMuteMicBtn', 'dialerTakeoverBtn', 'dialerTransferBtn', 'dialerMeetBtn', 'dialerScreenShareBtn'];
+            const btns = ['dialerListenBtn', 'dialerMuteBtn', 'dialerMuteMicBtn', 'dialerTakeoverBtn', 'dialerTransferBtn'];
             btns.forEach(id => {
                 const btn = document.getElementById(id);
                 if (!btn) return;
@@ -3448,13 +3448,9 @@
                 if (muteMic) { muteMic.style.color = '#ccc'; muteMic.style.background = 'rgba(255,255,255,0.04)'; muteMic.style.borderColor = 'rgba(255,255,255,0.1)'; }
                 takeover.style.color = '#ffa500'; takeover.style.background = 'rgba(255,165,0,0.12)'; takeover.style.borderColor = 'rgba(255,165,0,0.3)';
                 transfer.style.color = '#00d9ff'; transfer.style.background = 'rgba(0,217,255,0.08)'; transfer.style.borderColor = 'rgba(0,217,255,0.15)';
-                const meetBtn = document.getElementById('dialerMeetBtn');
-                const screenBtn = document.getElementById('dialerScreenShareBtn');
-                if (meetBtn) { meetBtn.style.color = '#ccc'; meetBtn.style.background = 'rgba(255,255,255,0.04)'; meetBtn.style.borderColor = 'rgba(255,255,255,0.1)'; }
-                if (screenBtn) { screenBtn.style.color = '#ccc'; screenBtn.style.background = 'rgba(255,255,255,0.04)'; screenBtn.style.borderColor = 'rgba(255,255,255,0.1)'; }
             } else {
                 // Grayed out / disabled look
-                const allBtns = ['dialerListenBtn', 'dialerMuteBtn', 'dialerMuteMicBtn', 'dialerTakeoverBtn', 'dialerTransferBtn', 'dialerMeetBtn', 'dialerScreenShareBtn'];
+                const allBtns = ['dialerListenBtn', 'dialerMuteBtn', 'dialerMuteMicBtn', 'dialerTakeoverBtn', 'dialerTransferBtn'];
                 allBtns.forEach(id => {
                     const btn = document.getElementById(id);
                     if (!btn) return;
@@ -3821,54 +3817,6 @@
                 if (statusEl) { statusEl.textContent = 'Network error — try again'; statusEl.style.color = '#ef4444'; }
                 console.error('[Intercept] Network error:', e);
             }
-        }
-
-        // ── Google Meet — Start video call during live call ──
-        async function dialerStartMeet() {
-            if (!dialerCallSid) return;
-            const contact = dialerActiveContact;
-            const phone = contact ? contact.phone : '';
-            const name = contact ? (contact.firstName || contact.name || '') : '';
-            const email = contact ? (contact.email || '') : '';
-            const btn = document.getElementById('dialerMeetBtn');
-            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Meet</span>'; }
-            try {
-                const r = await fetch('/google-calendar/meet/start-now', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ contact_name: name, attendee_email: email, attendee_phone: phone })
-                });
-                const d = await r.json();
-                if (!r.ok) {
-                    _showDashToast(false, d.error || 'Failed to create Meet');
-                    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-video"></i><span>Meet</span>'; }
-                    return;
-                }
-                if (d.meet_link) {
-                    window.open(d.meet_link, '_blank');
-                    _showDashToast(true, 'Google Meet started' + (d.sms_sent ? ' — link sent via SMS' : ''));
-                }
-            } catch(e) {
-                _showDashToast(false, 'Network error creating Meet');
-            }
-            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-video"></i><span>Meet</span>'; }
-        }
-
-        // ── CrankWheel — Screen share during live call ──
-        function dialerStartScreenShare() {
-            if (!dialerCallSid) return;
-            const contact = dialerActiveContact;
-            const name = contact ? (contact.firstName || contact.name || '') : '';
-            const phone = contact ? (contact.phone || '') : '';
-            const email = contact ? (contact.email || '') : '';
-            // Build CrankWheel URL Command with contact params
-            const params = [];
-            if (name) params.push('name=' + encodeURIComponent(name));
-            if (phone) params.push('phone=' + encodeURIComponent(phone));
-            if (email) params.push('email=' + encodeURIComponent(email));
-            const extraParams = params.length ? ':' + params.join(':') + ':' : '';
-            const cwUrl = 'https://meeting.is/ss/ui' + extraParams;
-            window.open(cwUrl, 'crankwheel_share', 'width=420,height=600,menubar=no,toolbar=no,location=no');
         }
 
         // ── Warm Transfer (Conference-based enterprise transfer) ──
