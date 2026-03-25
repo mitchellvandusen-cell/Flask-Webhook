@@ -956,60 +956,9 @@ class User(UserMixin):
 
 
 def backfill_agency_owners_to_subscribers():
-    """
-    One-time backfill: ensure every agency owner in agency_billing also has
-    a row in subscribers. This lets all operational code (dialer, voice,
-    webhooks, token refresh) work without needing agency_billing fallbacks
-    everywhere.
-
-    Safe to run multiple times — uses ON CONFLICT DO NOTHING.
-    Called at app startup from main.py.
-    """
-    conn = get_db_connection()
-    if not conn:
-        return 0
-    try:
-        cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO subscribers (
-                email, password_hash, full_name, phone, bio, role,
-                location_id, bot_first_name, access_token, refresh_token,
-                token_expires_at, token_type, timezone, crm_user_id,
-                calendar_id, calendar_name, initial_message,
-                subscription_tier, stripe_customer_id, stripe_status,
-                oauth_app_type, personal_website, crm_type, crm_config,
-                contracted_carriers, bot_settings, voice_config,
-                sms_send_via, google_calendar_config, preferred_language,
-                api_key, company_id, created_at, updated_at
-            )
-            SELECT
-                agency_email, password_hash, full_name, phone, bio, role,
-                location_id, bot_first_name, access_token, refresh_token,
-                token_expires_at, token_type, timezone, crm_user_id,
-                calendar_id, calendar_name, initial_message,
-                subscription_tier, stripe_customer_id, stripe_status,
-                oauth_app_type, personal_website, crm_type, crm_config,
-                contracted_carriers, bot_settings, voice_config,
-                sms_send_via, google_calendar_config, preferred_language,
-                api_key, company_id, created_at, NOW()
-            FROM agency_billing
-            WHERE agency_email NOT IN (SELECT email FROM subscribers WHERE email IS NOT NULL)
-            ON CONFLICT (email) DO NOTHING
-        """)
-        count = cur.rowcount
-        conn.commit()
-        if count > 0:
-            logger.info(f"Backfilled {count} agency owners into subscribers table")
-        return count
-    except Exception as e:
-        logger.error(f"backfill_agency_owners_to_subscribers failed: {e}")
-        conn.rollback()
-        return 0
-    finally:
-        if 'cur' in locals():
-            cur.close()
-        if conn:
-            return_db_connection(conn)
+    """DEPRECATED: Migration 010 handles this. No-op for backwards compatibility."""
+    logger.info("backfill_agency_owners_to_subscribers: no-op (handled by migration 010)")
+    return 0
 
 
 # --- Sub-account isolation cleanup ---

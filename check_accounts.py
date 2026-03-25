@@ -55,14 +55,15 @@ def check_accounts():
     for email in emails:
         cur.execute("""
             SELECT
-                agency_email,
+                email,
                 password_hash IS NOT NULL as has_password,
                 subscription_tier,
                 location_id,
                 stripe_customer_id,
-                oauth_app_type
-            FROM agency_billing
-            WHERE LOWER(agency_email) = LOWER(%s)
+                oauth_app_type,
+                role
+            FROM subscribers
+            WHERE LOWER(email) = LOWER(%s)
         """, (email,))
         row = cur.fetchone()
 
@@ -73,8 +74,9 @@ def check_accounts():
             print(f"   Stripe Customer ID:  {row['stripe_customer_id'] or 'None'}")
             print(f"   Location ID:         {row['location_id']}")
             print(f"   OAuth App Type:      {row['oauth_app_type']}")
+            print(f"   Role:                {row['role']}")
         else:
-            print(f"\n❌ {email} - NOT FOUND in agency_billing")
+            print(f"\n❌ {email} - NOT FOUND in subscribers")
 
     print("\n" + "="*80)
 

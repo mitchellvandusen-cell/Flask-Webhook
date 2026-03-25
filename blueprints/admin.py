@@ -74,19 +74,10 @@ def god_mode_dashboard():
         """)
         subscribers = [dict(r) for r in cur.fetchall()]
 
-        ab_role   = "role"           if "role"           in ab_cols else "'agency_owner' AS role"
-        ab_stripe = "stripe_status"  if "stripe_status"  in ab_cols else "NULL AS stripe_status"
-        ab_oauth  = ("oauth_app_type" if "oauth_app_type" in ab_cols
-                     else "'marketplace' AS oauth_app_type")
-        cur.execute(f"""
-            SELECT agency_email AS email, full_name, {ab_role}, subscription_tier,
-                   {ab_stripe}, location_id, created_at,
-                   'active' AS onboarding_status, {ab_oauth},
-                   'agency_billing' AS source
-            FROM agency_billing
-            ORDER BY created_at DESC
-        """)
-        agency_owners = [dict(r) for r in cur.fetchall()]
+        # Agency owners are in subscribers (single source of truth).
+        # agency_billing is now a thin metadata table — no operational columns.
+        # Just query subscribers with role='agency_owner' for the God Mode view.
+        agency_owners = []
         cur.close()
 
         all_users = sorted(
@@ -526,9 +517,7 @@ def api_discover_installs():
             results["db_subscribers"] = db_users
 
             cur.execute("""
-                SELECT agency_email, company_id,
-                       access_token IS NOT NULL AS has_token,
-                       created_at
+                SELECT agency_email, company_id, company_name, created_at
                 FROM agency_billing
                 ORDER BY created_at DESC
             """)
