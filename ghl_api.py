@@ -457,7 +457,6 @@ def get_valid_token(location_id: str, subscriber: dict = None) -> str | None:
                     _cur.close()
                     return_db_connection(_conn)
                     if _agency and _agency.get('access_token'):
-                        from token_encryption import decrypt_token
                         return decrypt_token(_agency['access_token'])
             except Exception as e:
                 logger.warning(f"Company token lookup failed for agency={parent_email}: {e}")
@@ -662,7 +661,6 @@ def get_valid_token_with_status(location_id: str, subscriber: dict = None,
                     _cur.close()
                     return_db_connection(_conn)
                     if _agency and _agency.get('access_token'):
-                        from token_encryption import decrypt_token
                         return decrypt_token(_agency['access_token']), False, None
             except Exception as e:
                 logger.warning(f"Company token lookup failed for agency={parent_email}: {e}")
