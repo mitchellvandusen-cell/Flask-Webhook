@@ -1472,8 +1472,8 @@ def oauth_callback():
                 flash("Account created but login failed. Please log in manually.", "warning")
                 return redirect(url_for('auth.login'))
 
-        # Marketplace install → send to dashboard
-        if not is_website_user:
+        # Marketplace install → send to dashboard (skip for SSO — handled below)
+        if not is_website_user and not is_ghl_sso:
             logger.info(f"=== MARKETPLACE INSTALL COMPLETE for {user_email} ===")
             try:
                 log_webhook_event(
