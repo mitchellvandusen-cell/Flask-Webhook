@@ -4186,15 +4186,24 @@
                     const hasTx = c.transcript && c.transcript.length > 0;
                     const sid = dialerEsc(c.call_sid || '');
                     const recUrl = dialerEsc(c.recording_url);
-                    return '<div style="display:flex;align-items:center;gap:6px;padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.88rem;">' +
-                        '<div style="flex:1;min-width:0;">' +
-                            '<div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(c.contact_name || c.phone || 'Unknown') + '</div>' +
-                            '<div style="font-size:.78rem;color:#555;">' + dt + ' &middot; ' + dur + '</div>' +
-                        '</div>' +
-                        '<button onclick="playRecording(\'' + recUrl + '\')" style="background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;border-radius:4px;padding:3px 8px;font-size:.82rem;cursor:pointer;white-space:nowrap;" title="Play"><i class="fa-solid fa-play me-1"></i>Play</button>' +
-                        '<a href="' + recUrl + '?dl=1" download style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.15);color:var(--accent);border-radius:4px;padding:3px 8px;font-size:.82rem;text-decoration:none;cursor:pointer;white-space:nowrap;" title="Download"><i class="fa-solid fa-download me-1"></i>DL</a>' +
-                        (hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#ccc;border-radius:4px;padding:3px 8px;font-size:.82rem;cursor:pointer;white-space:nowrap;" title="View Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
-                        (!hasTx && sid ? '<button onclick="transcribeNow(\'' + sid + '\',\'' + recUrl + '\',this)" style="background:rgba(255,180,0,0.08);border:1px solid rgba(255,180,0,0.15);color:#ffb400;border-radius:4px;padding:3px 8px;font-size:.82rem;cursor:pointer;white-space:nowrap;" title="Generate Transcript"><i class="fa-solid fa-wand-magic-sparkles me-1"></i>Transcribe</button>' : '') +
+                    const dirIcon = (c.direction||'outbound') === 'inbound' ? '<i class="fa-solid fa-phone-arrow-down-left" style="font-size:.65rem;"></i>' : '<i class="fa-solid fa-phone-arrow-up-right" style="font-size:.65rem;"></i>';
+                    let row = '<div class="call-history-row">';
+                    // Line 1: name · direction · date
+                    row += '<div style="display:flex;align-items:center;gap:6px;min-width:0;">';
+                    row += '<span style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(c.contact_name || c.phone || 'Unknown') + '</span>';
+                    row += '<span style="color:#555;font-size:.72rem;white-space:nowrap;">' + dirIcon + ' ' + (c.direction||'outbound') + '</span>';
+                    row += '<span style="color:#444;font-size:.72rem;white-space:nowrap;margin-left:auto;">' + dt + '</span>';
+                    row += '</div>';
+                    // Line 2: duration · action buttons
+                    row += '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;">';
+                    row += '<span style="color:#666;font-size:.75rem;font-family:monospace;">' + dur + '</span>';
+                    row += '<button onclick="playRecording(\'' + recUrl + '\')" class="chr-action-btn chr-action-play" title="Play"><i class="fa-solid fa-play"></i></button>';
+                    row += '<a href="' + recUrl + '?dl=1" download class="chr-action-btn chr-action-dl" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-download"></i></a>';
+                    row += hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' class="chr-action-btn chr-action-tx" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '';
+                    row += !hasTx && sid ? '<button onclick="transcribeNow(\'' + sid + '\',\'' + recUrl + '\',this)" class="chr-action-btn chr-action-transcribe" title="Transcribe"><i class="fa-solid fa-wand-magic-sparkles"></i></button>' : '';
+                    row += '</div>';
+                    row += '</div>';
+                    return row +
                     '</div>';
                 }).join('');
             } catch(e) { panel.innerHTML = '<div style="color:#ef4444;padding:12px;text-align:center;font-size:.88rem;">Error loading recordings</div>'; }
