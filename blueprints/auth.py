@@ -182,13 +182,48 @@ def login():
 
 # ── Sign in with GoHighLevel (SSO via OAuth) ─────────────────────────────────
 
-@auth_bp.route("/auth/ghl")
+@auth_bp.route("/auth/ghl", methods=["GET", "POST"])
 def ghl_sso_initiate():
     """
-    Start GHL SSO login flow. Same OAuth as /oauth/initiate but without
-    @login_required — user authenticates via GHL and we log them in.
-    Every sign-in refreshes their GHL OAuth tokens automatically.
+    Sign in with GoHighLevel — token refresh SSO.
+    User enters their email → we find their subscriber record → refresh
+    their GHL token server-side → log them in. No OAuth consent screen.
+    Falls back to full OAuth only if refresh token is missing/expired.
     """
+    if request.method == "GET":
+        return render_template("login.html", form=LoginForm(), ghl_sso_mode=True)
+
+    # POST — user submitted their email for GHL SSO
+    email = (request.form.get("ghl_email") or "").strip().lower()
+    if not email:
+        flash("Please enter your email address.", "error")
+        return render_template("login.html", form=LoginForm(), ghl_sso_mode=True)
+
+    # Look up subscriber
+    user = User.get(email)
+    if not user or not user.location_id:
+        flash("No InsuranceGrokBot account found for that email.", "error")
+        return render_template("login.html", form=LoginForm(), ghl_sso_mode=True)
+
+    # Try to refresh their GHL token silently
+    try:
+        from ghl_api import get_valid_token
+        token = get_valid_token(user.location_id)
+        if token and token != 'DEMO':
+            # Token is valid (either still fresh or successfully refreshed)
+            login_user(user, remember=True)
+            logger.info(f"GHL SSO login (token refresh): {email} (location={user.location_id})")
+            flash("Signed in with GoHighLevel!", "success")
+            role = (user.role or 'individual').lower()
+            is_admin = email in [e.lower() for e in ADMIN_EMAILS]
+            if not is_admin and role == 'agency_owner':
+                return redirect(url_for('agency.agency_dashboard'))
+            return redirect(url_for('dashboard.dashboard'))
+    except Exception as e:
+        logger.warning(f"GHL SSO token refresh failed for {email}: {e}")
+
+    # Token refresh failed — fall back to full OAuth
+    logger.info(f"GHL SSO: Token refresh failed for {email}, falling back to full OAuth")
     from blueprints.oauth import GHL_OAUTH_SCOPES
 
     client_id = os.getenv("GHL_CLIENT_ID")
@@ -202,6 +237,8 @@ def ghl_sso_initiate():
     nonce = secrets.token_urlsafe(32)
     state = f"ghl_sso:{nonce}"
     session["ghl_oauth_state"] = state
+    # Store email so callback knows who to log in
+    session["ghl_sso_email"] = email
 
     params = urlencode({
         'response_type': 'code',
@@ -211,8 +248,6 @@ def ghl_sso_initiate():
         'state': state,
     })
     oauth_url = f"https://marketplace.gohighlevel.com/oauth/chooselocation?{params}"
-
-    logger.info(f"GHL SSO initiated — redirecting to GHL consent page")
     return redirect(oauth_url)
 
 

@@ -55,10 +55,24 @@
             <span class="auth-divider-text">or</span>
         </div>
 
-        <a href="/auth/ghl" class="ghl-sso-btn">
-            <i class="fa-solid fa-bolt"></i>
-            Sign in with GoHighLevel
-        </a>
+        <div id="ghlSsoCollapsed" {% if ghl_sso_mode %}style="display:none"{% endif %}>
+            <button type="button" onclick="document.getElementById('ghlSsoCollapsed').style.display='none';document.getElementById('ghlSsoForm').style.display='block';document.getElementById('ghlSsoEmail').focus();" class="ghl-sso-btn">
+                <i class="fa-solid fa-bolt"></i>
+                Sign in with GoHighLevel
+            </button>
+        </div>
+        <form id="ghlSsoForm" method="POST" action="/auth/ghl" {% if not ghl_sso_mode %}style="display:none"{% endif %}>
+            <div class="mb-3">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-bolt" style="color:#FF6B00;"></i></span>
+                    <input type="email" name="ghl_email" id="ghlSsoEmail" class="form-control" placeholder="Enter your GoHighLevel email" required>
+                </div>
+            </div>
+            <button type="submit" class="ghl-sso-btn w-100">
+                <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                Continue with GoHighLevel
+            </button>
+        </form>
 
         <div class="text-center mt-4">
             <p style="color:#aaa; font-size:0.9rem;">
