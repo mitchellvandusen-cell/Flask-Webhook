@@ -145,11 +145,12 @@ def share_start():
                 if row:
                     vc = (row.get('voice_config') or {}) if isinstance(row, dict) else {}
                     sub_sid = vc.get('twilio_sub_account_sid', '')
+                    sub_auth = vc.get('twilio_sub_account_auth_token', '')
                     from_num = vc.get('twilio_phone_number', '')
-                    if sub_sid and from_num:
+                    if sub_sid and sub_auth and from_num:
                         from twilio_sms import send_sms_via_twilio
                         msg = f"View my screen here: {share_url}"
-                        ok, fail_reason, _ = send_sms_via_twilio(sub_sid, from_num, contact_phone, msg)
+                        ok, fail_reason, _ = send_sms_via_twilio(contact_phone, msg, from_num, sub_sid, sub_auth)
                         sms_sent = ok
                         if not ok:
                             logger.warning(f"[ScreenShare] SMS failed for {session_id}: {fail_reason}")

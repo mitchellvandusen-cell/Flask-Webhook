@@ -479,11 +479,14 @@ def meet_schedule():
             if sub:
                 vc = sub.get("voice_config") or {}
                 sub_sid = vc.get("twilio_sub_account_sid", "")
+                sub_auth = vc.get("twilio_sub_account_auth_token", "")
                 from_num = vc.get("twilio_phone_number", "")
-                if sub_sid and from_num:
+                if sub_sid and sub_auth and from_num:
                     msg = f"Here's the link to join our video consultation: {result['meet_link']}"
-                    send_sms_via_twilio(sub_sid, from_num, attendee_phone, msg)
-                    result["sms_sent"] = True
+                    ok, fail_reason, _ = send_sms_via_twilio(attendee_phone, msg, from_num, sub_sid, sub_auth)
+                    result["sms_sent"] = ok
+                    if not ok:
+                        logger.warning(f"Meet link SMS failed: {fail_reason}")
         except Exception as sms_err:
             logger.warning(f"Meet link SMS failed: {sms_err}")
             result["sms_sent"] = False
@@ -540,11 +543,14 @@ def meet_start_now():
             if sub:
                 vc = sub.get("voice_config") or {}
                 sub_sid = vc.get("twilio_sub_account_sid", "")
+                sub_auth = vc.get("twilio_sub_account_auth_token", "")
                 from_num = vc.get("twilio_phone_number", "")
-                if sub_sid and from_num:
+                if sub_sid and sub_auth and from_num:
                     msg = f"Join our video call now: {result['meet_link']}"
-                    send_sms_via_twilio(sub_sid, from_num, attendee_phone, msg)
-                    result["sms_sent"] = True
+                    ok, fail_reason, _ = send_sms_via_twilio(attendee_phone, msg, from_num, sub_sid, sub_auth)
+                    result["sms_sent"] = ok
+                    if not ok:
+                        logger.warning(f"Meet link SMS failed: {fail_reason}")
         except Exception as sms_err:
             logger.warning(f"Meet link SMS failed: {sms_err}")
             result["sms_sent"] = False
