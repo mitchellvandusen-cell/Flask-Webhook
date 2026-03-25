@@ -233,6 +233,193 @@
                         </p>
                     </div>
 
+                    <!-- ── SECTION: ACCOUNT SECURITY ── -->
+                    <div style="margin-bottom: 32px;">
+                        <h5 class="adv-section-heading">
+                            <i class="fa-solid fa-shield-halved me-2"></i>Account Security
+                        </h5>
+
+                        <!-- Two-Factor Authentication -->
+                        <div class="adv-section-card" id="twoFactorSection" style="padding: 20px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <div>
+                                    <label class="adv-toggle-label" style="margin-bottom: 2px;">Two-Factor Authentication</label>
+                                    <p class="adv-toggle-desc" style="margin: 0;">Require a verification code sent to your phone each time you log in</p>
+                                </div>
+                                <div id="tfaBadge" style="display: none; padding: 4px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 700;"></div>
+                            </div>
+
+                            <!-- Status: Loading -->
+                            <div id="tfaLoading" style="text-align: center; padding: 12px; color: #666;">
+                                <i class="fa-solid fa-spinner fa-spin me-2"></i>Loading...
+                            </div>
+
+                            <!-- Status: Not Enabled — Setup Flow -->
+                            <div id="tfaSetup" style="display: none;">
+                                <div id="tfaStep1">
+                                    <p style="color: #999; font-size: 0.88rem; margin-bottom: 12px;">
+                                        Enter your mobile number to get started. We'll send you a verification code.
+                                    </p>
+                                    <div style="display: flex; gap: 8px;">
+                                        <input type="tel" id="tfaPhoneInput" placeholder="+1 (555) 123-4567"
+                                               class="form-control" style="flex: 1; max-width: 260px;">
+                                        <button onclick="_tfaSendCode()" class="btn btn-accent" style="white-space: nowrap;">
+                                            <i class="fa-solid fa-paper-plane me-1"></i>Send Code
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="tfaStep2" style="display: none;">
+                                    <p style="color: #999; font-size: 0.88rem; margin-bottom: 12px;">
+                                        Enter the 6-digit code we sent to your phone.
+                                    </p>
+                                    <div style="display: flex; gap: 8px;">
+                                        <input type="text" id="tfaCodeInput" placeholder="000000" maxlength="6"
+                                               pattern="\d{6}" inputmode="numeric"
+                                               class="form-control" style="flex: 1; max-width: 160px; font-size: 1.2rem; letter-spacing: 6px; text-align: center; font-weight: 700;">
+                                        <button onclick="_tfaConfirmCode()" class="btn btn-accent" style="white-space: nowrap;">
+                                            <i class="fa-solid fa-check me-1"></i>Verify
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="tfaError" style="display: none; color: #ef4444; font-size: 0.85rem; margin-top: 8px;"></div>
+                            </div>
+
+                            <!-- Status: Enabled -->
+                            <div id="tfaEnabled" style="display: none;">
+                                <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.15); border-radius: 10px;">
+                                    <i class="fa-solid fa-circle-check" style="color: var(--accent); font-size: 1.2rem;"></i>
+                                    <div style="flex: 1;">
+                                        <span style="color: #fff; font-weight: 600;">2FA is active</span>
+                                        <span id="tfaPhoneDisplay" style="color: #888; font-size: 0.85rem; margin-left: 8px;"></span>
+                                    </div>
+                                    <button onclick="_tfaShowDisable()" class="btn btn-sm" style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: #ef4444; font-size: 0.82rem;">
+                                        Disable
+                                    </button>
+                                </div>
+                                <!-- Disable confirmation (hidden until clicked) -->
+                                <div id="tfaDisableConfirm" style="display: none; margin-top: 12px;">
+                                    <p style="color: #f87171; font-size: 0.85rem; margin-bottom: 8px;">Enter your password to disable 2FA:</p>
+                                    <div style="display: flex; gap: 8px;">
+                                        <input type="password" id="tfaDisablePassword" placeholder="Current password"
+                                               class="form-control" style="flex: 1; max-width: 240px;">
+                                        <button onclick="_tfaDisable()" class="btn btn-sm" style="background: #ef4444; color: #fff; white-space: nowrap;">
+                                            Confirm Disable
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <script>
+                    // ── Two-Factor Authentication UI ──
+                    (function(){
+                        async function _tfaLoadStatus() {
+                            try {
+                                const r = await fetch('/api/2fa/status');
+                                if (!r.ok) return;
+                                const d = await r.json();
+                                document.getElementById('tfaLoading').style.display = 'none';
+                                const badge = document.getElementById('tfaBadge');
+                                if (d.enabled) {
+                                    document.getElementById('tfaEnabled').style.display = '';
+                                    document.getElementById('tfaSetup').style.display = 'none';
+                                    document.getElementById('tfaPhoneDisplay').textContent = d.phone;
+                                    badge.textContent = 'ENABLED';
+                                    badge.style.background = 'rgba(0,255,136,0.15)';
+                                    badge.style.color = '#00ff88';
+                                    badge.style.display = '';
+                                } else {
+                                    document.getElementById('tfaEnabled').style.display = 'none';
+                                    document.getElementById('tfaSetup').style.display = '';
+                                    badge.textContent = 'OFF';
+                                    badge.style.background = 'rgba(255,255,255,0.06)';
+                                    badge.style.color = '#666';
+                                    badge.style.display = '';
+                                }
+                            } catch(e) {
+                                document.getElementById('tfaLoading').innerHTML = '<span style="color:#666">Could not load 2FA status</span>';
+                            }
+                        }
+
+                        function _showErr(msg) {
+                            const el = document.getElementById('tfaError');
+                            el.textContent = msg; el.style.display = msg ? '' : 'none';
+                        }
+
+                        window._tfaSendCode = async function() {
+                            _showErr('');
+                            let phone = document.getElementById('tfaPhoneInput').value.trim();
+                            // Auto-format: strip non-digits, add +1 if needed
+                            const digits = phone.replace(/\D/g, '');
+                            if (digits.length === 10) phone = '+1' + digits;
+                            else if (digits.length === 11 && digits[0] === '1') phone = '+' + digits;
+                            else if (!phone.startsWith('+')) phone = '+' + digits;
+
+                            const r = await fetch('/api/2fa/setup', {
+                                method: 'POST', headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({phone})
+                            });
+                            const d = await r.json();
+                            if (r.ok) {
+                                document.getElementById('tfaStep1').style.display = 'none';
+                                document.getElementById('tfaStep2').style.display = '';
+                                document.getElementById('tfaCodeInput').focus();
+                            } else {
+                                _showErr(d.error || 'Failed to send code');
+                            }
+                        };
+
+                        window._tfaConfirmCode = async function() {
+                            _showErr('');
+                            const code = document.getElementById('tfaCodeInput').value.trim();
+                            if (code.length !== 6) { _showErr('Enter the 6-digit code'); return; }
+                            const r = await fetch('/api/2fa/confirm', {
+                                method: 'POST', headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({code})
+                            });
+                            const d = await r.json();
+                            if (r.ok && d.status === 'enabled') {
+                                if (typeof _showDashToast === 'function') _showDashToast(true, 'Two-factor authentication enabled!');
+                                _tfaLoadStatus();
+                            } else {
+                                _showErr(d.error || 'Verification failed');
+                            }
+                        };
+
+                        window._tfaShowDisable = function() {
+                            document.getElementById('tfaDisableConfirm').style.display = '';
+                            document.getElementById('tfaDisablePassword').focus();
+                        };
+
+                        window._tfaDisable = async function() {
+                            const pw = document.getElementById('tfaDisablePassword').value;
+                            if (!pw) return;
+                            const r = await fetch('/api/2fa/disable', {
+                                method: 'POST', headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({password: pw})
+                            });
+                            const d = await r.json();
+                            if (r.ok && d.status === 'disabled') {
+                                if (typeof _showDashToast === 'function') _showDashToast(true, 'Two-factor authentication disabled');
+                                document.getElementById('tfaDisableConfirm').style.display = 'none';
+                                document.getElementById('tfaDisablePassword').value = '';
+                                // Reset setup flow
+                                document.getElementById('tfaStep1').style.display = '';
+                                document.getElementById('tfaStep2').style.display = 'none';
+                                document.getElementById('tfaPhoneInput').value = '';
+                                document.getElementById('tfaCodeInput').value = '';
+                                _tfaLoadStatus();
+                            } else {
+                                if (typeof _showDashToast === 'function') _showDashToast(false, d.error || 'Failed to disable');
+                            }
+                        };
+
+                        // Load on tab show
+                        _tfaLoadStatus();
+                    })();
+                    </script>
+
                     <!-- ── SAVE BUTTON ── -->
                     <div class="adv-footer">
                         <button type="button" onclick="resetAdvancedSettings()" class="adv-reset-btn">
