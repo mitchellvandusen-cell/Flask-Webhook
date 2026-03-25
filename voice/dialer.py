@@ -1073,48 +1073,6 @@ def dial_contact():
         return jsonify({"error": "Internal server error"}), 500
 
 
-@dialer_bp.route('/voice/screen-share/send-link', methods=['POST'])
-@jwt_or_session_required
-def screen_share_send_link():
-    """SMS a screen share viewer link to a phone number."""
-    data = request.json or {}
-    phone = data.get('phone', '')
-    link = data.get('link', '')
-    if not phone or not link:
-        return jsonify({"error": "Phone and link are required"}), 400
-
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({"error": "Database error"}), 500
-    try:
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM subscribers WHERE email = %s", (current_user.email,))
-        row = cur.fetchone()
-        cur.close()
-        if not row:
-            return jsonify({"error": "Account not found"}), 404
-        subscriber = dict(row)
-    finally:
-        return_db_connection(conn)
-
-    voice_config = subscriber.get('voice_config') or {}
-    sub_sid = voice_config.get('twilio_sub_account_sid', '')
-    from_number = voice_config.get('twilio_phone_number', '')
-    if not sub_sid or not from_number:
-        return jsonify({"error": "Voice not provisioned"}), 400
-
-    try:
-        from twilio_sms import send_sms_via_twilio
-        msg = f"View my screen here: {link}"
-        ok, fail_reason, _ = send_sms_via_twilio(sub_sid, from_number, phone, msg)
-        if ok:
-            return jsonify({"success": True})
-        return jsonify({"error": fail_reason or "SMS failed"}), 500
-    except Exception as e:
-        logger.error(f"Screen share SMS failed: {e}")
-        return jsonify({"error": "SMS failed"}), 500
-
-
 @dialer_bp.route('/voice/multi-dial', methods=['POST'])
 @jwt_or_session_required
 @require_permission('can_dial')

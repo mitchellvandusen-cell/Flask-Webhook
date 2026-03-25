@@ -1063,13 +1063,9 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- Start Meet (during live call) -->
-                        <button id="dialerMeetBtn" onclick="dialerStartMeet()" disabled class="dialer-ctrl-btn dlr-panel-6" style="display:flex;align-items:center;gap:4px;width:auto;height:32px;border-radius:6px;cursor:not-allowed;font-size:0.85rem;padding:0 10px;transition:all .2s" title="Start Google Meet video call">
+                        <!-- Start Meet + Screen Share (during live call) -->
+                        <button id="dialerMeetBtn" onclick="dialerStartMeet()" disabled class="dialer-ctrl-btn dlr-panel-6" style="display:flex;align-items:center;gap:4px;width:auto;height:32px;border-radius:6px;cursor:not-allowed;font-size:0.85rem;padding:0 10px;transition:all .2s" title="Start Google Meet — video call + screen share">
                             <i class="fa-solid fa-video"></i><span>Meet</span>
-                        </button>
-                        <!-- Screen Share (native WebRTC) -->
-                        <button id="dialerScreenShareBtn" onclick="dialerStartScreenShare()" disabled class="dialer-ctrl-btn dlr-panel-6" style="display:flex;align-items:center;gap:4px;width:auto;height:32px;border-radius:6px;cursor:not-allowed;font-size:0.85rem;padding:0 10px;transition:all .2s" title="Share your screen with the lead">
-                            <i class="fa-solid fa-display"></i><span>Screen</span>
                         </button>
                     </div>
                 </div>
@@ -1185,11 +1181,8 @@
                         <button id="voipTransferBtn" onclick="voipTransfer()" class="dlr-btn-ghost-4" style="width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:0.8rem;color:#00d9ff" title="Transfer call">
                             <i class="fa-solid fa-arrow-right-arrow-left"></i>
                         </button>
-                        <button id="voipMeetBtn" onclick="dialerStartMeet()" class="dlr-btn-ghost-4" style="width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:0.8rem" title="Start Google Meet">
+                        <button id="voipMeetBtn" onclick="dialerStartMeet()" class="dlr-btn-ghost-4" style="width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:0.8rem" title="Start Google Meet — video + screen share">
                             <i class="fa-solid fa-video"></i>
-                        </button>
-                        <button id="voipScreenShareBtn" onclick="dialerStartScreenShare()" class="dlr-btn-ghost-4" style="width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:0.8rem" title="Share your screen">
-                            <i class="fa-solid fa-display"></i>
                         </button>
                         <button onclick="voipHangup()" class="dlr-btn-danger" style="width:44px;height:36px;border-radius:18px;border:none;cursor:pointer;font-size:0.8rem;font-weight:700" title="End Call">
                             <i class="fa-solid fa-phone-slash"></i>
