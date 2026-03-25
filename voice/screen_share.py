@@ -143,7 +143,7 @@ def share_start():
                 row = cur.fetchone()
                 cur.close()
                 if row:
-                    vc = row.get('voice_config') or {} if isinstance(row, dict) else {}
+                    vc = (row.get('voice_config') or {}) if isinstance(row, dict) else {}
                     sub_sid = vc.get('twilio_sub_account_sid', '')
                     from_num = vc.get('twilio_phone_number', '')
                     if sub_sid and from_num:
@@ -181,7 +181,7 @@ def share_ice_servers():
                 row = cur.fetchone()
                 cur.close()
                 if row:
-                    vc = row.get('voice_config') or {} if isinstance(row, dict) else {}
+                    vc = (row.get('voice_config') or {}) if isinstance(row, dict) else {}
                     sub_sid = vc.get('twilio_sub_account_sid', '')
             finally:
                 return_db_connection(conn)
@@ -233,7 +233,16 @@ def share_viewer(session_id):
     if not voice_wss_host:
         voice_wss_host = request.host
 
+    # Generate TURN/STUN credentials for the viewer (embedded in page, ~24h TTL)
+    ice_servers = [{"urls": "stun:stun.l.google.com:19302"}]
+    try:
+        from twilio_provisioning import generate_turn_credentials
+        ice_servers = generate_turn_credentials()
+    except Exception as e:
+        logger.warning(f"[ScreenShare] TURN credentials for viewer failed (using STUN fallback): {e}")
+
     return render_template('share.html',
                            session_id=session_id,
                            agent_name=session.get('contact_name', ''),
-                           voice_wss_host=voice_wss_host)
+                           voice_wss_host=voice_wss_host,
+                           ice_servers=ice_servers)

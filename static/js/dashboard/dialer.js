@@ -3331,6 +3331,8 @@
             // Stop live listen if active
             _stopListenStream();
             _dialerListening = false;
+            // Stop screen share if active
+            if (_screenShareActive) dialerStopScreenShare();
             // Reset all control buttons for next call
             _dialerEnableControls(false);
             const tkBtn = document.getElementById('dialerTakeoverBtn');

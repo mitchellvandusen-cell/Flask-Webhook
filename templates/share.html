@@ -56,17 +56,8 @@
         let reconnects = 0;
         const MAX_RECONNECTS = 5;
 
-        async function fetchIceServers() {
-            try {
-                // Public endpoint — viewer doesn't need auth, use defaults
-                return [{ urls: 'stun:stun.l.google.com:19302' }];
-            } catch(e) {
-                return [{ urls: 'stun:stun.l.google.com:19302' }];
-            }
-        }
-
         async function connect() {
-            const iceServers = await fetchIceServers();
+            const iceServers = {{ ice_servers|tojson }};
             pc = new RTCPeerConnection({ iceServers: iceServers });
 
             pc.ontrack = function(event) {
