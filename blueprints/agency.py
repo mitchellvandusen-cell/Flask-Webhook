@@ -934,7 +934,9 @@ def agency_call_log():
                 "from_number": row['from_number'],
                 "to_number": row.get('phone', ''),
                 "created_at": row['created_at'].isoformat() + "Z" if row['created_at'] else None,
+                "recording_url": row['recording_url'] or '',
                 "has_recording": bool(row['recording_url']),
+                "transcript": row['transcript'] if row['transcript'] else [],
                 "has_transcript": bool(row['transcript']),
                 "stir_status": row['stir_status'] or '',
             })
