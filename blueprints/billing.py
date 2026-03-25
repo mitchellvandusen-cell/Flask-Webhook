@@ -917,6 +917,7 @@ def checkout():
             mode="subscription",
             line_items=[{"price": price_id, "quantity": 1}],
             customer_email=customer_email,
+            consent_collection={"terms_of_service": "required"},
             metadata={
                 "user_email": customer_email,
                 "target_role": "individual",
@@ -986,6 +987,7 @@ def checkout_sms_bot():
             mode="subscription",
             line_items=[{"price": price_id, "quantity": 1}],
             customer_email=customer_email,
+            consent_collection={"terms_of_service": "required"},
             metadata={
                 "user_email": customer_email,
                 "target_role": "individual",
@@ -1044,6 +1046,7 @@ def checkout_pro_dialer():
             mode="subscription",
             line_items=[{"price": price_id, "quantity": 1}],
             customer_email=customer_email,
+            consent_collection={"terms_of_service": "required"},
             metadata={
                 "user_email": customer_email,
                 "target_role": "individual",
@@ -1118,6 +1121,7 @@ def checkout_solo_predictive():
             mode="subscription",
             line_items=[{"price": price_id, "quantity": 1}],
             customer_email=customer_email,
+            consent_collection={"terms_of_service": "required"},
             metadata={
                 "user_email": customer_email,
                 "target_role": "individual",
