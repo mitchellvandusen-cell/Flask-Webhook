@@ -28,6 +28,7 @@ from flask_login import login_required, login_user, current_user
 
 from extensions import (ADMIN_EMAILS, YOUR_DOMAIN, safe_jsonify,
                         _is_admin_request, super_admin_required)
+from psycopg2.extras import RealDictCursor
 from db import (get_db_connection, return_db_connection, User,
                 get_webhook_logs, get_all_marketplace_installs,
                 get_incomplete_installs, mark_setup_email_sent,
@@ -892,4 +893,113 @@ def reset_stale_voice_configs():
     finally:
         return_db_connection(conn)
 
+    return jsonify(report)
+
+
+# ── Stripe Reconciliation ────────────────────────────────────────────────────
+
+@admin_bp.route("/api/admin/stripe-sync", methods=["POST"])
+@login_required
+@super_admin_required
+def stripe_sync():
+    """Reconcile DB stripe_status and subscription_tier with live Stripe data.
+    Fixes historical gaps where webhooks were missed or fired before code was deployed.
+    """
+    import stripe as stripe_lib
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "DB unavailable"}), 503
+
+    report = {"synced": [], "errors": [], "unchanged": 0, "total": 0}
+
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""
+            SELECT email, stripe_customer_id, stripe_status, subscription_tier
+            FROM subscribers
+            WHERE stripe_customer_id IS NOT NULL AND stripe_customer_id != ''
+        """)
+        rows = cur.fetchall()
+        report["total"] = len(rows)
+
+        # Build price→tier mapping
+        price_to_tier = {v: k for k, v in {
+            "sms_bot": os.getenv("STRIPE_SMS_BOT_PRICE_ID"),
+            "individual": os.getenv("STRIPE_PRICE_ID"),
+            "pro_dialer": os.getenv("STRIPE_PRO_DIALER_PRICE_ID"),
+            "solo_predictive": os.getenv("STRIPE_PREDICTIVE_DIALER_PRICE_ID"),
+        }.items() if v}
+
+        for row in rows:
+            email = row['email']
+            cust_id = row['stripe_customer_id']
+            db_status = row.get('stripe_status')
+            db_tier = row.get('subscription_tier')
+
+            try:
+                # Get ALL subscriptions for this customer (including canceled)
+                subs = stripe_lib.Subscription.list(customer=cust_id, limit=10)
+                if not subs.data:
+                    # No subscriptions at all — mark as canceled
+                    if db_status != 'canceled' or db_tier is not None:
+                        cur.execute("""
+                            UPDATE subscribers
+                            SET stripe_status = 'canceled', subscription_tier = NULL, updated_at = NOW()
+                            WHERE stripe_customer_id = %s
+                        """, (cust_id,))
+                        conn.commit()
+                        report["synced"].append({
+                            "email": email,
+                            "change": f"status: {db_status}→canceled, tier: {db_tier}→NULL (no subs)"
+                        })
+                    else:
+                        report["unchanged"] += 1
+                    continue
+
+                # Find the most relevant subscription (active > trialing > past_due > canceled)
+                priority = {'active': 0, 'trialing': 1, 'past_due': 2, 'unpaid': 3,
+                            'incomplete': 4, 'paused': 5, 'canceled': 6, 'incomplete_expired': 7}
+                best_sub = min(subs.data, key=lambda s: priority.get(s.status, 99))
+                live_status = best_sub.status
+
+                # Derive tier from best subscription's price
+                items = best_sub.get("items", {}).get("data", [])
+                price_id = items[0]["price"]["id"] if items else ""
+                live_tier = price_to_tier.get(price_id)
+                if live_status in ('canceled', 'unpaid', 'incomplete_expired'):
+                    live_tier = None
+                elif live_tier is None and live_status in ('active', 'trialing'):
+                    live_tier = 'individual'  # fallback
+
+                # Compare and update if different
+                if db_status != live_status or db_tier != live_tier:
+                    cur.execute("""
+                        UPDATE subscribers
+                        SET stripe_status = %s, subscription_tier = %s, updated_at = NOW()
+                        WHERE stripe_customer_id = %s
+                    """, (live_status, live_tier, cust_id))
+                    conn.commit()
+                    report["synced"].append({
+                        "email": email,
+                        "change": f"status: {db_status}→{live_status}, tier: {db_tier}→{live_tier}"
+                    })
+                else:
+                    report["unchanged"] += 1
+
+            except Exception as e:
+                report["errors"].append({"email": email, "error": str(e)})
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+
+        cur.close()
+    except Exception as e:
+        logger.error(f"Stripe sync failed: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+    finally:
+        return_db_connection(conn)
+
+    logger.info(f"Stripe sync complete: {len(report['synced'])} synced, {report['unchanged']} unchanged, {len(report['errors'])} errors")
     return jsonify(report)

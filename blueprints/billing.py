@@ -431,27 +431,41 @@ def stripe_webhook():
                     cur.close()
                     return_db_connection(conn)
 
-    # ── Subscription cancelled / deleted — deactivate seat or main subscriber ──
+    # ── Subscription updated / deleted — sync ALL status changes to DB ──
     elif event["type"] in ("customer.subscription.deleted", "customer.subscription.updated"):
         subscription = event["data"]["object"]
         sub_id = subscription.id
-        status = subscription.status  # 'canceled', 'unpaid', 'past_due', etc.
+        status = subscription.status  # 'active', 'past_due', 'canceled', 'unpaid', 'trialing', etc.
+        customer_id = subscription.get("customer", "")
 
-        if status in ('canceled', 'unpaid', 'incomplete_expired'):
-            try:
-                conn = get_db_connection()
-                if conn:
-                    cur = None
-                    try:
-                        cur = conn.cursor(cursor_factory=RealDictCursor)
+        # Derive tier from subscription price when status is active/trialing
+        new_tier = None
+        if status in ('active', 'trialing'):
+            items = subscription.get("items", {}).get("data", [])
+            price_id = items[0]["price"]["id"] if items else ""
+            price_to_tier = {v: k for k, v in {
+                "sms_bot": os.getenv("STRIPE_SMS_BOT_PRICE_ID"),
+                "individual": os.getenv("STRIPE_PRICE_ID"),
+                "pro_dialer": os.getenv("STRIPE_PRO_DIALER_PRICE_ID"),
+                "solo_predictive": os.getenv("STRIPE_PREDICTIVE_DIALER_PRICE_ID"),
+            }.items() if v}
+            new_tier = price_to_tier.get(price_id, "individual")
 
-                        # Check if this is a seat subscription
-                        cur.execute("""
-                            SELECT id, email, location_id FROM location_users
-                            WHERE stripe_seat_subscription_id = %s
-                        """, (sub_id,))
-                        seat = cur.fetchone()
-                        if seat:
+        try:
+            conn = get_db_connection()
+            if conn:
+                cur = None
+                try:
+                    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+                    # Check if this is a seat subscription
+                    cur.execute("""
+                        SELECT id, email, location_id FROM location_users
+                        WHERE stripe_seat_subscription_id = %s
+                    """, (sub_id,))
+                    seat = cur.fetchone()
+                    if seat:
+                        if status in ('canceled', 'unpaid', 'incomplete_expired'):
                             cur.execute("""
                                 UPDATE location_users
                                 SET is_active = false, session_revoked_at = NOW(), updated_at = NOW()
@@ -459,45 +473,98 @@ def stripe_webhook():
                             """, (seat['id'],))
                             conn.commit()
                             logger.info(f"Seat user {seat['email']} deactivated — subscription {sub_id} {status}")
-                        else:
-                            # Not a seat — check if this is a main subscriber subscription
-                            customer_id = subscription.get("customer", "")
-                            if customer_id:
-                                cur.execute("""
-                                    SELECT email, subscription_tier FROM subscribers
-                                    WHERE stripe_customer_id = %s
-                                """, (customer_id,))
-                                subscriber = cur.fetchone()
-                                if subscriber:
-                                    cur.execute("""
-                                        UPDATE subscribers
-                                        SET stripe_status = %s,
-                                            subscription_tier = NULL,
-                                            updated_at = NOW()
-                                        WHERE stripe_customer_id = %s
-                                    """, (status, customer_id))
-                                    conn.commit()
-                                    logger.info(
-                                        f"Main subscription {status} for {subscriber['email']} "
-                                        f"(was {subscriber['subscription_tier']}) — "
-                                        f"stripe_status={status}, paywall re-enabled"
-                                    )
+                        elif status == 'active':
+                            cur.execute("""
+                                UPDATE location_users
+                                SET is_active = true, updated_at = NOW()
+                                WHERE id = %s
+                            """, (seat['id'],))
+                            conn.commit()
+                            logger.info(f"Seat user {seat['email']} reactivated — subscription {sub_id}")
+                    elif customer_id:
+                        # Main subscriber subscription
+                        cur.execute("""
+                            SELECT email, subscription_tier, stripe_status FROM subscribers
+                            WHERE stripe_customer_id = %s
+                        """, (customer_id,))
+                        subscriber = cur.fetchone()
+                        if subscriber:
+                            old_tier = subscriber['subscription_tier']
+                            old_status = subscriber.get('stripe_status')
 
-                    except Exception as e:
-                        logger.error(f"Subscription cancellation handler failed: {e}")
+                            if status in ('canceled', 'unpaid', 'incomplete_expired'):
+                                # Deactivate: clear tier, set status
+                                cur.execute("""
+                                    UPDATE subscribers
+                                    SET stripe_status = %s,
+                                        subscription_tier = NULL,
+                                        updated_at = NOW()
+                                    WHERE stripe_customer_id = %s
+                                """, (status, customer_id))
+                                conn.commit()
+                                logger.info(
+                                    f"Subscription {status} for {subscriber['email']} "
+                                    f"(was tier={old_tier}) — paywall re-enabled"
+                                )
+                            elif status in ('active', 'trialing'):
+                                # Active/trialing: update tier + status
+                                cur.execute("""
+                                    UPDATE subscribers
+                                    SET stripe_status = %s,
+                                        subscription_tier = %s,
+                                        updated_at = NOW()
+                                    WHERE stripe_customer_id = %s
+                                """, (status, new_tier, customer_id))
+                                conn.commit()
+                                if old_tier != new_tier:
+                                    logger.info(
+                                        f"Plan changed for {subscriber['email']}: "
+                                        f"{old_tier} → {new_tier}, status={status}"
+                                    )
+                                elif old_status != status:
+                                    logger.info(
+                                        f"Status changed for {subscriber['email']}: "
+                                        f"{old_status} → {status}, tier={new_tier}"
+                                    )
+                            elif status == 'past_due':
+                                # Past due: keep tier (grace period) but flag status
+                                cur.execute("""
+                                    UPDATE subscribers
+                                    SET stripe_status = %s, updated_at = NOW()
+                                    WHERE stripe_customer_id = %s
+                                """, (status, customer_id))
+                                conn.commit()
+                                logger.warning(
+                                    f"Subscription past_due for {subscriber['email']} "
+                                    f"(tier={old_tier} preserved during grace period)"
+                                )
+                            else:
+                                # Any other status (paused, incomplete, etc.)
+                                cur.execute("""
+                                    UPDATE subscribers
+                                    SET stripe_status = %s, updated_at = NOW()
+                                    WHERE stripe_customer_id = %s
+                                """, (status, customer_id))
+                                conn.commit()
+                                logger.info(
+                                    f"Subscription status={status} for {subscriber['email']}"
+                                )
+
+                except Exception as e:
+                    logger.error(f"Subscription lifecycle handler failed: {e}")
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass
+                finally:
+                    if cur:
                         try:
-                            conn.rollback()
+                            cur.close()
                         except Exception:
                             pass
-                    finally:
-                        if cur:
-                            try:
-                                cur.close()
-                            except Exception:
-                                pass
-                        return_db_connection(conn)
-            except Exception as e:
-                logger.error(f"Subscription lifecycle error: {e}")
+                    return_db_connection(conn)
+        except Exception as e:
+            logger.error(f"Subscription lifecycle error: {e}")
 
     # ── Recurring invoice paid — credit included AI minutes for solo_predictive ──
     elif event["type"] == "invoice.paid":
@@ -556,9 +623,16 @@ def stripe_webhook():
                         if row:
                             email = row['email']
                             name = row.get('bot_first_name') or 'there'
+                            # Update stripe_status to past_due
+                            cur.execute("""
+                                UPDATE subscribers
+                                SET stripe_status = 'past_due', updated_at = NOW()
+                                WHERE stripe_customer_id = %s
+                            """, (customer_id,))
+                            conn.commit()
                             logger.warning(
                                 f"Payment failed for {email} — attempt #{attempt_count}, "
-                                f"invoice {invoice.get('id', '?')}"
+                                f"invoice {invoice.get('id', '?')}, stripe_status → past_due"
                             )
                             try:
                                 from send_email_api import send_email_via_api
@@ -644,11 +718,36 @@ def stripe_webhook():
             except Exception as e:
                 logger.error(f"Trial_will_end handler error: {e}")
 
-    # ── Subscription paused — log for now ──────────────────────────────────
+    # ── Subscription paused — update DB status ──────────────────────────────
     elif event["type"] == "customer.subscription.paused":
         subscription = event["data"]["object"]
         customer_id = subscription.get("customer", "")
-        logger.info(f"Subscription paused — customer={customer_id} sub={subscription.get('id')}")
+        if customer_id:
+            try:
+                conn = get_db_connection()
+                if conn:
+                    cur = None
+                    try:
+                        cur = conn.cursor()
+                        cur.execute("""
+                            UPDATE subscribers
+                            SET stripe_status = 'paused', updated_at = NOW()
+                            WHERE stripe_customer_id = %s
+                        """, (customer_id,))
+                        conn.commit()
+                        logger.info(f"Subscription paused — customer={customer_id}")
+                    except Exception as e:
+                        logger.error(f"Subscription paused handler error: {e}")
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
+                    finally:
+                        if cur:
+                            cur.close()
+                        return_db_connection(conn)
+            except Exception as e:
+                logger.error(f"Subscription paused error: {e}")
 
     # ── Subscription resumed — re-enable access ───────────────────────────
     elif event["type"] == "customer.subscription.resumed":

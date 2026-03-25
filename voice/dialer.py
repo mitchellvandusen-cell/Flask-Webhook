@@ -834,7 +834,7 @@ def dial_contact():
     contact_id    = data.get('contact_id', '')
     phone         = data.get('phone', '')
     first_name    = data.get('first_name', 'there')
-    dial_mode     = data.get('dial_mode', 'ai')
+    dial_mode     = data.get('dial_mode', 'human')
     try:
         dial_attempt = int(data.get('dial_attempt', 1))
     except (ValueError, TypeError):
@@ -959,8 +959,9 @@ def dial_contact():
         try:
             from db import get_ai_minute_balance
             bal = get_ai_minute_balance(current_user.email)
-            if bal.get('total_purchased', 0) > 0 and bal.get('balance_minutes', 0) <= 0:
-                return jsonify({"error": "You're out of AI minutes. Purchase more to continue making AI calls.",
+            balance = bal.get('balance_minutes', 0) or 0
+            if balance <= 0:
+                return jsonify({"error": "You have no AI minutes. Purchase AI minutes to make AI calls.",
                                 "minutes_required": True}), 402
         except Exception as e:
             logger.warning(f"AI minutes check failed (non-fatal): {e}")
@@ -988,8 +989,8 @@ def dial_contact():
     if not sub_sid or not from_number:
         return jsonify({"error": "Voice service not fully provisioned"}), 400
 
-    # AMD: always on — needed for voicemail detection, auto-hangup, and retry in both AI and human modes
-    use_amd = True
+    # AMD: always on for AI mode (needs to detect voicemail); for human mode, respect user setting
+    use_amd = True if dial_mode == 'ai' else voice_config.get('use_amd', False)
 
     # Idempotency guard: prevent double-dial to the same phone number.
     # If a non-terminal call to this phone already exists for this location, return it.
@@ -1076,7 +1077,7 @@ def multi_dial():
     """
     data = request.json or {}
     contacts = data.get('contacts', [])  # [{contact_id, phone, first_name}]
-    dial_mode = data.get('dial_mode', 'ai')
+    dial_mode = data.get('dial_mode', 'human')
     try:
         max_lines = int(data.get('max_lines', 3))
     except (ValueError, TypeError):
@@ -1116,30 +1117,36 @@ def multi_dial():
     if dial_mode == 'ai' and not voice_config.get('enabled'):
         return jsonify({"error": "Voice AI is not enabled"}), 400
 
-    # ── AI Minutes balance check ──
-    # AI mode: block at zero (same as single-line dial_contact)
-    # Solo predictive human mode: warn for overflow (uses AI minutes)
-    minutes_warning = None
-    if not is_admin:
+    # ── AI Minutes: block AI calls with 0 balance ──
+    is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+    if dial_mode == 'ai' and not is_admin:
         try:
             from db import get_ai_minute_balance
             bal = get_ai_minute_balance(current_user.email)
-            balance = bal.get('balance_minutes', 0)
-            purchased = bal.get('total_purchased', 0)
-            if purchased > 0:
-                if dial_mode == 'ai' and balance <= 0:
-                    return jsonify({"error": "You're out of AI minutes. Purchase more to continue making AI calls.",
-                                    "minutes_required": True}), 402
-                if balance <= 0:
-                    minutes_warning = "empty"
-                    if tier == 'solo_predictive':
-                        max_lines = 1
-                elif balance <= 20:
-                    minutes_warning = "critical"
-                elif balance <= 100:
-                    minutes_warning = "low"
+            balance = bal.get('balance_minutes', 0) or 0
+            if balance <= 0:
+                return jsonify({"error": "You have no AI minutes. Purchase AI minutes to make AI calls.",
+                                "minutes_required": True}), 402
         except Exception as e:
             logger.warning(f"AI minutes check failed (non-fatal): {e}")
+
+    # ── AI Minutes warning for solo_predictive (overflow uses AI minutes) ──
+    minutes_warning = None
+    if tier == 'solo_predictive' and dial_mode == 'human':
+        try:
+            from db import get_ai_minute_balance
+            bal = get_ai_minute_balance(current_user.email)
+            balance = bal.get('balance_minutes', 0) or 0
+            if balance <= 0:
+                minutes_warning = "empty"
+                # Force single-line: no overflow possible without AI minutes
+                max_lines = 1
+            elif balance <= 20:
+                minutes_warning = "critical"
+            elif balance <= 100:
+                minutes_warning = "low"
+        except Exception as e:
+            logger.warning(f"AI minutes check for overflow warning failed: {e}")
 
     sub_sid = voice_config.get('twilio_sub_account_sid', '')
     from_number = voice_config.get('twilio_phone_number', '')
@@ -1248,7 +1255,7 @@ def multi_dial():
         rotation_result = select_outbound_number(location_id, voice_config, dest_phone=c_phone)
         call_from = rotation_result["phone"] if rotation_result else from_number
 
-        use_amd = True  # Always on for voicemail detection + retry in both modes
+        use_amd = True if dial_mode == 'ai' else voice_config.get('use_amd', False)
 
         try:
             host = request.host

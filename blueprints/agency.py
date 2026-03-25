@@ -674,11 +674,12 @@ def agency_kpis():
         connected = r['connected_calls'] or 0
         connect_rate = round(connected / total * 100, 1) if total else 0.0
 
-        # Message count
+        # Message count (contact_messages has no location_id — join through contact_cache)
         cur.execute("""
             SELECT COUNT(*) AS cnt
-            FROM contact_messages
-            WHERE location_id = ANY(%s) AND timestamp >= %s
+            FROM contact_messages cm
+            JOIN contact_cache cc ON cm.contact_id = cc.contact_id
+            WHERE cc.location_id = ANY(%s) AND cm.created_at >= %s
         """, (location_ids, start_utc))
         total_messages = cur.fetchone()['cnt'] or 0
 
@@ -777,7 +778,7 @@ def agency_kpis():
             "prior": prior,
         })
     except Exception as e:
-        logger.error(f"agency_kpis error: {e}")
+        logger.error(f"agency_kpis error: {e}", exc_info=True)
         return flask_jsonify({"error": "Internal server error"}), 500
     finally:
         return_db_connection(conn)
@@ -836,12 +837,13 @@ def agency_agent_stats():
         """, (location_ids, start_utc))
         call_stats = {r['location_id']: r for r in cur.fetchall()}
 
-        # Per-agent message counts
+        # Per-agent message counts (contact_messages has no location_id — join through contact_cache)
         cur.execute("""
-            SELECT location_id, COUNT(*) AS cnt
-            FROM contact_messages
-            WHERE location_id = ANY(%s) AND timestamp >= %s
-            GROUP BY location_id
+            SELECT cc.location_id, COUNT(*) AS cnt
+            FROM contact_messages cm
+            JOIN contact_cache cc ON cm.contact_id = cc.contact_id
+            WHERE cc.location_id = ANY(%s) AND cm.created_at >= %s
+            GROUP BY cc.location_id
         """, (location_ids, start_utc))
         msg_stats = {r['location_id']: r['cnt'] for r in cur.fetchall()}
 
@@ -868,7 +870,7 @@ def agency_agent_stats():
         cur.close()
         return flask_jsonify({"agents": agents})
     except Exception as e:
-        logger.error(f"agency_agent_stats error: {e}")
+        logger.error(f"agency_agent_stats error: {e}", exc_info=True)
         return flask_jsonify({"error": "Internal server error"}), 500
     finally:
         return_db_connection(conn)
@@ -966,10 +968,16 @@ def agency_dashboard_stats():
         return flask_jsonify({"error": "DB unavailable"}), 503
 
     try:
+        company_id = getattr(current_user, 'company_id', None)
         location_ids = _get_sub_location_ids(conn, current_user.email,
-                                              company_id=getattr(current_user, 'company_id', None))
+                                              company_id=company_id)
         if current_user.location_id and current_user.location_id not in location_ids:
             location_ids.append(current_user.location_id)
+
+        logger.info(
+            f"agency_dashboard_stats: email={current_user.email} company_id={company_id} "
+            f"location_ids={location_ids} (count={len(location_ids)})"
+        )
 
         if not location_ids:
             return flask_jsonify(_empty_dashboard_stats())
@@ -1003,6 +1011,11 @@ def agency_dashboard_stats():
         total_calls = r['total_calls'] or 0
         connected = r['connected_calls'] or 0
         connect_rate = round(connected / total_calls * 100, 1) if total_calls else 0.0
+
+        logger.info(
+            f"agency_dashboard_stats: period={period} start_utc={start_utc} "
+            f"total_calls={total_calls} connected={connected} active_agents={r['active_agents']}"
+        )
 
         # Duration bucket percentages (of connected calls)
         over_45s = r['over_45s'] or 0
@@ -1242,7 +1255,7 @@ def agency_dashboard_stats():
             "prior": prior,
         })
     except Exception as e:
-        logger.error(f"agency_dashboard_stats error: {e}")
+        logger.error(f"agency_dashboard_stats error: {e}", exc_info=True)
         return flask_jsonify({"error": "Internal server error"}), 500
     finally:
         return_db_connection(conn)
