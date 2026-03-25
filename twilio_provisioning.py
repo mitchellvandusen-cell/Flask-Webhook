@@ -618,10 +618,8 @@ def start_recording(sub_account_sid: str, call_sid: str,
 
 
 def get_recording_url(sub_account_sid: str, recording_sid: str) -> str:
-    """Get the MP3 download URL for a recording.
-    Uses master account SID so recordings on any sub-account are accessible
-    when authenticated with master credentials."""
-    return f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Recordings/{recording_sid}.mp3"
+    """Get the MP3 download URL for a recording."""
+    return f"https://api.twilio.com/2010-04-01/Accounts/{sub_account_sid}/Recordings/{recording_sid}.mp3"
 
 
 # ──────────────────────────────────────────────────────────────

@@ -946,16 +946,16 @@
             html += '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;padding-left:16px;">';
             html += '<span class="chr-dur">' + dur + '</span>';
             if (vm.recording_url) {
-                html += '<button onclick="event.stopPropagation();vmPlay(' + idx + ')" id="vmPlayBtn' + idx + '" style="background:#0088aa;color:#fff;border:none;border-radius:4px;padding:3px 7px;font-size:.68rem;cursor:pointer;display:inline-flex;align-items:center;" title="Play"><i class="fa-solid fa-play"></i></button>';
-                html += '<a href="' + dialerEsc(vm.recording_url) + '?dl=1" download style="background:#007a3d;color:#fff;border:none;border-radius:4px;padding:3px 7px;font-size:.68rem;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-download"></i></a>';
+                html += '<button onclick="event.stopPropagation();vmPlay(' + idx + ')" id="vmPlayBtn' + idx + '" style="background:#1e3a5f;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.72rem;font-weight:600;cursor:pointer;" title="Play"><i class="fa-solid fa-play"></i></button>';
+                html += '<a href="' + dialerEsc(vm.recording_url) + '?dl=1" download style="background:#14532d;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.72rem;font-weight:600;cursor:pointer;text-decoration:none;" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-download"></i></a>';
             }
             if (preview) {
-                html += '<button onclick=\'event.stopPropagation();showTranscript([{role:"call_recording",text:"' + dialerEsc(preview).replace(/"/g,'&quot;') + '"}])\' style="background:#6b21a8;color:#fff;border:none;border-radius:4px;padding:3px 7px;font-size:.68rem;cursor:pointer;display:inline-flex;align-items:center;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>';
+                html += '<button onclick=\'event.stopPropagation();showTranscript([{role:"call_recording",text:"' + dialerEsc(preview).replace(/"/g,'&quot;') + '"}])\' style="background:#1e3a5f;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.72rem;font-weight:600;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>';
             } else if (vm.recording_url && vm.call_sid) {
-                html += '<button onclick="event.stopPropagation();vmTranscribe(' + idx + ')" style="background:#b45309;color:#fff;border:none;border-radius:4px;padding:3px 7px;font-size:.68rem;cursor:pointer;display:inline-flex;align-items:center;" title="Transcribe"><i class="fa-solid fa-wand-magic-sparkles"></i></button>';
+                html += '<button onclick="event.stopPropagation();vmTranscribe(' + idx + ')" style="background:#1e3a5f;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.72rem;font-weight:600;cursor:pointer;" title="Transcribe"><i class="fa-solid fa-wand-magic-sparkles"></i></button>';
             }
             if (vm.phone) {
-                html += '<button onclick="event.stopPropagation();vmCallback(' + idx + ')" style="background:#007a3d;color:#fff;border:none;border-radius:4px;padding:3px 7px;font-size:.68rem;cursor:pointer;display:inline-flex;align-items:center;margin-left:auto;" title="Call Back"><i class="fa-solid fa-phone"></i></button>';
+                html += '<button onclick="event.stopPropagation();vmCallback(' + idx + ')" style="background:#14532d;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.72rem;font-weight:600;cursor:pointer;margin-left:auto;" title="Call Back"><i class="fa-solid fa-phone"></i></button>';
             }
             html += '</div>';
             // Expanded area (hidden by default)
@@ -2568,8 +2568,8 @@
                             '<div style="flex:1;min-width:0;"><div style="font-weight:600;">' + dialerEsc(c.direction || 'outbound') + '</div><div style="font-size:.75rem;color:#555;">' + dt + '</div></div>' +
                             '<div style="color:' + statusColor + ';font-size:.75rem;font-weight:600;">' + dialerEsc((c.status || '').replace('-',' ')) + '</div>' +
                             '<div style="color:#888;font-size:.75rem;">' + durMin + '</div>' +
-                            (hasRec ? '<button onclick="playRecording(\'' + dialerEsc(c.recording_url) + '\')" style="background:#0088aa;color:#fff;border:none;border-radius:4px;padding:3px 7px;font-size:.68rem;cursor:pointer;display:inline-flex;align-items:center;" title="Play"><i class="fa-solid fa-play"></i></button>' : '') +
-                            (hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/</g, '\\x3c') + ')\' style="background:#6b21a8;color:#fff;border:none;border-radius:4px;padding:3px 7px;font-size:.68rem;cursor:pointer;display:inline-flex;align-items:center;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
+                            (hasRec ? '<button onclick="playRecording(\'' + dialerEsc(c.recording_url) + '\')" style="background:#1e3a5f;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.72rem;font-weight:600;cursor:pointer;" title="Play"><i class="fa-solid fa-play"></i></button>' : '') +
+                            (hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/</g, '\\x3c') + ')\' style="background:#1e3a5f;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.72rem;font-weight:600;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
                         '</div>';
                     }).join('');
                 }
@@ -4174,10 +4174,10 @@
                     row += stirBadge;
                     row += '<span class="chr-status" style="color:' + sc + ';">' + (c.status||'').replace(/-/g,' ') + '</span>';
                     row += '<span class="chr-dur">' + dur + '</span>';
-                    if (hasRec) row += '<button onclick="event.stopPropagation();playRecording(\'' + dialerEsc(c.recording_url) + '\')" style="background:#0088aa;color:#fff;border:none;border-radius:4px;padding:3px 7px;font-size:.68rem;cursor:pointer;display:inline-flex;align-items:center;" title="Play"><i class="fa-solid fa-play"></i></button>';
-                    if (hasRec) row += '<a href="' + dialerEsc(c.recording_url) + '?dl=1" download style="background:#007a3d;color:#fff;border:none;border-radius:4px;padding:3px 7px;font-size:.68rem;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-download"></i></a>';
-                    if (hasTx) row += '<button onclick=\'event.stopPropagation();showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:#6b21a8;color:#fff;border:none;border-radius:4px;padding:3px 7px;font-size:.68rem;cursor:pointer;display:inline-flex;align-items:center;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>';
-                    if (!hasTx && hasRec && c.call_sid) row += '<button onclick="event.stopPropagation();transcribeNow(\'' + dialerEsc(c.call_sid) + '\',\'' + dialerEsc(c.recording_url) + '\',this)" style="background:#b45309;color:#fff;border:none;border-radius:4px;padding:3px 7px;font-size:.68rem;cursor:pointer;display:inline-flex;align-items:center;" title="Transcribe"><i class="fa-solid fa-wand-magic-sparkles"></i></button>';
+                    if (hasRec) row += '<button onclick="event.stopPropagation();playRecording(\'' + dialerEsc(c.recording_url) + '\')" style="background:#1e3a5f;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.72rem;font-weight:600;cursor:pointer;" title="Play"><i class="fa-solid fa-play"></i></button>';
+                    if (hasRec) row += '<a href="' + dialerEsc(c.recording_url) + '?dl=1" download style="background:#14532d;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.72rem;font-weight:600;cursor:pointer;text-decoration:none;" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-download"></i></a>';
+                    if (hasTx) row += '<button onclick=\'event.stopPropagation();showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:#1e3a5f;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.72rem;font-weight:600;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>';
+                    if (!hasTx && hasRec && c.call_sid) row += '<button onclick="event.stopPropagation();transcribeNow(\'' + dialerEsc(c.call_sid) + '\',\'' + dialerEsc(c.recording_url) + '\',this)" style="background:#1e3a5f;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.72rem;font-weight:600;cursor:pointer;" title="Transcribe"><i class="fa-solid fa-wand-magic-sparkles"></i></button>';
                     row += '</div>';
                     row += '</div>';
                     return row;
@@ -4236,10 +4236,10 @@
                     // Line 2: duration · action buttons
                     row += '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;">';
                     row += '<span class="chr-dur">' + dur + '</span>';
-                    row += '<button onclick="playRecording(\'' + recUrl + '\')" style="background:#0088aa;color:#fff;border:none;border-radius:4px;padding:3px 7px;font-size:.68rem;cursor:pointer;display:inline-flex;align-items:center;" title="Play"><i class="fa-solid fa-play"></i></button>';
-                    row += '<a href="' + recUrl + '?dl=1" download style="background:#007a3d;color:#fff;border:none;border-radius:4px;padding:3px 7px;font-size:.68rem;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-download"></i></a>';
-                    row += hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:#6b21a8;color:#fff;border:none;border-radius:4px;padding:3px 7px;font-size:.68rem;cursor:pointer;display:inline-flex;align-items:center;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '';
-                    row += !hasTx && sid ? '<button onclick="transcribeNow(\'' + sid + '\',\'' + recUrl + '\',this)" style="background:#b45309;color:#fff;border:none;border-radius:4px;padding:3px 7px;font-size:.68rem;cursor:pointer;display:inline-flex;align-items:center;" title="Transcribe"><i class="fa-solid fa-wand-magic-sparkles"></i></button>' : '';
+                    row += '<button onclick="playRecording(\'' + recUrl + '\')" style="background:#1e3a5f;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.72rem;font-weight:600;cursor:pointer;" title="Play"><i class="fa-solid fa-play"></i></button>';
+                    row += '<a href="' + recUrl + '?dl=1" download style="background:#14532d;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.72rem;font-weight:600;cursor:pointer;text-decoration:none;" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-download"></i></a>';
+                    row += hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:#1e3a5f;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.72rem;font-weight:600;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '';
+                    row += !hasTx && sid ? '<button onclick="transcribeNow(\'' + sid + '\',\'' + recUrl + '\',this)" style="background:#1e3a5f;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.72rem;font-weight:600;cursor:pointer;" title="Transcribe"><i class="fa-solid fa-wand-magic-sparkles"></i></button>' : '';
                     row += '</div>';
                     row += '</div>';
                     return row +

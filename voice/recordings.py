@@ -107,19 +107,52 @@ def stream_recording(recording_sid):
     Proxy a Twilio recording as an MP3 download. Fetches with Twilio auth
     so the browser never sees expiring pre-signed S3 URLs.
     """
-    subscriber, vc, sub_sid = _get_current_subscriber_voice()
-    if not sub_sid:
-        return jsonify({"error": "No Twilio account configured"}), 400
+    # Try to find the recording's actual sub-account from call_history
+    # (agency owners viewing other agents' recordings need the agent's credentials)
+    rec_sub_sid = None
+    rec_auth = None
+    try:
+        from db import get_db_connection, return_db_connection
+        conn = get_db_connection()
+        if conn:
+            try:
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT ch.location_id, s.voice_config
+                    FROM call_history ch
+                    JOIN subscribers s ON ch.location_id = s.location_id
+                    WHERE ch.recording_sid = %s OR ch.recording_url LIKE %s
+                    LIMIT 1
+                """, (recording_sid, f'%{recording_sid}%'))
+                row = cur.fetchone()
+                cur.close()
+                if row:
+                    vc = (row.get('voice_config') or {}) if isinstance(row, dict) else {}
+                    rec_sub_sid = vc.get('twilio_sub_account_sid', '')
+                    rec_auth = vc.get('twilio_sub_account_auth_token', '')
+            finally:
+                return_db_connection(conn)
+    except Exception as e:
+        logger.debug(f"Recording owner lookup failed (non-fatal): {e}")
 
-    # Build the authenticated Twilio recording URL
-    mp3_url = twilio_provisioning.get_recording_url(sub_sid, recording_sid)
+    # Fall back to current user's sub-account if lookup failed
+    if not rec_sub_sid:
+        subscriber, vc, sub_sid = _get_current_subscriber_voice()
+        if not sub_sid:
+            return jsonify({"error": "No Twilio account configured"}), 400
+        rec_sub_sid = sub_sid
+        rec_auth = vc.get('twilio_sub_account_auth_token', '')
+
+    # Build URL using the recording owner's sub-account
+    mp3_url = twilio_provisioning.get_recording_url(rec_sub_sid, recording_sid)
 
     try:
-        # Fetch with Twilio master credentials (streams the MP3 bytes through us)
+        # Auth with the recording's sub-account credentials, fall back to master
+        auth_sid = rec_sub_sid if rec_auth else twilio_provisioning.TWILIO_ACCOUNT_SID
+        auth_tok = rec_auth if rec_auth else twilio_provisioning.TWILIO_AUTH_TOKEN
         tw_resp = http_requests.get(
             mp3_url,
-            auth=(twilio_provisioning.TWILIO_ACCOUNT_SID,
-                  twilio_provisioning.TWILIO_AUTH_TOKEN),
+            auth=(auth_sid, auth_tok),
             stream=True,
             timeout=30,
         )
