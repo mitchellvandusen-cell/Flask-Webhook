@@ -768,7 +768,7 @@ class User(UserMixin):
 
         conn = get_db_connection()
         if not conn:
-            logger.debug("DB connection failed")
+            logger.error("User.get: DB connection pool exhausted — cannot authenticate")
             return None
 
         try:
@@ -779,7 +779,7 @@ class User(UserMixin):
                 SELECT s.*,
                        ab.company_name, ab.company_owner_name,
                        ab.company_owner_email, ab.company_owner_phone,
-                       ab.whitelabel_config, ab.max_seats, ab.active_seats
+                       ab.whitelabel_config
                 FROM subscribers s
                 LEFT JOIN agency_billing ab ON LOWER(s.email) = LOWER(ab.agency_email)
                 WHERE LOWER(s.email) = %s

@@ -138,7 +138,14 @@ def login():
         user  = User.get(email)
 
         if not user:
-            flash("No account found with that email.", "error")
+            # Check if this is a DB issue vs genuinely no account
+            conn_check = get_db_connection()
+            if not conn_check:
+                flash("Service temporarily unavailable. Please try again in a moment.", "error")
+                logger.error(f"Login failed for {email} — DB connection pool exhausted")
+            else:
+                return_db_connection(conn_check)
+                flash("No account found with that email.", "error")
             return render_template("login.html", form=form)
 
         if not user.password_hash:
