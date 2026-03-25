@@ -900,6 +900,13 @@ def refresh_tokens_proactively(buffer_minutes: int = 60):
         if not refreshed:
             stats["failed"] += 1
             logger.warning(f"⚠️ Proactive refresh failed: {loc_id} (app_type={oauth_type})")
+            # Alert the user their CRM connection needs reconnecting
+            try:
+                from failure_alerts import send_failure_alert
+                send_failure_alert(row.get('email', ''), 'token_expired',
+                                   f"Location: {loc_id}")
+            except Exception:
+                pass
 
         # Brief pause between refreshes to avoid rate limiting
         _time.sleep(0.5)

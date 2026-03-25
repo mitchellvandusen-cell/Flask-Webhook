@@ -1973,8 +1973,19 @@ def ai_minutes_check():
 
         if balance <= 0:
             warning = "empty"
+            try:
+                from failure_alerts import send_failure_alert
+                send_failure_alert(current_user.email, 'ai_minutes_empty')
+            except Exception:
+                pass
         elif balance <= 20:
             warning = "critical"
+            try:
+                from failure_alerts import send_failure_alert
+                send_failure_alert(current_user.email, 'ai_minutes_low',
+                                   f"{int(balance)} minutes remaining")
+            except Exception:
+                pass
         elif balance <= 100:
             warning = "low"
         else:

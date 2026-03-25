@@ -635,26 +635,11 @@ def stripe_webhook():
                                 f"invoice {invoice.get('id', '?')}, stripe_status → past_due"
                             )
                             try:
-                                from send_email_api import send_email_via_api
-                                send_email_via_api(
-                                    to_email=email,
-                                    subject="Action required — your InsuranceGrokBot payment failed",
-                                    html_body=(
-                                        f"<p>Hey {name},</p>"
-                                        f"<p>We weren't able to process your payment "
-                                        f"(attempt #{attempt_count}). Your subscription will be "
-                                        f"paused if we can't collect payment soon.</p>"
-                                        f"<p>Please update your card to keep your AI dialer, "
-                                        f"Smart Filters, and all your settings running:</p>"
-                                        f'<p><a href="{YOUR_DOMAIN}/dashboard?tab=billing"'
-                                        f' style="background:#00ff88;color:#000;padding:12px 24px;'
-                                        f'border-radius:8px;text-decoration:none;font-weight:bold;">'
-                                        f'Update Payment Method</a></p>'
-                                        f"<p>— The InsuranceGrokBot Team</p>"
-                                    ),
-                                )
+                                from failure_alerts import send_failure_alert
+                                send_failure_alert(email, 'payment_failed',
+                                                   f"Payment attempt #{attempt_count}")
                             except Exception as mail_err:
-                                logger.warning(f"Payment failed email to {email} failed: {mail_err}")
+                                logger.warning(f"Payment failed alert to {email} failed: {mail_err}")
                     except Exception as e:
                         logger.error(f"Payment failed handler error: {e}")
                     finally:

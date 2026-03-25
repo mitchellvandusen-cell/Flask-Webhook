@@ -1174,6 +1174,14 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                                                "http_attempts": http_attempts,
                                                "reply": reply[:500],
                                                "contact_id": contact_id})
+                    # Alert the user
+                    try:
+                        from failure_alerts import send_failure_alert
+                        sub_email = subscriber.get('email', '') if subscriber else ''
+                        send_failure_alert(sub_email, 'webhook_error',
+                                           f"Message to contact couldn't be delivered ({fail_reason})")
+                    except Exception:
+                        pass
                     # Persist failed payload so the recovery cron can retry later
                     save_failed_webhook_payload(
                         location_id, contact_id, payload,
