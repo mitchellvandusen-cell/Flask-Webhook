@@ -751,17 +751,14 @@ class User(UserMixin):
     @staticmethod
     def get(email: str) -> Optional['User']:
         """
-        Fetch user from BOTH tables - subscribers first, then agency_billing.
-        Returns User object or None if no match.
-        
-        FIXED: Now checks both tables so agency owners can log in.
+        Fetch user from subscribers (single source of truth).
+        For agency owners, LEFT JOINs agency_billing for metadata
+        (whitelabel, company info, seats).
+        Falls back to location_users for seat users.
         """
         if not email:
             return None
 
-        # Normalize email to lowercase for case-insensitive matching.
-        # GHL and Outlook can return mixed-case emails (e.g. "Meghan@Outlook.com")
-        # which must match the DB regardless of stored casing.
         email_lookup = email.strip().lower()
         logger.debug(f"User.get called for email: '{email_lookup}'")
 
@@ -773,42 +770,25 @@ class User(UserMixin):
         try:
             cur = conn.cursor(cursor_factory=RealDictCursor)
 
-            # 1. Check subscribers table first (most users)
+            # Single query: subscribers LEFT JOIN agency_billing for agency metadata
             cur.execute("""
-                SELECT * FROM subscribers WHERE LOWER(email) = %s LIMIT 1
+                SELECT s.*,
+                       ab.company_name, ab.company_owner_name,
+                       ab.company_owner_email, ab.company_owner_phone,
+                       ab.whitelabel_config, ab.max_seats, ab.active_seats
+                FROM subscribers s
+                LEFT JOIN agency_billing ab ON LOWER(s.email) = LOWER(ab.agency_email)
+                WHERE LOWER(s.email) = %s
+                LIMIT 1
             """, (email_lookup,))
             row = cur.fetchone()
 
             if row:
                 data = dict(row)
-                # Agency owners exist in BOTH tables. Merge agency-specific
-                # fields (whitelabel, company metadata, seats) from agency_billing.
-                if data.get('role') == 'agency_owner':
-                    cur.execute("""
-                        SELECT company_id, whitelabel_config, company_name, company_owner_name,
-                               company_owner_email, company_owner_phone, max_seats,
-                               active_seats
-                        FROM agency_billing WHERE LOWER(agency_email) = %s LIMIT 1
-                    """, (email_lookup,))
-                    agency_row = cur.fetchone()
-                    if agency_row:
-                        for key, val in dict(agency_row).items():
-                            if val is not None:
-                                data[key] = val
                 logger.debug(f"Found user in subscribers table")
                 return User(data)
 
-            # 2. Check agency_billing table (agency owners without subscribers row)
-            cur.execute("""
-                SELECT * FROM agency_billing WHERE LOWER(agency_email) = %s LIMIT 1
-            """, (email_lookup,))
-            row = cur.fetchone()
-
-            if row:
-                logger.debug(f"Found user in agency_billing table (no subscribers row)")
-                return User(row)
-
-            # 3. Check location_users table (seat users)
+            # 2. Check location_users table (seat users)
             try:
                 cur.execute("""
                     SELECT lu.*, s.location_id as parent_location_id,
@@ -884,16 +864,24 @@ class User(UserMixin):
        
         try:
             cur = conn.cursor(cursor_factory=RealDictCursor)
+            # Query subscribers (single source of truth) with agency metadata JOIN
             cur.execute("""
-                SELECT * FROM agency_billing WHERE agency_email = %s LIMIT 1
+                SELECT s.*,
+                       ab.company_name, ab.company_owner_name,
+                       ab.company_owner_email, ab.company_owner_phone,
+                       ab.whitelabel_config, ab.max_seats, ab.active_seats
+                FROM subscribers s
+                LEFT JOIN agency_billing ab ON LOWER(s.email) = LOWER(ab.agency_email)
+                WHERE LOWER(s.email) = LOWER(%s) AND s.role = 'agency_owner'
+                LIMIT 1
             """, (email,))
-           
+
             row = cur.fetchone()
             if row:
-                logger.debug(f"Found user in agency_billing")
+                logger.debug(f"Found agency owner in subscribers")
                 return User(row)
             else:
-                logger.debug(f"No match in agency_billing for '{email}'")
+                logger.debug(f"No agency_owner match for '{email}'")
             return None
        
         except psycopg2.Error as e:
@@ -930,33 +918,24 @@ class User(UserMixin):
             
         try:
             cur = conn.cursor()
+            # All users go to subscribers (single source of truth)
+            cur.execute(
+                """
+                INSERT INTO subscribers (email, password_hash, stripe_customer_id, role, location_id)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (email) DO NOTHING
+                """,
+                (email, password_hash, stripe_customer_id, role, location_id)
+            )
+            # Agency owners also get a thin metadata row
             if role == 'agency_owner':
-                # Agency owners exist in BOTH tables:
-                # - subscribers: operational data (tokens, voice, bot config)
-                # - agency_billing: agency-specific data (whitelabel, company, seats)
                 cur.execute(
                     """
-                    INSERT INTO subscribers (email, password_hash, stripe_customer_id, role, location_id)
-                    VALUES (%s, %s, %s, %s, %s)
-                    ON CONFLICT (email) DO NOTHING
-                    """,
-                    (email, password_hash, stripe_customer_id, role, location_id)
-                )
-                cur.execute(
-                    """
-                    INSERT INTO agency_billing (agency_email, password_hash, stripe_customer_id, role, location_id)
-                    VALUES (%s, %s, %s, %s, %s)
+                    INSERT INTO agency_billing (agency_email)
+                    VALUES (%s)
                     ON CONFLICT (agency_email) DO NOTHING
                     """,
-                    (email, password_hash, stripe_customer_id, role, location_id)
-                )
-            else:
-                cur.execute(
-                    """
-                    INSERT INTO subscribers (email, password_hash, stripe_customer_id, role, location_id)
-                    VALUES (%s, %s, %s, %s, %s)
-                    """,
-                    (email, password_hash, stripe_customer_id, role, location_id)
+                    (email,)
                 )
             conn.commit()
             return True
@@ -1141,13 +1120,6 @@ def get_subscriber_info_sql(location_id: str) -> Optional[Dict[str, Any]]:
         row = cur.fetchone()
         if row:
             return dict(row)
-        # Fallback: agency owners may only be in agency_billing (pre-backfill)
-        cur.execute("SELECT * FROM agency_billing WHERE location_id = %s LIMIT 1", (location_id,))
-        row = cur.fetchone()
-        if row:
-            data = dict(row)
-            data['email'] = data.get('agency_email')  # normalize key
-            return data
         return None
     except Exception as e:
         logger.error(f"SQL lookup failed: {e}")
@@ -1345,37 +1317,12 @@ def update_subscriber_token(
 
             updated = cur.rowcount > 0
 
-            # Also update agency_billing to keep tokens in sync for agency owners.
-            # If subscriber row didn't exist (pre-backfill), this is the fallback.
-            if oauth_app_type:
-                cur.execute("""
-                    UPDATE agency_billing
-                    SET access_token = %s,
-                        refresh_token = COALESCE(%s, refresh_token),
-                        token_expires_at = NOW() + interval '%s seconds',
-                        oauth_app_type = %s,
-                        updated_at = NOW()
-                    WHERE location_id = %s
-                """, (access_token, refresh_token, expires_in, oauth_app_type, location_id))
-            else:
-                cur.execute("""
-                    UPDATE agency_billing
-                    SET access_token = %s,
-                        refresh_token = COALESCE(%s, refresh_token),
-                        token_expires_at = NOW() + interval '%s seconds',
-                        updated_at = NOW()
-                    WHERE location_id = %s
-                """, (access_token, refresh_token, expires_in, location_id))
-            if not updated:
-                updated = cur.rowcount > 0
-
             conn.commit()
             if updated:
                 logger.info(f"✅ DB token persisted for {location_id} "
                            f"(refresh_token={'new' if refresh_token else 'kept'})")
             else:
-                logger.warning(f"⚠️ DB token update matched 0 rows for {location_id} "
-                              f"— location_id not found in subscribers or agency_billing")
+                logger.warning(f"⚠️ DB token update matched 0 rows for {location_id}")
             return updated
         except psycopg2.Error as e:
             logger.error(f"update_subscriber_token FAILED for {location_id} "
