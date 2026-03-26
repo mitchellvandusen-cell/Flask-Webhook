@@ -7149,7 +7149,7 @@ body.light-theme .slack-hashtag-icon { color: #1a9fc0; }
 .vnum-status-other { background: rgba(255,255,255,0.04); color: #888; padding: 2px 8px; border-radius: 4px; font-size: .75rem; font-weight: 600; }
 .vnum-menu-btn { background: none; border: none; color: #bbb; cursor: pointer; font-size: 1.2rem; padding: 4px 8px; line-height: 1; font-family: inherit; vertical-align: middle; }
 .vnum-menu-btn:hover { color: #fff; }
-.vnum-menu { display: none; position: fixed; background: #1a1a2e; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; padding: 4px 0; z-index: 9999; min-width: 160px; box-shadow: 0 4px 16px rgba(0,0,0,0.6); }
+.vnum-menu { display: none; position: absolute; top: 100%; right: 0; margin-top: 4px; background: #1a1a2e; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; padding: 4px 0; z-index: 9999; min-width: 160px; box-shadow: 0 4px 16px rgba(0,0,0,0.6); }
 .vnum-menu-item { display: block; width: 100%; text-align: left; padding: 8px 12px; background: none; border: none; color: #ccc; font-size: .78rem; cursor: pointer; white-space: nowrap; }
 .vnum-menu-item:hover { background: rgba(255,255,255,0.06); }
 .vnum-menu-item-danger { color: #ef4444; }

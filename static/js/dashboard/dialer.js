@@ -5592,22 +5592,9 @@
         function toggleNumMenu(btn) {
             const menu = btn.nextElementSibling;
             const isOpen = menu.style.display === 'block';
-            // Close all other menus
             document.querySelectorAll('.num-menu').forEach(m => m.style.display = 'none');
             if (isOpen) return;
-            // Open this menu
-            const rect = btn.getBoundingClientRect();
             menu.style.display = 'block';
-            const menuH = menu.offsetHeight;
-            // Vertical: below button, or above if near bottom
-            if (rect.bottom + menuH > window.innerHeight - 20) {
-                menu.style.top = (rect.top - menuH - 4) + 'px';
-            } else {
-                menu.style.top = (rect.bottom + 4) + 'px';
-            }
-            // Horizontal: right-align menu to the right edge of the button
-            menu.style.right = (window.innerWidth - rect.right) + 'px';
-            menu.style.left = 'auto';
             const closer = (e) => { if (!btn.contains(e.target) && !menu.contains(e.target)) { menu.style.display = 'none'; document.removeEventListener('click', closer); } };
             setTimeout(() => document.addEventListener('click', closer), 0);
         }
