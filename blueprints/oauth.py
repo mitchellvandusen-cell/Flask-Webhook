@@ -28,7 +28,7 @@ from db import (
 from extensions import ADMIN_EMAILS, YOUR_DOMAIN
 from email_templates import _email_wrapper, _build_welcome_email, _build_agency_owner_welcome_email
 from send_email_api import send_email_via_api
-from sync_subscribers import sync_subscribers
+# sync_subscribers removed — Google Sheet no longer used
 from token_encryption import encrypt_token, decrypt_token
 from ghl_api import fetch_all_ghl_items, ghl_api_call as _ghl_api_call
 
@@ -67,13 +67,23 @@ GHL_OAUTH_SCOPES = [
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @oauth_bp.route("/refresh")
+@login_required
 def refresh_subscribers():
-    """Manually trigger subscriber sync from external source."""
+    """Manual OAuth token refresh for current user."""
+    from ghl_api import get_valid_token_with_status
     try:
-        sync_subscribers()
-        return "Synced", 200
-    except Exception:
-        return "Failed", 500
+        token, refreshed, err = get_valid_token_with_status(
+            current_user.location_id, force_refresh=True
+        )
+        if token and refreshed:
+            flash("OAuth token refreshed successfully.", "success")
+        elif err:
+            flash(f"Token refresh failed: {err}", "danger")
+        else:
+            flash("Token is still valid.", "info")
+    except Exception as e:
+        flash(f"Refresh failed: {e}", "danger")
+    return redirect(url_for('dashboard.dashboard'))
 
 
 @oauth_bp.route("/oauth/initiate")
@@ -81,52 +91,38 @@ def refresh_subscribers():
 def oauth_initiate():
     """
     Initiates OAuth flow with Lead Connector.
-    Uses the public marketplace app by default (all scopes now approved).
-    Falls back to private app if USE_PRIVATE_APP=true.
+    Always uses the public marketplace app. The marketplace URL includes
+    version_id to pin to the exact approved version with correct scopes.
 
-    User clicks "Connect with Lead Connector" → Redirected to consent page → Back to /oauth/callback
+    User clicks "Connect CRM" → Redirected to GHL consent page → Back to /oauth/callback
 
-    SECURITY: Requires active login and valid Stripe subscription.
+    SECURITY: Requires active login. Agency owners are FREE (no subscription check).
     """
     is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
-    needs_subscription = not current_user.stripe_customer_id and not is_admin
+    is_agency = (current_user.role or '').lower() == 'agency_owner'
+    needs_subscription = not current_user.stripe_customer_id and not is_admin and not is_agency
 
     if needs_subscription:
         flash("You must have an active subscription to connect Lead Connector. Please subscribe first.", "error")
         logger.warning(f"OAuth initiate blocked for {current_user.email} - no active subscription")
-        if current_user.role == 'agency_owner':
-            return redirect(url_for('agency.agency_dashboard'))
         return redirect(url_for('dashboard.dashboard'))
 
-    use_private = os.getenv("USE_PRIVATE_APP", "").lower() in ("true", "1", "yes")
-
-    if use_private:
-        client_id = os.getenv("PRIVATE_APP_CLIENT_ID") or os.getenv("GHL_PRIVATE_CLIENT_ID")
-        env_label = "PRIVATE_APP_CLIENT_ID"
-    else:
-        client_id = os.getenv("GHL_CLIENT_ID")
-        env_label = "GHL_CLIENT_ID"
-
+    client_id = os.getenv("GHL_CLIENT_ID")
     domain = os.getenv("YOUR_DOMAIN")
     if not client_id or not domain:
         logger.error(
-            f"OAuth initiate failed: {env_label}={'set' if client_id else 'MISSING'}, "
+            f"OAuth initiate failed: GHL_CLIENT_ID={'set' if client_id else 'MISSING'}, "
             f"YOUR_DOMAIN={'set' if domain else 'MISSING'}"
         )
         flash("OAuth is not configured. Please contact support.", "error")
         return redirect(url_for('dashboard.dashboard'))
 
     redirect_uri = f"{domain}/oauth/callback"
-
     scope_string = " ".join(GHL_OAUTH_SCOPES)
 
-    # ── CSRF protection: cryptographic state nonce ────────────────────────
-    # Encode the flow type ("private_app" or "website_user") alongside a
-    # random nonce so the callback can both (a) validate the request origin
-    # and (b) determine which credential set to use.
-    flow_type = "private_app" if use_private else "website_user"
+    # CSRF protection: cryptographic state nonce
     nonce = secrets.token_urlsafe(32)
-    state = f"{flow_type}:{nonce}"
+    state = f"website_user:{nonce}"
     session["ghl_oauth_state"] = state
 
     oauth_params_dict = {
@@ -141,8 +137,8 @@ def oauth_initiate():
     oauth_url = f"https://marketplace.gohighlevel.com/oauth/chooselocation?{oauth_params}"
 
     logger.info(
-        f"Initiating OAuth flow for {current_user.email} (private={use_private}). "
-        f"Redirecting to GHL consent page."
+        f"Initiating OAuth flow for {current_user.email}. "
+        f"Redirecting to GHL marketplace consent page."
     )
     return redirect(oauth_url)
 
@@ -250,43 +246,19 @@ def oauth_callback():
             logger.info("OAuth callback: Marketplace installation flow")
 
         # ── Pick credentials ──────────────────────────────────────────────────
-        use_private_env = os.getenv("USE_PRIVATE_APP", "").lower() in ("true", "1", "yes")
-
-        marketplace_client_id = os.getenv("GHL_CLIENT_ID")
-        marketplace_client_secret = os.getenv("GHL_CLIENT_SECRET")
-        private_client_id = os.getenv("PRIVATE_APP_CLIENT_ID") or os.getenv("GHL_PRIVATE_CLIENT_ID")
-        private_client_secret = os.getenv("PRIVATE_APP_SECRET_ID") or os.getenv("GHL_PRIVATE_CLIENT_SECRET")
-        has_marketplace_creds = bool(marketplace_client_id and marketplace_client_secret)
-        has_private_creds = bool(private_client_id and private_client_secret)
-
-        if flow_type == "private_app":
-            is_private_app = True
-            client_id = private_client_id
-            client_secret = private_client_secret
-            cred_label = "PRIVATE_APP"
-        elif flow_type is None and has_marketplace_creds and has_private_creds:
-            # DUAL-APP MODE: try marketplace first, fallback to private
-            is_private_app = False
-            client_id = marketplace_client_id
-            client_secret = marketplace_client_secret
-            cred_label = "AUTO-DETECT (trying marketplace first)"
-        elif flow_type is None and use_private_env:
-            is_private_app = True
-            client_id = private_client_id
-            client_secret = private_client_secret
-            cred_label = "PRIVATE_APP (only app)"
-        else:
-            is_private_app = False
-            client_id = marketplace_client_id
-            client_secret = marketplace_client_secret
-            cred_label = "GHL (marketplace)"
+        # Always use the public marketplace app. Private app is deprecated
+        # (zero active users as of 2026-03-25).
+        is_private_app = False
+        client_id = os.getenv("GHL_CLIENT_ID")
+        client_secret = os.getenv("GHL_CLIENT_SECRET")
+        cred_label = "GHL (marketplace)"
 
         domain = os.getenv("YOUR_DOMAIN")
         if not client_id or not client_secret or not domain:
             logger.error(
-                f"OAuth env vars missing ({cred_label}): "
-                f"client_id={'set' if client_id else 'MISSING'}, "
-                f"client_secret={'set' if client_secret else 'MISSING'}, "
+                f"OAuth env vars missing: "
+                f"GHL_CLIENT_ID={'set' if client_id else 'MISSING'}, "
+                f"GHL_CLIENT_SECRET={'set' if client_secret else 'MISSING'}, "
                 f"YOUR_DOMAIN={'set' if domain else 'MISSING'}"
             )
             flash("OAuth is not configured. Please contact support.", "danger")
@@ -295,17 +267,12 @@ def oauth_callback():
         logger.info(f"OAuth callback using {cred_label} credentials (flow_type={flow_type})")
 
         # ── Step 1: Token exchange ─────────────────────────────────────────────
-        # Try Location user_type first, then Company (for agency-level installs).
-        # DUAL-APP: if both credential sets exist and state=None, auto-detect.
+        # Try Company user_type first (can discover all locations + call /users/),
+        # then Location as fallback (sub-account users who can't get Company tokens).
         token_url = "https://services.leadconnectorhq.com/oauth/token"
 
         cred_sets = [{"client_id": client_id, "client_secret": client_secret,
-                      "label": cred_label, "is_private": is_private_app}]
-        if flow_type is None and has_marketplace_creds and has_private_creds:
-            cred_sets.append({
-                "client_id": private_client_id, "client_secret": private_client_secret,
-                "label": "PRIVATE_APP (fallback)", "is_private": True
-            })
+                      "label": cred_label, "is_private": False}]
 
         token_data = None
         token_user_type_used = None
@@ -317,7 +284,7 @@ def oauth_callback():
                 "code": code,
                 "redirect_uri": f"{domain}/oauth/callback",
             }
-            for user_type in ["Location", "Company"]:
+            for user_type in ["Company", "Location"]:
                 payload = {**base_payload, "user_type": user_type}
                 logger.info(f"Token exchange attempt with user_type={user_type}, creds={cred_set['label']}")
 
@@ -942,16 +909,21 @@ def oauth_callback():
                 agency_location_id = primary_location_id or company_id
 
                 # SUBSCRIBERS FIRST (single source of truth for all operational data)
+                # Store Company token separately when we got a Company-scoped exchange
+                _company_token = enc_access_token if token_user_type_used == 'Company' else None
+                _company_refresh = enc_refresh_token if token_user_type_used == 'Company' else None
                 cur.execute("""
                     INSERT INTO subscribers (
                         email, location_id, full_name, role,
                         subscription_tier, access_token, refresh_token,
                         token_expires_at, timezone, crm_user_id, crm_email,
                         oauth_app_type, company_id,
+                        company_access_token, company_refresh_token, company_token_expires_at,
                         created_at, updated_at
                     ) VALUES (
                         %s, %s, %s, %s, %s, %s, %s,
                         NOW() + interval '%s seconds', %s, %s, %s, %s, %s,
+                        %s, %s, CASE WHEN %s IS NOT NULL THEN NOW() + interval '%s seconds' END,
                         NOW(), NOW()
                     )
                     ON CONFLICT (email) DO UPDATE SET
@@ -964,6 +936,9 @@ def oauth_callback():
                         crm_email = EXCLUDED.crm_email,
                         oauth_app_type = EXCLUDED.oauth_app_type,
                         company_id = COALESCE(EXCLUDED.company_id, subscribers.company_id),
+                        company_access_token = COALESCE(EXCLUDED.company_access_token, subscribers.company_access_token),
+                        company_refresh_token = COALESCE(EXCLUDED.company_refresh_token, subscribers.company_refresh_token),
+                        company_token_expires_at = COALESCE(EXCLUDED.company_token_expires_at, subscribers.company_token_expires_at),
                         updated_at = NOW()
                 """, (
                     user_email, agency_location_id, primary_name, 'agency_owner',
@@ -971,6 +946,7 @@ def oauth_callback():
                     expires_in, primary_timezone or 'America/Chicago', me_data.get('id'),
                     crm_email_resolved, app_type,
                     company_metadata.get('company_id') or company_id,
+                    _company_token, _company_refresh, _company_token, expires_in,
                 ))
 
                 # THIN agency_billing: only agency-specific metadata (FK depends on subscribers.email)
@@ -1059,6 +1035,8 @@ def oauth_callback():
                     )
                     user_email = existing_login_email
 
+                _company_token_reconnect = enc_access_token if token_user_type_used == 'Company' else None
+                _company_refresh_reconnect = enc_refresh_token if token_user_type_used == 'Company' else None
                 cur.execute("""
                     UPDATE subscribers
                     SET crm_email = %s,
@@ -1070,6 +1048,9 @@ def oauth_callback():
                         role = COALESCE(%s, role),
                         parent_agency_email = COALESCE(%s, parent_agency_email),
                         company_id = COALESCE(%s, company_id),
+                        company_access_token = COALESCE(%s, company_access_token),
+                        company_refresh_token = COALESCE(%s, company_refresh_token),
+                        company_token_expires_at = CASE WHEN %s IS NOT NULL THEN NOW() + interval '%s seconds' ELSE company_token_expires_at END,
                         onboarding_status = CASE
                             WHEN onboarding_status IN ('pending', 'invited') THEN 'claimed'
                             ELSE onboarding_status
@@ -1081,6 +1062,8 @@ def oauth_callback():
                     expires_in, me_data.get('id'), app_type,
                     sync_role, user_email if use_agency_flow else None,
                     company_id,
+                    _company_token_reconnect, _company_refresh_reconnect,
+                    _company_token_reconnect, expires_in,
                     primary_location_id
                 ))
                 logger.info(
@@ -1115,6 +1098,8 @@ def oauth_callback():
                     existing_loc = existing_by_email['location_id']
                     # Email owns a different location — update tokens + crm_email
                     # but do NOT change the PK. New location provisioned in Step 7C.
+                    _ct_email = enc_access_token if token_user_type_used == 'Company' else None
+                    _cr_email = enc_refresh_token if token_user_type_used == 'Company' else None
                     cur.execute("""
                         UPDATE subscribers
                         SET crm_email = %s,
@@ -1123,11 +1108,15 @@ def oauth_callback():
                             token_expires_at = NOW() + interval '%s seconds',
                             crm_user_id = COALESCE(%s, crm_user_id),
                             oauth_app_type = %s,
+                            company_access_token = COALESCE(%s, company_access_token),
+                            company_refresh_token = COALESCE(%s, company_refresh_token),
+                            company_token_expires_at = CASE WHEN %s IS NOT NULL THEN NOW() + interval '%s seconds' ELSE company_token_expires_at END,
                             updated_at = NOW()
                         WHERE email = %s
                     """, (
                         crm_email_resolved, enc_access_token, enc_refresh_token,
                         expires_in, me_data.get('id'), app_type,
+                        _ct_email, _cr_email, _ct_email, expires_in,
                         user_email
                     ))
                     logger.info(
@@ -1237,13 +1226,16 @@ def oauth_callback():
                 # email conflict if the email already exists with a different location_id.
                 # This handles: re-installs, location switches, and users who were
                 # pre-created by agency auto-linking or Google Sheet sync.
+                _ct_prov = enc_access_token if token_user_type_used == 'Company' else None
+                _cr_prov = enc_refresh_token if token_user_type_used == 'Company' else None
                 _sub_params = (
                     sub_id, user_email, crm_email_resolved, sub_name, role,
                     plan_tier, parent_agency_email, company_id,
                     enc_access_token, enc_refresh_token,
                     expires_in,
                     sub_timezone or 'America/Chicago', me_data.get('id'),
-                    'pending', app_type
+                    'pending', app_type,
+                    _ct_prov, _cr_prov, _ct_prov, expires_in,
                 )
                 # Use savepoint so rollback on email conflict doesn't
                 # kill prior work in the same transaction (multi-location flows).
@@ -1255,11 +1247,15 @@ def oauth_callback():
                             subscription_tier, parent_agency_email, company_id,
                             access_token, refresh_token,
                             token_expires_at, timezone, crm_user_id,
-                            onboarding_status, oauth_app_type, created_at, updated_at
+                            onboarding_status, oauth_app_type,
+                            company_access_token, company_refresh_token, company_token_expires_at,
+                            created_at, updated_at
                         ) VALUES (
                             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                             NOW() + interval '%s seconds',
-                            %s, %s, %s, %s, NOW(), NOW()
+                            %s, %s, %s, %s,
+                            %s, %s, CASE WHEN %s IS NOT NULL THEN NOW() + interval '%s seconds' END,
+                            NOW(), NOW()
                         )
                         ON CONFLICT (location_id) DO UPDATE SET
                             crm_email = EXCLUDED.crm_email,
@@ -1270,6 +1266,9 @@ def oauth_callback():
                             oauth_app_type = EXCLUDED.oauth_app_type,
                             company_id = COALESCE(EXCLUDED.company_id, subscribers.company_id),
                             parent_agency_email = COALESCE(EXCLUDED.parent_agency_email, subscribers.parent_agency_email),
+                            company_access_token = COALESCE(EXCLUDED.company_access_token, subscribers.company_access_token),
+                            company_refresh_token = COALESCE(EXCLUDED.company_refresh_token, subscribers.company_refresh_token),
+                            company_token_expires_at = COALESCE(EXCLUDED.company_token_expires_at, subscribers.company_token_expires_at),
                             updated_at = NOW()
                     """, _sub_params)
                     cur.execute("RELEASE SAVEPOINT sub_upsert")
@@ -1291,6 +1290,9 @@ def oauth_callback():
                                 oauth_app_type = %s,
                                 company_id = COALESCE(%s, company_id),
                                 parent_agency_email = COALESCE(%s, parent_agency_email),
+                                company_access_token = COALESCE(%s, company_access_token),
+                                company_refresh_token = COALESCE(%s, company_refresh_token),
+                                company_token_expires_at = CASE WHEN %s IS NOT NULL THEN NOW() + interval '%s seconds' ELSE company_token_expires_at END,
                                 updated_at = NOW()
                             WHERE email = %s
                         """, (
@@ -1298,6 +1300,7 @@ def oauth_callback():
                             enc_access_token, enc_refresh_token,
                             expires_in, me_data.get('id'), app_type,
                             company_id, parent_agency_email,
+                            _ct_prov, _cr_prov, _ct_prov, expires_in,
                             user_email
                         ))
                     else:

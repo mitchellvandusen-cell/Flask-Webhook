@@ -26,7 +26,7 @@ from flask_login import LoginManager, current_user
 from rq import Queue
 
 from db import init_db, User, clean_subaccount_contamination, backfill_agency_owners_to_subscribers
-from sync_subscribers import sync_subscribers
+# sync_subscribers removed — Google Sheet no longer used
 from utils import make_json_serializable
 
 load_dotenv()
@@ -143,7 +143,6 @@ attach_error_handler("flask-webhook", lambda: redis_conn)
 
 # ── Initialization ───────────────────────────────────────────────────────────
 
-# sync_subscribers() — disabled, Google Sheet no longer used
 init_db()
 
 # Re-apply our logging config after init_db() — Alembic's fileConfig()
