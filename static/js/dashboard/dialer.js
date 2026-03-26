@@ -85,7 +85,7 @@
         function iosOpenApp(app) {
             _iosCurrentApp = app;
             const home = document.getElementById('iosHome');
-            const apps = { messages: 'iosAppMessages', calls: 'iosAppCalls', recordings: 'iosAppRecordings', voicemail: 'iosAppVoicemail', inbox: 'iosAppInbox', calendar: 'iosAppCalendar', discord: 'iosAppDiscord', slack: 'iosAppSlack' };
+            const apps = { messages: 'iosAppMessages', calls: 'iosAppCalls', recordings: 'iosAppRecordings', voicemail: 'iosAppVoicemail', inbox: 'iosAppInbox', calendar: 'iosAppCalendar', discord: 'iosAppDiscord', slack: 'iosAppSlack', insights: 'iosAppInsights' };
             if (home) home.style.display = 'none';
             Object.keys(apps).forEach(k => {
                 const el = document.getElementById(apps[k]);
@@ -100,11 +100,12 @@
             if (app === 'calendar') calendarInit();
             if (app === 'discord') iosDiscordInit();
             if (app === 'slack') iosSlackInit();
+            if (app === 'insights') iosInsightsInit();
         }
 
         function iosGoHome() {
             const home = document.getElementById('iosHome');
-            const apps = ['iosAppMessages', 'iosAppCalls', 'iosAppRecordings', 'iosAppVoicemail', 'iosAppInbox', 'iosAppCalendar', 'iosAppDiscord', 'iosAppSlack'];
+            const apps = ['iosAppMessages', 'iosAppCalls', 'iosAppRecordings', 'iosAppVoicemail', 'iosAppInbox', 'iosAppCalendar', 'iosAppDiscord', 'iosAppSlack', 'iosAppInsights'];
             apps.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
             if (home) home.style.display = 'flex';
             _iosCurrentApp = null;
@@ -8553,6 +8554,237 @@
             }
         }
         window.dlrExportDownload = dlrExportDownload;
+
+        // ══════════════════════════════════════════════
+        // ── Call Insights App ──
+        // ══════════════════════════════════════════════
+        var insightsDetailVisible = false;
+        var _insightsCache = [];
+        window.insightsDetailVisible = false;
+
+        async function iosInsightsInit() {
+            insightsDetailVisible = false;
+            window.insightsDetailVisible = false;
+            const listView = document.getElementById('insightsListView');
+            const detailView = document.getElementById('insightsDetailView');
+            if (listView) listView.style.display = '';
+            if (detailView) detailView.style.display = 'none';
+
+            const panel = document.getElementById('insightsList');
+            if (!panel) return;
+            panel.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fa-solid fa-spinner fa-spin insights-empty-icon-color" style="font-size:1.2rem;"></i></div>';
+
+            try {
+                const r = await _fetchRetry('/voice/call-insights?limit=100', {}, { retries: 1, timeout: 15000, label: 'insights-list' });
+                if (!r.ok) { panel.innerHTML = '<div class="insights-disconnected" style="padding:20px;text-align:center;">Failed to load insights</div>'; return; }
+                const d = await r.json();
+                const calls = d.calls || [];
+                _insightsCache = calls;
+
+                if (!calls.length) {
+                    panel.innerHTML = '<div class="ios-empty-state insights-empty">' +
+                        '<div class="ios-empty-icon dlr-bg-bordered"><i class="fa-solid fa-chart-line insights-empty-icon-color"></i></div>' +
+                        '<div class="ios-empty-title">No Insights Yet</div>' +
+                        '<div class="ios-empty-sub">Call insights appear ~90s after each call ends.<br>Make sure Advanced Features is enabled in your Twilio Console.</div>' +
+                        '</div>';
+                    return;
+                }
+
+                panel.innerHTML = calls.map(function(c, idx) {
+                    var dirIcon = (c.direction || 'outbound') === 'inbound'
+                        ? '<i class="fa-solid fa-phone-arrow-down-left" style="font-size:.62rem;"></i>'
+                        : '<i class="fa-solid fa-phone-arrow-up-right" style="font-size:.62rem;"></i>';
+                    var dt = c.created_at ? new Date(c.created_at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
+                    var sipCode = c.last_sip_response;
+                    var sipClass = _insightsSipClass(sipCode);
+                    var sipHtml = sipCode ? '<span class="insights-sip-badge ' + sipClass + '">SIP ' + dialerEsc(String(sipCode)) + '</span>' : '';
+                    var pddHtml = c.pdd_ms != null ? '<span class="insights-pdd">' + c.pdd_ms + 'ms PDD</span>' : '';
+                    var carrierHtml = c.to_carrier ? '<span class="insights-carrier"><i class="fa-solid fa-tower-cell" style="font-size:.6rem;margin-right:2px;"></i>' + dialerEsc(c.to_carrier) + '</span>' : '';
+                    var discHtml = c.disconnected_by ? '<span class="insights-disconnected"><i class="fa-solid fa-phone-slash" style="font-size:.58rem;margin-right:2px;"></i>' + dialerEsc(c.disconnected_by) + '</span>' : '';
+                    var tagsHtml = (c.quality_tags || []).map(function(t) { return '<span class="insights-tag">' + dialerEsc(t) + '</span>'; }).join('');
+                    var dur = c.duration ? Math.floor(c.duration / 60) + ':' + String(c.duration % 60).padStart(2, '0') : '--:--';
+
+                    var row = '<div class="insights-row" onclick="insightsShowDetail(' + idx + ')">';
+                    row += '<div class="insights-row-top">';
+                    row += '<span class="insights-row-name">' + dialerEsc(c.contact_name) + '</span>';
+                    row += '<span class="insights-row-dir">' + dirIcon + '</span>';
+                    row += '<span class="chr-dur">' + dur + '</span>';
+                    row += '<span class="insights-row-date">' + dt + '</span>';
+                    row += '</div>';
+                    row += '<div class="insights-row-bottom">';
+                    row += sipHtml + pddHtml + carrierHtml + discHtml + tagsHtml;
+                    row += '</div>';
+                    row += '</div>';
+                    return row;
+                }).join('');
+            } catch (e) {
+                panel.innerHTML = '<div class="insights-disconnected" style="padding:20px;text-align:center;">Error loading insights</div>';
+            }
+        }
+        window.iosInsightsInit = iosInsightsInit;
+
+        function _insightsSipClass(code) {
+            if (!code) return '';
+            var n = parseInt(code, 10);
+            if (n >= 200 && n < 300) return 'insights-sip-2xx';
+            if (n >= 300 && n < 400) return 'insights-sip-3xx';
+            if (n >= 400 && n < 500) return 'insights-sip-4xx';
+            if (n >= 500 && n < 600) return 'insights-sip-5xx';
+            if (n >= 600) return 'insights-sip-6xx';
+            return '';
+        }
+
+        function _insightsSipColorClass(code) {
+            if (!code) return '';
+            var n = parseInt(code, 10);
+            if (n >= 200 && n < 300) return 'sip-ok';
+            if (n >= 300 && n < 500) return 'sip-warn';
+            return 'sip-err';
+        }
+
+        var _sipDescriptions = {
+            '180': 'Ringing', '183': 'Session Progress', '200': 'OK (Connected)',
+            '400': 'Bad Request', '401': 'Unauthorized', '403': 'Forbidden',
+            '404': 'Not Found', '408': 'Request Timeout', '480': 'Temporarily Unavailable',
+            '484': 'Address Incomplete', '486': 'Busy Here', '487': 'Request Terminated',
+            '488': 'Not Acceptable Here', '500': 'Server Internal Error',
+            '502': 'Bad Gateway', '503': 'Service Unavailable',
+            '504': 'Server Timeout', '600': 'Busy Everywhere',
+            '603': 'Decline', '604': 'Does Not Exist Anywhere'
+        };
+
+        async function insightsShowDetail(idx) {
+            var c = _insightsCache[idx];
+            if (!c) return;
+
+            insightsDetailVisible = true;
+            window.insightsDetailVisible = true;
+            var listView = document.getElementById('insightsListView');
+            var detailView = document.getElementById('insightsDetailView');
+            if (listView) listView.style.display = 'none';
+            if (detailView) { detailView.style.display = 'flex'; detailView.style.animation = 'iosAppOpen 0.25s cubic-bezier(0.2,0.9,0.3,1)'; }
+
+            var content = document.getElementById('insightsDetailContent');
+            if (!content) return;
+
+            // Fetch full detail
+            var full = c;
+            try {
+                var r = await _fetchRetry('/voice/call-insights/' + encodeURIComponent(c.call_sid), {}, { retries: 1, timeout: 10000, label: 'insights-detail' });
+                if (r.ok) {
+                    var fd = await r.json();
+                    if (fd && fd.call_sid) full = Object.assign({}, c, fd);
+                }
+            } catch (e) { /* use cached data */ }
+
+            var sipCode = full.last_sip_response;
+            var sipDesc = sipCode ? (_sipDescriptions[String(sipCode)] || 'Response ' + sipCode) : 'No SIP Data';
+            var sipColorClass = _insightsSipColorClass(sipCode);
+            var dur = full.duration ? Math.floor(full.duration / 60) + ':' + String(full.duration % 60).padStart(2, '0') : '--:--';
+            var dt = full.created_at ? new Date(full.created_at).toLocaleString() : '';
+
+            // Trust / STIR info
+            var trust = full.trust || {};
+            var stirVerstat = trust.verified_caller || trust.verstat || '';
+            var trustHtml = '';
+            if (stirVerstat) {
+                var tClass = stirVerstat.toLowerCase().indexOf('tn-validation') >= 0 || stirVerstat.toLowerCase().indexOf('pass') >= 0
+                    ? 'insights-trust-verified' : stirVerstat.toLowerCase().indexOf('fail') >= 0
+                    ? 'insights-trust-unverified' : 'insights-trust-unknown';
+                trustHtml = '<span class="insights-trust-badge ' + tClass + '"><i class="fa-solid fa-shield-check" style="font-size:.65rem;"></i> ' + dialerEsc(stirVerstat) + '</span>';
+            }
+
+            // Carrier edge
+            var ce = full.carrier_edge || {};
+            var props = full.properties || {};
+
+            var html = '';
+
+            // Hero SIP card
+            html += '<div class="insights-card">';
+            html += '<div class="insights-hero-sip ' + sipColorClass + '">' + (sipCode ? 'SIP ' + dialerEsc(String(sipCode)) : '—') + '</div>';
+            html += '<div class="insights-hero-label">' + dialerEsc(sipDesc) + '</div>';
+            if (trustHtml) html += '<div style="text-align:center;margin-bottom:4px;">' + trustHtml + '</div>';
+            html += '</div>';
+
+            // Call Summary card
+            html += '<div class="insights-card">';
+            html += '<div class="insights-card-title"><i class="fa-solid fa-phone"></i> Call Summary</div>';
+            html += _insightsMetric('Contact', dialerEsc(full.contact_name || full.phone || 'Unknown'));
+            html += _insightsMetric('Direction', (full.direction || 'outbound'));
+            html += _insightsMetric('Status', (full.status || '').replace(/-/g, ' '));
+            html += _insightsMetric('Duration', dur);
+            html += _insightsMetric('Call State', full.call_state || '—');
+            html += _insightsMetric('Call Type', full.call_type || '—');
+            html += _insightsMetric('Disconnected By', full.disconnected_by || '—');
+            html += _insightsMetric('Date', dt);
+            html += '</div>';
+
+            // Network & Timing card
+            html += '<div class="insights-card">';
+            html += '<div class="insights-card-title"><i class="fa-solid fa-gauge-high"></i> Network &amp; Timing</div>';
+            html += _insightsMetric('Post-Dial Delay', full.pdd_ms != null ? full.pdd_ms + ' ms' : '—');
+            if (ce.metrics) {
+                var m = ce.metrics;
+                html += _insightsMetric('Jitter (avg)', m.jitter ? (m.jitter.avg != null ? m.jitter.avg.toFixed(1) + ' ms' : '—') : '—');
+                html += _insightsMetric('Packet Loss', m.packet_loss ? (m.packet_loss.avg != null ? (m.packet_loss.avg * 100).toFixed(2) + '%' : '—') : '—');
+                html += _insightsMetric('Latency (avg)', m.latency ? (m.latency.avg != null ? m.latency.avg.toFixed(0) + ' ms' : '—') : '—');
+            }
+            html += '</div>';
+
+            // Carrier Info card
+            html += '<div class="insights-card">';
+            html += '<div class="insights-card-title"><i class="fa-solid fa-tower-cell"></i> Carrier Info</div>';
+            html += _insightsMetric('From Carrier', full.from_carrier || '—');
+            html += _insightsMetric('To Carrier', full.to_carrier || '—');
+            if (full.stir_status) html += _insightsMetric('STIR/SHAKEN', full.stir_status);
+            html += '</div>';
+
+            // Quality Tags card
+            var tags = full.quality_tags || full.tags || [];
+            if (tags.length) {
+                html += '<div class="insights-card">';
+                html += '<div class="insights-card-title"><i class="fa-solid fa-tags"></i> Quality Tags</div>';
+                html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+                tags.forEach(function(t) {
+                    html += '<span class="insights-tag" style="font-size:0.75rem;padding:3px 8px;">' + dialerEsc(t) + '</span>';
+                });
+                html += '</div></div>';
+            }
+
+            // Raw Properties card (expandable)
+            var propKeys = Object.keys(props);
+            if (propKeys.length) {
+                html += '<div class="insights-card">';
+                html += '<div class="insights-card-title" style="cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\'">';
+                html += '<i class="fa-solid fa-code"></i> Raw Properties <i class="fa-solid fa-chevron-down" style="font-size:.55rem;margin-left:auto;"></i></div>';
+                html += '<div style="display:none;">';
+                propKeys.forEach(function(k) {
+                    html += _insightsMetric(k, String(props[k] != null ? props[k] : '—'));
+                });
+                html += '</div></div>';
+            }
+
+            content.innerHTML = html;
+        }
+        window.insightsShowDetail = insightsShowDetail;
+
+        function insightsBackToList() {
+            insightsDetailVisible = false;
+            window.insightsDetailVisible = false;
+            var listView = document.getElementById('insightsListView');
+            var detailView = document.getElementById('insightsDetailView');
+            if (listView) listView.style.display = '';
+            if (detailView) detailView.style.display = 'none';
+        }
+        window.insightsBackToList = insightsBackToList;
+
+        function _insightsMetric(label, value) {
+            return '<div class="insights-metric-row">' +
+                '<span class="insights-metric-label">' + dialerEsc(label) + '</span>' +
+                '<span class="insights-metric-value">' + dialerEsc(String(value)) + '</span>' +
+                '</div>';
+        }
 
         // Auto-init on page load
         function _dialerPageInit() {

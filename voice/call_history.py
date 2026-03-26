@@ -947,6 +947,84 @@ def get_voicemails():
         return_db_connection(conn)
 
 
+# ── Voice Insights list (bulk summary for Insights app) ──
+
+@call_history_bp.route('/voice/call-insights', methods=['GET'])
+@login_required
+def get_call_insights_list():
+    """
+    Return calls that have insights data — lightweight summary for the Insights app.
+
+    Returns: call_sid, contact_name, phone, direction, status, duration,
+    created_at, pdd_ms, quality_tags, plus extracted insights fields
+    (last_sip_response, disconnected_by, call_state, from/to carrier, trust).
+    """
+    limit = min(int(request.args.get('limit', 100)), 200)
+    offset = int(request.args.get('offset', 0))
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        if not row or not row['location_id']:
+            return jsonify({"error": "No location configured"}), 400
+        location_id = row['location_id']
+
+        cur.execute("""
+            SELECT call_sid, contact_id, contact_name, phone, direction,
+                   status, duration, created_at, started_at,
+                   COALESCE(stir_status, '') as stir_status,
+                   pdd_ms, quality_tags, insights
+            FROM call_history
+            WHERE location_id = %s AND insights IS NOT NULL
+            ORDER BY created_at DESC
+            LIMIT %s OFFSET %s
+        """, (location_id, limit, offset))
+        rows = cur.fetchall()
+        cur.close()
+
+        calls = []
+        for r in rows:
+            ins = r['insights'] or {}
+            if isinstance(ins, str):
+                try:
+                    ins = json.loads(ins)
+                except Exception:
+                    ins = {}
+            calls.append({
+                "call_sid": r['call_sid'],
+                "contact_id": r.get('contact_id', ''),
+                "contact_name": r.get('contact_name') or r.get('phone') or 'Unknown',
+                "phone": r.get('phone', ''),
+                "direction": r.get('direction', 'outbound'),
+                "status": r.get('status', ''),
+                "duration": r.get('duration'),
+                "created_at": r['created_at'].isoformat() if r.get('created_at') else None,
+                "started_at": r['started_at'].isoformat() if r.get('started_at') else None,
+                "stir_status": r.get('stir_status', ''),
+                "pdd_ms": r.get('pdd_ms'),
+                "quality_tags": r.get('quality_tags') or [],
+                "last_sip_response": ins.get('_last_sip_response'),
+                "disconnected_by": ins.get('_disconnected_by'),
+                "call_state": ins.get('call_state'),
+                "call_type": ins.get('call_type'),
+                "from_carrier": (ins.get('from_info') or {}).get('carrier'),
+                "to_carrier": (ins.get('to_info') or {}).get('carrier'),
+                "trust": ins.get('trust') or {},
+                "carrier_edge": ins.get('carrier_edge') or {},
+            })
+
+        return jsonify({"calls": calls, "total": len(calls)})
+    except Exception as e:
+        logger.error(f"Failed to fetch call insights list: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+    finally:
+        return_db_connection(conn)
+
+
 # ── Voice Insights per-call detail ──
 
 @call_history_bp.route('/voice/call-insights/<call_sid>', methods=['GET'])
