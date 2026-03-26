@@ -171,6 +171,38 @@ button, a, input, select, textarea, [role="button"] {
 }
 
 /* =========================================
+   FONTAWESOME — Global Icon Colors
+   White in dark mode, grey in light mode.
+   Semantic overrides (accent, danger, etc.) take precedence via specificity.
+   ========================================= */
+i.fa, i.fas, i.far, i.fab, i.fal, i.fad, i.fa-solid, i.fa-regular,
+i.fa-brands, i.fa-light, i.fa-duotone, i.fa-thin,
+span.fa, span.fas, span.far, span.fab,
+[class^="fa-"], [class*=" fa-"] {
+    color: #ffffff;
+}
+body.light-theme i.fa,
+body.light-theme i.fas,
+body.light-theme i.far,
+body.light-theme i.fab,
+body.light-theme i.fal,
+body.light-theme i.fad,
+body.light-theme i.fa-solid,
+body.light-theme i.fa-regular,
+body.light-theme i.fa-brands,
+body.light-theme i.fa-light,
+body.light-theme i.fa-duotone,
+body.light-theme i.fa-thin,
+body.light-theme span.fa,
+body.light-theme span.fas,
+body.light-theme span.far,
+body.light-theme span.fab,
+body.light-theme [class^="fa-"],
+body.light-theme [class*=" fa-"] {
+    color: #555e6d;
+}
+
+/* =========================================
    2. NAVBAR & FOOTER (Global)
    ========================================= */
 .navbar {
