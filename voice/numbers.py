@@ -15,6 +15,7 @@ from flask_login import login_required, current_user
 
 import stripe
 import twilio_provisioning
+from voice import hiya as hiya_connect
 from db import get_db_connection, return_db_connection, log_webhook_event, save_persistent_alert
 from number_health import (
     get_number_health_batch,
@@ -1406,12 +1407,111 @@ def register_spam_protection():
             logger.error(f"[VoiceIntegrity] Auto-registration failed: {vi_err}", exc_info=True)
             vi_result = {"status": "error", "error": str(vi_err)}
 
+    # ── Step 6: Hiya Connect — Branded Calling Display ───────────────────────
+    # Registers the subscriber's business as a Managed Brand with Hiya and
+    # registers all their phone numbers for branded display (name on screen).
+    # Covers: AT&T (spam scoring + name display), Verizon, T-Mobile, Samsung.
+    # Gracefully skipped when HIYA_CONNECT_APP_ID is not configured.
+    hiya_result = {"status": "not_configured"}
+
+    if hiya_connect.is_connect_configured():
+        try:
+            existing_hiya = vc.get('hiya_connect', {})
+            existing_brand_id = existing_hiya.get('brand_id', '')
+
+            if existing_brand_id:
+                hiya_result = {
+                    "status": "already_registered",
+                    "brand_id": existing_brand_id,
+                    "brand_status": existing_hiya.get('brand_status', 'PENDING_REVIEW'),
+                }
+                logger.info(f"[Hiya] Already registered — brand {existing_brand_id}, skipping")
+            else:
+                # Register brand
+                industry = "Insurance"
+                call_reason = "Insurance Sales"
+                hiya_brand = hiya_connect.register_brand(
+                    business_name=business_name,
+                    contact_email=contact_email or current_user.email,
+                    contact_name=contact_name,
+                    contact_phone=contact_phone,
+                    website=website,
+                    street=street,
+                    city=city,
+                    state=state,
+                    zip_code=zip_code,
+                    industry=industry,
+                    call_purpose=hiya_connect.CALL_PURPOSE_SALES,
+                )
+                brand_id = hiya_brand['brand_id']
+
+                # Fetch all phone numbers (E.164) from the sub-account
+                hiya_client = twilio_provisioning.get_sub_account_client(sub_sid)
+                hiya_numbers_twilio = hiya_client.incoming_phone_numbers.list()
+                phone_e164_list = [n.phone_number for n in hiya_numbers_twilio if n.phone_number]
+
+                # Register each number under the brand
+                batch_result = {"registered": [], "failed": [], "total": 0}
+                if phone_e164_list:
+                    display_name = business_name[:15].strip()
+                    batch_result = hiya_connect.register_numbers_batch(
+                        phone_e164_list=phone_e164_list,
+                        brand_id=brand_id,
+                        display_name=display_name,
+                        call_reason=call_reason,
+                        state=state,
+                        city=city,
+                    )
+
+                # Save to voice_config
+                hiya_data = vc.get('hiya_connect', {})
+                hiya_data.update({
+                    'brand_id': brand_id,
+                    'brand_status': hiya_brand.get('status', 'PENDING_REVIEW'),
+                    'display_name': business_name[:15].strip(),
+                    'registered_phones': phone_e164_list,
+                    'registered_count': len(batch_result.get('registered', [])),
+                    'failed_count': len(batch_result.get('failed', [])),
+                    'registered_at': datetime.utcnow().isoformat(),
+                })
+                vc['hiya_connect'] = hiya_data
+                _save_voice_config(current_user.email, vc)
+
+                hiya_result = {
+                    "status": "ok",
+                    "brand_id": brand_id,
+                    "brand_status": hiya_brand.get('status', 'PENDING_REVIEW'),
+                    "numbers_registered": len(batch_result.get('registered', [])),
+                    "numbers_failed": len(batch_result.get('failed', [])),
+                    "note": "Brand vetting takes 48-72 hours. Branded display activates on approval.",
+                }
+
+                log_webhook_event(
+                    location_id=location_id,
+                    event_type="voice_protection",
+                    status="success",
+                    summary=f"Hiya Connect brand registered — {business_name}, {len(batch_result.get('registered', []))} numbers",
+                    details={"brand_id": brand_id, "brand_status": hiya_brand.get('status', '')},
+                )
+
+        except Exception as hiya_err:
+            logger.error(f"[Hiya] Connect registration failed: {hiya_err}", exc_info=True)
+            hiya_result = {"status": "error", "error": str(hiya_err)}
+            log_webhook_event(
+                location_id=location_id,
+                event_type="voice_protection",
+                status="error",
+                summary=f"Hiya Connect registration failed: {str(hiya_err)[:200]}",
+                details={"error": str(hiya_err)[:500]},
+            )
+
     return jsonify({
         "status": "ok" if has_profile and not reg_errors else "partial",
         "results": results,
         "cnam": cnam_result,
         "cnam_display_name": cnam_display_name,
         "voice_integrity": vi_result,
+        "hiya_connect": hiya_result,
         "has_profile": has_profile,
         "errors": reg_errors,
     })
@@ -2824,3 +2924,203 @@ def trust_hub_status_callback():
             return_db_connection(conn)
 
     return '', 204
+
+
+# ──────────────────────────────────────────────────────────────
+# HIYA CONNECT — BRANDED CALLING MANAGEMENT
+# Direct Hiya API routes for brand status, adding numbers,
+# removing numbers, and reputation queries (Protect API).
+# ──────────────────────────────────────────────────────────────
+
+
+@numbers_bp.route('/voice/hiya/status', methods=['GET'])
+@login_required
+def hiya_status():
+    """
+    Get Hiya Connect registration status for the current subscriber.
+    Includes brand vetting status and list of registered phone numbers.
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    hiya_data = vc.get('hiya_connect', {})
+    brand_id = hiya_data.get('brand_id', '')
+
+    if not hiya_connect.is_connect_configured():
+        return jsonify({
+            "configured": False,
+            "message": "Hiya Connect credentials not set. Add HIYA_CONNECT_APP_ID and HIYA_CONNECT_APP_SECRET to environment.",
+        })
+
+    if not brand_id:
+        return jsonify({
+            "configured": True,
+            "registered": False,
+            "message": "No Hiya brand registered yet. Submit your business profile to register.",
+        })
+
+    # Poll live brand status from Hiya
+    brand_info = None
+    try:
+        brand_info = hiya_connect.get_brand(brand_id)
+    except Exception as e:
+        logger.warning(f"[Hiya] Could not fetch live brand status: {e}")
+
+    live_status = None
+    if brand_info:
+        live_status = brand_info.get("status") or brand_info.get("verificationStatus")
+        if live_status and live_status != hiya_data.get('brand_status'):
+            hiya_data['brand_status'] = live_status
+            vc['hiya_connect'] = hiya_data
+            _save_voice_config(current_user.email, vc)
+
+    return jsonify({
+        "configured": True,
+        "registered": True,
+        "brand_id": brand_id,
+        "brand_status": live_status or hiya_data.get('brand_status', 'PENDING_REVIEW'),
+        "display_name": hiya_data.get('display_name', ''),
+        "registered_phones": hiya_data.get('registered_phones', []),
+        "registered_count": hiya_data.get('registered_count', 0),
+        "registered_at": hiya_data.get('registered_at', ''),
+        "note": "Branded display activates once brand is VERIFIED (48-72 hours after registration).",
+    })
+
+
+@numbers_bp.route('/voice/hiya/add-numbers', methods=['POST'])
+@login_required
+def hiya_add_numbers():
+    """
+    Add phone numbers to an existing Hiya Connect brand registration.
+    Accepts a list of E.164 numbers, or omit to auto-add all unregistered numbers.
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    if not hiya_connect.is_connect_configured():
+        return jsonify({"error": "Hiya Connect not configured"}), 400
+
+    hiya_data = vc.get('hiya_connect', {})
+    brand_id = hiya_data.get('brand_id', '')
+    if not brand_id:
+        return jsonify({"error": "No Hiya brand registered yet. Register via Spam Protection first."}), 400
+
+    data = request.json or {}
+    phone_list = data.get('phones', [])  # E.164 list, or empty to auto-fetch all
+
+    if not phone_list:
+        # Auto-fetch all numbers from sub-account not yet registered
+        try:
+            client = twilio_provisioning.get_sub_account_client(sub_sid)
+            numbers = client.incoming_phone_numbers.list()
+            already_registered = set(hiya_data.get('registered_phones', []))
+            phone_list = [n.phone_number for n in numbers
+                          if n.phone_number and n.phone_number not in already_registered]
+        except Exception as e:
+            return jsonify({"error": f"Could not fetch phone numbers: {e}"}), 500
+
+    if not phone_list:
+        return jsonify({"status": "ok", "message": "All numbers already registered with Hiya", "added": 0})
+
+    trust_hub = vc.get('trust_hub', {})
+    display_name = hiya_data.get('display_name') or trust_hub.get('business_name', '')[:15].strip()
+    state = trust_hub.get('state', '')
+    city = trust_hub.get('city', '')
+
+    try:
+        result = hiya_connect.register_numbers_batch(
+            phone_e164_list=phone_list,
+            brand_id=brand_id,
+            display_name=display_name,
+            call_reason="Insurance Sales",
+            state=state,
+            city=city,
+        )
+
+        # Update persisted list
+        existing = set(hiya_data.get('registered_phones', []))
+        for item in result.get('registered', []):
+            existing.add(item['phone'])
+        hiya_data['registered_phones'] = list(existing)
+        hiya_data['registered_count'] = len(existing)
+        vc['hiya_connect'] = hiya_data
+        _save_voice_config(current_user.email, vc)
+
+        return jsonify({
+            "status": "ok",
+            "added": len(result.get('registered', [])),
+            "failed": len(result.get('failed', [])),
+            "failures": result.get('failed', []),
+        })
+    except Exception as e:
+        logger.error(f"[Hiya] add-numbers failed: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
+@numbers_bp.route('/voice/hiya/remove-number', methods=['POST'])
+@login_required
+def hiya_remove_number():
+    """Remove a phone number from Hiya Connect branded calling."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    if not hiya_connect.is_connect_configured():
+        return jsonify({"error": "Hiya Connect not configured"}), 400
+
+    data = request.json or {}
+    phone = (data.get('phone') or '').strip()
+    if not phone:
+        return jsonify({"error": "phone (E.164) required"}), 400
+
+    try:
+        removed = hiya_connect.delete_number(phone)
+
+        hiya_data = vc.get('hiya_connect', {})
+        phones = set(hiya_data.get('registered_phones', []))
+        phones.discard(phone)
+        hiya_data['registered_phones'] = list(phones)
+        hiya_data['registered_count'] = len(phones)
+        vc['hiya_connect'] = hiya_data
+        _save_voice_config(current_user.email, vc)
+
+        return jsonify({"status": "ok", "removed": removed, "phone": phone})
+    except Exception as e:
+        logger.error(f"[Hiya] remove-number failed: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
+@numbers_bp.route('/voice/hiya/reputation', methods=['GET'])
+@login_required
+def hiya_reputation():
+    """
+    Query Hiya Protect for spam labeling status of this subscriber's numbers.
+    Requires HIYA_PROTECT_APP_ID and HIYA_PROTECT_APP_SECRET (service agreement).
+    Returns spamLabelingStatus and report card grades per number.
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    if not hiya_connect.is_protect_configured():
+        return jsonify({
+            "error": "Hiya Protect API not configured. Requires signed service agreement with Hiya (api@hiya.com).",
+            "configured": False,
+        }), 400
+
+    try:
+        client = twilio_provisioning.get_sub_account_client(sub_sid)
+        numbers = client.incoming_phone_numbers.list()
+        phones = [n.phone_number for n in numbers if n.phone_number]
+
+        if not phones:
+            return jsonify({"numbers": [], "message": "No phone numbers on account"})
+
+        reputation = hiya_connect.check_reputation(phones)
+        return jsonify({"numbers": reputation, "total_queried": len(phones)})
+
+    except Exception as e:
+        logger.error(f"[Hiya] reputation check failed: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
