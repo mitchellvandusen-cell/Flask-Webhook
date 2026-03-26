@@ -3154,6 +3154,7 @@
                         if (r.status === 404) {
                             console.log('[Dialer] Poll 404 — call no longer tracked, treating as completed');
                             clearInterval(dialerPollTimer); dialerPollTimer = null;
+                            _dialerIncrementDialBadge();
                             dialerStopAiTimer(); _dialerClearCallDurationTimer();
                             _stopRingTone(); if (_autoListenActive) { _stopListenStream(); _resetListenBtn(); _autoListenActive = false; }
                             _dialerLastCallSid = dialerCallSid;

@@ -232,7 +232,8 @@ def oauth_callback():
                 return redirect(url_for('auth.login'))
 
             is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
-            needs_subscription = not current_user.stripe_customer_id and not is_admin
+            is_agency = (current_user.role or '').lower() == 'agency_owner'
+            needs_subscription = not current_user.stripe_customer_id and not is_admin and not is_agency
 
             if needs_subscription:
                 flash("Active subscription required to connect Lead Connector. Please subscribe first.", "error")
