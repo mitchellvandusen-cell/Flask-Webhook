@@ -3110,6 +3110,17 @@
             _jtcUpdatePill();
         }
 
+        // Increment dial count badge after any call ends (completed, no-answer, busy, voicemail, etc.)
+        function _dialerIncrementDialBadge() {
+            const cid = (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length)
+                ? dialerQueue[dialerCallIdx].id
+                : (dialerActiveContact ? dialerActiveContact.id : null);
+            if (!cid) return;
+            _dialerCallCounts[cid] = (_dialerCallCounts[cid] || 0) + 1;
+            dialerUpdateContactBadge(cid, _dialerCallCounts[cid]);
+            setTimeout(() => dialerFetchMergedCallCount(cid), 2000);
+        }
+
         function dialerStartPoll() {
             if (dialerPollTimer) clearInterval(dialerPollTimer);
             let pollCount = 0, errorCount = 0;
@@ -3122,6 +3133,7 @@
                 // Only enforce poll limit while ringing/initiated — once connected, poll indefinitely
                 if (pollCount > MAX_POLLS_RINGING && !_dialerCallConnected) {
                     clearInterval(dialerPollTimer); dialerPollTimer = null;
+                    _dialerIncrementDialBadge();
                     // Mark as no-answer so retry logic picks it up
                     if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
                         dialerQueue[dialerCallIdx].status = 'no-answer';
@@ -3164,6 +3176,7 @@
                         console.log(`[Dialer] AMD detected: ${d._amd_result} — action: ${_dialerOnMachineAction}`);
                         clearInterval(dialerPollTimer);
                         dialerPollTimer = null;
+                        _dialerIncrementDialBadge();
                         dialerStopAiTimer();
                         _dialerClearCallDurationTimer();
                         _stopRingTone();
@@ -3243,6 +3256,8 @@
                         _dialerClearCallDurationTimer();
                         // Refresh KPI banner so today's numbers update after each call
                         setTimeout(dialerLoadKpiBanner, 2000);
+                        // Refresh per-contact dial count badge in left column
+                        _dialerIncrementDialBadge();
                         // Refresh AI minutes balance after AI call ends
                         if (dialerMode === 'ai' && _aiMinutesHasPurchased) {
                             setTimeout(() => {
