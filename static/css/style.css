@@ -7133,7 +7133,7 @@ body.light-theme .slack-hashtag-icon { color: #1a9fc0; }
 .sms-a2p-summary-desc { font-size: .75rem; color: #888; line-height: 1.6; }
 
 /* ── Voice Numbers table (dialer.js) ── */
-.vnum-table { border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; overflow: visible; }
+.vnum-table { border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; overflow: visible; border-spacing: 0; }
 .vnum-hdr { padding: 8px 10px; background: rgba(255,255,255,0.03); font-weight: 700; color: #888; font-size: .75rem; text-transform: uppercase; letter-spacing: .5px; }
 .vnum-cell { padding: 8px 10px; border-top: 1px solid rgba(255,255,255,0.04); }
 .vnum-phone { color: #fff; font-size: .8rem; }

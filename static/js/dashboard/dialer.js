@@ -5547,16 +5547,16 @@
         }
 
         function _renderNumbersTable(numbers, container) {
-            let html = '<div class="vnum-table">';
+            let html = '<table class="vnum-table" style="width:100%;border-collapse:collapse;">';
             // Header
-            html += '<div class="numbers-grid-header" style="display:grid;grid-template-columns:1fr 100px 60px 60px 60px 50px;gap:0;">';
-            html += '<div class="vnum-hdr">Number</div>';
-            html += '<div class="vnum-hdr numbers-col-voice" style="text-align:center;">Status</div>';
-            html += '<div class="vnum-hdr numbers-col-voice" style="text-align:center;">Voice</div>';
-            html += '<div class="vnum-hdr numbers-col-sms" style="text-align:center;">SMS</div>';
-            html += '<div class="vnum-hdr numbers-col-cnam" style="text-align:center;">CNAM</div>';
-            html += '<div class="vnum-hdr numbers-col-menu"></div>';
-            html += '</div>';
+            html += '<thead><tr class="numbers-grid-header">';
+            html += '<th class="vnum-hdr" style="text-align:left;">Number</th>';
+            html += '<th class="vnum-hdr" style="text-align:center;width:80px;">Status</th>';
+            html += '<th class="vnum-hdr" style="text-align:center;width:55px;">Voice</th>';
+            html += '<th class="vnum-hdr" style="text-align:center;width:55px;">SMS</th>';
+            html += '<th class="vnum-hdr" style="text-align:center;width:55px;">CNAM</th>';
+            html += '<th class="vnum-hdr" style="text-align:center;width:44px;"></th>';
+            html += '</tr></thead><tbody>';
             // Rows
             numbers.forEach(n => {
                 const statusClass = n.status === 'active' ? 'vnum-status-active' : (n.status === 'pending' ? 'vnum-status-pending' : 'vnum-status-other');
@@ -5565,22 +5565,22 @@
                 const voiceIcon = n.capabilities?.voice ? '<i class="fa-solid fa-circle-check vnum-check"></i>' : '<i class="fa-solid fa-circle-xmark vnum-xmark"></i>';
                 const smsIcon = n.capabilities?.sms ? '<i class="fa-solid fa-circle-check vnum-check"></i>' : '<i class="fa-solid fa-circle-xmark vnum-xmark"></i>';
                 const cnamIcon = n.cnam_listed ? '<i class="fa-solid fa-circle-check vnum-cnam-on" title="CNAM enabled — click to disable" onclick="toggleCNAM(\'' + n.sid + '\',false)"></i>' : '<i class="fa-regular fa-circle vnum-cnam-off" title="CNAM disabled — click to enable" onclick="toggleCNAM(\'' + n.sid + '\',true)"></i>';
-                html += '<div class="numbers-grid-row" style="display:grid;grid-template-columns:1fr 100px 60px 60px 60px 50px;gap:0;align-items:center;">';
-                html += '<div class="vnum-cell"><span class="vnum-phone">' + _esc(_fmtPhone(n.phone)) + '</span>' + primaryBadge + nickname + '<br><span class="vnum-type">' + _esc(n.number_type || 'local') + '</span></div>';
-                html += '<div class="vnum-cell" style="text-align:center;"><span class="' + statusClass + '">' + (n.status || 'active') + '</span></div>';
-                html += '<div class="numbers-col-voice vnum-cell" style="text-align:center;">' + voiceIcon + '</div>';
-                html += '<div class="numbers-col-sms vnum-cell" style="text-align:center;">' + smsIcon + '</div>';
-                html += '<div class="numbers-col-cnam vnum-cell" style="text-align:center;">' + cnamIcon + '</div>';
-                html += '<div class="numbers-col-menu vnum-cell" style="text-align:center;"><div class="dropdown" style="position:relative;display:inline-block;">' +
+                html += '<tr class="numbers-grid-row">';
+                html += '<td class="vnum-cell"><span class="vnum-phone">' + _esc(_fmtPhone(n.phone)) + '</span>' + primaryBadge + nickname + '<br><span class="vnum-type">' + _esc(n.number_type || 'local') + '</span></td>';
+                html += '<td class="vnum-cell" style="text-align:center;"><span class="' + statusClass + '">' + (n.status || 'active') + '</span></td>';
+                html += '<td class="vnum-cell" style="text-align:center;">' + voiceIcon + '</td>';
+                html += '<td class="vnum-cell" style="text-align:center;">' + smsIcon + '</td>';
+                html += '<td class="vnum-cell" style="text-align:center;">' + cnamIcon + '</td>';
+                html += '<td class="vnum-cell" style="text-align:center;"><div style="position:relative;display:inline-block;">' +
                     '<button onclick="toggleNumMenu(this)" class="vnum-menu-btn"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
                     '<div class="num-menu vnum-menu">' +
                     (!n.is_primary ? '<button onclick="setPrimaryNumber(\'' + _esc(n.phone) + '\')" class="vnum-menu-item"><i class="fa-solid fa-star me-1 vnum-menu-icon-star"></i>Set as Primary</button>' : '') +
                     '<button onclick="promptNickname(\'' + _esc(n.phone) + '\')" class="vnum-menu-item"><i class="fa-solid fa-pen me-1 vnum-menu-icon-edit"></i>Edit Nickname</button>' +
                     '<button onclick="releaseNumber(\'' + (n.sid || '') + '\',\'' + _esc(n.phone) + '\')" class="vnum-menu-item vnum-menu-item-danger"><i class="fa-solid fa-trash me-1"></i>Release Number</button>' +
-                    '</div></div></div>';
-                html += '</div>';
+                    '</div></div></td>';
+                html += '</tr>';
             });
-            html += '</div>';
+            html += '</tbody></table>';
             // Summary info
             html += '<div class="vnum-summary">' +
                 '<strong>' + numbers.length + ' number' + (numbers.length !== 1 ? 's' : '') + '</strong> on your account. ' +
