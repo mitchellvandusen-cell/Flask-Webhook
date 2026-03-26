@@ -5572,11 +5572,11 @@
                 html += '<td class="vnum-cell" style="text-align:center;">' + smsIcon + '</td>';
                 html += '<td class="vnum-cell" style="text-align:center;">' + cnamIcon + '</td>';
                 html += '<td class="vnum-cell" style="text-align:center;"><div style="position:relative;display:inline-block;">' +
-                    '<button onclick="toggleNumMenu(this)" class="vnum-menu-btn"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
+                    '<button onclick="toggleNumMenu(this)" class="vnum-menu-btn">&#8942;</button>' +
                     '<div class="num-menu vnum-menu">' +
-                    (!n.is_primary ? '<button onclick="setPrimaryNumber(\'' + _esc(n.phone) + '\')" class="vnum-menu-item"><i class="fa-solid fa-star me-1 vnum-menu-icon-star"></i>Set as Primary</button>' : '') +
-                    '<button onclick="promptNickname(\'' + _esc(n.phone) + '\')" class="vnum-menu-item"><i class="fa-solid fa-pen me-1 vnum-menu-icon-edit"></i>Edit Nickname</button>' +
-                    '<button onclick="releaseNumber(\'' + (n.sid || '') + '\',\'' + _esc(n.phone) + '\')" class="vnum-menu-item vnum-menu-item-danger"><i class="fa-solid fa-trash me-1"></i>Release Number</button>' +
+                    (!n.is_primary ? '<button onclick="setPrimaryNumber(\'' + _esc(n.phone) + '\')" class="vnum-menu-item">&#9733; Set as Primary</button>' : '') +
+                    '<button onclick="promptNickname(\'' + _esc(n.phone) + '\')" class="vnum-menu-item">&#9998; Edit Nickname</button>' +
+                    '<button onclick="releaseNumber(\'' + (n.sid || '') + '\',\'' + _esc(n.phone) + '\')" class="vnum-menu-item vnum-menu-item-danger">&#128465; Release Number</button>' +
                     '</div></div></td>';
                 html += '</tr>';
             });
