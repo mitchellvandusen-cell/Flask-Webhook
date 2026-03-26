@@ -128,8 +128,7 @@ button, a, input, select, textarea, [role="button"] {
 }
 
 /* Numbers in stats, prices, tables should align properly */
-.price-amount, .metallic-stat, .stat-number, [class*="price"],
-[class*="count"], [class*="stat"], td, .tabular {
+.price-amount, .metallic-stat, .stat-number, td, .tabular {
     font-variant-numeric: tabular-nums;
 }
 
