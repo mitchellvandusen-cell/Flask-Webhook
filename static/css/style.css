@@ -7140,14 +7140,15 @@ body.light-theme .slack-hashtag-icon { color: #1a9fc0; }
 .vnum-type { color: #555; font-size: .75rem; }
 .vnum-primary { background: rgba(0,217,255,0.15); color: #00d9ff; padding: 1px 6px; border-radius: 3px; font-size: .75rem; font-weight: 700; margin-left: 6px; }
 .vnum-nickname { color: #888; font-size: .75rem; margin-left: 4px; }
-.vnum-check { color: #4ade80; }
-.vnum-xmark { color: #444; }
-.vnum-cnam-on { color: #4ade80; cursor: pointer; }
-.vnum-cnam-off { color: #444; cursor: pointer; }
+.vnum-check { color: #4ade80; font-size: 1.1rem; }
+.vnum-xmark { color: #555; font-size: 1.1rem; }
+.vnum-cnam-on { color: #4ade80; cursor: pointer; font-size: 1.1rem; }
+.vnum-cnam-off { color: #555; cursor: pointer; font-size: 1.1rem; }
 .vnum-status-active { background: rgba(74,222,128,0.1); color: #4ade80; padding: 2px 8px; border-radius: 4px; font-size: .75rem; font-weight: 600; }
 .vnum-status-pending { background: rgba(255,165,0,0.1); color: #ffa500; padding: 2px 8px; border-radius: 4px; font-size: .75rem; font-weight: 600; }
 .vnum-status-other { background: rgba(255,255,255,0.04); color: #888; padding: 2px 8px; border-radius: 4px; font-size: .75rem; font-weight: 600; }
-.vnum-menu-btn { background: none; border: none; color: #888; cursor: pointer; font-size: .75rem; padding: 6px 8px; }
+.vnum-menu-btn { background: none; border: none; color: #bbb; cursor: pointer; font-size: 1rem; padding: 6px 10px; }
+.vnum-menu-btn:hover { color: #fff; }
 .vnum-menu { display: none; position: fixed; background: #1a1a2e; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; padding: 4px 0; z-index: 9999; min-width: 160px; box-shadow: 0 4px 16px rgba(0,0,0,0.6); }
 .vnum-menu-item { display: block; width: 100%; text-align: left; padding: 8px 12px; background: none; border: none; color: #ccc; font-size: .78rem; cursor: pointer; white-space: nowrap; }
 .vnum-menu-item:hover { background: rgba(255,255,255,0.06); }
@@ -7403,13 +7404,14 @@ body.light-theme .vnum-type { color: #9ca3af; }
 body.light-theme .vnum-primary { background: rgba(0,120,184,0.1); color: #0078b8; }
 body.light-theme .vnum-nickname { color: #6b7280; }
 body.light-theme .vnum-check { color: #16a34a; }
-body.light-theme .vnum-xmark { color: #d1d5db; }
+body.light-theme .vnum-xmark { color: #c0c4cc; }
 body.light-theme .vnum-cnam-on { color: #16a34a; }
-body.light-theme .vnum-cnam-off { color: #d1d5db; }
+body.light-theme .vnum-cnam-off { color: #c0c4cc; }
 body.light-theme .vnum-status-active { background: rgba(22,163,74,0.08); color: #15803d; }
 body.light-theme .vnum-status-pending { background: rgba(217,119,6,0.08); color: #b45309; }
 body.light-theme .vnum-status-other { background: rgba(0,0,0,0.04); color: #6b7280; }
-body.light-theme .vnum-menu-btn { color: #6b7280; }
+body.light-theme .vnum-menu-btn { color: #374151; }
+body.light-theme .vnum-menu-btn:hover { color: #111827; }
 body.light-theme .vnum-menu { background: #fff; border-color: rgba(0,0,0,0.12); box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
 body.light-theme .vnum-menu-item { color: #374151; }
 body.light-theme .vnum-menu-item:hover { background: rgba(0,0,0,0.04); }
