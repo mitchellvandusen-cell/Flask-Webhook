@@ -1019,10 +1019,13 @@ def register_spam_protection():
     contact_email = (data.get('contact_email') or '').strip()
     contact_phone = (data.get('contact_phone') or '').strip()
 
+    is_sole_prop = business_type == 'Sole Proprietorship'
+
     if not business_name:
         return jsonify({"error": "Business name is required"}), 400
     if not ein:
-        return jsonify({"error": "EIN is required"}), 400
+        err = "SSN is required for Sole Proprietorship registration" if is_sole_prop else "EIN is required"
+        return jsonify({"error": err}), 400
     if not business_type:
         return jsonify({"error": "Business type is required"}), 400
 
@@ -1300,11 +1303,115 @@ def register_spam_protection():
             },
         )
 
+    # ── Step 5: Auto-create Voice Integrity (Number Integrity) Trust Product ──
+    # Covers: HIYA (AT&T), First Orion (T-Mobile), TNS (Verizon).
+    # Works for both sole props (SSN) and businesses (EIN) — business_type is
+    # already saved to trust_hub above and reused via existing_profile_sid.
+    # CREATE immediately; SUBMIT is attempted now and deferred if profile not
+    # yet approved (Twilio approves profiles within ~24h).
+    vi_result = {"status": "skipped"}
+    existing_ni = vc.get('number_integrity', {})
+    existing_vi_tp = existing_ni.get('trust_product_sid', '')
+
+    if existing_vi_tp:
+        vi_result = {
+            "status": "already_registered",
+            "trust_product_sid": existing_vi_tp,
+        }
+        logger.info(f"[VoiceIntegrity] Already registered — TP {existing_vi_tp}, skipping")
+    elif has_profile:
+        try:
+            # Fetch all phone numbers on this sub-account
+            vi_client = twilio_provisioning.get_sub_account_client(sub_sid)
+            vi_numbers = vi_client.incoming_phone_numbers.list()
+            vi_pn_sids = [n.sid for n in vi_numbers]
+
+            # Estimate call volume from number count
+            avg_vol = str(max(len(vi_pn_sids), 1) * 500)
+            emp_count = "1" if is_sole_prop else "5"
+
+            existing_vi_profile = trust_hub.get('profile_sid', '')
+            vi_tp = twilio_provisioning.create_voice_integrity_trust_product(
+                sub_account_sid=sub_sid,
+                business_name=business_name,
+                contact_email=contact_email or current_user.email,
+                sub_account_auth_token=sub_auth_token,
+                existing_profile_sid=existing_vi_profile,
+                business_employee_count=emp_count,
+                average_call_volume=avg_vol,
+            )
+
+            ni_data = vc.get('number_integrity', {})
+            ni_data.update({
+                'trust_product_sid': vi_tp['trust_product_sid'],
+                'profile_sid': vi_tp['profile_sid'],
+                'end_user_sid': vi_tp.get('end_user_sid', ''),
+                'business_name': business_name,
+                'registered_at': datetime.utcnow().isoformat(),
+            })
+
+            # Assign all phone numbers if we have any
+            if vi_pn_sids:
+                vi_assign = twilio_provisioning.assign_numbers_to_voice_integrity(
+                    sub_account_sid=sub_sid,
+                    trust_product_sid=vi_tp['trust_product_sid'],
+                    phone_number_sids=vi_pn_sids,
+                    sub_account_auth_token=sub_auth_token,
+                    profile_sid=vi_tp['profile_sid'],
+                )
+                ni_data['assigned_numbers'] = vi_pn_sids
+                ni_data['assigned_count'] = vi_assign.get('assigned', 0)
+            else:
+                vi_assign = {"assigned": 0}
+                ni_data['assigned_numbers'] = []
+                ni_data['assigned_count'] = 0
+
+            # Attempt submit — deferred if profile not yet approved
+            vi_submit_status = 'deferred'
+            if profile_is_approved:
+                try:
+                    vi_submit = twilio_provisioning.submit_voice_integrity_for_review(
+                        sub_account_sid=sub_sid,
+                        trust_product_sid=vi_tp['trust_product_sid'],
+                        sub_account_auth_token=sub_auth_token,
+                    )
+                    vi_submit_status = vi_submit.get('status', 'pending-review')
+                except Exception as vi_sub_err:
+                    logger.warning(f"[VoiceIntegrity] Submit deferred (profile pending): {vi_sub_err}")
+                    vi_submit_status = 'deferred'
+            else:
+                logger.info(f"[VoiceIntegrity] Submit deferred — profile status '{review_status}' not yet approved")
+
+            ni_data['status'] = vi_submit_status
+            vc['number_integrity'] = ni_data
+            _save_voice_config(current_user.email, vc)
+
+            vi_result = {
+                "status": "ok",
+                "trust_product_sid": vi_tp['trust_product_sid'],
+                "numbers_assigned": vi_assign.get('assigned', 0),
+                "review_status": vi_submit_status,
+                "deferred": vi_submit_status == 'deferred',
+            }
+
+            log_webhook_event(
+                location_id=location_id,
+                event_type="voice_protection",
+                status="success",
+                summary=f"Voice Integrity registered — {vi_assign.get('assigned', 0)} numbers {'submitted for review' if vi_submit_status != 'deferred' else 'pending profile approval'}",
+                details={"trust_product_sid": vi_tp['trust_product_sid'], "status": vi_submit_status},
+            )
+
+        except Exception as vi_err:
+            logger.error(f"[VoiceIntegrity] Auto-registration failed: {vi_err}", exc_info=True)
+            vi_result = {"status": "error", "error": str(vi_err)}
+
     return jsonify({
         "status": "ok" if has_profile and not reg_errors else "partial",
         "results": results,
         "cnam": cnam_result,
         "cnam_display_name": cnam_display_name,
+        "voice_integrity": vi_result,
         "has_profile": has_profile,
         "errors": reg_errors,
     })
