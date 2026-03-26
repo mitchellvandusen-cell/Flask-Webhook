@@ -713,8 +713,10 @@ def oauth_callback():
         using_location_fallback = False
 
         if token_user_type_used == 'Company' and company_id:
-            locations_url = f"https://services.leadconnectorhq.com/locations/search?companyId={company_id}"
-            sub_accounts = fetch_all_ghl_items(locations_url, headers_ghl, item_key='locations')
+            # CATCH AND RELEASE: Accept the Company install so the Custom Menu Link appears.
+            # Sub-accounts OAuth themselves individually via the iFrame/Custom Page flow.
+            sub_accounts = []
+            logger.info("Company token received. Skipping location discovery — sub-accounts self-provision via iFrame.")
         elif not primary_location_id and company_id:
             # Location-scoped token with companyId but no locationId.
             # The token IS scoped to a specific location, but GHL didn't
@@ -984,23 +986,8 @@ def oauth_callback():
 
                 logger.info(f"Agency owner {user_email}: subscribers (operational) + agency_billing (metadata)")
 
-                # Queue background task to discover + provision all sub-accounts.
-                # This avoids OAuth callback timeout and GHL rate limits (40 req/10s).
-                # The task uses the Company token from agency_billing to pull location
-                # details and create pending subscriber rows for each sub-account.
-                if token_user_type_used == 'Company' and company_id:
-                    try:
-                        from extensions import get_rq_queue
-                        q = get_rq_queue('production')
-                        q.enqueue(
-                            'tasks.provision_agency_subaccounts_task',
-                            agency_email=user_email,
-                            company_id=company_id,
-                            job_timeout=300,
-                        )
-                        logger.info(f"Queued provision_agency_subaccounts_task for {user_email} company={company_id}")
-                    except Exception as rq_err:
-                        logger.warning(f"Failed to queue agency provisioning task: {rq_err}")
+                # Sub-accounts self-provision via Custom Menu Link iFrame flow.
+                # No background provisioning needed — agents OAuth individually.
 
             # B. Reconnect/reinstall sync: update OAuth tokens on existing rows.
             # Look up by location_id (PK) first — this is the definitive match.
