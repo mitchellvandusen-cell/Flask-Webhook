@@ -3045,6 +3045,8 @@
                     return;
                 }
 
+                // Select contact in detail panel only after call is confirmed (SID locked in)
+                if (contactId) dialerSelectContact(contactId);
                 _dialerCallConnected = false;
                 dialerShowBanner(displayName, 'Ringing...');
                 dialerStartPoll();
@@ -4509,8 +4511,6 @@
             dialerRenderQueue();
             // Track dialing contact for Jump to Contact
             _jtcDialingContactId = item.id;
-            // Auto-select contact in detail panel
-            dialerSelectContact(item.id);
             // Flash the contact row + panel to signal the jump
             _jtcFlashContact(item.id);
             // Auto-scroll queue to the active item

@@ -323,7 +323,15 @@ def get_contact_detail(contact_id):
                     """, (contact_id,))
                     last_lead_msg = cur.fetchone()
                     if last_lead_msg and last_lead_msg['message_text']:
-                        _stop_words = {'stop', 'unsubscribe', 'opt out', 'optout', 'remove me', 'do not contact', 'do not call', 'do not text', 'do not message', 'cancel', 'quit', 'leave me alone', 'not interested', 'lose my number', 'delete my number', 'take me off', 'blocked'}
+                        # True TCPA opt-out words only — sales objections ("not interested",
+                        # "leave me alone", "quit", "blocked", etc.) are NOT opt-outs and
+                        # must NOT skip leads in the dialer.
+                        _stop_words = {
+                            'stop', 'unsubscribe', 'opt out', 'optout',
+                            'remove me', 'do not contact', 'do not call',
+                            'do not text', 'do not message', 'do not reach out',
+                            'cancel my subscription',
+                        }
                         msg_lower = last_lead_msg['message_text'].strip().lower()
                         if msg_lower in _stop_words or any(re.search(r'\b' + re.escape(w) + r'\b', msg_lower) for w in _stop_words):
                             opted_out = True
