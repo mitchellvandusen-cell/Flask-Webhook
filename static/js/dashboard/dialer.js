@@ -4499,8 +4499,9 @@
             // Safety net: skip DnD contacts even if they got into the queue
             const contactObj = dialerContacts.find(x => x.id === item.id) || _dialerAllContacts.find(x => x.id === item.id);
             if (contactObj && _igbIsOptedOut(_igbEngagementCache[item.id], contactObj)) {
+                const eng = _igbEngagementCache[item.id];
+                console.warn(`[Dialer] SKIP — ${item.name} (${item.id}): dnd=${contactObj.dnd}, eng.opted_out=${eng && eng.opted_out}, cache=${JSON.stringify(eng)}`);
                 item.status = 'skipped';
-                console.log('[Dialer] Skipped DnD contact:', item.name);
                 dialerRenderQueue();
                 dialerAdvance();
                 return;
@@ -4542,6 +4543,10 @@
                 // Max attempts exhausted — mark as final status
                 if (retryStatuses.includes(current.status)) {
                     console.log(`[Dialer] ${current.name} — max attempts (${dialerMaxAttempts}) reached, moving on`);
+                }
+                // Unexpected: advance fired while contact is still initiated (double-advance bug indicator)
+                if (current.status === 'initiated') {
+                    console.warn(`[Dialer] WARN: advance() fired for "${current.name}" while status=initiated — possible double-advance race`);
                 }
             }
 
