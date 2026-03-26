@@ -1130,16 +1130,11 @@ def oauth_callback():
             existing_row = existing_by_location
 
             # C. Provision subscriber rows
-            if use_agency_flow and not using_location_fallback:
-                locations_to_provision = [s for s in sub_accounts if s['id'] != primary_location_id]
-            else:
-                locations_to_provision = [s for s in sub_accounts if s['id'] == primary_location_id]
-
-            if using_location_fallback and use_agency_flow:
-                logger.warning(
-                    f"Agency owner {user_email} in FALLBACK MODE: only provisioning primary "
-                    f"location {primary_location_id}. Sub-accounts added once locations.readonly approved."
-                )
+            # ONE email = ONE subscriber row = ONE location.
+            # Agency owners get their primary location only. Sub-account locations
+            # are NOT provisioned here — each agent creates their own row when
+            # they install or get invited via auto-link (companyId match).
+            locations_to_provision = [s for s in sub_accounts if s['id'] == primary_location_id]
 
             if existing_row and primary_location_id:
                 locations_to_provision = [s for s in locations_to_provision
