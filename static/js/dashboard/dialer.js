@@ -5574,9 +5574,9 @@
                 html += '<td class="vnum-cell" style="text-align:center;"><div style="position:relative;display:inline-block;">' +
                     '<button onclick="toggleNumMenu(this)" class="vnum-menu-btn">&#8942;</button>' +
                     '<div class="num-menu vnum-menu">' +
-                    (!n.is_primary ? '<button onclick="setPrimaryNumber(\'' + _esc(n.phone) + '\')" class="vnum-menu-item">&#9733; Set as Primary</button>' : '') +
-                    '<button onclick="promptNickname(\'' + _esc(n.phone) + '\')" class="vnum-menu-item">&#9998; Edit Nickname</button>' +
-                    '<button onclick="releaseNumber(\'' + (n.sid || '') + '\',\'' + _esc(n.phone) + '\')" class="vnum-menu-item vnum-menu-item-danger">&#128465; Release Number</button>' +
+                    (!n.is_primary ? '<button onclick="setPrimaryNumber(\'' + _esc(n.phone) + '\')" class="vnum-menu-item">Set as Primary</button>' : '') +
+                    '<button onclick="promptNickname(\'' + _esc(n.phone) + '\')" class="vnum-menu-item">Edit Nickname</button>' +
+                    '<button onclick="releaseNumber(\'' + (n.sid || '') + '\',\'' + _esc(n.phone) + '\')" class="vnum-menu-item vnum-menu-item-danger">Release Number</button>' +
                     '</div></div></td>';
                 html += '</tr>';
             });
@@ -5593,18 +5593,22 @@
             document.querySelectorAll('.num-menu').forEach(m => { if (m !== btn.nextElementSibling) m.style.display = 'none'; });
             const menu = btn.nextElementSibling;
             if (menu.style.display !== 'none') { menu.style.display = 'none'; return; }
-            // Position using fixed coords so no overflow clipping
             const rect = btn.getBoundingClientRect();
             menu.style.display = 'block';
+            const menuW = menu.offsetWidth;
             const menuH = menu.offsetHeight;
-            // Open upward if near bottom of viewport
+            // Vertical: below button, or above if near bottom
             if (rect.bottom + menuH > window.innerHeight - 20) {
-                menu.style.top = (rect.top - menuH) + 'px';
+                menu.style.top = (rect.top - menuH - 4) + 'px';
             } else {
-                menu.style.top = rect.bottom + 'px';
+                menu.style.top = (rect.bottom + 4) + 'px';
             }
-            menu.style.right = (window.innerWidth - rect.right) + 'px';
-            menu.style.left = 'auto';
+            // Horizontal: right edge of menu aligns with center of button
+            var btnCenter = rect.left + rect.width / 2;
+            var menuLeft = btnCenter - menuW + 16;
+            if (menuLeft < 8) menuLeft = 8;
+            menu.style.left = menuLeft + 'px';
+            menu.style.right = 'auto';
             const closer = (e) => { if (!btn.contains(e.target) && !menu.contains(e.target)) { menu.style.display = 'none'; document.removeEventListener('click', closer); } };
             setTimeout(() => document.addEventListener('click', closer), 0);
         }
