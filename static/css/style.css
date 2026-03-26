@@ -12375,3 +12375,29 @@ body.light-theme .vc-stale-warning {
     border-color: rgba(180,83,9,0.15);
     color: #b45309;
 }
+
+/* ── 2FA Status Box (advanced.html) ── */
+.tfa-active-box { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.15); border-radius: 10px; }
+.tfa-active-icon { color: var(--accent); font-size: 1.2rem; }
+.tfa-active-info { flex: 1; }
+.tfa-active-label { color: #fff; font-weight: 600; }
+.tfa-phone-display { color: #888; font-size: 0.85rem; margin-left: 8px; }
+.tfa-disable-btn { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: #ef4444; font-size: 0.82rem; }
+.tfa-disable-btn:hover { background: rgba(239,68,68,0.18); }
+.tfa-disable-warning { color: #f87171; font-size: 0.85rem; margin-bottom: 8px; }
+.tfa-disable-password { flex: 1; max-width: 240px; }
+.tfa-confirm-btn { background: #ef4444; color: #fff; white-space: nowrap; }
+.tfa-confirm-btn:hover { background: #dc2626; color: #fff; }
+
+body.light-theme .tfa-active-box { background: rgba(0,120,60,0.06); border-color: rgba(0,120,60,0.15); }
+body.light-theme .tfa-active-label { color: var(--lt-text-primary); }
+body.light-theme .tfa-phone-display { color: var(--lt-text-muted); }
+body.light-theme .tfa-disable-warning { color: #dc2626; }
+
+/* ── Voice tab — override inline color:#fff on labels/headings ── */
+body.light-theme #voice label { color: var(--lt-text-secondary) !important; }
+body.light-theme #voice h4,
+body.light-theme #voice h5,
+body.light-theme #voice h6 { color: var(--lt-text-primary) !important; }
+body.light-theme #voice .form-check-label { color: var(--lt-text-primary) !important; font-weight: 600; }
+body.light-theme #voice p { color: var(--lt-text-muted) !important; }
