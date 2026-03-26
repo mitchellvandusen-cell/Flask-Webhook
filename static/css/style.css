@@ -95,56 +95,115 @@ body {
     min-height: 100vh;
 }
 
-/* Animated Aura Environment — glass panels refract these light sources */
+/* ═══════════════════════════════════════════════════
+   LIVING AURORA — 4 independent orbital light sources
+   Each blob has its own path, speed, color, and size.
+   Glass panels refract all four simultaneously.
+   ═══════════════════════════════════════════════════ */
+
+/* Shared base for all body pseudo-elements */
 body::before, body::after {
     content: '';
     position: fixed;
     border-radius: 50%;
     z-index: -1;
     pointer-events: none;
-    animation: aura-drift 22s ease-in-out infinite alternate;
 }
 
+/* Blob 1 — Emerald Giant: slow sweeping orbit top-left */
 body::before {
-    width: 80vw; height: 80vw;
-    top: -15%; left: -15%;
-    background: radial-gradient(circle, rgba(0,255,136,0.50) 0%, rgba(0,255,136,0.12) 40%, transparent 68%);
-    filter: blur(100px);
-    opacity: 0.70;
+    width: 95vw; height: 95vw;
+    top: -22%; left: -20%;
+    background: radial-gradient(ellipse at 40% 40%,
+        rgba(0,255,136,0.72) 0%,
+        rgba(0,230,120,0.28) 32%,
+        rgba(0,200,100,0.08) 55%,
+        transparent 72%);
+    filter: blur(90px);
+    opacity: 0.72;
+    animation: aura-orbit-a 32s ease-in-out infinite alternate;
 }
 
+/* Blob 2 — Deep Violet: wide moody anchor bottom-right */
 body::after {
-    width: 70vw; height: 70vw;
-    bottom: -25%; right: -12%;
-    background: radial-gradient(circle, rgba(110,70,255,0.55) 0%, rgba(110,70,255,0.12) 42%, transparent 68%);
+    width: 85vw; height: 85vw;
+    bottom: -28%; right: -16%;
+    background: radial-gradient(ellipse at 55% 55%,
+        rgba(130,60,255,0.78) 0%,
+        rgba(100,40,220,0.28) 35%,
+        rgba(70,20,180,0.08) 58%,
+        transparent 74%);
     filter: blur(110px);
-    opacity: 0.60;
-    animation-delay: -11s;
-    animation-duration: 26s;
+    opacity: 0.68;
+    animation: aura-orbit-b 26s ease-in-out infinite alternate;
+    animation-delay: -13s;
 }
 
-/* Third aura — top-right cyan accent light */
+/* Blob 3 — Arctic Cyan: accent light drifting top-right */
 html::before {
     content: '';
     position: fixed;
-    width: 55vw; height: 55vw;
-    top: -5%; right: -8%;
-    background: radial-gradient(circle, rgba(0,200,255,0.40) 0%, rgba(0,200,255,0.08) 44%, transparent 68%);
-    filter: blur(90px);
-    opacity: 0.50;
+    width: 62vw; height: 62vw;
+    top: -6%; right: -10%;
+    background: radial-gradient(ellipse at 50% 45%,
+        rgba(0,220,255,0.62) 0%,
+        rgba(0,180,230,0.18) 38%,
+        rgba(0,150,200,0.05) 60%,
+        transparent 72%);
+    filter: blur(80px);
+    opacity: 0.58;
     z-index: -1;
     pointer-events: none;
     border-radius: 50%;
-    animation: aura-drift-r 30s ease-in-out infinite alternate;
+    animation: aura-orbit-c 38s ease-in-out infinite alternate;
+    animation-delay: -8s;
 }
 
-@keyframes aura-drift {
-    0%   { transform: translate(0, 0) scale(1); }
-    100% { transform: translate(8vw, 6vh) scale(1.15); }
+/* Blob 4 — Amber Stage Light: warm centre-bottom glow (new) */
+html::after {
+    content: '';
+    position: fixed;
+    width: 55vw; height: 55vw;
+    bottom: 2%; left: 28%;
+    background: radial-gradient(ellipse at 50% 60%,
+        rgba(255,165,0,0.38) 0%,
+        rgba(255,110,0,0.12) 38%,
+        rgba(220,80,0,0.04) 60%,
+        transparent 75%);
+    filter: blur(100px);
+    opacity: 0.48;
+    z-index: -1;
+    pointer-events: none;
+    border-radius: 50%;
+    animation: aura-orbit-d 44s ease-in-out infinite alternate;
+    animation-delay: -22s;
 }
-@keyframes aura-drift-r {
-    0%   { transform: translate(0, 0) scale(1.1); }
-    100% { transform: translate(-6vw, 8vh) scale(0.9); }
+
+/* Multi-step orbital paths — each blob follows a unique figure-eight-ish trajectory */
+@keyframes aura-orbit-a {
+    0%   { transform: translate(0,    0)    scale(1.00); }
+    25%  { transform: translate(9vw,  5vh)  scale(1.12); }
+    50%  { transform: translate(5vw,  12vh) scale(0.94); }
+    75%  { transform: translate(12vw, 8vh)  scale(1.08); }
+    100% { transform: translate(7vw,  3vh)  scale(1.15); }
+}
+@keyframes aura-orbit-b {
+    0%   { transform: translate(0,     0)     scale(1.00); }
+    30%  { transform: translate(-9vw, -7vh)  scale(1.14); }
+    65%  { transform: translate(-5vw, -14vh) scale(0.88); }
+    100% { transform: translate(-11vw,-9vh)  scale(1.05); }
+}
+@keyframes aura-orbit-c {
+    0%   { transform: translate(0,   0)    scale(1.06); }
+    35%  { transform: translate(-5vw, 10vh) scale(0.85); }
+    70%  { transform: translate(-9vw, 5vh)  scale(1.10); }
+    100% { transform: translate(-4vw, 12vh) scale(0.90); }
+}
+@keyframes aura-orbit-d {
+    0%   { transform: translate(0,    0)    scale(1.00); }
+    40%  { transform: translate(-11vw,-6vh) scale(1.22); }
+    75%  { transform: translate(6vw, -10vh) scale(0.82); }
+    100% { transform: translate(9vw,  -5vh) scale(1.10); }
 }
 @keyframes slideUp {
     from { opacity: 0; transform: translateY(28px) scale(0.98); filter: blur(4px); }
@@ -12694,3 +12753,271 @@ body.light-theme #voice h5,
 body.light-theme #voice h6 { color: var(--lt-text-primary) !important; }
 body.light-theme #voice .form-check-label { color: var(--lt-text-primary) !important; font-weight: 600; }
 body.light-theme #voice p { color: var(--lt-text-muted) !important; }
+
+/* ═══════════════════════════════════════════════════════════
+   DEEP 3D GLASS SYSTEM
+   Dialer columns = floating slabs   Contact rows = etched
+   Billing/pricing cards = thick poured glass
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Dialer columns: theatrical floating glass slabs ── */
+#voicedialer .glass-panel {
+    background: linear-gradient(168deg,
+        rgba(255,255,255,0.20) 0%,
+        rgba(255,255,255,0.07) 55%,
+        rgba(255,255,255,0.02) 100%);
+    border-top-color: rgba(255,255,255,0.62);
+    border-left-color: rgba(255,255,255,0.34);
+    border-right-color: rgba(0,0,0,0.20);
+    border-bottom-color: rgba(0,0,0,0.20);
+    box-shadow:
+        /* Crisp contact shadow */
+        0 2px 4px rgba(0,0,0,0.62),
+        /* Mid diffuse halo */
+        0 18px 44px -6px rgba(0,0,0,0.58),
+        /* Far ambient pool */
+        0 56px 110px -28px rgba(0,0,0,0.50),
+        /* Aurora colour bleed */
+        0 0 90px -24px rgba(0,255,136,0.10),
+        /* Specular top rim — blazing bright */
+        inset 0 1px 0 rgba(255,255,255,0.70),
+        /* Glass slab thickness bottom */
+        inset 0 -3px 10px rgba(0,0,0,0.38),
+        /* Left wall catch-light */
+        inset 3px 0 0 rgba(255,255,255,0.24),
+        /* Right wall in shadow */
+        inset -1px 0 0 rgba(0,0,0,0.32);
+}
+
+/* Top-surface glare — diagonal light sheen across upper half of each column */
+#voicedialer .glass-panel::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 48%;
+    background: linear-gradient(175deg,
+        rgba(255,255,255,0.14) 0%,
+        rgba(255,255,255,0.06) 42%,
+        transparent 100%);
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Light theme dialer columns */
+body.light-theme #voicedialer .glass-panel {
+    background: linear-gradient(168deg,
+        rgba(255,255,255,0.94) 0%,
+        rgba(248,250,255,0.88) 100%);
+    border-top-color: rgba(255,255,255,1.0);
+    border-left-color: rgba(255,255,255,0.90);
+    border-right-color: rgba(0,0,0,0.08);
+    border-bottom-color: rgba(0,0,0,0.08);
+    box-shadow:
+        0 2px 6px rgba(0,0,0,0.12),
+        0 18px 44px -8px rgba(0,0,0,0.10),
+        0 52px 100px -28px rgba(0,0,0,0.08),
+        inset 0 1px 0 rgba(255,255,255,1.0),
+        inset 0 -2px 6px rgba(0,0,0,0.06),
+        inset 3px 0 0 rgba(255,255,255,0.80),
+        inset -1px 0 0 rgba(0,0,0,0.06);
+}
+body.light-theme #voicedialer .glass-panel::after {
+    background: linear-gradient(175deg,
+        rgba(255,255,255,0.60) 0%,
+        rgba(255,255,255,0.20) 42%,
+        transparent 100%);
+}
+
+/* ── Contact rows: etched into the glass surface ── */
+.dlr-contact-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 14px; cursor: pointer;
+    border-top: 1px solid rgba(0,0,0,0.18);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    border-left: 2px solid transparent;
+    position: relative;
+    /* Carved recess — darker than glass, inset shadow = depth below surface */
+    background: linear-gradient(180deg,
+        rgba(0,0,0,0.12) 0%,
+        rgba(0,0,0,0.06) 100%);
+    box-shadow:
+        inset 0 2px 6px rgba(0,0,0,0.24),
+        inset 0 -1px 0 rgba(255,255,255,0.04);
+    transition: background 0.14s ease, border-left-color 0.14s ease, box-shadow 0.14s ease;
+}
+.dlr-contact-row:hover {
+    background: linear-gradient(90deg,
+        rgba(0,217,255,0.08) 0%,
+        rgba(255,255,255,0.04) 100%);
+    border-left-color: rgba(0,217,255,0.45);
+    /* Hover: un-etch — row lifts toward viewer */
+    box-shadow:
+        0 1px 4px rgba(0,0,0,0.22),
+        inset 0 1px 3px rgba(0,0,0,0.12),
+        inset 0 -1px 0 rgba(255,255,255,0.07);
+}
+.dlr-contact-row.active {
+    background: linear-gradient(90deg,
+        rgba(0,217,255,0.13) 0%,
+        rgba(0,217,255,0.04) 100%);
+    border-left-color: #00d9ff;
+    /* Active: glowing recess with accent inner glow */
+    box-shadow:
+        0 1px 4px rgba(0,0,0,0.18),
+        inset 0 2px 7px rgba(0,0,0,0.18),
+        inset 0 1px 0 rgba(0,217,255,0.14),
+        inset 0 -1px 0 rgba(0,217,255,0.07);
+}
+
+/* Contact rows — light theme etched */
+body.light-theme .dlr-contact-row {
+    background: linear-gradient(180deg, rgba(0,0,0,0.03) 0%, rgba(0,0,0,0.01) 100%);
+    border-top-color: rgba(0,0,0,0.08);
+    border-bottom-color: rgba(255,255,255,0.60);
+    box-shadow:
+        inset 0 1px 3px rgba(0,0,0,0.07),
+        inset 0 -1px 0 rgba(255,255,255,0.80);
+}
+body.light-theme .dlr-contact-row:hover {
+    background: linear-gradient(90deg, rgba(0,100,200,0.05) 0%, rgba(0,100,200,0.02) 100%);
+    border-left-color: rgba(0,100,200,0.35);
+    box-shadow:
+        0 1px 4px rgba(0,0,0,0.06),
+        inset 0 1px 2px rgba(0,0,0,0.04),
+        inset 0 -1px 0 rgba(255,255,255,0.90);
+}
+body.light-theme .dlr-contact-row.active {
+    background: linear-gradient(90deg, rgba(0,100,200,0.08) 0%, rgba(0,100,200,0.03) 100%);
+    border-left-color: var(--lt-accent);
+    box-shadow:
+        0 1px 3px rgba(0,0,0,0.06),
+        inset 0 1px 3px rgba(0,0,0,0.06),
+        inset 0 -1px 0 rgba(255,255,255,0.80);
+}
+
+/* ── Billing plan cards: thick poured glass slabs ── */
+.billing-plan-card {
+    background: linear-gradient(162deg,
+        rgba(255,255,255,0.19) 0%,
+        rgba(255,255,255,0.07) 55%,
+        rgba(255,255,255,0.02) 100%) !important;
+    border-top-color: rgba(255,255,255,0.60) !important;
+    border-left-color: rgba(255,255,255,0.32) !important;
+    border-right-color: rgba(0,0,0,0.20) !important;
+    border-bottom-color: rgba(0,0,0,0.20) !important;
+    box-shadow:
+        0 2px 5px rgba(0,0,0,0.58),
+        0 22px 56px -10px rgba(0,0,0,0.58),
+        0 60px 120px -28px rgba(0,0,0,0.50),
+        inset 0 1px 0 rgba(255,255,255,0.68),
+        inset 0 -3px 10px rgba(0,0,0,0.36),
+        inset 3px 0 0 rgba(255,255,255,0.22),
+        inset -1px 0 0 rgba(0,0,0,0.25) !important;
+}
+.billing-plan-card:hover {
+    transform: translateY(-11px) scale(1.028) !important;
+    box-shadow:
+        0 4px 8px rgba(0,0,0,0.45),
+        0 32px 72px -10px rgba(0,255,136,0.22),
+        0 80px 160px -36px rgba(0,255,136,0.14),
+        inset 0 1px 0 rgba(255,255,255,0.80),
+        inset 0 -2px 8px rgba(0,0,0,0.22),
+        inset 3px 0 0 rgba(255,255,255,0.34),
+        inset -1px 0 0 rgba(0,0,0,0.12) !important;
+}
+.billing-plan-card.selected {
+    box-shadow:
+        0 4px 8px rgba(0,0,0,0.40),
+        0 0 50px rgba(0,255,136,0.18),
+        0 24px 60px -12px rgba(0,255,136,0.20),
+        inset 0 1px 0 rgba(255,255,255,0.70),
+        inset 0 -2px 8px rgba(0,0,0,0.26),
+        inset 3px 0 0 rgba(255,255,255,0.24) !important;
+    border-top-color: var(--accent) !important;
+    border-left-color: rgba(0,255,136,0.35) !important;
+}
+
+/* Billing cards — light theme */
+body.light-theme .billing-plan-card {
+    background: linear-gradient(162deg,
+        rgba(255,255,255,0.96) 0%,
+        rgba(248,250,255,0.90) 100%) !important;
+    border-top-color: rgba(255,255,255,1.0) !important;
+    border-left-color: rgba(255,255,255,0.85) !important;
+    border-right-color: rgba(0,0,0,0.08) !important;
+    border-bottom-color: rgba(0,0,0,0.08) !important;
+    box-shadow:
+        0 2px 8px rgba(0,0,0,0.10),
+        0 18px 48px -10px rgba(0,0,0,0.12),
+        0 48px 100px -28px rgba(0,0,0,0.08),
+        inset 0 1px 0 rgba(255,255,255,1.0),
+        inset 0 -2px 6px rgba(0,0,0,0.05),
+        inset 3px 0 0 rgba(255,255,255,0.70),
+        inset -1px 0 0 rgba(0,0,0,0.05) !important;
+}
+body.light-theme .billing-plan-card:hover {
+    box-shadow:
+        0 4px 10px rgba(0,0,0,0.10),
+        0 24px 64px -10px rgba(0,120,60,0.18),
+        0 64px 130px -32px rgba(0,120,60,0.10),
+        inset 0 1px 0 rgba(255,255,255,1.0),
+        inset 0 -2px 6px rgba(0,0,0,0.04),
+        inset 3px 0 0 rgba(255,255,255,0.80),
+        inset -1px 0 0 rgba(0,0,0,0.04) !important;
+}
+
+/* ── Marketing pricing cards: deep glass upgrade ── */
+/* Covers .price-card (home.html) and .pricing-card (comparison etc.) */
+.price-card, .ind-price-card {
+    box-shadow:
+        0 2px 6px rgba(0,0,0,0.62),
+        0 28px 72px -14px rgba(0,0,0,0.60),
+        0 70px 140px -32px rgba(0,0,0,0.52),
+        inset 0 1.5px 0 rgba(255,255,255,0.72),
+        inset 0 -3px 10px rgba(0,0,0,0.34),
+        inset 3px 0 0 rgba(255,255,255,0.24),
+        inset -1px 0 0 rgba(0,0,0,0.26) !important;
+    background: linear-gradient(168deg,
+        rgba(255,255,255,0.17) 0%,
+        rgba(255,255,255,0.065) 55%,
+        rgba(255,255,255,0.02) 100%) !important;
+    border-color: rgba(255,255,255,0.60) rgba(0,0,0,0.18) rgba(0,0,0,0.18) rgba(255,255,255,0.30) !important;
+}
+.price-card:hover, .ind-price-card:hover {
+    transform: translateY(-12px) scale(1.022) !important;
+    box-shadow:
+        0 4px 10px rgba(0,0,0,0.48),
+        0 36px 90px -14px rgba(0,255,136,0.24),
+        0 90px 180px -40px rgba(0,255,136,0.16),
+        inset 0 1.5px 0 rgba(255,255,255,0.85),
+        inset 0 -2px 8px rgba(0,0,0,0.20),
+        inset 3px 0 0 rgba(255,255,255,0.36),
+        inset -1px 0 0 rgba(0,0,0,0.10) !important;
+}
+.price-card.featured, .ind-price-card.featured {
+    box-shadow:
+        0 4px 8px rgba(0,0,0,0.52),
+        0 0 60px rgba(0,255,136,0.16),
+        0 28px 72px -14px rgba(0,255,136,0.24),
+        0 70px 140px -32px rgba(0,255,136,0.14),
+        inset 0 1.5px 0 rgba(255,255,255,0.80),
+        inset 0 -3px 10px rgba(0,0,0,0.30),
+        inset 3px 0 0 rgba(255,255,255,0.28),
+        inset -1px 0 0 rgba(0,0,0,0.20) !important;
+}
+
+.pricing-card {
+    box-shadow:
+        0 2px 6px rgba(0,0,0,0.62),
+        0 28px 72px -14px rgba(0,0,0,0.58),
+        0 70px 140px -32px rgba(0,0,0,0.50),
+        inset 0 1.5px 0 rgba(255,255,255,0.68),
+        inset 0 -3px 10px rgba(0,0,0,0.34),
+        inset 3px 0 0 rgba(255,255,255,0.22),
+        inset -1px 0 0 rgba(0,0,0,0.24) !important;
+    background: linear-gradient(168deg,
+        rgba(255,255,255,0.16) 0%,
+        rgba(255,255,255,0.06) 55%,
+        rgba(255,255,255,0.02) 100%) !important;
+}
