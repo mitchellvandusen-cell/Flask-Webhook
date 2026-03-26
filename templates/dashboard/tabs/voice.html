@@ -679,9 +679,31 @@
                                                     style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
                                             </div>
                                         </div>
-                                        <!-- Sole Proprietorship hint -->
-                                        <div id="spSolePropHint" style="display:none;margin-bottom:8px;padding:8px 12px;background:rgba(255,165,0,0.06);border:1px solid rgba(255,165,0,0.15);border-radius:8px;">
-                                            <div style="font-size:0.75rem;color:#ffa500;line-height:1.5;"><i class="fa-solid fa-circle-info me-1"></i><strong>Sole Proprietorship:</strong> Use your personal legal name as Business Name, and your SSN (not EIN) below. Address should be your personal address.</div>
+                                        <!-- Sole Proprietorship EIN section -->
+                                        <div id="spSolePropHint" style="display:none;margin-bottom:12px;">
+                                            <!-- Strong EIN recommendation -->
+                                            <div style="padding:10px 14px;background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.2);border-radius:8px;margin-bottom:10px;">
+                                                <div style="font-size:0.78rem;color:#00ff88;font-weight:700;margin-bottom:4px;"><i class="fa-solid fa-shield-halved me-1"></i>EIN Strongly Recommended for Sole Proprietors</div>
+                                                <div style="font-size:0.74rem;color:#aaa;line-height:1.6;">An EIN (Employer Identification Number) is a free federal tax ID from the IRS. Twilio's carrier trust network requires a business registration number — an EIN is the safest and most private option. It takes about 2 minutes online and is instant. <strong style="color:#fff;">Your SSN is not accepted.</strong></div>
+                                            </div>
+                                            <!-- Yes / No toggle -->
+                                            <div style="margin-bottom:8px;">
+                                                <div style="font-size:0.78rem;color:#ccc;font-weight:600;margin-bottom:6px;">Do you have an EIN?</div>
+                                                <div style="display:flex;gap:8px;">
+                                                    <button type="button" id="spEinYesBtn" onclick="spSetEinAvailable(true)"
+                                                        style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid rgba(0,255,136,0.3);background:rgba(0,0,0,0);color:#aaa;font-size:0.82rem;font-weight:600;cursor:pointer;transition:all .2s;">
+                                                        <i class="fa-solid fa-check me-1"></i> Yes, I have an EIN
+                                                    </button>
+                                                    <button type="button" id="spEinNoBtn" onclick="spSetEinAvailable(false)"
+                                                        style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(0,0,0,0);color:#aaa;font-size:0.82rem;font-weight:600;cursor:pointer;transition:all .2s;">
+                                                        <i class="fa-solid fa-xmark me-1"></i> No, I need one
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <!-- No-EIN info card -->
+                                            <div id="spNoEinCard" style="display:none;padding:10px 14px;background:rgba(255,165,0,0.05);border:1px solid rgba(255,165,0,0.15);border-radius:8px;">
+                                                <div style="font-size:0.74rem;color:#aaa;line-height:1.65;"><i class="fa-solid fa-circle-info me-1" style="color:#ffa500;"></i>You can still register — you'll be asked to confirm before proceeding with your SSN. Or <a href="/getting-ein" target="_blank" style="color:#ffa500;text-decoration:underline;">get a free EIN from the IRS</a> in about 5 minutes.</div>
+                                            </div>
                                         </div>
                                         <div class="row g-2 mb-3">
                                             <div class="col-md-8">

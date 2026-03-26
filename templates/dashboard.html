@@ -5,6 +5,20 @@
     {% include "dashboard/_sidebar.html" %}
     {% endif %}
 
+    <!-- PLATFORM STATUS NOTICE — remove once Twilio restores account -->
+    <div id="platformStatusBanner" style="position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(90deg,#1a0a00,#2a1200,#1a0a00);border-bottom:1px solid rgba(255,140,0,0.4);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 2px 20px rgba(255,100,0,0.2);">
+        <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+            <i class="fa-solid fa-triangle-exclamation" style="color:#ffaa44;font-size:0.9rem;flex-shrink:0;"></i>
+            <div>
+                <span style="font-size:0.82rem;font-weight:700;color:#ffaa44;letter-spacing:0.03em;">SERVICE NOTICE &nbsp;|&nbsp; </span>
+                <span style="font-size:0.82rem;color:#e8c080;line-height:1.5;">Outbound calls and SMS messaging are temporarily unavailable. Our team is actively working to restore full service. We apologize for the inconvenience and will update you as soon as service is restored.</span>
+            </div>
+        </div>
+        <button onclick="document.getElementById('platformStatusBanner').style.display='none'" style="background:none;border:none;color:#886644;font-size:1rem;cursor:pointer;flex-shrink:0;padding:2px 6px;line-height:1;" title="Dismiss">&times;</button>
+    </div>
+    <script>document.querySelector('.main-wrapper') && (document.querySelector('.main-wrapper').style.paddingTop = '42px');</script>
+    <!-- END PLATFORM STATUS NOTICE -->
+
     <div class="main-wrapper">
 
         {% if not embed_mode %}

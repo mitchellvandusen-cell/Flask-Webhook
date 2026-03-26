@@ -846,6 +846,90 @@ _ALLOWED_UPDATE_FIELDS = {
     "companyName", "website", "source", "tags",
 }
 
+@contacts_bp.route('/voice/move-pipeline', methods=['POST'])
+@login_required
+def move_pipeline():
+    """Move one or more contacts' opportunities to a different pipeline/stage.
+
+    Body: { contact_ids: [...], pipeline_id: "...", stage_id: "..." (optional) }
+    Updates existing opportunities; creates a new open opportunity when none exists.
+    """
+    data = request.get_json(silent=True) or {}
+    contact_ids = data.get('contact_ids', [])
+    pipeline_id = (data.get('pipeline_id') or '').strip()
+    stage_id = (data.get('stage_id') or '').strip()
+
+    if not contact_ids or not pipeline_id:
+        return jsonify({"error": "contact_ids and pipeline_id required"}), 400
+    if len(contact_ids) > 100:
+        return jsonify({"error": "Max 100 contacts per request"}), 400
+
+    location_id, access_token, headers = _get_current_location_and_token()
+    if not access_token:
+        return jsonify({"error": "No valid auth token"}), 401
+
+    moved = 0
+    created = 0
+    failed = 0
+
+    for contact_id in contact_ids:
+        try:
+            search_resp = http_requests.get(
+                f"{GHL_API_BASE}/opportunities/search",
+                headers=headers,
+                params={"location_id": location_id, "contact_id": contact_id, "limit": 10},
+                timeout=10,
+            )
+            if search_resp.status_code != 200:
+                logger.warning(f"move_pipeline search {contact_id}: {search_resp.status_code}")
+                failed += 1
+                continue
+
+            opps = search_resp.json().get("opportunities", [])
+            if opps:
+                opp_id = opps[0]["id"]
+                update_payload = {"pipelineId": pipeline_id}
+                if stage_id:
+                    update_payload["pipelineStageId"] = stage_id
+                put_resp = http_requests.put(
+                    f"{GHL_API_BASE}/opportunities/{opp_id}",
+                    headers=headers,
+                    json=update_payload,
+                    timeout=10,
+                )
+                if put_resp.status_code in (200, 201):
+                    moved += 1
+                else:
+                    logger.warning(f"move_pipeline PUT {opp_id}: {put_resp.status_code} {put_resp.text[:200]}")
+                    failed += 1
+            else:
+                create_payload = {
+                    "pipelineId": pipeline_id,
+                    "locationId": location_id,
+                    "contactId": contact_id,
+                    "name": "New Opportunity",
+                    "status": "open",
+                }
+                if stage_id:
+                    create_payload["pipelineStageId"] = stage_id
+                post_resp = http_requests.post(
+                    f"{GHL_API_BASE}/opportunities/",
+                    headers=headers,
+                    json=create_payload,
+                    timeout=10,
+                )
+                if post_resp.status_code in (200, 201):
+                    created += 1
+                else:
+                    logger.warning(f"move_pipeline create {contact_id}: {post_resp.status_code} {post_resp.text[:200]}")
+                    failed += 1
+        except Exception as e:
+            logger.error(f"move_pipeline error contact {contact_id}: {e}")
+            failed += 1
+
+    return jsonify({"moved": moved, "created": created, "failed": failed})
+
+
 @contacts_bp.route('/voice/contact/<contact_id>', methods=['PUT'])
 @login_required
 def update_contact(contact_id):

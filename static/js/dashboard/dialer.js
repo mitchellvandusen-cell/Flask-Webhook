@@ -1643,6 +1643,7 @@
                     '<div style="font-size:0.78rem;color:#555;">' + dialerEsc(c.phone) + dispBadge + '</div>' +
                 '</div>' +
                 (inQ ? '<i class="fa-solid fa-list-ol" style="color:#00d9ff;font-size:0.75rem;" title="In queue"></i>' : '') +
+                '<button class="mvp-row-btn" onclick="event.stopPropagation();_mvpOpenSingle(\'' + c.id.replace(/'/g, "\\'") + '\')">Move</button>' +
             '</div>';
         }
 
@@ -2909,6 +2910,8 @@
             document.getElementById('dialerSelectedCount').textContent = cnt > 0 ? '(' + cnt + ')' : '';
             document.getElementById('dialerAddSelectedBtn').disabled = cnt === 0;
             document.getElementById('dialerCallSelectedBtn').disabled = cnt === 0;
+            const moveBtn = document.getElementById('dialerMoveSelectedBtn');
+            if (moveBtn) moveBtn.disabled = cnt === 0;
             const sa = document.getElementById('dialerSelectAll');
             if (sa) sa.checked = dialerContacts.length > 0 && cnt === dialerContacts.length;
         }
@@ -4973,6 +4976,16 @@
                     logLevel: 'debug',
                     closeProtection: true,
                     codecPreferences: ['opus', 'pcmu'],
+                    // Disable browser audio processing that causes mic breakup/pumping artifacts.
+                    // AGC and noise suppression fight each other on fast connections and cause
+                    // the "breaking out" choppy mic effect. Echo cancellation stays on.
+                    audioConstraints: {
+                        autoGainControl: false,
+                        noiseSuppression: false,
+                        echoCancellation: true,
+                    },
+                    // Prefer US edges to minimize latency-induced jitter
+                    edge: ['ashburn', 'umatilla', 'roaming'],
                 });
 
                 console.log('[VoIP] Device created, SDK version:', Twilio.Device.packageName || 'unknown');
@@ -8779,6 +8792,193 @@
                 '<span class="insights-metric-label">' + dialerEsc(label) + '</span>' +
                 '<span class="insights-metric-value">' + dialerEsc(String(value)) + '</span>' +
                 '</div>';
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  MOVE PIPELINE PANEL
+        // ═══════════════════════════════════════════════════════════════
+
+        let _mvpContactIds    = [];   // contact IDs being moved
+        let _mvpPipelineId    = null; // selected pipeline id
+        let _mvpPipelineName  = '';
+        let _mvpStageId       = null; // selected stage id (optional)
+        let _mvpStageName     = '';
+        let _mvpOpenPipe      = null; // which pipeline accordion is expanded
+
+        // Open for a single contact row button
+        function _mvpOpenSingle(contactId) {
+            _mvpContactIds = [contactId];
+            _mvpShow();
+        }
+
+        // Open for the bulk selection
+        function _mvpOpen() {
+            if (dialerSelected.size === 0) return;
+            _mvpContactIds = Array.from(dialerSelected);
+            _mvpShow();
+        }
+
+        function _mvpShow() {
+            // Reset state
+            _mvpPipelineId   = null;
+            _mvpPipelineName = '';
+            _mvpStageId      = null;
+            _mvpStageName    = '';
+            _mvpOpenPipe     = null;
+
+            // Update count label
+            const countEl = document.getElementById('mvpCountLabel');
+            if (countEl) countEl.textContent = _mvpContactIds.length === 1 ? '1 contact' : _mvpContactIds.length + ' contacts';
+
+            // Clear search
+            const search = document.getElementById('mvpSearch');
+            if (search) search.value = '';
+
+            // Reset footer
+            _mvpUpdateFooter();
+
+            // Render pipeline list
+            _mvpRender('');
+
+            // Show overlay
+            document.getElementById('mvpOverlay').classList.add('open');
+        }
+
+        function _mvpClose() {
+            document.getElementById('mvpOverlay').classList.remove('open');
+        }
+
+        function _mvpFilter() {
+            const q = (document.getElementById('mvpSearch').value || '').trim().toLowerCase();
+            _mvpRender(q);
+        }
+
+        function _mvpRender(q) {
+            const list = document.getElementById('mvpList');
+            if (!list) return;
+
+            const pipes = (dialerPipelines || []).filter(p =>
+                !q || p.name.toLowerCase().includes(q)
+            );
+
+            if (!pipes.length) {
+                list.innerHTML = '<div class="mvp-none">' + (q ? 'No pipelines match' : 'No pipelines found') + '</div>';
+                return;
+            }
+
+            list.innerHTML = pipes.map(p => {
+                const isSelectedPipe = _mvpPipelineId === p.id;
+                const isOpen = _mvpOpenPipe === p.id;
+                let stagesHtml = '';
+                if (isOpen && p.stages && p.stages.length) {
+                    stagesHtml = p.stages.map(s => {
+                        const isSel = _mvpStageId === s.id;
+                        return '<div class="mvp-stage-item' + (isSel ? ' selected' : '') + '" onclick="_mvpSelectStage(\'' +
+                            _mvpEsc(p.id) + '\',\'' + _mvpEsc(p.name) + '\',\'' + _mvpEsc(s.id) + '\',\'' + _mvpEsc(s.name) + '\')">' +
+                            '<span class="mvp-stage-dot"></span>' + _mvpEscHtml(s.name) + '</div>';
+                    }).join('');
+                }
+                return '<div class="mvp-pipe-item">' +
+                    '<div class="mvp-pipe-hdr' + (isSelectedPipe ? ' selected' : '') + (isOpen ? ' open' : '') +
+                    '" onclick="_mvpTogglePipe(\'' + _mvpEsc(p.id) + '\',\'' + _mvpEsc(p.name) + '\')">' +
+                    _mvpEscHtml(p.name) +
+                    (p.stages && p.stages.length ? '<span class="mvp-pipe-arrow fa-solid fa-chevron-down"></span>' : '') +
+                    '</div>' +
+                    (isOpen ? '<div class="mvp-stages open">' + stagesHtml + '</div>' : '') +
+                    '</div>';
+            }).join('');
+        }
+
+        function _mvpTogglePipe(pipelineId, pipelineName) {
+            if (_mvpOpenPipe === pipelineId) {
+                // Collapse — keep pipeline selected, clear stage
+                _mvpOpenPipe    = null;
+                _mvpPipelineId  = pipelineId;
+                _mvpPipelineName = pipelineName;
+                _mvpStageId     = null;
+                _mvpStageName   = '';
+            } else {
+                // Expand this pipeline
+                _mvpOpenPipe    = pipelineId;
+                _mvpPipelineId  = pipelineId;
+                _mvpPipelineName = pipelineName;
+                _mvpStageId     = null;
+                _mvpStageName   = '';
+            }
+            _mvpUpdateFooter();
+            const q = (document.getElementById('mvpSearch').value || '').trim().toLowerCase();
+            _mvpRender(q);
+        }
+
+        function _mvpSelectStage(pipelineId, pipelineName, stageId, stageName) {
+            _mvpPipelineId   = pipelineId;
+            _mvpPipelineName = pipelineName;
+            _mvpStageId      = stageId;
+            _mvpStageName    = stageName;
+            _mvpUpdateFooter();
+            const q = (document.getElementById('mvpSearch').value || '').trim().toLowerCase();
+            _mvpRender(q);
+        }
+
+        function _mvpUpdateFooter() {
+            const dest = document.getElementById('mvpDestLabel');
+            const btn  = document.getElementById('mvpMoveBtn');
+            if (!dest || !btn) return;
+            if (_mvpPipelineId) {
+                dest.textContent = _mvpStageName
+                    ? _mvpPipelineName + '  —  ' + _mvpStageName
+                    : _mvpPipelineName;
+                btn.disabled = false;
+            } else {
+                dest.textContent = '';
+                btn.disabled = true;
+            }
+        }
+
+        async function _mvpExecute() {
+            if (!_mvpPipelineId || !_mvpContactIds.length) return;
+            const btn = document.getElementById('mvpMoveBtn');
+            btn.disabled = true;
+            btn.textContent = 'Moving...';
+            try {
+                const body = { contact_ids: _mvpContactIds, pipeline_id: _mvpPipelineId };
+                if (_mvpStageId) body.stage_id = _mvpStageId;
+                const r = await fetch('/voice/move-pipeline', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                const d = await r.json();
+                if (!r.ok) {
+                    _showDashToast(false, d.error || 'Move failed');
+                } else {
+                    const total = (d.moved || 0) + (d.created || 0);
+                    const fail  = d.failed || 0;
+                    if (fail === 0) {
+                        _showDashToast(true, total + ' contact' + (total === 1 ? '' : 's') + ' moved to ' + _mvpPipelineName + (_mvpStageName ? ' — ' + _mvpStageName : ''));
+                    } else {
+                        _showDashToast(false, total + ' moved, ' + fail + ' failed');
+                    }
+                    _mvpClose();
+                    dialerSelected.clear();
+                    dialerUpdateSelectionUI();
+                    dialerRenderContacts();
+                }
+            } catch(e) {
+                _showDashToast(false, 'Network error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Move';
+            }
+        }
+
+        function _mvpEsc(s) {
+            return (s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        }
+        function _mvpEscHtml(s) {
+            const d = document.createElement('div');
+            d.textContent = s || '';
+            return d.innerHTML;
         }
 
         // Auto-init on page load

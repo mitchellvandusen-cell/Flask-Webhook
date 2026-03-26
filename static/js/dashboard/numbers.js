@@ -360,14 +360,102 @@
             var bizNameInput = document.getElementById('spBizName');
 
             if (hint) hint.style.display = isSoleProp ? 'block' : 'none';
-            if (einLabel) einLabel.textContent = isSoleProp ? 'SSN (Social Security Number)' : 'EIN (Tax ID)';
-            if (einInput) einInput.placeholder = isSoleProp ? 'XXX-XX-XXXX' : 'XX-XXXXXXX';
-            if (bizNameLabel) bizNameLabel.textContent = isSoleProp ? 'Full Legal Name (as on SSN card)' : 'Business Name (must match IRS docs)';
+
+            // Reset EIN toggle state when switching away from sole prop
+            if (!isSoleProp) {
+                var noCard = document.getElementById('spNoEinCard');
+                var yesBtn = document.getElementById('spEinYesBtn');
+                var noBtn = document.getElementById('spEinNoBtn');
+                if (noCard) noCard.style.display = 'none';
+                if (yesBtn) { yesBtn.style.background = 'rgba(0,0,0,0)'; yesBtn.style.color = '#aaa'; }
+                if (noBtn) { noBtn.style.background = 'rgba(0,0,0,0)'; noBtn.style.color = '#aaa'; }
+                _spEinBypassWarning = false;
+            }
+
+            if (einLabel) einLabel.textContent = 'EIN (Tax ID)';
+            if (einInput) einInput.placeholder = 'XX-XXXXXXX';
+            if (bizNameLabel) bizNameLabel.textContent = isSoleProp ? 'Full Legal Name (as on IRS EIN letter)' : 'Business Name (must match IRS docs)';
             if (bizNameInput) bizNameInput.placeholder = isSoleProp ? 'John Michael Doe' : 'ACME Insurance LLC';
         }
         window.spBizTypeChanged = spBizTypeChanged;
 
+        var _spEinBypassWarning = false;
+
+        // EIN yes/no toggle for sole proprietors
+        function spSetEinAvailable(hasEin) {
+            var yesBtn = document.getElementById('spEinYesBtn');
+            var noBtn = document.getElementById('spEinNoBtn');
+            var noCard = document.getElementById('spNoEinCard');
+            var einLabel = document.getElementById('spEINLabel');
+            var einInput = document.getElementById('spEIN');
+
+            _spEinBypassWarning = false; // reset bypass when toggling
+
+            if (hasEin) {
+                if (yesBtn) { yesBtn.style.background = 'rgba(0,255,136,0.15)'; yesBtn.style.color = '#00ff88'; yesBtn.style.borderColor = 'rgba(0,255,136,0.5)'; }
+                if (noBtn) { noBtn.style.background = 'rgba(0,0,0,0)'; noBtn.style.color = '#aaa'; noBtn.style.borderColor = 'rgba(255,255,255,0.1)'; }
+                if (noCard) noCard.style.display = 'none';
+                if (einLabel) einLabel.textContent = 'EIN (Tax ID)';
+                if (einInput) einInput.placeholder = 'XX-XXXXXXX';
+            } else {
+                if (noBtn) { noBtn.style.background = 'rgba(255,165,0,0.12)'; noBtn.style.color = '#ffa500'; noBtn.style.borderColor = 'rgba(255,165,0,0.4)'; }
+                if (yesBtn) { yesBtn.style.background = 'rgba(0,0,0,0)'; yesBtn.style.color = '#aaa'; yesBtn.style.borderColor = 'rgba(255,255,255,0.1)'; }
+                if (noCard) noCard.style.display = 'block';
+                if (einLabel) einLabel.textContent = 'SSN (Tax ID)';
+                if (einInput) einInput.placeholder = 'XXX-XX-XXXX';
+            }
+        }
+        window.spSetEinAvailable = spSetEinAvailable;
+
+        // Show centered EIN warning modal — first click warns, second click bypasses
+        function _showEinWarningModal() {
+            var existing = document.getElementById('spEinWarningOverlay');
+            if (existing) existing.remove();
+
+            var overlay = document.createElement('div');
+            overlay.id = 'spEinWarningOverlay';
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);';
+
+            overlay.innerHTML =
+                '<div style="background:#0d0d0d;border:1px solid rgba(255,165,0,0.3);border-radius:16px;padding:32px 28px;max-width:400px;width:100%;text-align:center;box-shadow:0 32px 64px rgba(0,0,0,0.7);">' +
+                    '<div style="margin-bottom:14px;"><i class="fa-solid fa-triangle-exclamation" style="font-size:2rem;color:#ffaa44;"></i></div>' +
+                    '<div style="font-size:1rem;font-weight:800;color:#fff;margin-bottom:10px;">EIN Strongly Recommended</div>' +
+                    '<div style="font-size:0.83rem;color:#aaa;line-height:1.75;margin-bottom:22px;">' +
+                        'An EIN protects your Social Security Number and gives carriers the business identity they need to remove spam labels from your numbers. Getting one is <strong style="color:#fff;">completely free</strong> and takes about <strong style="color:#fff;">5 minutes</strong> on the IRS website.' +
+                    '</div>' +
+                    '<a href="/getting-ein" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;background:linear-gradient(135deg,#00ff88,#00cc6a);border-radius:9px;color:#000;font-size:0.88rem;font-weight:800;text-decoration:none;margin-bottom:10px;">' +
+                        '<i class="fa-solid fa-arrow-up-right-from-square"></i> Get Your Free EIN from IRS.gov' +
+                    '</a>' +
+                    '<button onclick="_spContinueWithSsn()" style="width:100%;padding:11px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:9px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;transition:all .2s;" onmouseover="this.style.color=\'#ccc\'" onmouseout="this.style.color=\'#888\'">' +
+                        'Continue with SSN anyway' +
+                    '</button>' +
+                '</div>';
+
+            document.body.appendChild(overlay);
+
+            // Close on backdrop click
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) overlay.remove();
+            });
+        }
+
+        function _spContinueWithSsn() {
+            var overlay = document.getElementById('spEinWarningOverlay');
+            if (overlay) overlay.remove();
+            _spEinBypassWarning = true;
+            registerSpamProtection();
+        }
+        window._spContinueWithSsn = _spContinueWithSsn;
+
         async function registerSpamProtection() {
+            // If sole prop selected "No EIN" and hasn't acknowledged the warning yet, show modal first
+            var isSoleProp = (document.getElementById('spBizType')?.value || '') === 'Sole Proprietorship';
+            var noEinActive = document.getElementById('spEinNoBtn')?.style.color === 'rgb(255, 165, 0)';
+            if (isSoleProp && noEinActive && !_spEinBypassWarning) {
+                _showEinWarningModal();
+                return;
+            }
+
             const btn = document.getElementById('spRegisterBtn');
             const result = document.getElementById('spRegisterResult');
             // Build contact_name from separate first/last name fields

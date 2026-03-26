@@ -94,6 +94,11 @@ def a2p_guide():
     return render_template('a2p-guide.html')
 
 
+@public_bp.route("/getting-ein")
+def getting_ein():
+    return render_template('getting-ein.html')
+
+
 @public_bp.route("/articles")
 def articles():
     return render_template('articles.html')

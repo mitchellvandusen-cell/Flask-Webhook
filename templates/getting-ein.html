@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Get a Free EIN for Your Insurance Business | InsuranceGrokBot</title>
+    <meta name="description" content="Step-by-step guide to getting a free Employer Identification Number (EIN) from the IRS in about 2 minutes. Required for phone number spam protection registration.">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            margin: 0; padding: 0;
+            background: #050505;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+        }
+        .ein-wrap {
+            max-width: 780px;
+            margin: 0 auto;
+            padding: 40px 20px 80px;
+        }
+        .ein-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: #666;
+            font-size: 0.82rem;
+            text-decoration: none;
+            margin-bottom: 28px;
+            transition: color .2s;
+        }
+        .ein-back:hover { color: #00ff88; }
+        .ein-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .ein-header-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            background: rgba(0,255,136,0.08);
+            border: 1px solid rgba(0,255,136,0.2);
+            border-radius: 20px;
+            padding: 6px 16px;
+            font-size: 0.78rem;
+            color: #00ff88;
+            font-weight: 600;
+            margin-bottom: 18px;
+        }
+        .ein-header h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            margin: 0 0 14px;
+            line-height: 1.2;
+        }
+        .ein-header p {
+            color: #999;
+            font-size: 1rem;
+            line-height: 1.6;
+            margin: 0;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .ein-cta-top {
+            display: flex;
+            justify-content: center;
+            margin: 28px 0 40px;
+        }
+        .ein-btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 28px;
+            background: linear-gradient(135deg, #00ff88, #00cc6a);
+            border-radius: 10px;
+            color: #000;
+            font-size: 0.95rem;
+            font-weight: 800;
+            text-decoration: none;
+            transition: opacity .2s;
+        }
+        .ein-btn-primary:hover { opacity: 0.88; color: #000; }
+        .ein-btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 24px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 10px;
+            color: #ccc;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all .2s;
+        }
+        .ein-btn-secondary:hover { background: rgba(255,255,255,0.08); color: #fff; }
+
+        /* Why you need it */
+        .ein-why {
+            background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+            padding: 24px;
+            margin-bottom: 36px;
+        }
+        .ein-why h2 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #fff;
+            margin: 0 0 14px;
+        }
+        .ein-why-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+        .ein-why-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: 0.82rem;
+            color: #bbb;
+            line-height: 1.5;
+        }
+        .ein-why-item i {
+            color: #00ff88;
+            font-size: 0.85rem;
+            margin-top: 2px;
+            flex-shrink: 0;
+        }
+
+        /* Steps */
+        .ein-steps-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 20px;
+        }
+        .ein-step {
+            display: flex;
+            gap: 18px;
+            margin-bottom: 24px;
+            position: relative;
+        }
+        .ein-step:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            left: 18px;
+            top: 44px;
+            bottom: -12px;
+            width: 2px;
+            background: rgba(255,255,255,0.07);
+        }
+        .ein-step-num {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: rgba(0,255,136,0.1);
+            border: 1px solid rgba(0,255,136,0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: #00ff88;
+            flex-shrink: 0;
+        }
+        .ein-step-body {
+            flex: 1;
+            padding-top: 6px;
+        }
+        .ein-step-body h3 {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #fff;
+            margin: 0 0 6px;
+        }
+        .ein-step-body p {
+            font-size: 0.82rem;
+            color: #999;
+            line-height: 1.65;
+            margin: 0 0 10px;
+        }
+        .ein-step-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            background: rgba(0,217,255,0.07);
+            border: 1px solid rgba(0,217,255,0.18);
+            border-radius: 7px;
+            color: #00d9ff;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all .2s;
+        }
+        .ein-step-link:hover { background: rgba(0,217,255,0.12); color: #00d9ff; }
+        .ein-step-note {
+            display: inline-flex;
+            align-items: flex-start;
+            gap: 7px;
+            padding: 8px 12px;
+            background: rgba(255,165,0,0.06);
+            border: 1px solid rgba(255,165,0,0.15);
+            border-radius: 7px;
+            font-size: 0.76rem;
+            color: #ffa500;
+            line-height: 1.5;
+            margin-top: 8px;
+        }
+        .ein-step-note i { flex-shrink: 0; margin-top: 1px; }
+
+        /* Hours note */
+        .ein-hours {
+            background: rgba(0,217,255,0.04);
+            border: 1px solid rgba(0,217,255,0.1);
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin: 32px 0;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+        .ein-hours i { color: #00d9ff; font-size: 1rem; margin-top: 2px; flex-shrink: 0; }
+        .ein-hours-text { font-size: 0.82rem; color: #bbb; line-height: 1.6; }
+        .ein-hours-text strong { color: #fff; }
+
+        /* FAQ */
+        .ein-faq-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #fff;
+            margin: 36px 0 16px;
+        }
+        .ein-faq-item {
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            padding: 14px 0;
+        }
+        .ein-faq-item:last-child { border-bottom: none; }
+        .ein-faq-q {
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: #ddd;
+            margin-bottom: 6px;
+        }
+        .ein-faq-a {
+            font-size: 0.82rem;
+            color: #888;
+            line-height: 1.65;
+        }
+        .ein-faq-a a { color: #00d9ff; text-decoration: none; }
+        .ein-faq-a a:hover { text-decoration: underline; }
+
+        /* Bottom CTA */
+        .ein-bottom-cta {
+            background: rgba(0,255,136,0.05);
+            border: 1px solid rgba(0,255,136,0.15);
+            border-radius: 14px;
+            padding: 28px 24px;
+            text-align: center;
+            margin-top: 40px;
+        }
+        .ein-bottom-cta h3 { font-size: 1.05rem; font-weight: 700; margin: 0 0 8px; }
+        .ein-bottom-cta p { font-size: 0.84rem; color: #999; margin: 0 0 18px; }
+
+        /* Light theme */
+        body.light-theme {
+            background: var(--lt-bg);
+            color: var(--lt-text-primary);
+        }
+        body.light-theme .ein-back { color: #888; }
+        body.light-theme .ein-header p { color: var(--lt-text-muted); }
+        body.light-theme .ein-why {
+            background: rgba(255,255,255,0.85);
+            border-color: rgba(0,0,0,0.08);
+        }
+        body.light-theme .ein-why h2 { color: var(--lt-text-primary); }
+        body.light-theme .ein-why-item { color: var(--lt-text-secondary); }
+        body.light-theme .ein-step-body h3 { color: var(--lt-text-primary); }
+        body.light-theme .ein-step-body p { color: var(--lt-text-muted); }
+        body.light-theme .ein-faq-q { color: var(--lt-text-secondary); }
+        body.light-theme .ein-faq-a { color: var(--lt-text-muted); }
+        body.light-theme .ein-faq-item { border-color: rgba(0,0,0,0.07); }
+        body.light-theme .ein-bottom-cta {
+            background: rgba(0,170,94,0.06);
+            border-color: rgba(0,170,94,0.15);
+        }
+        body.light-theme .ein-hours {
+            background: rgba(0,100,200,0.04);
+            border-color: rgba(0,100,200,0.12);
+        }
+        body.light-theme .ein-hours-text { color: var(--lt-text-secondary); }
+        body.light-theme .ein-hours-text strong { color: var(--lt-text-primary); }
+        body.light-theme .ein-btn-secondary {
+            background: rgba(0,0,0,0.05);
+            border-color: rgba(0,0,0,0.12);
+            color: var(--lt-text-secondary);
+        }
+    </style>
+</head>
+<body>
+
+<div class="ein-wrap">
+
+    <a href="/dashboard" class="ein-back"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
+
+    <!-- Header -->
+    <div class="ein-header">
+        <div class="ein-header-badge"><i class="fa-solid fa-building-columns"></i> Free • Takes ~2 Minutes</div>
+        <h1>How to Get Your Free EIN<br><span style="color:#00ff88;">from the IRS</span></h1>
+        <p>An EIN (Employer Identification Number) is a free federal tax ID issued by the IRS. Sole proprietors need one to register phone numbers for spam protection — and it protects your SSN from ever being shared with carriers.</p>
+    </div>
+
+    <div class="ein-cta-top">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">
+            <a href="https://www.irs.gov/businesses/small-businesses-self-employed/apply-for-an-employer-identification-number-ein-online" target="_blank" class="ein-btn-primary">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Apply for EIN on IRS.gov
+            </a>
+            <a href="https://www.irs.gov/businesses/small-businesses-self-employed/employer-id-numbers" target="_blank" class="ein-btn-secondary">
+                <i class="fa-solid fa-circle-info"></i> What is an EIN?
+            </a>
+        </div>
+    </div>
+
+    <!-- Why you need it -->
+    <div class="ein-why">
+        <h2><i class="fa-solid fa-shield-halved me-2" style="color:#00ff88;"></i>Why You Need an EIN as a Sole Proprietor</h2>
+        <div class="ein-why-grid">
+            <div class="ein-why-item">
+                <i class="fa-solid fa-circle-check"></i>
+                <span>Required by Twilio's carrier trust network to verify your business identity for spam protection registration</span>
+            </div>
+            <div class="ein-why-item">
+                <i class="fa-solid fa-circle-check"></i>
+                <span>Keeps your Social Security Number private — you never share your SSN with Twilio or any carrier</span>
+            </div>
+            <div class="ein-why-item">
+                <i class="fa-solid fa-circle-check"></i>
+                <span>Accepted everywhere a business tax ID is needed — banks, vendors, A2P 10DLC, CNAM, Voice Integrity</span>
+            </div>
+            <div class="ein-why-item">
+                <i class="fa-solid fa-circle-check"></i>
+                <span>100% free from the IRS — no cost, no annual fee, yours instantly after the online application</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- IRS Hours notice -->
+    <div class="ein-hours">
+        <i class="fa-solid fa-clock"></i>
+        <div class="ein-hours-text">
+            <strong>IRS Online EIN Application Hours:</strong> Monday–Friday, 7:00 a.m. – 10:00 p.m. Eastern Time. The application is not available on weekends or federal holidays. Your EIN is issued immediately at the end of the online session.
+        </div>
+    </div>
+
+    <!-- Steps -->
+    <div class="ein-steps-title"><i class="fa-solid fa-list-ol me-2" style="color:#a78bfa;"></i>Step-by-Step Instructions</div>
+
+    <div class="ein-step">
+        <div class="ein-step-num">1</div>
+        <div class="ein-step-body">
+            <h3>Go to the IRS EIN Online Application</h3>
+            <p>The IRS provides a free, secure online application at IRS.gov. No account creation required — you fill out a short form and receive your EIN immediately.</p>
+            <a href="https://www.irs.gov/businesses/small-businesses-self-employed/apply-for-an-employer-identification-number-ein-online" target="_blank" class="ein-step-link">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> IRS EIN Online Application →
+            </a>
+        </div>
+    </div>
+
+    <div class="ein-step">
+        <div class="ein-step-num">2</div>
+        <div class="ein-step-body">
+            <h3>Click "Apply Online Now"</h3>
+            <p>On the IRS page, click the <strong style="color:#fff;">"Apply Online Now"</strong> button to start the EIN Assistant. Read through the instructions and click "Begin Application" to proceed.</p>
+            <div class="ein-step-note">
+                <i class="fa-solid fa-circle-info"></i>
+                The IRS EIN Assistant will open in a new tab. Do not close the browser during the application — your session expires after 15 minutes of inactivity.
+            </div>
+        </div>
+    </div>
+
+    <div class="ein-step">
+        <div class="ein-step-num">3</div>
+        <div class="ein-step-body">
+            <h3>Select "Sole Proprietor" as Your Entity Type</h3>
+            <p>The first question asks what type of entity you are. Select <strong style="color:#fff;">Sole Proprietor</strong>. On the next screen, select the reason for applying — choose <strong style="color:#fff;">"Banking Purposes"</strong> or <strong style="color:#fff;">"Started a New Business"</strong> (both are valid and accepted by Twilio).</p>
+            <a href="https://www.irs.gov/businesses/small-businesses-self-employed/sole-proprietorships" target="_blank" class="ein-step-link">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> IRS: Sole Proprietorships Info →
+            </a>
+        </div>
+    </div>
+
+    <div class="ein-step">
+        <div class="ein-step-num">4</div>
+        <div class="ein-step-body">
+            <h3>Enter Your Personal Information</h3>
+            <p>You will need to provide:</p>
+            <ul style="font-size:0.82rem;color:#999;line-height:2;margin:0 0 10px;padding-left:20px;">
+                <li>Your <strong style="color:#fff;">full legal name</strong> (first, middle initial, last)</li>
+                <li>Your <strong style="color:#fff;">Social Security Number (SSN)</strong> — used only to verify your identity with the IRS; never shared with carriers</li>
+                <li>Your <strong style="color:#fff;">mailing address</strong> (home or business)</li>
+                <li>Your <strong style="color:#fff;">phone number</strong> and state</li>
+            </ul>
+            <div class="ein-step-note">
+                <i class="fa-solid fa-lock"></i>
+                Your SSN is only used by the IRS to issue your EIN. Once you have your EIN, you use the EIN (not your SSN) for all business registrations including Twilio spam protection.
+            </div>
+        </div>
+    </div>
+
+    <div class="ein-step">
+        <div class="ein-step-num">5</div>
+        <div class="ein-step-body">
+            <h3>Review and Submit</h3>
+            <p>Review all the information on the confirmation screen. Make sure your legal name matches exactly how it appears on your Social Security card or IRS records. Click <strong style="color:#fff;">"Submit"</strong> to finalize.</p>
+        </div>
+    </div>
+
+    <div class="ein-step">
+        <div class="ein-step-num">6</div>
+        <div class="ein-step-body">
+            <h3>Save Your EIN — It's Issued Instantly</h3>
+            <p>Your EIN is displayed immediately on the confirmation page in the format <strong style="color:#00ff88;">XX-XXXXXXX</strong> (two digits, hyphen, seven digits). Write it down and download the confirmation PDF. You can use it right away — no waiting period.</p>
+            <a href="https://www.irs.gov/businesses/small-businesses-self-employed/lost-or-misplaced-your-ein" target="_blank" class="ein-step-link">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Lost your EIN? Look it up here →
+            </a>
+            <div style="margin-top:10px;">
+                <div class="ein-step-note">
+                    <i class="fa-solid fa-file-pdf"></i>
+                    Download and save the IRS EIN confirmation letter (CP-575). You will not need to upload it to InsuranceGrokBot — just enter the EIN number in the registration form.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FAQ -->
+    <div class="ein-faq-title"><i class="fa-solid fa-circle-question me-2" style="color:#a78bfa;"></i>Frequently Asked Questions</div>
+
+    <div class="ein-faq-item">
+        <div class="ein-faq-q">Do I need an EIN if I already have a business license?</div>
+        <div class="ein-faq-a">A business license and an EIN are separate. A business license is issued by your state or city. An EIN is issued by the IRS as a federal tax identification number. You need an EIN specifically for Twilio's trust network registration — a business license alone is not sufficient.</div>
+    </div>
+
+    <div class="ein-faq-item">
+        <div class="ein-faq-q">I already have an EIN from a previous business — can I use it?</div>
+        <div class="ein-faq-a">Yes, as long as the EIN is registered to you or your current business entity. Each sole proprietor gets one EIN per SSN. If you already have one from a prior venture, use the same EIN — you do not need a new one. You can verify your existing EIN at <a href="https://www.irs.gov/businesses/small-businesses-self-employed/lost-or-misplaced-your-ein" target="_blank">IRS.gov</a>.</div>
+    </div>
+
+    <div class="ein-faq-item">
+        <div class="ein-faq-q">Is there a cost to get an EIN?</div>
+        <div class="ein-faq-a">No. An EIN from the IRS is completely free. Be cautious of third-party websites that charge a fee to "apply for an EIN" on your behalf — go directly to <a href="https://www.irs.gov/businesses/small-businesses-self-employed/apply-for-an-employer-identification-number-ein-online" target="_blank">IRS.gov</a> to get yours for free.</div>
+    </div>
+
+    <div class="ein-faq-item">
+        <div class="ein-faq-q">What if I do not have a Social Security Number?</div>
+        <div class="ein-faq-a">Without an SSN, you cannot apply online. You would need to apply by mail using <a href="https://www.irs.gov/pub/irs-pdf/fss4.pdf" target="_blank">IRS Form SS-4</a> and provide an ITIN (Individual Taxpayer Identification Number) instead. Processing by mail can take 4–6 weeks.</div>
+    </div>
+
+    <div class="ein-faq-item">
+        <div class="ein-faq-q">What do I enter in InsuranceGrokBot once I have my EIN?</div>
+        <div class="ein-faq-a">Go back to your dashboard → Numbers tab → Spam Protection → Business Profile. Select "Sole Proprietorship" as your business type, answer "Yes" to the EIN question, and enter your EIN in the format <strong>XX-XXXXXXX</strong>. Your legal name (as registered with the IRS) goes in the Business Name field.</div>
+    </div>
+
+    <!-- Bottom CTA -->
+    <div class="ein-bottom-cta">
+        <h3><i class="fa-solid fa-circle-check me-2" style="color:#00ff88;"></i>Got your EIN? You're ready to register.</h3>
+        <p>Head back to your dashboard and complete your spam protection registration. It only takes a minute.</p>
+        <a href="/dashboard" class="ein-btn-primary">
+            <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+
+</div>
+
+</body>
+</html>

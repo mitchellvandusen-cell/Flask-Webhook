@@ -37,7 +37,8 @@ logger = logging.getLogger(__name__)
 oauth_bp = Blueprint('oauth', __name__)
 
 # ── OAuth scopes ─────────────────────────────────────────────────────────────
-# Synced exactly to the marketplace app install URL as of 2026-03-11.
+# Synced exactly to the marketplace app install URL as of 2026-03-26.
+# version_id=69baca8609da2bbc1060ae05
 GHL_OAUTH_SCOPES = [
     "calendars.readonly",
     "calendars/events.readonly",
@@ -55,8 +56,10 @@ GHL_OAUTH_SCOPES = [
     "locations/customValues.readonly",
     "locations/tags.readonly",
     "locations/tags.write",
+    "numberpools.read",
     "oauth.readonly",
     "opportunities.readonly",
+    "opportunities.write",
     "phonenumbers.read",
     "users.readonly",
     "workflows.readonly",

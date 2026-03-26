@@ -865,6 +865,75 @@
                     body.light-theme .dlr-export-cancel { background:rgba(0,0,0,0.04); border-color:rgba(0,0,0,0.1); color:#4a5568; }
                     body.light-theme .dlr-export-cancel:hover { background:rgba(0,0,0,0.08); color:#1a1a2e; }
                     body.light-theme .dlr-export-select { background:rgba(0,0,0,0.03); border-color:rgba(0,0,0,0.1); color:#1a1a2e; }
+
+                    /* ── Move Pipeline Panel — Dark ── */
+                    .mvp-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.45); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); z-index:99999; align-items:center; justify-content:center; }
+                    .mvp-overlay.open { display:flex; }
+                    .mvp-panel { background:linear-gradient(135deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.03) 100%); backdrop-filter:blur(24px) saturate(160%) brightness(1.1); -webkit-backdrop-filter:blur(24px) saturate(160%) brightness(1.1); border-width:1px; border-style:solid; border-color:rgba(255,255,255,0.22) rgba(255,255,255,0.05) rgba(255,255,255,0.05) rgba(255,255,255,0.14); border-radius:18px; width:340px; max-width:92vw; max-height:80vh; display:flex; flex-direction:column; box-shadow:0 24px 60px -8px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.14); overflow:hidden; }
+                    .mvp-header { padding:14px 18px 10px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.07); flex-shrink:0; }
+                    .mvp-title { font-weight:700; font-size:0.92rem; color:#eee; }
+                    .mvp-count { font-size:0.75rem; color:#666; }
+                    .mvp-search-wrap { padding:10px 12px 6px; flex-shrink:0; }
+                    .mvp-search { width:100%; padding:7px 12px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:8px; color:#ddd; font-size:0.82rem; outline:none; transition:border-color .18s; box-sizing:border-box; }
+                    .mvp-search:focus { border-color:rgba(0,217,255,0.35); }
+                    .mvp-search::placeholder { color:#555; }
+                    .mvp-list { flex:1; overflow-y:auto; padding:6px 8px; }
+                    .mvp-pipe-item { border-radius:8px; margin-bottom:3px; overflow:hidden; }
+                    .mvp-pipe-hdr { display:flex; align-items:center; gap:8px; padding:8px 10px; cursor:pointer; border-radius:8px; transition:background .14s; font-size:0.83rem; font-weight:600; color:#bbb; }
+                    .mvp-pipe-hdr:hover { background:rgba(255,255,255,0.05); }
+                    .mvp-pipe-hdr.selected { color:#00d9ff; background:rgba(0,217,255,0.07); }
+                    .mvp-pipe-arrow { font-size:0.6rem; color:#555; transition:transform .18s; margin-left:auto; }
+                    .mvp-pipe-hdr.open .mvp-pipe-arrow { transform:rotate(180deg); }
+                    .mvp-stages { display:none; padding:2px 0 4px 22px; }
+                    .mvp-stages.open { display:block; }
+                    .mvp-stage-item { padding:6px 10px; border-radius:6px; font-size:0.8rem; color:#888; cursor:pointer; transition:background .14s, color .14s; display:flex; align-items:center; gap:6px; }
+                    .mvp-stage-item:hover { background:rgba(255,255,255,0.05); color:#ccc; }
+                    .mvp-stage-item.selected { color:#00d9ff; background:rgba(0,217,255,0.07); }
+                    .mvp-stage-dot { width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,0.2); flex-shrink:0; }
+                    .mvp-stage-item.selected .mvp-stage-dot { background:#00d9ff; }
+                    .mvp-none { text-align:center; padding:24px; font-size:0.8rem; color:#555; }
+                    .mvp-footer { padding:12px 16px; border-top:1px solid rgba(255,255,255,0.07); display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-shrink:0; }
+                    .mvp-dest { flex:1; font-size:0.75rem; color:#666; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+                    .mvp-cancel { padding:7px 14px; border-radius:8px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#aaa; font-size:0.82rem; cursor:pointer; transition:all .15s; }
+                    .mvp-cancel:hover { background:rgba(255,255,255,0.09); color:#ddd; }
+                    .mvp-move { padding:7px 18px; border-radius:8px; background:rgba(0,217,255,0.15); border:1px solid rgba(0,217,255,0.3); color:#00d9ff; font-size:0.82rem; font-weight:700; cursor:pointer; transition:all .15s; }
+                    .mvp-move:hover:not(:disabled) { background:rgba(0,217,255,0.25); box-shadow:0 4px 14px rgba(0,217,255,0.2); }
+                    .mvp-move:disabled { opacity:.4; cursor:default; }
+                    .mvp-row-btn { padding:1px 7px; border-radius:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#888; font-size:0.7rem; font-weight:600; cursor:pointer; transition:all .14s; white-space:nowrap; flex-shrink:0; }
+                    .mvp-row-btn:hover { background:rgba(0,217,255,0.1); border-color:rgba(0,217,255,0.25); color:#00d9ff; }
+                    .dlr-move-bulk-btn { border-radius:4px; padding:2px 8px; font-size:0.75rem; font-weight:600; cursor:pointer; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); color:#aaa; transition:all .15s; }
+                    .dlr-move-bulk-btn:hover:not(:disabled) { background:rgba(0,217,255,0.1); border-color:rgba(0,217,255,0.25); color:#00d9ff; }
+                    .dlr-move-bulk-btn:disabled { opacity:.4; cursor:default; }
+
+                    /* ── Move Pipeline Panel — Light theme ── */
+                    body.light-theme .mvp-overlay { background:rgba(0,0,0,0.22); }
+                    body.light-theme .mvp-panel { background:linear-gradient(135deg, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.75) 100%); border-color:rgba(0,0,0,0.08) rgba(0,0,0,0.04) rgba(0,0,0,0.04) rgba(0,0,0,0.06); box-shadow:0 24px 60px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.85); }
+                    body.light-theme .mvp-header { border-bottom-color:rgba(0,0,0,0.07); }
+                    body.light-theme .mvp-title { color:#1a1a2e; }
+                    body.light-theme .mvp-count { color:#a0aec0; }
+                    body.light-theme .mvp-search { background:rgba(0,0,0,0.04); border-color:rgba(0,0,0,0.1); color:#1a1a2e; }
+                    body.light-theme .mvp-search:focus { border-color:rgba(0,150,200,0.4); }
+                    body.light-theme .mvp-search::placeholder { color:#a0aec0; }
+                    body.light-theme .mvp-pipe-hdr { color:#374151; }
+                    body.light-theme .mvp-pipe-hdr:hover { background:rgba(0,0,0,0.04); }
+                    body.light-theme .mvp-pipe-hdr.selected { color:var(--lt-accent); background:rgba(0,170,94,0.08); }
+                    body.light-theme .mvp-pipe-arrow { color:#a0aec0; }
+                    body.light-theme .mvp-stage-item { color:#6b7280; }
+                    body.light-theme .mvp-stage-item:hover { background:rgba(0,0,0,0.04); color:#374151; }
+                    body.light-theme .mvp-stage-item.selected { color:var(--lt-accent); background:rgba(0,170,94,0.07); }
+                    body.light-theme .mvp-stage-dot { background:rgba(0,0,0,0.15); }
+                    body.light-theme .mvp-stage-item.selected .mvp-stage-dot { background:var(--lt-accent); }
+                    body.light-theme .mvp-none { color:#a0aec0; }
+                    body.light-theme .mvp-footer { border-top-color:rgba(0,0,0,0.07); }
+                    body.light-theme .mvp-dest { color:#a0aec0; }
+                    body.light-theme .mvp-cancel { background:rgba(0,0,0,0.04); border-color:rgba(0,0,0,0.1); color:#6b7280; }
+                    body.light-theme .mvp-cancel:hover { background:rgba(0,0,0,0.08); color:#1a1a2e; }
+                    body.light-theme .mvp-move { background:rgba(0,170,94,0.12); border-color:rgba(0,170,94,0.3); color:var(--lt-accent); }
+                    body.light-theme .mvp-move:hover:not(:disabled) { background:rgba(0,170,94,0.2); }
+                    body.light-theme .mvp-row-btn { background:rgba(0,0,0,0.04); border-color:rgba(0,0,0,0.1); color:#9ca3af; }
+                    body.light-theme .mvp-row-btn:hover { background:rgba(0,150,200,0.08); border-color:rgba(0,150,200,0.2); color:#0077aa; }
+                    body.light-theme .dlr-move-bulk-btn { background:rgba(0,0,0,0.04); border-color:rgba(0,0,0,0.1); color:#9ca3af; }
+                    body.light-theme .dlr-move-bulk-btn:hover:not(:disabled) { background:rgba(0,150,200,0.08); border-color:rgba(0,150,200,0.2); color:#0077aa; }
                 </style>
 
                 <!-- Top Bar -->
@@ -1303,10 +1372,9 @@
                         <!-- Quick Dial moved to header -->
                         <!-- Search + Filters -->
                         <div id="dialerFilterWrap" class="dlr-misc-7" style="padding:8px 12px;flex-shrink:0">
-                            <div style="position:relative;margin-bottom:6px;">
-                                <i class="fa-solid fa-magnifying-glass dlr-label-2" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:0.75rem;pointer-events:none"></i>
+                            <div style="margin-bottom:6px;">
                                 <input type="text" id="dialerSearch" class="form-control" placeholder="Search contacts..." oninput="dialerDebounceSearch()"
-                                    style="width:100%;padding:8px 10px 8px 30px;font-size:0.85rem;">
+                                    style="width:100%;padding:8px 10px;font-size:0.85rem;">
                             </div>
                             <select id="dialerPipelineFilter" class="form-select" onchange="dialerOnPipelineChange()" style="width:100%;padding:5px 8px;font-size:0.85rem;margin-bottom:4px;">
                                 <option value="">All Contacts</option>
@@ -1340,6 +1408,7 @@
                                     <button id="dialerAddSelectedBtn" onclick="dialerAddSelectedToQueue()" class="dlr-btn-cyan-outline-3" style="border-radius:4px;padding:2px 8px;font-size:0.75rem;font-weight:600;cursor:pointer" disabled>
                                         <i class="fa-solid fa-plus me-1"></i>Queue
                                     </button>
+                                    <button id="dialerMoveSelectedBtn" onclick="_mvpOpen()" class="dlr-move-bulk-btn" disabled>Move Pipeline</button>
                                     <button id="dialerCallSelectedBtn" onclick="dialerCallSelected()" class="dlr-btn-accent" style="border:none;border-radius:4px;padding:2px 8px;font-size:0.75rem;font-weight:700;cursor:pointer" disabled>
                                         <i class="fa-solid fa-phone me-1"></i>Dial
                                     </button>
@@ -1379,7 +1448,7 @@
                         <!-- ═══ Mobile Compact Toolbar (search/filter/queue as icons) ═══ -->
                         <div class="dlr-mobile-toolbar" id="dlrMobileToolbar" style="display:none;">
                             <button class="dlr-mob-tool-btn" id="dlrMobSearchBtn" onclick="dlrMobToggle('search')" title="Search contacts">
-                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <span style="font-size:0.72rem;letter-spacing:-0.3px;">Search</span>
                             </button>
                             <button class="dlr-mob-tool-btn" id="dlrMobFilterBtn" onclick="dlrMobToggle('filter')" title="Filter contacts">
                                 <i class="fa-solid fa-filter"></i>
@@ -1744,10 +1813,9 @@
                                                 </button>
                                             </div>
                                             <!-- Search bar -->
-                                            <div style="position:relative;margin-bottom:8px;">
-                                                <i class="fa-solid fa-magnifying-glass dlr-label-dim" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:0.75rem"></i>
-                                                <input type="text" id="inboxSearchInput" placeholder="Search" oninput="inboxDebounceSearch()"
-                                                    class="dlr-input-2" style="width:100%;box-sizing:border-box;padding:8px 10px 8px 30px;border:none;border-radius:10px;font-size:0.8rem;outline:none">
+                                            <div style="margin-bottom:8px;">
+                                                <input type="text" id="inboxSearchInput" placeholder="Search conversations..." oninput="inboxDebounceSearch()"
+                                                    class="dlr-input-2" style="width:100%;box-sizing:border-box;padding:8px 10px;border:none;border-radius:10px;font-size:0.8rem;outline:none">
                                             </div>
                                             <!-- Filter pills -->
                                             <div style="display:flex;gap:4px;padding-bottom:8px;" id="inboxFilterRow">
@@ -2373,6 +2441,25 @@
                 </div>
 
                 <!-- ═══ EXPORT CONTACTS MODAL ═══ -->
+                <!-- Move Pipeline Panel -->
+                <div id="mvpOverlay" class="mvp-overlay" onclick="if(event.target===this)_mvpClose()">
+                    <div class="mvp-panel">
+                        <div class="mvp-header">
+                            <span class="mvp-title">Move to Pipeline</span>
+                            <span id="mvpCountLabel" class="mvp-count"></span>
+                        </div>
+                        <div class="mvp-search-wrap">
+                            <input id="mvpSearch" class="mvp-search" placeholder="Search pipelines..." oninput="_mvpFilter()" autocomplete="off">
+                        </div>
+                        <div id="mvpList" class="mvp-list"></div>
+                        <div class="mvp-footer">
+                            <span id="mvpDestLabel" class="mvp-dest"></span>
+                            <button class="mvp-cancel" onclick="_mvpClose()">Cancel</button>
+                            <button id="mvpMoveBtn" class="mvp-move" onclick="_mvpExecute()" disabled>Move</button>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="dlrExportModal" class="dlr-export-overlay" onclick="if(event.target===this)dlrExportClose()">
                     <div class="dlr-export-card">
                         <div class="dlr-export-hdr">
