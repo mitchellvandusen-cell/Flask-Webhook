@@ -450,9 +450,9 @@ app.register_blueprint(hubspot_card_bp)
 app.register_blueprint(embed_bp)
 app.register_blueprint(ghl_embed_bp)
 
-# Dashboard AI Agent Assistant
-from blueprints.assistant import assistant_bp
-app.register_blueprint(assistant_bp)
+# Dashboard AI Agent Assistant — DISABLED (investigating xAI token cost)
+# from blueprints.assistant import assistant_bp
+# app.register_blueprint(assistant_bp)
 
 logger.info("All modular blueprints registered successfully.")
 
