@@ -109,55 +109,27 @@
     <nav class="navbar navbar-expand-lg fixed-top" role="navigation" aria-label="Main navigation">
         <div class="container">
             <a class="navbar-brand" href="/">Insurance<span class="text-accent">Grok</span>Bot</a>
-            <button class="navbar-toggler navbar-dark" type="button" onclick="toggleMobileNav()" aria-label="Toggle navigation">
+            <button class="navbar-toggler" type="button" onclick="toggleMobileNav()" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div id="navbarNav" class="navbar-collapse">
-                <ul class="navbar-nav mx-auto align-items-center justify-content-lg-evenly w-100" style="gap: 0;">
+                <ul class="navbar-nav mx-auto align-items-center gap-lg-4">
+                    <li class="nav-item"><a class="nav-link" href="/dialer">Features</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/demo-chat">SMS Demo</a></li>
                     <li class="nav-item"><a class="nav-link" href="/for-individuals">Agents</a></li>
                     <li class="nav-item"><a class="nav-link" href="/for-agencies">Agencies</a></li>
-                    <li class="nav-item"><a class="nav-link ic-purple" href="/predictive-dialer" style="font-weight:700">Predictive Dialer</a></li>
-                    <li class="nav-item nav-dropdown">
-                        <a class="nav-link nav-dropdown-toggle" href="#" role="button" aria-expanded="false">
-                            Features <svg class="nav-chevron" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        </a>
-                        <div class="nav-dropdown-menu">
-                            <a class="dropdown-item" href="/predictive-dialer">Solo Predictive + AI Overflow</a>
-                            <a class="dropdown-item" href="/sms">SMS AI Texting</a>
-                            <a class="dropdown-item" href="/workflows">AI Workflows</a>
-                            <a class="dropdown-item" href="/ai-assistant">AI Assistant</a>
-                            <a class="dropdown-item" href="/spam-protection">Spam Protection</a>
-                            <a class="dropdown-item" href="/white-label">White Label</a>
-                        </div>
-                    </li>
-                    <li class="nav-item nav-dropdown">
-                        <a class="nav-link nav-dropdown-toggle" href="#" role="button" aria-expanded="false">
-                            Resources <svg class="nav-chevron" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        </a>
-                        <div class="nav-dropdown-menu">
-                            <a class="dropdown-item" href="/integrations">Integrations</a>
-                            <a class="dropdown-item" href="/comparison">Comparison</a>
-                            <a class="dropdown-item" href="/articles">Articles</a>
-                        </div>
-                    </li>
-                    <li class="nav-item"><a class="nav-link" href="/#pricing">Pricing</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/demo-chat">Demo</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/support">Support</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/connect">Connect</a></li>
                     {% if current_user.is_authenticated and current_user.is_super_admin %}
-                    <li class="nav-item d-flex align-items-center">
-                        <a class="nav-link god-mode-link" href="/admin/god-mode" title="Super Admin Dashboard">
-                            ⚡ God Mode
-                        </a>
+                    <li class="nav-item">
+                        <a class="nav-link god-mode-link" href="/admin/god-mode" title="Super Admin">⚡ God Mode</a>
                     </li>
                     {% endif %}
                 </ul>
-                <div class="d-flex gap-3 mt-3 mt-lg-0">
+                <div class="d-flex gap-2 mt-3 mt-lg-0">
                     {% if current_user.is_authenticated %}
                     <a href="/dashboard" class="btn btn-primary btn-sm nav-btn">Dashboard</a>
                     {% else %}
                     <a href="/login" class="btn btn-outline-accent btn-sm nav-btn">Log In</a>
-                    <a href="/register" class="btn btn-primary btn-sm nav-btn">Get Started</a>
+                    <a href="/register" class="btn btn-primary btn-sm nav-btn">Start Free Trial</a>
                     {% endif %}
                 </div>
             </div>
@@ -192,11 +164,41 @@
 
     <footer>
         <div class="container">
-            <p class="t-primary" style="font-weight:700; font-size:1.2rem; margin-bottom:10px;">Insurance<span class="text-accent">Grok</span>Bot</p>
-            <div class="mb-4">
-                <a href="/predictive-dialer" class="ic-purple" style="font-weight:600">Predictive Dialer</a><a href="/for-individuals">For Agents</a><a href="/for-agencies">For Agencies</a><a href="/sms">SMS</a><a href="/workflows">Workflows</a><a href="/spam-protection">Spam Protection</a><a href="/white-label">White Label</a><a href="/comparison">Comparison</a><a href="/articles">Articles</a><a href="/about">About</a><a href="/support">Support</a><a href="/contact">Contact</a><a href="/connect">Connect With Us</a><a href="/affiliate">Affiliates</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a>
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <a href="/"><span>Insurance</span><span style="color:#00ff88;">Grok</span><span>Bot</span></a>
+                    <p>The multi-line power dialer and AI text follow-up platform built exclusively for life insurance agents.</p>
+                </div>
+                <div class="footer-col">
+                    <h5>Product</h5>
+                    <a href="/dialer">Power Dialer</a>
+                    <a href="/predictive-dialer">Predictive Dialer</a>
+                    <a href="/sms">SMS AI Texting</a>
+                    <a href="/workflows">AI Workflows</a>
+                    <a href="/spam-protection">Spam Protection</a>
+                    <a href="/white-label">White Label</a>
+                    <a href="/ai-assistant">AI Assistant</a>
+                    <a href="/#pricing">Pricing</a>
+                </div>
+                <div class="footer-col">
+                    <h5>Company</h5>
+                    <a href="/for-individuals">For Agents</a>
+                    <a href="/for-agencies">For Agencies</a>
+                    <a href="/comparison">Comparison</a>
+                    <a href="/articles">Articles</a>
+                    <a href="/about">About</a>
+                    <a href="/support">Support</a>
+                    <a href="/contact">Contact</a>
+                    <a href="/connect">Connect</a>
+                    <a href="/affiliate">Affiliates</a>
+                    <a href="/terms">Terms</a>
+                    <a href="/privacy">Privacy</a>
+                </div>
             </div>
-            <p style="font-size:0.8rem; margin-top:40px; opacity:0.5;">&copy; 2026 InsuranceGrokBot. All rights reserved.</p>
+            <div class="footer-bottom">
+                <p>&copy; 2026 InsuranceGrokBot. All rights reserved.</p>
+                <p>Built for life insurance agents.</p>
+            </div>
         </div>
     </footer>
 
@@ -419,16 +421,10 @@
                 });
             });
 
-            // Mobile: toggle Features dropdown on tap
-            document.querySelectorAll('.nav-dropdown-toggle').forEach(function(toggle) {
-                toggle.addEventListener('click', function(e) {
-                    if (window.innerWidth <= 991) {
-                        e.preventDefault();
-                        var parent = this.closest('.nav-dropdown');
-                        parent.classList.toggle('open');
-                        this.setAttribute('aria-expanded', parent.classList.contains('open'));
-                    }
-                });
+            // Highlight active nav link
+            var path = window.location.pathname;
+            document.querySelectorAll('#navbarNav .nav-link').forEach(function(link) {
+                try { if (new URL(link.href).pathname === path) link.classList.add('active-page'); } catch(e) {}
             });
 
             // Pricing Carousel
