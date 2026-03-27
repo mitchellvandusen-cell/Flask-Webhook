@@ -482,13 +482,14 @@ def assistant_chat():
     if support_mode:
         tools = tools + _get_support_tools_for_assistant()
 
-    # LLM client — prefer free tier (Groq/OpenRouter), fall back to xAI
-    from free_llm import get_free_llm
-    client, model = get_free_llm("quality")
-    if not client:
-        logger.error("No LLM client available — assistant cannot respond")
+    # LLM client
+    from openai import OpenAI
+    xai_key = os.getenv("XAI_API_KEY")
+    if not xai_key:
+        logger.error("XAI_API_KEY not set — assistant cannot respond")
         return flask_jsonify({"text": "Assistant is temporarily unavailable. Please try again shortly."})
 
+    client = OpenAI(api_key=xai_key, base_url="https://api.x.ai/v1")
     reply = ""
     navigate_tab = None
     navigate_sub_panel = None
@@ -497,7 +498,7 @@ def assistant_chat():
     try:
         for _round in range(_ASSISTANT_MAX_TOOL_ROUNDS):
             response = client.chat.completions.create(
-                model=model,
+                model=_ASSISTANT_MODEL,
                 messages=messages,
                 tools=tools,
                 temperature=0.3,
