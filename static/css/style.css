@@ -13203,3 +13203,101 @@ body.light-theme .billing-plan-card:hover {
     border-top: 1px solid #141414;
     padding: 100px 0;
 }
+
+/* ═══════════════════════════════════════════════════════
+   SHARED MARKETING COMPONENTS — used across home, for-individuals,
+   for-agencies, and other landing pages.
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Phone mockup ── */
+.hp-phone {
+    width: 300px;
+    margin: 0 auto;
+    border: 1px solid #1e1e1e;
+    border-radius: 32px;
+    padding: 14px;
+    background: #080808;
+}
+.hp-phone-notch { width: 100px; height: 20px; background: #000; border-radius: 0 0 12px 12px; margin: 0 auto 10px; }
+.hp-phone-header { text-align: center; padding: 6px 0 10px; border-bottom: 1px solid #141414; margin-bottom: 10px; }
+.hp-phone-name  { font-weight: 700; font-size: 0.88rem; color: #fff; }
+.hp-phone-sub   { font-size: 0.68rem; color: #555; }
+.hp-phone-chat  { min-height: 260px; display: flex; flex-direction: column; gap: 7px; padding: 4px 0; overflow: hidden; }
+
+/* Chat bubble animations */
+.hp-msg { padding: 9px 13px; border-radius: 14px; font-size: 0.8rem; line-height: 1.5; max-width: 82%; opacity: 0; transform: translateY(8px); animation: hpBubbleIn 0.35s ease forwards; }
+.hp-msg--in  { background: #111; border: 1px solid #1e1e1e; color: #c0c0c0; align-self: flex-start; }
+.hp-msg--out { background: rgba(0,255,136,0.07); border: 1px solid rgba(0,255,136,0.15); color: #d0d0d0; align-self: flex-end; }
+@keyframes hpBubbleIn { to { opacity: 1; transform: translateY(0); } }
+
+/* ── AI feature list ── */
+.hp-ai-list { list-style: none; padding: 0; margin: 0 0 24px; }
+.hp-ai-list li { display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; border-bottom: 1px solid #0f0f0f; }
+.hp-ai-list li:last-child { border-bottom: none; }
+.hp-ai-icon { width: 28px; height: 28px; border-radius: 6px; background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.12); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 0.75rem; color: var(--accent); }
+.hp-ai-text strong { display: block; color: #e0e0e0; font-size: 0.88rem; font-weight: 700; }
+.hp-ai-text span   { color: #888; font-size: 0.81rem; }
+
+/* ── Pricing cards ── */
+.hp-price-card {
+    background: #0a0a0a;
+    border: 1px solid #1c1c1c;
+    border-radius: 14px;
+    padding: 32px 24px;
+    position: relative;
+    transition: border-color 0.2s;
+    display: flex;
+    flex-direction: column;
+}
+.hp-price-card.featured { border-color: var(--accent); background: #0d1a12; }
+.hp-price-card:not(.featured):hover { border-color: #2e2e2e; }
+.hp-price-card h4 { font-weight: 800; font-size: 1.05rem; color: #fff; margin-bottom: 4px; }
+.hp-price-badge {
+    position: absolute;
+    top: -11px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: #000;
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    padding: 3px 14px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+.hp-price-amount       { font-size: 2.4rem; font-weight: 900; color: #fff; line-height: 1; letter-spacing: -1.5px; }
+.hp-price-amount.green { color: var(--accent); }
+.hp-price-cents        { color: #555; font-size: 1.1rem; font-weight: 900; }
+.hp-price-period       { color: #777; font-size: 0.88rem; }
+.hp-price-sub          { font-size: 0.78rem; font-weight: 600; color: #888; margin-top: 6px; }
+.hp-price-trial        { font-size: 0.75rem; font-weight: 700; color: var(--accent); margin: 4px 0 0; }
+.hp-price-feat         { list-style: none; padding: 0; margin: 20px 0; flex: 1; }
+.hp-price-feat li      { display: flex; align-items: flex-start; gap: 8px; padding: 4px 0; color: #c0c0c0; font-size: 0.83rem; }
+.hp-price-feat li i    { color: var(--accent); font-size: 0.75rem; margin-top: 3px; flex-shrink: 0; }
+.hp-price-btn          { font-weight: 700; background: #111; border: 1px solid #2a2a2a; color: #fff; }
+.hp-price-btn:hover    { background: #1a1a1a; color: #fff; }
+
+/* Light theme overrides for shared marketing components */
+body.light-theme .hp-phone               { background: rgba(255,255,255,0.9); border-color: var(--lt-border); }
+body.light-theme .hp-phone-notch         { background: var(--lt-bg); }
+body.light-theme .hp-phone-header        { border-bottom-color: var(--lt-border); }
+body.light-theme .hp-phone-name          { color: var(--lt-text-primary); }
+body.light-theme .hp-phone-sub           { color: var(--lt-text-muted); }
+body.light-theme .hp-msg--in             { background: rgba(0,0,0,0.06); border-color: var(--lt-border); color: var(--lt-text-secondary); }
+body.light-theme .hp-msg--out            { background: rgba(0,170,94,0.08); border-color: rgba(0,170,94,0.18); color: var(--lt-text-secondary); }
+body.light-theme .hp-ai-list li          { border-bottom-color: var(--lt-border); }
+body.light-theme .hp-ai-icon             { background: rgba(0,170,94,0.08); border-color: rgba(0,170,94,0.18); color: var(--lt-accent); }
+body.light-theme .hp-ai-text strong      { color: var(--lt-text-primary); }
+body.light-theme .hp-ai-text span        { color: var(--lt-text-secondary); }
+body.light-theme .hp-price-card          { background: rgba(255,255,255,0.85); border-color: var(--lt-border); }
+body.light-theme .hp-price-card.featured { background: rgba(0,170,94,0.05); border-color: var(--lt-accent); }
+body.light-theme .hp-price-card h4       { color: var(--lt-text-primary); }
+body.light-theme .hp-price-amount        { color: var(--lt-text-primary); }
+body.light-theme .hp-price-amount.green  { color: var(--lt-accent); }
+body.light-theme .hp-price-cents         { color: var(--lt-text-muted); }
+body.light-theme .hp-price-period        { color: var(--lt-text-muted); }
+body.light-theme .hp-price-sub           { color: var(--lt-text-secondary); }
+body.light-theme .hp-price-trial         { color: var(--lt-accent); }
+body.light-theme .hp-price-feat li       { color: var(--lt-text-secondary); }
+body.light-theme .hp-price-feat li i     { color: var(--lt-accent); }
+body.light-theme .hp-price-btn           { background: var(--lt-bg); border-color: var(--lt-border); color: var(--lt-text-primary); }

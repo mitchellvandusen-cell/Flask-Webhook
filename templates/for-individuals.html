@@ -2,272 +2,338 @@
 
 {% block title %}Power Dialer for Life Insurance Agents — InsuranceGrokBot{% endblock %}
 
-{% block meta_description %}Your leads actually pick up. The multi-line power dialer built for life insurance agents — spam protection, number health, smart timing, and AI follow-up between every call. From $149.99/mo.{% endblock %}
+{% block meta_description %}Your leads actually pick up. The multi-line power dialer built for life insurance agents — spam protection, number health, smart timing, and follow-up between every call. From $149.99/mo.{% endblock %}
 
 {% block content %}
 <style>
-    /* ── Hero ── */
-    .ind-hero {
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        text-align: center;
-        padding: 120px 24px 80px;
-        background: #000;
-        position: relative;
-        overflow: hidden;
-    }
-    .ind-hero::before {
-        content: '';
-        position: absolute;
-        bottom: 0; left: 50%;
-        transform: translateX(-50%);
-        width: 600px; height: 300px;
-        background: radial-gradient(ellipse at 50% 100%, rgba(0,255,136,0.06) 0%, transparent 70%);
-        pointer-events: none;
-    }
-    .ind-hero-label {
-        font-size: 0.68rem;
-        font-weight: 700;
-        letter-spacing: 3px;
-        text-transform: uppercase;
-        color: var(--accent);
-        margin-bottom: 24px;
-        opacity: 0;
-        animation: indFadeUp 0.5s ease 0.1s forwards;
-    }
-    .ind-hero-h1 {
-        font-size: clamp(2.8rem, 5.5vw, 5rem);
-        font-weight: 900;
-        color: #fff;
-        line-height: 1.05;
-        letter-spacing: -2px;
-        margin-bottom: 20px;
-        opacity: 0;
-        animation: indFadeUp 0.5s ease 0.2s forwards;
-        max-width: 860px;
-    }
-    .ind-hero-rotate-wrap {
-        font-size: clamp(1rem, 2vw, 1.25rem);
-        font-weight: 500;
-        color: #888;
-        margin-bottom: 32px;
-        opacity: 0;
-        animation: indFadeUp 0.5s ease 0.35s forwards;
-        line-height: 1.5;
-    }
-    .ind-rotate-word {
-        color: #fff;
-        display: inline-block;
-        transition: opacity 0.25s ease;
-        min-width: 280px;
-        text-align: left;
-    }
-    .ind-hero-ctas {
-        display: flex;
-        gap: 12px;
-        justify-content: center;
-        flex-wrap: wrap;
-        opacity: 0;
-        animation: indFadeUp 0.5s ease 0.45s forwards;
-    }
-    .ind-hero-ctas .btn-primary {
-        padding: 14px 32px;
-        font-size: 1rem;
-        font-weight: 700;
-    }
-    .ind-hero-ctas .btn-outline-accent {
-        padding: 13px 28px;
-        font-size: 1rem;
-    }
-    @keyframes indFadeUp {
-        from { opacity: 0; transform: translateY(16px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
+/* ── Hero ── */
+.ind-hero-section {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 140px 24px 60px;
+    background: #000;
+    position: relative;
+    overflow: hidden;
+}
+.ind-hero-section::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 700px; height: 280px;
+    background: radial-gradient(ellipse at 50% 100%, rgba(0,255,136,0.07) 0%, transparent 70%);
+    pointer-events: none;
+}
+.ind-label {
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 3.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 28px;
+    opacity: 0;
+    animation: indUp 0.5s ease 0.1s forwards;
+}
+.ind-h1 {
+    font-size: clamp(3rem, 6.5vw, 5.8rem);
+    font-weight: 900;
+    color: #fff;
+    line-height: 1.0;
+    letter-spacing: -3px;
+    margin-bottom: 24px;
+    opacity: 0;
+    animation: indUp 0.5s ease 0.25s forwards;
+    max-width: 900px;
+}
+.ind-rotate-wrap {
+    font-size: clamp(1rem, 1.8vw, 1.2rem);
+    color: #777;
+    margin-bottom: 36px;
+    opacity: 0;
+    animation: indUp 0.5s ease 0.4s forwards;
+    line-height: 1.6;
+    min-height: 2.4em;
+}
+.ind-rotate-phrase {
+    color: #fff;
+    font-weight: 600;
+    display: inline-block;
+    transition: opacity 0.3s ease;
+    min-width: 300px;
+    text-align: left;
+}
+.ind-ctas {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+    opacity: 0;
+    animation: indUp 0.5s ease 0.55s forwards;
+}
+.ind-ctas .btn-primary { padding: 15px 36px; font-size: 1rem; font-weight: 700; }
+.ind-ctas .btn-outline-accent { padding: 14px 30px; font-size: 1rem; }
+@keyframes indUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0);    }
+}
 
-    /* ── Stats bar ── */
-    .ind-stats {
-        display: flex;
-        justify-content: center;
-        gap: 0;
-        flex-wrap: wrap;
-        border-top: 1px solid #141414;
-        border-bottom: 1px solid #141414;
-        background: #000;
-    }
-    .ind-stat {
-        text-align: center;
-        padding: 32px 48px;
-        border-right: 1px solid #141414;
-        flex: 1;
-        min-width: 140px;
-    }
-    .ind-stat:last-child { border-right: none; }
-    .ind-stat-num {
-        font-size: clamp(2rem, 3.5vw, 3rem);
-        font-weight: 900;
-        color: #fff;
-        line-height: 1;
-        letter-spacing: -2px;
-        font-variant-numeric: tabular-nums;
-        display: block;
-    }
-    .ind-stat-num.green { color: var(--accent); }
-    .ind-stat-lbl {
-        font-size: 0.67rem;
-        font-weight: 600;
-        letter-spacing: 1.5px;
-        text-transform: uppercase;
-        color: #444;
-        margin-top: 8px;
-        display: block;
-    }
-    @media (max-width: 600px) { .ind-stat { padding: 24px 20px; } .ind-stat-num { font-size: 1.8rem; } }
+/* ── Stats bar ── */
+.ind-stats {
+    display: flex;
+    background: #000;
+    border-top: 1px solid #141414;
+    border-bottom: 1px solid #141414;
+}
+.ind-stat {
+    flex: 1;
+    text-align: center;
+    padding: 36px 24px;
+    border-right: 1px solid #141414;
+    min-width: 100px;
+}
+.ind-stat:last-child { border-right: none; }
+.ind-stat-num {
+    font-size: clamp(2.2rem, 3.5vw, 3.2rem);
+    font-weight: 900;
+    color: #fff;
+    line-height: 1;
+    letter-spacing: -2px;
+    display: block;
+}
+.ind-stat-num.green { color: var(--accent); }
+.ind-stat-lbl {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #666;
+    margin-top: 10px;
+    display: block;
+}
 
-    /* ── Section separators ── */
-    .ind-sep { border: none; border-top: 1px solid #111; margin: 0; }
+/* ── Shared section ── */
+.ind-section { padding: 100px 0; }
+.ind-sep     { border: none; border-top: 1px solid #111; margin: 0; }
 
-    /* ── Section spacing ── */
-    .ind-section { padding: 100px 0; }
+/* ── Pain cards ── */
+.ind-pain-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    max-width: 1020px;
+    margin: 64px auto 0;
+    border: 1px solid #1c1c1c;
+    border-radius: 10px;
+    overflow: hidden;
+}
+.ind-pain-card {
+    background: #080808;
+    padding: 44px 36px;
+    border-right: 1px solid #1c1c1c;
+    transition: background 0.25s ease;
+}
+.ind-pain-card:last-child { border-right: none; }
+.ind-pain-card:hover { background: #0d0d0d; }
+.ind-pain-stat {
+    font-size: clamp(3rem, 5vw, 4.5rem);
+    font-weight: 900;
+    color: #fff;
+    line-height: 1;
+    letter-spacing: -3px;
+    margin-bottom: 6px;
+}
+.ind-pain-kicker {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 20px;
+    display: block;
+}
+.ind-pain-card h4 {
+    font-size: 0.96rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 12px;
+    line-height: 1.35;
+}
+.ind-pain-card p {
+    color: #888;
+    font-size: 0.82rem;
+    line-height: 1.75;
+    margin: 0;
+}
+@media (max-width: 767px) {
+    .ind-pain-grid { grid-template-columns: 1fr; border-radius: 8px; }
+    .ind-pain-card { border-right: none; border-bottom: 1px solid #1c1c1c; }
+    .ind-pain-card:last-child { border-bottom: none; }
+}
 
-    /* ── Feature grid (6 cells) ── */
-    .ind-feat-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 16px;
-        max-width: 940px;
-        margin: 48px auto 0;
-    }
-    @media (max-width: 767px) { .ind-feat-grid { grid-template-columns: 1fr 1fr; } }
-    @media (max-width: 480px) { .ind-feat-grid { grid-template-columns: 1fr; } }
+/* ── Feature grid ── */
+.ind-feat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    max-width: 960px;
+    margin: 56px auto 0;
+}
+@media (max-width: 767px) { .ind-feat-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 480px) { .ind-feat-grid { grid-template-columns: 1fr; } }
 
-    /* ── Competitor table wrapper ── */
-    .ind-comp-wrap { max-width: 900px; margin: 60px auto 0; overflow-x: auto; }
-    .ind-comp-title { font-size: 0.78rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #444; text-align: center; margin-bottom: 20px; }
+/* ── Comparison wrapper ── */
+.ind-comp-wrap { max-width: 920px; margin: 60px auto 0; overflow-x: auto; }
+.ind-comp-kicker {
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #555;
+    text-align: center;
+    margin-bottom: 20px;
+}
 
-    /* ── AI layout (phone + list) ── */
-    .ind-ai-layout {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 64px;
-        align-items: center;
-        max-width: 1000px;
-        margin: 0 auto;
-    }
-    @media (max-width: 991px) { .ind-ai-layout { grid-template-columns: 1fr; gap: 40px; } }
+/* ── Between-calls layout ── */
+.ind-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 72px;
+    align-items: center;
+    max-width: 1060px;
+    margin: 0 auto;
+}
+@media (max-width: 991px) { .ind-split { grid-template-columns: 1fr; gap: 40px; } }
 
-    /* ── Predictive 3-box grid ── */
-    .ind-pred-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 16px;
-        max-width: 840px;
-        margin: 48px auto 0;
-    }
-    @media (max-width: 767px) { .ind-pred-grid { grid-template-columns: 1fr; } }
+/* ── Predictive 3-up ── */
+.ind-pred-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    max-width: 860px;
+    margin: 56px auto 0;
+}
+@media (max-width: 767px) { .ind-pred-grid { grid-template-columns: 1fr; } }
 
-    /* ── Predictive stat callout ── */
-    .ind-pred-callout {
-        max-width: 620px;
-        margin: 40px auto 0;
-        background: rgba(0,255,136,0.04);
-        border: 1px solid rgba(0,255,136,0.12);
-        border-radius: 14px;
-        padding: 32px;
-        text-align: center;
-    }
-    .ind-pred-callout-num {
-        font-size: 3rem;
-        font-weight: 900;
-        color: var(--accent);
-        line-height: 1;
-        letter-spacing: -2px;
-    }
-    .ind-pred-callout p {
-        color: #888;
-        font-size: 0.88rem;
-        margin: 12px 0 0;
-    }
+.ind-pred-callout {
+    max-width: 640px;
+    margin: 44px auto 0;
+    background: rgba(0,255,136,0.04);
+    border: 1px solid rgba(0,255,136,0.14);
+    border-radius: 10px;
+    padding: 36px 40px;
+    text-align: center;
+}
+.ind-pred-callout-num {
+    font-size: 4rem;
+    font-weight: 900;
+    color: var(--accent);
+    line-height: 1;
+    letter-spacing: -3px;
+}
+.ind-pred-callout p {
+    color: #888;
+    font-size: 0.87rem;
+    margin: 14px 0 0;
+    line-height: 1.6;
+}
 
-    /* ── Pricing grid ── */
-    .ind-price-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 16px;
-        max-width: 1280px;
-        margin: 48px auto 0;
-    }
-    @media (max-width: 991px) { .ind-price-grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 560px) { .ind-price-grid { grid-template-columns: 1fr; } }
+/* ── Pricing ── */
+.ind-price-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    max-width: 1300px;
+    margin: 56px auto 0;
+}
+@media (max-width: 991px)  { .ind-price-grid { grid-template-columns: repeat(2,1fr); } }
+@media (max-width: 560px)  { .ind-price-grid { grid-template-columns: 1fr; } }
 
-    /* ── Footnote / small text ── */
-    .ind-footnote { color: #444; font-size: 0.74rem; text-align: center; margin-top: 20px; }
+.ind-footnote {
+    color: #555;
+    font-size: 0.72rem;
+    text-align: center;
+    margin-top: 24px;
+    line-height: 1.6;
+}
 
-    /* ── CTA section ── */
-    .ind-cta-inner {
-        max-width: 680px;
-        margin: 0 auto;
-        text-align: center;
-    }
-    .ind-cta-inner h2 {
-        font-size: clamp(2rem, 4vw, 3.2rem);
-        font-weight: 900;
-        color: #fff;
-        letter-spacing: -1.5px;
-        margin-bottom: 16px;
-        line-height: 1.1;
-    }
-    .ind-cta-inner p {
-        color: #666;
-        font-size: 0.95rem;
-        max-width: 460px;
-        margin: 0 auto 36px;
-        line-height: 1.6;
-    }
+/* ── CTA ── */
+.ind-cta-wrap { max-width: 700px; margin: 0 auto; text-align: center; }
+.ind-cta-wrap h2 {
+    font-size: clamp(2.2rem, 4.5vw, 3.6rem);
+    font-weight: 900;
+    color: #fff;
+    letter-spacing: -2px;
+    margin-bottom: 16px;
+    line-height: 1.08;
+}
+.ind-cta-wrap p {
+    color: #b0b0b0;
+    font-size: 0.95rem;
+    max-width: 480px;
+    margin: 0 auto 36px;
+    line-height: 1.6;
+}
 
-    /* light theme overrides */
-    body.light-theme .ind-hero,
-    body.light-theme .ind-stats { background: var(--lt-bg); }
-    body.light-theme .ind-hero::before { background: radial-gradient(ellipse at 50% 100%, rgba(0,170,94,0.06) 0%, transparent 70%); }
-    body.light-theme .ind-stat { border-right-color: var(--lt-border); }
-    body.light-theme .ind-stat-num { color: var(--lt-text-primary); }
-    body.light-theme .ind-stat-num.green { color: var(--lt-accent); }
-    body.light-theme .ind-stat-lbl { color: var(--lt-text-muted); }
-    body.light-theme .ind-stats { border-color: var(--lt-border); }
-    body.light-theme .ind-sep { border-top-color: var(--lt-border); }
-    body.light-theme .ind-hero-h1 { color: var(--lt-text-primary); }
-    body.light-theme .ind-rotate-word { color: var(--lt-text-primary); }
-    body.light-theme .ind-pred-callout { background: rgba(0,170,94,0.05); border-color: rgba(0,170,94,0.15); }
-    body.light-theme .ind-pred-callout-num { color: var(--lt-accent); }
-    body.light-theme .ind-pred-callout p { color: var(--lt-text-muted); }
-    body.light-theme .ind-cta-inner h2 { color: var(--lt-text-primary); }
-    body.light-theme .ind-cta-inner p { color: var(--lt-text-secondary); }
+/* ── Light theme ── */
+body.light-theme .ind-hero-section { background: var(--lt-bg); }
+body.light-theme .ind-hero-section::after { background: radial-gradient(ellipse at 50% 100%, rgba(0,170,94,0.06) 0%, transparent 70%); }
+body.light-theme .ind-stats { background: var(--lt-bg); border-color: var(--lt-border); }
+body.light-theme .ind-stat { border-right-color: var(--lt-border); }
+body.light-theme .ind-stat-num { color: var(--lt-text-primary); }
+body.light-theme .ind-stat-num.green { color: var(--lt-accent); }
+body.light-theme .ind-stat-lbl { color: var(--lt-text-muted); }
+body.light-theme .ind-h1 { color: var(--lt-text-primary); }
+body.light-theme .ind-rotate-phrase { color: var(--lt-text-primary); }
+body.light-theme .ind-pain-grid { border-color: var(--lt-border); }
+body.light-theme .ind-pain-card { background: rgba(255,255,255,0.85); border-right-color: var(--lt-border); }
+body.light-theme .ind-pain-card:hover { background: #fff; }
+body.light-theme .ind-pain-stat { color: var(--lt-text-primary); }
+body.light-theme .ind-pain-kicker { color: var(--lt-accent); }
+body.light-theme .ind-pain-card h4 { color: var(--lt-text-primary); }
+body.light-theme .ind-pain-card p { color: var(--lt-text-secondary); }
+body.light-theme .ind-sep { border-top-color: var(--lt-border); }
+body.light-theme .ind-pred-callout { background: rgba(0,170,94,0.04); border-color: rgba(0,170,94,0.15); }
+body.light-theme .ind-pred-callout-num { color: var(--lt-accent); }
+body.light-theme .ind-pred-callout p { color: var(--lt-text-muted); }
+body.light-theme .ind-cta-wrap h2 { color: var(--lt-text-primary); }
+body.light-theme .ind-cta-wrap p { color: var(--lt-text-secondary); }
+body.light-theme .ind-footnote { color: var(--lt-text-muted); }
+body.light-theme .ind-comp-kicker { color: var(--lt-text-muted); }
+
+@media (max-width: 600px) {
+    .ind-stat { padding: 24px 14px; }
+    .ind-stat-num { font-size: 1.8rem; }
+}
 </style>
+
 
 <!-- ── Side Dots ── -->
 <nav class="ios-section-dots" id="iosSectionDots" aria-label="Page sections">
-    <button class="ios-section-dot active" data-section="0" type="button"></button>
-    <button class="ios-section-dot" data-section="1" type="button"></button>
-    <button class="ios-section-dot" data-section="2" type="button"></button>
-    <button class="ios-section-dot" data-section="3" type="button"></button>
-    <button class="ios-section-dot" data-section="4" type="button"></button>
-    <button class="ios-section-dot" data-section="5" type="button"></button>
+    <button class="ios-section-dot active" data-section="0" type="button" title="Hero"></button>
+    <button class="ios-section-dot" data-section="1" type="button" title="The Reality"></button>
+    <button class="ios-section-dot" data-section="2" type="button" title="The Dialer"></button>
+    <button class="ios-section-dot" data-section="3" type="button" title="Follow-Up"></button>
+    <button class="ios-section-dot" data-section="4" type="button" title="Predictive"></button>
+    <button class="ios-section-dot" data-section="5" type="button" title="Pricing"></button>
+    <button class="ios-section-dot" data-section="6" type="button" title="Start"></button>
 </nav>
 
 
-<!-- ═══════════ SECTION 0: HERO ═══════════ -->
-<section class="ios-snap-section" id="iosSection0" style="background:#000; display:flex; flex-direction:column; justify-content:center;">
-    <div class="container">
-        <div class="ind-hero" style="min-height:auto; padding:0;">
-            <div class="ind-hero-label">Power Dialer for Life Insurance Agents</div>
-            <h1 class="ind-hero-h1">Your Leads Actually<br>Pick Up.</h1>
-            <div class="ind-hero-rotate-wrap">
-                <span id="indRotate" class="ind-rotate-word">When you dial on 4 lines at once —</span><br>
-                <span style="color:#888;">more of your list gets worked every single day.</span>
+<!-- ═══ SECTION 0: HERO ═══ -->
+<section class="ios-snap-section" id="iosSection0">
+    <div class="ind-hero-section">
+        <div class="container" style="position:relative;z-index:2;">
+            <div class="ind-label">Power Dialer for Life Insurance Agents</div>
+            <h1 class="ind-h1">Your Leads<br>Actually Pick Up.</h1>
+            <div class="ind-rotate-wrap">
+                <span id="indRotate" class="ind-rotate-phrase">When you dial on 4 lines at once —</span><br>
+                more of your list gets worked every single day.
             </div>
-            <div class="ind-hero-ctas">
+            <div class="ind-ctas">
                 <a href="/checkout" class="btn btn-primary">Start 7-Day Free Trial</a>
                 <a href="/demo-chat" class="btn btn-outline-accent">Watch Demo</a>
             </div>
@@ -275,7 +341,7 @@
     </div>
 
     <!-- Stats bar -->
-    <div class="ind-stats" data-aos="fade-up">
+    <div class="ind-stats" id="indStats">
         <div class="ind-stat">
             <span class="ind-stat-num green" data-counter="4">0</span>
             <span class="ind-stat-lbl">Concurrent Lines</span>
@@ -296,18 +362,57 @@
 </section>
 
 
-<!-- ═══════════ SECTION 1: THE DIALER ═══════════ -->
+<!-- ═══ SECTION 1: THE REALITY ═══ -->
 <section class="ios-snap-section auto-height" id="iosSection1" style="background:#000;">
     <div class="container" style="width:100%;">
         <hr class="ind-sep">
         <div class="ind-section">
             <div class="text-center" data-aos="fade-up">
+                <span class="mkt-label">The Reality</span>
+                <h2 class="mkt-h2">Leads Are Not Cheap.<br><em>Neither Is Your Time.</em></h2>
+                <p class="mkt-body" style="max-width:600px;margin:0 auto;">
+                    You're paying real money for every contact on your list. And every hour you spend on admin instead of
+                    the phone is money already gone. The math is brutal when you're doing everything yourself.
+                </p>
+            </div>
+
+            <div class="ind-pain-grid" data-aos="fade-up">
+                <div class="ind-pain-card">
+                    <div class="ind-pain-stat">5</div>
+                    <span class="ind-pain-kicker">Jobs at Once</span>
+                    <h4>You Can't Do All of This Well.</h4>
+                    <p>Dialing. Texting back. Booking appointments. Updating your CRM. Following up on no-answers. When you're running all five simultaneously, something always slips. Usually it's the follow-up. And follow-up is where the money is.</p>
+                </div>
+                <div class="ind-pain-card">
+                    <div class="ind-pain-stat">$25</div>
+                    <span class="ind-pain-kicker">Per Lead, Gone Cold</span>
+                    <h4>Gone Cold While You Were on Another Call.</h4>
+                    <p>Someone texts back "yeah I'm interested" while you're talking to someone else. By the time you see it, 45 minutes have passed. They moved on. You paid $15–30 for that lead and lost it because you're one person.</p>
+                </div>
+                <div class="ind-pain-card">
+                    <div class="ind-pain-stat">0</div>
+                    <span class="ind-pain-kicker">Accountability</span>
+                    <h4>Nobody Tells You When You're Slipping.</h4>
+                    <p>When you work solo, no one's tracking your dials. No manager telling you your connect rate dropped. No one pointing out you haven't called warm leads in 5 days. The freedom is great until you realize you haven't booked anything all week.</p>
+                </div>
+            </div>
+        </div>
+        <hr class="ind-sep">
+    </div>
+</section>
+
+
+<!-- ═══ SECTION 2: THE DIALER ═══ -->
+<section class="ios-snap-section auto-height" id="iosSection2" style="background:#060606;">
+    <div class="container" style="width:100%;">
+        <div class="ind-section">
+            <div class="text-center" data-aos="fade-up">
                 <span class="mkt-label">Power Dialer</span>
                 <h2 class="mkt-h2">Four Lines. One Agent.<br><em>Twice the Production.</em></h2>
-                <p class="mkt-body" style="max-width:580px; margin:0 auto;">
+                <p class="mkt-body" style="max-width:600px;margin:0 auto;">
                     Most insurance agents dial one lead at a time and sit in silence waiting for an answer.
                     IGB dials up to 4 simultaneously — you talk to the first person who picks up,
-                    and your numbers are never showing up as "Spam Likely."
+                    and your numbers are never showing as "Spam Likely."
                 </p>
             </div>
 
@@ -320,12 +425,12 @@
                 <div class="mkt-cell">
                     <div class="mkt-cell-icon"><i class="fa-solid fa-shield-halved"></i></div>
                     <h4>Spam Protection Built In</h4>
-                    <p>Numbers rotate automatically. CNAM registered so your business name shows. Spam labels monitored and remediated before they kill your connect rate.</p>
+                    <p>Numbers rotate automatically. CNAM registers your business name. Spam labels monitored and remediated before they kill your connect rate.</p>
                 </div>
                 <div class="mkt-cell">
                     <div class="mkt-cell-icon"><i class="fa-solid fa-filter"></i></div>
                     <h4>Smart Filters</h4>
-                    <p>AI scores every lead before you dial. Hot leads surface to the top. Every session starts with your best shot at a connect.</p>
+                    <p>Your call list sorted by who's most likely to answer right now. Hot leads at the top. Every session starts with your best shot.</p>
                 </div>
                 <div class="mkt-cell">
                     <div class="mkt-cell-icon"><i class="fa-solid fa-clock"></i></div>
@@ -340,13 +445,13 @@
                 <div class="mkt-cell">
                     <div class="mkt-cell-icon"><i class="fa-solid fa-heart-pulse"></i></div>
                     <h4>Number Health Dashboard</h4>
-                    <p>See which of your numbers are flagged before they kill your answer rate. Rotate out flagged numbers automatically, warm up fresh ones.</p>
+                    <p>See which numbers are flagged before they kill your answer rate. Rotate out flagged numbers, warm up fresh ones automatically.</p>
                 </div>
             </div>
 
             <!-- Competitor comparison -->
             <div class="ind-comp-wrap" data-aos="fade-up">
-                <p class="ind-comp-title">Switching from WAVV, Mojo, or PhoneBurner?</p>
+                <p class="ind-comp-kicker">Switching from WAVV, Mojo, or PhoneBurner?</p>
                 <table class="comp-table-v2">
                     <thead>
                         <tr>
@@ -359,15 +464,15 @@
                     </thead>
                     <tbody>
                         <tr>
-                            <td>4-line dialing at $149.99/mo</td>
-                            <td class="ct-igb ct-yes">&#10003; Pro Dialer $224.99</td>
-                            <td class="ct-no">&#10005;</td>
+                            <td>Multi-line dialing</td>
+                            <td class="ct-igb ct-yes">&#10003; Up to 4 lines</td>
+                            <td class="ct-yes">&#10003;</td>
                             <td class="ct-no">&#10005;</td>
                             <td class="ct-no">&#10005;</td>
                         </tr>
                         <tr>
                             <td>Spam protection built-in</td>
-                            <td class="ct-igb ct-yes">&#10003; Full CNAM + rotation</td>
+                            <td class="ct-igb ct-yes">&#10003; CNAM + rotation</td>
                             <td class="ct-no">&#10005;</td>
                             <td class="ct-no">&#10005;</td>
                             <td class="ct-partial">ARMOR add-on</td>
@@ -380,119 +485,121 @@
                             <td class="ct-no">&#10005;</td>
                         </tr>
                         <tr>
-                            <td>TCPA compliance &amp; timezone</td>
+                            <td>TCPA &amp; timezone compliance</td>
                             <td class="ct-igb ct-yes">&#10003; Auto-enforced</td>
                             <td class="ct-partial">Manual</td>
                             <td class="ct-no">&#10005;</td>
                             <td class="ct-partial">Manual</td>
                         </tr>
                         <tr>
-                            <td>AI follow-up between calls</td>
-                            <td class="ct-igb ct-yes">&#10003; Full AI SMS bot</td>
+                            <td>Automatic follow-up between calls</td>
+                            <td class="ct-igb ct-yes">&#10003; Full platform</td>
                             <td class="ct-no">&#10005;</td>
                             <td class="ct-no">&#10005;</td>
                             <td class="ct-no">&#10005;</td>
                         </tr>
                         <tr>
-                            <td>Price per month</td>
-                            <td class="ct-igb ct-yes">From $149.99</td>
-                            <td class="ct-partial">$299+</td>
-                            <td class="ct-partial">$99+</td>
-                            <td class="ct-partial">$149+</td>
+                            <td>Starting price</td>
+                            <td class="ct-igb ct-yes">$149.99/mo</td>
+                            <td class="ct-partial">$299+/mo</td>
+                            <td class="ct-partial">$99+/mo</td>
+                            <td class="ct-partial">$149+/mo</td>
                         </tr>
                     </tbody>
                 </table>
-                <p style="color:#333; font-size:0.7rem; text-align:center; margin-top:10px;">Based on publicly available feature documentation as of early 2026.</p>
-            </div>
-        </div>
-        <hr class="ind-sep">
-    </div>
-</section>
-
-
-<!-- ═══════════ SECTION 2: BETWEEN YOUR CALLS ═══════════ -->
-<section class="ios-snap-section" id="iosSection2" style="background:#060606;">
-    <div class="container" style="width:100%;">
-        <div class="ind-ai-layout" data-aos="fade-up">
-
-            <!-- Phone mockup -->
-            <div>
-                <div class="hp-phone">
-                    <div class="hp-phone-notch"></div>
-                    <div class="hp-phone-header">
-                        <div class="hp-phone-name">Marcus D.</div>
-                        <div class="hp-phone-sub">While you're on another call</div>
-                    </div>
-                    <div class="hp-phone-chat" id="indPhoneChatDemo"></div>
-                </div>
-            </div>
-
-            <!-- Copy -->
-            <div>
-                <span class="mkt-label">AI Follow-Up</span>
-                <h2 class="mkt-h2">Between Your Calls,<br><em>Nobody Goes Cold.</em></h2>
-                <p class="mkt-body" style="margin-bottom: 24px;">
-                    You're on a call with a prospect. Meanwhile, the platform is texting the leads you missed,
-                    re-engaging people who went quiet, and booking appointments on your calendar.
-                    When you hang up, the work is already done.
-                </p>
-                <ul class="hp-ai-list">
-                    <li>
-                        <div class="hp-ai-icon"><i class="fa-solid fa-bolt"></i></div>
-                        <div class="hp-ai-text">
-                            <strong>Lead texts back while you're on a call</strong>
-                            <span>They get a reply in seconds — not 45 minutes later when you see it</span>
-                        </div>
-                    </li>
-                    <li>
-                        <div class="hp-ai-icon"><i class="fa-solid fa-rotate"></i></div>
-                        <div class="hp-ai-text">
-                            <strong>No-answer? Re-engagement in 3 days</strong>
-                            <span>Automatic follow-up so the leads you paid for keep working for you</span>
-                        </div>
-                    </li>
-                    <li>
-                        <div class="hp-ai-icon"><i class="fa-solid fa-stopwatch"></i></div>
-                        <div class="hp-ai-text">
-                            <strong>New lead comes in — texted in under 30 seconds</strong>
-                            <span>Speed to lead wins deals. First agent to respond is usually the one who closes</span>
-                        </div>
-                    </li>
-                    <li>
-                        <div class="hp-ai-icon"><i class="fa-solid fa-snowflake"></i></div>
-                        <div class="hp-ai-text">
-                            <strong>Cold lead from last month? Check-in sent automatically</strong>
-                            <span>Your pipeline stays warm even when you're off the clock</span>
-                        </div>
-                    </li>
-                    <li>
-                        <div class="hp-ai-icon"><i class="fa-solid fa-calendar-check"></i></div>
-                        <div class="hp-ai-text">
-                            <strong>Appointment booked — confirmation out without you touching it</strong>
-                            <span>GHL sends the calendar invite. You just show up to the call</span>
-                        </div>
-                    </li>
-                </ul>
-                <div class="ai-trust-box">
-                    <strong><i class="fa-solid fa-circle-check me-2"></i>The automation never calls your leads. Only you do that.</strong>
-                    <span>Every phone call is a human conversation — yours. The platform handles texting and follow-up in between so no lead goes cold while you're dialing.</span>
-                </div>
+                <p class="ind-footnote mt-2">Based on publicly available feature documentation as of early 2026.</p>
             </div>
         </div>
     </div>
 </section>
 
 
-<!-- ═══════════ SECTION 3: PREDICTIVE DIALER ═══════════ -->
-<section class="ios-snap-section auto-height" id="iosSection3" style="background:#000;">
+<!-- ═══ SECTION 3: BETWEEN YOUR CALLS ═══ -->
+<section class="ios-snap-section" id="iosSection3" style="background:#000;">
     <div class="container" style="width:100%;">
         <hr class="ind-sep">
         <div class="ind-section">
+            <div class="ind-split" data-aos="fade-up">
+
+                <!-- Phone mockup -->
+                <div>
+                    <div class="hp-phone">
+                        <div class="hp-phone-notch"></div>
+                        <div class="hp-phone-header">
+                            <div class="hp-phone-name">Marcus D.</div>
+                            <div class="hp-phone-sub">While you're on another call</div>
+                        </div>
+                        <div class="hp-phone-chat" id="indPhoneChat"></div>
+                    </div>
+                </div>
+
+                <!-- Copy -->
+                <div>
+                    <span class="mkt-label">Between Your Calls</span>
+                    <h2 class="mkt-h2">Nobody Goes Cold<br><em>While You're Dialing.</em></h2>
+                    <p class="mkt-body" style="margin-bottom:28px;">
+                        You're on a call with a prospect. Meanwhile, the platform is texting the leads you missed,
+                        re-engaging people who went quiet, and booking appointments on your calendar.
+                        When you hang up, the work is already done.
+                    </p>
+                    <ul class="hp-ai-list">
+                        <li>
+                            <div class="hp-ai-icon"><i class="fa-solid fa-bolt"></i></div>
+                            <div class="hp-ai-text">
+                                <strong>Lead texts back while you're on a call</strong>
+                                <span>They get a reply in seconds — not 45 minutes later when you finally see it</span>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="hp-ai-icon"><i class="fa-solid fa-rotate"></i></div>
+                            <div class="hp-ai-text">
+                                <strong>No-answer? Re-engagement in 3 days</strong>
+                                <span>Automatic follow-up keeps the leads you paid for working for you</span>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="hp-ai-icon"><i class="fa-solid fa-stopwatch"></i></div>
+                            <div class="hp-ai-text">
+                                <strong>New lead comes in — texted in under 30 seconds</strong>
+                                <span>Speed to lead wins deals. First agent to respond is usually the one who closes</span>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="hp-ai-icon"><i class="fa-solid fa-snowflake"></i></div>
+                            <div class="hp-ai-text">
+                                <strong>Cold lead from last month gets a low-pressure check-in</strong>
+                                <span>Your pipeline stays warm even when you're off the clock</span>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="hp-ai-icon"><i class="fa-solid fa-calendar-check"></i></div>
+                            <div class="hp-ai-text">
+                                <strong>Appointment booked — confirmation out automatically</strong>
+                                <span>GHL sends the calendar invite. You just show up to the call</span>
+                            </div>
+                        </li>
+                    </ul>
+                    <div class="ai-trust-box" style="margin-top:28px;">
+                        <strong><i class="fa-solid fa-circle-check me-2"></i>The automation never calls your leads. Only you do that.</strong>
+                        <span>Every phone call is a human conversation — yours. The platform handles follow-up in between so no lead goes cold while you're dialing.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <hr class="ind-sep">
+    </div>
+</section>
+
+
+<!-- ═══ SECTION 4: PREDICTIVE DIALER ═══ -->
+<section class="ios-snap-section auto-height" id="iosSection4" style="background:#060606;">
+    <div class="container" style="width:100%;">
+        <div class="ind-section">
             <div class="text-center" data-aos="fade-up">
                 <span class="mkt-label">Predictive Dialer</span>
-                <h2 class="mkt-h2">The Math Behind<br><em>More Connects.</em></h2>
-                <p class="mkt-body" style="max-width:620px; margin:0 auto;">
-                    Based on your historical connect rate, the system calculates exactly how many lines to run simultaneously
+                <h2 class="mkt-h2">The Math Behind<br><em>More Connects Per Hour.</em></h2>
+                <p class="mkt-body" style="max-width:640px;margin:0 auto;">
+                    Based on your historical connect rate, the system calculates exactly how many lines to run simultaneously —
                     so you're never waiting between connects, never overwhelmed by two people answering at once,
                     and always legal under TCPA. No manual dial ratios. The math runs itself.
                 </p>
@@ -507,7 +614,7 @@
                 <div class="mkt-cell">
                     <div class="mkt-cell-icon"><i class="fa-solid fa-wave-square"></i></div>
                     <h4>Zero Dead Air</h4>
-                    <p>When multiple calls answer at once, the first goes to you. Overflow connects go to a hold state — you never miss a connect because you were already talking.</p>
+                    <p>When multiple calls answer at once, the first goes to you. Overflow connects hold — you never miss a connect because you were already talking.</p>
                 </div>
                 <div class="mkt-cell">
                     <div class="mkt-cell-icon"><i class="fa-solid fa-scale-balanced"></i></div>
@@ -521,14 +628,14 @@
                 <p>Agents on predictive dialing average 40% more connects per hour versus manual single-line dialing.</p>
             </div>
         </div>
-        <hr class="ind-sep">
     </div>
 </section>
 
 
-<!-- ═══════════ SECTION 4: PRICING ═══════════ -->
-<section class="ios-snap-section auto-height" id="iosSection4" style="background:#060606;">
+<!-- ═══ SECTION 5: PRICING ═══ -->
+<section class="ios-snap-section auto-height" id="iosSection5" style="background:#000;">
     <div class="container" style="width:100%;">
+        <hr class="ind-sep">
         <div class="ind-section">
             <div class="text-center" data-aos="fade-up">
                 <span class="mkt-label">Pricing</span>
@@ -538,11 +645,10 @@
 
             <div class="ind-price-grid" data-aos="fade-up">
 
-                <!-- SMS Bot -->
                 <div class="hp-price-card">
                     <h4>SMS Bot</h4>
                     <div>
-                        <span class="hp-price-amount">$99</span><span style="color:#555;font-size:1.1rem;font-weight:900;">.98</span><span class="hp-price-period">/mo</span>
+                        <span class="hp-price-amount">$99</span><span class="hp-price-cents">.98</span><span class="hp-price-period">/mo</span>
                     </div>
                     <p class="hp-price-sub">AI texting only — no dialer</p>
                     <p class="hp-price-trial">7-day free trial.</p>
@@ -553,34 +659,32 @@
                         <li><i class="fa-solid fa-check"></i> Auto-booking to your calendar</li>
                         <li><i class="fa-solid fa-check"></i> Workflow automation</li>
                     </ul>
-                    <a href="/checkout/sms-bot" class="btn w-100 py-2" style="font-weight:700; background:#111; border:1px solid #2a2a2a; color:#fff;">Start Free Trial</a>
+                    <a href="/checkout/sms-bot" class="btn w-100 py-2 hp-price-btn">Start Free Trial</a>
                 </div>
 
-                <!-- Power Dialer -->
                 <div class="hp-price-card featured">
                     <div class="hp-price-badge">MOST POPULAR</div>
-                    <h4 style="margin-top:6px;">Power Dialer</h4>
+                    <h4>Power Dialer</h4>
                     <div>
-                        <span class="hp-price-amount green">$149</span><span style="color:var(--accent);font-size:1.1rem;font-weight:900;">.99</span><span class="hp-price-period">/mo</span>
+                        <span class="hp-price-amount green">$149</span><span class="hp-price-cents" style="color:var(--accent);">.99</span><span class="hp-price-period">/mo</span>
                     </div>
-                    <p class="hp-price-sub" style="color:var(--accent);">Human dialer + full AI platform</p>
+                    <p class="hp-price-sub" style="color:var(--accent);">Human dialer + full platform</p>
                     <p class="hp-price-trial">7-day free trial.</p>
                     <ul class="hp-price-feat">
                         <li><i class="fa-solid fa-check"></i> <strong>Single-line power dialer</strong></li>
-                        <li><i class="fa-solid fa-check"></i> AI texts every lead you miss</li>
+                        <li><i class="fa-solid fa-check"></i> Follow-up texts every lead you miss</li>
                         <li><i class="fa-solid fa-check"></i> Smart Filters + Lead Intelligence</li>
                         <li><i class="fa-solid fa-check"></i> Spam protection + CNAM</li>
                         <li><i class="fa-solid fa-check"></i> Workflow automation</li>
-                        <li><i class="fa-solid fa-check"></i> Unlimited human dialing minutes*</li>
+                        <li><i class="fa-solid fa-check"></i> Unlimited human dialing minutes</li>
                     </ul>
                     <a href="/checkout" class="btn btn-primary w-100 py-2" style="font-weight:700;">Start Free Trial</a>
                 </div>
 
-                <!-- Pro Dialer -->
                 <div class="hp-price-card">
                     <h4>Pro Dialer</h4>
                     <div>
-                        <span class="hp-price-amount">$224</span><span style="color:#fff;font-size:1.1rem;font-weight:900;">.99</span><span class="hp-price-period">/mo</span>
+                        <span class="hp-price-amount">$224</span><span class="hp-price-cents">.99</span><span class="hp-price-period">/mo</span>
                     </div>
                     <p class="hp-price-sub">4 lines simultaneously</p>
                     <p class="hp-price-trial">7-day free trial.</p>
@@ -589,16 +693,15 @@
                         <li><i class="fa-solid fa-check"></i> Everything in Power Dialer</li>
                         <li><i class="fa-solid fa-check"></i> Connect rate analytics</li>
                         <li><i class="fa-solid fa-check"></i> Priority queue</li>
-                        <li><i class="fa-solid fa-check"></i> Unlimited human dialing minutes*</li>
+                        <li><i class="fa-solid fa-check"></i> Unlimited human dialing minutes</li>
                     </ul>
-                    <a href="/checkout/pro-dialer" class="btn w-100 py-2" style="font-weight:700; background:#111; border:1px solid #2a2a2a; color:#fff;">Start Free Trial</a>
+                    <a href="/checkout/pro-dialer" class="btn w-100 py-2 hp-price-btn">Start Free Trial</a>
                 </div>
 
-                <!-- Solo Predictive -->
                 <div class="hp-price-card">
                     <h4>Solo Predictive</h4>
                     <div>
-                        <span class="hp-price-amount">$349</span><span style="color:#fff;font-size:1.1rem;font-weight:900;">.98</span><span class="hp-price-period">/mo</span>
+                        <span class="hp-price-amount">$349</span><span class="hp-price-cents">.98</span><span class="hp-price-period">/mo</span>
                     </div>
                     <p class="hp-price-sub">Erlang-C pacing + AI overflow</p>
                     <p class="hp-price-trial">7-day free trial.</p>
@@ -609,28 +712,29 @@
                         <li><i class="fa-solid fa-check"></i> TCPA compliance dashboard</li>
                         <li><i class="fa-solid fa-check"></i> Callback queue + timezone enforcement</li>
                     </ul>
-                    <a href="/checkout/predictive-dialer" class="btn w-100 py-2" style="font-weight:700; background:#111; border:1px solid #2a2a2a; color:#fff;">Start Free Trial</a>
+                    <a href="/checkout/predictive-dialer" class="btn w-100 py-2 hp-price-btn">Start Free Trial</a>
                 </div>
             </div>
 
-            <p class="ind-footnote mt-4">
+            <p class="ind-footnote">
                 All plans: 7-day free trial. No contracts. Cancel anytime. First 5 phone numbers free.<br>
-                *Unlimited minutes for human-to-human dialing. AI voice overflow uses AI Minutes. <a href="/terms" style="color:var(--accent);">Terms</a>.
+                AI voice overflow uses AI Minutes (not included in unlimited). <a href="/terms" style="color:var(--accent);">Terms apply.</a>
             </p>
         </div>
+        <hr class="ind-sep">
     </div>
 </section>
 
 
-<!-- ═══════════ SECTION 5: CLOSING CTA ═══════════ -->
-<section class="ios-snap-section cta-green-band" id="iosSection5">
+<!-- ═══ SECTION 6: CTA ═══ -->
+<section class="ios-snap-section cta-green-band" id="iosSection6">
     <div class="container" data-aos="fade-up">
-        <div class="ind-cta-inner">
-            <h2>You dial. We handle<br>everything else.</h2>
+        <div class="ind-cta-wrap">
+            <h2>You dial.<br>We handle everything else.</h2>
             <p>No contracts. No setup fees. Your first 5 phone numbers are on us.</p>
             <div class="d-flex justify-content-center gap-3 flex-wrap">
-                <a href="/checkout" class="btn btn-primary" style="padding:14px 36px; font-size:1rem; font-weight:700;">Start 7-Day Free Trial</a>
-                <a href="/support" class="btn btn-outline-accent" style="padding:13px 28px; font-size:1rem;">Talk to a Human</a>
+                <a href="/checkout" class="btn btn-primary" style="padding:15px 40px;font-size:1rem;font-weight:700;">Start 7-Day Free Trial</a>
+                <a href="/support" class="btn btn-outline-accent" style="padding:14px 30px;font-size:1rem;">Talk to a Human</a>
             </div>
         </div>
     </div>
@@ -638,15 +742,15 @@
 
 
 <script>
-(function() {
+(function () {
     /* ── Side dot nav ── */
-    var dots = document.querySelectorAll('.ios-section-dot');
+    var dots     = document.querySelectorAll('.ios-section-dot');
     var sections = [];
-    dots.forEach(function(d) {
+    dots.forEach(function (d) {
         var idx = d.getAttribute('data-section');
         var sec = document.getElementById('iosSection' + idx);
         if (sec) sections.push(sec);
-        d.addEventListener('click', function() {
+        d.addEventListener('click', function () {
             var t = document.getElementById('iosSection' + idx);
             if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
@@ -654,8 +758,8 @@
     function updateDots() {
         var st = window.scrollY + window.innerHeight * 0.35;
         var ai = 0;
-        sections.forEach(function(s, i) { if (s.offsetTop <= st) ai = i; });
-        dots.forEach(function(d, i) { d.classList.toggle('active', i === ai); });
+        sections.forEach(function (s, i) { if (s.offsetTop <= st) ai = i; });
+        dots.forEach(function (d, i) { d.classList.toggle('active', i === ai); });
     }
     window.addEventListener('scroll', updateDots, { passive: true });
     updateDots();
@@ -663,93 +767,80 @@
     /* ── Counter animation ── */
     function countUp(el, target, suffix) {
         var start = 0;
-        var dur = 1200;
-        var step = target / (dur / 16);
-        var t = setInterval(function() {
+        var dur   = 1400;
+        var step  = target / (dur / 16);
+        var t = setInterval(function () {
             start = Math.min(start + step, target);
-            el.textContent = Math.floor(start) + (suffix || '');
+            el.textContent = Math.round(start) + (suffix || '');
             if (start >= target) clearInterval(t);
         }, 16);
     }
-    var countered = false;
-    var statsEl = document.querySelector('.ind-stats');
+    var statsEl = document.getElementById('indStats');
+    var counted = false;
     if (statsEl) {
-        var obs = new IntersectionObserver(function(entries) {
-            if (entries[0].isIntersecting && !countered) {
-                countered = true;
-                document.querySelectorAll('[data-counter]').forEach(function(el) {
-                    var n = parseInt(el.getAttribute('data-counter'));
-                    var suffix = el.getAttribute('data-suffix') || '';
-                    countUp(el, n, suffix);
+        var io = new IntersectionObserver(function (entries) {
+            if (entries[0].isIntersecting && !counted) {
+                counted = true;
+                statsEl.querySelectorAll('[data-counter]').forEach(function (el) {
+                    countUp(el, parseInt(el.getAttribute('data-counter'), 10),
+                               el.getAttribute('data-suffix') || '');
                 });
+                io.disconnect();
             }
-        }, { threshold: 0.5 });
-        obs.observe(statsEl);
+        }, { threshold: 0.4 });
+        io.observe(statsEl);
     }
 
-    /* ── Rotating hero phrase ── */
-    var rEl = document.getElementById('indRotate');
-    if (rEl) {
-        var phrases = [
-            "When you dial on 4 lines at once —",
-            "When spam labels don't kill your calls —",
-            "When you call at the right time of day —",
-            "When you're first in their inbox at 8am —"
-        ];
-        var ri = 0;
-        rEl.style.transition = 'opacity 0.25s ease';
-        setInterval(function() {
-            rEl.style.opacity = '0';
-            setTimeout(function() {
+    /* ── Rotating hero phrases ── */
+    var phrases = [
+        'When you dial on 4 lines at once \u2014',
+        'When spam labels don\u2019t kill your calls \u2014',
+        'When you call at the right time of day \u2014',
+        'When follow-up is automatic \u2014'
+    ];
+    var rotateEl = document.getElementById('indRotate');
+    var ri = 0;
+    if (rotateEl) {
+        setInterval(function () {
+            rotateEl.style.opacity = '0';
+            setTimeout(function () {
                 ri = (ri + 1) % phrases.length;
-                rEl.textContent = phrases[ri];
-                rEl.style.opacity = '1';
-            }, 260);
-        }, 2800);
+                rotateEl.textContent = phrases[ri];
+                rotateEl.style.opacity = '1';
+            }, 280);
+        }, 2600);
     }
 
-    /* ── Animated phone chat ── */
-    var chatEl = document.getElementById('indPhoneChatDemo');
+    /* ── Phone chat animation ── */
+    var chatEl = document.getElementById('indPhoneChat');
+    var msgs = [
+        { side: 'them', text: 'Hey who is this?' },
+        { side: 'us',   text: 'Hey Marcus, it\'s Jake with Shield Life \u2014 you requested info on term life coverage last week' },
+        { side: 'them', text: 'Oh yeah, I think so. How much does it cost?' },
+        { side: 'us',   text: 'Depends on your age and health \u2014 most people your age are under $30/mo for $500k. Want me to grab a quote?' },
+        { side: 'them', text: 'Yeah actually that sounds good' },
+        { side: 'us',   text: 'Perfect. I have Tuesday at 2pm or Wednesday at 10am open \u2014 which works better?' },
+        { side: 'them', text: 'Tuesday works' },
+        { side: 'us',   text: 'Done \u2014 sending you a confirmation now. Talk Tuesday! \ud83d\udc4a' }
+    ];
     if (chatEl) {
-        var msgs = [
-            { t: 'sys', x: 'You\'re on a call — AI takes over texting' },
-            { t: 'lead', x: "yeah im interested" },
-            { t: 'bot', x: "Great timing, Marcus! Just want to make sure we get you the right fit. Any health conditions or meds I should know about?" },
-            { t: 'lead', x: "still there?" },
-            { t: 'bot', x: "Right here! Take your time. Even blood pressure or cholesterol meds — totally fine, just helps me find the right carrier for you." },
-            { t: 'lead', x: "just cholesterol. so what would this run me" },
-            { t: 'bot', x: "With that, you're looking at preferred rates — probably $45-65/mo for solid coverage. Want me to lock in a quick 15-min call to go over exact numbers?" },
-            { t: 'lead', x: "yes call me tomorrow" },
-            { t: 'sys', x: 'Booked: Tomorrow 10:00 AM \u2713' }
-        ];
         var mi = 0;
-        var obs2 = new IntersectionObserver(function(entries) {
-            if (entries[0].isIntersecting) { obs2.disconnect(); playChat(); }
-        }, { threshold: 0.3 });
-        obs2.observe(chatEl.closest('.ios-snap-section'));
-        function playChat() {
+        function addMsg() {
             if (mi >= msgs.length) return;
-            var m = msgs[mi];
-            if (m.t === 'bot') {
-                var tp = document.createElement('div');
-                tp.className = 'hp-typing';
-                tp.innerHTML = '<div class="hp-dot"></div><div class="hp-dot"></div><div class="hp-dot"></div>';
-                chatEl.appendChild(tp); chatEl.scrollTop = chatEl.scrollHeight;
-                setTimeout(function() {
-                    tp.remove(); addBubble(m); mi++;
-                    setTimeout(playChat, 700 + Math.random() * 500);
-                }, 1000 + Math.random() * 700);
-            } else {
-                addBubble(m); mi++; setTimeout(playChat, 650 + Math.random() * 400);
-            }
+            var m   = msgs[mi++];
+            var div = document.createElement('div');
+            div.className = 'hp-msg hp-msg--' + (m.side === 'us' ? 'out' : 'in');
+            div.textContent = m.text;
+            chatEl.appendChild(div);
+            chatEl.scrollTop = chatEl.scrollHeight;
+            setTimeout(addMsg, mi < msgs.length ? 1200 : 0);
         }
-        function addBubble(m) {
-            var d = document.createElement('div');
-            d.className = m.t === 'sys' ? 'hp-bubble hp-bubble--sys' : 'hp-bubble hp-bubble--' + m.t;
-            d.textContent = m.x;
-            chatEl.appendChild(d); chatEl.scrollTop = chatEl.scrollHeight;
-        }
+        var chatObserver = new IntersectionObserver(function (entries) {
+            if (entries[0].isIntersecting) { addMsg(); chatObserver.disconnect(); }
+        }, { threshold: 0.3 });
+        chatObserver.observe(chatEl);
     }
 })();
 </script>
+
 {% endblock %}

@@ -7,21 +7,21 @@
 {% block content %}
 <style>
     .wf-hero { padding: 150px 0 80px; position: relative; overflow: hidden; }
-    .wf-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 25% 15%, rgba(139,92,246,0.10) 0%, transparent 55%), radial-gradient(ellipse at 75% 85%, rgba(0,255,136,0.06) 0%, transparent 50%); pointer-events: none; }
-    .wf-tag { display: inline-block; background: rgba(139,92,246,0.08); border: 1px solid rgba(139,92,246,0.25); color: #a78bfa; padding: 6px 20px; border-radius: 24px; font-size: 0.78rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 20px; }
+    .wf-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 25% 15%, rgba(0,255,136,0.06) 0%, transparent 55%), radial-gradient(ellipse at 75% 85%, rgba(0,255,136,0.03) 0%, transparent 50%); pointer-events: none; }
+    .wf-tag { display: inline-block; background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.25); color: var(--accent); padding: 6px 20px; border-radius: 24px; font-size: 0.78rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 20px; }
     .wf-h1 { font-size: clamp(2.4rem, 4.5vw, 3.6rem); font-weight: 900; line-height: 1.08; margin-bottom: 20px; }
-    .wf-h1 span { background: linear-gradient(135deg, #a78bfa, var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .wf-sub { color: #999; font-size: 1.1rem; max-width: 660px; margin: 0 auto 32px; line-height: 1.65; }
+    .wf-h1 span { color: var(--accent); }
+    .wf-sub { color: #b0b0b0; font-size: 1.1rem; max-width: 660px; margin: 0 auto 32px; line-height: 1.65; }
 
     /* ── Workflow Canvas Mockup ── */
-    .wf-canvas { max-width: 440px; margin: 0 auto; background: rgba(10,10,20,0.80); border: 1px solid rgba(139,92,246,0.15); border-radius: 20px; padding: 28px 24px; position: relative; overflow: hidden; }
-    .wf-canvas::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 0%, rgba(139,92,246,0.06) 0%, transparent 60%); pointer-events: none; }
-    .wf-canvas-title { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: #a78bfa; margin-bottom: 20px; text-align: center; }
+    .wf-canvas { max-width: 440px; margin: 0 auto; background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 20px; padding: 28px 24px; position: relative; overflow: hidden; }
+    .wf-canvas::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 0%, rgba(0,255,136,0.04) 0%, transparent 60%); pointer-events: none; }
+    .wf-canvas-title { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: var(--accent); margin-bottom: 20px; text-align: center; }
     .wf-node { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px 16px; margin: 0 auto; max-width: 280px; position: relative; z-index: 1; }
     .wf-node-icon { width: 28px; height: 28px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.72rem; margin-right: 10px; flex-shrink: 0; }
     .wf-node-row { display: flex; align-items: center; }
     .wf-node-label { font-size: 0.78rem; font-weight: 600; color: #eee; }
-    .wf-node-detail { font-size: 0.65rem; color: #666; margin-top: 3px; margin-left: 38px; }
+    .wf-node-detail { font-size: 0.65rem; color: #b0b0b0; margin-top: 3px; margin-left: 38px; }
     .wf-connector { width: 2px; height: 22px; margin: 0 auto; position: relative; z-index: 0; }
     .wf-connector::after { content: ''; position: absolute; bottom: -3px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; }
     .wf-branch { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 320px; margin: 0 auto; }
@@ -32,55 +32,55 @@
     @keyframes wfPulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
 
     /* Node type colors */
-    .wf-trigger { background: rgba(139,92,246,0.12); border-color: rgba(139,92,246,0.25); }
-    .wf-trigger .wf-node-icon { background: rgba(139,92,246,0.20); color: #a78bfa; }
+    .wf-trigger { background: rgba(0,255,136,0.06); border-color: rgba(0,255,136,0.20); }
+    .wf-trigger .wf-node-icon { background: rgba(0,255,136,0.15); color: var(--accent); }
     .wf-action { border-color: rgba(0,255,136,0.15); }
     .wf-action .wf-node-icon { background: rgba(0,255,136,0.12); color: var(--accent); }
-    .wf-wait .wf-node-icon { background: rgba(0,217,255,0.12); color: #00d9ff; }
-    .wf-condition { border-color: rgba(255,107,53,0.15); }
-    .wf-condition .wf-node-icon { background: rgba(255,107,53,0.12); color: #ff6b35; }
+    .wf-wait .wf-node-icon { background: rgba(255,255,255,0.08); color: #b0b0b0; }
+    .wf-condition { border-color: rgba(255,255,255,0.12); }
+    .wf-condition .wf-node-icon { background: rgba(255,255,255,0.08); color: #b0b0b0; }
 
     /* ── Template cards ── */
     .tpl-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
     @media (max-width: 767px) { .tpl-grid { grid-template-columns: 1fr; } }
     .tpl-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 28px 24px; transition: border-color 0.3s, box-shadow 0.3s; }
-    .tpl-card:hover { border-color: rgba(139,92,246,0.25); box-shadow: 0 8px 32px rgba(139,92,246,0.08); }
+    .tpl-card:hover { border-color: rgba(0,255,136,0.25); box-shadow: 0 8px 32px rgba(0,255,136,0.06); }
     .tpl-badge { display: inline-block; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; padding: 3px 10px; border-radius: 10px; margin-bottom: 12px; }
     .tpl-card h5 { font-weight: 800; font-size: 1rem; color: #fff; margin-bottom: 8px; }
-    .tpl-card p { font-size: 0.82rem; color: #888; line-height: 1.55; margin: 0; }
+    .tpl-card p { font-size: 0.82rem; color: #b0b0b0; line-height: 1.55; margin: 0; }
     .tpl-steps { margin-top: 14px; display: flex; gap: 6px; flex-wrap: wrap; }
     .tpl-step { font-size: 0.62rem; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); color: #999; }
 
     /* ── Comparison table ── */
     .cmp-table { width: 100%; border-collapse: separate; border-spacing: 0; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.06); }
-    .cmp-table th { background: rgba(139,92,246,0.08); padding: 14px 20px; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #a78bfa; text-align: left; }
+    .cmp-table th { background: rgba(0,255,136,0.04); padding: 14px 20px; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent); text-align: left; }
     .cmp-table th:not(:first-child) { text-align: center; }
     .cmp-table td { padding: 12px 20px; font-size: 0.82rem; color: #bbb; border-top: 1px solid rgba(255,255,255,0.04); background: rgba(10,10,20,0.5); }
     .cmp-table td:not(:first-child) { text-align: center; }
     .cmp-table .cmp-yes { color: var(--accent); font-weight: 700; }
     .cmp-table .cmp-no { color: #555; }
     .cmp-table .cmp-partial { color: #f59e0b; }
-    .cmp-table .cmp-highlight { background: rgba(139,92,246,0.04); }
+    .cmp-table .cmp-highlight { background: rgba(0,255,136,0.02); }
 
     /* ── AI builder mockup ── */
-    .ai-builder { max-width: 420px; margin: 0 auto; background: rgba(10,10,20,0.80); border: 1px solid rgba(139,92,246,0.12); border-radius: 16px; padding: 24px 20px; }
+    .ai-builder { max-width: 420px; margin: 0 auto; background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 16px; padding: 24px 20px; }
     .ai-builder-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-    .ai-builder-icon { width: 32px; height: 32px; border-radius: 10px; background: linear-gradient(135deg, rgba(139,92,246,0.20), rgba(0,255,136,0.10)); display: flex; align-items: center; justify-content: center; font-size: 0.85rem; color: #a78bfa; }
+    .ai-builder-icon { width: 32px; height: 32px; border-radius: 10px; background: rgba(0,255,136,0.12); display: flex; align-items: center; justify-content: center; font-size: 0.85rem; color: var(--accent); }
     .ai-builder-title { font-size: 0.82rem; font-weight: 700; color: #eee; }
-    .ai-builder-sub { font-size: 0.68rem; color: #666; }
+    .ai-builder-sub { font-size: 0.68rem; color: #888; }
     .ai-prompt-box { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
     .ai-prompt-text { font-size: 0.78rem; color: #bbb; line-height: 1.5; font-style: italic; }
-    .ai-prompt-cursor { display: inline-block; width: 2px; height: 14px; background: #a78bfa; margin-left: 2px; vertical-align: text-bottom; animation: wfBlink 1s step-end infinite; }
+    .ai-prompt-cursor { display: inline-block; width: 2px; height: 14px; background: var(--accent); margin-left: 2px; vertical-align: text-bottom; animation: wfBlink 1s step-end infinite; }
     @keyframes wfBlink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
     .ai-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
     .ai-chip { font-size: 0.68rem; font-weight: 600; padding: 5px 12px; border-radius: 20px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); color: #999; transition: all 0.2s; }
-    .ai-build-btn { width: 100%; padding: 10px; border-radius: 10px; background: linear-gradient(135deg, #8b5cf6, #3b82f6); color: #fff; font-size: 0.82rem; font-weight: 700; border: none; }
+    .ai-build-btn { width: 100%; padding: 10px; border-radius: 10px; background: var(--accent); color: #000; font-size: 0.82rem; font-weight: 700; border: none; }
 
     /* ── Stats row ── */
     .wf-stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: rgba(255,255,255,0.06); border-radius: 16px; overflow: hidden; }
     .wf-stat { background: #0a0a0a; padding: 28px 20px; text-align: center; }
     .wf-stat-num { font-size: 2rem; font-weight: 900; margin-bottom: 4px; }
-    .wf-stat-label { font-size: 0.72rem; color: #888; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+    .wf-stat-label { font-size: 0.72rem; color: #b0b0b0; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
     @media (max-width: 767px) { .wf-stat-row { grid-template-columns: repeat(2, 1fr); } }
 
     /* ── Step type grid ── */
@@ -90,7 +90,7 @@
     .step-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 20px; }
     .step-card-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; margin-bottom: 10px; }
     .step-card h6 { font-weight: 700; font-size: 0.85rem; color: #fff; margin-bottom: 4px; }
-    .step-card p { font-size: 0.75rem; color: #888; line-height: 1.5; margin: 0; }
+    .step-card p { font-size: 0.75rem; color: #b0b0b0; line-height: 1.5; margin: 0; }
 </style>
 
 
@@ -111,12 +111,12 @@
 <section class="ios-snap-section ios-hero wf-hero" id="iosSection0">
     <div class="container" style="position: relative; z-index: 2;">
         <div class="text-center" data-aos="fade-up">
-            <span class="wf-tag">Visual Workflow Automation</span>
-            <h1 class="wf-h1">Your Sales Playbook,<br><span>Running on Autopilot.</span></h1>
+            <span class="wf-tag">Workflow Automation</span>
+            <h1 class="wf-h1">Leads Don't Wait.<br><span>Your Workflows Don't Either.</span></h1>
             <p class="wf-sub">
-                Drag-and-drop automation that actually understands insurance sales.
-                Trigger SMS, AI calls, lead routing, and follow-ups based on real-time
-                lead intelligence &mdash; not just timers and tags.
+                Set it and forget it follow-up. Trigger SMS, calls, lead routing, and reminders
+                based on what the lead does &mdash; the second they do it.
+                Your pipeline keeps moving while you're on the phone closing.
             </p>
             <div class="d-flex justify-content-center gap-3 flex-wrap">
                 <a href="/#pricing" class="btn btn-primary btn-lg">Start your Free Trial</a>
@@ -161,7 +161,7 @@
                         </div>
                         <div class="wf-node-detail">Fires instantly on lead import</div>
                     </div>
-                    <div class="wf-connector" style="background: rgba(139,92,246,0.30);"></div>
+                    <div class="wf-connector" style="background: rgba(0,255,136,0.20);"></div>
 
                     <!-- Wait -->
                     <div class="wf-node wf-wait">
@@ -170,7 +170,7 @@
                             <div class="wf-node-label">Wait 30 seconds</div>
                         </div>
                     </div>
-                    <div class="wf-connector" style="background: rgba(0,217,255,0.30);"></div>
+                    <div class="wf-connector" style="background: rgba(255,255,255,0.15);"></div>
 
                     <!-- Send SMS -->
                     <div class="wf-node wf-action">
@@ -284,7 +284,7 @@
         <div class="tpl-grid" data-aos="fade-up">
             <div class="tpl-card">
                 <span class="tpl-badge" style="background: rgba(0,255,136,0.08); color: var(--accent);">Included</span>
-                <h5><i class="fa-solid fa-bolt" style="color: #a78bfa; margin-right: 8px;"></i>Speed to Lead</h5>
+                <h5><i class="fa-solid fa-bolt" style="color: var(--accent); margin-right: 8px;"></i>Speed to Lead</h5>
                 <p>Fires within 30 seconds of a new lead import. Sends a personalized intro SMS, waits 5 minutes, then triggers an AI phone call if they haven't replied. Tags the contact when done.</p>
                 <div class="tpl-steps">
                     <span class="tpl-step">Wait 30s</span>
@@ -297,8 +297,8 @@
             </div>
 
             <div class="tpl-card">
-                <span class="tpl-badge" style="background: rgba(255,107,53,0.08); color: #ff6b35;">Included</span>
-                <h5><i class="fa-solid fa-clock-rotate-left" style="color: #ff6b35; margin-right: 8px;"></i>Aged Lead Re-engagement</h5>
+                <span class="tpl-badge" style="background: rgba(0,255,136,0.08); color: var(--accent);">Included</span>
+                <h5><i class="fa-solid fa-clock-rotate-left" style="color: var(--accent); margin-right: 8px;"></i>Aged Lead Re-engagement</h5>
                 <p>Automatically reaches out to leads that are 30+ days old. Checks AI temperature first &mdash; cold leads get a gentle check-in, warm leads get a personalized AI message. Follows up 2 days later.</p>
                 <div class="tpl-steps">
                     <span class="tpl-step">Temperature Check</span>
@@ -310,8 +310,8 @@
             </div>
 
             <div class="tpl-card">
-                <span class="tpl-badge" style="background: rgba(0,217,255,0.08); color: #00d9ff;">Included</span>
-                <h5><i class="fa-solid fa-reply" style="color: #00d9ff; margin-right: 8px;"></i>SMS Response Handler</h5>
+                <span class="tpl-badge" style="background: rgba(0,255,136,0.08); color: var(--accent);">Included</span>
+                <h5><i class="fa-solid fa-reply" style="color: var(--accent); margin-right: 8px;"></i>SMS Response Handler</h5>
                 <p>Routes inbound replies intelligently. Hot leads get an immediate AI phone call. Warm and cool leads get an AI-crafted reply. Opt-outs are automatically respected and the workflow exits.</p>
                 <div class="tpl-steps">
                     <span class="tpl-step">DNC Check</span>
@@ -323,8 +323,8 @@
             </div>
 
             <div class="tpl-card">
-                <span class="tpl-badge" style="background: rgba(233,30,99,0.08); color: #e91e63;">Included</span>
-                <h5><i class="fa-solid fa-arrows-rotate" style="color: #e91e63; margin-right: 8px;"></i>Re-engage Cold Leads</h5>
+                <span class="tpl-badge" style="background: rgba(0,255,136,0.08); color: var(--accent);">Included</span>
+                <h5><i class="fa-solid fa-arrows-rotate" style="color: var(--accent); margin-right: 8px;"></i>Re-engage Cold Leads</h5>
                 <p>Targets leads with no response in 7 days. Sends a friendly check-in, waits 24 hours, then escalates to an AI call for non-responders. Final graceful close-out after 3 more days.</p>
                 <div class="tpl-steps">
                     <span class="tpl-step">SMS</span>
@@ -357,22 +357,22 @@
                 <p>Personalized messages with merge fields. Supports {{firstName}}, {{companyName}}, and more.</p>
             </div>
             <div class="step-card">
-                <div class="step-card-icon" style="background: rgba(139,92,246,0.10); color: #a78bfa;"><i class="fa-solid fa-robot"></i></div>
+                <div class="step-card-icon" style="background: rgba(0,255,136,0.10); color: var(--accent);"><i class="fa-solid fa-robot"></i></div>
                 <h6>AI Message</h6>
                 <p>Let the AI craft a contextual reply. Give it a prompt hint and it reads the full conversation history.</p>
             </div>
             <div class="step-card">
-                <div class="step-card-icon" style="background: rgba(0,217,255,0.10); color: #00d9ff;"><i class="fa-solid fa-phone"></i></div>
+                <div class="step-card-icon" style="background: rgba(0,255,136,0.10); color: var(--accent);"><i class="fa-solid fa-phone"></i></div>
                 <h6>AI Call</h6>
                 <p>Trigger an outbound AI voice call. The voice agent picks up the conversation where SMS left off.</p>
             </div>
             <div class="step-card">
-                <div class="step-card-icon" style="background: rgba(255,107,53,0.10); color: #ff6b35;"><i class="fa-solid fa-code-branch"></i></div>
+                <div class="step-card-icon" style="background: rgba(255,255,255,0.06); color: #b0b0b0;"><i class="fa-solid fa-code-branch"></i></div>
                 <h6>If / Else</h6>
                 <p>Branch on tags, lead temperature, score, response time, lead age, pipeline stage, and more.</p>
             </div>
             <div class="step-card">
-                <div class="step-card-icon" style="background: rgba(0,217,255,0.10); color: #00d9ff;"><i class="fa-solid fa-clock"></i></div>
+                <div class="step-card-icon" style="background: rgba(255,255,255,0.06); color: #b0b0b0;"><i class="fa-solid fa-clock"></i></div>
                 <h6>Wait</h6>
                 <p>Pause for seconds, minutes, hours, or days. Also supports "wait until" with smart conditions.</p>
             </div>
@@ -382,17 +382,17 @@
                 <p>Tag contacts for segmentation. Use tags to trigger other workflows or filter in the dialer.</p>
             </div>
             <div class="step-card">
-                <div class="step-card-icon" style="background: rgba(233,30,99,0.10); color: #e91e63;"><i class="fa-solid fa-arrow-right-arrow-left"></i></div>
+                <div class="step-card-icon" style="background: rgba(255,255,255,0.06); color: #b0b0b0;"><i class="fa-solid fa-arrow-right-arrow-left"></i></div>
                 <h6>Move Pipeline Stage</h6>
                 <p>Push contacts through your CRM pipeline. Works with GoHighLevel, HubSpot, and Salesforce.</p>
             </div>
             <div class="step-card">
-                <div class="step-card-icon" style="background: rgba(139,92,246,0.10); color: #a78bfa;"><i class="fa-solid fa-repeat"></i></div>
+                <div class="step-card-icon" style="background: rgba(255,255,255,0.06); color: #b0b0b0;"><i class="fa-solid fa-repeat"></i></div>
                 <h6>Loop</h6>
                 <p>Repeat a sequence up to N times. Perfect for multi-touch follow-up campaigns.</p>
             </div>
             <div class="step-card">
-                <div class="step-card-icon" style="background: rgba(255,107,53,0.10); color: #ff6b35;"><i class="fa-solid fa-webhook"></i></div>
+                <div class="step-card-icon" style="background: rgba(255,255,255,0.06); color: #b0b0b0;"><i class="fa-solid fa-webhook"></i></div>
                 <h6>Send Webhook</h6>
                 <p>Fire outbound webhooks with HMAC signing. Connect to Zapier, Make, or any external system.</p>
             </div>
