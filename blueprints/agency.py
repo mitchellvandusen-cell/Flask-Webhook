@@ -578,19 +578,23 @@ def get_agency_logs(location_id):
 
 def _get_sub_location_ids(conn, agency_email, company_id=None):
     """Return list of location_ids for all sub-accounts of this agency owner.
-    Uses company_id if available (preferred), falls back to parent_agency_email."""
+    Uses both company_id AND parent_agency_email (OR) to match all members."""
     cur = conn.cursor(cursor_factory=RealDictCursor)
     if company_id:
         cur.execute(
-            "SELECT location_id FROM subscribers WHERE company_id = %s",
-            (company_id,)
+            "SELECT location_id FROM subscribers "
+            "WHERE (company_id = %s OR LOWER(parent_agency_email) = LOWER(%s)) "
+            "AND LOWER(email) != LOWER(%s)",
+            (company_id, agency_email, agency_email)
         )
     else:
         cur.execute(
-            "SELECT location_id FROM subscribers WHERE parent_agency_email = %s",
-            (agency_email,)
+            "SELECT location_id FROM subscribers "
+            "WHERE LOWER(parent_agency_email) = LOWER(%s) "
+            "AND LOWER(email) != LOWER(%s)",
+            (agency_email, agency_email)
         )
-    ids = [r['location_id'] for r in cur.fetchall()]
+    ids = [r['location_id'] for r in cur.fetchall() if r['location_id']]
     cur.close()
     return ids
 
