@@ -2,7 +2,7 @@
 #
 # Architecture:
 #   Tier 1: Fast regex pre-filter — eliminates ~90% of non-booking messages (no LLM cost)
-#   Tier 2: LLM micro-prompt (grok-4-1-fast) — precise intent classification + time extraction
+#   Tier 2: LLM micro-prompt (grok-4-1-fast-reasoning) — precise intent classification + time extraction
 #   Tier 3: Regex fallback — if LLM unavailable (API down, no key, timeout)
 #
 # Why LLM instead of regex:
@@ -13,7 +13,7 @@
 #
 # Cost: ~$0.001 per classification (~200 input tokens, ~60 output tokens)
 # Latency: ~500-1000ms (only when pre-filter passes, ~10-20% of messages)
-# Model: grok-4-1-fast-non-reasoning (same as lead_intelligence.py)
+# Model: grok-4-1-fast-reasoning
 
 import dataclasses
 import json
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 # xAI client (same pattern as lead_intelligence.py)
 XAI_API_KEY = os.getenv("XAI_API_KEY")
-BOOKING_MODEL = "grok-3-mini-fast"
+BOOKING_MODEL = "grok-4-1-fast-reasoning"
 
 _client = None
 if XAI_API_KEY:
@@ -138,7 +138,7 @@ def _has_scheduling_signals(message: str, recent_exchanges: list, stage: str) ->
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TIER 2: LLM CLASSIFICATION (grok-4-1-fast, ~$0.001/call)
+# TIER 2: LLM CLASSIFICATION (grok-4-1-fast-reasoning, ~$0.001/call)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def _format_exchanges_for_llm(recent_exchanges: list, message: str, max_exchanges: int = 6) -> str:
@@ -215,7 +215,10 @@ NEVER guess a time. If unsure of the exact time, use "offer_slots"."""
         )
 
         raw = (resp.choices[0].message.content or "").strip()
-        # Strip markdown code fences if present (same pattern as lead_intelligence.py)
+        # Strip reasoning model artifacts (<thinking> tags)
+        raw = re.sub(r'<thinking>[\s\S]*?</thinking>', '', raw).strip()
+        raw = re.sub(r'</?(?:thinking|reply|output|response)>', '', raw).strip()
+        # Strip markdown code fences
         raw = re.sub(r'^```(?:json)?\s*', '', raw)
         raw = re.sub(r'\s*```$', '', raw)
 

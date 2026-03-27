@@ -1154,10 +1154,10 @@ def _cross_validate_objection(
 # ===================================
 
 # LLM classification model hierarchy:
-#   Tier 1: grok-4-1-fast-non-reasoning — best accuracy, ~500-1000ms, no thinking tags
-#   Tier 2: grok-3-mini-fast — fastest, cheaper, still understands context
+#   Tier 1: grok-4-1-fast-reasoning — full reasoning, understands nuance, objection context
+#   Tier 2: grok-3-mini-fast — fast fallback if Tier 1 times out
 #   Tier 3: keyword safety net — no LLM cost, basic signals only
-CLASSIFY_MODEL_PRIMARY = "grok-4-1-fast-non-reasoning"
+CLASSIFY_MODEL_PRIMARY = "grok-4-1-fast-reasoning"
 CLASSIFY_MODEL_FALLBACK = "grok-3-mini-fast"
 
 
@@ -1166,7 +1166,7 @@ def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "", age: i
     Analyze recent conversation to produce LogicSignal.
 
     Architecture (2026 — LLM-primary, keyword safety net):
-      Tier 1: LLM classification (grok-4-1-fast-non-reasoning, 6s timeout)
+      Tier 1: LLM classification (grok-4-1-fast-reasoning, 6s timeout)
       Tier 2: LLM retry (grok-3-mini-fast, 4s timeout) — if Tier 1 fails
       Tier 3: Minimal keyword safety net — TCPA + basic signals only (<1% of calls)
 

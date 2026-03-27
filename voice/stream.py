@@ -842,15 +842,16 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                     call_active = False
 
             # Run Twilio<->xAI audio bridge + background context enrichment concurrently.
-            # Use asyncio.wait with FIRST_EXCEPTION so that when one loop ends,
-            # we force-cancel the sibling tasks instead of leaving them blocked.
+            # Use FIRST_COMPLETED so that when ANY task finishes (Twilio stream ends normally
+            # OR xAI closes OR enrich completes), we immediately cancel the remaining tasks.
+            # FIRST_EXCEPTION would only wake on error — if Twilio ends cleanly, xAI stays open.
             twilio_task = asyncio.create_task(receive_from_twilio())
             xai_task    = asyncio.create_task(receive_from_xai())
             enrich_task = asyncio.create_task(enrich_session())
             try:
                 done, pending = await asyncio.wait(
                     [twilio_task, xai_task, enrich_task],
-                    return_when=asyncio.FIRST_EXCEPTION,
+                    return_when=asyncio.FIRST_COMPLETED,
                 )
                 # Log any exceptions from completed tasks
                 for t in done:

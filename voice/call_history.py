@@ -688,9 +688,12 @@ Respond with JSON only (no markdown):
 If no specific time is given but they want a callback (e.g., "call me later"), estimate a reasonable time.
 If callback_requested is false, set callback_time to null."""
 
-        client = OpenAI(api_key=xai_key, base_url="https://api.x.ai/v1")
+        from free_llm import get_free_llm
+        client, _model = get_free_llm("fast")
+        if not client:
+            return None
         resp = client.chat.completions.create(
-            model="grok-4-1-fast-non-reasoning",
+            model=_model,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=150,
             temperature=0,

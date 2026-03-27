@@ -500,16 +500,15 @@ def website_bot_webhook():
     # Tool definitions for function calling
     tools = get_support_tool_definitions()
 
-    # LLM client
-    xai_key = os.getenv("XAI_API_KEY")
-    if not xai_key:
-        logger.error("XAI_API_KEY not set — support bot cannot respond")
+    # LLM client — Groq (free) if GROQ_API_KEY set, else xAI grok-3-mini-fast
+    from free_llm import get_free_llm
+    client, _SUPPORT_MODEL = get_free_llm("quality")
+    if not client:
+        logger.error("No LLM API key set — support bot cannot respond")
         return flask_jsonify({
             "text": "We're having a temporary issue. Please try again in a moment, or visit our contact page for help.",
             "options": [{"label": "Contact Page", "value": "QUICK_CONTACT"}]
         })
-
-    client = OpenAI(api_key=xai_key, base_url="https://api.x.ai/v1")
     reply = ""
 
     # ── Multi-turn tool-calling loop ────────────────────────────

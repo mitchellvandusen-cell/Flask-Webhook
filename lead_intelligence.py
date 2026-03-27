@@ -590,12 +590,8 @@ def _repair_json(raw):
 
     raise ValueError(f"Could not repair JSON: {text[:200]}")
 
-XAI_API_KEY = os.getenv("XAI_API_KEY")
-INTELLIGENCE_MODEL = "grok-3-mini-fast"
-
-_client = None
-if XAI_API_KEY:
-    _client = OpenAI(api_key=XAI_API_KEY, base_url="https://api.x.ai/v1")
+from free_llm import get_free_llm
+_client, INTELLIGENCE_MODEL = get_free_llm("quality")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2063,7 +2059,17 @@ def _ensure_intelligence_table():
 def _get_cached_analysis(contact_id, last_message_at):
     """
     Return cached AI analysis if still fresh.
-    Cache is invalidated when new messages arrive after the analysis was generated.
+
+    Smart TTL rules (avoids re-analyzing cold/dead leads every 24h):
+      hot   →  4 hours
+      warm  → 12 hours
+      cool  → 48 hours
+      cold/unknown → 168 hours (7 days)
+
+    Message-invalidation rule: only invalidate when the LEAD sent a new message
+    after the last analysis (outbound bot messages do NOT invalidate the cache).
+    Even then, if the analysis is under 1 hour old, keep it — the bot just replied
+    and the intelligence is still fresh enough.
     """
     conn = get_db_connection()
     if not conn:
@@ -2071,10 +2077,20 @@ def _get_cached_analysis(contact_id, last_message_at):
 
     try:
         cur = conn.cursor()
+        # Also fetch the last message type so we know if it was lead or bot
         cur.execute("""
-            SELECT analysis, analyzed_at FROM contact_intelligence
-            WHERE contact_id = %s
-        """, (contact_id,))
+            SELECT ci.analysis, ci.analyzed_at,
+                   lm.last_type
+            FROM contact_intelligence ci
+            LEFT JOIN LATERAL (
+                SELECT message_type AS last_type
+                FROM contact_messages
+                WHERE contact_id = %s
+                ORDER BY created_at DESC
+                LIMIT 1
+            ) lm ON TRUE
+            WHERE ci.contact_id = %s
+        """, (contact_id, contact_id))
         row = cur.fetchone()
         cur.close()
 
@@ -2085,12 +2101,20 @@ def _get_cached_analysis(contact_id, last_message_at):
         if not analyzed_at:
             return None
 
-        # Normalize timestamps for comparison
+        # Normalize timestamps
         if isinstance(analyzed_at, str):
             analyzed_at = datetime.fromisoformat(analyzed_at.replace('Z', '+00:00'))
         if hasattr(analyzed_at, 'tzinfo') and analyzed_at.tzinfo:
             analyzed_at = analyzed_at.replace(tzinfo=None)
 
+        analysis = row.get('analysis')
+        if isinstance(analysis, str):
+            analysis = json.loads(analysis)
+
+        age_hours = (datetime.utcnow() - analyzed_at).total_seconds() / 3600
+
+        # Message-invalidation: only when lead spoke last AND cache is >1 hour old.
+        # Bot outbound messages (message_type='assistant') do NOT invalidate.
         if last_message_at:
             lm = last_message_at
             if isinstance(lm, str):
@@ -2098,21 +2122,25 @@ def _get_cached_analysis(contact_id, last_message_at):
             if hasattr(lm, 'tzinfo') and lm.tzinfo:
                 lm = lm.replace(tzinfo=None)
 
-            # If new messages arrived after analysis, cache is stale
-            if lm > analyzed_at:
-                return None
+            last_type = (row.get('last_type') or '').lower()
+            lead_spoke = last_type in ('user', 'inbound', 'lead')
 
-        # 24-hour TTL — cache expires after 24 hours regardless of messages.
-        # The bulk analysis engine can process 1000 contacts in ~30s, so
-        # keeping stale classifications indefinitely is unnecessary.
+            if lm > analyzed_at and lead_spoke and age_hours >= 1.0:
+                return None  # lead said something new, cache old enough → re-analyze
+
+        # Temperature-based TTL
+        temperature = (analysis.get('temperature') or 'unknown').lower()
+        ttl_hours = {
+            'hot':     4,
+            'warm':   12,
+            'cool':   48,
+            'cold':   168,
+        }.get(temperature, 168)
+
         from datetime import timedelta
-        age = datetime.utcnow() - analyzed_at
-        if age > timedelta(hours=24):
+        if age_hours > ttl_hours:
             return None
 
-        analysis = row.get('analysis')
-        if isinstance(analysis, str):
-            analysis = json.loads(analysis)
         return analysis
 
     except Exception as e:
@@ -2230,50 +2258,72 @@ def get_bulk_cached_intelligence(location_id, contact_ids):
 
     try:
         cur = conn.cursor()
-        # LEFT JOIN is faster than correlated subquery at scale (300+ contacts).
-        # 24-hour TTL — stale cache is excluded so uncached contacts get re-analyzed.
+        # Pull up to 7 days of cache — Python applies per-temperature TTLs below.
+        # Also fetch last message type to distinguish lead vs bot messages.
         cur.execute("""
-            SELECT ci.contact_id, ci.analysis, ci.analyzed_at, lm.last_msg_at
+            SELECT ci.contact_id, ci.analysis, ci.analyzed_at,
+                   lm.last_msg_at, lm.last_type
             FROM contact_intelligence ci
             LEFT JOIN LATERAL (
-                SELECT MAX(cm.created_at) AS last_msg_at
+                SELECT MAX(cm.created_at) AS last_msg_at,
+                       (SELECT message_type FROM contact_messages
+                        WHERE contact_id = ci.contact_id
+                        ORDER BY created_at DESC LIMIT 1) AS last_type
                 FROM contact_messages cm
                 WHERE cm.contact_id = ci.contact_id
             ) lm ON TRUE
             WHERE ci.location_id = %s
               AND ci.contact_id = ANY(%s)
-              AND ci.analyzed_at > NOW() - INTERVAL '24 hours'
+              AND ci.analyzed_at > NOW() - INTERVAL '7 days'
         """, (location_id, contact_ids))
+
+        # Temperature-based TTLs (hours)
+        _TTL = {'hot': 4, 'warm': 12, 'cool': 48, 'cold': 168}
 
         results = {}
         for row in cur.fetchall():
             cid = row['contact_id']
             analyzed_at = row['analyzed_at']
             last_msg_at = row.get('last_msg_at')
+            last_type = (row.get('last_type') or '').lower()
 
-            # Skip stale cache — new messages arrived after analysis
-            if last_msg_at and analyzed_at:
-                a = analyzed_at
-                m = last_msg_at
-                if hasattr(a, 'tzinfo') and a.tzinfo:
-                    a = a.replace(tzinfo=None)
-                if hasattr(m, 'tzinfo') and m.tzinfo:
-                    m = m.replace(tzinfo=None)
-                if m > a:
+            # Normalize timestamps
+            if hasattr(analyzed_at, 'tzinfo') and analyzed_at.tzinfo:
+                analyzed_at = analyzed_at.replace(tzinfo=None)
+
+            age_hours = (datetime.utcnow() - analyzed_at).total_seconds() / 3600
+
+            # Parse analysis early so we can read temperature for TTL check
+            analysis_raw = row['analysis']
+            if isinstance(analysis_raw, str):
+                try:
+                    analysis_raw = json.loads(analysis_raw)
+                except Exception:
                     continue
 
-            analysis = row['analysis']
-            if isinstance(analysis, str):
-                analysis = json.loads(analysis)
+            temperature = (analysis_raw.get('temperature') or 'unknown').lower()
+            ttl_hours = _TTL.get(temperature, 168)
+
+            if age_hours > ttl_hours:
+                continue  # TTL expired for this temperature tier
+
+            # Message-invalidation: only when lead spoke last AND cache ≥1h old
+            if last_msg_at and analyzed_at:
+                m = last_msg_at
+                if hasattr(m, 'tzinfo') and m.tzinfo:
+                    m = m.replace(tzinfo=None)
+                lead_spoke = last_type in ('user', 'inbound', 'lead')
+                if m > analyzed_at and lead_spoke and age_hours >= 1.0:
+                    continue  # lead said something new → re-analyze
 
             results[cid] = {
-                "temperature": analysis.get("temperature", "warm"),
-                "score": analysis.get("score", 50),
-                "summary": analysis.get("summary", ""),
-                "temperature_reason": analysis.get("temperature_reason", ""),
-                "should_respond": analysis.get("should_respond", False),
-                "engagement_level": analysis.get("engagement_level", 0),
-                "under_contract": analysis.get("under_contract", False),
+                "temperature": analysis_raw.get("temperature", "warm"),
+                "score": analysis_raw.get("score", 50),
+                "summary": analysis_raw.get("summary", ""),
+                "temperature_reason": analysis_raw.get("temperature_reason", ""),
+                "should_respond": analysis_raw.get("should_respond", False),
+                "engagement_level": analysis_raw.get("engagement_level", 0),
+                "under_contract": analysis_raw.get("under_contract", False),
             }
 
         cur.close()
