@@ -5723,12 +5723,8 @@
             // Re-render with whatever cache we have
             dialerRenderContacts();
 
-            // Queue ALL contacts for fresh analysis on startup.
-            // The server checks 24h TTL — contacts with fresh cache are skipped,
-            // stale/uncached contacts get re-analyzed. ~1000 contacts in ~30s.
-            const allValidIds = validContacts.map(c => c.id);
-            if (allValidIds.length > 0 && !_igbAnalyzing) {
-                _igbUncachedIds = allValidIds;
+            // Only queue contacts that have no fresh cache — never re-analyze on every load.
+            if (_igbUncachedIds.length > 0 && !_igbAnalyzing) {
                 igbRunBatchAnalysis();
             }
         }
