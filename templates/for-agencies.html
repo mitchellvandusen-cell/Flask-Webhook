@@ -1,291 +1,772 @@
 {% extends "base.html" %}
 
-{% block title %}For Agencies — InsuranceGrokBot{% endblock %}
+{% block title %}For Insurance Agency Owners — InsuranceGrokBot{% endblock %}
 
-{% block meta_description %}See exactly who's producing, who's coasting, and why — without asking. AI-powered agency insights, automated coaching, and a dialer your agents actually want to use. Free for agency owners.{% endblock %}
+{% block meta_description %}Real-time visibility into every agent's dials, connect rate, call duration, and production. Stop guessing who's grinding and who's coasting. Free for agency owners.{% endblock %}
 
 {% block content %}
+<style>
+    /* ── Agency hero ── */
+    .ag-hero {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        padding: 120px 24px 0;
+        background: #000;
+        position: relative;
+        overflow: hidden;
+    }
+    .ag-hero::before {
+        content: '';
+        position: absolute;
+        bottom: 0; left: 50%;
+        transform: translateX(-50%);
+        width: 700px; height: 320px;
+        background: radial-gradient(ellipse at 50% 100%, rgba(0,255,136,0.06) 0%, transparent 70%);
+        pointer-events: none;
+    }
+    .ag-label {
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 24px;
+        opacity: 0;
+        animation: agFadeUp 0.5s ease 0.1s forwards;
+    }
+    .ag-h1 {
+        font-size: clamp(2.8rem, 5.5vw, 5rem);
+        font-weight: 900;
+        color: #fff;
+        line-height: 1.05;
+        letter-spacing: -2px;
+        margin-bottom: 20px;
+        max-width: 860px;
+        opacity: 0;
+        animation: agFadeUp 0.5s ease 0.2s forwards;
+    }
+    .ag-sub {
+        font-size: clamp(1rem, 2vw, 1.15rem);
+        color: #888;
+        max-width: 620px;
+        line-height: 1.65;
+        margin-bottom: 36px;
+        opacity: 0;
+        animation: agFadeUp 0.5s ease 0.35s forwards;
+    }
+    .ag-ctas {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-bottom: 80px;
+        opacity: 0;
+        animation: agFadeUp 0.5s ease 0.45s forwards;
+    }
+
+    /* ── Stats bar ── */
+    .ag-stats {
+        display: flex;
+        justify-content: center;
+        gap: 0;
+        flex-wrap: wrap;
+        border-top: 1px solid #141414;
+        border-bottom: 1px solid #141414;
+        background: #000;
+        width: 100%;
+    }
+    .ag-stat {
+        text-align: center;
+        padding: 32px 48px;
+        border-right: 1px solid #141414;
+        flex: 1;
+        min-width: 140px;
+    }
+    .ag-stat:last-child { border-right: none; }
+    .ag-stat-num {
+        font-size: clamp(2rem, 3.5vw, 2.8rem);
+        font-weight: 900;
+        color: #fff;
+        line-height: 1;
+        letter-spacing: -2px;
+        font-variant-numeric: tabular-nums;
+        display: block;
+    }
+    .ag-stat-num.green { color: var(--accent); }
+    .ag-stat-lbl {
+        font-size: 0.67rem;
+        font-weight: 600;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: #444;
+        margin-top: 8px;
+        display: block;
+    }
+    @media (max-width: 600px) {
+        .ag-stat { padding: 24px 20px; }
+        .ag-stat-num { font-size: 1.8rem; }
+    }
+
+    /* ── Problem section cards ── */
+    .ag-problem-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        margin-top: 48px;
+    }
+    @media (max-width: 767px) { .ag-problem-grid { grid-template-columns: 1fr; } }
+
+    .ag-problem-card {
+        background: #0a0a0a;
+        border: 1px solid #1a1a1a;
+        border-radius: 14px;
+        padding: 32px 28px;
+        transition: border-color 0.2s ease;
+    }
+    .ag-problem-card:hover { border-color: #2e2e2e; }
+    .ag-problem-stat {
+        font-size: 2.4rem;
+        font-weight: 900;
+        color: var(--accent);
+        line-height: 1;
+        letter-spacing: -1.5px;
+        margin-bottom: 12px;
+        display: block;
+    }
+    .ag-problem-card h4 {
+        font-weight: 800;
+        font-size: 1rem;
+        color: #fff;
+        margin-bottom: 10px;
+    }
+    .ag-problem-card p {
+        color: #888;
+        font-size: 0.86rem;
+        line-height: 1.65;
+        margin: 0;
+    }
+
+    /* ── Feature cells grid ── */
+    .ag-feat-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        margin-top: 48px;
+    }
+    @media (max-width: 767px) { .ag-feat-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 480px) { .ag-feat-grid { grid-template-columns: 1fr; } }
+
+    /* ── Mock dashboard panel ── */
+    .ag-mock-panel {
+        background: #080808;
+        border: 1px solid #1c1c1c;
+        border-radius: 16px;
+        padding: 28px;
+        max-width: 680px;
+        margin: 0 auto;
+        font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    .ag-mock-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #141414;
+    }
+    .ag-mock-title {
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: var(--accent);
+    }
+    .ag-mock-time {
+        font-size: 0.72rem;
+        color: #444;
+    }
+    .ag-mock-kpi-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    .ag-mock-kpi {
+        background: #0d0d0d;
+        border: 1px solid #161616;
+        border-radius: 10px;
+        padding: 14px;
+        text-align: center;
+    }
+    .ag-mock-kpi-val {
+        font-size: 1.5rem;
+        font-weight: 900;
+        color: #fff;
+        letter-spacing: -1px;
+        line-height: 1;
+        display: block;
+    }
+    .ag-mock-kpi-val.green { color: var(--accent); }
+    .ag-mock-kpi-label {
+        font-size: 0.63rem;
+        font-weight: 600;
+        letter-spacing: 1.2px;
+        text-transform: uppercase;
+        color: #444;
+        margin-top: 6px;
+        display: block;
+    }
+    .ag-agent-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid #0e0e0e;
+    }
+    .ag-agent-row:last-child { border-bottom: none; }
+    .ag-agent-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+    .ag-agent-dot.green { background: var(--accent); }
+    .ag-agent-dot.red { background: #ef4444; }
+    .ag-agent-name {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #e0e0e0;
+        flex: 1;
+    }
+    .ag-agent-stats {
+        font-size: 0.75rem;
+        color: #666;
+        text-align: right;
+    }
+    .ag-agent-badge {
+        font-size: 0.65rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 20px;
+        margin-left: 8px;
+    }
+    .ag-agent-badge.top { background: rgba(0,255,136,0.1); color: var(--accent); border: 1px solid rgba(0,255,136,0.2); }
+    .ag-agent-badge.coach { background: rgba(239,68,68,0.1); color: #ef4444; border: 1px solid rgba(239,68,68,0.2); }
+    .ag-mock-footer {
+        margin-top: 16px;
+        padding-top: 12px;
+        border-top: 1px solid #111;
+        font-size: 0.72rem;
+        color: #333;
+        text-align: center;
+    }
+
+    /* ── Pricing cards for agency page ── */
+    .ag-price-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        margin-top: 48px;
+        max-width: 900px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    @media (max-width: 767px) { .ag-price-grid { grid-template-columns: 1fr; } }
+
+    .ag-price-card {
+        background: #0a0a0a;
+        border: 1px solid #1c1c1c;
+        border-radius: 14px;
+        padding: 32px 24px;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        transition: border-color 0.2s;
+    }
+    .ag-price-card:hover { border-color: #2e2e2e; }
+    .ag-price-card.featured { border-color: var(--accent); background: #0d1a12; }
+    .ag-price-badge {
+        position: absolute;
+        top: -11px; left: 50%;
+        transform: translateX(-50%);
+        background: var(--accent);
+        color: #000;
+        font-size: 0.65rem;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        padding: 3px 14px;
+        border-radius: 20px;
+        white-space: nowrap;
+    }
+    .ag-price-card h4 { font-weight: 800; font-size: 1rem; color: #fff; margin-bottom: 4px; }
+    .ag-price-amount { font-size: 2.2rem; font-weight: 900; color: #fff; line-height: 1; letter-spacing: -1.5px; }
+    .ag-price-amount.green { color: var(--accent); }
+    .ag-price-period { color: #555; font-size: 0.85rem; }
+    .ag-price-sub { font-size: 0.78rem; color: #666; margin-top: 6px; }
+    .ag-price-feat { list-style: none; padding: 0; margin: 20px 0; flex: 1; }
+    .ag-price-feat li { display: flex; align-items: flex-start; gap: 8px; padding: 4px 0; color: #c0c0c0; font-size: 0.82rem; }
+    .ag-price-feat li i { color: var(--accent); font-size: 0.75rem; margin-top: 3px; flex-shrink: 0; }
+
+    /* ── Model explanation box ── */
+    .ag-model-box {
+        background: rgba(0,255,136,0.03);
+        border: 1px solid rgba(0,255,136,0.1);
+        border-radius: 14px;
+        padding: 28px 32px;
+        max-width: 720px;
+        margin: 0 auto 48px;
+        text-align: center;
+    }
+    .ag-model-box h4 {
+        font-weight: 800;
+        font-size: 1.1rem;
+        color: #fff;
+        margin-bottom: 10px;
+    }
+    .ag-model-box p { color: #888; font-size: 0.88rem; line-height: 1.65; margin: 0; }
+
+    /* ── Rate highlight colors (mock panel) ── */
+    .ag-rate-top { color: var(--accent); }
+    .ag-rate-mid { color: #e0e0e0; }
+    .ag-rate-low { color: #ef4444; }
+
+    /* ── Pricing footnote ── */
+    .ag-price-footnote {
+        text-align: center;
+        color: #444;
+        font-size: 0.78rem;
+        margin-top: 24px;
+    }
+
+    /* ── CTA h2 ── */
+    .ag-cta-h2 {
+        font-size: clamp(2.2rem, 4vw, 3.5rem);
+        font-weight: 900;
+        color: #fff;
+        letter-spacing: -1.5px;
+        margin: 20px 0 16px;
+        line-height: 1.1;
+    }
+
+    /* ── Animations ── */
+    @keyframes agFadeUp {
+        from { opacity: 0; transform: translateY(16px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Section wrapper ── */
+    .ag-section {
+        padding: 100px 0;
+        background: #000;
+    }
+    .ag-section-alt {
+        background: #060606;
+    }
+    .ag-section-sep {
+        border: none;
+        border-top: 1px solid #111;
+        margin: 0;
+    }
+</style>
 
 <!-- ── Side Dots Navigation ── -->
-<nav class="ios-section-dots" id="iosSectionDots">
-    <div class="ios-section-dot active" data-section="0" title="Hero"></div>
-    <div class="ios-section-dot" data-section="1" title="The Math"></div>
-    <div class="ios-section-dot" data-section="2" title="What Changes"></div>
-    <div class="ios-section-dot" data-section="3" title="Weekly Report"></div>
-    <div class="ios-section-dot" data-section="4" title="Your Brand"></div>
-    <div class="ios-section-dot" data-section="5" title="Get Started"></div>
+<nav class="ios-section-dots" id="iosSectionDots" aria-label="Page sections">
+    <button class="ios-section-dot active" data-section="0" type="button"></button>
+    <button class="ios-section-dot" data-section="1" type="button"></button>
+    <button class="ios-section-dot" data-section="2" type="button"></button>
+    <button class="ios-section-dot" data-section="3" type="button"></button>
+    <button class="ios-section-dot" data-section="4" type="button"></button>
+    <button class="ios-section-dot" data-section="5" type="button"></button>
 </nav>
 
 
-<!-- ═══ SECTION 0: HERO ═══ -->
-<section class="ios-snap-section ios-hero" id="iosSection0">
-    <div class="container" style="position: relative; z-index: 2; width: 100%;">
-        <div class="text-center" data-aos="fade-up">
-            <span class="agency-tag">Built by an Agent, for Agency Owners</span>
-            <h1 class="agency-h1">Coach, Manage, and Improve.<br><span>Every Agent. Every Day.</span></h1>
-            <p class="agency-sub">
-                Your agents buy their own leads and run their own day. Your job is to make them better &mdash;
-                but you can't coach what you can't see, you can't manage what you can't measure,
-                and you can't improve what you don't understand. This platform gives you the visibility
-                to do all three.
+<!-- ═══════════ SECTION 0: HERO ═══════════ -->
+<section class="ios-snap-section" id="iosSection0" style="background:#000; display:flex; flex-direction:column; justify-content:center;">
+    <div class="container">
+        <div class="ag-hero" style="min-height:auto; padding: 0 24px 60px;">
+            <div class="ag-label">For Insurance Agency Owners</div>
+            <h1 class="ag-h1">You Can't Coach<br>What You Can't See.</h1>
+            <p class="ag-sub">
+                Get real-time visibility into every agent's dials, connect rate, call duration, and production.
+                Stop guessing who's grinding and who's coasting.
             </p>
-            <div class="d-flex justify-content-center gap-3 flex-wrap">
-                <a href="https://api.leadconnectorhq.com/widget/booking/S4knucFaXO769HDFlRtv" target="_blank" rel="noopener noreferrer" class="btn btn-lg btn-gradient-cyan" style="font-weight: 700;">
+            <div class="ag-ctas">
+                <a href="https://api.leadconnectorhq.com/widget/booking/S4knucFaXO769HDFlRtv" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="padding:14px 32px; font-size:1rem; font-weight:700;">
                     <i class="fa-solid fa-calendar-check me-2"></i>Book a Demo
                 </a>
-                <a href="#iosSection5" class="btn btn-outline-accent btn-lg">How It Works</a>
+                <a href="#iosSection4" class="btn btn-outline-accent" style="padding:13px 28px; font-size:1rem;">See Pricing</a>
             </div>
+        </div>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="ag-stats" data-aos="fade-up">
+        <div class="ag-stat">
+            <span class="ag-stat-num green" data-counter="100" data-suffix="s">0</span>
+            <span class="ag-stat-lbl">Agents Managed</span>
+        </div>
+        <div class="ag-stat">
+            <span class="ag-stat-num" id="heroStatDiff">15 vs 150</span>
+            <span class="ag-stat-lbl">You'll Know the Difference</span>
+        </div>
+        <div class="ag-stat">
+            <span class="ag-stat-num green" data-counter="0">0</span>
+            <span class="ag-stat-lbl">Guesswork</span>
+        </div>
+        <div class="ag-stat">
+            <span class="ag-stat-num green">Free</span>
+            <span class="ag-stat-lbl">For Agency Owners</span>
         </div>
     </div>
 </section>
 
 
-<!-- ═══ SECTION 1: THE MATH ═══ -->
-<section class="ios-snap-section" id="iosSection1">
-    <div class="container" style="width: 100%;">
-        <div class="text-center mb-5" data-aos="fade-up">
-            <h2 class="ios-section-h2">You Can't Coach, Manage, or Improve <span>What You Can't See.</span></h2>
-        </div>
-
-        <div class="agency-proof" data-aos="fade-up">
-            <div class="ap-card">
-                <div style="font-size: 2.2rem; font-weight: 900; color: #ef4444; margin-bottom: 8px;">15 vs 150</div>
-                <h5 style="font-weight: 700; color: #fff; margin-bottom: 8px;">You Don't Know Who's Actually Dialing</h5>
-                <p style="color: #bbb; font-size: 0.88rem; line-height: 1.65; margin: 0;">
-                    One agent tells you they're "grinding" and makes 15 calls a day. Another one quietly dials 150
-                    and you have no idea she's your best closer. Without per-agent dial counts, connect rates, and
-                    talk time data, you're coaching in the dark &mdash; and your best agents get no recognition.
-                </p>
-            </div>
-            <div class="ap-card">
-                <div style="font-size: 2.2rem; font-weight: 900; color: #f59e0b; margin-bottom: 8px;">8%</div>
-                <h5 style="font-weight: 700; color: #fff; margin-bottom: 8px;">Agents Dialing Into Voicemail All Day</h5>
-                <p style="color: #bbb; font-size: 0.88rem; line-height: 1.65; margin: 0;">
-                    An agent with an 8% connect rate might have flagged numbers, bad calling hours, or no idea
-                    that 10am&ndash;12pm is when people actually answer. They're burning through their lead
-                    budget and getting frustrated &mdash; and you could fix it in one conversation if you had the data.
-                </p>
-            </div>
-            <div class="ap-card">
-                <div style="font-size: 2.2rem; font-weight: 900; color: #8b5cf6; margin-bottom: 8px;">2 min</div>
-                <h5 style="font-weight: 700; color: #fff; margin-bottom: 8px;">Short Calls Mean No One's Closing</h5>
-                <p style="color: #bbb; font-size: 0.88rem; line-height: 1.65; margin: 0;">
-                    If your agents are connecting but average call duration is under 2 minutes, they're getting hung up on.
-                    That's a training problem, not a lead problem. But you'd never know without call quality metrics.
-                    The agents who struggle with openers leave the agency &mdash; not because they can't sell, but because nobody showed them how.
-                </p>
-            </div>
-        </div>
-    </div>
-</section>
-
-
-<!-- ═══ SECTION 2: WHAT CHANGES ═══ -->
-<section class="ios-snap-section auto-height" id="iosSection2">
-    <div class="container" style="width: 100%;">
-        <div class="text-center mb-5" data-aos="fade-up">
-            <h2 class="ios-section-h2">Now You Can <span>Coach With Data.</span></h2>
-            <p class="ios-section-sub" style="max-width:640px; margin:8px auto 0;">
-                Monday morning. You open your phone. You tap the assistant. You say five words.
-                And suddenly you know exactly who to coach, what to manage, and where to improve.
+<!-- ═══════════ SECTION 1: THE PROBLEM ═══════════ -->
+<section class="ios-snap-section auto-height" id="iosSection1" style="background:#000; padding:100px 0;">
+    <div class="container" style="width:100%;">
+        <div class="text-center" data-aos="fade-up">
+            <span class="mkt-label">The Problem</span>
+            <h2 class="mkt-h2" style="margin-top:12px;">Right Now You're Coaching<br><em>in the Dark.</em></h2>
+            <p class="mkt-body" style="max-width:560px; margin:12px auto 0;">
+                You're running an agency on vibes and weekly check-ins. The data is there — you just can't see it.
             </p>
         </div>
 
-        <div class="ios-feat-grid" data-aos="fade-up">
-            <div>
-                <div style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.1);border-radius:14px;padding:24px;margin-bottom:20px;">
-                    <div style="color:var(--accent);font-weight:800;font-size:0.85rem;margin-bottom:12px;"><i class="fa-solid fa-microphone me-2" style="color:#ef4444;"></i>"Give me the weekly report."</div>
-                    <div style="color:#bbb;font-size:0.82rem;line-height:1.7;">
-                        In 5 seconds, you know everything:<br><br>
-                        &bull; Your team made 247 calls this week &mdash; up 15 from last week<br>
-                        &bull; Connect rate improved from 32% to 34%<br>
-                        &bull; Sarah only made 15 calls. She needs accountability.<br>
-                        &bull; Mike's connect rate is 8%. His numbers are probably flagged.<br>
-                        &bull; Emily is at 41%. Have her mentor Sarah.<br>
-                        &bull; 6 missed inbound calls &mdash; warm leads lost to voicemail.<br><br>
-                        You didn't check a single dashboard. You didn't open a spreadsheet.
-                        You didn't ask anyone "how's it going." You just <em>knew</em>.
-                    </div>
-                </div>
-
-                <div style="background:rgba(139,92,246,0.04);border:1px solid rgba(139,92,246,0.1);border-radius:14px;padding:24px;">
-                    <div style="color:#a78bfa;font-weight:800;font-size:0.85rem;margin-bottom:12px;"><i class="fa-solid fa-microphone me-2" style="color:#ef4444;"></i>"What should Mike work on?"</div>
-                    <div style="color:#bbb;font-size:0.82rem;line-height:1.7;">
-                        The AI analyzes Mike's actual calling data and tells you:<br><br>
-                        &bull; He made 38 calls &mdash; decent, but aim for 100+<br>
-                        &bull; His connect rate is 8% &mdash; check if his numbers are flagged as spam<br>
-                        &bull; He's calling mostly after 5pm &mdash; peak hours are 10am-12pm and 2-4pm<br><br>
-                        Now you have a coaching conversation with <em>specifics</em>, not a pep talk.
-                    </div>
-                </div>
+        <div class="ag-problem-grid" data-aos="fade-up" style="max-width:1000px; margin:0 auto; margin-top:48px;">
+            <div class="ag-problem-card">
+                <span class="ag-problem-stat">15 vs 150</span>
+                <h4>You Don't Know Who's Actually Dialing</h4>
+                <p>
+                    One agent tells you they're grinding at 15 calls a day. Another quietly dials 150
+                    and you'd never know she's your best closer. Without per-agent dial counts, you're
+                    handing out recognition based on who talks the loudest.
+                </p>
             </div>
-            <div>
-                <div style="background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.1);border-radius:14px;padding:24px;margin-bottom:20px;">
-                    <div style="color:#00d9ff;font-weight:800;font-size:0.85rem;margin-bottom:12px;"><i class="fa-solid fa-microphone me-2" style="color:#ef4444;"></i>"Compare Sarah and Emily."</div>
-                    <div style="color:#bbb;font-size:0.82rem;line-height:1.7;">
-                        Side-by-side, instantly:<br><br>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;">
-                            <div style="background:rgba(0,0,0,0.2);border-radius:8px;padding:10px;text-align:center;">
-                                <div style="color:#888;font-size:0.7rem;">SARAH J.</div>
-                                <div style="color:#fff;font-weight:800;">15 calls</div>
-                                <div style="color:#ef4444;font-size:0.75rem;">12% rate &middot; 0.8h talk</div>
-                            </div>
-                            <div style="background:rgba(0,0,0,0.2);border-radius:8px;padding:10px;text-align:center;">
-                                <div style="color:#888;font-size:0.7rem;">EMILY R.</div>
-                                <div style="color:#fff;font-weight:800;">142 calls</div>
-                                <div style="color:var(--accent);font-size:0.75rem;">41% rate &middot; 8.2h talk</div>
-                            </div>
-                        </div>
-                        <div style="margin-top:8px;">The data speaks for itself. No awkward conversations needed.</div>
-                    </div>
-                </div>
-
-                <div style="background:rgba(255,59,48,0.04);border:1px solid rgba(255,59,48,0.1);border-radius:14px;padding:24px;">
-                    <div style="color:#FF3B30;font-weight:800;font-size:0.85rem;margin-bottom:12px;"><i class="fa-solid fa-microphone me-2" style="color:#ef4444;"></i>"Am I improving vs last month?"</div>
-                    <div style="color:#bbb;font-size:0.82rem;line-height:1.7;">
-                        Calls up 12%. Connect rate up 3.2%. Talk time up 18%.
-                        Two agents still below 50 dials/week.<br><br>
-                        You can see trajectory &mdash; not just snapshots.
-                        You know if changes you made are working before the month ends.
-                    </div>
-                </div>
+            <div class="ag-problem-card">
+                <span class="ag-problem-stat">8%</span>
+                <h4>Flagged Numbers Killing Their Connect Rate</h4>
+                <p>
+                    An agent with an 8% connect rate might have spam-flagged numbers or be calling at
+                    the wrong hours. You could fix it in one conversation — if you had the data.
+                    Instead, they burn through leads and quit.
+                </p>
+            </div>
+            <div class="ag-problem-card">
+                <span class="ag-problem-stat">2 min</span>
+                <h4>Connecting But Not Closing</h4>
+                <p>
+                    Agents connecting but average call duration is under 2 minutes? That's an opener
+                    problem, not a lead problem. But you'd never know without call duration metrics.
+                    The agents who struggle with openers leave — not because they can't sell.
+                </p>
             </div>
         </div>
     </div>
 </section>
 
+<hr class="ag-section-sep">
 
-<!-- ═══ SECTION 3: WHAT YOUR AGENTS GET ═══ -->
-<section class="ios-snap-section auto-height" id="iosSection3">
-    <div class="container" style="width: 100%;">
-        <div class="text-center mb-5" data-aos="fade-up">
-            <h2 class="ios-section-h2">Give Your Agents the Tools <span>to Improve Themselves.</span></h2>
-            <p class="ios-section-sub" style="max-width:620px; margin:8px auto 0;">
-                Coaching doesn't stop when you hang up the Zoom call. The platform keeps working &mdash;
-                AI scores their leads, prioritizes their call list, handles their follow-ups, and manages their pipeline.
-                Your agents get better every day, even when you're not looking over their shoulder.
+
+<!-- ═══════════ SECTION 2: WHAT YOU GET ═══════════ -->
+<section class="ios-snap-section auto-height" id="iosSection2" style="background:#060606; padding:100px 0;">
+    <div class="container" style="width:100%;">
+        <div class="text-center" data-aos="fade-up">
+            <span class="mkt-label">Agency Dashboard</span>
+            <h2 class="mkt-h2" style="margin-top:12px;">One Dashboard.<br>Every Agent. <em>Every Number.</em></h2>
+            <p class="mkt-body" style="max-width:560px; margin:12px auto 0;">
+                Everything you need to coach, manage, and hold agents accountable — updated live, no spreadsheets required.
             </p>
         </div>
 
-        <div class="ios-cap-grid" style="grid-template-columns:repeat(3,1fr);" data-aos="fade-up">
-            <div class="ios-cap-item">
-                <i class="fa-solid fa-robot" style="color: var(--accent);"></i>
-                <h6>AI Assistant</h6>
-                <p>"Call everyone in New Leads." "Book John for Tuesday." "Who should I call first?" 80 actions, voice or text, no learning curve.</p>
+        <div class="ag-feat-grid" data-aos="fade-up" style="max-width:960px; margin-left:auto; margin-right:auto;">
+
+            <div class="mkt-cell" style="padding:28px;">
+                <div class="mkt-cell-icon"><i class="fa-solid fa-chart-bar"></i></div>
+                <h4>Per-Agent Dial Counts</h4>
+                <p>See exactly how many calls each agent made today, this week, this month. No asking. No guessing.</p>
             </div>
-            <div class="ios-cap-item">
-                <i class="fa-solid fa-phone-volume" style="color: #00d9ff;"></i>
-                <h6>Multi-Line Dialer</h6>
-                <p>Up to 4 lines at once. When multiple people pick up, AI handles the overflow. Your agent talks to one, AI qualifies the rest.</p>
+
+            <div class="mkt-cell" style="padding:28px;">
+                <div class="mkt-cell-icon"><i class="fa-solid fa-trophy"></i></div>
+                <h4>Connect Rate Leaderboard</h4>
+                <p>Top 5 agents by connect rate, automatically calculated from real call data. Know who to replicate and who to coach.</p>
             </div>
-            <div class="ios-cap-item">
-                <i class="fa-solid fa-comment-sms" style="color: #e91e63;"></i>
-                <h6>AI Texting</h6>
-                <p>The bot knows 270+ insurance carriers, handles objections like a closer, and books appointments without your agent lifting a finger.</p>
+
+            <div class="mkt-cell" style="padding:28px;">
+                <div class="mkt-cell-icon"><i class="fa-solid fa-clock"></i></div>
+                <h4>Call Duration Buckets</h4>
+                <p>See how many calls hit 2 min, 5 min, 10 min+ across all agents. Short calls mean opener problems — you'll spot them instantly.</p>
             </div>
-            <div class="ios-cap-item">
-                <i class="fa-solid fa-crosshairs" style="color: #8b5cf6;"></i>
-                <h6>Smart Filters</h6>
-                <p>AI reads every conversation and scores leads hot/warm/cool/cold. Your agents call the right people first, every time. No guessing.</p>
+
+            <div class="mkt-cell" style="padding:28px;">
+                <div class="mkt-cell-icon"><i class="fa-solid fa-bolt"></i></div>
+                <h4>Speed to Lead</h4>
+                <p>Average time from lead creation to first contact, per agent. The faster they move, the better they convert.</p>
             </div>
-            <div class="ios-cap-item">
-                <i class="fa-solid fa-diagram-project" style="color: var(--accent);"></i>
-                <h6>Workflow Automation</h6>
-                <p>Speed to Lead texts in 30 seconds. Re-engagement campaigns on autopilot. Cold lead revival while they sleep. Pre-built templates included.</p>
+
+            <div class="mkt-cell" style="padding:28px;">
+                <div class="mkt-cell-icon"><i class="fa-solid fa-paintbrush"></i></div>
+                <h4>White-Label Branding</h4>
+                <p>Your company name, your colors, your domain. Agents never see InsuranceGrokBot. They see your brand.</p>
             </div>
-            <div class="ios-cap-item">
-                <i class="fa-solid fa-shield-halved" style="color: #00d9ff;"></i>
-                <h6>Spam Protection</h6>
-                <p>CNAM caller ID, Voice Integrity, A2P 10DLC, smart number rotation. Your agents' numbers stay clean so people actually answer.</p>
+
+            <div class="mkt-cell" style="padding:28px;">
+                <div class="mkt-cell-icon"><i class="fa-solid fa-circle-dollar-to-slot"></i></div>
+                <h4>Free for Agency Owners</h4>
+                <p>You pay nothing. Each agent buys their own plan starting at $149.99/mo. You get full visibility at zero cost.</p>
             </div>
+
         </div>
     </div>
 </section>
 
-
-<!-- ═══ SECTION 4: WHITE LABEL ═══ -->
-<section class="ios-snap-section" id="iosSection4">
-    <div class="container" style="width: 100%;">
-        <div class="ios-feat-grid reverse" data-aos="fade-up">
-            <div>
-                <span class="ios-section-label ios-section-label--purple">Your Brand</span>
-                <h2 class="ios-section-h2">Put Your Name on It. <span>Not Ours.</span></h2>
-                <p style="color: #c0c0c0; font-size: 0.95rem; line-height: 1.7; margin-bottom: 20px;">
-                    When your agents log in, they see <em>your</em> agency name, <em>your</em> logo, <em>your</em> colors.
-                    The sidebar says "Acme Insurance Group AI Dialer &amp; SMS" &mdash; not InsuranceGrokBot.
-                    They think it's yours. Because it is.
-                </p>
-                <p style="color:#c0c0c0;font-size:0.88rem;line-height:1.7;">
-                    Custom accent color. Custom font. Custom logo. Branded invite emails when you add new agents.
-                    Toggle it on when you're ready, off if you're not. Free with every plan.
-                </p>
-            </div>
-            <div class="mock-panel mock-panel--purple">
-                <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.06);">
-                    <div style="width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,#8b5cf6,#6366f1);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:0.75rem;">A</div>
-                    <span style="color:#fff;font-weight:700;font-size:0.9rem;">Acme Insurance Group AI Dialer &amp; SMS</span>
-                </div>
-                <div style="background:rgba(0,0,0,0.2);height:6px;border-radius:3px;margin-bottom:6px;width:70%;"></div>
-                <div style="background:rgba(0,0,0,0.2);height:6px;border-radius:3px;margin-bottom:6px;width:50%;"></div>
-                <div style="background:rgba(0,0,0,0.2);height:6px;border-radius:3px;width:85%;"></div>
-                <div style="margin-top:16px;padding:10px 14px;background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.15);border-radius:8px;font-size:0.75rem;color:#a78bfa;">
-                    <i class="fa-solid fa-eye-slash me-1"></i> Your agents never see InsuranceGrokBot. Ever.
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
+<hr class="ag-section-sep">
 
 
-<!-- ═══ SECTION 5: HOW IT WORKS + CTA ═══ -->
-<section class="ios-snap-section auto-height" id="iosSection5" style="padding-bottom: 60px;">
-    <div class="container" style="width: 100%;">
+<!-- ═══════════ SECTION 3: VISIBILITY IN ACTION ═══════════ -->
+<section class="ios-snap-section" id="iosSection3" style="background:#000; display:flex; align-items:center; justify-content:center;">
+    <div class="container" style="width:100%;">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h2 class="ios-section-h2">Here's How It Works. <span>It's Simple.</span></h2>
+            <span class="mkt-label">Live Example</span>
+            <h2 class="mkt-h2" style="margin-top:12px;">Today at 2:14pm.</h2>
+            <p class="mkt-body" style="max-width:520px; margin:12px auto 0;">
+                This is what you see when you open your agency dashboard right now.
+            </p>
         </div>
 
-        <div style="max-width:700px;margin:0 auto;" data-aos="fade-up">
-            <div style="display:flex;gap:20px;align-items:flex-start;margin-bottom:28px;">
-                <div style="width:40px;height:40px;border-radius:50%;background:var(--accent);color:#000;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1rem;flex-shrink:0;">1</div>
-                <div>
-                    <div style="color:#fff;font-weight:700;font-size:1rem;margin-bottom:4px;">You install it free from the GHL Marketplace.</div>
-                    <div style="color:#888;font-size:0.88rem;">No credit card. No subscription. The agency dashboard, KPIs, weekly reports, coaching tools, and white-label branding are all free for you.</div>
+        <div class="ag-mock-panel" data-aos="fade-up">
+            <div class="ag-mock-header">
+                <span class="ag-mock-title">Agency Dashboard</span>
+                <span class="ag-mock-time">Live &mdash; Updated 2:14:07 PM</span>
+            </div>
+
+            <div class="ag-mock-kpi-row">
+                <div class="ag-mock-kpi">
+                    <span class="ag-mock-kpi-val">847</span>
+                    <span class="ag-mock-kpi-label">Total Calls</span>
+                </div>
+                <div class="ag-mock-kpi">
+                    <span class="ag-mock-kpi-val">312</span>
+                    <span class="ag-mock-kpi-label">Connected</span>
+                </div>
+                <div class="ag-mock-kpi">
+                    <span class="ag-mock-kpi-val green">36.8%</span>
+                    <span class="ag-mock-kpi-label">Connect Rate</span>
                 </div>
             </div>
-            <div style="display:flex;gap:20px;align-items:flex-start;margin-bottom:28px;">
-                <div style="width:40px;height:40px;border-radius:50%;background:#00d9ff;color:#000;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1rem;flex-shrink:0;">2</div>
-                <div>
-                    <div style="color:#fff;font-weight:700;font-size:1rem;margin-bottom:4px;">Your agents install and pick the plan that fits their workflow.</div>
-                    <div style="color:#888;font-size:0.88rem;">SMS Bot ($99.98/mo), Power Dialer ($149.99/mo), Pro Dialer with 4 lines ($224.99/mo), or Solo Predictive with AI overflow ($349.98/mo). Each agent subscribes individually. 7-day free trial, cancel anytime.</div>
+
+            <div class="ag-mock-kpi-row">
+                <div class="ag-mock-kpi">
+                    <span class="ag-mock-kpi-val">4h 32m</span>
+                    <span class="ag-mock-kpi-label">Team Talk Time</span>
+                </div>
+                <div class="ag-mock-kpi">
+                    <span class="ag-mock-kpi-val green">28s</span>
+                    <span class="ag-mock-kpi-label">Avg Speed to Lead</span>
+                </div>
+                <div class="ag-mock-kpi">
+                    <span class="ag-mock-kpi-val">8</span>
+                    <span class="ag-mock-kpi-label">Active Agents</span>
                 </div>
             </div>
-            <div style="display:flex;gap:20px;align-items:flex-start;margin-bottom:28px;">
-                <div style="width:40px;height:40px;border-radius:50%;background:#a78bfa;color:#000;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1rem;flex-shrink:0;">3</div>
-                <div>
-                    <div style="color:#fff;font-weight:700;font-size:1rem;margin-bottom:4px;">You see everything. They see your brand.</div>
-                    <div style="color:#888;font-size:0.88rem;">As agents make calls, send texts, and book appointments, their data flows into your agency dashboard automatically. Connect rates, talk time, leaderboards, coaching insights &mdash; all in real time. White-label makes it look like your own platform.</div>
+
+            <div style="margin-top:8px;">
+                <div class="ag-agent-row">
+                    <div class="ag-agent-dot green"></div>
+                    <span class="ag-agent-name">Sarah M.<span class="ag-agent-badge top">Top Agent</span></span>
+                    <span class="ag-agent-stats">94 calls &bull; 41 connects &bull; <strong class="ag-rate-top">43.6%</strong></span>
+                </div>
+                <div class="ag-agent-row">
+                    <div class="ag-agent-dot green"></div>
+                    <span class="ag-agent-name">Emily R.</span>
+                    <span class="ag-agent-stats">88 calls &bull; 37 connects &bull; <strong class="ag-rate-mid">42.0%</strong></span>
+                </div>
+                <div class="ag-agent-row">
+                    <div class="ag-agent-dot green"></div>
+                    <span class="ag-agent-name">James T.</span>
+                    <span class="ag-agent-stats">76 calls &bull; 29 connects &bull; <strong class="ag-rate-mid">38.2%</strong></span>
+                </div>
+                <div class="ag-agent-row">
+                    <div class="ag-agent-dot red"></div>
+                    <span class="ag-agent-name">Mike T.<span class="ag-agent-badge coach">Needs Coaching</span></span>
+                    <span class="ag-agent-stats">23 calls &bull; 4 connects &bull; <strong class="ag-rate-low">17.4%</strong> &bull; avg 1m 12s</span>
                 </div>
             </div>
+
+            <div class="ag-mock-footer">Every number. Updated live. No weekly report to wait for.</div>
+        </div>
+    </div>
+</section>
+
+<hr class="ag-section-sep">
+
+
+<!-- ═══════════ SECTION 4: PRICING ═══════════ -->
+<section class="ios-snap-section auto-height" id="iosSection4" style="background:#060606; padding:100px 0;">
+    <div class="container" style="width:100%;">
+        <div class="text-center" data-aos="fade-up">
+            <span class="mkt-label">Pricing</span>
+            <h2 class="mkt-h2" style="margin-top:12px;">Free for You.<br><em>Powerful for Your Agents.</em></h2>
+            <p class="mkt-body" style="max-width:560px; margin:12px auto 0;">
+                Your agency dashboard costs nothing. Each agent subscribes to the plan that fits their workflow.
+                You see everything. They pay for their own seat.
+            </p>
         </div>
 
-        <!-- Final CTA -->
-        <div class="text-center mt-4" data-aos="fade-up">
-            <div class="mkt-glass-card mkt-glass-card--cyan" style="padding: 60px 40px; max-width: 720px; margin: 0 auto;">
-                <h2 style="font-weight: 900; font-size: 1.8rem; margin-bottom: 12px;">Coach better. Manage smarter. Improve faster.<br>The visibility to do all three is free.</h2>
-                <p style="color: #c0c0c0; font-size: 0.95rem; max-width: 520px; margin: 0 auto 24px;">
-                    15 minutes. We'll show you what your agency looks like when you can actually see
-                    what's happening &mdash; the coaching insights, the performance data, and the AI assistant
-                    that puts it all at your fingertips. Your agents will thank you.
-                </p>
-                <div class="d-flex justify-content-center gap-3 flex-wrap">
-                    <a href="https://api.leadconnectorhq.com/widget/booking/S4knucFaXO769HDFlRtv" target="_blank" rel="noopener noreferrer" class="btn btn-lg btn-gradient-cyan" style="font-weight: 700;">
-                        <i class="fa-solid fa-calendar-check me-2"></i>Book a 15-Minute Demo
-                    </a>
-                    <a href="/ai-assistant" class="btn btn-outline-accent btn-lg">See the AI Assistant</a>
+        <div class="ag-model-box" data-aos="fade-up" style="margin-top:40px;">
+            <h4>How the model works</h4>
+            <p>
+                Agency owners install free from the GHL Marketplace. The dashboard, KPIs, leaderboards, white-label branding,
+                and agent management tools are all included at no cost. Each agent purchases their own subscription and their
+                data flows into your dashboard automatically. No per-seat agency fee. No monthly overhead.
+            </p>
+        </div>
+
+        <div class="ag-price-grid" data-aos="fade-up">
+
+            <div class="ag-price-card">
+                <h4>Power Dialer</h4>
+                <div style="margin:16px 0 4px;">
+                    <span class="ag-price-amount">$149.99</span>
+                    <span class="ag-price-period">/mo</span>
                 </div>
+                <div class="ag-price-sub">per agent &bull; 7-day free trial</div>
+                <ul class="ag-price-feat">
+                    <li><i class="fa-solid fa-check"></i> Single-line power dialer</li>
+                    <li><i class="fa-solid fa-check"></i> AI SMS follow-up bot</li>
+                    <li><i class="fa-solid fa-check"></i> AI voice agent</li>
+                    <li><i class="fa-solid fa-check"></i> Smart lead filters</li>
+                    <li><i class="fa-solid fa-check"></i> 270+ carriers known</li>
+                    <li><i class="fa-solid fa-check"></i> Full platform access</li>
+                </ul>
+                <a href="/register" class="btn btn-outline-accent btn-sm w-100">Start Free Trial</a>
+            </div>
+
+            <div class="ag-price-card featured">
+                <div class="ag-price-badge">Most Popular</div>
+                <h4>Pro Dialer</h4>
+                <div style="margin:16px 0 4px;">
+                    <span class="ag-price-amount green">$224.99</span>
+                    <span class="ag-price-period">/mo</span>
+                </div>
+                <div class="ag-price-sub">per agent &bull; 7-day free trial</div>
+                <ul class="ag-price-feat">
+                    <li><i class="fa-solid fa-check"></i> 4 concurrent lines</li>
+                    <li><i class="fa-solid fa-check"></i> Everything in Power Dialer</li>
+                    <li><i class="fa-solid fa-check"></i> Predictive pacing</li>
+                    <li><i class="fa-solid fa-check"></i> Connect rate analytics</li>
+                    <li><i class="fa-solid fa-check"></i> Priority queue</li>
+                    <li><i class="fa-solid fa-check"></i> AI overflow on missed calls</li>
+                </ul>
+                <a href="/register" class="btn btn-primary btn-sm w-100">Start Free Trial</a>
+            </div>
+
+            <div class="ag-price-card">
+                <h4>Solo Predictive</h4>
+                <div style="margin:16px 0 4px;">
+                    <span class="ag-price-amount">$349.98</span>
+                    <span class="ag-price-period">/mo</span>
+                </div>
+                <div class="ag-price-sub">per agent &bull; 7-day free trial</div>
+                <ul class="ag-price-feat">
+                    <li><i class="fa-solid fa-check"></i> Erlang-C auto-pacing</li>
+                    <li><i class="fa-solid fa-check"></i> Everything in Pro Dialer</li>
+                    <li><i class="fa-solid fa-check"></i> TCPA auto-throttle</li>
+                    <li><i class="fa-solid fa-check"></i> Agent state machine</li>
+                    <li><i class="fa-solid fa-check"></i> Compliance dashboard</li>
+                    <li><i class="fa-solid fa-check"></i> Callback queue scheduler</li>
+                </ul>
+                <a href="/register" class="btn btn-outline-accent btn-sm w-100">Start Free Trial</a>
+            </div>
+
+        </div>
+
+        <p class="ag-price-footnote">
+            Agency owners are free. Each agent's subscription covers their own dialer, SMS bot, and voice features.
+        </p>
+    </div>
+</section>
+
+<hr class="ag-section-sep">
+
+
+<!-- ═══════════ SECTION 5: CTA ═══════════ -->
+<section class="ios-snap-section cta-green-band" id="iosSection5" style="display:flex; align-items:center; justify-content:center;">
+    <div class="container" data-aos="fade-up">
+        <div class="text-center" style="max-width:640px; margin:0 auto; padding:0 24px;">
+            <span class="mkt-label">Get Started</span>
+            <h2 class="ag-cta-h2">
+                Stop guessing.<br>Start seeing.
+            </h2>
+            <p class="mkt-body" style="margin-bottom:36px; max-width:480px; margin-left:auto; margin-right:auto;">
+                Your agency dashboard is free. Your agents get a 7-day trial.
+                Setup takes under 10 minutes.
+            </p>
+            <div class="d-flex justify-content-center gap-3 flex-wrap">
+                <a href="https://api.leadconnectorhq.com/widget/booking/S4knucFaXO769HDFlRtv" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="padding:14px 36px; font-size:1rem; font-weight:700;">
+                    <i class="fa-solid fa-calendar-check me-2"></i>Book a Demo
+                </a>
+                <a href="/register" class="btn btn-outline-accent" style="padding:13px 28px; font-size:1rem;">Get Started Free</a>
             </div>
         </div>
     </div>
 </section>
+
+
+<script>
+(function() {
+    /* ── Side dot nav ── */
+    var dots = document.querySelectorAll('.ios-section-dot');
+    var sections = [];
+    dots.forEach(function(d) {
+        var idx = d.getAttribute('data-section');
+        var sec = document.getElementById('iosSection' + idx);
+        if (sec) sections.push(sec);
+        d.addEventListener('click', function() {
+            var t = document.getElementById('iosSection' + idx);
+            if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+    function updateDots() {
+        var st = window.scrollY + window.innerHeight * 0.35;
+        var ai = 0;
+        sections.forEach(function(s, i) { if (s.offsetTop <= st) ai = i; });
+        dots.forEach(function(d, i) { d.classList.toggle('active', i === ai); });
+    }
+    window.addEventListener('scroll', updateDots, { passive: true });
+    updateDots();
+
+    /* ── Counter animation ── */
+    function countUp(el, target, suffix) {
+        var start = 0;
+        var dur = 1200;
+        var step = target / (dur / 16);
+        var timer = setInterval(function() {
+            start = Math.min(start + step, target);
+            el.textContent = Math.floor(start) + (suffix || '');
+            if (start >= target) clearInterval(timer);
+        }, 16);
+    }
+    var countered = false;
+    var statsEl = document.querySelector('.ag-stats');
+    if (statsEl) {
+        var obs = new IntersectionObserver(function(entries) {
+            if (entries[0].isIntersecting && !countered) {
+                countered = true;
+                document.querySelectorAll('[data-counter]').forEach(function(el) {
+                    var n = parseInt(el.getAttribute('data-counter'));
+                    var suffix = el.getAttribute('data-suffix') || '';
+                    countUp(el, n, suffix);
+                });
+            }
+        }, { threshold: 0.5 });
+        obs.observe(statsEl);
+    }
+})();
+</script>
 
 {% endblock %}
