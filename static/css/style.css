@@ -12,7 +12,7 @@ html {
     --accent: #00ff88;
     --accent-hover: #ffffff;
     --accent-dim: rgba(0, 255, 136, 0.12);
-    --dark-bg: #030305;
+    --dark-bg: #03040a;
     --dark-surface: #0d0d12;
     --dark-surface-2: #12121a;
     --text-primary: #ffffff;
@@ -96,12 +96,14 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════
-   LIVING AURORA — 4 independent orbital light sources
-   Each blob has its own path, speed, color, and size.
-   Glass panels refract all four simultaneously.
+   LIVING BACKGROUND — ultra-subtle deep-field atmosphere
+   These are not blobs. They are barely-visible color
+   temperature shifts. Glass panels refract them softly.
+   All opacity intentionally very low so the glass is
+   the hero, not the background.
    ═══════════════════════════════════════════════════ */
 
-/* Shared base for all body pseudo-elements */
+/* Shared base */
 body::before, body::after {
     content: '';
     position: fixed;
@@ -110,100 +112,93 @@ body::before, body::after {
     pointer-events: none;
 }
 
-/* Blob 1 — Emerald Giant: slow sweeping orbit top-left */
+/* Deep indigo wash — top-left, barely visible */
 body::before {
-    width: 95vw; height: 95vw;
-    top: -22%; left: -20%;
+    width: 110vw; height: 110vw;
+    top: -30%; left: -25%;
     background: radial-gradient(ellipse at 40% 40%,
-        rgba(0,255,136,0.72) 0%,
-        rgba(0,230,120,0.28) 32%,
-        rgba(0,200,100,0.08) 55%,
-        transparent 72%);
-    filter: blur(90px);
-    opacity: 0.72;
-    animation: aura-orbit-a 32s ease-in-out infinite alternate;
+        rgba(60,40,140,0.22) 0%,
+        rgba(40,20,100,0.10) 40%,
+        rgba(20,10,60,0.03) 65%,
+        transparent 80%);
+    filter: blur(140px);
+    animation: aura-orbit-a 48s ease-in-out infinite alternate;
 }
 
-/* Blob 2 — Deep Violet: wide moody anchor bottom-right */
+/* Dark teal whisper — bottom-right */
 body::after {
-    width: 85vw; height: 85vw;
-    bottom: -28%; right: -16%;
+    width: 90vw; height: 90vw;
+    bottom: -30%; right: -20%;
     background: radial-gradient(ellipse at 55% 55%,
-        rgba(130,60,255,0.78) 0%,
-        rgba(100,40,220,0.28) 35%,
-        rgba(70,20,180,0.08) 58%,
-        transparent 74%);
-    filter: blur(110px);
-    opacity: 0.68;
-    animation: aura-orbit-b 26s ease-in-out infinite alternate;
-    animation-delay: -13s;
+        rgba(0,80,80,0.18) 0%,
+        rgba(0,60,60,0.08) 40%,
+        rgba(0,40,40,0.02) 65%,
+        transparent 80%);
+    filter: blur(160px);
+    animation: aura-orbit-b 38s ease-in-out infinite alternate;
+    animation-delay: -19s;
 }
 
-/* Blob 3 — Arctic Cyan: accent light drifting top-right */
+/* Faint emerald hint — mid-screen, very subtle */
 html::before {
     content: '';
     position: fixed;
-    width: 62vw; height: 62vw;
-    top: -6%; right: -10%;
-    background: radial-gradient(ellipse at 50% 45%,
-        rgba(0,220,255,0.62) 0%,
-        rgba(0,180,230,0.18) 38%,
-        rgba(0,150,200,0.05) 60%,
-        transparent 72%);
-    filter: blur(80px);
-    opacity: 0.58;
+    width: 70vw; height: 70vw;
+    top: 20%; left: 10%;
+    background: radial-gradient(ellipse at 50% 50%,
+        rgba(0,255,136,0.06) 0%,
+        rgba(0,180,100,0.02) 45%,
+        transparent 70%);
+    filter: blur(120px);
     z-index: -1;
     pointer-events: none;
     border-radius: 50%;
-    animation: aura-orbit-c 38s ease-in-out infinite alternate;
-    animation-delay: -8s;
+    animation: aura-orbit-c 56s ease-in-out infinite alternate;
+    animation-delay: -12s;
 }
 
-/* Blob 4 — Amber Stage Light: warm centre-bottom glow (new) */
+/* Dark navy anchor — centre, pulls depth inward */
 html::after {
     content: '';
     position: fixed;
-    width: 55vw; height: 55vw;
-    bottom: 2%; left: 28%;
-    background: radial-gradient(ellipse at 50% 60%,
-        rgba(255,165,0,0.38) 0%,
-        rgba(255,110,0,0.12) 38%,
-        rgba(220,80,0,0.04) 60%,
-        transparent 75%);
-    filter: blur(100px);
-    opacity: 0.48;
+    width: 80vw; height: 80vw;
+    top: 10%; right: 5%;
+    background: radial-gradient(ellipse at 50% 50%,
+        rgba(20,20,50,0.20) 0%,
+        rgba(10,10,30,0.08) 45%,
+        transparent 72%);
+    filter: blur(130px);
     z-index: -1;
     pointer-events: none;
     border-radius: 50%;
-    animation: aura-orbit-d 44s ease-in-out infinite alternate;
-    animation-delay: -22s;
+    animation: aura-orbit-d 62s ease-in-out infinite alternate;
+    animation-delay: -31s;
 }
 
-/* Multi-step orbital paths — each blob follows a unique figure-eight-ish trajectory */
 @keyframes aura-orbit-a {
     0%   { transform: translate(0,    0)    scale(1.00); }
-    25%  { transform: translate(9vw,  5vh)  scale(1.12); }
-    50%  { transform: translate(5vw,  12vh) scale(0.94); }
-    75%  { transform: translate(12vw, 8vh)  scale(1.08); }
-    100% { transform: translate(7vw,  3vh)  scale(1.15); }
+    25%  { transform: translate(6vw,  4vh)  scale(1.08); }
+    50%  { transform: translate(3vw,  9vh)  scale(0.96); }
+    75%  { transform: translate(9vw,  6vh)  scale(1.05); }
+    100% { transform: translate(5vw,  2vh)  scale(1.10); }
 }
 @keyframes aura-orbit-b {
-    0%   { transform: translate(0,     0)     scale(1.00); }
-    30%  { transform: translate(-9vw, -7vh)  scale(1.14); }
-    65%  { transform: translate(-5vw, -14vh) scale(0.88); }
-    100% { transform: translate(-11vw,-9vh)  scale(1.05); }
+    0%   { transform: translate(0,    0)    scale(1.00); }
+    30%  { transform: translate(-7vw,-5vh)  scale(1.10); }
+    65%  { transform: translate(-4vw,-10vh) scale(0.92); }
+    100% { transform: translate(-8vw,-7vh)  scale(1.04); }
 }
 @keyframes aura-orbit-c {
-    0%   { transform: translate(0,   0)    scale(1.06); }
-    35%  { transform: translate(-5vw, 10vh) scale(0.85); }
-    70%  { transform: translate(-9vw, 5vh)  scale(1.10); }
-    100% { transform: translate(-4vw, 12vh) scale(0.90); }
+    0%   { transform: translate(0,   0)    scale(1.04); }
+    35%  { transform: translate(4vw, 7vh)  scale(0.90); }
+    70%  { transform: translate(-3vw,4vh)  scale(1.06); }
+    100% { transform: translate(2vw, 8vh)  scale(0.94); }
 }
 @keyframes aura-orbit-d {
     0%   { transform: translate(0,    0)    scale(1.00); }
-    40%  { transform: translate(-11vw,-6vh) scale(1.22); }
-    75%  { transform: translate(6vw, -10vh) scale(0.82); }
-    100% { transform: translate(9vw,  -5vh) scale(1.10); }
+    40%  { transform: translate(-5vw,-4vh) scale(1.12); }
+    75%  { transform: translate(4vw, -7vh) scale(0.88); }
+    100% { transform: translate(6vw,  -3vh) scale(1.06); }
 }
 @keyframes slideUp {
     from { opacity: 0; transform: translateY(28px) scale(0.98); filter: blur(4px); }
