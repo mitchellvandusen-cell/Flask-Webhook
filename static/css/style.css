@@ -35,7 +35,7 @@ html {
     --glass-bg: linear-gradient(145deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.04) 60%, rgba(255,255,255,0.02) 100%);
     --glass-bg-strong: linear-gradient(145deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.07) 60%, rgba(255,255,255,0.03) 100%);
     --card-glass: linear-gradient(145deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.04) 60%, rgba(255,255,255,0.02) 100%);
-    --glass-blur: blur(36px) saturate(220%) brightness(1.14) contrast(1.02);
+    --glass-blur: blur(16px) saturate(140%) brightness(1.08) contrast(1.01);
 
     /* 3D Edge Lighting — pronounced chromatic bevel, lit from top-left */
     --glass-border-top: rgba(255,255,255,0.50);
