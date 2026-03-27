@@ -18,6 +18,8 @@ from rq import Worker, Queue
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(name)s | %(levelname)s | %(message)s')
+
+import ai_call_logger  # noqa — activates AI call logging on import
 logging.getLogger('twilio.http_client').setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 

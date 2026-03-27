@@ -16,6 +16,7 @@ import redis
 import stripe
 import gspread
 from openai import OpenAI
+import ai_call_logger  # noqa — activates AI call logging on import
 from oauth2client.service_account import ServiceAccountCredentials
 from dotenv import load_dotenv
 from flask import Flask, request, send_from_directory
