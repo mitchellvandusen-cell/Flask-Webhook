@@ -1436,12 +1436,17 @@ def analyze_contacts_batch_task(location_id: str, contact_ids: list) -> dict:
     already_cached = get_bulk_cached_intelligence(location_id, contact_ids)
     need_analysis = [cid for cid in contact_ids if cid not in already_cached]
 
+    logger.info(
+        f"[INTEL_BATCH] {location_id}: received={len(contact_ids)}, "
+        f"fresh_cache={len(already_cached)}, need_analysis={len(need_analysis)}"
+    )
+
     if not need_analysis:
         return {"status": "success", "analyzed": 0, "total": 0}
 
     analyzed = bulk_analyze_and_cache(location_id, need_analysis)
 
-    logger.info(f"🧠 Bulk batch complete: {analyzed}/{len(need_analysis)} contacts for {location_id}")
+    logger.info(f"[INTEL_BATCH] {location_id}: analyzed={analyzed}/{len(need_analysis)} complete")
     return {"status": "success", "analyzed": analyzed, "total": len(need_analysis)}
 
 

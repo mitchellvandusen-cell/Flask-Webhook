@@ -1849,6 +1849,10 @@ You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact 
 
     for attempt in range(2):
         try:
+            logger.warning(
+                f"[AI_CALL] model={INTELLIGENCE_MODEL} | contacts={len(contact_blocks)} | "
+                f"prompt_chars={len(prompt)} | max_tokens={max_tokens} | timeout={timeout:.0f}s"
+            )
             response = _client.chat.completions.create(
                 model=INTELLIGENCE_MODEL,
                 messages=[{"role": "user", "content": prompt}],
@@ -1958,11 +1962,11 @@ def bulk_analyze_and_cache(location_id, contact_ids):
     if not contact_blocks:
         return 0
 
-    # Process in sub-batches of 5 per LLM call, run up to 10 concurrently
-    # Smaller batches = less truncation risk = more reliable JSON parsing
-    # 1000 contacts = 200 sub-batches / 10 concurrent = 20 rounds * ~3s = ~60s total
+    # Process in sub-batches of 5 per LLM call, run up to 2 concurrently
+    # Kept low to avoid rate-limit cascade: 8 workers × 2 = 16 max simultaneous xAI calls
+    # More concurrent = more timeouts = charged for input tokens with no output
     SUB_BATCH = 5
-    MAX_CONCURRENT = 10
+    MAX_CONCURRENT = 2
     total_analyzed = 0
 
     chunks = []
