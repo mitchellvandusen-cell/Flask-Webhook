@@ -2,7 +2,7 @@
 
 {% block title %}FAQ | InsuranceGrokBot{% endblock %}
 
-{% block meta_description %}Frequently asked questions about InsuranceGrokBot — the all-in-one AI sales platform for life insurance agents. AI texting, voice dialer, predictive dialing, lead intelligence, workflow automation, spam protection, and more.{% endblock %}
+{% block meta_description %}Frequently asked questions about InsuranceGrokBot — the all-in-one AI sales platform for life insurance agents. AI texting, voice dialer, predictive dialing, smart lead scoring, workflow automation, spam protection, and more.{% endblock %}
 
 {% block json_ld %}
 <script type="application/ld+json">
@@ -15,7 +15,7 @@
       "name": "What exactly is InsuranceGrokBot?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "InsuranceGrokBot is an all-in-one AI sales platform built specifically for life insurance agents. It combines AI-powered SMS texting, an AI voice agent, a multi-line power dialer, predictive dialing, lead intelligence scoring, workflow automation, spam protection, and team management into a single dashboard. It handles lead engagement autonomously — texting, calling, qualifying, handling objections, and booking appointments — so you can focus on closing."
+        "text": "InsuranceGrokBot is an all-in-one AI sales platform built specifically for life insurance agents. It combines AI-powered SMS texting, an AI voice agent, a multi-line power dialer, predictive dialing, smart lead scoring, workflow automation, spam protection, and team management into a single dashboard. It handles lead engagement autonomously — texting, calling, qualifying, handling objections, and booking appointments — so you can focus on closing."
       }
     },
     {
@@ -39,7 +39,7 @@
       "name": "What is the Power Dialer?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "The Power Dialer is a built-in multi-line dialer that lets you call up to 4 contacts simultaneously. It includes AI-powered Smart Filters that automatically classify your leads as Hot, Warm, Cool, or Cold based on actual conversation analysis — not simple rules. Features include call recording, one-click voicemail drop, live call monitoring, contact intelligence panels, and calling hours enforcement."
+        "text": "The Power Dialer is a built-in multi-line dialer that lets you call up to 4 contacts simultaneously. It includes Smart Filters that automatically classify your leads as Hot, Warm, Cool, or Cold based on conversation signals and engagement patterns. Features include call recording, one-click voicemail drop, live call monitoring, contact intelligence panels, and calling hours enforcement."
       }
     },
     {
@@ -52,7 +52,7 @@
     },
     {
       "@type": "Question",
-      "name": "What are AI Smart Filters?",
+      "name": "What are Smart Filters?",
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "Smart Filters use AI to read every contact's full conversation history and classify them by temperature (Hot, Warm, Cool, Cold), engagement score (0-100), and whether you should respond right now. Unlike rule-based systems, the AI understands what the lead actually said. A lead who said 'not interested' gets classified as Cold, not Hot just because they replied. Contacts are automatically re-analyzed every 24 hours and after every new message."
@@ -95,7 +95,7 @@
       "name": "How much does it cost?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Three plans, no contracts: Power Dialer at $149.99/month (single-line dialing, AI texting, AI voice, lead intelligence, Smart Filters, unlimited minutes), Pro Dialer at $224.99/month (adds multi-line dialing up to 4 lines, predictive pacing, connect rate analytics), and Predictive Dialer at $349.98/month (adds Erlang-C predictive pacing, TCPA auto-throttle, compliance dashboard, callback queue). Your first 5 phone numbers are free. Agency owners get the dashboard, KPIs, and white-label features at no extra cost."
+        "text": "Three plans, no contracts: Power Dialer at $149.99/month (single-line dialing, AI texting, AI voice, Smart Filters & lead scoring, unlimited minutes), Pro Dialer at $224.99/month (adds multi-line dialing up to 4 lines, predictive pacing, connect rate analytics), and Predictive Dialer at $349.98/month (adds Erlang-C predictive pacing, TCPA auto-throttle, compliance dashboard, callback queue). Your first 5 phone numbers are free. Agency owners get the dashboard, KPIs, and white-label features at no extra cost."
       }
     },
     {
@@ -210,7 +210,7 @@
             </h2>
             <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
                 <div class="accordion-body faq-accordion-body">
-                    InsuranceGrokBot is an <strong>all-in-one AI sales platform</strong> built specifically for life insurance agents. It combines AI-powered SMS texting, an AI voice agent, a multi-line power dialer, predictive dialing, lead intelligence scoring, workflow automation, spam protection, and team management into a single dashboard. It handles lead engagement autonomously &mdash; texting, calling, qualifying, handling objections, and booking appointments &mdash; so you can focus on closing.
+                    InsuranceGrokBot is an <strong>all-in-one AI sales platform</strong> built specifically for life insurance agents. It combines AI-powered SMS texting, an AI voice agent, a multi-line power dialer, predictive dialing, smart lead scoring, workflow automation, spam protection, and team management into a single dashboard. It handles lead engagement autonomously &mdash; texting, calling, qualifying, handling objections, and booking appointments &mdash; so you can focus on closing.
                 </div>
             </div>
         </div>
@@ -280,12 +280,12 @@
         <div class="accordion-item faq-accordion-item">
             <h2 class="accordion-header">
                 <button class="accordion-button faq-accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq6">
-                    What are AI Smart Filters?
+                    What are Smart Filters?
                 </button>
             </h2>
             <div id="faq6" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
                 <div class="accordion-body faq-accordion-body">
-                    Smart Filters use AI to read every contact's full conversation history and classify them by <strong>temperature</strong> (Hot, Warm, Cool, Cold), <strong>engagement score</strong> (0&ndash;100), and whether you should respond right now. Unlike rule-based systems, the AI understands what the lead actually said. A lead who said "not interested" gets classified as Cold, not Hot just because they replied. Contacts are automatically re-analyzed every 24 hours and after every new message.
+                    Smart Filters read every contact's full conversation history and classify them by <strong>temperature</strong> (Hot, Warm, Cool, Cold), <strong>engagement score</strong> (0&ndash;100), and whether you should respond right now. The scoring reads what leads actually said — a lead who said "not interested" gets classified as Cold, not Hot just because they replied. Contacts are automatically re-scored on every dialer load and after every new message.
                 </div>
             </div>
         </div>
@@ -364,7 +364,7 @@
                 <div class="accordion-body faq-accordion-body">
                     Three plans, <strong>no contracts</strong> &mdash; cancel anytime:
                     <br><br>
-                    <strong>Power Dialer</strong> &mdash; $149.99/month. Single-line dialing, AI texting, AI voice, lead intelligence, Smart Filters, unlimited minutes, and 5 sales frameworks.
+                    <strong>Power Dialer</strong> &mdash; $149.99/month. Single-line dialing, AI texting, AI voice, Smart Filters & lead scoring, unlimited minutes, and 5 sales frameworks.
                     <br><br>
                     <strong>Pro Dialer</strong> &mdash; $224.99/month. Everything in Power Dialer plus multi-line dialing (up to 4 concurrent lines), predictive pacing, connect rate analytics, and priority queue.
                     <br><br>

@@ -1,601 +1,64 @@
-# lead_intelligence.py - AI-Powered Intelligence Layer
-# Phase 5: AI summaries, next-best-actions, and lead temperature via xAI Grok.
+# lead_intelligence.py - Rule-Based Contact Scoring
 #
-# One micro-prompt per contact → cached in contact_intelligence table.
-# Only regenerated when new messages arrive after the last analysis.
-# Cost: ~$0.001-0.003 per analysis (grok-4-1-fast-non-reasoning, ~200 tokens out).
+# Scores contacts using keyword detection + recency + engagement signals.
+# Zero AI cost. Runs in milliseconds. Same output format as before.
+# Results cached in contact_intelligence table with temperature-based TTLs.
 
 import json
 import logging
-import os
-import re
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta
-from openai import OpenAI
+from datetime import datetime
 from db import get_db_connection, return_db_connection
 
 logger = logging.getLogger(__name__)
 
 
-def _single_to_double_quotes(text):
-    """Convert single-quoted JSON to double-quoted JSON, handling nested quotes."""
-    result = []
-    in_str = False
-    str_char = None
-    i = 0
-    while i < len(text):
-        c = text[i]
-        if not in_str:
-            if c == "'":
-                result.append('"')
-                in_str = True
-                str_char = "'"
-            elif c == '"':
-                result.append('"')
-                in_str = True
-                str_char = '"'
-            else:
-                result.append(c)
-        else:
-            if c == '\\':
-                result.append(c)
-                if i + 1 < len(text):
-                    result.append(text[i + 1])
-                    i += 1
-            elif c == str_char:
-                result.append('"')
-                in_str = False
-                str_char = None
-            elif c == '"' and str_char == "'":
-                # Escape double quote inside single-quoted string
-                result.append('\\"')
-            else:
-                result.append(c)
-        i += 1
-    return ''.join(result)
+# ═══════════════════════════════════════════════════════════════════════════════
+# ═══ KEYWORD LISTS ═══════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════
 
+# Contacts who have explicitly opted out → Cold, score 5, do not contact
+_STOP_WORDS = [
+    "stop", "unsubscribe", "cancel", "opt out", "remove me",
+    "do not call", "do not text", "do not contact", "do not message",
+    "take me off", "take me out", "never contact", "leave me alone",
+    "lose my number", "delete my number",
+]
 
-def _fix_python_literals(text):
-    """Replace Python True/False/None and JS NaN/Infinity/undefined with JSON equivalents outside strings."""
-    # Only replace when not inside a quoted string — use a simple state machine
-    REPLACEMENTS = (
-        ('True', 'true'), ('False', 'false'), ('None', 'null'),
-        ('NaN', 'null'), ('Infinity', 'null'), ('undefined', 'null'),
-    )
-    result = []
-    i = 0
-    in_str = False
-    esc = False
-    while i < len(text):
-        c = text[i]
-        if esc:
-            result.append(c)
-            esc = False
-            i += 1
-            continue
-        if c == '\\' and in_str:
-            result.append(c)
-            esc = True
-            i += 1
-            continue
-        if c == '"':
-            in_str = not in_str
-            result.append(c)
-            i += 1
-            continue
-        if in_str:
-            result.append(c)
-            i += 1
-            continue
-        # Outside string — check for Python/JS literals at word boundary
-        for py_lit, js_lit in REPLACEMENTS:
-            if text[i:i+len(py_lit)] == py_lit:
-                # Check word boundary after
-                after = i + len(py_lit)
-                if after >= len(text) or not text[after].isalnum():
-                    result.append(js_lit)
-                    i += len(py_lit)
-                    break
-        else:
-            # Handle -Infinity (negative infinity)
-            if text[i:i+9] == '-Infinity':
-                after = i + 9
-                if after >= len(text) or not text[after].isalnum():
-                    result.append('null')
-                    i += 9
-                    continue
-            result.append(c)
-            i += 1
-    return ''.join(result)
+# Lead is signaling intent to buy or schedule
+_BUYING_WORDS = [
+    "quote", "how much", "what's the price", "whats the price",
+    "how much is it", "how much does", "price", "cost",
+    "ready to", "sign me up", "sign up", "want to sign",
+    "let's do it", "lets do it", "let's go", "lets go",
+    "get started", "get me started", "i'm in", "im in",
+    "enroll", "apply", "application",
+    "sounds good", "i want",
+    "book a", "schedule a call", "set up a call",
+    "call me", "can you call", "give me a call",
+    "when can we", "when can you",
+    "coverage", "policy", "premium",
+    "interested", "more info", "tell me more",
+    "set up a meeting", "make an appointment",
+]
 
-
-def _fix_unquoted_keys(text):
-    """Quote bare property keys in JS-style objects: {key: val} → {"key": val}.
-
-    Uses a state machine to skip strings, only fixing keys outside quoted regions.
-    Handles both double-quoted and single-quoted strings.
-    """
-    result = []
-    i = 0
-    in_str = False
-    str_char = None
-    esc = False
-    while i < len(text):
-        c = text[i]
-        if esc:
-            result.append(c)
-            esc = False
-            i += 1
-            continue
-        if c == '\\' and in_str:
-            result.append(c)
-            esc = True
-            i += 1
-            continue
-        if not in_str and c in ('"', "'"):
-            in_str = True
-            str_char = c
-            result.append(c)
-            i += 1
-            continue
-        if in_str and c == str_char:
-            in_str = False
-            str_char = None
-            result.append(c)
-            i += 1
-            continue
-        if in_str:
-            result.append(c)
-            i += 1
-            continue
-        # Outside string — look for bare identifier followed by ':'
-        if c.isalpha() or c == '_':
-            # Scan ahead for the full identifier
-            j = i
-            while j < len(text) and (text[j].isalnum() or text[j] == '_'):
-                j += 1
-            # Skip whitespace between identifier and colon
-            k = j
-            while k < len(text) and text[k] in (' ', '\t'):
-                k += 1
-            if k < len(text) and text[k] == ':':
-                key = text[i:j]
-                # Don't re-quote if the preceding non-whitespace is already a quote
-                result.append('"')
-                result.append(key)
-                result.append('"')
-                i = j
-                continue
-        result.append(c)
-        i += 1
-    return ''.join(result)
-
-
-def _fix_unescaped_quotes_in_values(text):
-    """Fix unescaped double quotes inside JSON string values.
-
-    LLMs sometimes emit: "summary": "Lead said "no thanks" firmly"
-    This should be: "summary": "Lead said \\"no thanks\\" firmly"
-
-    Strategy: after a value-opening quote (preceded by : and optional whitespace),
-    scan forward. The "real" closing quote is the last one before a structural
-    delimiter (, } ]). Any quote between opening and real closing gets escaped.
-    """
-    # Find all ": " value openings: colon, optional whitespace, opening quote
-    result = []
-    i = 0
-    while i < len(text):
-        c = text[i]
-        # Detect value opening: we just saw : then whitespace then "
-        # Look for pattern: :\s*" at current position minus the colon
-        if c == '"':
-            # Check if this is a value-opening quote (preceded by : and optional whitespace)
-            j = i - 1
-            while j >= 0 and text[j] in (' ', '\t'):
-                j -= 1
-            if j >= 0 and text[j] == ':':
-                # This is a value-opening quote — find the real closing quote
-                # The real closing quote is a " followed by , } ] or end-of-content
-                # Scan forward to find all " positions
-                result.append(c)  # opening quote
-                i += 1
-                quote_positions = []
-                k = i
-                esc = False
-                while k < len(text):
-                    if esc:
-                        esc = False
-                        k += 1
-                        continue
-                    if text[k] == '\\':
-                        esc = True
-                        k += 1
-                        continue
-                    if text[k] == '"':
-                        quote_positions.append(k)
-                        # Check if this is the real closing quote
-                        after = k + 1
-                        while after < len(text) and text[after] in (' ', '\t', '\n', '\r'):
-                            after += 1
-                        if after >= len(text) or text[after] in (',', '}', ']'):
-                            # This is the real closing quote
-                            break
-                    k += 1
-                # Now: quote_positions has all " positions between opening and closing
-                # The last one is the real closing quote — escape all others
-                if quote_positions:
-                    real_close = quote_positions[-1]
-                    inner_quotes = set(quote_positions[:-1])
-                    while i <= real_close:
-                        if i in inner_quotes:
-                            result.append('\\"')
-                        else:
-                            result.append(text[i])
-                        i += 1
-                    continue
-            # Not a value-opening quote — just append
-            result.append(c)
-            i += 1
-        else:
-            result.append(c)
-            i += 1
-    return ''.join(result)
-
-
-def _escape_raw_newlines_in_strings(text):
-    """Escape raw newlines/carriage returns inside JSON string values.
-
-    LLMs sometimes emit multi-line summaries with actual newline characters
-    inside string values, which is invalid JSON. This replaces them with
-    proper escape sequences while preserving newlines outside strings
-    (which are valid JSON whitespace).
-    """
-    result = []
-    in_str = False
-    esc = False
-    i = 0
-    while i < len(text):
-        c = text[i]
-        if esc:
-            result.append(c)
-            esc = False
-            i += 1
-            continue
-        if c == '\\' and in_str:
-            result.append(c)
-            esc = True
-            i += 1
-            continue
-        if c == '"':
-            in_str = not in_str
-            result.append(c)
-            i += 1
-            continue
-        if in_str:
-            if c == '\n':
-                result.append('\\n')
-            elif c == '\r':
-                result.append('\\r')
-            elif c == '\t':
-                result.append('\\t')
-            else:
-                result.append(c)
-        else:
-            result.append(c)
-        i += 1
-    return ''.join(result)
-
-
-def _repair_json(raw):
-    """
-    Attempt to repair common LLM JSON issues:
-    - Text preamble before JSON (e.g. "Here is the analysis:")
-    - Trailing commas before } or ]
-    - Truncated output (incomplete JSON from max_tokens cutoff)
-    - Control characters inside strings
-    - Raw newlines inside string values (multi-line summaries)
-    - Single-quoted JSON
-    - Python literals (True/False/None)
-    - JS literals (NaN/Infinity/undefined)
-    - Unquoted property keys ({key: val} → {"key": val})
-    - Combined multi-issue responses (kitchen sink fix)
-    Returns parsed object or raises ValueError.
-    """
-    if not raw or not raw.strip():
-        raise ValueError("Empty response")
-
-    text = raw.strip()
-
-    # Strip BOM and zero-width characters
-    text = text.lstrip('\ufeff\u200b\u200c\u200d\u2060')
-
-    # Strip markdown fences
-    text = re.sub(r'^```(?:json)?\s*', '', text)
-    text = re.sub(r'\s*```$', '', text)
-
-    # Normalize line endings: \r\n → \n, standalone \r → \n
-    text = text.replace('\r\n', '\n').replace('\r', '\n')
-
-    # Remove control chars except \n \r \t
-    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
-
-    # Strip JS-style line comments (// ...) that LLMs sometimes add outside strings
-    # Only strip if line starts with optional whitespace + // (avoids URLs inside values)
-    text = re.sub(r'^\s*//[^\n]*$', '', text, flags=re.MULTILINE)
-
-    # Strip text preamble before first [ or {
-    first_bracket = len(text)
-    for ch in ('[', '{'):
-        idx = text.find(ch)
-        if idx >= 0 and idx < first_bracket:
-            first_bracket = idx
-    if first_bracket > 0 and first_bracket < len(text):
-        text = text[first_bracket:]
-
-    # Try direct parse first
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        pass
-
-    # Escape raw newlines inside JSON string values — LLMs often emit
-    # multi-line summaries with actual newline chars inside strings
-    text_nl = _escape_raw_newlines_in_strings(text)
-    if text_nl != text:
-        try:
-            return json.loads(text_nl)
-        except json.JSONDecodeError:
-            pass
-
-    # Replace Python literals (True/False/None → true/false/null)
-    text_fixed = _fix_python_literals(text)
-    if text_fixed != text:
-        try:
-            return json.loads(text_fixed)
-        except json.JSONDecodeError:
-            text = text_fixed  # keep the fix for subsequent steps
-
-    # Handle single-quoted JSON (LLMs sometimes output {'key': 'value'})
-    if "'" in text:
-        try:
-            dq = _single_to_double_quotes(text)
-            return json.loads(dq)
-        except (json.JSONDecodeError, ValueError):
-            pass
-        # Single-quoted JSON may also have Python literals — try both fixes
-        try:
-            dq = _single_to_double_quotes(text)
-            dq = _fix_python_literals(dq)
-            return json.loads(dq)
-        except (json.JSONDecodeError, ValueError):
-            pass
-
-    # Remove trailing commas before } or ]
-    fixed = re.sub(r',\s*([}\]])', r'\1', text)
-    try:
-        return json.loads(fixed)
-    except json.JSONDecodeError:
-        pass
-
-    # Fix unquoted property keys: {key: val} → {"key": val}
-    try:
-        quoted_keys = _fix_unquoted_keys(fixed)
-        if quoted_keys != fixed:
-            return json.loads(quoted_keys)
-    except json.JSONDecodeError:
-        pass
-    # Try unquoted keys combined with trailing comma removal
-    try:
-        quoted_keys = _fix_unquoted_keys(fixed)
-        quoted_keys = re.sub(r',\s*([}\]])', r'\1', quoted_keys)
-        if quoted_keys != fixed:
-            return json.loads(quoted_keys)
-    except json.JSONDecodeError:
-        pass
-
-    # Kitchen sink: apply ALL fixes together (newline escaping + Python literals +
-    # unquoted keys + trailing commas). Needed when LLM output has multiple issues.
-    try:
-        kitchen = _escape_raw_newlines_in_strings(text)
-        kitchen = _fix_python_literals(kitchen)
-        kitchen = _fix_unquoted_keys(kitchen)
-        kitchen = re.sub(r',\s*([}\]])', r'\1', kitchen)
-        if kitchen != text:
-            return json.loads(kitchen)
-    except json.JSONDecodeError:
-        pass
-    # Kitchen sink with single-quote conversion
-    if "'" in text:
-        try:
-            kitchen = _single_to_double_quotes(text)
-            kitchen = _escape_raw_newlines_in_strings(kitchen)
-            kitchen = _fix_python_literals(kitchen)
-            kitchen = _fix_unquoted_keys(kitchen)
-            kitchen = re.sub(r',\s*([}\]])', r'\1', kitchen)
-            return json.loads(kitchen)
-        except (json.JSONDecodeError, ValueError):
-            pass
-
-    # Fix unescaped double quotes inside JSON string values
-    # e.g. "summary": "Lead said "no thanks" firmly" → properly escaped
-    try:
-        uq_fixed = _fix_unescaped_quotes_in_values(text)
-        if uq_fixed != text:
-            uq_fixed = _escape_raw_newlines_in_strings(uq_fixed)
-            uq_fixed = _fix_python_literals(uq_fixed)
-            uq_fixed = re.sub(r',\s*([}\]])', r'\1', uq_fixed)
-            return json.loads(uq_fixed)
-    except (json.JSONDecodeError, ValueError):
-        pass
-
-    # Try stripping leading/trailing non-JSON content more aggressively:
-    # Find the outermost { } or [ ] pair by scanning from both ends
-    first_open = -1
-    for ci, cc in enumerate(text):
-        if cc in ('{', '['):
-            first_open = ci
-            break
-    last_close = -1
-    for ci in range(len(text) - 1, -1, -1):
-        if text[ci] in ('}', ']'):
-            last_close = ci
-            break
-    if first_open >= 0 and last_close > first_open:
-        stripped = text[first_open:last_close + 1]
-        if stripped != text:
-            stripped_fixed = _escape_raw_newlines_in_strings(stripped)
-            stripped_fixed = _fix_python_literals(stripped_fixed)
-            stripped_fixed = _fix_unquoted_keys(stripped_fixed)
-            stripped_fixed = re.sub(r',\s*([}\]])', r'\1', stripped_fixed)
-            try:
-                return json.loads(stripped_fixed)
-            except json.JSONDecodeError:
-                pass
-
-    # Handle truncated JSON: close unclosed brackets/braces
-    # Build closing sequence by scanning the text to determine nesting order
-    truncated = fixed
-
-    def _build_closing(s):
-        """Build correct closing sequence by tracking nesting order."""
-        stack = []
-        in_str = False
-        esc = False
-        for c in s:
-            if esc:
-                esc = False
-                continue
-            if c == '\\' and in_str:
-                esc = True
-                continue
-            if c == '"':
-                in_str = not in_str
-                continue
-            if in_str:
-                continue
-            if c == '{':
-                stack.append('}')
-            elif c == '[':
-                stack.append(']')
-            elif c in ('}', ']') and stack and stack[-1] == c:
-                stack.pop()
-        # Return closers in reverse (innermost first)
-        stack.reverse()
-        return ''.join(stack)
-
-    # Helper: try parsing with progressive fix escalation
-    def _try_parse_with_key_fix(s):
-        try:
-            return json.loads(s)
-        except json.JSONDecodeError:
-            pass
-        try:
-            return json.loads(_fix_unquoted_keys(s))
-        except json.JSONDecodeError:
-            pass
-        # Try with newline escaping + all fixes combined
-        try:
-            patched = _escape_raw_newlines_in_strings(s)
-            patched = _fix_python_literals(patched)
-            patched = _fix_unquoted_keys(patched)
-            patched = re.sub(r',\s*([}\]])', r'\1', patched)
-            return json.loads(patched)
-        except json.JSONDecodeError:
-            raise
-
-    # First try without stripping (preserves complete trailing values)
-    closing = _build_closing(truncated)
-    if closing:
-        try:
-            return _try_parse_with_key_fix(truncated + closing)
-        except json.JSONDecodeError:
-            pass
-
-    # Strip trailing incomplete key-value or string, then retry
-    # Only strip if text does NOT end with } or ] (those are complete)
-    if not truncated.rstrip().endswith(('}', ']')):
-        truncated = re.sub(r',\s*"[^"]*"?\s*:?\s*"?[^"]*$', '', truncated)
-        truncated = re.sub(r',\s*"[^"]*$', '', truncated)
-    closing = _build_closing(truncated)
-    if closing:
-        try:
-            return _try_parse_with_key_fix(truncated + closing)
-        except json.JSONDecodeError:
-            pass
-
-    # Smart truncation: find last complete JSON object boundary "},"
-    # and close the array there (handles mid-object truncation)
-    last_obj_end = fixed.rfind('},')
-    if last_obj_end > 0:
-        candidate = fixed[:last_obj_end + 1]  # up to and including the }
-        candidate = re.sub(r',\s*([}\]])', r'\1', candidate)
-        closing_c = _build_closing(candidate)
-        if closing_c:
-            try:
-                result = _try_parse_with_key_fix(candidate + closing_c)
-                if isinstance(result, (list, dict)):
-                    return result
-            except json.JSONDecodeError:
-                pass
-
-    # Last resort: extract first { ... } or [ ... ] via brace matching
-    for open_ch, close_ch in (('[', ']'), ('{', '}')):
-        start = text.find(open_ch)
-        if start < 0:
-            continue
-        depth = 0
-        in_string = False
-        escape = False
-        last_zero = -1
-        for i in range(start, len(text)):
-            c = text[i]
-            if escape:
-                escape = False
-                continue
-            if c == '\\' and in_string:
-                escape = True
-                continue
-            if c == '"':
-                in_string = not in_string
-                continue
-            if in_string:
-                continue
-            if c == open_ch:
-                depth += 1
-            elif c == close_ch:
-                depth -= 1
-                if depth == 0:
-                    last_zero = i
-                    break
-        if last_zero > start:
-            candidate = text[start:last_zero + 1]
-            candidate = re.sub(r',\s*([}\]])', r'\1', candidate)
-            try:
-                return json.loads(candidate)
-            except json.JSONDecodeError:
-                pass
-            try:
-                return json.loads(_fix_unquoted_keys(candidate))
-            except json.JSONDecodeError:
-                pass
-            # Try with full fix pipeline on extracted candidate
-            try:
-                patched = _escape_raw_newlines_in_strings(candidate)
-                patched = _fix_python_literals(patched)
-                patched = _fix_unquoted_keys(patched)
-                patched = re.sub(r',\s*([}\]])', r'\1', patched)
-                return json.loads(patched)
-            except json.JSONDecodeError:
-                continue
-
-    raise ValueError(f"Could not repair JSON: {text[:200]}")
-
-from free_llm import get_free_llm
-_client, INTELLIGENCE_MODEL = get_free_llm("quality")
+# Lead is pushing back — objections across all 6 types
+_OBJECTION_WORDS = [
+    "not interested", "no thanks", "no thank you",
+    "already have", "have insurance", "have a policy", "already covered",
+    "i'm covered", "we're covered", "employer covers", "just renewed",
+    "too expensive", "can't afford", "cannot afford", "no money",
+    "not in my budget", "tight on money", "out of budget",
+    "think about it", "let me think", "need to think",
+    "not ready", "maybe later", "not right now", "not a good time",
+    "call me back", "hit me up later", "not now",
+    "busy", "in a meeting", "driving", "bad time",
+    "ask my wife", "ask my husband", "check with my",
+    "talk to my spouse", "check with my partner",
+]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ═══ CONTEXT BUILDER — Gathers all data for the AI prompt ═══════════════════
+# ═══ CONTEXT BUILDER — Gathers all data for scoring ═══════════════════════════
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def _gather_contact_context(location_id, contact_id):
@@ -610,11 +73,11 @@ def _gather_contact_context(location_id, contact_id):
         "facts": [],
         "pipeline": None,
         "calls": {"total": 0, "agent_called": 0, "lead_called": 0, "answered": 0, "unanswered": 0, "long_calls": 0, "last_call": None},
-        "call_transcripts": [],  # Recent call transcripts for content awareness
+        "call_transcripts": [],
         "tags": [],
         "narrative": None,
         "last_message_at": None,
-        "timing": {},  # Computed timing signals
+        "timing": {},
     }
 
     conn = get_db_connection()
@@ -701,31 +164,6 @@ def _gather_contact_context(location_id, contact_id):
         except Exception:
             pass
 
-        # Call transcripts — last 3 calls with transcripts for content awareness
-        try:
-            cur.execute("""
-                SELECT direction, duration, transcript, created_at
-                FROM call_history
-                WHERE location_id = %s AND contact_id = %s
-                  AND transcript IS NOT NULL AND transcript != ''
-                ORDER BY created_at DESC
-                LIMIT 3
-            """, (location_id, contact_id))
-            for r in cur.fetchall():
-                # Truncate long transcripts to ~300 chars to stay within token budget
-                transcript = (r.get('transcript') or '')[:300]
-                if transcript:
-                    direction = r.get('direction', 'unknown')
-                    duration = r.get('duration', 0) or 0
-                    ctx["call_transcripts"].append({
-                        "direction": direction,
-                        "duration": duration,
-                        "transcript": transcript,
-                        "at": str(r['created_at'])[:10] if r.get('created_at') else '',
-                    })
-        except Exception:
-            pass
-
         # Tags
         try:
             cur.execute("""
@@ -763,7 +201,7 @@ def _gather_contact_context(location_id, contact_id):
     finally:
         return_db_connection(conn)
 
-    # ── Compute timing & behavioral signals from message timestamps ──
+    # Compute timing & behavioral signals from message timestamps
     ctx["timing"] = _compute_timing_signals(ctx["messages_with_time"])
 
     return ctx
@@ -772,23 +210,14 @@ def _gather_contact_context(location_id, contact_id):
 def _compute_timing_signals(messages_with_time):
     """
     Analyze message timestamps to produce timing and behavioral signals.
-    This gives the AI temporal awareness that raw message text cannot provide.
-
-    Returns dict with:
-      - who_spoke_last: "Lead" or "Bot"
-      - consecutive_unanswered_bot: int (how many bot messages with no lead reply at end)
-      - lead_last_message_age: str (human-readable like "3 hours ago", "5 days ago")
-      - first_message_age: str (how long ago conversation started)
-      - lead_response_times: list of response gaps in hours (lead replied to bot)
-      - avg_lead_response_hours: float or None
-      - lead_message_lengths: list of character counts (is lead writing more or less?)
-      - velocity_trend: "warming" | "cooling" | "steady" | "unknown"
+    Returns dict with who_spoke_last, consecutive_unanswered_bot,
+    lead_last_message_age, avg_lead_response_hours, velocity_trend.
     """
     signals = {
         "who_spoke_last": "unknown",
         "consecutive_unanswered_bot": 0,
-        "lead_last_message_age": "unknown",
-        "first_message_age": "unknown",
+        "first_message_age": None,
+        "lead_last_message_age": None,
         "avg_lead_response_hours": None,
         "velocity_trend": "unknown",
     }
@@ -837,7 +266,6 @@ def _compute_timing_signals(messages_with_time):
             break
 
     # Response gap analysis + velocity trend
-    # Track: how fast does the lead reply to bot messages? Are replies getting faster/slower?
     lead_response_gaps = []
     lead_message_lengths = []
     last_bot_at = None
@@ -859,17 +287,15 @@ def _compute_timing_signals(messages_with_time):
                 gap_hours = (msg_at - last_bot_at).total_seconds() / 3600
                 if gap_hours >= 0:
                     lead_response_gaps.append(gap_hours)
-            last_bot_at = None  # Reset — only count first lead reply per bot message
+            last_bot_at = None
 
     if lead_response_gaps:
         signals["avg_lead_response_hours"] = round(sum(lead_response_gaps) / len(lead_response_gaps), 1)
 
-    # Velocity trend: compare first half vs second half of response times + message lengths
     if len(lead_response_gaps) >= 4:
         mid = len(lead_response_gaps) // 2
         first_half_avg = sum(lead_response_gaps[:mid]) / mid
         second_half_avg = sum(lead_response_gaps[mid:]) / (len(lead_response_gaps) - mid)
-        # Also factor in message length trend
         if len(lead_message_lengths) >= 4:
             mid_l = len(lead_message_lengths) // 2
             first_len = sum(lead_message_lengths[:mid_l]) / mid_l
@@ -877,10 +303,8 @@ def _compute_timing_signals(messages_with_time):
         else:
             first_len = second_len = 1
 
-        # Warming = responding faster AND/OR writing more
-        # Cooling = responding slower AND/OR writing less
-        speed_ratio = first_half_avg / max(second_half_avg, 0.1)  # >1 = getting faster
-        length_ratio = second_len / max(first_len, 1)  # >1 = writing more
+        speed_ratio = first_half_avg / max(second_half_avg, 0.1)
+        length_ratio = second_len / max(first_len, 1)
 
         if speed_ratio > 1.5 or (speed_ratio > 1.2 and length_ratio > 1.3):
             signals["velocity_trend"] = "warming"
@@ -915,367 +339,236 @@ def _humanize_delta(delta):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ═══ AI MICRO-PROMPT — Single call generates everything ═════════════════════
+# ═══ RULES SCORER — keyword + recency + engagement, zero cost ════════════════
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def _build_timing_block(timing):
-    """Build the timing/behavioral signals block for the AI prompt."""
-    if not timing or timing.get("who_spoke_last") == "unknown":
-        return ""
-
-    lines = ["TIMING & BEHAVIORAL SIGNALS:"]
-
-    who = timing.get("who_spoke_last", "unknown")
-    lines.append(f"- Who spoke last: {who}")
-
-    consec = timing.get("consecutive_unanswered_bot", 0)
-    if consec > 0:
-        lines.append(f"- Consecutive bot messages with no lead reply: {consec}")
-
-    lead_age = timing.get("lead_last_message_age", "unknown")
-    if lead_age != "unknown":
-        lines.append(f"- Lead's last message: {lead_age}")
-
-    first_age = timing.get("first_message_age", "unknown")
-    if first_age != "unknown":
-        lines.append(f"- Conversation started: {first_age}")
-
-    avg_resp = timing.get("avg_lead_response_hours")
-    if avg_resp is not None:
-        if avg_resp < 1:
-            lines.append(f"- Lead's avg response time: {int(avg_resp * 60)} minutes")
+def _contact_summary(n_inbound, hours_since, connected, long_calls, pipeline, situation):
+    """Build a brief human-readable summary from available contact data."""
+    parts = []
+    if n_inbound == 0:
+        parts.append("No text replies yet")
+    elif n_inbound == 1:
+        parts.append("1 inbound message")
+    else:
+        parts.append(f"{n_inbound} inbound messages")
+    if hours_since < 9999:
+        if hours_since < 1:
+            parts.append("last reply < 1h ago")
+        elif hours_since < 24:
+            parts.append(f"last reply {int(hours_since)}h ago")
         else:
-            lines.append(f"- Lead's avg response time: {avg_resp} hours")
-
-    velocity = timing.get("velocity_trend", "unknown")
-    if velocity != "unknown":
-        label = {
-            "warming": "WARMING (responding faster, writing more)",
-            "cooling": "COOLING (responding slower, writing less)",
-            "steady": "Steady (consistent response pattern)",
-        }.get(velocity, velocity)
-        lines.append(f"- Velocity trend: {label}")
-
-    return "\n".join(lines)
+            parts.append(f"last reply {int(hours_since / 24)}d ago")
+    if connected > 0:
+        parts.append(f"{connected} connected call{'s' if connected != 1 else ''}")
+    if pipeline and pipeline.get("stage_name"):
+        parts.append(f"pipeline: {pipeline['stage_name']}")
+    base = "; ".join(parts)
+    if situation:
+        return f"{base}. {situation}" if base else situation
+    return base
 
 
-def _run_ai_analysis(location_id, contact_id, ctx):
-    """
-    Send a single micro-prompt to xAI Grok with all contact context.
-    Returns parsed JSON with summary, temperature, score, and actions.
-    Cost: ~$0.001-0.003 per call.
-    """
-    if not _client:
-        logger.warning("No XAI_API_KEY — AI intelligence unavailable")
-        return None
-
-    # Build the context block
-    convo = "\n".join(ctx["messages"][-20:]) if ctx["messages"] else "No conversation yet."
-    facts = ", ".join(ctx["facts"]) if ctx["facts"] else "None known."
-    tags = ", ".join(ctx["tags"]) if ctx["tags"] else "None."
-
-    pipeline_str = "No pipeline data."
-    if ctx["pipeline"]:
-        p = ctx["pipeline"]
-        pipeline_str = f"Pipeline: {p.get('pipeline_name', '?')} | Stage: {p.get('stage_name', '?')} | Status: {p.get('status', '?')}"
-        if p.get('monetary_value'):
-            pipeline_str += f" | Value: ${p['monetary_value']:,.0f}"
-
-    c = ctx['calls']
-    calls_str = f"{c['total']} calls total ({c['agent_called']} outbound by agent, {c['lead_called']} inbound from lead), {c['answered']} answered (>30s), {c['unanswered']} unanswered/no-answer, {c['long_calls']} calls >2min"
-    if c['last_call']:
-        calls_str += f", last call: {c['last_call']}"
-
-    # Call transcripts — what was actually discussed on calls
-    transcript_str = ""
-    if ctx.get("call_transcripts"):
-        transcript_lines = []
-        for t in ctx["call_transcripts"]:
-            direction = t.get("direction", "?")
-            dur = t.get("duration", 0)
-            date = t.get("at", "?")
-            text = t.get("transcript", "")
-            transcript_lines.append(f"[{date} {direction} {dur}s] {text}")
-        transcript_str = "\nCALL TRANSCRIPTS (most recent calls with recordings):\n" + "\n".join(transcript_lines)
-
-    narrative_str = ctx.get("narrative") or "No prior narrative."
-
-    # Timing and behavioral signals
-    timing = ctx.get("timing", {})
-    timing_str = _build_timing_block(timing)
-
-    prompt = f"""You are an AI sales coach analyzing an insurance lead for an agent. Read ALL the data below carefully and produce a JSON intelligence report. Your classification MUST be based on what the lead ACTUALLY SAID AND DID, not just whether they responded.
-
-CRITICAL — READ CONVERSATIONS IN CONTEXT:
-Messages are a back-and-forth thread between "Bot" (the agent's AI assistant) and "Lead" (the prospect). You MUST read each Lead reply as a RESPONSE TO THE PRECEDING Bot message. Short or single-word Lead replies ONLY make sense in context of what the Bot just said.
-Examples of contextual reading:
-- Bot: "Would you like a free quote?" → Lead: "sure" = INTERESTED (responding yes to the offer)
-- Bot: "Reply STOP if you want to stop receiving messages" → Lead: "stop" = WANTS TO OPT OUT (not interested in anything)
-- Bot: "Do you currently have life insurance?" → Lead: "no" = NO EXISTING COVERAGE (not rejecting the conversation)
-- Bot: "Let me know if you want to stop talking" → Lead: "want" = WANTS TO STOP (completing the Bot's sentence)
-- Bot: "I can help with term or whole life — which interests you?" → Lead: "term" = INTERESTED IN TERM LIFE (not a one-word dismissal)
-- Bot: "Great! When works best for a call?" → Lead: "never" = REJECTING (not scheduling)
-Never classify a message in isolation. A "yes", "no", "ok", "sure", "want", "stop", etc. can mean completely different things depending on what the Bot just said.
-
-CONVERSATION HISTORY:
-{convo}
-
-KNOWN FACTS ABOUT LEAD: {facts}
-TAGS: {tags}
-{pipeline_str}
-CALL HISTORY: {calls_str}{transcript_str}
-PRIOR NARRATIVE: {narrative_str}
-{timing_str}
-CURRENT DATE: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}
-
-Respond with ONLY valid JSON (no markdown, no code fences, no explanation). Use this exact structure:
-{{
-  "summary": "2-sentence situational snapshot. What does the agent need to know RIGHT NOW about this lead? Be specific — reference actual conversation details, names, products, objections. Include timing context (e.g. 'Last replied 3 days ago' or 'Responded within minutes').",
-  "temperature": "hot | warm | cool | cold",
-  "temperature_reason": "One sentence explaining why, referencing BOTH what they said AND their behavioral pattern (timing, responsiveness, message depth).",
-  "score": 0-100,
-  "should_respond": true or false,
-  "should_respond_reason": "Why the agent should or should not respond right now.",
-  "engagement_level": 0-3,
-  "under_contract": true or false,
-  "actions": [
-    {{
-      "action": "Short imperative action (e.g. 'Call back about the term quote')",
-      "reason": "Why this action matters right now",
-      "priority": "high | medium | low",
-      "icon": "fa-solid fa-<appropriate-icon>"
-    }}
-  ]
-}}
-
-CRITICAL CLASSIFICATION RULES — READ THESE CAREFULLY:
-
-"temperature" — Based on CONTENT, CONTEXT, AND BEHAVIOR:
-- hot = Lead is actively buying: asking for quotes, requesting coverage, comparing products, ready to book, saying "let's do it." They are IN the buying process. ALSO hot if velocity_trend is "warming" AND engagement_level >= 2.
-- warm = Lead is engaged and positive: responding to questions, sharing information about their situation, showing genuine interest. The conversation is progressing forward.
-- cool = Lead went quiet (no response to last 2+ messages), giving slow/short replies, showing declining interest, soft objection ("let me think about it"), OR velocity_trend is "cooling." If bot sent 2+ messages with no lead reply, this is AT MOST cool — not warm or hot.
-- cold = Lead sent a TCPA opt-out ("stop", "unsubscribe", "do not contact", "remove me", "opt out"), OR has completely ghosted (no response to 3+ outreach attempts over multiple days). Note: "not interested", "no thanks", "I'm good" are sales OBJECTIONS, not opt-outs — classify them as cool (the bot should keep trying new angles, and the lead could still convert).
-IMPORTANT: If the Bot offered an opt-out and the lead's reply CONFIRMS they want to opt out with a TCPA word (stop, unsubscribe, remove me), that is COLD. But general disinterest ("nah", "no thanks", "I'm good") is cool — the bot's objection handling will work on them.
-TIMING RULE: If the lead has not responded in 7+ days despite bot outreach, they cannot be "warm" — they are at best "cool" unless they have a scheduled callback.
-
-"score" — 0-100 likelihood to convert to a paying client:
-HARD CALIBRATION RULES (these override your intuition):
-  - Lead sent TCPA opt-out ("stop" / "unsubscribe" / "remove me" / "do not contact") → score MUST be 5-15
-  - Lead said "not interested" / "no thanks" / "I'm good" → score 15-30 (objection, not dead — bot will keep trying)
-  - No conversation exists (only bot outreach, no lead replies) → score MUST be 10-25
-  - Lead replied but only surface-level (one-word, "who is this") → score 15-30
-  - Lead engaged but has soft objections ("too expensive", "let me think") → score 25-45
-  - Lead actively discussing coverage, answering questions, sharing details → score 45-70
-  - Lead asking for quotes, comparing products, scheduling calls → score 65-85
-  - Lead ready to buy, discussing specific policies/terms/amounts → score 80-95
-  TIMING ADJUSTMENTS: Subtract 10-20 points if lead hasn't responded in 7+ days. Add 5-10 points if lead responded within minutes/hours.
-  Call history: "outbound by agent" = the AGENT called the lead (NOT lead-initiated). "inbound from lead" = the LEAD called in. "answered (>30s)" = actually spoke. "unanswered" = no answer, busy, or call under 30s (likely voicemail/no pickup). Do NOT say "lead initiated a call" when the call was outbound by agent.
-
-"should_respond" — true if the agent needs to take action NOW:
-- true: Lead asked a question that hasn't been answered, expressed interest that wasn't followed up, or sent a message that deserves a reply. ALSO true if lead responded recently and the last message is from the Lead.
-- false: Bot already replied to the lead's last message, lead sent a TCPA opt-out (stop/unsubscribe/remove me), lead hasn't sent any messages, or there is genuinely nothing to respond to. NOTE: "not interested" is NOT an opt-out — should_respond should be TRUE because the bot's objection handling should continue working on them.
-- This is about whether the lead is WAITING for a response, not just whether they're a good lead.
-- TIMING: If who_spoke_last is "Lead", should_respond is almost always true (lead is waiting).
-
-"engagement_level" — How deep the interaction has gone (0-3):
-- 0 = No meaningful interaction yet (new lead, only outbound attempts, no lead replies at all)
-- 1 = Surface contact (lead acknowledged but no real conversation — one-word replies, "who is this", etc.)
-- 2 = Real conversation (lead is sharing information, asking questions, back-and-forth dialogue)
-- 3 = Deep engagement (multiple exchanges, discussing specifics, answered calls >30s where they actually spoke, approaching a decision). Unanswered outbound calls do NOT count as engagement.
-
-"under_contract" — true if this contact appears to be an EXISTING CLIENT who already bought a policy, NOT an unsold lead:
-- Look at the PIPELINE data. If the contact is in a pipeline/stage that signals a completed sale (e.g. "sold", "closed won", "active client", "policy issued", "customer", "onboarding", "retention", "renewal", "in force", "bound"), set true.
-- Also look at conversation content: if the lead clearly purchased, has policy numbers, or is discussing servicing an existing policy, set true.
-- If the contact is in a sales/prospecting pipeline (e.g. "new leads", "follow up", "quoted", "nurture", "cold leads"), set false.
-- When in doubt (no pipeline, unclear stage), set false. Most contacts are unsold leads.
-
-"actions" — 2-4 specific next steps. Use icons: fa-phone (calls), fa-paper-plane (SMS), fa-file-invoice-dollar (quotes), fa-calendar (appointments), fa-fire (urgency), fa-clock (timing), fa-reply (responding), fa-bolt (quick action).
-- Factor in TIMING: if lead hasn't replied in days, don't suggest "follow up on the conversation" — suggest a new angle or different channel (call instead of text).
-- If call transcripts show specific topics discussed, reference them in actions.
-- Be direct and actionable. No fluff."""
-
-    for attempt in range(2):
-        try:
-            response = _client.chat.completions.create(
-                model=INTELLIGENCE_MODEL,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.3 if attempt == 0 else 0.1,
-                max_tokens=500,
-                timeout=15.0,
-                response_format={"type": "json_object"},
-            )
-            raw = (response.choices[0].message.content or "").strip()
-
-            # Degenerate response — empty or tiny
-            if not raw or len(raw) < 10:
-                if attempt == 0:
-                    logger.warning(f"AI intelligence returned empty/tiny response for {contact_id} ({len(raw) if raw else 0} chars), retrying")
-                    continue
-                logger.error(f"AI intelligence returned empty/tiny response for {contact_id} after retry: {raw!r}")
-                return None
-
-            try:
-                result = _repair_json(raw)
-            except ValueError as e:
-                if attempt == 0:
-                    logger.warning(f"AI intelligence JSON parse failed for {contact_id} (retrying): {e}")
-                    if raw:
-                        logger.warning(f"AI raw response for {contact_id}: {raw[:500]}")
-                    continue
-                # Last resort: regex-based field extraction (no JSON parsing needed)
-                fake_ctx = {contact_id: ctx}
-                partial = _regex_extract_contacts(raw, fake_ctx)
-                if partial and contact_id in partial:
-                    logger.warning(f"AI intelligence JSON repair failed for {contact_id} but regex extracted fields successfully")
-                    return partial[contact_id]
-                # Also try injecting the contact_id into raw if it's not present
-                # (single-contact responses often omit contact_id)
-                if contact_id not in raw:
-                    raw_with_id = raw.replace('{', '{"contact_id": "' + contact_id + '", ', 1)
-                    partial = _regex_extract_contacts(raw_with_id, fake_ctx)
-                    if partial and contact_id in partial:
-                        logger.warning(f"AI intelligence JSON repair failed for {contact_id} but regex extracted fields (injected id)")
-                        return partial[contact_id]
-                # Ultimate fallback: extract fields directly from raw without needing contact_id key
-                single_result = _extract_fields_from_single_response(raw, contact_id, ctx)
-                if single_result:
-                    logger.warning(f"AI intelligence JSON repair failed for {contact_id} but direct field extraction succeeded")
-                    return single_result
-                logger.error(f"AI intelligence JSON parse failed for {contact_id}: {e}")
-                logger.error(f"AI raw response for {contact_id}: {raw[:300]}")
-                return None
-
-            # Validate and calibrate
-            result = _validate_and_calibrate(result, ctx)
-
-            return result
-        except Exception as e:
-            if attempt == 0:
-                logger.warning(f"AI intelligence call failed for {contact_id} (retrying): {e}")
-                continue
-            logger.error(f"AI intelligence call failed for {contact_id}: {e}")
-            return None
-    return None
-
-
-def _validate_and_calibrate(result, ctx):
-    """
-    Validate required fields AND apply hard score/temperature calibration.
-    The AI is instructed to follow the calibration rules, but this function
-    enforces them structurally as a safety net. If the AI's output violates
-    a hard rule, we correct it here.
-    """
-    # --- Basic field validation ---
-    if not isinstance(result.get('actions'), list):
-        result['actions'] = []
-    if result.get('temperature') not in ('hot', 'warm', 'cool', 'cold'):
-        result['temperature'] = 'warm'
-    if not isinstance(result.get('score'), (int, float)):
-        result['score'] = 50
-    result['score'] = max(0, min(100, int(result['score'])))
-    if not isinstance(result.get('should_respond'), bool):
-        result['should_respond'] = False
-    if not isinstance(result.get('should_respond_reason'), str):
-        result['should_respond_reason'] = ''
-    if not isinstance(result.get('engagement_level'), (int, float)):
-        result['engagement_level'] = 0
-    result['engagement_level'] = max(0, min(3, int(result['engagement_level'])))
-    if not isinstance(result.get('under_contract'), bool):
-        result['under_contract'] = False
-    if not isinstance(result.get('summary'), str) or len(result.get('summary', '')) < 5:
-        result['summary'] = 'Analysis incomplete.'
-    if not isinstance(result.get('temperature_reason'), str):
-        result['temperature_reason'] = ''
-
-    # --- Hard calibration rules (structural enforcement) ---
-    timing = ctx.get("timing", {})
-    messages = ctx.get("messages", [])
-    consec_unanswered = timing.get("consecutive_unanswered_bot", 0)
-
-    # ── TCPA-only stop phrases ──
-    # Only legally mandated opt-outs force cold/score 0. Sales objections like
-    # "not interested" or "no thanks" are handled by the conversation engine —
-    # the bot should keep trying, not mark them as dead leads.
-    _tcpa_opt_out_phrases = {
-        "stop", "unsubscribe", "opt out", "optout", "remove me", "cancel",
-        "do not contact", "do not call", "do not text", "do not message",
-        "don't contact", "don't call", "don't text", "don't message",
+def _make_result(temperature, score, reason, should_respond, eng, summary, actions):
+    """Build a standardized scoring result dict."""
+    return {
+        "temperature": temperature,
+        "score": score,
+        "temperature_reason": reason,
+        "should_respond": should_respond,
+        "should_respond_reason": (
+            "Recent inbound message awaiting reply." if should_respond
+            else "No immediate response needed."
+        ),
+        "engagement_level": eng,
+        "summary": summary,
+        "actions": actions,
+        "rule_based": True,
     }
 
-    # Rule 0: TCPA opt-out detection → force cold, score 0-5, should_respond=false
-    # Only triggers on legally mandated stop words, NOT sales objections.
-    lead_messages = [m for m in messages if m.startswith("Lead:")]
-    if lead_messages:
-        last_lead_msg = ""
-        for m in reversed(messages):
-            if m.startswith("Lead:"):
-                last_lead_msg = m[5:].strip().lower()
-                break
-        if last_lead_msg and any(phrase in last_lead_msg for phrase in _tcpa_opt_out_phrases):
-            clean = last_lead_msg.strip().rstrip('.!?')
-            is_pure_opt_out = len(clean) < 40 or clean in _tcpa_opt_out_phrases
-            if is_pure_opt_out:
-                result['temperature'] = 'cold'
-                result['score'] = min(result['score'], 5)
-                result['should_respond'] = False
-                result['should_respond_reason'] = 'Lead sent TCPA opt-out keyword.'
-                result['engagement_level'] = min(result['engagement_level'], 1)
 
-    # Rule 1: No lead messages at all → can't be warm/hot, score capped at 25
-    if not lead_messages:
-        if result['temperature'] in ('hot', 'warm'):
-            result['temperature'] = 'cool'
-        result['score'] = min(result['score'], 25)
-        result['engagement_level'] = 0
-        if result['should_respond']:
-            result['should_respond'] = False
-            result['should_respond_reason'] = 'No lead messages to respond to.'
+def _rules_score_contact(ctx):
+    """
+    Score a contact using keyword detection + recency + engagement rules.
+    No AI. No network calls. Returns analysis dict matching the cached format.
+    """
+    msgs = ctx.get("messages_with_time", [])
+    tags = [t.lower().strip() for t in (ctx.get("tags") or [])]
+    calls = ctx.get("calls", {})
+    pipeline = ctx.get("pipeline")
+    timing = ctx.get("timing", {})
+    now = datetime.utcnow()
 
-    # Rule 2: 3+ consecutive bot messages unanswered → at most "cool"
-    if consec_unanswered >= 3:
-        if result['temperature'] in ('hot', 'warm'):
-            result['temperature'] = 'cool'
-        result['score'] = min(result['score'], 30)
+    inbound = [m for m in msgs if m.get("role") == "Lead"]
 
-    # Rule 3: 2+ consecutive bot messages unanswered → cannot be "hot"
-    if consec_unanswered >= 2:
-        if result['temperature'] == 'hot':
-            result['temperature'] = 'warm'
+    # --- Recency (hours since last inbound message) ---
+    hours_since = 9999
+    if inbound:
+        last_at = inbound[-1].get("at")
+        if last_at:
+            if isinstance(last_at, str):
+                try:
+                    last_at = datetime.fromisoformat(last_at.replace("Z", "+00:00")).replace(tzinfo=None)
+                except Exception:
+                    last_at = None
+            elif hasattr(last_at, "tzinfo") and last_at.tzinfo:
+                last_at = last_at.replace(tzinfo=None)
+            if last_at:
+                hours_since = max(0, (now - last_at).total_seconds() / 3600)
 
-    # Rule 4: If who_spoke_last is Lead, should_respond is almost always true
-    # (unless Rule 0 already set should_respond=false for opt-out)
-    if timing.get("who_spoke_last") == "Lead" and not result['should_respond']:
-        last_lead_msg = ""
-        for m in reversed(messages):
-            if m.startswith("Lead:"):
-                last_lead_msg = m[5:].strip().lower()
-                break
-        if not any(sw in last_lead_msg for sw in _tcpa_opt_out_phrases):
-            result['should_respond'] = True
-            if not result['should_respond_reason']:
-                result['should_respond_reason'] = 'Lead spoke last — they may be waiting for a reply.'
+    # --- Text analysis on last 5 inbound messages ---
+    recent_text = " " + " ".join(m.get("text", "").lower() for m in inbound[-5:]) + " "
 
-    # Rule 5: Temperature/score coherence
-    if result['temperature'] == 'cold' and result['score'] > 20:
-        result['score'] = min(result['score'], 20)
-    if result['temperature'] == 'hot' and result['score'] < 55:
-        result['score'] = max(result['score'], 55)
+    has_stop = any(k in recent_text for k in _STOP_WORDS)
+    has_buying = any(k in recent_text for k in _BUYING_WORDS)
+    has_objection = any(k in recent_text for k in _OBJECTION_WORDS)
+    has_dnc_tag = any(t in ("dnc", "do not call", "do not contact", "unsubscribed", "opted out") for t in tags)
 
-    # Rule 6: Under contract → neutralize temperature for pipeline purposes
-    # The frontend correctly groups under_contract contacts into their own group,
-    # but the cached temperature can still leak into the SMS bot pipeline via
-    # get_cached_temperature(). Set temperature to None so the bot pipeline
-    # doesn't inject misleading "LEAD TEMPERATURE: HOT" for existing clients.
-    if result.get('under_contract'):
-        result['temperature'] = 'neutral'
-        result['should_respond'] = False
-        result['should_respond_reason'] = 'Existing client under contract — not an active sales lead.'
+    # --- Call signals ---
+    connected = calls.get("answered", 0) or 0
+    long_calls = calls.get("long_calls", 0) or 0
+    total_calls = calls.get("total", 0) or 0
 
-    return result
+    # --- Velocity from timing signals ---
+    velocity = timing.get("velocity_trend", "")
+    consecutive_unanswered = timing.get("consecutive_unanswered_bot", 0) or 0
+
+    # --- Engagement depth ---
+    n_inbound = len(inbound)
+    if n_inbound == 0:
+        eng = 0
+    elif n_inbound <= 2:
+        eng = 1
+    elif n_inbound <= 8:
+        eng = 2
+    else:
+        eng = 3
+    if long_calls > 0:
+        eng = max(eng, 2)
+
+    # --- Should respond: last message from lead AND recent AND not opted out ---
+    last_msg_role = msgs[-1].get("role") if msgs else None
+    should_respond = bool(
+        last_msg_role == "Lead"
+        and hours_since < 48
+        and not has_stop
+        and not has_dnc_tag
+    )
+
+    # ── Classification ──────────────────────────────────────────────────────
+
+    if has_stop or has_dnc_tag:
+        return _make_result(
+            "cold", 5,
+            "Opted out or marked Do Not Contact.",
+            should_respond=False, eng=0,
+            summary=f"Contact has requested no further contact. {n_inbound} inbound messages on record.",
+            actions=[{"action": "Verify DNC compliance — do not contact", "priority": "high", "icon": "fa-ban"}],
+        )
+
+    if has_buying and hours_since < 96:
+        score = min(92, 70 + min(15, connected * 5) + min(7, long_calls * 3))
+        if velocity == "warming":
+            score = min(96, score + 5)
+        return _make_result(
+            "hot", score,
+            f"Expressed buying intent recently ({int(hours_since)}h ago).",
+            should_respond=should_respond, eng=eng,
+            summary=_contact_summary(n_inbound, hours_since, connected, long_calls, pipeline, "Buying intent expressed."),
+            actions=[
+                {"action": "Call now — buying signals detected", "priority": "high", "icon": "fa-phone"},
+                {"action": "Send quote or pricing if not already sent", "priority": "high", "icon": "fa-file-text"},
+            ],
+        )
+
+    if not has_objection and hours_since < 24 and n_inbound >= 1:
+        score = min(65, 40 + min(15, n_inbound * 2) + min(10, connected * 3))
+        if velocity == "warming":
+            score = min(70, score + 5)
+        return _make_result(
+            "warm", score,
+            f"Active today with {n_inbound} text exchange{'s' if n_inbound != 1 else ''}.",
+            should_respond=should_respond, eng=eng,
+            summary=_contact_summary(n_inbound, hours_since, connected, long_calls, pipeline, "Active today, no objections."),
+            actions=[
+                {"action": "Keep momentum — follow up today", "priority": "high" if should_respond else "medium", "icon": "fa-comment"},
+                {"action": "Ask a qualifying question to advance conversation", "priority": "medium", "icon": "fa-question-circle"},
+            ],
+        )
+
+    if not has_objection and hours_since < 72 and n_inbound >= 2:
+        score = min(58, 35 + min(12, n_inbound * 2) + min(10, connected * 3))
+        if velocity == "warming":
+            score = min(65, score + 5)
+        elif velocity == "cooling":
+            score = max(25, score - 5)
+        return _make_result(
+            "warm", score,
+            f"Engaged in last {int(hours_since / 24) + 1} day(s), no objections raised.",
+            should_respond=should_respond, eng=eng,
+            summary=_contact_summary(n_inbound, hours_since, connected, long_calls, pipeline, "Engaged, no objections."),
+            actions=[
+                {"action": "Follow up — last reply was recent", "priority": "medium", "icon": "fa-comment"},
+                {"action": "Try a call if multiple text exchanges", "priority": "medium" if (connected == 0 and n_inbound > 3) else "low", "icon": "fa-phone"},
+            ],
+        )
+
+    if has_objection and hours_since < 168:
+        score = min(30, 15 + min(10, connected * 3))
+        return _make_result(
+            "cool", score,
+            "Has raised objections or expressed hesitation.",
+            should_respond=False, eng=eng,
+            summary=_contact_summary(n_inbound, hours_since, connected, long_calls, pipeline, "Objections raised — needs re-engagement."),
+            actions=[
+                {"action": "Re-engage with a different angle in 2–3 days", "priority": "low", "icon": "fa-refresh"},
+                {"action": "Address specific objection with empathy", "priority": "medium", "icon": "fa-comments"},
+            ],
+        )
+
+    if consecutive_unanswered >= 3 or (72 < hours_since < 720 and n_inbound >= 1):
+        score = max(10, 20 + min(10, connected * 3))
+        if velocity == "cooling":
+            score = max(8, score - 5)
+        days_inactive = int(hours_since / 24) if hours_since < 9999 else None
+        return _make_result(
+            "cool", score,
+            f"Not replied in {days_inactive} day(s)." if days_inactive else "No recent engagement.",
+            should_respond=False, eng=eng,
+            summary=_contact_summary(n_inbound, hours_since, connected, long_calls, pipeline, "Gone quiet — follow-up needed."),
+            actions=[
+                {"action": f"Send check-in ({days_inactive}d since last reply)" if days_inactive else "Re-engage with check-in", "priority": "medium", "icon": "fa-envelope"},
+            ],
+        )
+
+    if n_inbound == 0 and total_calls > 0:
+        score = 18 + min(15, connected * 5)
+        return _make_result(
+            "cool", score,
+            f"{total_calls} call attempt{'s' if total_calls != 1 else ''}, no text replies.",
+            should_respond=False, eng=eng,
+            summary=f"{total_calls} call attempt{'s' if total_calls != 1 else ''}, {connected} connected. No text engagement.",
+            actions=[
+                {"action": "Try intro SMS if not already sent", "priority": "medium", "icon": "fa-comment"},
+                {"action": "Vary call timing if multiple unanswered", "priority": "low", "icon": "fa-phone"},
+            ],
+        )
+
+    # Default: no engagement or inactive >30 days
+    days_inactive = int(hours_since / 24) if hours_since < 9999 else None
+    reason = f"No engagement in {days_inactive} days." if days_inactive else "No engagement recorded."
+    return _make_result(
+        "cold", 8,
+        reason,
+        should_respond=False, eng=eng,
+        summary=_contact_summary(n_inbound, hours_since, connected, long_calls, pipeline, reason),
+        actions=[
+            {"action": "Re-engage with fresh intro if inactive 30+ days", "priority": "low", "icon": "fa-refresh"},
+        ],
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ═══ BULK AI ANALYSIS — Analyze many contacts in a single LLM call ═════════
+# ═══ BULK CONTEXT BUILDER — batch DB queries for many contacts ════════════════
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def _gather_bulk_contexts(location_id, contact_ids):
@@ -1308,7 +601,6 @@ def _gather_bulk_contexts(location_id, contact_ids):
                 WHERE contact_id = ANY(%s)
             """, (contact_ids,))
             rows = cur.fetchall()
-            # Group and filter to last 30 per contact
             for r in rows:
                 cid = r['contact_id']
                 if cid in results and r['rn'] <= 30:
@@ -1316,7 +608,6 @@ def _gather_bulk_contexts(location_id, contact_ids):
                         results[cid]['last_message_at'] = r['created_at']
                     role = "Lead" if r['message_type'] == 'lead' else "Bot"
                     results[cid]['messages'].append((r['created_at'], f"{role}: {r['message_text']}"))
-            # Sort messages chronologically, preserve timestamps for timing
             for cid in results:
                 sorted_msgs = sorted(results[cid]['messages'], key=lambda x: x[0])
                 results[cid]['messages_with_time'] = [
@@ -1324,7 +615,6 @@ def _gather_bulk_contexts(location_id, contact_ids):
                     for m in sorted_msgs
                 ]
                 results[cid]['messages'] = [m[1] for m in sorted_msgs]
-            # Compute timing signals from preserved timestamps
             for cid in results:
                 if results[cid]['messages_with_time']:
                     results[cid]['timing'] = _compute_timing_signals(results[cid]['messages_with_time'])
@@ -1361,7 +651,7 @@ def _gather_bulk_contexts(location_id, contact_ids):
         except Exception:
             pass
 
-        # ── Call history stats — direction-aware ──
+        # ── Call history stats ──
         try:
             cur.execute("""
                 SELECT contact_id,
@@ -1433,602 +723,65 @@ def _gather_bulk_contexts(location_id, contact_ids):
     return results
 
 
-def _build_contact_block(contact_id, ctx):
-    """Build a compact text block summarizing one contact's context for the bulk prompt."""
-    convo = "\n".join(ctx["messages"][-15:]) if ctx["messages"] else "No conversation."
-    facts = ", ".join(ctx["facts"][:8]) if ctx["facts"] else "None."
-    tags = ", ".join(ctx["tags"][:6]) if ctx["tags"] else "None."
-
-    pipeline_str = "None."
-    if ctx["pipeline"]:
-        p = ctx["pipeline"]
-        pipeline_str = f"{p.get('pipeline_name', '?')} / {p.get('stage_name', '?')} / {p.get('status', '?')}"
-        if p.get('monetary_value'):
-            pipeline_str += f" ${p['monetary_value']:,.0f}"
-
-    calls = ctx['calls']
-    calls_str = f"{calls['total']}t/{calls['agent_called']}out/{calls['lead_called']}in/{calls['answered']}ans/{calls['unanswered']}unans/{calls['long_calls']}>2m"
-    if calls.get('last_call'):
-        calls_str += f" last:{calls['last_call'][:10]}"
-
-    timing_str = _build_timing_block(ctx.get("timing", {}))
-
-    block = f"""[{contact_id}]
-CONVO:
-{convo}
-FACTS: {facts}
-TAGS: {tags}
-PIPELINE: {pipeline_str}
-CALLS: {calls_str}"""
-    if timing_str:
-        block += f"\n{timing_str}"
-    return block
-
-
-def _extract_fields_from_single_response(raw, contact_id, ctx):
-    """
-    Extract intelligence fields directly from a single-contact raw response
-    without needing the contact_id key to exist in the text. This handles
-    completely garbled JSON where only field values survive.
-    Returns a validated dict or None.
-    """
-    if not raw or len(raw) < 15:
-        return None
-
-    # Extract string fields with any quoting style
-    def _rx_str(field):
-        m = re.search(rf'"{field}"\s*:\s*"((?:[^"\\]|\\.)*)"', raw)
-        if m:
-            return m.group(1).replace('\\"', '"').replace('\\n', ' ').strip()
-        m = re.search(rf"(?:'{field}'|{field})\s*:\s*\"((?:[^\"\\]|\\.)*)\"", raw)
-        if m:
-            return m.group(1).replace('\\"', '"').replace('\\n', ' ').strip()
-        m = re.search(rf"""(?:"{field}"|'{field}'|{field})\s*:\s*'((?:[^'\\\\]|\\\\.)*)'""", raw)
-        if m:
-            return m.group(1).replace("\\'", "'").replace('\\n', ' ').strip()
-        return None
-
-    def _rx_int(field):
-        m = re.search(rf"""(?:"{field}"|'{field}'|{field})\s*:\s*(\d+)""", raw)
-        return int(m.group(1)) if m else None
-
-    def _rx_bool(field):
-        m = re.search(rf"""(?:"{field}"|'{field}'|{field})\s*:\s*(true|false|True|False)""", raw)
-        if not m:
-            return None
-        return m.group(1).lower() == 'true'
-
-    summary = _rx_str('summary')
-    temperature = _rx_str('temperature')
-    score = _rx_int('score')
-    should_respond = _rx_bool('should_respond')
-    engagement = _rx_int('engagement_level')
-    temp_reason = _rx_str('temperature_reason')
-    respond_reason = _rx_str('should_respond_reason')
-    under_contract = _rx_bool('under_contract')
-
-    # Need at least summary or temperature to consider this a valid extraction
-    if not summary and not temperature:
-        return None
-
-    obj = {
-        'contact_id': contact_id,
-        'summary': summary or 'Analysis partially recovered',
-        'temperature': temperature if temperature in ('hot', 'warm', 'cool', 'cold') else 'warm',
-        'temperature_reason': temp_reason or '',
-        'score': score if score is not None else 50,
-        'should_respond': should_respond if should_respond is not None else False,
-        'should_respond_reason': respond_reason or '',
-        'engagement_level': engagement if engagement is not None else 1,
-        'under_contract': under_contract if under_contract is not None else False,
-        'actions': [],
-    }
-    obj = _validate_and_calibrate(obj, ctx)
-    return obj
-
-
-def _regex_extract_contacts(raw, all_contexts=None):
-    """
-    Last-resort regex-based extraction of contact data from severely malformed JSON.
-    Extracts known fields by pattern matching without relying on JSON parsing.
-    Handles double-quoted, single-quoted, and unquoted keys/values.
-    Returns: {contact_id: validated_dict} for successfully extracted contacts.
-    """
-    if not raw:
-        return {}
-    all_contexts = all_contexts or {}
-    results = {}
-
-    def _rx_str(region, field):
-        """Extract a string field value via regex (handles quoted/unquoted keys, double/single-quoted values)."""
-        # Try double-quoted key + double-quoted value
-        m = re.search(rf'"{field}"\s*:\s*"((?:[^"\\]|\\.)*)"', region)
-        if m:
-            return m.group(1).replace('\\"', '"').replace('\\n', ' ').strip()
-        # Try unquoted/single-quoted key + double-quoted value
-        m = re.search(rf"(?:'{field}'|{field})\s*:\s*\"((?:[^\"\\]|\\.)*)\"", region)
-        if m:
-            return m.group(1).replace('\\"', '"').replace('\\n', ' ').strip()
-        # Try any key quoting + single-quoted value
-        sq_pat = rf"""(?:"{field}"|'{field}'|{field})\s*:\s*'((?:[^'\\\\]|\\\\.)*)'"""
-        m = re.search(sq_pat, region)
-        if m:
-            return m.group(1).replace("\\'", "'").replace('\\n', ' ').strip()
-        return None
-
-    def _rx_int(region, field):
-        """Extract an integer field value via regex (handles quoted/unquoted keys)."""
-        m = re.search(rf"""(?:"{field}"|'{field}'|{field})\s*:\s*(\d+)""", region)
-        return int(m.group(1)) if m else None
-
-    def _rx_bool(region, field):
-        """Extract a boolean field value via regex (handles quoted/unquoted keys + Python True/False)."""
-        m = re.search(rf"""(?:"{field}"|'{field}'|{field})\s*:\s*(true|false|True|False)""", region)
-        if not m:
-            return None
-        return m.group(1).lower() == 'true'
-
-    # Match contact_id with any quoting style: "contact_id": "val", 'contact_id': 'val', contact_id: "val"
-    for m in re.finditer(r'''(?:"contact_id"|'contact_id'|contact_id)\s*:\s*["']([^"']+)["']''', raw):
-        cid = m.group(1)
-        if cid in results:
-            continue  # already extracted
-
-        # Find the region around this contact_id (look back to nearest {, forward ~2000 chars)
-        start = raw.rfind('{', max(0, m.start() - 200), m.start())
-        if start < 0:
-            start = max(0, m.start() - 50)
-        region = raw[start:start + 2000]
-
-        summary = _rx_str(region, 'summary')
-        temperature = _rx_str(region, 'temperature')
-        score = _rx_int(region, 'score')
-        should_respond = _rx_bool(region, 'should_respond')
-        engagement = _rx_int(region, 'engagement_level')
-        temp_reason = _rx_str(region, 'temperature_reason')
-        respond_reason = _rx_str(region, 'should_respond_reason')
-        under_contract = _rx_bool(region, 'under_contract')
-
-        if summary or temperature:  # at least some data extracted
-            obj = {
-                'contact_id': cid,
-                'summary': summary or 'Analysis partially recovered',
-                'temperature': temperature if temperature in ('hot', 'warm', 'cool', 'cold') else 'warm',
-                'temperature_reason': temp_reason or '',
-                'score': score if score is not None else 50,
-                'should_respond': should_respond if should_respond is not None else False,
-                'should_respond_reason': respond_reason or '',
-                'engagement_level': engagement if engagement is not None else 1,
-                'under_contract': under_contract if under_contract is not None else False,
-                'actions': [],
-            }
-            ctx = all_contexts.get(cid, {"messages": [], "timing": {}})
-            obj = _validate_and_calibrate(obj, ctx)
-            results[cid] = obj
-
-    # If regex found nothing via contact_id keys, try searching for known IDs directly
-    # This handles cases where the LLM omits the "contact_id" field but includes the ID value
-    if not results and all_contexts:
-        results = _extract_by_known_ids(raw, all_contexts, _rx_str, _rx_int, _rx_bool)
-
-    return results
-
-
-def _extract_by_known_ids(raw, all_contexts, _rx_str=None, _rx_int=None, _rx_bool=None):
-    """
-    Search for known contact IDs directly in the raw text and extract fields
-    from the surrounding region. Handles cases where the LLM response contains
-    the contact data but with garbled/missing contact_id keys.
-    """
-    if not raw or not all_contexts:
-        return {}
-
-    # Build local regex helpers if not passed in
-    if _rx_str is None:
-        def _rx_str(region, field):
-            m = re.search(rf'"{field}"\s*:\s*"((?:[^"\\]|\\.)*)"', region)
-            if m:
-                return m.group(1).replace('\\"', '"').replace('\\n', ' ').strip()
-            m = re.search(rf"(?:'{field}'|{field})\s*:\s*\"((?:[^\"\\]|\\.)*)\"", region)
-            if m:
-                return m.group(1).replace('\\"', '"').replace('\\n', ' ').strip()
-            sq_pat = rf"""(?:"{field}"|'{field}'|{field})\s*:\s*'((?:[^'\\\\]|\\\\.)*)'"""
-            m = re.search(sq_pat, region)
-            if m:
-                return m.group(1).replace("\\'", "'").replace('\\n', ' ').strip()
-            return None
-    if _rx_int is None:
-        def _rx_int(region, field):
-            m = re.search(rf"""(?:"{field}"|'{field}'|{field})\s*:\s*(\d+)""", region)
-            return int(m.group(1)) if m else None
-    if _rx_bool is None:
-        def _rx_bool(region, field):
-            m = re.search(rf"""(?:"{field}"|'{field}'|{field})\s*:\s*(true|false|True|False)""", region)
-            if not m:
-                return None
-            return m.group(1).lower() == 'true'
-
-    results = {}
-    # Search for each known contact ID in the raw text
-    for cid in all_contexts:
-        # Find the ID string in the response (may appear as value without a key)
-        idx = raw.find(cid)
-        if idx < 0:
-            continue
-
-        # Extract a region around this ID: look back to nearest { and forward ~2000 chars
-        start = raw.rfind('{', max(0, idx - 300), idx)
-        if start < 0:
-            start = max(0, idx - 100)
-        region = raw[start:start + 2500]
-
-        summary = _rx_str(region, 'summary')
-        temperature = _rx_str(region, 'temperature')
-        score = _rx_int(region, 'score')
-        should_respond = _rx_bool(region, 'should_respond')
-        engagement = _rx_int(region, 'engagement_level')
-        temp_reason = _rx_str(region, 'temperature_reason')
-        respond_reason = _rx_str(region, 'should_respond_reason')
-        under_contract = _rx_bool(region, 'under_contract')
-
-        if summary or temperature:
-            obj = {
-                'contact_id': cid,
-                'summary': summary or 'Analysis partially recovered',
-                'temperature': temperature if temperature in ('hot', 'warm', 'cool', 'cold') else 'warm',
-                'temperature_reason': temp_reason or '',
-                'score': score if score is not None else 50,
-                'should_respond': should_respond if should_respond is not None else False,
-                'should_respond_reason': respond_reason or '',
-                'engagement_level': engagement if engagement is not None else 1,
-                'under_contract': under_contract if under_contract is not None else False,
-                'actions': [],
-            }
-            ctx = all_contexts.get(cid, {"messages": [], "timing": {}})
-            obj = _validate_and_calibrate(obj, ctx)
-            results[cid] = obj
-
-    return results
-
-
-def _extract_individual_objects(raw, all_contexts=None):
-    """
-    Extract individual contact JSON objects from a partially valid bulk response.
-    Uses regex to find complete {"contact_id": ...} objects even when the
-    surrounding array/wrapper is malformed or truncated.
-    Returns: {contact_id: validated_dict} for successfully extracted contacts.
-    """
-    if not raw:
-        return {}
-    all_contexts = all_contexts or {}
-
-    results = {}
-    # Find all complete JSON objects that contain contact_id
-    # Match from { to } handling nested braces via iterative depth tracking
-    i = 0
-    while i < len(raw):
-        if raw[i] != '{':
-            i += 1
-            continue
-        # Track depth to find matching closing brace (handles both " and ' strings)
-        depth = 0
-        in_string = False
-        str_char = None
-        escape = False
-        end = -1
-        for j in range(i, len(raw)):
-            c = raw[j]
-            if escape:
-                escape = False
-                continue
-            if c == '\\' and in_string:
-                escape = True
-                continue
-            if not in_string and c in ('"', "'"):
-                in_string = True
-                str_char = c
-                continue
-            if in_string and c == str_char:
-                in_string = False
-                str_char = None
-                continue
-            if in_string:
-                continue
-            if c == '{':
-                depth += 1
-            elif c == '}':
-                depth -= 1
-                if depth == 0:
-                    end = j
-                    break
-        if end < 0:
-            # No matching brace — skip this { and try next one
-            i += 1
-            continue
-        candidate = raw[i:end + 1]
-        i = end + 1
-        # Must contain contact_id to be a result object (skip wrapper objects)
-        if 'contact_id' not in candidate:
-            continue
-        try:
-            obj = json.loads(candidate)
-        except (json.JSONDecodeError, ValueError):
-            # Apply full repair pipeline to individual candidate
-            try:
-                obj = _repair_json(candidate)
-            except ValueError:
-                # Fall back to regex extraction on this individual candidate
-                partial = _regex_extract_contacts(candidate, all_contexts)
-                if partial:
-                    results.update(partial)
-                continue
-        if isinstance(obj, dict):
-            if obj.get("contact_id"):
-                cid = obj["contact_id"]
-                ctx = all_contexts.get(cid, {"messages": [], "timing": {}})
-                obj = _validate_and_calibrate(obj, ctx)
-                results[cid] = obj
-            else:
-                # Wrapper object — extract inner contact objects from results/contacts array
-                arr = obj.get("results") or obj.get("contacts") or []
-                if isinstance(arr, list):
-                    for item in arr:
-                        if isinstance(item, dict) and item.get("contact_id"):
-                            cid = item["contact_id"]
-                            ctx = all_contexts.get(cid, {"messages": [], "timing": {}})
-                            item = _validate_and_calibrate(item, ctx)
-                            results[cid] = item
-    return results
-
-
-def _run_bulk_ai_analysis(location_id, contact_blocks, all_contexts=None):
-    """
-    Analyze multiple contacts in a single LLM call.
-    contact_blocks: list of (contact_id, text_block) tuples.
-    all_contexts: optional dict of {contact_id: ctx_dict} for calibration.
-    Returns: {contact_id: analysis_dict} for successfully parsed contacts.
-    """
-    if not _client or not contact_blocks:
-        return {}
-    all_contexts = all_contexts or {}
-
-    contacts_text = "\n\n---\n\n".join(block for _, block in contact_blocks)
-    id_list = ", ".join(cid for cid, _ in contact_blocks)
-
-    prompt = f"""You are an AI sales coach bulk-analyzing insurance leads. Below are {len(contact_blocks)} contacts separated by "---". For EACH contact, produce a JSON analysis object.
-
-CRITICAL — READ CONVERSATIONS IN CONTEXT:
-Each contact has a "CONVO" section showing Bot/Lead message exchanges. You MUST read each Lead reply as a RESPONSE TO THE PRECEDING Bot message. Short replies ("yes", "no", "ok", "stop", "want") mean completely different things depending on what the Bot just asked. For example: Bot asks "want to stop?" + Lead says "want" = WANTS TO STOP. Bot asks "want a quote?" + Lead says "want" = WANTS A QUOTE. Never classify messages in isolation — always read the thread as a conversation.
-
-{contacts_text}
-
----
-
-CURRENT DATE: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}
-
-Respond with ONLY valid JSON (no markdown, no code fences). Each element MUST include the contact's ID from the [brackets] above. Use this exact structure:
-
-{{
-  "results": [
-    {{
-      "contact_id": "<id from brackets>",
-      "summary": "2-sentence snapshot. Be specific — reference actual conversation details.",
-      "temperature": "hot | warm | cool | cold",
-      "temperature_reason": "One sentence why.",
-      "score": 0-100,
-      "should_respond": true or false,
-      "should_respond_reason": "Why the agent should or should not respond now.",
-      "engagement_level": 0-3,
-      "under_contract": true or false,
-      "actions": [
-        {{
-          "action": "Short imperative action",
-          "reason": "Why this matters",
-          "priority": "high | medium | low",
-          "icon": "fa-solid fa-<icon>"
-        }}
-      ]
-    }}
-  ]
-}}
-
-CLASSIFICATION RULES:
-- temperature: hot=actively buying/quoting/ready. warm=engaged/sharing info/positive. cool=went quiet/short replies/objections like "not interested" or "no thanks"/2+ bot messages unanswered (objections are COOL not cold — bot keeps trying). cold=TCPA opt-out only (stop/unsubscribe/remove me/do not contact) OR ghosted 3+ attempts over multiple days. TIMING: if no lead reply in 7+ days despite outreach, AT MOST "cool."
-- score CALIBRATION (mandatory ranges): TCPA opt-out (stop/unsubscribe)=5-15. "not interested"/"no thanks"=15-30 (objection, not dead). No lead replies at all=10-25. Surface one-word replies=15-30. Soft objections=25-45. Discussing coverage/sharing details=45-70. Asking for quotes/scheduling=65-85. Ready to buy=80-95.
-- should_respond: true only if the lead is WAITING for a reply (unanswered question, unaddressed interest, lead spoke last). ALSO true if lead said "not interested"/"no thanks" — the bot should keep working on them. false ONLY if bot already replied, lead sent TCPA opt-out (stop/unsubscribe), or nothing to respond to.
-- engagement_level: 0=no lead replies at all, 1=surface (one-word replies), 2=real conversation, 3=deep (specifics, calls >30s, near decision). Unanswered outbound calls do NOT count.
-- under_contract: true if contact is an EXISTING CLIENT (sold). Look at PIPELINE — stages like "sold", "closed won", "active client", "policy issued", "customer", "in force", "bound", "retention", "renewal" = true. Sales/prospecting pipelines ("new leads", "follow up", "quoted", "nurture") = false. Also check conversation for policy numbers or servicing existing coverage. When in doubt, false.
-- actions: 2-4 per contact. Factor in TIMING — if lead hasn't replied in days, suggest a new angle or different channel, not "follow up." Icons: fa-phone, fa-paper-plane, fa-file-invoice-dollar, fa-calendar, fa-fire, fa-clock, fa-reply, fa-bolt.
-
-You MUST return exactly {len(contact_blocks)} objects, one per contact. Contact IDs: {id_list}"""
-
-    # Scale max tokens: ~400 tokens per contact (summaries + actions are verbose) + buffer
-    max_tokens = min(32000, len(contact_blocks) * 400 + 500)
-    # Scale timeout: ~1.5s per contact + base
-    timeout = min(180.0, len(contact_blocks) * 1.5 + 15)
-
-    for attempt in range(2):
-        try:
-            logger.warning(
-                f"[AI_CALL] model={INTELLIGENCE_MODEL} | contacts={len(contact_blocks)} | "
-                f"prompt_chars={len(prompt)} | max_tokens={max_tokens} | timeout={timeout:.0f}s"
-            )
-            response = _client.chat.completions.create(
-                model=INTELLIGENCE_MODEL,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.3 if attempt == 0 else 0.1,
-                max_tokens=max_tokens,
-                timeout=timeout,
-                response_format={"type": "json_object"},
-            )
-            raw = (response.choices[0].message.content or "").strip()
-            finish_reason = getattr(response.choices[0], 'finish_reason', None)
-
-            # Degenerate response — empty, tiny, or clearly not JSON
-            if not raw or len(raw) < 20:
-                if attempt == 0:
-                    logger.warning(f"Bulk AI returned empty/tiny response ({len(raw) if raw else 0} chars), retrying")
-                    continue
-                logger.error(f"Bulk AI returned empty/tiny response after retry ({len(raw) if raw else 0} chars): {raw!r}")
-                return {}
-
-            if finish_reason == 'length':
-                logger.warning(f"Bulk AI output truncated (max_tokens={max_tokens}, {len(contact_blocks)} contacts)")
-
-            try:
-                parsed = _repair_json(raw)
-            except ValueError as e:
-                # Try to extract individual contact objects from partial JSON
-                partial = _extract_individual_objects(raw, all_contexts)
-                if not partial:
-                    # Last resort: regex-based field extraction (no JSON parsing)
-                    partial = _regex_extract_contacts(raw, all_contexts)
-                if partial:
-                    logger.warning(f"Bulk AI JSON repair failed but extracted {len(partial)}/{len(contact_blocks)} contacts from partial response")
-                    return partial
-                if attempt == 0:
-                    logger.warning(f"Bulk AI JSON repair failed (retrying batch, {len(contact_blocks)} contacts): {e}")
-                    logger.warning(f"Bulk AI raw (first 500 chars): {raw[:500]}")
-                    continue
-                logger.error(f"Bulk AI JSON repair failed, dropping batch ({len(contact_blocks)} contacts): {e}")
-                logger.error(f"Bulk AI raw response (first 1000 chars): {raw[:1000]}")
-                return {}
-
-            # Extract results array from wrapper object if needed
-            if isinstance(parsed, dict):
-                arr = parsed.get("results") or parsed.get("contacts")
-                if isinstance(arr, list):
-                    parsed = arr
-                else:
-                    # Dict might have contact_ids as keys (e.g. {"abc123": {...}})
-                    candidate = []
-                    for k, v in parsed.items():
-                        if isinstance(v, dict):
-                            v["contact_id"] = v.get("contact_id", k)
-                            candidate.append(v)
-                    parsed = candidate if candidate else []
-            if not isinstance(parsed, list):
-                if attempt == 0:
-                    logger.warning("Bulk AI response was not a JSON array, retrying")
-                    continue
-                logger.error("Bulk AI response was not a JSON array")
-                return {}
-
-            results = {}
-            for item in parsed:
-                if not isinstance(item, dict):
-                    continue
-                cid = item.get("contact_id", "")
-                if not cid:
-                    continue
-
-                # Validate + calibrate using same rules as single analysis
-                ctx = all_contexts.get(cid, {"messages": [], "timing": {}})
-                item = _validate_and_calibrate(item, ctx)
-                results[cid] = item
-
-            logger.info(f"Bulk AI analysis returned {len(results)}/{len(contact_blocks)} contacts"
-                         + (f" (truncated, repaired)" if finish_reason == 'length' else ""))
-            return results
-        except Exception as e:
-            if attempt == 0:
-                logger.warning(f"Bulk AI call failed (retrying): {e}")
-                continue
-            logger.error(f"Bulk AI call failed: {e}")
-            return {}
-    return {}
-
+# ═══════════════════════════════════════════════════════════════════════════════
+# ═══ BULK ANALYSIS — rules-based, no AI, runs in milliseconds ════════════════
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def bulk_analyze_and_cache(location_id, contact_ids):
     """
-    Analyze many contacts via bulk AI prompt and cache all results.
-    Splits into sub-batches of 25 per LLM call to stay within token limits.
-    Returns count of successfully analyzed contacts.
+    Score many contacts using rule-based analysis and cache all results.
+    No AI, no network calls. Runs in milliseconds. Zero cost.
+    Returns count of successfully scored contacts.
     """
-    if not contact_ids or not _client:
+    if not contact_ids:
         return 0
 
-    # Gather context for all contacts in batched DB queries
     all_contexts = _gather_bulk_contexts(location_id, contact_ids)
 
-    # Build compact text blocks for each contact
-    contact_blocks = []
-    for cid in contact_ids:
-        ctx = all_contexts.get(cid)
-        if ctx:
-            block = _build_contact_block(cid, ctx)
-            contact_blocks.append((cid, block))
-
-    if not contact_blocks:
+    conn = get_db_connection()
+    if not conn:
         return 0
 
-    # Process in sub-batches of 5 per LLM call, run up to 2 concurrently
-    # Kept low to avoid rate-limit cascade: 8 workers × 2 = 16 max simultaneous xAI calls
-    # More concurrent = more timeouts = charged for input tokens with no output
-    SUB_BATCH = 5
-    MAX_CONCURRENT = 2
-    total_analyzed = 0
+    scored = 0
+    now = datetime.utcnow()
 
-    chunks = []
-    for i in range(0, len(contact_blocks), SUB_BATCH):
-        chunks.append(contact_blocks[i:i + SUB_BATCH])
-
-    def _process_chunk(chunk):
-        """Process a single chunk: call LLM, cache results, return count."""
-        analyzed = 0
-        ai_results = _run_bulk_ai_analysis(location_id, chunk, all_contexts=all_contexts)
-
-        for cid, _ in chunk:
-            result = ai_results.get(cid)
-            if result:
-                _save_analysis_cache(cid, location_id, {
-                    "summary": result.get("summary"),
-                    "score": result.get("score", 50),
-                    "temperature": result.get("temperature", "warm"),
-                    "temperature_reason": result.get("temperature_reason", ""),
-                    "actions": result.get("actions", []),
-                    "should_respond": result.get("should_respond", False),
-                    "should_respond_reason": result.get("should_respond_reason", ""),
-                    "engagement_level": result.get("engagement_level", 0),
-                })
-                analyzed += 1
-            else:
-                # Fallback: analyze individually if bulk missed this contact
-                try:
-                    ctx = all_contexts.get(cid)
-                    if ctx:
-                        single = _run_ai_analysis(location_id, cid, ctx)
-                        if single:
-                            _save_analysis_cache(cid, location_id, {
-                                "summary": single.get("summary"),
-                                "score": single.get("score", 50),
-                                "temperature": single.get("temperature", "warm"),
-                                "temperature_reason": single.get("temperature_reason", ""),
-                                "actions": single.get("actions", []),
-                                "should_respond": single.get("should_respond", False),
-                                "should_respond_reason": single.get("should_respond_reason", ""),
-                                "engagement_level": single.get("engagement_level", 0),
-                            })
-                            analyzed += 1
-                except Exception as e:
-                    logger.error(f"Fallback single analysis failed for {cid}: {e}")
-        return analyzed
-
-    # Run chunks concurrently with ThreadPoolExecutor
-    with ThreadPoolExecutor(max_workers=min(MAX_CONCURRENT, len(chunks))) as executor:
-        futures = {executor.submit(_process_chunk, chunk): chunk for chunk in chunks}
-        for future in as_completed(futures):
+    try:
+        cur = conn.cursor()
+        for cid in contact_ids:
+            ctx = all_contexts.get(cid)
+            if not ctx:
+                continue
             try:
-                total_analyzed += future.result()
+                result = _rules_score_contact(ctx)
+                cur.execute("""
+                    INSERT INTO contact_intelligence (contact_id, location_id, analysis, analyzed_at)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (contact_id) DO UPDATE SET
+                        analysis = EXCLUDED.analysis,
+                        location_id = EXCLUDED.location_id,
+                        analyzed_at = EXCLUDED.analyzed_at
+                """, (cid, location_id, json.dumps(result), now))
+                scored += 1
             except Exception as e:
-                logger.error(f"Chunk analysis failed: {e}")
+                logger.error(f"[INTEL_RULES] Scoring failed for {cid}: {e}")
 
-    logger.info(f"Bulk analysis complete: {total_analyzed}/{len(contact_ids)} contacts for {location_id}")
-    return total_analyzed
+        conn.commit()
+        cur.close()
+        logger.info(f"[INTEL_RULES] Scored {scored}/{len(contact_ids)} contacts for {location_id}")
+    except Exception as e:
+        logger.error(f"[INTEL_RULES] Bulk cache write failed: {e}")
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+    finally:
+        return_db_connection(conn)
+
+    return scored
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ═══ CACHE LAYER — Store + retrieve AI analysis results ═════════════════════
+# ═══ CACHE LAYER — Store + retrieve scoring results ══════════════════════════
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def _ensure_intelligence_table():
@@ -2041,10 +794,9 @@ def _ensure_intelligence_table():
         cur.execute("""
             CREATE TABLE IF NOT EXISTS contact_intelligence (
                 contact_id TEXT PRIMARY KEY,
-                location_id TEXT,
+                location_id TEXT NOT NULL,
                 analysis JSONB NOT NULL,
-                analyzed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                context_hash TEXT
+                analyzed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS idx_ci_location ON contact_intelligence (location_id);")
@@ -2062,18 +814,16 @@ def _ensure_intelligence_table():
 
 def _get_cached_analysis(contact_id, last_message_at):
     """
-    Return cached AI analysis if still fresh.
+    Return cached analysis if still fresh.
 
-    Smart TTL rules (avoids re-analyzing cold/dead leads every 24h):
+    TTL rules:
       hot   →  4 hours
       warm  → 12 hours
       cool  → 48 hours
-      cold/unknown → 168 hours (7 days)
+      cold  → 168 hours (7 days)
 
-    Message-invalidation rule: only invalidate when the LEAD sent a new message
-    after the last analysis (outbound bot messages do NOT invalidate the cache).
-    Even then, if the analysis is under 1 hour old, keep it — the bot just replied
-    and the intelligence is still fresh enough.
+    Message-invalidation: only when the LEAD sent a new message after the last
+    analysis AND the cache is >1 hour old (bot outbound does not invalidate).
     """
     conn = get_db_connection()
     if not conn:
@@ -2081,7 +831,6 @@ def _get_cached_analysis(contact_id, last_message_at):
 
     try:
         cur = conn.cursor()
-        # Also fetch the last message type so we know if it was lead or bot
         cur.execute("""
             SELECT ci.analysis, ci.analyzed_at,
                    lm.last_type
@@ -2105,7 +854,6 @@ def _get_cached_analysis(contact_id, last_message_at):
         if not analyzed_at:
             return None
 
-        # Normalize timestamps
         if isinstance(analyzed_at, str):
             analyzed_at = datetime.fromisoformat(analyzed_at.replace('Z', '+00:00'))
         if hasattr(analyzed_at, 'tzinfo') and analyzed_at.tzinfo:
@@ -2117,8 +865,6 @@ def _get_cached_analysis(contact_id, last_message_at):
 
         age_hours = (datetime.utcnow() - analyzed_at).total_seconds() / 3600
 
-        # Message-invalidation: only when lead spoke last AND cache is >1 hour old.
-        # Bot outbound messages (message_type='assistant') do NOT invalidate.
         if last_message_at:
             lm = last_message_at
             if isinstance(lm, str):
@@ -2130,18 +876,11 @@ def _get_cached_analysis(contact_id, last_message_at):
             lead_spoke = last_type in ('user', 'inbound', 'lead')
 
             if lm > analyzed_at and lead_spoke and age_hours >= 1.0:
-                return None  # lead said something new, cache old enough → re-analyze
+                return None
 
-        # Temperature-based TTL
         temperature = (analysis.get('temperature') or 'unknown').lower()
-        ttl_hours = {
-            'hot':     4,
-            'warm':   12,
-            'cool':   48,
-            'cold':   168,
-        }.get(temperature, 168)
+        ttl_hours = {'hot': 4, 'warm': 12, 'cool': 48, 'cold': 168}.get(temperature, 168)
 
-        from datetime import timedelta
         if age_hours > ttl_hours:
             return None
 
@@ -2155,7 +894,7 @@ def _get_cached_analysis(contact_id, last_message_at):
 
 
 def _save_analysis_cache(contact_id, location_id, analysis):
-    """Save AI analysis results to cache."""
+    """Save scoring results to cache."""
     conn = get_db_connection()
     if not conn:
         return
@@ -2186,12 +925,12 @@ def get_cached_temperature(contact_id: str) -> dict:
     """
     Lightweight cache read for the live SMS pipeline.
     Returns cached temperature, score, and engagement_level if available.
-    Zero AI cost — reads DB only.
+    Zero cost — reads DB only.
 
     Returns None for:
       - No cached data
-      - Under-contract contacts (existing clients, not sales leads)
-      - Neutral temperature (set by calibration for sold clients)
+      - Under-contract contacts (existing clients)
+      - Neutral temperature
 
     Returns: {"temperature": str, "score": int, "engagement_level": int} or None
     """
@@ -2218,14 +957,10 @@ def get_cached_temperature(contact_id: str) -> dict:
         if not analysis:
             return None
 
-        # Don't inject temperature context for existing clients —
-        # they're not sales leads and the bot pipeline shouldn't
-        # adjust its approach based on a sold client's temperature.
         if analysis.get("under_contract"):
             return None
 
         temp = analysis.get("temperature", "")
-        # "neutral" is set by calibration for under_contract contacts
         if not temp or temp == "neutral":
             return None
 
@@ -2240,16 +975,11 @@ def get_cached_temperature(contact_id: str) -> dict:
         return_db_connection(conn)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# ═══ BULK API — Fetch cached AI classifications for Smart Filters ════════════
-# ═══════════════════════════════════════════════════════════════════════════════
-
 def get_bulk_cached_intelligence(location_id, contact_ids):
     """
-    Fetch cached AI intelligence for multiple contacts in one DB query.
-    Returns only contacts with fresh cache (<24h old AND no new messages
-    since analysis). Stale contacts appear as 'uncached' so they get
-    re-analyzed on next dialer load. Zero AI cost — single SQL query.
+    Fetch cached intelligence for multiple contacts in one DB query.
+    Returns only contacts with fresh cache. Stale contacts appear as
+    'uncached' so they get re-scored on next dialer load. Zero cost.
 
     Returns: {contact_id: {temperature, score, summary, temperature_reason}}
     """
@@ -2262,8 +992,6 @@ def get_bulk_cached_intelligence(location_id, contact_ids):
 
     try:
         cur = conn.cursor()
-        # Pull up to 7 days of cache — Python applies per-temperature TTLs below.
-        # Also fetch last message type to distinguish lead vs bot messages.
         cur.execute("""
             SELECT ci.contact_id, ci.analysis, ci.analyzed_at,
                    lm.last_msg_at, lm.last_type
@@ -2281,7 +1009,6 @@ def get_bulk_cached_intelligence(location_id, contact_ids):
               AND ci.analyzed_at > NOW() - INTERVAL '7 days'
         """, (location_id, contact_ids))
 
-        # Temperature-based TTLs (hours)
         _TTL = {'hot': 4, 'warm': 12, 'cool': 48, 'cold': 168}
 
         results = {}
@@ -2291,13 +1018,11 @@ def get_bulk_cached_intelligence(location_id, contact_ids):
             last_msg_at = row.get('last_msg_at')
             last_type = (row.get('last_type') or '').lower()
 
-            # Normalize timestamps
             if hasattr(analyzed_at, 'tzinfo') and analyzed_at.tzinfo:
                 analyzed_at = analyzed_at.replace(tzinfo=None)
 
             age_hours = (datetime.utcnow() - analyzed_at).total_seconds() / 3600
 
-            # Parse analysis early so we can read temperature for TTL check
             analysis_raw = row['analysis']
             if isinstance(analysis_raw, str):
                 try:
@@ -2309,16 +1034,15 @@ def get_bulk_cached_intelligence(location_id, contact_ids):
             ttl_hours = _TTL.get(temperature, 168)
 
             if age_hours > ttl_hours:
-                continue  # TTL expired for this temperature tier
+                continue
 
-            # Message-invalidation: only when lead spoke last AND cache ≥1h old
             if last_msg_at and analyzed_at:
                 m = last_msg_at
                 if hasattr(m, 'tzinfo') and m.tzinfo:
                     m = m.replace(tzinfo=None)
                 lead_spoke = last_type in ('user', 'inbound', 'lead')
                 if m > analyzed_at and lead_spoke and age_hours >= 1.0:
-                    continue  # lead said something new → re-analyze
+                    continue
 
             results[cid] = {
                 "temperature": analysis_raw.get("temperature", "warm"),
@@ -2342,14 +1066,13 @@ def get_bulk_cached_intelligence(location_id, contact_ids):
 
 def batch_analyze_contacts(location_id, contact_ids, limit=5):
     """
-    Run AI analysis for a batch of contacts that don't have fresh cache.
-    Processes up to `limit` contacts synchronously (each takes ~2-3s).
-    Returns list of {contact_id, temperature, score} for successfully analyzed contacts.
+    Score a batch of contacts that don't have fresh cache.
+    Rules-based — instant, no AI cost.
+    Returns list of {contact_id, temperature, score} for scored contacts.
     """
-    if not contact_ids or not _client:
+    if not contact_ids:
         return []
 
-    # Filter to only contacts that actually need analysis
     already_cached = get_bulk_cached_intelligence(location_id, contact_ids)
     need_analysis = [cid for cid in contact_ids if cid not in already_cached][:limit]
 
@@ -2374,7 +1097,7 @@ def batch_analyze_contacts(location_id, contact_ids, limit=5):
         except Exception as e:
             logger.error(f"Batch analysis failed for {cid}: {e}")
 
-    logger.info(f"Batch analyzed {len(results)}/{len(need_analysis)} contacts for {location_id}")
+    logger.info(f"Batch scored {len(results)}/{len(need_analysis)} contacts for {location_id}")
     return results
 
 
@@ -2388,72 +1111,38 @@ _ensure_intelligence_table()
 
 def get_contact_intelligence(location_id, contact_id):
     """
-    Get AI-powered intelligence dossier for a contact.
+    Get contact intelligence dossier.
 
     Flow:
     1. Gather all context (messages, facts, pipeline, calls, tags)
-    2. Check cache — if analysis exists and no new messages since, return cached
-    3. If cache miss, fire one AI micro-prompt to Grok
-    4. Cache the result, return it
+    2. Check cache — if fresh, return cached
+    3. Cache miss → run rules scorer → cache result → return
 
     Returns dict with: summary, score, temperature, temperature_reason, actions,
                        facts, pipeline, narrative.
     """
-    # Gather all context from DB
     ctx = _gather_contact_context(location_id, contact_id)
 
-    # Check cache first
     cached = _get_cached_analysis(contact_id, ctx.get("last_message_at"))
     if cached:
         logger.debug(f"Intelligence cache HIT for {contact_id}")
-        # Merge in live DB data that doesn't need AI
         cached["facts"] = ctx["facts"]
         cached["pipeline"] = ctx["pipeline"]
         cached["narrative"] = ctx.get("narrative")
-        # Normalize score format: cache stores int, API returns {"score": int, "label": str}
         raw_score = cached.get("score", 50)
         if isinstance(raw_score, (int, float)):
             cached["score"] = {"score": int(raw_score), "label": cached.get("temperature", "warm")}
         return cached
 
-    logger.info(f"Intelligence cache MISS for {contact_id} — running AI analysis")
+    result = _rules_score_contact(ctx)
+    _save_analysis_cache(contact_id, location_id, result)
 
-    # Run AI analysis
-    ai_result = _run_ai_analysis(location_id, contact_id, ctx)
-
-    if ai_result:
-        # Cache the AI-generated fields
-        _save_analysis_cache(contact_id, location_id, {
-            "summary": ai_result.get("summary"),
-            "score": ai_result.get("score", 50),
-            "temperature": ai_result.get("temperature", "warm"),
-            "temperature_reason": ai_result.get("temperature_reason", ""),
-            "actions": ai_result.get("actions", []),
-            "should_respond": ai_result.get("should_respond", False),
-            "should_respond_reason": ai_result.get("should_respond_reason", ""),
-            "engagement_level": ai_result.get("engagement_level", 0),
-        })
-
-        # Build full response
-        return {
-            "summary": ai_result.get("summary"),
-            "score": {"score": ai_result.get("score", 50), "label": ai_result.get("temperature", "warm")},
-            "temperature": ai_result.get("temperature", "warm"),
-            "temperature_reason": ai_result.get("temperature_reason", ""),
-            "actions": ai_result.get("actions", []),
-            "facts": ctx["facts"],
-            "pipeline": ctx["pipeline"],
-            "narrative": ctx.get("narrative"),
-        }
-
-    # Fallback if AI call fails — return basic data without AI analysis
-    logger.warning(f"AI analysis failed for {contact_id} — returning basic data")
     return {
-        "summary": ctx.get("narrative") or "No analysis available yet.",
-        "score": {"score": 50, "label": "unknown"},
-        "temperature": "unknown",
-        "temperature_reason": "",
-        "actions": [],
+        "summary": result.get("summary"),
+        "score": {"score": result.get("score", 50), "label": result.get("temperature", "warm")},
+        "temperature": result.get("temperature", "warm"),
+        "temperature_reason": result.get("temperature_reason", ""),
+        "actions": result.get("actions", []),
         "facts": ctx["facts"],
         "pipeline": ctx["pipeline"],
         "narrative": ctx.get("narrative"),
