@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 assistant_bp = Blueprint('assistant', __name__)
 
 _ASSISTANT_MODEL = "grok-3-mini-fast"
-_ASSISTANT_MAX_TOOL_ROUNDS = 3
+_ASSISTANT_MAX_TOOL_ROUNDS = 2
 _ASSISTANT_MAX_TOKENS = 400
 _RATE_LIMIT_RPM = 30
 
@@ -337,13 +337,18 @@ def _filter_tools(all_tools, message):
         if keyword in lower:
             matched.update(tools)
 
-    # If nothing matched beyond core, send all tools (fallback for unusual queries)
+    # If nothing matched beyond core, use a small general-purpose set
+    # (never send all tools — that's 8K+ tokens for zero benefit on generic queries)
     if len(matched) <= len(core):
-        return all_tools
+        matched.update({
+            "get_daily_summary", "get_hot_leads", "get_call_stats",
+            "get_inbox_conversations", "get_recent_messages",
+            "query_call_history", "get_stale_leads",
+        })
 
-    # Filter tool list
+    # Filter tool list — always returns a subset, never all tools
     filtered = [t for t in all_tools if t["function"]["name"] in matched]
-    return filtered if filtered else all_tools
+    return filtered if filtered else [t for t in all_tools if t["function"]["name"] in core]
 
 
 def _match_nav(dest: str):
