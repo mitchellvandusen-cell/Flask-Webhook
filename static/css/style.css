@@ -32,10 +32,10 @@ html {
     --lh-relaxed: 1.65;
 
     /* True Liquid Glass Variables — bold, physical, deep */
-    --glass-bg: linear-gradient(145deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.04) 60%, rgba(255,255,255,0.02) 100%);
-    --glass-bg-strong: linear-gradient(145deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.07) 60%, rgba(255,255,255,0.03) 100%);
+    --glass-bg: linear-gradient(145deg, rgba(255,255,255,0.14) 0%, rgba(14,18,38,0.70) 50%, rgba(8,10,24,0.80) 100%);
+    --glass-bg-strong: linear-gradient(145deg, rgba(255,255,255,0.20) 0%, rgba(16,20,44,0.75) 50%, rgba(10,12,28,0.85) 100%);
     --card-glass: linear-gradient(145deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.04) 60%, rgba(255,255,255,0.02) 100%);
-    --glass-blur: blur(16px) saturate(140%) brightness(1.08) contrast(1.01);
+    --glass-blur: blur(28px) saturate(180%) brightness(1.18) contrast(1.03);
 
     /* 3D Edge Lighting — pronounced chromatic bevel, lit from top-left */
     --glass-border-top: rgba(255,255,255,0.50);
@@ -12767,44 +12767,47 @@ body.light-theme #voice p { color: var(--lt-text-muted) !important; }
    Billing/pricing cards = thick poured glass
    ═══════════════════════════════════════════════════════════ */
 
-/* ── Dialer columns: theatrical floating glass slabs ── */
+/* ── Dialer columns: bold dark glass slabs ── */
 #voicedialer .glass-panel {
-    background: linear-gradient(168deg,
-        rgba(255,255,255,0.20) 0%,
-        rgba(255,255,255,0.07) 55%,
-        rgba(255,255,255,0.02) 100%);
-    border-top-color: rgba(255,255,255,0.62);
-    border-left-color: rgba(255,255,255,0.34);
-    border-right-color: rgba(0,0,0,0.20);
-    border-bottom-color: rgba(0,0,0,0.20);
+    /* Dark tempered glass body — opaque enough to be bold, slightly tinted */
+    background: linear-gradient(160deg,
+        rgba(20,26,48,0.88) 0%,
+        rgba(12,16,32,0.92) 50%,
+        rgba(8,10,22,0.95) 100%);
+    backdrop-filter: blur(48px) saturate(220%) brightness(1.25) contrast(1.05);
+    -webkit-backdrop-filter: blur(48px) saturate(220%) brightness(1.25) contrast(1.05);
+    /* Strong asymmetric edges — top catches light, sides in shadow */
+    border-top-color: rgba(255,255,255,0.55);
+    border-left-color: rgba(255,255,255,0.18);
+    border-right-color: rgba(0,0,0,0.60);
+    border-bottom-color: rgba(0,0,0,0.50);
     box-shadow:
-        /* Crisp contact shadow */
-        0 2px 4px rgba(0,0,0,0.62),
-        /* Mid diffuse halo */
-        0 18px 44px -6px rgba(0,0,0,0.58),
-        /* Far ambient pool */
-        0 56px 110px -28px rgba(0,0,0,0.50),
-        /* Aurora colour bleed */
-        0 0 90px -24px rgba(0,255,136,0.10),
-        /* Specular top rim — blazing bright */
-        inset 0 1px 0 rgba(255,255,255,0.70),
-        /* Glass slab thickness bottom */
-        inset 0 -3px 10px rgba(0,0,0,0.38),
-        /* Left wall catch-light */
-        inset 3px 0 0 rgba(255,255,255,0.24),
-        /* Right wall in shadow */
-        inset -1px 0 0 rgba(0,0,0,0.32);
+        /* Bold drop shadow — panel floats above background */
+        0 4px 8px rgba(0,0,0,0.80),
+        0 24px 60px -8px rgba(0,0,0,0.70),
+        0 60px 120px -24px rgba(0,0,0,0.55),
+        /* Green tech glow — subtle but unmistakably techy */
+        0 0 60px -16px rgba(0,255,136,0.18),
+        0 0 0 1px rgba(0,255,136,0.06),
+        /* Specular top rim — crisp white catch-light */
+        inset 0 1px 0 rgba(255,255,255,0.65),
+        /* Glass thickness at bottom */
+        inset 0 -2px 8px rgba(0,0,0,0.55),
+        /* Left edge catch-light */
+        inset 2px 0 0 rgba(255,255,255,0.12),
+        /* Right wall deep shadow */
+        inset -1px 0 0 rgba(0,0,0,0.60);
 }
 
-/* Top-surface glare — diagonal light sheen across upper half of each column */
+/* Top-surface glare — strong diagonal sheen, glass catches overhead light */
 #voicedialer .glass-panel::after {
     content: '';
     position: absolute;
     top: 0; left: 0; right: 0;
-    height: 48%;
-    background: linear-gradient(175deg,
-        rgba(255,255,255,0.14) 0%,
-        rgba(255,255,255,0.06) 42%,
+    height: 42%;
+    background: linear-gradient(172deg,
+        rgba(255,255,255,0.22) 0%,
+        rgba(255,255,255,0.08) 40%,
         transparent 100%);
     border-radius: inherit;
     pointer-events: none;
@@ -12855,9 +12858,9 @@ body.light-theme #voicedialer .glass-panel::after {
 }
 .dlr-contact-row:hover {
     background: linear-gradient(90deg,
-        rgba(0,217,255,0.08) 0%,
-        rgba(255,255,255,0.04) 100%);
-    border-left-color: rgba(0,217,255,0.45);
+        rgba(0,255,136,0.08) 0%,
+        rgba(255,255,255,0.03) 100%);
+    border-left-color: rgba(0,255,136,0.50);
     /* Hover: un-etch — row lifts toward viewer */
     box-shadow:
         0 1px 4px rgba(0,0,0,0.22),
