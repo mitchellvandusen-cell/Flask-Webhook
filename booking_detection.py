@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 # xAI client (same pattern as lead_intelligence.py)
 XAI_API_KEY = os.getenv("XAI_API_KEY")
-BOOKING_MODEL = "grok-4-1-fast-non-reasoning"
+BOOKING_MODEL = "grok-3-mini-fast"
 
 _client = None
 if XAI_API_KEY:

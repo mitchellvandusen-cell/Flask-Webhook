@@ -405,7 +405,7 @@ List any NEW facts about the lead. One fact per line. Maximum 10 words per fact.
             return result
 
         response = client.chat.completions.create(
-            model="grok-4-1-fast-reasoning",
+            model="grok-3-mini-fast",
             messages=[{"role": "system", "content": observer_prompt}],
             temperature=0.3,
             max_tokens=750,

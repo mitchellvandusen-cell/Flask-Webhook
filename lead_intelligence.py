@@ -591,7 +591,7 @@ def _repair_json(raw):
     raise ValueError(f"Could not repair JSON: {text[:200]}")
 
 XAI_API_KEY = os.getenv("XAI_API_KEY")
-INTELLIGENCE_MODEL = "grok-4-1-fast-non-reasoning"
+INTELLIGENCE_MODEL = "grok-3-mini-fast"
 
 _client = None
 if XAI_API_KEY:
