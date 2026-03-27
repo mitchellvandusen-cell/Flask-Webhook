@@ -1335,18 +1335,12 @@ def oauth_callback():
             _conn = get_db_connection_with_retry(2)
             if _conn:
                 _cur = _conn.cursor()
-                if use_agency_flow:
-                    _cur.execute(
-                        "UPDATE agency_billing SET install_completed_at = NOW() "
-                        "WHERE agency_email = %s AND install_completed_at IS NULL",
-                        (user_email,)
-                    )
-                else:
-                    _cur.execute(
-                        "UPDATE subscribers SET install_completed_at = NOW() "
-                        "WHERE email = %s AND install_completed_at IS NULL",
-                        (user_email,)
-                    )
+                # After migration 010, install_completed_at lives only on subscribers
+                _cur.execute(
+                    "UPDATE subscribers SET install_completed_at = NOW() "
+                    "WHERE LOWER(email) = LOWER(%s) AND install_completed_at IS NULL",
+                    (user_email,)
+                )
                 _conn.commit()
                 _cur.close()
                 return_db_connection(_conn)
