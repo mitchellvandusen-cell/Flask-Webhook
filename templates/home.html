@@ -476,7 +476,7 @@
                     <div class="hp-phone-notch"></div>
                     <div class="hp-phone-header">
                         <div class="hp-phone-name">Sarah M.</div>
-                        <div class="hp-phone-sub">Missed call &middot; Final Expense</div>
+                        <div class="hp-phone-sub">Inbound text &middot; Final Expense</div>
                     </div>
                     <div class="hp-phone-chat" id="phoneChatDemo"></div>
                 </div>
@@ -762,16 +762,16 @@
     var chatEl = document.getElementById('phoneChatDemo');
     if (chatEl) {
         var msgs = [
-            { t: 'sys', x: 'Missed call → AI texts immediately' },
-            { t: 'bot', x: "Hi Sarah! You had a missed call from Mike's office about your life insurance inquiry. Still exploring options?" },
-            { t: 'lead', x: "Not really interested honestly" },
-            { t: 'bot', x: "Completely understand. Most people say that before they see the numbers. At your age, final expense coverage can run $40-60/mo. Wouldn't hurt to just see a quote — 2 minutes, no pressure." },
-            { t: 'lead', x: "I guess that's fine" },
-            { t: 'bot', x: "Quick question — any major health conditions or medications?" },
-            { t: 'lead', x: "Just blood pressure meds" },
-            { t: 'bot', x: "That gets you preferred rates with most carriers. Mike has a 15-min opening tomorrow at 2 PM. Want me to lock that in?" },
-            { t: 'lead', x: "Yeah works for me" },
-            { t: 'sys', x: 'Booked: Tomorrow 2:00 PM ✓' }
+            { t: 'lead', x: "Who is this?" },
+            { t: 'bot', x: "Hey Sarah, it's Mike. You filled out a form a little while back looking into life insurance. Sorry for the out-of-the-blue text. Still thinking about it or did you get something sorted?" },
+            { t: 'lead', x: "Oh. I think I remember. Haven't really done anything about it" },
+            { t: 'bot', x: "That's actually pretty common. Most people put it off and then something happens and they wish they hadn't. What's the main thing stopping you, cost or just haven't had time?" },
+            { t: 'lead', x: "Mostly just haven't had time honestly" },
+            { t: 'bot', x: "That's exactly what a 15 minute call is for. I can pull real numbers for your age and health situation so you actually know what you're looking at. No pressure, just information. Does Thursday work for you?" },
+            { t: 'lead', x: "Thursday afternoon works" },
+            { t: 'bot', x: "I've got 2 PM open. Want me to grab that for you?" },
+            { t: 'lead', x: "Yeah that works" },
+            { t: 'sys', x: 'Booked: Thursday 2:00 PM ✓' }
         ];
         var mi = 0;
         var obs2 = new IntersectionObserver(function(entries) {
