@@ -246,7 +246,7 @@ def transcribe_recording():
         return jsonify({"error": f"Download failed: {str(e)}"}), 502
 
     # Send to xAI Whisper API for transcription
-    xai_key = os.getenv("XAI_API_KEY")
+    xai_key = os.getenv("XAI_API_KEY_VOICE") or os.getenv("XAI_API_KEY")
     if not xai_key:
         return jsonify({"error": "XAI_API_KEY not configured"}), 500
 

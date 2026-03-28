@@ -656,7 +656,7 @@ def _analyze_callback_from_transcript(call_sid, transcript, location_id, contact
     if len(transcript_text) < 10:
         return None
 
-    xai_key = os.getenv("XAI_API_KEY")
+    xai_key = os.getenv("XAI_API_KEY_VOICE") or os.getenv("XAI_API_KEY")
     if not xai_key:
         logger.warning("Auto-callback: XAI_API_KEY not configured")
         return None

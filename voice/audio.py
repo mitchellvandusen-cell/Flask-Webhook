@@ -18,7 +18,7 @@ logger = logging.getLogger("voice_bridge.audio")
 
 # XAI Realtime API
 XAI_REALTIME_URL = "wss://api.x.ai/v1/realtime"
-XAI_API_KEY = os.getenv("XAI_API_KEY", "")
+XAI_API_KEY = os.getenv("XAI_API_KEY_VOICE") or os.getenv("XAI_API_KEY", "")
 
 # Voice options: official XAI Grok Voice Agent voices
 VOICE_OPTIONS = {
