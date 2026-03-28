@@ -23,11 +23,14 @@ logger = logging.getLogger('rq.worker')
 
 # === API CLIENT ===
 XAI_API_KEY = os.getenv("XAI_API_KEY")
+# Per-function key for cost tracking — falls back to XAI_API_KEY if not set
+# Create separate keys in xAI console and set XAI_API_KEY_MAIN in Railway env
+_XAI_KEY_MAIN = os.getenv("XAI_API_KEY_MAIN") or XAI_API_KEY
 
 client = None
-if XAI_API_KEY:
+if _XAI_KEY_MAIN:
     client = OpenAI(
-        api_key=XAI_API_KEY,
+        api_key=_XAI_KEY_MAIN,
         base_url="https://api.x.ai/v1"
     )
 
@@ -383,6 +386,25 @@ def process_webhook_task(payload: dict):
         # If still empty, try top-level "body" field (normalized)
         if not message:
             message = payload.get("body", "").strip()
+
+        # ── Scourer pre-flight: skip LLM on dead replays ─────────────────────
+        # Scourer replays arrive when a previous SMS attempt failed (broken
+        # creds, expired token).  If there's still no incoming human message,
+        # the creds are still broken — calling xAI and attempting the send will
+        # fail identically.  Return early to stop burning tokens and to prevent
+        # the old-code path from writing ANOTHER failed_webhook_payload row
+        # (which would restart the cycle on the next scourer run).
+        _scourer_replay_early = payload.get("_scourer_replay", False)
+        if _scourer_replay_early and not message:
+            logger.info(
+                f"[COST_CAP] Scourer replay skip for {contact_id}: "
+                f"no incoming message — creds still broken, skipping LLM+SMS"
+            )
+            log_webhook_event(location_id, "cost_cap_scourer_skip", "info",
+                              "Scourer replay skipped: no message + broken creds",
+                              contact_id=contact_id)
+            return
+        # ─────────────────────────────────────────────────────────────────────
 
         # message_id is normalized, but fallback to "id" for safety
         message_id = payload.get("message_id") or payload.get("id")

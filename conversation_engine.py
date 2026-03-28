@@ -15,10 +15,11 @@ logger = logging.getLogger(__name__)
 
 # === API Client ===
 XAI_API_KEY = os.getenv("XAI_API_KEY")
+_XAI_KEY_CLASSIFY = os.getenv("XAI_API_KEY_CLASSIFY") or XAI_API_KEY
 client = None
-if XAI_API_KEY:
+if _XAI_KEY_CLASSIFY:
     client = OpenAI(
-        api_key=XAI_API_KEY,
+        api_key=_XAI_KEY_CLASSIFY,
         base_url="https://api.x.ai/v1"
     )
 

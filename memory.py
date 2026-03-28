@@ -13,11 +13,12 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 XAI_API_KEY = os.getenv("XAI_API_KEY")
+_XAI_KEY_MEMORY = os.getenv("XAI_API_KEY_MEMORY") or XAI_API_KEY
 
 client = None
-if XAI_API_KEY:
+if _XAI_KEY_MEMORY:
     client = OpenAI(
-        api_key=XAI_API_KEY,
+        api_key=_XAI_KEY_MEMORY,
         base_url="https://api.x.ai/v1"
     )
 # ===================================

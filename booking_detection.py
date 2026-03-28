@@ -28,13 +28,14 @@ logger = logging.getLogger(__name__)
 
 # xAI client (same pattern as lead_intelligence.py)
 XAI_API_KEY = os.getenv("XAI_API_KEY")
+_XAI_KEY_BOOKING = os.getenv("XAI_API_KEY_BOOKING") or XAI_API_KEY
 BOOKING_MODEL = "grok-4-1-fast-reasoning"
 
 _client = None
-if XAI_API_KEY:
+if _XAI_KEY_BOOKING:
     try:
         from openai import OpenAI
-        _client = OpenAI(api_key=XAI_API_KEY, base_url="https://api.x.ai/v1")
+        _client = OpenAI(api_key=_XAI_KEY_BOOKING, base_url="https://api.x.ai/v1")
     except Exception:
         pass
 
