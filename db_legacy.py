@@ -534,19 +534,42 @@ def get_token_failed_webhook_logs(max_age_hours: int = 48,
 
 
 def save_failed_webhook_payload(location_id: str, contact_id: str,
-                                payload: dict, failure_reason: str) -> bool:
+                                payload: dict, failure_reason: str,
+                                max_attempts: int = 2) -> bool:
     """Persist a failed webhook payload for later recovery by the scourer.
 
     Called when process_webhook_task aborts due to a token error. The full
     payload is saved so the scourer can re-queue it once a valid token is obtained.
+
+    Hard limit: if there are already >= max_attempts rows for this contact +
+    location, skip the insert and return False. This prevents the scourer from
+    retrying a permanently broken contact indefinitely.
     """
     conn = get_db_connection()
     if not conn:
         return False
     try:
+        cur = conn.cursor()
+
+        # Check how many times we've already saved/retried this contact
+        if contact_id:
+            cur.execute("""
+                SELECT COUNT(*) AS cnt
+                FROM failed_webhook_payloads
+                WHERE location_id = %s AND contact_id = %s
+            """, (location_id, contact_id))
+            row = cur.fetchone()
+            existing = row['cnt'] if row else 0
+            if existing >= max_attempts:
+                logger.info(
+                    f"[SCOURER_IGNORE] contact={contact_id} loc={location_id} "
+                    f"already has {existing} failure records (max={max_attempts}) — "
+                    f"ignoring, reason={failure_reason}"
+                )
+                return False
+
         # Strip _original_payload to avoid double-nesting and keep size manageable
         clean_payload = {k: v for k, v in payload.items() if k != '_original_payload'}
-        cur = conn.cursor()
         cur.execute("""
             INSERT INTO failed_webhook_payloads
                 (location_id, contact_id, payload, failure_reason)
