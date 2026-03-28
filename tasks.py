@@ -143,6 +143,12 @@ def process_webhook_task(payload: dict):
                 logger.error(f"❌ ABORT: No subscriber config for {location_id}")
                 return {"status": "error", "reason": "no subscriber config"}
 
+            # Drop cancelled subscriptions immediately — no LLM, no SMS, no saves
+            if subscriber.get('stripe_status') == 'canceled':
+                logger.info(f"[CANCELLED] Dropping webhook — subscription cancelled "
+                            f"loc={location_id} contact={contact_id}")
+                return {"status": "ignored", "reason": "subscription_canceled"}
+
             # Pass subscriber to avoid redundant DB query inside get_valid_token
             auth_token, was_refreshed, token_error = get_valid_token_with_status(
                 location_id, subscriber=subscriber)
