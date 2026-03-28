@@ -522,6 +522,21 @@ def process_webhook_task(payload: dict):
 
         recent_exchanges = director_output["recent_exchanges"]
 
+        # ── Consecutive-bot cap: stop burning xAI tokens on silent contacts ──
+        # If the bot has sent 10+ messages with zero human reply on a follow-up
+        # job (no incoming message), the contact is either unreachable or not
+        # interested. Skip the LLM call entirely — saves ~$0.07/contact/cycle.
+        _consecutive_bot = director_output.get("consecutive_bot_messages", 0)
+        if _consecutive_bot >= 10 and not message:
+            logger.info(
+                f"[COST_CAP] Skipping AI for {contact_id}: "
+                f"consecutive_bot={_consecutive_bot}, no reply in 10+ msgs"
+            )
+            log_webhook_event(location_id, "cost_cap_skip", "info",
+                              f"Skipped AI: {_consecutive_bot} consecutive bot msgs with no reply",
+                              contact_id=contact_id)
+            return
+
         # ============================================================
         # BOOKING DETECTION & EXECUTION
         # ============================================================
@@ -1182,10 +1197,21 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                                            f"Message to contact couldn't be delivered ({fail_reason})")
                     except Exception:
                         pass
-                    # Persist failed payload so the recovery cron can retry later
-                    save_failed_webhook_payload(
-                        location_id, contact_id, payload,
-                        f"sms_delivery_failed:{fail_reason}")
+                    # Persist failed payload so the recovery cron can retry later.
+                    # Skip for scourer replays (already retried once — broken creds need
+                    # user action, not infinite re-queueing) and workflow outreach
+                    # (workflow engine handles its own scheduling).
+                    _is_scourer_replay = payload.get("_scourer_replay", False)
+                    _is_workflow = payload.get("_workflow_outreach", False)
+                    if not _is_scourer_replay and not _is_workflow:
+                        save_failed_webhook_payload(
+                            location_id, contact_id, payload,
+                            f"sms_delivery_failed:{fail_reason}")
+                    else:
+                        logger.info(
+                            f"[COST_CAP] Not re-saving failed payload for {contact_id} "
+                            f"(scourer_replay={_is_scourer_replay}, workflow={_is_workflow})"
+                        )
             else:
                 save_message(contact_id, reply, "assistant", stage=effective_stage)
                 logger.info("⚠ DEMO MODE: Message saved internally")

@@ -223,6 +223,7 @@ def generate_strategic_directive(
         "known_facts": known_facts,
         "story_narrative": narrative.strip(),
         "recent_exchanges": recent_exchanges,
+        "consecutive_bot_messages": logic.consecutive_bot_messages,
     }
 
 
