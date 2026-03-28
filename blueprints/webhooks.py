@@ -193,6 +193,28 @@ def webhook():
     is_demo  = location_id in ['DEMO_LOC', 'DEMO', 'TEST_LOCATION_456']
     is_reply = bool(message_body and message_body.strip())
 
+    # Drop webhooks for cancelled subscribers before touching Redis/RQ
+    if not is_demo and location_id:
+        conn = None
+        try:
+            conn = get_db_connection()
+            if conn:
+                cur = conn.cursor()
+                cur.execute(
+                    "SELECT stripe_status FROM subscribers WHERE location_id = %s",
+                    (location_id,)
+                )
+                row = cur.fetchone()
+                if row and row['stripe_status'] == 'canceled':
+                    logger.info(f"[CANCELLED] Webhook dropped at receiver — "
+                                f"loc={location_id} contact={contact_id}")
+                    return safe_jsonify({"status": "ignored"}), 200
+        except Exception as e:
+            logger.warning(f"Stripe status check failed (non-fatal): {e}")
+        finally:
+            if conn:
+                return_db_connection(conn)
+
     for attempt in range(2):
         try:
             target_queue = extensions.q_demo if is_demo else extensions.q_production
