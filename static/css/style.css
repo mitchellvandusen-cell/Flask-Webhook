@@ -13239,3 +13239,148 @@ body.light-theme .hp-price-trial         { color: var(--lt-accent); }
 body.light-theme .hp-price-feat li       { color: var(--lt-text-secondary); }
 body.light-theme .hp-price-feat li i     { color: var(--lt-accent); }
 body.light-theme .hp-price-btn           { background: var(--lt-bg); border-color: var(--lt-border); color: var(--lt-text-primary); }
+
+/* ═══════════════════════════════════════════════════
+   NEW ACCORDION SIDEBAR NAV (2026-03-29 redesign)
+   ═══════════════════════════════════════════════════ */
+
+/* ── L1 direct (Workspace) ── */
+.l1-direct {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 10px; border-radius: 9px;
+    font-size: 0.82rem; font-weight: 800; font-family: 'Outfit', sans-serif;
+    color: rgba(255,255,255,0.22); cursor: pointer; border: 1px solid transparent;
+    transition: color .13s, background .13s, border-color .13s;
+    margin-bottom: 1px; user-select: none;
+}
+.l1-direct:hover { color: rgba(255,255,255,0.6); }
+.l1-direct.active {
+    color: #00ff88;
+    background: rgba(0,255,136,0.07);
+    border-color: rgba(0,255,136,0.14);
+}
+
+/* ── L1 accordion trigger ── */
+.l1-acc {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 10px; border-radius: 9px;
+    font-size: 0.82rem; font-weight: 800; font-family: 'Outfit', sans-serif;
+    color: rgba(255,255,255,0.22); cursor: pointer; border: 1px solid transparent;
+    transition: color .13s, background .13s;
+    margin-bottom: 1px; user-select: none;
+}
+.l1-acc:hover { color: rgba(255,255,255,0.6); }
+.l1-acc.open { color: #ffffff; background: rgba(255,255,255,0.02); }
+.l1-acc .ch {
+    font-size: 0.48rem; color: rgba(255,255,255,0.14);
+    transition: transform .18s ease; font-weight: 400; font-family: 'Inter', sans-serif;
+    flex-shrink: 0;
+}
+.l1-acc.open .ch { transform: rotate(90deg); color: rgba(255,255,255,0.4); }
+
+/* ── L1 accordion body ── */
+.l1-body { max-height: 0; overflow: hidden; transition: max-height .3s ease; }
+.l1-body.open { max-height: 900px; }
+.l1-inner { padding: 3px 0 8px 6px; }
+
+/* ── Section label (non-interactive group header) ── */
+.sec-label {
+    padding: 7px 8px 2px 8px;
+    font-size: 0.55rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.15em; color: rgba(255,255,255,0.18);
+    font-family: 'Outfit', sans-serif; pointer-events: none;
+}
+
+/* ── L2 accordion trigger ── */
+.l2-acc {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 8px; border-radius: 7px;
+    font-size: 0.72rem; font-weight: 600; font-family: 'Inter', sans-serif;
+    color: rgba(255,255,255,0.18); cursor: pointer; user-select: none;
+    transition: color .12s, background .12s; margin-bottom: 1px;
+}
+.l2-acc:hover { color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.02); }
+.l2-acc.open { color: #ffffff; background: rgba(255,255,255,0.025); }
+.l2-acc .ch2 {
+    font-size: 0.44rem; color: rgba(255,255,255,0.12);
+    transition: transform .15s ease; font-weight: 400; flex-shrink: 0;
+}
+.l2-acc.open .ch2 { transform: rotate(90deg); color: rgba(255,255,255,0.4); }
+
+/* ── L2 accordion body ── */
+.l2-body { max-height: 0; overflow: hidden; transition: max-height .22s ease; }
+.l2-body.open { max-height: 400px; }
+.l2-inner { padding: 1px 0 4px 12px; }
+
+/* ── L2 direct item ── */
+.l2-item {
+    display: block; padding: 6px 8px; border-radius: 7px;
+    font-size: 0.72rem; font-weight: 500; font-family: 'Inter', sans-serif;
+    color: rgba(255,255,255,0.18); cursor: pointer; user-select: none;
+    transition: color .12s, background .12s; margin-bottom: 1px;
+    text-decoration: none;
+}
+.l2-item:hover { color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.025); }
+.l2-item.active { color: #00ff88; background: rgba(0,255,136,0.06); }
+
+/* ── L3 leaf item ── */
+.l3-item {
+    display: block; padding: 5px 8px; border-radius: 6px;
+    font-size: 0.68rem; font-weight: 400; font-family: 'Inter', sans-serif;
+    color: rgba(255,255,255,0.14); cursor: pointer; user-select: none;
+    transition: color .1s, background .1s; margin-bottom: 1px;
+    border-left: 1px solid rgba(255,255,255,0.04);
+}
+.l3-item:hover { color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.02); border-left-color: rgba(255,255,255,0.1); }
+.l3-item.active { color: #00ff88; background: rgba(0,255,136,0.05); border-left-color: rgba(0,255,136,0.28); }
+
+/* ── L4 leaf item (Dialer Settings sub-items) ── */
+.l4-item {
+    display: block; padding: 4px 8px 4px 10px; border-radius: 5px;
+    font-size: 0.65rem; font-weight: 400; font-family: 'Inter', sans-serif;
+    color: rgba(255,255,255,0.10); cursor: pointer; user-select: none;
+    transition: color .1s; margin-bottom: 1px;
+    border-left: 1px solid rgba(255,255,255,0.03);
+}
+.l4-item:hover { color: rgba(255,255,255,0.45); border-left-color: rgba(255,255,255,0.08); }
+.l4-item.active { color: #00ff88; border-left-color: rgba(0,255,136,0.3); }
+
+/* ── Sidebar section divider ── */
+.sb-acc-divider { height: 1px; background: rgba(255,255,255,0.05); margin: 7px 4px 8px; }
+
+/* ── Brand mark SVG: grey in light mode ── */
+.sb-brand-svg { width: 22px; height: 22px; }
+body.light-theme .sb-brand-svg { filter: brightness(0) saturate(100%) invert(40%); }
+
+/* ── Light theme: new accordion sidebar ── */
+body.light-theme .l1-direct { color: rgba(0,0,0,0.35); }
+body.light-theme .l1-direct:hover { color: rgba(0,0,0,0.65); }
+body.light-theme .l1-direct.active { color: #059669; background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.2); }
+
+body.light-theme .l1-acc { color: rgba(0,0,0,0.35); }
+body.light-theme .l1-acc:hover { color: rgba(0,0,0,0.65); }
+body.light-theme .l1-acc.open { color: rgba(0,0,0,0.85); background: rgba(0,0,0,0.02); }
+body.light-theme .l1-acc .ch { color: rgba(0,0,0,0.25); }
+body.light-theme .l1-acc.open .ch { color: rgba(0,0,0,0.4); }
+
+body.light-theme .sec-label { color: rgba(0,0,0,0.25); }
+
+body.light-theme .l2-acc { color: rgba(0,0,0,0.3); }
+body.light-theme .l2-acc:hover { color: rgba(0,0,0,0.65); background: rgba(0,0,0,0.03); }
+body.light-theme .l2-acc.open { color: rgba(0,0,0,0.75); background: rgba(0,0,0,0.03); }
+body.light-theme .l2-acc .ch2 { color: rgba(0,0,0,0.2); }
+body.light-theme .l2-acc.open .ch2 { color: rgba(0,0,0,0.4); }
+
+body.light-theme .l2-item { color: rgba(0,0,0,0.3); }
+body.light-theme .l2-item:hover { color: rgba(0,0,0,0.65); background: rgba(0,0,0,0.04); }
+body.light-theme .l2-item.active { color: #059669; background: rgba(5,150,105,0.08); }
+
+body.light-theme .l3-item { color: rgba(0,0,0,0.25); border-left-color: rgba(0,0,0,0.07); }
+body.light-theme .l3-item:hover { color: rgba(0,0,0,0.6); background: rgba(0,0,0,0.03); border-left-color: rgba(0,0,0,0.15); }
+body.light-theme .l3-item.active { color: #059669; background: rgba(5,150,105,0.07); border-left-color: rgba(5,150,105,0.3); }
+
+body.light-theme .l4-item { color: rgba(0,0,0,0.2); border-left-color: rgba(0,0,0,0.05); }
+body.light-theme .l4-item:hover { color: rgba(0,0,0,0.5); border-left-color: rgba(0,0,0,0.12); }
+body.light-theme .l4-item.active { color: #059669; border-left-color: rgba(5,150,105,0.3); }
+
+body.light-theme .sb-acc-divider { background: rgba(0,0,0,0.07); }

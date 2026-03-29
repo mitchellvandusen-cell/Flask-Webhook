@@ -8,22 +8,24 @@
 
         // Page title map
         const _pageTitles = {
-            voicedialer: 'Dialer', config: 'SMS Config', voice: 'Voice Config',
+            voicedialer: 'Workspace', config: 'SMS Config', voice: 'Voice Config',
             workflows: 'Workflows', connect: 'Connect CRM',
-            carriers: 'Carriers', advanced: 'Advanced Settings', aiminutes: 'AI Minutes',
+            carriers: 'Contracted Carriers', advanced: 'Advanced', aiminutes: 'AI Minutes',
             billing: 'Billing', logs: 'Activity Logs',
-            'agency-members': 'Agency Members', 'agency-kpis': 'Agency Performance',
-            whitelabel: 'White Label',
+            'agency-members': 'Members', 'agency-kpis': 'Statistics',
+            whitelabel: 'White Label', team: 'Teams',
         };
 
-        // Map of tab IDs to sidebar nav button IDs
+        // Map of tab IDs → sidebar element IDs (used by mobileNav for active-state passthrough)
+        // New accordion nav manages its own active state via activateL2/L3 functions.
+        // All entries point to sbnWorkspace so mobileNav gets a valid element, not null.
         const _tabToBtn = {
-            voicedialer: 'sbnDialer', config: 'sbnSmsConfig', voice: 'sbnVoiceConfig',
-            workflows: 'sbnWorkflows', connect: 'sbnConnect',
-            carriers: 'sbnCarriers', advanced: 'sbnAdvanced', aiminutes: 'sbnAiMinutes',
-            billing: 'sbnBilling', logs: 'sbnLogs',
-            'agency-members': 'sbnAgencyMembers', 'agency-kpis': 'sbnAgencyKpis',
-            whitelabel: 'sbnWhitelabel',
+            voicedialer: 'sbnWorkspace', config: 'sbnWorkspace', voice: 'sbnWorkspace',
+            workflows: 'sbnWorkspace', connect: 'sbnWorkspace',
+            carriers: 'sbnWorkspace', advanced: 'sbnWorkspace', aiminutes: 'sbnWorkspace',
+            billing: 'sbnWorkspace', logs: 'sbnWorkspace',
+            'agency-members': 'sbnWorkspace', 'agency-kpis': 'sbnWorkspace',
+            whitelabel: 'sbnWorkspace', team: 'sbnWorkspace',
         };
 
         function sidebarNavigate(tabId, btnEl) {
@@ -72,18 +74,81 @@
             _lsSet('sidebar_collapsed', isCollapsed ? '1' : '0');
         }
 
-        // Collapsible section toggle
-        function toggleSbSection(sectionId) {
-            const section = document.getElementById(sectionId);
-            if (section) section.classList.toggle('open');
+        // ── Accordion: L1 sections (one open at a time) ──
+        function toggleL1(el) {
+            const body = el.nextElementSibling;
+            const wasOpen = el.classList.contains('open');
+            document.querySelectorAll('.l1-acc').forEach(function(a) {
+                a.classList.remove('open');
+                if (a.nextElementSibling) a.nextElementSibling.classList.remove('open');
+            });
+            document.querySelectorAll('.l1-direct').forEach(function(d) { d.classList.remove('active'); });
+            if (!wasOpen) { el.classList.add('open'); body.classList.add('open'); }
         }
 
-        // Collapsible system params toggle
-        function toggleSbParams() {
-            const body = document.getElementById('sbParamsBody');
-            const chevron = document.getElementById('sbParamsChevron');
-            if (body) body.classList.toggle('open');
-            if (chevron) chevron.style.transform = body && body.classList.contains('open') ? 'rotate(180deg)' : '';
+        // ── Accordion: L2 sub-sections (one open per L1) ──
+        function toggleL2(el) {
+            const body = el.nextElementSibling;
+            const wasOpen = el.classList.contains('open');
+            const parent = el.closest('.l1-inner');
+            if (parent) {
+                parent.querySelectorAll('.l2-acc').forEach(function(a) {
+                    a.classList.remove('open');
+                    if (a.nextElementSibling) a.nextElementSibling.classList.remove('open');
+                });
+            }
+            var dialerSub = document.getElementById('dialerSub');
+            var dialerArrow = document.getElementById('dialerArrow');
+            if (dialerSub) dialerSub.style.maxHeight = '0';
+            if (dialerArrow) dialerArrow.style.transform = '';
+            if (!wasOpen) { el.classList.add('open'); body.classList.add('open'); }
+        }
+
+        // ── Toggle Dialer Settings sub-list (L3 item that expands to L4) ──
+        function toggleDialerSub(el) {
+            activateL3(el);
+            var sub = document.getElementById('dialerSub');
+            var arr = document.getElementById('dialerArrow');
+            if (!sub) return;
+            var isOpen = sub.style.maxHeight !== '0px' && sub.style.maxHeight !== '';
+            sub.style.maxHeight = isOpen ? '0' : '120px';
+            if (arr) arr.style.transform = isOpen ? '' : 'rotate(90deg)';
+        }
+
+        // ── Active state helpers ──
+        function activateDirect(el) {
+            document.querySelectorAll('.l1-acc').forEach(function(a) {
+                a.classList.remove('open');
+                if (a.nextElementSibling) a.nextElementSibling.classList.remove('open');
+            });
+            document.querySelectorAll('.l1-direct').forEach(function(d) { d.classList.remove('active'); });
+            el.classList.add('active');
+        }
+        function activateL2(el) {
+            document.querySelectorAll('.l2-item').forEach(function(i) { i.classList.remove('active'); });
+            el.classList.add('active');
+        }
+        function activateL3(el) {
+            document.querySelectorAll('.l3-item').forEach(function(i) { i.classList.remove('active'); });
+            el.classList.add('active');
+        }
+        function activateL4(el) {
+            document.querySelectorAll('.l4-item').forEach(function(i) { i.classList.remove('active'); });
+            el.classList.add('active');
+        }
+
+        // ── Nav helpers: navigate to tab + switch internal sub-panel ──
+        function navToSms(panel) {
+            sidebarNavigate('config', null);
+            if (typeof switchConfigPanel === 'function') {
+                setTimeout(function() { switchConfigPanel(panel); }, 50);
+            }
+        }
+        function navToVoice(panel) {
+            sidebarNavigate('voice', null);
+            if (typeof switchVoicePanel === 'function') {
+                setTimeout(function() { switchVoicePanel(panel); }, 50);
+            }
         }
 
         // Restore sidebar + theme state on page load

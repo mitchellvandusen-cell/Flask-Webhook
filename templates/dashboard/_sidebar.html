@@ -6,7 +6,7 @@
             {% if wl_active and whitelabel.get('logo_url') %}
             <div class="sb-brand-logo"><img src="{{ whitelabel.logo_url }}" alt="{{ whitelabel.get('company_name', 'Logo') }}" class="whitelabel-logo"></div>
             {% else %}
-            <div class="sb-brand-logo"><img src="{{ url_for('static', filename='favicon.svg') }}" alt="IGB" style="width:22px;height:22px;"></div>
+            <div class="sb-brand-logo"><img src="{{ url_for('static', filename='favicon.svg') }}" alt="IGB" class="sb-brand-svg"></div>
             {% endif %}
             {% if wl_active and whitelabel.get('company_name') %}
             <span class="sb-brand-text whitelabel-brand-name"
@@ -22,141 +22,131 @@
         <!-- Scrollable Nav -->
         <div class="sb-scroll">
 
-            <!-- ── PRIMARY NAV ── -->
-            <div class="sb-section open" id="sbSectionPrimary">
-                <div class="sb-section-header" onclick="toggleSbSection('sbSectionPrimary')">
-                    <span>Workspace</span>
-                    <i class="fa-solid fa-chevron-down sb-section-chevron"></i>
-                </div>
-                <div class="sb-section-body">
-                    {% set is_sms_only = (current_user.subscription_tier == 'sms_bot') %}
-                    {% if not is_sms_only %}
-                    <button class="sb-nav-item active" id="sbnDialer" onclick="sidebarNavigate('voicedialer', this)">
-                        <i class="fa-solid fa-phone-volume"></i>
-                        <span class="sb-nav-label">Dialer</span>
-                    </button>
-                    {% endif %}
-                    {% if not current_user.is_seat_user or current_user.has_permission('can_change_bot_config') %}
-                    <button class="sb-nav-item {{ 'active' if is_sms_only else '' }}" id="sbnSmsConfig" onclick="sidebarNavigate('config', this)">
-                        <i class="fa-solid fa-comment-sms"></i>
-                        <span class="sb-nav-label">SMS Config</span>
-                    </button>
-                    {% if not is_sms_only %}
-                    <button class="sb-nav-item" id="sbnVoiceConfig" onclick="sidebarNavigate('voice', this)">
-                        <i class="fa-solid fa-phone"></i>
-                        <span class="sb-nav-label">Voice Config</span>
-                    </button>
-                    {% endif %}
-                    {% endif %}
-                    {% if not is_sms_only %}
-                    <button class="sb-nav-item" id="sbnAiMinutes" onclick="sidebarNavigate('aiminutes', this); loadAiMinutes();">
-                        <i class="fa-solid fa-clock"></i>
-                        <span class="sb-nav-label">AI Minutes</span>
-                    </button>
-                    {% endif %}
-                    <button class="sb-nav-item" id="sbnWorkflows" onclick="sidebarNavigate('workflows', this)">
-                        <i class="fa-solid fa-diagram-project"></i>
-                        <span class="sb-nav-label">Workflows</span>
-                    </button>
-                    {% if not current_user.is_seat_user %}
-                    <button class="sb-nav-item" id="sbnTeam" onclick="sidebarNavigate('team', this); teamInit();">
-                        <i class="fa-solid fa-users-gear"></i>
-                        <span class="sb-nav-label">Team</span>
-                    </button>
-                    {% endif %}
-                    <a class="sb-nav-item sb-nav-link-plain" href="https://ai-lifeinsurance-training-production.up.railway.app/" target="_blank" rel="noopener">
-                        <i class="fa-solid fa-graduation-cap"></i>
-                        <span class="sb-nav-label">Training</span>
-                    </a>
-                    <a href="/onboarding-status" class="sb-nav-item">
-                        <i class="fa-solid fa-circle-check"></i>
-                        <span class="sb-nav-label">Setup Progress</span>
-                    </a>
-                    <a href="/affiliate" class="sb-nav-item" target="_blank" rel="noopener">
-                        <i class="fa-solid fa-handshake"></i>
-                        <span class="sb-nav-label">Become an Affiliate</span>
-                    </a>
-                </div>
-            </div>
+            {% set is_sms_only = (current_user.subscription_tier == 'sms_bot') %}
 
-            <div class="sb-divider"></div>
-
-            <!-- ── CRM & INTEGRATIONS ── -->
-            <div class="sb-section open" id="sbSectionCRM">
-                <div class="sb-section-header" onclick="toggleSbSection('sbSectionCRM')">
-                    <span>Integrations</span>
-                    <i class="fa-solid fa-chevron-down sb-section-chevron"></i>
-                </div>
-                <div class="sb-section-body">
-                    <button class="sb-nav-item" id="sbnConnect" onclick="sidebarNavigate('connect', this)">
-                        <i class="fa-solid fa-plug"></i>
-                        <span class="sb-nav-label">Integrations</span>
-                    </button>
-                    <button class="sb-nav-item" id="sbnCarriers" onclick="sidebarNavigate('carriers', this)">
-                        <i class="fa-solid fa-building-columns"></i>
-                        <span class="sb-nav-label">Carriers</span>
-                    </button>
-                </div>
-            </div>
-
-            {% if is_agency %}
-            <div class="sb-divider"></div>
-
-            <!-- ── AGENCY (only for agency owners) ── -->
-            <div class="sb-section open" id="sbSectionAgency">
-                <div class="sb-section-header" onclick="toggleSbSection('sbSectionAgency')">
-                    <span>Agency</span>
-                    <i class="fa-solid fa-chevron-down sb-section-chevron"></i>
-                </div>
-                <div class="sb-section-body">
-                    <button class="sb-nav-item" id="sbnAgencyMembers" onclick="sidebarNavigate('agency-members', this)">
-                        <i class="fa-solid fa-user-group"></i>
-                        <span class="sb-nav-label">Members</span>
-                    </button>
-                    <button class="sb-nav-item" id="sbnAgencyKpis" onclick="sidebarNavigate('agency-kpis', this)">
-                        <i class="fa-solid fa-chart-line"></i>
-                        <span class="sb-nav-label">Agency KPIs</span>
-                    </button>
-                    <button class="sb-nav-item" id="sbnWhitelabel" onclick="sidebarNavigate('whitelabel', this)">
-                        <i class="fa-solid fa-palette"></i>
-                        <span class="sb-nav-label">White Label</span>
-                    </button>
-                </div>
-            </div>
+            <!-- ── WORKSPACE ── -->
+            {% if not is_sms_only %}
+            <div class="l1-direct" id="sbnWorkspace" onclick="activateDirect(this); sidebarNavigate('voicedialer', null);">Workspace</div>
+            {% else %}
+            <div class="l1-direct active" id="sbnWorkspace" onclick="activateDirect(this); sidebarNavigate('config', null);">Workspace</div>
             {% endif %}
 
-            <div class="sb-divider"></div>
+            <div class="sb-acc-divider"></div>
 
-            <!-- ── MORE (collapsed by default) ── -->
-            <div class="sb-section" id="sbSectionMore">
-                <div class="sb-section-header" onclick="toggleSbSection('sbSectionMore')">
-                    <span>More</span>
-                    <i class="fa-solid fa-chevron-down sb-section-chevron"></i>
-                </div>
-                <div class="sb-section-body">
-                    {% if not current_user.is_seat_user or current_user.has_permission('can_change_bot_config') %}
-                    <button class="sb-nav-item" id="sbnAdvanced" onclick="sidebarNavigate('advanced', this)">
-                        <i class="fa-solid fa-wand-magic-sparkles"></i>
-                        <span class="sb-nav-label">Advanced Settings</span>
-                    </button>
-                    {% endif %}
-                    {% if not current_user.is_seat_user or current_user.has_permission('can_view_billing') %}
-                    <button class="sb-nav-item" id="sbnBilling" onclick="sidebarNavigate('billing', this)">
-                        <i class="fa-solid fa-credit-card"></i>
-                        <span class="sb-nav-label">Billing</span>
-                    </button>
-                    {% endif %}
-                    <button class="sb-nav-item" id="sbnLogs" onclick="sidebarNavigate('logs', this)">
-                        <i class="fa-solid fa-list-check"></i>
-                        <span class="sb-nav-label">Activity Logs</span>
-                    </button>
+            <!-- ── NUMBERS ── -->
+            {% if not is_sms_only %}
+            <div class="l1-acc" onclick="toggleL1(this)">Numbers <span class="ch">▶</span></div>
+            <div class="l1-body">
+                <div class="l1-inner">
+                    <div class="sec-label">Management</div>
+                    <div class="l2-item" onclick="activateL2(this); navToVoice('numbers');">Phone Numbers</div>
+                    <div class="l2-item" onclick="activateL2(this); navToVoice('numbers');">A2P 10DLC</div>
+                    <div class="sec-label" style="margin-top:4px;">Protection</div>
+                    <div class="l2-item" onclick="activateL2(this); navToVoice('spammonitoring');">Spam Shield</div>
+                    <div class="l2-item" onclick="activateL2(this); navToVoice('spammonitoring');">Number Health</div>
+                    <div class="sec-label" style="margin-top:4px;">Usage</div>
+                    <div class="l2-item" onclick="activateL2(this); sidebarNavigate('aiminutes', null); loadAiMinutes();">AI Minutes</div>
                 </div>
             </div>
 
-            <div class="sb-divider"></div>
+            <div class="sb-acc-divider"></div>
+            {% endif %}
 
-            <!-- Discord/Slack moved to phone UI apps in Dialer tab -->
-            <!-- Hidden elements still needed by discord.js / slack.js for status checks -->
+            <!-- ── BUSINESS ── -->
+            <div class="l1-acc" onclick="toggleL1(this)">Business <span class="ch">▶</span></div>
+            <div class="l1-body">
+                <div class="l1-inner">
+                    {% if not current_user.is_seat_user %}
+                    <div class="l2-item" onclick="activateL2(this); sidebarNavigate('team', null); teamInit();">Teams</div>
+                    {% endif %}
+                    {% if is_agency %}
+                    <div class="l2-item" onclick="activateL2(this); sidebarNavigate('agency-members', null);">Members</div>
+                    <div class="l2-item" onclick="activateL2(this); sidebarNavigate('agency-kpis', null);">Statistics</div>
+                    {% endif %}
+                    <div class="l2-item" onclick="activateL2(this); sidebarNavigate('carriers', null);">Contracted Carriers</div>
+                    {% if is_agency %}
+                    <div class="l2-item" onclick="activateL2(this); sidebarNavigate('whitelabel', null);">White Label</div>
+                    {% endif %}
+                    {% if not current_user.is_seat_user or current_user.has_permission('can_view_billing') %}
+                    <div class="l2-item" onclick="activateL2(this); sidebarNavigate('billing', null);">Billing</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="sb-acc-divider"></div>
+
+            <!-- ── INTEGRATIONS ── -->
+            <div class="l1-acc" onclick="toggleL1(this)">Integrations <span class="ch">▶</span></div>
+            <div class="l1-body">
+                <div class="l1-inner">
+                    <div class="l2-item" onclick="activateL2(this); sidebarNavigate('connect', null);">Google Calendar</div>
+                    <div class="l2-item" onclick="activateL2(this); sidebarNavigate('connect', null);">Discord</div>
+                    <div class="l2-item" onclick="activateL2(this); sidebarNavigate('connect', null);">Slack</div>
+                </div>
+            </div>
+
+            <div class="sb-acc-divider"></div>
+
+            <!-- ── SETTINGS ── -->
+            <div class="l1-acc" onclick="toggleL1(this)">Settings <span class="ch">▶</span></div>
+            <div class="l1-body">
+                <div class="l1-inner">
+
+                    {% if not current_user.is_seat_user or current_user.has_permission('can_change_bot_config') %}
+                    <div class="sec-label">Configuration</div>
+
+                    <!-- SMS Bot -->
+                    <div class="l2-acc" onclick="toggleL2(this)">SMS Bot <span class="ch2">▶</span></div>
+                    <div class="l2-body">
+                        <div class="l2-inner">
+                            <div class="l3-item" onclick="activateL3(this); navToSms('identity');">Bot Identity</div>
+                            <div class="l3-item" onclick="activateL3(this); navToSms('identity');">Initial Message</div>
+                            <div class="l3-item" onclick="activateL3(this); navToSms('calendar');">Calendar</div>
+                            <div class="l3-item" onclick="activateL3(this); navToSms('smsnumbers');">Send SMS Via</div>
+                        </div>
+                    </div>
+
+                    {% if not is_sms_only %}
+                    <!-- Voice AI -->
+                    <div class="l2-acc" onclick="toggleL2(this)">Voice AI <span class="ch2">▶</span></div>
+                    <div class="l2-body">
+                        <div class="l2-inner">
+                            <div class="l3-item" onclick="activateL3(this); navToVoice('settings');">AI Voice Settings</div>
+                            <div class="l3-item" id="sbnDialerSettings" onclick="toggleDialerSub(this)">Dialer Settings <span class="ch2" id="dialerArrow" style="float:right;">▶</span></div>
+                            <div id="dialerSub" style="max-height:0;overflow:hidden;transition:max-height .18s ease;">
+                                <div style="padding:2px 0 2px 10px;">
+                                    <div class="l4-item" onclick="activateL4(this); navToVoice('dialer');">Call Script</div>
+                                    <div class="l4-item" onclick="activateL4(this); navToVoice('dialer');">Max Lines</div>
+                                    <div class="l4-item" onclick="activateL4(this); navToVoice('dialer');">Calling Hours</div>
+                                    <div class="l4-item" onclick="activateL4(this); navToVoice('dialer');">Wrap-up Time</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Workflows -->
+                    <div class="l2-acc" onclick="toggleL2(this)">Workflows <span class="ch2">▶</span></div>
+                    <div class="l2-body">
+                        <div class="l2-inner">
+                            <div class="l3-item" onclick="activateL3(this); sidebarNavigate('workflows', null);">My Workflows</div>
+                            <div class="l3-item" onclick="activateL3(this); sidebarNavigate('workflows', null);">Templates</div>
+                            <div class="l3-item" onclick="activateL3(this); sidebarNavigate('workflows', null);">Triggers</div>
+                        </div>
+                    </div>
+
+                    <div class="l2-item" onclick="activateL2(this); sidebarNavigate('advanced', null);">Advanced</div>
+                    {% endif %}
+
+                    <div class="sec-label" style="margin-top:6px;">System</div>
+                    <div class="l2-item" onclick="activateL2(this); sidebarNavigate('connect', null);">CRM</div>
+
+                </div>
+            </div>
+
+            <!-- Hidden status elements required by discord.js / slack.js -->
+            <span id="discordFooterBadge" style="display:none;"></span>
+            <span id="slackFooterBadge" style="display:none;"></span>
             <div id="discordNotConnected" style="display:none;"></div>
             <div id="discordConnected" style="display:none;">
                 <div id="discordUserAvatar"></div>
@@ -173,98 +163,6 @@
                 <div id="slackChannelList"></div>
             </div>
 
-            <!-- ── SYSTEM PARAMS (collapsible) ── -->
-            <div class="sb-params">
-                <div class="sb-params-header" onclick="toggleSbParams()">
-                    <i class="fa-solid fa-microchip sb-params-icon"></i>
-                    <span>System Params</span>
-                    <i class="fa-solid fa-chevron-down sb-params-chevron" id="sbParamsChevron"></i>
-                </div>
-                <div class="sb-params-body" id="sbParamsBody">
-                    <div class="sb-params-content">
-                        <div class="tech-readout {% if missing_fields is defined and 'location_id' in missing_fields %}field-needs-attention{% endif %}">
-                            <span class="tech-label sb-params-label">LOCATION ID</span>
-                            <div class="sb-params-row">
-                                <span class="tech-value sb-params-value">{{ form.location_id.data or 'Not set' }}</span>
-                                <button onclick="copyToClipboard('{{ form.location_id.data }}')" title="Copy" class="sb-params-copy-btn">
-                                    <i class="fa-solid fa-copy sb-params-icon-sm"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="tech-readout no-select">
-                            <span class="tech-label sb-params-label">ACCESS TOKEN</span>
-                            <div class="sb-params-row">
-                                <input type="text" name="manual_access_token" value="{{ access_token_display }}" placeholder="Paste Token..." form="main-config-form" class="tech-value token-locked sb-params-token-input" {{ token_readonly }}>
-                                {% if token_readonly == 'readonly' %}<i class="fa-solid fa-lock sb-params-lock-icon"></i>{% else %}<i class="fa-solid fa-pen sb-params-lock-icon"></i>{% endif %}
-                            </div>
-                            <div class="sb-params-expiry">{{ expires_in_str }}</div>
-                        </div>
-                        <div class="tech-readout no-select">
-                            <span class="tech-label sb-params-label">REFRESH TOKEN</span>
-                            <div class="sb-params-row">
-                                <input type="text" name="manual_refresh_token" value="{{ refresh_token_display }}" placeholder="Paste Token..." form="main-config-form" class="tech-value token-locked sb-params-token-input" {{ token_readonly }}>
-                                {% if token_readonly == 'readonly' %}<i class="fa-solid fa-lock sb-params-lock-icon"></i>{% else %}<i class="fa-solid fa-pen sb-params-lock-icon"></i>{% endif %}
-                            </div>
-                        </div>
-                        {% if needs_oauth is defined and needs_oauth %}
-                        <a href="/oauth/initiate" class="connect-btn-pulse sb-params-connect-btn" id="connectBtn" target="_top">
-                            <i class="fa-solid fa-link me-1"></i>Connect CRM
-                        </a>
-                        {% elif not access_token_display or access_token_display == '' %}
-                        <a href="/oauth/initiate" class="connect-btn-pulse sb-params-connect-btn" target="_top">
-                            <i class="fa-solid fa-link me-1"></i>Connect CRM
-                        </a>
-                        {% else %}
-                        <a href="/oauth/initiate" target="_top" class="sb-params-reauth-btn">
-                            <i class="fa-solid fa-rotate me-1"></i>Reauthorize CRM
-                        </a>
-                        {% endif %}
-                        <a href="https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&redirect_uri=https%3A%2F%2Finsurancegrokbot.click%2Foauth%2Fcallback&client_id=695e99698a5ae81dbb426515-mkaz316h&scope=calendars.readonly+calendars%2Fevents.readonly+calendars%2Fevents.write+conversations%2Fmessage.write+conversations%2Fmessage.readonly+contacts.readonly+locations%2FcustomFields.readonly+locations%2FcustomValues.readonly+calendars%2Fgroups.readonly+conversations.readonly+conversations.write+locations%2Ftags.readonly+oauth.readonly+locations.readonly+users.readonly+workflows.readonly+twilioaccount.read+contacts.write+locations%2Ftags.write+locations%2FcustomFields.write+opportunities.readonly+opportunities.write+phonenumbers.read+numberpools.read&version_id=69baca8609da2bbc1060ae05"
-                           target="_blank" rel="noopener noreferrer"
-                           class="sb-params-marketplace-link">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2ZM12 3c1.66 0 3 1.34 3 3v2H9V6c0-1.66 1.34-3 3-3Zm6 17H6V10h12v10Zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2Z" fill="currentColor"/>
-                            </svg>
-                            <span class="sb-nav-label">Marketplace</span>
-                        </a>
-
-                        <!-- Operator Profile (hidden in collapsed sidebar) -->
-                        <div class="sb-params-profile">
-                            <div class="sb-params-profile-label">Profile</div>
-                            <input type="text" id="user_name" placeholder="Full Name" value="{{ profile.full_name }}" class="sb-params-profile-input">
-                            <input type="hidden" id="phone" value="{{ profile.phone or '' }}">
-                            <textarea id="bio" rows="2" placeholder="Agent notes..." class="sb-params-profile-input">{{ profile.bio }}</textarea>
-                            <button onclick="saveProfile()" class="sb-params-save-btn">
-                                <i class="fa-solid fa-floppy-disk me-1"></i>Save Profile
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
         </div><!-- /sb-scroll -->
-
-        <!-- Sidebar Footer -->
-        <div class="sb-footer">
-            <!-- Discord/Slack moved to phone UI apps -->
-            <span id="discordFooterBadge" style="display:none;"></span>
-            <span id="slackFooterBadge" style="display:none;"></span>
-            <button class="sb-footer-item sb-footer-tutorial" id="sbnTutorial" onclick="startDashboardTutorial()" title="Replay interactive tutorial">
-                <i class="fa-solid fa-graduation-cap sb-footer-tutorial-icon"></i>
-                <span class="sb-nav-label">Tutorial</span>
-            </button>
-            <a href="/support" class="sb-footer-item">
-                <i class="fa-solid fa-circle-question"></i>
-                <span>Support</span>
-            </a>
-            <a href="/" class="sb-footer-item">
-                <i class="fa-solid fa-house"></i>
-                <span>Homepage</span>
-            </a>
-            <a href="/logout" class="sb-footer-item sb-footer-signout">
-                <i class="fa-solid fa-right-from-bracket"></i>
-                <span>Sign Out</span>
-            </a>
-        </div>
 
     </div><!-- /sidebar -->
