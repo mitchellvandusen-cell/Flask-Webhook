@@ -95,6 +95,106 @@ body {
     min-height: 100vh;
 }
 
+/* ═══════════════════════════════════════════════════
+   MARKETING ATMOSPHERE — living background auras
+   Scoped to non-dashboard pages only.
+   Dashboard uses solid colors (igb-dashboard class).
+   ═══════════════════════════════════════════════════ */
+
+body:not(.igb-dashboard)::before,
+body:not(.igb-dashboard)::after {
+    content: '';
+    position: fixed;
+    border-radius: 50%;
+    z-index: -1;
+    pointer-events: none;
+}
+
+body:not(.igb-dashboard)::before {
+    width: 110vw; height: 110vw;
+    top: -30%; left: -25%;
+    background: radial-gradient(ellipse at 40% 40%,
+        rgba(60,40,140,0.22) 0%,
+        rgba(40,20,100,0.10) 40%,
+        rgba(20,10,60,0.03) 65%,
+        transparent 80%);
+    filter: blur(140px);
+    animation: aura-orbit-a 48s ease-in-out infinite alternate;
+}
+
+body:not(.igb-dashboard)::after {
+    width: 90vw; height: 90vw;
+    bottom: -30%; right: -20%;
+    background: radial-gradient(ellipse at 55% 55%,
+        rgba(0,80,80,0.18) 0%,
+        rgba(0,60,60,0.08) 40%,
+        rgba(0,40,40,0.02) 65%,
+        transparent 80%);
+    filter: blur(160px);
+    animation: aura-orbit-b 38s ease-in-out infinite alternate;
+    animation-delay: -19s;
+}
+
+html:not(:has(.igb-dashboard))::before {
+    content: '';
+    position: fixed;
+    width: 70vw; height: 70vw;
+    top: 20%; left: 10%;
+    background: radial-gradient(ellipse at 50% 50%,
+        rgba(0,255,136,0.06) 0%,
+        rgba(0,180,100,0.02) 45%,
+        transparent 70%);
+    filter: blur(120px);
+    z-index: -1;
+    pointer-events: none;
+    border-radius: 50%;
+    animation: aura-orbit-c 56s ease-in-out infinite alternate;
+    animation-delay: -12s;
+}
+
+html:not(:has(.igb-dashboard))::after {
+    content: '';
+    position: fixed;
+    width: 80vw; height: 80vw;
+    top: 10%; right: 5%;
+    background: radial-gradient(ellipse at 50% 50%,
+        rgba(20,20,50,0.20) 0%,
+        rgba(10,10,30,0.08) 45%,
+        transparent 72%);
+    filter: blur(130px);
+    z-index: -1;
+    pointer-events: none;
+    border-radius: 50%;
+    animation: aura-orbit-d 62s ease-in-out infinite alternate;
+    animation-delay: -31s;
+}
+
+@keyframes aura-orbit-a {
+    0%   { transform: translate(0,    0)    scale(1.00); }
+    25%  { transform: translate(6vw,  4vh)  scale(1.08); }
+    50%  { transform: translate(3vw,  9vh)  scale(0.96); }
+    75%  { transform: translate(9vw,  6vh)  scale(1.05); }
+    100% { transform: translate(5vw,  2vh)  scale(1.10); }
+}
+@keyframes aura-orbit-b {
+    0%   { transform: translate(0,    0)    scale(1.00); }
+    30%  { transform: translate(-7vw,-5vh)  scale(1.10); }
+    65%  { transform: translate(-4vw,-10vh) scale(0.92); }
+    100% { transform: translate(-8vw,-7vh)  scale(1.04); }
+}
+@keyframes aura-orbit-c {
+    0%   { transform: translate(0,   0)    scale(1.04); }
+    35%  { transform: translate(4vw, 7vh)  scale(0.90); }
+    70%  { transform: translate(-3vw,4vh)  scale(1.06); }
+    100% { transform: translate(2vw, 8vh)  scale(0.94); }
+}
+@keyframes aura-orbit-d {
+    0%   { transform: translate(0,    0)    scale(1.00); }
+    40%  { transform: translate(-5vw,-4vh) scale(1.12); }
+    75%  { transform: translate(4vw, -7vh) scale(0.88); }
+    100% { transform: translate(6vw,  -3vh) scale(1.06); }
+}
+
 /* Numbers align properly */
 .price-amount, .metallic-stat, .stat-number, td, .tabular {
     font-variant-numeric: tabular-nums;
