@@ -228,7 +228,12 @@
                     /* Status Bar */
                     .ios-status-bar{height:clamp(40px, 2.08vw, 76px);flex-shrink:0;display:flex;align-items:flex-end;justify-content:space-between;padding:0 clamp(21px, 1.09vw, 40px) clamp(6px, 0.31vw, 11px);position:relative;z-index:10;color:#fff;font-size:clamp(0.85rem, 0.7vw, 1.3rem);font-weight:600;}
                     .ios-time{font-weight:700;font-size:clamp(0.95rem, 0.78vw, 1.4rem);letter-spacing:-0.3px;}
-                    .ios-dynamic-island{position:absolute;top:clamp(9px, 0.47vw, 17px);left:50%;transform:translateX(-50%);width:clamp(90px, 4.69vw, 171px);height:clamp(27px, 1.41vw, 51px);background:#000;border-radius:clamp(20px, 1.04vw, 38px);z-index:20;}
+                    .ios-dynamic-island{position:absolute;top:clamp(9px, 0.47vw, 17px);left:50%;transform:translateX(-50%);width:clamp(130px, 7vw, 220px);height:clamp(27px, 1.41vw, 51px);background:#000;border-radius:clamp(20px, 1.04vw, 38px);z-index:20;display:flex;align-items:center;justify-content:center;gap:clamp(5px, 0.4vw, 8px);padding:0 clamp(8px, 0.5vw, 14px);}
+                    .ios-dm-label{font-size:clamp(0.5rem, 0.42vw, 0.65rem);color:#666;font-family:'Inter',sans-serif;white-space:nowrap;letter-spacing:0.2px;}
+                    .ios-dm-tabs{display:flex;gap:2px;}
+                    .ios-dm-btn{background:none;border:none;color:#666;font-size:clamp(0.52rem, 0.44vw, 0.68rem);font-weight:700;padding:2px clamp(5px, 0.35vw, 9px);border-radius:clamp(5px, 0.35vw, 10px);cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;white-space:nowrap;}
+                    .ios-dm-btn.ios-dm-active{background:rgba(0,255,136,0.25);color:#00ff88;}
+                    body.light-theme .ios-dm-btn.ios-dm-active{background:rgba(5,150,105,0.3);color:#00cc66;}
                     .ios-status-icons{display:flex;align-items:center;gap:5px;}
 
                     /* Home Screen */
@@ -934,6 +939,12 @@
                     body.light-theme .mvp-row-btn:hover { background:rgba(0,150,200,0.08); border-color:rgba(0,150,200,0.2); color:#0077aa; }
                     body.light-theme .dlr-move-bulk-btn { background:rgba(0,0,0,0.04); border-color:rgba(0,0,0,0.1); color:#9ca3af; }
                     body.light-theme .dlr-move-bulk-btn:hover:not(:disabled) { background:rgba(0,150,200,0.08); border-color:rgba(0,150,200,0.2); color:#0077aa; }
+                    /* Call History tabs */
+                    .ios-calls-tab-bar{display:flex;gap:0;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0;}
+                    .ios-calls-tab{flex:1;background:none;border:none;color:#666;font-size:clamp(0.62rem, 0.65vw, 0.78rem);font-weight:600;padding:8px 4px 7px;cursor:pointer;font-family:'Inter',sans-serif;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;}
+                    .ios-calls-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+                    body.light-theme .ios-calls-tab-bar{border-bottom-color:rgba(0,0,0,0.08);}
+                    body.light-theme .ios-calls-tab.active{color:var(--lt-accent);border-bottom-color:var(--lt-accent);}
                 </style>
 
                 <!-- Top Bar -->
@@ -1353,26 +1364,15 @@
                     <!-- ── LEFT: Contacts ── -->
                     <div class="dlr-col dlr-mobile-active glass-panel" id="dlrColContacts" style="width:30%;border-radius:12px;">
                         <div class="dlr-col-hdr">
-                            <h6><i class="fa-solid fa-address-book me-1"></i>Contacts</h6>
-                            <div style="display:flex;align-items:center;gap:4px;">
-                                <button id="dialerSyncBtn" onclick="dialerSyncContacts()" title="Sync contacts from CRM" class="dlr-btn-ghost-6" style="border-radius:6px;padding:4px 7px;cursor:pointer;font-size:.75rem">
-                                    <i class="fa-solid fa-rotate" id="dialerSyncIcon"></i>
-                                </button>
-                                <button onclick="ciOpen()" title="Import contacts from CSV/Excel" class="dlr-btn-ghost-6" style="border-radius:6px;padding:4px 7px;cursor:pointer;font-size:.75rem">
-                                    <i class="fa-solid fa-file-import"></i>
-                                </button>
-                                <button onclick="dlrExportOpen()" title="Export contacts to CSV" class="dlr-btn-ghost-6" style="border-radius:6px;padding:4px 7px;cursor:pointer;font-size:.75rem">
-                                    <i class="fa-solid fa-file-export"></i>
-                                </button>
-                                <button id="dialerGetContactsBtn" onclick="dialerFetchContacts(true)" class="dlr-btn-cyan-5" style="border:none;border-radius:6px;padding:4px 10px;font-weight:700;font-size:0.85rem;cursor:pointer">
-                                    <i class="fa-solid fa-download me-1"></i>Get Contacts
-                                </button>
-                            </div>
+                            <h6>Contacts</h6>
+                            <button id="dlrSearchToggleBtn" onclick="dlrToggleSearch()" class="dlr-btn-ghost-6" style="border-radius:6px;padding:4px 9px;cursor:pointer;font-size:.85rem;" title="Search contacts">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                            </button>
                         </div>
                         <!-- Quick Dial moved to header -->
                         <!-- Search + Filters -->
                         <div id="dialerFilterWrap" class="dlr-misc-7" style="padding:8px 12px;flex-shrink:0">
-                            <div style="margin-bottom:6px;">
+                            <div id="dlrSearchRow" style="margin-bottom:6px;display:none;">
                                 <input type="text" id="dialerSearch" class="form-control" placeholder="Search contacts..." oninput="dialerDebounceSearch()"
                                     style="width:100%;padding:8px 10px;font-size:0.85rem;">
                             </div>
@@ -1390,7 +1390,7 @@
                                     Find it in LeadConnector &rarr; Opportunities &rarr; copy the <code class="dlr-panel-9" style="padding:0 3px;border-radius:3px">pipelineId=</code> value from the URL.
                                 </div>
                             </div>
-                            <select id="dialerStageFilter" class="form-select" onchange="dialerFetchContacts()" style="width:100%;padding:5px 8px;font-size:0.75rem;" disabled>
+                            <select id="dialerStageFilter" class="form-select" onchange="dialerFetchContacts()" style="width:100%;padding:5px 8px;font-size:0.75rem;display:none;" disabled>
                                 <option value="">All Stages (select a pipeline first)</option>
                             </select>
                             <!-- Cache status indicator -->
@@ -1409,9 +1409,6 @@
                                         <i class="fa-solid fa-plus me-1"></i>Queue
                                     </button>
                                     <button id="dialerMoveSelectedBtn" onclick="_mvpOpen()" class="dlr-move-bulk-btn" disabled>Move Pipeline</button>
-                                    <button id="dialerCallSelectedBtn" onclick="dialerCallSelected()" class="dlr-btn-accent" style="border:none;border-radius:4px;padding:2px 8px;font-size:0.75rem;font-weight:700;cursor:pointer" disabled>
-                                        <i class="fa-solid fa-phone me-1"></i>Dial
-                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1433,18 +1430,7 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- Campaign History -->
-                        <div id="dlrCampaignWrap" class="dlr-misc-10" style="flex-shrink:0">
-                            <div style="padding:6px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="var b=document.getElementById('dlrCampaignBody');b.style.display=b.style.display==='none'?'block':'none';_campaignRenderHistory();">
-                                <span class="dlr-label-muted-8" style="font-size:0.75rem;font-weight:700"><i class="fa-solid fa-clock-rotate-left me-1 dlr-text-ca78bfa" ></i>Campaign History</span>
-                                <i class="fa-solid fa-chevron-down dlr-icon-c555" style="font-size:0.7rem"></i>
-                            </div>
-                            <div id="dlrCampaignBody" class="dlr-misc-11" style="display:none">
-                                <div id="dlrCampaignHistory" style="max-height:180px;overflow-y:auto;padding:4px 8px;">
-                                    <div class="dlr-label-faint-5" style="text-align:center;padding:10px;font-size:0.75rem">No campaigns yet</div>
-                                </div>
-                            </div>
-                        </div>
+                        <!-- Campaign History moved to Call History phone app -->
                         <!-- ═══ Mobile Compact Toolbar (search/filter/queue as icons) ═══ -->
                         <div class="dlr-mobile-toolbar" id="dlrMobileToolbar" style="display:none;">
                             <button class="dlr-mob-tool-btn" id="dlrMobSearchBtn" onclick="dlrMobToggle('search')" title="Search contacts">
@@ -1501,7 +1487,7 @@
                     </div>
 
                     <!-- ── MIDDLE: Lead Intelligence ── -->
-                    <div class="dlr-col glass-panel" id="dlrColIntel" style="width:35%;border-radius:12px;">
+                    <div class="dlr-col glass-panel" id="dlrColIntel" style="width:35%;border-radius:12px;display:none;">
                         <div class="dlr-col-hdr">
                             <h6><i class="fa-solid fa-crosshairs me-1"></i>Lead Intelligence</h6>
                             <div id="dlrDetailActions" style="display:none;">
@@ -1532,7 +1518,13 @@
                                     <!-- Status Bar (always visible) -->
                                     <div class="ios-status-bar">
                                         <span class="ios-time" id="iosTime">9:41</span>
-                                        <div class="ios-dynamic-island"></div>
+                                        <div class="ios-dynamic-island">
+                                            <span class="ios-dm-label">Dial Mode</span>
+                                            <div class="ios-dm-tabs">
+                                                <button id="iosDmAi" onclick="setDialerMode('ai')" class="ios-dm-btn">AI</button>
+                                                <button id="iosDmHuman" onclick="setDialerMode('human')" class="ios-dm-btn ios-dm-active">Human</button>
+                                            </div>
+                                        </div>
                                         <div class="ios-status-icons">
                                             <i class="fa-solid fa-signal" style="font-size:0.7rem;"></i>
                                             <i class="fa-solid fa-wifi" style="font-size:0.7rem;"></i>
@@ -1616,6 +1608,13 @@
                                                     <i class="fa-solid fa-chart-line"></i>
                                                 </div>
                                                 <span class="ios-app-label">Insights</span>
+                                            </button>
+                                            <!-- Stats App -->
+                                            <button class="ios-app-icon" onclick="dialerToggleStats();iosGoHome();">
+                                                <div class="ios-icon dlr-bg-ios-purple">
+                                                    <i class="fa-solid fa-chart-bar"></i>
+                                                </div>
+                                                <span class="ios-app-label">Stats</span>
                                             </button>
                                         </div>
                                         <!-- Home Indicator -->
@@ -1719,6 +1718,12 @@
                                                 </button>
                                             </div>
                                         </div>
+                                        <!-- Tab Bar -->
+                                        <div class="ios-calls-tab-bar">
+                                            <button id="iosCallsTabSingle" class="ios-calls-tab active" onclick="iosCallsSetTab('single')">Single Call</button>
+                                            <button id="iosCallsTabCampaigns" class="ios-calls-tab" onclick="iosCallsSetTab('campaigns')">Campaigns</button>
+                                        </div>
+                                        <!-- Single Call tab content -->
                                         <div id="dlrHistoryCalls" class="ios-call-log-scroll">
                                             <div id="dialerHistoryList" style="padding:0;">
                                                 <div class="ios-empty-state" style="padding-top:60px;">
@@ -1727,6 +1732,18 @@
                                                     </div>
                                                     <div class="ios-empty-title">No Recent Calls</div>
                                                     <div class="ios-empty-sub">Your call history will appear here</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- Campaigns tab content -->
+                                        <div id="dlrHistoryCampaigns" class="ios-call-log-scroll" style="display:none;">
+                                            <div id="dlrCampaignHistory" style="padding:4px 8px;">
+                                                <div class="ios-empty-state" style="padding-top:60px;">
+                                                    <div class="ios-empty-icon dlr-bg-bordered">
+                                                        <i class="fa-solid fa-clock-rotate-left dlr-text-c34c759"></i>
+                                                    </div>
+                                                    <div class="ios-empty-title">No Campaigns Yet</div>
+                                                    <div class="ios-empty-sub">Campaign history will appear here</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -2511,6 +2528,34 @@
                                 <i class="fa-solid fa-download me-1"></i>Export CSV
                             </button>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contact Management Modal -->
+            <div id="dlrContactMgmtModal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;">
+                <div class="glass-panel" style="width:360px;border-radius:14px;padding:0;overflow:hidden;">
+                    <div style="padding:14px 16px 12px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;">
+                        <div style="font-weight:700;font-size:1rem;">Contact Management</div>
+                        <button onclick="dlrCloseContactMgmt()" class="dlr-btn-ghost-2" style="border-radius:6px;padding:4px 8px;font-size:0.9rem;cursor:pointer;">&times;</button>
+                    </div>
+                    <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
+                        <button id="dlrCmSyncBtn" onclick="dialerSyncContacts();dlrCloseContactMgmt();" class="dlr-btn-ghost-6" style="width:100%;text-align:left;border-radius:8px;padding:10px 14px;font-size:0.88rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px;">
+                            <i class="fa-solid fa-rotate dlr-text-cyan" style="width:16px;"></i>
+                            <span>Sync from CRM</span>
+                        </button>
+                        <button onclick="dialerFetchContacts(true);dlrCloseContactMgmt();" class="dlr-btn-ghost-6" style="width:100%;text-align:left;border-radius:8px;padding:10px 14px;font-size:0.88rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px;">
+                            <i class="fa-solid fa-download dlr-text-cyan" style="width:16px;"></i>
+                            <span>Get Contacts</span>
+                        </button>
+                        <button onclick="ciOpen();dlrCloseContactMgmt();" class="dlr-btn-ghost-6" style="width:100%;text-align:left;border-radius:8px;padding:10px 14px;font-size:0.88rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px;">
+                            <i class="fa-solid fa-file-import dlr-text-cyan" style="width:16px;"></i>
+                            <span>Import from CSV / Excel</span>
+                        </button>
+                        <button onclick="dlrExportOpen();dlrCloseContactMgmt();" class="dlr-btn-ghost-6" style="width:100%;text-align:left;border-radius:8px;padding:10px 14px;font-size:0.88rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px;">
+                            <i class="fa-solid fa-file-export dlr-text-cyan" style="width:16px;"></i>
+                            <span>Export to CSV</span>
+                        </button>
                     </div>
                 </div>
             </div>

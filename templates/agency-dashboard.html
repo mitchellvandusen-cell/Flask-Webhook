@@ -260,7 +260,169 @@
         body.light-theme .ag-period-btn { background: #fff; border-color: #e5e5e5; color: #666; }
         body.light-theme .ag-period-btn.active { background: rgba(0,255,136,0.08); color: #059669; }
         body.light-theme .ag-footer a, body.light-theme .ag-footer button { color: #888; }
+        body.light-theme .ag-footer a:hover, body.light-theme .ag-footer button:hover { color: #333; }
         body.light-theme .ag-divider { background: #e5e5e5; }
+
+        /* ─── Comprehensive light theme additions ─── */
+
+        /* Brand */
+        body.light-theme .ag-brand-text { color: #059669; }
+        body.light-theme .ag-toggle { color: #aaa; }
+        body.light-theme .ag-toggle:hover { color: #333; }
+        body.light-theme .ag-brand { border-color: #e5e5e5; }
+
+        /* Sidebar sections */
+        body.light-theme .ag-section-header { color: #aaa; }
+        body.light-theme .ag-nav-item.active { background: rgba(5,150,105,0.08); color: #059669; }
+
+        /* Topbar extras */
+        body.light-theme .ag-user-pill { background: #f5f5f5; border-color: #e0e0e0; }
+        body.light-theme .ag-user-email { color: #777; }
+        body.light-theme .ag-badge { background: rgba(5,150,105,0.1); border-color: rgba(5,150,105,0.25); color: #059669; }
+        body.light-theme .ag-theme-btn { background: #f0f0f0; border-color: #d5d5d5; color: #666; }
+        body.light-theme .ag-theme-btn:hover { color: #333; border-color: #bbb; background: #e8e8e8; }
+
+        /* KPI delta */
+        body.light-theme .ag-kpi-delta.up { color: #059669; }
+
+        /* Cards */
+        body.light-theme .ag-card-body { color: #555; }
+        body.light-theme .ag-kpi:hover { border-color: #c5c5c5; }
+        body.light-theme .ag-card-header h3 { color: #111; }
+
+        /* Tables */
+        body.light-theme .ag-table tr:hover td { background: rgba(0,0,0,0.025); }
+        body.light-theme .ag-table td { color: #444; border-color: rgba(0,0,0,0.05); }
+        body.light-theme .ag-table th { color: #999; border-color: #eee; }
+
+        /* Call log */
+        body.light-theme .ag-call-row:hover { background: rgba(0,0,0,0.025); }
+        body.light-theme .ag-call-row { border-color: rgba(0,0,0,0.05); }
+        body.light-theme .ag-call-dir.outbound { background: rgba(5,150,105,0.1); color: #059669; }
+        body.light-theme .ag-call-dir.inbound { background: rgba(37,99,235,0.1); color: #2563eb; }
+        body.light-theme .ag-call-meta { color: #888; }
+        body.light-theme .ag-call-dur { color: #666; }
+        body.light-theme .ag-call-name { color: #222; }
+        body.light-theme .ag-call-badge.rec { background: rgba(220,38,38,0.08); color: #dc2626; }
+        body.light-theme .ag-call-badge.txt { background: rgba(37,99,235,0.08); color: #2563eb; }
+
+        /* Agent cards */
+        body.light-theme .ag-agent-card:hover { border-color: #c5c5c5; }
+        body.light-theme .ag-agent-email { color: #888; }
+        body.light-theme .ag-agent-actions button { background: #f5f5f5; border-color: #e0e0e0; color: #666; }
+        body.light-theme .ag-agent-actions button:hover { color: #333; border-color: #bbb; background: #ebebeb; }
+
+        /* Charts */
+        body.light-theme .ag-chart-bar { background: rgba(0,120,184,0.3); }
+        body.light-theme .ag-chart-bar:hover { background: rgba(0,120,184,0.6); }
+        body.light-theme .ag-chart-labels { color: #aaa; }
+
+        /* Heatmap */
+        body.light-theme .ag-heatmap-cell:hover { color: #333; }
+
+        /* Loading shimmer */
+        body.light-theme .ag-shimmer { background: linear-gradient(90deg, #f0f0f0 0%, #e8e8e8 50%, #f0f0f0 100%); background-size: 200px 100%; }
+
+        /* Period bar bottom border */
+        body.light-theme .ag-period-bar { border-color: #e5e5e5; }
+        body.light-theme .ag-period-btn.active { background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.25); color: #059669; }
+
+        /* Filter selects in call log / activity tabs */
+        .ag-select-filter {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #ccc;
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 0.82rem;
+        }
+        body.light-theme .ag-select-filter {
+            background: #fff;
+            border-color: #d0d0d0;
+            color: #333;
+        }
+
+        /* Form controls in Settings tab */
+        .ag-card .form-control {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #ccc;
+            border-radius: 8px;
+        }
+        .ag-card .form-control:focus {
+            background: rgba(255,255,255,0.06);
+            border-color: rgba(0,255,136,0.35);
+            color: #fff;
+            box-shadow: 0 0 0 3px rgba(0,255,136,0.08);
+            outline: none;
+        }
+        .ag-textarea { resize: none; }
+        body.light-theme .ag-card .form-control {
+            background: #fff;
+            border-color: #d0d0d0;
+            color: #333;
+        }
+        body.light-theme .ag-card .form-control:focus {
+            background: #fff;
+            border-color: #059669;
+            color: #333;
+            box-shadow: 0 0 0 3px rgba(5,150,105,0.1);
+            outline: none;
+        }
+
+        /* Billing manage subscription button */
+        .ag-manage-sub-btn {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #ccc;
+            padding: 10px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.88rem;
+            font-weight: 600;
+            transition: all 0.15s;
+        }
+        .ag-manage-sub-btn:hover { color: #fff; border-color: rgba(255,255,255,0.2); }
+        body.light-theme .ag-manage-sub-btn { background: #f0f0f0; border-color: #d0d0d0; color: #333; }
+        body.light-theme .ag-manage-sub-btn:hover { background: #e5e5e5; color: #111; }
+
+        /* Connect CRM link in settings */
+        .ag-crm-connect-btn {
+            display: inline-block;
+            margin-top: 10px;
+            background: rgba(0,255,136,0.08);
+            border: 1px solid rgba(0,255,136,0.2);
+            color: var(--accent);
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.15s;
+        }
+        .ag-crm-connect-btn:hover { background: rgba(0,255,136,0.14); color: var(--accent); }
+        body.light-theme .ag-crm-connect-btn { background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.2); color: #059669; }
+        body.light-theme .ag-crm-connect-btn:hover { background: rgba(5,150,105,0.14); }
+
+        /* Tab headings */
+        body.light-theme .ag-tab h3.t-primary { color: #111; }
+
+        /* Billing progress bar */
+        .ag-billing-progress-track {
+            background: rgba(255,255,255,0.04);
+            border-radius: 12px;
+            padding: 4px;
+        }
+        .ag-billing-progress-fill {
+            height: 8px;
+            border-radius: 8px;
+            background: var(--accent);
+            transition: width 0.5s;
+        }
+        body.light-theme .ag-billing-progress-track { background: #ebebeb; }
+
+        /* Mobile backdrop */
+        body.light-theme .ag-mobile-backdrop { background: rgba(0,0,0,0.3); }
     </style>
 </head>
 <body>
@@ -527,7 +689,7 @@
                 <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
                     <h3 class="t-primary" style="margin:0;font-weight:700;"><i class="fa-solid fa-phone-volume me-2 ic-cyan"></i>Call Log</h3>
                     <!-- Agent filter dropdown -->
-                    <select id="agCallAgentFilter" onchange="agLoadCallLog(0)" style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;padding:6px 12px;font-size:0.82rem;">
+                    <select id="agCallAgentFilter" onchange="agLoadCallLog(0)" class="ag-select-filter">
                         <option value="">All Agents</option>
                         {% for sub in sub_accounts %}
                         <option value="{{ sub.location_id }}">{{ sub.name }}</option>
@@ -551,7 +713,7 @@
             <div class="ag-tab" id="agTabActivity">
                 <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
                     <h3 class="t-primary" style="margin:0;font-weight:700;"><i class="fa-solid fa-list-check me-2 ic-accent"></i>Activity Logs</h3>
-                    <select id="agActivityAgent" onchange="agLoadActivity(0)" style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;padding:6px 12px;font-size:0.82rem;">
+                    <select id="agActivityAgent" onchange="agLoadActivity(0)" class="ag-select-filter">
                         <option value="">Select Agent</option>
                         {% for sub in sub_accounts %}
                         <option value="{{ sub.location_id }}">{{ sub.name }}</option>
@@ -577,32 +739,32 @@
                             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                                 <div>
                                     <label class="t-faint" style="font-size:0.78rem;margin-bottom:4px;display:block;">Location ID</label>
-                                    {{ form.location_id(class="form-control", style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;") }}
+                                    {{ form.location_id(class="form-control") }}
                                 </div>
                                 <div>
                                     <label class="t-faint" style="font-size:0.78rem;margin-bottom:4px;display:block;">Bot Name</label>
-                                    {{ form.bot_name(class="form-control", style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;") }}
+                                    {{ form.bot_name(class="form-control") }}
                                 </div>
                                 <div>
                                     <label class="t-faint" style="font-size:0.78rem;margin-bottom:4px;display:block;">Calendar ID</label>
-                                    {{ form.calendar_id(class="form-control", style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;") }}
+                                    {{ form.calendar_id(class="form-control") }}
                                 </div>
                                 <div>
                                     <label class="t-faint" style="font-size:0.78rem;margin-bottom:4px;display:block;">CRM User ID</label>
-                                    {{ form.crm_user_id(class="form-control", style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;") }}
+                                    {{ form.crm_user_id(class="form-control") }}
                                 </div>
                                 <div>
                                     <label class="t-faint" style="font-size:0.78rem;margin-bottom:4px;display:block;">Timezone</label>
-                                    {{ form.timezone(class="form-control", style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;") }}
+                                    {{ form.timezone(class="form-control") }}
                                 </div>
                                 <div>
                                     <label class="t-faint" style="font-size:0.78rem;margin-bottom:4px;display:block;">Website</label>
-                                    {{ form.personal_website(class="form-control", placeholder="https://...", style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;") }}
+                                    {{ form.personal_website(class="form-control", placeholder="https://...") }}
                                 </div>
                             </div>
                             <div style="margin-top:16px;">
                                 <label class="t-faint" style="font-size:0.78rem;margin-bottom:4px;display:block;">Initial Message</label>
-                                {{ form.initial_message(class="form-control", rows="3", style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;border-radius:8px;resize:none;") }}
+                                {{ form.initial_message(class="form-control ag-textarea", rows="3") }}
                             </div>
                             <button type="submit" style="margin-top:16px;background:var(--accent);color:#000;font-weight:700;border:none;padding:10px 24px;border-radius:10px;cursor:pointer;font-size:0.9rem;">
                                 <i class="fa-solid fa-floppy-disk me-1"></i>Save Settings
@@ -624,7 +786,7 @@
                                 </div>
                             </div>
                         </div>
-                        <a href="/oauth/initiate" style="display:inline-block;margin-top:10px;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.2);color:var(--accent);padding:8px 18px;border-radius:8px;font-size:0.85rem;font-weight:600;text-decoration:none;">
+                        <a href="/oauth/initiate" class="ag-crm-connect-btn">
                             <i class="fa-solid fa-plug me-1"></i>{{ 'Reconnect CRM' if access_token_display else 'Connect CRM' }}
                         </a>
                     </div>
@@ -640,12 +802,12 @@
                             <span class="ag-badge" style="font-size:0.9rem;padding:6px 18px;">{{ stats.tier }}</span>
                         </div>
                         <p class="t-faint" style="margin-bottom:20px;">{{ stats.active_seats }} / {{ stats.max_seats }} seats used</p>
-                        <div style="background:rgba(255,255,255,0.03);border-radius:12px;padding:4px;max-width:300px;margin:0 auto 20px;">
-                            <div style="height:8px;border-radius:8px;background:var(--accent);width:{{ ((stats.active_seats / stats.max_seats * 100) if stats.max_seats else 0)|int }}%;transition:width 0.5s;"></div>
+                        <div class="ag-billing-progress-track" style="max-width:300px;margin:0 auto 20px;">
+                            <div class="ag-billing-progress-fill" style="width:{{ ((stats.active_seats / stats.max_seats * 100) if stats.max_seats else 0)|int }}%;"></div>
                         </div>
                         <form method="post" action="/create-portal-session" style="display:inline;">
                             {{ form.hidden_tag() }}
-                            <button type="submit" style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:#ccc;padding:10px 24px;border-radius:10px;cursor:pointer;font-size:0.88rem;font-weight:600;">
+                            <button type="submit" class="ag-manage-sub-btn">
                                 <i class="fa-solid fa-external-link me-1"></i>Manage Subscription
                             </button>
                         </form>
@@ -834,12 +996,15 @@
         function renderHourlyChart(hourly) {
             var container = document.getElementById('agHourlyChart');
             if (!hourly) { container.innerHTML = ''; return; }
+            var isLight = document.body.classList.contains('light-theme');
             var max = Math.max.apply(null, hourly.map(function(h) { return h.calls; })) || 1;
             var html = '';
             for (var i = 0; i < 24; i++) {
                 var calls = hourly[i] ? hourly[i].calls : 0;
                 var intensity = calls / max;
-                var bg = 'rgba(0,217,255,' + (0.05 + intensity * 0.7) + ')';
+                var bg = isLight
+                    ? 'rgba(0,120,184,' + (0.08 + intensity * 0.65) + ')'
+                    : 'rgba(0,217,255,' + (0.05 + intensity * 0.7) + ')';
                 var label = (i === 0 ? '12a' : i < 12 ? i + 'a' : i === 12 ? '12p' : (i-12) + 'p');
                 html += '<div class="ag-heatmap-cell" style="background:' + bg + ';" title="' + label + ': ' + calls + ' calls">' + calls + '</div>';
             }

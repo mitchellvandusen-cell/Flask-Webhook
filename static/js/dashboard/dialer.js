@@ -1169,13 +1169,16 @@
                     stageSel.innerHTML = '<option value="">All Stages</option>' +
                         p.stages.map(s => '<option value="' + s.id + '">' + dialerEsc(s.name) + '</option>').join('');
                     stageSel.disabled = false;
+                    stageSel.style.display = '';
                 } else {
                     stageSel.innerHTML = '<option value="">No stages in this pipeline</option>';
                     stageSel.disabled = true;
+                    stageSel.style.display = '';
                 }
             } else {
                 stageSel.innerHTML = '<option value="">All Stages (select a pipeline)</option>';
                 stageSel.disabled = true;
+                stageSel.style.display = 'none';
             }
             dialerFetchContacts();
         }
@@ -1275,6 +1278,55 @@
         // ── Fetch ALL contacts (paginated + cached on backend) ──
         let _dialerCacheLoaded = false; // Track if we've loaded from cache on first open
 
+        // ── Contact Management Modal ──
+        function dlrOpenContactMgmt() {
+            const m = document.getElementById('dlrContactMgmtModal');
+            if (m) { m.style.display = 'flex'; }
+        }
+        function dlrCloseContactMgmt() {
+            const m = document.getElementById('dlrContactMgmtModal');
+            if (m) { m.style.display = 'none'; }
+        }
+
+        // ── Search bar toggle (magnifying glass icon) ──
+        function dlrToggleSearch() {
+            const row = document.getElementById('dlrSearchRow');
+            const btn = document.getElementById('dlrSearchToggleBtn');
+            if (!row) return;
+            const visible = row.style.display !== 'none';
+            row.style.display = visible ? 'none' : '';
+            if (btn) btn.style.color = visible ? '' : 'var(--accent)';
+            if (!visible) {
+                const input = document.getElementById('dialerSearch');
+                if (input) { input.value = ''; input.focus(); }
+            } else {
+                // Clear search when hiding
+                const input = document.getElementById('dialerSearch');
+                if (input && input.value) { input.value = ''; dialerDebounceSearch(); }
+            }
+        }
+
+        // ── Call History app tab switch ──
+        function iosCallsSetTab(tab) {
+            const single = document.getElementById('dlrHistoryCalls');
+            const campaigns = document.getElementById('dlrHistoryCampaigns');
+            const tabSingle = document.getElementById('iosCallsTabSingle');
+            const tabCampaigns = document.getElementById('iosCallsTabCampaigns');
+            if (!single || !campaigns) return;
+            if (tab === 'single') {
+                single.style.display = '';
+                campaigns.style.display = 'none';
+                if (tabSingle) tabSingle.classList.add('active');
+                if (tabCampaigns) tabCampaigns.classList.remove('active');
+            } else {
+                single.style.display = 'none';
+                campaigns.style.display = '';
+                if (tabSingle) tabSingle.classList.remove('active');
+                if (tabCampaigns) tabCampaigns.classList.add('active');
+                _campaignRenderHistory();
+            }
+        }
+
         async function dialerFetchContacts(forceRefresh) {
             // Cancel any in-flight background refresh poll (prevents stale data overwriting)
             if (_dialerRefreshPoll) {
@@ -1357,12 +1409,9 @@
             const el = document.getElementById('dialerCacheStatus');
             if (!el) return;
             if (data.cached && data.cached_at) {
-                const ago = _igbTimeAgo(data.cached_at);
                 el.style.display = 'flex';
                 let html = '<i class="fa-solid fa-database" style="color:#444;"></i>';
                 html += '<span>' + (data.contacts || []).length + ' contacts</span>';
-                html += '<span style="color:#333;">|</span>';
-                html += '<span>synced ' + ago + '</span>';
                 if (data.refreshing) {
                     html += '<span style="color:#00d9ff;"><i class="fa-solid fa-rotate fa-spin me-1"></i>refreshing...</span>';
                 }
@@ -1627,9 +1676,17 @@
             }
             const dispBadge = dc ? '<span style="display:inline-flex;align-items:center;gap:2px;font-size:.75rem;color:' + dc.border + ';margin-left:6px;opacity:.85;"><i class="fa-solid ' + dc.icon + '" style="font-size:.75rem;"></i>' + dispLabel + '</span>' : '';
 
+            const isLight = document.body.classList.contains('light-theme');
+            const accentClr = isLight ? '#0078b8' : '#00d9ff';
+            const avatarActiveBg = isLight ? 'rgba(0,120,184,0.15)' : 'rgba(0,217,255,0.15)';
+            const avatarIdleBg = isLight ? 'rgba(0,120,184,0.08)' : 'rgba(0,217,255,0.06)';
+            const avatarActiveBorder = isLight ? '#0078b8' : '#00d9ff';
+            const avatarIdleBorder = isLight ? 'rgba(0,120,184,0.25)' : 'rgba(0,217,255,0.1)';
+            const phoneColor = isLight ? '#6b7280' : '#555';
+
             return '<div class="dlr-contact-row' + (isActive ? ' active' : '') + '" onclick="dialerSelectContact(\'' + c.id + '\')" style="' + rowStyle + '">' +
-                '<input type="checkbox" ' + (sel ? 'checked' : '') + ' onclick="event.stopPropagation()" onchange="dialerToggleSelect(\'' + c.id + '\')" style="accent-color:#00d9ff;width:14px;height:14px;cursor:pointer;flex-shrink:0;">' +
-                '<div style="width:30px;height:30px;border-radius:50%;background:' + (isActive ? 'rgba(0,217,255,0.15)' : 'rgba(0,217,255,0.06)') + ';border:1px solid ' + (isActive ? '#00d9ff' : 'rgba(0,217,255,0.1)') + ';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.75rem;color:#00d9ff;flex-shrink:0;position:relative;">' + init +
+                '<input type="checkbox" ' + (sel ? 'checked' : '') + ' onclick="event.stopPropagation()" onchange="dialerToggleSelect(\'' + c.id + '\')" style="accent-color:' + accentClr + ';width:14px;height:14px;cursor:pointer;flex-shrink:0;">' +
+                '<div style="width:30px;height:30px;border-radius:50%;background:' + (isActive ? avatarActiveBg : avatarIdleBg) + ';border:1px solid ' + (isActive ? avatarActiveBorder : avatarIdleBorder) + ';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.75rem;color:' + accentClr + ';flex-shrink:0;position:relative;">' + init +
                     '<span class="' + liveDotCls + '"></span>' +
                 '</div>' +
                 '<div style="flex:1;min-width:0;">' +
@@ -1640,9 +1697,9 @@
                             '<span class="dlr-call-badge" data-call-badge="' + c.id + '" style="font-size:0.75rem;padding:1px 6px;">Dials: ' + callCount + '</span>' +
                         '</div>' +
                     '</div>' +
-                    '<div style="font-size:0.78rem;color:#555;">' + dialerEsc(c.phone) + dispBadge + '</div>' +
+                    '<div style="font-size:0.78rem;color:' + phoneColor + ';">' + dialerEsc(c.phone) + dispBadge + '</div>' +
                 '</div>' +
-                (inQ ? '<i class="fa-solid fa-list-ol" style="color:#00d9ff;font-size:0.75rem;" title="In queue"></i>' : '') +
+                (inQ ? '<i class="fa-solid fa-list-ol" style="color:' + accentClr + ';font-size:0.75rem;" title="In queue"></i>' : '') +
                 '<button class="mvp-row-btn" onclick="event.stopPropagation();_mvpOpenSingle(\'' + c.id.replace(/'/g, "\\'") + '\')">Move</button>' +
             '</div>';
         }
@@ -1675,10 +1732,14 @@
                 const pLabel = pipelineName ? (pipelineName.options[pipelineName.selectedIndex] || {}).text || '' : '';
                 const sLabel = stageName ? (stageName.options[stageName.selectedIndex] || {}).text || '' : '';
                 const filterDesc = sLabel && sLabel !== 'All Stages' ? pLabel + ' — ' + sLabel : pLabel;
+                const isLightPipe = document.body.classList.contains('light-theme');
+                const pipeIconColor = isLightPipe ? '#0078b8' : '#00d9ff';
+                const pipeLabelColor = isLightPipe ? '#374151' : '#888';
+                const pipeCountColor = isLightPipe ? '#6b7280' : '#555';
                 let html = '<div style="padding:4px 10px 2px;display:flex;align-items:center;gap:5px;">' +
-                    '<i class="fa-solid fa-filter" style="color:#00d9ff;font-size:.75rem;"></i>' +
-                    '<span style="font-size:.75rem;color:#444;letter-spacing:.3px;text-transform:uppercase;font-weight:700;">Pipeline: ' + filterDesc + '</span>' +
-                    '<span style="font-size:.75rem;color:#555;margin-left:auto;">' + dialerContacts.length + ' contacts</span>' +
+                    '<i class="fa-solid fa-filter" style="color:' + pipeIconColor + ';font-size:.75rem;"></i>' +
+                    '<span style="font-size:.75rem;color:' + pipeLabelColor + ';letter-spacing:.3px;text-transform:uppercase;font-weight:700;">Pipeline: ' + filterDesc + '</span>' +
+                    '<span style="font-size:.75rem;color:' + pipeCountColor + ';margin-left:auto;">' + dialerContacts.length + ' contacts</span>' +
                 '</div>';
                 html += dialerContacts.map(c => _igbRenderContactRow(c)).join('');
                 list.innerHTML = html;
@@ -1689,17 +1750,22 @@
             const groups = _igbGroupContacts(dialerContacts);
             const aiReady = Object.keys(_igbIntelCache).length > 0;
             const filterLabel = aiReady ? 'AI-Powered Smart Filters' : 'Smart Filters (loading AI...)';
-            let html = '<div style="padding:4px 10px 2px;display:flex;align-items:center;gap:5px;"><i class="fa-solid ' + (aiReady ? 'fa-brain' : 'fa-robot') + '" style="color:' + (aiReady ? '#5B7FFF' : '#00d9ff') + ';font-size:.75rem;"></i><span style="font-size:.75rem;color:#444;letter-spacing:.3px;text-transform:uppercase;font-weight:700;">' + filterLabel + '</span></div>';
+            const isLight = document.body.classList.contains('light-theme');
+            const filterIconColor = aiReady ? '#5B7FFF' : (isLight ? '#0078b8' : '#00d9ff');
+            const filterLabelColor = isLight ? '#374151' : '#444';
+            let html = '<div style="padding:4px 10px 2px;display:flex;align-items:center;gap:5px;"><i class="fa-solid ' + (aiReady ? 'fa-brain' : 'fa-robot') + '" style="color:' + filterIconColor + ';font-size:.75rem;"></i><span style="font-size:.75rem;color:' + filterLabelColor + ';letter-spacing:.3px;text-transform:uppercase;font-weight:700;">' + filterLabel + '</span></div>';
             groups.forEach(g => {
                 if (!g.contacts.length) return;
                 const isCollapsed = _igbFilterCollapsed[g.key] || false;
                 const allGrpSelected = g.contacts.length > 0 && g.contacts.every(c => dialerSelected.has(c.id));
-                html += '<div class="igb-filter-hdr" onclick="igbToggleFilter(\'' + g.key + '\')" style="position:relative;">' +
+                const selectAllBg = allGrpSelected ? g.color : (isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.07)');
+                const selectAllColor = allGrpSelected ? (isLight ? '#fff' : '#000') : g.color;
+                html += '<div class="igb-filter-hdr" data-group="' + g.key + '" onclick="igbToggleFilter(\'' + g.key + '\')" style="position:relative;">' +
                     '<i class="fa-solid fa-chevron-down igb-filter-icon' + (isCollapsed ? ' collapsed' : '') + '" style="color:' + g.color + ';"></i>' +
                     '<i class="fa-solid ' + g.icon + '" style="color:' + g.color + ';font-size:.75rem;"></i>' +
                     '<span class="igb-filter-label" style="color:' + g.color + ';">' + g.label + '</span>' +
                     '<span class="igb-filter-count">' + g.contacts.length + '</span>' +
-                    '<button onclick="event.stopPropagation();_igbSelectAllInGroup(\'' + g.key + '\')" title="Select all ' + dialerEsc(g.label) + '" style="margin-left:4px;background:' + (allGrpSelected ? g.color : 'rgba(255,255,255,0.07)') + ';border:1px solid ' + g.color + ';color:' + (allGrpSelected ? '#000' : g.color) + ';border-radius:4px;font-size:.65rem;font-weight:700;padding:1px 6px;cursor:pointer;line-height:1.4;white-space:nowrap;">Select All</button>' +
+                    '<button onclick="event.stopPropagation();_igbSelectAllInGroup(\'' + g.key + '\')" title="Select all ' + dialerEsc(g.label) + '" style="margin-left:4px;background:' + selectAllBg + ';border:1px solid ' + g.color + ';color:' + selectAllColor + ';border-radius:4px;font-size:.65rem;font-weight:700;padding:1px 6px;cursor:pointer;line-height:1.4;white-space:nowrap;">Select All</button>' +
                 '</div>';
                 if (!isCollapsed) {
                     html += g.contacts.map(c => _igbRenderContactRow(c)).join('');
@@ -1715,6 +1781,9 @@
             dialerActiveContact = c;
             _dialerCallHistoryShowAll = false;
             _dialerRecordingsShowAll = false;
+            // Show middle intel column when a contact is selected
+            const intelCol = document.getElementById('dlrColIntel');
+            if (intelCol) intelCol.style.display = '';
             dialerRenderContacts(); // highlight active
             dialerLoadContactDetail(c.id);
             dialerLoadContactMessages(c.id);
@@ -3315,6 +3384,8 @@
         }
 
         function dialerShowBanner(name, status, isErr) {
+            const _tb = document.querySelector('.dlr-top-bar');
+            if (_tb) _tb.style.display = 'none';
             document.getElementById('dialerCallName').textContent = name;
             const s = document.getElementById('dialerCallStatus');
             s.textContent = status;
@@ -3347,6 +3418,8 @@
         }
         function dialerHideBanner() {
             document.getElementById('dialerCallBanner').style.display = 'none';
+            const _tb2 = document.querySelector('.dlr-top-bar');
+            if (_tb2) _tb2.style.display = '';
             dialerStopAiTimer();
             // Clear Jump to Contact state when call ends
             if (!dialerQueueRunning) { _jtcDialingContactId = null; _jtcUpdatePill(); }
@@ -4706,6 +4779,13 @@
             dialerMode = mode;
             const aiBtn = document.getElementById('modeAiBtn');
             const humanBtn = document.getElementById('modeHumanBtn');
+            // Sync Dynamic Island buttons
+            const iosDmAi = document.getElementById('iosDmAi');
+            const iosDmHuman = document.getElementById('iosDmHuman');
+            if (iosDmAi && iosDmHuman) {
+                iosDmAi.classList.toggle('ios-dm-active', mode === 'ai');
+                iosDmHuman.classList.toggle('ios-dm-active', mode !== 'ai');
+            }
             if (mode === 'ai') {
                 aiBtn.style.background = 'linear-gradient(135deg,#00d9ff,#0099cc)'; aiBtn.style.color = '#000';
                 humanBtn.style.background = 'transparent'; humanBtn.style.color = '#888';
