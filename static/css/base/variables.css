@@ -1,0 +1,214 @@
+/* ================================================================
+   BASE / VARIABLES
+   All CSS custom properties — dark mode defaults (no selector),
+   light mode overrides ([data-theme="light"]).
+   InsuranceGrokBot design system.
+   ================================================================ */
+
+html {
+    font-size: clamp(15px, 0.833vw, 20px);
+    color-scheme: dark;
+}
+[data-theme="light"] {
+    color-scheme: light;
+}
+
+/* ================================================================
+   :root  —  DARK MODE DEFAULTS
+   All values here are the dark-mode baseline.
+   ================================================================ */
+:root {
+
+    /* ── Brand Accent ──────────────────────────────────────────── */
+    --accent:           #00ff88;
+    --accent-hover:     #ffffff;
+    --accent-dim:       rgba(0, 255, 136, 0.10);
+    --accent-border:    rgba(0, 255, 136, 0.25);
+    --accent-secondary: #00d9ff;
+
+    /* ── Core Backgrounds ──────────────────────────────────────── */
+    --bg:               #0a0a0a;
+    --surface-1:        #111111;
+    --surface-2:        #171717;
+    --surface-3:        #1f1f1f;
+
+    /* ── Borders ───────────────────────────────────────────────── */
+    --border:           #242424;
+    --border-strong:    #333333;
+
+    /* ── Text ──────────────────────────────────────────────────── */
+    --text-primary:     #ffffff;
+    --text-secondary:   #a0a0a0;
+    --text-muted:       #606060;
+    --text-faint:       #404040;
+
+    /* ── Panel System ──────────────────────────────────────────── */
+    --panel-bg:         #111111;
+    --panel-header-bg:  #171717;
+    --panel-border:     #242424;
+
+    /* ── Glass (solid — no blur) ───────────────────────────────── */
+    --glass-bg:           #111111;
+    --glass-bg-strong:    #171717;
+    --glass-blur:         none;
+    --glass-border:       #242424;
+    --glass-border-top:   #2a2a2a;
+    --glass-border-left:  #242424;
+    --glass-border-bottom:#1c1c1c;
+    --glass-border-right: #1c1c1c;
+    --glass-border-strong:#333333;
+    --card-glass:         #111111;
+    --glass-shadow:       0 1px 3px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.3);
+    --glass-shadow-hover: 0 2px 8px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.4);
+
+    /* ── Status Colors ─────────────────────────────────────────── */
+    --status-success:   #00ff88;
+    --status-error:     #ef4444;
+    --status-warning:   #f59e0b;
+    --status-info:      #3b82f6;
+    --agency-blue:      #007AFF;
+    --alert:            #ff4444;
+
+    /* ── AI Lead Temperature ───────────────────────────────────── */
+    --temp-hot:         #ef4444;
+    --temp-warm:        #f59e0b;
+    --temp-cool:        #3b82f6;
+    --temp-cold:        #6b7280;
+
+    /* ── Typography Scale ──────────────────────────────────────── */
+    --fs-xs:            0.75rem;
+    --fs-sm:            0.8125rem;
+    --fs-base:          0.875rem;
+    --fs-md:            1rem;
+    --fs-lg:            1.125rem;
+    --fs-xl:            1.25rem;
+    --fs-2xl:           1.5rem;
+    --lh-tight:         1.3;
+    --lh-normal:        1.5;
+    --lh-relaxed:       1.65;
+
+    /* ── Effects ───────────────────────────────────────────────── */
+    --glow:             0 0 20px rgba(0, 255, 136, 0.15);
+    --transition:       all 0.2s ease;
+
+    /* ── Layout ────────────────────────────────────────────────── */
+    --sidebar-width:            195px;
+    --sidebar-collapsed-width:  47px;
+    --topbar-height:            39px;
+    --safe-top:    env(safe-area-inset-top, 15px);
+    --safe-bottom: env(safe-area-inset-bottom, 15px);
+
+    /* ── Legacy Aliases (backward compatibility) ───────────────── */
+    --dark-bg:          #0a0a0a;
+    --dark-surface:     #111111;
+    --dark-surface-2:   #171717;
+
+    /* ── lt-* Predefine (used by components in dark context) ───── */
+    /* These are light-mode values referenced in some components.   */
+    /* They resolve to dark-neutral values in dark mode.            */
+    --lt-bg:              #f2f2f2;
+    --lt-surface:         #ffffff;
+    --lt-surface-hover:   #f7f7f7;
+    --lt-border:          #e0e0e0;
+    --lt-border-strong:   #cccccc;
+    --lt-text-primary:    #111111;
+    --lt-text-secondary:  #555555;
+    --lt-text-muted:      #888888;
+    --lt-text-faint:      #aaaaaa;
+    --lt-input-bg:        #ffffff;
+    --lt-input-border:    #e0e0e0;
+    --lt-input-text:      #111111;
+    --lt-accent:          #059669;
+    --lt-accent-bg:       rgba(5, 150, 105, 0.08);
+    --lt-accent-border:   rgba(5, 150, 105, 0.20);
+    --lt-info:            #2563eb;
+}
+
+/* ================================================================
+   [data-theme="light"]  —  LIGHT MODE OVERRIDES
+   Every dark-default variable that needs to change in light mode.
+   ================================================================ */
+[data-theme="light"] {
+
+    /* ── Brand Accent ──────────────────────────────────────────── */
+    --accent:           #059669;
+    --accent-hover:     #047857;
+    --accent-dim:       rgba(5, 150, 105, 0.08);
+    --accent-border:    rgba(5, 150, 105, 0.20);
+    --accent-secondary: #0284c7;
+
+    /* ── Core Backgrounds ──────────────────────────────────────── */
+    --bg:               #f2f2f2;
+    --surface-1:        #ffffff;
+    --surface-2:        #f7f7f7;
+    --surface-3:        #eeeeee;
+
+    /* ── Borders ───────────────────────────────────────────────── */
+    --border:           #e0e0e0;
+    --border-strong:    #cccccc;
+
+    /* ── Text ──────────────────────────────────────────────────── */
+    --text-primary:     #111111;
+    --text-secondary:   #555555;
+    --text-muted:       #888888;
+    --text-faint:       #aaaaaa;
+
+    /* ── Panel System ──────────────────────────────────────────── */
+    --panel-bg:         #ffffff;
+    --panel-header-bg:  #f7f7f7;
+    --panel-border:     #e0e0e0;
+
+    /* ── Glass (all solid, no blur) ────────────────────────────── */
+    --glass-bg:           #ffffff;
+    --glass-bg-strong:    #f7f7f7;
+    --glass-blur:         none;
+    --glass-border:       #e0e0e0;
+    --glass-border-top:   #ececec;
+    --glass-border-left:  #e8e8e8;
+    --glass-border-bottom:#d8d8d8;
+    --glass-border-right: #d8d8d8;
+    --glass-border-strong:#cccccc;
+    --card-glass:         #ffffff;
+    --glass-shadow:       0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.06);
+    --glass-shadow-hover: 0 2px 8px rgba(0,0,0,0.10), 0 8px 24px rgba(0,0,0,0.08);
+
+    /* ── Status Colors ─────────────────────────────────────────── */
+    --agency-blue:      #005ecb;
+    --alert:            #dc2626;
+
+    /* ── Legacy Aliases ────────────────────────────────────────── */
+    --dark-bg:          #f2f2f2;
+    --dark-surface:     #ffffff;
+    --dark-surface-2:   #f7f7f7;
+
+    /* ── lt-* Variables (authoritative in light mode) ──────────── */
+    --lt-bg:              #f2f2f2;
+    --lt-surface:         #ffffff;
+    --lt-surface-hover:   #f7f7f7;
+    --lt-border:          #e0e0e0;
+    --lt-border-strong:   #cccccc;
+    --lt-text-primary:    #111111;
+    --lt-text-secondary:  #555555;
+    --lt-text-muted:      #888888;
+    --lt-text-faint:      #aaaaaa;
+    --lt-input-bg:        #ffffff;
+    --lt-input-border:    #e0e0e0;
+    --lt-input-text:      #111111;
+    --lt-accent:          #059669;
+    --lt-accent-bg:       rgba(5, 150, 105, 0.08);
+    --lt-accent-border:   rgba(5, 150, 105, 0.20);
+    --lt-info:            #2563eb;
+
+    color-scheme: light;
+    background:   #f2f2f2;
+    color:        #111111;
+}
+
+/* ── 4K / High-DPI layout scaling ─────────────────────────────── */
+@media (min-width: 1920px) {
+    :root {
+        --sidebar-width:           clamp(195px, 12vw, 320px);
+        --sidebar-collapsed-width: clamp(47px, 3.5vw, 72px);
+        --topbar-height:           clamp(39px, 2.8vw, 56px);
+    }
+}

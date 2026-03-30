@@ -1,0 +1,494 @@
+/* ================================================================
+   DASHBOARD / BUTTONS.CSS
+   All button styles: .btn-*, .igb-btn, .igb-action-btn, .act-*,
+   .dlr-btn-*, .btn-agency, .add-btn, .btn-cta, .btn-launch, etc.
+   Dark default + [data-theme="light"] overrides.
+   ================================================================ */
+
+/* ================================================================
+   BASE .btn OVERRIDES
+   ================================================================ */
+.btn {
+    border-radius: 8px;
+    font-weight: 600;
+    padding: 0.6rem 1.5rem;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+    cursor: pointer;
+}
+.btn-lg { border-radius: 10px; }
+.btn-sm { border-radius: 6px; }
+.nav-btn { min-width: 140px; text-align: center; }
+
+/* ================================================================
+   PRIMARY — accent button (dark: neon green bg, black text)
+   ================================================================ */
+.btn-primary {
+    background: #00ff88 !important;
+    border: 1px solid #00ff88 !important;
+    color: #000000 !important;
+    box-shadow: 0 0 16px rgba(0,255,136,0.20);
+}
+.btn-primary:hover {
+    background: #00cc66 !important;
+    border-color: #00cc66 !important;
+    color: #000000 !important;
+    box-shadow: 0 0 28px rgba(0,255,136,0.30);
+    transform: translateY(-1px);
+}
+.btn-primary i { color: #000000 !important; }
+
+/* ── Light: primary ── */
+[data-theme="light"] .btn-primary,
+[data-theme="light"] .tab-pane .btn-primary {
+    background: #059669 !important;
+    border-color: #059669 !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(5,150,105,0.20);
+}
+[data-theme="light"] .btn-primary:hover,
+[data-theme="light"] .tab-pane .btn-primary:hover {
+    background: #047857 !important;
+    border-color: #047857 !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 14px rgba(5,150,105,0.28);
+}
+[data-theme="light"] .btn-primary i,
+[data-theme="light"] .tab-pane .btn-primary i { color: #ffffff !important; }
+
+/* ================================================================
+   SECONDARY — muted surface button
+   ================================================================ */
+.btn-secondary {
+    background: #1f1f1f !important;
+    border: 1px solid #333333 !important;
+    color: #ffffff !important;
+}
+.btn-secondary:hover {
+    background: #2a2a2a !important;
+    border-color: #444444 !important;
+    color: #ffffff !important;
+    transform: translateY(-1px);
+}
+
+[data-theme="light"] .btn-secondary {
+    background: #f0f0f0 !important;
+    border-color: #d0d0d0 !important;
+    color: #111111 !important;
+}
+[data-theme="light"] .btn-secondary:hover {
+    background: #e4e4e4 !important;
+    border-color: #bbbbbb !important;
+    color: #111111 !important;
+}
+
+/* ================================================================
+   OUTLINE-LIGHT — ghost button (dark theme)
+   ================================================================ */
+.btn-outline-light {
+    background: transparent !important;
+    border: 1px solid #333333 !important;
+    color: #a0a0a0 !important;
+}
+.btn-outline-light:hover {
+    background: rgba(255,255,255,0.06) !important;
+    border-color: #555555 !important;
+    color: #ffffff !important;
+}
+.btn-outline-light i { color: inherit !important; }
+
+[data-theme="light"] .btn-outline-light,
+[data-theme="light"] .tab-pane .btn-outline-light {
+    background: transparent !important;
+    border-color: #d0d0d0 !important;
+    color: #444444 !important;
+}
+[data-theme="light"] .btn-outline-light:hover,
+[data-theme="light"] .tab-pane .btn-outline-light:hover {
+    background: rgba(0,0,0,0.04) !important;
+    border-color: #aaaaaa !important;
+    color: #111111 !important;
+}
+[data-theme="light"] .btn-outline-light i,
+[data-theme="light"] .tab-pane .btn-outline-light i { color: inherit !important; }
+
+/* ================================================================
+   OUTLINE-ACCENT — accent-bordered transparent button
+   ================================================================ */
+.btn-outline-accent {
+    background: transparent !important;
+    border: 1px solid rgba(0,255,136,0.40) !important;
+    color: #00ff88 !important;
+    border-radius: 8px;
+}
+.btn-outline-accent:hover {
+    background: rgba(0,255,136,0.10) !important;
+    border-color: rgba(0,255,136,0.65) !important;
+    color: #ffffff !important;
+    transform: translateY(-1px);
+}
+
+[data-theme="light"] .btn-outline-accent {
+    border-color: rgba(5,150,105,0.35) !important;
+    color: #059669 !important;
+}
+[data-theme="light"] .btn-outline-accent:hover {
+    background: rgba(5,150,105,0.08) !important;
+    border-color: rgba(5,150,105,0.55) !important;
+    color: #047857 !important;
+}
+
+/* ================================================================
+   DANGER
+   ================================================================ */
+.btn-danger {
+    background: #ef4444 !important;
+    border: 1px solid #ef4444 !important;
+    color: #ffffff !important;
+}
+.btn-danger:hover {
+    background: #dc2626 !important;
+    border-color: #dc2626 !important;
+    color: #ffffff !important;
+    transform: translateY(-1px);
+}
+
+[data-theme="light"] .btn-danger {
+    background: #dc2626 !important;
+    border-color: #dc2626 !important;
+    color: #ffffff !important;
+}
+[data-theme="light"] .btn-danger:hover {
+    background: #b91c1c !important;
+    border-color: #b91c1c !important;
+}
+
+/* ================================================================
+   ADD BTN — marketing pill
+   ================================================================ */
+.add-btn {
+    background: #00ff88;
+    color: #000000;
+    border: none;
+    padding: 0.8rem 2rem;
+    border-radius: 50px;
+    font-weight: 700;
+    box-shadow: 0 0 24px rgba(0,255,136,0.22);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    text-decoration: none;
+    display: inline-block;
+}
+.add-btn:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 12px 36px rgba(0,255,136,0.30);
+    color: #000000;
+}
+
+[data-theme="light"] .add-btn {
+    background: #059669;
+    color: #ffffff;
+    box-shadow: 0 0 16px rgba(5,150,105,0.20);
+}
+[data-theme="light"] .add-btn:hover {
+    background: #047857;
+    color: #ffffff;
+    box-shadow: 0 8px 24px rgba(5,150,105,0.28);
+}
+
+/* ================================================================
+   AGENCY BUTTON
+   ================================================================ */
+.btn-agency {
+    background: #007aff;
+    color: #ffffff;
+    font-weight: 700;
+    padding: 14px;
+    border-radius: 12px;
+    border: none;
+    width: 100%;
+    font-size: 1rem;
+    margin-top: 10px;
+    transition: transform 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+    box-shadow: 0 4px 14px rgba(0,122,255,0.28);
+}
+.btn-agency:hover {
+    transform: translateY(-2px);
+    background: #0066dd;
+    box-shadow: 0 8px 24px rgba(0,122,255,0.36);
+}
+.agency-back-link {
+    display: inline-block;
+    margin-top: 30px;
+    color: #555555;
+    text-decoration: none;
+    font-size: 0.85rem;
+    transition: color 0.2s;
+}
+.agency-back-link:hover { color: #ffffff; }
+
+[data-theme="light"] .btn-agency { box-shadow: 0 4px 12px rgba(0,122,255,0.20); }
+[data-theme="light"] .agency-back-link { color: #666666; }
+[data-theme="light"] .agency-back-link:hover { color: #111111; }
+
+/* ================================================================
+   LAUNCH BUTTON
+   ================================================================ */
+.btn-launch {
+    display: block;
+    width: 100%;
+    text-align: center;
+    padding: 16px;
+    border-radius: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-decoration: none;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    font-family: 'Outfit', sans-serif;
+}
+
+/* ================================================================
+   GLOW / GRADIENT VARIANTS
+   ================================================================ */
+.btn-primary-glow {
+    background: #00ff88;
+    color: #000000;
+    box-shadow: 0 0 20px rgba(0,255,136,0.20);
+}
+.btn-primary-glow:hover {
+    background: #ffffff;
+    color: #000000;
+    box-shadow: 0 0 40px rgba(0,255,136,0.45);
+    transform: translateY(-3px);
+}
+.btn-outline-glow {
+    background: transparent;
+    color: #ffffff;
+    border: 1px solid rgba(255,255,255,0.20);
+}
+.btn-outline-glow:hover {
+    border-color: #ffffff;
+    background: rgba(255,255,255,0.05);
+    transform: translateY(-3px);
+}
+
+[data-theme="light"] .btn-primary-glow {
+    background: #059669;
+    color: #ffffff;
+    box-shadow: 0 0 14px rgba(5,150,105,0.18);
+}
+[data-theme="light"] .btn-primary-glow:hover {
+    background: #047857;
+    color: #ffffff;
+    box-shadow: 0 0 28px rgba(5,150,105,0.28);
+}
+[data-theme="light"] .btn-outline-glow {
+    color: #111111;
+    border-color: #d0d0d0;
+}
+[data-theme="light"] .btn-outline-glow:hover {
+    border-color: #888888;
+    background: rgba(0,0,0,0.04);
+    color: #111111;
+}
+
+/* ================================================================
+   CTA BUTTON
+   ================================================================ */
+.btn-cta {
+    background: #00ff88;
+    color: #000000;
+    font-weight: 700;
+    padding: 12px 30px;
+    border-radius: 50px;
+    text-decoration: none;
+    display: inline-block;
+    margin-top: 15px;
+    transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+.btn-cta:hover {
+    background: #ffffff;
+    transform: translateY(-3px);
+    box-shadow: 0 0 20px rgba(0,255,136,0.35);
+    color: #000000;
+}
+
+[data-theme="light"] .btn-cta {
+    background: #059669;
+    color: #ffffff;
+}
+[data-theme="light"] .btn-cta:hover {
+    background: #047857;
+    color: #ffffff;
+    box-shadow: 0 0 16px rgba(5,150,105,0.28);
+}
+
+/* ================================================================
+   GRADIENT VARIANTS (brand colors — unchanged in both themes)
+   ================================================================ */
+.btn-gradient-cyan {
+    background: linear-gradient(135deg, #00d9ff, #0891b2) !important;
+    color: #000000 !important;
+    font-weight: 700;
+    border: none !important;
+    box-shadow: 0 0 20px rgba(0,217,255,0.15);
+    transition: box-shadow 0.2s, transform 0.15s;
+}
+.btn-gradient-cyan:hover {
+    box-shadow: 0 0 32px rgba(0,217,255,0.30);
+    transform: translateY(-2px);
+    color: #000000 !important;
+}
+.btn-gradient-orange {
+    background: linear-gradient(135deg, #ff6b35, #ff3366) !important;
+    color: #ffffff !important;
+    font-weight: 700;
+    border: none !important;
+    box-shadow: 0 0 20px rgba(255,107,53,0.15);
+    transition: box-shadow 0.2s, transform 0.15s;
+}
+.btn-gradient-orange:hover {
+    box-shadow: 0 0 32px rgba(255,107,53,0.30);
+    transform: translateY(-2px);
+    color: #ffffff !important;
+}
+.btn-gradient-purple {
+    background: linear-gradient(135deg, #8b5cf6, #6366f1) !important;
+    color: #ffffff !important;
+    font-weight: 700;
+    border: none !important;
+    box-shadow: 0 0 20px rgba(139,92,246,0.15);
+    transition: box-shadow 0.2s, transform 0.15s;
+}
+.btn-gradient-purple:hover {
+    box-shadow: 0 0 32px rgba(139,92,246,0.30);
+    transform: translateY(-2px);
+    color: #ffffff !important;
+}
+.btn-gradient-blue {
+    background: linear-gradient(135deg, #3b82f6, #6366f1) !important;
+    color: #ffffff !important;
+    font-weight: 700;
+    border: none !important;
+    box-shadow: 0 0 20px rgba(59,130,246,0.15);
+    transition: box-shadow 0.2s, transform 0.15s;
+}
+.btn-gradient-blue:hover {
+    box-shadow: 0 0 32px rgba(59,130,246,0.30);
+    transform: translateY(-2px);
+    color: #ffffff !important;
+}
+
+/* ================================================================
+   NAV LINKS / TABS
+   ================================================================ */
+.nav-link { color: #888888; }
+.nav-link:hover { color: #cccccc; }
+.nav-link.active { color: #00ff88; border-color: #00ff88; }
+
+[data-theme="light"] .nav-link { color: var(--lt-text-muted) !important; }
+[data-theme="light"] .nav-link:hover { color: var(--lt-text-primary) !important; }
+[data-theme="light"] .nav-link.active { color: var(--lt-accent) !important; border-color: var(--lt-accent) !important; }
+
+/* ================================================================
+   VOICE SUB-TABS
+   ================================================================ */
+.voice-stab-btn {
+    color: #888888;
+    border-color: #333333;
+    background: #171717;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.voice-stab-btn:hover {
+    color: #ffffff;
+    background: #1f1f1f;
+}
+.voice-stab-btn.active {
+    color: #00ff88;
+    border-color: rgba(0,255,136,0.40);
+    background: rgba(0,255,136,0.08);
+}
+
+[data-theme="light"] .voice-stab-btn { color: var(--lt-text-muted) !important; border-color: var(--lt-border) !important; background: var(--lt-surface) !important; }
+[data-theme="light"] .voice-stab-btn:hover { color: var(--lt-text-primary) !important; background: var(--lt-surface-hover) !important; }
+[data-theme="light"] .voice-stab-btn.active { color: var(--lt-accent) !important; border-color: var(--lt-accent-border) !important; background: var(--lt-accent-bg) !important; }
+
+/* ================================================================
+   DIALER BUTTONS
+   ================================================================ */
+[data-theme="light"] .dlr-col { background: #ffffff !important; border-color: #e0e0e0 !important; }
+[data-theme="light"] .dlr-col-hdr { border-bottom-color: #e0e0e0 !important; background: #f8f8f8 !important; }
+[data-theme="light"] .dlr-col-hdr h6 { color: var(--lt-accent) !important; }
+[data-theme="light"] .dlr-top-bar { background: #ffffff !important; border-color: #e0e0e0 !important; }
+[data-theme="light"] .dlr-contact-row { border-bottom-color: #f0f0f0 !important; color: var(--lt-text-secondary) !important; }
+[data-theme="light"] .dlr-contact-row:hover { background: #f8f8f8 !important; border-left-color: rgba(5,150,105,0.50) !important; }
+[data-theme="light"] .dlr-contact-row.active { background: #f0fdf4 !important; border-left-color: #059669 !important; }
+[data-theme="light"] .dlr-bubble.inbound { background: #f0f0f0 !important; border-color: #e0e0e0 !important; color: var(--lt-text-primary) !important; }
+[data-theme="light"] .dlr-bubble.outbound { background: rgba(5,150,105,0.07) !important; border-color: rgba(5,150,105,0.16) !important; color: #064e3b !important; }
+[data-theme="light"] .dlr-msg-meta { color: var(--lt-text-muted) !important; }
+[data-theme="light"] .dlr-date-sep span { background: #ededed !important; border-color: #ddd !important; color: var(--lt-text-muted) !important; }
+[data-theme="light"] .dlr-tab-btn { color: var(--lt-text-faint) !important; }
+[data-theme="light"] .dlr-tab-btn.active { color: var(--lt-accent) !important; border-bottom-color: var(--lt-accent) !important; }
+[data-theme="light"] #dlrSmsComposer { background: #f7f7f7 !important; border-top-color: var(--lt-border) !important; }
+[data-theme="light"] #dlrSmsText { background: var(--lt-surface) !important; border-color: var(--lt-input-border) !important; color: var(--lt-text-primary) !important; }
+[data-theme="light"] #dlrMsgHeader { background: #f8f8f8 !important; border-bottom-color: var(--lt-border) !important; }
+[data-theme="light"] #dlrMsgContactName { color: var(--lt-text-primary) !important; }
+[data-theme="light"] #dlrMsgContactPhone { color: var(--lt-text-muted) !important; }
+[data-theme="light"] .dlr-qr-btn { background: var(--lt-accent-bg) !important; border-color: var(--lt-accent-border) !important; color: var(--lt-accent) !important; }
+[data-theme="light"] .dlr-qr-btn:hover { background: rgba(5,150,105,0.13) !important; }
+[data-theme="light"] #dlrCharCount { color: var(--lt-text-faint) !important; }
+[data-theme="light"] #dlrChannelSelect { background: var(--lt-input-bg) !important; border-color: var(--lt-input-border) !important; color: var(--lt-text-primary) !important; }
+
+/* ================================================================
+   WORKFLOW TAB BUTTONS
+   ================================================================ */
+.workflow-tab-btn {
+    background: #171717;
+    border: 1px solid #2a2a2a;
+    color: #888888;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.workflow-tab-btn:hover { border-color: #444444; color: #cccccc; }
+.workflow-tab-btn.active {
+    background: rgba(0,255,136,0.08);
+    border-color: rgba(0,255,136,0.30);
+    color: #00ff88;
+}
+.workflow-tab-btn i { color: inherit !important; }
+
+[data-theme="light"] .workflow-tab-btn { background: var(--lt-surface) !important; border-color: var(--lt-border) !important; color: var(--lt-text-muted) !important; }
+[data-theme="light"] .workflow-tab-btn:hover { border-color: var(--lt-border-strong) !important; color: var(--lt-text-secondary) !important; }
+[data-theme="light"] .workflow-tab-btn.active { background: var(--lt-accent-bg) !important; border-color: var(--lt-accent-border) !important; color: var(--lt-accent) !important; }
+[data-theme="light"] .workflow-tab-btn i { color: inherit !important; }
+
+/* Workflow step / tag cards */
+[data-theme="light"] .wf-step { background: rgba(0,0,0,0.01) !important; border-color: var(--lt-border) !important; }
+[data-theme="light"] .wf-step-text { color: var(--lt-text-secondary) !important; }
+[data-theme="light"] .wf-step-text strong { color: var(--lt-text-primary) !important; }
+[data-theme="light"] .wf-tag-card { background: rgba(0,0,0,0.015) !important; border-color: var(--lt-border) !important; }
+[data-theme="light"] .wf-tag-desc { color: var(--lt-text-muted) !important; }
+[data-theme="light"] .wf-tag-detail-row { background: rgba(0,0,0,0.03) !important; }
+[data-theme="light"] .wf-tag-detail-label { color: var(--lt-text-muted) !important; }
+[data-theme="light"] .wf-tag-detail-val { color: var(--lt-text-secondary) !important; }
+[data-theme="light"] .wf-date-pill { background: rgba(0,0,0,0.03) !important; }
+[data-theme="light"] .wf-date-range { color: var(--lt-text-muted) !important; }
+[data-theme="light"] .wf-cf-chip { background: rgba(156,39,176,0.06) !important; border-color: rgba(156,39,176,0.15) !important; }
+
+/* ================================================================
+   GENERIC BUTTON LIGHT FALLBACK
+   (prevents dark-only inline-styled buttons going invisible)
+   ================================================================ */
+[data-theme="light"] button { color: var(--lt-text-secondary); }
+[data-theme="light"] .tab-pane button {
+    color: var(--lt-text-secondary);
+    border-color: var(--lt-border) !important;
+}
+/* Preserve green CTA buttons in light mode */
+[data-theme="light"] .tab-pane button[style*="background:linear-gradient(135deg,#00ff88"],
+[data-theme="light"] .tab-pane button[style*="background:linear-gradient(135deg, #00ff88"] {
+    color: #000000 !important;
+}
+/* Preserve orange warning buttons */
+[data-theme="light"] .tab-pane button[style*="background:linear-gradient(135deg,#ffa500"],
+[data-theme="light"] .tab-pane button[style*="background:linear-gradient(135deg, #ffa500"] {
+    color: #000000 !important;
+}

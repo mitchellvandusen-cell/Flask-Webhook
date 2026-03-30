@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 
-{% block title %}InsuranceGrokBot — The AI That Won't Take No for an Answer{% endblock %}
+{% block title %}InsuranceGrokBot — The Power Dialer Built for Insurance Agents{% endblock %}
 
-{% block meta_description %}The multi-line power dialer built for insurance agents. Dial 4 lines. The AI texts every lead you miss, handles every 'not interested,' and books appointments. From $149.99/mo.{% endblock %}
+{% block meta_description %}Dial 4 lines simultaneously. Zero per-minute charges. The AI texts every lead you miss, handles objections, and books appointments while you keep dialing. 7-day free trial.{% endblock %}
 
 {% block json_ld %}
 <script type="application/ld+json">
@@ -37,7 +37,10 @@
 
 {% block content %}
 <style>
-    /* ── HERO ── */
+    /* ══════════════════════════════════════════
+       HERO — Command Center Aesthetic
+       Black ops. Built for closers.
+    ══════════════════════════════════════════ */
     .hp-hero {
         min-height: 100vh;
         display: flex;
@@ -50,71 +53,278 @@
         position: relative;
         overflow: hidden;
     }
+
+    /* Deep radial glow from bottom */
     .hp-hero::before {
         content: '';
         position: absolute;
-        bottom: 0; left: 50%;
+        bottom: -80px; left: 50%;
         transform: translateX(-50%);
-        width: 600px; height: 300px;
-        background: radial-gradient(ellipse at 50% 100%, rgba(0,255,136,0.07) 0%, transparent 70%);
+        width: 900px; height: 500px;
+        background: radial-gradient(ellipse at 50% 100%,
+            rgba(0,255,136,0.10) 0%,
+            rgba(0,255,136,0.04) 40%,
+            transparent 70%);
         pointer-events: none;
+        z-index: 0;
     }
+    /* Top edge accent line */
+    .hp-hero::after {
+        content: '';
+        position: absolute;
+        top: 0; left: 10%; right: 10%;
+        height: 1px;
+        background: linear-gradient(90deg,
+            transparent,
+            rgba(0,255,136,0.30) 30%,
+            rgba(0,255,136,0.60) 50%,
+            rgba(0,255,136,0.30) 70%,
+            transparent);
+        animation: borderPulse 4s ease-in-out infinite;
+    }
+    @keyframes borderPulse {
+        0%, 100% { opacity: 0.6; }
+        50% { opacity: 1; }
+    }
+
+    /* Scan line — sweeps once on load */
+    .hp-scanline {
+        position: absolute;
+        left: 0; right: 0;
+        height: 1px;
+        background: linear-gradient(90deg,
+            transparent 0%,
+            rgba(0,255,136,0.5) 20%,
+            rgba(0,255,136,0.9) 50%,
+            rgba(0,255,136,0.5) 80%,
+            transparent 100%);
+        top: 0;
+        animation: scanDown 1.8s cubic-bezier(0.4,0,0.2,1) 0.3s forwards;
+        opacity: 0;
+        pointer-events: none;
+        z-index: 10;
+    }
+    @keyframes scanDown {
+        0%   { top: 0%;   opacity: 0; }
+        8%   { opacity: 1; }
+        92%  { opacity: 0.4; }
+        100% { top: 100%; opacity: 0; }
+    }
+
+    /* Corner brackets — command-room UI */
+    .hp-corner {
+        position: absolute;
+        width: 28px; height: 28px;
+        pointer-events: none;
+        opacity: 0;
+        animation: fadeIn 0.4s ease 1.6s forwards;
+    }
+    .hp-corner::before, .hp-corner::after {
+        content: '';
+        position: absolute;
+        background: #00ff88;
+    }
+    .hp-corner::before { width: 100%; height: 1px; }
+    .hp-corner::after  { width: 1px; height: 100%; }
+    .hp-corner-tl { top: 32px; left: 32px; }
+    .hp-corner-tr { top: 32px; right: 32px; transform: scaleX(-1); }
+    .hp-corner-bl { bottom: 32px; left: 32px; transform: scaleY(-1); }
+    .hp-corner-br { bottom: 32px; right: 32px; transform: scale(-1); }
+
+    /* Hero inner — above pseudo elements */
+    .hp-hero-inner { position: relative; z-index: 1; }
+
+    /* Label */
     .hp-hero-label {
-        font-size: 0.68rem;
-        font-weight: 700;
-        letter-spacing: 3px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.65rem;
+        font-weight: 800;
+        letter-spacing: 4px;
         text-transform: uppercase;
         color: #00ff88;
-        margin-bottom: 24px;
+        margin-bottom: 28px;
         opacity: 0;
-        animation: fadeSlideUp 0.5s ease 0.1s forwards;
+        animation: fadeSlideUp 0.45s ease 0.6s forwards;
+        border: 1px solid rgba(0,255,136,0.25);
+        padding: 6px 16px;
+        border-radius: 4px;
+        background: rgba(0,255,136,0.05);
     }
+    .hp-hero-label::before {
+        content: '';
+        width: 6px; height: 6px;
+        border-radius: 50%;
+        background: #00ff88;
+        box-shadow: 0 0 8px #00ff88;
+        animation: livePulse 1.5s ease-in-out infinite;
+    }
+    @keyframes livePulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.4; transform: scale(0.7); }
+    }
+
+    /* Headline — split lines, each staggered */
     .hp-hero-h1 {
-        font-size: clamp(2.8rem, 5.5vw, 5rem);
+        font-size: clamp(3rem, 6vw, 5.5rem);
         font-weight: 900;
         color: #fff;
-        line-height: 1.05;
-        letter-spacing: -2px;
-        margin-bottom: 20px;
-        opacity: 0;
-        animation: fadeSlideUp 0.5s ease 0.2s forwards;
-        max-width: 860px;
+        line-height: 1.0;
+        letter-spacing: -3px;
+        margin-bottom: 24px;
+        max-width: 900px;
     }
-    .hp-hero-rotate-wrap {
-        font-size: clamp(1rem, 2vw, 1.25rem);
+    .h1-line {
+        display: block;
+        opacity: 0;
+        transform: translateY(24px);
+    }
+    .h1-line:nth-child(1) { animation: fadeSlideUp 0.5s cubic-bezier(0.2,1,0.4,1) 0.75s forwards; }
+    .h1-line:nth-child(2) { animation: fadeSlideUp 0.5s cubic-bezier(0.2,1,0.4,1) 0.90s forwards; }
+    .h1-line:nth-child(3) {
+        animation: fadeSlideUp 0.5s cubic-bezier(0.2,1,0.4,1) 1.05s forwards;
+        color: #00ff88;
+    }
+    /* Underline accent on green line */
+    .h1-line:nth-child(3) em {
+        font-style: normal;
+        position: relative;
+    }
+    .h1-line:nth-child(3) em::after {
+        content: '';
+        position: absolute;
+        bottom: 4px; left: 0; right: 0;
+        height: 3px;
+        background: #00ff88;
+        border-radius: 2px;
+        opacity: 0;
+        animation: lineReveal 0.4s ease 1.5s forwards;
+    }
+    @keyframes lineReveal {
+        from { transform: scaleX(0); opacity: 0; }
+        to   { transform: scaleX(1); opacity: 1; }
+    }
+
+    /* Ticker subline */
+    .hp-hero-ticker {
+        font-size: clamp(0.92rem, 1.8vw, 1.15rem);
         font-weight: 500;
-        color: #888;
-        margin-bottom: 32px;
+        color: #555;
+        margin-bottom: 36px;
         opacity: 0;
-        animation: fadeSlideUp 0.5s ease 0.35s forwards;
-        line-height: 1.5;
+        animation: fadeSlideUp 0.45s ease 1.2s forwards;
+        line-height: 1.6;
+        font-family: 'JetBrains Mono', monospace;
+        letter-spacing: -0.3px;
     }
-    .hp-hero-rotate-static { color: #888; }
-    .hp-hero-rotate-word {
-        color: #fff;
+    .hp-ticker-prefix { color: #444; }
+    .hp-ticker-value {
+        color: #ffffff;
         display: inline-block;
-        transition: opacity 0.25s ease;
-        min-width: 200px;
+        position: relative;
+        min-width: 260px;
         text-align: left;
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        font-weight: 700;
     }
+    .hp-ticker-value.fading {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+    .hp-ticker-cursor {
+        display: inline-block;
+        width: 2px; height: 1em;
+        background: #00ff88;
+        margin-left: 2px;
+        vertical-align: middle;
+        animation: blink 1s step-end infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0;} }
+
+    /* CTAs */
     .hp-hero-ctas {
         display: flex;
-        gap: 12px;
+        gap: 14px;
         justify-content: center;
         flex-wrap: wrap;
         opacity: 0;
-        animation: fadeSlideUp 0.5s ease 0.45s forwards;
+        animation: fadeSlideUp 0.45s ease 1.35s forwards;
     }
-    .hp-hero-ctas .btn-primary {
-        padding: 14px 32px;
-        font-size: 1rem;
-        font-weight: 700;
-        letter-spacing: 0.2px;
+    /* Primary trial CTA — bold, glowing */
+    .hp-btn-trial {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        background: #00ff88;
+        color: #000;
+        font-weight: 900;
+        font-size: 0.95rem;
+        letter-spacing: 0.3px;
+        padding: 15px 36px;
+        border-radius: 6px;
+        border: none;
+        text-decoration: none;
+        transition: all 0.15s ease;
+        box-shadow: 0 0 0 0 rgba(0,255,136,0.5);
+        animation: trialGlow 3s ease-in-out 2s infinite;
+        position: relative;
+        overflow: hidden;
     }
-    .hp-hero-ctas .btn-outline-accent {
-        padding: 13px 28px;
-        font-size: 1rem;
+    .hp-btn-trial::before {
+        content: '';
+        position: absolute;
+        top: 0; left: -100%;
+        width: 60%; height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+        transform: skewX(-20deg);
+        transition: left 0.6s ease;
     }
+    .hp-btn-trial:hover { background: #fff; color: #000; text-decoration: none; }
+    .hp-btn-trial:hover::before { left: 160%; }
+    @keyframes trialGlow {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(0,255,136,0.4), 0 4px 20px rgba(0,255,136,0.3); }
+        50% { box-shadow: 0 0 0 10px rgba(0,255,136,0), 0 6px 30px rgba(0,255,136,0.5); }
+    }
+
+    .hp-btn-demo {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: transparent;
+        color: #888;
+        font-weight: 600;
+        font-size: 0.92rem;
+        padding: 14px 28px;
+        border-radius: 6px;
+        border: 1px solid #222;
+        text-decoration: none;
+        transition: all 0.15s ease;
+    }
+    .hp-btn-demo:hover { color: #fff; border-color: #444; text-decoration: none; }
+
+    /* Trust strip below CTAs */
+    .hp-trust-strip {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 24px;
+        margin-top: 24px;
+        opacity: 0;
+        animation: fadeSlideUp 0.4s ease 1.5s forwards;
+        flex-wrap: wrap;
+    }
+    .hp-trust-item {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: #404040;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+    }
+    .hp-trust-item i { color: #00ff88; font-size: 0.65rem; }
 
     /* ── Stats bar ── */
     .hp-stats {
@@ -293,6 +503,10 @@
         from { opacity: 0; transform: translateY(16px); }
         to { opacity: 1; transform: translateY(0); }
     }
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+    }
 </style>
 
 <!-- ── Side Dots ── -->
@@ -310,15 +524,47 @@
 <section class="ios-snap-section" id="iosSection0" style="background:#000; display:flex; flex-direction:column; justify-content:center;">
     <div class="container">
         <div class="hp-hero" style="min-height:auto; padding: 0;">
-            <div class="hp-hero-label">Power Dialer for Life Insurance Agents</div>
-            <h1 class="hp-hero-h1">The AI That Won't<br>Take No for an Answer.</h1>
-            <div class="hp-hero-rotate-wrap">
-                <span class="hp-hero-rotate-static">When your lead </span><span class="hp-hero-rotate-word" id="heroRotate">doesn't answer —</span><br>
-                <span class="hp-hero-rotate-static">the AI handles it. You stay focused on the close.</span>
-            </div>
-            <div class="hp-hero-ctas">
-                <a href="/register" class="btn btn-primary">Start 7-Day Free Trial</a>
-                <a href="/demo-chat" class="btn btn-outline-accent">Watch SMS Demo</a>
+            <!-- Scan line sweeps once on load -->
+            <div class="hp-scanline"></div>
+            <!-- Corner brackets -->
+            <div class="hp-corner hp-corner-tl"></div>
+            <div class="hp-corner hp-corner-tr"></div>
+            <div class="hp-corner hp-corner-bl"></div>
+            <div class="hp-corner hp-corner-br"></div>
+
+            <div class="hp-hero-inner">
+                <div class="hp-hook-line">
+                    <span>You didn't get into this business to</span><span class="hp-hook-task" id="heroHookTask">re-dial the same number 8 times.</span>
+                </div>
+
+                <div class="hp-hero-label">Power Dialer for Life Insurance Agents</div>
+
+                <h1 class="hp-hero-h1">
+                    <span class="h1-line">Dial More.</span>
+                    <span class="h1-line">Connect More.</span>
+                    <span class="h1-line"><em>Close More.</em></span>
+                </h1>
+
+                <div class="hp-hero-ticker">
+                    <span class="hp-ticker-prefix">Built for agents who want </span><span class="hp-ticker-value" id="heroRotate">4 lines simultaneously.</span><span class="hp-ticker-cursor"></span>
+                </div>
+
+                <div class="hp-hero-ctas">
+                    <a href="/register" class="hp-btn-trial">
+                        <i class="fa-solid fa-bolt"></i>
+                        Start 7-Day Free Trial
+                    </a>
+                    <a href="/demo-chat" class="hp-btn-demo">
+                        <i class="fa-regular fa-circle-play"></i>
+                        See It In Action
+                    </a>
+                </div>
+
+                <div class="hp-trust-strip">
+                    <span class="hp-trust-item"><i class="fa-solid fa-check"></i> No credit card required</span>
+                    <span class="hp-trust-item"><i class="fa-solid fa-check"></i> Cancel anytime</span>
+                    <span class="hp-trust-item"><i class="fa-solid fa-check"></i> 7 days free</span>
+                </div>
             </div>
         </div>
     </div>
@@ -464,6 +710,87 @@
     </div>
 </section>
 
+
+<!-- ═══════════ SPAM PROTECTION PROMO ═══════════ -->
+<section class="sp-promo">
+    <div class="container">
+        <div class="sp-promo-layout">
+            <!-- Phone mockup -->
+            <div class="sp-promo-phone-wrap">
+                <div class="sp-promo-phone" id="spPromoPhone">
+                    <div class="sp-promo-notch"></div>
+                    <!-- Bad: Spam Likely -->
+                    <div class="sp-call-screen sp-call-bad">
+                        <div class="sp-call-badge bad">Spam Likely</div>
+                        <div class="sp-call-name bad">Unknown Caller</div>
+                        <div class="sp-call-sub">No business name registered</div>
+                        <div class="sp-call-btns">
+                            <div class="sp-call-btn decline"><i class="fa-solid fa-phone-slash"></i></div>
+                            <div class="sp-call-btn ignore"><i class="fa-solid fa-volume-xmark"></i></div>
+                        </div>
+                    </div>
+                    <!-- Good: Business name -->
+                    <div class="sp-call-screen sp-call-good">
+                        <div class="sp-call-badge good">Verified Business</div>
+                        <div class="sp-call-name good">Jake Anderson<br>Shield Life Insurance</div>
+                        <div class="sp-call-sub good">CNAM Registered · STIR/SHAKEN</div>
+                        <div class="sp-call-btns">
+                            <div class="sp-call-btn decline"><i class="fa-solid fa-phone-slash"></i></div>
+                            <div class="sp-call-btn accept"><i class="fa-solid fa-phone"></i></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Text side -->
+            <div class="sp-promo-text">
+                <div class="sp-promo-tag">Spam Protection</div>
+                <h2 class="sp-promo-h2">Your calls are being labeled<br><span class="red">Spam Likely</span> right now.</h2>
+                <p class="sp-promo-body">Carriers are flagging millions of insurance agent calls every day. Leads see "Spam Likely" and don't pick up. You never even know it happened. You just think they're not home.</p>
+                <div class="sp-promo-stats">
+                    <div class="sp-promo-stat">
+                        <span class="sp-promo-stat-num red">45%</span>
+                        <div class="sp-promo-stat-lbl">of agent calls flagged as spam</div>
+                    </div>
+                    <div class="sp-promo-stat">
+                        <span class="sp-promo-stat-num red">61%</span>
+                        <div class="sp-promo-stat-lbl">drop in answer rate when labeled</div>
+                    </div>
+                    <div class="sp-promo-stat">
+                        <span class="sp-promo-stat-num green">3.2×</span>
+                        <div class="sp-promo-stat-lbl">higher answer rate when verified</div>
+                    </div>
+                </div>
+                <a href="/spam-protection" class="chain-next-cta">
+                    Fix Your Caller ID <i class="fa-solid fa-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════ AGENT / AGENCY BRANCH ═══════════ -->
+<section class="chain-next" style="padding: 72px 0;">
+    <div class="container">
+        <div class="chain-next-inner">
+            <div class="chain-next-eyebrow">Find Your Path</div>
+            <h2 class="chain-next-heading">Solo agent or running a team?<br><em>We built both.</em></h2>
+            <div class="chain-branch" style="margin-top: 36px;">
+                <a href="/for-individuals" class="chain-branch-card">
+                    <div class="chain-branch-tag">For Agents</div>
+                    <div class="chain-branch-title">You dial. You close. You keep every dollar.</div>
+                    <div class="chain-branch-desc">Built for solo agents who want to work more leads in less time. Multi-line dialing, AI follow-up, and a system that runs while you're on a call.</div>
+                    <div class="chain-branch-arrow">See the agent platform <i class="fa-solid fa-arrow-right"></i></div>
+                </a>
+                <a href="/for-agencies" class="chain-branch-card">
+                    <div class="chain-branch-tag">For Agencies</div>
+                    <div class="chain-branch-title">You coach. You measure. Your agents produce.</div>
+                    <div class="chain-branch-desc">Built for agency owners who need visibility across every agent. See who's dialing, who's connecting, and who needs a call tomorrow morning.</div>
+                    <div class="chain-branch-arrow">See the agency platform <i class="fa-solid fa-arrow-right"></i></div>
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
 
 <!-- ═══════════ SECTION 2: AI FOLLOW-UP ═══════════ -->
 <section class="ios-snap-section" id="iosSection2" style="background:#060606;">
@@ -742,20 +1069,64 @@
         obs.observe(statsEl);
     }
 
-    /* ── Rotating hero phrase ── */
+    /* ── Rotating hero ticker ── */
     var rEl = document.getElementById('heroRotate');
     if (rEl) {
-        var words = ["doesn't answer —", "says 'not interested' —", "says 'I'm already covered' —", "goes to voicemail —"];
+        var words = [
+            "4 lines simultaneously.",
+            "voicemail drop in 1 click.",
+            "270+ carriers pre-loaded.",
+            "AI follow-up on every miss.",
+            "zero per-minute charges.",
+            "objections handled automatically.",
+            "appointments booked while you dial."
+        ];
         var ri = 0;
-        rEl.style.transition = 'opacity 0.25s ease';
         setInterval(function() {
-            rEl.style.opacity = '0';
+            rEl.classList.add('fading');
             setTimeout(function() {
                 ri = (ri + 1) % words.length;
                 rEl.textContent = words[ri];
-                rEl.style.opacity = '1';
-            }, 260);
-        }, 2400);
+                rEl.classList.remove('fading');
+            }, 220);
+        }, 2600);
+    }
+
+    /* ── Hero hook task cycling ── */
+    var hookEl = document.getElementById('heroHookTask');
+    if (hookEl) {
+        var tasks = [
+            "re-dial the same number 8 times.",
+            "wonder why your calls say Spam Likely.",
+            "babysit a drip campaign that goes nowhere.",
+            "manually follow up 80 leads who ghosted you.",
+            "wait for callbacks that never come.",
+            "leave the same voicemail all day long."
+        ];
+        var hi = 0;
+        setInterval(function() {
+            hookEl.classList.add('fading');
+            setTimeout(function() {
+                hi = (hi + 1) % tasks.length;
+                hookEl.textContent = tasks[hi];
+                hookEl.classList.remove('fading');
+            }, 220);
+        }, 3000);
+    }
+
+    /* ── Spam promo phone toggle ── */
+    var spPhone = document.getElementById('spPromoPhone');
+    if (spPhone) {
+        var spToggle = new IntersectionObserver(function(entries) {
+            if (entries[0].isIntersecting) {
+                setTimeout(function() { spPhone.classList.add('show-good'); }, 1800);
+                setInterval(function() {
+                    spPhone.classList.toggle('show-good');
+                }, 3200);
+                spToggle.disconnect();
+            }
+        }, { threshold: 0.5 });
+        spToggle.observe(spPhone);
     }
 
     /* ── Animated phone chat ── */

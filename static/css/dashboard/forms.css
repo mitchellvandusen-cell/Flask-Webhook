@@ -1,0 +1,468 @@
+/* ================================================================
+   DASHBOARD / FORMS.CSS
+   Form inputs, textareas, selects, .form-control, .form-select,
+   .input-group, Choices.js overrides, toggle switches, checkboxes.
+   Dark default + [data-theme="light"] overrides.
+   ================================================================ */
+
+/* ================================================================
+   FORM LABEL
+   ================================================================ */
+.form-label {
+    color: #cccccc;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-left: 5px;
+}
+
+[data-theme="light"] .form-label { color: #444444 !important; }
+
+/* ================================================================
+   INPUT GROUP TEXT
+   ================================================================ */
+.input-group-text {
+    background: #111111;
+    border: 1px solid #333333;
+    border-right: none;
+    color: #888888;
+}
+.input-group:focus-within .input-group-text {
+    border-color: #00ff88;
+    color: #00ff88;
+    background: #111111;
+}
+
+[data-theme="light"] .input-group-text {
+    background: #f0f0f0;
+    border-color: #d0d0d0;
+    border-right: none;
+    color: #666666;
+}
+[data-theme="light"] .input-group:focus-within .input-group-text {
+    border-color: #059669;
+    color: #059669;
+    background: #f8f8f8;
+}
+
+/* ================================================================
+   CORE INPUTS — .form-control, .form-select, native inputs
+   ================================================================ */
+.form-control,
+.form-select {
+    background: #171717 !important;
+    color: #ffffff !important;
+    border: 1px solid #333333 !important;
+    border-radius: 6px !important;
+    padding: 12px !important;
+    font-size: 1rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: none !important;
+}
+.form-control::placeholder { color: #505050 !important; }
+.form-control:focus,
+.form-select:focus {
+    background: #1c1c1c !important;
+    border-color: #00ff88 !important;
+    color: #ffffff !important;
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(0,255,136,0.15) !important;
+}
+.form-control:focus-visible,
+.form-select:focus-visible {
+    outline: 2px solid rgba(0,255,136,0.40) !important;
+    outline-offset: 2px !important;
+}
+
+/* Select arrow — dark */
+.form-select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23888888' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.75rem center !important;
+    background-size: 16px 12px !important;
+    padding-right: 2.5rem !important;
+}
+
+/* ── Light: inputs ── */
+[data-theme="light"] input[type="text"],
+[data-theme="light"] input[type="email"],
+[data-theme="light"] input[type="tel"],
+[data-theme="light"] input[type="url"],
+[data-theme="light"] input[type="number"],
+[data-theme="light"] input[type="password"],
+[data-theme="light"] input[type="search"],
+[data-theme="light"] textarea,
+[data-theme="light"] select,
+[data-theme="light"] .form-control,
+[data-theme="light"] .form-select {
+    background: #ffffff !important;
+    color: #111111 !important;
+    border-color: #d0d0d0 !important;
+    box-shadow: none !important;
+}
+[data-theme="light"] .form-control::placeholder,
+[data-theme="light"] textarea::placeholder,
+[data-theme="light"] input::placeholder { color: #aaaaaa !important; }
+[data-theme="light"] input:focus,
+[data-theme="light"] textarea:focus,
+[data-theme="light"] select:focus,
+[data-theme="light"] .form-control:focus,
+[data-theme="light"] .form-select:focus {
+    background: #ffffff !important;
+    border-color: #059669 !important;
+    color: #111111 !important;
+    box-shadow: 0 0 0 2px rgba(5,150,105,0.15) !important;
+}
+[data-theme="light"] select option {
+    background: #ffffff !important;
+    color: #111111 !important;
+}
+/* Select arrow — light */
+[data-theme="light"] .form-select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23555555' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.75rem center !important;
+    background-size: 16px 12px !important;
+    padding-right: 2.5rem !important;
+}
+
+/* ================================================================
+   CHOICES.JS OVERRIDES
+   ================================================================ */
+
+/* Wrapper */
+.choices {
+    font-size: 1rem;
+}
+.choices__inner {
+    background: #171717 !important;
+    border: 1px solid #333333 !important;
+    border-radius: 6px !important;
+    color: #ffffff !important;
+    padding: 8px 12px !important;
+    min-height: 44px;
+}
+.choices__input {
+    background: transparent !important;
+    color: #ffffff !important;
+    border: none !important;
+    padding: 0 !important;
+}
+.choices__input::placeholder { color: #505050 !important; }
+.choices[data-type*="select-one"] .choices__input {
+    background: #1a1a1a !important;
+    border-bottom: 1px solid #333333 !important;
+    color: #ffffff !important;
+}
+.choices__list--dropdown,
+.choices__list[aria-expanded] {
+    background: #1a1a1a !important;
+    border: 1px solid #333333 !important;
+    border-radius: 6px !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.60) !important;
+    z-index: 500;
+}
+.choices__list--dropdown .choices__item {
+    color: #cccccc !important;
+    padding: 10px 14px !important;
+    font-size: 0.92rem;
+}
+.choices__list--dropdown .choices__item:hover,
+.choices__list--dropdown .choices__item.is-highlighted {
+    background: rgba(0,255,136,0.08) !important;
+    color: #ffffff !important;
+}
+.choices__list--multiple .choices__item {
+    background: rgba(0,255,136,0.12) !important;
+    border: 1px solid rgba(0,255,136,0.28) !important;
+    color: #00ff88 !important;
+    border-radius: 4px !important;
+}
+.choices__list--multiple .choices__item .choices__button {
+    border-left: 1px solid rgba(0,255,136,0.30) !important;
+    color: #00ff88 !important;
+}
+.choices[data-type*="select-one"]::after {
+    border-color: #888888 transparent transparent transparent !important;
+}
+.choices.is-open[data-type*="select-one"]::after {
+    border-color: transparent transparent #888888 transparent !important;
+}
+/* Focused state */
+.choices__inner:focus-within,
+.choices.is-focused .choices__inner,
+.choices.is-open .choices__inner {
+    border-color: #00ff88 !important;
+    box-shadow: 0 0 0 2px rgba(0,255,136,0.12) !important;
+}
+
+/* ── Light: Choices.js ── */
+[data-theme="light"] .choices__inner {
+    background: #ffffff !important;
+    border-color: #d0d0d0 !important;
+    color: #111111 !important;
+}
+[data-theme="light"] .choices__input {
+    background: transparent !important;
+    color: #111111 !important;
+}
+[data-theme="light"] .choices__input::placeholder { color: #aaaaaa !important; }
+[data-theme="light"] .choices[data-type*="select-one"] .choices__input {
+    background: #f8f8f8 !important;
+    border-bottom: 1px solid #e0e0e0 !important;
+    color: #111111 !important;
+}
+[data-theme="light"] .choices__list--dropdown,
+[data-theme="light"] .choices__list[aria-expanded] {
+    background: #ffffff !important;
+    border-color: #d0d0d0 !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
+}
+[data-theme="light"] .choices__list--dropdown .choices__item {
+    color: #444444 !important;
+}
+[data-theme="light"] .choices__list--dropdown .choices__item:hover,
+[data-theme="light"] .choices__list--dropdown .choices__item.is-highlighted {
+    background: rgba(5,150,105,0.07) !important;
+    color: #111111 !important;
+}
+[data-theme="light"] .choices__list--multiple .choices__item {
+    background: rgba(5,150,105,0.10) !important;
+    border-color: rgba(5,150,105,0.25) !important;
+    color: #059669 !important;
+}
+[data-theme="light"] .choices__list--multiple .choices__item .choices__button {
+    border-left-color: rgba(5,150,105,0.28) !important;
+    color: #059669 !important;
+}
+[data-theme="light"] .choices[data-type*="select-one"]::after {
+    border-color: #555555 transparent transparent transparent !important;
+}
+[data-theme="light"] .choices.is-open[data-type*="select-one"]::after {
+    border-color: transparent transparent #555555 transparent !important;
+}
+[data-theme="light"] .choices__inner:focus-within,
+[data-theme="light"] .choices.is-focused .choices__inner,
+[data-theme="light"] .choices.is-open .choices__inner {
+    border-color: #059669 !important;
+    box-shadow: 0 0 0 2px rgba(5,150,105,0.12) !important;
+}
+
+/* ================================================================
+   TOGGLE SWITCHES (Bootstrap / custom)
+   ================================================================ */
+.form-check-input[type="checkbox"] {
+    accent-color: #00ff88;
+    border: 1px solid #444444;
+    background-color: #171717;
+    width: 16px; height: 16px;
+    cursor: pointer;
+}
+.form-check-input[type="checkbox"]:checked {
+    background-color: #00ff88;
+    border-color: #00ff88;
+}
+.form-check-input[type="checkbox"]:focus {
+    box-shadow: 0 0 0 2px rgba(0,255,136,0.20);
+}
+/* Toggle switch (type=checkbox with form-switch) */
+.form-switch .form-check-input {
+    width: 2.5em;
+    height: 1.25em;
+    background-color: #2a2a2a;
+    border-color: #444444;
+    accent-color: #00ff88;
+    cursor: pointer;
+}
+.form-switch .form-check-input:checked {
+    background-color: #00ff88;
+    border-color: #00ff88;
+}
+.form-switch .form-check-input:focus {
+    box-shadow: 0 0 0 2px rgba(0,255,136,0.20);
+    border-color: #00ff88;
+}
+.form-check-label { color: #cccccc; cursor: pointer; }
+
+/* ── Light: checkboxes and toggles ── */
+[data-theme="light"] .form-check-input[type="checkbox"] {
+    accent-color: #059669;
+    border-color: #cccccc;
+    background-color: #ffffff;
+}
+[data-theme="light"] .form-check-input[type="checkbox"]:checked {
+    background-color: #059669;
+    border-color: #059669;
+}
+[data-theme="light"] .form-check-input[type="checkbox"]:focus {
+    box-shadow: 0 0 0 2px rgba(5,150,105,0.18);
+}
+[data-theme="light"] .form-switch .form-check-input {
+    background-color: #e0e0e0;
+    border-color: #cccccc;
+}
+[data-theme="light"] .form-switch .form-check-input:checked {
+    background-color: #059669;
+    border-color: #059669;
+}
+[data-theme="light"] .form-switch .form-check-input:focus {
+    box-shadow: 0 0 0 2px rgba(5,150,105,0.18);
+    border-color: #059669;
+}
+[data-theme="light"] .form-check-label { color: #444444; }
+
+/* ================================================================
+   DIALER COLUMN SYSTEM
+   ================================================================ */
+#dlrColContacts.glass-panel {
+    background: #0d0d0d;
+    border-color: #1e1e1e;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.60), 0 4px 12px rgba(0,0,0,0.40);
+}
+.dlr-col-hdr {
+    padding: 11px 14px;
+    border-bottom: 1px solid #1e1e1e;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    background: #0a0a0a;
+}
+.dlr-col-hdr h6 {
+    margin: 0;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #00d9ff;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+#dialerFilterWrap {
+    background: #0a0a0a;
+    border-bottom: 1px solid #1e1e1e;
+}
+.dlr-contact-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid #141414;
+    transition: background 0.10s ease, border-left-color 0.10s ease;
+    border-left: 2px solid transparent;
+    position: relative;
+}
+.dlr-contact-row:hover {
+    background: #111827;
+    border-left-color: rgba(0,217,255,0.45);
+}
+.dlr-contact-row.active {
+    background: #0f1e2e;
+    border-left-color: #00d9ff;
+}
+#dialerPipelineFilter,
+#dialerStageFilter {
+    padding: 7px 2.2rem 7px 10px !important;
+    font-size: 0.84rem !important;
+    border-radius: 6px !important;
+    margin-bottom: 4px;
+}
+
+/* ── Light: dialer columns ── */
+[data-theme="light"] #dlrColContacts.glass-panel {
+    background: #ffffff;
+    border-color: #e0e0e0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 4px 12px rgba(0,0,0,0.04);
+}
+[data-theme="light"] .dlr-col-hdr {
+    background: #f8f8f8;
+    border-bottom-color: #e0e0e0;
+}
+[data-theme="light"] #dialerFilterWrap {
+    background: #f4f4f4;
+    border-bottom-color: #e0e0e0;
+}
+[data-theme="light"] .dlr-contact-row { border-bottom-color: #f0f0f0; }
+[data-theme="light"] .dlr-contact-row:hover {
+    background: #f8f8f8;
+    border-left-color: rgba(5,150,105,0.50);
+}
+[data-theme="light"] .dlr-contact-row.active {
+    background: #f0fdf4;
+    border-left-color: #059669;
+}
+
+/* ================================================================
+   DIALER ENGAGEMENT DOTS & INTELLIGENCE (light)
+   ================================================================ */
+[data-theme="light"] .igb-engage-dots .igb-dot { background: rgba(0,0,0,0.06) !important; border-color: rgba(0,0,0,0.10) !important; }
+[data-theme="light"] .igb-engage-dots .igb-dot.lit { background: #059669 !important; border-color: #059669 !important; }
+[data-theme="light"] .igb-engage-dots .igb-dot.lit-warm { background: #e67e00 !important; border-color: #e67e00 !important; }
+[data-theme="light"] .igb-engage-dots .igb-dot.lit-hot { background: #059669 !important; border-color: #059669 !important; }
+[data-theme="light"] .igb-filter-hdr { background: var(--lt-accent-bg) !important; border-bottom-color: #e0e0e0 !important; }
+[data-theme="light"] .igb-filter-hdr:hover { background: rgba(5,150,105,0.07) !important; }
+[data-theme="light"] .igb-filter-hdr .igb-filter-count { color: #666666 !important; }
+[data-theme="light"] .igb-score-ring .igb-ring-bg { stroke: rgba(0,0,0,0.06) !important; }
+[data-theme="light"] .igb-intel-pill { background: #f8f8f8 !important; border-color: #e0e0e0 !important; color: #444444 !important; }
+[data-theme="light"] .igb-intel-pill i { color: #059669 !important; }
+[data-theme="light"] .igb-intel-pill .igb-pill-val { color: #111111 !important; }
+[data-theme="light"] .igb-timeline { background: rgba(0,0,0,0.02) !important; border-color: #e0e0e0 !important; }
+[data-theme="light"] .igb-tl-dot { border-color: rgba(0,0,0,0.10) !important; background: rgba(0,0,0,0.03) !important; }
+[data-theme="light"] .igb-tl-dot.completed { background: #059669 !important; border-color: #059669 !important; }
+[data-theme="light"] .igb-tl-dot.active { background: #059669 !important; border-color: #059669 !important; }
+[data-theme="light"] .igb-tl-line { background: rgba(0,0,0,0.06) !important; }
+[data-theme="light"] .igb-tl-line.completed { background: linear-gradient(to right, #047857, #059669) !important; }
+[data-theme="light"] .igb-tl-label { color: #666666 !important; }
+[data-theme="light"] .igb-summary-card { background: var(--lt-accent-bg) !important; border-color: var(--lt-accent-border) !important; }
+[data-theme="light"] .igb-summary-hdr i { color: #0369a1 !important; }
+[data-theme="light"] .igb-summary-hdr span { color: #0369a1 !important; }
+[data-theme="light"] .igb-summary-body { color: #444444 !important; }
+[data-theme="light"] .igb-facts-list li { color: #444444 !important; border-color: #e0e0e0 !important; }
+[data-theme="light"] .igb-facts-list li::before { color: #059669 !important; }
+[data-theme="light"] .igb-action-btn.act-call { background: linear-gradient(135deg, #059669, #047857) !important; color: #ffffff !important; }
+[data-theme="light"] .igb-action-btn.act-sms { background: var(--lt-accent-bg) !important; border-color: var(--lt-accent-border) !important; color: #059669 !important; }
+[data-theme="light"] .igb-action-btn.act-queue { background: #f8f8f8 !important; border-color: #e0e0e0 !important; color: #444444 !important; }
+[data-theme="light"] .igb-live-dot { border-color: #ffffff !important; }
+[data-theme="light"] .igb-live-dot.live-call { background: #16a34a !important; }
+[data-theme="light"] .igb-live-dot.has-callback { background: #d97706 !important; }
+[data-theme="light"] .igb-live-dot.idle { background: #9ca3af !important; }
+[data-theme="light"] .igb-score-num { color: #111111 !important; }
+[data-theme="light"] .igb-score-label { color: #111111 !important; }
+[data-theme="light"] .igb-action-btn.act-schedule { background: rgba(220,38,38,0.07) !important; border-color: rgba(220,38,38,0.18) !important; color: #dc2626 !important; }
+[data-theme="light"] #dialerStatsToggle { background: #f8f8f8 !important; border-color: #cccccc !important; color: #666666 !important; }
+[data-theme="light"] #dialerStatsToggle:hover { border-color: var(--lt-accent-border) !important; color: #059669 !important; }
+#dialerStatsToggle.dlr-stats-active { color: #00d9ff !important; }
+[data-theme="light"] #dialerStatsToggle.dlr-stats-active { color: #059669 !important; border-color: var(--lt-accent-border) !important; }
+[data-theme="light"] #dialerHistoryList > div,
+[data-theme="light"] #dialerRecordingsList > div { color: #444444 !important; border-bottom-color: #e0e0e0 !important; }
+[data-theme="light"] #dialerHistoryList > div:hover,
+[data-theme="light"] #dialerRecordingsList > div:hover { background: rgba(0,0,0,0.02) !important; }
+[data-theme="light"] #transcriptModal > div { background: #ffffff !important; border-color: #e0e0e0 !important; }
+[data-theme="light"] .dlr-msg-bubble.dlr-msg-lead { background: #f0f0f0 !important; border-color: #e0e0e0 !important; color: #111111 !important; }
+[data-theme="light"] .dlr-msg-bubble.dlr-msg-bot { background: rgba(5,150,105,0.07) !important; border-color: rgba(5,150,105,0.16) !important; color: #064e3b !important; }
+
+/* ================================================================
+   CONSENT CHECKBOX
+   ================================================================ */
+.consent-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 12px 0 14px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    color: #999999;
+    line-height: 1.4;
+}
+.consent-check input[type="checkbox"] {
+    margin-top: 2px;
+    flex-shrink: 0;
+    accent-color: #00ff88;
+    width: 16px; height: 16px;
+    cursor: pointer;
+}
+.consent-check a {
+    color: #00ff88;
+    text-decoration: underline;
+}
+
+[data-theme="light"] .consent-check { color: #666666; }
+[data-theme="light"] .consent-check a { color: #059669; }

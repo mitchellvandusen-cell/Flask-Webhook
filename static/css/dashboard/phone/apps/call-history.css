@@ -1,0 +1,418 @@
+/* ================================================================
+   DASHBOARD / PHONE / APPS / CALL-HISTORY.CSS
+   iOS Call History app: call log rows, duration display,
+   missed/answered/voicemail indicators.
+   Dark = default. Light = [data-theme="light"].
+   ================================================================ */
+
+/* ── Call Log Scroll Container ── */
+.ios-call-log-scroll {
+    background: #0a0a0a;
+    overflow-y: auto;
+    flex: 1;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.08) transparent;
+}
+.ios-call-log-scroll::-webkit-scrollbar { width: 4px; }
+.ios-call-log-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+}
+[data-theme="light"] .ios-call-log-scroll {
+    background: #ffffff;
+    scrollbar-color: rgba(0,0,0,0.10) transparent;
+}
+[data-theme="light"] .ios-call-log-scroll::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.10);
+}
+
+/* ── Call Row ── */
+.ios-call-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.ios-call-row:hover {
+    background: #171717;
+}
+[data-theme="light"] .ios-call-row {
+    border-bottom-color: rgba(0,0,0,0.07);
+}
+[data-theme="light"] .ios-call-row:hover {
+    background: #f8f8f8;
+}
+
+/* ── Call Direction Icon ── */
+.ios-call-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+
+/* Missed calls — red tint */
+.ios-call-row.missed .ios-call-icon {
+    background: rgba(255,59,48,0.12);
+    color: #ff3b30;
+}
+[data-theme="light"] .ios-call-row.missed .ios-call-icon {
+    background: rgba(220,38,38,0.10);
+    color: #dc2626;
+}
+
+/* Answered — green tint */
+.ios-call-row.answered .ios-call-icon {
+    background: rgba(0,255,136,0.10);
+    color: #00ff88;
+}
+[data-theme="light"] .ios-call-row.answered .ios-call-icon {
+    background: rgba(5,150,105,0.10);
+    color: #059669;
+}
+
+/* Outbound — blue tint */
+.ios-call-row.outbound .ios-call-icon {
+    background: rgba(59,130,246,0.10);
+    color: #3b82f6;
+}
+[data-theme="light"] .ios-call-row.outbound .ios-call-icon {
+    background: rgba(37,99,235,0.10);
+    color: #2563eb;
+}
+
+/* Voicemail — amber */
+.ios-call-row.voicemail .ios-call-icon {
+    background: rgba(255,179,0,0.10);
+    color: #ffb300;
+}
+[data-theme="light"] .ios-call-row.voicemail .ios-call-icon {
+    background: rgba(217,119,6,0.10);
+    color: #d97706;
+}
+
+/* ── Contact Name ── */
+.ios-call-name {
+    font-weight: 600;
+    color: #ffffff;
+    font-size: 0.88rem;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ios-call-row.missed .ios-call-name {
+    color: #ff3b30;
+}
+[data-theme="light"] .ios-call-name {
+    color: #111111;
+}
+[data-theme="light"] .ios-call-row.missed .ios-call-name {
+    color: #dc2626;
+}
+
+/* ── Call Detail (type / direction) ── */
+.ios-call-detail {
+    font-size: 0.75rem;
+    color: #606060;
+    display: block;
+    margin-top: 2px;
+}
+[data-theme="light"] .ios-call-detail {
+    color: #777777;
+}
+
+/* ── Duration ── */
+.ios-call-duration {
+    font-size: 0.75rem;
+    color: #a0a0a0;
+    font-family: monospace;
+    flex-shrink: 0;
+}
+[data-theme="light"] .ios-call-duration {
+    color: #666666;
+}
+
+/* ── Timestamp ── */
+.ios-call-time {
+    font-size: 0.72rem;
+    color: #444444;
+    flex-shrink: 0;
+    text-align: right;
+}
+[data-theme="light"] .ios-call-time {
+    color: #999999;
+}
+
+/* ── Call Body (name + detail stacked) ── */
+.ios-call-body {
+    flex: 1;
+    min-width: 0;
+}
+
+/* ── Call Row Meta (duration + time stacked right) ── */
+.ios-call-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    flex-shrink: 0;
+}
+
+/* ── "Info" button on each row ── */
+.ios-call-info-btn {
+    background: none;
+    border: none;
+    color: #444444;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 4px;
+    border-radius: 50%;
+    transition: color 0.15s, background 0.15s;
+    flex-shrink: 0;
+}
+.ios-call-info-btn:hover {
+    color: #00ff88;
+    background: rgba(0,255,136,0.08);
+}
+[data-theme="light"] .ios-call-info-btn {
+    color: #bbbbbb;
+}
+[data-theme="light"] .ios-call-info-btn:hover {
+    color: #059669;
+    background: rgba(5,150,105,0.08);
+}
+
+/* ── Section Header (Recent / Missed) ── */
+.ios-call-section-header {
+    padding: 6px 16px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #444444;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    background: #0a0a0a;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+[data-theme="light"] .ios-call-section-header {
+    color: #999999;
+    background: #f2f2f2;
+    border-bottom-color: rgba(0,0,0,0.06);
+}
+
+/* ── Inbox Conversation rows (shared with messages.css) ── */
+#inboxConversationList {
+    background: #0a0a0a;
+    overflow-y: auto;
+    flex: 1;
+}
+[data-theme="light"] #inboxConversationList {
+    background: #ffffff;
+}
+#inboxThreadMessages {
+    background: #0a0a0a;
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 14px;
+}
+[data-theme="light"] #inboxThreadMessages {
+    background: #f8f8f8;
+}
+
+.inbox-conv-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.inbox-conv-row:hover {
+    background: #171717;
+}
+[data-theme="light"] .inbox-conv-row {
+    border-bottom-color: rgba(0,0,0,0.07);
+}
+[data-theme="light"] .inbox-conv-row:hover {
+    background: #f8f8f8;
+}
+
+.inbox-conv-name {
+    font-weight: 600;
+    color: #ffffff;
+    font-size: 0.88rem;
+}
+[data-theme="light"] .inbox-conv-name {
+    color: #111111;
+}
+
+.inbox-conv-preview {
+    font-size: 0.78rem;
+    color: #606060;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+[data-theme="light"] .inbox-conv-preview {
+    color: #777777;
+}
+
+.inbox-conv-time {
+    font-size: 0.72rem;
+    color: #444444;
+    flex-shrink: 0;
+}
+[data-theme="light"] .inbox-conv-time {
+    color: #999999;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ACTION BUTTONS — Play / Download / Transcript / Transcribe / Callback
+   Solid fills. Zero transparency. Bold weight. Brand colors.
+   Dark: pure color on black. Light: same color + stronger shadow.
+   ══════════════════════════════════════════════════════════════ */
+.chr-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: none;
+    border-radius: 6px;
+    padding: 5px 11px;
+    font-size: 0.70rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: filter 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
+    text-decoration: none;
+    line-height: 1;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.chr-action-btn:hover {
+    filter: brightness(1.18);
+    transform: translateY(-1px);
+    text-decoration: none;
+}
+.chr-action-btn:active {
+    filter: brightness(0.92);
+    transform: translateY(0);
+}
+
+/* ── Play — brand blue (#007AFF) ── */
+.chr-btn-play {
+    background: #007AFF;
+    color: #ffffff;
+    box-shadow: 0 2px 10px rgba(0, 122, 255, 0.50);
+}
+.chr-btn-play:hover {
+    box-shadow: 0 4px 18px rgba(0, 122, 255, 0.70);
+    color: #ffffff;
+}
+
+/* ── Download — neon green / black text (brand primary) ── */
+.chr-btn-download {
+    background: #00ff88;
+    color: #000000;
+    box-shadow: 0 2px 10px rgba(0, 255, 136, 0.45);
+}
+.chr-btn-download:hover {
+    box-shadow: 0 4px 18px rgba(0, 255, 136, 0.65);
+    color: #000000;
+}
+
+/* ── Transcript (view existing) — rich violet ── */
+.chr-btn-transcript {
+    background: #7c3aed;
+    color: #ffffff;
+    box-shadow: 0 2px 10px rgba(124, 58, 237, 0.50);
+}
+.chr-btn-transcript:hover {
+    box-shadow: 0 4px 18px rgba(124, 58, 237, 0.70);
+    color: #ffffff;
+}
+
+/* ── Transcribe (generate new) — amber / black text ── */
+.chr-btn-transcribe {
+    background: #f59e0b;
+    color: #000000;
+    box-shadow: 0 2px 10px rgba(245, 158, 11, 0.45);
+}
+.chr-btn-transcribe:hover {
+    box-shadow: 0 4px 18px rgba(245, 158, 11, 0.65);
+    color: #000000;
+}
+
+/* ── Callback — neon green, right-aligned ── */
+.chr-btn-callback {
+    background: #00ff88;
+    color: #000000;
+    box-shadow: 0 2px 10px rgba(0, 255, 136, 0.45);
+    margin-left: auto;
+}
+.chr-btn-callback:hover {
+    box-shadow: 0 4px 18px rgba(0, 255, 136, 0.65);
+    color: #000000;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   LIGHT THEME — same hues, shadows boosted for white bg depth
+   ══════════════════════════════════════════════════════════════ */
+[data-theme="light"] .chr-btn-play {
+    background: #007AFF;
+    color: #ffffff;
+    box-shadow: 0 3px 12px rgba(0, 122, 255, 0.40);
+}
+[data-theme="light"] .chr-btn-play:hover {
+    box-shadow: 0 5px 20px rgba(0, 122, 255, 0.58);
+    color: #ffffff;
+}
+
+[data-theme="light"] .chr-btn-download {
+    background: #059669;
+    color: #ffffff;
+    box-shadow: 0 3px 12px rgba(5, 150, 105, 0.40);
+}
+[data-theme="light"] .chr-btn-download:hover {
+    box-shadow: 0 5px 20px rgba(5, 150, 105, 0.58);
+    color: #ffffff;
+}
+
+[data-theme="light"] .chr-btn-transcript {
+    background: #7c3aed;
+    color: #ffffff;
+    box-shadow: 0 3px 12px rgba(124, 58, 237, 0.40);
+}
+[data-theme="light"] .chr-btn-transcript:hover {
+    box-shadow: 0 5px 20px rgba(124, 58, 237, 0.58);
+    color: #ffffff;
+}
+
+[data-theme="light"] .chr-btn-transcribe {
+    background: #f59e0b;
+    color: #000000;
+    box-shadow: 0 3px 12px rgba(245, 158, 11, 0.40);
+}
+[data-theme="light"] .chr-btn-transcribe:hover {
+    box-shadow: 0 5px 20px rgba(245, 158, 11, 0.58);
+    color: #000000;
+}
+
+[data-theme="light"] .chr-btn-callback {
+    background: #059669;
+    color: #ffffff;
+    box-shadow: 0 3px 12px rgba(5, 150, 105, 0.40);
+    margin-left: auto;
+}
+[data-theme="light"] .chr-btn-callback:hover {
+    box-shadow: 0 5px 20px rgba(5, 150, 105, 0.58);
+    color: #ffffff;
+}

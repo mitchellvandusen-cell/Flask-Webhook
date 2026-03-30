@@ -1,0 +1,514 @@
+{% extends "base.html" %}
+
+{% block title %}Power Dialer for Life Insurance Agents — InsuranceGrokBot{% endblock %}
+
+{% block meta_description %}Stop dialing one lead at a time. InsuranceGrokBot's power dialer lets you run 4 lines at once, drop voicemails in one click, and connect with more people in less time. Built for insurance agents.{% endblock %}
+
+{% block content %}
+<style>
+    /* ── Page layout ── */
+    .dl-hero { padding: 150px 0 80px; text-align: center; position: relative; overflow: hidden; }
+    .dl-hero::before {
+        content: '';
+        position: absolute; inset: 0;
+        background: radial-gradient(ellipse at 50% 0%, rgba(0,255,136,0.06) 0%, transparent 60%);
+        pointer-events: none;
+    }
+    .dl-tag {
+        display: inline-block;
+        font-size: 0.62rem; font-weight: 800; letter-spacing: 3px; text-transform: uppercase;
+        color: var(--accent);
+        background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.18);
+        padding: 5px 16px; border-radius: 4px; margin-bottom: 24px;
+    }
+    .dl-h1 {
+        font-size: clamp(2.6rem, 5vw, 4.2rem);
+        font-weight: 900; line-height: 1.05; letter-spacing: -2.5px;
+        color: #fff; max-width: 780px; margin: 0 auto 24px;
+    }
+    .dl-h1 em { font-style: normal; color: var(--accent); }
+    .dl-sub {
+        font-size: 1.1rem; color: #606060; max-width: 580px;
+        margin: 0 auto 40px; line-height: 1.65;
+    }
+    .dl-ctas { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .dl-btn-primary {
+        display: inline-flex; align-items: center; gap: 10px;
+        background: var(--accent); color: #000;
+        font-weight: 900; font-size: 0.95rem; letter-spacing: 0.3px;
+        padding: 15px 36px; border-radius: 6px; border: none;
+        text-decoration: none; transition: all 0.15s ease;
+        box-shadow: 0 4px 24px rgba(0,255,136,0.35);
+    }
+    .dl-btn-primary:hover { background: #fff; color: #000; text-decoration: none; box-shadow: 0 6px 32px rgba(255,255,255,0.2); }
+    .dl-btn-ghost {
+        display: inline-flex; align-items: center; gap: 8px;
+        background: transparent; color: #666;
+        font-weight: 600; font-size: 0.92rem;
+        padding: 14px 28px; border-radius: 6px; border: 1px solid #222;
+        text-decoration: none; transition: all 0.15s ease;
+    }
+    .dl-btn-ghost:hover { color: #fff; border-color: #444; text-decoration: none; }
+
+    /* ── Section base ── */
+    .dl-section { padding: 90px 0; }
+    .dl-section-alt { background: #060606; }
+    .dl-section-sep { border: none; border-top: 1px solid #111; margin: 0; }
+
+    /* ── Section headings ── */
+    .dl-eyebrow {
+        font-size: 0.62rem; font-weight: 800; letter-spacing: 3px;
+        text-transform: uppercase; color: var(--accent);
+        display: block; margin-bottom: 14px;
+    }
+    .dl-h2 {
+        font-size: clamp(1.8rem, 3.2vw, 2.8rem);
+        font-weight: 900; line-height: 1.1; letter-spacing: -1.5px;
+        color: #fff; margin-bottom: 16px;
+    }
+    .dl-h2 em { font-style: normal; color: var(--accent); }
+    .dl-body { font-size: 0.98rem; color: #606060; line-height: 1.68; max-width: 560px; }
+
+    /* ── Problem section ── */
+    .dl-problem-layout {
+        display: grid; grid-template-columns: 1fr 1fr;
+        gap: 80px; align-items: start; max-width: 1000px; margin: 0 auto;
+    }
+    @media (max-width: 991px) { .dl-problem-layout { grid-template-columns: 1fr; gap: 48px; } }
+
+    .dl-day-timeline { display: flex; flex-direction: column; gap: 0; }
+    .dl-day-item {
+        display: flex; align-items: flex-start; gap: 14px;
+        padding: 16px 0; border-bottom: 1px solid #0f0f0f;
+        position: relative;
+    }
+    .dl-day-item:last-child { border-bottom: none; }
+    .dl-day-time {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.72rem; font-weight: 600;
+        color: #333; min-width: 52px; padding-top: 2px;
+        flex-shrink: 0;
+    }
+    .dl-day-text { font-size: 0.88rem; color: #585858; line-height: 1.5; }
+    .dl-day-text strong { color: #888; font-weight: 600; display: block; margin-bottom: 2px; }
+    .dl-day-dot {
+        width: 7px; height: 7px; border-radius: 50%;
+        flex-shrink: 0; margin-top: 5px;
+        background: #1e1e1e;
+    }
+    .dl-day-dot.bad   { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,0.4); }
+    .dl-day-dot.ok    { background: #555; }
+    .dl-day-dot.waste { background: #f59e0b; }
+
+    /* ── The math ── */
+    .dl-math-grid {
+        display: grid; grid-template-columns: 1fr 1fr;
+        gap: 2px; max-width: 800px; margin: 48px auto 0;
+    }
+    @media (max-width: 575px) { .dl-math-grid { grid-template-columns: 1fr; } }
+    .dl-math-card {
+        padding: 36px 32px; background: #060606;
+        border: 1px solid #141414;
+    }
+    .dl-math-card:first-child { border-radius: 8px 0 0 8px; }
+    .dl-math-card:last-child  { border-radius: 0 8px 8px 0; }
+    @media (max-width: 575px) {
+        .dl-math-card:first-child { border-radius: 8px 8px 0 0; }
+        .dl-math-card:last-child  { border-radius: 0 0 8px 8px; }
+    }
+    .dl-math-label {
+        font-size: 0.62rem; font-weight: 800; letter-spacing: 3px; text-transform: uppercase;
+        margin-bottom: 20px; display: block;
+    }
+    .dl-math-label.bad   { color: #ef4444; }
+    .dl-math-label.good  { color: var(--accent); }
+    .dl-math-num {
+        font-size: 3.5rem; font-weight: 900; line-height: 1;
+        letter-spacing: -3px; display: block; margin-bottom: 8px;
+    }
+    .dl-math-num.bad  { color: #ef4444; }
+    .dl-math-num.good { color: var(--accent); }
+    .dl-math-desc { font-size: 0.88rem; color: #555; line-height: 1.5; }
+    .dl-math-steps { margin-top: 16px; display: flex; flex-direction: column; gap: 6px; }
+    .dl-math-step {
+        font-size: 0.8rem; color: #444;
+        font-family: 'JetBrains Mono', monospace;
+        padding: 4px 0;
+    }
+    .dl-math-step.highlight { color: var(--accent); }
+
+    /* ── Feature list ── */
+    .dl-feat-grid {
+        display: grid; grid-template-columns: repeat(3, 1fr);
+        gap: 16px; max-width: 960px; margin: 48px auto 0;
+    }
+    @media (max-width: 767px) { .dl-feat-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 480px) { .dl-feat-grid { grid-template-columns: 1fr; } }
+    .dl-feat-card {
+        padding: 28px 24px;
+        background: #060606;
+        border: 1px solid #141414;
+        border-radius: 10px;
+        transition: border-color 0.2s ease;
+    }
+    .dl-feat-card:hover { border-color: rgba(0,255,136,0.15); }
+    .dl-feat-icon {
+        width: 36px; height: 36px; border-radius: 8px;
+        background: rgba(0,255,136,0.07); border: 1px solid rgba(0,255,136,0.12);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.85rem; color: var(--accent);
+        margin-bottom: 14px;
+    }
+    .dl-feat-title { font-size: 0.95rem; font-weight: 700; color: #e0e0e0; margin-bottom: 6px; }
+    .dl-feat-desc  { font-size: 0.83rem; color: #555; line-height: 1.55; }
+
+    /* ── How it works ── */
+    .dl-hiw-grid {
+        display: grid; grid-template-columns: repeat(5, 1fr);
+        gap: 0; max-width: 1000px; margin: 48px auto 0;
+        border: 1px solid #141414; border-radius: 10px; overflow: hidden;
+    }
+    @media (max-width: 767px) { .dl-hiw-grid { grid-template-columns: 1fr; } }
+    .dl-hiw-step {
+        padding: 32px 24px; text-align: center;
+        border-right: 1px solid #141414;
+        position: relative;
+    }
+    .dl-hiw-step:last-child { border-right: none; }
+    @media (max-width: 767px) { .dl-hiw-step { border-right: none; border-bottom: 1px solid #141414; } }
+    .dl-hiw-num {
+        font-size: 2rem; font-weight: 900; color: #1a1a1a;
+        line-height: 1; margin-bottom: 12px; display: block;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .dl-hiw-title { font-size: 0.88rem; font-weight: 700; color: #d0d0d0; margin-bottom: 6px; }
+    .dl-hiw-desc  { font-size: 0.78rem; color: #484848; line-height: 1.5; }
+    .dl-hiw-step.accent .dl-hiw-num { color: var(--accent); }
+    .dl-hiw-step.accent .dl-hiw-title { color: var(--accent); }
+
+    /* ── Competitor table ── */
+    .dl-comp-wrap { max-width: 900px; margin: 48px auto 0; overflow-x: auto; }
+    .dl-comp-table { width: 100%; border-collapse: collapse; }
+    .dl-comp-table th, .dl-comp-table td {
+        padding: 13px 18px; font-size: 0.84rem;
+        border-bottom: 1px solid #111; text-align: left;
+    }
+    .dl-comp-table th {
+        font-size: 0.72rem; font-weight: 700; letter-spacing: 1px;
+        text-transform: uppercase; color: #444; background: #060606;
+    }
+    .dl-comp-table th.igb { color: var(--accent); }
+    .dl-comp-table td { color: #666; }
+    .dl-comp-table td.igb { color: #fff; font-weight: 600; }
+    .dl-comp-table td.good { color: var(--accent); }
+    .dl-comp-table td.bad  { color: #555; }
+    .dl-comp-table tr:last-child td { border-bottom: none; }
+
+    /* ── Bottom CTA ── */
+    .dl-cta-section {
+        padding: 100px 0; text-align: center;
+        background: #000;
+        border-top: 1px solid #111;
+    }
+    .dl-cta-h2 {
+        font-size: clamp(2rem, 4vw, 3.2rem);
+        font-weight: 900; color: #fff; line-height: 1.1;
+        letter-spacing: -2px; margin-bottom: 16px;
+    }
+    .dl-cta-h2 em { font-style: normal; color: var(--accent); }
+    .dl-cta-sub { font-size: 1rem; color: #555; max-width: 460px; margin: 0 auto 36px; line-height: 1.6; }
+
+    [data-theme="light"] .dl-h1 { color: #111; }
+    [data-theme="light"] .dl-h2 { color: #111; }
+    [data-theme="light"] .dl-sub { color: #888; }
+    [data-theme="light"] .dl-body { color: #777; }
+    [data-theme="light"] .dl-day-text { color: #777; }
+    [data-theme="light"] .dl-day-text strong { color: #555; }
+    [data-theme="light"] .dl-math-card { background: #fff; border-color: #e8e8e8; }
+    [data-theme="light"] .dl-math-desc { color: #888; }
+    [data-theme="light"] .dl-math-step { color: #aaa; }
+    [data-theme="light"] .dl-feat-card { background: #fff; border-color: #e8e8e8; }
+    [data-theme="light"] .dl-feat-title { color: #222; }
+    [data-theme="light"] .dl-feat-desc  { color: #888; }
+    [data-theme="light"] .dl-hiw-step { background: #fff; border-color: #e8e8e8; }
+    [data-theme="light"] .dl-hiw-title { color: #333; }
+    [data-theme="light"] .dl-hiw-desc  { color: #888; }
+    [data-theme="light"] .dl-comp-table th { background: #f5f5f5; }
+    [data-theme="light"] .dl-comp-table td { color: #888; }
+    [data-theme="light"] .dl-comp-table td.igb { color: #111; }
+    [data-theme="light"] .dl-cta-section { background: #f0f2f5; border-top-color: #ddd; }
+    [data-theme="light"] .dl-cta-h2 { color: #111; }
+    [data-theme="light"] .dl-cta-sub { color: #888; }
+</style>
+
+<!-- ── HERO ── -->
+<div class="dl-hero">
+    <div class="container">
+        <div class="dl-tag">Power Dialer</div>
+        <h1 class="dl-h1">One call at a time<br>is leaving <em>money on the table.</em></h1>
+        <p class="dl-sub">You're working leads the same way agents did 15 years ago. Dial. Wait. Voicemail. Next. There's a faster way — and it doesn't require working harder.</p>
+        <div class="dl-ctas">
+            <a href="/register" class="dl-btn-primary"><i class="fa-solid fa-bolt"></i> Start 7-Day Free Trial</a>
+            <a href="/comparison" class="dl-btn-ghost"><i class="fa-solid fa-table"></i> Compare Plans</a>
+        </div>
+    </div>
+</div>
+
+<hr class="dl-section-sep">
+
+<!-- ── THE REAL PROBLEM ── -->
+<section class="dl-section">
+    <div class="container">
+        <div class="dl-problem-layout">
+            <div>
+                <span class="dl-eyebrow">The Real Problem</span>
+                <h2 class="dl-h2">Your day has 8 hours.<br><em>The math doesn't work.</em></h2>
+                <p class="dl-body">Most insurance agents dial 80–120 calls a day. At a 15% connect rate, that's 12–18 conversations. Of those, maybe 3 turn into appointments. You're spending 6 hours creating 3 opportunities. The math is broken — not your effort.</p>
+                <p class="dl-body" style="margin-top: 16px;">The calls you're not having are the problem. Every minute you spend waiting on a ring is a minute you're not talking to someone who would buy.</p>
+            </div>
+            <div>
+                <div class="dl-day-timeline">
+                    <div class="dl-day-item">
+                        <div class="dl-day-time">8:02</div>
+                        <div class="dl-day-dot bad"></div>
+                        <div class="dl-day-text"><strong>Dial #1</strong> Rings 6 times. Voicemail. You leave a 30-second message.</div>
+                    </div>
+                    <div class="dl-day-item">
+                        <div class="dl-day-time">8:04</div>
+                        <div class="dl-day-dot bad"></div>
+                        <div class="dl-day-text"><strong>Dial #2</strong> Rings 4 times. Voicemail. Same script. Another 30 seconds.</div>
+                    </div>
+                    <div class="dl-day-item">
+                        <div class="dl-day-time">8:06</div>
+                        <div class="dl-day-dot ok"></div>
+                        <div class="dl-day-text"><strong>Dial #3</strong> Connects. 8-minute conversation. Objection: "I need to talk to my wife."</div>
+                    </div>
+                    <div class="dl-day-item">
+                        <div class="dl-day-time">8:16</div>
+                        <div class="dl-day-dot bad"></div>
+                        <div class="dl-day-text"><strong>Dial #4–7</strong> Four straight voicemails. 10 minutes of your life gone.</div>
+                    </div>
+                    <div class="dl-day-item">
+                        <div class="dl-day-time">8:27</div>
+                        <div class="dl-day-dot waste"></div>
+                        <div class="dl-day-text"><strong>Manual follow-up</strong> You remember you were supposed to text back three leads from yesterday.</div>
+                    </div>
+                    <div class="dl-day-item">
+                        <div class="dl-day-time">12:00</div>
+                        <div class="dl-day-dot ok"></div>
+                        <div class="dl-day-text"><strong>Check the scoreboard</strong> 4 hours of work. 2 real conversations. 0 appointments set.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- The math -->
+        <div class="dl-math-grid">
+            <div class="dl-math-card">
+                <span class="dl-math-label bad">The way most agents dial</span>
+                <span class="dl-math-num bad">12</span>
+                <div class="dl-math-desc">conversations out of 80 dials in a full day</div>
+                <div class="dl-math-steps">
+                    <div class="dl-math-step">80 dials × 15% connect rate</div>
+                    <div class="dl-math-step">= 12 connects</div>
+                    <div class="dl-math-step">÷ 8 hours = 1.5 connects/hr</div>
+                    <div class="dl-math-step">Every ring costs 90 seconds</div>
+                </div>
+            </div>
+            <div class="dl-math-card">
+                <span class="dl-math-label good">With 4-line simultaneous dialing</span>
+                <span class="dl-math-num good">48</span>
+                <div class="dl-math-desc">conversations from the same 8-hour day</div>
+                <div class="dl-math-steps">
+                    <div class="dl-math-step">4 lines × 80 dials = 320 attempts</div>
+                    <div class="dl-math-step highlight">= 48 connects</div>
+                    <div class="dl-math-step">Same connect rate. 4× the output.</div>
+                    <div class="dl-math-step">Dead air fills itself — no wasted rings</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<hr class="dl-section-sep">
+
+<!-- ── HOW IT ACTUALLY WORKS ── -->
+<section class="dl-section dl-section-alt">
+    <div class="container" style="text-align:center;">
+        <span class="dl-eyebrow">How It Works</span>
+        <h2 class="dl-h2" style="max-width:560px; margin:0 auto 12px;">Five steps you stop thinking about<br><em>after the first session.</em></h2>
+        <p style="color:#555; font-size:0.95rem; max-width:480px; margin:0 auto;">The dialer handles everything between "I pressed dial" and "someone picks up." You just talk.</p>
+
+        <div class="dl-hiw-grid">
+            <div class="dl-hiw-step">
+                <span class="dl-hiw-num">01</span>
+                <div class="dl-hiw-title">Load Your Leads</div>
+                <div class="dl-hiw-desc">Your list comes in from GoHighLevel, HubSpot, or any CRM. Smart Filters put your hottest leads at the top.</div>
+            </div>
+            <div class="dl-hiw-step">
+                <span class="dl-hiw-num">02</span>
+                <div class="dl-hiw-title">Hit Dial</div>
+                <div class="dl-hiw-desc">Four numbers ring simultaneously. You don't wait. The second you press dial, four phones are already ringing.</div>
+            </div>
+            <div class="dl-hiw-step accent">
+                <span class="dl-hiw-num">03</span>
+                <div class="dl-hiw-title">First One Answers</div>
+                <div class="dl-hiw-desc">You're live. The others drop to voicemail automatically — or you hit one button and a pre-recorded message plays.</div>
+            </div>
+            <div class="dl-hiw-step">
+                <span class="dl-hiw-num">04</span>
+                <div class="dl-hiw-title">Finish the Call</div>
+                <div class="dl-hiw-desc">You set the appointment, disposition the contact, and move on. The whole thing is logged automatically.</div>
+            </div>
+            <div class="dl-hiw-step">
+                <span class="dl-hiw-num">05</span>
+                <div class="dl-hiw-title">AI Texts the Misses</div>
+                <div class="dl-hiw-desc">Every lead who didn't answer gets a follow-up text from the AI while you're already on your next call.</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<hr class="dl-section-sep">
+
+<!-- ── FEATURES ── -->
+<section class="dl-section">
+    <div class="container" style="text-align:center;">
+        <span class="dl-eyebrow">What's Included</span>
+        <h2 class="dl-h2" style="max-width:560px; margin:0 auto 12px;">Everything you need.<br><em>Nothing you don't.</em></h2>
+        <div class="dl-feat-grid">
+            <div class="dl-feat-card">
+                <div class="dl-feat-icon"><i class="fa-solid fa-layer-group"></i></div>
+                <div class="dl-feat-title">Up to 4 Simultaneous Lines</div>
+                <div class="dl-feat-desc">Dial 4 leads at once. Connect to whoever answers first. Every other ring is handled.</div>
+            </div>
+            <div class="dl-feat-card">
+                <div class="dl-feat-icon"><i class="fa-solid fa-voicemail"></i></div>
+                <div class="dl-feat-title">One-Click Voicemail Drop</div>
+                <div class="dl-feat-desc">Record your message once. One click drops it and dials the next lead. Stop recording the same thing 40 times a day.</div>
+            </div>
+            <div class="dl-feat-card">
+                <div class="dl-feat-icon"><i class="fa-solid fa-fire"></i></div>
+                <div class="dl-feat-title">AI-Scored Lead Filters</div>
+                <div class="dl-feat-desc">Every lead is scored before you dial. Hot, Warm, Cool, Cold. Start every session with your most likely connects.</div>
+            </div>
+            <div class="dl-feat-card">
+                <div class="dl-feat-icon"><i class="fa-solid fa-comment-sms"></i></div>
+                <div class="dl-feat-title">Automatic AI Follow-Up</div>
+                <div class="dl-feat-desc">Leads who don't answer get a text. Leads who text back get a real conversation. You don't touch it.</div>
+            </div>
+            <div class="dl-feat-card">
+                <div class="dl-feat-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                <div class="dl-feat-title">Spam Label Protection</div>
+                <div class="dl-feat-desc">Your number is registered with AT&T, T-Mobile, and Verizon. Your name shows. Not "Spam Likely."</div>
+            </div>
+            <div class="dl-feat-card">
+                <div class="dl-feat-icon"><i class="fa-solid fa-infinity"></i></div>
+                <div class="dl-feat-title">Unlimited Human Calls</div>
+                <div class="dl-feat-desc">No per-minute charges for human-to-human calls. Dial your whole list. No clock watching.</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<hr class="dl-section-sep">
+
+<!-- ── COMPARISON ── -->
+<section class="dl-section dl-section-alt">
+    <div class="container" style="text-align:center;">
+        <span class="dl-eyebrow">Honest Comparison</span>
+        <h2 class="dl-h2" style="max-width:580px; margin:0 auto 12px;">You've probably used one of these.<br><em>Here's what's different.</em></h2>
+        <p style="color:#555; font-size:0.95rem; max-width:500px; margin: 0 auto;">This isn't a sales pitch. It's a direct comparison. Judge it yourself.</p>
+
+        <div class="dl-comp-wrap">
+            <table class="dl-comp-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th class="igb">InsuranceGrokBot</th>
+                        <th>WAVV</th>
+                        <th>PhoneBurner</th>
+                        <th>Mojo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Simultaneous lines</td>
+                        <td class="igb good">Up to 4</td>
+                        <td class="bad">Up to 3</td>
+                        <td class="bad">1 line</td>
+                        <td class="bad">1 line</td>
+                    </tr>
+                    <tr>
+                        <td>AI texts missed calls</td>
+                        <td class="igb good">Yes — automatic</td>
+                        <td class="bad">No</td>
+                        <td class="bad">No</td>
+                        <td class="bad">No</td>
+                    </tr>
+                    <tr>
+                        <td>Per-minute charges</td>
+                        <td class="igb good">$0 for human calls</td>
+                        <td class="bad">Yes</td>
+                        <td class="bad">Yes</td>
+                        <td class="bad">Yes</td>
+                    </tr>
+                    <tr>
+                        <td>Spam label protection</td>
+                        <td class="igb good">Included</td>
+                        <td class="bad">Add-on</td>
+                        <td class="bad">Add-on</td>
+                        <td class="bad">Not available</td>
+                    </tr>
+                    <tr>
+                        <td>Built for insurance</td>
+                        <td class="igb good">Yes — 270+ carriers</td>
+                        <td class="bad">Generic</td>
+                        <td class="bad">Generic</td>
+                        <td class="bad">Generic</td>
+                    </tr>
+                    <tr>
+                        <td>Starting price</td>
+                        <td class="igb">$149.99/mo</td>
+                        <td>$399+/mo</td>
+                        <td>$149+/mo</td>
+                        <td>$99+/mo</td>
+                    </tr>
+                    <tr>
+                        <td>Free trial</td>
+                        <td class="igb good">7 days, no card needed</td>
+                        <td class="bad">Demo only</td>
+                        <td class="bad">Demo only</td>
+                        <td class="bad">14 days</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- ── BOTTOM CTA ── -->
+<section class="dl-cta-section">
+    <div class="container">
+        <h2 class="dl-cta-h2">Stop dialing one lead at a time.<br><em>Start making 4× the connects.</em></h2>
+        <p class="dl-cta-sub">7-day free trial. No credit card. Your list, your leads, your close rate — just faster.</p>
+        <div class="dl-ctas">
+            <a href="/register" class="dl-btn-primary"><i class="fa-solid fa-bolt"></i> Start 7-Day Free Trial</a>
+            <a href="/predictive-dialer" class="dl-btn-ghost">See Predictive Dialer <i class="fa-solid fa-arrow-right"></i></a>
+        </div>
+    </div>
+</section>
+
+<!-- Chain: next → predictive dialer -->
+<section class="chain-next">
+    <div class="container">
+        <div class="chain-next-inner">
+            <div class="chain-next-eyebrow">Next Up</div>
+            <h2 class="chain-next-heading">What if the dialer<br><em>decided how many lines to run?</em></h2>
+            <p class="chain-next-sub">Predictive dialing uses 100 years of queue math to calculate the exact number of lines you should be running based on your live connect rate. Automatically.</p>
+            <a href="/predictive-dialer" class="chain-next-cta">See Predictive Dialer <i class="fa-solid fa-arrow-right"></i></a>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

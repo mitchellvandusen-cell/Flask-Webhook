@@ -1,0 +1,829 @@
+/* ================================================================
+   AGENCY-DASHBOARD / AGENCY.CSS
+   Agency dashboard: KPI tiles, member management, leaderboards,
+   Chart.js chart containers, agency-specific components.
+   ================================================================ */
+
+/* =========================================
+   9. AGENCY DASHBOARD SPECIFIC
+   ========================================= */
+.accordion-button {
+    background: transparent !important;
+    color: #fff !important;
+    font-weight: 600;
+    box-shadow: none !important;
+}
+.accordion-button:not(.collapsed) {
+    background: rgba(0, 255, 136, 0.08) !important;
+    color: var(--accent) !important;
+}
+.accordion-item {
+    background: transparent;
+    border: none;
+}
+.badge-tier {
+    background: rgba(0, 255, 136, 0.15);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: var(--fs-xs);
+    letter-spacing: 1px;
+}
+.no-data {
+    text-align: center;
+    padding: 80px 20px;
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-radius: 16px;
+    border: 1px dashed rgba(0, 255, 136, 0.3);
+}
+.add-btn {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 0.8rem 2rem;
+    border-radius: 50px;
+    font-weight: 700;
+    box-shadow: 0 0 30px rgba(0, 255, 136, 0.25);
+    transition: transform 0.3s ease, box-shadow 0.3s ease, color 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
+}
+.add-btn:hover {
+    transform: translateY(-3px) scale(1.03);
+    box-shadow: 0 15px 40px rgba(0, 255, 136, 0.3);
+    color: #000;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   AGENCY DASHBOARD — Members, KPIs, stats
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Stat cards (small) */
+.agency-stat-card {
+    padding: 16px 20px;
+    border-radius: 10px;
+    min-width: 120px;
+    text-align: center;
+}
+.agency-stat-val {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 4px;
+}
+.agency-stat-lbl {
+    font-size: 0.72rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* KPI grid */
+.agency-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+@media (max-width: 768px) {
+    .agency-kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+.agency-kpi-card {
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+}
+.agency-kpi-icon {
+    font-size: 1.3rem;
+    color: var(--accent);
+    margin-bottom: 8px;
+    opacity: 0.7;
+}
+.agency-kpi-val {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+.agency-kpi-lbl {
+    font-size: 0.72rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+.agency-kpi-delta {
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.agency-kpi-delta.positive { color: var(--accent); }
+.agency-kpi-delta.negative { color: #ff4444; }
+
+/* Period toggle buttons */
+.agency-period-btn {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #888;
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    transition: border-color 0.2s, color 0.2s;
+}
+.agency-period-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.agency-period-btn.active {
+    background: rgba(0,255,136,0.12);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* Members table */
+.agency-members-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+}
+.agency-members-table thead th {
+    background: rgba(255,255,255,0.03);
+    color: #888;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.agency-members-table tbody tr {
+    background: transparent;
+}
+.agency-members-table tbody td {
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: #ccc;
+    font-size: 0.85rem;
+    vertical-align: middle;
+    background: transparent;
+}
+.agency-members-table tbody tr:hover td {
+    background: rgba(255,255,255,0.04);
+}
+
+/* Status badges */
+.agency-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+.agency-badge.active {
+    background: rgba(0,255,136,0.12);
+    color: var(--accent);
+}
+.agency-badge.pending {
+    background: rgba(255,170,0,0.12);
+    color: #ffaa00;
+}
+.agency-badge.cancelled {
+    background: rgba(255,60,60,0.12);
+    color: #ff5555;
+}
+.agency-badge.expired {
+    background: rgba(255,140,0,0.12);
+    color: #ff8c00;
+}
+
+/* Agency Member Detail Accordion */
+.agency-member-row:hover { background: rgba(255,255,255,0.03); }
+.agency-detail-panel { padding: 16px 12px; background: var(--glass-bg); border-top: 1px solid rgba(255,255,255,0.04); }
+.agency-detail-actions { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.agency-detail-btn { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #aaa; border-radius: 8px; padding: 6px 14px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; display: flex; align-items: center; gap: 6px; }
+.agency-detail-btn:hover { background: rgba(255,255,255,0.08); color: #ddd; }
+.agency-detail-btn.active { background: rgba(0,217,255,0.1); border-color: rgba(0,217,255,0.25); color: #00d9ff; }
+.agency-detail-btn-meet { color: #4285F4; border-color: rgba(66,133,244,0.2); }
+.agency-detail-btn-meet:hover { background: rgba(66,133,244,0.1); color: #4285F4; }
+.agency-detail-content { min-height: 60px; }
+.agency-detail-loading { text-align: center; padding: 20px; color: #555; }
+.agency-detail-empty { text-align: center; padding: 20px; color: #666; font-size: 0.85rem; }
+.agency-rec-row { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
+.agency-log-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.03); font-size: 0.82rem; }
+.agency-log-icon { color: #555; font-size: 0.7rem; width: 16px; text-align: center; flex-shrink: 0; }
+.agency-log-body { flex: 1; min-width: 0; color: #bbb; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agency-log-date { color: #555; font-size: 0.72rem; flex-shrink: 0; }
+.agency-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.agency-stat-mini { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 14px; text-align: center; }
+.agency-stat-mini-val { font-size: 1.4rem; font-weight: 800; color: #fff; font-family: 'JetBrains Mono', monospace; }
+.agency-stat-mini-lbl { font-size: 0.72rem; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+/* Light theme — !important to beat any parent cascade */
+[data-theme="light"] .agency-member-row:hover { background: rgba(0,0,0,0.02); }
+[data-theme="light"] .agency-detail-panel { background: rgba(245,246,248,0.95) !important; border-top-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .agency-detail-btn { background: #fff !important; border: 1px solid rgba(0,0,0,0.12) !important; color: #555 !important; }
+[data-theme="light"] .agency-detail-btn:hover { background: #f0f0f0 !important; color: #222 !important; }
+[data-theme="light"] .agency-detail-btn.active { background: #e6f7ed !important; border-color: rgba(0,170,94,0.3) !important; color: #007a3d !important; }
+[data-theme="light"] .agency-detail-btn-meet { color: #1a73e8 !important; border-color: rgba(66,133,244,0.25) !important; }
+[data-theme="light"] .agency-detail-btn-meet:hover { background: #e8f0fe !important; }
+[data-theme="light"] .agency-detail-empty { color: #999; }
+[data-theme="light"] .agency-rec-row { border-bottom-color: rgba(0,0,0,0.04); }
+[data-theme="light"] .agency-log-row { border-bottom-color: rgba(0,0,0,0.04); }
+[data-theme="light"] .agency-log-icon { color: #999; }
+[data-theme="light"] .agency-log-body { color: #444; }
+[data-theme="light"] .agency-log-date { color: #999; }
+[data-theme="light"] .agency-stat-mini { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .agency-stat-mini-val { color: #1a1a2e; }
+[data-theme="light"] .agency-stat-mini-lbl { color: #888; }
+
+/* ── Light Theme Overrides ── */
+[data-theme="light"] .wl-style-btn {
+    background: var(--lt-surface);
+    border-color: var(--lt-border);
+    color: var(--lt-text-muted);
+}
+[data-theme="light"] .wl-style-btn:hover,
+[data-theme="light"] .wl-style-btn.active {
+    border-color: var(--lt-accent);
+    color: var(--lt-accent);
+}
+[data-theme="light"] .wl-style-btn.active {
+    background: var(--lt-accent-bg);
+}
+[data-theme="light"] .wl-name-preview span {
+    color: var(--lt-text-primary);
+}
+[data-theme="light"] .wl-logo-preview {
+    border-color: var(--lt-border);
+}
+[data-theme="light"] .wl-logo-preview:hover {
+    border-color: var(--lt-accent);
+}
+[data-theme="light"] .wl-logo-placeholder {
+    color: var(--lt-text-muted);
+}
+[data-theme="light"] .wl-logo-placeholder i {
+    color: var(--lt-accent);
+}
+[data-theme="light"] .agency-stat-val {
+    color: var(--lt-accent);
+}
+[data-theme="light"] .agency-stat-lbl,
+[data-theme="light"] .agency-kpi-lbl {
+    color: var(--lt-text-muted);
+}
+[data-theme="light"] .agency-kpi-val {
+    color: var(--lt-text-primary);
+}
+[data-theme="light"] .agency-kpi-icon {
+    color: var(--lt-accent);
+}
+[data-theme="light"] .agency-kpi-delta.positive { color: var(--lt-accent); }
+[data-theme="light"] .agency-period-btn {
+    background: var(--lt-surface);
+    border-color: var(--lt-border);
+    color: var(--lt-text-muted);
+}
+[data-theme="light"] .agency-period-btn:hover,
+[data-theme="light"] .agency-period-btn.active {
+    border-color: var(--lt-accent);
+    color: var(--lt-accent);
+    background: var(--lt-accent-bg);
+}
+[data-theme="light"] .agency-members-table thead th {
+    background: rgba(0,0,0,0.02);
+    color: var(--lt-text-muted);
+    border-bottom-color: var(--lt-border);
+}
+[data-theme="light"] .agency-members-table tbody td {
+    border-bottom-color: rgba(0,0,0,0.04);
+    color: var(--lt-text-secondary);
+}
+[data-theme="light"] .agency-members-table tbody tr:hover td {
+    background: rgba(0,0,0,0.02);
+}
+[data-theme="light"] .agency-badge.active {
+    background: var(--lt-accent-bg);
+    color: var(--lt-accent);
+}
+[data-theme="light"] .agency-badge.pending {
+    background: rgba(255,170,0,0.08);
+    color: #cc8800;
+}
+[data-theme="light"] .agency-badge.cancelled {
+    background: rgba(220,40,40,0.08);
+    color: #cc2020;
+}
+[data-theme="light"] .agency-badge.expired {
+    background: rgba(200,120,0,0.08);
+    color: #b06800;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   AGENCY KPI DASHBOARD — Tiles, Charts, Leaderboards
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Core metric tiles (6-up grid) */
+.ak-tile-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 14px;
+    margin-bottom: 28px;
+}
+@media (max-width: 1200px) { .ak-tile-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 640px)  { .ak-tile-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.ak-tile {
+    padding: 18px 14px;
+    border-radius: 12px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.ak-tile:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--glass-shadow-hover);
+}
+.ak-tile-icon {
+    font-size: 1.2rem;
+    color: var(--accent);
+    margin-bottom: 8px;
+    opacity: 0.7;
+}
+.ak-tile-icon.ak-icon-green { color: #00ff88; }
+.ak-tile-icon.ak-icon-blue  { color: #3b82f6; }
+.ak-tile-icon.ak-icon-purple{ color: #8b5cf6; }
+.ak-tile-icon.ak-icon-amber { color: #f59e0b; }
+.ak-tile-icon.ak-icon-cyan  { color: #06b6d4; }
+
+.ak-tile-val {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+.ak-tile-lbl {
+    font-size: 0.68rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+.ak-tile-delta {
+    font-size: 0.72rem;
+    font-weight: 600;
+    min-height: 16px;
+}
+.ak-tile-delta.positive { color: #00ff88; }
+.ak-tile-delta.negative { color: #ef4444; }
+
+/* Section titles */
+.ak-section-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #ccc;
+    margin: 28px 0 16px;
+    display: flex;
+    align-items: center;
+}
+.ak-section-title i { color: var(--accent); }
+
+/* Chart row (3 cards: donut + donut + bar) */
+.ak-chart-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 2fr;
+    gap: 16px;
+    margin-bottom: 28px;
+}
+@media (max-width: 1024px) {
+    .ak-chart-row { grid-template-columns: 1fr 1fr; }
+    .ak-chart-wide { grid-column: 1 / -1; }
+}
+@media (max-width: 640px) { .ak-chart-row { grid-template-columns: 1fr; } }
+
+.ak-chart-card {
+    padding: 20px;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.ak-chart-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+    align-self: flex-start;
+}
+.ak-chart-title i { color: var(--accent); }
+
+/* Donut wrapper with centered text */
+.ak-donut-wrap {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    margin: 0 auto;
+}
+.ak-donut-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+.ak-donut-val {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #fff;
+    display: block;
+    line-height: 1.1;
+}
+.ak-donut-sub {
+    font-size: 0.65rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.ak-donut-delta {
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-top: 8px;
+    min-height: 18px;
+}
+.ak-donut-delta.positive { color: #00ff88; }
+.ak-donut-delta.negative { color: #ef4444; }
+
+/* Bucket legend (under duration donut) */
+.ak-bucket-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    justify-content: center;
+    margin-top: 12px;
+}
+.ak-legend-item {
+    font-size: 0.68rem;
+    color: #888;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.ak-legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    display: inline-block;
+}
+.ak-dot-red    { background: #ef4444; }
+.ak-dot-amber  { background: #f59e0b; }
+.ak-dot-green  { background: #00ff88; }
+.ak-dot-blue   { background: #3b82f6; }
+.ak-dot-purple { background: #8b5cf6; }
+
+/* Bar chart wrapper */
+.ak-bar-wrap {
+    width: 100%;
+    min-height: 180px;
+}
+
+/* Duration bucket tiles (4-up) */
+.ak-bucket-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 28px;
+}
+@media (max-width: 768px) { .ak-bucket-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.ak-bucket-tile {
+    padding: 18px 16px;
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+}
+.ak-bucket-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), #3b82f6);
+    border-radius: 0 2px 0 0;
+    transition: width 0.6s ease;
+    width: 0%;
+}
+.ak-bucket-content {
+    position: relative;
+    z-index: 1;
+}
+.ak-bucket-val {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+.ak-bucket-lbl {
+    font-size: 0.72rem;
+    color: #888;
+    margin-bottom: 2px;
+}
+.ak-bucket-pct {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+/* Agency averages (4-up) */
+.ak-avg-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 28px;
+}
+@media (max-width: 768px) { .ak-avg-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.ak-avg-tile {
+    padding: 18px 16px;
+    border-radius: 12px;
+    text-align: center;
+}
+.ak-avg-icon {
+    font-size: 1.1rem;
+    color: var(--accent);
+    opacity: 0.6;
+    margin-bottom: 8px;
+}
+.ak-avg-val {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+.ak-avg-lbl {
+    font-size: 0.68rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+/* Leaderboards (3-up) */
+.ak-leader-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+@media (max-width: 900px) { .ak-leader-grid { grid-template-columns: 1fr; } }
+
+.ak-leader-card {
+    padding: 18px;
+    border-radius: 14px;
+}
+.ak-leader-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 14px;
+}
+.ak-leader-title i { color: var(--accent); }
+
+.ak-leader-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.ak-leader-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.04);
+}
+.ak-leader-rank {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #888;
+    background: rgba(255,255,255,0.06);
+    flex-shrink: 0;
+}
+.ak-medal-gold   { background: rgba(255,215,0,0.2); color: #ffd700; }
+.ak-medal-silver { background: rgba(192,192,192,0.15); color: #c0c0c0; }
+.ak-medal-bronze { background: rgba(205,127,50,0.15); color: #cd7f32; }
+
+.ak-leader-name {
+    flex: 1;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #ddd;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ak-leader-stat {
+    font-size: 0.72rem;
+    color: var(--accent);
+    font-weight: 600;
+    white-space: nowrap;
+}
+.ak-leader-empty {
+    font-size: 0.8rem;
+    color: #666;
+    text-align: center;
+    padding: 16px;
+}
+
+/* See more button */
+.ak-see-more-wrap {
+    text-align: center;
+    margin: 16px 0;
+}
+.ak-see-more-btn {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--accent);
+    border-radius: 8px;
+    padding: 8px 24px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    transition: background 0.2s, border-color 0.2s;
+}
+.ak-see-more-btn:hover {
+    background: rgba(0,255,136,0.08);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+
+/* ── Agency KPI Light Theme ── */
+[data-theme="light"] .ak-tile-val,
+[data-theme="light"] .ak-bucket-val,
+[data-theme="light"] .ak-avg-val,
+[data-theme="light"] .ak-donut-val {
+    color: var(--lt-text-primary);
+}
+[data-theme="light"] .ak-tile-lbl,
+[data-theme="light"] .ak-bucket-lbl,
+[data-theme="light"] .ak-avg-lbl,
+[data-theme="light"] .ak-donut-sub,
+[data-theme="light"] .ak-chart-title,
+[data-theme="light"] .ak-leader-title,
+[data-theme="light"] .ak-legend-item {
+    color: var(--lt-text-muted);
+}
+[data-theme="light"] .ak-tile-icon,
+[data-theme="light"] .ak-avg-icon,
+[data-theme="light"] .ak-chart-title i,
+[data-theme="light"] .ak-leader-title i,
+[data-theme="light"] .ak-section-title i {
+    color: var(--lt-accent);
+}
+[data-theme="light"] .ak-section-title {
+    color: var(--lt-text-primary);
+}
+[data-theme="light"] .ak-bucket-pct,
+[data-theme="light"] .ak-leader-stat {
+    color: var(--lt-accent);
+}
+[data-theme="light"] .ak-tile-delta.positive,
+[data-theme="light"] .ak-donut-delta.positive {
+    color: var(--lt-accent);
+}
+[data-theme="light"] .ak-leader-row {
+    background: rgba(0,0,0,0.02);
+    border-color: rgba(0,0,0,0.06);
+}
+[data-theme="light"] .ak-leader-name {
+    color: var(--lt-text-primary);
+}
+[data-theme="light"] .ak-leader-rank {
+    background: rgba(0,0,0,0.05);
+    color: var(--lt-text-muted);
+}
+[data-theme="light"] .ak-leader-empty {
+    color: var(--lt-text-faint);
+}
+[data-theme="light"] .ak-see-more-btn {
+    background: var(--lt-surface);
+    border-color: var(--lt-border);
+    color: var(--lt-accent);
+}
+[data-theme="light"] .ak-see-more-btn:hover {
+    background: var(--lt-accent-bg);
+    border-color: var(--lt-accent);
+}
+
+
+/* ── Agency dashboard light theme extras ── */
+[data-theme="light"] .ag-status-badge { color: var(--lt-text-muted) !important; }
+[data-theme="light"] .ag-metric { color: var(--lt-text-secondary) !important; }
+
+/* ─────────────────────────────────────────────────────────────
+   LIGHT THEME — ACCORDION (agency members expand/collapse)
+   ───────────────────────────────────────────────────────────── */
+[data-theme="light"] .accordion-button {
+    background: transparent !important;
+    color: #111111 !important;
+}
+[data-theme="light"] .accordion-button:not(.collapsed) {
+    background: rgba(5,150,105,0.06) !important;
+    color: var(--lt-accent) !important;
+}
+[data-theme="light"] .accordion-item {
+    background: transparent;
+    border: none;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   LIGHT THEME — BADGE TIER & ADD BUTTON
+   ───────────────────────────────────────────────────────────── */
+[data-theme="light"] .badge-tier {
+    background: var(--lt-accent-bg);
+    color: var(--lt-accent);
+    border-color: var(--lt-accent);
+}
+[data-theme="light"] .no-data {
+    background: #f8f8f8;
+    border-color: rgba(5,150,105,0.25);
+}
+[data-theme="light"] .add-btn {
+    background: var(--lt-accent);
+    color: #ffffff;
+    box-shadow: 0 0 24px rgba(5,150,105,0.2);
+}
+[data-theme="light"] .add-btn:hover {
+    color: #ffffff;
+    box-shadow: 0 12px 32px rgba(5,150,105,0.25);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   LIGHT THEME — KPI TILE ICON COLOR VARIANTS
+   (colored icons stay vivid in light mode — no change needed
+    for the colored variants; only default needs lt-accent)
+   ───────────────────────────────────────────────────────────── */
+[data-theme="light"] .ak-tile-icon { color: var(--lt-accent); }
+/* Preserve colored variants — only override the plain default */
+[data-theme="light"] .ak-tile-icon.ak-icon-green { color: #059669; }
+[data-theme="light"] .ak-tile-icon.ak-icon-blue  { color: #2563eb; }
+[data-theme="light"] .ak-tile-icon.ak-icon-purple { color: #7c3aed; }
+[data-theme="light"] .ak-tile-icon.ak-icon-amber  { color: #d97706; }
+[data-theme="light"] .ak-tile-icon.ak-icon-cyan   { color: #0284c7; }
+
+/* ─────────────────────────────────────────────────────────────
+   LIGHT THEME — LEADER CARD & CHART CARD PANELS
+   (These use var(--glass-bg) which resolves to #ffffff in light
+    via variables.css — no explicit override needed for bg.
+    Override text/border that use hardcoded dark values.)
+   ───────────────────────────────────────────────────────────── */
+[data-theme="light"] .ak-leader-card { background: #ffffff; border: 1px solid #e0e0e0; }
+[data-theme="light"] .ak-chart-card  { background: #ffffff; border: 1px solid #e0e0e0; }
+[data-theme="light"] .ak-bucket-tile { background: #ffffff; border: 1px solid #e0e0e0; }
+[data-theme="light"] .ak-avg-tile    { background: #ffffff; border: 1px solid #e0e0e0; }
+[data-theme="light"] .ak-tile        { background: #ffffff; border: 1px solid #e0e0e0; }
+
+/* All-agents table header in light */
+[data-theme="light"] .agency-kpi-grid .ak-all-agents-header,
+[data-theme="light"] thead th {
+    background: #f0f0f0;
+    color: #444444;
+    border-bottom-color: #e0e0e0;
+}
+
+/* Medal colors unchanged in both modes */
+.ak-medal-gold   { background: rgba(255,215,0,0.2);  color: #f59e0b; }
+.ak-medal-silver { background: rgba(192,192,192,0.15); color: #9ca3af; }
+.ak-medal-bronze { background: rgba(205,127,50,0.15);  color: #d97706; }
+
+/* ─────────────────────────────────────────────────────────────
+   LIGHT THEME — AGENCY STAT CARD PANELS
+   ───────────────────────────────────────────────────────────── */
+[data-theme="light"] .agency-stat-card {
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+}
+[data-theme="light"] .agency-kpi-card {
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+}
+

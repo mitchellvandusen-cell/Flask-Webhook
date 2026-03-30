@@ -1,0 +1,838 @@
+/* ================================================================
+   DASHBOARD / PHONE / PHONE-UI.CSS
+   iPhone frame, notch, status bar, nav bar, tab bar, home screen,
+   app icons, screen areas, home button/pill.
+
+   Brand rules:
+   Dark (default): The phone FRAME and SCREEN are always dark —
+                   phones are dark devices. The frame chrome adapts
+                   slightly in light mode but the screen stays dark.
+   Light: [data-theme="light"] on <html>
+          Surrounding column area lightens; frame border softens.
+          Screen content (nav bar, tab bar, home grid) stays dark
+          unless it's a "content" app (messages, inbox).
+   ================================================================ */
+
+
+/* ══════════════════════════════════════════════
+   iPhone Frame
+   ══════════════════════════════════════════════ */
+
+.iphone-frame {
+    position: relative;
+    border-radius: 42px;
+    background: #1a1a1a;
+    border: 2px solid #333333;
+    box-shadow:
+        0 0 0 1px #111111,
+        0 24px 60px rgba(0,0,0,0.70),
+        0 8px 20px rgba(0,0,0,0.50);
+    overflow: hidden;
+}
+
+/* Subtle phone sheen — top-left edge catch */
+.iphone-frame::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(135deg,
+        rgba(255,255,255,0.06) 0%,
+        transparent 50%);
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* Light mode: softer frame border, no change to screen area */
+[data-theme="light"] .iphone-frame,
+[data-theme="light"] [class*="iphone"] {
+    border-color: #555555;
+    box-shadow:
+        0 0 0 1px #444444,
+        0 24px 60px rgba(0,0,0,0.35),
+        0 8px 20px rgba(0,0,0,0.20);
+}
+
+/* ── Notch (Dynamic Island / notch bar) ── */
+.ios-notch {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 28px;
+    background: #000000;
+    border-radius: 0 0 20px 20px;
+    z-index: 5;
+}
+
+/* Dynamic Island variant */
+.ios-dynamic-island {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 28px;
+    background: #000000;
+    border-radius: 20px;
+    z-index: 5;
+}
+
+
+/* ══════════════════════════════════════════════
+   Screen Area — always dark (it's a phone screen)
+   ══════════════════════════════════════════════ */
+
+.ios-screen {
+    background: #000000;
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+}
+
+/* The screen area stays #000000 in both themes —
+   phones are black-screened devices.             */
+[data-theme="light"] .ios-screen {
+    background: #000000;
+}
+
+
+/* ══════════════════════════════════════════════
+   Status Bar
+   ══════════════════════════════════════════════ */
+
+.ios-status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 16px 4px 12px;
+    height: 28px;
+    background: #000000;
+    color: #ffffff;
+    font-size: 0.65rem;
+    font-weight: 600;
+    position: relative;
+    z-index: 4;
+}
+
+.ios-status-time {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.3px;
+}
+
+.ios-status-icons {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: #ffffff;
+}
+
+.ios-status-icons i {
+    font-size: 0.6rem;
+    color: #ffffff;
+}
+
+/* Light mode: status bar stays dark — it's still the phone's status area */
+[data-theme="light"] .ios-status-bar {
+    background: #000000;
+    color: #ffffff;
+}
+[data-theme="light"] .ios-status-time   { color: #ffffff; }
+[data-theme="light"] .ios-status-icons,
+[data-theme="light"] .ios-status-icons i { color: #ffffff; }
+
+
+/* ══════════════════════════════════════════════
+   iOS Navigation Bar (inside apps)
+   ══════════════════════════════════════════════ */
+
+.ios-nav-bar {
+    display: flex;
+    align-items: center;
+    padding: 8px 14px;
+    background: rgba(20,20,20,0.94);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    min-height: 42px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.ios-nav-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #ffffff;
+    flex: 1;
+    text-align: center;
+}
+
+.ios-nav-subtitle {
+    font-size: 0.68rem;
+    color: #888888;
+    text-align: center;
+}
+
+.ios-nav-back {
+    color: #007AFF;
+    font-size: 0.82rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.ios-nav-action {
+    color: #007AFF;
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
+/* Nav bar stays dark in light mode (app chrome inside phone) */
+[data-theme="light"] .ios-nav-bar {
+    background: rgba(20,20,20,0.96) !important;
+    border-bottom-color: rgba(255,255,255,0.10) !important;
+}
+[data-theme="light"] .ios-nav-title    { color: #ffffff !important; }
+[data-theme="light"] .ios-nav-subtitle { color: #888888 !important; }
+
+
+/* ══════════════════════════════════════════════
+   iOS Tab Bar (bottom of phone)
+   ══════════════════════════════════════════════ */
+
+.ios-tab-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    background: rgba(18,18,18,0.92);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding: 4px 0 8px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+}
+
+.ios-tab-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 10px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: #555555;
+    font-size: 0.6rem;
+    font-weight: 600;
+    transition: color 0.12s;
+}
+
+.ios-tab-btn i {
+    font-size: 1.1rem;
+    margin-bottom: 1px;
+}
+
+.ios-tab-btn.active {
+    color: #00ff88;
+}
+
+.ios-tab-btn:hover:not(.active) {
+    color: #888888;
+}
+
+/* Tab bar stays dark in light mode */
+[data-theme="light"] .ios-tab-bar {
+    background: rgba(18,18,18,0.94) !important;
+    border-top-color: rgba(255,255,255,0.10) !important;
+}
+[data-theme="light"] .ios-tab-btn        { color: #555555 !important; }
+[data-theme="light"] .ios-tab-btn.active { color: #00ff88 !important; }
+
+
+/* ══════════════════════════════════════════════
+   iOS Home Screen Grid
+   ══════════════════════════════════════════════ */
+
+.ios-home-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px 8px;
+    padding: 20px 12px;
+    background: #0a0a0a;
+    flex: 1;
+    overflow-y: auto;
+}
+
+/* Home grid stays dark in light mode */
+[data-theme="light"] .ios-home-grid {
+    background: #0a0a0a !important;
+}
+
+/* ── App Icon ── */
+.ios-app-icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+
+.ios-app-icon-img {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.15);
+    transition: transform 0.10s ease;
+}
+
+.ios-app-icon:hover .ios-app-icon-img {
+    transform: scale(1.06);
+}
+
+.ios-app-label {
+    font-size: 0.58rem;
+    color: #dddddd;
+    text-align: center;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.80);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 56px;
+}
+
+/* App label stays light on dark home grid in light mode */
+[data-theme="light"] .ios-app-label {
+    color: #dddddd !important;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.80) !important;
+}
+
+/* ── Badge count on app icons ── */
+.ios-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    background: #FF3B30;
+    color: #ffffff;
+    font-size: 0.55rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+    border: 1.5px solid #000000;
+}
+
+/* ── Home indicator pill ── */
+.ios-home-indicator {
+    height: 4px;
+    width: 100px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.30);
+    margin: 6px auto 4px;
+}
+
+[data-theme="light"] .ios-home-indicator {
+    background: rgba(255,255,255,0.30);
+}
+
+
+/* ══════════════════════════════════════════════
+   iOS Call Log
+   ══════════════════════════════════════════════ */
+
+.ios-call-log-scroll {
+    background: #000000;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.ios-call-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    cursor: pointer;
+    transition: background 0.12s;
+}
+.ios-call-row:hover { background: rgba(255,255,255,0.03); }
+
+.ios-call-name   { font-weight: 600; color: #ffffff; font-size: 0.88rem; }
+.ios-call-detail { color: #8E8E93; font-size: 0.75rem; }
+.ios-call-time   { color: #555555; font-size: 0.72rem; margin-left: auto; white-space: nowrap; }
+
+/* Call log — light mode (screen content, stays dark) */
+[data-theme="light"] .ios-call-log-scroll { background: #000000 !important; }
+[data-theme="light"] .ios-call-row        { border-bottom-color: rgba(255,255,255,0.06) !important; }
+[data-theme="light"] .ios-call-name       { color: #ffffff !important; }
+[data-theme="light"] .ios-call-detail     { color: #8E8E93 !important; }
+[data-theme="light"] .ios-call-time       { color: #555555 !important; }
+
+
+/* ══════════════════════════════════════════════
+   iOS Voicemail
+   ══════════════════════════════════════════════ */
+
+.ios-voicemail-scroll {
+    background: #000000;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.ios-vm-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    cursor: pointer;
+    transition: background 0.12s;
+}
+.ios-vm-row:hover { background: rgba(255,255,255,0.03); }
+
+.ios-vm-name   { font-weight: 600; color: #ffffff; font-size: 0.88rem; }
+.ios-vm-detail { color: #8E8E93; font-size: 0.75rem; }
+.ios-vm-time   { color: #555555; font-size: 0.72rem; margin-left: auto; white-space: nowrap; }
+
+.dlr-vm-unread {
+    background: rgba(255,149,0,0.08);
+    border-color: rgba(255,149,0,0.15);
+}
+
+/* Voicemail — light mode stays dark */
+[data-theme="light"] .ios-voicemail-scroll { background: #000000 !important; }
+[data-theme="light"] .ios-vm-row           { border-bottom-color: rgba(255,255,255,0.06) !important; }
+[data-theme="light"] .ios-vm-name          { color: #ffffff !important; }
+[data-theme="light"] .ios-vm-detail        { color: #8E8E93 !important; }
+[data-theme="light"] .ios-vm-time          { color: #555555 !important; }
+
+
+/* ══════════════════════════════════════════════
+   Inbox App (inside dialer iPhone)
+   ══════════════════════════════════════════════ */
+
+#inboxConversationList,
+#inboxThreadMessages {
+    background: #000000;
+    overflow-y: auto;
+}
+
+.inbox-conv-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    cursor: pointer;
+    transition: background 0.12s;
+}
+.inbox-conv-row:hover { background: rgba(255,255,255,0.03); }
+
+.inbox-conv-name    { font-weight: 600; color: #ffffff; font-size: 0.88rem; }
+.inbox-conv-preview { color: #8E8E93; font-size: 0.78rem; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inbox-conv-time    { color: #555555; font-size: 0.68rem; margin-left: auto; white-space: nowrap; }
+
+/* Inbox — light mode (stays dark — phone screen content) */
+[data-theme="light"] #inboxConversationList,
+[data-theme="light"] #inboxThreadMessages { background: #000000 !important; }
+[data-theme="light"] .inbox-conv-row      { border-bottom-color: rgba(255,255,255,0.06) !important; }
+[data-theme="light"] .inbox-conv-row:hover { background: rgba(255,255,255,0.03) !important; }
+[data-theme="light"] .inbox-conv-name     { color: #ffffff !important; }
+[data-theme="light"] .inbox-conv-preview  { color: #8E8E93 !important; }
+[data-theme="light"] .inbox-conv-time     { color: #555555 !important; }
+
+
+/* ══════════════════════════════════════════════
+   iOS Messages Thread (inside Messages app)
+   ══════════════════════════════════════════════ */
+
+.ios-thread-scroll {
+    background: #000000;
+    overflow-y: auto;
+    flex: 1;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ios-msg-row {
+    display: flex;
+    flex-direction: column;
+}
+
+.ios-bubble {
+    max-width: 72%;
+    border-radius: 16px;
+    padding: 7px 12px;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    word-break: break-word;
+}
+
+.ios-bubble.sent {
+    background: #007AFF;
+    color: #ffffff;
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+}
+
+.ios-bubble.received {
+    background: #2c2c2e;
+    color: #ffffff;
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+}
+
+.ios-bubble-text { color: inherit; }
+
+.ios-time-label {
+    font-size: 0.62rem;
+    color: #555555;
+    text-align: center;
+    margin: 4px 0;
+}
+
+/* Thread stays dark in light mode */
+[data-theme="light"] .ios-thread-scroll   { background: #000000 !important; }
+[data-theme="light"] .ios-bubble.received { background: #2c2c2e !important; color: #ffffff !important; }
+[data-theme="light"] .ios-time-label      { color: #555555 !important; }
+
+/* ── iOS Composer ── */
+.ios-composer {
+    background: rgba(18,18,18,0.95);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding: 8px 12px;
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.ios-composer input,
+.ios-composer textarea {
+    flex: 1;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 18px;
+    padding: 6px 12px;
+    color: #ffffff;
+    font-size: 0.82rem;
+    outline: none;
+    resize: none;
+}
+
+.ios-composer input::placeholder,
+.ios-composer textarea::placeholder {
+    color: #555555;
+}
+
+/* Composer stays dark in light mode */
+[data-theme="light"] .ios-composer {
+    background: rgba(18,18,18,0.97) !important;
+    border-top-color: rgba(255,255,255,0.10) !important;
+}
+[data-theme="light"] .ios-composer input,
+[data-theme="light"] .ios-composer textarea {
+    background: rgba(255,255,255,0.10) !important;
+    color: #ffffff !important;
+    border-color: rgba(255,255,255,0.14) !important;
+}
+
+/* ── Toolbar buttons ── */
+.ios-toolbar-btn {
+    color: #8E8E93;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: color 0.12s;
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+.ios-toolbar-btn:hover { color: #00ff88; }
+
+[data-theme="light"] .ios-toolbar-btn        { color: #8E8E93 !important; }
+[data-theme="light"] .ios-toolbar-btn:hover  { color: #00ff88 !important; }
+
+/* ── Channel label/select (above composer) ── */
+.ios-channel-label  { color: #555555; font-size: 0.68rem; }
+.ios-channel-note   { color: #444444; font-size: 0.68rem; }
+.ios-channel-select {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.10);
+    color: #aaaaaa;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    padding: 3px 8px;
+    cursor: pointer;
+}
+
+[data-theme="light"] .ios-channel-label  { color: #555555 !important; }
+[data-theme="light"] .ios-channel-note   { color: #444444 !important; }
+[data-theme="light"] .ios-channel-select { background: rgba(255,255,255,0.10) !important; border-color: rgba(255,255,255,0.14) !important; color: #aaaaaa !important; }
+
+/* ── Quick-reply chips ── */
+.ios-qr-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.10);
+    color: #888888;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: background 0.12s;
+}
+.ios-qr-chip:hover { background: rgba(255,255,255,0.10); }
+
+[data-theme="light"] .ios-qr-chip       { background: rgba(255,255,255,0.07) !important; border-color: rgba(255,255,255,0.12) !important; color: #888888 !important; }
+[data-theme="light"] .ios-qr-chip:hover { background: rgba(255,255,255,0.12) !important; }
+
+
+/* ══════════════════════════════════════════════
+   Empty State
+   ══════════════════════════════════════════════ */
+
+.ios-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 48px 24px;
+    flex: 1;
+}
+
+.ios-empty-icon {
+    font-size: 2.5rem;
+    color: #333333;
+    margin-bottom: 12px;
+}
+
+.ios-empty-title { color: #ffffff; font-size: 0.95rem; font-weight: 600; margin-bottom: 4px; }
+.ios-empty-sub   { color: #555555; font-size: 0.80rem; line-height: 1.5; max-width: 200px; }
+
+/* Empty states on dark screen — stay dark in light mode */
+[data-theme="light"] .ios-empty-title { color: #ffffff !important; }
+[data-theme="light"] .ios-empty-sub   { color: #555555 !important; }
+
+
+/* ══════════════════════════════════════════════
+   Collapsed / Expanded Phone States
+   ══════════════════════════════════════════════ */
+
+.iphone-frame.collapsed {
+    width: 64px;
+    border-radius: 18px;
+    overflow: hidden;
+}
+
+.iphone-frame.collapsed .ios-screen { display: none; }
+
+.iphone-frame.expanded {
+    animation: phoneExpand 0.22s ease forwards;
+}
+
+@keyframes phoneExpand {
+    from { transform: scale(0.92); opacity: 0.80; }
+    to   { transform: scale(1.00); opacity: 1.00; }
+}
+
+/* ── Responsive sizing ── */
+@media (max-width: 1400px) {
+    .iphone-frame { transform-origin: top center; }
+}
+
+@media (max-width: 991px) {
+    .ios-home-grid { grid-template-columns: repeat(3, 1fr); gap: 10px 6px; }
+}
+
+
+/* ══════════════════════════════════════════════
+   Billing Plan Cards (defined here for completeness
+   — primary definition is in power-dialer.css)
+   ══════════════════════════════════════════════ */
+
+[data-theme="light"] .billing-plan-card {
+    background: linear-gradient(162deg,
+        rgba(255,255,255,0.96) 0%,
+        rgba(248,250,255,0.90) 100%) !important;
+    border-color: #e0e0e0 !important;
+}
+
+
+/* ══════════════════════════════════════════════
+   Marketing System — Sharp Black/Green/White
+   All marketing page elements: no blur, sharp borders.
+   Dashboard glass stays untouched.
+   ══════════════════════════════════════════════ */
+
+/* Nav underline slide on hover */
+.nav-link { position: relative; padding-bottom: 4px !important; }
+.nav-link::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 100%; height: 1px;
+    background: #00ff88;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.2s ease;
+}
+.nav-link:hover::after,
+.nav-link.active-page::after { transform: scaleX(1); }
+
+/* Sharp feature cell */
+.mkt-cell {
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 10px;
+    padding: 28px 22px;
+    transition: border-color 0.18s ease, transform 0.18s ease;
+}
+.mkt-cell:hover       { border-color: #00ff88; transform: translateY(-2px); }
+.mkt-cell h4          { font-weight: 800; font-size: 0.95rem; color: #ffffff; margin-bottom: 8px; }
+.mkt-cell p           { color: #b8b8b8; font-size: 0.83rem; line-height: 1.6; margin: 0; }
+.mkt-cell-icon        { font-size: 1.3rem; color: #00ff88; margin-bottom: 14px; }
+
+/* Green label */
+.mkt-label {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #00ff88;
+    margin-bottom: 12px;
+}
+
+/* Sharp marketing heading */
+.mkt-h2 {
+    font-size: clamp(1.9rem, 3.5vw, 2.8rem);
+    font-weight: 900;
+    color: #ffffff;
+    line-height: 1.1;
+    letter-spacing: -0.5px;
+    margin-bottom: 16px;
+}
+.mkt-h2 em  { color: #00ff88; font-style: normal; }
+.mkt-body   { color: #c0c0c0; font-size: 0.95rem; line-height: 1.7; }
+
+/* Section separator */
+.mkt-sep { border: none; border-top: 1px solid #141414; margin: 0; }
+
+/* Sharp pricing card v2 */
+.price-card-v2 {
+    background: #0a0a0a;
+    border: 1px solid #1e1e1e;
+    border-radius: 14px;
+    padding: 36px 28px;
+    position: relative;
+    transition: border-color 0.2s ease;
+}
+.price-card-v2.featured             { border-color: #00ff88; background: #0d0d0d; }
+.price-card-v2:not(.featured):hover { border-color: #333333; }
+.price-card-v2 h4                   { color: #ffffff; font-weight: 800; font-size: 1.05rem; }
+
+.price-badge-v2 {
+    position: absolute;
+    top: -11px; left: 50%;
+    transform: translateX(-50%);
+    background: #00ff88;
+    color: #000000;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    padding: 3px 14px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+/* Competitor table v2 */
+.comp-table-v2 { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+.comp-table-v2 th {
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 700;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #555555;
+    border-bottom: 1px solid #161616;
+}
+.comp-table-v2 th.ct-igb        { color: #00ff88; }
+.comp-table-v2 td               { padding: 10px 14px; border-bottom: 1px solid #0e0e0e; color: #b0b0b0; vertical-align: middle; }
+.comp-table-v2 td:first-child   { font-weight: 600; color: #d0d0d0; }
+.comp-table-v2 td.ct-igb        { background: rgba(0,255,136,0.03); }
+.comp-table-v2 tr:last-child td { border-bottom: none; }
+.ct-yes     { color: #00ff88; font-weight: 700; }
+.ct-no      { color: #333333; }
+.ct-partial { color: #666666; font-size: 0.78rem; }
+
+/* AI trust callout */
+.ai-trust-box {
+    background: rgba(0,255,136,0.05);
+    border: 1px solid rgba(0,255,136,0.18);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-top: 20px;
+}
+.ai-trust-box strong { color: #00ff88; font-size: 0.88rem; display: block; margin-bottom: 4px; }
+.ai-trust-box span   { color: #b0b0b0; font-size: 0.82rem; line-height: 1.5; }
+
+/* How it works cards */
+.hiw-card-v2 { border-radius: 14px; padding: 32px 28px; }
+.hiw-card-v2--you { background: rgba(0,255,136,0.04); border: 1px solid rgba(0,255,136,0.18); }
+.hiw-card-v2--ai  { background: #0a0a0a; border: 1px solid #1a1a1a; }
+.hiw-card-v2 .hiw-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; display: block; }
+.hiw-card-v2--you .hiw-label { color: #00ff88; }
+.hiw-card-v2--ai  .hiw-label { color: #555555; }
+.hiw-card-v2 h3 { font-weight: 900; font-size: 1.15rem; color: #ffffff; margin-bottom: 18px; }
+.hiw-list-v2 { list-style: none; padding: 0; margin: 0; }
+.hiw-list-v2 li { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; color: #c0c0c0; font-size: 0.87rem; line-height: 1.5; border-bottom: 1px solid rgba(255,255,255,0.03); }
+.hiw-list-v2 li:last-child { border-bottom: none; }
+.hiw-list-v2 li i { margin-top: 2px; flex-shrink: 0; }
+
+/* Hero stat counter */
+.hero-stat-v2 { text-align: center; }
+.hero-stat-v2 .hsn {
+    font-size: clamp(2.2rem, 4vw, 3.2rem);
+    font-weight: 900;
+    color: #ffffff;
+    line-height: 1;
+    letter-spacing: -2px;
+    font-variant-numeric: tabular-nums;
+}
+.hero-stat-v2 .hsl {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #555555;
+    margin-top: 8px;
+}
+
+/* Green CTA band */
+.cta-green-band {
+    background: #000000;
+    border-top: 1px solid #141414;
+    padding: 100px 0;
+}

@@ -1,0 +1,350 @@
+/* ================================================================
+   DASHBOARD / PHONE / APPS / RECORDINGS.CSS
+   Recordings app: recording rows, playback controls, waveform,
+   file info (duration, size, date).
+   Dark = default. Light = [data-theme="light"].
+   ================================================================ */
+
+/* ── Recording Scroll Container ── */
+.dlr-rec-scroll {
+    background: #0a0a0a;
+    overflow-y: auto;
+    flex: 1;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.08) transparent;
+}
+.dlr-rec-scroll::-webkit-scrollbar { width: 4px; }
+.dlr-rec-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+}
+[data-theme="light"] .dlr-rec-scroll {
+    background: #ffffff;
+    scrollbar-color: rgba(0,0,0,0.10) transparent;
+}
+[data-theme="light"] .dlr-rec-scroll::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.10);
+}
+
+/* ── Recording Row ── */
+.dlr-rec-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    cursor: pointer;
+    transition: background 0.15s;
+    background: #111111;
+}
+.dlr-rec-row:hover {
+    background: #171717;
+}
+[data-theme="light"] .dlr-rec-row {
+    background: #ffffff;
+    border-bottom-color: rgba(0,0,0,0.07);
+}
+[data-theme="light"] .dlr-rec-row:hover {
+    background: #f8f8f8;
+}
+
+/* ── Recording Icon Badge ── */
+.dlr-rec-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(0,255,136,0.08);
+    border: 1px solid rgba(0,255,136,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #00ff88;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+[data-theme="light"] .dlr-rec-icon {
+    background: rgba(5,150,105,0.08);
+    border-color: rgba(5,150,105,0.15);
+    color: #059669;
+}
+
+/* ── Recording Body ── */
+.dlr-rec-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.dlr-rec-name {
+    font-weight: 600;
+    color: #e0e0e0;
+    font-size: 0.88rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+[data-theme="light"] .dlr-rec-name {
+    color: #111111;
+}
+
+.dlr-rec-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 3px;
+}
+
+.dlr-rec-duration {
+    font-size: 0.75rem;
+    color: #a0a0a0;
+    font-family: monospace;
+}
+[data-theme="light"] .dlr-rec-duration {
+    color: #666666;
+}
+
+.dlr-rec-size {
+    font-size: 0.72rem;
+    color: #555555;
+}
+[data-theme="light"] .dlr-rec-size {
+    color: #999999;
+}
+
+.dlr-rec-date {
+    font-size: 0.72rem;
+    color: #444444;
+    flex-shrink: 0;
+}
+[data-theme="light"] .dlr-rec-date {
+    color: #aaaaaa;
+}
+
+/* ── Playback Waveform Bar ── */
+.dlr-rec-waveform {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 24px;
+    flex-shrink: 0;
+}
+
+.dlr-rec-wave-bar {
+    width: 3px;
+    border-radius: 2px;
+    background: rgba(0,255,136,0.30);
+    transition: background 0.15s;
+}
+.dlr-rec-row:hover .dlr-rec-wave-bar,
+.dlr-rec-row.playing .dlr-rec-wave-bar {
+    background: #00ff88;
+    animation: recWavePulse 1.2s ease-in-out infinite;
+}
+.dlr-rec-wave-bar:nth-child(2) { animation-delay: 0.1s; }
+.dlr-rec-wave-bar:nth-child(3) { animation-delay: 0.2s; }
+.dlr-rec-wave-bar:nth-child(4) { animation-delay: 0.3s; }
+.dlr-rec-wave-bar:nth-child(5) { animation-delay: 0.15s; }
+@keyframes recWavePulse {
+    0%, 100% { opacity: 0.5; transform: scaleY(0.6); }
+    50%       { opacity: 1;   transform: scaleY(1.0); }
+}
+
+[data-theme="light"] .dlr-rec-wave-bar {
+    background: rgba(5,150,105,0.25);
+}
+[data-theme="light"] .dlr-rec-row:hover .dlr-rec-wave-bar,
+[data-theme="light"] .dlr-rec-row.playing .dlr-rec-wave-bar {
+    background: #059669;
+}
+
+/* ── Inline Playback Controls (expanded state) ── */
+.dlr-rec-controls {
+    padding: 10px 16px 14px;
+    background: #0d0d0d;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+[data-theme="light"] .dlr-rec-controls {
+    background: #f4f4f4;
+    border-bottom-color: rgba(0,0,0,0.07);
+}
+
+/* Progress track */
+.dlr-rec-progress-track {
+    width: 100%;
+    height: 4px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+    margin: 8px 0;
+    cursor: pointer;
+    position: relative;
+}
+[data-theme="light"] .dlr-rec-progress-track {
+    background: rgba(0,0,0,0.10);
+}
+
+.dlr-rec-progress-fill {
+    height: 100%;
+    background: #00ff88;
+    border-radius: 2px;
+    transition: width 0.1s linear;
+}
+[data-theme="light"] .dlr-rec-progress-fill {
+    background: #059669;
+}
+
+/* Scrubber thumb */
+.dlr-rec-progress-track::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #00ff88;
+    left: var(--scrubber-pct, 0%);
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.dlr-rec-progress-track:hover::after {
+    opacity: 1;
+}
+[data-theme="light"] .dlr-rec-progress-track::after {
+    background: #059669;
+}
+
+/* Time labels */
+.dlr-rec-time-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.68rem;
+    color: #555555;
+    font-family: monospace;
+    margin-bottom: 8px;
+}
+[data-theme="light"] .dlr-rec-time-row {
+    color: #aaaaaa;
+}
+
+/* Playback buttons row */
+.dlr-rec-ctrl-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+}
+
+.dlr-rec-play-btn {
+    background: #00ff88;
+    color: #000000;
+    border: none;
+    border-radius: 50%;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: transform 0.15s, box-shadow 0.15s;
+    flex-shrink: 0;
+}
+.dlr-rec-play-btn:hover {
+    transform: scale(1.08);
+    box-shadow: 0 4px 12px rgba(0,255,136,0.30);
+}
+[data-theme="light"] .dlr-rec-play-btn {
+    background: #059669;
+    color: #ffffff;
+}
+[data-theme="light"] .dlr-rec-play-btn:hover {
+    box-shadow: 0 4px 12px rgba(5,150,105,0.30);
+}
+
+.dlr-rec-skip-btn {
+    background: none;
+    border: none;
+    color: #666666;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 6px;
+    border-radius: 50%;
+    transition: color 0.15s, background 0.15s;
+}
+.dlr-rec-skip-btn:hover {
+    color: #cccccc;
+    background: rgba(255,255,255,0.06);
+}
+[data-theme="light"] .dlr-rec-skip-btn {
+    color: #bbbbbb;
+}
+[data-theme="light"] .dlr-rec-skip-btn:hover {
+    color: #444444;
+    background: rgba(0,0,0,0.05);
+}
+
+/* ── Download Link ── */
+.dlr-rec-download {
+    background: none;
+    border: none;
+    color: #444444;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: color 0.15s, background 0.15s;
+    flex-shrink: 0;
+}
+.dlr-rec-download:hover {
+    color: #00ff88;
+    background: rgba(0,255,136,0.08);
+}
+[data-theme="light"] .dlr-rec-download {
+    color: #cccccc;
+}
+[data-theme="light"] .dlr-rec-download:hover {
+    color: #059669;
+    background: rgba(5,150,105,0.08);
+}
+
+/* ── Transcription Preview ── */
+.dlr-rec-transcript-preview {
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: #0a0a0a;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: #888888;
+    font-style: italic;
+}
+[data-theme="light"] .dlr-rec-transcript-preview {
+    background: #eeeeee;
+    color: #666666;
+}
+
+/* ── Empty State ── */
+.dlr-rec-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 48px 24px;
+    text-align: center;
+}
+.dlr-rec-empty i {
+    font-size: 2rem;
+    color: #333333;
+}
+.dlr-rec-empty-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #666666;
+}
+.dlr-rec-empty-sub {
+    font-size: 0.78rem;
+    color: #444444;
+}
+[data-theme="light"] .dlr-rec-empty i          { color: #cccccc; }
+[data-theme="light"] .dlr-rec-empty-title      { color: #444444; }
+[data-theme="light"] .dlr-rec-empty-sub        { color: #888888; }

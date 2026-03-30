@@ -1,0 +1,200 @@
+/* ================================================================
+   BASE / RESET
+   Box model reset, html/body base styles, global typography,
+   scrollbars, touch handling, FontAwesome icon defaults.
+   ================================================================ */
+
+/* ── Universal box-sizing ──────────────────────────────────────── */
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* ── html root ─────────────────────────────────────────────────── */
+html {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* ── Body — dark default ───────────────────────────────────────── */
+body {
+    background-color: var(--bg);
+    color: var(--text-primary);
+    font-family: 'Inter', 'Outfit', sans-serif;
+    line-height: 1.6;
+    overflow-x: hidden;
+    min-height: 100vh;
+    padding: env(safe-area-inset-top, 0)
+             env(safe-area-inset-right, 0)
+             env(safe-area-inset-bottom, 0)
+             env(safe-area-inset-left, 0);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* body — light mode */
+[data-theme="light"] body {
+    background-color: #f2f2f2;
+    color: #111111;
+}
+
+/* ── Typography hierarchy ──────────────────────────────────────── */
+h1, h2, h3 {
+    font-family: 'Outfit', sans-serif;
+}
+h1, h2, h3, h4, h5, h6 {
+    text-wrap: balance;
+    color: var(--text-primary);
+}
+p, li {
+    text-wrap: pretty;
+}
+
+/* Shared font family for UI elements */
+label, .form-control, select, input, textarea, button, small,
+.badge, .sidebar, .dash-topbar {
+    font-family: 'Inter', 'Outfit', sans-serif;
+}
+
+/* Tabular numbers for stats, prices, tables */
+.price-amount, .metallic-stat, .stat-number, td, .tabular {
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Links — dark default ──────────────────────────────────────── */
+a {
+    color: var(--accent);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+a:hover {
+    color: var(--accent-hover);
+}
+
+/* links — light mode */
+[data-theme="light"] a {
+    color: var(--lt-accent);
+}
+[data-theme="light"] a:hover {
+    color: var(--accent-hover);
+}
+
+/* ── Touch: remove 300ms tap delay on mobile ───────────────────── */
+button, a, input, select, textarea, [role="button"] {
+    touch-action: manipulation;
+}
+
+/* ── Text selection ────────────────────────────────────────────── */
+::selection {
+    background: rgba(0, 255, 136, 0.25);
+    color: #ffffff;
+}
+
+/* selection — light mode */
+[data-theme="light"] ::selection {
+    background: rgba(5, 150, 105, 0.20);
+    color: #111111;
+}
+
+/* ── Scrollbars — dark default ─────────────────────────────────── */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.22);
+}
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+/* scrollbars — light mode */
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+    background: #cccccc;
+    border-color: transparent;
+}
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+    background: #aaaaaa;
+}
+[data-theme="light"] * {
+    scrollbar-color: #cccccc transparent;
+}
+
+/* ── FontAwesome — global icon colors ─────────────────────────── */
+/* Dark default: all icons white */
+i.fa, i.fas, i.far, i.fab, i.fal, i.fad,
+i.fa-solid, i.fa-regular, i.fa-brands, i.fa-light, i.fa-duotone, i.fa-thin,
+span.fa, span.fas, span.far, span.fab,
+[class^="fa-"], [class*=" fa-"] {
+    color: #ffffff;
+}
+
+/* Icons — light mode: readable dark gray */
+[data-theme="light"] i.fa,
+[data-theme="light"] i.fas,
+[data-theme="light"] i.far,
+[data-theme="light"] i.fab,
+[data-theme="light"] i.fal,
+[data-theme="light"] i.fad,
+[data-theme="light"] i.fa-solid,
+[data-theme="light"] i.fa-regular,
+[data-theme="light"] i.fa-brands,
+[data-theme="light"] i.fa-light,
+[data-theme="light"] i.fa-duotone,
+[data-theme="light"] i.fa-thin,
+[data-theme="light"] span.fa,
+[data-theme="light"] span.fas,
+[data-theme="light"] span.far,
+[data-theme="light"] span.fab,
+[data-theme="light"] [class^="fa-"],
+[data-theme="light"] [class*=" fa-"] {
+    color: #555e6d;
+}
+
+/* ── Global keyframe animations ────────────────────────────────── */
+@keyframes slideUp {
+    from { transform: translateY(30px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+}
+
+@keyframes pulse {
+    0%   { opacity: 0.5; transform: translate(-50%, -50%) scale(0.8); }
+    100% { opacity: 1;   transform: translate(-50%, -50%) scale(1.1); }
+}
+
+@keyframes metallicShimmer {
+    0%, 100% { background-position: 0% 50%; }
+    50%       { background-position: 100% 50%; }
+}
+
+@keyframes ringPulse {
+    0%   { transform: scale(1); opacity: 0.8; }
+    100% { transform: scale(2); opacity: 0;   }
+}
+
+@keyframes shake {
+    10%, 90%       { transform: translate3d(-1px, 0, 0); }
+    20%, 80%       { transform: translate3d(2px,  0, 0); }
+    30%, 50%, 70%  { transform: translate3d(-4px, 0, 0); }
+    40%, 60%       { transform: translate3d(4px,  0, 0); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}

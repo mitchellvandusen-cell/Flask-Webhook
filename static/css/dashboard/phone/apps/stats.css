@@ -1,0 +1,369 @@
+/* ================================================================
+   DASHBOARD / PHONE / APPS / STATS.CSS
+   Stats / dialer analytics app inside the phone: KPI cards,
+   period pill buttons, bar charts, daily volume, hourly heatmap.
+   Dark = default. Light = [data-theme="light"].
+   ================================================================ */
+
+/* ── Stats Scroll Container ── */
+.dlr-stats-scroll {
+    background: #000000;
+    overflow-y: auto;
+    flex: 1;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.08) transparent;
+}
+.dlr-stats-scroll::-webkit-scrollbar { width: 4px; }
+.dlr-stats-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+}
+[data-theme="light"] .dlr-stats-scroll {
+    background: #f8f8f8;
+    scrollbar-color: rgba(0,0,0,0.10) transparent;
+}
+[data-theme="light"] .dlr-stats-scroll::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.10);
+}
+
+/* ── Stats Panel Shell ── */
+#dialerStatsPanel {
+    background: #0a0a0a;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    overflow: hidden;
+}
+[data-theme="light"] #dialerStatsPanel {
+    background: rgba(255,255,255,0.82);
+    border-color: rgba(0,0,0,0.10);
+}
+
+#dialerSettingsPanel {
+    background: #0a0a0a;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    overflow: hidden;
+}
+[data-theme="light"] #dialerSettingsPanel {
+    background: rgba(255,255,255,0.82);
+    border-color: rgba(0,0,0,0.10);
+}
+
+/* ── Period Pill Buttons (Today / 7d / 30d / All) ── */
+.dlr-stat-period {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    border: none;
+    background: #171717;
+    color: #888888;
+}
+.dlr-stat-period:hover {
+    background: #1e1e1e;
+    color: #cccccc;
+}
+.dlr-stat-period.active {
+    background: rgba(0,217,255,0.15);
+    color: #00d9ff;
+}
+[data-theme="light"] .dlr-stat-period {
+    background: #f0f0f0;
+    color: #666666;
+}
+[data-theme="light"] .dlr-stat-period:hover {
+    background: #e8e8e8;
+    color: #333333;
+}
+[data-theme="light"] .dlr-stat-period.active {
+    background: rgba(5,150,105,0.12);
+    color: #059669;
+}
+
+/* ── KPI Cards ── */
+.dlr-kpi-card {
+    background: #111111;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 14px 16px;
+    transition: border-color 0.15s;
+}
+.dlr-kpi-card:hover {
+    border-color: rgba(255,255,255,0.10);
+}
+[data-theme="light"] .dlr-kpi-card {
+    background: rgba(255,255,255,0.95);
+    border-color: rgba(0,0,0,0.08);
+}
+[data-theme="light"] .dlr-kpi-card:hover {
+    border-color: rgba(0,0,0,0.12);
+}
+
+.dlr-kpi-val {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+[data-theme="light"] .dlr-kpi-val {
+    color: #111111;
+}
+
+.dlr-kpi-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #606060;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-top: 4px;
+}
+[data-theme="light"] .dlr-kpi-label {
+    color: #777777;
+}
+
+.dlr-kpi-sub {
+    font-size: 0.72rem;
+    color: #444444;
+    margin-top: 3px;
+}
+[data-theme="light"] .dlr-kpi-sub {
+    color: #888888;
+}
+
+/* KPI accent value */
+.dlr-kpi-accent {
+    color: #00ff88;
+}
+[data-theme="light"] .dlr-kpi-accent {
+    color: #059669;
+}
+
+/* ── Bar Rows (horizontal stat bars) ── */
+.dlr-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    color: #888888;
+    font-size: 0.8rem;
+}
+[data-theme="light"] .dlr-bar-row {
+    color: #555555;
+}
+
+.dlr-bar-label {
+    flex: 0 0 80px;
+    font-size: 0.78rem;
+    color: #888888;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+[data-theme="light"] .dlr-bar-label {
+    color: #666666;
+}
+
+.dlr-bar-track {
+    flex: 1;
+    height: 6px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 3px;
+    overflow: hidden;
+}
+[data-theme="light"] .dlr-bar-track {
+    background: rgba(0,0,0,0.07);
+}
+
+.dlr-bar-fill {
+    height: 100%;
+    background: #00ff88;
+    border-radius: 3px;
+    transition: width 0.4s ease;
+}
+[data-theme="light"] .dlr-bar-fill {
+    background: #059669;
+}
+
+.dlr-bar-value {
+    flex: 0 0 36px;
+    text-align: right;
+    font-size: 0.75rem;
+    color: #a0a0a0;
+    font-family: monospace;
+}
+[data-theme="light"] .dlr-bar-value {
+    color: #666666;
+}
+
+/* ── Daily Chart Bars ── */
+.dlr-daily-bar {
+    background: rgba(0,255,136,0.20);
+    border-radius: 3px 3px 0 0;
+    transition: background 0.15s;
+    cursor: pointer;
+    min-width: 4px;
+    position: relative;
+}
+.dlr-daily-bar:hover {
+    background: rgba(0,255,136,0.45);
+}
+[data-theme="light"] .dlr-daily-bar {
+    background: rgba(5,150,105,0.25);
+}
+[data-theme="light"] .dlr-daily-bar:hover {
+    background: rgba(5,150,105,0.50);
+}
+
+/* Connected layer on daily bar */
+.dlr-daily-bar-connected {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #00ff88;
+    border-radius: 3px 3px 0 0;
+    opacity: 0.9;
+}
+[data-theme="light"] .dlr-daily-bar-connected {
+    background: #059669;
+}
+
+/* ── Hourly Heatmap ── */
+.dlr-hourly-bar {
+    background: rgba(0,255,136,0.12);
+    border-radius: 3px 3px 0 0;
+    transition: background 0.15s;
+    min-width: 6px;
+}
+.dlr-hourly-bar:hover {
+    background: rgba(0,255,136,0.35);
+}
+[data-theme="light"] .dlr-hourly-bar {
+    background: rgba(5,150,105,0.15);
+}
+[data-theme="light"] .dlr-hourly-bar:hover {
+    background: rgba(5,150,105,0.35);
+}
+
+/* ── Call Badge (disposition / call type chip) ── */
+.dlr-call-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    font-size: 0.72rem;
+    color: #888888;
+}
+.dlr-call-badge i {
+    color: inherit;
+}
+[data-theme="light"] .dlr-call-badge {
+    background: rgba(0,0,0,0.04);
+    border-color: rgba(0,0,0,0.10);
+    color: #888888;
+}
+[data-theme="light"] .dlr-call-badge i {
+    color: inherit;
+}
+
+/* ── Section Labels ── */
+.dlr-stats-section-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #444444;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 8px 0 4px;
+}
+[data-theme="light"] .dlr-stats-section-label {
+    color: #aaaaaa;
+}
+
+/* ── Chart Y-Axis Labels ── */
+.dlr-chart-axis-label {
+    font-size: 0.65rem;
+    color: #444444;
+    font-family: monospace;
+    white-space: nowrap;
+}
+[data-theme="light"] .dlr-chart-axis-label {
+    color: #aaaaaa;
+}
+
+/* ── Chart X-Axis Tick Labels ── */
+.dlr-chart-tick {
+    font-size: 0.62rem;
+    color: #444444;
+    text-align: center;
+}
+[data-theme="light"] .dlr-chart-tick {
+    color: #aaaaaa;
+}
+
+/* ── Stat Row (label + value inline) ── */
+.dlr-stat-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.dlr-stat-row:last-child {
+    border-bottom: none;
+}
+[data-theme="light"] .dlr-stat-row {
+    border-bottom-color: rgba(0,0,0,0.06);
+}
+
+.dlr-stat-row-label {
+    font-size: 0.8rem;
+    color: #888888;
+}
+[data-theme="light"] .dlr-stat-row-label {
+    color: #777777;
+}
+
+.dlr-stat-row-value {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #ffffff;
+    font-family: monospace;
+}
+[data-theme="light"] .dlr-stat-row-value {
+    color: #111111;
+}
+
+/* ── Empty State ── */
+.dlr-stats-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 48px 24px;
+    text-align: center;
+}
+.dlr-stats-empty i {
+    font-size: 2rem;
+    color: #333333;
+}
+.dlr-stats-empty-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #555555;
+}
+.dlr-stats-empty-sub {
+    font-size: 0.78rem;
+    color: #444444;
+}
+[data-theme="light"] .dlr-stats-empty i           { color: #cccccc; }
+[data-theme="light"] .dlr-stats-empty-title        { color: #444444; }
+[data-theme="light"] .dlr-stats-empty-sub          { color: #888888; }

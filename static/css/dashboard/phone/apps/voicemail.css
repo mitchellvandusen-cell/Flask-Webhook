@@ -1,0 +1,300 @@
+/* ================================================================
+   DASHBOARD / PHONE / APPS / VOICEMAIL.CSS
+   iOS Voicemail app: voicemail list, playback UI, duration bar.
+   Dark = default. Light = [data-theme="light"].
+   ================================================================ */
+
+/* ── Voicemail Scroll Container ── */
+.ios-voicemail-scroll {
+    background: #0a0a0a;
+    overflow-y: auto;
+    flex: 1;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.08) transparent;
+}
+.ios-voicemail-scroll::-webkit-scrollbar { width: 4px; }
+.ios-voicemail-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+}
+[data-theme="light"] .ios-voicemail-scroll {
+    background: #ffffff;
+    scrollbar-color: rgba(0,0,0,0.10) transparent;
+}
+[data-theme="light"] .ios-voicemail-scroll::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.10);
+}
+
+/* ── Voicemail Row ── */
+.ios-vm-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.ios-vm-row:hover {
+    background: #171717;
+}
+[data-theme="light"] .ios-vm-row {
+    border-bottom-color: rgba(0,0,0,0.07);
+}
+[data-theme="light"] .ios-vm-row:hover {
+    background: #f8f8f8;
+}
+
+/* Unread voicemail row highlight */
+.ios-vm-row.unread {
+    background: rgba(0,255,136,0.03);
+}
+[data-theme="light"] .ios-vm-row.unread {
+    background: rgba(5,150,105,0.04);
+}
+
+/* ── Unread Indicator Dot ── */
+.ios-vm-unread-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #00ff88;
+    flex-shrink: 0;
+}
+[data-theme="light"] .ios-vm-unread-dot {
+    background: #059669;
+}
+
+/* ── Caller Name ── */
+.ios-vm-name {
+    font-weight: 600;
+    color: #e0e0e0;
+    font-size: 0.9rem;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+[data-theme="light"] .ios-vm-name {
+    color: #111111;
+}
+
+/* ── Detail (date / phone) ── */
+.ios-vm-detail {
+    font-size: 0.78rem;
+    color: #888888;
+    display: block;
+    margin-top: 2px;
+}
+[data-theme="light"] .ios-vm-detail {
+    color: #666666;
+}
+
+/* ── Timestamp ── */
+.ios-vm-time {
+    font-size: 0.72rem;
+    color: #666666;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+[data-theme="light"] .ios-vm-time {
+    color: #999999;
+}
+
+/* ── VM Body ── */
+.ios-vm-body {
+    flex: 1;
+    min-width: 0;
+}
+
+/* ── Playback UI (expanded row) ── */
+.ios-vm-playback {
+    padding: 12px 16px 14px;
+    background: #111111;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+[data-theme="light"] .ios-vm-playback {
+    background: #f8f8f8;
+    border-bottom-color: rgba(0,0,0,0.07);
+}
+
+/* Progress track */
+.ios-vm-progress-track {
+    width: 100%;
+    height: 4px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+    margin: 10px 0;
+    position: relative;
+    cursor: pointer;
+}
+[data-theme="light"] .ios-vm-progress-track {
+    background: rgba(0,0,0,0.10);
+}
+
+.ios-vm-progress-fill {
+    height: 100%;
+    background: #00ff88;
+    border-radius: 2px;
+    transition: width 0.1s linear;
+}
+[data-theme="light"] .ios-vm-progress-fill {
+    background: #059669;
+}
+
+/* Time labels */
+.ios-vm-time-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: #555555;
+    font-family: monospace;
+}
+[data-theme="light"] .ios-vm-time-row {
+    color: #aaaaaa;
+}
+
+/* Playback controls */
+.ios-vm-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 10px;
+}
+
+.ios-vm-ctrl-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #888888;
+    font-size: 1rem;
+    padding: 6px;
+    border-radius: 50%;
+    transition: color 0.15s, background 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.ios-vm-ctrl-btn:hover {
+    color: #cccccc;
+    background: rgba(255,255,255,0.06);
+}
+[data-theme="light"] .ios-vm-ctrl-btn {
+    color: #aaaaaa;
+}
+[data-theme="light"] .ios-vm-ctrl-btn:hover {
+    color: #444444;
+    background: rgba(0,0,0,0.05);
+}
+
+/* Play/pause button — accent */
+.ios-vm-play-btn {
+    background: #00ff88;
+    color: #000000;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: transform 0.15s, box-shadow 0.15s;
+    flex-shrink: 0;
+}
+.ios-vm-play-btn:hover {
+    transform: scale(1.08);
+    box-shadow: 0 4px 14px rgba(0,255,136,0.30);
+}
+[data-theme="light"] .ios-vm-play-btn {
+    background: #059669;
+    color: #ffffff;
+}
+[data-theme="light"] .ios-vm-play-btn:hover {
+    box-shadow: 0 4px 14px rgba(5,150,105,0.30);
+}
+
+/* Transcript text */
+.ios-vm-transcript {
+    margin-top: 12px;
+    font-size: 0.8rem;
+    line-height: 1.55;
+    color: #a0a0a0;
+    font-style: italic;
+    border-left: 2px solid rgba(0,255,136,0.20);
+    padding-left: 10px;
+}
+[data-theme="light"] .ios-vm-transcript {
+    color: #666666;
+    border-left-color: rgba(5,150,105,0.25);
+}
+
+/* Speaker label */
+.ios-vm-transcript-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #555555;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+    font-style: normal;
+}
+[data-theme="light"] .ios-vm-transcript-label {
+    color: #aaaaaa;
+}
+
+/* ── Voicemail Empty State ── */
+.ios-vm-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 48px 24px;
+    color: #444444;
+    text-align: center;
+}
+.ios-vm-empty i {
+    font-size: 2rem;
+    color: #333333;
+}
+.ios-vm-empty-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #666666;
+}
+.ios-vm-empty-sub {
+    font-size: 0.78rem;
+    color: #444444;
+}
+[data-theme="light"] .ios-vm-empty i      { color: #cccccc; }
+[data-theme="light"] .ios-vm-empty-title  { color: #444444; }
+[data-theme="light"] .ios-vm-empty-sub    { color: #888888; }
+
+/* ── Delete Button (swipe-style) ── */
+.ios-vm-delete-btn {
+    background: rgba(255,59,48,0.12);
+    border: 1px solid rgba(255,59,48,0.20);
+    border-radius: 8px;
+    color: #ff3b30;
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+}
+.ios-vm-delete-btn:hover {
+    background: rgba(255,59,48,0.22);
+    border-color: rgba(255,59,48,0.35);
+}
+[data-theme="light"] .ios-vm-delete-btn {
+    background: rgba(220,38,38,0.08);
+    border-color: rgba(220,38,38,0.18);
+    color: #dc2626;
+}
+[data-theme="light"] .ios-vm-delete-btn:hover {
+    background: rgba(220,38,38,0.15);
+    border-color: rgba(220,38,38,0.30);
+}

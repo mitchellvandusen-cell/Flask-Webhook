@@ -1,0 +1,362 @@
+/* ================================================================
+   CHAIN-NEXT + SPAM PROMO + HERO HOOK
+   Shared marketing components: page-to-page loop navigation,
+   spam protection promo block, and hero hook animation.
+   ================================================================ */
+
+/* ────────────────────────────────────────────────────────────────
+   CHAIN-NEXT — page-to-page loop navigation
+   ──────────────────────────────────────────────────────────────── */
+.chain-next {
+    background: #020202;
+    border-top: 1px solid #141414;
+    padding: 90px 0;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+.chain-next::before {
+    content: '';
+    position: absolute;
+    bottom: -60px; left: 50%;
+    transform: translateX(-50%);
+    width: 700px; height: 300px;
+    background: radial-gradient(ellipse, rgba(0,255,136,0.07) 0%, transparent 65%);
+    pointer-events: none;
+}
+.chain-next-inner { position: relative; z-index: 1; }
+.chain-next-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 24px;
+}
+.chain-next-eyebrow::before,
+.chain-next-eyebrow::after {
+    content: '';
+    display: block;
+    width: 36px; height: 1px;
+    background: rgba(0,255,136,0.30);
+}
+.chain-next-heading {
+    font-size: clamp(1.9rem, 3.5vw, 3rem);
+    font-weight: 900;
+    color: #fff;
+    line-height: 1.12;
+    letter-spacing: -1.5px;
+    margin: 0 auto 12px;
+    max-width: 680px;
+}
+.chain-next-heading em {
+    font-style: normal;
+    color: var(--accent);
+}
+.chain-next-sub {
+    font-size: 1rem;
+    color: #505050;
+    max-width: 500px;
+    margin: 0 auto 36px;
+    line-height: 1.6;
+}
+.chain-next-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: transparent;
+    color: var(--accent);
+    font-weight: 800;
+    font-size: 0.82rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 14px 36px;
+    border: 1px solid rgba(0,255,136,0.35);
+    border-radius: 6px;
+    text-decoration: none;
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+.chain-next-cta:hover {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+    text-decoration: none;
+}
+.chain-next-cta i { transition: transform 0.18s ease; }
+.chain-next-cta:hover i { transform: translateX(5px); }
+
+/* branch variant — two side-by-side chain cards */
+.chain-branch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+@media (max-width: 767px) { .chain-branch { grid-template-columns: 1fr; } }
+.chain-branch-card {
+    padding: 48px 40px;
+    background: #060606;
+    border: 1px solid #1a1a1a;
+    text-align: left;
+    text-decoration: none;
+    transition: background 0.18s ease, border-color 0.18s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.chain-branch-card:hover { background: #0a0a0a; border-color: rgba(0,255,136,0.18); text-decoration: none; }
+.chain-branch-card:first-child { border-radius: 8px 0 0 8px; }
+.chain-branch-card:last-child  { border-radius: 0 8px 8px 0; }
+@media (max-width: 767px) {
+    .chain-branch-card:first-child { border-radius: 8px 8px 0 0; }
+    .chain-branch-card:last-child  { border-radius: 0 0 8px 8px; }
+}
+.chain-branch-tag {
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+}
+.chain-branch-title {
+    font-size: 1.45rem;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1.2;
+    letter-spacing: -0.5px;
+}
+.chain-branch-desc {
+    font-size: 0.88rem;
+    color: #606060;
+    line-height: 1.55;
+    flex: 1;
+}
+.chain-branch-arrow {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+}
+.chain-branch-card:hover .chain-branch-arrow i { transform: translateX(4px); }
+.chain-branch-arrow i { transition: transform 0.18s ease; }
+
+/* light theme */
+[data-theme="light"] .chain-next { background: #f8f9fb; border-top-color: #e8e8e8; }
+[data-theme="light"] .chain-next::before { background: radial-gradient(ellipse, rgba(5,150,105,0.06) 0%, transparent 65%); }
+[data-theme="light"] .chain-next-heading { color: #111; }
+[data-theme="light"] .chain-next-sub { color: #888; }
+[data-theme="light"] .chain-next-cta { border-color: rgba(5,150,105,0.35); color: var(--lt-accent); }
+[data-theme="light"] .chain-next-cta:hover { background: var(--lt-accent); color: #fff; }
+[data-theme="light"] .chain-branch-card { background: #fff; border-color: #e0e0e0; }
+[data-theme="light"] .chain-branch-card:hover { background: #f8f9fb; border-color: rgba(5,150,105,0.25); }
+[data-theme="light"] .chain-branch-title { color: #111; }
+[data-theme="light"] .chain-branch-desc { color: #888; }
+
+/* ────────────────────────────────────────────────────────────────
+   SPAM PROTECTION PROMO BLOCK
+   ──────────────────────────────────────────────────────────────── */
+.sp-promo {
+    background: #000;
+    border-top: 1px solid #111;
+    border-bottom: 1px solid #111;
+    padding: 100px 0;
+    position: relative;
+    overflow: hidden;
+}
+.sp-promo::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background:
+        radial-gradient(ellipse at 15% 50%, rgba(239,68,68,0.05) 0%, transparent 45%),
+        radial-gradient(ellipse at 85% 50%, rgba(0,255,136,0.05) 0%, transparent 45%);
+    pointer-events: none;
+}
+.sp-promo-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 80px;
+    align-items: center;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+@media (max-width: 991px) { .sp-promo-layout { grid-template-columns: 1fr; gap: 48px; } }
+@media (max-width: 991px) { .sp-promo-phone-wrap { order: -1; } }
+
+/* Phone mockup */
+.sp-promo-phone {
+    width: 220px;
+    margin: 0 auto;
+    background: #080808;
+    border: 1px solid #1e1e1e;
+    border-radius: 28px;
+    padding: 10px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+}
+.sp-promo-notch {
+    width: 70px; height: 14px;
+    background: #000;
+    border-radius: 0 0 8px 8px;
+    margin: 0 auto 8px;
+}
+.sp-call-screen {
+    border-radius: 16px;
+    padding: 28px 16px;
+    text-align: center;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.sp-call-bad {
+    background: linear-gradient(160deg, #1c0404 0%, #100202 100%);
+    border: 1px solid #3a0a0a;
+}
+.sp-call-good {
+    background: linear-gradient(160deg, #011c0a 0%, #010f06 100%);
+    border: 1px solid #0a3a1a;
+    display: none;
+}
+.sp-promo-phone.show-good .sp-call-bad  { display: none; }
+.sp-promo-phone.show-good .sp-call-good { display: flex; }
+.sp-call-badge {
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 20px;
+}
+.sp-call-badge.bad  { color: #ef4444; background: rgba(239,68,68,0.10); border: 1px solid rgba(239,68,68,0.22); }
+.sp-call-badge.good { color: #00ff88; background: rgba(0,255,136,0.07); border: 1px solid rgba(0,255,136,0.18); }
+.sp-call-name {
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+.sp-call-name.bad  { color: #ef4444; }
+.sp-call-name.good { color: #fff; }
+.sp-call-sub { font-size: 0.7rem; color: #555; }
+.sp-call-sub.good { color: rgba(0,255,136,0.45); }
+.sp-call-btns {
+    display: flex;
+    gap: 28px;
+    margin-top: 10px;
+}
+.sp-call-btn {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.9rem;
+}
+.sp-call-btn.decline { background: #ef4444; color: #fff; }
+.sp-call-btn.ignore  { background: #333; color: #fff; }
+.sp-call-btn.accept  { background: #00ff88; color: #000; }
+
+/* transition arrow between phones */
+.sp-promo-vs {
+    text-align: center;
+    font-size: 1.4rem;
+    color: #1e1e1e;
+    margin: 16px 0;
+}
+
+/* Text side */
+.sp-promo-tag {
+    display: inline-block;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(0,255,136,0.06);
+    border: 1px solid rgba(0,255,136,0.18);
+    padding: 5px 14px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+.sp-promo-h2 {
+    font-size: clamp(1.7rem, 2.8vw, 2.4rem);
+    font-weight: 900;
+    color: #fff;
+    line-height: 1.1;
+    letter-spacing: -1px;
+    margin-bottom: 16px;
+}
+.sp-promo-h2 .red { color: #ef4444; }
+.sp-promo-body {
+    font-size: 0.96rem;
+    color: #585858;
+    line-height: 1.65;
+    margin-bottom: 28px;
+    max-width: 440px;
+}
+.sp-promo-stats {
+    display: flex;
+    gap: 28px;
+    flex-wrap: wrap;
+    margin-bottom: 32px;
+}
+.sp-promo-stat { }
+.sp-promo-stat-num {
+    font-size: 1.7rem;
+    font-weight: 900;
+    display: block;
+    line-height: 1;
+}
+.sp-promo-stat-num.red   { color: #ef4444; }
+.sp-promo-stat-num.green { color: #00ff88; }
+.sp-promo-stat-lbl {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #424242;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+}
+
+[data-theme="light"] .sp-promo { background: #f0f2f5; border-top-color: #ddd; border-bottom-color: #ddd; }
+[data-theme="light"] .sp-promo-phone { background: #fff; border-color: #ddd; box-shadow: 0 16px 40px rgba(0,0,0,0.12); }
+[data-theme="light"] .sp-promo-h2 { color: #111; }
+[data-theme="light"] .sp-promo-body { color: #777; }
+[data-theme="light"] .sp-promo-stat-lbl { color: #888; }
+
+/* ────────────────────────────────────────────────────────────────
+   HOME HERO HOOK
+   ──────────────────────────────────────────────────────────────── */
+.hp-hook-line {
+    font-size: clamp(0.82rem, 1.5vw, 0.98rem);
+    font-weight: 500;
+    color: #363636;
+    margin-bottom: 22px;
+    opacity: 0;
+    animation: fadeSlideUp 0.4s ease 0.35s forwards;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: -0.2px;
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    line-height: 1.5;
+}
+.hp-hook-task {
+    color: #c0392b;
+    font-weight: 700;
+    display: inline-block;
+    min-width: 260px;
+    text-align: left;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.hp-hook-task.fading { opacity: 0; transform: translateY(-5px); }

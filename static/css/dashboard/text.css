@@ -1,0 +1,383 @@
+/* ================================================================
+   DASHBOARD / TEXT.CSS
+   Dashboard typography: headings, labels, value displays, status
+   indicators, badges, pills, temperature indicators, FontAwesome
+   icon color overrides for dashboard components.
+   Dark default + [data-theme="light"] overrides.
+   ================================================================ */
+
+/* ================================================================
+   HEADINGS — dark default
+   ================================================================ */
+h1, h2, h3, h4, h5, h6 { color: #ffffff; }
+p { color: #a0a0a0; }
+label { color: #a0a0a0; }
+
+/* ── Light: headings ── */
+[data-theme="light"] h1,
+[data-theme="light"] h2,
+[data-theme="light"] h3,
+[data-theme="light"] h4,
+[data-theme="light"] h5,
+[data-theme="light"] h6 { color: #111111 !important; }
+[data-theme="light"] p { color: #444444 !important; }
+[data-theme="light"] label { color: #444444 !important; }
+[data-theme="light"] .tab-pane div { color: #444444; }
+[data-theme="light"] .tab-pane span { color: #444444; }
+[data-theme="light"] .tab-pane strong { color: #111111 !important; }
+
+/* ================================================================
+   FORM LABELS & HELPER TEXT
+   ================================================================ */
+.form-label { color: #cccccc; font-size: 0.9rem; font-weight: 600; margin-left: 5px; }
+.text-muted { color: #666666; }
+small.text-muted { color: #666666; }
+
+[data-theme="light"] .form-label { color: #444444 !important; }
+[data-theme="light"] .text-muted,
+[data-theme="light"] small.text-muted { color: #666666 !important; }
+[data-theme="light"] .form-control { color: #111111 !important; }
+
+/* ================================================================
+   ACCENT-COLORED TEXT — readable in both modes
+   ================================================================ */
+/* Dark: neon green is fine as-is */
+/* Light: map neon to readable dark green, cyan to readable blue */
+[data-theme="light"] [style*="color:#00ff88"],
+[data-theme="light"] [style*="color: #00ff88"],
+[data-theme="light"] [style*="color:var(--accent)"] {
+    color: #059669 !important;
+}
+[data-theme="light"] [style*="color:#00d9ff"],
+[data-theme="light"] [style*="color: #00d9ff"] {
+    color: #0284c7 !important;
+}
+
+/* ================================================================
+   GLASS PANEL INLINE STYLE OVERRIDES (light mode)
+   Catch any elements that use inline styles with dark-mode values.
+   ================================================================ */
+
+/* White / near-white text → dark */
+[data-theme="light"] .glass-panel i[style*="color:#fff"],
+[data-theme="light"] .glass-panel i[style*="color: #fff"],
+[data-theme="light"] .glass-panel span[style*="color:#fff"],
+[data-theme="light"] .glass-panel div[style*="color:#fff"],
+[data-theme="light"] .glass-panel h6[style*="color:#fff"],
+[data-theme="light"] .glass-panel label[style*="color:#fff"] { color: #111111 !important; }
+
+[data-theme="light"] .glass-panel span[style*="color:#ccc"],
+[data-theme="light"] .glass-panel div[style*="color:#ccc"] { color: #444444 !important; }
+
+/* Neon green → readable dark green */
+[data-theme="light"] .glass-panel i[style*="color:#00ff88"],
+[data-theme="light"] .glass-panel i[style*="color: #00ff88"],
+[data-theme="light"] .glass-panel span[style*="color:#00ff88"],
+[data-theme="light"] .glass-panel p[style*="color:#00ff88"] { color: #059669 !important; }
+
+/* Bright cyan → readable blue */
+[data-theme="light"] .glass-panel i[style*="color:#00d9ff"],
+[data-theme="light"] .glass-panel i[style*="color: #00d9ff"],
+[data-theme="light"] .glass-panel div[style*="color:#00d9ff"],
+[data-theme="light"] .glass-panel span[style*="color:#00d9ff"] { color: #0078b8 !important; }
+
+/* Muted grays */
+[data-theme="light"] .glass-panel span[style*="color:#555"] { color: #666666 !important; }
+[data-theme="light"] .glass-panel span[style*="color:#888"],
+[data-theme="light"] .glass-panel p[style*="color:#888"] { color: #444444 !important; }
+[data-theme="light"] .glass-panel span[style*="color:#aaa"],
+[data-theme="light"] .glass-panel label[style*="color:#aaa"] { color: #666666 !important; }
+
+/* Purple accent */
+[data-theme="light"] .glass-panel i[style*="color:#a78bfa"],
+[data-theme="light"] .glass-panel div[style*="color:#a78bfa"] { color: #7c3aed !important; }
+
+/* Dark bg panels → light bg */
+[data-theme="light"] .glass-panel div[style*="background:rgba(255,255,255,0.02)"],
+[data-theme="light"] .glass-panel div[style*="background: rgba(255,255,255,0.02)"] { background: rgba(0,0,0,0.02) !important; border-color: #e0e0e0 !important; }
+[data-theme="light"] .glass-panel div[style*="background:rgba(255,255,255,0.04)"],
+[data-theme="light"] .glass-panel div[style*="background: rgba(255,255,255,0.04)"] { background: rgba(0,0,0,0.03) !important; border-color: #e0e0e0 !important; }
+[data-theme="light"] .glass-panel div[style*="background:rgba(0,255,136,0.04)"] { background: rgba(5,150,105,0.04) !important; border-color: rgba(5,150,105,0.12) !important; }
+[data-theme="light"] .glass-panel div[style*="background:rgba(0,217,255,0.04)"] { background: rgba(0,120,184,0.04) !important; border-color: rgba(0,120,184,0.12) !important; }
+
+/* Inline-styled buttons with light borders */
+[data-theme="light"] .glass-panel button[style*="border:1px solid rgba(255,255,255,0.08)"],
+[data-theme="light"] .glass-panel button[style*="border:1px solid rgba(255,255,255,0.1)"] { border-color: #e0e0e0 !important; }
+[data-theme="light"] .glass-panel button[style*="background:rgba(255,255,255,0.04)"] { background: rgba(0,0,0,0.03) !important; }
+[data-theme="light"] .glass-panel button[style*="color:#aaa"] { color: #444444 !important; }
+[data-theme="light"] .glass-panel button[style*="color:#aaa"] i { color: #444444 !important; }
+
+/* ================================================================
+   TOPBAR LIGHT PADDING
+   ================================================================ */
+[data-theme="light"] .dash-topbar {
+    padding-left: 16px;
+    padding-right: 16px;
+    border-radius: 10px;
+}
+
+/* ================================================================
+   STATUS / VOICE BADGES
+   ================================================================ */
+[data-theme="light"] #voiceStatusBadge { color: #059669 !important; background: rgba(5,150,105,0.08) !important; border-color: rgba(5,150,105,0.22) !important; }
+[data-theme="light"] #voiceStatusBadge i { color: #059669 !important; }
+[data-theme="light"] #voiceEnabledStatus[style*="color:#00ff88"] { color: #059669 !important; }
+
+/* Activate Voice panel */
+[data-theme="light"] #vstab-panel-activation .badge[style*="color: #00ff88"],
+[data-theme="light"] #vstab-panel-activation .badge[style*="color:#00ff88"] { color: #059669 !important; background: rgba(5,150,105,0.08) !important; border-color: rgba(5,150,105,0.22) !important; }
+[data-theme="light"] #vstab-panel-activation .fa-circle { color: #059669 !important; }
+[data-theme="light"] #vstab-panel-activation span[style*="color:#ccc"] { color: #444444 !important; }
+[data-theme="light"] #vstab-panel-activation span[style*="color:#555"] { color: #666666 !important; }
+[data-theme="light"] #vstab-panel-activation h6[style*="color:#fff"] { color: #111111 !important; }
+[data-theme="light"] #vstab-panel-activation p[style*="color:#888"] { color: #666666 !important; }
+[data-theme="light"] #vstab-panel-activation p[style*="color:#00ff88"] { color: #059669 !important; }
+[data-theme="light"] #vstab-panel-activation i[style*="color:#00ff88"] { color: #059669 !important; }
+[data-theme="light"] #vstab-panel-activation i[style*="color:#444"] { color: #666666 !important; }
+
+/* ================================================================
+   VOICE AI PANEL ICONS
+   ================================================================ */
+[data-theme="light"] #voicePreviewBtn { color: #0078b8 !important; border-color: rgba(0,120,184,0.25) !important; background: rgba(0,120,184,0.06) !important; }
+[data-theme="light"] #voicePreviewBtn i { color: #0078b8 !important; }
+[data-theme="light"] #vstab-panel-settings h6[style*="color: var(--accent)"] i,
+[data-theme="light"] #vstab-panel-settings h6[style*="var(--accent)"] i.fa-microphone { color: #059669 !important; }
+[data-theme="light"] div[style*="color:#00d9ff"] i.fa-circle-info { color: #0078b8 !important; }
+[data-theme="light"] #vstab-panel-settings div[style*="background:rgba(0,217,255,0.04)"] div[style*="color:#00d9ff"] { color: #0078b8 !important; }
+[data-theme="light"] div[style*="color:#a78bfa"] i.fa-circle-info { color: #7c3aed !important; }
+[data-theme="light"] #vstab-panel-settings div[style*="background:rgba(167,139,250,0.05)"] div[style*="color:#a78bfa"] { color: #7c3aed !important; }
+[data-theme="light"] #vstab-panel-settings .btn[onclick="saveVoiceConfig()"] { color: #000000 !important; }
+[data-theme="light"] #vstab-panel-settings .btn[onclick="saveVoiceConfig()"] i { color: #000000 !important; }
+[data-theme="light"] #vstab-panel-settings .btn[onclick="testVoiceConnection()"] { color: #0078b8 !important; border-color: rgba(0,120,184,0.25) !important; background: rgba(0,120,184,0.06) !important; }
+[data-theme="light"] #vstab-panel-settings .btn[onclick="testVoiceConnection()"] i { color: #0078b8 !important; }
+[data-theme="light"] .form-check-label[for="voiceEnabled"] { color: #111111 !important; }
+
+/* ================================================================
+   DIALER SETTINGS ICONS
+   ================================================================ */
+[data-theme="light"] button[onclick="refreshAudioDevices()"] { color: #444444 !important; border-color: #e0e0e0 !important; background: #ffffff !important; }
+[data-theme="light"] button[onclick="refreshAudioDevices()"] i { color: #444444 !important; }
+[data-theme="light"] button[onclick="testAudioOutput()"] { color: #0078b8 !important; border-color: rgba(0,120,184,0.20) !important; background: rgba(0,120,184,0.06) !important; }
+[data-theme="light"] button[onclick="testAudioOutput()"] i { color: #0078b8 !important; }
+[data-theme="light"] #vstab-panel-dialer button[onclick="saveVoiceConfig()"] { color: #000000 !important; }
+[data-theme="light"] #vstab-panel-dialer button[onclick="saveVoiceConfig()"] i { color: #000000 !important; }
+[data-theme="light"] #vstab-panel-dialer div[style*="text-transform:uppercase"] i { color: #0078b8 !important; }
+[data-theme="light"] #vstab-panel-dialer div[style*="color:#00d9ff"] i { color: #0078b8 !important; }
+[data-theme="light"] #vstab-panel-dialer div[style*="color:#a78bfa"] i { color: #7c3aed !important; }
+[data-theme="light"] #vstab-panel-dialer div[style*="color:#f59e0b"] i { color: #d97706 !important; }
+
+/* ================================================================
+   NUMBER HEALTH & SPAM PROTECTION
+   ================================================================ */
+[data-theme="light"] .nh-strategy-btn { border-color: #e0e0e0 !important; background: #ffffff !important; color: #666666 !important; }
+[data-theme="light"] .nh-strategy-btn i { color: inherit !important; }
+[data-theme="light"] .nh-strategy-btn.nh-strategy-active { color: #0078b8 !important; border-color: rgba(0,120,184,0.25) !important; background: rgba(0,120,184,0.08) !important; }
+[data-theme="light"] .nh-strategy-btn.nh-strategy-active i { color: #0078b8 !important; }
+[data-theme="light"] #numberHealthContent i[style*="color:#444"] { color: #666666 !important; }
+[data-theme="light"] #numberHealthContent h6[style*="color:#fff"] { color: #111111 !important; }
+[data-theme="light"] #numberHealthContent div[style*="background:rgba(255,255,255,0.02)"] { background: rgba(0,0,0,0.02) !important; border-color: #e0e0e0 !important; }
+[data-theme="light"] #voiceSettingsMenu div[style*="background:rgba(255,255,255,0.06)"] { background: #e0e0e0 !important; }
+
+/* Numbers tab refresh */
+[data-theme="light"] #vstab-panel-numbers button[onclick="loadNumbersTab()"] { color: #444444 !important; border-color: #e0e0e0 !important; background: #ffffff !important; }
+[data-theme="light"] #vstab-panel-numbers button[onclick="loadNumbersTab()"] i { color: #444444 !important; }
+
+/* Spam monitoring */
+[data-theme="light"] #smAccProtection button[onclick="loadSpamProtectionStatus()"] { color: #444444 !important; border-color: #e0e0e0 !important; background: #ffffff !important; }
+[data-theme="light"] #smAccProtection button[onclick="loadSpamProtectionStatus()"] i { color: #444444 !important; }
+[data-theme="light"] .sm-accordion-icon { color: #444444 !important; }
+[data-theme="light"] .sm-accordion-item.open .sm-accordion-icon { color: #059669 !important; }
+[data-theme="light"] .sm-accordion-badge { color: #00875a !important; background: rgba(0,170,94,0.08) !important; }
+[data-theme="light"] .sm-accordion-badge[style*="color:#ffa500"] { color: #b47800 !important; background: rgba(200,120,0,0.08) !important; }
+[data-theme="light"] .sm-accordion-badge[style*="color:#ff4444"] { color: #c53030 !important; background: rgba(197,48,48,0.08) !important; }
+
+/* CNAM */
+[data-theme="light"] .cnam-action-btn { color: #444444 !important; background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.10) !important; }
+[data-theme="light"] .cnam-action-btn:hover { color: #0064b4 !important; background: rgba(0,100,180,0.08) !important; border-color: rgba(0,100,180,0.22) !important; }
+[data-theme="light"] .cnam-action-btn i { color: inherit !important; }
+[data-theme="light"] .cnam-refresh-btn { color: #444444 !important; border-color: #e0e0e0 !important; background: #ffffff !important; }
+[data-theme="light"] .cnam-refresh-btn i { color: #444444 !important; }
+[data-theme="light"] .cnam-stat-pill i { color: inherit !important; }
+
+/* Voice Integrity */
+[data-theme="light"] .ni-remediate-btn i { color: #ffffff !important; }
+[data-theme="light"] .ni-register-btn { color: #ffffff !important; }
+[data-theme="light"] .ni-register-btn i { color: #ffffff !important; }
+
+/* ================================================================
+   WORKFLOWS — ICONS
+   ================================================================ */
+[data-theme="light"] .workflow-tab-btn i { color: inherit !important; }
+[data-theme="light"] .wf-tag-header i { color: #666666 !important; }
+[data-theme="light"] .wf-tag-fresh .wf-tag-header i { color: #059669 !important; }
+[data-theme="light"] .wf-tag-aged .wf-tag-header i { color: #d97706 !important; }
+[data-theme="light"] .wf-tag-reengage .wf-tag-header i { color: #7c3aed !important; }
+[data-theme="light"] .wf-date-intel-icon { color: #059669 !important; }
+
+/* ================================================================
+   ADVANCED SETTINGS
+   ================================================================ */
+[data-theme="light"] .adv-add-msg-btn i { color: #059669 !important; }
+[data-theme="light"] .adv-add-msg-btn { color: #059669 !important; }
+[data-theme="light"] .adv-save-btn i { color: #000000 !important; }
+[data-theme="light"] .adv-save-btn { color: #000000 !important; }
+
+/* ================================================================
+   ONBOARDING BANNER
+   ================================================================ */
+[data-theme="light"] .onboarding-banner {
+    background: rgba(255,152,0,0.05) !important;
+    border-color: rgba(255,152,0,0.22) !important;
+}
+[data-theme="light"] .onboarding-banner .banner-body h4 { color: #b45309 !important; }
+[data-theme="light"] .onboarding-banner .banner-body p { color: #444444 !important; }
+[data-theme="light"] .onboarding-banner .banner-dismiss { color: #999999 !important; }
+[data-theme="light"] .onboarding-banner .banner-dismiss:hover { color: #111111 !important; }
+
+/* ================================================================
+   METALLIC PRICE TEXT (light mode readable versions)
+   ================================================================ */
+[data-theme="light"] .metallic-price--cyan {
+    background: linear-gradient(135deg, #0891b2 0%, #06b6d4 30%, #0891b2 50%, #0e7490 75%, #0891b2 100%) !important;
+    background-size: 200% 200% !important;
+    background-clip: text !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+}
+[data-theme="light"] .metallic-price--green {
+    background: linear-gradient(135deg, #059669 0%, #34d399 30%, #059669 50%, #047857 75%, #059669 100%) !important;
+    background-size: 200% 200% !important;
+    background-clip: text !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+}
+[data-theme="light"] .metallic-price--orange {
+    background: linear-gradient(135deg, #ea580c 0%, #f97316 30%, #ea580c 50%, #c2410c 75%, #ea580c 100%) !important;
+    background-size: 200% 200% !important;
+    background-clip: text !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+}
+[data-theme="light"] .metallic-price--purple {
+    background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 30%, #7c3aed 50%, #6d28d9 75%, #7c3aed 100%) !important;
+    background-size: 200% 200% !important;
+    background-clip: text !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+}
+
+/* ================================================================
+   CALL HISTORY ROWS
+   ================================================================ */
+.call-history-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 8px 10px;
+    border-bottom: 1px solid #1a1a1a;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.12s;
+}
+.call-history-row:hover { background: rgba(255,255,255,0.02); }
+.call-history-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+[data-theme="light"] .call-history-row { border-bottom-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .call-history-row:hover { background: rgba(0,0,0,0.02); }
+
+/* Call history text classes */
+.chr-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #dddddd; }
+.chr-dir { color: #555555; font-size: 0.72rem; white-space: nowrap; }
+.chr-date { color: #444444; font-size: 0.72rem; white-space: nowrap; margin-left: auto; }
+.chr-dur { color: #666666; font-size: 0.75rem; font-family: monospace; }
+.chr-status { font-size: 0.75rem; font-weight: 600; }
+.chr-expand { border-top: 1px solid rgba(255,255,255,0.04); }
+.chr-preview { color: #cccccc; font-size: 0.82rem; line-height: 1.5; }
+.chr-hint { color: #666666; font-size: 0.78rem; font-style: italic; }
+
+[data-theme="light"] .chr-name { color: #111111; }
+[data-theme="light"] .chr-dir { color: #888888; }
+[data-theme="light"] .chr-date { color: #999999; }
+[data-theme="light"] .chr-dur { color: #777777; }
+[data-theme="light"] .chr-expand { border-top-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .chr-preview { color: #444444; }
+[data-theme="light"] .chr-hint { color: #999999; }
+
+/* ================================================================
+   CALL HISTORY ACTION BUTTONS
+   ================================================================ */
+.chr-action-btn {
+    border-radius: 5px;
+    padding: 3px 8px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    text-decoration: none;
+    line-height: 1.4;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.chr-action-btn:hover { transform: scale(1.05); }
+
+/* Dark */
+.iphone-frame .chr-action-play,
+.chr-action-play { background: rgba(0,217,255,0.16) !important; color: #00d9ff !important; border: 1px solid rgba(0,217,255,0.28) !important; }
+.iphone-frame .chr-action-dl,
+.chr-action-dl { background: rgba(74,222,128,0.14) !important; color: #4ade80 !important; border: 1px solid rgba(74,222,128,0.26) !important; }
+.iphone-frame .chr-action-tx,
+.chr-action-tx { background: rgba(74,222,128,0.14) !important; color: #4ade80 !important; border: 1px solid rgba(74,222,128,0.26) !important; }
+.iphone-frame .chr-action-transcribe,
+.chr-action-transcribe { background: rgba(255,180,0,0.14) !important; color: #ffb400 !important; border: 1px solid rgba(255,180,0,0.26) !important; }
+.iphone-frame .chr-action-callback,
+.chr-action-callback { background: rgba(74,222,128,0.14) !important; color: #4ade80 !important; border: 1px solid rgba(74,222,128,0.26) !important; margin-left: auto; }
+
+/* Light */
+[data-theme="light"] .iphone-frame .chr-action-play,
+[data-theme="light"] .chr-action-play { background: #e8f4fd !important; color: #0077a8 !important; border: 1px solid #c5e3f3 !important; }
+[data-theme="light"] .iphone-frame .chr-action-dl,
+[data-theme="light"] .chr-action-dl { background: #e6f7ed !important; color: #007a3d !important; border: 1px solid #c2ebd3 !important; }
+[data-theme="light"] .iphone-frame .chr-action-tx,
+[data-theme="light"] .chr-action-tx { background: #e6f7ed !important; color: #007a3d !important; border: 1px solid #c2ebd3 !important; }
+[data-theme="light"] .iphone-frame .chr-action-transcribe,
+[data-theme="light"] .chr-action-transcribe { background: #fff4de !important; color: #8a6300 !important; border: 1px solid #f0deb0 !important; }
+[data-theme="light"] .iphone-frame .chr-action-callback,
+[data-theme="light"] .chr-action-callback { background: #e6f7ed !important; color: #007a3d !important; border: 1px solid #c2ebd3 !important; }
+[data-theme="light"] .chr-action-btn:hover { transform: scale(1.05); }
+
+/* ================================================================
+   STIR/SHAKEN ATTESTATION BADGES
+   ================================================================ */
+.stir-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+    line-height: 1.4;
+}
+.stir-badge-a {
+    background: rgba(0,255,136,0.10);
+    color: #00ff88;
+    border: 1px solid rgba(0,255,136,0.22);
+}
+.stir-badge-b {
+    background: rgba(255,180,0,0.10);
+    color: #ffb400;
+    border: 1px solid rgba(255,180,0,0.20);
+}
+.stir-badge-c {
+    background: rgba(239,68,68,0.10);
+    color: #ef4444;
+    border: 1px solid rgba(239,68,68,0.20);
+}
+
+[data-theme="light"] .stir-badge-a { background: rgba(0,170,94,0.08); color: #00884d; border-color: rgba(0,170,94,0.22); }
+[data-theme="light"] .stir-badge-b { background: rgba(217,119,6,0.08); color: #b45309; border-color: rgba(217,119,6,0.22); }
+[data-theme="light"] .stir-badge-c { background: rgba(220,38,38,0.08); color: #dc2626; border-color: rgba(220,38,38,0.22); }

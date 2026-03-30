@@ -56,7 +56,7 @@ def comparison_text_drip():
 
 @public_bp.route("/dialer")
 def dialer():
-    return redirect('/for-individuals')
+    return render_template('dialer.html')
 
 
 @public_bp.route("/predictive-dialer")
