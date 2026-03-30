@@ -339,6 +339,10 @@
                         }
                     }
 
+                    /* Intel column: hidden by default, shown when contact selected */
+                    #dlrColIntel { display: none !important; }
+                    #dlrColIntel.dlr-col-intel-visible { display: flex !important; flex-direction: column; }
+
                     /* ═══════════════════════════════════════════════
                        Mobile Dialer Layout — App-Like Experience
                        ═══════════════════════════════════════════════ */
@@ -1402,32 +1406,32 @@
                             <div id="dialerCacheStatus" class="dlr-label-faint-4" style="display:none;font-size:.75rem;padding:2px 0;display:flex;align-items:center;gap:4px">
                             </div>
                         </div>
-                        <!-- Select Actions -->
+                        <!-- Select Actions + Dial Queue (merged) -->
                         <div id="dialerActionsBar" class="dlr-misc-8" style="display:none;padding:6px 12px;flex-shrink:0">
                             <div class="d-flex align-items-center justify-content-between">
                                 <label class="dlr-label-light" style="font-size:0.75rem;cursor:pointer;display:flex;align-items:center;gap:4px">
-                                    <input type="checkbox" id="dialerSelectAll" onchange="dialerToggleSelectAll()" class="dlr-misc-9" style="width:14px;height:14px;cursor:pointer">
+                                    <input type="checkbox" id="dialerSelectAll" onchange="dialerToggleSelectAll()" class="dlr-misc-9" style="accent-color:var(--accent);width:14px;height:14px;cursor:pointer">
                                     All <span id="dialerSelectedCount" class="dlr-label-cyan-2" style="font-weight:600"></span>
                                 </label>
                                 <div class="d-flex gap-2">
                                     <button id="dialerAddSelectedBtn" onclick="dialerAddSelectedToQueue()" class="dlr-btn-cyan-outline-3" style="border-radius:4px;padding:2px 8px;font-size:0.75rem;font-weight:600;cursor:pointer" disabled>
-                                        <i class="fa-solid fa-plus me-1"></i>Queue
+                                        <i class="fa-solid fa-plus me-1"></i>Add to Queue
                                     </button>
                                     <button id="dialerMoveSelectedBtn" onclick="_mvpOpen()" class="dlr-move-bulk-btn" disabled>Move Pipeline</button>
                                 </div>
                             </div>
                         </div>
-                        <!-- Queue (above contacts) -->
-                        <div id="dialerQueueWrap" class="dlr-misc-10" style="flex-shrink:0">
-                            <div style="padding:6px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="document.getElementById('dialerQueueBody').style.display=document.getElementById('dialerQueueBody').style.display==='none'?'block':'none'">
-                                <span style="font-size:0.75rem;font-weight:700;color:var(--accent);"><i class="fa-solid fa-list-ol me-1 dlr-text-cyan"></i>Queue <span id="dialerQueueCount" >0</span></span>
-                                <i class="fa-solid fa-chevron-down dlr-icon-c555" style="font-size:0.7rem"></i>
-                            </div>
-                            <div id="dialerQueueBody" class="dlr-misc-11" style="display:none">
+                        <!-- Dial Queue Button (replaces floating queue dropdown) -->
+                        <div style="padding:6px 12px;flex-shrink:0;position:relative;" id="dialerQueueWrap">
+                            <button onclick="document.getElementById('dialerQueueBody').style.display=document.getElementById('dialerQueueBody').style.display==='none'?'block':'none'" class="dlr-btn-ghost-7" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-radius:6px;font-size:0.75rem;font-weight:700;cursor:pointer;">
+                                <span><i class="fa-solid fa-list-ol me-1"></i>Dial Queue <span id="dialerQueueCount" style="color:var(--accent);margin-left:4px;">0</span></span>
+                                <i class="fa-solid fa-chevron-down" style="font-size:0.65rem;color:#666;"></i>
+                            </button>
+                            <div id="dialerQueueBody" style="display:none;margin-top:4px;border:1px solid var(--border);border-radius:6px;overflow:hidden;">
                                 <div id="dialerQueueList" style="max-height:160px;overflow-y:auto;padding:4px 8px;">
                                     <div class="dlr-label-faint-5" style="text-align:center;padding:10px;font-size:0.75rem">Empty queue</div>
                                 </div>
-                                <div style="display:flex;gap:4px;padding:6px 8px;">
+                                <div style="display:flex;gap:4px;padding:6px 8px;border-top:1px solid var(--border);">
                                     <button id="dialerStartBtn" onclick="dialerToggleQueue()" disabled class="dlr-btn-accent-2" style="flex:1;padding:6px;border-radius:6px;border:none;font-weight:700;font-size:0.75rem;cursor:pointer">
                                         <i class="fa-solid fa-play me-1"></i>Auto-Dial
                                     </button>
@@ -1492,7 +1496,7 @@
                     </div>
 
                     <!-- ── MIDDLE: Lead Intelligence ── -->
-                    <div class="dlr-col glass-panel" id="dlrColIntel" style="width:35%;border-radius:12px;display:none;">
+                    <div class="dlr-col glass-panel dlr-col-intel-hidden" id="dlrColIntel" style="width:35%;border-radius:12px;">
                         <div class="dlr-col-hdr">
                             <h6><i class="fa-solid fa-crosshairs me-1"></i>Lead Intelligence</h6>
                             <div id="dlrDetailActions" style="display:none;">

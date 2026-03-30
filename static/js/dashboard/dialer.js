@@ -1329,6 +1329,10 @@
         }
 
         async function dialerFetchContacts(forceRefresh) {
+            // Reset intel column to hidden state when reloading contacts
+            const _ic = document.getElementById('dlrColIntel');
+            if (_ic) { _ic.classList.add('dlr-col-intel-hidden'); _ic.classList.remove('dlr-col-intel-visible'); }
+
             // Cancel any in-flight background refresh poll (prevents stale data overwriting)
             if (_dialerRefreshPoll) {
                 clearInterval(_dialerRefreshPoll);
@@ -1782,7 +1786,10 @@
             _dialerRecordingsShowAll = false;
             // Show middle intel column when a contact is selected
             const intelCol = document.getElementById('dlrColIntel');
-            if (intelCol) intelCol.style.display = '';
+            if (intelCol) {
+                intelCol.classList.remove('dlr-col-intel-hidden');
+                intelCol.classList.add('dlr-col-intel-visible');
+            }
             dialerRenderContacts(); // highlight active
             dialerLoadContactDetail(c.id);
             dialerLoadContactMessages(c.id);

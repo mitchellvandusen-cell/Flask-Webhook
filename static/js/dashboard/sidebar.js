@@ -177,20 +177,22 @@
 
         // ── Light / Dark Theme ──
         function applyTheme(theme, save) {
-            const body = document.body;
+            const html = document.documentElement;
             const btn = document.getElementById('themeToggleBtn');
+            html.setAttribute('data-theme', theme);
+            // Keep body class for any legacy selectors that weren't caught by the migration
             if (theme === 'light') {
-                body.classList.add('light-theme');
+                document.body.classList.add('light-theme');
                 if (btn) { btn.innerHTML = '<i class="fa-solid fa-moon"></i>'; btn.title = 'Switch to dark mode'; }
             } else {
-                body.classList.remove('light-theme');
+                document.body.classList.remove('light-theme');
                 if (btn) { btn.innerHTML = '<i class="fa-solid fa-sun"></i>'; btn.title = 'Switch to light mode'; }
             }
             if (save) _lsSet('dash_theme', theme);
         }
         function toggleTheme() {
-            const isLight = document.body.classList.contains('light-theme');
-            applyTheme(isLight ? 'dark' : 'light', true);
+            const current = document.documentElement.getAttribute('data-theme') || 'dark';
+            applyTheme(current === 'light' ? 'dark' : 'light', true);
         }
 
         // ── Dialer settings panel toggle ──
