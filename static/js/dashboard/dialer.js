@@ -85,7 +85,7 @@
         function iosOpenApp(app) {
             _iosCurrentApp = app;
             const home = document.getElementById('iosHome');
-            const apps = { messages: 'iosAppMessages', calls: 'iosAppCalls', recordings: 'iosAppRecordings', voicemail: 'iosAppVoicemail', inbox: 'iosAppInbox', calendar: 'iosAppCalendar', discord: 'iosAppDiscord', slack: 'iosAppSlack', insights: 'iosAppInsights' };
+            const apps = { messages: 'iosAppMessages', calls: 'iosAppCalls', recordings: 'iosAppRecordings', voicemail: 'iosAppVoicemail', inbox: 'iosAppInbox', calendar: 'iosAppCalendar', discord: 'iosAppDiscord', slack: 'iosAppSlack', insights: 'iosAppInsights', stats: 'iosAppStats' };
             if (home) home.style.display = 'none';
             Object.keys(apps).forEach(k => {
                 const el = document.getElementById(apps[k]);
@@ -101,11 +101,12 @@
             if (app === 'discord') iosDiscordInit();
             if (app === 'slack') iosSlackInit();
             if (app === 'insights') iosInsightsInit();
+            if (app === 'stats') iosStatsLoad();
         }
 
         function iosGoHome() {
             const home = document.getElementById('iosHome');
-            const apps = ['iosAppMessages', 'iosAppCalls', 'iosAppRecordings', 'iosAppVoicemail', 'iosAppInbox', 'iosAppCalendar', 'iosAppDiscord', 'iosAppSlack', 'iosAppInsights'];
+            const apps = ['iosAppMessages', 'iosAppCalls', 'iosAppRecordings', 'iosAppVoicemail', 'iosAppInbox', 'iosAppCalendar', 'iosAppDiscord', 'iosAppSlack', 'iosAppInsights', 'iosAppStats'];
             apps.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
             if (home) home.style.display = 'flex';
             _iosCurrentApp = null;
@@ -1346,8 +1347,7 @@
                 : document.getElementById('dialerPipelineFilter').value;
             const stage = document.getElementById('dialerStageFilter').value;
 
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Loading...';
-            btn.disabled = true;
+            if (btn) { btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Loading...'; btn.disabled = true; }
 
             // Only show full loading spinner if no contacts loaded yet
             if (!_dialerAllContacts.length) {
@@ -1399,8 +1399,7 @@
                     list.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.78rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Network error loading contacts — click Get Contacts to retry</div>';
                 }
             } finally {
-                btn.innerHTML = '<i class="fa-solid fa-download me-1"></i>Get Contacts';
-                btn.disabled = false;
+                if (btn) { btn.innerHTML = '<i class="fa-solid fa-download me-1"></i>Get Contacts'; btn.disabled = false; }
             }
         }
 
@@ -6061,6 +6060,37 @@
             }
         }
 
+        // ── Stats Phone App ─────────────────────────────────────────────────────
+        let _iosStatsPeriod = 'today';
+
+        async function iosStatsLoad() {
+            const container = document.getElementById('iosStatsContent');
+            if (!container) return;
+            container.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.4rem;"></i></div>';
+            try {
+                const r = await _fetchRetry('/voice/stats?period=' + _iosStatsPeriod, {}, { retries: 1, timeout: 15000, label: 'ios-stats' });
+                if (!r.ok) { container.innerHTML = '<div style="color:#888;text-align:center;padding:20px;">Could not load statistics.</div>'; return; }
+                const s = await r.json();
+                container.innerHTML = dialerRenderStats(s);
+            } catch(e) {
+                container.innerHTML = '<div style="color:#888;text-align:center;padding:20px;">Error loading statistics.</div>';
+            }
+        }
+
+        window.iosStatsRefresh = function() {
+            const icon = document.getElementById('iosStatsRefreshIcon');
+            if (icon) { icon.classList.add('fa-spin'); setTimeout(() => icon.classList.remove('fa-spin'), 1500); }
+            iosStatsLoad();
+        };
+
+        window.iosStatsSetPeriod = function(period) {
+            _iosStatsPeriod = period;
+            document.querySelectorAll('.ios-stats-period').forEach(b => {
+                b.classList.toggle('active', b.dataset.period === period);
+            });
+            iosStatsLoad();
+        };
+
         // ── KPI Banner (top bar: Dials / Pickups / >2min / >10min) ──────────────
         async function dialerLoadKpiBanner() {
             try {
@@ -6950,6 +6980,12 @@
                 dialerTab.addEventListener('shown.bs.tab', function() {
                     _initSSENotifications();
                     _inboxStartBgRefresh();
+                    // Auto-load contacts on tab open
+                    if (!_dialerAllContacts || !_dialerAllContacts.length) {
+                        dialerSyncContacts(); // sync from CRM on first open
+                    } else {
+                        dialerFetchContacts(false); // reload from cache on subsequent opens
+                    }
                 });
                 dialerTab.addEventListener('click', function() {
                     setTimeout(_initSSENotifications, 500);
@@ -6960,6 +6996,13 @@
             if (dialerPane && dialerPane.classList.contains('active')) {
                 setTimeout(_initSSENotifications, 1000);
                 setTimeout(_inboxStartBgRefresh, 1000);
+                setTimeout(function() {
+                    if (!_dialerAllContacts || !_dialerAllContacts.length) {
+                        dialerSyncContacts();
+                    } else {
+                        dialerFetchContacts(false);
+                    }
+                }, 1200);
             }
         });
 

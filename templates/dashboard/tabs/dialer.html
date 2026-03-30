@@ -65,7 +65,12 @@
                     .dlr-daily-bar:hover{background:rgba(0,217,255,0.6);}
                     .dlr-stat-period{transition:all .15s;}
                     .dlr-stat-period.active{background:rgba(0,217,255,0.15)!important;color:#00d9ff!important;}
-                    .dlr-call-badge{display:inline-flex;align-items:center;justify-content:center;background:rgba(0,217,255,0.15);border:1px solid rgba(0,217,255,0.25);color:#00d9ff;border-radius:6px;padding:1px 6px;font-size:0.75rem;font-weight:700;font-family:'JetBrains Mono',monospace;flex-shrink:0;line-height:1.3;white-space:nowrap;gap:3px;}
+                    /* iOS Stats App period pills */
+                    .ios-stats-period{padding:4px 10px;border-radius:20px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:#888;font-size:0.72rem;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap;}
+                    .ios-stats-period.active{background:rgba(0,217,255,0.15);border-color:rgba(0,217,255,0.3);color:#00d9ff;}
+                    body.light-theme .ios-stats-period{background:rgba(0,0,0,0.05);border-color:rgba(0,0,0,0.1);color:#6b7280;}
+                    body.light-theme .ios-stats-period.active{background:rgba(0,120,184,0.12);border-color:rgba(0,120,184,0.25);color:#0078b8;}
+                    .dlr-call-badge{display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#888;border-radius:4px;padding:1px 6px;font-size:0.7rem;font-weight:600;flex-shrink:0;line-height:1.3;white-space:nowrap;}
 
                     /* Caller Number Picker — Liquid Glass dropdown */
                     .dlr-top-bar.glass-panel{overflow:visible;z-index:10;}
@@ -208,7 +213,7 @@
                     .igb-action-strip { display:flex; gap:6px; padding:10px 0; margin-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.04); }
                     .igb-action-btn { flex:1; display:flex; align-items:center; justify-content:center; gap:5px; padding:7px 4px; border-radius:8px; border:none; font-weight:700; font-size:0.78rem; cursor:pointer; transition:all .15s; }
                     .igb-action-btn:hover { filter:brightness(1.2); }
-                    .igb-action-btn.act-call { background:linear-gradient(135deg,#4ade80,#22c55e); color:#000; }
+                    .igb-action-btn.act-call { background:linear-gradient(135deg,#4ade80,#22c55e); color:#fff; }
                     .igb-action-btn.act-sms { background:rgba(0,217,255,0.12); border:1px solid rgba(0,217,255,0.2); color:#00d9ff; }
                     .igb-action-btn.act-queue { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); color:#aaa; }
                     .igb-action-btn.act-schedule { background:rgba(255,59,48,0.12); border:1px solid rgba(255,59,48,0.25); color:#FF3B30; }
@@ -1365,7 +1370,7 @@
                     <div class="dlr-col dlr-mobile-active glass-panel" id="dlrColContacts" style="width:30%;border-radius:12px;">
                         <div class="dlr-col-hdr">
                             <h6>Contacts</h6>
-                            <button id="dlrSearchToggleBtn" onclick="dlrToggleSearch()" class="dlr-btn-ghost-6" style="border-radius:6px;padding:4px 9px;cursor:pointer;font-size:.85rem;" title="Search contacts">
+                            <button id="dlrSearchToggleBtn" onclick="dlrToggleSearch()" style="background:none;border:none;border-radius:6px;padding:4px 9px;cursor:pointer;font-size:.85rem;color:#888;transition:color .15s;" title="Search contacts" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#888'">
                                 <i class="fa-solid fa-magnifying-glass"></i>
                             </button>
                         </div>
@@ -1610,7 +1615,7 @@
                                                 <span class="ios-app-label">Insights</span>
                                             </button>
                                             <!-- Stats App -->
-                                            <button class="ios-app-icon" onclick="dialerToggleStats();iosGoHome();">
+                                            <button class="ios-app-icon" onclick="iosOpenApp('stats');">
                                                 <div class="ios-icon dlr-bg-ios-purple">
                                                     <i class="fa-solid fa-chart-bar"></i>
                                                 </div>
@@ -1621,6 +1626,33 @@
                                         <div class="ios-home-indicator-bar">
                                             <div class="ios-home-indicator"></div>
                                         </div>
+                                    </div>
+
+                                    <!-- ═══ STATS APP ═══ -->
+                                    <div class="ios-app-view" id="iosAppStats" style="display:none;">
+                                        <div class="ios-nav-bar">
+                                            <button class="ios-back-btn" onclick="iosGoHome()">
+                                                <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Back</span>
+                                            </button>
+                                            <div class="ios-nav-title" style="font-weight:700;font-size:0.95rem;">Statistics</div>
+                                            <div style="display:flex;gap:4px;">
+                                                <button onclick="iosStatsRefresh()" class="ios-nav-action" title="Refresh">
+                                                    <i class="fa-solid fa-arrows-rotate" id="iosStatsRefreshIcon"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <!-- Period pills -->
+                                        <div style="padding:8px 12px 4px;display:flex;gap:4px;flex-shrink:0;">
+                                            <button class="ios-stats-period active" data-period="today"  onclick="iosStatsSetPeriod('today')">Today</button>
+                                            <button class="ios-stats-period" data-period="week"   onclick="iosStatsSetPeriod('week')">7 Days</button>
+                                            <button class="ios-stats-period" data-period="month"  onclick="iosStatsSetPeriod('month')">30 Days</button>
+                                            <button class="ios-stats-period" data-period="all"    onclick="iosStatsSetPeriod('all')">All</button>
+                                        </div>
+                                        <!-- Stats content -->
+                                        <div id="iosStatsContent" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10px 12px;">
+                                            <div style="text-align:center;padding:40px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.4rem;"></i></div>
+                                        </div>
+                                        <div class="ios-home-indicator-bar"><div class="ios-home-indicator ios-home-indicator-dark"></div></div>
                                     </div>
 
                                     <!-- ═══ MESSAGES APP ═══ -->
