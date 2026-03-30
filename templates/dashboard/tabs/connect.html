@@ -53,6 +53,12 @@
                             <button type="button" class="conn-menu-item" onclick="switchConnectPanel('google')" id="cnmenu-google">
                                 <i class="fa-brands fa-google" style="width:16px;text-align:center;"></i> Google
                             </button>
+                            <button type="button" class="conn-menu-item" onclick="switchConnectPanel('discord')" id="cnmenu-discord">
+                                <i class="fa-brands fa-discord" style="width:16px;text-align:center;"></i> Discord
+                            </button>
+                            <button type="button" class="conn-menu-item" onclick="switchConnectPanel('slack')" id="cnmenu-slack">
+                                <i class="fa-brands fa-slack" style="width:16px;text-align:center;"></i> Slack
+                            </button>
                         </div>
 
                         <!-- Right column: panel content -->
@@ -372,6 +378,60 @@
                                 </script>
                             </div>
 
+                            <!-- ── Panel: Discord ── -->
+                            <div id="cntab-panel-discord" style="display:none;">
+                                <h5 class="conn-panel-title"><i class="fa-brands fa-discord me-2"></i>Discord</h5>
+                                <p class="conn-panel-desc">Connect your Discord account to read and reply to team messages directly from your dashboard — no switching tabs.</p>
+                                <div class="conn-integration-status" id="cnDiscordStatus">
+                                    <div class="conn-int-indicator conn-int-indicator-checking">
+                                        <i class="fa-solid fa-circle-notch fa-spin"></i> Checking connection...
+                                    </div>
+                                </div>
+                                <div class="conn-integration-actions">
+                                    <a href="/discord/connect" class="conn-int-btn conn-int-btn-connect" id="cnDiscordConnectBtn">
+                                        <i class="fa-brands fa-discord me-2"></i>Connect Discord
+                                    </a>
+                                    <a href="#" class="conn-int-btn conn-int-btn-disconnect" id="cnDiscordDisconnectBtn" style="display:none;" onclick="event.preventDefault(); disconnectDiscord();">
+                                        <i class="fa-solid fa-plug-circle-xmark me-2"></i>Disconnect
+                                    </a>
+                                    <button class="conn-int-btn conn-int-btn-open" id="cnDiscordOpenBtn" style="display:none;" onclick="toggleDiscordPanel()">
+                                        <i class="fa-solid fa-comments me-2"></i>Open Chat Panel
+                                    </button>
+                                </div>
+                                <div class="conn-int-features">
+                                    <div class="conn-int-feature"><i class="fa-solid fa-check"></i> Read and send messages in any server channel</div>
+                                    <div class="conn-int-feature"><i class="fa-solid fa-check"></i> Unread notification badge in topbar</div>
+                                    <div class="conn-int-feature"><i class="fa-solid fa-check"></i> Manage up to 3 servers from the dashboard</div>
+                                </div>
+                            </div>
+
+                            <!-- ── Panel: Slack ── -->
+                            <div id="cntab-panel-slack" style="display:none;">
+                                <h5 class="conn-panel-title"><i class="fa-brands fa-slack me-2"></i>Slack</h5>
+                                <p class="conn-panel-desc">Connect your Slack workspace to message your team without leaving the dialer.</p>
+                                <div class="conn-integration-status" id="cnSlackStatus">
+                                    <div class="conn-int-indicator conn-int-indicator-checking">
+                                        <i class="fa-solid fa-circle-notch fa-spin"></i> Checking connection...
+                                    </div>
+                                </div>
+                                <div class="conn-integration-actions">
+                                    <a href="/slack/connect" class="conn-int-btn conn-int-btn-connect" id="cnSlackConnectBtn">
+                                        <i class="fa-brands fa-slack me-2"></i>Connect Slack
+                                    </a>
+                                    <a href="#" class="conn-int-btn conn-int-btn-disconnect" id="cnSlackDisconnectBtn" style="display:none;" onclick="event.preventDefault(); disconnectSlack();">
+                                        <i class="fa-solid fa-plug-circle-xmark me-2"></i>Disconnect
+                                    </a>
+                                    <button class="conn-int-btn conn-int-btn-open" id="cnSlackOpenBtn" style="display:none;" onclick="toggleSlackPanel()">
+                                        <i class="fa-solid fa-comments me-2"></i>Open Chat Panel
+                                    </button>
+                                </div>
+                                <div class="conn-int-features">
+                                    <div class="conn-int-feature"><i class="fa-solid fa-check"></i> Read and reply to any workspace channel</div>
+                                    <div class="conn-int-feature"><i class="fa-solid fa-check"></i> Notification badge when new messages arrive</div>
+                                    <div class="conn-int-feature"><i class="fa-solid fa-check"></i> Stay in your workflow — no browser switching</div>
+                                </div>
+                            </div>
+
                         </div><!-- /right column -->
                     </div><!-- /two-column flex -->
 
@@ -391,5 +451,55 @@
                 if (activeBtn) {
                     activeBtn.classList.add('active');
                 }
+                if (name === 'discord') _cnLoadDiscordStatus();
+                if (name === 'slack')   _cnLoadSlackStatus();
+            }
+
+            function _cnLoadDiscordStatus() {
+                fetch('/api/discord/status').then(r => r.json()).then(function(d) {
+                    var statusEl  = document.getElementById('cnDiscordStatus');
+                    var connectBtn = document.getElementById('cnDiscordConnectBtn');
+                    var disconnectBtn = document.getElementById('cnDiscordDisconnectBtn');
+                    var openBtn   = document.getElementById('cnDiscordOpenBtn');
+                    if (!statusEl) return;
+                    if (d.connected) {
+                        statusEl.innerHTML = '<div class="conn-int-indicator conn-int-indicator-ok"><i class="fa-solid fa-circle-check"></i> Connected as <strong>' + (d.username || 'Discord User') + '</strong></div>';
+                        if (connectBtn) connectBtn.style.display = 'none';
+                        if (disconnectBtn) disconnectBtn.style.display = '';
+                        if (openBtn) openBtn.style.display = '';
+                    } else {
+                        statusEl.innerHTML = '<div class="conn-int-indicator conn-int-indicator-off"><i class="fa-solid fa-circle-xmark"></i> Not connected</div>';
+                        if (connectBtn) connectBtn.style.display = '';
+                        if (disconnectBtn) disconnectBtn.style.display = 'none';
+                        if (openBtn) openBtn.style.display = 'none';
+                    }
+                }).catch(function() {
+                    var statusEl = document.getElementById('cnDiscordStatus');
+                    if (statusEl) statusEl.innerHTML = '<div class="conn-int-indicator conn-int-indicator-off"><i class="fa-solid fa-circle-xmark"></i> Not connected</div>';
+                });
+            }
+
+            function _cnLoadSlackStatus() {
+                fetch('/api/slack/status').then(r => r.json()).then(function(d) {
+                    var statusEl  = document.getElementById('cnSlackStatus');
+                    var connectBtn = document.getElementById('cnSlackConnectBtn');
+                    var disconnectBtn = document.getElementById('cnSlackDisconnectBtn');
+                    var openBtn   = document.getElementById('cnSlackOpenBtn');
+                    if (!statusEl) return;
+                    if (d.connected) {
+                        statusEl.innerHTML = '<div class="conn-int-indicator conn-int-indicator-ok"><i class="fa-solid fa-circle-check"></i> Connected to <strong>' + (d.team_name || 'Slack Workspace') + '</strong></div>';
+                        if (connectBtn) connectBtn.style.display = 'none';
+                        if (disconnectBtn) disconnectBtn.style.display = '';
+                        if (openBtn) openBtn.style.display = '';
+                    } else {
+                        statusEl.innerHTML = '<div class="conn-int-indicator conn-int-indicator-off"><i class="fa-solid fa-circle-xmark"></i> Not connected</div>';
+                        if (connectBtn) connectBtn.style.display = '';
+                        if (disconnectBtn) disconnectBtn.style.display = 'none';
+                        if (openBtn) openBtn.style.display = 'none';
+                    }
+                }).catch(function() {
+                    var statusEl = document.getElementById('cnSlackStatus');
+                    if (statusEl) statusEl.innerHTML = '<div class="conn-int-indicator conn-int-indicator-off"><i class="fa-solid fa-circle-xmark"></i> Not connected</div>';
+                });
             }
             </script>

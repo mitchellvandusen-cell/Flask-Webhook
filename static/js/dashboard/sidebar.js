@@ -9,11 +9,12 @@
         // Page title map
         const _pageTitles = {
             voicedialer: 'Workspace', config: 'SMS Config', voice: 'Voice Config',
-            workflows: 'Workflows', connect: 'Connect CRM',
+            workflows: 'Workflows', connect: 'Integrations',
             carriers: 'Contracted Carriers', advanced: 'Advanced', aiminutes: 'AI Minutes',
             billing: 'Billing', logs: 'Activity Logs',
             'agency-members': 'Members', 'agency-kpis': 'Statistics',
             whitelabel: 'White Label', team: 'Teams',
+            profile: 'Profile',
         };
 
         // Map of tab IDs → sidebar element IDs (used by mobileNav for active-state passthrough)
@@ -26,6 +27,7 @@
             billing: 'sbnWorkspace', logs: 'sbnWorkspace',
             'agency-members': 'sbnWorkspace', 'agency-kpis': 'sbnWorkspace',
             whitelabel: 'sbnWorkspace', team: 'sbnWorkspace',
+            profile: 'sbnWorkspace',
         };
 
         function sidebarNavigate(tabId, btnEl) {
@@ -148,6 +150,12 @@
             sidebarNavigate('voice', null);
             if (typeof switchVoicePanel === 'function') {
                 setTimeout(function() { switchVoicePanel(panel); }, 50);
+            }
+        }
+        function navToConnect(panel) {
+            sidebarNavigate('connect', null);
+            if (typeof switchConnectPanel === 'function') {
+                setTimeout(function() { switchConnectPanel(panel); }, 50);
             }
         }
 

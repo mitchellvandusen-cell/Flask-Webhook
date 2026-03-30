@@ -41,10 +41,10 @@
                     <div class="sec-label">Management</div>
                     <div class="l2-item" onclick="activateL2(this); navToVoice('numbers');">Phone Numbers</div>
                     <div class="l2-item" onclick="activateL2(this); navToVoice('numbers');">A2P 10DLC</div>
-                    <div class="sec-label" style="margin-top:4px;">Protection</div>
+                    <div class="sec-label">Protection</div>
                     <div class="l2-item" onclick="activateL2(this); navToVoice('spammonitoring');">Spam Shield</div>
                     <div class="l2-item" onclick="activateL2(this); navToVoice('spammonitoring');">Number Health</div>
-                    <div class="sec-label" style="margin-top:4px;">Usage</div>
+                    <div class="sec-label">Usage</div>
                     <div class="l2-item" onclick="activateL2(this); sidebarNavigate('aiminutes', null); loadAiMinutes();">AI Minutes</div>
                 </div>
             </div>
@@ -79,9 +79,9 @@
             <div class="l1-acc" onclick="toggleL1(this)">Integrations <span class="ch">▶</span></div>
             <div class="l1-body">
                 <div class="l1-inner">
-                    <div class="l2-item" onclick="activateL2(this); sidebarNavigate('connect', null);">Google Calendar</div>
-                    <div class="l2-item" onclick="activateL2(this); sidebarNavigate('connect', null);">Discord</div>
-                    <div class="l2-item" onclick="activateL2(this); sidebarNavigate('connect', null);">Slack</div>
+                    <div class="l2-item" onclick="activateL2(this); navToConnect('google');">Google Calendar</div>
+                    <div class="l2-item" onclick="activateL2(this); navToConnect('discord');">Discord</div>
+                    <div class="l2-item" onclick="activateL2(this); navToConnect('slack');">Slack</div>
                 </div>
             </div>
 
@@ -112,9 +112,9 @@
                     <div class="l2-body">
                         <div class="l2-inner">
                             <div class="l3-item" onclick="activateL3(this); navToVoice('settings');">AI Voice Settings</div>
-                            <div class="l3-item" id="sbnDialerSettings" onclick="toggleDialerSub(this)">Dialer Settings <span class="ch2" id="dialerArrow" style="float:right;">▶</span></div>
+                            <div class="l3-item" id="sbnDialerSettings" onclick="toggleDialerSub(this)">Dialer Settings <span class="sb-ch-right ch2" id="dialerArrow">▶</span></div>
                             <div id="dialerSub" style="max-height:0;overflow:hidden;transition:max-height .18s ease;">
-                                <div style="padding:2px 0 2px 10px;">
+                                <div class="dialer-sub-inner">
                                     <div class="l4-item" onclick="activateL4(this); navToVoice('dialer');">Call Script</div>
                                     <div class="l4-item" onclick="activateL4(this); navToVoice('dialer');">Max Lines</div>
                                     <div class="l4-item" onclick="activateL4(this); navToVoice('dialer');">Calling Hours</div>
@@ -138,8 +138,9 @@
                     <div class="l2-item" onclick="activateL2(this); sidebarNavigate('advanced', null);">Advanced</div>
                     {% endif %}
 
-                    <div class="sec-label" style="margin-top:6px;">System</div>
+                    <div class="sec-label">System</div>
                     <div class="l2-item" onclick="activateL2(this); sidebarNavigate('connect', null);">CRM</div>
+                    <div class="l2-item" onclick="activateL2(this); sidebarNavigate('profile', null);">Profile</div>
 
                 </div>
             </div>

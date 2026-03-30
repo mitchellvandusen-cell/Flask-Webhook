@@ -1,0 +1,204 @@
+        <div class="tab-pane fade" id="profile" role="tabpanel">
+            <div class="glass-panel p-4" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px;">
+
+                <!-- Header -->
+                <div class="d-flex align-items-center mb-4">
+                    <div class="conn-header-icon">
+                        <i class="fa-solid fa-user" style="color:var(--accent);font-size:1.2rem;"></i>
+                    </div>
+                    <div>
+                        <h4 style="margin:0;font-weight:700;">Profile &amp; Security</h4>
+                        <p class="conn-subtitle" style="margin:0;">Manage your account, CRM connection, and security settings</p>
+                    </div>
+                </div>
+
+                <div class="profile-sections">
+
+                    <!-- ── Reauthorize CRM ── -->
+                    <div class="profile-card">
+                        <div class="profile-card-header">
+                            <div class="profile-card-icon">
+                                <i class="fa-solid fa-rotate"></i>
+                            </div>
+                            <div>
+                                <div class="profile-card-title">Reauthorize CRM</div>
+                                <div class="profile-card-sub">Reconnect your GoHighLevel CRM if your access token has expired or you're having sync issues.</div>
+                            </div>
+                        </div>
+                        <div class="profile-card-body">
+                            <div class="profile-status-row" id="profileCrmStatus">
+                                <span class="profile-status-dot profile-status-checking"></span>
+                                <span class="profile-status-text">Checking connection...</span>
+                            </div>
+                            <div class="profile-action-row">
+                                <a href="/oauth/initiate" class="profile-btn profile-btn-primary">
+                                    <i class="fa-solid fa-plug me-2"></i>Reauthorize CRM
+                                </a>
+                                <span class="profile-btn-hint">You'll be redirected to LeadConnector to re-approve access.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ── Two-Factor Authentication ── -->
+                    <div class="profile-card">
+                        <div class="profile-card-header">
+                            <div class="profile-card-icon">
+                                <i class="fa-solid fa-shield-halved"></i>
+                            </div>
+                            <div>
+                                <div class="profile-card-title">Two-Factor Authentication</div>
+                                <div class="profile-card-sub">Add a second layer of security to your account using an authenticator app.</div>
+                            </div>
+                        </div>
+                        <div class="profile-card-body">
+                            <div class="profile-2fa-status" id="profile2faStatus">
+                                <div class="profile-2fa-badge profile-2fa-disabled">
+                                    <i class="fa-solid fa-lock-open me-2"></i>2FA Not Enabled
+                                </div>
+                            </div>
+                            <div class="profile-action-row" id="profile2faSetupRow">
+                                <button class="profile-btn profile-btn-primary" onclick="profileSetup2FA()">
+                                    <i class="fa-solid fa-qrcode me-2"></i>Set Up 2FA
+                                </button>
+                                <span class="profile-btn-hint">Use Google Authenticator, Authy, or any TOTP app.</span>
+                            </div>
+                            <div id="profile2faQrSection" style="display:none;">
+                                <div class="profile-2fa-qr-wrap">
+                                    <div class="profile-2fa-instruction">Scan this QR code with your authenticator app, then enter the 6-digit code below to confirm.</div>
+                                    <div id="profile2faQr" class="profile-2fa-qr"></div>
+                                    <div class="profile-2fa-secret-row">
+                                        <span class="profile-2fa-secret-label">Manual key:</span>
+                                        <code id="profile2faSecret" class="profile-2fa-secret"></code>
+                                        <button class="profile-2fa-copy" onclick="copyToClipboard(document.getElementById('profile2faSecret').textContent)" title="Copy key"><i class="fa-solid fa-copy"></i></button>
+                                    </div>
+                                    <div class="d-flex gap-2 align-items-center mt-3">
+                                        <input type="text" id="profile2faCode" class="profile-2fa-input" maxlength="6" placeholder="000000" autocomplete="off">
+                                        <button class="profile-btn profile-btn-primary" onclick="profileVerify2FA()">
+                                            <i class="fa-solid fa-check me-1"></i>Verify &amp; Enable
+                                        </button>
+                                        <button class="profile-btn profile-btn-ghost" onclick="profileCancel2FA()">Cancel</button>
+                                    </div>
+                                    <div id="profile2faError" class="profile-2fa-error" style="display:none;"></div>
+                                </div>
+                            </div>
+                            <div id="profile2faDisableRow" style="display:none;">
+                                <div class="d-flex gap-2 align-items-center mt-3">
+                                    <input type="text" id="profile2faDisableCode" class="profile-2fa-input" maxlength="6" placeholder="000000" autocomplete="off">
+                                    <button class="profile-btn profile-btn-danger" onclick="profileDisable2FA()">
+                                        <i class="fa-solid fa-unlock me-1"></i>Disable 2FA
+                                    </button>
+                                    <button class="profile-btn profile-btn-ghost" onclick="profileHideDisable()">Cancel</button>
+                                </div>
+                                <div id="profile2faDisableError" class="profile-2fa-error" style="display:none;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div><!-- /profile-sections -->
+
+            </div><!-- /glass-panel -->
+
+            <script>
+            (function() {
+                // Load 2FA status on tab open
+                function profileLoad2FA() {
+                    fetch('/api/2fa/status').then(r => r.json()).then(function(d) {
+                        var statusEl = document.getElementById('profile2faStatus');
+                        var setupRow = document.getElementById('profile2faSetupRow');
+                        var disableRow = document.getElementById('profile2faDisableRow');
+                        if (d.enabled) {
+                            statusEl.innerHTML = '<div class="profile-2fa-badge profile-2fa-enabled"><i class="fa-solid fa-shield-halved me-2"></i>2FA Enabled</div>';
+                            setupRow.style.display = 'none';
+                            disableRow.style.display = '';
+                        } else {
+                            statusEl.innerHTML = '<div class="profile-2fa-badge profile-2fa-disabled"><i class="fa-solid fa-lock-open me-2"></i>2FA Not Enabled</div>';
+                            setupRow.style.display = '';
+                            disableRow.style.display = 'none';
+                        }
+                    }).catch(function() {});
+                }
+                // Load CRM connection status
+                function profileLoadCrmStatus() {
+                    var statusEl = document.getElementById('profileCrmStatus');
+                    if (!statusEl) return;
+                    fetch('/api/integrations/save', {method:'GET'}).catch(function() {});
+                    // Simple connected check via onboarding
+                    fetch('/api/onboarding-check').then(r => r.json()).then(function(d) {
+                        if (d.crm_connected) {
+                            statusEl.innerHTML = '<span class="profile-status-dot profile-status-ok"></span><span class="profile-status-text">CRM connected</span>';
+                        } else {
+                            statusEl.innerHTML = '<span class="profile-status-dot profile-status-error"></span><span class="profile-status-text">CRM not connected — reauthorize to fix</span>';
+                        }
+                    }).catch(function() {
+                        statusEl.innerHTML = '<span class="profile-status-dot profile-status-error"></span><span class="profile-status-text">Could not check connection</span>';
+                    });
+                }
+                // Expose functions for inline onclick handlers
+                window.profileSetup2FA = function() {
+                    fetch('/api/2fa/setup', {method:'POST', headers:{'Content-Type':'application/json'}})
+                    .then(r => r.json()).then(function(d) {
+                        if (d.qr_url) {
+                            document.getElementById('profile2faQr').innerHTML = '<img src="' + d.qr_url + '" alt="2FA QR Code" class="profile-2fa-qr-img">';
+                        }
+                        if (d.secret) document.getElementById('profile2faSecret').textContent = d.secret;
+                        document.getElementById('profile2faSetupRow').style.display = 'none';
+                        document.getElementById('profile2faQrSection').style.display = '';
+                    }).catch(function() { if(typeof _showDashToast==='function') _showDashToast(false,'Could not start 2FA setup'); });
+                };
+                window.profileVerify2FA = function() {
+                    var code = document.getElementById('profile2faCode').value.trim();
+                    var errEl = document.getElementById('profile2faError');
+                    errEl.style.display = 'none';
+                    fetch('/api/2fa/verify', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({code:code})})
+                    .then(r => r.json()).then(function(d) {
+                        if (d.success) {
+                            document.getElementById('profile2faQrSection').style.display = 'none';
+                            profileLoad2FA();
+                            if(typeof _showDashToast==='function') _showDashToast(true,'2FA enabled successfully');
+                        } else {
+                            errEl.textContent = d.error || 'Invalid code — try again';
+                            errEl.style.display = '';
+                        }
+                    }).catch(function() { errEl.textContent = 'Verification failed'; errEl.style.display = ''; });
+                };
+                window.profileCancel2FA = function() {
+                    document.getElementById('profile2faQrSection').style.display = 'none';
+                    document.getElementById('profile2faSetupRow').style.display = '';
+                    document.getElementById('profile2faCode').value = '';
+                };
+                window.profileDisable2FA = function() {
+                    var code = document.getElementById('profile2faDisableCode').value.trim();
+                    var errEl = document.getElementById('profile2faDisableError');
+                    errEl.style.display = 'none';
+                    fetch('/api/2fa/disable', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({code:code})})
+                    .then(r => r.json()).then(function(d) {
+                        if (d.success) {
+                            profileLoad2FA();
+                            if(typeof _showDashToast==='function') _showDashToast(true,'2FA disabled');
+                        } else {
+                            errEl.textContent = d.error || 'Invalid code';
+                            errEl.style.display = '';
+                        }
+                    }).catch(function() { errEl.textContent = 'Failed to disable 2FA'; errEl.style.display = ''; });
+                };
+                window.profileHideDisable = function() {
+                    document.getElementById('profile2faDisableRow').style.display = 'none';
+                    document.getElementById('profile2faDisableCode').value = '';
+                };
+                // Auto-load when tab is shown
+                var pane = document.getElementById('profile');
+                if (pane) {
+                    var observer = new MutationObserver(function(muts) {
+                        muts.forEach(function(m) {
+                            if (m.target.classList.contains('active')) {
+                                profileLoad2FA();
+                                profileLoadCrmStatus();
+                            }
+                        });
+                    });
+                    observer.observe(pane, {attributes:true, attributeFilter:['class']});
+                }
+            })();
+            </script>
+
+        </div><!-- /#profile -->
