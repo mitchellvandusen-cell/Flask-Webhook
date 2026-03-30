@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Workspace Layout Options</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0a0a10; color: #e0e0e0; font-family: 'Inter', -apple-system, sans-serif; padding: 24px; min-height: 100vh; }
+  h1 { font-size: 1.1rem; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 6px; }
+  .subtitle { font-size: 0.8rem; color: #666; margin-bottom: 28px; }
+
+  .layouts { display: flex; gap: 20px; align-items: flex-start; }
+  .layout-wrap { flex: 1; cursor: pointer; }
+  .layout-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: .15em; color: #555; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .layout-label span { color: #fff; font-size: 0.9rem; }
+  .layout-title { font-size: 0.82rem; font-weight: 700; color: #ccc; margin-bottom: 4px; }
+  .layout-desc { font-size: 0.72rem; color: #555; margin-bottom: 12px; line-height: 1.5; }
+
+  /* Dashboard mockup shell */
+  .dash { border: 1px solid #222; border-radius: 8px; overflow: hidden; background: #0d0d14; }
+  .dash-topbar { height: 28px; background: rgba(255,255,255,0.03); border-bottom: 1px solid #1a1a24; display: flex; align-items: center; padding: 0 10px; gap: 6px; }
+  .dash-topbar-dot { width: 6px; height: 6px; border-radius: 50%; background: #333; }
+  .dash-topbar-title { font-size: 0.55rem; color: #444; margin-left: 6px; font-weight: 600; letter-spacing: .08em; }
+  .dash-body { display: flex; height: 280px; }
+
+  /* Sidebar */
+  .dash-sidebar { width: 36px; background: #080810; border-right: 1px solid #1a1a24; flex-shrink: 0; padding: 8px 0; display: flex; flex-direction: column; gap: 1px; }
+  .sb-item { height: 6px; margin: 0 6px; border-radius: 0; }
+  .sb-item.active { background: #00ff88; }
+  .sb-item.dim { background: #1e1e28; }
+  .sb-item.gap { height: 10px; background: transparent; }
+
+  /* Main area */
+  .dash-main { flex: 1; display: flex; overflow: hidden; }
+
+  /* Columns */
+  .col { display: flex; flex-direction: column; border-right: 1px solid #1a1a24; overflow: hidden; }
+  .col:last-child { border-right: none; }
+  .col-header { height: 22px; background: rgba(255,255,255,0.02); border-bottom: 1px solid #1a1a24; display: flex; align-items: center; padding: 0 8px; gap: 4px; flex-shrink: 0; }
+  .col-header-label { font-size: 0.48rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #444; }
+  .col-header-badge { font-size: 0.42rem; background: rgba(0,255,136,0.12); color: #00ff88; padding: 1px 4px; border-radius: 0; font-weight: 700; }
+  .col-body { flex: 1; padding: 6px; overflow: hidden; }
+
+  /* Contact list items */
+  .contact-row { height: 18px; border-radius: 0; margin-bottom: 2px; background: #111118; display: flex; align-items: center; padding: 0 6px; gap: 5px; }
+  .contact-row.selected { background: rgba(0,255,136,0.08); border-left: 2px solid #00ff88; }
+  .contact-dot { width: 5px; height: 5px; border-radius: 50%; }
+  .contact-dot.hot { background: #ef4444; }
+  .contact-dot.warm { background: #f59e0b; }
+  .contact-dot.cool { background: #3b82f6; }
+  .contact-name { height: 4px; background: #2a2a35; border-radius: 0; flex: 1; }
+  .contact-name.lit { background: #3a3a50; }
+
+  /* Actions bar */
+  .actions-bar { height: 24px; background: #080810; border-top: 1px solid #1a1a24; display: flex; align-items: center; padding: 0 6px; gap: 4px; flex-shrink: 0; }
+  .act-btn { height: 14px; padding: 0 6px; font-size: 0.42rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; display: flex; align-items: center; border: 1px solid #333; color: #666; cursor: pointer; }
+  .act-btn.primary { background: #00ff88; color: #000; border-color: #00ff88; }
+  .act-btn.secondary { border-color: #333; color: #555; }
+
+  /* Intel column */
+  .intel-panel { display: flex; flex-direction: column; gap: 3px; padding: 4px; }
+  .intel-card { background: #111118; border: 1px solid #1e1e28; padding: 5px 6px; }
+  .intel-card-label { font-size: 0.42rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #00ff88; margin-bottom: 3px; }
+  .intel-bar { height: 3px; background: #1e1e28; border-radius: 0; margin-bottom: 2px; }
+  .intel-bar-fill { height: 100%; background: #00ff88; }
+  .intel-line { height: 3px; background: #2a2a38; border-radius: 0; margin-bottom: 2px; }
+  .intel-actions { display: flex; gap: 3px; margin-top: 4px; }
+  .intel-action { height: 12px; flex: 1; background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.2); display: flex; align-items: center; justify-content: center; }
+  .intel-action-text { font-size: 0.38rem; color: #00ff88; font-weight: 700; text-transform: uppercase; }
+
+  /* Phone column */
+  .phone-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 8px; background: #0a0a12; }
+  .phone { width: 70px; height: 130px; background: #111118; border: 2px solid #2a2a35; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+  .phone-notch { height: 8px; background: #0a0a12; display: flex; align-items: center; justify-content: center; }
+  .phone-notch-pill { width: 16px; height: 3px; background: #1e1e28; border-radius: 2px; }
+  .phone-statusbar { height: 10px; background: #0f0f18; display: flex; align-items: center; padding: 0 5px; justify-content: space-between; }
+  .phone-status-text { font-size: 0.36rem; color: #555; font-weight: 600; }
+
+  /* Dial mode toggle above phone */
+  .dial-mode-wrap { margin-bottom: 5px; display: flex; justify-content: center; }
+  .dial-mode { display: flex; border: 1px solid #2a2a35; overflow: hidden; }
+  .dial-mode-btn { padding: 3px 8px; font-size: 0.42rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #555; }
+  .dial-mode-btn.active { background: #00ff88; color: #000; }
+
+  .phone-screen { flex: 1; background: #0d0d16; padding: 4px; }
+  .phone-home { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 2px; }
+  .phone-app { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .phone-app-icon { width: 18px; height: 18px; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
+  .phone-app-icon.green { background: rgba(0,255,136,0.2); border: 1px solid rgba(0,255,136,0.3); }
+  .phone-app-icon.blue { background: rgba(59,130,246,0.2); border: 1px solid rgba(59,130,246,0.3); }
+  .phone-app-icon.amber { background: rgba(245,158,11,0.2); border: 1px solid rgba(245,158,11,0.3); }
+  .phone-app-icon.red { background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.3); }
+  .phone-app-icon.purple { background: rgba(168,85,247,0.2); border: 1px solid rgba(168,85,247,0.3); }
+  .phone-app-icon.gray { background: rgba(107,114,128,0.15); border: 1px solid rgba(107,114,128,0.2); }
+  .phone-app-label { font-size: 0.32rem; color: #555; text-align: center; line-height: 1; }
+
+  /* Dialer app inside phone */
+  .phone-dialer { padding: 3px; }
+  .phone-dialer-header { font-size: 0.4rem; font-weight: 800; text-transform: uppercase; color: #00ff88; letter-spacing: .08em; margin-bottom: 4px; }
+  .phone-contact-mini { background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.15); padding: 3px 4px; margin-bottom: 3px; }
+  .phone-contact-mini-name { font-size: 0.38rem; color: #ccc; font-weight: 600; }
+  .phone-contact-mini-sub { font-size: 0.34rem; color: #555; }
+  .phone-dial-btns { display: flex; gap: 2px; margin-top: 4px; }
+  .phone-dial-btn { flex: 1; height: 14px; display: flex; align-items: center; justify-content: center; font-size: 0.38rem; font-weight: 800; text-transform: uppercase; }
+  .phone-dial-btn.primary { background: #00ff88; color: #000; }
+  .phone-dial-btn.outline { border: 1px solid #333; color: #555; }
+  .phone-queue-list { margin-top: 4px; }
+  .phone-q-row { height: 10px; background: #111118; margin-bottom: 1px; display: flex; align-items: center; padding: 0 3px; gap: 3px; }
+  .phone-q-dot { width: 4px; height: 4px; border-radius: 50%; background: #333; }
+  .phone-q-line { height: 2px; flex: 1; background: #222; }
+
+  /* Hidden column placeholder */
+  .col-hidden { width: 0; overflow: hidden; opacity: 0; transition: all .3s; }
+  .col-visible { opacity: 1; }
+  .hidden-hint { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 4px; }
+  .hidden-hint-text { font-size: 0.44rem; color: #333; text-align: center; font-weight: 600; }
+  .hidden-arrow { font-size: 0.6rem; color: #2a2a35; }
+
+  /* Selection UI */
+  .selected-layout { border: 2px solid #00ff88 !important; }
+  .select-btn { margin-top: 10px; padding: 7px 0; width: 100%; background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.2); color: #00ff88; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; cursor: pointer; transition: all .15s; text-align: center; }
+  .select-btn:hover { background: rgba(0,255,136,0.14); }
+  .select-btn.chosen { background: #00ff88; color: #000; }
+
+  /* Slide-in animation hint */
+  @keyframes slideIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+  .slide-in { animation: slideIn .4s ease forwards; }
+</style>
+</head>
+<body>
+
+<h1>Workspace Layout Options</h1>
+<p class="subtitle">Click a layout to select it. All 3 keep every feature — just different arrangement.</p>
+
+<div class="layouts">
+
+  <!-- OPTION A: Progressive Disclosure -->
+  <div class="layout-wrap" onclick="selectLayout('a')">
+    <div class="layout-label"><span>A</span> Progressive Disclosure</div>
+    <div class="layout-title">2 columns → 3 on contact click</div>
+    <div class="layout-desc">Middle column hidden until a contact is selected. Clean default, Intel appears in context.</div>
+
+    <div class="dash" id="layout-a">
+      <div class="dash-topbar">
+        <div class="dash-topbar-dot"></div><div class="dash-topbar-dot"></div><div class="dash-topbar-dot"></div>
+        <div class="dash-topbar-title">WORKSPACE — NO CONTACT SELECTED</div>
+      </div>
+      <div class="dash-body">
+        <div class="dash-sidebar">
+          <div class="sb-item active"></div>
+          <div class="sb-item dim"></div>
+          <div class="sb-item dim"></div>
+          <div class="sb-item gap"></div>
+          <div class="sb-item dim"></div>
+          <div class="sb-item dim"></div>
+        </div>
+        <div class="dash-main">
+          <!-- Contacts col 45% -->
+          <div class="col" style="width:45%">
+            <div class="col-header">
+              <div class="col-header-label">Contacts</div>
+              <div class="col-header-badge">247</div>
+            </div>
+            <div class="col-body">
+              <div style="height:14px;background:#111118;margin-bottom:4px;border:1px solid #1e1e28;display:flex;align-items:center;padding:0 6px;">
+                <div style="height:3px;flex:1;background:#222;border-radius:0;"></div>
+              </div>
+              <div class="contact-row selected"><div class="contact-dot hot"></div><div class="contact-name lit"></div><div style="font-size:0.38rem;color:#00ff88;font-weight:700;">HOT</div></div>
+              <div class="contact-row"><div class="contact-dot warm"></div><div class="contact-name"></div></div>
+              <div class="contact-row"><div class="contact-dot warm"></div><div class="contact-name"></div></div>
+              <div class="contact-row"><div class="contact-dot cool"></div><div class="contact-name"></div></div>
+              <div class="contact-row"><div class="contact-dot cool"></div><div class="contact-name"></div></div>
+              <div class="contact-row"><div class="contact-dot" style="background:#6b7280;"></div><div class="contact-name"></div></div>
+              <div class="contact-row"><div class="contact-dot" style="background:#6b7280;"></div><div class="contact-name"></div></div>
+            </div>
+            <div class="actions-bar">
+              <div class="act-btn secondary">Queue</div>
+              <div class="act-btn secondary">Move</div>
+              <div class="act-btn primary">Dial</div>
+            </div>
+          </div>
+          <!-- Intel col — slides in, shown because contact is selected -->
+          <div class="col slide-in" style="width:28%">
+            <div class="col-header">
+              <div class="col-header-label" style="color:#00ff88;">AI Intel</div>
+            </div>
+            <div class="col-body">
+              <div class="intel-panel">
+                <div class="intel-card">
+                  <div class="intel-card-label">Score</div>
+                  <div class="intel-bar"><div class="intel-bar-fill" style="width:82%"></div></div>
+                  <div style="font-size:0.38rem;color:#888;">82 / 100 · HOT</div>
+                </div>
+                <div class="intel-card">
+                  <div class="intel-card-label">Summary</div>
+                  <div class="intel-line" style="width:100%"></div>
+                  <div class="intel-line" style="width:85%"></div>
+                  <div class="intel-line" style="width:70%"></div>
+                </div>
+                <div class="intel-card">
+                  <div class="intel-card-label">Next Actions</div>
+                  <div class="intel-actions">
+                    <div class="intel-action"><div class="intel-action-text">Call Now</div></div>
+                    <div class="intel-action"><div class="intel-action-text">Book</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Phone col -->
+          <div class="col" style="flex:1">
+            <div class="col-header"><div class="col-header-label">Phone</div></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px;gap:5px;">
+              <div class="dial-mode-wrap">
+                <div class="dial-mode">
+                  <div class="dial-mode-btn active">Human</div>
+                  <div class="dial-mode-btn">AI</div>
+                </div>
+              </div>
+              <div class="phone">
+                <div class="phone-notch"><div class="phone-notch-pill"></div></div>
+                <div class="phone-statusbar">
+                  <div class="phone-status-text">9:41</div>
+                  <div class="phone-status-text">▓▓▓</div>
+                </div>
+                <div class="phone-screen">
+                  <div class="phone-home" style="padding-top:6px;">
+                    <div class="phone-app"><div class="phone-app-icon green"></div><div class="phone-app-label">Messages</div></div>
+                    <div class="phone-app"><div class="phone-app-icon blue"></div><div class="phone-app-label">Calls</div></div>
+                    <div class="phone-app"><div class="phone-app-icon amber"></div><div class="phone-app-label">Voicemail</div></div>
+                    <div class="phone-app"><div class="phone-app-icon red"></div><div class="phone-app-label">Inbox</div></div>
+                    <div class="phone-app"><div class="phone-app-icon purple"></div><div class="phone-app-label">KPIs</div></div>
+                    <div class="phone-app"><div class="phone-app-icon gray"></div><div class="phone-app-label">Settings</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="select-btn" id="btn-a" onclick="selectLayout('a')">Select A</div>
+  </div>
+
+  <!-- OPTION B: Phone-Centric -->
+  <div class="layout-wrap" onclick="selectLayout('b')">
+    <div class="layout-label"><span>B</span> Phone-Centric</div>
+    <div class="layout-title">Contacts + Phone (always 2 col)</div>
+    <div class="layout-desc">Dialer controls live inside the phone as an app. Queue, Dial, Move all inside the Dialer app. Dial Mode above the phone.</div>
+
+    <div class="dash" id="layout-b">
+      <div class="dash-topbar">
+        <div class="dash-topbar-dot"></div><div class="dash-topbar-dot"></div><div class="dash-topbar-dot"></div>
+        <div class="dash-topbar-title">WORKSPACE — ALWAYS 2 COLUMNS</div>
+      </div>
+      <div class="dash-body">
+        <div class="dash-sidebar">
+          <div class="sb-item active"></div>
+          <div class="sb-item dim"></div>
+          <div class="sb-item dim"></div>
+          <div class="sb-item gap"></div>
+          <div class="sb-item dim"></div>
+          <div class="sb-item dim"></div>
+        </div>
+        <div class="dash-main">
+          <!-- Contacts col 40% -->
+          <div class="col" style="width:40%">
+            <div class="col-header">
+              <div class="col-header-label">Contacts</div>
+              <div class="col-header-badge">247</div>
+            </div>
+            <div class="col-body">
+              <div style="height:14px;background:#111118;margin-bottom:4px;border:1px solid #1e1e28;display:flex;align-items:center;padding:0 6px;">
+                <div style="height:3px;flex:1;background:#222;"></div>
+              </div>
+              <div class="contact-row selected"><div class="contact-dot hot"></div><div class="contact-name lit"></div><div style="font-size:0.38rem;color:#00ff88;font-weight:700;">HOT</div></div>
+              <div class="contact-row"><div class="contact-dot warm"></div><div class="contact-name"></div></div>
+              <div class="contact-row"><div class="contact-dot warm"></div><div class="contact-name"></div></div>
+              <div class="contact-row"><div class="contact-dot cool"></div><div class="contact-name"></div></div>
+              <div class="contact-row"><div class="contact-dot cool"></div><div class="contact-name"></div></div>
+              <div class="contact-row"><div class="contact-dot" style="background:#6b7280;"></div><div class="contact-name"></div></div>
+              <div class="contact-row"><div class="contact-dot" style="background:#6b7280;"></div><div class="contact-name"></div></div>
+              <div class="contact-row"><div class="contact-dot" style="background:#6b7280;"></div><div class="contact-name"></div></div>
+            </div>
+            <!-- NO actions bar — controls are in phone -->
+            <div style="height:18px;background:#080810;border-top:1px solid #1a1a24;display:flex;align-items:center;padding:0 6px;">
+              <div style="font-size:0.38rem;color:#333;font-weight:700;text-transform:uppercase;letter-spacing:.08em;">← Select a contact</div>
+            </div>
+          </div>
+          <!-- Phone col 60% -->
+          <div class="col" style="flex:1">
+            <div class="col-header"><div class="col-header-label">Phone</div></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px;gap:5px;">
+              <!-- Dial mode ABOVE phone -->
+              <div>
+                <div style="font-size:0.38rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#444;text-align:center;margin-bottom:3px;">Dial Mode</div>
+                <div class="dial-mode">
+                  <div class="dial-mode-btn active">Human</div>
+                  <div class="dial-mode-btn">AI</div>
+                </div>
+              </div>
+              <div class="phone" style="width:85px;height:150px;">
+                <div class="phone-notch"><div class="phone-notch-pill"></div></div>
+                <div class="phone-statusbar">
+                  <div class="phone-status-text">9:41</div>
+                  <div class="phone-status-text">▓▓▓</div>
+                </div>
+                <div class="phone-screen">
+                  <!-- Dialer app is open -->
+                  <div class="phone-dialer">
+                    <div class="phone-dialer-header">⬡ Dialer</div>
+                    <div class="phone-contact-mini">
+                      <div class="phone-contact-mini-name">Sarah Johnson</div>
+                      <div class="phone-contact-mini-sub">HOT · Score 82</div>
+                    </div>
+                    <!-- Intel summary inline -->
+                    <div style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.1);padding:3px 4px;margin-bottom:4px;">
+                      <div style="font-size:0.34rem;color:#555;line-height:1.5;">Interested in term life · Asked about rates · Follow up today</div>
+                    </div>
+                    <div class="phone-dial-btns">
+                      <div class="phone-dial-btn primary">Dial</div>
+                      <div class="phone-dial-btn outline">Queue</div>
+                      <div class="phone-dial-btn outline">Move</div>
+                    </div>
+                    <div class="phone-queue-list">
+                      <div style="font-size:0.34rem;color:#444;text-transform:uppercase;letter-spacing:.06em;margin:3px 0 2px;">Queue (4)</div>
+                      <div class="phone-q-row"><div class="phone-q-dot" style="background:#f59e0b;"></div><div class="phone-q-line"></div></div>
+                      <div class="phone-q-row"><div class="phone-q-dot"></div><div class="phone-q-line"></div></div>
+                      <div class="phone-q-row"><div class="phone-q-dot"></div><div class="phone-q-line"></div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:2px;">
+                <div style="width:16px;height:16px;border-radius:3px;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.25);display:flex;align-items:center;justify-content:center;">
+                  <div style="font-size:0.3rem;color:#3b82f6;font-weight:700;">KPI</div>
+                </div>
+                <div style="width:16px;height:16px;border-radius:3px;background:rgba(107,114,128,0.1);border:1px solid rgba(107,114,128,0.2);display:flex;align-items:center;justify-content:center;">
+                  <div style="font-size:0.3rem;color:#555;font-weight:700;">SET</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="select-btn" id="btn-b" onclick="selectLayout('b')">Select B</div>
+  </div>
+
+  <!-- OPTION C: Hybrid -->
+  <div class="layout-wrap" onclick="selectLayout('c')">
+    <div class="layout-label"><span>C</span> Hybrid (Recommended)</div>
+    <div class="layout-title">Phone-centric + Intel slides in</div>
+    <div class="layout-desc">Controls inside phone (like B). Intel panel appears on contact click (like A). Phone stays prominent throughout.</div>
+
+    <div class="dash" id="layout-c">
+      <div class="dash-topbar">
+        <div class="dash-topbar-dot"></div><div class="dash-topbar-dot"></div><div class="dash-topbar-dot"></div>
+        <div class="dash-topbar-title">WORKSPACE — CONTACT SELECTED</div>
+      </div>
+      <div class="dash-body">
+        <div class="dash-sidebar">
+          <div class="sb-item active"></div>
+          <div class="sb-item dim"></div>
+          <div class="sb-item dim"></div>
+          <div class="sb-item gap"></div>
+          <div class="sb-item dim"></div>
+          <div class="sb-item dim"></div>
+        </div>
+        <div class="dash-main">
+          <!-- Contacts col 28% -->
+          <div class="col" style="width:28%">
+            <div class="col-header">
+              <div class="col-header-label">Contacts</div>
+              <div class="col-header-badge">247</div>
+            </div>
+            <div class="col-body">
+              <div style="height:13px;background:#111118;margin-bottom:3px;border:1px solid #1e1e28;display:flex;align-items:center;padding:0 5px;">
+                <div style="height:3px;flex:1;background:#222;"></div>
+              </div>
+              <div class="contact-row selected"><div class="contact-dot hot"></div><div class="contact-name lit"></div><div style="font-size:0.38rem;color:#00ff88;font-weight:700;">HOT</div></div>
+              <div class="contact-row"><div class="contact-dot warm"></div><div class="contact-name"></div></div>
+              <div class="contact-row"><div class="contact-dot warm"></div><div class="contact-name"></div></div>
+              <div class="contact-row"><div class="contact-dot cool"></div><div class="contact-name"></div></div>
+              <div class="contact-row"><div class="contact-dot cool"></div><div class="contact-name"></div></div>
+              <div class="contact-row"><div class="contact-dot" style="background:#6b7280;"></div><div class="contact-name"></div></div>
+            </div>
+            <div style="height:18px;background:#080810;border-top:1px solid #1a1a24;display:flex;align-items:center;padding:0 6px;">
+              <div style="font-size:0.36rem;color:#333;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">Smart Filters</div>
+            </div>
+          </div>
+          <!-- Intel col — slides in 28% -->
+          <div class="col slide-in" style="width:28%">
+            <div class="col-header">
+              <div class="col-header-label" style="color:#00ff88;">AI Intel</div>
+              <div style="margin-left:auto;font-size:0.38rem;color:#555;">Sarah J.</div>
+            </div>
+            <div class="col-body">
+              <div class="intel-panel">
+                <div class="intel-card">
+                  <div class="intel-card-label">Score 82 · HOT</div>
+                  <div class="intel-bar"><div class="intel-bar-fill" style="width:82%"></div></div>
+                </div>
+                <div class="intel-card">
+                  <div class="intel-card-label">Summary</div>
+                  <div class="intel-line" style="width:100%"></div>
+                  <div class="intel-line" style="width:80%"></div>
+                  <div class="intel-line" style="width:65%"></div>
+                </div>
+                <div class="intel-card">
+                  <div class="intel-card-label">Next Actions</div>
+                  <div class="intel-actions">
+                    <div class="intel-action"><div class="intel-action-text">Call Now</div></div>
+                    <div class="intel-action"><div class="intel-action-text">Book</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Phone col — remains prominent -->
+          <div class="col" style="flex:1">
+            <div class="col-header"><div class="col-header-label">Phone</div></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px;gap:4px;">
+              <div>
+                <div style="font-size:0.36rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#444;text-align:center;margin-bottom:3px;">Dial Mode</div>
+                <div class="dial-mode">
+                  <div class="dial-mode-btn active">Human</div>
+                  <div class="dial-mode-btn">AI</div>
+                </div>
+              </div>
+              <div class="phone" style="width:72px;height:132px;">
+                <div class="phone-notch"><div class="phone-notch-pill"></div></div>
+                <div class="phone-statusbar">
+                  <div class="phone-status-text">9:41</div>
+                  <div class="phone-status-text">▓▓▓</div>
+                </div>
+                <div class="phone-screen">
+                  <div class="phone-dialer">
+                    <div class="phone-dialer-header">⬡ Dialer</div>
+                    <div class="phone-contact-mini">
+                      <div class="phone-contact-mini-name">Sarah Johnson</div>
+                      <div class="phone-contact-mini-sub">HOT · Score 82</div>
+                    </div>
+                    <div class="phone-dial-btns">
+                      <div class="phone-dial-btn primary">Dial</div>
+                      <div class="phone-dial-btn outline">Queue</div>
+                    </div>
+                    <div style="display:flex;gap:2px;margin-top:2px;">
+                      <div class="phone-dial-btn outline" style="flex:1;">Move</div>
+                      <div class="phone-dial-btn outline" style="flex:1;">History</div>
+                    </div>
+                    <div class="phone-queue-list">
+                      <div style="font-size:0.32rem;color:#333;text-transform:uppercase;margin:3px 0 2px;">Queue (4)</div>
+                      <div class="phone-q-row"><div class="phone-q-dot" style="background:#f59e0b;"></div><div class="phone-q-line"></div></div>
+                      <div class="phone-q-row"><div class="phone-q-dot"></div><div class="phone-q-line"></div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="select-btn" id="btn-c" onclick="selectLayout('c')">Select C</div>
+  </div>
+
+</div>
+
+<script>
+let selected = null;
+function selectLayout(id) {
+  ['a','b','c'].forEach(x => {
+    document.getElementById('layout-' + x).classList.remove('selected-layout');
+    document.getElementById('btn-' + x).classList.remove('chosen');
+    document.getElementById('btn-' + x).textContent = 'Select ' + x.toUpperCase();
+  });
+  selected = id;
+  document.getElementById('layout-' + id).classList.add('selected-layout');
+  document.getElementById('btn-' + id).classList.add('chosen');
+  document.getElementById('btn-' + id).textContent = '✓ Selected ' + id.toUpperCase();
+
+  // Record to events if helper available
+  if (typeof window._recordChoice === 'function') {
+    window._recordChoice(id, 'Layout ' + id.toUpperCase());
+  }
+}
+</script>
+</body>
+</html>

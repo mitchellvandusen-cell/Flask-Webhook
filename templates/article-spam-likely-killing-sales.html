@@ -86,7 +86,7 @@
             <h3 class="article-subsection-title">Layer 1: CNAM Registration (Caller ID Branding)</h3>
             <p>CNAM (Calling Name) registration associates your phone number with your business name in the national CNAM database. When you call someone, instead of showing "Unknown Caller" or just a phone number, their phone displays your business name — like "Acme Insurance" or "Johnson Financial Group."</p>
             <p>This is the lowest-hanging fruit and the first thing every insurance agent should do. A branded caller ID instantly increases your credibility and answer rate. Studies show CNAM-registered numbers see a <strong>15-25% improvement in answer rates</strong> compared to unregistered numbers.</p>
-            <p>The process: register your business profile with a Twilio Trust Hub (or equivalent provider), verify your identity, and submit your phone numbers for CNAM registration. Approval typically takes 2-5 business days.</p>
+            <p>The process: register your business profile with a carrier trust network, verify your identity, and submit your phone numbers for CNAM registration. Approval typically takes 2-5 business days.</p>
 
             <h3 class="article-subsection-title">Layer 2: STIR/SHAKEN Authentication</h3>
             <p>STIR/SHAKEN is a federal framework that authenticates the caller's identity at the network level. When your calls are STIR/SHAKEN authenticated, they receive an attestation level:</p>
@@ -95,7 +95,7 @@
                 <li><i class="fa-solid fa-check text-accent me-2"></i><strong>Partial Attestation (B)</strong> — The carrier verifies the caller but not the number.</li>
                 <li><i class="fa-solid fa-check text-accent me-2"></i><strong>Gateway Attestation (C)</strong> — The carrier only verified the call entered their network.</li>
             </ul>
-            <p>Calls with Full Attestation are far less likely to be flagged as spam. Carriers use attestation level as a major input to their spam scoring algorithms. Getting Full Attestation requires registering your business through Twilio's Trust Hub (or similar) and proving you own the numbers you're calling from.</p>
+            <p>Calls with Full Attestation are far less likely to be flagged as spam. Carriers use attestation level as a major input to their spam scoring algorithms. Getting Full Attestation requires registering your business through the carrier trust network and proving you own the numbers you're calling from.</p>
 
             <h3 class="article-subsection-title">Layer 3: Voice Integrity Registration</h3>
             <p>Voice Integrity goes beyond basic registration. It directly interfaces with the carrier spam analytics engines — Hiya (AT&T), CallHub (T-Mobile), and First Orion (Verizon) — to register your business as a legitimate caller.</p>
@@ -147,7 +147,7 @@
                 </ul>
             </div>
 
-            <p>The first 5 phone numbers are included free with every subscription. Each number is automatically provisioned with the full compliance stack — no extra steps, no technical configuration, no calling Twilio support.</p>
+            <p>The first 5 phone numbers are included free with every subscription. Each number is automatically provisioned with the full compliance stack — no extra steps, no technical configuration, no calling carrier support.</p>
         </div>
 
         <div class="article-section">

@@ -1,0 +1,55 @@
+<h2>Workspace Simplification — Which direction?</h2>
+<p class="subtitle">Both keep all features. The question is how the space is organized.</p>
+
+<div class="options">
+
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Progressive Disclosure</h3>
+      <p>Two columns by default. Middle column (Lead Intelligence) is hidden until you click a contact — then it slides in. The phone stays on the right. Dialer controls stay in the actions bar below the contact list.</p>
+      <div style="margin-top:12px;font-family:monospace;font-size:0.72rem;color:#888;line-height:1.7;border:1px solid #333;padding:8px 10px;border-radius:4px;">
+        <div style="color:#aaa;margin-bottom:4px;">── DEFAULT ──</div>
+        <div>[ Contacts 40% ] [ iPhone 60% ]</div>
+        <div style="margin-top:8px;color:#aaa;">── CONTACT CLICKED ──</div>
+        <div>[ Contacts 30% ] [ Intel 35% ] [ iPhone 35% ]</div>
+      </div>
+      <div style="margin-top:10px;font-size:0.8rem;color:#888;">Dial / Queue / Move buttons stay in the contacts actions bar. Dial mode toggle stays at top.</div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Phone-Centric (App Paradigm)</h3>
+      <p>The iPhone IS the workspace. Contacts list on left. Phone on right — and the dialer controls (Queue, Dial, Move) live <em>inside</em> the phone as a "Dialer" app on the home screen. Dial Mode toggle sits above the phone's status bar.</p>
+      <div style="margin-top:12px;font-family:monospace;font-size:0.72rem;color:#888;line-height:1.7;border:1px solid #333;padding:8px 10px;border-radius:4px;">
+        <div style="color:#aaa;margin-bottom:4px;">── ALWAYS ──</div>
+        <div>[ Contacts 40% ] [ Phone 60% ]</div>
+        <div style="margin-top:8px;color:#aaa;">── PHONE HOME SCREEN APPS ──</div>
+        <div>  Dialer · KPIs · Messages · Calls</div>
+        <div style="margin-top:8px;color:#aaa;">── DIAL MODE (above phone) ──</div>
+        <div>  [ HUMAN ] [ AI ] ← tap to expand</div>
+      </div>
+      <div style="margin-top:10px;font-size:0.8rem;color:#888;">Cleanest surface area. Everything has a home <em>inside</em> the phone metaphor. Lead Intel shows as a card inside the Dialer app when a contact is selected.</div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Hybrid — Both of the above</h3>
+      <p>Two columns default (Contacts + Phone). Middle Intel panel slides in on contact click (like A). Dialer controls move into the phone (like B). Best of both: phone metaphor is the star, Intel appears when relevant.</p>
+      <div style="margin-top:12px;font-family:monospace;font-size:0.72rem;color:#888;line-height:1.7;border:1px solid #333;padding:8px 10px;border-radius:4px;">
+        <div style="color:#aaa;margin-bottom:4px;">── DEFAULT ──</div>
+        <div>[ Contacts 40% ] [ Phone 60% ]</div>
+        <div>  Phone shows Dialer app + Dial Mode</div>
+        <div style="margin-top:8px;color:#aaa;">── CONTACT CLICKED ──</div>
+        <div>[ Contacts 30% ] [ Intel 30% ] [ Phone 40% ]</div>
+        <div>  Intel panel slides in · Phone still active</div>
+      </div>
+      <div style="margin-top:10px;font-size:0.8rem;color:#888;">Most coherent story: the phone is the hero, Intel is contextual. Nothing is buried, nothing is always in the way.</div>
+    </div>
+  </div>
+
+</div>

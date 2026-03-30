@@ -270,6 +270,33 @@ h1 .text-accent, h2 .text-accent, .hero h1 span, h1 span.text-accent, h2 span.te
 [data-theme="light"] .btn-outline-light:hover i,
 [data-theme="light"] .tab-pane .btn-outline-light:hover i { color: var(--lt-text-primary) !important; }
 
+.agency-hero-btn {
+    padding: 14px 32px !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+}
+
+.btn-ghost {
+    border: 1px solid rgba(255,255,255,0.12) !important;
+    color: rgba(255,255,255,0.55) !important;
+    background: transparent !important;
+    border-radius: 8px;
+}
+.btn-ghost:hover {
+    border-color: rgba(255,255,255,0.25) !important;
+    color: rgba(255,255,255,0.85) !important;
+    background: rgba(255,255,255,0.06) !important;
+}
+[data-theme="light"] .btn-ghost {
+    border-color: rgba(0,0,0,0.15) !important;
+    color: rgba(0,0,0,0.45) !important;
+}
+[data-theme="light"] .btn-ghost:hover {
+    border-color: rgba(0,0,0,0.25) !important;
+    color: rgba(0,0,0,0.7) !important;
+    background: rgba(0,0,0,0.04) !important;
+}
+
 .btn-outline-accent {
     border: 1px solid rgba(0, 255, 136, 0.4) !important;
     color: var(--accent) !important;

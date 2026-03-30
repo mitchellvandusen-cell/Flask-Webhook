@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800;900&family=Inter:wght@400;500;600&display=swap');
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #030305; color: #fff; font-family: 'Inter', sans-serif; min-height: 100vh; }
+.page { padding: 28px 24px; max-width: 520px; margin: 0 auto; }
+.page-title { font-family:'Outfit',sans-serif; font-weight:900; font-size:1.1rem; color:#e0e0f0; margin-bottom:3px; letter-spacing:-0.02em; }
+.page-sub { font-size:0.68rem; color:#2e2e42; margin-bottom:20px; }
+
+.sidebar {
+  background: #08080f;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 20px;
+  padding: 18px 10px 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Brand */
+.brand {
+  display:flex; align-items:center; gap:9px;
+  padding: 0 6px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  margin-bottom: 12px;
+}
+.brand-mark { width:24px; height:24px; border-radius:6px; background:linear-gradient(135deg,#00ff88,#00cc66); flex-shrink:0; }
+.brand-label { font-size:0.62rem; font-weight:900; text-transform:uppercase; letter-spacing:0.16em; color:rgba(255,255,255,0.35); font-family:'Outfit',sans-serif; }
+
+/* L1 direct */
+.l1-direct {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:9px 10px; border-radius:9px;
+  font-size:0.82rem; font-weight:800; font-family:'Outfit',sans-serif;
+  color:#28283e; cursor:pointer; border:1px solid transparent;
+  transition:color .13s, background .13s, border-color .13s;
+  margin-bottom:1px; user-select:none;
+}
+.l1-direct:hover { color:#777; }
+.l1-direct.active { color:#00ff88; background:rgba(0,255,136,0.07); border-color:rgba(0,255,136,0.14); }
+
+/* L1 accordion */
+.l1-acc {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:9px 10px; border-radius:9px;
+  font-size:0.82rem; font-weight:800; font-family:'Outfit',sans-serif;
+  color:#28283e; cursor:pointer; border:1px solid transparent;
+  transition:color .13s, background .13s;
+  margin-bottom:1px; user-select:none;
+}
+.l1-acc:hover { color:#777; }
+.l1-acc.open { color:#c8c8e0; background:rgba(255,255,255,0.02); }
+.l1-acc .ch { font-size:0.48rem; color:#1c1c2c; transition:transform .18s ease; font-weight:400; font-family:'Inter',sans-serif; }
+.l1-acc.open .ch { transform:rotate(90deg); color:#404055; }
+
+.l1-body { max-height:0; overflow:hidden; transition:max-height .3s ease; }
+.l1-body.open { max-height:700px; }
+.l1-inner { padding:3px 0 8px 6px; }
+
+/* Section label */
+.sec-label {
+  padding:7px 8px 2px 8px;
+  font-size:0.55rem; font-weight:800; text-transform:uppercase;
+  letter-spacing:0.15em; color:#1a1a28; font-family:'Outfit',sans-serif;
+}
+
+/* L2 accordion */
+.l2-acc {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:6px 8px 6px 8px; border-radius:7px;
+  font-size:0.72rem; font-weight:600; font-family:'Inter',sans-serif;
+  color:#2c2c42; cursor:pointer; user-select:none;
+  transition:color .12s, background .12s; margin-bottom:1px;
+}
+.l2-acc:hover { color:#777; background:rgba(255,255,255,0.02); }
+.l2-acc.open { color:#9898b8; background:rgba(255,255,255,0.025); }
+.l2-acc .ch2 { font-size:0.44rem; color:#181826; transition:transform .15s ease; font-weight:400; }
+.l2-acc.open .ch2 { transform:rotate(90deg); color:#404055; }
+
+.l2-body { max-height:0; overflow:hidden; transition:max-height .22s ease; }
+.l2-body.open { max-height:300px; }
+.l2-inner { padding:1px 0 4px 12px; }
+
+/* L2 direct */
+.l2-item {
+  display:block; padding:6px 8px; border-radius:7px;
+  font-size:0.72rem; font-weight:500; font-family:'Inter',sans-serif;
+  color:#2c2c42; cursor:pointer; user-select:none;
+  transition:color .12s, background .12s; margin-bottom:1px;
+}
+.l2-item:hover { color:#888; background:rgba(255,255,255,0.025); }
+.l2-item.active { color:#00ff88; background:rgba(0,255,136,0.06); }
+
+/* L3 leaf */
+.l3-item {
+  display:block; padding:5px 8px; border-radius:6px;
+  font-size:0.68rem; font-weight:400; font-family:'Inter',sans-serif;
+  color:#242436; cursor:pointer; user-select:none;
+  transition:color .1s, background .1s; margin-bottom:1px;
+  border-left:1px solid rgba(255,255,255,0.04);
+}
+.l3-item:hover { color:#777; background:rgba(255,255,255,0.02); border-left-color:rgba(255,255,255,0.1); }
+.l3-item.active { color:#00d9ff; background:rgba(0,217,255,0.05); border-left-color:rgba(0,217,255,0.28); }
+
+/* divider */
+.divider { height:1px; background:rgba(255,255,255,0.035); margin:7px 4px 8px; }
+
+/* system params block */
+.params-block {
+  margin-top: 6px; padding: 10px 8px 6px;
+  border-top: 1px solid rgba(255,255,255,0.035);
+}
+.params-label { font-size:0.54rem; font-weight:800; text-transform:uppercase; letter-spacing:0.14em; color:#1a1a26; font-family:'Outfit',sans-serif; margin-bottom:6px; padding-left:2px; }
+.params-row { display:flex; align-items:center; justify-content:space-between; padding:4px 4px; }
+.params-key { font-size:0.59rem; color:#1e1e2c; font-family:'Inter',sans-serif; }
+.params-val { font-size:0.59rem; color:#222232; font-family:'JetBrains Mono', monospace; }
+
+/* footer */
+.sb-footer { margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.035); display:flex; gap:6px; flex-wrap:wrap; }
+.footer-item { padding:5px 10px; font-size:0.67rem; font-weight:600; color:#1e1e2c; font-family:'Inter',sans-serif; border-radius:7px; cursor:pointer; transition:color .1s; }
+.footer-item:hover { color:#555; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="page-title">Final Navigation</div>
+  <div class="page-sub">Click everything — all 3 levels are live.</div>
+
+  <div class="sidebar">
+
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <span class="brand-label">InsuranceGrokBot</span>
+    </div>
+
+    <!-- 1. WORKSPACE -->
+    <div class="l1-direct active" onclick="activateDirect(this)">Workspace</div>
+
+    <div class="divider"></div>
+
+    <!-- 2. NUMBERS -->
+    <div class="l1-acc" onclick="toggleL1(this)">Numbers <span class="ch">▶</span></div>
+    <div class="l1-body">
+      <div class="l1-inner">
+        <div class="sec-label">Management</div>
+        <div class="l2-item" onclick="activateL2(this)">Phone Numbers</div>
+        <div class="l2-item" onclick="activateL2(this)">A2P 10DLC</div>
+        <div class="sec-label" style="margin-top:4px;">Protection</div>
+        <div class="l2-item" onclick="activateL2(this)">Spam Shield</div>
+        <div class="l2-item" onclick="activateL2(this)">Number Health</div>
+        <div class="sec-label" style="margin-top:4px;">Usage</div>
+        <div class="l2-item" onclick="activateL2(this)">AI Minutes</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 3. BUSINESS -->
+    <div class="l1-acc" onclick="toggleL1(this)">Business <span class="ch">▶</span></div>
+    <div class="l1-body">
+      <div class="l1-inner">
+        <div class="l2-item" onclick="activateL2(this)">Teams</div>
+        <div class="l2-item" onclick="activateL2(this)">Members</div>
+        <div class="l2-item" onclick="activateL2(this)">Statistics</div>
+        <div class="l2-item" onclick="activateL2(this)">Contracted Carriers</div>
+        <div class="l2-item" onclick="activateL2(this)">White Label</div>
+        <div class="l2-item" onclick="activateL2(this)">Billing</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 4. INTEGRATIONS -->
+    <div class="l1-acc" onclick="toggleL1(this)">Integrations <span class="ch">▶</span></div>
+    <div class="l1-body">
+      <div class="l1-inner">
+        <div class="l2-item" onclick="activateL2(this)">Google Calendar</div>
+        <div class="l2-item" onclick="activateL2(this)">Discord</div>
+        <div class="l2-item" onclick="activateL2(this)">Slack</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 5. SETTINGS (bottom) -->
+    <div class="l1-acc" onclick="toggleL1(this)">Settings <span class="ch">▶</span></div>
+    <div class="l1-body">
+      <div class="l1-inner">
+
+        <div class="sec-label">Configuration</div>
+
+        <!-- SMS Bot -->
+        <div class="l2-acc" onclick="toggleL2(this)">SMS Bot <span class="ch2">▶</span></div>
+        <div class="l2-body">
+          <div class="l2-inner">
+            <div class="l3-item" onclick="activateL3(this)">Bot Identity</div>
+            <div class="l3-item" onclick="activateL3(this)">Initial Message</div>
+            <div class="l3-item" onclick="activateL3(this)">Calendar</div>
+            <div class="l3-item" onclick="activateL3(this)">Send SMS Via</div>
+          </div>
+        </div>
+
+        <!-- Voice AI -->
+        <div class="l2-acc" onclick="toggleL2(this)">Voice AI <span class="ch2">▶</span></div>
+        <div class="l2-body">
+          <div class="l2-inner">
+            <div class="l3-item" onclick="activateL3(this)">AI Voice Settings</div>
+            <!-- Dialer Settings is itself expandable at L3 — shown as active-style hint -->
+            <div class="l3-item" onclick="activateL3(this)" style="display:flex;align-items:center;justify-content:space-between;">Dialer Settings <span style="font-size:0.42rem;color:#1c1c2c;">▶</span></div>
+            <div style="padding:2px 0 2px 10px;" id="dialerSub" style="display:none;">
+              <div style="padding:4px 8px;font-size:0.65rem;font-weight:400;color:#1e1e2a;font-family:'Inter',sans-serif;border-left:1px solid rgba(255,255,255,0.04);border-radius:5px;cursor:pointer;" onclick="activateL3(this)">Call Script</div>
+              <div style="padding:4px 8px;font-size:0.65rem;font-weight:400;color:#1e1e2a;font-family:'Inter',sans-serif;border-left:1px solid rgba(255,255,255,0.04);border-radius:5px;cursor:pointer;" onclick="activateL3(this)">Max Lines</div>
+              <div style="padding:4px 8px;font-size:0.65rem;font-weight:400;color:#1e1e2a;font-family:'Inter',sans-serif;border-left:1px solid rgba(255,255,255,0.04);border-radius:5px;cursor:pointer;" onclick="activateL3(this)">Calling Hours</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Workflows -->
+        <div class="l2-acc" onclick="toggleL2(this)">Workflows <span class="ch2">▶</span></div>
+        <div class="l2-body">
+          <div class="l2-inner">
+            <div class="l3-item" onclick="activateL3(this)">My Workflows</div>
+            <div class="l3-item" onclick="activateL3(this)">Templates</div>
+            <div class="l3-item" onclick="activateL3(this)">Triggers</div>
+          </div>
+        </div>
+
+        <div class="l2-item" onclick="activateL2(this)" style="margin-top:2px;">Advanced</div>
+
+        <div class="sec-label" style="margin-top:6px;">System</div>
+        <div class="l2-item" onclick="activateL2(this)">CRM</div>
+
+      </div>
+    </div>
+
+    <!-- System params (always visible, minimal) -->
+    <div class="params-block">
+      <div class="params-label">System</div>
+      <div class="params-row">
+        <span class="params-key">Location</span>
+        <span class="params-val">••••4f82</span>
+      </div>
+      <div class="params-row">
+        <span class="params-key">Token</span>
+        <span class="params-val">expires 6h</span>
+      </div>
+    </div>
+
+    <div class="sb-footer">
+      <div class="footer-item">Activity Logs</div>
+      <div class="footer-item">Support</div>
+      <div class="footer-item">Sign Out</div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function toggleL1(el) {
+  const body = el.nextElementSibling;
+  const wasOpen = el.classList.contains('open');
+  document.querySelectorAll('.l1-acc').forEach(a => { a.classList.remove('open'); a.nextElementSibling.classList.remove('open'); });
+  document.querySelectorAll('.l1-direct').forEach(d => d.classList.remove('active'));
+  if (!wasOpen) { el.classList.add('open'); body.classList.add('open'); }
+}
+function toggleL2(el) {
+  const body = el.nextElementSibling;
+  const wasOpen = el.classList.contains('open');
+  const parent = el.closest('.l1-inner');
+  parent.querySelectorAll('.l2-acc').forEach(a => { a.classList.remove('open'); a.nextElementSibling.classList.remove('open'); });
+  if (!wasOpen) { el.classList.add('open'); body.classList.add('open'); }
+}
+function activateDirect(el) {
+  document.querySelectorAll('.l1-acc').forEach(a => { a.classList.remove('open'); a.nextElementSibling.classList.remove('open'); });
+  document.querySelectorAll('.l1-direct').forEach(d => d.classList.remove('active'));
+  el.classList.add('active');
+}
+function activateL2(el) {
+  document.querySelectorAll('.l2-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+}
+function activateL3(el) {
+  document.querySelectorAll('.l3-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  // toggle dialer sub if that item
+  if (el.textContent.includes('Dialer Settings')) {
+    const sub = document.getElementById('dialerSub');
+    if (sub) sub.style.display = sub.style.display === 'none' ? 'block' : 'none';
+  }
+}
+</script>
+</body>
+</html>

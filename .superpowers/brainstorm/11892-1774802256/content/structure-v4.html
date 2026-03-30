@@ -1,0 +1,166 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800;900&family=Inter:wght@400;500;600&display=swap');
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+.layout { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; padding: 4px 0 20px; }
+
+/* ── BOLD version ── */
+.sb-bold {
+  width: 200px;
+  background: #07070f;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 18px;
+  padding: 16px 12px 14px;
+  display: flex; flex-direction: column;
+  font-family: 'Outfit', sans-serif;
+}
+
+.sb-brand-bold {
+  padding: 0 4px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  margin-bottom: 12px;
+}
+.sb-brand-name-bold {
+  font-size: 0.72rem; font-weight: 900; letter-spacing: 0.12em;
+  text-transform: uppercase; color: rgba(255,255,255,0.55);
+}
+
+.l1-bold {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 10px;
+  border-radius: 10px;
+  font-size: 0.82rem; font-weight: 800; letter-spacing: -0.01em;
+  color: #444; border: 1px solid transparent;
+  margin-bottom: 1px; text-transform: none;
+}
+.l1-bold .arr { font-size: 0.55rem; color: #2e2e3e; font-weight: 400; }
+.l1-bold.active { color: #00ff88; background: rgba(0,255,136,0.07); border-color: rgba(0,255,136,0.15); }
+.l1-bold.open { color: #e0e0e0; }
+
+.l2-group { margin-bottom: 3px; }
+.l2-bold {
+  padding: 5px 10px 5px 20px;
+  font-size: 0.72rem; font-weight: 500; color: #404055;
+  font-family: 'Inter', sans-serif; letter-spacing: 0;
+  border-radius: 6px;
+}
+
+.sb-divider { height: 1px; background: rgba(255,255,255,0.035); margin: 8px 2px; }
+
+.sb-footer-bold {
+  margin-top: 10px; padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.035);
+  display: flex; flex-wrap: wrap; gap: 3px;
+}
+.sf-item { font-size: 0.59rem; color: #2d2d3d; font-family:'Inter',sans-serif; padding: 1px 0; }
+
+/* option wrapper */
+.opt-wrap {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 18px 14px 14px; border-radius: 18px;
+  border: 1px solid transparent; cursor: pointer;
+  transition: border-color .2s, background .2s; position: relative;
+}
+.opt-wrap:hover { border-color: rgba(255,255,255,0.08); }
+.opt-wrap.selected { border-color: #00ff88; background: rgba(0,255,136,0.03); }
+.opt-letter { position:absolute;top:9px;left:13px;font-size:0.62rem;font-weight:900;color:#2a2a3a;font-family:'Outfit',sans-serif;letter-spacing:0.05em; }
+.opt-wrap.selected .opt-letter { color: #00ff88; }
+
+.cmp-label { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.12em; color: #333; font-family:'Outfit',sans-serif; margin-bottom:2px; }
+.note { font-size: 0.64rem; color: #3a3a4a; text-align: center; line-height: 1.55; max-width: 200px; }
+.note strong { color: #00ff88; }
+</style>
+
+<h2 style="font-family:'Outfit',sans-serif;font-weight:900;letter-spacing:-0.02em;">Bold. Professional. Minimal.</h2>
+<p class="subtitle">Text-only. Heavy weight labels. The software speaks for itself.</p>
+
+<div class="layout">
+
+  <!-- A: Workspace / Configure / Automate / Business -->
+  <div class="option" data-choice="a" onclick="toggleSelect(this)" style="padding:0;border:none;background:none;">
+  <div class="opt-wrap">
+    <span class="opt-letter">A</span>
+    <div class="cmp-label">Workspace · Configure · Automate · Business</div>
+    <div class="sb-bold">
+      <div class="sb-brand-bold"><div class="sb-brand-name-bold">InsuranceGrokBot</div></div>
+
+      <div class="l1-bold active">Workspace</div>
+
+      <div class="l1-bold open">Configure <span class="arr">▾</span></div>
+      <div class="l2-group">
+        <div class="l2-bold">Bot Identity</div>
+        <div class="l2-bold">Calendar & CRM</div>
+        <div class="l2-bold">Voice AI</div>
+        <div class="l2-bold">Numbers & Compliance</div>
+      </div>
+
+      <div class="l1-bold">Automate <span class="arr">▸</span></div>
+      <div class="l1-bold">Business <span class="arr">▸</span></div>
+
+      <div class="sb-footer-bold">
+        <span class="sf-item">Carriers &nbsp;·&nbsp; AI Minutes &nbsp;·&nbsp; Logs</span>
+      </div>
+    </div>
+    <div class="note"><strong>Automate</strong> = Workflows + Integrations<br><strong>Business</strong> = Team + Billing</div>
+  </div>
+  </div>
+
+  <!-- B: Workspace / Configure / Workflows / Business -->
+  <div class="option" data-choice="b" onclick="toggleSelect(this)" style="padding:0;border:none;background:none;">
+  <div class="opt-wrap">
+    <span class="opt-letter">B</span>
+    <div class="cmp-label">Workspace · Configure · Workflows · Business</div>
+    <div class="sb-bold">
+      <div class="sb-brand-bold"><div class="sb-brand-name-bold">InsuranceGrokBot</div></div>
+
+      <div class="l1-bold active">Workspace</div>
+
+      <div class="l1-bold open">Configure <span class="arr">▾</span></div>
+      <div class="l2-group">
+        <div class="l2-bold">Bot Identity</div>
+        <div class="l2-bold">Calendar & CRM</div>
+        <div class="l2-bold">Voice AI</div>
+        <div class="l2-bold">Numbers & Compliance</div>
+      </div>
+
+      <div class="l1-bold">Workflows <span class="arr">▸</span></div>
+      <div class="l1-bold">Business <span class="arr">▸</span></div>
+
+      <div class="sb-footer-bold">
+        <span class="sf-item">Integrations &nbsp;·&nbsp; Carriers &nbsp;·&nbsp; Logs</span>
+      </div>
+    </div>
+    <div class="note"><strong>Workflows</strong> stands alone at top level<br><strong>Business</strong> = Team + Billing + Integrations</div>
+  </div>
+  </div>
+
+  <!-- C: Workspace / Setup / Workflows / Business — plainest language -->
+  <div class="option" data-choice="c" onclick="toggleSelect(this)" style="padding:0;border:none;background:none;">
+  <div class="opt-wrap">
+    <span class="opt-letter">C</span>
+    <div class="cmp-label">Workspace · Setup · Workflows · Business</div>
+    <div class="sb-bold">
+      <div class="sb-brand-bold"><div class="sb-brand-name-bold">InsuranceGrokBot</div></div>
+
+      <div class="l1-bold active">Workspace</div>
+
+      <div class="l1-bold open">Setup <span class="arr">▾</span></div>
+      <div class="l2-group">
+        <div class="l2-bold">Bot Identity</div>
+        <div class="l2-bold">Calendar & CRM</div>
+        <div class="l2-bold">Voice</div>
+        <div class="l2-bold">Numbers & Compliance</div>
+      </div>
+
+      <div class="l1-bold">Workflows <span class="arr">▸</span></div>
+      <div class="l1-bold">Business <span class="arr">▸</span></div>
+
+      <div class="sb-footer-bold">
+        <span class="sf-item">Carriers &nbsp;·&nbsp; Billing &nbsp;·&nbsp; Logs</span>
+      </div>
+    </div>
+    <div class="note">Plain English. <strong>Setup</strong> = everything config<br>Most accessible to new users</div>
+  </div>
+  </div>
+
+</div>

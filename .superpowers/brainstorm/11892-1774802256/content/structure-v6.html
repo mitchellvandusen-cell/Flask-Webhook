@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Sidebar Accordion</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800;900&family=Inter:wght@400;500;600&display=swap');
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #030305; color: #fff; font-family: 'Inter', sans-serif; min-height: 100vh; }
+
+.page { display: flex; gap: 32px; align-items: flex-start; padding: 32px 28px; max-width: 860px; margin: 0 auto; }
+
+/* ══════════════ SIDEBAR ══════════════ */
+.sidebar {
+  width: 224px;
+  flex-shrink: 0;
+  background: #08080f;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 20px;
+  padding: 18px 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 4px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  margin-bottom: 10px;
+}
+.brand-mark { width: 26px; height: 26px; border-radius: 7px; background: linear-gradient(135deg,#00ff88,#00cc66); flex-shrink: 0; }
+.brand-label { font-size: 0.65rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.15em; color: rgba(255,255,255,0.4); font-family:'Outfit',sans-serif; }
+
+/* Direct item (no accordion) */
+.nav-direct {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; border-radius: 10px;
+  font-size: 0.83rem; font-weight: 800; letter-spacing: -0.01em;
+  font-family: 'Outfit', sans-serif;
+  color: #3a3a52; cursor: pointer;
+  border: 1px solid transparent;
+  transition: color .15s, background .15s, border-color .15s;
+  user-select: none;
+}
+.nav-direct:hover { color: #aaa; }
+.nav-direct.active { color: #00ff88; background: rgba(0,255,136,0.07); border-color: rgba(0,255,136,0.13); }
+
+/* Accordion wrapper */
+.acc-wrap { overflow: hidden; border-radius: 10px; margin-bottom: 1px; }
+
+/* Accordion trigger */
+.acc-trigger {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; border-radius: 10px;
+  font-size: 0.83rem; font-weight: 800; letter-spacing: -0.01em;
+  font-family: 'Outfit', sans-serif;
+  color: #3a3a52; cursor: pointer;
+  border: 1px solid transparent;
+  transition: color .15s, background .15s;
+  user-select: none;
+}
+.acc-trigger:hover { color: #aaa; }
+.acc-trigger.open { color: #d8d8e8; }
+.acc-trigger .chevron {
+  font-size: 0.55rem; color: #252535;
+  transition: transform .2s ease;
+  font-weight: 400; font-family: 'Inter', sans-serif;
+}
+.acc-trigger.open .chevron { transform: rotate(90deg); color: #555; }
+
+/* Accordion body */
+.acc-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .25s ease;
+}
+.acc-body.open { max-height: 400px; }
+
+/* Sub-section header */
+.sub-section-head {
+  padding: 8px 12px 3px 14px;
+  font-size: 0.58rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.13em; color: #282836;
+  font-family: 'Outfit', sans-serif;
+}
+
+/* Sub item */
+.sub-item {
+  display: block; padding: 6px 12px 6px 14px;
+  font-size: 0.72rem; font-weight: 500; color: #3c3c52;
+  font-family: 'Inter', sans-serif; border-radius: 7px;
+  cursor: pointer; transition: color .12s, background .12s;
+}
+.sub-item:hover { color: #aaa; background: rgba(255,255,255,0.03); }
+.sub-item.active { color: #00ff88; background: rgba(0,255,136,0.06); }
+
+.acc-padding { padding: 0 2px 6px; }
+
+/* Divider */
+.divider { height: 1px; background: rgba(255,255,255,0.04); margin: 6px 4px 8px; }
+
+/* Footer */
+.sb-footer { margin-top: 6px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.04); }
+.footer-item {
+  padding: 6px 12px; font-size: 0.7rem; font-weight: 600;
+  color: #252530; font-family: 'Inter', sans-serif; border-radius: 7px;
+  cursor: pointer; transition: color .12s;
+}
+.footer-item:hover { color: #666; }
+
+/* ══════════════ RIGHT PANEL ══════════════ */
+.panel { flex: 1; }
+.panel h3 { font-family:'Outfit',sans-serif; font-weight:800; font-size:1.1rem; color:#e0e0f0; margin-bottom:6px; }
+.panel p { font-size:0.75rem; color:#3a3a52; line-height:1.6; margin-bottom:14px; }
+.map { display:flex; flex-direction:column; gap:8px; }
+.map-row {
+  background:#0a0a14; border:1px solid rgba(255,255,255,0.05);
+  border-radius:10px; padding:11px 14px;
+}
+.map-top { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+.map-name { font-size:0.76rem; font-weight:800; font-family:'Outfit',sans-serif; color:#c0c0d8; }
+.map-pill {
+  font-size:0.55rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em;
+  padding:1px 7px; border-radius:8px;
+}
+.pill-merge { background:rgba(0,217,255,0.1); color:#00d9ff; border:1px solid rgba(0,217,255,0.2); }
+.pill-own { background:rgba(0,255,136,0.08); color:#00ff88; border:1px solid rgba(0,255,136,0.15); }
+.pill-move { background:rgba(245,158,11,0.08); color:#f59e0b; border:1px solid rgba(245,158,11,0.2); }
+.map-items { font-size:0.68rem; color:#383850; font-family:'Inter',sans-serif; line-height:1.7; }
+.map-items span { display:inline-block; margin-right:10px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <span class="brand-label">IGB</span>
+    </div>
+
+    <!-- Workspace (direct) -->
+    <div class="nav-direct active" onclick="setActive(this)">Workspace</div>
+
+    <div class="divider"></div>
+
+    <!-- Setup -->
+    <div class="acc-wrap">
+      <div class="acc-trigger" onclick="toggleAcc(this)">Setup <span class="chevron">▶</span></div>
+      <div class="acc-body">
+        <div class="acc-padding">
+          <div class="sub-section-head">Configuration</div>
+          <div class="sub-item" onclick="setSubActive(this)">SMS Bot</div>
+          <div class="sub-item" onclick="setSubActive(this)">Voice AI</div>
+          <div class="sub-item" onclick="setSubActive(this)">Advanced</div>
+          <div class="sub-section-head" style="margin-top:4px;">System</div>
+          <div class="sub-item" onclick="setSubActive(this)">CRM &amp; HubSpot</div>
+          <div class="sub-item" onclick="setSubActive(this)">Calendar</div>
+          <div class="sub-item" onclick="setSubActive(this)">Carriers</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Numbers -->
+    <div class="acc-wrap">
+      <div class="acc-trigger" onclick="toggleAcc(this)">Numbers <span class="chevron">▶</span></div>
+      <div class="acc-body">
+        <div class="acc-padding">
+          <div class="sub-section-head">Management</div>
+          <div class="sub-item" onclick="setSubActive(this)">Phone Numbers</div>
+          <div class="sub-item" onclick="setSubActive(this)">A2P 10DLC</div>
+          <div class="sub-section-head" style="margin-top:4px;">Protection</div>
+          <div class="sub-item" onclick="setSubActive(this)">Spam Shield</div>
+          <div class="sub-item" onclick="setSubActive(this)">Number Health</div>
+          <div class="sub-section-head" style="margin-top:4px;">Usage</div>
+          <div class="sub-item" onclick="setSubActive(this)">AI Minutes</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Business -->
+    <div class="acc-wrap">
+      <div class="acc-trigger" onclick="toggleAcc(this)">Business <span class="chevron">▶</span></div>
+      <div class="acc-body">
+        <div class="acc-padding">
+          <div class="sub-item" onclick="setSubActive(this)">Members</div>
+          <div class="sub-item" onclick="setSubActive(this)">Statistics</div>
+          <div class="sub-item" onclick="setSubActive(this)">White Label</div>
+          <div class="sub-item" onclick="setSubActive(this)">Billing</div>
+          <div class="sub-item" onclick="setSubActive(this)">Workflows</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Integrations -->
+    <div class="acc-wrap">
+      <div class="acc-trigger" onclick="toggleAcc(this)">Integrations <span class="chevron">▶</span></div>
+      <div class="acc-body">
+        <div class="acc-padding">
+          <div class="sub-item" onclick="setSubActive(this)">Google Calendar</div>
+          <div class="sub-item" onclick="setSubActive(this)">Discord</div>
+          <div class="sub-item" onclick="setSubActive(this)">Slack</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sb-footer">
+      <div class="footer-item">Activity Logs</div>
+      <div class="footer-item">Support</div>
+      <div class="footer-item">Sign Out</div>
+    </div>
+  </div>
+
+  <!-- RIGHT: MAP -->
+  <div class="panel">
+    <h3>What changed and why</h3>
+    <p>Click the accordion items on the left to try the navigation. Here's what was moved:</p>
+
+    <div class="map">
+
+      <div class="map-row">
+        <div class="map-top">
+          <span class="map-name">Numbers</span>
+          <span class="map-pill pill-own">Own section</span>
+        </div>
+        <div class="map-items">
+          <span>Phone Numbers</span><span>A2P 10DLC</span><span>Spam Shield</span><span>Number Health</span><span>AI Minutes</span>
+        </div>
+      </div>
+
+      <div class="map-row">
+        <div class="map-top">
+          <span class="map-name">Setup &gt; CRM &amp; HubSpot</span>
+          <span class="map-pill pill-merge">Merged</span>
+        </div>
+        <div class="map-items">
+          <span>GHL OAuth tokens</span><span>HubSpot connection</span><span>Location ID</span><span>Reauthorize</span>
+        </div>
+      </div>
+
+      <div class="map-row">
+        <div class="map-top">
+          <span class="map-name">Business</span>
+          <span class="map-pill pill-move">Consolidated</span>
+        </div>
+        <div class="map-items">
+          <span>Members</span><span>Statistics / KPIs</span><span>White Label</span><span>Billing</span><span>Workflows</span>
+        </div>
+      </div>
+
+      <div class="map-row">
+        <div class="map-top">
+          <span class="map-name">Integrations</span>
+          <span class="map-pill pill-move">Stripped down</span>
+        </div>
+        <div class="map-items">
+          <span>Google Calendar</span><span>Discord</span><span>Slack</span><span style="color:#383850;text-decoration:line-through;">HubSpot (moved to CRM)</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+function toggleAcc(trigger) {
+  const body = trigger.nextElementSibling;
+  const isOpen = trigger.classList.contains('open');
+  // close all
+  document.querySelectorAll('.acc-trigger').forEach(t => {
+    t.classList.remove('open');
+    t.nextElementSibling.classList.remove('open');
+  });
+  document.querySelectorAll('.nav-direct').forEach(d => d.classList.remove('active'));
+  // open this one if it was closed
+  if (!isOpen) {
+    trigger.classList.add('open');
+    body.classList.add('open');
+  }
+}
+function setActive(el) {
+  document.querySelectorAll('.nav-direct').forEach(d => d.classList.remove('active'));
+  document.querySelectorAll('.acc-trigger').forEach(t => {
+    t.classList.remove('open');
+    t.nextElementSibling.classList.remove('open');
+  });
+  el.classList.add('active');
+}
+function setSubActive(el) {
+  document.querySelectorAll('.sub-item').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+}
+</script>
+</body>
+</html>

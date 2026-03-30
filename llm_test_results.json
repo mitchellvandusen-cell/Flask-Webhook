@@ -1,0 +1,112 @@
+[
+  {
+    "scenario_id": "cold_no_reply",
+    "scenario_name": "Cold lead \u2014 bot outreach, zero replies",
+    "model_id": "xai-mini",
+    "model_label": "xAI grok-3-mini-fast (current)",
+    "elapsed": 0.9215042591094971,
+    "passes": 0,
+    "issues": 1,
+    "pct": 0,
+    "error": "Error code: 400 - {'code': 'Client specified an invalid argument', 'error': 'Incorrect API key provided: xa***re. You can obtain an API key from https://console.x.ai.'}"
+  },
+  {
+    "scenario_id": "who_is_this",
+    "scenario_name": "Lead asks 'Who is this?'",
+    "model_id": "xai-mini",
+    "model_label": "xAI grok-3-mini-fast (current)",
+    "elapsed": 0.07929134368896484,
+    "passes": 0,
+    "issues": 1,
+    "pct": 0,
+    "error": "Error code: 400 - {'code': 'Client specified an invalid argument', 'error': 'Incorrect API key provided: xa***re. You can obtain an API key from https://console.x.ai.'}"
+  },
+  {
+    "scenario_id": "not_interested",
+    "scenario_name": "Not interested objection",
+    "model_id": "xai-mini",
+    "model_label": "xAI grok-3-mini-fast (current)",
+    "elapsed": 0.13692736625671387,
+    "passes": 0,
+    "issues": 1,
+    "pct": 0,
+    "error": "Error code: 400 - {'code': 'Client specified an invalid argument', 'error': 'Incorrect API key provided: xa***re. You can obtain an API key from https://console.x.ai.'}"
+  },
+  {
+    "scenario_id": "tcpa_stop",
+    "scenario_name": "TCPA opt-out \u2014 STOP",
+    "model_id": "xai-mini",
+    "model_label": "xAI grok-3-mini-fast (current)",
+    "elapsed": 0.06893348693847656,
+    "passes": 0,
+    "issues": 1,
+    "pct": 0,
+    "error": "Error code: 400 - {'code': 'Client specified an invalid argument', 'error': 'Incorrect API key provided: xa***re. You can obtain an API key from https://console.x.ai.'}"
+  },
+  {
+    "scenario_id": "warm_engaging",
+    "scenario_name": "Warm \u2014 actively engaging, sharing info",
+    "model_id": "xai-mini",
+    "model_label": "xAI grok-3-mini-fast (current)",
+    "elapsed": 0.07549118995666504,
+    "passes": 0,
+    "issues": 1,
+    "pct": 0,
+    "error": "Error code: 400 - {'code': 'Client specified an invalid argument', 'error': 'Incorrect API key provided: xa***re. You can obtain an API key from https://console.x.ai.'}"
+  },
+  {
+    "scenario_id": "hot_ready_to_book",
+    "scenario_name": "Hot \u2014 asking for quote, wants to schedule",
+    "model_id": "xai-mini",
+    "model_label": "xAI grok-3-mini-fast (current)",
+    "elapsed": 0.07935762405395508,
+    "passes": 0,
+    "issues": 1,
+    "pct": 0,
+    "error": "Error code: 400 - {'code': 'Client specified an invalid argument', 'error': 'Incorrect API key provided: xa***re. You can obtain an API key from https://console.x.ai.'}"
+  },
+  {
+    "scenario_id": "gone_cold_7days",
+    "scenario_name": "Was warm, went cold \u2014 7 days no reply",
+    "model_id": "xai-mini",
+    "model_label": "xAI grok-3-mini-fast (current)",
+    "elapsed": 0.08673906326293945,
+    "passes": 0,
+    "issues": 1,
+    "pct": 0,
+    "error": "Error code: 400 - {'code': 'Client specified an invalid argument', 'error': 'Incorrect API key provided: xa***re. You can obtain an API key from https://console.x.ai.'}"
+  },
+  {
+    "scenario_id": "already_covered_objection",
+    "scenario_name": "Already covered objection",
+    "model_id": "xai-mini",
+    "model_label": "xAI grok-3-mini-fast (current)",
+    "elapsed": 0.09940528869628906,
+    "passes": 0,
+    "issues": 1,
+    "pct": 0,
+    "error": "Error code: 400 - {'code': 'Client specified an invalid argument', 'error': 'Incorrect API key provided: xa***re. You can obtain an API key from https://console.x.ai.'}"
+  },
+  {
+    "scenario_id": "price_objection",
+    "scenario_name": "Price objection \u2014 too expensive",
+    "model_id": "xai-mini",
+    "model_label": "xAI grok-3-mini-fast (current)",
+    "elapsed": 0.15940237045288086,
+    "passes": 0,
+    "issues": 1,
+    "pct": 0,
+    "error": "Error code: 400 - {'code': 'Client specified an invalid argument', 'error': 'Incorrect API key provided: xa***re. You can obtain an API key from https://console.x.ai.'}"
+  },
+  {
+    "scenario_id": "booked_appointment",
+    "scenario_name": "Appointment already booked",
+    "model_id": "xai-mini",
+    "model_label": "xAI grok-3-mini-fast (current)",
+    "elapsed": 0.14258933067321777,
+    "passes": 0,
+    "issues": 1,
+    "pct": 0,
+    "error": "Error code: 400 - {'code': 'Client specified an invalid argument', 'error': 'Incorrect API key provided: xa***re. You can obtain an API key from https://console.x.ai.'}"
+  }
+]

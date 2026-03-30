@@ -300,6 +300,14 @@
             border-color: rgba(0,0,0,0.12);
             color: var(--lt-text-secondary);
         }
+        .ein-step-list { font-size: 0.82rem; color: #999; line-height: 2; margin: 0 0 10px; padding-left: 20px; }
+        body.light-theme .ein-step-list { color: #666; }
+        .ein-highlight { color: #fff; }
+        .text-accent { color: #00ff88; }
+        .ein-icon-purple { color: #a78bfa; }
+        body.light-theme .ein-highlight { color: var(--lt-text-primary); }
+        body.light-theme .text-accent { color: var(--lt-accent, #059669); }
+        body.light-theme .ein-icon-purple { color: #7c3aed; }
     </style>
 </head>
 <body>
@@ -311,7 +319,7 @@
     <!-- Header -->
     <div class="ein-header">
         <div class="ein-header-badge"><i class="fa-solid fa-building-columns"></i> Free • Takes ~2 Minutes</div>
-        <h1>How to Get Your Free EIN<br><span style="color:#00ff88;">from the IRS</span></h1>
+        <h1>How to Get Your Free EIN<br><span class="text-accent">from the IRS</span></h1>
         <p>An EIN (Employer Identification Number) is a free federal tax ID issued by the IRS. Sole proprietors need one to register phone numbers for spam protection — and it protects your SSN from ever being shared with carriers.</p>
     </div>
 
@@ -328,15 +336,15 @@
 
     <!-- Why you need it -->
     <div class="ein-why">
-        <h2><i class="fa-solid fa-shield-halved me-2" style="color:#00ff88;"></i>Why You Need an EIN as a Sole Proprietor</h2>
+        <h2><i class="fa-solid fa-shield-halved me-2" class="text-accent"></i>Why You Need an EIN as a Sole Proprietor</h2>
         <div class="ein-why-grid">
             <div class="ein-why-item">
                 <i class="fa-solid fa-circle-check"></i>
-                <span>Required by Twilio's carrier trust network to verify your business identity for spam protection registration</span>
+                <span>Required by the carrier trust network to verify your business identity for spam protection registration</span>
             </div>
             <div class="ein-why-item">
                 <i class="fa-solid fa-circle-check"></i>
-                <span>Keeps your Social Security Number private — you never share your SSN with Twilio or any carrier</span>
+                <span>Keeps your Social Security Number private — you never share your SSN with any carrier or registration service</span>
             </div>
             <div class="ein-why-item">
                 <i class="fa-solid fa-circle-check"></i>
@@ -358,7 +366,7 @@
     </div>
 
     <!-- Steps -->
-    <div class="ein-steps-title"><i class="fa-solid fa-list-ol me-2" style="color:#a78bfa;"></i>Step-by-Step Instructions</div>
+    <div class="ein-steps-title"><i class="fa-solid fa-list-ol me-2" class="ein-icon-purple"></i>Step-by-Step Instructions</div>
 
     <div class="ein-step">
         <div class="ein-step-num">1</div>
@@ -375,7 +383,7 @@
         <div class="ein-step-num">2</div>
         <div class="ein-step-body">
             <h3>Click "Apply Online Now"</h3>
-            <p>On the IRS page, click the <strong style="color:#fff;">"Apply Online Now"</strong> button to start the EIN Assistant. Read through the instructions and click "Begin Application" to proceed.</p>
+            <p>On the IRS page, click the <strong class="ein-highlight">"Apply Online Now"</strong> button to start the EIN Assistant. Read through the instructions and click "Begin Application" to proceed.</p>
             <div class="ein-step-note">
                 <i class="fa-solid fa-circle-info"></i>
                 The IRS EIN Assistant will open in a new tab. Do not close the browser during the application — your session expires after 15 minutes of inactivity.
@@ -387,7 +395,7 @@
         <div class="ein-step-num">3</div>
         <div class="ein-step-body">
             <h3>Select "Sole Proprietor" as Your Entity Type</h3>
-            <p>The first question asks what type of entity you are. Select <strong style="color:#fff;">Sole Proprietor</strong>. On the next screen, select the reason for applying — choose <strong style="color:#fff;">"Banking Purposes"</strong> or <strong style="color:#fff;">"Started a New Business"</strong> (both are valid and accepted by Twilio).</p>
+            <p>The first question asks what type of entity you are. Select <strong class="ein-highlight">Sole Proprietor</strong>. On the next screen, select the reason for applying — choose <strong class="ein-highlight">"Banking Purposes"</strong> or <strong class="ein-highlight">"Started a New Business"</strong> (both are valid for carrier registration).</p>
             <a href="https://www.irs.gov/businesses/small-businesses-self-employed/sole-proprietorships" target="_blank" class="ein-step-link">
                 <i class="fa-solid fa-arrow-up-right-from-square"></i> IRS: Sole Proprietorships Info →
             </a>
@@ -399,15 +407,15 @@
         <div class="ein-step-body">
             <h3>Enter Your Personal Information</h3>
             <p>You will need to provide:</p>
-            <ul style="font-size:0.82rem;color:#999;line-height:2;margin:0 0 10px;padding-left:20px;">
-                <li>Your <strong style="color:#fff;">full legal name</strong> (first, middle initial, last)</li>
-                <li>Your <strong style="color:#fff;">Social Security Number (SSN)</strong> — used only to verify your identity with the IRS; never shared with carriers</li>
-                <li>Your <strong style="color:#fff;">mailing address</strong> (home or business)</li>
-                <li>Your <strong style="color:#fff;">phone number</strong> and state</li>
+            <ul class="ein-step-list">
+                <li>Your <strong class="ein-highlight">full legal name</strong> (first, middle initial, last)</li>
+                <li>Your <strong class="ein-highlight">Social Security Number (SSN)</strong> — used only to verify your identity with the IRS; never shared with carriers</li>
+                <li>Your <strong class="ein-highlight">mailing address</strong> (home or business)</li>
+                <li>Your <strong class="ein-highlight">phone number</strong> and state</li>
             </ul>
             <div class="ein-step-note">
                 <i class="fa-solid fa-lock"></i>
-                Your SSN is only used by the IRS to issue your EIN. Once you have your EIN, you use the EIN (not your SSN) for all business registrations including Twilio spam protection.
+                Your SSN is only used by the IRS to issue your EIN. Once you have your EIN, you use the EIN (not your SSN) for all business registrations including spam protection.
             </div>
         </div>
     </div>
@@ -416,7 +424,7 @@
         <div class="ein-step-num">5</div>
         <div class="ein-step-body">
             <h3>Review and Submit</h3>
-            <p>Review all the information on the confirmation screen. Make sure your legal name matches exactly how it appears on your Social Security card or IRS records. Click <strong style="color:#fff;">"Submit"</strong> to finalize.</p>
+            <p>Review all the information on the confirmation screen. Make sure your legal name matches exactly how it appears on your Social Security card or IRS records. Click <strong class="ein-highlight">"Submit"</strong> to finalize.</p>
         </div>
     </div>
 
@@ -424,7 +432,7 @@
         <div class="ein-step-num">6</div>
         <div class="ein-step-body">
             <h3>Save Your EIN — It's Issued Instantly</h3>
-            <p>Your EIN is displayed immediately on the confirmation page in the format <strong style="color:#00ff88;">XX-XXXXXXX</strong> (two digits, hyphen, seven digits). Write it down and download the confirmation PDF. You can use it right away — no waiting period.</p>
+            <p>Your EIN is displayed immediately on the confirmation page in the format <strong class="text-accent">XX-XXXXXXX</strong> (two digits, hyphen, seven digits). Write it down and download the confirmation PDF. You can use it right away — no waiting period.</p>
             <a href="https://www.irs.gov/businesses/small-businesses-self-employed/lost-or-misplaced-your-ein" target="_blank" class="ein-step-link">
                 <i class="fa-solid fa-arrow-up-right-from-square"></i> Lost your EIN? Look it up here →
             </a>
@@ -438,11 +446,11 @@
     </div>
 
     <!-- FAQ -->
-    <div class="ein-faq-title"><i class="fa-solid fa-circle-question me-2" style="color:#a78bfa;"></i>Frequently Asked Questions</div>
+    <div class="ein-faq-title"><i class="fa-solid fa-circle-question me-2" class="ein-icon-purple"></i>Frequently Asked Questions</div>
 
     <div class="ein-faq-item">
         <div class="ein-faq-q">Do I need an EIN if I already have a business license?</div>
-        <div class="ein-faq-a">A business license and an EIN are separate. A business license is issued by your state or city. An EIN is issued by the IRS as a federal tax identification number. You need an EIN specifically for Twilio's trust network registration — a business license alone is not sufficient.</div>
+        <div class="ein-faq-a">A business license and an EIN are separate. A business license is issued by your state or city. An EIN is issued by the IRS as a federal tax identification number. You need an EIN specifically for carrier trust network registration — a business license alone is not sufficient.</div>
     </div>
 
     <div class="ein-faq-item">
@@ -467,7 +475,7 @@
 
     <!-- Bottom CTA -->
     <div class="ein-bottom-cta">
-        <h3><i class="fa-solid fa-circle-check me-2" style="color:#00ff88;"></i>Got your EIN? You're ready to register.</h3>
+        <h3><i class="fa-solid fa-circle-check me-2" class="text-accent"></i>Got your EIN? You're ready to register.</h3>
         <p>Head back to your dashboard and complete your spam protection registration. It only takes a minute.</p>
         <a href="/dashboard" class="ein-btn-primary">
             <i class="fa-solid fa-arrow-left"></i> Back to Dashboard

@@ -1,0 +1,198 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800;900&family=Inter:wght@400;500;600&display=swap');
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', sans-serif; background: #050508; }
+
+.page { max-width: 960px; margin: 0 auto; padding: 16px 20px 40px; }
+
+.full-sidebar {
+  background: #07070f;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 20px 14px 18px;
+  width: 220px;
+  flex-shrink: 0;
+  font-family: 'Outfit', sans-serif;
+}
+
+.brand-row {
+  display: flex; align-items: center; gap: 9px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  margin-bottom: 14px;
+}
+.brand-mark { width: 24px; height: 24px; border-radius: 6px; background: linear-gradient(135deg,#00ff88,#00cc66); flex-shrink:0; }
+.brand-text { font-size: 0.7rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.14em; color: rgba(255,255,255,0.5); }
+
+.nav-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; border-radius: 10px;
+  font-size: 0.84rem; font-weight: 800; letter-spacing: -0.01em;
+  color: #3a3a52; border: 1px solid transparent;
+  margin-bottom: 2px; cursor: pointer;
+  transition: all .15s;
+}
+.nav-item .arr { font-size: 0.52rem; color: #252535; font-weight: 400; font-family: 'Inter', sans-serif; }
+.nav-item.active-top { color: #00ff88; background: rgba(0,255,136,0.07); border-color: rgba(0,255,136,0.14); }
+.nav-item.open-top { color: #d0d0e0; }
+
+.sub-group { margin-bottom: 4px; padding-left: 2px; }
+.sub-head {
+  padding: 7px 12px 4px 18px;
+  font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.12em; color: #2a2a3a;
+  font-family: 'Inter', sans-serif;
+}
+.sub-item {
+  padding: 5px 12px 5px 18px;
+  font-size: 0.72rem; font-weight: 500; color: #404058;
+  border-radius: 7px; font-family: 'Inter', sans-serif;
+  letter-spacing: 0; cursor: pointer;
+}
+.sub-item.merge-highlight { color: #00d9ff; }
+
+.divider { height: 1px; background: rgba(255,255,255,0.04); margin: 8px 2px; }
+
+.footer-items {
+  margin-top: 14px; padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+.footer-item {
+  padding: 6px 12px; font-size: 0.7rem; font-weight: 600;
+  color: #28283a; border-radius: 7px;
+  font-family: 'Inter', sans-serif;
+}
+
+/* right side: change notes */
+.notes-col {
+  flex: 1; display: flex; flex-direction: column; gap: 14px;
+  min-width: 0;
+}
+.change-card {
+  background: #0a0a14;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+.change-card.merge { border-color: rgba(0,217,255,0.2); background: rgba(0,217,255,0.03); }
+.change-card.new { border-color: rgba(0,255,136,0.2); background: rgba(0,255,136,0.02); }
+.change-card.move { border-color: rgba(245,158,11,0.2); background: rgba(245,158,11,0.02); }
+
+.cc-label {
+  font-size: 0.58rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.14em; margin-bottom: 6px;
+  font-family: 'Outfit', sans-serif;
+}
+.cc-label.cyan { color: #00d9ff; }
+.cc-label.green { color: #00ff88; }
+.cc-label.amber { color: #f59e0b; }
+
+.cc-title { font-size: 0.84rem; font-weight: 700; color: #e0e0f0; margin-bottom: 4px; font-family: 'Outfit', sans-serif; }
+.cc-body { font-size: 0.7rem; color: #4a4a60; line-height: 1.6; font-family: 'Inter', sans-serif; }
+.cc-body strong { color: #8080a0; font-weight: 600; }
+.cc-body .was { text-decoration: line-through; color: #333; }
+
+.layout { display: flex; gap: 24px; align-items: flex-start; }
+</style>
+
+<div class="page">
+<h2 style="font-family:'Outfit',sans-serif;font-weight:900;letter-spacing:-0.02em;margin-bottom:6px;">The actual restructure</h2>
+<p class="subtitle" style="margin-bottom:20px;">What's merged, what's moved, what's new. The sidebar on the left is the full proposed nav.</p>
+
+<div class="layout">
+
+  <!-- FULL SIDEBAR -->
+  <div class="full-sidebar">
+    <div class="brand-row">
+      <div class="brand-mark"></div>
+      <span class="brand-text">IGB</span>
+    </div>
+
+    <div class="nav-item active-top">Workspace</div>
+
+    <div class="divider"></div>
+
+    <div class="nav-item open-top">Setup <span class="arr">▾</span></div>
+    <div class="sub-group">
+      <div class="sub-head">Configuration</div>
+      <div class="sub-item">SMS Bot</div>
+      <div class="sub-item">Voice AI</div>
+      <div class="sub-item">Advanced</div>
+      <div class="sub-head" style="margin-top:6px;">System</div>
+      <div class="sub-item">CRM Connection</div>
+      <div class="sub-item">Calendar</div>
+      <div class="sub-item merge-highlight">Numbers & Compliance</div>
+      <div class="sub-item">Carriers</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="nav-item">Workflows <span class="arr">▸</span></div>
+
+    <div class="divider"></div>
+
+    <div class="nav-item">Business <span class="arr">▸</span></div>
+    <div class="sub-group" style="display:none;">
+      <div class="sub-item">Team</div>
+      <div class="sub-item">Agency</div>
+      <div class="sub-item">Billing</div>
+      <div class="sub-item">AI Minutes</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="nav-item">Integrations <span class="arr">▸</span></div>
+
+    <div class="footer-items">
+      <div class="footer-item">Activity Logs</div>
+      <div class="footer-item">Support</div>
+      <div class="footer-item">Sign Out</div>
+    </div>
+  </div>
+
+  <!-- CHANGE NOTES -->
+  <div class="notes-col">
+
+    <div class="change-card merge">
+      <div class="cc-label cyan">Merged — was 3 places</div>
+      <div class="cc-title">Numbers & Compliance</div>
+      <div class="cc-body">
+        <span class="was">SMS Config &gt; Numbers & A2P</span><br>
+        <span class="was">SMS Config &gt; A2P 10DLC</span><br>
+        <span class="was">Voice Config &gt; Numbers</span><br>
+        <span class="was">Voice Config &gt; Spam Monitoring</span><br><br>
+        Buy numbers, configure A2P 10DLC, manage spam protection, CNAM, Voice Integrity, and number health — all in one place.
+      </div>
+    </div>
+
+    <div class="change-card merge">
+      <div class="cc-label cyan">Merged — was split across sidebar + SMS Config</div>
+      <div class="cc-title">CRM Connection</div>
+      <div class="cc-body">
+        <span class="was">System Params accordion (bottom of sidebar)</span><br>
+        <span class="was">SMS Config &gt; Calendar & CRM (Location ID, CRM User ID, Timezone)</span><br><br>
+        OAuth tokens, Location ID, Reauthorize CRM — one panel. Calendar selection lives next to it under <strong>Calendar</strong>.
+      </div>
+    </div>
+
+    <div class="change-card new">
+      <div class="cc-label green">Consolidated</div>
+      <div class="cc-title">Setup has two layers</div>
+      <div class="cc-body">
+        <strong>Configuration</strong> = how your AI behaves (SMS bot identity, voice AI settings, advanced).<br><br>
+        <strong>System</strong> = what it's connected to (CRM, calendar, phone numbers, carriers). These are operational plumbing, not bot behavior.
+      </div>
+    </div>
+
+    <div class="change-card move">
+      <div class="cc-label amber">Moved out of Integrations</div>
+      <div class="cc-title">Business</div>
+      <div class="cc-body">
+        Team, Agency Members, Agency KPIs, White Label, Billing, AI Minutes — all business operations. Not mixed with technical integrations.<br><br>
+        <strong>Integrations</strong> = Google Calendar, Discord, Slack, HubSpot. Third-party apps only.
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>

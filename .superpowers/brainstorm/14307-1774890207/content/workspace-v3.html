@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Workspace — Simplified</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #07070f; color: #e0e0e0; font-family: 'Inter', -apple-system, sans-serif; padding: 20px; }
+h1 { font-size: 0.95rem; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 4px; }
+.subtitle { font-size: 0.72rem; color: #444; margin-bottom: 20px; }
+
+/* State tabs */
+.state-tabs { display: flex; gap: 2px; margin-bottom: 16px; }
+.state-tab { padding: 5px 14px; font-size: 0.58rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: #444; border: 1px solid #1e1e28; cursor: pointer; background: transparent; }
+.state-tab.active { background: #00ff88; color: #000; border-color: #00ff88; }
+
+/* Dashboard shell */
+.dash { border: 1px solid #1e1e28; overflow: hidden; background: #0b0b14; }
+.dash-topbar { height: 28px; background: #060610; border-bottom: 1px solid #141420; display: flex; align-items: center; padding: 0 10px; gap: 8px; }
+.topbar-dot { width: 5px; height: 5px; border-radius: 50%; background: #1e1e28; }
+.topbar-page { font-size: 0.5rem; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; color: #3a3a50; margin-left: 6px; }
+.topbar-right { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+.topbar-icon { width: 16px; height: 16px; background: #111120; border: 1px solid #1e1e28; display: flex; align-items: center; justify-content: center; }
+.topbar-icon span { font-size: 0.32rem; color: #444; font-weight: 700; }
+
+/* ── CALL BANNER — replaces dialer banner when call active ── */
+.call-banner { height: 30px; background: rgba(0,255,136,0.06); border-bottom: 1px solid rgba(0,255,136,0.2); display: flex; align-items: center; padding: 0 12px; gap: 10px; }
+.call-banner-pulse { width: 7px; height: 7px; border-radius: 50%; background: #00ff88; box-shadow: 0 0 0 3px rgba(0,255,136,0.15); }
+.call-banner-name { font-size: 0.52rem; font-weight: 800; color: #00ff88; text-transform: uppercase; letter-spacing: .08em; }
+.call-banner-timer { font-size: 0.52rem; color: #00ff88; font-variant-numeric: tabular-nums; margin-left: 4px; }
+.call-banner-sub { font-size: 0.44rem; color: rgba(0,255,136,0.5); margin-left: 2px; }
+.call-banner-right { margin-left: auto; display: flex; gap: 4px; }
+.cbn-btn { height: 16px; padding: 0 7px; font-size: 0.4rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; border: 1px solid #333; color: #666; display: flex; align-items: center; }
+.cbn-btn.end { border-color: rgba(239,68,68,0.4); color: #ef4444; background: rgba(239,68,68,0.06); }
+
+/* Main layout */
+.dash-body { display: flex; height: 300px; }
+
+/* Sidebar */
+.dash-sb { width: 32px; background: #05050e; border-right: 1px solid #111120; flex-shrink: 0; padding: 10px 0; display: flex; flex-direction: column; gap: 2px; align-items: center; }
+.sb-item { width: 18px; height: 5px; }
+.sb-item.on { background: #00ff88; }
+.sb-item.off { background: #141420; }
+.sb-item.sp { height: 8px; background: transparent; }
+
+/* Columns */
+.cols { flex: 1; display: flex; }
+.col { display: flex; flex-direction: column; border-right: 1px solid #111120; }
+.col:last-child { border-right: none; }
+.col-hdr { height: 24px; background: rgba(255,255,255,0.012); border-bottom: 1px solid #111120; display: flex; align-items: center; padding: 0 8px; gap: 6px; flex-shrink: 0; }
+.col-hdr-title { font-size: 0.46rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: #2e2e40; }
+.col-hdr-title.accent { color: rgba(0,255,136,0.6); }
+.col-hdr-count { font-size: 0.4rem; color: #333; background: #0e0e18; padding: 1px 4px; font-weight: 700; }
+.col-hdr-right { margin-left: auto; display: flex; gap: 3px; align-items: center; }
+.col-body { flex: 1; padding: 5px; overflow: hidden; }
+
+/* Contacts column specifics */
+.contacts-filters { margin-bottom: 4px; }
+.filter-row { display: flex; align-items: center; gap: 3px; margin-bottom: 3px; }
+.filter-select { flex: 1; height: 14px; background: #0e0e18; border: 1px solid #1a1a24; display: flex; align-items: center; padding: 0 5px; gap: 4px; }
+.filter-select-text { font-size: 0.4rem; color: #555; flex: 1; }
+.filter-select-arrow { font-size: 0.36rem; color: #333; }
+.filter-select.active-filter { border-color: rgba(0,255,136,0.2); }
+.filter-select.active-filter .filter-select-text { color: rgba(0,255,136,0.7); }
+.search-icon-btn { width: 14px; height: 14px; background: #0e0e18; border: 1px solid #1a1a24; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.search-icon-btn span { font-size: 0.44rem; color: #444; }
+
+/* Contact cards */
+.c-card { height: 24px; background: #0d0d18; border: 1px solid #141420; display: flex; align-items: center; padding: 0 0 0 6px; gap: 5px; margin-bottom: 2px; cursor: pointer; position: relative; overflow: hidden; }
+.c-card:hover { border-color: #2a2a3a; }
+.c-card.selected { background: rgba(0,255,136,0.04); border-color: rgba(0,255,136,0.2); }
+.c-accent { position: absolute; left: 0; top: 0; bottom: 0; width: 2px; }
+.c-accent.hot { background: #ef4444; }
+.c-accent.warm { background: #f59e0b; }
+.c-accent.cool { background: #3b82f6; }
+.c-accent.cold { background: #333; }
+.c-accent.green { background: #00ff88; }
+.c-check { width: 8px; height: 8px; border: 1px solid #222; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.c-check.on { background: #00ff88; border-color: #00ff88; }
+.c-check.on::after { content:'✓'; font-size:0.3rem; color:#000; }
+.c-name { font-size: 0.44rem; color: #888; flex: 1; }
+.c-name.lit { color: #ccc; }
+.c-badge { font-size: 0.36rem; font-weight: 800; text-transform: uppercase; padding: 0 4px; margin-right: 4px; }
+.c-badge.hot { color: #ef4444; }
+.c-badge.warm { color: #f59e0b; }
+.c-badge.cool { color: #3b82f6; }
+
+/* Queue column */
+.q-banner { height: 20px; background: rgba(0,255,136,0.04); border-bottom: 1px solid rgba(0,255,136,0.1); display: flex; align-items: center; padding: 0 8px; gap: 5px; flex-shrink: 0; }
+.q-banner-text { font-size: 0.42rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: rgba(0,255,136,0.6); }
+.q-banner-count { font-size: 0.4rem; color: #555; }
+.q-item { height: 28px; background: #0d0d18; border: 1px solid #141420; border-left: 2px solid transparent; display: flex; align-items: center; padding: 0 6px; gap: 5px; margin-bottom: 2px; }
+.q-item.calling { border-left-color: #00ff88; background: rgba(0,255,136,0.04); }
+.q-item.calling .q-name { color: #00ff88; }
+.q-item-num { font-size: 0.4rem; color: #333; width: 10px; flex-shrink: 0; }
+.q-name { font-size: 0.44rem; color: #777; flex: 1; }
+.q-status { font-size: 0.38rem; font-weight: 700; text-transform: uppercase; }
+.q-status.calling { color: #00ff88; }
+.q-status.pending { color: #333; }
+.q-clear-btn { height: 16px; padding: 0 6px; font-size: 0.4rem; font-weight: 800; text-transform: uppercase; border: 1px solid #333; color: #555; margin-top: 5px; display: flex; align-items: center; }
+
+/* Contact info / middle col */
+.info-section { background: #0d0d18; border: 1px solid #141420; padding: 5px 6px; margin-bottom: 3px; }
+.info-s-label { font-size: 0.38rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: rgba(0,255,136,0.5); margin-bottom: 3px; }
+.info-kv { display: flex; gap: 4px; align-items: flex-start; margin-bottom: 2px; }
+.info-k { font-size: 0.38rem; color: #333; width: 26px; flex-shrink: 0; }
+.info-v { font-size: 0.38rem; color: #777; flex: 1; }
+.info-v.hi { color: #bbb; }
+.score-row { display: flex; align-items: center; gap: 4px; margin-bottom: 3px; }
+.score-bar { flex: 1; height: 3px; background: #1a1a24; }
+.score-fill { height: 100%; background: #00ff88; }
+.score-num { font-size: 0.42rem; font-weight: 800; color: #00ff88; }
+.info-line { height: 2px; background: #1a1a24; margin-bottom: 2px; border-radius: 0; }
+.action-row { display: flex; gap: 2px; margin-top: 3px; }
+.action-btn { flex: 1; height: 14px; border: 1px solid rgba(0,255,136,0.18); background: rgba(0,255,136,0.04); display: flex; align-items: center; justify-content: center; }
+.action-btn span { font-size: 0.34rem; font-weight: 800; text-transform: uppercase; color: rgba(0,255,136,0.7); }
+
+/* ── PHONE ── */
+.phone-col-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #070710; padding: 8px; }
+.phone { width: 90px; background: #0c0c16; border: 2px solid #20202e; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; position: relative; flex-shrink: 0; }
+
+/* Dynamic Island — dial mode */
+.phone-island-bar { height: 32px; background: #080810; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #141420; flex-shrink: 0; padding: 0 6px; }
+.island { background: #000; border-radius: 14px; height: 22px; padding: 0 8px; display: flex; align-items: center; gap: 5px; border: 1px solid #1a1a1a; }
+.island-label { font-size: 0.34rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #333; }
+.island-divider { width: 1px; height: 10px; background: #1e1e1e; }
+.island-toggle { display: flex; gap: 0; }
+.dm { padding: 2px 6px; font-size: 0.38rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: #333; cursor: pointer; }
+.dm.active { background: #00ff88; color: #000; border-radius: 10px; }
+
+.phone-screen { flex: 1; overflow: hidden; }
+
+/* Phone home screen */
+.home-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; padding: 8px 6px; }
+.app { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.app-icon { width: 20px; height: 20px; border-radius: 5px; }
+.app-icon.g { background: rgba(0,255,136,0.12); border: 1px solid rgba(0,255,136,0.2); }
+.app-icon.b { background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.2); }
+.app-icon.a { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.2); }
+.app-icon.r { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.2); }
+.app-icon.p { background: rgba(168,85,247,0.12); border: 1px solid rgba(168,85,247,0.2); }
+.app-icon.gr { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
+.app-label { font-size: 0.3rem; color: #3a3a50; text-align: center; line-height: 1.2; }
+
+/* Phone dialer app */
+.dialer-screen { padding: 5px; }
+.d-contact-card { background: rgba(0,255,136,0.04); border: 1px solid rgba(0,255,136,0.15); padding: 4px 5px; margin-bottom: 4px; }
+.d-contact-name { font-size: 0.46rem; font-weight: 700; color: #e0e0e0; }
+.d-contact-sub { font-size: 0.36rem; color: rgba(0,255,136,0.6); margin-top: 1px; }
+.d-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; margin-bottom: 3px; }
+.d-btn { height: 16px; display: flex; align-items: center; justify-content: center; font-size: 0.38rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+.d-btn.primary { background: #00ff88; color: #000; }
+.d-btn.outline { border: 1px solid #1e1e28; color: #555; }
+.d-notes { background: #080810; border: 1px solid #111120; padding: 3px 4px; }
+.d-notes-label { font-size: 0.34rem; font-weight: 800; text-transform: uppercase; color: #222; margin-bottom: 2px; letter-spacing: .08em; }
+.d-note-line { height: 2px; background: #141420; margin-bottom: 2px; }
+
+/* Phone call history app */
+.history-screen { padding: 5px; }
+.h-tabs { display: flex; border-bottom: 1px solid #141420; margin-bottom: 5px; }
+.h-tab { flex: 1; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 0.38rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: #333; }
+.h-tab.active { color: #00ff88; border-bottom: 1px solid #00ff88; }
+.h-call-row { height: 20px; background: #0a0a14; border: 1px solid #111120; display: flex; align-items: center; padding: 0 5px; gap: 4px; margin-bottom: 2px; }
+.h-dot { width: 4px; height: 4px; border-radius: 50%; }
+.h-dot.out { background: #00ff88; }
+.h-dot.in { background: #3b82f6; }
+.h-dot.miss { background: #ef4444; }
+.h-name { font-size: 0.4rem; color: #777; flex: 1; }
+.h-dur { font-size: 0.36rem; color: #444; }
+.campaign-row { background: #0a0a14; border: 1px solid #111120; padding: 4px 5px; margin-bottom: 3px; }
+.campaign-title { font-size: 0.42rem; font-weight: 700; color: #999; }
+.campaign-sub { font-size: 0.36rem; color: #444; margin-top: 1px; }
+.campaign-progress { height: 2px; background: #141420; margin-top: 3px; }
+.campaign-fill { height: 100%; background: #00ff88; }
+
+/* Phone tabbar */
+.phone-tabbar { height: 22px; background: #070710; border-top: 1px solid #111120; display: flex; align-items: center; justify-content: space-around; flex-shrink: 0; }
+.pt { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.pt-bar { width: 14px; height: 2px; }
+.pt-bar.on { background: #00ff88; }
+.pt-bar.off { background: #141420; }
+.pt-label { font-size: 0.28rem; color: #333; }
+.pt-label.on { color: rgba(0,255,136,0.6); }
+
+/* Annotation strip */
+.note { font-size: 0.58rem; color: #444; margin-top: 10px; padding: 6px 8px; border-left: 2px solid #1e1e28; line-height: 1.65; }
+.note strong { color: #666; }
+.note .tag { background: rgba(0,255,136,0.08); color: rgba(0,255,136,0.7); padding: 1px 5px; font-size: 0.52rem; font-weight: 700; }
+
+@keyframes fadeUp { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
+.fade-up { animation: fadeUp .3s ease forwards; }
+</style>
+</head>
+<body>
+
+<h1>Workspace — Simplified</h1>
+<p class="subtitle">Three states. Click the tabs below to switch between them.</p>
+
+<div class="state-tabs">
+  <button class="state-tab active" onclick="showState('default')">Default (no selection)</button>
+  <button class="state-tab" onclick="showState('single')">Single contact selected</button>
+  <button class="state-tab" onclick="showState('queue')">Queue active (call live)</button>
+</div>
+
+<!-- ═══════════════ STATE: DEFAULT ═══════════════ -->
+<div id="state-default">
+<div class="dash">
+  <div class="dash-topbar">
+    <div class="topbar-dot"></div><div class="topbar-dot"></div><div class="topbar-dot"></div>
+    <div class="topbar-page">Workspace</div>
+    <div class="topbar-right">
+      <div class="topbar-icon"><span>LOG</span></div>
+      <div class="topbar-icon"><span>SUP</span></div>
+    </div>
+  </div>
+  <!-- No call banner in default state -->
+  <div class="dash-body">
+    <div class="dash-sb">
+      <div class="sb-item on"></div><div class="sb-item off"></div><div class="sb-item off"></div>
+      <div class="sb-item sp"></div><div class="sb-item off"></div>
+    </div>
+    <div class="cols">
+      <!-- LEFT: Contacts (no dial btn, no import/export, simplified) -->
+      <div class="col" style="width:32%">
+        <div class="col-hdr">
+          <div class="col-hdr-title">Contacts</div>
+          <div class="col-hdr-count">1085</div>
+          <div class="col-hdr-right">
+            <div class="search-icon-btn"><span>⌕</span></div>
+            <div style="height:14px;padding:0 6px;background:#0a0a14;border:1px solid #1a1a24;display:flex;align-items:center;font-size:0.38rem;font-weight:800;text-transform:uppercase;color:rgba(0,255,136,0.6);">Queue</div>
+          </div>
+        </div>
+        <div class="col-body">
+          <div class="contacts-filters">
+            <div class="filter-row">
+              <div class="filter-select" style="flex:1">
+                <div class="filter-select-text">All Contacts</div>
+                <div class="filter-select-arrow">▾</div>
+              </div>
+            </div>
+            <!-- Second filter hidden until pipeline selected -->
+          </div>
+          <div class="c-card"><div class="c-accent hot"></div><div class="c-check"></div><div class="c-name">Sarah Johnson</div><div class="c-badge hot">Hot</div></div>
+          <div class="c-card"><div class="c-accent warm"></div><div class="c-check"></div><div class="c-name">Mike Davis</div><div class="c-badge warm">Warm</div></div>
+          <div class="c-card"><div class="c-accent warm"></div><div class="c-check"></div><div class="c-name">Tom Rivera</div><div class="c-badge warm">Warm</div></div>
+          <div class="c-card"><div class="c-accent cool"></div><div class="c-check"></div><div class="c-name">Linda Chen</div><div class="c-badge cool">Cool</div></div>
+          <div class="c-card"><div class="c-accent cool"></div><div class="c-check"></div><div class="c-name">James Park</div><div class="c-badge cool">Cool</div></div>
+          <div class="c-card"><div class="c-accent cold"></div><div class="c-check"></div><div class="c-name">Rebecca Wu</div></div>
+        </div>
+      </div>
+      <!-- MIDDLE: empty — no contact selected -->
+      <div class="col" style="width:30%;background:#090910;">
+        <div class="col-hdr"><div class="col-hdr-title" style="color:#1a1a28;">Contact Info</div></div>
+        <div class="col-body" style="display:flex;align-items:center;justify-content:center;">
+          <div style="text-align:center;">
+            <div style="font-size:0.44rem;color:#1e1e28;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">Select a contact</div>
+          </div>
+        </div>
+      </div>
+      <!-- RIGHT: Phone — home screen -->
+      <div class="col" style="flex:1">
+        <div class="col-hdr"><div class="col-hdr-title">Phone</div></div>
+        <div class="phone-col-wrap">
+          <div class="phone" style="height:230px;">
+            <div class="phone-island-bar">
+              <div class="island">
+                <div class="island-label">Dial Mode</div>
+                <div class="island-divider"></div>
+                <div class="island-toggle">
+                  <div class="dm active">Human</div>
+                  <div class="dm">AI</div>
+                </div>
+              </div>
+            </div>
+            <div class="phone-screen">
+              <div class="home-grid">
+                <div class="app"><div class="app-icon g"></div><div class="app-label">Dialer</div></div>
+                <div class="app"><div class="app-icon b"></div><div class="app-label">Calls</div></div>
+                <div class="app"><div class="app-icon a"></div><div class="app-label">Messages</div></div>
+                <div class="app"><div class="app-icon r"></div><div class="app-label">Inbox</div></div>
+                <div class="app"><div class="app-icon p"></div><div class="app-label">KPIs</div></div>
+                <div class="app"><div class="app-icon gr"></div><div class="app-label">Settings</div></div>
+              </div>
+            </div>
+            <div class="phone-tabbar">
+              <div class="pt"><div class="pt-bar off"></div><div class="pt-label">Home</div></div>
+              <div class="pt"><div class="pt-bar off"></div><div class="pt-label">Calls</div></div>
+              <div class="pt"><div class="pt-bar off"></div><div class="pt-label">Msgs</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="note">Default state. <strong>No dial button in contacts column.</strong> Search icon top-right of column. Filter: "All Contacts" dropdown — selecting a pipeline shows a second stage dropdown. Import/Export/Refresh moved to <span class="tag">Business → Contact Management</span> in the sidebar menu.</div>
+</div>
+
+<!-- ═══════════════ STATE: SINGLE CONTACT ═══════════════ -->
+<div id="state-single" style="display:none;">
+<div class="dash">
+  <div class="dash-topbar">
+    <div class="topbar-dot"></div><div class="topbar-dot"></div><div class="topbar-dot"></div>
+    <div class="topbar-page">Workspace</div>
+    <div class="topbar-right">
+      <div class="topbar-icon"><span>LOG</span></div>
+      <div class="topbar-icon"><span>SUP</span></div>
+    </div>
+  </div>
+  <div class="dash-body">
+    <div class="dash-sb">
+      <div class="sb-item on"></div><div class="sb-item off"></div><div class="sb-item off"></div>
+      <div class="sb-item sp"></div><div class="sb-item off"></div>
+    </div>
+    <div class="cols">
+      <!-- LEFT: Contacts — one selected -->
+      <div class="col" style="width:30%">
+        <div class="col-hdr">
+          <div class="col-hdr-title">Contacts</div>
+          <div class="col-hdr-count">1085</div>
+          <div class="col-hdr-right">
+            <div class="search-icon-btn"><span>⌕</span></div>
+            <div style="height:14px;padding:0 6px;background:#0a0a14;border:1px solid #1a1a24;display:flex;align-items:center;font-size:0.38rem;font-weight:800;text-transform:uppercase;color:rgba(0,255,136,0.6);">Queue</div>
+          </div>
+        </div>
+        <div class="col-body">
+          <div class="contacts-filters">
+            <div class="filter-row">
+              <div class="filter-select active-filter" style="flex:1">
+                <div class="filter-select-text">New Leads</div>
+                <div class="filter-select-arrow">▾</div>
+              </div>
+            </div>
+            <!-- Second filter appeared because pipeline was selected -->
+            <div class="filter-row" style="margin-top:2px;">
+              <div class="filter-select" style="flex:1;border-color:#1e1e28;">
+                <div class="filter-select-text" style="color:#444;">All Stages</div>
+                <div class="filter-select-arrow">▾</div>
+              </div>
+            </div>
+          </div>
+          <div class="c-card selected"><div class="c-accent green"></div><div class="c-check on"></div><div class="c-name lit">Sarah Johnson</div><div class="c-badge hot">Hot</div></div>
+          <div class="c-card"><div class="c-accent warm"></div><div class="c-check"></div><div class="c-name">Mike Davis</div><div class="c-badge warm">Warm</div></div>
+          <div class="c-card"><div class="c-accent warm"></div><div class="c-check"></div><div class="c-name">Tom Rivera</div><div class="c-badge warm">Warm</div></div>
+          <div class="c-card"><div class="c-accent cool"></div><div class="c-check"></div><div class="c-name">Linda Chen</div><div class="c-badge cool">Cool</div></div>
+          <div class="c-card"><div class="c-accent cool"></div><div class="c-check"></div><div class="c-name">James Park</div><div class="c-badge cool">Cool</div></div>
+        </div>
+      </div>
+      <!-- MIDDLE: Contact Info slides in -->
+      <div class="col fade-up" style="width:32%">
+        <div class="col-hdr">
+          <div class="col-hdr-title accent">Contact Info</div>
+          <div style="margin-left:auto;font-size:0.38rem;color:#333;">Sarah J.</div>
+        </div>
+        <div class="col-body">
+          <div class="info-section">
+            <div class="info-s-label">Score</div>
+            <div class="score-row"><div class="score-bar"><div class="score-fill" style="width:82%"></div></div><div class="score-num">82</div></div>
+            <div class="info-kv"><div class="info-k">Temp</div><div class="info-v" style="color:#ef4444;font-weight:700;">HOT</div></div>
+          </div>
+          <div class="info-section">
+            <div class="info-s-label">Details</div>
+            <div class="info-kv"><div class="info-k">Phone</div><div class="info-v hi">(555) 248-1039</div></div>
+            <div class="info-kv"><div class="info-k">Stage</div><div class="info-v">Qualifying</div></div>
+            <div class="info-kv"><div class="info-k">Last</div><div class="info-v">2 days ago</div></div>
+          </div>
+          <div class="info-section">
+            <div class="info-s-label">AI Summary</div>
+            <div class="info-line" style="width:100%"></div>
+            <div class="info-line" style="width:85%"></div>
+            <div class="info-line" style="width:68%"></div>
+          </div>
+          <div class="action-row">
+            <div class="action-btn"><span>Dial</span></div>
+            <div class="action-btn"><span>Text</span></div>
+            <div class="action-btn"><span>Move</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- RIGHT: Phone — stays on whatever it was -->
+      <div class="col" style="flex:1">
+        <div class="col-hdr"><div class="col-hdr-title">Phone</div></div>
+        <div class="phone-col-wrap">
+          <div class="phone" style="height:230px;">
+            <div class="phone-island-bar">
+              <div class="island">
+                <div class="island-label">Dial Mode</div>
+                <div class="island-divider"></div>
+                <div class="island-toggle">
+                  <div class="dm active">Human</div>
+                  <div class="dm">AI</div>
+                </div>
+              </div>
+            </div>
+            <div class="phone-screen">
+              <div class="home-grid">
+                <div class="app"><div class="app-icon g"></div><div class="app-label">Dialer</div></div>
+                <div class="app"><div class="app-icon b"></div><div class="app-label">Calls</div></div>
+                <div class="app"><div class="app-icon a"></div><div class="app-label">Messages</div></div>
+                <div class="app"><div class="app-icon r"></div><div class="app-label">Inbox</div></div>
+                <div class="app"><div class="app-icon p"></div><div class="app-label">KPIs</div></div>
+                <div class="app"><div class="app-icon gr"></div><div class="app-label">Settings</div></div>
+              </div>
+            </div>
+            <div class="phone-tabbar">
+              <div class="pt"><div class="pt-bar off"></div><div class="pt-label">Home</div></div>
+              <div class="pt"><div class="pt-bar off"></div><div class="pt-label">Calls</div></div>
+              <div class="pt"><div class="pt-bar off"></div><div class="pt-label">Msgs</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="note">1 contact checked → <strong>Contact Info slides in</strong> (middle). Phone stays on whatever app it was last on — no assumption made. Pipeline filter selected → second stage dropdown appears. Actions: Dial, Text, Move.</div>
+</div>
+
+<!-- ═══════════════ STATE: QUEUE / CALL LIVE ═══════════════ -->
+<div id="state-queue" style="display:none;">
+<div class="dash">
+  <div class="dash-topbar">
+    <div class="topbar-dot"></div><div class="topbar-dot"></div><div class="topbar-dot"></div>
+    <div class="topbar-page">Workspace</div>
+    <div class="topbar-right">
+      <div class="topbar-icon"><span>LOG</span></div>
+      <div class="topbar-icon"><span>SUP</span></div>
+    </div>
+  </div>
+  <!-- CALL BANNER — replaces dialer banner completely -->
+  <div class="call-banner">
+    <div class="call-banner-pulse"></div>
+    <div class="call-banner-name">Sarah Johnson</div>
+    <div class="call-banner-timer">0:42</div>
+    <div class="call-banner-sub">· (555) 248-1039 · HOT</div>
+    <div class="call-banner-right">
+      <div class="cbn-btn">Mute</div>
+      <div class="cbn-btn">Transfer</div>
+      <div class="cbn-btn end">End</div>
+    </div>
+  </div>
+  <div class="dash-body">
+    <div class="dash-sb">
+      <div class="sb-item on"></div><div class="sb-item off"></div><div class="sb-item off"></div>
+      <div class="sb-item sp"></div><div class="sb-item off"></div>
+    </div>
+    <div class="cols">
+      <!-- LEFT: Queue (replaces contacts list) -->
+      <div class="col" style="width:30%">
+        <div class="col-hdr">
+          <div class="col-hdr-title" style="color:rgba(0,255,136,0.7);">Queue</div>
+          <div class="col-hdr-count" style="background:rgba(0,255,136,0.08);color:rgba(0,255,136,0.6);">5 contacts</div>
+          <div class="col-hdr-right">
+            <div style="height:14px;padding:0 5px;background:transparent;border:1px solid #1e1e28;display:flex;align-items:center;font-size:0.38rem;font-weight:800;text-transform:uppercase;color:#444;">✕ Exit</div>
+          </div>
+        </div>
+        <div class="q-banner">
+          <div class="q-banner-text">Calling</div>
+          <div class="q-banner-count">1 of 5</div>
+        </div>
+        <div class="col-body">
+          <div class="q-item calling">
+            <div class="q-item-num">1</div>
+            <div class="q-name">Sarah Johnson</div>
+            <div class="q-status calling">Live</div>
+          </div>
+          <div class="q-item">
+            <div class="q-item-num">2</div>
+            <div class="q-name">Mike Davis</div>
+            <div class="q-status pending">Next</div>
+          </div>
+          <div class="q-item">
+            <div class="q-item-num">3</div>
+            <div class="q-name">Tom Rivera</div>
+            <div class="q-status pending">—</div>
+          </div>
+          <div class="q-item">
+            <div class="q-item-num">4</div>
+            <div class="q-name">Linda Chen</div>
+            <div class="q-status pending">—</div>
+          </div>
+          <div class="q-item">
+            <div class="q-item-num">5</div>
+            <div class="q-name">James Park</div>
+            <div class="q-status pending">—</div>
+          </div>
+        </div>
+      </div>
+      <!-- MIDDLE: Contact info for currently live contact -->
+      <div class="col" style="width:32%">
+        <div class="col-hdr">
+          <div class="col-hdr-title accent">Contact Info</div>
+          <div style="margin-left:auto;font-size:0.36rem;color:rgba(0,255,136,0.5);font-weight:700;">LIVE</div>
+        </div>
+        <div class="col-body">
+          <div class="info-section">
+            <div class="info-s-label">Score</div>
+            <div class="score-row"><div class="score-bar"><div class="score-fill" style="width:82%"></div></div><div class="score-num">82</div></div>
+            <div class="info-kv"><div class="info-k">Temp</div><div class="info-v" style="color:#ef4444;font-weight:700;">HOT</div></div>
+          </div>
+          <div class="info-section">
+            <div class="info-s-label">Details</div>
+            <div class="info-kv"><div class="info-k">Phone</div><div class="info-v hi">(555) 248-1039</div></div>
+            <div class="info-kv"><div class="info-k">Stage</div><div class="info-v">Qualifying</div></div>
+            <div class="info-kv"><div class="info-k">Last</div><div class="info-v">2 days ago</div></div>
+          </div>
+          <div class="info-section">
+            <div class="info-s-label">AI Summary</div>
+            <div class="info-line" style="width:100%"></div>
+            <div class="info-line" style="width:80%"></div>
+            <div class="info-line" style="width:62%"></div>
+          </div>
+          <div class="action-row">
+            <div class="action-btn"><span>Move</span></div>
+            <div class="action-btn"><span>Note</span></div>
+            <div class="action-btn"><span>Skip</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- RIGHT: Phone — active call screen -->
+      <div class="col" style="flex:1">
+        <div class="col-hdr"><div class="col-hdr-title">Phone</div></div>
+        <div class="phone-col-wrap">
+          <div class="phone" style="height:230px;">
+            <div class="phone-island-bar">
+              <div class="island" style="background:rgba(0,255,136,0.08);border-color:rgba(0,255,136,0.25);">
+                <div class="island-label" style="color:rgba(0,255,136,0.5);">Live · 0:42</div>
+                <div class="island-divider"></div>
+                <div class="island-toggle">
+                  <div class="dm active">Human</div>
+                  <div class="dm">AI</div>
+                </div>
+              </div>
+            </div>
+            <div class="phone-screen">
+              <div class="dialer-screen">
+                <div class="d-contact-card">
+                  <div class="d-contact-name">Sarah Johnson</div>
+                  <div class="d-contact-sub">LIVE · HOT · 0:42</div>
+                </div>
+                <div class="d-btns">
+                  <div class="d-btn primary">Handoff AI</div>
+                  <div class="d-btn outline">Transfer</div>
+                  <div class="d-btn outline">Mute</div>
+                  <div class="d-btn outline" style="border-color:rgba(239,68,68,0.3);color:#ef4444;">End</div>
+                </div>
+                <div class="d-notes">
+                  <div class="d-notes-label">Notes</div>
+                  <div class="d-note-line" style="width:90%"></div>
+                  <div class="d-note-line" style="width:70%"></div>
+                </div>
+              </div>
+            </div>
+            <div class="phone-tabbar">
+              <div class="pt"><div class="pt-bar on"></div><div class="pt-label on">Dialer</div></div>
+              <div class="pt"><div class="pt-bar off"></div><div class="pt-label">Calls</div></div>
+              <div class="pt"><div class="pt-bar off"></div><div class="pt-label">Msgs</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="note"><strong>Queue active + call live.</strong> Left column becomes the queue. Middle shows the current contact's info. <strong>Call banner replaces the dialer banner</strong> — not underneath, it takes its place. Island shows "Live · 0:42" when a call is active.</div>
+</div>
+
+<!-- Campaign History concept -->
+<div style="margin-top:24px;border-top:1px solid #1a1a28;padding-top:20px;">
+<div style="font-size:0.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#333;margin-bottom:12px;">Call History App — Campaign Tab</div>
+<div style="display:flex;gap:16px;">
+  <div style="width:120px;">
+    <div class="phone" style="height:200px;width:100%;">
+      <div class="phone-island-bar">
+        <div class="island"><div class="island-label">Dial Mode</div><div class="island-divider"></div><div class="island-toggle"><div class="dm active">Human</div><div class="dm">AI</div></div></div>
+      </div>
+      <div class="phone-screen">
+        <div class="history-screen">
+          <div class="h-tabs">
+            <div class="h-tab">Single Call</div>
+            <div class="h-tab active">Campaigns</div>
+          </div>
+          <div class="campaign-row">
+            <div class="campaign-title">New Leads Pipeline</div>
+            <div class="campaign-sub">60 contacts · 18/60 called</div>
+            <div class="campaign-progress"><div class="campaign-fill" style="width:30%"></div></div>
+          </div>
+          <div class="campaign-row">
+            <div class="campaign-title">Warm Re-engage</div>
+            <div class="campaign-sub">34 contacts · 34/34 called</div>
+            <div class="campaign-progress"><div class="campaign-fill" style="width:100%"></div></div>
+          </div>
+          <div class="campaign-row">
+            <div class="campaign-title">Cold Follow-Up</div>
+            <div class="campaign-sub">120 contacts · 7/120 called</div>
+            <div class="campaign-progress"><div class="campaign-fill" style="width:6%"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-tabbar">
+        <div class="pt"><div class="pt-bar off"></div><div class="pt-label">Home</div></div>
+        <div class="pt"><div class="pt-bar on"></div><div class="pt-label on">Calls</div></div>
+        <div class="pt"><div class="pt-bar off"></div><div class="pt-label">Msgs</div></div>
+      </div>
+    </div>
+  </div>
+  <div style="flex:1;display:flex;align-items:center;">
+    <div class="note" style="margin:0;">Campaign history lives inside the <strong>Calls app</strong>, second tab. Each row shows: pipeline name as title, total contacts, progress (18/60 called), and a progress bar. "Single Call" tab shows individual call history.</div>
+  </div>
+</div>
+</div>
+
+<script>
+function showState(s) {
+  ['default','single','queue'].forEach(function(id) {
+    document.getElementById('state-' + id).style.display = 'none';
+  });
+  document.getElementById('state-' + s).style.display = '';
+  document.querySelectorAll('.state-tab').forEach(function(t, i) {
+    t.classList.remove('active');
+    if (['default','single','queue'][i] === s) t.classList.add('active');
+  });
+}
+</script>
+</body>
+</html>

@@ -488,15 +488,74 @@
     .hp-agency-note { color: #666; font-size: 0.82rem; text-align: center; margin-top: 10px; }
     .hp-agency-note a { color: #00ff88; }
 
+    /* ── Section backgrounds ── */
+    .hp-hero-section   { background: #000; display: flex; flex-direction: column; justify-content: center; }
+    .hp-dialer-section { background: #000; }
+    .hp-ai-section     { background: #060606; }
+    .hp-how-section    { background: #000; }
+    .hp-pricing-section { background: #060606; }
+    .hp-cta-section    { background: #000; border-top: 1px solid #111; }
+
     /* ── CTA section ── */
     .hp-cta {
-        padding: 120px 24px;
+        padding: 100px 24px;
         text-align: center;
-        background: #000;
-        border-top: 1px solid #111;
+    }
+    .hp-cta-stat {
+        font-size: clamp(4rem, 10vw, 8rem);
+        font-weight: 900;
+        color: var(--accent);
+        line-height: 1;
+        letter-spacing: -4px;
+        font-family: 'Outfit', sans-serif;
+        margin-bottom: 8px;
+        text-shadow: 0 0 60px rgba(0,255,136,0.25);
     }
     .hp-cta h2 { font-size: clamp(2.2rem, 4vw, 3.5rem); font-weight: 900; color: #fff; letter-spacing: -1.5px; margin-bottom: 16px; }
-    .hp-cta p { color: #666; font-size: 1rem; max-width: 480px; margin: 0 auto 40px; line-height: 1.6; }
+    .hp-cta h2 em { font-style: normal; color: var(--accent); }
+    .hp-cta p { color: #555; font-size: 1rem; max-width: 520px; margin: 0 auto 40px; line-height: 1.65; }
+    .hp-cta-primary-btn { padding: 14px 36px !important; font-size: 1rem !important; font-weight: 700 !important; }
+    .hp-cta-secondary-btn { padding: 13px 28px !important; font-size: 1rem !important; }
+    .hp-cta-trust { font-size: 0.78rem; color: #383838; margin-top: 28px; letter-spacing: 0.3px; }
+    .chain-branch-mt { margin-top: 36px; }
+
+    [data-theme="light"] .hp-cta-stat { text-shadow: 0 0 40px rgba(5,150,105,0.2); }
+    [data-theme="light"] .hp-cta p { color: #888; }
+    [data-theme="light"] .hp-hero-section, [data-theme="light"] .hp-dialer-section,
+    [data-theme="light"] .hp-how-section, [data-theme="light"] .hp-cta-section { background: #f8f9fb; }
+    [data-theme="light"] .hp-ai-section, [data-theme="light"] .hp-pricing-section { background: #f3f5f8; }
+    [data-theme="light"] .hp-cta-trust { color: #b0b0b0; }
+
+    .hp-mkt-body-wide { max-width: 580px; margin: 0 auto; }
+    .hp-mkt-body-std  { max-width: 520px; margin: 0 auto; }
+    .hp-platform-card {
+        background: #0a0a0a;
+        border: 1px solid #1a1a1a;
+        border-radius: 14px;
+        padding: 40px;
+        max-width: 760px;
+        margin: 0 auto;
+    }
+    .hp-platform-headline {
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: #fff;
+        margin-bottom: 12px;
+        line-height: 1.4;
+    }
+    [data-theme="light"] .hp-platform-card { background: #fff; border-color: #e0e0e0; }
+    [data-theme="light"] .hp-platform-headline { color: #111; }
+
+    .hp-mkt-body-mb { margin-bottom: 24px; }
+    .hp-price-cents { font-size: 1.1rem; font-weight: 900; color: #fff; }
+    .hp-price-cents.accent { color: var(--accent); }
+    .hp-pricing-btn { font-weight: 700 !important; background: #111 !important; border: 1px solid #2a2a2a !important; color: #fff !important; }
+    .hp-pricing-btn:hover { background: #1a1a1a !important; border-color: #3a3a3a !important; }
+    .hp-comparison-disclaimer { color: #333; font-size: 0.7rem; text-align: center; margin-top: 10px; }
+    [data-theme="light"] .hp-price-cents { color: #111; }
+    [data-theme="light"] .hp-pricing-btn { background: #f0f0f0 !important; border-color: #ddd !important; color: #111 !important; }
+    [data-theme="light"] .hp-pricing-btn:hover { background: #e8e8e8 !important; }
+    [data-theme="light"] .hp-comparison-disclaimer { color: #999; }
 
     /* ── Animations ── */
     @keyframes fadeSlideUp {
@@ -517,13 +576,15 @@
     <button class="ios-section-dot" data-section="3" type="button"></button>
     <button class="ios-section-dot" data-section="4" type="button"></button>
     <button class="ios-section-dot" data-section="5" type="button"></button>
+    <button class="ios-section-dot" data-section="6" type="button"></button>
+    <button class="ios-section-dot" data-section="7" type="button"></button>
 </nav>
 
 
 <!-- ═══════════ SECTION 0: HERO ═══════════ -->
-<section class="ios-snap-section" id="iosSection0" style="background:#000; display:flex; flex-direction:column; justify-content:center;">
+<section class="ios-snap-section hp-hero-section" id="iosSection0">
     <div class="container">
-        <div class="hp-hero" style="min-height:auto; padding: 0;">
+        <div class="hp-hero">
             <!-- Scan line sweeps once on load -->
             <div class="hp-scanline"></div>
             <!-- Corner brackets -->
@@ -592,14 +653,14 @@
 
 
 <!-- ═══════════ SECTION 1: THE DIALER ═══════════ -->
-<section class="ios-snap-section auto-height" id="iosSection1" style="background:#000;">
+<section class="ios-snap-section auto-height hp-dialer-section" id="iosSection1">
     <div class="container" style="width:100%;">
         <hr class="hp-section-sep">
         <div class="hp-section">
             <div class="text-center" data-aos="fade-up">
                 <span class="mkt-label">Power Dialer</span>
                 <h2 class="mkt-h2">Dial More Lines.<br><em>Talk to More People.</em></h2>
-                <p class="mkt-body" style="max-width:580px; margin:0 auto;">
+                <p class="mkt-body hp-mkt-body-wide">
                     Most insurance agents dial one lead at a time and wait. IGB dials up to 4 simultaneously.
                     You connect to the first person who answers — every other ring is handled.
                 </p>
@@ -703,7 +764,7 @@
                         </tr>
                     </tbody>
                 </table>
-                <p style="color:#333; font-size:0.7rem; text-align:center; margin-top:10px;">Based on publicly available feature documentation as of early 2026.</p>
+                <p class="hp-comparison-disclaimer">Based on publicly available feature documentation as of early 2026.</p>
             </div>
         </div>
         <hr class="hp-section-sep">
@@ -711,8 +772,8 @@
 </section>
 
 
-<!-- ═══════════ SPAM PROTECTION PROMO ═══════════ -->
-<section class="sp-promo">
+<!-- ═══════════ SECTION 2: SPAM PROTECTION PROMO ═══════════ -->
+<section class="ios-snap-section auto-height sp-promo" id="iosSection2">
     <div class="container">
         <div class="sp-promo-layout">
             <!-- Phone mockup -->
@@ -768,13 +829,13 @@
     </div>
 </section>
 
-<!-- ═══════════ AGENT / AGENCY BRANCH ═══════════ -->
-<section class="chain-next" style="padding: 72px 0;">
+<!-- ═══════════ SECTION 3: AGENT / AGENCY BRANCH ═══════════ -->
+<section class="ios-snap-section auto-height chain-next" id="iosSection3">
     <div class="container">
         <div class="chain-next-inner">
             <div class="chain-next-eyebrow">Find Your Path</div>
             <h2 class="chain-next-heading">Solo agent or running a team?<br><em>We built both.</em></h2>
-            <div class="chain-branch" style="margin-top: 36px;">
+            <div class="chain-branch chain-branch-mt">
                 <a href="/for-individuals" class="chain-branch-card">
                     <div class="chain-branch-tag">For Agents</div>
                     <div class="chain-branch-title">You dial. You close. You keep every dollar.</div>
@@ -792,8 +853,8 @@
     </div>
 </section>
 
-<!-- ═══════════ SECTION 2: AI FOLLOW-UP ═══════════ -->
-<section class="ios-snap-section" id="iosSection2" style="background:#060606;">
+<!-- ═══════════ SECTION 4: AI FOLLOW-UP ═══════════ -->
+<section class="ios-snap-section hp-ai-section" id="iosSection4">
     <div class="container" style="width:100%;">
         <div class="hp-ai-layout" data-aos="fade-up">
 
@@ -813,7 +874,7 @@
             <div>
                 <span class="mkt-label">AI Follow-Up</span>
                 <h2 class="mkt-h2">Every Miss.<br><em>Handled.</em></h2>
-                <p class="mkt-body" style="margin-bottom: 24px;">
+                <p class="mkt-body hp-mkt-body-mb">
                     When a lead doesn't pick up, the AI is already texting them.
                     When they say "I'm already covered," the AI probes for gaps.
                     When they say "not interested," it works it.
@@ -866,15 +927,15 @@
 </section>
 
 
-<!-- ═══════════ SECTION 3: HOW IT WORKS ═══════════ -->
-<section class="ios-snap-section" id="iosSection3" style="background:#000;">
+<!-- ═══════════ SECTION 5: HOW IT WORKS ═══════════ -->
+<section class="ios-snap-section hp-how-section" id="iosSection5">
     <div class="container" style="width:100%;">
         <hr class="hp-section-sep">
         <div class="hp-section">
             <div class="text-center" data-aos="fade-up">
                 <span class="mkt-label">How It Works</span>
                 <h2 class="mkt-h2">You Handle Calls.<br><em>AI Handles Everything Else.</em></h2>
-                <p class="mkt-body" style="max-width: 520px; margin: 0 auto;">
+                <p class="mkt-body hp-mkt-body-std">
                     Clean separation. You own the conversations that close deals.
                     The AI owns everything in between.
                 </p>
@@ -908,9 +969,9 @@
 
             <!-- One platform statement -->
             <div class="text-center mt-5" data-aos="fade-up">
-                <div style="background:#0a0a0a; border:1px solid #1a1a1a; border-radius:14px; padding:40px; max-width:760px; margin:0 auto;">
-                    <p style="font-size:1.15rem; font-weight:800; color:#fff; margin-bottom:12px; line-height:1.4;">One login. One bill. Not four tools duct-taped together.</p>
-                    <p class="mkt-body" style="margin:0; max-width:560px; margin:0 auto;">Dialer, AI text bot, smart lead scoring, spam protection, workflow automation, calendar booking, CRM sync, team management. Everything an insurance agent needs. Nothing they don't.</p>
+                <div class="hp-platform-card">
+                    <p class="hp-platform-headline">One login. One bill. Not four tools duct-taped together.</p>
+                    <p class="mkt-body hp-mkt-body-std">Dialer, AI text bot, smart lead scoring, spam protection, workflow automation, calendar booking, CRM sync, team management. Everything an insurance agent needs. Nothing they don't.</p>
                 </div>
             </div>
         </div>
@@ -919,8 +980,8 @@
 </section>
 
 
-<!-- ═══════════ SECTION 4: PRICING ═══════════ -->
-<section class="ios-snap-section auto-height" id="iosSection4" style="background:#060606;">
+<!-- ═══════════ SECTION 6: PRICING ═══════════ -->
+<section class="ios-snap-section auto-height hp-pricing-section" id="iosSection6">
     <div class="container" id="pricing" style="width:100%;">
         <div class="hp-section">
             <div class="text-center" data-aos="fade-up">
@@ -933,7 +994,7 @@
                 <!-- SMS Bot -->
                 <div class="hp-price-card">
                     <h4>SMS Bot</h4>
-                    <div><span class="hp-price-amount">$99</span><span style="color:#555;font-size:1.1rem;font-weight:900;">.98</span><span class="hp-price-period">/mo</span></div>
+                    <div><span class="hp-price-amount">$99</span><span class="hp-price-cents">.98</span><span class="hp-price-period">/mo</span></div>
                     <p class="hp-price-sub">AI texting only — no dialer</p>
                     <p class="hp-price-trial">7-day free trial.</p>
                     <ul class="hp-price-feat">
@@ -943,14 +1004,14 @@
                         <li><i class="fa-solid fa-check"></i> Auto-booking to your calendar</li>
                         <li><i class="fa-solid fa-check"></i> AI Assistant (80 actions)</li>
                     </ul>
-                    <a href="/checkout/sms-bot" class="btn w-100 py-2" style="font-weight:700; background:#111; border:1px solid #2a2a2a; color:#fff;">Start Free Trial</a>
+                    <a href="/checkout/sms-bot" class="btn w-100 py-2 hp-pricing-btn">Start Free Trial</a>
                 </div>
 
                 <!-- Power Dialer -->
                 <div class="hp-price-card featured">
                     <div class="hp-price-badge">MOST POPULAR</div>
                     <h4 style="margin-top:6px;">Power Dialer</h4>
-                    <div><span class="hp-price-amount green">$149</span><span style="color:#00ff88;font-size:1.1rem;font-weight:900;">.99</span><span class="hp-price-period">/mo</span></div>
+                    <div><span class="hp-price-amount green">$149</span><span class="hp-price-cents accent">.99</span><span class="hp-price-period">/mo</span></div>
                     <p class="hp-price-sub" style="color:#00ff88;">Human dialer + full AI platform</p>
                     <p class="hp-price-trial">7-day free trial.</p>
                     <ul class="hp-price-feat">
@@ -967,7 +1028,7 @@
                 <!-- Pro Dialer -->
                 <div class="hp-price-card">
                     <h4>Pro Dialer</h4>
-                    <div><span class="hp-price-amount">$224</span><span style="color:#fff;font-size:1.1rem;font-weight:900;">.99</span><span class="hp-price-period">/mo</span></div>
+                    <div><span class="hp-price-amount">$224</span><span class="hp-price-cents">.99</span><span class="hp-price-period">/mo</span></div>
                     <p class="hp-price-sub">4 lines simultaneously</p>
                     <p class="hp-price-trial">7-day free trial.</p>
                     <ul class="hp-price-feat">
@@ -977,7 +1038,7 @@
                         <li><i class="fa-solid fa-check"></i> Priority queue</li>
                         <li><i class="fa-solid fa-check"></i> Unlimited human dialing minutes*</li>
                     </ul>
-                    <a href="/checkout/pro-dialer" class="btn w-100 py-2" style="font-weight:700; background:#111; border:1px solid #2a2a2a; color:#fff;">Start Free Trial</a>
+                    <a href="/checkout/pro-dialer" class="btn w-100 py-2 hp-pricing-btn">Start Free Trial</a>
                 </div>
 
                 <!-- Solo Predictive -->
@@ -993,7 +1054,7 @@
                         <li><i class="fa-solid fa-check"></i> TCPA compliance dashboard</li>
                         <li><i class="fa-solid fa-check"></i> Callback queue + timezone enforcement</li>
                     </ul>
-                    <a href="/checkout/predictive-dialer" class="btn w-100 py-2" style="font-weight:700; background:#111; border:1px solid #2a2a2a; color:#fff;">Start Free Trial</a>
+                    <a href="/checkout/predictive-dialer" class="btn w-100 py-2 hp-pricing-btn">Start Free Trial</a>
                 </div>
             </div>
 
@@ -1004,16 +1065,18 @@
 </section>
 
 
-<!-- ═══════════ SECTION 5: CLOSING CTA ═══════════ -->
-<section class="ios-snap-section" id="iosSection5" style="background:#000; border-top:1px solid #111;">
-    <div class="container" data-aos="fade-up">
+<!-- ═══════════ SECTION 7: CLOSING CTA ═══════════ -->
+<section class="ios-snap-section hp-cta-section" id="iosSection7">
+    <div class="container">
         <div class="hp-cta">
-            <h2>Built by an Agent.<br>For Every Agent.</h2>
-            <p>Every tool on this list was built because an active insurance agent couldn't find it anywhere else. No guessing. No generic SaaS. Just the platform we actually needed.</p>
-            <div class="d-flex justify-content-center gap-3 flex-wrap">
-                <a href="/register" class="btn btn-primary" style="padding:14px 36px; font-size:1rem; font-weight:700;">Start 7-Day Free Trial</a>
-                <a href="/demo-chat" class="btn btn-outline-accent" style="padding:13px 28px; font-size:1rem;">Watch the SMS Demo</a>
+            <div class="hp-cta-stat" data-aos="fade-up">4×</div>
+            <h2 data-aos="fade-up" data-aos-delay="80">More conversations.<br><em>Same hours.</em></h2>
+            <p data-aos="fade-up" data-aos-delay="140">Every lead you couldn't reach today is talking to another agent tomorrow. The agents using IGB are dialing 4 lines at once, texting every no-answer automatically, and booking more appointments with less effort.</p>
+            <div class="d-flex justify-content-center gap-3 flex-wrap" data-aos="fade-up" data-aos-delay="200">
+                <a href="/register" class="btn btn-primary hp-cta-primary-btn">Start 7-Day Free Trial</a>
+                <a href="/demo-chat" class="btn btn-outline-accent hp-cta-secondary-btn">See the Demo</a>
             </div>
+            <div class="hp-cta-trust" data-aos="fade-up" data-aos-delay="260">No credit card required &nbsp;·&nbsp; Cancel anytime &nbsp;·&nbsp; Full access from day one</div>
         </div>
     </div>
 </section>

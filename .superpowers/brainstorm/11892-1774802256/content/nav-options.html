@@ -1,0 +1,202 @@
+<style>
+  .sidebars { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+  .sb-mock {
+    background: #0d0d12;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 14px;
+    width: 210px;
+    padding: 16px 12px;
+    font-family: -apple-system, sans-serif;
+    cursor: pointer;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .sb-mock:hover { border-color: rgba(0,255,136,0.4); box-shadow: 0 0 20px rgba(0,255,136,0.1); }
+  .sb-mock.selected { border-color: #00ff88; box-shadow: 0 0 24px rgba(0,255,136,0.25); }
+  .sb-mock-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #666;
+    margin-bottom: 10px;
+    text-align: center;
+  }
+  .sb-top-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 10px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #ccc;
+    margin-bottom: 2px;
+    border: 1px solid transparent;
+  }
+  .sb-top-item.accent { color: #00ff88; background: rgba(0,255,136,0.08); border-color: rgba(0,255,136,0.15); }
+  .sb-top-item i { width: 15px; text-align: center; font-size: 0.8rem; }
+  .sb-top-item .chevron { margin-left: auto; font-size: 0.6rem; color: #555; }
+  .sb-sub {
+    padding: 5px 10px 5px 33px;
+    font-size: 0.72rem;
+    color: #555;
+    line-height: 1.7;
+  }
+  .sb-sub span { display: block; }
+  .sb-divider { height: 1px; background: rgba(255,255,255,0.05); margin: 8px 4px; }
+  .sb-footer-row { display: flex; gap: 4px; margin-top: 10px; justify-content: center; }
+  .sb-footer-pill {
+    font-size: 0.6rem;
+    color: #444;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 20px;
+    padding: 2px 7px;
+  }
+  .approach-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #00ff88;
+    text-align: center;
+    margin-bottom: 4px;
+    letter-spacing: 0.04em;
+  }
+  .approach-tagline {
+    font-size: 0.68rem;
+    color: #666;
+    text-align: center;
+    margin-bottom: 12px;
+    font-style: italic;
+  }
+</style>
+
+<h2>How should the sidebar be organized?</h2>
+<p class="subtitle">Three naming concepts — same features, different philosophy. Click to select your favorite (or mix ideas in the terminal).</p>
+
+<div class="sidebars">
+
+  <!-- Option A -->
+  <div class="option" data-choice="a" onclick="toggleSelect(this)" style="padding:0;background:none;border:none;border-radius:14px;overflow:visible;">
+    <div class="sb-mock" style="pointer-events:none;">
+      <div class="approach-title">A — "What You Do"</div>
+      <div class="approach-tagline">Verb-first, action-oriented</div>
+
+      <div class="sb-top-item accent"><i class="fa-solid fa-bolt"></i> Workspace <span class="chevron"></span></div>
+
+      <div class="sb-top-item"><i class="fa-solid fa-comment-sms"></i> Text Bot <span class="chevron">▾</span></div>
+      <div class="sb-sub">
+        <span>• Bot Identity</span>
+        <span>• Calendar & CRM</span>
+        <span>• Numbers</span>
+        <span>• A2P 10DLC</span>
+      </div>
+
+      <div class="sb-top-item"><i class="fa-solid fa-phone"></i> Voice Bot <span class="chevron">▾</span></div>
+      <div class="sb-sub">
+        <span>• Activate Voice</span>
+        <span>• Voice AI</span>
+        <span>• Numbers</span>
+        <span>• Spam Monitoring</span>
+      </div>
+
+      <div class="sb-top-item"><i class="fa-solid fa-gears"></i> Operations <span class="chevron">▾</span></div>
+      <div class="sb-sub">
+        <span>• Workflows</span>
+        <span>• Team</span>
+        <span>• Billing</span>
+        <span>• Integrations</span>
+      </div>
+
+      <div class="sb-divider"></div>
+      <div class="sb-footer-row">
+        <span class="sb-footer-pill">AI Minutes</span>
+        <span class="sb-footer-pill">Logs</span>
+        <span class="sb-footer-pill">Support</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option B -->
+  <div class="option" data-choice="b" onclick="toggleSelect(this)" style="padding:0;background:none;border:none;border-radius:14px;overflow:visible;">
+    <div class="sb-mock" style="pointer-events:none;">
+      <div class="approach-title">B — "What You Have"</div>
+      <div class="approach-tagline">Product-feature named</div>
+
+      <div class="sb-top-item accent"><i class="fa-solid fa-table-cells-large"></i> Dashboard <span class="chevron"></span></div>
+
+      <div class="sb-top-item"><i class="fa-solid fa-robot"></i> AI Texting <span class="chevron">▾</span></div>
+      <div class="sb-sub">
+        <span>• Bot Setup</span>
+        <span>• Calendar & CRM</span>
+        <span>• Numbers</span>
+        <span>• A2P 10DLC</span>
+      </div>
+
+      <div class="sb-top-item"><i class="fa-solid fa-microphone-lines"></i> AI Calling <span class="chevron">▾</span></div>
+      <div class="sb-sub">
+        <span>• Voice Setup</span>
+        <span>• Voice AI</span>
+        <span>• Numbers</span>
+        <span>• Spam Monitoring</span>
+      </div>
+
+      <div class="sb-top-item"><i class="fa-solid fa-sliders"></i> Settings <span class="chevron">▾</span></div>
+      <div class="sb-sub">
+        <span>• Workflows</span>
+        <span>• Team</span>
+        <span>• Billing</span>
+        <span>• Integrations</span>
+      </div>
+
+      <div class="sb-divider"></div>
+      <div class="sb-footer-row">
+        <span class="sb-footer-pill">AI Minutes</span>
+        <span class="sb-footer-pill">Logs</span>
+        <span class="sb-footer-pill">Support</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option C -->
+  <div class="option" data-choice="c" onclick="toggleSelect(this)" style="padding:0;background:none;border:none;border-radius:14px;overflow:visible;">
+    <div class="sb-mock" style="pointer-events:none;">
+      <div class="approach-title">C — "One Word Each"</div>
+      <div class="approach-tagline">Ultra-minimal, no redundancy</div>
+
+      <div class="sb-top-item accent"><i class="fa-solid fa-phone-volume"></i> Dialer <span class="chevron"></span></div>
+
+      <div class="sb-top-item"><i class="fa-solid fa-comment-sms"></i> SMS <span class="chevron">▾</span></div>
+      <div class="sb-sub">
+        <span>• Identity</span>
+        <span>• Calendar</span>
+        <span>• Numbers</span>
+        <span>• Compliance</span>
+      </div>
+
+      <div class="sb-top-item"><i class="fa-solid fa-phone"></i> Voice <span class="chevron">▾</span></div>
+      <div class="sb-sub">
+        <span>• Activate</span>
+        <span>• AI Settings</span>
+        <span>• Numbers</span>
+        <span>• Spam Shield</span>
+      </div>
+
+      <div class="sb-top-item"><i class="fa-solid fa-building"></i> Business <span class="chevron">▾</span></div>
+      <div class="sb-sub">
+        <span>• Workflows</span>
+        <span>• Team</span>
+        <span>• Billing</span>
+        <span>• Integrations</span>
+      </div>
+
+      <div class="sb-divider"></div>
+      <div class="sb-footer-row">
+        <span class="sb-footer-pill">AI Minutes</span>
+        <span class="sb-footer-pill">Logs</span>
+        <span class="sb-footer-pill">Support</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">

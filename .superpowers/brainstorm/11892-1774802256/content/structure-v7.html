@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800;900&family=Inter:wght@400;500;600&display=swap');
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #030305; color: #fff; font-family: 'Inter', sans-serif; min-height: 100vh; }
+
+.page { padding: 28px 24px; max-width: 560px; margin: 0 auto; }
+.page-title { font-family:'Outfit',sans-serif; font-weight:900; font-size:1.15rem; color:#e0e0f0; margin-bottom:4px; letter-spacing:-0.02em; }
+.page-sub { font-size:0.7rem; color:#333; margin-bottom:22px; font-family:'Inter',sans-serif; }
+
+/* ══ SIDEBAR ══ */
+.sidebar {
+  background: #08080f;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 20px;
+  padding: 18px 10px 14px;
+}
+
+/* Brand */
+.brand {
+  display: flex; align-items: center; gap: 9px;
+  padding: 0 6px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  margin-bottom: 12px;
+}
+.brand-mark { width: 24px; height: 24px; border-radius: 6px; background: linear-gradient(135deg,#00ff88,#00cc66); flex-shrink:0; }
+.brand-label { font-size:0.63rem; font-weight:900; text-transform:uppercase; letter-spacing:0.16em; color:rgba(255,255,255,0.38); font-family:'Outfit',sans-serif; }
+
+/* L1: direct page */
+.l1-direct {
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 9px 10px; border-radius: 9px;
+  font-size:0.82rem; font-weight:800; font-family:'Outfit',sans-serif;
+  color:#2e2e44; cursor:pointer; border:1px solid transparent;
+  transition: color .13s, background .13s, border-color .13s;
+  margin-bottom: 1px; user-select:none;
+}
+.l1-direct:hover { color:#888; }
+.l1-direct.active { color:#00ff88; background:rgba(0,255,136,0.07); border-color:rgba(0,255,136,0.14); }
+
+/* L1: accordion */
+.l1-acc {
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 9px 10px; border-radius: 9px;
+  font-size:0.82rem; font-weight:800; font-family:'Outfit',sans-serif;
+  color:#2e2e44; cursor:pointer; border:1px solid transparent;
+  transition: color .13s, background .13s;
+  margin-bottom:1px; user-select:none;
+}
+.l1-acc:hover { color:#888; }
+.l1-acc.open { color:#c0c0d8; }
+.l1-acc .ch { font-size:0.5rem; color:#1e1e2e; transition:transform .18s ease; font-weight:400; font-family:'Inter',sans-serif; }
+.l1-acc.open .ch { transform:rotate(90deg); color:#444; }
+
+/* L1 body */
+.l1-body { max-height:0; overflow:hidden; transition:max-height .28s ease; }
+.l1-body.open { max-height:600px; }
+.l1-inner { padding: 2px 0 8px 4px; }
+
+/* L2: section divider label */
+.l2-section {
+  padding: 7px 8px 2px 10px;
+  font-size:0.56rem; font-weight:800; text-transform:uppercase;
+  letter-spacing:0.14em; color:#1e1e2e; font-family:'Outfit',sans-serif;
+}
+
+/* L2: accordion trigger */
+.l2-acc {
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 6px 8px 6px 10px; border-radius:7px;
+  font-size:0.73rem; font-weight:600; font-family:'Inter',sans-serif;
+  color:#30304a; cursor:pointer; user-select:none;
+  transition: color .12s, background .12s;
+  margin-bottom:1px;
+}
+.l2-acc:hover { color:#777; background:rgba(255,255,255,0.02); }
+.l2-acc.open { color:#a0a0c0; background:rgba(255,255,255,0.03); }
+.l2-acc .ch2 { font-size:0.46rem; color:#1a1a28; transition:transform .15s ease; font-weight:400; }
+.l2-acc.open .ch2 { transform:rotate(90deg); color:#555; }
+
+/* L2: direct item */
+.l2-item {
+  display:block; padding: 6px 8px 6px 10px; border-radius:7px;
+  font-size:0.73rem; font-weight:500; font-family:'Inter',sans-serif;
+  color:#30304a; cursor:pointer; user-select:none;
+  transition: color .12s, background .12s; margin-bottom:1px;
+}
+.l2-item:hover { color:#888; background:rgba(255,255,255,0.025); }
+.l2-item.active { color:#00ff88; background:rgba(0,255,136,0.06); }
+
+/* L2 body */
+.l2-body { max-height:0; overflow:hidden; transition:max-height .22s ease; }
+.l2-body.open { max-height:300px; }
+.l2-inner { padding: 1px 0 4px 10px; }
+
+/* L3: leaf item */
+.l3-item {
+  display:block; padding: 5px 8px 5px 8px; border-radius:6px;
+  font-size:0.69rem; font-weight:400; font-family:'Inter',sans-serif;
+  color:#28283c; cursor:pointer; user-select:none;
+  transition: color .1s, background .1s; margin-bottom:1px;
+  border-left: 1px solid rgba(255,255,255,0.04);
+}
+.l3-item:hover { color:#777; background:rgba(255,255,255,0.02); border-left-color:rgba(255,255,255,0.1); }
+.l3-item.active { color:#00d9ff; background:rgba(0,217,255,0.05); border-left-color:rgba(0,217,255,0.3); }
+
+/* divider */
+.divider { height:1px; background:rgba(255,255,255,0.035); margin:7px 4px 9px; }
+
+/* footer */
+.sb-footer { margin-top:8px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.035); display:flex; flex-direction:column; gap:1px; }
+.footer-item { padding:6px 10px; font-size:0.68rem; font-weight:600; color:#1e1e2c; font-family:'Inter',sans-serif; border-radius:7px; cursor:pointer; transition:color .1s; }
+.footer-item:hover { color:#555; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="page-title">Full 3-Level Navigation</div>
+  <div class="page-sub">Click any section to expand. Sub-items expand further. All levels visible.</div>
+
+  <div class="sidebar">
+
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <span class="brand-label">InsuranceGrokBot</span>
+    </div>
+
+    <!-- WORKSPACE -->
+    <div class="l1-direct active" onclick="activateDirect(this)">Workspace</div>
+
+    <div class="divider"></div>
+
+    <!-- SETUP -->
+    <div class="l1-acc" onclick="toggleL1(this)">Setup <span class="ch">▶</span></div>
+    <div class="l1-body">
+      <div class="l1-inner">
+
+        <div class="l2-section">Configuration</div>
+
+        <!-- SMS Bot -->
+        <div class="l2-acc" onclick="toggleL2(this)">SMS Bot <span class="ch2">▶</span></div>
+        <div class="l2-body">
+          <div class="l2-inner">
+            <div class="l3-item" onclick="activateL3(this)">Bot Identity</div>
+            <div class="l3-item" onclick="activateL3(this)">Initial Message</div>
+            <div class="l3-item" onclick="activateL3(this)">Calendar</div>
+            <div class="l3-item" onclick="activateL3(this)">Send SMS Via</div>
+          </div>
+        </div>
+
+        <!-- Voice AI -->
+        <div class="l2-acc" onclick="toggleL2(this)">Voice AI <span class="ch2">▶</span></div>
+        <div class="l2-body">
+          <div class="l2-inner">
+            <div class="l3-item" onclick="activateL3(this)">Activate Voice</div>
+            <div class="l3-item" onclick="activateL3(this)">AI Voice Settings</div>
+            <div class="l3-item" onclick="activateL3(this)">Dialer Settings</div>
+            <div class="l3-item" onclick="activateL3(this)">Call Script</div>
+          </div>
+        </div>
+
+        <!-- Workflows -->
+        <div class="l2-acc" onclick="toggleL2(this)">Workflows <span class="ch2">▶</span></div>
+        <div class="l2-body">
+          <div class="l2-inner">
+            <div class="l3-item" onclick="activateL3(this)">My Workflows</div>
+            <div class="l3-item" onclick="activateL3(this)">Templates</div>
+            <div class="l3-item" onclick="activateL3(this)">Triggers</div>
+          </div>
+        </div>
+
+        <!-- Advanced -->
+        <div class="l2-item" onclick="activateL2(this)">Advanced Settings</div>
+
+        <div class="l2-section" style="margin-top:6px;">System</div>
+
+        <!-- CRM -->
+        <div class="l2-acc" onclick="toggleL2(this)">CRM <span class="ch2">▶</span></div>
+        <div class="l2-body">
+          <div class="l2-inner">
+            <div class="l3-item" onclick="activateL3(this)">Connection Status</div>
+            <div class="l3-item" onclick="activateL3(this)">OAuth Tokens</div>
+            <div class="l3-item" onclick="activateL3(this)">Reauthorize</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- NUMBERS -->
+    <div class="l1-acc" onclick="toggleL1(this)">Numbers <span class="ch">▶</span></div>
+    <div class="l1-body">
+      <div class="l1-inner">
+        <div class="l2-section">Management</div>
+        <div class="l2-item" onclick="activateL2(this)">Phone Numbers</div>
+        <div class="l2-item" onclick="activateL2(this)">A2P 10DLC</div>
+        <div class="l2-section" style="margin-top:4px;">Protection</div>
+        <div class="l2-item" onclick="activateL2(this)">Spam Shield</div>
+        <div class="l2-item" onclick="activateL2(this)">Number Health</div>
+        <div class="l2-section" style="margin-top:4px;">Usage</div>
+        <div class="l2-item" onclick="activateL2(this)">AI Minutes</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- BUSINESS -->
+    <div class="l1-acc" onclick="toggleL1(this)">Business <span class="ch">▶</span></div>
+    <div class="l1-body">
+      <div class="l1-inner">
+        <div class="l2-item" onclick="activateL2(this)">Members</div>
+        <div class="l2-item" onclick="activateL2(this)">Statistics</div>
+        <div class="l2-item" onclick="activateL2(this)">Contracted Carriers</div>
+        <div class="l2-item" onclick="activateL2(this)">White Label</div>
+        <div class="l2-item" onclick="activateL2(this)">Billing</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- INTEGRATIONS -->
+    <div class="l1-acc" onclick="toggleL1(this)">Integrations <span class="ch">▶</span></div>
+    <div class="l1-body">
+      <div class="l1-inner">
+        <div class="l2-item" onclick="activateL2(this)">Google Calendar</div>
+        <div class="l2-item" onclick="activateL2(this)">Discord</div>
+        <div class="l2-item" onclick="activateL2(this)">Slack</div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="sb-footer">
+      <div class="footer-item">Activity Logs</div>
+      <div class="footer-item">Support</div>
+      <div class="footer-item">Sign Out</div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function toggleL1(el) {
+  const body = el.nextElementSibling;
+  const wasOpen = el.classList.contains('open');
+  document.querySelectorAll('.l1-acc').forEach(a => { a.classList.remove('open'); a.nextElementSibling.classList.remove('open'); });
+  document.querySelectorAll('.l1-direct').forEach(d => d.classList.remove('active'));
+  if (!wasOpen) { el.classList.add('open'); body.classList.add('open'); }
+}
+function toggleL2(el) {
+  const body = el.nextElementSibling;
+  const wasOpen = el.classList.contains('open');
+  // close siblings only
+  const parent = el.closest('.l1-inner');
+  parent.querySelectorAll('.l2-acc').forEach(a => { a.classList.remove('open'); a.nextElementSibling.classList.remove('open'); });
+  if (!wasOpen) { el.classList.add('open'); body.classList.add('open'); }
+}
+function activateDirect(el) {
+  document.querySelectorAll('.l1-acc').forEach(a => { a.classList.remove('open'); a.nextElementSibling.classList.remove('open'); });
+  document.querySelectorAll('.l1-direct').forEach(d => d.classList.remove('active'));
+  el.classList.add('active');
+}
+function activateL2(el) {
+  document.querySelectorAll('.l2-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+}
+function activateL3(el) {
+  document.querySelectorAll('.l3-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+}
+</script>
+</body>
+</html>

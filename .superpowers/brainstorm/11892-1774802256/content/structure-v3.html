@@ -1,0 +1,166 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap');
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+.layout { display: flex; gap: 28px; justify-content: center; flex-wrap: wrap; padding: 8px 0 20px; }
+
+.sb {
+  width: 192px;
+  background: #090911;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 14px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Inter', sans-serif;
+}
+
+.sb-brand {
+  display: flex; align-items: center; gap: 8px;
+  padding: 2px 8px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  margin-bottom: 10px;
+}
+.sb-brand-dot { width: 20px; height: 20px; border-radius: 5px; background: linear-gradient(135deg,#00ff88,#00cc66); flex-shrink:0; }
+.sb-brand-name { font-size: 0.68rem; font-weight: 700; color: rgba(255,255,255,0.75); font-family:'Outfit',sans-serif; }
+
+.l1 {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 0.78rem; font-weight: 600; letter-spacing: 0.01em;
+  color: #666; border: 1px solid transparent;
+  margin-bottom: 1px;
+}
+.l1 .arrow { font-size: 0.6rem; color: #3a3a4a; }
+.l1.active { color: #00ff88; background: rgba(0,255,136,0.06); border-color: rgba(0,255,136,0.12); }
+.l1.open { color: #bbb; }
+
+.l2-group { margin-bottom: 4px; }
+.l2 {
+  padding: 5px 10px 5px 22px;
+  font-size: 0.7rem; font-weight: 500; color: #484858;
+  border-radius: 6px; letter-spacing: 0.005em;
+}
+
+.sb-divider { height: 1px; background: rgba(255,255,255,0.04); margin: 6px 4px; }
+
+.sb-footer {
+  display: flex; gap: 3px; margin-top: 10px; padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.04); flex-wrap: wrap;
+}
+.sb-fp { font-size: 0.58rem; color: #333; padding: 2px 6px; border-radius: 8px; background: rgba(255,255,255,0.02); }
+
+.opt-wrap {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 16px 12px 12px; border-radius: 16px;
+  border: 1px solid transparent; cursor: pointer;
+  transition: border-color .2s, background .2s; position: relative;
+}
+.opt-wrap:hover { border-color: rgba(255,255,255,0.08); }
+.opt-wrap.selected-opt { border-color: #00ff88; background: rgba(0,255,136,0.03); }
+
+.opt-letter { position: absolute; top: 8px; left: 12px; font-size: 0.62rem; font-weight: 800; color: #333; font-family:'Outfit',sans-serif; }
+.opt-wrap.selected-opt .opt-letter { color: #00ff88; }
+
+.cmp-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: #3a3a4a; }
+.note { font-size: 0.65rem; color: #444; text-align: center; line-height: 1.55; max-width: 192px; }
+.note strong { color: #00ff88; font-weight: 600; }
+</style>
+
+<h2 style="font-family:'Outfit',sans-serif;">Text-only sidebar — three structures</h2>
+<p class="subtitle">No icons. Clean, professional. Click to select.</p>
+
+<div class="layout">
+
+  <!-- A -->
+  <div class="option" data-choice="a" onclick="toggleSelect(this)" style="padding:0;border:none;background:none;">
+  <div class="opt-wrap" id="ow-a">
+    <span class="opt-letter">A</span>
+    <div class="cmp-label">Workspace / Configure / Automate / Business</div>
+    <div class="sb">
+      <div class="sb-brand"><div class="sb-brand-dot"></div><span class="sb-brand-name">IGB</span></div>
+
+      <div class="l1 active">Workspace</div>
+
+      <div class="l1 open">Configure <span class="arrow">▾</span></div>
+      <div class="l2-group">
+        <div class="l2">Bot Identity</div>
+        <div class="l2">Calendar & CRM</div>
+        <div class="l2">Voice AI</div>
+        <div class="l2">Spam & Numbers</div>
+      </div>
+
+      <div class="l1">Automate <span class="arrow">▸</span></div>
+
+      <div class="l1">Business <span class="arrow">▸</span></div>
+
+      <div class="sb-footer">
+        <span class="sb-fp">Carriers</span><span class="sb-fp">AI Minutes</span><span class="sb-fp">Logs</span>
+      </div>
+    </div>
+    <div class="note"><strong>Automate</strong> = Workflows + Integrations<br><strong>Business</strong> = Team + Billing</div>
+  </div>
+  </div>
+
+  <!-- B -->
+  <div class="option" data-choice="b" onclick="toggleSelect(this)" style="padding:0;border:none;background:none;">
+  <div class="opt-wrap" id="ow-b">
+    <span class="opt-letter">B</span>
+    <div class="cmp-label">Workspace / Configure / Workflows / Business</div>
+    <div class="sb">
+      <div class="sb-brand"><div class="sb-brand-dot"></div><span class="sb-brand-name">IGB</span></div>
+
+      <div class="l1 active">Workspace</div>
+
+      <div class="l1 open">Configure <span class="arrow">▾</span></div>
+      <div class="l2-group">
+        <div class="l2">Bot Identity</div>
+        <div class="l2">Calendar & CRM</div>
+        <div class="l2">Voice AI</div>
+        <div class="l2">Spam & Numbers</div>
+      </div>
+
+      <div class="l1">Workflows <span class="arrow">▸</span></div>
+
+      <div class="l1">Business <span class="arrow">▸</span></div>
+
+      <div class="sb-footer">
+        <span class="sb-fp">Integrations</span><span class="sb-fp">Carriers</span><span class="sb-fp">Logs</span>
+      </div>
+    </div>
+    <div class="note"><strong>Workflows</strong> = its own top-level item<br><strong>Business</strong> = Team + Billing + Integrations</div>
+  </div>
+  </div>
+
+  <!-- C -->
+  <div class="option" data-choice="c" onclick="toggleSelect(this)" style="padding:0;border:none;background:none;">
+  <div class="opt-wrap" id="ow-c">
+    <span class="opt-letter">C</span>
+    <div class="cmp-label">Workspace / Setup / Workflows / Business</div>
+    <div class="sb">
+      <div class="sb-brand"><div class="sb-brand-dot"></div><span class="sb-brand-name">IGB</span></div>
+
+      <div class="l1 active">Workspace</div>
+
+      <div class="l1 open">Setup <span class="arrow">▾</span></div>
+      <div class="l2-group">
+        <div class="l2">Bot Identity</div>
+        <div class="l2">Calendar & CRM</div>
+        <div class="l2">Voice</div>
+        <div class="l2">Numbers & Compliance</div>
+      </div>
+
+      <div class="l1">Workflows <span class="arrow">▸</span></div>
+
+      <div class="l1">Business <span class="arrow">▸</span></div>
+
+      <div class="sb-footer">
+        <span class="sb-fp">Carriers</span><span class="sb-fp">Logs</span><span class="sb-fp">Billing</span>
+      </div>
+    </div>
+    <div class="note"><strong>Setup</strong> = plain English for config<br><strong>Numbers & Compliance</strong> = A2P + Spam bundled</div>
+  </div>
+  </div>
+
+</div>
