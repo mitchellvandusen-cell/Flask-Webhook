@@ -12,7 +12,7 @@
             <span class="sb-brand-text whitelabel-brand-name"
                   {% if whitelabel.get('name_font') %}style="font-family: '{{ whitelabel.name_font }}', sans-serif;{% if whitelabel.get('name_bold') %} font-weight: 700;{% endif %}{% if whitelabel.get('name_italic') %} font-style: italic;{% endif %}{% if whitelabel.get('name_underline') %} text-decoration: underline;{% endif %}"{% endif %}>{{ whitelabel.company_name }} AI Dialer &amp; SMS</span>
             {% else %}
-            <span class="sb-brand-text">IGB</span>
+            <span class="sb-brand-text">InsuranceGrokBot</span>
             {% endif %}
             <button class="sb-toggle" id="sbToggle" onclick="toggleSidebar()" title="Collapse sidebar">
                 <i class="fa-solid fa-bars" id="sbToggleIcon"></i>
@@ -79,7 +79,14 @@
             <div class="l1-acc" onclick="toggleL1(this)">Integrations <span class="ch">▶</span></div>
             <div class="l1-body">
                 <div class="l1-inner">
+                    <div class="sec-label">CRM</div>
+                    <div class="l2-item" onclick="activateL2(this); navToConnect('ghl');">LeadConnector</div>
+                    <div class="l2-item" onclick="activateL2(this); navToConnect('other-crms');">Other CRMs</div>
+                    <div class="sec-label">Services</div>
+                    <div class="l2-item" onclick="activateL2(this); navToConnect('api');">API Access</div>
+                    <div class="l2-item" onclick="activateL2(this); navToConnect('outbound');">Outbound Calls</div>
                     <div class="l2-item" onclick="activateL2(this); navToConnect('google');">Google Calendar</div>
+                    <div class="sec-label">Communication</div>
                     <div class="l2-item" onclick="activateL2(this); navToConnect('discord');">Discord</div>
                     <div class="l2-item" onclick="activateL2(this); navToConnect('slack');">Slack</div>
                     {% if not is_sms_only %}

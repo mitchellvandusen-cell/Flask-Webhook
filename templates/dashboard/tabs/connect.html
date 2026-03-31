@@ -1,73 +1,38 @@
             <div class="tab-pane fade" id="connect" role="tabpanel">
-                <div class="glass-panel p-4" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px;">
+                <div class="vc-container">
 
-                    <!-- Header -->
-                    <div class="d-flex align-items-center mb-4">
-                        <div class="conn-header-icon">
-                            <i class="fa-solid fa-plug" style="color:var(--accent);font-size:1.2rem;"></i>
+                    <!-- Hidden menu buttons for JS switchConnectPanel compatibility -->
+                    <div id="connectSettingsMenu" class="d-none">
+                        <button type="button" class="conn-menu-item active" id="cnmenu-ghl"></button>
+                        <button type="button" class="conn-menu-item" id="cnmenu-other-crms"></button>
+                        <button type="button" class="conn-menu-item" id="cnmenu-api"></button>
+                        <button type="button" class="conn-menu-item" id="cnmenu-outbound"></button>
+                        <button type="button" class="conn-menu-item" id="cnmenu-google"></button>
+                        <button type="button" class="conn-menu-item" id="cnmenu-discord"></button>
+                        <button type="button" class="conn-menu-item" id="cnmenu-slack"></button>
+                        <button type="button" class="conn-menu-item" id="cnmenu-training"></button>
+                    </div>
+
+                    <!-- Webhook URL -->
+                    <div class="vc-status-bar">
+                        <div class="vc-status-left">
+                            <span class="vc-status-label">WEBHOOK</span>
+                            <code class="vc-status-value" id="webhookUrl">{{ request.host_url }}webhook</code>
                         </div>
-                        <div>
-                            <h4 style="margin:0;font-weight:700;">Integrations</h4>
-                            <p class="conn-subtitle" style="margin:0;">Connect your CRM, Google Calendar, and enable API access</p>
-                        </div>
-                        {% if sub and sub.crm_type %}
-                        <div class="ms-auto">
-                            <span class="badge conn-badge">
-                                <i class="fa-solid fa-circle-check me-1"></i> {{ sub.crm_type|upper }} Connected
+                        <div class="vc-status-right">
+                            <button class="vc-btn-secondary" onclick="copyToClipboard(document.getElementById('webhookUrl').textContent)" title="Copy">
+                                <i class="fa-solid fa-copy"></i> Copy
+                            </button>
+                            {% if sub and sub.crm_type %}
+                            <span class="vc-status-chip" style="background:rgba(0,255,136,0.08);color:#00ff88;border:1px solid rgba(0,255,136,0.2);">
+                                <i class="fa-solid fa-circle-check"></i> {{ sub.crm_type|upper }}
                             </span>
-                        </div>
-                        {% endif %}
-                    </div>
-
-                    <!-- Webhook URL — always visible above the panels -->
-                    <div class="conn-webhook-box">
-                        <label style="color:var(--accent);font-weight:700;font-size:0.78rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;display:block;">
-                            <i class="fa-solid fa-link me-1"></i> Your Webhook URL
-                        </label>
-                        <div class="d-flex align-items-center gap-2">
-                            <code id="webhookUrl" class="conn-webhook-code">{{ request.host_url }}webhook</code>
-                            <button class="btn btn-sm btn-outline-light" onclick="copyToClipboard(document.getElementById('webhookUrl').textContent)" title="Copy webhook URL">
-                                <i class="fa-solid fa-copy"></i>
-                            </button>
-                        </div>
-                        <small class="conn-webhook-hint">Paste this into your CRM's webhook or automation settings to receive inbound messages.</small>
-                    </div>
-
-                    <!-- ══ Connect: Two-column settings menu ══ -->
-                    <div class="tab-two-col" style="display:flex;gap:16px;min-height:400px;">
-
-                        <!-- Left column: integration categories -->
-                        <div id="connectSettingsMenu" class="conn-settings-menu">
-                            <button type="button" class="conn-menu-item active" onclick="switchConnectPanel('ghl')" id="cnmenu-ghl">
-                                <i class="fa-solid fa-bolt" style="width:16px;text-align:center;"></i> LeadConnector
-                            </button>
-                            <button type="button" class="conn-menu-item" onclick="switchConnectPanel('other-crms')" id="cnmenu-other-crms">
-                                <i class="fa-solid fa-database" style="width:16px;text-align:center;"></i> Other CRMs
-                            </button>
-                            <button type="button" class="conn-menu-item" onclick="switchConnectPanel('api')" id="cnmenu-api">
-                                <i class="fa-solid fa-code" style="width:16px;text-align:center;"></i> API Access
-                            </button>
-                            <button type="button" class="conn-menu-item" onclick="switchConnectPanel('outbound')" id="cnmenu-outbound">
-                                <i class="fa-solid fa-arrow-right-from-bracket" style="width:16px;text-align:center;"></i> Outbound Calls
-                            </button>
-                            <button type="button" class="conn-menu-item" onclick="switchConnectPanel('google')" id="cnmenu-google">
-                                <i class="fa-brands fa-google" style="width:16px;text-align:center;"></i> Google
-                            </button>
-                            <button type="button" class="conn-menu-item" onclick="switchConnectPanel('discord')" id="cnmenu-discord">
-                                <i class="fa-brands fa-discord" style="width:16px;text-align:center;"></i> Discord
-                            </button>
-                            <button type="button" class="conn-menu-item" onclick="switchConnectPanel('slack')" id="cnmenu-slack">
-                                <i class="fa-brands fa-slack" style="width:16px;text-align:center;"></i> Slack
-                            </button>
-                            {% if not (current_user.subscription_tier == 'sms_bot') %}
-                            <button type="button" class="conn-menu-item" onclick="switchConnectPanel('training')" id="cnmenu-training">
-                                <i class="fa-solid fa-graduation-cap" style="width:16px;text-align:center;"></i> Training API
-                            </button>
                             {% endif %}
                         </div>
+                    </div>
 
-                        <!-- Right column: panel content -->
-                        <div style="flex:1;min-width:0;">
+                    <!-- Panels render full-width — sidebar is the navigation -->
+                    <div>
 
                             <!-- ── Panel: LeadConnector (GHL) ── -->
                             <div id="cntab-panel-ghl">
@@ -506,11 +471,10 @@
                                 </div>
                             </div>
 
-                        </div><!-- /right column -->
-                    </div><!-- /two-column flex -->
+                    </div><!-- /panels wrapper -->
 
-                </div>
-            </div>
+                </div><!-- /vc-container -->
+            </div><!-- /connect tab-pane -->
 
             <script>
             // ── Connect/Integrations panel switcher ───────────────────────

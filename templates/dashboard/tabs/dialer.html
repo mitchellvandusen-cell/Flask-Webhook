@@ -233,7 +233,7 @@
                     /* Status Bar */
                     .ios-status-bar{height:clamp(40px, 2.08vw, 76px);flex-shrink:0;display:flex;align-items:flex-end;justify-content:space-between;padding:0 clamp(21px, 1.09vw, 40px) clamp(6px, 0.31vw, 11px);position:relative;z-index:10;color:#fff;font-size:clamp(0.85rem, 0.7vw, 1.3rem);font-weight:600;}
                     .ios-time{font-weight:700;font-size:clamp(0.95rem, 0.78vw, 1.4rem);letter-spacing:-0.3px;}
-                    .ios-dynamic-island{position:absolute;top:clamp(9px, 0.47vw, 17px);left:50%;transform:translateX(-50%);width:clamp(160px, 9vw, 280px);height:clamp(32px, 1.7vw, 58px);background:#000;border-radius:clamp(20px, 1.04vw, 38px);z-index:20;display:flex;align-items:center;justify-content:center;gap:clamp(6px, 0.5vw, 10px);padding:0 clamp(10px, 0.65vw, 18px);}
+                    .ios-dynamic-island{position:absolute;top:clamp(11px, 0.57vw, 20px);left:50%;transform:translateX(-50%);width:clamp(160px, 9vw, 280px);height:clamp(34px, 1.8vw, 60px);background:#000;border-radius:clamp(20px, 1.04vw, 38px);z-index:20;display:flex;align-items:center;justify-content:center;gap:clamp(6px, 0.5vw, 10px);padding:0 clamp(10px, 0.65vw, 18px);}
                     .ios-dm-label{font-size:clamp(0.55rem, 0.46vw, 0.72rem);color:#555;font-family:'Inter',sans-serif;white-space:nowrap;letter-spacing:0.8px;font-weight:700;text-transform:uppercase;}
                     .ios-dm-tabs{display:flex;gap:3px;}
                     .ios-dm-btn{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#666;font-size:clamp(0.65rem, 0.55vw, 0.88rem);font-weight:800;padding:3px clamp(8px, 0.55vw, 14px);border-radius:clamp(6px, 0.4vw, 12px);cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;white-space:nowrap;letter-spacing:0.3px;text-transform:uppercase;}
@@ -260,7 +260,7 @@
                     .ios-icon-messages{background:linear-gradient(180deg,#65D66A 0%,#34C759 100%);}
                     .ios-icon-phone{background:linear-gradient(180deg,#65D66A 0%,#34C759 100%);}
                     .ios-icon-voicemail{background:linear-gradient(180deg,#FF9F0A 0%,#FF9500 100%);}
-                    .ios-app-label{font-size:clamp(0.775rem, 0.65vw, 1.2rem);color:#fff;font-weight:500;text-shadow:0 1px 3px rgba(0,0,0,0.6);letter-spacing:-0.1px;}
+                    .ios-app-label{font-size:clamp(0.72rem, 0.6vw, 1.1rem);color:#fff;font-weight:500;text-shadow:0 1px 3px rgba(0,0,0,0.6);letter-spacing:-0.1px;text-align:center;max-width:clamp(80px, 4.2vw, 150px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
                     .ios-badge{position:absolute;top:-4px;right:-4px;background:#FF3B30;color:#fff;font-size:clamp(0.65rem, 0.52vw, 1rem);font-weight:800;min-width:clamp(20px, 1.04vw, 38px);height:clamp(20px, 1.04vw, 38px);border-radius:clamp(10px, 0.52vw, 19px);display:flex;align-items:center;justify-content:center;padding:0 5px;border:2px solid #000;z-index:2;}
 
                     /* Home Indicator */
@@ -1532,7 +1532,7 @@
                     </div>
 
                     <!-- ── RIGHT: iPhone 15 Pro ── -->
-                    <div id="dlrColPhone" style="flex:1;display:flex;align-items:center;justify-content:center;min-height:0;">
+                    <div id="dlrColPhone" style="flex:1;display:flex;align-items:center;justify-content:center;min-height:0;padding:0 20px;">
                         <!-- iPhone 15 Pro Frame -->
                         <div class="iphone-frame">
                             <!-- Titanium outer bezel -->
@@ -1569,7 +1569,7 @@
                                                 <div class="ios-icon ios-icon-messages">
                                                     <i class="fa-solid fa-comment-dots"></i>
                                                 </div>
-                                                <span class="ios-app-label">Messages</span>
+                                                <span class="ios-app-label">SMS</span>
                                                 <span class="ios-badge" id="iosBadgeMsgs" style="display:none;">0</span>
                                             </button>
                                             <!-- Call History App -->
@@ -1577,7 +1577,7 @@
                                                 <div class="ios-icon ios-icon-phone">
                                                     <i class="fa-solid fa-phone"></i>
                                                 </div>
-                                                <span class="ios-app-label">Call History</span>
+                                                <span class="ios-app-label">Calls</span>
                                                 <span class="ios-badge" id="iosBadgeCalls" style="display:none;">0</span>
                                             </button>
                                             <!-- Voicemail App -->
@@ -1601,7 +1601,7 @@
                                                 <div class="ios-icon dlr-bg-ios-purple" >
                                                     <i class="fa-solid fa-inbox"></i>
                                                 </div>
-                                                <span class="ios-app-label">Conversations</span>
+                                                <span class="ios-app-label">Inbox</span>
                                                 <span class="ios-badge" id="iosBadgeInbox" style="display:none;">0</span>
                                             </button>
                                             <!-- Calendar App (LeadConnector Appointments) -->
