@@ -1,46 +1,22 @@
             <div class="tab-pane fade" id="config" role="tabpanel">
-                <div class="glass-panel p-4 cfg-panel-outer">
+                <div class="vc-container">
 
-                    <!-- Header -->
-                    <div class="d-flex align-items-center mb-4">
-                        <div class="cfg-header-icon-box">
-                            <i class="fa-solid fa-sliders cfg-header-icon"></i>
-                        </div>
-                        <div>
-                            <h4 class="cfg-header-title">Bot Configuration</h4>
-                            <p class="cfg-header-subtitle">Set up your AI agent's identity, calendar, and CRM connection</p>
-                        </div>
+                    <!-- Internal menu buttons kept hidden for JS compatibility -->
+                    <div id="configSettingsMenu" class="d-none">
+                        <button type="button" class="cfg-menu-item active" id="cmenu-identity"></button>
+                        <button type="button" class="cfg-menu-item" id="cmenu-calendar"></button>
+                        <button type="button" class="cfg-menu-item" id="cmenu-smsnumbers"></button>
+                        <button type="button" class="cfg-menu-item" id="cmenu-a2p"></button>
+                        {% if current_user.role == 'agency_owner' %}
+                        <button type="button" class="cfg-menu-item" id="cmenu-agency"></button>
+                        {% endif %}
                     </div>
 
                     <form method="post" id="main-config-form">
                         {{ form.hidden_tag() }}
 
-                        <!-- ══ Config: Two-column settings menu ══ -->
-                        <div class="tab-two-col" style="display:flex;gap:16px;min-height:360px;">
-
-                            <!-- Left column: settings categories -->
-                            <div id="configSettingsMenu" class="cfg-settings-menu">
-                                <button type="button" class="cfg-menu-item active" onclick="switchConfigPanel('identity')" id="cmenu-identity">
-                                    <i class="fa-solid fa-robot cfg-menu-icon"></i> Bot Identity
-                                </button>
-                                <button type="button" class="cfg-menu-item" onclick="switchConfigPanel('calendar')" id="cmenu-calendar">
-                                    <i class="fa-solid fa-calendar-check cfg-menu-icon"></i> Calendar & CRM
-                                </button>
-                                <button type="button" class="cfg-menu-item" onclick="switchConfigPanel('smsnumbers')" id="cmenu-smsnumbers">
-                                    <i class="fa-solid fa-phone-volume cfg-menu-icon"></i> Numbers & A2P
-                                </button>
-                                <button type="button" class="cfg-menu-item" onclick="switchConfigPanel('a2p')" id="cmenu-a2p">
-                                    <i class="fa-solid fa-certificate cfg-menu-icon"></i> A2P 10DLC
-                                </button>
-                                {% if current_user.role == 'agency_owner' %}
-                                <button type="button" class="cfg-menu-item" onclick="switchConfigPanel('agency')" id="cmenu-agency">
-                                    <i class="fa-solid fa-users-cog cfg-menu-icon"></i> Agency
-                                </button>
-                                {% endif %}
-                            </div>
-
-                            <!-- Right column: panel content -->
-                            <div class="cfg-right-col">
+                        <!-- Panels render full-width — sidebar is the navigation -->
+                        <div>
 
                                 <!-- ── Bot Identity panel ── -->
                                 <div id="cfgtab-panel-identity">
@@ -508,19 +484,18 @@ Thanks for your interest! I have a few options that might work for you. When is 
 
                                 </div><!-- /cfgtab-panel-a2p -->
 
-                            </div><!-- /right column -->
-                        </div><!-- /two-column flex -->
+                        </div><!-- /panels wrapper -->
 
-                        <!-- Save button (below the panels, always visible) -->
-                        <div class="text-end mt-4">
-                            <button type="button" class="btn btn-primary px-5" id="save-config-btn" onclick="saveConfig()">
-                                <i class="fa-solid fa-floppy-disk me-2"></i>Save Configuration
+                        <!-- Save button -->
+                        <div class="vc-actions">
+                            <button type="button" class="vc-btn-primary" id="save-config-btn" onclick="saveConfig()">
+                                <i class="fa-solid fa-floppy-disk"></i> Save Configuration
                             </button>
                         </div>
 
                     </form>
-                </div>
-            </div>
+                </div><!-- /vc-container -->
+            </div><!-- /config tab-pane -->
 
             <script>
             // ── Bot Config panel switcher ──────────────────────────────────

@@ -1,46 +1,16 @@
             <div class="tab-pane fade" id="voice" role="tabpanel">
-                <div class="glass-panel p-4" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px;">
+                <div class="vc-container">
 
-                    <!-- Header -->
-                    <div class="d-flex align-items-center mb-4">
-                        <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2); display:flex; align-items:center; justify-content:center; margin-right: 16px;">
-                            <i class="fa-solid fa-phone" style="color: #00d9ff; font-size: 1.2rem;"></i>
-                        </div>
-                        <div>
-                            <h4 style="margin:0; font-weight:700;">Voice AI Agent</h4>
-                            <p style="margin:0; color:#888; font-size:0.85rem;">Real-time AI voice calls powered by Grok Speech-to-Speech</p>
-                        </div>
-                        <div class="ms-auto">
-                            <span id="voiceStatusBadge" class="badge" style="background: {% if voice_config.get('enabled') %}rgba(0,255,136,0.15); color: #00ff88; border: 1px solid rgba(0,255,136,0.3){% else %}rgba(255,255,255,0.06); color: #666; border: 1px solid rgba(255,255,255,0.08){% endif %}; padding: 6px 14px; border-radius: 20px; font-size: 0.8rem;">
-                                {% if voice_config.get('enabled') %}<i class="fa-solid fa-circle me-1" style="font-size:0.75rem; vertical-align:middle;"></i> Active{% else %}Inactive{% endif %}
-                            </span>
-                        </div>
+                    <!-- Internal menu buttons kept hidden for JS compatibility (switchVoicePanel reads these) -->
+                    <div id="voiceSettingsMenu" class="d-none">
+                        <button class="voice-menu-item active" id="vmenu-activation"></button>
+                        <button class="voice-menu-item" id="vmenu-settings"></button>
+                        <button class="voice-menu-item" id="vmenu-numbers"></button>
+                        <button class="voice-menu-item" id="vmenu-dialer"></button>
+                        <button class="voice-menu-item" id="vmenu-spammonitoring"></button>
                     </div>
 
-                    <!-- ══ Voice Config: Two-column settings menu ══ -->
-                    <div class="tab-two-col" style="display:flex;gap:16px;min-height:420px;">
-                        <!-- Left column: settings categories -->
-                        <div id="voiceSettingsMenu" style="width:220px;flex-shrink:0;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:8px;">
-                            <button class="voice-menu-item active" onclick="switchVoicePanel('activation')" id="vmenu-activation" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.15);border-radius:8px;color:#00d9ff;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
-                                <i class="fa-solid fa-wand-magic-sparkles" style="width:16px;text-align:center;"></i> Activate Voice
-                            </button>
-                            <button class="voice-menu-item" onclick="switchVoicePanel('settings')" id="vmenu-settings" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
-                                <i class="fa-solid fa-microphone" style="width:16px;text-align:center;"></i> Voice AI
-                            </button>
-                            <button class="voice-menu-item" onclick="switchVoicePanel('numbers')" id="vmenu-numbers" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
-                                <i class="fa-solid fa-phone-volume" style="width:16px;text-align:center;"></i> Numbers
-                            </button>
-                            <button class="voice-menu-item" onclick="switchVoicePanel('dialer')" id="vmenu-dialer" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
-                                <i class="fa-solid fa-sliders" style="width:16px;text-align:center;"></i> Dialer Settings
-                            </button>
-                            <button class="voice-menu-item" onclick="switchVoicePanel('spammonitoring')" id="vmenu-spammonitoring" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
-                                <i class="fa-solid fa-shield-halved" style="width:16px;text-align:center;"></i> Spam Monitoring
-                            </button>
-                            <!-- Integrations and Training moved to Integrations page -->
-                        </div>
-
-                        <!-- Right column: settings content -->
-                        <div style="flex:1;min-width:0;">
+                    <!-- Panels render full-width — sidebar is the navigation -->
 
                     <!-- ── Activate Voice panel (default) ── -->
                     <div id="vstab-panel-activation">
@@ -87,112 +57,87 @@
                     <!-- ── Voice AI settings panel ── -->
                     <div id="vstab-panel-settings" style="display:none;">
 
-                    <!-- Enable Voice Toggle -->
-                    <div class="mb-4 p-3" style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.12);border-radius:12px;">
-                        {% if not voice_config.get('twilio_sub_account_sid') %}
-                        <div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:0.82rem;color:#fbbf24;">
-                            <i class="fa-solid fa-triangle-exclamation me-2"></i>Complete <strong>Activate Voice</strong> first to provision your voice account and phone number.
+                    <!-- Status bar -->
+                    <div class="vc-status-bar">
+                        <div class="vc-status-left">
+                            <span class="vc-status-label">VOICE ENGINE</span>
+                            <span class="vc-status-value">xAI Grok Realtime</span>
                         </div>
-                        {% endif %}
-                        <div class="form-check form-switch d-flex align-items-center gap-3" style="margin:0;">
-                            <input class="form-check-input" type="checkbox" id="voiceEnabled" {% if voice_config.get('enabled') %}checked{% endif %}
-                                disabled
-                                style="width: 3em; height: 1.5em; cursor: pointer;">
-                            <label class="form-check-label" for="voiceEnabled" style="color: #fff; font-weight: 600; font-size: 0.95rem;">
-                                Enable Voice AI Agent
-                            </label>
-                            <span id="voiceEnabledStatus" style="font-size:0.8rem;color:{% if voice_config.get('enabled') %}#00ff88{% else %}#666{% endif %};">
-                                {% if voice_config.get('enabled') %}Active{% else %}Inactive{% endif %}
-                            </span>
-                        </div>
-                        <p style="color:#777; font-size:0.78rem; margin: 6px 0 0 3.5em;">When enabled, your phone number handles inbound calls with AI and you can trigger outbound calls via webhook.</p>
-                    </div>
-
-                    <!-- AI Voice -->
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-6">
-                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">AI Voice</label>
-                            <div class="d-flex align-items-center gap-2">
-                                <select class="form-control" id="voiceSelection"
-                                    style="background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px; flex:1;">
-                                    <option value="ara" style="background:#1a1a2e; color:#fff;" {% if voice_config.get('voice', 'ara') == 'ara' %}selected{% endif %}>Ara (Warm, Professional)</option>
-                                    <option value="eve" style="background:#1a1a2e; color:#fff;" {% if voice_config.get('voice') == 'eve' %}selected{% endif %}>Eve (Confident, Clear)</option>
-                                    <option value="leo" style="background:#1a1a2e; color:#fff;" {% if voice_config.get('voice') == 'leo' %}selected{% endif %}>Leo (Calm, Authoritative)</option>
-                                    <option value="rex" style="background:#1a1a2e; color:#fff;" {% if voice_config.get('voice') == 'rex' %}selected{% endif %}>Rex (Bold, Energetic)</option>
-                                    <option value="sal" style="background:#1a1a2e; color:#fff;" {% if voice_config.get('voice') == 'sal' %}selected{% endif %}>Sal (Friendly, Approachable)</option>
-                                    <option value="mika" style="background:#1a1a2e; color:#fff;" {% if voice_config.get('voice') == 'mika' %}selected{% endif %}>Mika (Warm, Conversational)</option>
-                                    <option value="vale" style="background:#1a1a2e; color:#fff;" {% if voice_config.get('voice') == 'vale' %}selected{% endif %}>Vale (Professional, Measured)</option>
-                                </select>
-                                <button type="button" id="voicePreviewBtn" onclick="previewVoice()"
-                                    style="background: rgba(0,217,255,0.08); border: 1px solid rgba(0,217,255,0.2); color: #00d9ff; border-radius: 10px; padding: 6px 14px; white-space: nowrap; cursor: pointer; font-size: 0.85rem;"
-                                    title="Listen to this voice">
-                                    <i class="fa-solid fa-volume-high me-1"></i> Preview
-                                </button>
+                        <div class="vc-status-right">
+                            {% if not voice_config.get('twilio_sub_account_sid') %}
+                            <span class="vc-status-chip vc-chip-warn"><i class="fa-solid fa-triangle-exclamation"></i> Not provisioned</span>
+                            {% else %}
+                            <div class="form-check form-switch vc-power-switch">
+                                <input class="form-check-input" type="checkbox" id="voiceEnabled" {% if voice_config.get('enabled') %}checked{% endif %} disabled>
+                                <span id="voiceEnabledStatus" class="vc-power-label">{% if voice_config.get('enabled') %}Live{% else %}Off{% endif %}</span>
                             </div>
-                            <small id="voicePreviewStatus" style="color:#666; font-size:0.75rem; display:none; margin-top:4px;"></small>
+                            {% endif %}
                         </div>
                     </div>
 
-                    <!-- Voice Settings -->
-                    <h6 style="color: var(--accent); font-weight: 700; margin-bottom: 12px;"><i class="fa-solid fa-microphone me-2"></i>Voice Settings</h6>
-
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-6">
-                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Voice Bot Name</label>
-                            <input type="text" class="form-control" id="voiceBotName" placeholder="e.g., Ava, Sarah, James..."
-                                value="{{ voice_config.get('voice_bot_name', '') }}"
-                                style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
-                            <small style="color:#666; font-size:0.75rem;">The name the AI uses on calls. Leave blank to use your SMS bot name ({{ sub.bot_first_name or 'Alex' }}). Use a different name if your voice doesn't match your SMS persona.</small>
-                        </div>
-                        <div class="col-12">
-                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Custom Voice Instructions (optional)</label>
-                            <textarea class="form-control" id="voiceInstructions" rows="3" placeholder="e.g., 'Always confirm the beneficiary with the lead' or 'Mention our 30-day free look period' or 'Speak slowly and clearly'"
-                                style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px; font-size: 0.9rem;">{{ voice_config.get('voice_instructions', '') }}</textarea>
-                            <div style="margin-top:8px; padding:10px 12px; background:rgba(0,217,255,0.04); border:1px solid rgba(0,217,255,0.1); border-radius:8px;">
-                                <div style="color:#00d9ff; font-size:0.75rem; font-weight:600; margin-bottom:4px;"><i class="fa-solid fa-circle-info me-1"></i> Contact Fields Available to AI</div>
-                                <p style="color:#999; font-size:0.75rem; margin-bottom:4px;">The AI automatically has access to <strong style="color:#ccc;">all CRM custom fields</strong> for the contact being called (beneficiary, coverage amount, etc.). Just tell it what to do with them in your instructions.</p>
-                                <div style="color:#777; font-size:0.75rem; line-height:1.5;">
-                                    <strong style="color:#aaa;">Examples:</strong><br>
-                                    "Confirm the beneficiary name with the lead"<br>
-                                    "Reference their requested coverage amount"<br>
-                                    "If they have a spouse listed, ask about joint coverage"
+                    <!-- Voice Selection -->
+                    <div class="vc-field-group">
+                        <div class="vc-field-row">
+                            <div class="vc-field">
+                                <label class="vc-label">AI Voice</label>
+                                <div class="vc-select-row">
+                                    <select class="form-select vc-select" id="voiceSelection">
+                                        <option value="ara" {% if voice_config.get('voice', 'ara') == 'ara' %}selected{% endif %}>Ara — Warm, Professional</option>
+                                        <option value="eve" {% if voice_config.get('voice') == 'eve' %}selected{% endif %}>Eve — Confident, Clear</option>
+                                        <option value="leo" {% if voice_config.get('voice') == 'leo' %}selected{% endif %}>Leo — Calm, Authoritative</option>
+                                        <option value="rex" {% if voice_config.get('voice') == 'rex' %}selected{% endif %}>Rex — Bold, Energetic</option>
+                                        <option value="sal" {% if voice_config.get('voice') == 'sal' %}selected{% endif %}>Sal — Friendly, Approachable</option>
+                                        <option value="mika" {% if voice_config.get('voice') == 'mika' %}selected{% endif %}>Mika — Warm, Conversational</option>
+                                        <option value="vale" {% if voice_config.get('voice') == 'vale' %}selected{% endif %}>Vale — Professional, Measured</option>
+                                    </select>
+                                    <button type="button" id="voicePreviewBtn" onclick="previewVoice()" class="vc-btn-secondary" title="Preview voice">
+                                        <i class="fa-solid fa-volume-high"></i>
+                                    </button>
                                 </div>
+                                <small id="voicePreviewStatus" class="vc-hint" style="display:none;"></small>
+                            </div>
+                            <div class="vc-field">
+                                <label class="vc-label">Agent Name</label>
+                                <input type="text" class="form-control vc-input" id="voiceBotName" placeholder="e.g. Ava, Sarah, James"
+                                    value="{{ voice_config.get('voice_bot_name', '') }}">
+                                <small class="vc-hint">Defaults to {{ sub.bot_first_name or 'Alex' }} if blank</small>
                             </div>
                         </div>
-                        <div class="col-12" style="margin-top: 4px;">
-                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">
-                                <i class="fa-solid fa-scroll me-1" style="color:#a78bfa;"></i> Call Script (optional)
-                            </label>
-                            <div style="position:relative;">
-                                <textarea class="form-control" id="voiceCallScript" rows="10"
-                                    placeholder="Paste your call script here. The AI will treat this as a reference guide — it will pull talking points, objection responses, and flow from the script naturally rather than reading it word for word."
-                                    style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px; font-size: 0.85rem; line-height:1.6; resize:vertical;">{{ voice_config.get('call_script', '') }}</textarea>
-                                <button type="button" onclick="clearCallScript()"
-                                    style="position:absolute; top:8px; right:10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#888; border-radius:6px; padding:2px 8px; font-size:0.75rem; cursor:pointer;"
-                                    title="Clear script">clear</button>
-                            </div>
-                            <div style="margin-top:8px; padding:10px 12px; background:rgba(167,139,250,0.05); border:1px solid rgba(167,139,250,0.15); border-radius:8px;">
-                                <div style="color:#a78bfa; font-size:0.75rem; font-weight:600; margin-bottom:4px;"><i class="fa-solid fa-circle-info me-1"></i> How it works</div>
-                                <p style="color:#999; font-size:0.75rem; margin:0; line-height:1.5;">The AI uses this as a live reference — pulling objection handlers, rebuttals, and talking points from it as the conversation unfolds. It won't read it verbatim. Paste a full sales script, FAQ, or objection map and the AI will work from it naturally.</p>
-                            </div>
+                    </div>
+
+                    <!-- Instructions -->
+                    <div class="vc-field-group">
+                        <label class="vc-label">Custom Instructions</label>
+                        <textarea class="form-control vc-textarea" id="voiceInstructions" rows="3" placeholder="e.g. 'Always confirm the beneficiary' or 'Mention our 30-day free look period'">{{ voice_config.get('voice_instructions', '') }}</textarea>
+                        <div class="vc-info-strip">
+                            <i class="fa-solid fa-circle-info"></i>
+                            AI reads all CRM custom fields automatically. Tell it what to emphasize.
                         </div>
-                    </div><!-- /row: Voice Settings (bot name, instructions, call script) -->
-                    <!-- Power Dialer settings moved to Dialer tab settings panel -->
+                    </div>
+
+                    <!-- Call Script -->
+                    <div class="vc-field-group">
+                        <div class="vc-label-row">
+                            <label class="vc-label"><i class="fa-solid fa-scroll vc-label-icon"></i> Call Script</label>
+                            <button type="button" onclick="clearCallScript()" class="vc-btn-ghost">Clear</button>
+                        </div>
+                        <textarea class="form-control vc-textarea vc-textarea-tall" id="voiceCallScript" rows="8"
+                            placeholder="Paste your sales script, FAQ, or objection map. The AI pulls talking points naturally — it won't read verbatim.">{{ voice_config.get('call_script', '') }}</textarea>
+                        <div class="vc-info-strip vc-info-purple">
+                            <i class="fa-solid fa-circle-info"></i>
+                            Live reference — the AI pulls objection handlers, rebuttals, and talking points as the conversation unfolds.
+                        </div>
+                    </div>
 
                     <!-- Actions -->
-                    <div class="d-flex flex-wrap gap-3 align-items-center">
-                        <button class="btn px-4 py-2" onclick="saveVoiceConfig()"
-                            style="background: linear-gradient(135deg, var(--accent), #00b36b); color: #000; font-weight: 700; border-radius: 10px; border: none;">
-                            <i class="fa-solid fa-floppy-disk me-2"></i>Save Voice Settings
+                    <div class="vc-actions">
+                        <button class="vc-btn-primary" onclick="saveVoiceConfig()">
+                            <i class="fa-solid fa-floppy-disk"></i> Save
                         </button>
-                        <button class="btn px-4 py-2" onclick="testVoiceConnection()"
-                            style="background: rgba(0,217,255,0.1); color: #00d9ff; border: 1px solid rgba(0,217,255,0.3); border-radius: 10px; font-weight: 600;">
+                        <button class="vc-btn-secondary" onclick="testVoiceConnection()">
                             Test Connection
                         </button>
-                        <!-- External dashboard link removed — white-label -->
                     </div>
-
-                    <!-- Status output -->
                     <div id="voiceTestResult" class="mt-3" style="display:none;"></div>
 
                     </div><!-- /vstab-panel-settings -->
@@ -935,11 +880,5 @@
 
                     </div><!-- /vstab-panel-spammonitoring -->
 
-                    <!-- ── Training integration panel ── -->
-                    <!-- Training and Integrations panels moved to Integrations page (connect.html) -->
-
-                        </div><!-- /right column -->
-                    </div><!-- /two-column settings menu -->
-
-                </div><!-- /glass-panel -->
+                </div><!-- /vc-container -->
             </div><!-- /voice tab-pane -->
