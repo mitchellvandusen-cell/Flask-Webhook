@@ -73,7 +73,7 @@
                     .dlr-call-badge{display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#888;border-radius:4px;padding:1px 6px;font-size:0.7rem;font-weight:600;flex-shrink:0;line-height:1.3;white-space:nowrap;}
 
                     /* Caller Number Picker — Liquid Glass dropdown */
-                    .dlr-top-bar.glass-panel{overflow:visible;z-index:10;}
+                    .dlr-top-bar{overflow:visible;z-index:10;}
                     .dialer-from-number-wrap{display:flex;align-items:center;gap:6px;margin-top:4px;position:relative;}
                     .dialer-from-number-icon{font-size:0.72rem;color:#555;flex-shrink:0;}
                     .dialer-from-number-label{font-size:0.74rem;color:#555;white-space:nowrap;flex-shrink:0;}
@@ -1329,7 +1329,7 @@
                 </script>
 
                 <!-- ═══ Dialer Statistics Panel ═══ -->
-                <div id="dialerStatsPanel" class="glass-panel" style="display:none;border-radius:12px;padding:20px 24px;margin-bottom:12px;">
+                <div id="dialerStatsPanel" style="display:none;border-radius:12px;padding:20px 24px;margin-bottom:12px;">
                     <div class="d-flex align-items-center justify-content-between mb-3">
                         <h6 class="dlr-heading-3" style="margin:0;font-weight:700;font-size:1.1rem"><i class="fa-solid fa-chart-bar me-2 dlr-text-cyan" ></i>Call Statistics</h6>
                         <div style="display:flex;align-items:center;gap:8px;">
@@ -1390,7 +1390,7 @@
                 <div class="dlr-3col-layout" id="dlr3colLayout" style="display:flex;gap:8px;height:calc(100vh - 220px);min-height:500px;">
 
                     <!-- ── LEFT: Contacts ── -->
-                    <div class="dlr-col dlr-mobile-active glass-panel" id="dlrColContacts" style="width:30%;border-radius:12px;">
+                    <div class="dlr-col dlr-mobile-active" id="dlrColContacts" style="width:30%;border-radius:12px;">
                         <div class="dlr-col-hdr">
                             <h6>Contacts</h6>
                             <button id="dlrSearchToggleBtn" onclick="dlrToggleSearch()" style="background:none;border:none;border-radius:6px;padding:4px 9px;cursor:pointer;font-size:.85rem;color:#888;transition:color .15s;" title="Search contacts" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='#888'">
@@ -1515,7 +1515,7 @@
                     </div>
 
                     <!-- ── MIDDLE: Lead Intelligence ── -->
-                    <div class="dlr-col glass-panel dlr-col-intel-hidden" id="dlrColIntel" style="width:35%;border-radius:12px;">
+                    <div class="dlr-col dlr-col-intel-hidden" id="dlrColIntel" style="width:35%;border-radius:12px;">
                         <div class="dlr-col-hdr">
                             <h6><i class="fa-solid fa-crosshairs me-1"></i>Lead Intelligence</h6>
                             <div id="dlrDetailActions" style="display:none;">
@@ -2589,7 +2589,7 @@
 
             <!-- Contact Management Modal -->
             <div id="dlrContactMgmtModal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.55);backdrop-filter:none;display:none;align-items:center;justify-content:center;">
-                <div class="glass-panel" style="width:360px;border-radius:14px;padding:0;overflow:hidden;">
+                <div style="width:360px;border-radius:14px;padding:0;overflow:hidden;background:#111111;border:1px solid #242424;">
                     <div style="padding:14px 16px 12px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;">
                         <div style="font-weight:700;font-size:1rem;">Contact Management</div>
                         <button onclick="dlrCloseContactMgmt()" class="dlr-btn-ghost-2" style="border-radius:6px;padding:4px 8px;font-size:0.9rem;cursor:pointer;">&times;</button>

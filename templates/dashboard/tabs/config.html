@@ -20,21 +20,21 @@
 
                                 <!-- ── Bot Identity panel ── -->
                                 <div id="cfgtab-panel-identity">
-                                    <div class="row g-3">
+                                    <div class="row g-3 vc-field-group">
                                         <div class="col-12 {% if missing_fields is defined and 'bot_name' in missing_fields %}field-needs-attention{% endif %}">
-                                            {{ form.bot_name.label(class="form-label") }}
-                                            {{ form.bot_name(class="form-control", placeholder="e.g. Alex") }}
-                                            <small class="text-muted">The name your AI agent introduces itself as in conversations</small>
+                                            {{ form.bot_name.label(class="form-label vc-label") }}
+                                            {{ form.bot_name(class="form-control vc-input", placeholder="e.g. Alex") }}
+                                            <small class="vc-hint">The name your AI agent introduces itself as in conversations</small>
                                         </div>
                                         <div class="col-12 {% if missing_fields is defined and 'initial_message' in missing_fields %}field-needs-attention{% endif %}">
-                                            {{ form.initial_message.label(class="form-label") }}
-                                            {{ form.initial_message(class="form-control", rows="4") }}
-                                            <small class="text-muted">The first SMS the bot sends when a new lead arrives</small>
+                                            {{ form.initial_message.label(class="form-label vc-label") }}
+                                            {{ form.initial_message(class="form-control vc-input", rows="4") }}
+                                            <small class="vc-hint">The first SMS the bot sends when a new lead arrives</small>
                                         </div>
                                         <div class="col-12">
-                                            {{ form.personal_website.label(class="form-label") }}
-                                            {{ form.personal_website(class="form-control", placeholder="https://yoursite.com") }}
-                                            <small class="text-muted">GrokBot will share this when leads ask for your website</small>
+                                            {{ form.personal_website.label(class="form-label vc-label") }}
+                                            {{ form.personal_website(class="form-control vc-input", placeholder="https://yoursite.com") }}
+                                            <small class="vc-hint">GrokBot will share this when leads ask for your website</small>
                                         </div>
 
                                         <!-- ── SMS Channel Selection ── -->
@@ -98,26 +98,26 @@
 
                                 <!-- ── Calendar & CRM panel ── -->
                                 <div id="cfgtab-panel-calendar" style="display:none;">
-                                    <div class="row g-3">
+                                    <div class="row g-3 vc-field-group">
                                         <div class="col-12 {% if missing_fields is defined and 'location_id' in missing_fields %}field-needs-attention{% endif %}">
-                                            {{ form.location_id.label(class="form-label") }}
-                                            {{ form.location_id(class="form-control") }}
-                                            <small class="text-muted">Your GoHighLevel Location ID — found in GHL Settings → Business Info</small>
+                                            {{ form.location_id.label(class="form-label vc-label") }}
+                                            {{ form.location_id(class="form-control vc-input") }}
+                                            <small class="vc-hint">Your GoHighLevel Location ID — found in GHL Settings → Business Info</small>
                                         </div>
                                         <div class="col-12">
-                                            <label class="form-label">CRM User ID</label>
-                                            {{ form.crm_user_id(class="form-control") }}
-                                            <small class="text-muted">Your GHL User ID for attributing booked appointments</small>
+                                            <label class="form-label vc-label">CRM User ID</label>
+                                            {{ form.crm_user_id(class="form-control vc-input") }}
+                                            <small class="vc-hint">Your GHL User ID for attributing booked appointments</small>
                                         </div>
                                         <div class="col-12 {% if missing_fields is defined and 'timezone' in missing_fields %}field-needs-attention{% endif %}">
-                                            {{ form.timezone.label(class="form-label") }}
-                                            {{ form.timezone(class="form-control") }}
-                                            <small class="text-muted">Used for after-hours logic and appointment scheduling</small>
+                                            {{ form.timezone.label(class="form-label vc-label") }}
+                                            {{ form.timezone(class="form-control vc-input") }}
+                                            <small class="vc-hint">Used for after-hours logic and appointment scheduling</small>
                                         </div>
                                         <div class="col-12 {% if missing_fields is defined and 'calendar_id' in missing_fields %}field-needs-attention{% endif %}">
-                                            <label class="form-label">Calendar</label>
+                                            <label class="form-label vc-label">Calendar</label>
                                             <div class="d-flex gap-2">
-                                                <select id="calendar_select" class="form-control" name="calendar_id" required>
+                                                <select id="calendar_select" class="form-control vc-input" name="calendar_id" required>
                                                     <option value="">-- Select Calendar --</option>
                                                     {% if form.calendar_id.data %}
                                                     <option value="{{ form.calendar_id.data }}" selected>{{ current_user.calendar_name or form.calendar_id.data }}</option>
@@ -128,7 +128,7 @@
                                                 </button>
                                             </div>
                                             <input type="hidden" id="calendar_name" name="calendar_name" value="{{ current_user.calendar_name or '' }}">
-                                            <small class="text-muted">The calendar used for AI-booked appointments</small>
+                                            <small class="vc-hint">The calendar used for AI-booked appointments</small>
                                         </div>
                                     </div>
                                 </div>
