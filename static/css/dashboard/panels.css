@@ -2092,7 +2092,8 @@
 [data-theme="light"] .conn-connected-text { color: var(--lt-accent); }
 [data-theme="light"] .conn-btn-danger { color: #dc2626; border-color: rgba(220,38,38,0.2); }
 [data-theme="light"] .conn-btn-danger:hover { background: rgba(220,38,38,0.06); }
-[data-theme="light"] .conn-quickstart-label { color: var(--lt-accent); }
+[data-theme="light"] .conn-quickstart-label { color: #00ff88; }
+[data-theme="light"] .conn-training-card { background: transparent; border-color: #e8e8e8; }
 .conn-detect-btn {
     background: rgba(0,255,136,0.1);
     color: var(--accent);
@@ -2271,8 +2272,8 @@
 [data-theme="light"] .conn-cta-title { color: var(--lt-text-primary); }
 [data-theme="light"] .conn-cta-desc { color: #6b7280; }
 [data-theme="light"] .conn-success-box {
-    background: rgba(0,170,94,0.05);
-    border-color: rgba(0,170,94,0.15);
+    background: transparent;
+    border-color: rgba(5,150,105,0.2);
 }
 [data-theme="light"] .conn-success-box small { color: var(--lt-accent) !important; }
 [data-theme="light"] .conn-success-box small i { color: var(--lt-accent) !important; }
@@ -2288,8 +2289,8 @@
 }
 [data-theme="light"] .conn-reauth-btn:hover i { color: #005a8c !important; }
 [data-theme="light"] .conn-quick-connect {
-    background: rgba(0,170,94,0.03);
-    border-color: rgba(0,170,94,0.1);
+    background: transparent;
+    border-color: #e8e8e8;
 }
 [data-theme="light"] .conn-detect-btn {
     background: rgba(0,170,94,0.08) !important;
@@ -2315,8 +2316,8 @@
 }
 [data-theme="light"] .conn-api-desc { color: #6b7280; }
 [data-theme="light"] .conn-api-status {
-    background: var(--lt-surface);
-    border-color: var(--lt-border);
+    background: transparent;
+    border-color: #e8e8e8;
 }
 [data-theme="light"] .conn-api-key-label { color: var(--lt-text-primary); }
 [data-theme="light"] .conn-api-key-val { color: #6b7280; }
@@ -2333,7 +2334,7 @@
     background: #1a1a2e;
 }
 [data-theme="light"] .conn-outbound-panel {
-    background: #fafafa;
+    background: transparent;
     border-color: #e8e8e8;
 }
 [data-theme="light"] .conn-outbound-code {
@@ -2364,11 +2365,11 @@
 [data-theme="light"] .conn-google-feature i { color: var(--lt-accent); }
 .conn-google-privacy { margin-top: 14px; padding: 10px 12px; font-size: 0.75rem; color: #777; line-height: 1.5; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); border-radius: 8px; }
 .conn-google-privacy i { color: #4285F4; margin-right: 6px; }
-[data-theme="light"] .conn-google-privacy { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.06); color: #888; }
+[data-theme="light"] .conn-google-privacy { background: transparent; border-color: #e8e8e8; color: #888; }
 [data-theme="light"] .conn-outbound-code {
-    background: rgba(0,170,94,0.05);
-    border-color: rgba(0,170,94,0.12);
-    color: var(--lt-accent);
+    background: #1a1a2e;
+    border-color: rgba(0,255,136,0.2);
+    color: #00ff88;
 }
 [data-theme="light"] .conn-copy-btn {
     background: rgba(0,170,94,0.08) !important;
@@ -2382,16 +2383,16 @@
 [data-theme="light"] .conn-copy-btn:hover i { color: #016b3a !important; }
 [data-theme="light"] .conn-outbound-body-label { color: #374151; }
 [data-theme="light"] .conn-outbound-pre {
-    background: rgba(0,0,0,0.04);
-    border-color: var(--lt-border);
-    color: #374151;
+    background: #1a1a2e;
+    border-color: #2a2a3e;
+    color: #e0e0e0;
 }
 [data-theme="light"] .conn-outbound-hint {
-    background: var(--lt-surface);
-    border-color: var(--lt-border);
-    color: #6b7280;
+    background: transparent;
+    border-color: #e8e8e8;
+    color: #777;
 }
-[data-theme="light"] .conn-outbound-hint strong { color: #374151; }
+[data-theme="light"] .conn-outbound-hint strong { color: #0a0a0a; }
 [data-theme="light"] .conn-outbound-text { color: #6b7280; }
 
 
@@ -2807,7 +2808,7 @@
 [data-theme="light"] .guide-text-sm   { color: var(--lt-text-muted); }
 [data-theme="light"] .guide-text-xs   { color: var(--lt-text-faint); }
 [data-theme="light"] .guide-label     { color: var(--lt-text-muted); }
-[data-theme="light"] .guide-code      { color: var(--lt-text-secondary); background: rgba(0,0,0,0.04); }
+[data-theme="light"] .guide-code      { color: #e0e0e0; background: #1a1a2e; }
 [data-theme="light"] .guide-nav-link  { color: var(--lt-text-secondary); }
 [data-theme="light"] .guide-nav-link:hover { color: var(--lt-text-primary); }
 
