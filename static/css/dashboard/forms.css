@@ -116,11 +116,15 @@
     background: #ffffff !important;
     color: #111111 !important;
 }
-/* Select arrow — light (covers .form-select, .vc-select, and ALL native selects) */
+/* Select arrow — light (covers EVERY selector pattern: data-theme AND body.light-theme) */
 [data-theme="light"] .form-select,
 [data-theme="light"] .vc-select,
 [data-theme="light"] select.form-control,
-[data-theme="light"] select {
+[data-theme="light"] select,
+body.light-theme .form-select,
+body.light-theme .vc-select,
+body.light-theme select.form-control,
+body.light-theme select {
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23555555' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important;
     background-repeat: no-repeat !important;
     background-position: right 0.75rem center !important;
@@ -129,6 +133,11 @@
     -webkit-appearance: none !important;
     -moz-appearance: none !important;
     appearance: none !important;
+}
+/* Also ensure background-color doesn't clobber on general light input rule */
+[data-theme="light"] select,
+body.light-theme select {
+    background-color: #ffffff !important;
 }
 
 /* ================================================================
@@ -758,3 +767,34 @@
 [data-theme="light"] .vc-btn-ghost:hover { color: #555; }
 [data-theme="light"] .vc-actions { border-top-color: #e0e0e0; }
 [data-theme="light"] .vc-chip-warn { background: rgba(217,119,6,0.06); color: #d97706; border-color: rgba(217,119,6,0.2); }
+
+/* Setup steps — clean numbered list (no rounded circles) */
+.vc-setup-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+.vc-step {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid #111;
+    font-size: 0.85rem;
+    color: #aaa;
+    line-height: 1.5;
+}
+.vc-step:last-child { border-bottom: none; }
+.vc-step strong { color: #fff; }
+.vc-step-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #00ff88;
+    min-width: 18px;
+    flex-shrink: 0;
+}
+
+[data-theme="light"] .vc-step { border-bottom-color: #e8e8e8; color: #666; }
+[data-theme="light"] .vc-step strong { color: #111; }
+[data-theme="light"] .vc-step-num { color: #059669; }

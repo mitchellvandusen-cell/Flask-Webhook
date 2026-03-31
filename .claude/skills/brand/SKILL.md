@@ -33,6 +33,13 @@ This skill auto-activates when the task involves any of these:
 - **Tagline**: "Stop Chasing Leads. Let AI Close Them."
 - **Product type**: White-label AI-powered SMS and Voice bot platform for insurance agents
 
+### Brand Positioning
+- **High-end, luxurious, professional, bold** — this is a premium product ($149-$350/mo) that must look like it costs $500+/mo
+- Every UI surface must convey authority, technological strength, and premium craftsmanship
+- No generic Bootstrap patterns, no cheap rounded boxes, no AI slop aesthetics
+- Think Bloomberg Terminal meets Stripe Dashboard — clean data hierarchy, typography-driven sections, monospace accents for technical values
+- Users must feel they are logging into an expensive, powerful tool — not a free trial SaaS
+
 ### Logo (Favicon)
 The logo is a **neon green robot face** — a friendly, rounded robot head with antenna, ears, eyes with white highlights, and a rectangular mouth. Located at `static/favicon.svg`.
 

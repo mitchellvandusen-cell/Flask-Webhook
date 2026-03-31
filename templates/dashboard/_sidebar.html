@@ -105,16 +105,10 @@
                     {% if not current_user.is_seat_user or current_user.has_permission('can_change_bot_config') %}
                     <div class="sec-label">Configuration</div>
 
-                    <!-- SMS Bot -->
-                    <div class="l2-acc" onclick="toggleL2(this)">SMS Bot <span class="ch2">▶</span></div>
-                    <div class="l2-body">
-                        <div class="l2-inner">
-                            <div class="l3-item" onclick="activateL3(this); navToSms('identity');">Bot Identity</div>
-                            <div class="l3-item" onclick="activateL3(this); navToSms('identity');">Initial Message</div>
-                            <div class="l3-item" onclick="activateL3(this); navToSms('calendar');">Calendar</div>
-                            <div class="l3-item" onclick="activateL3(this); navToSms('smsnumbers');">Send SMS Via</div>
-                        </div>
-                    </div>
+                    <!-- SMS Bot — each item navigates to its own panel -->
+                    <div class="l2-item" onclick="activateL2(this); navToSms('identity');">Bot Identity</div>
+                    <div class="l2-item" onclick="activateL2(this); navToSms('calendar');">Calendar & CRM</div>
+                    <div class="l2-item" onclick="activateL2(this); navToSms('smsnumbers');">SMS Numbers</div>
 
                     {% if not is_sms_only %}
                     <!-- Voice AI -->
@@ -123,14 +117,7 @@
                     {% endif %}
 
                     <!-- Workflows -->
-                    <div class="l2-acc" onclick="toggleL2(this)">Workflows <span class="ch2">▶</span></div>
-                    <div class="l2-body">
-                        <div class="l2-inner">
-                            <div class="l3-item" onclick="activateL3(this); sidebarNavigate('workflows', null);">My Workflows</div>
-                            <div class="l3-item" onclick="activateL3(this); sidebarNavigate('workflows', null);">Templates</div>
-                            <div class="l3-item" onclick="activateL3(this); sidebarNavigate('workflows', null);">Triggers</div>
-                        </div>
-                    </div>
+                    <div class="l2-item" onclick="activateL2(this); sidebarNavigate('workflows', null);">Workflows</div>
 
                     <div class="l2-item" onclick="activateL2(this); sidebarNavigate('advanced', null);">Advanced</div>
                     {% endif %}
