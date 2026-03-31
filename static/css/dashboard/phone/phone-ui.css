@@ -287,7 +287,7 @@
 .ios-app-icon-img {
     width: 52px;
     height: 52px;
-    border-radius: 12px;
+    border-radius: 2px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -593,7 +593,7 @@
     align-items: center;
     gap: 5px;
     padding: 4px 10px;
-    border-radius: 12px;
+    border-radius: 2px;
     background: rgba(255,255,255,0.06);
     border: 1px solid rgba(255,255,255,0.10);
     color: #888888;

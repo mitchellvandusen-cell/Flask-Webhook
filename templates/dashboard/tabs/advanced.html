@@ -11,27 +11,27 @@
                     </p>
 
                     <!-- ── SECTION 1: PERSONALITY & TONE ── -->
-                    <div style="margin-bottom: 32px;">
+                    <div class="adv-section">
                         <h5 class="adv-section-heading">
                             <i class="fa-solid fa-masks-theater me-2"></i>Personality & Tone
                         </h5>
 
                         <!-- Professionalism Slider -->
-                        <div class="adv-section-card" style="margin-bottom: 24px;">
+                        <div class="adv-section-card adv-card-spaced">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                                 <label class="adv-toggle-label">Professionalism Level</label>
-                                <span id="profLevelLabel" style="color: var(--accent); font-weight: 700; font-size: 0.9rem;">Casual</span>
+                                <span id="profLevelLabel" class="adv-level-val">Casual</span>
                             </div>
                             <input type="range" id="professionalism_level" min="0" max="5" step="1"
                                    value="{{ bot_settings.professionalism_level|default(0) }}"
                                    oninput="updateProfLabel(this.value)"
-                                   style="width: 100%; accent-color: var(--accent); cursor: pointer;">
-                            <div class="adv-slider-labels" style="display: flex; justify-content: space-between; margin-top: 6px;">
+                                   class="adv-range-input">
+                            <div class="adv-slider-labels">
                                 <span>Casual & Friendly</span>
                                 <span>Balanced</span>
                                 <span>Ultra Professional</span>
                             </div>
-                            <p class="adv-hint" style="margin-top: 8px; margin-bottom: 0;">
+                            <p class="adv-hint">
                                 0 = current conversational style with personality. 5 = formal, corporate-level professionalism.
                             </p>
                         </div>
@@ -49,9 +49,9 @@
                         </div>
 
                         <!-- Response Length -->
-                        <div class="adv-section-card" style="padding: 16px 20px; margin-bottom: 12px;">
-                            <label class="adv-toggle-label" style="display: block; margin-bottom: 10px;">Response Length</label>
-                            <div style="display: flex; gap: 8px;">
+                        <div class="adv-section-card adv-card-compact">
+                            <label class="adv-toggle-label adv-label-block">Response Length</label>
+                            <div class="adv-resp-row">
                                 {% for val, label, desc in [('short', 'Short', '1-2 sentences'), ('balanced', 'Balanced', '2-4 sentences'), ('detailed', 'Detailed', 'Full explanations')] %}
                                 <button type="button" class="resp-len-btn {{ 'active' if bot_settings.response_length|default('balanced') == val }}"
                                         data-value="{{ val }}" onclick="selectResponseLength('{{ val }}')">
@@ -63,7 +63,7 @@
                     </div>
 
                     <!-- ── SECTION 2: BEHAVIOR CONTROLS ── -->
-                    <div style="margin-bottom: 32px;">
+                    <div class="adv-section">
                         <h5 class="adv-section-heading">
                             <i class="fa-solid fa-sliders me-2"></i>Behavior Controls
                         </h5>
@@ -141,19 +141,19 @@
                         </div>
 
                         <!-- Objection Persistence -->
-                        <div class="adv-section-card" style="padding: 16px 20px; margin-bottom: 12px;">
+                        <div class="adv-section-card adv-card-compact">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                 <div>
                                     <label class="adv-toggle-label">Objection Persistence</label>
                                     <p class="adv-toggle-desc">How many angles to try before a graceful exit</p>
                                 </div>
-                                <span id="persistenceLabel" style="color: var(--accent); font-weight: 700; font-size: 0.9rem;">{{ bot_settings.objection_persistence|default(3) }} angles</span>
+                                <span id="persistenceLabel" class="adv-level-val">{{ bot_settings.objection_persistence|default(3) }} angles</span>
                             </div>
                             <input type="range" id="objection_persistence" min="1" max="5" step="1"
                                    value="{{ bot_settings.objection_persistence|default(3) }}"
                                    oninput="document.getElementById('persistenceLabel').textContent = this.value + ' angles'"
-                                   style="width: 100%; accent-color: var(--accent); cursor: pointer;">
-                            <div class="adv-slider-labels" style="display: flex; justify-content: space-between; margin-top: 6px;">
+                                   class="adv-range-input">
+                            <div class="adv-slider-labels">
                                 <span>Gentle (1)</span>
                                 <span>Persistent (5)</span>
                             </div>
@@ -161,7 +161,7 @@
                     </div>
 
                     <!-- ── SECTION 3: AFTER HOURS ── -->
-                    <div style="margin-bottom: 32px;">
+                    <div class="adv-section">
                         <h5 class="adv-section-heading">
                             <i class="fa-solid fa-moon me-2"></i>After Hours
                         </h5>
@@ -194,18 +194,18 @@
                     </div>
 
                     <!-- ── SECTION 4: CUSTOM OUTBOUND MESSAGES ── -->
-                    <div style="margin-bottom: 32px;">
+                    <div class="adv-section">
                         <h5 class="adv-section-heading">
                             <i class="fa-solid fa-paper-plane me-2"></i>Custom Outbound Messages
                         </h5>
-                        <p class="adv-desc" style="margin-bottom: 16px;">
+                        <p class="adv-desc adv-desc-spaced">
                             Add your own outbound templates. GrokBot sends each message once per lead, checks it off, and never repeats it.
                             After all custom messages are sent, GrokBot switches to fully automated AI responses.
                             <strong class="adv-hybrid-note">Hybrid mode: your text drip + GrokBot's intelligence.</strong>
                         </p>
                         <div id="outboundContainer">
                             {% for msg in bot_settings.outbound_messages|default([]) %}
-                            <div class="outbound-msg-row" style="display: flex; gap: 8px; margin-bottom: 8px;">
+                            <div class="outbound-msg-row">
                                 <span class="adv-outbound-num">{{ loop.index }}.</span>
                                 <textarea class="outbound-msg-input adv-outbound-textarea" rows="2">{{ msg }}</textarea>
                                 <button type="button" onclick="removeOutboundMsg(this)" class="adv-remove-btn">
@@ -220,11 +220,11 @@
                     </div>
 
                     <!-- ── SECTION 5: CUSTOM BEHAVIOR INSTRUCTIONS ── -->
-                    <div style="margin-bottom: 32px;">
+                    <div class="adv-section">
                         <h5 class="adv-section-heading">
                             <i class="fa-solid fa-pen-fancy me-2"></i>Custom Behavior Instructions
                         </h5>
-                        <p class="adv-desc" style="margin-bottom: 12px;">
+                        <p class="adv-desc adv-desc-tight">
                             Tell GrokBot exactly how you want it to behave. These instructions override default behavior.
                         </p>
                         <textarea id="custom_behavior" rows="6"
@@ -236,19 +236,19 @@
                     </div>
 
                     <!-- ── SECTION: ACCOUNT SECURITY ── -->
-                    <div style="margin-bottom: 32px;">
+                    <div class="adv-section">
                         <h5 class="adv-section-heading">
                             <i class="fa-solid fa-shield-halved me-2"></i>Account Security
                         </h5>
 
                         <!-- Two-Factor Authentication -->
-                        <div class="adv-section-card" id="twoFactorSection" style="padding: 20px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <div class="adv-section-card" id="twoFactorSection">
+                            <div class="adv-toggle-header">
                                 <div>
-                                    <label class="adv-toggle-label" style="margin-bottom: 2px;">Two-Factor Authentication</label>
-                                    <p class="adv-toggle-desc" style="margin: 0;">Require a verification code sent to your phone each time you log in</p>
+                                    <label class="adv-toggle-label">Two-Factor Authentication</label>
+                                    <p class="adv-toggle-desc">Require a verification code sent to your phone each time you log in</p>
                                 </div>
-                                <div id="tfaBadge" style="display: none; padding: 4px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 700;"></div>
+                                <div id="tfaBadge" class="adv-tfa-badge" style="display:none;"></div>
                             </div>
 
                             <!-- Status: Loading -->

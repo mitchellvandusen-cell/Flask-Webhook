@@ -81,45 +81,42 @@
 
                                 <!-- Quick Connect: auto-detect CRM from API key -->
                                 <div class="conn-quick-connect">
-                                    <label style="color:var(--accent);font-weight:700;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;display:block;">
-                                        <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Quick Connect
-                                    </label>
-                                    <div class="d-flex gap-2">
-                                        <input type="password" id="quickConnectKey" class="form-control form-control-sm conn-input-dark" placeholder="Paste your CRM API key here — we'll detect which CRM it belongs to"
-                                               style="flex:1;">
-                                        <button class="btn btn-sm conn-detect-btn" onclick="detectCRM()">
+                                    <label class="vc-label"><i class="fa-solid fa-wand-magic-sparkles me-1"></i> Quick Connect</label>
+                                    <div class="conn-detect-row">
+                                        <input type="password" id="quickConnectKey" class="vc-input conn-detect-input" placeholder="Paste your CRM API key here — we'll detect which CRM it belongs to">
+                                        <button class="vc-btn-secondary" onclick="detectCRM()">
                                             <i class="fa-solid fa-magnifying-glass me-1"></i> Detect
                                         </button>
                                     </div>
-                                    <div id="quickConnectResult" style="margin-top:8px;font-size:0.82rem;min-height:20px;"></div>
+                                    <div id="quickConnectResult" class="conn-detect-result"></div>
                                     <small class="conn-detect-hint">Works with HubSpot and Pipedrive API keys. For OAuth CRMs (Salesforce, Zoho), select manually below.</small>
                                 </div>
 
                                 <!-- CRM selection buttons (6 non-GHL CRMs) -->
-                                <div class="d-flex flex-wrap gap-2 mb-4">
-                                    <button class="btn btn-sm crm-select-btn {% if sub and sub.crm_type == 'salesforce' %}active{% endif %}" data-crm="salesforce" onclick="selectCRM('salesforce')">
+                                <div class="conn-crm-grid">
+                                    <button class="crm-select-btn {% if sub and sub.crm_type == 'salesforce' %}active{% endif %}" data-crm="salesforce" onclick="selectCRM('salesforce')">
                                         <i class="fa-solid fa-cloud me-1"></i> Salesforce
                                     </button>
-                                    <button class="btn btn-sm crm-select-btn {% if sub and sub.crm_type == 'hubspot' %}active{% endif %}" data-crm="hubspot" onclick="selectCRM('hubspot')">
+                                    <button class="crm-select-btn {% if sub and sub.crm_type == 'hubspot' %}active{% endif %}" data-crm="hubspot" onclick="selectCRM('hubspot')">
                                         <i class="fa-solid fa-h me-1"></i> HubSpot
                                     </button>
-                                    <button class="btn btn-sm crm-select-btn {% if sub and sub.crm_type == 'pipedrive' %}active{% endif %}" data-crm="pipedrive" onclick="selectCRM('pipedrive')">
+                                    <button class="crm-select-btn {% if sub and sub.crm_type == 'pipedrive' %}active{% endif %}" data-crm="pipedrive" onclick="selectCRM('pipedrive')">
                                         <i class="fa-solid fa-handshake me-1"></i> Pipedrive
                                     </button>
-                                    <button class="btn btn-sm crm-select-btn {% if sub and sub.crm_type == 'zoho' %}active{% endif %}" data-crm="zoho" onclick="selectCRM('zoho')">
+                                    <button class="crm-select-btn {% if sub and sub.crm_type == 'zoho' %}active{% endif %}" data-crm="zoho" onclick="selectCRM('zoho')">
                                         <i class="fa-solid fa-database me-1"></i> Zoho CRM
                                     </button>
-                                    <button class="btn btn-sm crm-select-btn {% if sub and sub.crm_type == 'zapier' %}active{% endif %}" data-crm="zapier" onclick="selectCRM('zapier')">
+                                    <button class="crm-select-btn {% if sub and sub.crm_type == 'zapier' %}active{% endif %}" data-crm="zapier" onclick="selectCRM('zapier')">
                                         <i class="fa-solid fa-plug me-1"></i> Zapier
                                     </button>
-                                    <button class="btn btn-sm crm-select-btn {% if sub and sub.crm_type == 'insureio' %}active{% endif %}" data-crm="insureio" onclick="selectCRM('insureio')">
+                                    <button class="crm-select-btn {% if sub and sub.crm_type == 'insureio' %}active{% endif %}" data-crm="insureio" onclick="selectCRM('insureio')">
                                         <i class="fa-solid fa-shield-halved me-1"></i> Insureio
                                     </button>
                                 </div>
 
                                 <!-- CRM Setup Guides (hidden by default, shown by selectCRM()) -->
                                 <div id="crmGuide-salesforce" class="crm-guide" style="display:none;">
-                                    <h5 style="font-weight:700;color:var(--accent);margin-bottom:12px;"><i class="fa-solid fa-cloud me-2"></i>Salesforce Setup</h5>
+                                    <h5 class="conn-guide-title"><i class="fa-solid fa-cloud me-2"></i>Salesforce Setup</h5>
                                     <div class="setup-steps">
                                         <div class="wf-step"><div class="wf-step-num">1</div><div class="wf-step-text">In Salesforce Setup, go to <strong>App Manager &gt; New Connected App</strong>.</div></div>
                                         <div class="wf-step"><div class="wf-step-num">2</div><div class="wf-step-text">Enable OAuth, add scopes: <code>api</code>, <code>refresh_token</code>. Copy your <strong>Client ID</strong> and <strong>Client Secret</strong>.</div></div>
@@ -130,7 +127,7 @@
                                 </div>
 
                                 <div id="crmGuide-hubspot" class="crm-guide" style="display:none;">
-                                    <h5 style="font-weight:700;color:var(--accent);margin-bottom:12px;"><i class="fa-solid fa-h me-2"></i>HubSpot Setup</h5>
+                                    <h5 class="conn-guide-title"><i class="fa-solid fa-h me-2"></i>HubSpot Setup</h5>
                                     <div class="setup-steps">
                                         <div class="wf-step"><div class="wf-step-num">1</div><div class="wf-step-text">In HubSpot, go to <strong>Settings &gt; Integrations &gt; Private Apps</strong>.</div></div>
                                         <div class="wf-step"><div class="wf-step-num">2</div><div class="wf-step-text">Create a Private App with scopes: <code>crm.objects.contacts.read/write</code>, <code>crm.objects.deals.read/write</code>.</div></div>
@@ -140,7 +137,7 @@
                                 </div>
 
                                 <div id="crmGuide-pipedrive" class="crm-guide" style="display:none;">
-                                    <h5 style="font-weight:700;color:var(--accent);margin-bottom:12px;"><i class="fa-solid fa-handshake me-2"></i>Pipedrive Setup</h5>
+                                    <h5 class="conn-guide-title"><i class="fa-solid fa-handshake me-2"></i>Pipedrive Setup</h5>
                                     <div class="setup-steps">
                                         <div class="wf-step"><div class="wf-step-num">1</div><div class="wf-step-text">In Pipedrive, go to <strong>Settings &gt; Personal Preferences &gt; API</strong>.</div></div>
                                         <div class="wf-step"><div class="wf-step-num">2</div><div class="wf-step-text">Copy your <strong>API Token</strong> and your <strong>Company Domain</strong> (e.g., "yourcompany" from yourcompany.pipedrive.com).</div></div>
@@ -150,7 +147,7 @@
                                 </div>
 
                                 <div id="crmGuide-zoho" class="crm-guide" style="display:none;">
-                                    <h5 style="font-weight:700;color:var(--accent);margin-bottom:12px;"><i class="fa-solid fa-database me-2"></i>Zoho CRM Setup</h5>
+                                    <h5 class="conn-guide-title"><i class="fa-solid fa-database me-2"></i>Zoho CRM Setup</h5>
                                     <div class="setup-steps">
                                         <div class="wf-step"><div class="wf-step-num">1</div><div class="wf-step-text">Go to <strong>Zoho API Console</strong> (<code>api-console.zoho.com</code>) and create a <strong>Self Client</strong>.</div></div>
                                         <div class="wf-step"><div class="wf-step-num">2</div><div class="wf-step-text">Generate tokens with scopes: <code>ZohoCRM.modules.ALL</code>, <code>ZohoCRM.users.READ</code>. Copy <strong>Client ID</strong>, <strong>Client Secret</strong>, and <strong>Refresh Token</strong>.</div></div>
@@ -160,7 +157,7 @@
                                 </div>
 
                                 <div id="crmGuide-zapier" class="crm-guide" style="display:none;">
-                                    <h5 style="font-weight:700;color:var(--accent);margin-bottom:12px;"><i class="fa-solid fa-plug me-2"></i>Zapier Setup</h5>
+                                    <h5 class="conn-guide-title"><i class="fa-solid fa-plug me-2"></i>Zapier Setup</h5>
                                     <div class="setup-steps">
                                         <div class="wf-step"><div class="wf-step-num">1</div><div class="wf-step-text">In Zapier, create a new Zap with a <strong>Webhooks by Zapier &gt; Catch Hook</strong> trigger.</div></div>
                                         <div class="wf-step"><div class="wf-step-num">2</div><div class="wf-step-text">Copy the <strong>Catch Hook URL</strong> that Zapier generates.</div></div>
@@ -170,7 +167,7 @@
                                 </div>
 
                                 <div id="crmGuide-insureio" class="crm-guide" style="display:none;">
-                                    <h5 style="font-weight:700;color:var(--accent);margin-bottom:12px;"><i class="fa-solid fa-shield-halved me-2"></i>Insureio Setup</h5>
+                                    <h5 class="conn-guide-title"><i class="fa-solid fa-shield-halved me-2"></i>Insureio Setup</h5>
                                     <div class="setup-steps">
                                         <div class="wf-step"><div class="wf-step-num">1</div><div class="wf-step-text">In Insureio, go to <strong>Account Settings</strong> and find your <strong>API Key</strong>.</div></div>
                                         <div class="wf-step"><div class="wf-step-num">2</div><div class="wf-step-text">Find your <strong>Brand/Profile ID</strong> from the Brands section (required for lead creation).</div></div>
@@ -179,24 +176,24 @@
                                 </div>
 
                                 <!-- Integration Config Form (shown by selectCRM for non-GHL CRMs) -->
-                                <div id="integrationConfigForm" style="margin-top:20px;display:none;">
-                                    <hr style="border-color:var(--glass-border);margin:16px 0;">
-                                    <h5 style="font-weight:700;" id="configFormTitle">Configuration</h5>
-                                    <div id="configFields" class="row g-3"></div>
-                                    <div class="d-flex gap-2 mt-3">
-                                        <button class="vc-btn-primary btn-sm" onclick="saveIntegration()">
+                                <div id="integrationConfigForm" class="conn-config-form" style="display:none;">
+                                    <div class="conn-config-divider"></div>
+                                    <h5 class="conn-config-title" id="configFormTitle">Configuration</h5>
+                                    <div id="configFields" class="conn-config-fields"></div>
+                                    <div class="conn-config-actions">
+                                        <button class="vc-btn-primary" onclick="saveIntegration()">
                                             <i class="fa-solid fa-floppy-disk me-1"></i> Save Configuration
                                         </button>
                                         <button class="vc-btn-secondary" onclick="testIntegration()">
                                             <i class="fa-solid fa-vial me-1"></i> Test Connection
                                         </button>
                                     </div>
-                                    <div id="integrationResult" style="margin-top:10px;font-size:0.85rem;"></div>
+                                    <div id="integrationResult" class="conn-config-result"></div>
                                 </div>
 
                                 {% if sub and sub.crm_type and sub.crm_type != 'ghl' %}
-                                <div class="mt-3 p-3 conn-success-box">
-                                    <small style="color:var(--accent);"><i class="fa-solid fa-circle-check me-1"></i> Currently connected: <strong>{{ sub.crm_type|upper }}</strong></small>
+                                <div class="conn-connected-box">
+                                    <small class="conn-connected-text"><i class="fa-solid fa-circle-check me-1"></i> Currently connected: <strong>{{ sub.crm_type|upper }}</strong></small>
                                 </div>
                                 {% endif %}
                             </div>
@@ -211,16 +208,16 @@
 
                                 <div id="apiKeySection">
                                     <div id="apiKeyStatus" class="conn-api-status">
-                                        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+                                        <div class="conn-api-key-row">
                                             <div>
                                                 <strong class="conn-api-key-label">API Key:</strong>
                                                 <span id="apiKeyDisplay" class="conn-api-key-val">Loading...</span>
                                             </div>
-                                            <div class="d-flex gap-2">
-                                                <button class="btn btn-sm btn-outline-success" onclick="generateApiKey()" id="btnGenKey">
+                                            <div class="conn-api-key-actions">
+                                                <button class="vc-btn-primary" onclick="generateApiKey()" id="btnGenKey">
                                                     <i class="fa-solid fa-key me-1"></i> Generate Key
                                                 </button>
-                                                <button class="btn btn-sm btn-outline-danger" onclick="revokeApiKey()" id="btnRevokeKey" style="display:none;">
+                                                <button class="vc-btn-secondary conn-btn-danger" onclick="revokeApiKey()" id="btnRevokeKey" style="display:none;">
                                                     <i class="fa-solid fa-ban me-1"></i> Revoke
                                                 </button>
                                             </div>
@@ -228,18 +225,18 @@
                                     </div>
 
                                     <!-- Outbound Webhook URL -->
-                                    <div style="margin-top:14px;display:flex;gap:10px;align-items:end;flex-wrap:wrap;">
-                                        <div style="flex:1;min-width:250px;">
-                                            <label class="conn-webhook-url-label">Outbound Webhook URL (HTTPS)</label>
-                                            <input type="url" id="apiWebhookUrl" class="form-control form-control-sm conn-api-input"
+                                    <div class="conn-webhook-row">
+                                        <div class="conn-webhook-field">
+                                            <label class="vc-label">Outbound Webhook URL (HTTPS)</label>
+                                            <input type="url" id="apiWebhookUrl" class="vc-input"
                                                    placeholder="https://your-app.com/webhook/grokbot">
                                         </div>
-                                        <button class="btn btn-sm btn-primary" onclick="saveWebhookUrl()" style="height:31px;">
+                                        <button class="vc-btn-primary" onclick="saveWebhookUrl()">
                                             <i class="fa-solid fa-floppy-disk me-1"></i> Save
                                         </button>
                                     </div>
 
-                                    <div style="margin-top:8px;">
+                                    <div class="conn-webhook-secret-row">
                                         <small class="conn-webhook-secret-hint">
                                             <i class="fa-solid fa-shield-halved me-1"></i> Webhook Secret:
                                             <span id="webhookSecretPreview" class="conn-webhook-secret-val">—</span>
@@ -247,8 +244,8 @@
                                     </div>
 
                                     <!-- Quick start code -->
-                                    <div class="conn-quickstart-box" style="margin-top:16px;">
-                                        <strong style="color:var(--accent);font-size:0.85rem;">Quick Start</strong>
+                                    <div class="conn-quickstart-box">
+                                        <strong class="conn-quickstart-label">Quick Start</strong>
                                         <pre class="conn-quickstart-pre">curl -X POST {{ request.host_url }}api/v1/chat/completions \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
@@ -264,9 +261,9 @@
                             <!-- ── Panel: Outbound Calls ── -->
                             <div id="cntab-panel-outbound" style="display:none;">
                                 <div class="vc-status-bar" style="margin-bottom:12px;"><i class="fa-solid fa-arrow-right-from-bracket"></i><span>Outbound Call Trigger</span></div>
-                                <p class="conn-api-desc" style="margin-bottom:16px;">Trigger an AI outbound call from your CRM or automation by sending a POST request to this endpoint.</p>
-                                <div class="p-3 conn-outbound-panel">
-                                    <div class="d-flex align-items-center gap-2">
+                                <p class="conn-api-desc conn-desc-spaced">Trigger an AI outbound call from your CRM or automation by sending a POST request to this endpoint.</p>
+                                <div class="conn-outbound-panel">
+                                    <div class="conn-code-row">
                                         <code class="conn-outbound-code">
                                             POST https://{{ request.host }}/voice/outbound-call
                                         </code>
@@ -290,12 +287,12 @@
                             <!-- ── Panel: Google Calendar + Meet ── -->
                             <div id="cntab-panel-google" style="display:none;">
                                 <div class="vc-status-bar" style="margin-bottom:12px;"><i class="fa-brands fa-google"></i><span>Google Calendar & Meet</span></div>
-                                <p class="conn-api-desc" style="margin-bottom:16px;">Connect your Google Calendar to schedule appointments and start Google Meet video consultations with leads directly from the dialer.</p>
+                                <p class="conn-api-desc conn-desc-spaced">Connect your Google Calendar to schedule appointments and start Google Meet video consultations with leads directly from the dialer.</p>
 
-                                <div id="googleCalNotConnected" class="p-3 conn-outbound-panel">
-                                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+                                <div id="googleCalNotConnected" class="conn-outbound-panel conn-panel-padded">
+                                    <div class="conn-google-row">
                                         <div class="conn-google-icon">
-                                            <i class="fa-solid fa-calendar-days" style="color:#4285F4;font-size:1.2rem;"></i>
+                                            <i class="fa-solid fa-calendar-days conn-icon-google"></i>
                                         </div>
                                         <div>
                                             <div class="conn-google-title">Google Calendar</div>

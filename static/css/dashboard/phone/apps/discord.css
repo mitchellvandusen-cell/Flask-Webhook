@@ -685,7 +685,7 @@
     flex: 1; resize: none;
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 12px;
+    border-radius: 2px;
     padding: 10px 14px;
     color: #e0e0e0; font-size: 0.85rem;
     font-family: inherit;
@@ -733,7 +733,7 @@
 .assistant-nudge {
     z-index: 9989; max-width: 280px; padding: 10px 16px;
     background: rgba(16,16,24,0.95); backdrop-filter: none;
-    border: 1px solid rgba(255,255,255,0.10); border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.10); border-radius: 2px;
     color: #cccccc; font-size: 0.8rem; line-height: 1.5;
     box-shadow: 0 8px 24px rgba(0,0,0,0.40);
     cursor: pointer;

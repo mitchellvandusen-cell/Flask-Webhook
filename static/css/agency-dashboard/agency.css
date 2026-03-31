@@ -95,7 +95,7 @@
 }
 .agency-kpi-card {
     padding: 20px;
-    border-radius: 12px;
+    border-radius: 2px;
     text-align: center;
 }
 .agency-kpi-icon {
@@ -341,7 +341,7 @@
 
 .ak-tile {
     padding: 18px 14px;
-    border-radius: 12px;
+    border-radius: 2px;
     text-align: center;
     position: relative;
     overflow: hidden;
@@ -508,7 +508,7 @@
 
 .ak-bucket-tile {
     padding: 18px 16px;
-    border-radius: 12px;
+    border-radius: 2px;
     position: relative;
     overflow: hidden;
 }
@@ -555,7 +555,7 @@
 
 .ak-avg-tile {
     padding: 18px 16px;
-    border-radius: 12px;
+    border-radius: 2px;
     text-align: center;
 }
 .ak-avg-icon {

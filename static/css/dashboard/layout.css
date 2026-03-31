@@ -183,7 +183,7 @@
    3. FLASH ALERTS
    ================================================================ */
 .flash-alert {
-    border-radius: 12px;
+    border-radius: 2px;
 }
 
 .alert-close-dark {
@@ -262,7 +262,7 @@
    5. SETUP ALERTS (dynamic server-side colors)
    ================================================================ */
 .setup-alert {
-    border-radius: 12px;
+    border-radius: 2px;
 }
 
 .setup-alert-btn {
@@ -393,7 +393,7 @@
         font-size: 1.15rem !important;
         font-weight: 600 !important;
         padding: 16px 20px !important;
-        border-radius: 12px;
+        border-radius: 2px;
         display: block;
         text-align: left;
         color: #ffffff !important;
@@ -433,7 +433,7 @@
         font-size: 1.05rem !important;
         font-weight: 600 !important;
         padding: 12px 20px 12px 40px !important;
-        border-radius: 12px;
+        border-radius: 2px;
         color: #ffffff !important;
     }
     .nav-dropdown-menu .dropdown-item:hover {
@@ -491,7 +491,7 @@
     .ps-cell h4     { font-size: 1rem; }
     .ps-cell p      { font-size: 0.82rem; }
 
-    .cap-grid       { border-radius: 12px !important; }
+    .cap-grid       { border-radius: 2px !important; }
     .cap-item       { padding: 20px 16px; }
     .cap-item h6    { font-size: 0.82rem; }
     .cap-item p     { font-size: 0.74rem; }
@@ -658,7 +658,7 @@
     align-items: center;
     gap: 14px;
     padding: 14px 16px;
-    border-radius: 12px;
+    border-radius: 2px;
     margin-bottom: 2px;
     color: #aaaaaa;
     font-size: 0.95rem;
@@ -969,7 +969,7 @@
         box-shadow: none !important;
     }
     .iphone-btn-right, .iphone-btn-left1, .iphone-btn-left2 { display: none !important; }
-    .iphone-screen       { border-radius: 12px !important; }
+    .iphone-screen       { border-radius: 2px !important; }
     .ios-dynamic-island  { display: none !important; }
     .ios-status-bar      { height: 8px !important; padding: 0 !important; }
     .ios-status-bar *    { display: none; }
@@ -985,7 +985,7 @@
     #dlrColPhone.dlr-mobile-active .iphone-frame  { flex: 1; display: flex; }
     #dlrColPhone.dlr-mobile-active .iphone-bezel  { flex: 1; display: flex; }
     #dlrColPhone.dlr-mobile-active .iphone-screen { flex: 1; }
-    .dlr-col { border-radius: 12px !important; min-height: auto !important; }
+    .dlr-col { border-radius: 2px !important; min-height: auto !important; }
 
     /* Border radius and padding overrides */
     [style*="border-radius:24px"], [style*="border-radius: 24px"] {

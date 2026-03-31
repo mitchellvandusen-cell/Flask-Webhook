@@ -30,7 +30,7 @@
 #dialerStatsPanel {
     background: #0a0a0a;
     border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 12px;
+    border-radius: 2px;
     overflow: hidden;
 }
 [data-theme="light"] #dialerStatsPanel {
@@ -41,7 +41,7 @@
 #dialerSettingsPanel {
     background: #0a0a0a;
     border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 12px;
+    border-radius: 2px;
     overflow: hidden;
 }
 [data-theme="light"] #dialerSettingsPanel {
