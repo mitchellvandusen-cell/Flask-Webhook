@@ -94,7 +94,7 @@
 [data-theme="light"] select,
 [data-theme="light"] .form-control,
 [data-theme="light"] .form-select {
-    background: #ffffff !important;
+    background-color: #ffffff !important;
     color: #111111 !important;
     border-color: #d0d0d0 !important;
     box-shadow: none !important;
@@ -107,7 +107,7 @@
 [data-theme="light"] select:focus,
 [data-theme="light"] .form-control:focus,
 [data-theme="light"] .form-select:focus {
-    background: #ffffff !important;
+    background-color: #ffffff !important;
     border-color: #059669 !important;
     color: #111111 !important;
     box-shadow: 0 0 0 2px rgba(5,150,105,0.15) !important;
