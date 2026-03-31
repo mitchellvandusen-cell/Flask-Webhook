@@ -21,9 +21,10 @@
    INPUT GROUP TEXT
    ================================================================ */
 .input-group-text {
-    background: #111111;
-    border: 1px solid #333333;
+    background: #0a0a0a;
+    border: 1px solid #222222;
     border-right: none;
+    border-radius: 2px 0 0 2px;
     color: #888888;
 }
 .input-group:focus-within .input-group-text {
@@ -49,12 +50,12 @@
    ================================================================ */
 .form-control,
 .form-select {
-    background: #171717 !important;
+    background: #0a0a0a !important;
     color: #ffffff !important;
-    border: 1px solid #333333 !important;
-    border-radius: 6px !important;
+    border: 1px solid #222222 !important;
+    border-radius: 2px !important;
     padding: 12px !important;
-    font-size: 1rem;
+    font-size: 0.9rem;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
     box-shadow: none !important;
 }
@@ -69,8 +70,8 @@
 }
 .form-control:focus-visible,
 .form-select:focus-visible {
-    outline: 2px solid rgba(0,255,136,0.40) !important;
-    outline-offset: 2px !important;
+    outline: 1px solid rgba(0,255,136,0.40) !important;
+    outline-offset: 0 !important;
 }
 
 /* Select arrow — dark */
@@ -600,7 +601,7 @@ body.light-theme select {
 .vc-input {
     background: #0a0a0a !important;
     border: 1px solid #1a1a1a !important;
-    border-radius: 6px !important;
+    border-radius: 2px !important;
     color: #ffffff !important;
     padding: 10px 14px !important;
     font-size: 0.88rem !important;
@@ -613,7 +614,7 @@ body.light-theme select {
 .vc-select {
     background: #0a0a0a !important;
     border: 1px solid #1a1a1a !important;
-    border-radius: 6px !important;
+    border-radius: 2px !important;
     color: #ffffff !important;
     padding: 10px 14px !important;
     font-size: 0.88rem !important;
@@ -631,7 +632,7 @@ body.light-theme select {
 .vc-textarea {
     background: #0a0a0a !important;
     border: 1px solid #1a1a1a !important;
-    border-radius: 6px !important;
+    border-radius: 2px !important;
     color: #ffffff !important;
     padding: 12px 14px !important;
     font-size: 0.85rem !important;
@@ -685,7 +686,7 @@ body.light-theme select {
     font-size: 0.82rem;
     letter-spacing: 0.3px;
     border: none;
-    border-radius: 6px;
+    border-radius: 2px;
     cursor: pointer;
     transition: background 0.15s;
 }
@@ -701,7 +702,7 @@ body.light-theme select {
     font-weight: 600;
     font-size: 0.82rem;
     border: 1px solid #242424;
-    border-radius: 6px;
+    border-radius: 2px;
     cursor: pointer;
     transition: all 0.15s;
 }
