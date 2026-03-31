@@ -504,9 +504,28 @@ body.light-theme select {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 0;
+    padding: 18px 0;
     border-bottom: 1px solid #1a1a1a;
     margin-bottom: 28px;
+}
+.vc-status-bar span {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    color: #fff;
+}
+.vc-status-bar i {
+    font-size: 0.9rem;
+    color: var(--accent);
+    margin-right: 4px;
+}
+.vc-status-bar .vc-status-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 400;
+    letter-spacing: 0;
+    color: #666;
 }
 .vc-status-left {
     display: flex;
@@ -736,10 +755,10 @@ body.light-theme select {
 }
 
 /* ── Light theme: voice/sms config ── */
-[data-theme="light"] .vc-status-bar { background: transparent; border-bottom-color: #e8e8e8; color: #0a0a0a; }
+[data-theme="light"] .vc-status-bar { background: transparent; border-bottom-color: #e8e8e8; }
 [data-theme="light"] .vc-status-bar i { color: #059669; }
 [data-theme="light"] .vc-status-bar span { color: #0a0a0a; }
-[data-theme="light"] .vc-status-val { color: #777; }
+[data-theme="light"] .vc-status-val { color: #777; font-size: 0.82rem; font-weight: 400; }
 [data-theme="light"] .vc-status-value { color: #0a0a0a; }
 [data-theme="light"] .vc-status-label { color: #777; }
 [data-theme="light"] .vc-power-label { color: #059669; }
