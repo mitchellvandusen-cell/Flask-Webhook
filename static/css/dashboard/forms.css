@@ -493,6 +493,11 @@ body.light-theme select {
 .vc-container {
     padding: 0;
 }
+[data-theme="light"] .vc-container {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
 
 /* Status bar — top strip showing engine + power state */
 .vc-status-bar {
@@ -731,12 +736,12 @@ body.light-theme select {
 }
 
 /* ── Light theme: voice/sms config ── */
-[data-theme="light"] .vc-status-bar { background: #0a0a0a; border-bottom: none; padding: 14px 20px; color: #fff; }
-[data-theme="light"] .vc-status-bar i { color: #00ff88; }
-[data-theme="light"] .vc-status-bar span { color: #fff; }
-[data-theme="light"] .vc-status-val { color: rgba(255,255,255,0.6); }
-[data-theme="light"] .vc-status-value { color: #fff; }
-[data-theme="light"] .vc-status-label { color: rgba(255,255,255,0.5); }
+[data-theme="light"] .vc-status-bar { background: transparent; border-bottom-color: #e8e8e8; color: #0a0a0a; }
+[data-theme="light"] .vc-status-bar i { color: #059669; }
+[data-theme="light"] .vc-status-bar span { color: #0a0a0a; }
+[data-theme="light"] .vc-status-val { color: #777; }
+[data-theme="light"] .vc-status-value { color: #0a0a0a; }
+[data-theme="light"] .vc-status-label { color: #777; }
 [data-theme="light"] .vc-power-label { color: #059669; }
 [data-theme="light"] .vc-field-group { border-bottom-color: #e8e8e8; }
 [data-theme="light"] .vc-label { color: #777; }

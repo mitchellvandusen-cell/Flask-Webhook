@@ -124,14 +124,11 @@
 
 /* ── Billing Plan Cards — volumetric glass with tier accent borders ── */
 .billing-plan-card {
-    background: var(--glass-bg);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
-    border-top: 1px solid var(--glass-border-top) !important;
-    border-left: 1px solid var(--glass-border-left) !important;
-    border-right: 1px solid var(--glass-border-bottom) !important;
-    border-bottom: 1px solid var(--glass-border-bottom) !important;
-    border-radius: 18px !important;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-radius: 2px !important;
     padding: 28px !important;
     cursor: pointer;
     transition: transform 0.35s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.35s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.35s cubic-bezier(0.25, 0.8, 0.25, 1), background 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -251,20 +248,19 @@
 
 /* ── Billing Plan Card Light Theme ── */
 [data-theme="light"] .billing-plan-card {
-    background: #ffffff;
+    background: transparent;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    border: 1px solid rgba(0,0,0,0.08) !important;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    border: 1px solid #e8e8e8 !important;
+    box-shadow: none;
 }
 [data-theme="light"] .billing-plan-card:hover {
-    box-shadow: 0 16px 40px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.95);
-    border-top-color: rgba(0,0,0,0.12) !important;
+    border-color: rgba(5,150,105,0.3) !important;
+    box-shadow: none;
 }
 [data-theme="light"] .billing-plan-card.selected {
-    border-top-color: #059669 !important;
-    border-left-color: rgba(5,150,105,0.3) !important;
-    box-shadow: 0 0 30px rgba(5,150,105,0.12), 0 8px 24px rgba(0,0,0,0.08);
+    border-color: #059669 !important;
+    box-shadow: none;
 }
 
 /* ── Carved Features Light Theme ── */
@@ -1053,8 +1049,8 @@
 [data-theme="light"] .adv-range-input { accent-color: var(--lt-accent); }
 
 .adv-section-card {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.06);
+    background: transparent;
+    border: none;
     border-radius: 2px;
     padding: 20px;
 }
@@ -1238,8 +1234,8 @@
 
 /* Light theme: Advanced Tab */
 [data-theme="light"] .adv-section-card {
-    background: var(--lt-surface);
-    border-color: var(--lt-border);
+    background: transparent;
+    border-color: #e8e8e8;
 }
 [data-theme="light"] .adv-section-heading { color: var(--lt-accent) !important; }
 [data-theme="light"] .adv-section-heading i { color: var(--lt-accent) !important; }
@@ -1325,10 +1321,11 @@
     display: flex;
     align-items: center;
     gap: 24px;
-    padding: 24px 30px;
-    border-radius: 16px;
-    background: linear-gradient(135deg, rgba(0,255,136,0.08), rgba(0,153,255,0.08));
-    border: 1px solid rgba(0,255,136,0.15);
+    padding: 24px 0;
+    border-radius: 0;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
     margin-bottom: 32px;
     flex-wrap: wrap;
 }
@@ -1387,15 +1384,9 @@
 
 /* Light theme: AI Minutes Tab */
 [data-theme="light"] .aim-balance-banner {
-    background: #0a0a0a;
-    border-color: #1a1a1a;
-    color: #fff;
+    background: transparent;
+    border-bottom-color: #e8e8e8;
 }
-[data-theme="light"] .aim-balance-banner .aim-stat-label { color: rgba(255,255,255,0.6); }
-[data-theme="light"] .aim-balance-banner .aim-balance-val { color: #fff; }
-[data-theme="light"] .aim-balance-banner .aim-sub-label { color: rgba(255,255,255,0.5); }
-[data-theme="light"] .aim-balance-banner .aim-stat-accent { color: #00ff88; }
-[data-theme="light"] .aim-balance-banner .aim-used-val { color: #ef4444; }
 [data-theme="light"] .aim-stat-label { color: #6b7280; }
 [data-theme="light"] .aim-balance-val { color: var(--lt-text-primary); }
 [data-theme="light"] .aim-sub-label { color: #6b7280; }
@@ -1667,7 +1658,8 @@
 .team-kpi-period-row { display: flex; gap: 8px; margin-bottom: 16px; }
 .team-placeholder-wrap { text-align: center; padding: 20px; }
 
-[data-theme="light"] .team-stat-tile { background: #fff; border-color: #e0e0e0; }
+.team-stat-tile { background: transparent; border: none; }
+[data-theme="light"] .team-stat-tile { background: transparent; border: none; }
 
 /* Team modal structural */
 .team-modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
@@ -2051,10 +2043,10 @@
     color: #00b4ff;
 }
 .conn-quick-connect {
-    background: rgba(0,255,136,0.04);
-    border: 1px solid rgba(0,255,136,0.12);
+    background: transparent;
+    border: none;
     border-radius: 2px;
-    padding: 16px;
+    padding: 16px 0;
     margin-bottom: 20px;
 }
 /* Integration panel structural classes */
@@ -2069,7 +2061,7 @@
 .conn-config-fields { display: grid; gap: 12px; }
 .conn-config-actions { display: flex; gap: 8px; margin-top: 16px; }
 .conn-config-result { margin-top: 10px; font-size: 0.85rem; }
-.conn-connected-box { margin-top: 16px; padding: 12px; background: rgba(0,255,136,0.04); border: 1px solid rgba(0,255,136,0.12); border-radius: 2px; }
+.conn-connected-box { margin-top: 16px; padding: 12px; background: transparent; border: none; }
 .conn-connected-text { color: var(--accent); }
 .conn-api-key-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
 .conn-api-key-actions { display: flex; gap: 8px; }
@@ -2126,9 +2118,9 @@
     font-size: 0.85rem;
 }
 .conn-api-status {
-    padding: 14px;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid var(--glass-border);
+    padding: 14px 0;
+    background: transparent;
+    border: none;
     border-radius: 2px;
 }
 .conn-api-key-label {
@@ -2154,10 +2146,10 @@
     color: #666;
 }
 .conn-quickstart-box {
-    padding: 14px;
-    background: rgba(0,255,136,0.04);
-    border: 1px solid rgba(0,255,136,0.1);
-    border-radius: 10px;
+    padding: 14px 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
 }
 .conn-quickstart-pre {
     color: #ccc;
@@ -2170,15 +2162,15 @@
     margin: 8px 0 0;
 }
 .conn-outbound-panel {
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(255,255,255,0.06);
+    background: transparent;
+    border: none;
     border-radius: 2px;
 }
 .conn-training-card {
-    background: rgba(167,139,250,0.04);
-    border: 1px solid rgba(167,139,250,0.15);
-    border-radius: 2px;
-    padding: 16px 20px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
 }
 .conn-outbound-code {
     background: rgba(0,255,136,0.06);

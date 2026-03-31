@@ -796,11 +796,11 @@
     via variables.css — no explicit override needed for bg.
     Override text/border that use hardcoded dark values.)
    ───────────────────────────────────────────────────────────── */
-[data-theme="light"] .ak-leader-card { background: #ffffff; border: 1px solid #e0e0e0; }
-[data-theme="light"] .ak-chart-card  { background: #ffffff; border: 1px solid #e0e0e0; }
-[data-theme="light"] .ak-bucket-tile { background: #ffffff; border: 1px solid #e0e0e0; }
-[data-theme="light"] .ak-avg-tile    { background: #ffffff; border: 1px solid #e0e0e0; }
-[data-theme="light"] .ak-tile        { background: #ffffff; border: 1px solid #e0e0e0; }
+[data-theme="light"] .ak-leader-card { background: transparent; border: none; }
+[data-theme="light"] .ak-chart-card  { background: transparent; border: none; }
+[data-theme="light"] .ak-bucket-tile { background: transparent; border: none; }
+[data-theme="light"] .ak-avg-tile    { background: transparent; border: none; }
+[data-theme="light"] .ak-tile        { background: transparent; border: none; }
 
 /* All-agents table header in light */
 [data-theme="light"] .agency-kpi-grid .ak-all-agents-header,
@@ -839,6 +839,6 @@
 .am-desc { color: #888; font-size: 0.88rem; margin-bottom: 20px; }
 .am-stats-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
 .am-stat-card { background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 2px; padding: 14px 20px; text-align: center; min-width: 120px; flex: 1; }
-[data-theme="light"] .am-stat-card { background: #fff; border-color: #e0e0e0; }
+[data-theme="light"] .am-stat-card { background: transparent; border: none; }
 [data-theme="light"] .am-desc { color: #666; }
 
