@@ -88,10 +88,17 @@
     font-size: 0.85rem;
     color: #ffffff;
     white-space: nowrap;
+    font-family: 'Outfit', sans-serif;
     overflow: hidden;
     transition: opacity 0.2s, max-width 0.25s;
     max-width: 200px;
     letter-spacing: 0.5px;
+}
+.sb-brand-grok {
+    color: #00ff88;
+}
+[data-theme="light"] .sb-brand-grok {
+    color: #059669;
 }
 .sb-toggle {
     margin-left: auto;

@@ -5,14 +5,12 @@
         <div class="sb-brand">
             {% if wl_active and whitelabel.get('logo_url') %}
             <div class="sb-brand-logo"><img src="{{ whitelabel.logo_url }}" alt="{{ whitelabel.get('company_name', 'Logo') }}" class="whitelabel-logo"></div>
-            {% else %}
-            <div class="sb-brand-logo"><img src="{{ url_for('static', filename='favicon.svg') }}" alt="IGB" class="sb-brand-svg"></div>
             {% endif %}
             {% if wl_active and whitelabel.get('company_name') %}
             <span class="sb-brand-text whitelabel-brand-name"
                   {% if whitelabel.get('name_font') %}style="font-family: '{{ whitelabel.name_font }}', sans-serif;{% if whitelabel.get('name_bold') %} font-weight: 700;{% endif %}{% if whitelabel.get('name_italic') %} font-style: italic;{% endif %}{% if whitelabel.get('name_underline') %} text-decoration: underline;{% endif %}"{% endif %}>{{ whitelabel.company_name }} AI Dialer &amp; SMS</span>
             {% else %}
-            <span class="sb-brand-text">InsuranceGrokBot</span>
+            <span class="sb-brand-text">Insurance<span class="sb-brand-grok">Grok</span>Bot</span>
             {% endif %}
             <button class="sb-toggle" id="sbToggle" onclick="toggleSidebar()" title="Collapse sidebar">
                 <i class="fa-solid fa-bars" id="sbToggleIcon"></i>
