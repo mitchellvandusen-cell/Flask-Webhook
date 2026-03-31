@@ -235,13 +235,13 @@
                     .ios-time{font-weight:700;font-size:clamp(0.95rem, 0.78vw, 1.4rem);letter-spacing:-0.3px;}
                     .ios-dynamic-island{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:clamp(100px, 5.5vw, 180px);height:clamp(28px, 1.5vw, 50px);background:#000;border-radius:clamp(20px, 1.04vw, 38px);z-index:20;}
                     /* Dial Mode — positioned on home screen between notch and app grid */
-                    .ios-dial-mode-bar{display:flex;align-items:center;justify-content:center;gap:clamp(6px, 0.5vw, 10px);padding:clamp(6px, 0.4vw, 12px) 0;position:relative;z-index:2;flex-shrink:0;}
-                    .ios-dm-label{font-size:clamp(0.55rem, 0.46vw, 0.72rem);color:#555;font-family:'Inter',sans-serif;white-space:nowrap;letter-spacing:0.8px;font-weight:700;text-transform:uppercase;}
-                    .ios-dm-tabs{display:flex;gap:3px;}
-                    .ios-dm-btn{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#666;font-size:clamp(0.65rem, 0.55vw, 0.88rem);font-weight:800;padding:3px clamp(8px, 0.55vw, 14px);border-radius:clamp(6px, 0.4vw, 12px);cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;white-space:nowrap;letter-spacing:0.3px;text-transform:uppercase;}
-                    .ios-dm-btn:hover{color:#e0e0e0;border-color:rgba(255,255,255,0.15);}
-                    .ios-dm-btn.ios-dm-active{background:rgba(0,255,136,0.18);color:#00ff88;border-color:rgba(0,255,136,0.35);box-shadow:0 0 8px rgba(0,255,136,0.12);}
-                    body.light-theme .ios-dm-btn.ios-dm-active{background:rgba(5,150,105,0.22);color:#059669;border-color:rgba(5,150,105,0.4);box-shadow:0 0 8px rgba(5,150,105,0.1);}
+                    .ios-dial-mode-bar{display:flex;align-items:center;justify-content:center;gap:clamp(8px, 0.6vw, 14px);padding:clamp(8px, 0.5vw, 14px) clamp(16px, 1vw, 28px);position:relative;z-index:2;flex-shrink:0;}
+                    .ios-dm-label{font-size:clamp(0.6rem, 0.5vw, 0.78rem);color:#fff;font-family:'JetBrains Mono','Inter',sans-serif;white-space:nowrap;letter-spacing:1.2px;font-weight:700;text-transform:uppercase;}
+                    .ios-dm-tabs{display:flex;gap:4px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:3px;}
+                    .ios-dm-btn{background:transparent;border:1px solid transparent;color:rgba(255,255,255,0.45);font-size:clamp(0.68rem, 0.58vw, 0.92rem);font-weight:800;padding:5px clamp(12px, 0.7vw, 20px);border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;white-space:nowrap;letter-spacing:0.5px;text-transform:uppercase;}
+                    .ios-dm-btn:hover{color:rgba(255,255,255,0.7);}
+                    .ios-dm-btn.ios-dm-active{background:#00ff88;color:#000;border-color:#00ff88;box-shadow:0 0 12px rgba(0,255,136,0.35);text-shadow:none;}
+                    body.light-theme .ios-dm-btn.ios-dm-active{background:#059669;color:#fff;border-color:#059669;box-shadow:0 0 12px rgba(5,150,105,0.3);}
                     .ios-status-icons{display:flex;align-items:center;gap:5px;}
 
                     /* Home Screen */
@@ -672,8 +672,10 @@
                     body.light-theme .ios-app-label { color: #1a1a2e !important; text-shadow: none !important; }
                     body.light-theme .ios-status-bar { color: #1a1a2e !important; }
                     body.light-theme .ios-dynamic-island { background: #1a1a2e !important; }
-                    body.light-theme .ios-dm-label { color: #aaa !important; }
-                    body.light-theme .ios-dm-btn { color: #aaa !important; }
+                    body.light-theme .ios-dm-label { color: #1a1a2e !important; }
+                    body.light-theme .ios-dm-btn { color: rgba(0,0,0,0.4) !important; }
+                    body.light-theme .ios-dm-tabs { background: rgba(0,0,0,0.08) !important; border-color: rgba(0,0,0,0.1) !important; }
+                    body.light-theme .ios-dm-btn.ios-dm-active { background: #059669 !important; color: #fff !important; border-color: #059669 !important; }
                     body.light-theme .ios-home-indicator { background: rgba(0,0,0,0.2) !important; }
                     body.light-theme .ios-nav-bar { background: #ffffff !important; border-bottom-color: rgba(0,0,0,0.08) !important; }
                     body.light-theme .ios-nav-name { color: #1a1a2e !important; }
