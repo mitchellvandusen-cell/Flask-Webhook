@@ -62,6 +62,7 @@
                     {% endif %}
                     <div class="l2-item" onclick="activateL2(this); sidebarNavigate('dialer', null); setTimeout(dlrOpenContactMgmt, 100);">Contact Management</div>
                     <div class="l2-item" onclick="activateL2(this); sidebarNavigate('carriers', null);">Contracted Carriers</div>
+                    <div class="l2-item" onclick="activateL2(this); sidebarNavigate('logs', null); loadLogs();">Activity Logs</div>
                     {% if is_agency %}
                     <div class="l2-item" onclick="activateL2(this); sidebarNavigate('whitelabel', null);">White Label</div>
                     {% endif %}
@@ -125,6 +126,16 @@
                     <div class="l2-item" onclick="activateL2(this); sidebarNavigate('profile', null);">Profile</div>
 
                 </div>
+            </div>
+
+            <!-- ── FOOTER LINKS ── -->
+            <div class="sb-footer">
+                <div class="sb-acc-divider"></div>
+                <a class="sb-footer-link" href="/" target="_blank"><i class="fa-solid fa-house"></i><span>Homepage</span></a>
+                <a class="sb-footer-link" href="/support" target="_blank"><i class="fa-solid fa-life-ring"></i><span>Support</span></a>
+                <a class="sb-footer-link" href="/getting-started" target="_blank"><i class="fa-solid fa-book-open"></i><span>Getting Started</span></a>
+                <a class="sb-footer-link" href="/privacy" target="_blank"><i class="fa-solid fa-shield-halved"></i><span>Privacy</span></a>
+                <a class="sb-footer-link" href="/terms" target="_blank"><i class="fa-solid fa-file-contract"></i><span>Terms</span></a>
             </div>
 
             <!-- Hidden status elements required by discord.js / slack.js -->

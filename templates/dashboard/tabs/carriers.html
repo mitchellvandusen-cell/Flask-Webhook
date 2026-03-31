@@ -1,54 +1,54 @@
             <div class="tab-pane fade" id="carriers" role="tabpanel">
-                <div class="vc-container" style="  padding: 40px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <h3 style="font-weight:700; margin: 0;">Contracted Carriers</h3>
-                        <span id="carrierCount" style="color: var(--accent); font-weight: 700; font-size: 0.9rem;">
-                            {{ selected_carriers|length if selected_carriers else 0 }} selected
-                        </span>
+                <div class="vc-container">
+                    <div class="vc-status-bar">
+                        <i class="fa-solid fa-building-columns"></i>
+                        <span>Contracted Carriers</span>
+                        <span class="vc-status-val" id="carrierCount">{{ selected_carriers|length if selected_carriers else 0 }} selected</span>
                     </div>
-                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 24px;">
-                        Select the carriers you're contracted with. GrokBot will <strong>only</strong> reference these carriers
-                        when talking to your leads — no more recommending products you can't sell.
-                    </p>
 
-                    <!-- Search filter -->
-                    <div style="margin-bottom: 20px;">
+                    <div class="car-body">
+                        <p class="car-desc">
+                            Select the carriers you're contracted with. GrokBot will <strong>only</strong> reference these carriers
+                            when talking to your leads — no more recommending products you can't sell.
+                        </p>
+
+                        <!-- Search filter -->
                         <input type="text" id="carrierSearch" placeholder="Search carriers..."
-                               class="car-search"
+                               class="vc-input car-search-input"
                                oninput="filterCarriers(this.value)">
-                    </div>
 
-                    <!-- Select All / Clear All -->
-                    <div style="display: flex; gap: 12px; margin-bottom: 16px;">
-                        <button type="button" onclick="selectAllCarriers()" class="car-select-all-btn">
-                            Select All
-                        </button>
-                        <button type="button" onclick="clearAllCarriers()" class="car-clear-btn">
-                            Clear All
-                        </button>
-                    </div>
+                        <!-- Select All / Clear All -->
+                        <div class="car-actions">
+                            <button type="button" onclick="selectAllCarriers()" class="vc-btn-secondary car-action-btn">
+                                Select All
+                            </button>
+                            <button type="button" onclick="clearAllCarriers()" class="vc-btn-secondary car-action-btn">
+                                Clear All
+                            </button>
+                        </div>
 
-                    <!-- Carrier grid -->
-                    <div id="carrierGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; max-height: 450px; overflow-y: auto; padding-right: 8px;">
-                        {% for carrier in carrier_list %}
-                        <label class="carrier-chip {% if carrier.key in selected_carriers %}selected{% endif %}"
-                               data-key="{{ carrier.key }}" data-name="{{ carrier.name|lower }}">
-                            <input type="checkbox" value="{{ carrier.key }}" {% if carrier.key in selected_carriers %}checked{% endif %}
-                                   style="display: none;" onchange="updateCarrierCount()">
-                            <span class="carrier-check"><i class="fa-solid fa-check"></i></span>
-                            <span class="carrier-name">{{ carrier.name }}</span>
-                        </label>
-                        {% endfor %}
-                    </div>
+                        <!-- Carrier grid -->
+                        <div id="carrierGrid" class="car-grid">
+                            {% for carrier in carrier_list %}
+                            <label class="carrier-chip {% if carrier.key in selected_carriers %}selected{% endif %}"
+                                   data-key="{{ carrier.key }}" data-name="{{ carrier.name|lower }}">
+                                <input type="checkbox" value="{{ carrier.key }}" {% if carrier.key in selected_carriers %}checked{% endif %}
+                                       class="car-hidden-input" onchange="updateCarrierCount()">
+                                <span class="carrier-check"><i class="fa-solid fa-check"></i></span>
+                                <span class="carrier-name">{{ carrier.name }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
 
-                    <!-- Save button -->
-                    <div style="margin-top: 24px; display: flex; justify-content: flex-end; align-items: center; gap: 16px;">
-                        <span id="carrierSaveStatus" style="color: var(--accent); font-size: 0.85rem; display: none;">
-                            <i class="fa-solid fa-check me-1"></i> Saved!
-                        </span>
-                        <button type="button" id="saveCarriersBtn" onclick="saveCarriers()" class="car-save-btn">
-                            <i class="fa-solid fa-floppy-disk me-2"></i> Save Carriers
-                        </button>
+                        <!-- Save button -->
+                        <div class="car-save-row">
+                            <span id="carrierSaveStatus" class="car-save-status">
+                                <i class="fa-solid fa-check me-1"></i> Saved!
+                            </span>
+                            <button type="button" id="saveCarriersBtn" onclick="saveCarriers()" class="vc-btn-primary">
+                                <i class="fa-solid fa-floppy-disk me-2"></i> Save Carriers
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

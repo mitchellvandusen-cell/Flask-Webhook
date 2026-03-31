@@ -1,47 +1,53 @@
             <div class="tab-pane fade" id="aiminutes" role="tabpanel">
-                <div class="vc-container" style="background: #0a0a0a; border: 1px solid #1a1a1a; padding: 40px; ">
+                <div class="vc-container">
+                    <div class="vc-status-bar">
+                        <i class="fa-solid fa-microphone-lines"></i>
+                        <span>AI Minutes</span>
+                    </div>
 
                     <!-- Balance Banner -->
                     <div id="aimBalanceBanner" class="aim-balance-banner">
-                        <div style="flex:1; min-width:200px;">
+                        <div class="aim-balance-main">
                             <div class="aim-stat-label">Available Balance</div>
                             <div class="aim-balance-val" id="aimBalanceValue">
-                                <i class="fa-solid fa-spinner fa-spin aim-loading-spinner" style="font-size:1.2rem;"></i>
+                                <i class="fa-solid fa-spinner fa-spin aim-loading-spinner"></i>
                             </div>
                         </div>
-                        <div style="display:flex; gap:24px; flex-wrap:wrap;">
-                            <div style="text-align:center;">
+                        <div class="aim-balance-stats">
+                            <div class="aim-stat-block">
                                 <div class="aim-sub-label">Purchased</div>
-                                <div style="font-size:1.3rem; font-weight:700; color:var(--accent);" id="aimTotalPurchased">—</div>
+                                <div class="aim-stat-num aim-stat-accent" id="aimTotalPurchased">&mdash;</div>
                             </div>
-                            <div style="text-align:center;">
+                            <div class="aim-stat-block">
                                 <div class="aim-sub-label">Used</div>
-                                <div class="aim-used-val" id="aimTotalUsed">—</div>
+                                <div class="aim-stat-num aim-used-val" id="aimTotalUsed">&mdash;</div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Package Cards -->
-                    <h5 style="font-weight:700; margin-bottom:20px;"><i class="fa-solid fa-cart-shopping me-2" style="color:var(--accent);"></i>Purchase AI Minutes</h5>
-                    <div class="row g-3 mb-4" id="aimPackages">
-                        <div class="col-12 text-center py-3">
-                            <i class="fa-solid fa-spinner fa-spin aim-loading-spinner"></i>
-                            <span class="aim-loading-text">Loading packages...</span>
+                    <div class="aim-section">
+                        <h5 class="aim-section-title"><i class="fa-solid fa-cart-shopping me-2"></i>Purchase AI Minutes</h5>
+                        <div class="row g-3 mb-4" id="aimPackages">
+                            <div class="col-12 aim-loading-wrap">
+                                <i class="fa-solid fa-spinner fa-spin aim-loading-spinner"></i>
+                                <span class="aim-loading-text">Loading packages...</span>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Usage History -->
-                    <div style="margin-top:16px;">
-                        <h5 style="font-weight:700; margin-bottom:16px;"><i class="fa-solid fa-chart-line me-2" style="color:var(--accent);"></i>Usage History</h5>
+                    <div class="aim-section">
+                        <h5 class="aim-section-title"><i class="fa-solid fa-chart-line me-2"></i>Usage History</h5>
 
                         <!-- Sub-tabs for Purchases vs Call Usage -->
-                        <div style="display:flex; gap:8px; margin-bottom:16px;">
-                            <button class="btn btn-sm btn-outline-light active" id="aimHistPurchases" onclick="switchAimHistory('purchases')" style="border-radius:20px; font-size:0.8rem;">Purchases</button>
-                            <button class="vc-btn-secondary" id="aimHistUsage" onclick="switchAimHistory('usage')" style="border-radius:20px; font-size:0.8rem;">Call Usage</button>
+                        <div class="aim-tab-row">
+                            <button class="vc-btn-secondary aim-tab-btn active" id="aimHistPurchases" onclick="switchAimHistory('purchases')">Purchases</button>
+                            <button class="vc-btn-secondary aim-tab-btn" id="aimHistUsage" onclick="switchAimHistory('usage')">Call Usage</button>
                         </div>
 
-                        <div id="aimHistoryContent" style="max-height:400px; overflow-y:auto;">
-                            <div class="text-center py-4 aim-history-loading">
+                        <div id="aimHistoryContent" class="aim-history-body">
+                            <div class="aim-loading-wrap">
                                 <i class="fa-solid fa-spinner fa-spin"></i> Loading...
                             </div>
                         </div>

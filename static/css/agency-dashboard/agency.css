@@ -827,3 +827,18 @@
     border: 1px solid #e0e0e0;
 }
 
+/* ── Agency KPIs Header ── */
+.ak-header-container { margin-bottom: 20px; }
+.ak-period-bar { display: flex; gap: 8px; padding: 0 20px 16px; }
+.ak-period-btn { font-size: 0.82rem; }
+.ak-period-btn.active { background: rgba(0,255,136,0.12); color: #00ff88; border-color: rgba(0,255,136,0.25); }
+[data-theme="light"] .ak-period-btn.active { background: rgba(5,150,105,0.1); color: var(--lt-accent); border-color: rgba(5,150,105,0.2); }
+
+/* ── Agency Members ── */
+.am-body { padding: 20px; }
+.am-desc { color: #888; font-size: 0.88rem; margin-bottom: 20px; }
+.am-stats-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+.am-stat-card { background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 2px; padding: 14px 20px; text-align: center; min-width: 120px; flex: 1; }
+[data-theme="light"] .am-stat-card { background: #fff; border-color: #e0e0e0; }
+[data-theme="light"] .am-desc { color: #666; }
+

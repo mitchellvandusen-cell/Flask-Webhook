@@ -1,16 +1,13 @@
 <!-- Team Management Tab -->
 <div class="tab-pane fade" id="team" role="tabpanel">
-    <div class="vc-container" style="padding:28px 32px;margin-bottom:24px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px;">
-            <div>
-                <h4 class="team-section-title">
-                    <i class="fa-solid fa-users-gear me-2 team-modal-icon-accent"></i>Team Management
-                </h4>
-                <p class="team-section-subtitle">
-                    Manage seat users for your location. <span class="team-seat-highlight" id="teamSeatLimit">0 / 10</span> seats used
-                </p>
-            </div>
-            <div style="display:flex;gap:8px;align-items:center;">
+    <div class="vc-container">
+        <div class="vc-status-bar">
+            <i class="fa-solid fa-users-gear"></i>
+            <span>Team Management</span>
+            <span class="vc-status-val" id="teamSeatLimit">0 / 10 seats</span>
+        </div>
+        <div class="team-body">
+            <div class="team-header-actions">
                 <button class="btn team-meet-btn" onclick="teamStartMeet()" title="Start a Google Meet with your team">
                     <i class="fa-solid fa-video me-2"></i>Team Meeting
                 </button>
@@ -21,10 +18,9 @@
                     <i class="fa-solid fa-paper-plane me-2"></i>Invite User
                 </button>
             </div>
-        </div>
 
         <!-- Sub-panels: Members | KPIs | Audit Log -->
-        <div class="team-panel-nav" style="display:flex;gap:6px;margin-bottom:20px;padding-bottom:12px;">
+        <div class="team-panel-nav">
             <button class="team-panel-btn team-panel-btn-default active" data-panel="members" onclick="teamSwitchPanel('members')">
                 <i class="fa-solid fa-users me-1"></i>Members
             </button>
@@ -39,27 +35,27 @@
         <!-- Members Panel -->
         <div id="teamPanel_members" class="team-panel-content">
             <!-- Team Stats Bar -->
-            <div id="teamStatsBar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:24px;">
-                <div class="vc-container" style="padding:14px 16px;border-radius:12px;text-align:center;">
+            <div id="teamStatsBar" class="team-stats-grid">
+                <div class="team-stat-tile">
                     <div class="team-stat-value team-stat-value-accent" id="teamStatActive">0</div>
                     <div class="team-stat-label">Active</div>
                 </div>
-                <div class="vc-container" style="padding:14px 16px;border-radius:12px;text-align:center;">
+                <div class="team-stat-tile">
                     <div class="team-stat-value team-stat-value-yellow" id="teamStatPending">0</div>
                     <div class="team-stat-label">Pending</div>
                 </div>
-                <div class="vc-container" style="padding:14px 16px;border-radius:12px;text-align:center;">
+                <div class="team-stat-tile">
                     <div class="team-stat-value team-stat-value-cyan" id="teamStatVoice">0</div>
                     <div class="team-stat-label">Voice Active</div>
                 </div>
-                <div class="vc-container" style="padding:14px 16px;border-radius:12px;text-align:center;">
+                <div class="team-stat-tile">
                     <div class="team-stat-value team-stat-value-red" id="teamStatInactive">0</div>
                     <div class="team-stat-label">Inactive</div>
                 </div>
             </div>
 
             <!-- GHL Users Detection Banner -->
-            <div id="teamGhlBanner" class="team-ghl-banner" style="display:none;margin-bottom:20px;">
+            <div id="teamGhlBanner" class="team-ghl-banner" style="display:none;">
                 <div class="team-ghl-banner-row">
                     <i class="fa-solid fa-users team-ghl-icon"></i>
                     <span class="team-ghl-text" id="teamGhlBannerText"></span>
@@ -70,8 +66,8 @@
             </div>
 
             <!-- Members List -->
-            <div id="teamMembersList" style="display:flex;flex-direction:column;gap:10px;">
-                <div class="team-loading-text" style="text-align:center;padding:40px;">
+            <div id="teamMembersList" class="team-members-list">
+                <div class="team-loading-text team-loading-wrap">
                     <i class="fa-solid fa-spinner fa-spin team-loading-spinner"></i>
                     <p class="team-loading-msg">Loading team members...</p>
                 </div>
@@ -80,23 +76,24 @@
 
         <!-- KPIs Panel -->
         <div id="teamPanel_kpis" class="team-panel-content" style="display:none;">
-            <div style="display:flex;gap:8px;margin-bottom:16px;">
+            <div class="team-kpi-period-row">
                 <button onclick="teamLoadKPIs('today')" class="btn btn-sm team-kpi-btn team-kpi-btn-default">Today</button>
                 <button onclick="teamLoadKPIs('week')" class="btn btn-sm team-kpi-btn team-kpi-btn-active">This Week</button>
                 <button onclick="teamLoadKPIs('month')" class="btn btn-sm team-kpi-btn team-kpi-btn-default">This Month</button>
                 <button onclick="teamLoadKPIs('all')" class="btn btn-sm team-kpi-btn team-kpi-btn-default">All Time</button>
             </div>
             <div id="teamKpisContent">
-                <div class="team-placeholder-text" style="text-align:center;padding:20px;">Select a time period to view agent KPIs.</div>
+                <div class="team-placeholder-text team-placeholder-wrap">Select a time period to view agent KPIs.</div>
             </div>
         </div>
 
         <!-- Audit Log Panel -->
         <div id="teamPanel_audit" class="team-panel-content" style="display:none;">
             <div id="teamAuditContent">
-                <div class="team-placeholder-text" style="text-align:center;padding:20px;">Loading audit log...</div>
+                <div class="team-placeholder-text team-placeholder-wrap">Loading audit log...</div>
             </div>
         </div>
+        </div><!-- /team-body -->
     </div>
 
     <!-- Invite Modal -->

@@ -1,22 +1,26 @@
 <!-- Agency Members Tab — Agency Owners Only -->
 <div class="tab-pane fade" id="agency-members" role="tabpanel">
 
-    <div class="config-panel vc-container">
-        <h3 class="config-panel-title"><i class="fa-solid fa-user-group me-2"></i>Agency Members</h3>
-        <p class="config-panel-desc">All agents linked to your agency. Members are auto-discovered when they connect their GHL account under your company.</p>
+    <div class="vc-container">
+        <div class="vc-status-bar">
+            <i class="fa-solid fa-user-group"></i>
+            <span>Agency Members</span>
+        </div>
+        <div class="am-body">
+        <p class="am-desc">All agents linked to your agency. Members are auto-discovered when they connect their GHL account under your company.</p>
 
         <!-- Stats Row -->
-        <div class="d-flex gap-3 flex-wrap mb-4">
-            <div class="agency-stat-card vc-container">
-                <div class="agency-stat-val" id="agencyMemberCount">—</div>
+        <div class="am-stats-row">
+            <div class="am-stat-card">
+                <div class="agency-stat-val" id="agencyMemberCount">&mdash;</div>
                 <div class="agency-stat-lbl">Total Members</div>
             </div>
-            <div class="agency-stat-card vc-container">
-                <div class="agency-stat-val" id="agencyActiveCount">—</div>
+            <div class="am-stat-card">
+                <div class="agency-stat-val" id="agencyActiveCount">&mdash;</div>
                 <div class="agency-stat-lbl">Active</div>
             </div>
-            <div class="agency-stat-card vc-container">
-                <div class="agency-stat-val" id="agencyPendingCount">—</div>
+            <div class="am-stat-card">
+                <div class="agency-stat-val" id="agencyPendingCount">&mdash;</div>
                 <div class="agency-stat-lbl">Pending</div>
             </div>
         </div>
@@ -38,6 +42,7 @@
                 </tbody>
             </table>
         </div>
+        </div><!-- /am-body -->
     </div>
 
 </div>

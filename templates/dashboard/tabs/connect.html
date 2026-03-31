@@ -74,6 +74,10 @@
 
                             <!-- ── Panel: Other CRMs ── -->
                             <div id="cntab-panel-other-crms" style="display:none;">
+                                <div class="vc-status-bar" style="margin-bottom:12px;">
+                                    <i class="fa-solid fa-plug"></i>
+                                    <span>Other CRM Integrations</span>
+                                </div>
 
                                 <!-- Quick Connect: auto-detect CRM from API key -->
                                 <div class="conn-quick-connect">
@@ -199,7 +203,7 @@
 
                             <!-- ── Panel: API Access ── -->
                             <div id="cntab-panel-api" style="display:none;">
-                                <h5 style="font-weight:700;margin-bottom:4px;"><i class="fa-solid fa-code me-2" style="color:var(--accent);"></i>API Access</h5>
+                                <div class="vc-status-bar" style="margin-bottom:12px;"><i class="fa-solid fa-code"></i><span>API Access</span></div>
                                 <p class="conn-api-desc" style="margin-bottom:16px;">
                                     Integrate any system using our OpenAI-compatible API.
                                     Send messages to <code>/api/v1/chat/completions</code> and receive bot replies via webhook.
@@ -259,7 +263,7 @@
 
                             <!-- ── Panel: Outbound Calls ── -->
                             <div id="cntab-panel-outbound" style="display:none;">
-                                <h5 style="font-weight:700;margin-bottom:4px;"><i class="fa-solid fa-arrow-right-from-bracket me-2" style="color:var(--accent);"></i>Outbound Call Trigger</h5>
+                                <div class="vc-status-bar" style="margin-bottom:12px;"><i class="fa-solid fa-arrow-right-from-bracket"></i><span>Outbound Call Trigger</span></div>
                                 <p class="conn-api-desc" style="margin-bottom:16px;">Trigger an AI outbound call from your CRM or automation by sending a POST request to this endpoint.</p>
                                 <div class="p-3 conn-outbound-panel">
                                     <div class="d-flex align-items-center gap-2">
@@ -285,7 +289,7 @@
 
                             <!-- ── Panel: Google Calendar + Meet ── -->
                             <div id="cntab-panel-google" style="display:none;">
-                                <h5 style="font-weight:700;margin-bottom:4px;"><i class="fa-brands fa-google me-2" style="color:var(--accent);"></i>Google Calendar &amp; Meet</h5>
+                                <div class="vc-status-bar" style="margin-bottom:12px;"><i class="fa-brands fa-google"></i><span>Google Calendar & Meet</span></div>
                                 <p class="conn-api-desc" style="margin-bottom:16px;">Connect your Google Calendar to schedule appointments and start Google Meet video consultations with leads directly from the dialer.</p>
 
                                 <div id="googleCalNotConnected" class="p-3 conn-outbound-panel">
@@ -344,7 +348,7 @@
 
                             <!-- ── Panel: Discord ── -->
                             <div id="cntab-panel-discord" style="display:none;">
-                                <h5 class="conn-panel-title"><i class="fa-brands fa-discord me-2"></i>Discord</h5>
+                                <div class="vc-status-bar" style="margin-bottom:12px;"><i class="fa-brands fa-discord"></i><span>Discord</span></div>
                                 <p class="conn-panel-desc">Connect your Discord account to read and reply to team messages directly from your dashboard — no switching tabs.</p>
                                 <div class="conn-integration-status" id="cnDiscordStatus">
                                     <div class="conn-int-indicator conn-int-indicator-checking">
@@ -371,7 +375,7 @@
 
                             <!-- ── Panel: Slack ── -->
                             <div id="cntab-panel-slack" style="display:none;">
-                                <h5 class="conn-panel-title"><i class="fa-brands fa-slack me-2"></i>Slack</h5>
+                                <div class="vc-status-bar" style="margin-bottom:12px;"><i class="fa-brands fa-slack"></i><span>Slack</span></div>
                                 <p class="conn-panel-desc">Connect your Slack workspace to message your team without leaving the dialer.</p>
                                 <div class="conn-integration-status" id="cnSlackStatus">
                                     <div class="conn-int-indicator conn-int-indicator-checking">
@@ -398,16 +402,9 @@
 
                             <!-- ── Panel: Training API ── -->
                             <div id="cntab-panel-training" style="display:none;">
-                                <div class="p-4" style="background:rgba(167,139,250,0.04);border:1px solid rgba(167,139,250,0.15);border-radius:14px;">
-                                    <div class="d-flex align-items-center gap-3 mb-3">
-                                        <div style="width:40px;height:40px;border-radius:10px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                            <i class="fa-solid fa-graduation-cap" style="color:#a78bfa;font-size:1rem;"></i>
-                                        </div>
-                                        <div>
-                                            <div style="font-weight:700;font-size:1rem;color:#fff;">Training API</div>
-                                            <div style="color:#888;font-size:0.78rem;">Connect your account to InsuranceGrokBot Training to analyze, review, and grade your call recordings.</div>
-                                        </div>
-                                    </div>
+                                <div class="vc-status-bar" style="margin-bottom:12px;"><i class="fa-solid fa-graduation-cap"></i><span>Training API</span></div>
+                                <div class="conn-training-card">
+                                    <p class="conn-api-desc">Connect your account to InsuranceGrokBot Training to analyze, review, and grade your call recordings.</p>
                                     <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:14px 16px;margin-bottom:20px;">
                                         <div style="font-size:0.82rem;color:#aaa;line-height:1.6;">
                                             <i class="fa-solid fa-circle-info me-1" style="color:#a78bfa;"></i>

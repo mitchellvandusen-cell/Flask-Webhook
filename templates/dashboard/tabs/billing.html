@@ -1,10 +1,11 @@
             <div class="tab-pane fade" id="billing" role="tabpanel">
-                <div class="vc-container py-4 px-4" >
-                    <div class="text-center" style="margin-bottom: 24px;">
-                        <div class="billing-header-icon"><i class="fa-solid fa-credit-card"></i></div>
-                        <h3 class="mb-2">Subscription Management</h3>
-                        <p class="billing-current-plan-text" id="billingCurrentPlan">Loading plan info...</p>
+                <div class="vc-container">
+                    <div class="vc-status-bar">
+                        <i class="fa-solid fa-credit-card"></i>
+                        <span>Subscription Management</span>
+                        <span class="vc-status-val billing-current-plan-text" id="billingCurrentPlan">Loading...</span>
                     </div>
+                    <div class="billing-body">
 
                     {% if current_user.stripe_customer_id %}
                     <!-- Plan Selector -->
@@ -12,7 +13,7 @@
                         <!-- SMS Bot -->
                         <div id="billingPlanSmsBbot" class="billing-plan-card" onclick="billingSelectPlan('sms_bot')">
                             <div class="billing-plan-title">SMS Bot</div>
-                            <div style="margin-bottom:10px;">
+                            <div class="billing-price-row">
                                 <span class="metallic-price--cyan billing-price-amount">$99.98</span>
                                 <span class="billing-price-period">/mo</span>
                             </div>
@@ -28,7 +29,7 @@
                         <!-- Power Dialer (Individual) -->
                         <div id="billingPlanIndividual" class="billing-plan-card" onclick="billingSelectPlan('individual')">
                             <div class="billing-plan-title">Power Dialer</div>
-                            <div style="margin-bottom:10px;">
+                            <div class="billing-price-row">
                                 <span class="metallic-price--green billing-price-amount">$149.98</span>
                                 <span class="billing-price-period">/mo</span>
                             </div>
@@ -45,7 +46,7 @@
                         <div id="billingPlanProDialer" class="billing-plan-card" onclick="billingSelectPlan('pro_dialer')">
                             <div class="billing-tier-badge billing-tier-badge--upgrade">UPGRADE</div>
                             <div class="billing-plan-title">Pro Dialer</div>
-                            <div style="margin-bottom:10px;">
+                            <div class="billing-price-row">
                                 <span class="metallic-price--orange billing-price-amount">$224.98</span>
                                 <span class="billing-price-period">/mo</span>
                             </div>
@@ -62,7 +63,7 @@
                         <div id="billingPlanPredictiveDialer" class="billing-plan-card" onclick="billingSelectPlan('solo_predictive')">
                             <div class="billing-tier-badge billing-tier-badge--enterprise">GAME CHANGER</div>
                             <div class="billing-plan-title">Solo Predictive + AI Overflow</div>
-                            <div style="margin-bottom:10px;">
+                            <div class="billing-price-row">
                                 <span class="metallic-price--purple billing-price-amount">$349</span>
                                 <span class="billing-price-period">/mo</span>
                             </div>
@@ -80,8 +81,8 @@
                         </div>
                     </div>
 
-                    <div class="text-center" style="margin-bottom:16px;">
-                        <button id="billingChangePlanBtn" onclick="billingChangePlan()" class="btn px-5 py-2 billing-change-plan-btn" style="display:none;">
+                    <div class="billing-action-row">
+                        <button id="billingChangePlanBtn" onclick="billingChangePlan()" class="vc-btn-primary billing-change-plan-btn" style="display:none;">
                             <i class="fa-solid fa-arrows-rotate me-2"></i>Change Plan
                         </button>
                     </div>
@@ -118,12 +119,13 @@
                         </form>
                     </div>
                     {% else %}
-                        <div class="text-center">
-                            <p class="billing-no-sub-text" style="margin-bottom:1.5rem;">You do not have an active Stripe subscription.</p>
-                            <p class="billing-no-sub-hint" style="max-width:500px; margin:0 auto;">
+                        <div class="billing-no-sub">
+                            <p class="billing-no-sub-text">You do not have an active Stripe subscription.</p>
+                            <p class="billing-no-sub-hint">
                                 If you installed via Marketplace, manage your subscription from within your Lead Connector account's Marketplace tab.
                             </p>
                         </div>
                     {% endif %}
+                    </div><!-- /billing-body -->
                 </div>
             </div>

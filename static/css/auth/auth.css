@@ -537,3 +537,46 @@
 [data-theme="light"] .success-ambient-glow {
     background-image: radial-gradient(circle at 50% 10%, rgba(5,150,105,0.10), transparent 50%);
 }
+
+/* ── Register Page ── */
+.reg-cta-section { margin: 20px 0 24px; }
+.reg-cta-card {
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 2px;
+    padding: 24px;
+    text-align: center;
+}
+.reg-cta-primary { border-color: rgba(0,255,136,0.2); }
+.reg-cta-secondary { border-color: rgba(0,217,255,0.15); }
+.reg-cta-icon { display: block; margin-bottom: 12px; }
+.reg-cta-icon-accent { font-size: 1.5rem; color: var(--accent); }
+.reg-cta-icon-cyan { font-size: 1.3rem; color: #00d9ff; }
+.reg-cta-title { font-weight: 700; color: #fff; margin-bottom: 8px; }
+.reg-cta-title-sm { font-weight: 700; color: #fff; margin-bottom: 6px; }
+.reg-cta-desc { color: #888; font-size: 0.88rem; margin-bottom: 16px; }
+.reg-cta-btn { display: block; width: 100%; padding: 14px; font-weight: 700; text-align: center; text-decoration: none; }
+.reg-marketplace-link { color: #00d9ff; text-decoration: none; font-weight: 600; }
+.reg-divider { text-align: center; margin: 20px 0; }
+.reg-divider-text { color: #555; font-size: 0.82rem; }
+.reg-footer { text-align: center; margin-top: 24px; }
+.reg-login-link { color: #aaa; font-size: 0.9rem; }
+.reg-link-bold { text-decoration: none; font-weight: 600; }
+.reg-hr { height: 1px; background: rgba(255,255,255,0.1); margin: 25px 0; }
+.reg-back-link { color: #888; text-decoration: none; font-size: 0.85rem; }
+.reg-crm-hint { color: #888; font-size: 0.82rem; margin-top: -5px; }
+
+/* Light theme */
+[data-theme="light"] .reg-cta-card { background: #fff; border-color: #e0e0e0; }
+[data-theme="light"] .reg-cta-primary { border-color: rgba(5,150,105,0.2); }
+[data-theme="light"] .reg-cta-secondary { border-color: rgba(59,130,246,0.15); }
+[data-theme="light"] .reg-cta-icon-accent { color: var(--lt-accent); }
+[data-theme="light"] .reg-cta-icon-cyan { color: #3b82f6; }
+[data-theme="light"] .reg-cta-title, [data-theme="light"] .reg-cta-title-sm { color: #111; }
+[data-theme="light"] .reg-cta-desc { color: #666; }
+[data-theme="light"] .reg-marketplace-link { color: #3b82f6; }
+[data-theme="light"] .reg-divider-text { color: #999; }
+[data-theme="light"] .reg-login-link { color: #666; }
+[data-theme="light"] .reg-hr { background: rgba(0,0,0,0.1); }
+[data-theme="light"] .reg-back-link { color: #999; }
+[data-theme="light"] .reg-crm-hint { color: #666; }

@@ -904,7 +904,15 @@
 
 /* ══ Billing Tab Theme Classes ══ */
 
-/* --- Header --- */
+/* --- Layout --- */
+.billing-body { padding: 20px; }
+.billing-price-row { margin-bottom: 10px; }
+.billing-action-row { text-align: center; margin-bottom: 16px; }
+.billing-no-sub { text-align: center; }
+.billing-no-sub-text { margin-bottom: 1.5rem; }
+.billing-no-sub-hint { max-width: 500px; margin: 0 auto; }
+
+/* --- Header (legacy) --- */
 .billing-header-icon { font-size: 2.5rem; color: var(--accent); margin-bottom: 12px; }
 .billing-current-plan-text { color: #888; font-size: 0.88rem; }
 
@@ -1021,10 +1029,13 @@
    Advanced Tab Theme Classes (adv-)
    ══════════════════════════════════════════════════════════════════════════════ */
 
+.adv-body { padding: 20px; }
+.adv-intro { margin-bottom: 30px; }
+
 .adv-section-card {
     background: rgba(255,255,255,0.03);
     border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 12px;
+    border-radius: 2px;
     padding: 20px;
 }
 .adv-section-heading {
@@ -1334,6 +1345,25 @@
 .aim-history-loading {
     color: #888;
 }
+.aim-balance-main { flex: 1; min-width: 200px; }
+.aim-balance-stats { display: flex; gap: 24px; flex-wrap: wrap; }
+.aim-stat-block { text-align: center; }
+.aim-stat-num { font-size: 1.3rem; font-weight: 700; }
+.aim-stat-accent { color: var(--accent); }
+.aim-section { padding: 0 20px 20px; }
+.aim-section-title { font-weight: 700; margin-bottom: 16px; font-size: 1rem; }
+.aim-section-title i { color: var(--accent); }
+.aim-tab-row { display: flex; gap: 8px; margin-bottom: 16px; }
+.aim-tab-btn { font-size: 0.82rem; }
+.aim-tab-btn.active { background: rgba(0,255,136,0.12); color: #00ff88; border-color: rgba(0,255,136,0.25); }
+.aim-history-body { max-height: 400px; overflow-y: auto; }
+.aim-loading-wrap { text-align: center; padding: 20px; color: #888; }
+
+/* Light theme additions */
+[data-theme="light"] .aim-stat-accent { color: var(--lt-accent); }
+[data-theme="light"] .aim-section-title i { color: var(--lt-accent); }
+[data-theme="light"] .aim-tab-btn.active { background: rgba(5,150,105,0.1); color: var(--lt-accent); border-color: rgba(5,150,105,0.2); }
+[data-theme="light"] .aim-loading-wrap { color: #999; }
 
 /* Light theme: AI Minutes Tab */
 [data-theme="light"] .aim-balance-banner {
@@ -1428,6 +1458,19 @@
     background: rgba(0,0,0,0.07);
     color: #374151;
 }
+.car-body { padding: 20px; }
+.car-desc { color: #888; font-size: 0.88rem; margin-bottom: 20px; }
+.car-search-input { margin-bottom: 16px; }
+.car-actions { display: flex; gap: 10px; margin-bottom: 16px; }
+.car-action-btn { font-size: 0.82rem; }
+.car-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; max-height: 450px; overflow-y: auto; padding-right: 8px; }
+.car-hidden-input { display: none; }
+.car-save-row { display: flex; justify-content: flex-end; align-items: center; gap: 16px; margin-top: 24px; }
+.car-save-status { color: var(--accent); font-size: 0.85rem; display: none; }
+
+[data-theme="light"] .car-desc { color: #666; }
+[data-theme="light"] .car-save-status { color: var(--lt-accent); }
+
 [data-theme="light"] .car-save-btn {
     background: var(--lt-accent);
     color: #fff;
@@ -1438,20 +1481,167 @@
    Logs Tab Theme Classes (log-)
    ══════════════════════════════════════════════════════════════════════════════ */
 
-.log-loading {
-    color: #888;
+/* ── Log Filters ── */
+.log-filters {
+    display: flex;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    flex-wrap: wrap;
+    align-items: flex-end;
 }
-.log-page-info {
-    color: #888;
-    font-size: 0.85rem;
+.log-filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 140px;
+}
+.log-filter-group .vc-select {
+    min-width: 140px;
+}
+.log-filter-action {
+    margin-left: auto;
+    justify-content: flex-end;
 }
 
-/* Light theme: Logs Tab */
-[data-theme="light"] .log-loading { color: #6b7280; }
-[data-theme="light"] .log-page-info { color: #6b7280; }
+/* ── Log Table ── */
+.log-table-header {
+    display: grid;
+    grid-template-columns: 80px 160px 140px 1fr 120px;
+    gap: 8px;
+    padding: 10px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #555;
+    font-family: 'JetBrains Mono', monospace;
+}
+.log-table-body {
+    max-height: 600px;
+    overflow-y: auto;
+}
+.log-row {
+    display: grid;
+    grid-template-columns: 80px 160px 140px 1fr 120px;
+    gap: 8px;
+    padding: 10px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    align-items: center;
+    transition: background 0.12s;
+    font-size: 0.85rem;
+}
+.log-row:hover {
+    background: rgba(255,255,255,0.02);
+}
+
+/* Status badges */
+.log-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-family: 'JetBrains Mono', monospace;
+}
+.log-badge.success { background: rgba(0,255,136,0.1); color: #00ff88; border: 1px solid rgba(0,255,136,0.2); }
+.log-badge.error { background: rgba(239,68,68,0.1); color: #ef4444; border: 1px solid rgba(239,68,68,0.2); }
+.log-badge.warning { background: rgba(255,165,0,0.1); color: #ffa500; border: 1px solid rgba(255,165,0,0.2); }
+.log-badge.info { background: rgba(0,217,255,0.08); color: #00d9ff; border: 1px solid rgba(0,217,255,0.15); }
+
+.log-time {
+    font-size: 0.78rem;
+    color: #666;
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+}
+.log-event {
+    font-size: 0.82rem;
+    color: #aaa;
+    text-transform: capitalize;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.log-summary {
+    font-size: 0.82rem;
+    color: #888;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.log-contact {
+    font-size: 0.72rem;
+    color: #555;
+    font-family: 'JetBrains Mono', monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Empty / loading state */
+.log-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 60px 20px;
+    color: #555;
+    font-size: 0.88rem;
+}
+.log-empty-state i {
+    font-size: 1.4rem;
+    color: #00d9ff;
+}
+
+/* Pagination */
+.log-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+.log-page-btn {
+    font-size: 0.82rem;
+}
+
+/* ── Light theme: Logs ── */
+[data-theme="light"] .log-filters { border-bottom-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .log-table-header { border-bottom-color: rgba(0,0,0,0.08); color: #999; }
+[data-theme="light"] .log-row { border-bottom-color: rgba(0,0,0,0.04); }
+[data-theme="light"] .log-row:hover { background: rgba(0,0,0,0.02); }
+[data-theme="light"] .log-badge.success { background: rgba(5,150,105,0.08); color: #059669; border-color: rgba(5,150,105,0.2); }
+[data-theme="light"] .log-badge.error { background: rgba(220,38,38,0.06); color: #dc2626; border-color: rgba(220,38,38,0.15); }
+[data-theme="light"] .log-badge.warning { background: rgba(245,158,11,0.08); color: #d97706; border-color: rgba(245,158,11,0.15); }
+[data-theme="light"] .log-badge.info { background: rgba(59,130,246,0.06); color: #3b82f6; border-color: rgba(59,130,246,0.12); }
+[data-theme="light"] .log-time { color: #888; }
+[data-theme="light"] .log-event { color: #555; }
+[data-theme="light"] .log-summary { color: #666; }
+[data-theme="light"] .log-contact { color: #999; }
+[data-theme="light"] .log-empty-state { color: #999; }
+[data-theme="light"] .log-empty-state i { color: var(--lt-accent); }
+[data-theme="light"] .log-pagination { border-top-color: rgba(0,0,0,0.06); }
 
 
 /* ══ Team Tab Theme Classes ══ */
+
+.team-body { padding: 20px; }
+.team-header-actions { display: flex; gap: 8px; align-items: center; margin-bottom: 20px; }
+.team-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.team-stat-tile { background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 2px; padding: 14px 16px; text-align: center; }
+.team-panel-nav { display: flex; gap: 6px; margin-bottom: 20px; padding-bottom: 12px; }
+.team-members-list { display: flex; flex-direction: column; gap: 10px; }
+.team-loading-wrap { text-align: center; padding: 40px; }
+.team-kpi-period-row { display: flex; gap: 8px; margin-bottom: 16px; }
+.team-placeholder-wrap { text-align: center; padding: 20px; }
+
+[data-theme="light"] .team-stat-tile { background: #fff; border-color: #e0e0e0; }
 
 /* --- Section Header --- */
 .team-section-title { font-weight: 700; margin: 0; color: #fff; }
@@ -1909,7 +2099,13 @@
 .conn-outbound-panel {
     background: rgba(255,255,255,0.02);
     border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 12px;
+    border-radius: 2px;
+}
+.conn-training-card {
+    background: rgba(167,139,250,0.04);
+    border: 1px solid rgba(167,139,250,0.15);
+    border-radius: 2px;
+    padding: 16px 20px;
 }
 .conn-outbound-code {
     background: rgba(0,255,136,0.06);
