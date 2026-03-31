@@ -4230,13 +4230,13 @@ body.ghl-embed .main-wrapper {
 [data-theme="light"] .wfb-config-input:focus { border-color: var(--lt-accent); }
 [data-theme="light"] .wfb-config-textarea { background: var(--lt-input-bg); border-color: var(--lt-border); color: var(--lt-input-text); }
 [data-theme="light"] .wfb-config-textarea:focus { border-color: var(--lt-accent); }
-[data-theme="light"] .wfb-config-select { background: var(--lt-input-bg); border-color: var(--lt-border); color: var(--lt-input-text); }
+[data-theme="light"] .wfb-config-select { background-color: var(--lt-input-bg); border-color: var(--lt-border); color: var(--lt-input-text); }
 [data-theme="light"] .wfb-config-hint { color: var(--lt-text-muted); }
 [data-theme="light"] .wfb-merge-btn { background: rgba(0,0,0,0.03); border-color: var(--lt-border); color: var(--lt-text-muted); }
 [data-theme="light"] .wfb-merge-btn:hover { background: rgba(0,170,94,0.06); color: var(--lt-accent); border-color: rgba(0,170,94,0.2); }
 [data-theme="light"] .wfb-config-save { background: var(--lt-accent); color: #fff; }
 [data-theme="light"] .wfb-config-save:hover { background: #008f50; }
-[data-theme="light"] .wfb-condition-row select, [data-theme="light"] .wfb-condition-row input { background: var(--lt-input-bg); border-color: var(--lt-border); color: var(--lt-input-text); }
+[data-theme="light"] .wfb-condition-row select, [data-theme="light"] .wfb-condition-row input { background-color: var(--lt-input-bg); border-color: var(--lt-border); color: var(--lt-input-text); }
 
 [data-theme="light"] .wfb-ai-modal-content {
     background: rgba(255,255,255,0.92); border-color: var(--lt-border);
