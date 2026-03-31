@@ -231,6 +231,7 @@ def get_contact_intelligence_bulk():
 
     cached = get_bulk_cached_intelligence(location_id, contact_ids)
     uncached = [cid for cid in contact_ids if cid not in cached]
+    logger.info(f"[INTEL_BULK] {location_id}: requested={len(contact_ids)}, cached={len(cached)}, uncached={len(uncached)}")
     return jsonify({"cached": cached, "uncached": uncached})
 
 
@@ -288,6 +289,7 @@ def post_contact_intelligence_analyze():
         except Exception as e:
             logger.error(f"Failed to queue intelligence batch: {e}")
 
+    logger.info(f"[INTEL_ANALYZE] {location_id}: queued={queued} contacts to {target_queue.name} queue")
     return jsonify({"queued": queued})
 
 
