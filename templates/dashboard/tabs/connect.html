@@ -59,6 +59,11 @@
                             <button type="button" class="conn-menu-item" onclick="switchConnectPanel('slack')" id="cnmenu-slack">
                                 <i class="fa-brands fa-slack" style="width:16px;text-align:center;"></i> Slack
                             </button>
+                            {% if not (current_user.subscription_tier == 'sms_bot') %}
+                            <button type="button" class="conn-menu-item" onclick="switchConnectPanel('training')" id="cnmenu-training">
+                                <i class="fa-solid fa-graduation-cap" style="width:16px;text-align:center;"></i> Training API
+                            </button>
+                            {% endif %}
                         </div>
 
                         <!-- Right column: panel content -->
@@ -429,6 +434,75 @@
                                     <div class="conn-int-feature"><i class="fa-solid fa-check"></i> Read and reply to any workspace channel</div>
                                     <div class="conn-int-feature"><i class="fa-solid fa-check"></i> Notification badge when new messages arrive</div>
                                     <div class="conn-int-feature"><i class="fa-solid fa-check"></i> Stay in your workflow — no browser switching</div>
+                                </div>
+                            </div>
+
+                            <!-- ── Panel: Training API ── -->
+                            <div id="cntab-panel-training" style="display:none;">
+                                <div class="p-4" style="background:rgba(167,139,250,0.04);border:1px solid rgba(167,139,250,0.15);border-radius:14px;">
+                                    <div class="d-flex align-items-center gap-3 mb-3">
+                                        <div style="width:40px;height:40px;border-radius:10px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                            <i class="fa-solid fa-graduation-cap" style="color:#a78bfa;font-size:1rem;"></i>
+                                        </div>
+                                        <div>
+                                            <div style="font-weight:700;font-size:1rem;color:#fff;">Training API</div>
+                                            <div style="color:#888;font-size:0.78rem;">Connect your account to InsuranceGrokBot Training to analyze, review, and grade your call recordings.</div>
+                                        </div>
+                                    </div>
+                                    <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:14px 16px;margin-bottom:20px;">
+                                        <div style="font-size:0.82rem;color:#aaa;line-height:1.6;">
+                                            <i class="fa-solid fa-circle-info me-1" style="color:#a78bfa;"></i>
+                                            Generate a <strong style="color:#ccc;">Training Code</strong> below and paste it into the
+                                            <strong style="color:#ccc;">InsuranceGrokBot Training</strong> app to import your call recordings,
+                                            transcripts, and call metadata.
+                                        </div>
+                                    </div>
+                                    <div id="trainingTokenSection">
+                                        <div id="trainingNoToken">
+                                            <div style="text-align:center;padding:24px 16px;">
+                                                <div style="width:56px;height:56px;border-radius:14px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.15);display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;">
+                                                    <i class="fa-solid fa-key" style="color:#a78bfa;font-size:1.3rem;"></i>
+                                                </div>
+                                                <div style="color:#888;font-size:0.82rem;margin-bottom:16px;">No training code generated yet.</div>
+                                                <button onclick="generateTrainingCode()" id="btnGenerateTraining" style="background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff;border:none;border-radius:10px;padding:10px 24px;font-size:0.85rem;font-weight:600;cursor:pointer;">
+                                                    <i class="fa-solid fa-wand-magic-sparkles me-2"></i>Generate Training Code
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div id="trainingHasToken" style="display:none;">
+                                            <label style="font-size:0.78rem;font-weight:600;color:#aaa;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;display:block;">Your Training Code</label>
+                                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                                                <div style="flex:1;position:relative;">
+                                                    <input type="text" id="trainingTokenDisplay" readonly
+                                                           style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(167,139,250,0.2);border-radius:8px;padding:10px 44px 10px 14px;color:#a78bfa;font-family:'SF Mono',Monaco,monospace;font-size:0.82rem;letter-spacing:0.3px;">
+                                                    <button onclick="copyTrainingCode()" id="btnCopyTraining" title="Copy to clipboard"
+                                                            style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.2);border-radius:6px;padding:5px 8px;color:#a78bfa;cursor:pointer;font-size:0.75rem;">
+                                                        <i class="fa-regular fa-copy"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div id="trainingTokenCreated" style="font-size:0.75rem;color:#666;margin-bottom:16px;"></div>
+                                            <div style="display:flex;gap:8px;">
+                                                <button onclick="regenerateTrainingCode()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#ccc;border-radius:8px;padding:8px 16px;font-size:0.78rem;font-weight:600;cursor:pointer;">
+                                                    <i class="fa-solid fa-arrows-rotate me-1"></i>Regenerate
+                                                </button>
+                                                <button onclick="revokeTrainingCode()" style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);color:#ef4444;border-radius:8px;padding:8px 16px;font-size:0.78rem;font-weight:600;cursor:pointer;">
+                                                    <i class="fa-solid fa-trash-can me-1"></i>Revoke
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="trainingStatusMsg" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:0.82rem;"></div>
+                                    <div style="margin-top:16px;background:rgba(167,139,250,0.04);border:1px solid rgba(167,139,250,0.1);border-radius:8px;padding:12px 14px;">
+                                        <div style="font-size:0.78rem;color:#a78bfa;font-weight:600;margin-bottom:6px;"><i class="fa-solid fa-database me-1"></i>Data Accessible via Training Code</div>
+                                        <div style="font-size:0.75rem;color:#888;line-height:1.6;">
+                                            <span style="color:#aaa;">&#x2022;</span> Call recordings (audio) &nbsp;&nbsp;
+                                            <span style="color:#aaa;">&#x2022;</span> Transcripts &nbsp;&nbsp;
+                                            <span style="color:#aaa;">&#x2022;</span> Call duration &amp; timestamps &nbsp;&nbsp;
+                                            <span style="color:#aaa;">&#x2022;</span> Contact names &nbsp;&nbsp;
+                                            <span style="color:#aaa;">&#x2022;</span> Call direction &amp; disposition
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 

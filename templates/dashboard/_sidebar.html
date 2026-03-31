@@ -40,10 +40,9 @@
                 <div class="l1-inner">
                     <div class="sec-label">Management</div>
                     <div class="l2-item" onclick="activateL2(this); navToVoice('numbers');">Phone Numbers</div>
-                    <div class="l2-item" onclick="activateL2(this); navToVoice('numbers');">A2P 10DLC</div>
+                    <div class="l2-item" onclick="activateL2(this); navToSms('a2p');">A2P 10DLC</div>
                     <div class="sec-label">Protection</div>
-                    <div class="l2-item" onclick="activateL2(this); navToVoice('spammonitoring');">Spam Shield</div>
-                    <div class="l2-item" onclick="activateL2(this); navToVoice('spammonitoring');">Number Health</div>
+                    <div class="l2-item" onclick="activateL2(this); navToVoice('spammonitoring');">Spam Monitoring</div>
                     <div class="sec-label">Usage</div>
                     <div class="l2-item" onclick="activateL2(this); sidebarNavigate('aiminutes', null); loadAiMinutes();">AI Minutes</div>
                 </div>
@@ -83,6 +82,9 @@
                     <div class="l2-item" onclick="activateL2(this); navToConnect('google');">Google Calendar</div>
                     <div class="l2-item" onclick="activateL2(this); navToConnect('discord');">Discord</div>
                     <div class="l2-item" onclick="activateL2(this); navToConnect('slack');">Slack</div>
+                    {% if not is_sms_only %}
+                    <div class="l2-item" onclick="activateL2(this); navToConnect('training');">Training API</div>
+                    {% endif %}
                 </div>
             </div>
 
@@ -109,21 +111,8 @@
 
                     {% if not is_sms_only %}
                     <!-- Voice AI -->
-                    <div class="l2-acc" onclick="toggleL2(this)">Voice AI <span class="ch2">▶</span></div>
-                    <div class="l2-body">
-                        <div class="l2-inner">
-                            <div class="l3-item" onclick="activateL3(this); navToVoice('settings');">AI Voice Settings</div>
-                            <div class="l3-item" id="sbnDialerSettings" onclick="toggleDialerSub(this)">Dialer Settings <span class="sb-ch-right ch2" id="dialerArrow">▶</span></div>
-                            <div id="dialerSub" style="max-height:0;overflow:hidden;transition:max-height .18s ease;">
-                                <div class="dialer-sub-inner">
-                                    <div class="l4-item" onclick="activateL4(this); navToVoice('dialer');">Call Script</div>
-                                    <div class="l4-item" onclick="activateL4(this); navToVoice('dialer');">Max Lines</div>
-                                    <div class="l4-item" onclick="activateL4(this); navToVoice('dialer');">Calling Hours</div>
-                                    <div class="l4-item" onclick="activateL4(this); navToVoice('dialer');">Wrap-up Time</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <div class="l2-item" onclick="activateL2(this); navToVoice('settings');">Voice AI</div>
+                    <div class="l2-item" onclick="activateL2(this); navToVoice('dialer');">Dialer Settings</div>
                     {% endif %}
 
                     <!-- Workflows -->

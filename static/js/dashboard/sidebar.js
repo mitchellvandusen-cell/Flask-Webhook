@@ -208,7 +208,7 @@
             if (name === 'enable') name = 'settings';
             if (name === 'trusthub' || name === 'cnam' || name === 'numberintegrity' || name === 'numberhealth') name = 'spammonitoring';
 
-            const panels = ['activation', 'settings', 'numbers', 'dialer', 'spammonitoring', 'training'];
+            const panels = ['activation', 'settings', 'numbers', 'dialer', 'spammonitoring'];
             panels.forEach(p => {
                 const panel = document.getElementById('vstab-panel-' + p);
                 const menuBtn = document.getElementById('vmenu-' + p);

@@ -46,6 +46,13 @@
 .sidebar.collapsed {
     width: var(--sidebar-collapsed-width);
 }
+/* When collapsed: hide all nav content, only show brand row with toggle */
+.sidebar.collapsed .sb-scroll {
+    display: none;
+}
+.sidebar.collapsed .sb-footer {
+    display: none;
+}
 
 /* ── Light: sidebar ── */
 [data-theme="light"] .sidebar {
