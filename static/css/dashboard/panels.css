@@ -1397,6 +1397,50 @@
 
 
 /* ══════════════════════════════════════════════════════════════════════════════
+   Contact Import Modal (ci-)
+   ══════════════════════════════════════════════════════════════════════════════ */
+.ci-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9500;
+    background: rgba(0,0,0,0.6);
+    align-items: center;
+    justify-content: center;
+    overflow-y: auto;
+}
+.ci-modal.ci-modal-open {
+    display: flex;
+}
+.ci-modal-content {
+    width: 100%;
+    max-width: 640px;
+    max-height: 90vh;
+    overflow-y: auto;
+    background: #111;
+    border: 1px solid #242424;
+    border-radius: 2px;
+    margin: 20px;
+}
+.ci-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.ci-header-left { display: flex; align-items: center; gap: 12px; }
+.ci-header-icon { color: var(--accent); font-size: 1.2rem; }
+.ci-title { margin: 0; font-family: 'Outfit', sans-serif; font-size: 1.15rem; font-weight: 600; color: #fff; }
+.ci-subtitle { margin: 0; font-size: 0.82rem; color: #888; }
+[data-theme="light"] .ci-modal-content { background: #fff; border-color: #e8e8e8; }
+[data-theme="light"] .ci-modal-header { border-bottom-color: #e8e8e8; }
+[data-theme="light"] .ci-title { color: #0a0a0a; }
+[data-theme="light"] .ci-subtitle { color: #777; }
+[data-theme="light"] .ci-header-icon { color: #059669; }
+
+
+/* ══════════════════════════════════════════════════════════════════════════════
    Carriers Tab Theme Classes (car-)
    ══════════════════════════════════════════════════════════════════════════════ */
 
