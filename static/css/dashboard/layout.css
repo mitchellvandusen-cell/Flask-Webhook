@@ -21,48 +21,48 @@
     --accent-border:    rgba(5, 150, 105, 0.20);
     --accent-secondary: #0284c7;
 
-    /* Surfaces */
-    --bg:               #f2f2f2;
-    --surface-1:        #ffffff;
-    --surface-2:        #f7f7f7;
-    --surface-3:        #eeeeee;
-    --border:           #e0e0e0;
-    --border-strong:    #cccccc;
+    /* Surfaces — pure white base, no gray wash */
+    --bg:               #ffffff;
+    --surface-1:        #fafafa;
+    --surface-2:        #f5f5f5;
+    --surface-3:        #efefef;
+    --border:           #e8e8e8;
+    --border-strong:    #d0d0d0;
 
-    /* Text */
-    --text-primary:     #111111;
-    --text-secondary:   #555555;
-    --text-muted:       #888888;
+    /* Text — strong hierarchy */
+    --text-primary:     #0a0a0a;
+    --text-secondary:   #444444;
+    --text-muted:       #777777;
     --text-faint:       #aaaaaa;
 
     /* Legacy aliases */
-    --dark-bg:          #f2f2f2;
-    --dark-surface:     #ffffff;
-    --dark-surface-2:   #f7f7f7;
-    --panel-bg:         #ffffff;
-    --panel-header-bg:  #f7f7f7;
-    --panel-border:     #e0e0e0;
+    --dark-bg:          #ffffff;
+    --dark-surface:     #fafafa;
+    --dark-surface-2:   #f5f5f5;
+    --panel-bg:         #fafafa;
+    --panel-header-bg:  #f5f5f5;
+    --panel-border:     #e8e8e8;
 
-    /* Glass (all solid) */
-    --glass-bg:           #ffffff;
-    --glass-bg-strong:    #f7f7f7;
+    /* Glass (all solid — no frosted effects) */
+    --glass-bg:           #fafafa;
+    --glass-bg-strong:    #f5f5f5;
     --glass-blur:         none;
-    --glass-border:       #e0e0e0;
-    --glass-border-top:   #ececec;
+    --glass-border:       #e8e8e8;
+    --glass-border-top:   #e8e8e8;
     --glass-border-left:  #e8e8e8;
-    --glass-border-bottom:#d8d8d8;
-    --glass-border-right: #d8d8d8;
-    --glass-border-strong:#cccccc;
-    --card-glass:         #ffffff;
-    --glass-shadow:       0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.06);
-    --glass-shadow-hover: 0 2px 8px rgba(0,0,0,0.10), 0 8px 24px rgba(0,0,0,0.08);
+    --glass-border-bottom:#e0e0e0;
+    --glass-border-right: #e0e0e0;
+    --glass-border-strong:#d0d0d0;
+    --card-glass:         #fafafa;
+    --glass-shadow:       none;
+    --glass-shadow-hover: 0 1px 4px rgba(0,0,0,0.06);
 
     /* lt-* backward compat — authoritative in light mode */
-    --lt-bg:            #f2f2f2;
-    --lt-surface:       #ffffff;
-    --lt-surface-hover: #f7f7f7;
-    --lt-border:        #e0e0e0;
-    --lt-border-strong: #cccccc;
+    --lt-bg:            #ffffff;
+    --lt-surface:       #fafafa;
+    --lt-surface-hover: #f5f5f5;
+    --lt-border:        #e8e8e8;
+    --lt-border-strong: #d0d0d0;
     --lt-text-primary:  #111111;
     --lt-text-secondary:#555555;
     --lt-text-muted:    #888888;

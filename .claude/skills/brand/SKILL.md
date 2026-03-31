@@ -122,30 +122,36 @@ Full icon set at `static/icons/`:
 Activated via `body.light-theme` CSS class. Toggle in topbar (`#themeToggleBtn`), persisted in `localStorage` key `dash_theme`. JavaScript: `toggleTheme()` in `sidebar.js`.
 
 ```css
---lt-bg:             #f4f6fa;
---lt-surface:        #ffffff;
---lt-surface-hover:  #f8f9fb;
---lt-border:         rgba(0, 0, 0, 0.08);
---lt-border-strong:  rgba(0, 0, 0, 0.14);
---lt-text-primary:   #1a1a2e;
---lt-text-secondary: #4a5568;
---lt-text-muted:     #718096;
---lt-text-faint:     #a0aec0;
+/* Pure white base — no gray wash. Clean, bold, minimal. */
+--lt-bg:             #ffffff;    /* Pure white background — NOT gray */
+--lt-surface:        #fafafa;    /* Cards/panels: subtle off-white */
+--lt-surface-hover:  #f5f5f5;
+--lt-border:         #e8e8e8;    /* Refined borders — not heavy gray */
+--lt-border-strong:  #d0d0d0;
+--lt-text-primary:   #0a0a0a;    /* Near-black text for maximum contrast */
+--lt-text-secondary: #444444;
+--lt-text-muted:     #777777;
+--lt-text-faint:     #aaaaaa;
 --lt-accent:         #059669;
 --lt-accent-bg:      rgba(5, 150, 105, 0.08);
 --lt-accent-border:  rgba(5, 150, 105, 0.2);
 --lt-info:           #2563eb;
---lt-input-bg:       #f7f8fa;
---lt-input-border:   #d2d6dc;
---lt-input-text:     #1a1a2e;
+--lt-input-bg:       #ffffff;    /* White inputs on off-white cards */
+--lt-input-border:   #d8d8d8;
+--lt-input-text:     #0a0a0a;
 
-/* Light theme overrides the accent to darker green for readability */
 --accent: #059669;
 --accent-dim: rgba(5, 150, 105, 0.12);
-
-/* Light theme background */
-background: #f4f6fa;
+background: #ffffff;
 ```
+
+**Light Theme Design Principles:**
+- **Pure white base** — no gray wash. Background is `#ffffff`, not `#f2f2f2`
+- **Status bars stay dark** — `vc-status-bar` keeps `#0a0a0a` background with white text in light mode. This is the signature visual anchor.
+- **Code blocks stay dark** — `pre`, API endpoints, curl examples use `#1a1a2e` background with green/light text. Premium pattern (GitHub, Stripe, Linear).
+- **No shadows** — clean borders only. `box-shadow: none` on cards.
+- **Strong text hierarchy** — `#0a0a0a` primary, `#444` secondary, `#777` muted
+- **Sidebar is `#fafafa`** — one shade off pure white for subtle separation
 
 **Rule**: Every dark-mode style MUST have a `body.light-theme` counterpart. No exceptions.
 

@@ -10,19 +10,19 @@
     --sidebar-width: 240px;
     --sidebar-collapsed-width: 60px;
 
-    /* Light theme tokens */
-    --lt-bg:             #f2f2f2;
-    --lt-surface:        #ffffff;
-    --lt-surface-hover:  #f8f8f8;
-    --lt-border:         #e0e0e0;
-    --lt-border-strong:  #cccccc;
-    --lt-text-primary:   #111111;
+    /* Light theme tokens — pure white base, no gray wash */
+    --lt-bg:             #ffffff;
+    --lt-surface:        #fafafa;
+    --lt-surface-hover:  #f5f5f5;
+    --lt-border:         #e8e8e8;
+    --lt-border-strong:  #d0d0d0;
+    --lt-text-primary:   #0a0a0a;
     --lt-text-secondary: #444444;
-    --lt-text-muted:     #666666;
-    --lt-text-faint:     #999999;
+    --lt-text-muted:     #777777;
+    --lt-text-faint:     #aaaaaa;
     --lt-input-bg:       #ffffff;
-    --lt-input-text:     #111111;
-    --lt-input-border:   #d0d0d0;
+    --lt-input-text:     #0a0a0a;
+    --lt-input-border:   #d8d8d8;
     --lt-accent:         #059669;
     --lt-accent-bg:      rgba(5,150,105,0.08);
     --lt-accent-border:  rgba(5,150,105,0.25);
@@ -56,8 +56,8 @@
 
 /* ── Light: sidebar ── */
 [data-theme="light"] .sidebar {
-    background: #ffffff;
-    border-right: 1px solid #e0e0e0;
+    background: #fafafa;
+    border-right: 1px solid #e8e8e8;
 }
 
 /* ================================================================

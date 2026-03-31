@@ -1387,9 +1387,15 @@
 
 /* Light theme: AI Minutes Tab */
 [data-theme="light"] .aim-balance-banner {
-    background: linear-gradient(135deg, rgba(0,170,94,0.06), rgba(0,120,184,0.06));
-    border-color: rgba(0,170,94,0.12);
+    background: #0a0a0a;
+    border-color: #1a1a1a;
+    color: #fff;
 }
+[data-theme="light"] .aim-balance-banner .aim-stat-label { color: rgba(255,255,255,0.6); }
+[data-theme="light"] .aim-balance-banner .aim-balance-val { color: #fff; }
+[data-theme="light"] .aim-balance-banner .aim-sub-label { color: rgba(255,255,255,0.5); }
+[data-theme="light"] .aim-balance-banner .aim-stat-accent { color: #00ff88; }
+[data-theme="light"] .aim-balance-banner .aim-used-val { color: #ef4444; }
 [data-theme="light"] .aim-stat-label { color: #6b7280; }
 [data-theme="light"] .aim-balance-val { color: var(--lt-text-primary); }
 [data-theme="light"] .aim-sub-label { color: #6b7280; }
@@ -2318,16 +2324,22 @@
 [data-theme="light"] .conn-webhook-secret-hint { color: #6b7280; }
 [data-theme="light"] .conn-webhook-secret-val { color: #6b7280; }
 [data-theme="light"] .conn-quickstart-box {
-    background: rgba(0,170,94,0.03);
-    border-color: rgba(0,170,94,0.1);
+    background: #0a0a0a;
+    border-color: #1a1a1a;
 }
+[data-theme="light"] .conn-quickstart-label { color: #00ff88; }
 [data-theme="light"] .conn-quickstart-pre {
-    color: #374151;
-    background: rgba(0,0,0,0.04);
+    color: #e0e0e0;
+    background: #1a1a2e;
 }
 [data-theme="light"] .conn-outbound-panel {
-    background: var(--lt-surface);
-    border-color: var(--lt-border);
+    background: #fafafa;
+    border-color: #e8e8e8;
+}
+[data-theme="light"] .conn-outbound-code {
+    background: #1a1a2e;
+    color: #00ff88;
+    border-color: rgba(0,255,136,0.2);
 }
 /* Google Calendar/Meet connection panel */
 .conn-google-icon { width: 40px; height: 40px; border-radius: 10px; background: rgba(66,133,244,0.08); border: 1px solid rgba(66,133,244,0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
