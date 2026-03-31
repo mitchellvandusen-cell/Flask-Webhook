@@ -2982,9 +2982,12 @@
         }
         function dialerUpdateSelectionUI() {
             const cnt = dialerSelected.size;
-            document.getElementById('dialerSelectedCount').textContent = cnt > 0 ? '(' + cnt + ')' : '';
-            document.getElementById('dialerAddSelectedBtn').disabled = cnt === 0;
-            document.getElementById('dialerCallSelectedBtn').disabled = cnt === 0;
+            const selCount = document.getElementById('dialerSelectedCount');
+            if (selCount) selCount.textContent = cnt > 0 ? '(' + cnt + ')' : '';
+            const addBtn = document.getElementById('dialerAddSelectedBtn');
+            if (addBtn) addBtn.disabled = cnt === 0;
+            const callBtn = document.getElementById('dialerCallSelectedBtn');
+            if (callBtn) callBtn.disabled = cnt === 0;
             const moveBtn = document.getElementById('dialerMoveSelectedBtn');
             if (moveBtn) moveBtn.disabled = cnt === 0;
             const sa = document.getElementById('dialerSelectAll');
