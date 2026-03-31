@@ -71,7 +71,7 @@
         @keyframes dotPulse { 0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
 
         /* Scroll to bottom FAB */
-        .scroll-fab { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%) scale(0); width: 36px; height: 36px; border-radius: 50%; background: rgba(30,30,36,0.95); border: 1px solid rgba(255,255,255,0.1); color: #aaa; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.75rem; transition: all 0.25s cubic-bezier(0.16,1,0.3,1); z-index: 5; backdrop-filter: blur(10px); box-shadow: 0 4px 20px rgba(0,0,0,0.5); pointer-events: none; }
+        .scroll-fab { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%) scale(0); width: 36px; height: 36px; border-radius: 50%; background: rgba(30,30,36,0.95); border: 1px solid rgba(255,255,255,0.1); color: #aaa; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.75rem; transition: all 0.25s cubic-bezier(0.16,1,0.3,1); z-index: 5; backdrop-filter: none; box-shadow: 0 4px 20px rgba(0,0,0,0.5); pointer-events: none; }
         .scroll-fab.visible { transform: translateX(-50%) scale(1); pointer-events: auto; }
         .scroll-fab:hover { background: rgba(50,50,56,0.95); color: #fff; border-color: rgba(255,255,255,0.2); }
 
@@ -84,7 +84,7 @@
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
         /* Input */
-        .input-area { padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 16px)) 16px; background: rgba(10,10,12,0.95); backdrop-filter: blur(20px); display: flex; gap: 10px; align-items: flex-end; border-top: 1px solid rgba(255,255,255,0.04); }
+        .input-area { padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 16px)) 16px; background: rgba(10,10,12,0.95); backdrop-filter: none; display: flex; gap: 10px; align-items: flex-end; border-top: 1px solid rgba(255,255,255,0.04); }
         .input-field { flex: 1; background: #1a1a1f; border: 1px solid #2a2a30; border-radius: 22px; padding: 11px 16px; color: #fff; font-family: 'Outfit', sans-serif; font-size: 0.9rem; resize: none; max-height: 100px; min-height: 42px; outline: none; transition: border-color 0.2s; }
         .input-field:focus { border-color: rgba(0,255,136,0.3); }
         .input-field::placeholder { color: #444; }
@@ -94,12 +94,12 @@
         .send-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; box-shadow: none; }
 
         /* Reset overlay */
-        .reset-overlay { display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); backdrop-filter: blur(10px); z-index: 100; flex-direction: column; align-items: center; justify-content: center; gap: 20px; border-radius: 44px; }
+        .reset-overlay { display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); backdrop-filter: none; z-index: 100; flex-direction: column; align-items: center; justify-content: center; gap: 20px; border-radius: 44px; }
         .reset-spinner { width: 40px; height: 40px; border: 3px solid rgba(0,255,136,0.12); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
         /* Custom confirm modal */
-        .confirm-modal { display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(12px); z-index: 150; flex-direction: column; align-items: center; justify-content: center; border-radius: 44px; }
+        .confirm-modal { display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); backdrop-filter: none; z-index: 150; flex-direction: column; align-items: center; justify-content: center; border-radius: 44px; }
         .confirm-modal.active { display: flex; }
         .confirm-card { background: #1a1a1f; border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 28px 24px; width: 85%; max-width: 300px; text-align: center; animation: modalSlide 0.3s cubic-bezier(0.16,1,0.3,1); }
         @keyframes modalSlide { from { opacity: 0; transform: scale(0.9) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }

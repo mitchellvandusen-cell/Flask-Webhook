@@ -77,12 +77,12 @@
                     .dialer-from-number-wrap{display:flex;align-items:center;gap:6px;margin-top:4px;position:relative;}
                     .dialer-from-number-icon{font-size:0.72rem;color:#555;flex-shrink:0;}
                     .dialer-from-number-label{font-size:0.74rem;color:#555;white-space:nowrap;flex-shrink:0;}
-                    .dfn-trigger{display:flex;align-items:center;gap:6px;background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-width:1px;border-style:solid;border-color:var(--glass-border-top) var(--glass-border-bottom) var(--glass-border-bottom) var(--glass-border-left);border-radius:8px;padding:5px 10px;cursor:pointer;flex:1;min-width:0;transition:all .18s;}
+                    .dfn-trigger{display:flex;align-items:center;gap:6px;background:#111111;backdrop-filter:none;-webkit-backdrop-filter:none;border:1px solid #222222;border-radius:8px;padding:5px 10px;cursor:pointer;flex:1;min-width:0;transition:all .18s;}
                     .dfn-trigger:hover{background:var(--glass-bg-strong);}
                     .dfn-trigger-text{font-size:0.78rem;font-weight:500;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
                     .dfn-trigger-arrow{font-size:0.55rem;color:#555;transition:transform .2s;}
                     .dfn-trigger.open .dfn-trigger-arrow{transform:rotate(180deg);}
-                    .dfn-menu{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:999;background:linear-gradient(160deg,rgba(255,255,255,0.10) 0%,rgba(255,255,255,0.04) 100%);backdrop-filter:blur(24px) saturate(160%) brightness(1.1);-webkit-backdrop-filter:blur(24px) saturate(160%) brightness(1.1);border-width:1px;border-style:solid;border-color:rgba(255,255,255,0.20) rgba(255,255,255,0.04) rgba(255,255,255,0.04) rgba(255,255,255,0.12);border-radius:10px;padding:4px;box-shadow:0 16px 40px -8px rgba(0,0,0,0.6),inset 0 1px 1px rgba(255,255,255,0.12);max-height:220px;overflow-y:auto;}
+                    .dfn-menu{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:999;background:#0e0e0e;backdrop-filter:none;-webkit-backdrop-filter:none;border:1px solid #222222;border-radius:10px;padding:4px;box-shadow:0 16px 40px -8px rgba(0,0,0,0.6),inset 0 1px 1px rgba(255,255,255,0.12);max-height:220px;overflow-y:auto;}
                     .dfn-menu.show{display:block;}
                     .dfn-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;font-size:0.78rem;font-weight:500;color:#999;cursor:pointer;transition:background .15s,color .15s;}
                     .dfn-item:hover{background:rgba(255,255,255,0.06);color:#ddd;}
@@ -131,8 +131,8 @@
                         background: linear-gradient(135deg, rgba(0,217,255,0.15), rgba(0,255,136,0.1));
                         border: 1px solid rgba(0,217,255,0.35);
                         border-radius: 24px;
-                        backdrop-filter: blur(16px);
-                        -webkit-backdrop-filter: blur(16px);
+                        backdrop-filter: none;
+                        -webkit-backdrop-filter: none;
                         cursor: pointer;
                         transition: transform 0.15s, box-shadow 0.15s;
                         box-shadow: 0 4px 20px rgba(0,0,0,0.4);
@@ -233,12 +233,13 @@
                     /* Status Bar */
                     .ios-status-bar{height:clamp(40px, 2.08vw, 76px);flex-shrink:0;display:flex;align-items:flex-end;justify-content:space-between;padding:0 clamp(21px, 1.09vw, 40px) clamp(6px, 0.31vw, 11px);position:relative;z-index:10;color:#fff;font-size:clamp(0.85rem, 0.7vw, 1.3rem);font-weight:600;}
                     .ios-time{font-weight:700;font-size:clamp(0.95rem, 0.78vw, 1.4rem);letter-spacing:-0.3px;}
-                    .ios-dynamic-island{position:absolute;top:clamp(9px, 0.47vw, 17px);left:50%;transform:translateX(-50%);width:clamp(130px, 7vw, 220px);height:clamp(27px, 1.41vw, 51px);background:#000;border-radius:clamp(20px, 1.04vw, 38px);z-index:20;display:flex;align-items:center;justify-content:center;gap:clamp(5px, 0.4vw, 8px);padding:0 clamp(8px, 0.5vw, 14px);}
-                    .ios-dm-label{font-size:clamp(0.5rem, 0.42vw, 0.65rem);color:#666;font-family:'Inter',sans-serif;white-space:nowrap;letter-spacing:0.2px;}
-                    .ios-dm-tabs{display:flex;gap:2px;}
-                    .ios-dm-btn{background:none;border:none;color:#666;font-size:clamp(0.52rem, 0.44vw, 0.68rem);font-weight:700;padding:2px clamp(5px, 0.35vw, 9px);border-radius:clamp(5px, 0.35vw, 10px);cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;white-space:nowrap;}
-                    .ios-dm-btn.ios-dm-active{background:rgba(0,255,136,0.25);color:#00ff88;}
-                    body.light-theme .ios-dm-btn.ios-dm-active{background:rgba(5,150,105,0.3);color:#00cc66;}
+                    .ios-dynamic-island{position:absolute;top:clamp(9px, 0.47vw, 17px);left:50%;transform:translateX(-50%);width:clamp(160px, 9vw, 280px);height:clamp(32px, 1.7vw, 58px);background:#000;border-radius:clamp(20px, 1.04vw, 38px);z-index:20;display:flex;align-items:center;justify-content:center;gap:clamp(6px, 0.5vw, 10px);padding:0 clamp(10px, 0.65vw, 18px);}
+                    .ios-dm-label{font-size:clamp(0.55rem, 0.46vw, 0.72rem);color:#555;font-family:'Inter',sans-serif;white-space:nowrap;letter-spacing:0.8px;font-weight:700;text-transform:uppercase;}
+                    .ios-dm-tabs{display:flex;gap:3px;}
+                    .ios-dm-btn{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#666;font-size:clamp(0.65rem, 0.55vw, 0.88rem);font-weight:800;padding:3px clamp(8px, 0.55vw, 14px);border-radius:clamp(6px, 0.4vw, 12px);cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;white-space:nowrap;letter-spacing:0.3px;text-transform:uppercase;}
+                    .ios-dm-btn:hover{color:#e0e0e0;border-color:rgba(255,255,255,0.15);}
+                    .ios-dm-btn.ios-dm-active{background:rgba(0,255,136,0.18);color:#00ff88;border-color:rgba(0,255,136,0.35);box-shadow:0 0 8px rgba(0,255,136,0.12);}
+                    body.light-theme .ios-dm-btn.ios-dm-active{background:rgba(5,150,105,0.22);color:#059669;border-color:rgba(5,150,105,0.4);box-shadow:0 0 8px rgba(5,150,105,0.1);}
                     .ios-status-icons{display:flex;align-items:center;gap:5px;}
 
                     /* Home Screen */
@@ -273,7 +274,7 @@
                     @keyframes iosAppClose{0%{opacity:1;transform:scale(1);}100%{opacity:0;transform:scale(0.88);}}
 
                     /* Nav Bar */
-                    .ios-nav-bar{flex-shrink:0;display:flex;align-items:center;gap:clamp(6px, 0.31vw, 11px);padding:clamp(50px, 2.60vw, 95px) clamp(10px, 0.52vw, 19px) clamp(8px, 0.42vw, 15px);background:rgba(18,18,18,0.94);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,0.06);}
+                    .ios-nav-bar{flex-shrink:0;display:flex;align-items:center;gap:clamp(6px, 0.31vw, 11px);padding:clamp(50px, 2.60vw, 95px) clamp(10px, 0.52vw, 19px) clamp(8px, 0.42vw, 15px);background:#121212;backdrop-filter:none;-webkit-backdrop-filter:none;border-bottom:1px solid rgba(255,255,255,0.06);}
                     .ios-back-btn{background:none;border:none;color:#007AFF;font-size:clamp(1rem, 0.83vw, 1.5rem);cursor:pointer;padding:4px 8px 4px 4px;display:flex;align-items:center;gap:3px;flex-shrink:0;border-radius:6px;transition:background 0.15s;}
                     .ios-back-btn:hover{background:rgba(0,122,255,0.1);}
                     .ios-back-btn .ios-back-label{font-size:clamp(0.75rem, 0.62vw, 1.1rem);font-weight:500;}
@@ -301,7 +302,7 @@
                     .ios-thread-scroll .dlr-bubble{font-size:clamp(0.88rem, 0.73vw, 1.3rem)!important;padding:clamp(10px, 0.52vw, 19px) clamp(14px, 0.73vw, 27px)!important;}
 
                     /* iMessage Composer */
-                    .ios-composer{flex-shrink:0;background:rgba(18,18,18,0.94);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,0.06);}
+                    .ios-composer{flex-shrink:0;background:#121212;backdrop-filter:none;-webkit-backdrop-filter:none;border-top:1px solid rgba(255,255,255,0.06);}
                     .ios-quick-replies{display:flex;align-items:center;gap:5px;padding:5px 8px 2px;overflow-x:auto;scrollbar-width:none;}
                     .ios-quick-replies::-webkit-scrollbar{display:none;}
                     .ios-ai-btn{display:flex;align-items:center;gap:5px;flex-shrink:0;background:linear-gradient(135deg,rgba(0,122,255,0.2),rgba(88,86,214,0.15));border:1px solid rgba(0,122,255,0.35);color:#007AFF;border-radius:clamp(14px, 0.73vw, 27px);padding:clamp(8px, 0.42vw, 15px) clamp(14px, 0.73vw, 27px);font-size:clamp(0.884rem, 0.73vw, 1.3rem);font-weight:700;cursor:pointer;white-space:nowrap;}
@@ -310,7 +311,7 @@
                     .ios-brand-label{color:#007AFF;font-size:0.82rem;font-weight:700;white-space:nowrap;letter-spacing:0.02em;}
                     .ios-quick-options-btn{display:flex;align-items:center;gap:5px;flex-shrink:0;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);color:#8E8E93;border-radius:14px;padding:8px 14px;font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s;}
                     .ios-quick-options-btn:hover{background:rgba(0,122,255,0.12);color:#007AFF;border-color:rgba(0,122,255,0.25);}
-                    .ios-quick-options-menu{display:none;position:fixed;min-width:200px;background:rgba(30,30,30,0.96);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:6px;z-index:10000;box-shadow:0 4px 20px rgba(0,0,0,0.4);}
+                    .ios-quick-options-menu{display:none;position:fixed;min-width:200px;background:#1e1e1e;backdrop-filter:none;-webkit-backdrop-filter:none;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:6px;z-index:10000;box-shadow:0 4px 20px rgba(0,0,0,0.4);}
                     .ios-quick-options-menu.open{display:flex;flex-direction:column;gap:2px;}
                     .ios-quick-options-menu button{display:flex;align-items:center;gap:8px;width:100%;background:transparent;border:none;color:#e0e0e0;padding:10px 12px;font-size:0.82rem;border-radius:10px;cursor:pointer;text-align:left;transition:background .12s;}
                     .ios-quick-options-menu button:hover{background:rgba(0,122,255,0.15);color:#fff;}
@@ -438,13 +439,13 @@
                         .dlr-contact-row { gap:6px !important; }
 
                         /* ── Mobile Action Bar (below contact/intel) ── */
-                        .dlr-mobile-action-bar { display:flex !important; gap:6px; padding:10px 8px; background:linear-gradient(135deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02)); backdrop-filter:blur(20px) saturate(160%); border-top:1px solid rgba(255,255,255,0.15); border-left:1px solid rgba(255,255,255,0.08); border-right:1px solid rgba(255,255,255,0.03); border-bottom:1px solid rgba(255,255,255,0.03); border-radius:10px; margin-top:8px; }
+                        .dlr-mobile-action-bar { display:flex !important; gap:6px; padding:10px 8px; background:#111111; backdrop-filter:none; border:1px solid #1e1e1e; border-radius:10px; margin-top:8px; }
                         .dlr-mobile-action-btn { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:10px 8px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03); color:#888; font-size:0.78rem; font-weight:600; cursor:pointer; transition:all .15s; }
                         .dlr-mobile-action-btn.active { background:rgba(0,217,255,0.12); border-color:rgba(0,217,255,0.25); color:#00d9ff; }
                         .dlr-mobile-action-btn i { font-size:0.85rem; }
 
                         /* ── Mobile Apps Popup ── */
-                        .dlr-mobile-apps-popup { display:none; position:fixed; bottom:80px; left:10px; right:10px; background:rgba(20,20,30,0.96); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:12px; z-index:300; box-shadow:0 -4px 30px rgba(0,0,0,0.5); }
+                        .dlr-mobile-apps-popup { display:none; position:fixed; bottom:80px; left:10px; right:10px; background:#14141e; backdrop-filter:none; -webkit-backdrop-filter:none; border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:12px; z-index:300; box-shadow:0 -4px 30px rgba(0,0,0,0.5); }
                         .dlr-mobile-apps-popup.open { display:block; }
                         .dlr-mobile-apps-popup-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
                         .dlr-mobile-apps-popup-item { display:flex; flex-direction:column; align-items:center; gap:4px; background:none; border:none; cursor:pointer; padding:8px 4px; border-radius:10px; transition:background .12s; }
@@ -669,10 +670,12 @@
                     body.light-theme .ios-app-label { color: #1a1a2e !important; text-shadow: none !important; }
                     body.light-theme .ios-status-bar { color: #1a1a2e !important; }
                     body.light-theme .ios-dynamic-island { background: #1a1a2e !important; }
+                    body.light-theme .ios-dm-label { color: #aaa !important; }
+                    body.light-theme .ios-dm-btn { color: #aaa !important; }
                     body.light-theme .ios-home-indicator { background: rgba(0,0,0,0.2) !important; }
-                    body.light-theme .ios-nav-bar { background: rgba(255,255,255,0.94) !important; border-bottom-color: rgba(0,0,0,0.08) !important; }
+                    body.light-theme .ios-nav-bar { background: #ffffff !important; border-bottom-color: rgba(0,0,0,0.08) !important; }
                     body.light-theme .ios-nav-name { color: #1a1a2e !important; }
-                    body.light-theme .ios-composer { background: rgba(255,255,255,0.94) !important; border-top-color: rgba(0,0,0,0.08) !important; }
+                    body.light-theme .ios-composer { background: #ffffff !important; border-top-color: rgba(0,0,0,0.08) !important; }
                     body.light-theme .ios-app-view { background: #f2f2f7 !important; }
                     body.light-theme .ios-thread-scroll { background: #fff !important; }
                     body.light-theme .ios-thread-scroll .dlr-bubble.inbound { background: #e9e9eb !important; border: none !important; color: #1a1a2e !important; }
@@ -684,7 +687,7 @@
                     body.light-theme .ios-empty-icon { background: rgba(0,122,255,0.08) !important; border-color: rgba(0,122,255,0.15) !important; }
                     body.light-theme .ios-qr-chip { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.08) !important; color: #4a5568 !important; }
                     body.light-theme .ios-qr-chip:hover { background: rgba(0,122,255,0.08) !important; color: #007AFF !important; }
-                    body.light-theme .ios-quick-options-menu { background: rgba(255,255,255,0.96) !important; border-color: rgba(0,0,0,0.1) !important; }
+                    body.light-theme .ios-quick-options-menu { background: #ffffff !important; border-color: rgba(0,0,0,0.1) !important; }
                     body.light-theme .ios-quick-options-menu button { color: #1a1a2e !important; }
                     body.light-theme .ios-quick-options-menu button:hover { background: rgba(0,122,255,0.08) !important; }
                     /* Call History and Recordings scroll areas */
@@ -727,7 +730,7 @@
 
                     /* Light theme — Calendar app */
                     body.light-theme #iosAppCalendar { background: #f2f2f7 !important; color: #1a1a2e !important; }
-                    body.light-theme #iosAppCalendar .ios-nav-bar { background: rgba(255,255,255,0.96) !important; border-bottom-color: rgba(255,59,48,0.12) !important; }
+                    body.light-theme #iosAppCalendar .ios-nav-bar { background: #ffffff !important; border-bottom-color: rgba(255,59,48,0.12) !important; }
                     body.light-theme #iosCalMonthTitle { color: #1a1a2e !important; }
                     body.light-theme #iosCalendarPicker { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.1) !important; color: #1a1a2e !important; }
                     body.light-theme #iosCalGoogleBtn { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.1) !important; color: #636366 !important; }
@@ -779,7 +782,7 @@
 
                     /* Light theme — all app views (Messages, Calls, Recordings, Voicemail) */
                     body.light-theme .iphone-frame .ios-app-view { background: #f2f2f7 !important; color: #1a1a2e; }
-                    body.light-theme .iphone-frame .ios-nav-bar { background: rgba(248,248,248,0.96) !important; border-bottom-color: rgba(0,0,0,0.1) !important; }
+                    body.light-theme .iphone-frame .ios-nav-bar { background: #f8f8f8 !important; border-bottom-color: rgba(0,0,0,0.1) !important; }
                     body.light-theme .iphone-frame .ios-nav-name { color: #1a1a2e !important; }
                     body.light-theme .iphone-frame .ios-nav-subtitle { color: #636366 !important; }
                     /* Messages thread */
@@ -789,7 +792,7 @@
                     body.light-theme .iphone-frame .ios-thread-scroll .dlr-msg-meta { color: #636366 !important; }
                     body.light-theme .iphone-frame .ios-thread-scroll .dlr-type-badge { background: rgba(0,0,0,0.06) !important; border-color: rgba(0,0,0,0.08) !important; color: #636366 !important; }
                     /* Composer bar */
-                    body.light-theme .iphone-frame .ios-composer { background: rgba(248,248,248,0.96) !important; border-top-color: rgba(0,0,0,0.1) !important; }
+                    body.light-theme .iphone-frame .ios-composer { background: #f8f8f8 !important; border-top-color: rgba(0,0,0,0.1) !important; }
                     body.light-theme .iphone-frame .ios-qr-chip { background: rgba(0,0,0,0.06) !important; border-color: rgba(0,0,0,0.1) !important; color: #636366 !important; }
                     body.light-theme .iphone-frame .ios-qr-chip:hover { background: rgba(0,122,255,0.1) !important; color: #007AFF !important; border-color: rgba(0,122,255,0.2) !important; }
                     body.light-theme .iphone-frame .ios-quick-options-btn { background: rgba(0,0,0,0.06) !important; border-color: rgba(0,0,0,0.1) !important; color: #636366 !important; }
@@ -825,9 +828,18 @@
                     /* Mobile: hide banner on small screens */
                     @media(max-width:768px){ #dialerKpiBanner{display:none !important;}}
 
+                    /* Collapsible top bar */
+                    #dlrTopBarHeader { transition: background 0.15s; }
+                    #dlrTopBarHeader:hover { background: rgba(255,255,255,0.03); }
+                    .dlr-topbar-chevron { transform: rotate(0deg); color: #444; font-size: 0.55rem; transition: transform 0.2s, color 0.15s; }
+                    .dlr-topbar-chevron.open { transform: rotate(180deg); color: #00ff88; }
+                    body.light-theme #dlrTopBarHeader:hover { background: rgba(0,0,0,0.02); }
+                    body.light-theme .dlr-topbar-chevron { color: #999; }
+                    body.light-theme .dlr-topbar-chevron.open { color: #059669; }
+
                     /* Light theme — dialer panels */
-                    body.light-theme .dlr-top-bar { background: rgba(255,255,255,0.7) !important; border-color: rgba(0,0,0,0.08) !important; }
-                    body.light-theme .dlr-col { background: rgba(255,255,255,0.7) !important; border-color: rgba(0,0,0,0.08) !important; }
+                    body.light-theme .dlr-top-bar { background: #ffffff !important; border-color: rgba(0,0,0,0.08) !important; }
+                    body.light-theme .dlr-col { background: #ffffff !important; border-color: rgba(0,0,0,0.08) !important; }
                     body.light-theme .dlr-col-hdr { border-bottom-color: rgba(0,0,0,0.06) !important; }
                     body.light-theme .dlr-col-hdr h6 { color: var(--lt-accent) !important; }
                     body.light-theme .dlr-contact-row { border-bottom-color: rgba(0,0,0,0.03) !important; }
@@ -835,8 +847,8 @@
                     body.light-theme .dlr-contact-row.active { background: rgba(5,150,105,0.06) !important; border-left-color: var(--lt-accent) !important; }
 
                     /* ── Export Modal — Dark (glassmorphism) ── */
-                    .dlr-export-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); z-index:10000; align-items:center; justify-content:center; }
-                    .dlr-export-card { background:linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%); backdrop-filter:blur(20px) saturate(160%) brightness(1.1); -webkit-backdrop-filter:blur(20px) saturate(160%) brightness(1.1); border:1px solid rgba(255,255,255,0.15); border-top-color:rgba(255,255,255,0.25); border-left-color:rgba(255,255,255,0.18); border-radius:20px; max-width:540px; width:92%; max-height:85vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 32px 80px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.15); }
+                    .dlr-export-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); backdrop-filter:none; -webkit-backdrop-filter:none; z-index:10000; align-items:center; justify-content:center; }
+                    .dlr-export-card { background:#111111; backdrop-filter:none; -webkit-backdrop-filter:none; border:1px solid #222222; border-radius:20px; max-width:540px; width:92%; max-height:85vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 32px 80px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.15); }
                     .dlr-export-hdr { padding:16px 20px; border-bottom:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:space-between; }
                     .dlr-export-hdr h5 { margin:0; font-weight:700; color:#fff; }
                     .dlr-export-hdr .dlr-export-close { background:none; border:none; color:#666; cursor:pointer; font-size:1.2rem; transition:color 0.2s; }
@@ -860,7 +872,7 @@
 
                     /* ── Export Modal — Light theme ── */
                     body.light-theme .dlr-export-overlay { background:rgba(0,0,0,0.25); }
-                    body.light-theme .dlr-export-card { background:linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.72) 100%); backdrop-filter:blur(24px) saturate(180%) brightness(1.05); -webkit-backdrop-filter:blur(24px) saturate(180%) brightness(1.05); border-color:rgba(0,0,0,0.08); border-top-color:rgba(255,255,255,0.9); border-left-color:rgba(255,255,255,0.6); box-shadow:0 32px 80px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.8); }
+                    body.light-theme .dlr-export-card { background:#ffffff; backdrop-filter:none; -webkit-backdrop-filter:none; border-color:rgba(0,0,0,0.10); box-shadow:0 8px 32px rgba(0,0,0,0.12); }
                     body.light-theme .dlr-export-hdr { border-bottom-color:rgba(0,0,0,0.08); }
                     body.light-theme .dlr-export-hdr h5 { color:#1a1a2e; }
                     body.light-theme .dlr-export-hdr .dlr-export-close { color:#a0aec0; }
@@ -881,9 +893,9 @@
                     body.light-theme .dlr-export-select { background:rgba(0,0,0,0.03); border-color:rgba(0,0,0,0.1); color:#1a1a2e; }
 
                     /* ── Move Pipeline Panel — Dark ── */
-                    .mvp-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.45); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); z-index:99999; align-items:center; justify-content:center; }
+                    .mvp-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.45); backdrop-filter:none; -webkit-backdrop-filter:none; z-index:99999; align-items:center; justify-content:center; }
                     .mvp-overlay.open { display:flex; }
-                    .mvp-panel { background:linear-gradient(135deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.03) 100%); backdrop-filter:blur(24px) saturate(160%) brightness(1.1); -webkit-backdrop-filter:blur(24px) saturate(160%) brightness(1.1); border-width:1px; border-style:solid; border-color:rgba(255,255,255,0.22) rgba(255,255,255,0.05) rgba(255,255,255,0.05) rgba(255,255,255,0.14); border-radius:18px; width:340px; max-width:92vw; max-height:80vh; display:flex; flex-direction:column; box-shadow:0 24px 60px -8px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.14); overflow:hidden; }
+                    .mvp-panel { background:#111111; backdrop-filter:none; -webkit-backdrop-filter:none; border:1px solid #222222; border-radius:18px; width:340px; max-width:92vw; max-height:80vh; display:flex; flex-direction:column; box-shadow:0 24px 60px -8px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.14); overflow:hidden; }
                     .mvp-header { padding:14px 18px 10px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.07); flex-shrink:0; }
                     .mvp-title { font-weight:700; font-size:0.92rem; color:#eee; }
                     .mvp-count { font-size:0.75rem; color:#666; }
@@ -957,13 +969,19 @@
                 </style>
 
                 <!-- Top Bar -->
-                <div class="dlr-top-bar glass-panel" style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:12px 16px;border-radius:14px;">
-                    <div class="dlr-icon-box-cyan" style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center">
-                        <i class="fa-solid fa-phone-volume dlr-icon-cyan" style="font-size:1rem"></i>
+                <div class="dlr-top-bar" style="margin-bottom:12px;border-radius:14px;overflow:hidden;">
+                    <!-- Collapsed header: always visible, click to expand -->
+                    <div id="dlrTopBarHeader" onclick="document.getElementById('dlrTopBarBody').style.display=document.getElementById('dlrTopBarBody').style.display==='none'?'flex':'none';this.querySelector('.dlr-topbar-chevron').classList.toggle('open')" style="display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;user-select:none;">
+                        <div class="dlr-icon-box-cyan" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center">
+                            <i class="fa-solid fa-phone-volume dlr-icon-cyan" style="font-size:0.88rem"></i>
+                        </div>
+                        <h5 id="dialerTierTitle" style="margin:0;font-weight:700;font-size:1.1rem;white-space:nowrap;flex:1;">Power Dialer</h5>
+                        <span id="dialerMinutesChip" class="dialer-minutes-chip" style="display:none;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all .2s" onclick="event.stopPropagation();document.querySelector('[data-tab=\'aiminutes\']')?.click()" title="AI Minutes remaining — click to buy more"></span>
+                        <i class="fa-solid fa-chevron-down dlr-topbar-chevron"></i>
                     </div>
-                    <div style="flex:1;display:flex;align-items:center;gap:10px;">
-                        <h5 id="dialerTierTitle" style="margin:0;font-weight:700;font-size:1.4rem;white-space:nowrap;">Power Dialer</h5>
-                        <span id="dialerMinutesChip" class="dialer-minutes-chip" style="display:none;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all .2s" onclick="document.querySelector('[data-tab=\'aiminutes\']')?.click()" title="AI Minutes remaining — click to buy more"></span>
+                    <!-- Expandable body: hidden by default -->
+                    <div id="dlrTopBarBody" style="display:none;align-items:center;gap:12px;padding:0 16px 12px;">
+                        <div style="flex:1;display:flex;align-items:center;gap:10px;">
                         <!-- Inline Quick Dial -->
                         <div class="quick-dial-group" style="display:flex;flex-direction:column;gap:4px;flex:1;max-width:300px;position:relative;">
                             <!-- View toggle tabs -->
@@ -1019,8 +1037,8 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Mode Toggle -->
-                    <div class="dlr-panel-2" style="display:flex;gap:2px;border-radius:8px;padding:2px">
+                    <!-- Mode Toggle (hidden — moved to phone island dynamic island) -->
+                    <div class="dlr-panel-2" style="display:none;gap:2px;border-radius:8px;padding:2px">
                         <button id="modeAiBtn" onclick="setDialerMode('ai')" class="dlr-btn-mode-off" style="padding:6px 14px;border-radius:6px;border:none;font-weight:700;font-size:0.88rem;cursor:pointer;transition:all .2s">
                             <i class="fa-solid fa-robot me-1"></i>AI
                         </button>
@@ -1045,15 +1063,16 @@
                     <div id="voipStatus" class="dlr-panel-5" style="display:none;border-radius:6px;padding:3px 8px;font-size:0.82rem;font-weight:600">
                         <i class="fa-solid fa-circle me-1" style="font-size:0.4rem;vertical-align:middle;"></i>Ready
                     </div>
-                    <!-- Stats button -->
-                    <button id="dialerStatsToggle" onclick="dialerToggleStats()" class="dlr-btn-ghost-2" style="border-radius:8px;padding:6px 12px;font-size:0.88rem;font-weight:600;cursor:pointer;transition:all .2s" title="Call Statistics">
+                    <!-- Stats button (hidden — stats is now a phone app) -->
+                    <button id="dialerStatsToggle" onclick="dialerToggleStats()" class="dlr-btn-ghost-2" style="display:none;border-radius:8px;padding:6px 12px;font-size:0.88rem;font-weight:600;cursor:pointer;transition:all .2s" title="Call Statistics">
                         <i class="fa-solid fa-chart-bar"></i>
                     </button>
                     <!-- Settings toggle -->
-                    <button id="dialerSettingsToggle" onclick="navTo('voice');setTimeout(()=>switchVoicePanel('dialer'),100);" class="dlr-btn-ghost-2" style="border-radius:8px;padding:6px 12px;font-size:0.88rem;font-weight:600;cursor:pointer;transition:all .2s" title="Dialer Settings">
+                    <button id="dialerSettingsToggle" onclick="event.stopPropagation();navTo('voice');setTimeout(()=>switchVoicePanel('dialer'),100);" class="dlr-btn-ghost-2" style="border-radius:8px;padding:6px 12px;font-size:0.88rem;font-weight:600;cursor:pointer;transition:all .2s" title="Dialer Settings">
                         <i class="fa-solid fa-gear"></i>
                     </button>
-                </div>
+                    </div><!-- /dlrTopBarBody -->
+                </div><!-- /dlr-top-bar -->
 
                 <!-- VoIP Setup Banner -->
                 <div id="voipSetupBanner" class="dlr-banner-warning" style="display:none;border-radius:10px;padding:10px 14px;margin-bottom:10px">
@@ -2299,7 +2318,7 @@
                                     </div>
 
                                     <!-- ═══ NOTIFICATION BANNER ═══ -->
-                                    <div id="iosNotificationBanner" class="dlr-btn-8" style="display:none;position:absolute;top:48px;left:8px;right:8px;z-index:100;backdrop-filter:blur(20px);border-radius:14px;padding:12px 16px;cursor:pointer;transition:all 0.3s ease;opacity:0;transform:translateY(-20px)">
+                                    <div id="iosNotificationBanner" class="dlr-btn-8" style="display:none;position:absolute;top:48px;left:8px;right:8px;z-index:100;backdrop-filter:none;border-radius:14px;padding:12px 16px;cursor:pointer;transition:all 0.3s ease;opacity:0;transform:translateY(-20px)">
                                         <div style="display:flex;align-items:center;gap:10px;">
                                             <div class="dlr-icon-box-notif" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
                                                 <i class="fa-solid fa-message dlr-icon-cfff-2" style="font-size:0.8rem"></i>
@@ -2483,7 +2502,7 @@
                 </script>
 
                 <!-- Transcript Modal -->
-                <div id="transcriptModal" class="dlr-modal-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;backdrop-filter:blur(8px);z-index:10000;align-items:center;justify-content:center">
+                <div id="transcriptModal" class="dlr-modal-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;backdrop-filter:none;z-index:10000;align-items:center;justify-content:center">
                     <div class="dlr-icon-box-neutral-2" style="border-radius:16px;max-width:600px;width:90%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column">
                         <div class="dlr-misc-34" style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between">
                             <h5 style="margin:0;font-weight:700;"><i class="fa-solid fa-file-lines me-2 dlr-text-cyan" ></i>Call Transcript</h5>
@@ -2569,7 +2588,7 @@
             </div>
 
             <!-- Contact Management Modal -->
-            <div id="dlrContactMgmtModal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;">
+            <div id="dlrContactMgmtModal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.55);backdrop-filter:none;display:none;align-items:center;justify-content:center;">
                 <div class="glass-panel" style="width:360px;border-radius:14px;padding:0;overflow:hidden;">
                     <div style="padding:14px 16px 12px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;">
                         <div style="font-weight:700;font-size:1rem;">Contact Management</div>

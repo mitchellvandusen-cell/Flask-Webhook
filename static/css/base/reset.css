@@ -161,6 +161,16 @@ span.fa, span.fas, span.far, span.fab,
     color: #555e6d;
 }
 
+/* Icons inside colored app tiles must stay white in light theme */
+[data-theme="light"] .ios-icon i,
+[data-theme="light"] .ios-icon [class^="fa-"],
+[data-theme="light"] .ios-icon [class*=" fa-"],
+[data-theme="light"] .dlr-mapp-icon i,
+[data-theme="light"] .dlr-mapp-icon [class^="fa-"],
+[data-theme="light"] .dlr-mapp-icon [class*=" fa-"] {
+    color: #ffffff !important;
+}
+
 /* ── Global keyframe animations ────────────────────────────────── */
 @keyframes slideUp {
     from { transform: translateY(30px); opacity: 0; }

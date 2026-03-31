@@ -1232,7 +1232,7 @@ https://www.twilio.com/docs/voice/spam-monitoring-with-voiceintegrity/voice-inte
 
 ### Coverage
 The light theme has comprehensive overrides for:
-- Sidebar, topbar, glass panels, form inputs, dropdowns
+- Sidebar, topbar, panels, form inputs, dropdowns
 - Dialer columns, contact rows, message bubbles, date separators
 - iPhone/iOS UI (nav bar, thread scroll, composer, tab bar, call log, voicemail)
 - Billing plan cards, pricing cards, metallic price text
@@ -2037,100 +2037,80 @@ Subscriptions managed via Stripe. Users without active subscriptions see a paywa
 
 ---
 
-## Liquid Glass Design System
+## ⛔ NO GLASSMORPHISM — Mandatory Rule
 
-InsuranceGrokBot uses a unified **Liquid Glass** visual language across all UI surfaces. Every panel, card, modal, dropdown, and interactive element must adhere to these rules. Do not deviate.
+**Glassmorphism (`backdrop-filter`, translucent `rgba` backgrounds, frosted glass effects) has been retired from this codebase. Do not introduce it anywhere.**
 
-### Core Concept
+The glass aesthetic could not be made to work consistently across the product. It was visually inconsistent, didn't work well across all browsers, and conflicted with the brand's authoritative, trustworthy positioning.
 
-Liquid Glass simulates a physical pane of frosted glass lit from the top-left. It combines:
-- **`backdrop-filter`** for blur + saturation (the "frosted" part)
-- **Layered `rgba` backgrounds** for translucency
-- **Asymmetric borders** — top/left edges are brighter (catch the light), bottom/right are darker (in shadow)
-- **`inset` box-shadows** to simulate glass thickness and edge glow
+### The New Design Language: Sharp, Bold, Solid, Authoritative
 
-### CSS Custom Properties
+InsuranceGrokBot's visual identity is **sharp, bold, and solid** — the aesthetic of a professional tool that insurance agents trust with their business. Not a consumer app. Not a startup landing page. A serious platform.
 
-All glass values are defined in `:root` in `static/css/style.css`:
+**Core principles:**
+- **Solid backgrounds** — `#000`, `#050505`, `#080808`, `#0a0a0a`, `#111`, `#1a1a1a`. Never translucent.
+- **Hard edges** — borders are `1px solid` with a single color (e.g. `rgba(255,255,255,0.08)` or `#1a1a1a`). No asymmetric lighting tricks.
+- **Flat depth** — use `box-shadow` for elevation if needed, but no `inset` shimmer or glass-edge simulation.
+- **No `backdrop-filter`** — ever. Not for cards, modals, dropdowns, or nav.
+- **Strong type** — large, heavy Outfit headlines (900 weight). Typography carries the authority.
+- **Accent as signal** — `#00ff88` used precisely: active states, CTAs, key numbers, icons. Not decorative glow everywhere.
 
-```css
-/* Background gradients */
---glass-bg:         linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%);
---glass-bg-strong:  linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.04) 100%);
-
-/* Blur filter */
---glass-blur:       blur(20px) saturate(160%) brightness(1.1);
-
-/* 3D Edge Lighting — top/left bright, bottom darker */
---glass-border-top:    rgba(255,255,255,0.25);
---glass-border-left:   rgba(255,255,255,0.15);
---glass-border-bottom: rgba(255,255,255,0.05);
---glass-border:        rgba(255,255,255,0.15);   /* legacy alias */
-
-/* Depth shadows */
---glass-shadow:       0 16px 32px -8px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.15);
---glass-shadow-hover: 0 24px 48px -12px rgba(0,255,136,0.15), inset 0 1px 2px rgba(255,255,255,0.25);
-
-/* Accent */
---accent: #00ff88;
---accent-hover: #ffffff;
---accent-dim: rgba(0,255,136,0.12);
-```
-
-### Canonical Glass Pattern
-
-Apply this to any card, panel, dropdown, or modal:
+### Canonical Card Pattern
 
 ```css
-.my-glass-element {
-    background: var(--glass-bg);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
-    border-width: 1px;
-    border-style: solid;
-    border-color: var(--glass-border-top) var(--glass-border-bottom) var(--glass-border-bottom) var(--glass-border-left);
-    /* shorthand: top  right  bottom  left */
+.my-card {
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
     border-radius: 12px;
-    box-shadow: var(--glass-shadow);
+    transition: border-color 0.18s ease;
 }
-.my-glass-element:hover {
-    background: var(--glass-bg-strong);
-    box-shadow: var(--glass-shadow-hover);
+.my-card:hover {
+    border-color: rgba(0,255,136,0.20);
 }
 ```
 
-### Light Theme Overrides
-
-Light theme is activated via `body.light-theme`. All glass colors and surfaces have light-mode counterparts defined with `--lt-*` variables. Re-define any glass surface inside `body.light-theme { }`:
-
+For marketing feature cards, use a top accent border on hover:
 ```css
-body.light-theme .my-glass-element {
-    background: rgba(255,255,255,0.85);
-    border-color: rgba(0,0,0,0.10) rgba(0,0,0,0.06) rgba(0,0,0,0.06) rgba(0,0,0,0.08);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+.my-feature-card:hover {
+    border-top-color: rgba(0,255,136,0.45);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
 }
 ```
 
-### Key `--lt-*` Variables (Light Theme)
+### Light Theme Pattern
 
+Light theme uses solid whites and soft grays — no frosted glass:
 ```css
---lt-bg:            #f0f2f5;
---lt-surface:       rgba(255,255,255,0.82);
---lt-surface-hover: rgba(255,255,255,0.95);
---lt-border:        rgba(0,0,0,0.10);
---lt-text-primary:  #0d0d12;
---lt-text-secondary:#374151;
---lt-text-muted:    #6b7280;
---lt-text-faint:    #9ca3af;
---lt-input-bg:      rgba(255,255,255,0.70);
---lt-input-text:    #111827;
---lt-accent:        #00aa5e;
---lt-accent-bg:     rgba(0,170,94,0.10);
+body.light-theme .my-card {
+    background: #ffffff;
+    border-color: #e8e8e8;
+}
+body.light-theme .my-card:hover {
+    border-color: rgba(5,150,105,0.25);
+}
 ```
 
-### Reference Implementation
+### Key CSS Variables (Retained)
 
-The `Choices.js` custom select overrides in `static/css/style.css` (search for `/* Choices.js */`) are the canonical gold-standard implementation of a fully-themed Liquid Glass interactive component with dark and light variants. Model any new interactive components after that section.
+These variables remain valid and should be used:
+```css
+--accent:       #00ff88;   /* neon green — dark mode */
+--accent-dim:   rgba(0,255,136,0.12);
+--lt-accent:    #059669;   /* darker green — light mode */
+--lt-accent-bg: rgba(5,150,105,0.08);
+--lt-bg:        #f4f6fa;
+--lt-surface:   #ffffff;
+--lt-border:    rgba(0,0,0,0.08);
+```
+
+The `--glass-*` variables still exist in `style.css` for backward compatibility with old dashboard components that haven't been migrated yet. Do not add new uses of them. Migrate existing uses to solid backgrounds when touching those components.
+
+### What To Do With Existing Glass Code
+
+- **New components**: Always solid. Never glass.
+- **Editing existing glass components**: Convert to solid while you're in there. Don't leave glass behind.
+- **Dashboard**: The `style.css` still has glass variables and some glass classes. These are legacy. Migrate them to solid patterns as components are touched.
+- **Marketing CSS**: `marketing.css` still has `.glass-card`, `.mkt-glass-card`, `.glass-banner` etc. These are being phased out. Any new marketing component uses the solid card pattern above.
 
 ---
 

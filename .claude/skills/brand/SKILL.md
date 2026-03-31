@@ -1,6 +1,6 @@
 ---
 name: brand
-description: InsuranceGrokBot brand identity, design system, theme rules, and visual standards. Auto-invoked when working on UI, CSS, templates, themes, colors, logos, styling, design, glassmorphism, white-label, or any visual element.
+description: InsuranceGrokBot brand identity, design system, theme rules, and visual standards. Auto-invoked when working on UI, CSS, templates, themes, colors, logos, styling, design, white-label, or any visual element.
 allowed-tools: Read, Glob, Grep, Edit, Write, Bash, WebFetch
 ---
 
@@ -15,7 +15,6 @@ This skill auto-activates when the task involves any of these:
 - **design**, **UI**, **UX**, **layout**, **visual**
 - **theme**, **dark mode**, **light mode**, **light-theme**, **toggle**
 - **color**, **accent**, **neon green**, **#00ff88**
-- **glass**, **glassmorphism**, **liquid glass**, **frosted**, **blur**
 - **CSS**, **style**, **stylesheet**, **style.css**
 - **font**, **typography**, **Outfit**, **Inter**, **JetBrains Mono**
 - **template**, **Jinja**, **HTML**, **dashboard.html**, **base.html**
@@ -137,24 +136,15 @@ Activated via `body.light-theme` CSS class. Toggle in topbar (`#themeToggleBtn`)
 --accent: #059669;
 --accent-dim: rgba(5, 150, 105, 0.12);
 
-/* Light Liquid Glass (overrides dark glass vars) */
---glass-bg: rgba(255, 255, 255, 0.55);
---glass-bg-strong: rgba(255, 255, 255, 0.72);
---glass-border: rgba(255, 255, 255, 0.75);
---glass-blur: blur(40px) saturate(180%) brightness(1.04) contrast(1.02);
---glass-shadow: 0 16px 48px rgba(31,38,135,0.10), inset 0 1.5px 0 rgba(255,255,255,0.98);
---glass-shadow-hover: 0 24px 64px rgba(31,38,135,0.16), inset 0 1.5px 0 rgba(255,255,255,1);
-
-/* Light theme background gradient */
-background: linear-gradient(135deg, #f0f4ff 0%, #e8ecf8 50%, #f0f0f8 100%);
-background-attachment: fixed;
+/* Light theme background */
+background: #f4f6fa;
 ```
 
 **Rule**: Every dark-mode style MUST have a `body.light-theme` counterpart. No exceptions.
 
 ### Light Theme Coverage (Comprehensive)
 The light theme has overrides for ALL dashboard surfaces:
-- Sidebar, topbar, glass panels, form inputs, dropdowns
+- Sidebar, topbar, solid panels, form inputs, dropdowns
 - Dialer columns, contact rows, message bubbles, date separators
 - iPhone/iOS UI (nav bar, thread scroll, composer, tab bar, call log, voicemail)
 - Billing plan cards, pricing cards, metallic price text
@@ -202,74 +192,61 @@ h1, h2, h3        { font-family: 'Outfit', sans-serif; }
 
 ---
 
-## 4. Liquid Glass Design System
+## 4. ⛔ NO GLASSMORPHISM — Mandatory Rule
 
-### Core Concept
+**Glassmorphism is permanently retired from InsuranceGrokBot.** The design language is now **Sharp, Bold, Solid, Authoritative.**
 
-Liquid Glass simulates a physical pane of frosted glass lit from the top-left. It combines:
-- **`backdrop-filter`** for blur + saturation (the "frosted" part)
-- **Layered `rgba` backgrounds** for translucency
-- **Asymmetric borders** — top/left edges are brighter (catch the light), bottom/right are darker (in shadow)
-- **`inset` box-shadows** to simulate glass thickness and edge glow
+### Why Glassmorphism Was Removed
+Translucent blur effects undermined the platform's authoritative insurance-industry positioning. Solid, confident surfaces communicate power and reliability. Frosted glass communicates consumer app aesthetics — not what a $350/mo professional tool should feel like.
 
-### CSS Custom Properties
+### The Rules
 
-All glass values defined in `:root` in `static/css/style.css`:
+> **Never write `backdrop-filter`, `blur()`, or translucent `rgba` backgrounds on any new element.**
 
-```css
-/* Background gradients */
---glass-bg:         linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%);
---glass-bg-strong:  linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.04) 100%);
+- **NO** `backdrop-filter: blur(...)` — ever
+- **NO** `background: rgba(255,255,255,0.08)` translucent surfaces
+- **NO** asymmetric border lighting tricks (`--glass-border-top` etc.)
+- **NO** `--glass-*` variables in new code (they exist only for legacy backward compatibility)
 
-/* Blur filter */
---glass-blur:       blur(20px) saturate(160%) brightness(1.1);
+### The New Design Language
 
-/* 3D Edge Lighting — top/left bright, bottom darker */
---glass-border-top:    rgba(255,255,255,0.25);
---glass-border-left:   rgba(255,255,255,0.15);
---glass-border-bottom: rgba(255,255,255,0.05);
---glass-border:        rgba(255,255,255,0.15);   /* legacy alias */
+**Sharp, Bold, Solid, Authoritative:**
+- **Solid backgrounds** — `#000`, `#050505`, `#0d0d12` on dark; `#ffffff`, `#f4f6fa` on light
+- **Hard `1px solid` borders** — `rgba(255,255,255,0.08)` dark / `rgba(0,0,0,0.08)` light
+- **Strong drop shadows for depth** — no blur tricks, just `box-shadow`
+- **Neon green accents on black** — maximum contrast, maximum authority
+- **Bold typography** — Outfit 700-900 for impact
 
-/* Depth shadows */
---glass-shadow:       0 16px 32px -8px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.15);
---glass-shadow-hover: 0 24px 48px -12px rgba(0,255,136,0.15), inset 0 1px 2px rgba(255,255,255,0.25);
-```
+### Canonical Solid Card Pattern
 
-### Canonical Glass Pattern
-
-Apply this to ANY card, panel, dropdown, or modal:
+Use this for ALL new cards, panels, modals, dropdowns:
 
 ```css
-.my-glass-element {
-    background: var(--glass-bg);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
-    border-width: 1px;
-    border-style: solid;
-    border-color: var(--glass-border-top) var(--glass-border-bottom) var(--glass-border-bottom) var(--glass-border-left);
-    /* shorthand: top  right  bottom  left */
+.my-card {
+    background: var(--dark-surface);
+    border: 1px solid rgba(255,255,255,0.08);
     border-radius: 12px;
-    box-shadow: var(--glass-shadow);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+    transition: all 0.2s ease;
 }
-.my-glass-element:hover {
-    background: var(--glass-bg-strong);
-    box-shadow: var(--glass-shadow-hover);
+.my-card:hover {
+    border-color: rgba(255,255,255,0.14);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+body.light-theme .my-card {
+    background: #ffffff;
+    border-color: rgba(0,0,0,0.08);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+body.light-theme .my-card:hover {
+    border-color: rgba(0,0,0,0.14);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
 }
 ```
 
-### Light Theme Glass Override
+### Legacy `--glass-*` Variables
 
-```css
-body.light-theme .my-glass-element {
-    background: rgba(255,255,255,0.85);
-    border-color: rgba(0,0,0,0.10) rgba(0,0,0,0.06) rgba(0,0,0,0.06) rgba(0,0,0,0.08);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
-}
-```
-
-### Reference Implementation
-
-The `Choices.js` custom select overrides in `static/css/style.css` (search for `/* Choices.js */`) are the canonical gold-standard implementation of a fully-themed Liquid Glass interactive component with dark and light variants. Model any new interactive components after that section.
+The `--glass-*` CSS variables still exist in `style.css` for backward compatibility with existing components. **Do not use them in new code.** When you touch an existing component that uses them, migrate it to the solid card pattern above.
 
 ---
 
@@ -413,7 +390,7 @@ Agency owners can fully replace the InsuranceGrokBot brand with their own.
 ### Dashboard Structure
 ```
 ┌─────────────────────────────────────────────┐
-│ Topbar (fixed, glass)                        │
+│ Topbar (fixed, solid)                        │
 ├──────┬──────────────────────────────────────┤
 │      │                                       │
 │ Side │  Main Content Area                    │
@@ -438,10 +415,10 @@ transition: all 0.2s ease;
 
 ## 10. Marketing Page Aesthetic
 
-### Style: Dark Cyberpunk SaaS
-- Deep black backgrounds with subtle radial gradients
-- Neon green (#00ff88) → cyan (#00d9ff) accent gradients
-- Glassmorphic pricing cards with backdrop-filter blur
+### Style: Dark Cyberpunk SaaS — Sharp, Bold, Solid
+- Deep black backgrounds (`#000`, `#050505`) — solid, never translucent
+- Neon green (#00ff88) → cyan (#00d9ff) accent gradients on text and accents
+- **Solid** pricing cards — dark surface with hard 1px border, strong box-shadow
 - Large bold Outfit typography (up to 900 weight)
 - Phone mockups with animated SMS conversation bubbles
 - Statistics blocks with large numerals
@@ -464,9 +441,9 @@ All articles use these CSS classes:
 ## Quick Reference: Do's and Don'ts
 
 ### DO
-- Use CSS custom properties for ALL colors (`var(--accent)`, `var(--glass-bg)`)
+- Use CSS custom properties for ALL colors (`var(--accent)`, `var(--dark-surface)`)
 - Add `body.light-theme` overrides for every new dark-mode style
-- Use Liquid Glass pattern for new panels/cards/modals
+- Use the solid card pattern for new panels/cards/modals
 - Use FontAwesome for icons
 - Use `static/css/style.css` for all styling
 - Use semantic CSS class names
@@ -474,6 +451,8 @@ All articles use these CSS classes:
 
 ### DON'T
 - Write `style="..."` inline in templates (EVER)
+- Use `backdrop-filter`, `blur()`, or translucent `rgba` backgrounds (EVER)
+- Use `--glass-*` variables in new code (legacy only — migrate on touch)
 - Hardcode `#00ff88` in HTML (use `var(--accent)`)
 - Hardcode `InsuranceGrokBot` in dashboard templates
 - Create new CSS files (extend `style.css`)

@@ -22,12 +22,15 @@
     .wf-node-row { display: flex; align-items: center; }
     .wf-node-label { font-size: 0.78rem; font-weight: 600; color: #eee; }
     .wf-node-detail { font-size: 0.65rem; color: #b0b0b0; margin-top: 3px; margin-left: 38px; }
-    .wf-connector { width: 2px; height: 22px; margin: 0 auto; position: relative; z-index: 0; }
+    .wf-connector { width: 2px; height: 22px; margin: 0 auto; position: relative; z-index: 0; overflow: hidden; }
+    .wf-connector::before { content: ''; position: absolute; top: -100%; left: 0; width: 100%; height: 100%; background: linear-gradient(180deg, transparent, rgba(0,255,136,0.6), transparent); animation: wfDataFlow 2s ease-in-out infinite; }
     .wf-connector::after { content: ''; position: absolute; bottom: -3px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; }
+    @keyframes wfDataFlow { 0% { top: -100%; } 100% { top: 200%; } }
     .wf-branch { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 320px; margin: 0 auto; }
     .wf-branch-label { font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; text-align: center; margin-bottom: 6px; }
     .wf-branch .wf-node { max-width: 100%; }
-    .wf-connector-branch { width: 2px; height: 16px; margin: 0 auto; }
+    .wf-connector-branch { width: 2px; height: 16px; margin: 0 auto; position: relative; overflow: hidden; }
+    .wf-connector-branch::before { content: ''; position: absolute; top: -100%; left: 0; width: 100%; height: 100%; background: linear-gradient(180deg, transparent, currentColor, transparent); opacity: 0.5; animation: wfDataFlow 2s ease-in-out infinite 0.3s; }
     .wf-pulse { animation: wfPulse 2.5s ease-in-out infinite; }
     @keyframes wfPulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
 
@@ -154,7 +157,7 @@
                     <div class="wf-canvas-title">Speed to Lead &mdash; Live</div>
 
                     <!-- Trigger -->
-                    <div class="wf-node wf-trigger wf-pulse">
+                    <div class="wf-node wf-trigger wf-pulse" data-aos="fade-up" data-aos-delay="0">
                         <div class="wf-node-row">
                             <div class="wf-node-icon"><i class="fa-solid fa-bolt"></i></div>
                             <div class="wf-node-label">New Contact Created</div>
@@ -164,7 +167,7 @@
                     <div class="wf-connector" style="background: rgba(0,255,136,0.20);"></div>
 
                     <!-- Wait -->
-                    <div class="wf-node wf-wait">
+                    <div class="wf-node wf-wait" data-aos="fade-up" data-aos-delay="120">
                         <div class="wf-node-row">
                             <div class="wf-node-icon"><i class="fa-solid fa-clock"></i></div>
                             <div class="wf-node-label">Wait 30 seconds</div>
@@ -173,7 +176,7 @@
                     <div class="wf-connector" style="background: rgba(255,255,255,0.15);"></div>
 
                     <!-- Send SMS -->
-                    <div class="wf-node wf-action">
+                    <div class="wf-node wf-action" data-aos="fade-up" data-aos-delay="240">
                         <div class="wf-node-row">
                             <div class="wf-node-icon"><i class="fa-solid fa-comment-dots"></i></div>
                             <div class="wf-node-label">Send Intro SMS</div>
@@ -183,7 +186,7 @@
                     <div class="wf-connector" style="background: rgba(0,255,136,0.30);"></div>
 
                     <!-- Condition -->
-                    <div class="wf-node wf-condition">
+                    <div class="wf-node wf-condition" data-aos="fade-up" data-aos-delay="360">
                         <div class="wf-node-row">
                             <div class="wf-node-icon"><i class="fa-solid fa-code-branch"></i></div>
                             <div class="wf-node-label">Replied within 5 min?</div>
@@ -282,7 +285,7 @@
         </div>
 
         <div class="tpl-grid" data-aos="fade-up">
-            <div class="tpl-card">
+            <div class="tpl-card" data-aos="fade-up" data-aos-delay="0">
                 <span class="tpl-badge" style="background: rgba(0,255,136,0.08); color: var(--accent);">Included</span>
                 <h5><i class="fa-solid fa-bolt" style="color: var(--accent); margin-right: 8px;"></i>Speed to Lead</h5>
                 <p>Fires within 30 seconds of a new lead import. Sends a personalized intro SMS, waits 5 minutes, then triggers an AI phone call if they haven't replied. Tags the contact when done.</p>
@@ -296,7 +299,7 @@
                 </div>
             </div>
 
-            <div class="tpl-card">
+            <div class="tpl-card" data-aos="fade-up" data-aos-delay="100">
                 <span class="tpl-badge" style="background: rgba(0,255,136,0.08); color: var(--accent);">Included</span>
                 <h5><i class="fa-solid fa-clock-rotate-left" style="color: var(--accent); margin-right: 8px;"></i>Aged Lead Re-engagement</h5>
                 <p>Automatically reaches out to leads that are 30+ days old. Checks AI temperature first &mdash; cold leads get a gentle check-in, warm leads get a personalized AI message. Follows up 2 days later.</p>
@@ -309,7 +312,7 @@
                 </div>
             </div>
 
-            <div class="tpl-card">
+            <div class="tpl-card" data-aos="fade-up" data-aos-delay="200">
                 <span class="tpl-badge" style="background: rgba(0,255,136,0.08); color: var(--accent);">Included</span>
                 <h5><i class="fa-solid fa-reply" style="color: var(--accent); margin-right: 8px;"></i>SMS Response Handler</h5>
                 <p>Routes inbound replies intelligently. Hot leads get an immediate AI phone call. Warm and cool leads get an AI-crafted reply. Opt-outs are automatically respected and the workflow exits.</p>
@@ -322,7 +325,7 @@
                 </div>
             </div>
 
-            <div class="tpl-card">
+            <div class="tpl-card" data-aos="fade-up" data-aos-delay="300">
                 <span class="tpl-badge" style="background: rgba(0,255,136,0.08); color: var(--accent);">Included</span>
                 <h5><i class="fa-solid fa-arrows-rotate" style="color: var(--accent); margin-right: 8px;"></i>Re-engage Cold Leads</h5>
                 <p>Targets leads with no response in 7 days. Sends a friendly check-in, waits 24 hours, then escalates to an AI call for non-responders. Final graceful close-out after 3 more days.</p>
@@ -351,47 +354,47 @@
         </div>
 
         <div class="step-grid" data-aos="fade-up">
-            <div class="step-card">
+            <div class="step-card" data-aos="zoom-in" data-aos-delay="0">
                 <div class="step-card-icon" style="background: rgba(0,255,136,0.10); color: var(--accent);"><i class="fa-solid fa-comment-dots"></i></div>
                 <h6>Send SMS</h6>
                 <p>Personalized messages with merge fields. Supports {{firstName}}, {{companyName}}, and more.</p>
             </div>
-            <div class="step-card">
+            <div class="step-card" data-aos="zoom-in" data-aos-delay="60">
                 <div class="step-card-icon" style="background: rgba(0,255,136,0.10); color: var(--accent);"><i class="fa-solid fa-robot"></i></div>
                 <h6>AI Message</h6>
                 <p>Let the AI craft a contextual reply. Give it a prompt hint and it reads the full conversation history.</p>
             </div>
-            <div class="step-card">
+            <div class="step-card" data-aos="zoom-in" data-aos-delay="120">
                 <div class="step-card-icon" style="background: rgba(0,255,136,0.10); color: var(--accent);"><i class="fa-solid fa-phone"></i></div>
                 <h6>AI Call</h6>
                 <p>Trigger an outbound AI voice call. The voice agent picks up the conversation where SMS left off.</p>
             </div>
-            <div class="step-card">
+            <div class="step-card" data-aos="zoom-in" data-aos-delay="180">
                 <div class="step-card-icon" style="background: rgba(255,255,255,0.06); color: #b0b0b0;"><i class="fa-solid fa-code-branch"></i></div>
                 <h6>If / Else</h6>
                 <p>Branch on tags, lead temperature, score, response time, lead age, pipeline stage, and more.</p>
             </div>
-            <div class="step-card">
+            <div class="step-card" data-aos="zoom-in" data-aos-delay="240">
                 <div class="step-card-icon" style="background: rgba(255,255,255,0.06); color: #b0b0b0;"><i class="fa-solid fa-clock"></i></div>
                 <h6>Wait</h6>
                 <p>Pause for seconds, minutes, hours, or days. Also supports "wait until" with smart conditions.</p>
             </div>
-            <div class="step-card">
+            <div class="step-card" data-aos="zoom-in" data-aos-delay="300">
                 <div class="step-card-icon" style="background: rgba(0,255,136,0.10); color: var(--accent);"><i class="fa-solid fa-tag"></i></div>
                 <h6>Add / Remove Tag</h6>
                 <p>Tag contacts for segmentation. Use tags to trigger other workflows or filter in the dialer.</p>
             </div>
-            <div class="step-card">
+            <div class="step-card" data-aos="zoom-in" data-aos-delay="360">
                 <div class="step-card-icon" style="background: rgba(255,255,255,0.06); color: #b0b0b0;"><i class="fa-solid fa-arrow-right-arrow-left"></i></div>
                 <h6>Move Pipeline Stage</h6>
                 <p>Push contacts through your CRM pipeline. Works with GoHighLevel, HubSpot, and Salesforce.</p>
             </div>
-            <div class="step-card">
+            <div class="step-card" data-aos="zoom-in" data-aos-delay="420">
                 <div class="step-card-icon" style="background: rgba(255,255,255,0.06); color: #b0b0b0;"><i class="fa-solid fa-repeat"></i></div>
                 <h6>Loop</h6>
                 <p>Repeat a sequence up to N times. Perfect for multi-touch follow-up campaigns.</p>
             </div>
-            <div class="step-card">
+            <div class="step-card" data-aos="zoom-in" data-aos-delay="480">
                 <div class="step-card-icon" style="background: rgba(255,255,255,0.06); color: #b0b0b0;"><i class="fa-solid fa-webhook"></i></div>
                 <h6>Send Webhook</h6>
                 <p>Fire outbound webhooks with HMAC signing. Connect to Zapier, Make, or any external system.</p>
@@ -426,19 +429,19 @@
             <!-- Stats -->
             <div>
                 <div class="wf-stat-row">
-                    <div class="wf-stat">
+                    <div class="wf-stat" data-aos="fade-up" data-aos-delay="0">
                         <div class="wf-stat-num" style="color: var(--accent);">15</div>
                         <div class="wf-stat-label">Step Types</div>
                     </div>
-                    <div class="wf-stat">
+                    <div class="wf-stat" data-aos="fade-up" data-aos-delay="100">
                         <div class="wf-stat-num" style="color: var(--accent);">12</div>
                         <div class="wf-stat-label">Condition Operators</div>
                     </div>
-                    <div class="wf-stat">
+                    <div class="wf-stat" data-aos="fade-up" data-aos-delay="200">
                         <div class="wf-stat-num" style="color: var(--accent);">4</div>
                         <div class="wf-stat-label">Pre-Built Templates</div>
                     </div>
-                    <div class="wf-stat">
+                    <div class="wf-stat" data-aos="fade-up" data-aos-delay="300">
                         <div class="wf-stat-num" style="color: var(--accent);">24/7</div>
                         <div class="wf-stat-label">Always Running</div>
                     </div>

@@ -315,16 +315,13 @@ h1 .text-accent, h2 .text-accent, .hero h1 span, h1 span.text-accent, h2 span.te
    BOOTSTRAP DROPDOWN — Liquid Glass (dark default)
    ========================================= */
 .dropdown-menu {
-    background: linear-gradient(160deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 100%);
-    backdrop-filter: blur(24px) saturate(160%) brightness(1.1);
-    -webkit-backdrop-filter: blur(24px) saturate(160%) brightness(1.1);
-    border-top: 1px solid rgba(255,255,255,0.20);
-    border-left: 1px solid rgba(255,255,255,0.12);
-    border-right: 1px solid rgba(255,255,255,0.04);
-    border-bottom: 1px solid rgba(255,255,255,0.04);
+    background: #131313;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid #222222;
     border-radius: 14px;
     padding: 6px;
-    box-shadow: 0 16px 40px -8px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.12);
+    box-shadow: 0 16px 40px -8px rgba(0,0,0,0.7), 0 4px 16px rgba(0,0,0,0.4);
     min-width: 180px;
     color: var(--text-primary);
 }
@@ -368,14 +365,11 @@ h1 .text-accent, h2 .text-accent, .hero h1 span, h1 span.text-accent, h2 span.te
 
 /* Light theme overrides */
 [data-theme="light"] .dropdown-menu {
-    background: rgba(255,255,255,0.88);
-    backdrop-filter: blur(24px) saturate(160%) brightness(1.05);
-    -webkit-backdrop-filter: blur(24px) saturate(160%) brightness(1.05);
-    border-top: 1px solid rgba(0,0,0,0.10);
-    border-left: 1px solid rgba(0,0,0,0.07);
-    border-right: 1px solid rgba(0,0,0,0.04);
-    border-bottom: 1px solid rgba(0,0,0,0.04);
-    box-shadow: 0 12px 32px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.95);
+    background: #ffffff;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid rgba(0,0,0,0.10);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.12);
     color: var(--lt-text-primary);
 }
 [data-theme="light"] .dropdown-item {
@@ -412,15 +406,13 @@ h1 .text-accent, h2 .text-accent, .hero h1 span, h1 span.text-accent, h2 span.te
     left: 50%;
     transform: translateX(-50%) translateY(4px);
     min-width: 200px;
-    background: linear-gradient(160deg, rgba(20,20,28,0.92) 0%, rgba(12,12,18,0.95) 100%);
-    backdrop-filter: blur(24px) saturate(160%) brightness(1.1);
-    -webkit-backdrop-filter: blur(24px) saturate(160%) brightness(1.1);
-    border-width: 1px;
-    border-style: solid;
-    border-color: rgba(255,255,255,0.15) rgba(255,255,255,0.06) rgba(255,255,255,0.06) rgba(255,255,255,0.10);
+    background: #131313;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid #222222;
     border-radius: 14px;
     padding: 6px;
-    box-shadow: 0 16px 40px -8px rgba(0,0,0,0.7), inset 0 1px 1px rgba(255,255,255,0.08);
+    box-shadow: 0 16px 40px -8px rgba(0,0,0,0.8), 0 4px 16px rgba(0,0,0,0.5);
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
@@ -453,11 +445,11 @@ h1 .text-accent, h2 .text-accent, .hero h1 span, h1 span.text-accent, h2 span.te
 
 /* Light theme */
 [data-theme="light"] .nav-dropdown-menu {
-    background: rgba(255,255,255,0.88);
-    backdrop-filter: blur(24px) saturate(160%) brightness(1.05);
-    -webkit-backdrop-filter: blur(24px) saturate(160%) brightness(1.05);
-    border-color: rgba(0,0,0,0.10) rgba(0,0,0,0.04) rgba(0,0,0,0.04) rgba(0,0,0,0.07);
-    box-shadow: 0 12px 32px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.95);
+    background: #ffffff;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-color: rgba(0,0,0,0.10);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.12);
 }
 [data-theme="light"] .nav-dropdown-menu .dropdown-item {
     color: var(--lt-text-secondary);
@@ -689,27 +681,21 @@ footer .mb-4 { display: none; }
         0 8px 24px rgba(0,0,0,0.20);
 }
 .glass-inset {
-    background: rgba(0, 0, 0, 0.12);
-    backdrop-filter: blur(8px) saturate(140%);
-    -webkit-backdrop-filter: blur(8px) saturate(140%);
-    border-top: 1px solid rgba(255,255,255,0.10);
-    border-left: 1px solid rgba(255,255,255,0.06);
-    border-right: 1px solid rgba(0,0,0,0.1);
-    border-bottom: 1px solid rgba(0,0,0,0.1);
+    background: #0d0d0d;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid #1e1e1e;
     border-radius: 10px;
 }
 
 /* Compact Glass Banner — dashboard inline banners (VoIP, call, disposition) */
 .glass-banner-sm {
     background: var(--glass-bg);
-    backdrop-filter: blur(16px) saturate(180%) brightness(1.08);
-    -webkit-backdrop-filter: blur(16px) saturate(180%) brightness(1.08);
-    border-top: 1px solid var(--glass-border-top);
-    border-left: 1px solid var(--glass-border-left);
-    border-right: 1px solid var(--glass-border-bottom);
-    border-bottom: 1px solid var(--glass-border-bottom);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid var(--glass-border);
     border-radius: 12px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.08);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
     transition: var(--transition);
 }
 
@@ -807,13 +793,10 @@ footer .mb-4 { display: none; }
 
 /* Carved feature list — inset glass panel for plan features */
 .carved-features {
-    background: rgba(0,0,0,0.15);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    border-top: 1px solid rgba(0,0,0,0.2);
-    border-left: 1px solid rgba(0,0,0,0.1);
-    border-right: 1px solid rgba(255,255,255,0.04);
-    border-bottom: 1px solid rgba(255,255,255,0.06);
+    background: #0d0d0d;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid #1e1e1e;
     border-radius: 12px;
     padding: 14px 16px;
     margin-top: 14px;
@@ -1042,7 +1025,7 @@ footer .mb-4 { display: none; }
 }
 .chat-toggle-btn {
     width: 60px; height: 60px; border-radius: 50%;
-    background: rgba(10, 10, 10, 0.6); backdrop-filter: blur(15px);
+    background: rgba(10, 10, 10, 0.6); backdrop-filter: none;
     border: 1px solid var(--accent);
     box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
     color: var(--accent); font-size: 1.5rem; cursor: pointer;
@@ -1060,9 +1043,9 @@ footer .mb-4 { display: none; }
     right: 80px;                    /* distance from the button — tweak 75-90px if needed */
     top: 50%;                       /* center vertically relative to container */
     transform: translateY(-50%);    /* perfect vertical centering */
-    background: rgba(0, 255, 136, 0.1);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--glass-border);
+    background: var(--accent-dim);
+    backdrop-filter: none;
+    border: 1px solid var(--accent-border);
     color: #fff;
     padding: 8px 15px;
     border-radius: 20px 20px 4px 20px;
@@ -1099,7 +1082,7 @@ footer .mb-4 { display: none; }
 .msg { max-width: 85%; padding: 12px 16px; font-size: 0.95rem; line-height: 1.5; }
 .msg.bot { align-self: flex-start; background: rgba(255, 255, 255, 0.05); border-radius: 18px 18px 18px 4px; color: #e0e0e0; }
 .msg.user { align-self: flex-end; background: rgba(0, 255, 136, 0.1); border: 1px solid var(--accent); border-radius: 18px 18px 4px 18px; color: #fff; }
-.chat-footer { padding: 15px; border-top: 1px solid rgba(255, 255, 255, 0.05) !important; background: rgba(0, 0, 0, 0.2) !important; backdrop-filter: blur(10px); display: flex; gap: 10px; }
+.chat-footer { padding: 15px; border-top: 1px solid #1e1e1e !important; background: #0d0d0d !important; backdrop-filter: none; display: flex; gap: 10px; }
 .chat-input { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 50px; padding: 12px 20px; color: #fff; outline: none; transition: border-color 0.2s ease; }
 .chat-input:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,255,136,0.2); }
 .send-btn { width: 45px; height: 45px; border-radius: 50%; border: none; background: var(--accent); color: #000; display: flex; align-items: center; justify-content: center; cursor: pointer; }
@@ -1114,7 +1097,7 @@ footer .mb-4 { display: none; }
    ========================================= */
 .popup-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px);
+    background: rgba(0, 0, 0, 0.6); backdrop-filter: none;
     z-index: 9999; display: none; align-items: center; justify-content: center;
     opacity: 0; transition: opacity 0.5s ease;
 }
@@ -1558,11 +1541,49 @@ nav.navbar { position: fixed; z-index: 1000; }
 /* Purple-accent variant */
 .mkt-glass-card--purple:hover { border-top-color: rgba(139, 92, 246, 0.5); box-shadow: 0 24px 60px -12px rgba(139, 92, 246, 0.12), var(--glass-shadow-hover); }
 
+/* ── Comparison page voice AI cards ── */
+.cmp-voice-card {
+    padding: 30px;
+    border-radius: 22px;
+    background: #0d0d0d;
+    border: 1px solid #222222;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    height: 100%;
+}
+.cmp-voice-card--igb {
+    border-color: rgba(0,255,136,0.30);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,255,136,0.08);
+}
+.cmp-voice-card--generic {
+    border-color: #2a2a2a;
+}
+.cmp-stats-bar {
+    padding: 24px;
+    border-radius: 18px;
+    background: #0d0d0d;
+    border: 1px solid rgba(0,255,136,0.20);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+[data-theme="light"] .cmp-voice-card {
+    background: #ffffff;
+    border-color: #e0e0e0;
+}
+[data-theme="light"] .cmp-voice-card--igb {
+    border-color: rgba(5,150,105,0.30);
+}
+[data-theme="light"] .cmp-voice-card--generic {
+    border-color: #e8e8e8;
+}
+[data-theme="light"] .cmp-stats-bar {
+    background: #ffffff;
+    border-color: rgba(5,150,105,0.20);
+}
+
 /* ── Marketing inset glass (comparison tables, embedded demos) ── */
 .mkt-inset-glass {
     background: rgba(0, 0, 0, 0.15);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     border-top: 1px solid rgba(0, 0, 0, 0.2);
     border-left: 1px solid rgba(0, 0, 0, 0.1);
     border-right: 1px solid rgba(255, 255, 255, 0.04);
@@ -1574,8 +1595,8 @@ nav.navbar { position: fixed; z-index: 1000; }
 /* ── Marketing proof/testimonial panels ── */
 .mkt-glass-panel {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.015) 100%);
-    backdrop-filter: blur(20px) saturate(140%);
-    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     border-top: 1px solid var(--glass-border-top);
     border-left: 1px solid var(--glass-border-left);
     border-right: 1px solid var(--glass-border-bottom);
@@ -2329,17 +2350,17 @@ nav.navbar { position: fixed; z-index: 1000; }
 [data-theme="light"] .article-stat-card,
 [data-theme="light"] .article-comparison-card,
 [data-theme="light"] .article-verdict-box {
-    background: rgba(255,255,255,0.85);
-    border-color: rgba(0,0,0,0.10) rgba(0,0,0,0.06) rgba(0,0,0,0.06) rgba(0,0,0,0.08);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+    background: #ffffff;
+    border: 1px solid rgba(0,0,0,0.08);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
 }
 [data-theme="light"] .article-stat-label { color: var(--lt-text-secondary); }
 [data-theme="light"] .article-comparison-list li { color: var(--lt-text-secondary); }
 [data-theme="light"] .article-comparison-heading { border-bottom-color: rgba(0,0,0,0.08); }
 [data-theme="light"] .article-cta-box {
-    background: rgba(255,255,255,0.9);
-    border-color: rgba(0,0,0,0.10) rgba(0,0,0,0.06) rgba(0,0,0,0.06) rgba(0,0,0,0.08);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+    background: #ffffff;
+    border: 1px solid rgba(0,0,0,0.08);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
 }
 [data-theme="light"] .article-cta-box h3 { color: var(--lt-text-primary); }
 [data-theme="light"] .article-cta-box p { color: var(--lt-text-secondary); }
@@ -2662,8 +2683,8 @@ nav.navbar { position: fixed; z-index: 1000; }
     box-shadow: 0 0 24px rgba(5,150,105,0.12), 0 4px 12px rgba(0,0,0,0.06);
 }
 [data-theme="light"] .carved-features {
-    background: rgba(0,0,0,0.03);
-    border-color: rgba(0,0,0,0.08) rgba(0,0,0,0.04) rgba(255,255,255,0.8) rgba(0,0,0,0.06);
+    background: #f5f5f5;
+    border: 1px solid rgba(0,0,0,0.08);
 }
 [data-theme="light"] .carved-features li { color: #555555; border-bottom-color: rgba(0,0,0,0.04); }
 
@@ -2720,7 +2741,7 @@ nav.navbar { position: fixed; z-index: 1000; }
     box-shadow: 0 24px 60px rgba(0,0,0,0.16), 0 4px 12px rgba(0,0,0,0.08) !important;
 }
 [data-theme="light"] .chat-toggle-btn {
-    background: rgba(255,255,255,0.9);
+    background: #ffffff;
     border-color: var(--lt-accent);
     color: var(--lt-accent);
     box-shadow: 0 0 20px rgba(5,150,105,0.2);
