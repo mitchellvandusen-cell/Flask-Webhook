@@ -1475,6 +1475,9 @@
                         if (q) dialerFilterLocal();
                         else dialerRenderContacts();
                         _dialerUpdateCacheStatus(d);
+                        // Trigger Smart Filters intelligence pipeline
+                        dialerFetchCallCounts().then(() => dialerFetchMergedCounts());
+                        igbFetchBulkEngagement();
                     }
                 } catch(e) { /* ignore poll errors */ }
             }, 3000);
@@ -5762,6 +5765,7 @@
 
         // ── InsuranceGrokBot: Bulk Engagement Fetch ──
         async function igbFetchBulkEngagement() {
+            console.log('[IGB] igbFetchBulkEngagement() called, contacts:', dialerContacts.length);
             if (!dialerContacts.length) return;
             const CHUNK = 100;
             for (let i = 0; i < dialerContacts.length; i += CHUNK) {
@@ -5769,13 +5773,14 @@
                 const ids = chunk.map(c => c.id).join(',');
                 try {
                     const r = await _bulkPost('/voice/contact-engagement', ids);
-                    if (!r.ok) continue;
+                    if (!r.ok) { console.warn('[IGB] Engagement chunk failed:', r.status, r.statusText); continue; }
                     const data = await r.json();
                     Object.assign(_igbEngagementCache, data);
                 } catch(e) {
                     console.error('[IGB] Engagement fetch failed:', e);
                 }
             }
+            console.log('[IGB] Engagement done, cached:', Object.keys(_igbEngagementCache).length, '— now fetching intelligence');
             // Re-render with engagement data, then fetch AI intelligence
             dialerRenderContacts();
             igbFetchBulkIntelligence();
@@ -5785,18 +5790,20 @@
         // Fetches cached AI data (24h TTL), shows it immediately, then queues
         // ALL contacts for fresh analysis. Server skips contacts with fresh cache.
         async function igbFetchBulkIntelligence() {
+            console.log('[IGB] igbFetchBulkIntelligence() called, contacts:', dialerContacts.length);
             if (!dialerContacts.length) return;
             const CHUNK = 300;
             _igbUncachedIds = [];
 
             // Skip contacts with bad names — no point analyzing "None None" contacts
             const validContacts = dialerContacts.filter(c => !_igbIsBadName(c));
+            console.log('[IGB] Valid contacts (excluding bad names):', validContacts.length);
             for (let i = 0; i < validContacts.length; i += CHUNK) {
                 const chunk = validContacts.slice(i, i + CHUNK);
                 const ids = chunk.map(c => c.id).join(',');
                 try {
                     const r = await _bulkPost('/voice/contact-intelligence-bulk', ids);
-                    if (!r.ok) continue;
+                    if (!r.ok) { console.warn('[IGB] Bulk intel fetch failed:', r.status, r.statusText); continue; }
                     const data = await r.json();
                     // Merge cached AI data (show immediately while fresh analysis runs)
                     if (data.cached) {
@@ -5804,10 +5811,13 @@
                     }
                     // Track uncached contacts for batch analysis
                     if (data.uncached) _igbUncachedIds.push(...data.uncached);
+                    console.log('[IGB] Bulk chunk done: cached=' + Object.keys(data.cached || {}).length + ', uncached=' + (data.uncached || []).length);
                 } catch(e) {
                     console.error('[IGB] Intelligence bulk fetch failed:', e);
                 }
             }
+
+            console.log('[IGB] Bulk fetch complete: totalCached=' + Object.keys(_igbIntelCache).length + ', uncached=' + _igbUncachedIds.length);
 
             // Re-render with whatever cache we have
             dialerRenderContacts();
@@ -5815,6 +5825,8 @@
             // Only queue contacts that have no fresh cache — never re-analyze on every load.
             if (_igbUncachedIds.length > 0 && !_igbAnalyzing) {
                 igbRunBatchAnalysis();
+            } else {
+                console.log('[IGB] No uncached contacts — skipping analysis');
             }
         }
 
