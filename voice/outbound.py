@@ -16,7 +16,7 @@ from flask import Blueprint, request, jsonify
 from flask_login import current_user
 
 import twilio_provisioning
-from db import get_db_connection, return_db_connection, log_webhook_event, deduct_ai_minutes
+from db import get_db_connection, return_db_connection, log_webhook_event, deduct_ai_minutes, log_conversion_event
 from number_health import select_outbound_number, update_number_health
 from voice.call_state import (
     set_active_call, get_active_call, update_active_call, call_exists,
@@ -1018,6 +1018,20 @@ def voice_status():
                                        stir_status=stir_status or None)
         except Exception as e:
             logger.warning(f"call_history update failed for {call_sid}: {e}")
+
+    # ── Conversion analytics: track call completion ──
+    if call_status == 'completed' and int(duration or 0) > 0 and call_sid:
+        _cv_info = get_active_call(call_sid) or {}
+        _cv_loc = _cv_info.get('_location_id', '')
+        _cv_contact = _cv_info.get('contact_id', '')
+        if _cv_loc and _cv_contact:
+            try:
+                log_conversion_event(_cv_loc, _cv_contact, 'call_completed',
+                                     {'duration': int(duration or 0),
+                                      'direction': _cv_info.get('direction', 'outbound')},
+                                     source='voice')
+            except Exception:
+                pass
 
     # ── TCPA compliance: record call outcome for abandon rate tracking ──
     # Skip overflow calls — they are answered by AI, not abandoned.

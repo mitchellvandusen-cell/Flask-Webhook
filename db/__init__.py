@@ -186,6 +186,16 @@ from db.alerts import (
 )
 
 # ═══════════════════════════════════════════════════════════════
+# ANALYTICS (Conversion Events)
+# ═══════════════════════════════════════════════════════════════
+from db.analytics import (
+    log_conversion_event,
+    get_conversion_stats,
+    get_conversion_events,
+    get_conversion_stats_multi,
+)
+
+# ═══════════════════════════════════════════════════════════════
 # PUBLIC API — every name importable from `db`
 # ═══════════════════════════════════════════════════════════════
 __all__ = [
@@ -241,4 +251,7 @@ __all__ = [
     "update_agency_company_metadata", "link_subscriber_to_agency",
     # Alerts
     "save_persistent_alert", "get_persistent_alerts", "dismiss_persistent_alert",
+    # Analytics
+    "log_conversion_event", "get_conversion_stats", "get_conversion_events",
+    "get_conversion_stats_multi",
 ]
