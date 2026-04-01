@@ -4,15 +4,15 @@ Tracks key funnel events (stage advances, bookings, objections, calls,
 opt-outs) per contact per location.  All downstream analytics queries
 read from this table — no LLM cost, pure SQL aggregation.
 
-Revision ID: 013_conversion_events
-Revises: 012_agency_company_token
+Revision ID: 014_conversion_events
+Revises: 013_call_quality_metrics
 Create Date: 2026-04-01
 """
 from typing import Sequence, Union
 from alembic import op
 
-revision: str = '013_conversion_events'
-down_revision: Union[str, None] = '012_agency_company_token'
+revision: str = '014_conversion_events'
+down_revision: Union[str, None] = '013_call_quality_metrics'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
