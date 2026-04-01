@@ -238,10 +238,10 @@ def get_contact_intelligence_bulk():
 @intelligence_bp.route('/voice/contact-intelligence-analyze', methods=['POST'])
 @jwt_or_session_required
 def post_contact_intelligence_analyze():
-    """Queue bulk AI analysis for contacts without cached intelligence.
-    Enqueues RQ jobs (batches of 100) using bulk AI prompts (~25 contacts
-    per LLM call) so workers handle analysis much faster than 1-at-a-time.
-    Frontend polls the bulk endpoint for results as they become available.
+    """Score contacts inline using rule-based intelligence (zero AI cost, instant).
+    Previously queued to RQ workers when scoring used AI calls, but rule-based
+    scoring runs in milliseconds so we do it directly in the web request.
+    Frontend polls the bulk endpoint for results — they'll be available immediately.
     """
     data = request.get_json(silent=True) or {}
     contact_ids = data.get('contact_ids', [])
@@ -264,33 +264,20 @@ def post_contact_intelligence_analyze():
     finally:
         return_db_connection(conn)
 
-    # Enqueue to dedicated intelligence queue — doesn't block webhook processing
-    from extensions import ensure_redis, q_intelligence, q_production
-    if not ensure_redis():
-        return jsonify({"queued": 0, "error": "queue_unavailable"}), 503
-    target_queue = q_intelligence or q_production
-    if not target_queue:
-        return jsonify({"queued": 0, "error": "queue_unavailable"}), 503
+    # Rule-based scoring: no AI, no network — runs inline in milliseconds
+    from lead_intelligence import bulk_analyze_and_cache, get_bulk_cached_intelligence
 
-    from tasks import analyze_contacts_batch_task
-    BATCH = 500
-    queued = 0
-    for i in range(0, len(contact_ids), BATCH):
-        batch = contact_ids[i:i + BATCH]
-        try:
-            target_queue.enqueue(
-                analyze_contacts_batch_task,
-                location_id,
-                batch,
-                job_timeout=300,
-                result_ttl=600,
-            )
-            queued += len(batch)
-        except Exception as e:
-            logger.error(f"Failed to queue intelligence batch: {e}")
+    already_cached = get_bulk_cached_intelligence(location_id, contact_ids)
+    need_analysis = [cid for cid in contact_ids if cid not in already_cached]
 
-    logger.info(f"[INTEL_ANALYZE] {location_id}: queued={queued} contacts to {target_queue.name} queue")
-    return jsonify({"queued": queued})
+    if not need_analysis:
+        logger.info(f"[INTEL_ANALYZE] {location_id}: all {len(contact_ids)} contacts already cached")
+        return jsonify({"queued": len(contact_ids), "analyzed": 0, "cached": len(already_cached)})
+
+    analyzed = bulk_analyze_and_cache(location_id, need_analysis)
+
+    logger.info(f"[INTEL_ANALYZE] {location_id}: scored {analyzed}/{len(need_analysis)} inline (rule-based, {len(already_cached)} already cached)")
+    return jsonify({"queued": len(contact_ids), "analyzed": analyzed, "cached": len(already_cached)})
 
 
 @intelligence_bp.route('/voice/contact-call-counts/merged', methods=['GET', 'POST'])
