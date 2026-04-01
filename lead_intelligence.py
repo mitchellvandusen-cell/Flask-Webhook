@@ -745,27 +745,40 @@ def bulk_analyze_and_cache(location_id, contact_ids):
     scored = 0
     now = datetime.utcnow()
 
+    # Phase 1: Score all contacts in pure Python (no DB, no exceptions expected)
+    rows_to_insert = []
+    for cid in contact_ids:
+        ctx = all_contexts.get(cid)
+        if not ctx:
+            continue
+        try:
+            result = _rules_score_contact(ctx)
+            rows_to_insert.append((cid, location_id, json.dumps(result), now))
+        except Exception as e:
+            logger.error(f"[INTEL_RULES] Scoring failed for {cid}: {e}")
+
+    if not rows_to_insert:
+        return_db_connection(conn)
+        return 0
+
+    # Phase 2: Bulk UPSERT all scored results in one statement
     try:
         cur = conn.cursor()
-        for cid in contact_ids:
-            ctx = all_contexts.get(cid)
-            if not ctx:
-                continue
-            try:
-                result = _rules_score_contact(ctx)
-                cur.execute("""
-                    INSERT INTO contact_intelligence (contact_id, location_id, analysis, analyzed_at)
-                    VALUES (%s, %s, %s, %s)
-                    ON CONFLICT (contact_id) DO UPDATE SET
-                        analysis = EXCLUDED.analysis,
-                        location_id = EXCLUDED.location_id,
-                        analyzed_at = EXCLUDED.analyzed_at
-                """, (cid, location_id, json.dumps(result), now))
-                scored += 1
-            except Exception as e:
-                logger.error(f"[INTEL_RULES] Scoring failed for {cid}: {e}")
-
+        from psycopg2.extras import execute_values
+        execute_values(
+            cur,
+            """INSERT INTO contact_intelligence (contact_id, location_id, analysis, analyzed_at)
+               VALUES %s
+               ON CONFLICT (contact_id) DO UPDATE SET
+                   analysis = EXCLUDED.analysis,
+                   location_id = EXCLUDED.location_id,
+                   analyzed_at = EXCLUDED.analyzed_at""",
+            rows_to_insert,
+            template="(%s, %s, %s::jsonb, %s)",
+            page_size=500,
+        )
         conn.commit()
+        scored = len(rows_to_insert)
         cur.close()
         logger.info(f"[INTEL_RULES] Scored {scored}/{len(contact_ids)} contacts for {location_id}")
     except Exception as e:
