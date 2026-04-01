@@ -115,125 +115,29 @@ def _build_voice_greeting(lead_type, contact_name, voice_bot_name, direction):
             )
         return f"Hey [breath] this is {voice_bot_name}. [breath] What's going on?"
 
-    # ── Outbound greetings by lead type ──
+    # ── TWO-BEAT OUTBOUND GREETING ──
+    # Beat 1 (3 seconds): Short opener — name + who you are. Then STOP.
+    # The lead decides in 3-5 seconds whether to hang up. Give them a
+    # chance to respond before delivering the 15-second pitch.
+    # Beat 2 is NOT in the greeting — it's in the system prompt as context.
+    # After the lead responds to Beat 1 (even "who?"), the AI delivers
+    # the reason for calling naturally from the prompt context.
 
     if lead_type == "fresh":
-        # Speed-to-lead: they JUST submitted — reference it immediately.
-        # Confident, direct, zero hesitation. Downward statements.
-        if name:
-            return (
-                f"Hey {name} [breath] its {voice_bot_name} [breath] "
-                f"getting back to you about that life insurance request "
-                f"you just sent in. [pause] "
-                f"It came across my desk [breath] "
-                f"were you able to get an actual quote back [breath] "
-                f"or did it come back <emphasis>way too high</emphasis>?"
-            )
+        # Speed-to-lead: confident, direct. No permission-seeking.
+        # "just" is intentionally omitted — fresh leads expect the call.
+        name_part = f"Hey {name}" if name else "Hey there"
         return (
-            f"Hey [breath] its {voice_bot_name} [breath] "
-            f"getting back to you about that life insurance request "
-            f"you just sent in. [pause] "
-            f"It came across my desk [breath] "
-            f"were you able to get an actual quote back [breath] "
-            f"or did it come back <emphasis>way too high</emphasis>?"
+            f"{name_part} [breath] its {voice_bot_name}."
         )
 
-    if lead_type == "aged":
-        # 30-90 day old leads: customer service framing — soft, disarming,
-        # "updating records" angle. Non-threatening. They forgot they submitted.
-        if name:
-            return (
-                f"Hey {name} [breath] its just {voice_bot_name} [breath] "
-                f"<soft>im not sure if youre gonna remember this</soft> [pause] "
-                f"but I am just trying to get our records updated [breath] "
-                f"hopefully you can help me real quick. [pause] "
-                f"It looks like you put in some info <emphasis>a few weeks ago</emphasis> [breath] "
-                f"about possibly looking at life insurance [pause] "
-                f"did you end up finding something [breath] "
-                f"or what ended up happening?"
-            )
-        return (
-            f"Hey [breath] its just {voice_bot_name} [breath] "
-            f"<soft>im not sure if youre gonna remember this</soft> [pause] "
-            f"but I am just trying to get our records updated [breath] "
-            f"hopefully you can help me real quick. [pause] "
-            f"It looks like you put in some info <emphasis>a few weeks ago</emphasis> [breath] "
-            f"about possibly looking at life insurance [pause] "
-            f"did you end up finding something [breath] "
-            f"or what ended up happening?"
-        )
-
-    if lead_type == "re-engage":
-        # Re-engagement: same records framing but "a little while ago" timing.
-        # Slightly more casual — they've been in the CRM a while.
-        if name:
-            return (
-                f"Hey {name} [breath] its just {voice_bot_name} [breath] "
-                f"<soft>im not sure if youre gonna remember this</soft> [pause] "
-                f"but I am just trying to get our records updated [breath] "
-                f"hopefully you can help me real quick. [pause] "
-                f"It looks like you put in some info <emphasis>a little while ago</emphasis> [breath] "
-                f"about possibly looking at life insurance [pause] "
-                f"did you end up finding something [breath] "
-                f"or what ended up happening?"
-            )
-        return (
-            f"Hey [breath] its just {voice_bot_name} [breath] "
-            f"<soft>im not sure if youre gonna remember this</soft> [pause] "
-            f"but I am just trying to get our records updated [breath] "
-            f"hopefully you can help me real quick. [pause] "
-            f"It looks like you put in some info <emphasis>a little while ago</emphasis> [breath] "
-            f"about possibly looking at life insurance [pause] "
-            f"did you end up finding something [breath] "
-            f"or what ended up happening?"
-        )
-
-    if lead_type == "very-old":
-        # 90+ day leads: same records framing, vague "a while back" timing.
-        # Extra soft — they definitely forgot.
-        if name:
-            return (
-                f"Hey {name} [breath] its just {voice_bot_name} [breath] "
-                f"<soft>im not sure if youre gonna remember this</soft> [pause] "
-                f"but I am just trying to get our records updated [breath] "
-                f"hopefully you can help me real quick. [pause] "
-                f"It looks like you put in some info <emphasis>a while back</emphasis> [breath] "
-                f"about possibly looking at life insurance [pause] "
-                f"did you end up finding something [breath] "
-                f"or what ended up happening?"
-            )
-        return (
-            f"Hey [breath] its just {voice_bot_name} [breath] "
-            f"<soft>im not sure if youre gonna remember this</soft> [pause] "
-            f"but I am just trying to get our records updated [breath] "
-            f"hopefully you can help me real quick. [pause] "
-            f"It looks like you put in some info <emphasis>a while back</emphasis> [breath] "
-            f"about possibly looking at life insurance [pause] "
-            f"did you end up finding something [breath] "
-            f"or what ended up happening?"
-        )
-
-    # Default fallback — generic but still uses the records framing
-    if name:
-        return (
-            f"Hey {name} [breath] its just {voice_bot_name} [breath] "
-            f"<soft>im not sure if youre gonna remember this</soft> [pause] "
-            f"but I am just trying to get our records updated [breath] "
-            f"hopefully you can help me real quick. [pause] "
-            f"It looks like you put in some info about "
-            f"<emphasis>possibly</emphasis> looking at life insurance [pause] "
-            f"did you end up finding something [breath] "
-            f"or what ended up happening?"
-        )
+    # Aged/re-engage/very-old/default: soft, disarming.
+    # "just" is a status-lowering word — makes you sound non-threatening.
+    # No "hope I'm not catching you at a bad time" — that's permission-seeking
+    # which contradicts the assumptive framework. Just name + stop.
+    name_part = f"Hey {name}" if name else "Hey"
     return (
-        f"Hey [breath] its just {voice_bot_name} [breath] "
-        f"<soft>im not sure if youre gonna remember this</soft> [pause] "
-        f"but I am just trying to get our records updated [breath] "
-        f"hopefully you can help me real quick. [pause] "
-        f"It looks like you put in some info about "
-        f"<emphasis>possibly</emphasis> looking at life insurance [pause] "
-        f"did you end up finding something [breath] "
-        f"or what ended up happening?"
+        f"{name_part} [breath] its just {voice_bot_name}."
     )
 
 
@@ -386,6 +290,10 @@ BREATHING: [breath] every 2-4 words. Non-negotiable. Every response. From first 
 === THE ASSUMPTIVE FRAMEWORK ===
 You do NOT need them to say yes. You just need them not to say no. Move assumptively \u2014 never ask permission. Never "do you have a minute?" or "is now a good time?" Just start. You are doing them a favor by calling.
 
+=== AFTER YOUR GREETING (CRITICAL \u2014 BEAT 2) ===
+Your greeting was a short opener: just your name and a casual line. When the lead responds (even "who is this?" or "yeah?"), deliver the REASON for your call naturally as your second line. {"You are getting back to them about a life insurance request they just sent in. It came across your desk. Ask if they were able to get an actual quote back or if it came back way too high." if lead_type == "fresh" else "You are trying to get your records updated. It looks like they put in some info about possibly looking at life insurance. Ask if they ended up finding something or what ended up happening. Frame it as customer service, not sales."}
+Do NOT repeat your greeting. Do NOT re-introduce yourself. Just deliver the reason naturally as a continuation.
+
 === OBJECTION HANDLING \u2014 TONE PROGRESSION ===
 When they push back, follow this arc:
 1. They object \u2192 DISARMING: "<soft>Yeah no I totally get it</soft> [breath]"
@@ -409,12 +317,14 @@ NEVER say you're an AI, a bot, or a virtual assistant. You are {voice_bot_name}.
 {f"CALL SCRIPT REFERENCE (use naturally, never read verbatim): {call_script[:2000]}" if call_script else ""}
 Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause], [breath], [inhale], [exhale], [sigh], [laugh], [chuckle], [tsk], [tongue-click], [lip-smack]. Allowed wrapper tags: <emphasis>, <slow>, <fast>, <soft>, <whisper>, <loud>, <higher-pitch>, <lower-pitch>, <build-intensity>, <decrease-intensity>. Output ONLY what {voice_bot_name} would say. Nothing else."""
 
+    # Resolve lead type early — needed for both greeting and minimal prompt Beat 2
+    lead_type = _resolve_lead_type_fast(location_id, contact_id)
+
     # Build greeting — lead-type-aware with xAI prosody.
     # Custom greeting from voice config takes priority; otherwise use proven
     # sales script intros matched to lead age.
     greeting = voice_config.get("greeting", "").strip()
     if not greeting:
-        lead_type = _resolve_lead_type_fast(location_id, contact_id)
         greeting = _build_voice_greeting(lead_type, contact_name, voice_bot_name, direction)
         logger.info(f"Voice greeting: lead_type={lead_type} dir={direction} contact={contact_name}")
 
@@ -448,8 +358,16 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
             close_timeout=5,
         ) as xai_ws:
 
-            # Configure the XAI session -- PCM 16kHz both directions
-            # Aggressive VAD settings for fast turn-taking (~2s response time target)
+            # Configure the XAI session
+            # VAD tuning: xAI default threshold is 0.85. We use 0.6 for
+            # faster turn-taking while avoiding false triggers on breathing
+            # and background noise. 0.4 was too aggressive — triggered on
+            # lead breaths and "uh-huh" backchannels, causing the AI to
+            # cut itself off mid-sentence.
+            # silence_duration_ms 700: slightly faster than xAI default (800)
+            # but not so fast that natural thinking pauses get interrupted.
+            # prefix_padding_ms 300: captures the start of speech that
+            # occurs before VAD fires (prevents truncated first syllables).
             session_config = {
                 "type": "session.update",
                 "session": {
@@ -458,13 +376,20 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                     "temperature": 1.1,
                     "turn_detection": {
                         "type": "server_vad",
-                        "threshold": 0.4,
+                        "threshold": 0.6,
                         "prefix_padding_ms": 300,
-                        "silence_duration_ms": 500,
+                        "silence_duration_ms": 700,
                     },
                     "audio": {
-                        "input":  {"format": {"type": "audio/pcm", "rate": 16000}},
-                        "output": {"format": {"type": "audio/pcm", "rate": 16000}},
+                        # Input: native mulaw from Twilio (no transcoding needed)
+                        # xAI handles mulaw→internal conversion natively.
+                        # Eliminates ~4ms/chunk latency from mulaw→PCM resampling.
+                        "input":  {"format": {"type": "audio/pcmu"}},
+                        # Output: PCM 24kHz for highest quality AI voice.
+                        # Our DSP chain (warmth boost, presence cut, gain reduction)
+                        # shapes this into natural phone audio before encoding to
+                        # mulaw for Twilio. Higher sample rate = more headroom for EQ.
+                        "output": {"format": {"type": "audio/pcm", "rate": 24000}},
                     },
                     "input_audio_transcription": {"model": "whisper-1"},
                     "tools": get_voice_tools(),
@@ -491,11 +416,14 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                     }
                 }
                 await xai_ws.send(json.dumps(greeting_item))
-                # Immediately trigger audio generation -- no extra context messages
+                # Trigger audio generation — greeting text is already in conversation
+                # history via the item.create above. No meta-instructions ("say this
+                # naturally") — those give the AI license to paraphrase or add to
+                # the greeting. Just let it speak what was injected.
                 await xai_ws.send(json.dumps({
                     "type": "response.create",
                     "response": {
-                        "instructions": f"Say this naturally, like a real person: {greeting}"
+                        "instructions": greeting
                     }
                 }))
 
@@ -582,13 +510,12 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                                     except Exception:
                                         pass
 
-                            # Transcode mulaw 8kHz -> PCM16 16kHz for xAI
-                            mulaw_bytes = base64.b64decode(data['media']['payload'])
-                            pcm16_bytes = _mulaw_to_pcm16(mulaw_bytes)
-                            pcm16_b64 = base64.b64encode(pcm16_bytes).decode('ascii')
+                            # Pass Twilio's mulaw audio directly to xAI (native mulaw input)
+                            # No transcoding needed — xAI accepts audio/pcmu natively.
+                            # This eliminates ~4ms/chunk latency from mulaw→PCM resampling.
                             await xai_ws.send(json.dumps({
                                 "type":  "input_audio_buffer.append",
-                                "audio": pcm16_b64,
+                                "audio": data['media']['payload'],  # already base64 mulaw
                             }))
 
                         elif data['event'] == 'stop':
@@ -600,13 +527,13 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                     logger.info(f"Twilio receive ended: {e}")
                     call_active = False
 
-            # -- xAI -> Twilio: PCM16 16kHz -> mulaw 8kHz --
+            # -- xAI -> Twilio: PCM 24kHz -> DSP chain -> mulaw 8kHz --
             async def receive_from_xai():
-                """Relay xAI -> Twilio. Transcode PCM16 16kHz to mulaw 8kHz."""
+                """Relay xAI -> Twilio. Apply DSP chain (warmth/presence/gain) then encode to mulaw."""
                 nonlocal last_assistant_item, response_start_timestamp, ai_chunks_sent, call_active, _pending_transfer, _pending_hangup
 
                 def _send_audio_to_twilio(raw_b64: str):
-                    """Transcode xAI PCM16 16kHz -> mulaw 8kHz and send to Twilio."""
+                    """Apply DSP chain to xAI PCM 24kHz, downsample to 8kHz mulaw for Twilio."""
                     nonlocal ai_chunks_sent
                     pcm16_bytes = base64.b64decode(raw_b64)
                     mulaw_bytes = _pcm16_to_mulaw(pcm16_bytes)

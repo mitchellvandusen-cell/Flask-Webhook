@@ -346,6 +346,25 @@
                     #dlrColIntel { display: none !important; }
                     #dlrColIntel.dlr-col-intel-visible { display: flex !important; flex-direction: column; }
 
+                    /* Phone column: center iPhone in available space when intel hidden */
+                    #dlrColPhone {
+                        flex: 1 1 0%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        min-height: 0;
+                    }
+                    /* When intel column is hidden, phone gets full remaining width — push center point right */
+                    #dlrColIntel:not(.dlr-col-intel-visible) ~ #dlrColPhone {
+                        padding-left: 5%;
+                        padding-right: 5%;
+                    }
+                    /* When intel column is visible, tighter padding */
+                    #dlrColIntel.dlr-col-intel-visible ~ #dlrColPhone {
+                        padding-left: 12px;
+                        padding-right: 12px;
+                    }
+
                     /* ═══════════════════════════════════════════════
                        Mobile Dialer Layout — App-Like Experience
                        ═══════════════════════════════════════════════ */
@@ -1528,10 +1547,10 @@
                         </div>
                     </div>
 
-                    <!-- ── MIDDLE: Lead Intelligence ── -->
+                    <!-- ── MIDDLE: Contact Information ── -->
                     <div class="dlr-col dlr-col-intel-hidden" id="dlrColIntel" style="width:35%;border-radius:12px;">
                         <div class="dlr-col-hdr">
-                            <h6><i class="fa-solid fa-crosshairs me-1"></i>Lead Intelligence</h6>
+                            <h6><i class="fa-solid fa-address-card me-1"></i>Contact Information</h6>
                             <div id="dlrDetailActions" style="display:none;">
                             </div>
                         </div>
@@ -1546,7 +1565,7 @@
                     </div>
 
                     <!-- ── RIGHT: iPhone 15 Pro ── -->
-                    <div id="dlrColPhone" style="flex:1;display:flex;align-items:center;justify-content:center;min-height:0;padding:0 20px;">
+                    <div id="dlrColPhone">
                         <!-- iPhone 15 Pro Frame -->
                         <div class="iphone-frame">
                             <!-- Titanium outer bezel -->

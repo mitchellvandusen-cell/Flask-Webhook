@@ -20,7 +20,9 @@ logger = logging.getLogger("voice_bridge.audio")
 XAI_REALTIME_URL = "wss://api.x.ai/v1/realtime"
 XAI_API_KEY = os.getenv("XAI_API_KEY_VOICE") or os.getenv("XAI_API_KEY", "")
 
-# Voice options: official XAI Grok Voice Agent voices
+# Voice options: XAI Grok Voice Agent voices
+# Documented (2026): Ara, Eve, Leo, Rex, Sal
+# Extended (may be newer/undocumented): Mika, Vale
 VOICE_OPTIONS = {
     "ara": "Ara",
     "eve": "Eve",
@@ -34,11 +36,13 @@ VOICE_OPTIONS = {
 # Default voice
 DEFAULT_VOICE = "Ara"
 
-# Audio transcoding: Twilio mulaw 8kHz <-> xAI PCM 16kHz
-# Twilio Media Streams send mulaw-encoded audio at 8000 Hz.
-# xAI Realtime API expects/produces PCM 16-bit at 16000 Hz.
+# Audio transcoding: Twilio mulaw 8kHz <-> xAI PCM 24kHz
+# Input: Twilio sends mulaw 8kHz → passed directly to xAI (native pcmu support)
+# Output: xAI sends PCM 24kHz → DSP chain → downsample to 8kHz → mulaw → Twilio
+# Using 24kHz output (xAI's recommended rate) gives the DSP chain more frequency
+# headroom for warmth boost and presence cut before downsampling to telephony.
 TWILIO_SAMPLE_RATE = 8000   # Twilio Media Streams
-XAI_SAMPLE_RATE = 16000     # xAI Realtime API
+XAI_SAMPLE_RATE = 24000     # xAI Realtime API output (was 16kHz, upgraded to 24kHz)
 
 # Master Twilio credentials (from .env) -- white-label
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
@@ -119,11 +123,13 @@ _PRES_Q = 0.8
 _PRES_B, _PRES_A = scipy.signal.iirpeak(_PRES_FREQ, _PRES_Q, fs=XAI_SAMPLE_RATE)
 _PRES_GAIN = 10 ** (_PRES_GAIN_DB / 20)
 
-# 4. Low-pass at 3200 Hz (order 3) — gentle rolloff above speech band.
-#    Order 3 (18 dB/oct) is softer than order 4 (24 dB/oct), avoiding
-#    the hard "wall" cutoff that can itself sound artificial.
-#    SOS form required for order 3+ to avoid numerical instability.
-_LP_SOS = scipy.signal.butter(N=3, Wn=3200, fs=XAI_SAMPLE_RATE, btype='low', output='sos')
+# 4. Low-pass at 3600 Hz (order 3) — gentle rolloff above speech band.
+#    3600 Hz preserves sibilants (s, sh, f, th) which have energy up to 6 kHz.
+#    The old 3200 Hz cutoff made the voice sound muffled on fricative consonants.
+#    Modern phone calls (VoLTE/HD Voice) support up to 7 kHz — no need to
+#    simulate a 1990s landline. Still well below Nyquist for 8 kHz downsample.
+#    Order 3 (18 dB/oct) — softer than order 4 to avoid hard "wall" cutoff.
+_LP_SOS = scipy.signal.butter(N=3, Wn=3600, fs=XAI_SAMPLE_RATE, btype='low', output='sos')
 
 # 5. Gain reduction — AI outputs near 0 dBFS (full digital volume).
 #    Real phone conversations sit around -18 to -22 dBFS.
@@ -142,7 +148,7 @@ def _is_voicemail_phrase(text: str) -> bool:
 
 
 def _mulaw_to_pcm16(mulaw_bytes: bytes) -> bytes:
-    """Convert mulaw 8kHz audio (from Twilio) to PCM16 16kHz (for xAI)."""
+    """Convert mulaw 8kHz audio to PCM16 at XAI_SAMPLE_RATE (for listen stream / async bridge)."""
     # 1. mulaw -> PCM16 at 8kHz
     pcm_8k = audioop.ulaw2lin(mulaw_bytes, 2)
     # 2. Anti-aliased resample 8kHz -> 16kHz via soxr (high-quality sinc interpolation)
@@ -152,7 +158,7 @@ def _mulaw_to_pcm16(mulaw_bytes: bytes) -> bytes:
 
 
 def _pcm16_to_mulaw(pcm16_bytes: bytes) -> bytes:
-    """Convert PCM16 16kHz audio (from xAI) to mulaw 8kHz (for Twilio).
+    """Convert PCM audio at XAI_SAMPLE_RATE (from xAI) to mulaw 8kHz (for Twilio).
 
     Pipeline: HP → warmth boost → presence cut → LP → gain → downsample → u-law.
     Shapes AI voice output to sound like a natural phone conversation:

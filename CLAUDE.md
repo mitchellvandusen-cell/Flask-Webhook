@@ -1,4 +1,4 @@
-# CLAUDE.md — InsuranceGrokBot (Updated Mar 2026)
+# CLAUDE.md — InsuranceGrokBot (Updated Apr 2026)
 
 ## CLAUDE OPERATING RULES (Enforced for EVERY Task)
 
@@ -214,7 +214,8 @@ Master Twilio Account (platform owner — DIRECT CUSTOMER)
 | `insurance_companies.py` | 270+ carrier names/aliases for AI detection | small |
 | `insurance_knowledge.py` | Deep product knowledge (term, whole, IUL, FE) for AI context | medium |
 | `underwriting.py` | Live carrier underwriting rules from Google Sheets | medium |
-| `conversation_engine.py` | Conversation stage analysis, objection classification | medium |
+| `conversation_engine.py` | Conversation stage analysis, objection classification (keyword + TF-IDF, zero LLM) | medium |
+| `conversation_state.py` | Deterministic narrative builder — replaces LLM narrative observer with keyword-based SITUATION/EMOTIONAL_ARC/OBJECTION_LOG/CONVERSATIONAL_THREAD | medium |
 | `sales_director.py` | Strategic directive generator for AI pipeline | medium |
 | `age.py` | DOB-to-age calculator for contact profiles | small |
 | `ghl_api.py` | GHL OAuth token management + API helpers | small |
@@ -688,7 +689,20 @@ When a GHL webhook arrives at `POST /webhook`:
 1. Signature verification + deduplication (check `processed_webhooks` table)
 2. Job queued to RQ `production` or `demo` queue
 3. Worker runs `process_webhook_task()`
-4. Pipeline: fetch contact from GHL → load conversation history → extract facts (spaCy) → build system prompt → call xAI Grok API → sanitize reply → send SMS via Twilio → log everything
+4. Pipeline: fetch contact from GHL → load conversation history → extract facts (spaCy) → classify (keyword + TF-IDF, zero LLM) → build narrative (deterministic state tracker, zero LLM) → build system prompt → call xAI Grok API (single LLM call) → sanitize reply → send SMS via Twilio → log everything
+
+### Single-LLM-Call Architecture (Apr 2026)
+
+The SMS pipeline uses exactly **1 LLM call per inbound message** (response generation only). All classification, narrative building, and booking detection are deterministic:
+
+| Step | Engine | Cost | Latency |
+|------|--------|------|---------|
+| Classification | `_keyword_classify()` + TF-IDF memory | $0 | ~10ms |
+| Narrative | `conversation_state.build_narrative_from_state()` | $0 | ~5ms |
+| Booking detection | Regex pre-filter + context-aware regex | $0 | ~1ms |
+| Response generation | `llm_caller.generate_clean_reply()` (grok-4-1-fast-non-reasoning) | ~$0.003 | ~1s |
+
+Previously the pipeline made 3-4 LLM calls (narrative observer, classification x2, booking detection) before response generation. The single-call architecture saves ~70-90% API cost and ~6 seconds latency per message.
 
 ### Key behaviors
 - Strict `contact_id` validation prevents cross-contamination between contacts
@@ -822,7 +836,7 @@ The bot must **never** reveal that it is a bot, AI, virtual assistant, or automa
 - **Flask Blueprint** `voice_bp` mounted in main.py (decomposed from monolithic `voice_bridge.py`)
 - `voice_bridge.py` is now a backward-compatibility shim that re-exports from `voice/`
 - Bidirectional WebSocket bridge: Twilio mulaw 8kHz ↔ xAI PCM 16kHz (`voice/stream.py`)
-- Audio pipeline: soxr resampling + mulaw/PCM conversion + scipy Butterworth EQ (`voice/audio.py`)
+- Audio pipeline: native mulaw input (Twilio→xAI pass-through), PCM 24kHz output with 5-stage DSP chain (HP→warmth boost→presence cut→LP→gain) + soxr downsample to 8kHz mulaw (`voice/audio.py`)
 - Redis-backed call state: `active_calls`, `transfer_requests`, `overflow_transfer_alerts` via `voice/redis_state.py` (sync + async APIs)
 - `voice/call_state.py` re-exports Redis functions for backward compatibility; `call_listeners` stays in-process (WebSocket-to-WebSocket audio relay)
 - Outbound call initiation and TwiML generation (`voice/outbound.py`)
@@ -1958,6 +1972,43 @@ The `YOUR_DOMAIN` env var should already be set from your existing deployment.
 - **Rate limits**: OAuth apps get 40 requests per 10 seconds. The sync engine includes exponential backoff and 429 handling.
 - **Webhook batching**: HubSpot sends events in batched arrays, not individually. The webhook handler iterates the batch.
 - **`HUBSPOT_CLIENT_SECRET` is dual-purpose**: used for both OAuth token exchange AND webhook signature verification (HMAC-SHA256 v3).
+
+---
+
+## Voice AI Tuning (Apr 2026)
+
+### Audio Pipeline
+- **Input**: Twilio mulaw 8kHz → passed directly to xAI as native `audio/pcmu` (no transcoding)
+- **Output**: xAI PCM 24kHz → 5-stage DSP chain → soxr downsample to 8kHz → mulaw → Twilio
+- **DSP chain**: HP 80Hz → warmth boost +3.5dB@250Hz → presence cut -2.5dB@2800Hz → LP 3600Hz → gain -4dB
+- **Purpose**: Shapes AI voice to sound like a warm, natural phone call instead of bright/robotic TTS
+
+### VAD Settings
+- `threshold: 0.6` (xAI default is 0.85; 0.4 was too aggressive — triggered on breaths)
+- `silence_duration_ms: 700` (500ms was cutting people off mid-thought)
+- `prefix_padding_ms: 300` (captures first syllable before VAD fires)
+
+### Voice Greeting (Two-Beat Design)
+- **Beat 1** (3 seconds): "Hey {name}, its just {voice_bot_name}." Then STOP.
+- **Beat 2**: AI delivers reason for calling naturally after lead responds, from system prompt context.
+- **No permission-seeking**: "hope I'm not catching you at a bad time" was removed — contradicts assumptive framework.
+
+### Voice Prompt Key Rules
+- **First 15 seconds**: Zero filler words. Sharp, confident, direct. Breathing still active.
+- **After 15 seconds**: "Messy human mode" — fillers, self-corrections, paralinguistic cues.
+- **Silence carve-out**: After consequence questions and pricing pivots, brevity wins. No fillers.
+- **Fast-path for cold-open objections**: If objection comes in first 30 seconds, skip to FORK immediately.
+- **Phase 3 (takeaway)**: Triggers at 6th same objection (8th for NOT_INTERESTED). Previously 4th — too soft.
+- **"Just email me" deflection**: Always anchor a specific callback time. Never agree to just send info.
+- **Transfer bridge**: Keep talking during transfer to prevent dead air.
+
+### Known Gaps (Future Work)
+1. **Conversion analytics** — No measurement of booking rate, objection win rate, or which approaches work. Data exists in DB but isn't being queried. Highest priority next build.
+2. **Call quality monitoring** — No TTFA tracking, response latency logging, or per-call scoring. Need to add timestamps in stream.py.
+3. **LLM fallback chain** — Single vendor (xAI). Need OpenAI/Gemini as backup in llm_caller.py.
+4. **A/B testing** — No infrastructure for testing greeting variants, VAD settings, or prompt changes.
+5. **Voice prompt trimming** — Still ~12K tokens. Needs to be cut by 50% guided by call recording analysis.
+6. **DSP filter state** — Not persisted between audio chunks. Creates subtle 50Hz transient at chunk boundaries (masked by mulaw noise floor but technically incorrect).
 
 ---
 

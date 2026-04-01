@@ -17,11 +17,11 @@ from insurance_companies import find_company_in_message, normalize_company_name,
 from lead_intelligence import get_cached_temperature
 from memory import (
     get_recent_messages,
-    get_known_facts,
     get_known_facts_with_age,
     get_narrative,
-    run_narrative_observer
+    update_narrative,
 )
+from conversation_state import build_narrative_from_state
 
 logger = logging.getLogger(__name__)
 
@@ -70,14 +70,33 @@ def generate_strategic_directive(
     all_msgs: List[Dict] = get_recent_messages(contact_id, limit=None)
     recent_exchanges = all_msgs[-30:] if all_msgs else []
 
-    # ─── 2. REFRESH NARRATIVE & FACTS ───
-    observer = run_narrative_observer(contact_id, message, all_msgs)
-    narrative = observer["narrative"] or ""
-    known_facts = get_known_facts(contact_id)
-    known_facts_temporal = get_known_facts_with_age(contact_id)
-
-    # ─── 3. ANALYZE LOGIC FLOW (now includes message context + objection detection) ───
+    # ─── 2. ANALYZE LOGIC FLOW (classification — zero LLM cost) ───
     logic: LogicSignal = analyze_logic_flow(recent_exchanges, message=message, age=age_int)
+
+    # ─── 3. BUILD NARRATIVE (deterministic state tracker — zero LLM cost) ───
+    # Replaces the old LLM-based narrative observer. Produces the same
+    # SITUATION / CONVERSATIONAL_THREAD / EMOTIONAL_ARC / OBJECTION_LOG
+    # sections from keyword analysis + accumulated state.
+    known_facts_temporal = get_known_facts_with_age(contact_id)
+    # Derive plain string list from temporal — one DB call instead of two
+    known_facts = [f["text"] if isinstance(f, dict) else f for f in known_facts_temporal] if known_facts_temporal else []
+    existing_narrative = get_narrative(contact_id) or ""
+
+    state_result = build_narrative_from_state(
+        messages=recent_exchanges,  # bounded to last 30, not all_msgs
+        current_message=message,
+        existing_narrative=existing_narrative,
+        existing_facts=known_facts,
+        objection_type=logic.objection_type,
+        objection_nature=logic.objection_nature,
+        stage=logic.stage.value,
+        buying_signal=logic.buying_signal,
+    )
+    narrative = state_result["narrative"] or existing_narrative
+
+    # Save updated narrative (facts are extracted by spaCy in tasks.py)
+    if narrative and narrative != existing_narrative:
+        update_narrative(contact_id, narrative)
 
     logger.info(
         f"Director signals | {contact_id} | "
@@ -151,7 +170,10 @@ def generate_strategic_directive(
             stage_value = ConversationStage.BOOKING.value
 
     # B. Fact-Based Override (If backend knows they booked, lock it)
-    if any(kw in f.lower() for f in known_facts for kw in ["booked", "appointment at", "calendar"]):
+    # known_facts is List[str] from get_known_facts(); safe to call .lower()
+    if known_facts and isinstance(known_facts[0], str) and any(
+        kw in f.lower() for f in known_facts for kw in ["booked", "appointment at", "calendar"]
+    ):
         stage_value = ConversationStage.BOOKED.value
 
     # ─── 6b. EXTRACT OBJECTION LOG FROM NARRATIVE ───
@@ -767,10 +789,12 @@ def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None, obj
                 same_objection_count += 1
 
     in_phase_2 = same_objection_count >= 2
-    # Phase 3 threshold: not_interested is the broadest bucket — many different
-    # sentiments get lumped there. Require more repetitions before switching energy.
-    # All other types are specific enough that 4 truly means they said THE SAME THING 4 times.
-    phase_3_threshold = 6 if obj == ObjectionType.NOT_INTERESTED else 4
+    # Phase 3 threshold: most sales happen after objection 5-7 on a cold call.
+    # Giving up at 4 is soft for outbound insurance. NOT_INTERESTED is the
+    # broadest bucket — many different sentiments get lumped there.
+    # Specific types: 6 means they said THE SAME THING 6 times. That's when
+    # a real closer would shift to the takeaway.
+    phase_3_threshold = 8 if obj == ObjectionType.NOT_INTERESTED else 6
     in_phase_3 = same_objection_count >= phase_3_threshold
 
     # ─── COMPOUND OBJECTION PRIORITY: Price is ALWAYS #1 ───

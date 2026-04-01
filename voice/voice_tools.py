@@ -102,10 +102,10 @@ def execute_voice_tool(tool_name, arguments, subscriber, contact_id=None, first_
                 logger.info(f"Voice: Calendar slots fetched: {slots[:100]}")
                 return f"Available appointment slots: {slots}"
             else:
-                return "You don't have your schedule pulled up right now. Ask the lead what day and time work best for them. Morning or afternoon? Get their preference so you can lock it in."
+                return "Your schedule isn't in front of you right now."
         except Exception as e:
             logger.error(f"Voice calendar check failed: {e}")
-            return "You don't have your schedule in front of you right now. Ask the lead what day and time work best for them and you will get them booked."
+            return "Your schedule isn't in front of you right now."
 
     elif tool_name == "book_appointment":
         selected_time = args.get("selected_time", "")
@@ -137,10 +137,10 @@ def execute_voice_tool(tool_name, arguments, subscriber, contact_id=None, first_
                 booked_display = success if isinstance(success, str) else selected_time
                 return f"You just got them on the calendar for {booked_display}. Confirm the time and ask if they got the invite in their email."
             else:
-                return f"That time just got taken. Let the lead know that slot filled up and ask what other time works for them."
+                return f"That time just got taken."
         except Exception as e:
             logger.error(f"Voice booking failed: {e}")
-            return "You could not get that time locked in. Let the lead know that time is not available and ask what other day or time works for them."
+            return "That time is not available."
 
     elif tool_name == "transfer_to_agent":
         reason = args.get("reason", "lead requested transfer")
@@ -204,7 +204,7 @@ def execute_voice_tool(tool_name, arguments, subscriber, contact_id=None, first_
             logger.warning("Could not find active call for transfer — no matching call_sid found")
             return "The senior advisor is not available right now. Continue helping the lead directly and try to book an appointment instead."
 
-        return f"Transfer initiated to the senior advisor. Tell the lead to hold on for just a moment while you connect them. The transfer is happening now."
+        return "Connecting them now."
 
     elif tool_name == "end_call":
         reason = args.get("reason", "conversation complete")
@@ -212,7 +212,7 @@ def execute_voice_tool(tool_name, arguments, subscriber, contact_id=None, first_
         # The actual Twilio hangup is triggered in the bridge's response.done handler
         # (same pattern as transfer_to_agent) — returning this string lets xAI
         # generate its closing line before we hang up.
-        return "Acknowledged. Ending the call now."
+        return "Wrapping up."
 
     else:
         logger.warning(f"Unknown voice tool: {tool_name}")

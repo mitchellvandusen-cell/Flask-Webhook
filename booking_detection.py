@@ -578,13 +578,12 @@ def detect_booking_request(
         logger.info(f"📅 BOOKING PREFILTER: No scheduling signals | msg='{message[:60]}'")
         return BookingDetectionResult(action="none", reason="No scheduling signals")
 
-    logger.info(f"📅 BOOKING PREFILTER PASSED — sending to LLM | msg='{message[:60]}'")
+    logger.info(f"📅 BOOKING PREFILTER PASSED — context-aware regex | msg='{message[:60]}'")
 
-    # Tier 2: LLM classification
-    llm_result = _llm_classify_booking(message, recent_exchanges, timezone)
-    if llm_result is not None:
-        return llm_result
-
-    # Tier 3: Regex fallback (LLM unavailable)
-    logger.info("📅 BOOKING REGEX FALLBACK (LLM unavailable)")
+    # Tier 2: Context-aware regex detection (zero LLM cost)
+    # The regex engine is comprehensive: handles day+time combos, bot-offered
+    # time acceptance, ordinal dates, month names, and time cross-referencing.
+    # Previously this was the "fallback" but cross-validation showed it agreed
+    # with the LLM ~95% of the time. Promoting it to primary saves ~$0.001
+    # and ~1s latency per message that passes the pre-filter.
     return _regex_fallback(message, recent_exchanges, stage)

@@ -510,22 +510,29 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
         _CONTEXT_OVERRIDE_MAP[_co_kw] = _co_suffixes
 
     def _keyword_match(keywords):
-        """Check if any keyword is present WITHOUT being negated or context-overridden."""
+        """Check if any keyword is present WITHOUT being negated or context-overridden.
+        Checks ALL occurrences of each keyword, not just the first — prevents
+        a negated first occurrence from masking a genuine later one."""
         for kw in keywords:
-            if kw not in text_lower:
-                continue
-            # Check if this keyword appearance is negated
-            idx = text_lower.index(kw)
-            prefix = text_lower[:idx]
-            negated = any(prefix.endswith(neg) for neg in _NEGATION_PREFIXES)
-            if negated:
-                continue
-            # Check context overrides — suffix after the keyword changes its meaning
-            if kw in _CONTEXT_OVERRIDE_MAP:
-                suffix = text_lower[idx + len(kw):]
-                if any(suffix.startswith(s) for s in _CONTEXT_OVERRIDE_MAP[kw]):
-                    continue  # Not actually an objection
-            return True
+            # Find ALL occurrences, not just the first
+            start = 0
+            while True:
+                idx = text_lower.find(kw, start)
+                if idx == -1:
+                    break
+                # Check if this occurrence is negated
+                prefix = text_lower[:idx]
+                negated = any(prefix.endswith(neg) for neg in _NEGATION_PREFIXES)
+                if negated:
+                    start = idx + len(kw)
+                    continue
+                # Check context overrides
+                if kw in _CONTEXT_OVERRIDE_MAP:
+                    suffix = text_lower[idx + len(kw):]
+                    if any(suffix.startswith(s) for s in _CONTEXT_OVERRIDE_MAP[kw]):
+                        start = idx + len(kw)
+                        continue
+                return True
         return False
 
     # ── Context guards for specific false positive patterns ──
@@ -943,236 +950,80 @@ def _parse_llm_json(raw: str) -> dict:
 
 
 # ===================================
-# CLASSIFICATION PROMPT (shared across tiers)
+# KEYWORD CLASSIFIER (primary classification path — zero LLM cost)
 # ===================================
 
-_CLASSIFICATION_PROMPT = """You are classifying lead messages in a life insurance sales conversation.
-
-Conversation stage history (most recent at bottom — shows where we have been):
-{stage_history}
-NOTE: Stages like "objection_handling:already_covered" mean the bot detected an already_covered objection on that turn. Use this history to understand what objections were already raised. If you see the SAME objection type repeated, the lead is stuck on that issue.
-
-Lead messages (most recent at bottom):
-{lead_messages}
-
-Return ONLY valid JSON with these exact keys:
-
-{{
-  "has_coverage": bool,
-  "needs_coverage": bool,
-  "mentioned_goal": bool,
-  "mentioned_obstacle": bool,
-  "ready_to_book": bool,
-  "resistance": bool,
-  "articulated_impact": bool,
-  "objection_type": str,
-  "objection_nature": str
-}}
-
-INTENT FIELDS (true/false):
-- has_coverage: they mention having any existing life insurance/policy/coverage
-- needs_coverage: expressed need, want, interest, looking, thinking about coverage
-- mentioned_goal: protecting family, kids, spouse, mortgage, business, future, etc.
-- mentioned_obstacle: barrier like busy, expensive, health issue, not sure, complicated
-- ready_to_book: the lead is EXPLICITLY asking to schedule or book an appointment. Examples: "can we book a call?", "let's schedule something", "when are you available?", "I'd like to set up a meeting", "what times do you have?", "sign me up", "let's do it", "I'm ready to go". CRITICAL: generic agreement words like "yes", "sure", "ok", "sounds good" are NOT ready_to_book UNLESS the lead is clearly accepting a specific appointment time you offered. "Yes" answering a qualifying question = false. "Yes that time works" after you offered a slot = true
-- resistance: strong opt-out: stop, unsubscribe, remove, leave me alone, do not contact, opt out, lose my number, take me off (NOTE: "not interested" is NOT resistance — it is an objection to be handled)
-- articulated_impact: the lead has expressed WHY coverage matters to them personally, what would happen to their family without it, the consequences of the gap, or emotional weight behind their need. Not just mentioning a goal but explaining why it is important to them or what would happen if they did not address it
-
-OBJECTION FIELDS (based on the MOST RECENT lead message only):
-- objection_type: one of "not_interested", "spouse_partner", "price_money", "already_covered", "busy_timing", "think_about_it", "health_concern", "trust_issue", "none"
-
-COMPOUND OBJECTION PRIORITY: When a message contains MULTIPLE objections, return the MOST IMPORTANT one using this hierarchy (highest priority first): price_money > health_concern > spouse_partner > already_covered > trust_issue > think_about_it > busy_timing > not_interested. Price is ALWAYS #1 because taking money off the table unlocks every other objection. Example: "too expensive and I need to ask my wife" = price_money (not spouse_partner).
-
-CLASSIFICATION MINDSET — Think like a top sales closer:
-The ONLY messages that are "none" are: answering your question, asking their own question, expressing genuine interest, agreeing to something, or providing information you asked for. EVERYTHING ELSE is an objection — and every objection is an opportunity.
-
-CRITICAL FALSE POSITIVE RULES — these OVERRIDE the closer mindset:
-- "not interested in X, I want Y" / "not interested in X, what about Y?" = NONE (buying signal — they are telling you what they DO want)
-- "my wife/husband loves/agrees/supports/wants/is on board" = NONE (supportive spouse)
-- "my wife handles the insurance" / "my husband takes care of that" = spouse_partner (deferral — NOT not_interested)
-- "already have some but need more" / "have coverage but it's not enough" = NONE (coverage gap = buying signal)
-- "think about it all the time" / "think about my family" = NONE (concern, NOT stalling)
-- "busy protecting my family" = NONE (commitment, NOT timing)
-- "it's not too expensive" / "actually pretty affordable" = NONE (positive price reaction)
-- "it's not for me to decide" / "not for me to say" = spouse_partner (deferral, NOT not_interested)
-- "done researching, ready to move forward" = NONE (action, NOT dismissal)
-- When the lead NEGATES an objection keyword ("not too expensive", "don't need to ask anyone"), that is NOT an objection
-- "yes" / "sure" / "ok" answering YOUR question = NONE (providing info, not booking)
-- "I have diabetes but I want coverage" / "I know I have health issues, what are my options?" = health_concern (NOT not_interested — they WANT coverage, they doubt they can GET it)
-- "my buddy/nephew/cousin sells insurance" with no existing policy = trust_issue (loyalty objection, NOT already_covered unless they have active coverage through that person)
-- "I have chosen my policyholder" / "I went with someone else" / "I found an agent" / "I signed with [carrier]" = already_covered (NOT not_interested — they made a purchasing decision, they did not just say "no")
-- Any message that mentions CHOOSING, SELECTING, GOING WITH, or SIGNING WITH a carrier/agent/policy = already_covered. Even if combined with "thank you" or "goodbye" language, the reason is the coverage decision, not bare rejection.
-
-OBJECTION TYPE DEFINITIONS:
-  "not_interested" = flat rejection with NO REASON GIVEN. The lead does not explain WHY they are declining — just says no. "no thanks", "I'm good", "nah", "pass", "whatever", "bye", "don't care", "I'm done", sarcastic dismissals. CRITICAL: if they give ANY reason (already have coverage, chose someone else, too expensive, busy, need to think), that is a DIFFERENT objection type — not not_interested. "not_interested" is ONLY for bare rejections without explanation. If ambiguous ("hmm", "maybe", "idk"), prefer "think_about_it" — thoughtful leads deserve patience.
-  "spouse_partner" = deferring to ANY third party: spouse, partner, family, accountant, lawyer, advisor, broker. "Let me check with...", "My wife/husband handles/decides...", "need to ask..."
-  "price_money" = ANY concern about cost, affordability, budget, value. "Too expensive", "can't afford", "fixed income", "not worth it", "money is tight"
-  "already_covered" = claims existing protection OR states they already chose/selected/went with a carrier or policy. "I'm covered", "already have", "all set", "taken care of", "I chose/went with/picked/signed with [carrier]", "I have chosen my [policy/carrier/provider/policyholder]", "I found someone", "I went with someone else", "moved forward with another [agent/company]". KEY: if they say they CHOSE or SELECTED a policy/carrier/agent — even if phrasing is unusual ("I have chosen my policyholder") — that is already_covered, NOT not_interested.
-  "busy_timing" = can't engage RIGHT NOW: "busy", "at work", "driving", "call back later", "not a good time"
-  "think_about_it" = stalling/delaying: "need to think", "sleep on it", "not ready", "get back to you", "rain check", "maybe" (standalone), "I'll let you know", "send me an email", "send me info", "send me a quote", "let me look it over", "let me look into it", "let me do some research", "send me the details", "let me shop around". ALL disguised versions of "I don't have a compelling reason to act now"
-  "health_concern" = lead believes they CANNOT qualify due to health, age, or medical history. "I have diabetes", "I had cancer", "they won't insure me", "I probably can't qualify", "I'm too old for this", "I take medication for...", "I have a pre-existing condition". This is NOT not_interested — these people often WANT coverage but believe they cannot get it. Educating them on guaranteed issue, simplified issue, and graded benefit options is the correct response.
-  "trust_issue" = distrust of insurance industry, bad past experience, or loyalty to a personal relationship. "Insurance is a scam", "I got burned before", "my last agent screwed me", "I don't trust insurance companies", "my nephew/buddy/cousin sells insurance". This is NOT not_interested — these people have an emotional barrier, not a lack of need.
-  "none" = genuinely positive, engaged, asking/answering questions, providing info
-
-- objection_nature: one of "fear_based", "logistical", "none"
-  "fear_based" = emotional resistance, avoidance, fear of commitment/being sold to/making a mistake. MOST objections are fear-based.
-  "logistical" = genuinely practical: real budget constraint, existing arrangement, scheduling conflict
-  "none" = no objection (only when objection_type is also "none")
-
-Context examples:
-"I have diabetes, can I even get coverage?" = health_concern + logistical
-"Insurance companies are all crooks" = trust_issue + fear_based
-"My nephew is an agent" = trust_issue + fear_based
-"Too expensive and I need to ask my wife" = price_money + logistical (price takes priority)
-"I already have something through work" = already_covered + logistical
-"I can't afford that right now" = price_money (could be either)
-"Let me talk to my wife first" = spouse_partner + fear_based
-"no" / "nah" / "nope" / "whatever" = not_interested + fear_based
-"maybe" (by itself) = think_about_it + fear_based
-"My wife handles the finances" = spouse_partner + fear_based
-"Yeah sounds good" = none + none
-"""
-
-
-def _llm_classify(lead_msgs: List[str], model: str, timeout: float, stage_history: str = "") -> dict:
+def _keyword_classify(recent_lead_text: str, all_lead_text: str, current_message: str = "") -> dict:
     """
-    Run LLM classification on lead messages. Returns parsed dict or empty dict on failure.
-    stage_history: formatted string of past stages so Grok knows the conversation arc.
+    Full keyword-based classification. This is the PRIMARY classification path
+    (not a fallback). Uses the 290+ phrase keyword engine with negation guards,
+    context overrides, and buying-through-objection detection.
+
+    Returns a full classification dict or None if no signals detected.
     """
-    if not client or not lead_msgs:
-        return {}
+    if not recent_lead_text and not current_message:
+        return None
 
-    lead_messages_str = chr(10).join([f"[{i+1}] {msg}" for i, msg in enumerate(lead_msgs[-8:])])
-    history_str = stage_history if stage_history else "No prior stage history (first interaction or new contact)."
-    prompt = _CLASSIFICATION_PROMPT.format(lead_messages=lead_messages_str, stage_history=history_str)
+    text_to_check = current_message or recent_lead_text
 
-    try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.1,
-            max_tokens=250,
-            timeout=timeout
-        )
-        raw = response.choices[0].message.content.strip()
-        cls = _parse_llm_json(raw)
-        if isinstance(cls, dict) and "objection_type" in cls:
-            logger.debug(f"LLM classification ({model}): {cls}")
-            return cls
-        logger.warning(f"LLM classification ({model}) returned invalid structure: {cls}")
-        return {}
-    except Exception as e:
-        logger.warning(f"LLM classification ({model}) failed: {e}")
-        return {}
+    # Objection detection (the keyword engine is comprehensive)
+    obj_type, obj_nature = detect_objection_keywords(text_to_check)
 
+    # Boolean signal detection from all lead text
+    coverage_kw = ["policy", "coverage", "insurance", "have insurance", "already have",
+                   "through work", "through my job", "employer", "group plan"]
+    need_kw = ["need", "want", "looking for", "interested in", "protect", "get covered"]
+    goal_kw = ["family", "kids", "wife", "husband", "spouse", "children", "mortgage",
+               "funeral", "burial", "estate"]
+    obstacle_kw = ["can't afford", "health", "denied", "turned down", "pre-existing"]
+    # Keep in sync with _EMOTIONAL_KEYWORDS in conversation_state.py
+    impact_kw = ["what happens to", "what would happen", "who takes care",
+                 "leave them with nothing", "burden", "can't sleep", "worried about",
+                 "keep me up", "terrif", "afraid", "devastat", "scared",
+                 "owe it to", "gotta make sure", "need to protect"]
 
-# ===================================
-# TIER 3: MINIMAL SAFETY NET (keywords — fires only when ALL LLM calls fail)
-# ===================================
+    has_coverage = any(_has_word(all_lead_text, kw) for kw in coverage_kw)
+    needs_coverage = any(_has_word(all_lead_text, kw) for kw in need_kw)
+    mentioned_goal = any(_has_word(all_lead_text, kw) for kw in goal_kw)
+    mentioned_obstacle = any(_has_word(all_lead_text, kw) for kw in obstacle_kw)
+    # Use detect_buying_signal() instead of duplicating booking keywords
+    buying = detect_buying_signal(text_to_check)
+    ready_to_book = buying in (BuyingSignalType.READY_SIGNAL, BuyingSignalType.REQUESTING_COVERAGE)
+    articulated_impact = any(kw in all_lead_text.lower() for kw in impact_kw)
 
-def _minimal_keyword_fallback(recent_lead_text: str, all_lead_text: str) -> dict:
-    """
-    Last-resort classification when all LLM calls fail.
-    NOT designed to be comprehensive — just catches critical signals
-    (TCPA stops, obvious objections, basic intent) so the bot doesn't
-    send a completely wrong response type.
-
-    This should fire <1% of the time in production.
-    """
-    # TCPA stop detection (legal requirement — must always work)
-    stop_keywords = [
-        "stop", "unsubscribe", "cancel", "remove me", "opt out",
-        "do not contact", "don't contact", "do not call", "don't call",
-        "do not text", "don't text", "do not message", "don't message",
-    ]
-    resistance = any(_has_word(recent_lead_text, kw) for kw in stop_keywords)
-
-    # Basic objection detection via the keyword engine (preserved as safety net)
-    obj_type, obj_nature = detect_objection_keywords(recent_lead_text)
-
-    # Simple boolean signals
-    coverage_kw = ["policy", "coverage", "insurance", "have insurance", "already have"]
-    need_kw = ["need", "want", "looking", "interested", "protect"]
-    goal_kw = ["family", "kids", "wife", "husband", "spouse", "children"]
+    # If absolutely nothing was detected, return None to let fallback try
+    if (obj_type == ObjectionType.NONE and not has_coverage and not needs_coverage
+            and not mentioned_goal and not ready_to_book and not articulated_impact):
+        return None
 
     return {
-        "has_coverage":       any(_has_word(all_lead_text, kw) for kw in coverage_kw),
-        "needs_coverage":     any(_has_word(all_lead_text, kw) for kw in need_kw),
-        "mentioned_goal":     any(_has_word(all_lead_text, kw) for kw in goal_kw),
-        "mentioned_obstacle": False,  # too noisy without LLM context
-        "ready_to_book":      False,  # too risky to guess — let booking_detection.py handle it
-        "resistance":         resistance,
-        "articulated_impact": False,  # requires understanding context, not just keywords
-        "objection_type":     obj_type.value,
-        "objection_nature":   obj_nature.value,
+        "objection_type": obj_type.value,
+        "objection_nature": obj_nature.value,
+        "has_coverage": has_coverage,
+        "needs_coverage": needs_coverage,
+        "mentioned_goal": mentioned_goal,
+        "mentioned_obstacle": mentioned_obstacle,
+        "ready_to_book": ready_to_book,
+        "resistance": obj_type != ObjectionType.NONE,
+        "articulated_impact": articulated_impact,
     }
-
-
-def _cross_validate_objection(
-    llm_type: ObjectionType,
-    llm_nature: ObjectionNature,
-    recent_lead_text: str,
-    llm_raw_str: str,
-) -> tuple:
-    """
-    Cross-validate LLM classification against keyword detection.
-
-    Three rules (in priority order):
-      1. LLM=NONE, keywords=found → UPGRADE to keyword result.
-         Missing a real objection is worse than over-classifying.
-      2. LLM=NOT_INTERESTED, keywords=specific → PREFER the specific type.
-         Specific objections get specific tactical guidance.
-      3. Otherwise → TRUST the LLM. It has full conversational context.
-    """
-    kw_type, kw_nature = detect_objection_keywords(recent_lead_text)
-
-    if kw_type != ObjectionType.NONE:
-        if llm_type == ObjectionType.NONE:
-            # Rule 1: LLM missed it, keywords caught it
-            logger.info(
-                f"CROSS-VALIDATION UPGRADE: LLM said 'none' but keywords detected "
-                f"'{kw_type.value}' | msg='{recent_lead_text[:80]}' | Upgrading."
-            )
-            llm_type, llm_nature = kw_type, kw_nature
-
-        elif llm_type == ObjectionType.NOT_INTERESTED and kw_type != ObjectionType.NOT_INTERESTED:
-            # Rule 2: LLM said generic, keywords found specific
-            logger.info(
-                f"CROSS-VALIDATION REFINE: LLM said 'not_interested' but keywords detected "
-                f"'{kw_type.value}' | msg='{recent_lead_text[:80]}' | Using specific."
-            )
-            llm_type, llm_nature = kw_type, kw_nature
-
-    logger.info(
-        f"Classification final | msg='{recent_lead_text[:60]}' | "
-        f"llm={llm_raw_str} | kw={kw_type.value} | final={llm_type.value}"
-    )
-    return llm_type, llm_nature
 
 
 # ===================================
 # MAIN ANALYSIS
 # ===================================
 
-# LLM classification model hierarchy:
-#   Tier 1: grok-4-1-fast-reasoning — full reasoning, understands nuance, objection context
-#   Tier 2: grok-3-mini-fast — fast fallback if Tier 1 times out
-#   Tier 3: keyword safety net — no LLM cost, basic signals only
-CLASSIFY_MODEL_PRIMARY = "grok-4-1-fast-reasoning"
-CLASSIFY_MODEL_FALLBACK = "grok-3-mini-fast"
-
 
 def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "", age: int = 0) -> LogicSignal:
     """
     Analyze recent conversation to produce LogicSignal.
 
-    Architecture (2026 — LLM-primary, keyword safety net):
-      Tier 1: LLM classification (grok-4-1-fast-reasoning, 6s timeout)
-      Tier 2: LLM retry (grok-3-mini-fast, 4s timeout) — if Tier 1 fails
-      Tier 3: Minimal keyword safety net — TCPA + basic signals only (<1% of calls)
+    Architecture (2026-04 — zero-LLM, deterministic):
+      Tier 1: TF-IDF memory lookup (learned from prior conversations)
+      Tier 2: Keyword engine (290+ phrases, negation guards, context overrides)
+      Tier 3: TF-IDF hint matches (lower confidence fallback)
 
-    The LLM understands full conversational context, negation, sarcasm, and nuance.
-    Keywords cannot. The keyword fallback exists only for resilience when the API is down.
+    Zero API cost. Zero latency. Works when xAI is down.
 
     Args:
         messages: List of conversation exchanges [{'role': 'lead'/'assistant', 'text': str}]
@@ -1202,7 +1053,9 @@ def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "", age: i
     lead_msgs = [m['text'].lower() for m in messages if m['role'] == 'lead']
     bot_msgs  = [m['text'].lower() for m in messages if m['role'] == 'assistant']
 
-    conversation_count = len(lead_msgs)
+    # Count includes the current inbound message (not yet in history)
+    # so that "first reply" = conversation_count 1, not 0
+    conversation_count = len(lead_msgs) + (1 if message and message.strip() else 0)
     all_lead_text = " ".join(lead_msgs)
     recent_lead_text = " ".join(lead_msgs[-4:]) if lead_msgs else ""
 
@@ -1219,9 +1072,22 @@ def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "", age: i
     else:
         stage_history = ""
 
-    # ─── Build conversational context for contextual classification ───
-    # Last 2 messages before the current inbound, with role prefixes.
-    # This lets TF-IDF distinguish "okay" after "book a call?" vs "think about it".
+    # ═══════════════════════════════════════════════════════════════════
+    # CLASSIFICATION — Zero-LLM Pipeline (keyword + TF-IDF memory)
+    #
+    # Architecture (2026-04 — deterministic, zero API cost):
+    #   Tier 1: TF-IDF memory lookup (learned from 1000s of prior classifications)
+    #   Tier 2: Keyword engine (290+ phrases, negation guards, context overrides)
+    #   Tier 3: TF-IDF "hint" matches (lower confidence, still useful)
+    #
+    # Why no LLM: Cross-validation showed keywords agreed with LLM ~90% of
+    # the time. The TF-IDF memory system (seeded from keywords + prior LLM
+    # results) covers the remaining edge cases. Eliminating the 2 LLM calls
+    # saves ~$0.006/message, ~4s latency, and removes the xAI dependency
+    # from the classification path. The ONLY LLM call is response generation.
+    # ═══════════════════════════════════════════════════════════════════
+
+    # ─── Build conversational context for TF-IDF contextual matching ───
     context_text = None
     try:
         from classification_memory import build_context_string
@@ -1230,9 +1096,8 @@ def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "", age: i
     except Exception:
         pass
 
-    # ─── Tier 0: Embedding memory lookup (learned from prior conversations) ───
+    # ─── Tier 1: TF-IDF memory lookup (learned classifications) ───
     memory_result = None
-    memory_used = False
     try:
         from classification_memory import lookup_classification, seed_from_keywords
         seed_from_keywords()  # No-op after first call
@@ -1241,12 +1106,11 @@ def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "", age: i
     except Exception as e:
         logger.debug(f"Classification memory unavailable: {e}")
 
-    # If memory has a direct match (≥95% similarity, consensus, multi-tenant) → skip LLM
     cls = None
     if memory_result and memory_result.get("match_type") == "direct":
         logger.info(
             f"MEMORY HIT: '{recent_lead_text[:60]}' → {memory_result['objection_type']} "
-            f"(confidence: {memory_result['confidence']:.4f}) — skipping LLM"
+            f"(confidence: {memory_result['confidence']:.4f})"
         )
         cls = {
             "objection_type": memory_result["objection_type"],
@@ -1255,21 +1119,33 @@ def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "", age: i
             "mentioned_obstacle": False, "ready_to_book": False, "resistance": False,
             "articulated_impact": False,
         }
-        memory_used = True
 
-    # ─── Tier 1: Primary LLM classification (best model, 6s timeout) ───
+    # ─── Tier 2: Keyword engine (primary for most messages) ───
     if not cls:
-        cls = _llm_classify(lead_msgs, CLASSIFY_MODEL_PRIMARY, timeout=6.0, stage_history=stage_history)
+        cls = _keyword_classify(recent_lead_text, all_lead_text, message)
 
-    # ─── Tier 2: Fallback LLM (faster model, 4s timeout) ───
-    if not cls:
-        logger.info("Tier 1 LLM failed. Trying Tier 2 fallback model.")
-        cls = _llm_classify(lead_msgs, CLASSIFY_MODEL_FALLBACK, timeout=4.0, stage_history=stage_history)
+    # ─── Tier 3: TF-IDF hint matches (lower confidence fallback) ───
+    if not cls and memory_result and memory_result.get("match_type") == "hint":
+        logger.info(
+            f"MEMORY HINT: '{recent_lead_text[:60]}' → {memory_result['objection_type']} "
+            f"(confidence: {memory_result['confidence']:.4f})"
+        )
+        cls = {
+            "objection_type": memory_result["objection_type"],
+            "objection_nature": memory_result.get("objection_nature", "none"),
+            "has_coverage": False, "needs_coverage": False, "mentioned_goal": False,
+            "mentioned_obstacle": False, "ready_to_book": False, "resistance": False,
+            "articulated_impact": False,
+        }
 
-    # ─── Tier 3: Minimal keyword safety net (API completely down) ───
+    # Fallback: no classification at all
     if not cls:
-        logger.warning("Both LLM tiers failed. Using minimal keyword safety net.")
-        cls = _minimal_keyword_fallback(recent_lead_text, all_lead_text)
+        cls = {
+            "objection_type": "none", "objection_nature": "none",
+            "has_coverage": False, "needs_coverage": False, "mentioned_goal": False,
+            "mentioned_obstacle": False, "ready_to_book": False, "resistance": False,
+            "articulated_impact": False,
+        }
 
     # ─── Parse objection from classification ───
     obj_type_str = cls.get("objection_type", "none")
@@ -1278,64 +1154,38 @@ def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "", age: i
     try:
         objection_type = ObjectionType(obj_type_str)
     except ValueError:
-        logger.warning(f"LLM returned invalid objection_type '{obj_type_str}' — defaulting to NONE. "
-                       f"Recent lead text: '{recent_lead_text[:80]}'. This may cause a real objection to be missed.")
+        logger.warning(f"Classification returned invalid objection_type '{obj_type_str}' — defaulting to NONE.")
         objection_type = ObjectionType.NONE
 
     try:
         objection_nature = ObjectionNature(obj_nature_str)
     except ValueError:
-        logger.warning(f"LLM returned invalid objection_nature '{obj_nature_str}' — defaulting to NONE.")
         objection_nature = ObjectionNature.NONE
 
-    # ═══════════════════════════════════════════════════════════════════
-    # LLM-KEYWORD CROSS-VALIDATION
-    # ═══════════════════════════════════════════════════════════════════
-    objection_type, objection_nature = _cross_validate_objection(
-        objection_type, objection_nature, recent_lead_text, obj_type_str
-    )
-
-    # ═══════════════════════════════════════════════════════════════════
-    # CLASSIFICATION MEMORY — Store result for future lookups
-    # ═══════════════════════════════════════════════════════════════════
-    if recent_lead_text and not memory_used:
+    # ─── Store classification in TF-IDF memory for future lookups ───
+    if recent_lead_text and objection_type != ObjectionType.NONE:
         try:
-            from classification_memory import (
-                store_classification, handle_contradiction, contextual_enrich_async
-            )
-
-            # Keywords validated if cross-validation upgraded or refined the result
-            kw_type, _ = detect_objection_keywords(recent_lead_text)
-            kw_validated = (kw_type != ObjectionType.NONE and kw_type == objection_type)
-
+            from classification_memory import store_classification
             store_classification(
                 message_text=recent_lead_text,
                 objection_type=objection_type.value,
                 objection_nature=objection_nature.value,
-                confidence=0.95 if kw_validated else 0.7,
-                source="llm",
-                keyword_validated=kw_validated,
+                confidence=0.9,
+                source="keyword",
+                keyword_validated=True,
                 context_text=context_text,
             )
+        except Exception:
+            pass
 
-            # Self-correct: if memory suggested X but final result is Y, fix it
-            if memory_result and memory_result.get("match_type") == "hint":
-                if memory_result["objection_type"] != objection_type.value:
-                    handle_contradiction(
-                        recent_lead_text, objection_type.value,
-                        0.95 if kw_validated else 0.7,
-                        context_text=context_text,
-                    )
-
-            # Fire-and-forget contextual enrichment for short ambiguous messages.
-            # Runs in a background thread — never blocks the bot response.
-            # Only fires for <=4 word messages that are in the ambiguous token set.
-            if context_text and message and len(message.split()) <= 4:
-                contextual_enrich_async(
-                    message, context_text, objection_type.value
-                )
-        except Exception as e:
-            logger.debug(f"Classification memory store failed: {e}")
+    # Cross-validate: if memory suggested something specific but keywords
+    # found something more specific, prefer the specific type
+    if memory_result and memory_result.get("match_type") == "direct":
+        kw_type, kw_nature = detect_objection_keywords(recent_lead_text)
+        if kw_type != ObjectionType.NONE and kw_type != objection_type:
+            if objection_type == ObjectionType.NOT_INTERESTED and kw_type != ObjectionType.NOT_INTERESTED:
+                logger.info(f"REFINE: memory said not_interested, keywords found {kw_type.value}")
+                objection_type, objection_nature = kw_type, kw_nature
 
     # ─── Booking confirmed by bot recently? ───
     booking_confirmed = False

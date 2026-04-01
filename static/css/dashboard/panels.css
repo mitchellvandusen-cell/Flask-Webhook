@@ -1435,7 +1435,7 @@
 .ci-subtitle { margin: 0; font-size: 0.82rem; color: #888; }
 [data-theme="light"] .ci-modal-content { background: #fff; border-color: #e8e8e8; }
 [data-theme="light"] .ci-modal-header { border-bottom-color: #e8e8e8; }
-[data-theme="light"] .ci-title { color: #0a0a0a; }
+[data-theme="light"] .ci-title { color: #1a1a1a; font-weight: 500; }
 [data-theme="light"] .ci-subtitle { color: #777; }
 [data-theme="light"] .ci-header-icon { color: #059669; }
 
@@ -2381,7 +2381,7 @@
 /* Google Calendar/Meet connection panel */
 .conn-google-icon { width: 40px; height: 40px; border-radius: 10px; background: rgba(66,133,244,0.08); border: 1px solid rgba(66,133,244,0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .conn-google-icon-connected { background: rgba(0,255,136,0.06); border-color: rgba(0,255,136,0.15); }
-.conn-google-title { font-weight: 700; font-size: 0.92rem; color: #ddd; }
+.conn-google-title { font-weight: 600; font-size: 0.92rem; color: #ddd; font-family: 'Outfit', sans-serif; }
 .conn-google-sub { font-size: 0.78rem; color: #888; }
 .conn-google-btn { display: inline-flex; align-items: center; gap: 6px; background: linear-gradient(135deg, #4285F4, #3367D6); color: #fff; border: none; border-radius: 8px; padding: 10px 20px; font-size: 0.88rem; font-weight: 600; text-decoration: none; cursor: pointer; transition: opacity 0.15s; }
 .conn-google-btn:hover { opacity: 0.9; color: #fff; text-decoration: none; }
@@ -2393,12 +2393,14 @@
 /* Light theme */
 [data-theme="light"] .conn-google-icon { background: rgba(66,133,244,0.06); border-color: rgba(66,133,244,0.12); }
 [data-theme="light"] .conn-google-icon-connected { background: rgba(0,170,94,0.06); border-color: rgba(0,170,94,0.12); }
-[data-theme="light"] .conn-google-title { color: #1a1a2e; }
+[data-theme="light"] .conn-google-title { color: #1a1a1a; font-weight: 600; }
 [data-theme="light"] .conn-google-sub { color: #777; }
 [data-theme="light"] .conn-google-disconnect { color: #999; }
 [data-theme="light"] .conn-google-disconnect:hover { color: #dc2626; }
 [data-theme="light"] .conn-google-feature { color: #555; }
 [data-theme="light"] .conn-google-feature i { color: var(--lt-accent); }
+.conn-icon-accent { color: var(--accent); font-size: 1.2rem; }
+[data-theme="light"] .conn-icon-accent { color: var(--lt-accent); }
 .conn-google-privacy { margin-top: 14px; padding: 10px 12px; font-size: 0.75rem; color: #777; line-height: 1.5; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); border-radius: 8px; }
 .conn-google-privacy i { color: #4285F4; margin-right: 6px; }
 [data-theme="light"] .conn-google-privacy { background: transparent; border-color: #e8e8e8; color: #888; }
@@ -2428,7 +2430,7 @@
     border-color: #e8e8e8;
     color: #777;
 }
-[data-theme="light"] .conn-outbound-hint strong { color: #0a0a0a; }
+[data-theme="light"] .conn-outbound-hint strong { color: #333; }
 [data-theme="light"] .conn-outbound-text { color: #6b7280; }
 
 
@@ -2530,6 +2532,65 @@
     background: rgba(0,217,255,0.14);
     color: #00d9ff;
 }
+
+/* Connect Panel Utility Classes */
+.conn-status-connected { color: var(--accent); }
+[data-theme="light"] .conn-status-connected { color: var(--lt-accent); }
+.conn-label-row-spaced { margin-bottom: 16px; }
+.conn-label-sm { font-size: 0.78rem; }
+.conn-icon-orange { color: #FF6B00; margin-right: 6px; }
+[data-theme="light"] .conn-icon-orange { color: #e85d00; }
+.conn-btn-sm { font-size: 0.75rem; padding: 8px 18px; }
+
+/* Training Connect Panel (trn-) */
+.trn-info-box { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 14px 16px; margin-bottom: 20px; }
+.trn-info-text { font-size: 0.82rem; color: #aaa; line-height: 1.6; }
+.trn-info-icon { color: #a78bfa; }
+.trn-strong { color: #ccc; }
+.trn-empty-state { text-align: center; padding: 24px 16px; }
+.trn-empty-icon { width: 56px; height: 56px; border-radius: 14px; background: rgba(167,139,250,0.08); border: 1px solid rgba(167,139,250,0.15); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+.trn-key-icon { color: #a78bfa; font-size: 1.3rem; }
+.trn-empty-text { color: #888; font-size: 0.82rem; margin-bottom: 16px; }
+.trn-generate-btn { background: linear-gradient(135deg, #a78bfa, #7c3aed); color: #fff; border: none; border-radius: 10px; padding: 10px 24px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+.trn-generate-btn:hover { opacity: 0.9; }
+.trn-token-label { font-size: 0.78rem; font-weight: 600; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: block; }
+.trn-token-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.trn-token-input-wrap { flex: 1; position: relative; }
+.trn-token-input { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(167,139,250,0.2); border-radius: 8px; padding: 10px 44px 10px 14px; color: #a78bfa; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; letter-spacing: 0.3px; }
+.trn-copy-btn { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: rgba(167,139,250,0.1); border: 1px solid rgba(167,139,250,0.2); border-radius: 6px; padding: 5px 8px; color: #a78bfa; cursor: pointer; font-size: 0.75rem; }
+.trn-copy-btn:hover { background: rgba(167,139,250,0.2); }
+.trn-token-date { font-size: 0.75rem; color: #666; margin-bottom: 16px; }
+.trn-token-actions { display: flex; gap: 8px; }
+.trn-action-btn { border-radius: 8px; padding: 8px 16px; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+.trn-action-regen { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #ccc; }
+.trn-action-regen:hover { background: rgba(255,255,255,0.08); }
+.trn-action-revoke { background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.15); color: #ef4444; }
+.trn-action-revoke:hover { background: rgba(239,68,68,0.12); }
+.trn-status-msg { margin-top: 12px; padding: 10px 14px; border-radius: 8px; font-size: 0.82rem; }
+.trn-data-box { margin-top: 16px; background: rgba(167,139,250,0.04); border: 1px solid rgba(167,139,250,0.1); border-radius: 8px; padding: 12px 14px; }
+.trn-data-title { font-size: 0.78rem; color: #a78bfa; font-weight: 600; margin-bottom: 6px; }
+.trn-data-list { font-size: 0.75rem; color: #888; line-height: 1.6; }
+.trn-bullet { color: #aaa; margin: 0 4px; }
+
+/* Light theme: Training Connect Panel */
+[data-theme="light"] .trn-info-box { background: #fafafa; border-color: #e8e8e8; }
+[data-theme="light"] .trn-info-text { color: #666; }
+[data-theme="light"] .trn-info-icon { color: #7c3aed; }
+[data-theme="light"] .trn-strong { color: #333; }
+[data-theme="light"] .trn-empty-icon { background: rgba(124,58,237,0.06); border-color: rgba(124,58,237,0.12); }
+[data-theme="light"] .trn-key-icon { color: #7c3aed; }
+[data-theme="light"] .trn-empty-text { color: #777; }
+[data-theme="light"] .trn-token-label { color: #777; }
+[data-theme="light"] .trn-token-input { background: #fafafa; border-color: rgba(124,58,237,0.2); color: #7c3aed; }
+[data-theme="light"] .trn-copy-btn { background: rgba(124,58,237,0.06); border-color: rgba(124,58,237,0.15); color: #7c3aed; }
+[data-theme="light"] .trn-token-date { color: #999; }
+[data-theme="light"] .trn-action-regen { background: #fafafa; border-color: #e0e0e0; color: #444; }
+[data-theme="light"] .trn-action-regen:hover { background: #f0f0f0; }
+[data-theme="light"] .trn-action-revoke { background: rgba(220,38,38,0.04); border-color: rgba(220,38,38,0.12); color: #dc2626; }
+[data-theme="light"] .trn-data-box { background: rgba(124,58,237,0.03); border-color: rgba(124,58,237,0.08); }
+[data-theme="light"] .trn-data-title { color: #7c3aed; }
+[data-theme="light"] .trn-data-list { color: #666; }
+[data-theme="light"] .trn-bullet { color: #999; }
 
 /* Light theme: Training Tab */
 [data-theme="light"] .trn-header-icon {
@@ -3488,7 +3549,7 @@ body.ghl-embed .main-wrapper {
 [data-theme="light"] .profile-card { background: rgba(255,255,255,0.82); border-color: rgba(0,0,0,0.09); }
 [data-theme="light"] .profile-card-header { border-bottom-color: rgba(0,0,0,0.06); }
 [data-theme="light"] .profile-card-icon { background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.2); color: #059669; }
-[data-theme="light"] .profile-card-title { color: #1a1a2e; }
+[data-theme="light"] .profile-card-title { color: #1a1a1a; font-weight: 600; }
 [data-theme="light"] .profile-card-sub { color: rgba(0,0,0,0.45); }
 [data-theme="light"] .profile-status-text { color: rgba(0,0,0,0.45); }
 [data-theme="light"] .profile-status-ok { background: #059669; box-shadow: 0 0 6px rgba(5,150,105,0.4); }
@@ -3505,7 +3566,7 @@ body.ghl-embed .main-wrapper {
 [data-theme="light"] .profile-2fa-secret-label { color: rgba(0,0,0,0.4); }
 [data-theme="light"] .profile-2fa-copy { color: rgba(0,0,0,0.35); }
 [data-theme="light"] .profile-2fa-copy:hover { color: rgba(0,0,0,0.7); }
-[data-theme="light"] .profile-2fa-input { background: #fff; border-color: #d0d0d0; color: #1a1a2e; }
+[data-theme="light"] .profile-2fa-input { background: #fff; border-color: #d0d0d0; color: #222; }
 [data-theme="light"] .profile-2fa-input:focus { border-color: #059669; }
 
 /* ═══════════════════════════════
@@ -3555,7 +3616,7 @@ body.ghl-embed .main-wrapper {
 .conn-int-feature i { color: var(--accent); font-size: 0.68rem; flex-shrink: 0; }
 
 /* ── Light theme: connect integration panels ── */
-[data-theme="light"] .conn-panel-title { color: #1a1a2e; }
+[data-theme="light"] .conn-panel-title { color: #1a1a1a; font-weight: 600; }
 [data-theme="light"] .conn-panel-desc  { color: rgba(0,0,0,0.5); }
 [data-theme="light"] .conn-int-indicator-checking { color: rgba(0,0,0,0.4); background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.1); }
 [data-theme="light"] .conn-int-indicator-ok       { color: #059669; background: rgba(5,150,105,0.07); border-color: rgba(5,150,105,0.2); }

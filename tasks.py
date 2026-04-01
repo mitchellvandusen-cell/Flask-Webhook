@@ -18,6 +18,7 @@ from ghl_api import fetch_targeted_ghl_history, get_valid_token, get_valid_token
 from contact_validator import validate_and_resolve_contact
 from booking_detection import detect_booking_request, BookingDetectionResult
 from message_utils import collect_unanswered_lead_messages as _collect_unanswered_lead_messages
+from lead_resolver import resolve_lead_type
 
 logger = logging.getLogger('rq.worker')
 
@@ -331,7 +332,6 @@ def process_webhook_task(payload: dict):
         # === SMART LEAD TYPE DETECTION ===
         # Cross-references GHL tags + date imported + custom fields to determine
         # true lead freshness. Tags alone are unreliable (stale tags happen).
-        from lead_resolver import resolve_lead_type
         lead_info = resolve_lead_type(
             tags=payload.get("tags"),
             date_added=payload.get("date_added"),

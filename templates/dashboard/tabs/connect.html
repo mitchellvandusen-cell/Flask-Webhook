@@ -24,7 +24,7 @@
                                 <i class="fa-solid fa-copy"></i> Copy
                             </button>
                             {% if sub and sub.crm_type %}
-                            <span class="vc-status-chip" style="background:rgba(0,255,136,0.08);color:#00ff88;border:1px solid rgba(0,255,136,0.2);">
+                            <span class="vc-status-chip vc-chip-accent">
                                 <i class="fa-solid fa-circle-check"></i> {{ sub.crm_type|upper }}
                             </span>
                             {% endif %}
@@ -42,7 +42,7 @@
                                 <div class="vc-status-bar" style="border-bottom:none;margin-bottom:16px;">
                                     <div class="vc-status-left">
                                         <span class="vc-status-label">STATUS</span>
-                                        <span class="vc-status-value" style="color:#00ff88;">Connected</span>
+                                        <span class="vc-status-value conn-status-connected">Connected</span>
                                     </div>
                                     <div class="vc-status-right">
                                         <a href="/oauth/initiate" target="_top" class="vc-btn-secondary">
@@ -54,10 +54,10 @@
 
                                 <!-- Setup guide -->
                                 <div class="vc-field-group">
-                                    <div class="vc-label-row" style="margin-bottom:16px;">
-                                        <label class="vc-label" style="font-size:0.78rem;"><i class="fa-solid fa-bolt" style="color:#FF6B00;margin-right:6px;"></i> LeadConnector Integration</label>
+                                    <div class="vc-label-row conn-label-row-spaced">
+                                        <label class="vc-label conn-label-sm"><i class="fa-solid fa-bolt conn-icon-orange"></i> LeadConnector Integration</label>
                                         <a href="https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&redirect_uri=https%3A%2F%2Finsurancegrokbot.click%2Foauth%2Fcallback&client_id=695e99698a5ae81dbb426515-mkaz316h&scope=calendars.readonly+calendars%2Fevents.readonly+calendars%2Fevents.write+conversations%2Fmessage.write+conversations%2Fmessage.readonly+contacts.readonly+locations%2FcustomFields.readonly+locations%2FcustomValues.readonly+calendars%2Fgroups.readonly+conversations.readonly+conversations.write+locations%2Ftags.readonly+oauth.readonly+locations.readonly+users.readonly+workflows.readonly+twilioaccount.read+contacts.write+locations%2Ftags.write+locations%2FcustomFields.write+opportunities.readonly+opportunities.write+phonenumbers.read+numberpools.read&version_id=69baca8609da2bbc1060ae05"
-                                           target="_blank" rel="noopener noreferrer" class="vc-btn-primary" style="font-size:0.75rem;padding:8px 18px;">
+                                           target="_blank" rel="noopener noreferrer" class="vc-btn-primary conn-btn-sm">
                                             <i class="fa-solid fa-download"></i> Install from Marketplace
                                         </a>
                                     </div>
@@ -75,8 +75,7 @@
                             <!-- ── Panel: Other CRMs ── -->
                             <div id="cntab-panel-other-crms" style="display:none;">
                                 <div class="vc-status-bar" style="margin-bottom:12px;">
-                                    <i class="fa-solid fa-plug"></i>
-                                    <span>Other CRM Integrations</span>
+                                    <div class="vc-status-left"><i class="fa-solid fa-plug"></i><span>Other CRM Integrations</span></div>
                                 </div>
 
                                 <!-- Quick Connect: auto-detect CRM from API key -->
@@ -200,7 +199,7 @@
 
                             <!-- ── Panel: API Access ── -->
                             <div id="cntab-panel-api" style="display:none;">
-                                <div class="vc-status-bar" style="margin-bottom:12px;"><i class="fa-solid fa-code"></i><span>API Access</span></div>
+                                <div class="vc-status-bar" style="margin-bottom:12px;"><div class="vc-status-left"><i class="fa-solid fa-code"></i><span>API Access</span></div></div>
                                 <p class="conn-api-desc" style="margin-bottom:16px;">
                                     Integrate any system using our OpenAI-compatible API.
                                     Send messages to <code>/api/v1/chat/completions</code> and receive bot replies via webhook.
@@ -260,7 +259,7 @@
 
                             <!-- ── Panel: Outbound Calls ── -->
                             <div id="cntab-panel-outbound" style="display:none;">
-                                <div class="vc-status-bar" style="margin-bottom:12px;"><i class="fa-solid fa-arrow-right-from-bracket"></i><span>Outbound Call Trigger</span></div>
+                                <div class="vc-status-bar" style="margin-bottom:12px;"><div class="vc-status-left"><i class="fa-solid fa-arrow-right-from-bracket"></i><span>Outbound Call Trigger</span></div></div>
                                 <p class="conn-api-desc conn-desc-spaced">Trigger an AI outbound call from your CRM or automation by sending a POST request to this endpoint.</p>
                                 <div class="conn-outbound-panel">
                                     <div class="conn-code-row">
@@ -286,7 +285,7 @@
 
                             <!-- ── Panel: Google Calendar + Meet ── -->
                             <div id="cntab-panel-google" style="display:none;">
-                                <div class="vc-status-bar" style="margin-bottom:12px;"><i class="fa-brands fa-google"></i><span>Google Calendar & Meet</span></div>
+                                <div class="vc-status-bar" style="margin-bottom:12px;"><div class="vc-status-left"><i class="fa-brands fa-google"></i><span>Google Calendar & Meet</span></div></div>
                                 <p class="conn-api-desc conn-desc-spaced">Connect your Google Calendar to schedule appointments and start Google Meet video consultations with leads directly from the dialer.</p>
 
                                 <div id="googleCalNotConnected" class="conn-outbound-panel conn-panel-padded">
@@ -313,10 +312,10 @@
                                     </div>
                                 </div>
 
-                                <div id="googleCalConnected" class="p-3 conn-outbound-panel" style="display:none;">
-                                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+                                <div id="googleCalConnected" class="conn-outbound-panel conn-panel-padded" style="display:none;">
+                                    <div class="conn-google-row">
                                         <div class="conn-google-icon conn-google-icon-connected">
-                                            <i class="fa-solid fa-circle-check" style="color:var(--accent);font-size:1.2rem;"></i>
+                                            <i class="fa-solid fa-circle-check conn-icon-accent"></i>
                                         </div>
                                         <div>
                                             <div class="conn-google-title">Google Calendar Connected</div>
@@ -325,8 +324,8 @@
                                         <a href="/google-calendar/disconnect" class="conn-google-disconnect">Disconnect</a>
                                     </div>
                                     <div class="conn-google-features">
-                                        <div class="conn-google-feature"><i class="fa-solid fa-circle-check" style="color:var(--accent);"></i> Calendar synced</div>
-                                        <div class="conn-google-feature"><i class="fa-solid fa-circle-check" style="color:var(--accent);"></i> Google Meet enabled — use the <strong>Meet</strong> button during calls</div>
+                                        <div class="conn-google-feature"><i class="fa-solid fa-circle-check"></i> Calendar synced</div>
+                                        <div class="conn-google-feature"><i class="fa-solid fa-circle-check"></i> Google Meet enabled — use the <strong>Meet</strong> button during calls</div>
                                     </div>
                                 </div>
 
@@ -345,7 +344,7 @@
 
                             <!-- ── Panel: Discord ── -->
                             <div id="cntab-panel-discord" style="display:none;">
-                                <div class="vc-status-bar" style="margin-bottom:12px;"><i class="fa-brands fa-discord"></i><span>Discord</span></div>
+                                <div class="vc-status-bar" style="margin-bottom:12px;"><div class="vc-status-left"><i class="fa-brands fa-discord"></i><span>Discord</span></div></div>
                                 <p class="conn-panel-desc">Connect your Discord account to read and reply to team messages directly from your dashboard — no switching tabs.</p>
                                 <div class="conn-integration-status" id="cnDiscordStatus">
                                     <div class="conn-int-indicator conn-int-indicator-checking">
@@ -372,7 +371,7 @@
 
                             <!-- ── Panel: Slack ── -->
                             <div id="cntab-panel-slack" style="display:none;">
-                                <div class="vc-status-bar" style="margin-bottom:12px;"><i class="fa-brands fa-slack"></i><span>Slack</span></div>
+                                <div class="vc-status-bar" style="margin-bottom:12px;"><div class="vc-status-left"><i class="fa-brands fa-slack"></i><span>Slack</span></div></div>
                                 <p class="conn-panel-desc">Connect your Slack workspace to message your team without leaving the dialer.</p>
                                 <div class="conn-integration-status" id="cnSlackStatus">
                                     <div class="conn-int-indicator conn-int-indicator-checking">
@@ -399,61 +398,59 @@
 
                             <!-- ── Panel: Training API ── -->
                             <div id="cntab-panel-training" style="display:none;">
-                                <div class="vc-status-bar" style="margin-bottom:12px;"><i class="fa-solid fa-graduation-cap"></i><span>Training API</span></div>
+                                <div class="vc-status-bar" style="margin-bottom:12px;"><div class="vc-status-left"><i class="fa-solid fa-graduation-cap"></i><span>Training API</span></div></div>
                                 <div class="conn-training-card">
                                     <p class="conn-api-desc">Connect your account to InsuranceGrokBot Training to analyze, review, and grade your call recordings.</p>
-                                    <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:14px 16px;margin-bottom:20px;">
-                                        <div style="font-size:0.82rem;color:#aaa;line-height:1.6;">
-                                            <i class="fa-solid fa-circle-info me-1" style="color:#a78bfa;"></i>
-                                            Generate a <strong style="color:#ccc;">Training Code</strong> below and paste it into the
-                                            <strong style="color:#ccc;">InsuranceGrokBot Training</strong> app to import your call recordings,
+                                    <div class="trn-info-box">
+                                        <div class="trn-info-text">
+                                            <i class="fa-solid fa-circle-info me-1 trn-info-icon"></i>
+                                            Generate a <strong class="trn-strong">Training Code</strong> below and paste it into the
+                                            <strong class="trn-strong">InsuranceGrokBot Training</strong> app to import your call recordings,
                                             transcripts, and call metadata.
                                         </div>
                                     </div>
                                     <div id="trainingTokenSection">
                                         <div id="trainingNoToken">
-                                            <div style="text-align:center;padding:24px 16px;">
-                                                <div style="width:56px;height:56px;border-radius:14px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.15);display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;">
-                                                    <i class="fa-solid fa-key" style="color:#a78bfa;font-size:1.3rem;"></i>
+                                            <div class="trn-empty-state">
+                                                <div class="trn-empty-icon">
+                                                    <i class="fa-solid fa-key trn-key-icon"></i>
                                                 </div>
-                                                <div style="color:#888;font-size:0.82rem;margin-bottom:16px;">No training code generated yet.</div>
-                                                <button onclick="generateTrainingCode()" id="btnGenerateTraining" style="background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff;border:none;border-radius:10px;padding:10px 24px;font-size:0.85rem;font-weight:600;cursor:pointer;">
+                                                <div class="trn-empty-text">No training code generated yet.</div>
+                                                <button onclick="generateTrainingCode()" id="btnGenerateTraining" class="trn-generate-btn">
                                                     <i class="fa-solid fa-wand-magic-sparkles me-2"></i>Generate Training Code
                                                 </button>
                                             </div>
                                         </div>
                                         <div id="trainingHasToken" style="display:none;">
-                                            <label style="font-size:0.78rem;font-weight:600;color:#aaa;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;display:block;">Your Training Code</label>
-                                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                                                <div style="flex:1;position:relative;">
-                                                    <input type="text" id="trainingTokenDisplay" readonly
-                                                           style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(167,139,250,0.2);border-radius:8px;padding:10px 44px 10px 14px;color:#a78bfa;font-family:'SF Mono',Monaco,monospace;font-size:0.82rem;letter-spacing:0.3px;">
-                                                    <button onclick="copyTrainingCode()" id="btnCopyTraining" title="Copy to clipboard"
-                                                            style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.2);border-radius:6px;padding:5px 8px;color:#a78bfa;cursor:pointer;font-size:0.75rem;">
+                                            <label class="trn-token-label">Your Training Code</label>
+                                            <div class="trn-token-row">
+                                                <div class="trn-token-input-wrap">
+                                                    <input type="text" id="trainingTokenDisplay" readonly class="trn-token-input">
+                                                    <button onclick="copyTrainingCode()" id="btnCopyTraining" title="Copy to clipboard" class="trn-copy-btn">
                                                         <i class="fa-regular fa-copy"></i>
                                                     </button>
                                                 </div>
                                             </div>
-                                            <div id="trainingTokenCreated" style="font-size:0.75rem;color:#666;margin-bottom:16px;"></div>
-                                            <div style="display:flex;gap:8px;">
-                                                <button onclick="regenerateTrainingCode()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#ccc;border-radius:8px;padding:8px 16px;font-size:0.78rem;font-weight:600;cursor:pointer;">
+                                            <div id="trainingTokenCreated" class="trn-token-date"></div>
+                                            <div class="trn-token-actions">
+                                                <button onclick="regenerateTrainingCode()" class="trn-action-btn trn-action-regen">
                                                     <i class="fa-solid fa-arrows-rotate me-1"></i>Regenerate
                                                 </button>
-                                                <button onclick="revokeTrainingCode()" style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);color:#ef4444;border-radius:8px;padding:8px 16px;font-size:0.78rem;font-weight:600;cursor:pointer;">
+                                                <button onclick="revokeTrainingCode()" class="trn-action-btn trn-action-revoke">
                                                     <i class="fa-solid fa-trash-can me-1"></i>Revoke
                                                 </button>
                                             </div>
                                         </div>
                                     </div>
-                                    <div id="trainingStatusMsg" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:0.82rem;"></div>
-                                    <div style="margin-top:16px;background:rgba(167,139,250,0.04);border:1px solid rgba(167,139,250,0.1);border-radius:8px;padding:12px 14px;">
-                                        <div style="font-size:0.78rem;color:#a78bfa;font-weight:600;margin-bottom:6px;"><i class="fa-solid fa-database me-1"></i>Data Accessible via Training Code</div>
-                                        <div style="font-size:0.75rem;color:#888;line-height:1.6;">
-                                            <span style="color:#aaa;">&#x2022;</span> Call recordings (audio) &nbsp;&nbsp;
-                                            <span style="color:#aaa;">&#x2022;</span> Transcripts &nbsp;&nbsp;
-                                            <span style="color:#aaa;">&#x2022;</span> Call duration &amp; timestamps &nbsp;&nbsp;
-                                            <span style="color:#aaa;">&#x2022;</span> Contact names &nbsp;&nbsp;
-                                            <span style="color:#aaa;">&#x2022;</span> Call direction &amp; disposition
+                                    <div id="trainingStatusMsg" class="trn-status-msg" style="display:none;"></div>
+                                    <div class="trn-data-box">
+                                        <div class="trn-data-title"><i class="fa-solid fa-database me-1"></i>Data Accessible via Training Code</div>
+                                        <div class="trn-data-list">
+                                            <span class="trn-bullet">&#x2022;</span> Call recordings (audio)
+                                            <span class="trn-bullet">&#x2022;</span> Transcripts
+                                            <span class="trn-bullet">&#x2022;</span> Call duration &amp; timestamps
+                                            <span class="trn-bullet">&#x2022;</span> Contact names
+                                            <span class="trn-bullet">&#x2022;</span> Call direction &amp; disposition
                                         </div>
                                     </div>
                                 </div>

@@ -27,7 +27,7 @@ def _get_subscriber_by_phone(phone_number):
             WHERE voice_config IS NOT NULL
               AND voice_config->>'enabled' = 'true'
               AND (
-                  REGEXP_REPLACE(voice_config->>'twilio_phone_number', '^\+?1', '') = %s
+                  REGEXP_REPLACE(voice_config->>'twilio_phone_number', '^\\+?1', '') = %s
                   OR voice_config->>'twilio_phone_number' = %s
               )
             LIMIT 1
@@ -48,7 +48,7 @@ def _get_subscriber_by_phone(phone_number):
                   AND lu.voice_activated = true
                   AND lu.is_active = true
                   AND (
-                      REGEXP_REPLACE(lu.voice_config->>'twilio_phone_number', '^\+?1', '') = %s
+                      REGEXP_REPLACE(lu.voice_config->>'twilio_phone_number', '^\\+?1', '') = %s
                       OR lu.voice_config->>'twilio_phone_number' = %s
                   )
                 LIMIT 1
