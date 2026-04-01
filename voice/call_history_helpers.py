@@ -89,6 +89,34 @@ def mark_ring_confirmed(call_sid):
         return_db_connection(conn)
 
 
+def save_call_quality_metrics(call_sid, metrics_dict):
+    """Save quality metrics JSONB to call_history.
+
+    Args:
+        call_sid: The Twilio call SID.
+        metrics_dict: Dict with avg_ttfa_ms, max_ttfa_ms, min_ttfa_ms,
+                      turn_count, avg_response_duration_ms, and turns list.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE call_history SET quality_metrics = %s WHERE call_sid = %s
+        """, (json.dumps(metrics_dict), call_sid))
+        conn.commit()
+        cur.close()
+    except Exception as e:
+        logger.error(f"Failed to save quality metrics for {call_sid}: {e}")
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+    finally:
+        return_db_connection(conn)
+
+
 def save_call_transcript(call_sid, transcript):
     """Save transcript JSON to call_history."""
     conn = get_db_connection()

@@ -46,7 +46,7 @@ from voice.call_state import (
 from voice.voice_prompt import build_voice_system_prompt
 from voice.voice_tools import get_voice_tools, execute_voice_tool
 from voice.helpers import _get_subscriber_by_location, _get_subscriber_by_phone
-from voice.call_history_helpers import save_call_to_history, save_call_transcript
+from voice.call_history_helpers import save_call_to_history, save_call_transcript, save_call_quality_metrics
 import twilio_provisioning
 
 logger = logging.getLogger("voice_bridge.stream")
@@ -346,6 +346,9 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
     # Transcript accumulator for this call (outside try for finally access)
     call_transcript = []
 
+    # Quality metrics accumulator (outside try for finally access)
+    _qm_turns = []
+
     # Connect to XAI Realtime API and bridge audio
     try:
         async with websockets.connect(
@@ -463,6 +466,14 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
             _pending_transfer        = False  # set True when AI requests transfer; cleared on response.done
             _pending_hangup          = False  # set True when AI calls end_call tool; hangs up on response.done
 
+            # ── Call quality metrics tracking ──
+            # Uses time.monotonic() for accurate interval measurement
+            # _qm_turns is declared outside try block for finally access
+            _qm_response_created_at = None    # monotonic time when response.created fires
+            _qm_first_audio_at = None         # monotonic time of first audio delta for current response
+            _qm_current_item_id = None        # item_id of current response (detect new turns)
+            _qm_turn_number = 0               # sequential turn counter
+
             # -- Twilio -> XAI: mulaw 8kHz -> PCM16 16kHz --
             async def receive_from_twilio():
                 """Relay Twilio -> xAI. Transcode mulaw 8kHz to PCM16 16kHz."""
@@ -531,6 +542,7 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
             async def receive_from_xai():
                 """Relay xAI -> Twilio. Apply DSP chain (warmth/presence/gain) then encode to mulaw."""
                 nonlocal last_assistant_item, response_start_timestamp, ai_chunks_sent, call_active, _pending_transfer, _pending_hangup
+                nonlocal _qm_response_created_at, _qm_first_audio_at, _qm_current_item_id, _qm_turn_number
 
                 def _send_audio_to_twilio(raw_b64: str):
                     """Apply DSP chain to xAI PCM 24kHz, downsample to 8kHz mulaw for Twilio."""
@@ -580,6 +592,11 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                         if event_type in LOG_EVENT_TYPES:
                             logger.info(f"XAI event: {event_type}")
 
+                        # ── Quality metrics: track response.created timestamp ──
+                        if event_type == 'response.created':
+                            _qm_response_created_at = time.monotonic()
+                            _qm_first_audio_at = None  # reset for new response
+
                         # xAI PCM16 -> mulaw transcode -> Twilio (both event name variants)
                         if event_type in ('response.audio.delta', 'response.output_audio.delta') \
                                 and 'delta' in response:
@@ -588,6 +605,9 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                             if item_id and item_id != last_assistant_item:
                                 response_start_timestamp = ai_chunks_sent * 20  # ~20 ms per chunk
                                 last_assistant_item = item_id
+                            # ── Quality metrics: record first audio time for this response ──
+                            if _qm_first_audio_at is None:
+                                _qm_first_audio_at = time.monotonic()
 
                         # Speech interruption: user started talking while AI was speaking
                         elif event_type == 'input_audio_buffer.speech_started':
@@ -714,6 +734,22 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
 
                         # response.done -- AI finished generating a response
                         elif event_type == 'response.done':
+                            # ── Quality metrics: record completed turn ──
+                            _qm_now = time.monotonic()
+                            if _qm_response_created_at is not None and _qm_first_audio_at is not None:
+                                _qm_turn_number += 1
+                                _qm_ttfa = round((_qm_first_audio_at - _qm_response_created_at) * 1000)
+                                _qm_resp_dur = round((_qm_now - _qm_first_audio_at) * 1000)
+                                _qm_turns.append({
+                                    "turn": _qm_turn_number,
+                                    "ttfa_ms": _qm_ttfa,
+                                    "response_ms": _qm_resp_dur,
+                                    "timestamp": time.time(),
+                                })
+                            # Reset for next turn
+                            _qm_response_created_at = None
+                            _qm_first_audio_at = None
+
                             # Check for pending transfer or takeover
                             if _pending_transfer and call_sid and transfer_request_exists(call_sid):
                                 transfer_info = get_transfer_request(call_sid) or {}
@@ -805,6 +841,25 @@ Every word you output is spoken aloud. Allowed inline cues: [pause], [long-pause
                 logger.info(f"Saved transcript ({len(call_transcript)} turns) for call {call_sid}")
             except Exception as e:
                 logger.error(f"Failed to save transcript: {e}")
+
+        # Save call quality metrics if we collected any turns
+        if call_sid and _qm_turns:
+            try:
+                ttfa_values = [t["ttfa_ms"] for t in _qm_turns]
+                resp_values = [t["response_ms"] for t in _qm_turns]
+                quality_data = {
+                    "avg_ttfa_ms": round(sum(ttfa_values) / len(ttfa_values)),
+                    "max_ttfa_ms": max(ttfa_values),
+                    "min_ttfa_ms": min(ttfa_values),
+                    "p95_ttfa_ms": round(sorted(ttfa_values)[int(len(ttfa_values) * 0.95)] if len(ttfa_values) >= 2 else ttfa_values[-1]),
+                    "turn_count": len(_qm_turns),
+                    "avg_response_duration_ms": round(sum(resp_values) / len(resp_values)),
+                    "turns": _qm_turns,
+                }
+                save_call_quality_metrics(call_sid, quality_data)
+                logger.info(f"Saved quality metrics ({len(_qm_turns)} turns, avg TTFA {quality_data['avg_ttfa_ms']}ms) for call {call_sid}")
+            except Exception as e:
+                logger.error(f"Failed to save quality metrics: {e}")
 
             # -- AI Auto-Callback Detection --
             # If enabled, analyze transcript for callback requests in background
