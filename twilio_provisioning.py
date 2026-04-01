@@ -1347,6 +1347,43 @@ def create_cnam_trust_product(
         raise
 
 
+def update_cnam_display_name(
+    sub_account_sid: str,
+    end_user_sid: str,
+    new_display_name: str,
+    sub_account_auth_token: str = "",
+) -> dict:
+    """
+    Update the CNAM display name on an existing CNAM Trust Product EndUser.
+
+    Changes the cnam_display_name attribute on the EndUser, which propagates
+    to carrier databases after Twilio re-processes the Trust Product (48-72 hours).
+    Also updates the friendly_name on all phone numbers assigned to the CNAM
+    Trust Product so the Twilio Console reflects the new name.
+    """
+    valid, result = validate_cnam_display_name(new_display_name)
+    if not valid:
+        raise ValueError(result)
+
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
+    try:
+        updated = client.trusthub.v1.end_users(end_user_sid).update(
+            friendly_name=f"CNAM EndUser: {new_display_name}",
+            attributes={
+                "cnam_display_name": new_display_name.upper(),
+            },
+        )
+        logger.info(f"[CNAM] Updated EndUser {end_user_sid} display name to: {new_display_name.upper()}")
+        return {
+            "status": "ok",
+            "end_user_sid": updated.sid,
+            "cnam_display_name": new_display_name.upper(),
+        }
+    except TwilioRestException as e:
+        logger.error(f"[CNAM] Display name update failed for {end_user_sid}: {e}")
+        raise
+
+
 def assign_numbers_to_cnam(
     sub_account_sid: str,
     trust_product_sid: str,

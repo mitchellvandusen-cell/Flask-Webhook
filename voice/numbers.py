@@ -2145,6 +2145,80 @@ def cnam_remove_number():
         return jsonify({"error": "Internal server error"}), 500
 
 
+@numbers_bp.route('/voice/cnam/update-name', methods=['POST'])
+@login_required
+def cnam_update_display_name():
+    """
+    Update the CNAM display name (what shows on the lead's phone).
+    Changes the EndUser attribute on the CNAM Trust Product.
+    Propagates to carrier databases in 48-72 hours after Twilio processes.
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    cnam = (vc or {}).get('cnam', {})
+    end_user_sid = cnam.get('end_user_sid', '')
+    trust_product_sid = cnam.get('trust_product_sid', '')
+    if not end_user_sid or not trust_product_sid:
+        return jsonify({"error": "No CNAM registration found. Register via Spam Protection first."}), 400
+
+    data = request.json or {}
+    new_name = data.get('display_name', '').strip()
+    if not new_name:
+        return jsonify({"error": "display_name is required"}), 400
+
+    # Validate before hitting Twilio
+    valid, validation_result = twilio_provisioning.validate_cnam_display_name(new_name)
+    if not valid:
+        return jsonify({"error": validation_result}), 400
+
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
+    location_id = subscriber['location_id']
+
+    try:
+        result = twilio_provisioning.update_cnam_display_name(
+            sub_account_sid=sub_sid,
+            end_user_sid=end_user_sid,
+            new_display_name=new_name,
+            sub_account_auth_token=sub_auth_token,
+        )
+
+        # Update cached config
+        cnam['cnam_display_name'] = new_name.upper()
+        vc['cnam'] = cnam
+        _save_voice_config(current_user.email, vc)
+
+        # Also update friendly_name on all assigned numbers
+        assigned = cnam.get('assigned_numbers', [])
+        if assigned:
+            try:
+                client = twilio_provisioning.get_sub_account_client_native(sub_sid, sub_auth_token)
+                for pn_sid in assigned:
+                    try:
+                        client.incoming_phone_numbers(pn_sid).update(friendly_name=new_name.upper()[:15])
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+        log_webhook_event(location_id, "cnam_name_updated", "success",
+                          f"Caller ID name changed to: {new_name.upper()}",
+                          details={"old": cnam.get('cnam_display_name', ''), "new": new_name.upper()})
+
+        return jsonify({
+            "status": "ok",
+            "cnam_display_name": new_name.upper(),
+            "message": f"Caller ID name updated to '{new_name.upper()}'. Changes propagate to carrier databases in 48-72 hours.",
+        })
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"[CNAM] Display name update failed: {e}", exc_info=True)
+        return jsonify({"error": f"Update failed: {str(e)}"}), 500
+
+
 # ──────────────────────────────────────────────────────────────
 # NUMBER INTEGRITY (Voice Integrity)
 # Registers numbers with AT&T/Hiya, T-Mobile/CallHub, Verizon
