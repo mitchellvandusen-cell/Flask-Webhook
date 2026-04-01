@@ -421,6 +421,7 @@ from crm_providers.hubspot.crm_card import hubspot_card_bp
 
 # Embeddable panel routes (CRM iframes, Chrome extension)
 from blueprints.embed import embed_bp
+from blueprints.analytics import analytics_bp
 
 # GHL Custom JS API endpoints (JWT-authenticated)
 from blueprints.ghl_embed import ghl_embed_bp
@@ -449,6 +450,7 @@ app.register_blueprint(hubspot_webhook_bp)
 app.register_blueprint(hubspot_card_bp)
 app.register_blueprint(embed_bp)
 app.register_blueprint(ghl_embed_bp)
+app.register_blueprint(analytics_bp)
 
 # Dashboard AI Agent Assistant — DISABLED (investigating xAI token cost)
 # from blueprints.assistant import assistant_bp

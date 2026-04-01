@@ -226,6 +226,16 @@ def outbound_twiml():
     if call_exists(call_sid):
         update_active_call(call_sid, status='in-progress', _host=request.host)
 
+    # ── Conversion analytics: track call connection ──
+    if location_id and contact_id:
+        try:
+            from db import log_conversion_event
+            log_conversion_event(location_id, contact_id, 'call_connected',
+                                 {'dial_mode': dial_mode, 'answered_by': answered_by},
+                                 source='voice')
+        except Exception:
+            pass
+
     # Start recording in background (applies to ALL dial modes including human)
     host = request.host
     subscriber = _get_subscriber_by_location(location_id) if location_id else None

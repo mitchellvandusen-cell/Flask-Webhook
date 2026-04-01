@@ -1435,3 +1435,36 @@ def agency_members():
         })
 
     return flask_jsonify({"members": result, "total": len(result)})
+
+
+@agency_bp.route("/api/agency/conversion-stats")
+@login_required
+def agency_conversion_stats():
+    """Aggregated conversion analytics across all agency sub-accounts."""
+    if current_user.role != 'agency_owner' and current_user.email.lower() not in [e.lower() for e in ADMIN_EMAILS]:
+        return flask_jsonify({"error": "Access denied"}), 403
+
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "DB unavailable"}), 503
+
+    try:
+        location_ids = _get_sub_location_ids(conn, current_user.email,
+                                              company_id=getattr(current_user, 'company_id', None))
+        if current_user.location_id and current_user.location_id not in location_ids:
+            location_ids.append(current_user.location_id)
+    finally:
+        return_db_connection(conn)
+
+    if not location_ids:
+        return flask_jsonify({"period": "week", "booking_rate": 0,
+                              "bookings_confirmed": 0, "bookings_attempted": 0,
+                              "objection_win_rate": 0, "event_counts": {},
+                              "daily_trend": [], "per_agent": []})
+
+    period = request.args.get('period', 'week')
+    tz_name = (current_user.timezone or 'America/Chicago').replace(' ', '_')
+
+    from db import get_conversion_stats_multi
+    stats = get_conversion_stats_multi(location_ids, period=period, tz_name=tz_name)
+    return flask_jsonify(stats)

@@ -6,7 +6,7 @@ import time
 import json
 from datetime import timedelta
 from openai import OpenAI
-from db import get_subscriber_info_hybrid, get_db_connection, return_db_connection, get_message_count, sync_messages_to_db, log_webhook_event, get_bot_settings_by_location, save_persistent_alert, get_auth_failed_messages, mark_webhook_log_retried, mark_webhook_log_backfill_retried, save_failed_webhook_payload, get_unretried_failed_webhooks, mark_failed_webhook_retried, get_token_failed_webhook_logs
+from db import get_subscriber_info_hybrid, get_db_connection, return_db_connection, get_message_count, sync_messages_to_db, log_webhook_event, get_bot_settings_by_location, save_persistent_alert, get_auth_failed_messages, mark_webhook_log_retried, mark_webhook_log_backfill_retried, save_failed_webhook_payload, get_unretried_failed_webhooks, mark_failed_webhook_retried, get_token_failed_webhook_logs, log_conversion_event
 from memory import save_message, save_new_facts
 from sales_director import generate_strategic_directive
 from age import calculate_age_from_dob
@@ -496,11 +496,15 @@ def process_webhook_task(payload: dict):
                 ):
                     matched = next(sw for sw in TCPA_STOP_EXACT if re.search(rf'\b{re.escape(sw)}\b', msg_lower))
                     logger.info(f"🛑 TCPA OPT-OUT: '{matched}' detected from contact {contact_id} | msg='{message}'")
+                    log_conversion_event(location_id, contact_id, 'opt_out',
+                                         {'keyword': matched, 'message': message[:200]}, source='sms')
                     return {"status": "opt_out", "reason": f"TCPA stop word: {matched}", "contact_id": contact_id}
                 # Check phrase matches
                 for stop_phrase in TCPA_STOP_PHRASES:
                     if re.search(rf'\b{re.escape(stop_phrase)}\b', msg_lower):
                         logger.info(f"🛑 TCPA OPT-OUT: '{stop_phrase}' detected from contact {contact_id} | msg='{message}'")
+                        log_conversion_event(location_id, contact_id, 'opt_out',
+                                             {'keyword': stop_phrase, 'message': message[:200]}, source='sms')
                         return {"status": "opt_out", "reason": f"TCPA stop word: {stop_phrase}", "contact_id": contact_id}
 
         # === MESSAGE BATCHING ===
@@ -550,6 +554,30 @@ def process_webhook_task(payload: dict):
 
         recent_exchanges = director_output["recent_exchanges"]
 
+        # ── Conversion analytics: track stage transitions & objections ──
+        _current_stage = director_output.get("stage", "qualifying")
+        # Determine previous stage from the last assistant message's stage tag
+        _prev_stage = None
+        for _ex in reversed(recent_exchanges):
+            if _ex.get('role') == 'assistant' and _ex.get('stage'):
+                _prev_stage = _ex['stage']
+                break
+        if _prev_stage and _prev_stage != _current_stage:
+            log_conversion_event(location_id, contact_id, 'stage_advanced',
+                                 {'from_stage': _prev_stage, 'to_stage': _current_stage},
+                                 source='sms')
+
+        # Track objection detection from the tactical narrative
+        _tac = director_output.get("tactical_narrative", "")
+        if "OBJECTION_TYPE:" in _tac:
+            _obj_match = re.search(r'OBJECTION_TYPE:\s*(\S+)', _tac)
+            if _obj_match:
+                _obj_type = _obj_match.group(1).strip().rstrip('.')
+                if _obj_type.lower() not in ('none', ''):
+                    log_conversion_event(location_id, contact_id, 'objection_detected',
+                                         {'objection_type': _obj_type, 'stage': _current_stage},
+                                         source='sms')
+
         # ── Consecutive-bot cap: stop burning xAI tokens on silent contacts ──
         # If the bot has sent 10+ messages with zero human reply on a follow-up
         # job (no incoming message), the contact is either unreachable or not
@@ -598,6 +626,8 @@ def process_webhook_task(payload: dict):
             log_webhook_event(location_id, "booking_attempt", "info",
                               f"Booking requested: {booking_time_str}",
                               contact_id=contact_id, details={"time": booking_time_str, "crm_type": crm_type})
+            log_conversion_event(location_id, contact_id, 'booking_attempted',
+                                 {'time': booking_time_str, 'crm_type': crm_type}, source='sms')
 
             if is_demo:
                 logger.info(f"📅 DEMO MODE: Simulating booking for {contact_id}")
@@ -621,6 +651,8 @@ def process_webhook_task(payload: dict):
                         log_webhook_event(location_id, "booking_success", "success",
                                           f"Booked via {adapter.CRM_NAME}: {actual_booked_time}",
                                           contact_id=contact_id, details={"crm": adapter.CRM_NAME, "time": actual_booked_time})
+                        log_conversion_event(location_id, contact_id, 'booking_confirmed',
+                                             {'time': actual_booked_time, 'crm': adapter.CRM_NAME}, source='sms')
                     else:
                         logger.warning(f"⚠️ BOOKING FAILED via {adapter.CRM_NAME} for {contact_id}")
                         log_webhook_event(location_id, "booking_failed", "error",
@@ -662,6 +694,8 @@ def process_webhook_task(payload: dict):
                     log_webhook_event(location_id, "booking_success", "success",
                                       f"Booked via LeadConnector: {actual_booked_time}",
                                       contact_id=contact_id, details={"crm": "LeadConnector", "time": actual_booked_time})
+                    log_conversion_event(location_id, contact_id, 'booking_confirmed',
+                                         {'time': actual_booked_time, 'crm': 'LeadConnector'}, source='sms')
                 else:
                     logger.warning(f"⚠️ BOOKING FAILED for {contact_id} - Grok will handle response")
                     log_webhook_event(location_id, "booking_failed", "error",
