@@ -2766,6 +2766,380 @@ def number_integrity_update_info():
 
 
 # ──────────────────────────────────────────────────────────────
+# SHAKEN/STIR — Full attestation (A-level) for outbound calls.
+# Tells carriers "this call is legitimate." Improves answer rates
+# beyond Voice Integrity alone.
+# ──────────────────────────────────────────────────────────────
+
+
+@numbers_bp.route('/voice/shaken-stir/status')
+@login_required
+def shaken_stir_status():
+    """
+    SHAKEN/STIR registration status.
+    Returns current status, assigned numbers, and carrier display info.
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    ss = vc.get('shaken_stir', {})
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
+    tp_sid = ss.get('trust_product_sid', '')
+
+    _STATUS_ORDER = {
+        'not_registered': 0, 'draft': 1, 'pending-review': 2,
+        'in-review': 3, 'twilio-approved': 4, 'twilio-rejected': 4,
+    }
+
+    if not tp_sid:
+        return jsonify({
+            "registered": False,
+            "status": "not_registered",
+            "display": {"label": "Not Registered", "color": "gray", "icon": "fa-shield-halved"},
+            "numbers": [],
+        })
+
+    # Live status from Twilio
+    try:
+        live = twilio_provisioning.get_shaken_stir_status(sub_sid, tp_sid, sub_auth_token)
+        live_status = live.get('status', ss.get('status', 'draft'))
+
+        # Status monotonicity — never regress due to Twilio eventual consistency
+        cached_status = ss.get('status', 'not_registered')
+        if _STATUS_ORDER.get(live_status, 0) >= _STATUS_ORDER.get(cached_status, 0):
+            if live_status != cached_status:
+                ss['status'] = live_status
+                if live_status == 'twilio-approved':
+                    ss['approved_at'] = datetime.utcnow().isoformat()
+                vc['shaken_stir'] = ss
+                _save_voice_config(current_user.email, vc)
+
+        assigned_sids = set(live.get('assigned_numbers', []))
+        ss_assigned = set(ss.get('assigned_numbers', []))
+        if assigned_sids != ss_assigned:
+            ss['assigned_numbers'] = list(assigned_sids)
+            ss['assigned_count'] = len(assigned_sids)
+            vc['shaken_stir'] = ss
+            _save_voice_config(current_user.email, vc)
+
+    except Exception as e:
+        logger.warning(f"[SHAKEN/STIR] Live status check failed: {e}")
+        live_status = ss.get('status', 'draft')
+        assigned_sids = set(ss.get('assigned_numbers', []))
+
+    # Status display mapping
+    display_map = {
+        'draft': {"label": "Draft", "color": "yellow", "icon": "fa-file-pen"},
+        'pending-review': {"label": "Pending Review", "color": "blue", "icon": "fa-clock"},
+        'in-review': {"label": "Under Review", "color": "blue", "icon": "fa-magnifying-glass"},
+        'twilio-approved': {"label": "Approved", "color": "green", "icon": "fa-circle-check"},
+        'twilio-rejected': {"label": "Rejected", "color": "red", "icon": "fa-circle-xmark"},
+    }
+    display = display_map.get(live_status, {"label": live_status, "color": "gray", "icon": "fa-question"})
+
+    # List all numbers on the sub-account with registration status
+    numbers = []
+    try:
+        client = twilio_provisioning.get_sub_account_client_native(sub_sid, sub_auth_token)
+        phone_numbers = client.incoming_phone_numbers.list(limit=100)
+        for num in phone_numbers:
+            numbers.append({
+                "sid": num.sid,
+                "phone_number": num.phone_number,
+                "friendly_name": num.friendly_name or num.phone_number,
+                "assigned": num.sid in assigned_sids,
+                "registered": live_status == 'twilio-approved' and num.sid in assigned_sids,
+            })
+    except Exception as e:
+        logger.warning(f"[SHAKEN/STIR] Could not list numbers: {e}")
+
+    result = {
+        "registered": bool(tp_sid),
+        "status": live_status,
+        "display": display,
+        "trust_product_sid": tp_sid,
+        "profile_sid": ss.get('profile_sid', ''),
+        "assigned_numbers": list(assigned_sids),
+        "assigned_count": len(assigned_sids),
+        "numbers": numbers,
+        "registered_at": ss.get('registered_at', ''),
+    }
+
+    if live_status == 'twilio-rejected':
+        result["failure_reasons"] = ss.get('failure_reasons', [])
+
+    return jsonify(result)
+
+
+@numbers_bp.route('/voice/shaken-stir/register', methods=['POST'])
+@login_required
+def shaken_stir_register():
+    """
+    Register phone numbers for SHAKEN/STIR attestation.
+    Requires an approved Secondary Customer Profile (from spam protection).
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    data = request.json or {}
+    phone_sids = data.get('phone_number_sids', [])
+    if not phone_sids:
+        return jsonify({"error": "Select at least one phone number"}), 400
+
+    trust_hub = vc.get('trust_hub', {})
+    business_name = trust_hub.get('business_name', '')
+    contact_email = trust_hub.get('contact_email', subscriber.get('email', ''))
+    if not business_name:
+        return jsonify({"error": "Complete your business profile in Spam Protection first"}), 400
+
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
+    location_id = subscriber['location_id']
+    ss = vc.get('shaken_stir', {})
+
+    # Gate: Secondary Profile must be approved
+    try:
+        profile_check = twilio_provisioning.check_secondary_profile_status(
+            sub_sid, sub_auth_token, existing_profile_sid=ss.get('profile_sid', ''))
+        if not profile_check.get('approved'):
+            pstatus = profile_check.get('status', 'unknown')
+            if pstatus in ('pending-review', 'in-review'):
+                return jsonify({"error": "Your business profile is still under review. SHAKEN/STIR registration will be available once approved."}), 409
+            elif pstatus == 'twilio-rejected':
+                return jsonify({"error": "Your business profile was rejected. Please update your Spam Protection profile and resubmit."}), 409
+            else:
+                return jsonify({"error": "Register for Spam Protection first to create your business profile."}), 400
+    except Exception as e:
+        logger.error(f"[SHAKEN/STIR] Profile check failed: {e}")
+        return jsonify({"error": f"Could not verify business profile: {str(e)}"}), 500
+
+    try:
+        # Check if existing TP needs replacement (rejected)
+        tp_sid = ss.get('trust_product_sid', '')
+        needs_new_tp = True
+        if tp_sid:
+            try:
+                live = twilio_provisioning.get_shaken_stir_status(sub_sid, tp_sid, sub_auth_token)
+                live_status = live.get('status', '')
+                if live_status == 'twilio-rejected':
+                    logger.info(f"[SHAKEN/STIR] Existing TP {tp_sid} rejected, will create new")
+                    twilio_provisioning.unassign_numbers_from_trust_product(
+                        sub_sid, tp_sid, [], sub_auth_token)
+                    ss['assigned_numbers'] = []
+                elif live_status in ('twilio-approved', 'pending-review', 'in-review'):
+                    needs_new_tp = False
+                elif live_status == 'draft':
+                    needs_new_tp = False
+            except Exception:
+                pass
+
+        if needs_new_tp:
+            result = twilio_provisioning.create_shaken_stir_trust_product(
+                sub_account_sid=sub_sid,
+                business_name=business_name,
+                contact_email=contact_email,
+                sub_account_auth_token=sub_auth_token,
+                existing_profile_sid=ss.get('profile_sid', ''),
+            )
+            tp_sid = result['trust_product_sid']
+            ss['trust_product_sid'] = tp_sid
+            ss['profile_sid'] = result.get('profile_sid', '')
+            ss['business_name'] = business_name
+            ss['registered_at'] = datetime.utcnow().isoformat()
+            vc['shaken_stir'] = ss
+            _save_voice_config(current_user.email, vc)
+
+        # Assign numbers
+        assign_result = twilio_provisioning.assign_numbers_to_shaken_stir(
+            sub_account_sid=sub_sid,
+            trust_product_sid=tp_sid,
+            phone_number_sids=phone_sids,
+            sub_account_auth_token=sub_auth_token,
+            profile_sid=ss.get('profile_sid', ''),
+        )
+
+        current_assigned = set(ss.get('assigned_numbers', []))
+        current_assigned.update(phone_sids)
+        ss['assigned_numbers'] = list(current_assigned)
+        ss['assigned_count'] = len(current_assigned)
+
+        # Submit for review
+        submit_result = twilio_provisioning.submit_shaken_stir_for_review(
+            sub_account_sid=sub_sid,
+            trust_product_sid=tp_sid,
+            sub_account_auth_token=sub_auth_token,
+        )
+        ss['status'] = submit_result.get('status', 'pending-review')
+        vc['shaken_stir'] = ss
+        _save_voice_config(current_user.email, vc)
+
+        log_webhook_event(location_id, "shaken_stir_registered", "success",
+                          f"SHAKEN/STIR submitted with {len(phone_sids)} numbers",
+                          details={"trust_product_sid": tp_sid, "numbers": len(phone_sids)})
+
+        return jsonify({
+            "status": "ok",
+            "message": f"SHAKEN/STIR registration submitted with {assign_result.get('assigned', 0)} numbers. Approval typically takes 24-48 hours.",
+            "trust_product_sid": tp_sid,
+            "assigned": assign_result.get('assigned', 0),
+        })
+
+    except Exception as e:
+        logger.error(f"[SHAKEN/STIR] Registration failed: {e}", exc_info=True)
+        if ss.get('trust_product_sid'):
+            vc['shaken_stir'] = ss
+            _save_voice_config(current_user.email, vc)
+        save_persistent_alert(location_id, f"SHAKEN/STIR registration failed: {str(e)}", level="error")
+        return jsonify({"error": f"Registration failed: {str(e)}"}), 500
+
+
+@numbers_bp.route('/voice/shaken-stir/add-numbers', methods=['POST'])
+@login_required
+def shaken_stir_add_numbers():
+    """Add phone numbers to an existing SHAKEN/STIR registration."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    ss = vc.get('shaken_stir', {})
+    tp_sid = ss.get('trust_product_sid', '')
+    if not tp_sid:
+        return jsonify({"error": "Register for SHAKEN/STIR first"}), 400
+
+    data = request.json or {}
+    phone_sids = data.get('phone_number_sids', [])
+    if not phone_sids:
+        return jsonify({"error": "Select at least one phone number"}), 400
+
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
+    location_id = subscriber['location_id']
+
+    try:
+        result = twilio_provisioning.assign_numbers_to_shaken_stir(
+            sub_account_sid=sub_sid,
+            trust_product_sid=tp_sid,
+            phone_number_sids=phone_sids,
+            sub_account_auth_token=sub_auth_token,
+            profile_sid=ss.get('profile_sid', ''),
+        )
+
+        current_assigned = set(ss.get('assigned_numbers', []))
+        current_assigned.update(phone_sids)
+        ss['assigned_numbers'] = list(current_assigned)
+        ss['assigned_count'] = len(current_assigned)
+        vc['shaken_stir'] = ss
+        _save_voice_config(current_user.email, vc)
+
+        return jsonify({
+            "status": "ok",
+            "assigned": result.get('assigned', 0),
+            "failed": result.get('failed', []),
+        })
+    except Exception as e:
+        logger.error(f"[SHAKEN/STIR] Add numbers failed: {e}", exc_info=True)
+        return jsonify({"error": f"Failed: {str(e)}"}), 500
+
+
+@numbers_bp.route('/voice/shaken-stir/remove-number', methods=['POST'])
+@login_required
+def shaken_stir_remove_number():
+    """Remove a phone number from SHAKEN/STIR registration."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    ss = vc.get('shaken_stir', {})
+    tp_sid = ss.get('trust_product_sid', '')
+    if not tp_sid:
+        return jsonify({"error": "Not registered for SHAKEN/STIR"}), 400
+
+    data = request.json or {}
+    pn_sid = data.get('phone_number_sid', '')
+    if not pn_sid:
+        return jsonify({"error": "phone_number_sid required"}), 400
+
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
+    location_id = subscriber['location_id']
+
+    try:
+        twilio_provisioning.remove_number_from_shaken_stir(
+            sub_account_sid=sub_sid,
+            trust_product_sid=tp_sid,
+            phone_number_sid=pn_sid,
+            sub_account_auth_token=sub_auth_token,
+        )
+
+        assigned = set(ss.get('assigned_numbers', []))
+        assigned.discard(pn_sid)
+        ss['assigned_numbers'] = list(assigned)
+        ss['assigned_count'] = len(assigned)
+        vc['shaken_stir'] = ss
+        _save_voice_config(current_user.email, vc)
+
+        return jsonify({"status": "ok", "message": "Number removed"})
+    except Exception as e:
+        logger.error(f"[SHAKEN/STIR] Remove number failed: {e}", exc_info=True)
+        return jsonify({"error": f"Failed: {str(e)}"}), 500
+
+
+@numbers_bp.route('/voice/shaken-stir/resubmit', methods=['POST'])
+@login_required
+def shaken_stir_resubmit():
+    """Resubmit a rejected SHAKEN/STIR registration (creates new Trust Product)."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    ss = vc.get('shaken_stir', {})
+    tp_sid = ss.get('trust_product_sid', '')
+    if not tp_sid:
+        return jsonify({"error": "Not registered for SHAKEN/STIR"}), 400
+
+    status = ss.get('status', '')
+    if status not in ('twilio-rejected', 'draft'):
+        return jsonify({"error": f"Cannot resubmit — current status is {status}"}), 400
+
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
+    location_id = subscriber['location_id']
+    trust_hub = vc.get('trust_hub', {})
+    business_name = trust_hub.get('business_name', '')
+    contact_email = trust_hub.get('contact_email', subscriber.get('email', ''))
+
+    try:
+        result = twilio_provisioning.resubmit_shaken_stir(
+            sub_account_sid=sub_sid,
+            trust_product_sid=tp_sid,
+            sub_account_auth_token=sub_auth_token,
+            business_name=business_name,
+            contact_email=contact_email,
+            existing_profile_sid=ss.get('profile_sid', ''),
+        )
+
+        ss['trust_product_sid'] = result['trust_product_sid']
+        ss['old_trust_product_sid'] = result.get('old_trust_product_sid', tp_sid)
+        ss['status'] = result.get('status', 'pending-review')
+        ss['assigned_numbers'] = result.get('assigned_numbers', [])
+        ss['assigned_count'] = len(ss['assigned_numbers'])
+        ss['failure_reasons'] = []
+        ss['last_resubmit'] = datetime.utcnow().isoformat()
+        vc['shaken_stir'] = ss
+        _save_voice_config(current_user.email, vc)
+
+        log_webhook_event(location_id, "shaken_stir_resubmitted", "success",
+                          f"SHAKEN/STIR resubmitted: {result['trust_product_sid']}")
+
+        return jsonify({
+            "status": "ok",
+            "message": "SHAKEN/STIR resubmitted for review.",
+            "trust_product_sid": result['trust_product_sid'],
+        })
+    except Exception as e:
+        logger.error(f"[SHAKEN/STIR] Resubmit failed: {e}", exc_info=True)
+        return jsonify({"error": f"Resubmit failed: {str(e)}"}), 500
+
+
+# ──────────────────────────────────────────────────────────────
 # TRUST HUB STATUS CALLBACK
 # Twilio POSTs here when a Customer Profile, Trust Product, or
 # Brand Registration changes status (e.g., pending → approved).
@@ -2861,6 +3235,14 @@ def trust_hub_status_callback():
             vc['number_integrity'] = ni
             updated = True
             logger.info(f"[TrustHub-Callback] Updated number_integrity.status={status} for {email}")
+
+        # SHAKEN/STIR Trust Product
+        ss = vc.get('shaken_stir', {})
+        if ss.get('trust_product_sid') == resource_sid:
+            ss['status'] = status
+            vc['shaken_stir'] = ss
+            updated = True
+            logger.info(f"[TrustHub-Callback] Updated shaken_stir.status={status} for {email}")
 
         # A2P Brand/Campaign
         a2p = vc.get('a2p', {})

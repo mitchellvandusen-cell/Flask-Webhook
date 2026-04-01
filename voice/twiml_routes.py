@@ -87,7 +87,7 @@ def voice_inbound():
         # Start recording in background
         if vc.get('auto_record', True) and sub_sid and call_sid:
             def _start_rec():
-                time.sleep(1)
+                time.sleep(0.2)
                 try:
                     twilio_provisioning.start_recording(sub_sid, call_sid, f'https://{host}')
                 except Exception as e:
@@ -135,7 +135,7 @@ def voice_inbound():
     # Start recording in background
     if vc.get('auto_record', True) and sub_sid and call_sid:
         def _start_rec():
-            time.sleep(1)
+            time.sleep(0.2)
             try:
                 twilio_provisioning.start_recording(sub_sid, call_sid, f'https://{host}')
             except Exception as e:
@@ -234,7 +234,7 @@ def outbound_twiml():
         sub_sid = vc.get('twilio_sub_account_sid', '')
         if vc.get('auto_record', True) and sub_sid and call_sid:
             def _start_rec():
-                time.sleep(0.5)
+                time.sleep(0.2)
                 try:
                     twilio_provisioning.start_recording(sub_sid, call_sid, f'https://{host}')
                 except Exception as e:
