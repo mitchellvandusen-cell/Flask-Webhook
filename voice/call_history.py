@@ -837,7 +837,7 @@ def get_call_history():
                    COALESCE(disposition, '') as disposition,
                    COALESCE(stir_status, '') as stir_status,
                    COALESCE(ring_confirmed, FALSE) as ring_confirmed,
-                   pdd_ms, quality_tags
+                   pdd_ms, quality_tags, quality_metrics
             FROM call_history
             WHERE location_id = %s
             ORDER BY created_at DESC

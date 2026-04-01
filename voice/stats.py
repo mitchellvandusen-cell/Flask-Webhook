@@ -248,6 +248,30 @@ def get_dialer_stats():
             except Exception:
                 pass
 
+        # AI Voice quality metrics summary (from quality_metrics JSONB)
+        ai_quality = {"calls_with_metrics": 0, "avg_ttfa_ms": 0, "avg_turn_count": 0}
+        try:
+            cur.execute("""
+                SELECT
+                    COUNT(*) AS cnt,
+                    COALESCE(AVG((quality_metrics->>'avg_ttfa_ms')::float), 0) AS avg_ttfa,
+                    COALESCE(AVG((quality_metrics->>'turn_count')::float), 0) AS avg_turns
+                FROM call_history
+                WHERE location_id = %s AND created_at >= %s
+                  AND quality_metrics IS NOT NULL
+            """, (location_id, start_date_utc))
+            qr = cur.fetchone()
+            ai_quality = {
+                "calls_with_metrics": qr['cnt'] or 0,
+                "avg_ttfa_ms": round(float(qr['avg_ttfa'] or 0)),
+                "avg_turn_count": round(float(qr['avg_turns'] or 0), 1),
+            }
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+
         # Source breakdown from synced GHL conversations
         source_breakdown = {"dialer": total, "ghl_native": 0, "wavv": 0, "unknown": 0}
         try:
@@ -305,9 +329,162 @@ def get_dialer_stats():
                 "tagged_calls":       tagged_calls,
                 "quality_tags":       quality_tag_breakdown,
             },
+            # AI Voice quality metrics (TTFA, turn count)
+            "ai_quality": ai_quality,
         })
     except Exception as e:
         logger.error(f"get_dialer_stats failed: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+    finally:
+        return_db_connection(conn)
+
+
+@stats_bp.route('/voice/quality-stats')
+@jwt_or_session_required
+def get_quality_stats():
+    """Return voice AI quality metrics (TTFA, response latency, per-call scoring).
+
+    Aggregates quality_metrics JSONB from call_history across the requested period.
+    Returns avg/p95 TTFA, avg turn count, high-latency call count, and daily trend.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "DB unavailable"}), 503
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id, timezone FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        if not row:
+            return jsonify({"error": "Not found"}), 404
+        location_id = row['location_id']
+
+        tz_name = row.get('timezone') or 'America/Chicago'
+        try:
+            user_tz = pytz.timezone(tz_name)
+        except Exception:
+            user_tz = pytz.timezone('America/Chicago')
+
+        period = request.args.get('period', 'week')
+        now = datetime.now(user_tz)
+        if period == 'today':
+            start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        elif period == 'week':
+            start_date = now - timedelta(days=7)
+        elif period == 'month':
+            start_date = now - timedelta(days=30)
+        else:
+            start_date = datetime(2000, 1, 1, tzinfo=pytz.utc)
+
+        if start_date.tzinfo is not None:
+            start_date_utc = start_date.astimezone(pytz.utc)
+        else:
+            start_date_utc = pytz.utc.localize(start_date)
+
+        # Fetch all calls with quality metrics in the period
+        cur.execute("""
+            SELECT
+                quality_metrics,
+                DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE %s) AS day
+            FROM call_history
+            WHERE location_id = %s
+              AND created_at >= %s
+              AND quality_metrics IS NOT NULL
+        """, (tz_name, location_id, start_date_utc))
+
+        rows = cur.fetchall()
+        cur.close()
+
+        if not rows:
+            return jsonify({
+                "period": period,
+                "timezone": tz_name,
+                "total_calls_with_metrics": 0,
+                "avg_ttfa_ms": 0,
+                "p95_ttfa_ms": 0,
+                "min_ttfa_ms": 0,
+                "max_ttfa_ms": 0,
+                "avg_turn_count": 0,
+                "avg_response_duration_ms": 0,
+                "calls_with_high_latency": 0,
+                "high_latency_threshold_ms": 1000,
+                "daily": [],
+            })
+
+        # Aggregate across all calls
+        all_ttfa = []
+        all_turn_counts = []
+        all_resp_durations = []
+        high_latency_count = 0
+        HIGH_LATENCY_MS = 1000
+
+        # Daily aggregation
+        daily_map = {}  # day_str -> {ttfa_list, count}
+
+        for r in rows:
+            qm = r['quality_metrics']
+            if not qm or not isinstance(qm, dict):
+                continue
+            day_str = str(r['day'])
+
+            avg_ttfa = qm.get('avg_ttfa_ms', 0)
+            turn_count = qm.get('turn_count', 0)
+            avg_resp = qm.get('avg_response_duration_ms', 0)
+
+            if avg_ttfa > 0:
+                all_ttfa.append(avg_ttfa)
+            if turn_count > 0:
+                all_turn_counts.append(turn_count)
+            if avg_resp > 0:
+                all_resp_durations.append(avg_resp)
+
+            # High latency: any call with max TTFA above threshold
+            if qm.get('max_ttfa_ms', 0) > HIGH_LATENCY_MS:
+                high_latency_count += 1
+
+            # Collect per-turn TTFA values for p95 calculation
+            for turn in qm.get('turns', []):
+                ttfa = turn.get('ttfa_ms', 0)
+                if ttfa > 0:
+                    all_ttfa.append(ttfa)
+
+            # Daily
+            if day_str not in daily_map:
+                daily_map[day_str] = {"ttfa_values": [], "count": 0}
+            daily_map[day_str]["count"] += 1
+            if avg_ttfa > 0:
+                daily_map[day_str]["ttfa_values"].append(avg_ttfa)
+
+        # Compute aggregates
+        sorted_ttfa = sorted(all_ttfa) if all_ttfa else [0]
+        p95_idx = int(len(sorted_ttfa) * 0.95) if len(sorted_ttfa) >= 2 else len(sorted_ttfa) - 1
+        total_with_metrics = len([r for r in rows if r['quality_metrics'] and isinstance(r['quality_metrics'], dict)])
+
+        # Daily trend
+        daily = sorted([
+            {
+                "day": day,
+                "calls": data["count"],
+                "avg_ttfa_ms": round(sum(data["ttfa_values"]) / len(data["ttfa_values"])) if data["ttfa_values"] else 0,
+            }
+            for day, data in daily_map.items()
+        ], key=lambda x: x["day"])
+
+        return jsonify({
+            "period": period,
+            "timezone": tz_name,
+            "total_calls_with_metrics": total_with_metrics,
+            "avg_ttfa_ms": round(sum(all_ttfa) / len(all_ttfa)) if all_ttfa else 0,
+            "p95_ttfa_ms": sorted_ttfa[p95_idx] if sorted_ttfa else 0,
+            "min_ttfa_ms": min(sorted_ttfa) if sorted_ttfa else 0,
+            "max_ttfa_ms": max(sorted_ttfa) if sorted_ttfa else 0,
+            "avg_turn_count": round(sum(all_turn_counts) / len(all_turn_counts), 1) if all_turn_counts else 0,
+            "avg_response_duration_ms": round(sum(all_resp_durations) / len(all_resp_durations)) if all_resp_durations else 0,
+            "calls_with_high_latency": high_latency_count,
+            "high_latency_threshold_ms": HIGH_LATENCY_MS,
+            "daily": daily,
+        })
+    except Exception as e:
+        logger.error(f"get_quality_stats failed: {e}")
         return jsonify({"error": "Internal server error"}), 500
     finally:
         return_db_connection(conn)
