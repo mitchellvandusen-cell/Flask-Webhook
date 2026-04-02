@@ -35,6 +35,7 @@ def collect_unanswered_lead_messages(contact_id: str, current_message: str) -> s
             SELECT message_type, message_text, created_at
             FROM contact_messages
             WHERE contact_id = %s
+              AND created_at >= NOW() - INTERVAL '120 seconds'
             ORDER BY created_at DESC
             LIMIT 10
         """, (contact_id,))

@@ -208,7 +208,8 @@ def process_webhook_task(payload: dict):
                                 redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
                                 r = redis.from_url(redis_url, socket_timeout=5,
                                                    socket_connect_timeout=5)
-                                q = Queue('production', connection=r)
+                                _retry_queue = 'demo' if location_id in {'DEMO', 'DEMO_LOC', 'DEMO_ACCOUNT_SALES_ONLY', 'TEST_LOCATION_456'} else 'production'
+                                q = Queue(_retry_queue, connection=r)
                                 q.enqueue_in(
                                     timedelta(seconds=delay_seconds),
                                     process_webhook_task,
@@ -446,7 +447,10 @@ def process_webhook_task(payload: dict):
                         cur.close()
                     return_db_connection(conn)
 
-        if message and not is_workflow_outreach:
+        # webhooks.py pre-saves for DEMO_LOC/DEMO only — skip to avoid duplicates.
+        # Other demo variants (TEST_LOCATION_456, DEMO_ACCOUNT_SALES_ONLY) need the save.
+        _already_presaved = location_id in {'DEMO_LOC', 'DEMO'}
+        if message and not is_workflow_outreach and not _already_presaved:
             save_message(contact_id, message, "lead")
             # Fire rich event so SSE stream can push a live inbox update to the dashboard
             _contact_name = payload.get('first_name') or payload.get('name') or 'Contact'
@@ -993,13 +997,14 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                             # Find the most recent outbound call to this contact's phone
                             contact_phone_raw = payload.get('phone') or payload.get('contact_phone', '')
                             cur.execute("""
-                                SELECT phone FROM call_history
+                                SELECT from_number FROM call_history
                                 WHERE location_id = %s AND contact_id = %s AND direction LIKE 'outbound%%'
+                                  AND from_number IS NOT NULL AND from_number != ''
                                 ORDER BY created_at DESC LIMIT 1
                             """, (location_id, contact_id))
                             row = cur.fetchone()
-                            if row and row.get('phone'):
-                                resolved_number = row['phone']
+                            if row and row.get('from_number'):
+                                resolved_number = row['from_number']
                                 logger.info(f"[last_used] Resolved to {resolved_number} from call history for {contact_id}")
                             cur.close()
                         finally:
