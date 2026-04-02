@@ -1190,15 +1190,26 @@ def oauth_callback():
         # Step 7: Determine primary_location_id
         # ══════════════════════════════════════════════════════════════════════
         # For logged-in users (reauthorize flow), their session location_id is
-        # ground truth. If GHL didn't return a locationId in the URL or token,
-        # use current_user.location_id so we always find their existing row.
+        # ground truth — but ONLY if it's a real GHL location ID, not a
+        # Stripe-provisional temp_ placeholder. If the user subscribed via Stripe
+        # but never completed OAuth, their location_id is "temp_{uuid}" which
+        # must NOT be injected — we need GHL to tell us the real location.
         if current_user.is_authenticated and not url_location_id:
             _session_loc = getattr(current_user, 'location_id', None)
-            if _session_loc:
+            _is_temp = _session_loc and (
+                str(_session_loc).startswith('temp_') or
+                str(_session_loc).startswith('install_')
+            )
+            if _session_loc and not _is_temp:
                 url_location_id = _session_loc
                 logger.info(
                     f"Step 7: Using current_user.location_id={_session_loc} "
                     f"as url_location_id (reauthorize flow)"
+                )
+            elif _is_temp:
+                logger.info(
+                    f"Step 7: Ignoring temp location_id={_session_loc} — "
+                    f"will use GHL-provided location (first-time provisioning)"
                 )
 
         # Use a temporary DB connection for the location check
