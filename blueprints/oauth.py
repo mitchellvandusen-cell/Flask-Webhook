@@ -5,6 +5,14 @@
 #   GET  /oauth/callback    — GHL OAuth callback (token exchange, onboarding, DB write)
 #   GET  /oauth/loading     — Post-OAuth loading screen (private app flow)
 #   GET  /refresh           — Manually trigger subscriber sync
+#
+# Enterprise-grade rewrite (Apr 2026):
+#   - Extracted helper functions for testability and clarity
+#   - 13-step flow with explicit scenario handling (A-F)
+#   - Location selection algorithm with DB-check for new vs existing
+#   - Agency detection using role_type as primary signal
+#   - No welcome email on reconnects
+#   - Never overwrites existing subscriber's login email
 
 import os
 import json
@@ -28,9 +36,8 @@ from db import (
 from extensions import ADMIN_EMAILS, YOUR_DOMAIN
 from email_templates import _email_wrapper, _build_welcome_email, _build_agency_owner_welcome_email
 from send_email_api import send_email_via_api
-# sync_subscribers removed — Google Sheet no longer used
 from token_encryption import encrypt_token, decrypt_token
-from ghl_api import fetch_all_ghl_items, ghl_api_call as _ghl_api_call
+from ghl_api import fetch_all_ghl_items, ghl_api_call as _ghl_api_call, get_valid_token_with_status
 
 logger = logging.getLogger(__name__)
 
@@ -68,13 +75,703 @@ GHL_OAUTH_SCOPES = [
 ]
 
 
-# ── Routes ────────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# HELPER FUNCTIONS — extracted for testability and clarity
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _get_existing_location_ids(conn, location_ids):
+    """Check which location_ids already have subscriber rows. Returns a set."""
+    if not location_ids:
+        return set()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT location_id FROM subscribers WHERE location_id = ANY(%s)",
+            (list(location_ids),)
+        )
+        result = {r['location_id'] for r in cur.fetchall()}
+        cur.close()
+        return result
+    except Exception as e:
+        logger.warning(f"_get_existing_location_ids failed: {e}")
+        return set()
+
+
+def _determine_primary_location(url_location_id, token_location_id,
+                                user_location_ids, sub_accounts,
+                                company_id, db_conn):
+    """
+    Determine which GHL location the installing user belongs to.
+
+    Returns (location_id, resolution_method) tuple.
+
+    Priority:
+      1. url_location_id matching a sub_account (GHL told us explicitly)
+      2. url_location_id direct (even without sub_accounts confirmation)
+      3. sub_accounts — find the NEW location not yet in DB
+      4. user_location_ids from /users/{userId} roles — find NEW location
+      5. token_location_id from token exchange response
+      6. None (failed — caller uses companyId fallback)
+    """
+    # Priority 1: URL param matches a known sub_account
+    if url_location_id and sub_accounts:
+        sub_ids = [s['id'] for s in sub_accounts]
+        if url_location_id in sub_ids:
+            return url_location_id, 'url_param'
+
+    # Priority 2: URL param direct (no sub_accounts to validate against)
+    if url_location_id:
+        return url_location_id, 'url_param_direct'
+
+    # Priority 3: sub_accounts — find the NEW location (not in DB)
+    if sub_accounts and db_conn:
+        sub_ids = [s['id'] for s in sub_accounts]
+        existing = _get_existing_location_ids(db_conn, sub_ids)
+        new_locs = [lid for lid in sub_ids if lid not in existing]
+        if len(new_locs) == 1:
+            return new_locs[0], 'new_install_detected'
+        elif len(new_locs) > 1:
+            # Multiple new — use last (most recently added in GHL install order)
+            return new_locs[-1], 'multiple_new_last'
+        elif sub_ids:
+            # All locations already registered — reconnect scenario
+            return sub_ids[0], 'reconnect_first'
+
+    # Priority 4: user_location_ids — find the NEW location
+    if user_location_ids and db_conn:
+        if len(user_location_ids) == 1:
+            return user_location_ids[0], 'single_role_location'
+        existing = _get_existing_location_ids(db_conn, user_location_ids)
+        new_locs = [lid for lid in user_location_ids if lid not in existing]
+        if len(new_locs) == 1:
+            return new_locs[0], 'new_from_roles'
+        elif len(new_locs) > 1:
+            return new_locs[-1], 'multiple_new_roles'
+        elif user_location_ids:
+            return user_location_ids[0], 'reconnect_roles'
+
+    # Priority 5: token_location_id (from token exchange)
+    if token_location_id:
+        return token_location_id, 'token_direct'
+
+    return None, 'failed'
+
+
+def _detect_agency_owner(user_role_type, company_id, user_location_ids,
+                         token_user_type, user_email):
+    """
+    Determine if the installing user is an agency owner.
+
+    Uses role_type as the STRONGEST signal:
+      - 'account' = sub-account user → NEVER agency owner
+      - 'agency' = agency-level user → agency owner (unless someone else owns it)
+      - No role type → fall back to Company token + no location signals
+
+    Returns bool.
+    """
+    # Role type is the STRONGEST signal
+    if user_role_type == 'account':
+        return False  # Sub-account user — NEVER agency owner
+
+    if user_role_type == 'agency':
+        # Check if agency already has a different owner
+        if company_id:
+            existing_agency = get_agency_by_company_id(company_id)
+            if existing_agency and existing_agency.get('agency_email', '').lower() != user_email.lower():
+                return False  # Already owned by someone else
+        return True
+
+    # No role type (fallback signals)
+    if company_id and not user_location_ids and token_user_type == 'Company':
+        # Company token with no location roles = likely agency owner
+        if company_id:
+            existing_agency = get_agency_by_company_id(company_id)
+            if existing_agency and existing_agency.get('agency_email', '').lower() != user_email.lower():
+                return False
+        return True
+
+    return False
+
+
+def _fetch_installed_locations(headers, company_id, client_id):
+    """
+    Fetch installed locations from GHL OAuth API.
+    Returns list of location dicts. Empty list on failure.
+    """
+    urls = [
+        (
+            f"https://services.leadconnectorhq.com/oauth/installedLocations"
+            f"?companyId={company_id}&appId={client_id}"
+        ),
+        (
+            f"https://services.leadconnectorhq.com/oauth/installedLocations"
+            f"?companyId={company_id}"
+        ),
+    ]
+    for url in urls:
+        resp, err = _ghl_api_call(
+            'GET', url, headers=headers, timeout=15,
+            label="installedLocations"
+        )
+        if resp and resp.ok:
+            try:
+                data = resp.json()
+                raw = (
+                    data.get('locations')
+                    or data.get('installedLocations')
+                    or (data if isinstance(data, list) else [])
+                )
+                locs = [loc for loc in raw if isinstance(loc, dict)]
+                if locs:
+                    logger.info(f"installedLocations: {len(locs)} locations")
+                    return locs
+            except Exception as e:
+                logger.warning(f"installedLocations parse error: {e}")
+        else:
+            status = resp.status_code if resp else None
+            body = resp.text[:300] if resp else None
+            logger.warning(
+                f"installedLocations {url}: status={status}, err={err}, body={body}"
+            )
+    return []
+
+
+def _generate_location_tokens(headers, company_id, installed_locs):
+    """
+    Generate per-location tokens via POST /oauth/locationToken.
+    Returns sub_accounts list with per-location tokens.
+    """
+    sub_accounts = []
+    loc_token_url = "https://services.leadconnectorhq.com/oauth/locationToken"
+    for loc in installed_locs:
+        loc_id = loc.get('_id') or loc.get('id') or loc.get('locationId')
+        if not loc_id:
+            continue
+        try:
+            resp = requests.post(
+                loc_token_url,
+                json={'companyId': company_id, 'locationId': loc_id},
+                headers={**headers, 'Content-Type': 'application/json'},
+                timeout=10,
+            )
+            if resp.ok:
+                data = resp.json()
+                tok = data.get('access_token')
+                if tok:
+                    sub_accounts.append({
+                        'id': loc_id,
+                        'name': loc.get('name', 'Unknown Location'),
+                        'timezone': loc.get('timezone'),
+                        '_loc_token': tok,
+                        '_loc_refresh': data.get('refresh_token'),
+                        '_loc_expires': int(data.get('expires_in') or 86400),
+                    })
+                    logger.info(f"locationToken OK: {loc_id}")
+                    continue
+            logger.warning(
+                f"locationToken {loc_id}: {resp.status_code} {resp.text[:200]}"
+            )
+        except Exception as e:
+            logger.warning(f"locationToken exception {loc_id}: {e}")
+    return sub_accounts
+
+
+def _resolve_user_email(token_data, primary_location_id, company_id):
+    """
+    5-source email recovery chain for marketplace installs (user not logged in).
+    Returns (email, name, source) tuple. Never returns None for email.
+    """
+    user_email = None
+    user_name = None
+
+    # Source 1: token_data (marketplace installs)
+    user_email = token_data.get('userEmail') or token_data.get('email')
+    if user_email:
+        return user_email, None, 'token_data'
+
+    # Source 2: marketplace_installs table bridge
+    market_data = find_marketplace_email(
+        location_id=primary_location_id, company_id=company_id
+    )
+    if market_data:
+        user_email = market_data.get('user_email')
+        user_name = market_data.get('user_name')
+        if user_email:
+            return user_email, user_name, 'marketplace_installs'
+
+    # Source 3: look up by GHL userId in subscribers table
+    ghl_user_id = token_data.get('userId')
+    if ghl_user_id:
+        conn_lookup = None
+        try:
+            conn_lookup = get_db_connection()
+            if conn_lookup:
+                cur_lookup = conn_lookup.cursor()
+                cur_lookup.execute(
+                    "SELECT email FROM subscribers WHERE crm_user_id = %s LIMIT 1",
+                    (ghl_user_id,)
+                )
+                found = cur_lookup.fetchone()
+                if found:
+                    cur_lookup.close()
+                    return found['email'], None, 'userId_lookup'
+                cur_lookup.close()
+        except Exception:
+            pass
+        finally:
+            if conn_lookup:
+                return_db_connection(conn_lookup)
+
+    # Source 4: placeholder — onboarding completes, admin gets notified
+    ghl_user_id = token_data.get('userId') or 'unknown'
+    user_email = f"install_{ghl_user_id}@placeholder.grokbot"
+    user_name = "New User (Update Email)"
+    return user_email, user_name, 'placeholder'
+
+
+def _send_ghost_install_alert(user_email, ghl_user_id, primary_location_id, company_id):
+    """Send admin notification for ghost installs (placeholder email)."""
+    logger.warning(f"ALL email sources exhausted. Using placeholder: {user_email}")
+
+    try:
+        log_webhook_event(
+            primary_location_id or "unknown", "oauth_placeholder_account", "warning",
+            f"Placeholder account created: {user_email} — userId={ghl_user_id}, "
+            f"locationId={primary_location_id}, companyId={company_id}",
+            details={
+                "userId": ghl_user_id,
+                "locationId": primary_location_id,
+                "companyId": company_id,
+            }
+        )
+    except Exception:
+        pass
+
+    try:
+        admin_target = ADMIN_EMAILS[0] if ADMIN_EMAILS else "mitchell_vandusen@hotmail.com"
+        domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+        alert_inner = f'''
+<tr><td style="padding: 20px 40px 30px;">
+    <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 800; color: #ff6b35;">Ghost Install Detected</h1>
+    <p style="font-size: 15px; color: #ccc; line-height: 1.6;">
+        A user installed the app but Lead Connector permissions blocked their email.
+        A placeholder account was created so they can access the dashboard.
+    </p>
+    <table cellpadding="0" cellspacing="0" width="100%" style="background: rgba(255,255,255,0.04); border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); margin: 20px 0;">
+        <tr><td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #888; width: 130px;">LC User ID</td>
+            <td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #fff; font-family: monospace;">{ghl_user_id}</td></tr>
+        <tr><td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #888;">Location ID</td>
+            <td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #fff; font-family: monospace;">{primary_location_id or 'N/A'}</td></tr>
+        <tr><td style="padding: 12px 16px; color: #888;">Company ID</td>
+            <td style="padding: 12px 16px; color: #fff; font-family: monospace;">{company_id or 'N/A'}</td></tr>
+    </table>
+    <p style="font-size: 14px; color: #aaa;">Search this Location ID in your Lead Connector Agency View to find the user\'s real email, then update their record in the database.</p>
+</td></tr>'''
+        send_email_via_api(
+            to_email=admin_target,
+            subject="Ghost Install — Action Required",
+            html_body=_email_wrapper(alert_inner, domain_url),
+            text_body=f"Ghost install: userId={ghl_user_id}, "
+                      f"locationId={primary_location_id}, companyId={company_id}"
+        )
+        logger.info(f"Admin ghost-install alert sent to {admin_target}")
+    except Exception as e:
+        logger.error(f"Failed to send admin ghost-install alert: {e}")
+
+    try:
+        save_persistent_alert(
+            email=ADMIN_EMAILS[0] if ADMIN_EMAILS else "admin",
+            alert_type="ghost_install",
+            title="Ghost Install — Email Unknown",
+            message=(
+                f"User installed app but email couldn't be retrieved. "
+                f"userId={ghl_user_id}, locationId={primary_location_id}, companyId={company_id}. "
+                f"Placeholder account: {user_email}"
+            ),
+            severity="warning",
+            location_id=primary_location_id or "unknown",
+        )
+    except Exception:
+        pass
+
+
+def _build_company_metadata(me_data, company_id):
+    """Extract company metadata from user info response."""
+    metadata = {
+        'company_id': company_id,
+        'company_name': None,
+        'company_owner_name': me_data.get('name') or me_data.get('firstName', ''),
+        'company_owner_email': me_data.get('email'),
+        'company_owner_phone': me_data.get('phone'),
+    }
+    if me_data.get('companyName'):
+        metadata['company_name'] = me_data['companyName']
+    elif isinstance(me_data.get('company'), dict) and me_data['company'].get('name'):
+        metadata['company_name'] = me_data['company']['name']
+
+    if not metadata['company_owner_name']:
+        first = me_data.get('firstName', '')
+        last = me_data.get('lastName', '')
+        metadata['company_owner_name'] = f"{first} {last}".strip() or None
+
+    return metadata
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DB OPERATIONS — extracted for clarity
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _upsert_agency_owner(cur, user_email, agency_location_id, primary_name,
+                         enc_access_token, enc_refresh_token, expires_in,
+                         primary_timezone, me_data, crm_email_resolved,
+                         app_type, company_id, company_metadata,
+                         token_user_type_used):
+    """Insert or update subscribers + agency_billing for agency owner."""
+    _company_token = enc_access_token if token_user_type_used == 'Company' else None
+    _company_refresh = enc_refresh_token if token_user_type_used == 'Company' else None
+
+    cur.execute("""
+        INSERT INTO subscribers (
+            email, location_id, full_name, role,
+            subscription_tier, access_token, refresh_token,
+            token_expires_at, timezone, crm_user_id, crm_email,
+            oauth_app_type, company_id,
+            company_access_token, company_refresh_token, company_token_expires_at,
+            created_at, updated_at
+        ) VALUES (
+            %s, %s, %s, %s, %s, %s, %s,
+            NOW() + interval '%s seconds', %s, %s, %s, %s, %s,
+            %s, %s, CASE WHEN %s IS NOT NULL THEN NOW() + interval '%s seconds' END,
+            NOW(), NOW()
+        )
+        ON CONFLICT (email) DO UPDATE SET
+            location_id = COALESCE(EXCLUDED.location_id, subscribers.location_id),
+            role = 'agency_owner',
+            access_token = EXCLUDED.access_token,
+            refresh_token = EXCLUDED.refresh_token,
+            token_expires_at = EXCLUDED.token_expires_at,
+            crm_user_id = COALESCE(EXCLUDED.crm_user_id, subscribers.crm_user_id),
+            crm_email = EXCLUDED.crm_email,
+            oauth_app_type = EXCLUDED.oauth_app_type,
+            company_id = COALESCE(EXCLUDED.company_id, subscribers.company_id),
+            company_access_token = COALESCE(EXCLUDED.company_access_token, subscribers.company_access_token),
+            company_refresh_token = COALESCE(EXCLUDED.company_refresh_token, subscribers.company_refresh_token),
+            company_token_expires_at = COALESCE(EXCLUDED.company_token_expires_at, subscribers.company_token_expires_at),
+            updated_at = NOW()
+    """, (
+        user_email, agency_location_id, primary_name, 'agency_owner',
+        'agency_owner', enc_access_token, enc_refresh_token,
+        expires_in, primary_timezone or 'America/Chicago', me_data.get('id'),
+        crm_email_resolved, app_type,
+        company_metadata.get('company_id') or company_id,
+        _company_token, _company_refresh, _company_token, expires_in,
+    ))
+
+    # THIN agency_billing: only agency-specific metadata
+    cur.execute("""
+        INSERT INTO agency_billing (
+            agency_email, company_id, company_name,
+            company_owner_name, company_owner_email, company_owner_phone,
+            created_at, updated_at
+        ) VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())
+        ON CONFLICT (agency_email) DO UPDATE SET
+            company_id = COALESCE(EXCLUDED.company_id, agency_billing.company_id),
+            company_name = COALESCE(EXCLUDED.company_name, agency_billing.company_name),
+            company_owner_name = COALESCE(EXCLUDED.company_owner_name, agency_billing.company_owner_name),
+            company_owner_email = COALESCE(EXCLUDED.company_owner_email, agency_billing.company_owner_email),
+            company_owner_phone = COALESCE(EXCLUDED.company_owner_phone, agency_billing.company_owner_phone),
+            updated_at = NOW()
+    """, (
+        user_email,
+        company_metadata.get('company_id') or company_id,
+        company_metadata.get('company_name'),
+        company_metadata.get('company_owner_name'),
+        company_metadata.get('company_owner_email'),
+        company_metadata.get('company_owner_phone'),
+    ))
+
+    # Auto-populate white-label branding from GHL company name
+    _wl_company = company_metadata.get('company_name')
+    if _wl_company:
+        cur.execute("""
+            UPDATE agency_billing
+            SET whitelabel_config = COALESCE(whitelabel_config, '{}'::jsonb) || %s::jsonb
+            WHERE agency_email = %s
+              AND (whitelabel_config IS NULL OR NOT (whitelabel_config ? 'company_name'))
+        """, (json.dumps({'company_name': _wl_company}), user_email))
+
+    logger.info(f"Agency owner {user_email}: subscribers + agency_billing upserted")
+
+
+def _update_existing_location(cur, primary_location_id, crm_email_resolved,
+                              enc_access_token, enc_refresh_token, expires_in,
+                              me_data, app_type, sync_role, user_email,
+                              use_agency_flow, company_id, token_user_type_used):
+    """
+    Update tokens on an existing subscriber row (reconnect scenario).
+    Returns the corrected user_email (may differ from CRM email).
+    """
+    # Look up the existing row's login email
+    cur.execute(
+        "SELECT location_id, email FROM subscribers WHERE location_id = %s",
+        (primary_location_id,)
+    )
+    existing_by_location = cur.fetchone()
+    if not existing_by_location:
+        return None, None  # No existing row
+
+    # CRITICAL: Correct user_email to the subscriber's actual login email.
+    # CRM email (from /users/ API) may differ from login email.
+    existing_login_email = existing_by_location['email']
+    corrected_email = existing_login_email if existing_login_email else user_email
+    if existing_login_email and existing_login_email != user_email:
+        logger.info(
+            f"Correcting user_email from CRM email {user_email!r} to "
+            f"subscriber's login email {existing_login_email!r} "
+            f"(existing subscriber found by location_id={primary_location_id})"
+        )
+
+    _company_token = enc_access_token if token_user_type_used == 'Company' else None
+    _company_refresh = enc_refresh_token if token_user_type_used == 'Company' else None
+    cur.execute("""
+        UPDATE subscribers
+        SET crm_email = %s,
+            access_token = %s,
+            refresh_token = %s,
+            token_expires_at = NOW() + interval '%s seconds',
+            crm_user_id = COALESCE(%s, crm_user_id),
+            oauth_app_type = %s,
+            role = COALESCE(%s, role),
+            parent_agency_email = COALESCE(%s, parent_agency_email),
+            company_id = COALESCE(%s, company_id),
+            company_access_token = COALESCE(%s, company_access_token),
+            company_refresh_token = COALESCE(%s, company_refresh_token),
+            company_token_expires_at = CASE WHEN %s IS NOT NULL THEN NOW() + interval '%s seconds' ELSE company_token_expires_at END,
+            onboarding_status = CASE
+                WHEN onboarding_status IN ('pending', 'invited') THEN 'claimed'
+                ELSE onboarding_status
+            END,
+            updated_at = NOW()
+        WHERE location_id = %s
+    """, (
+        crm_email_resolved, enc_access_token, enc_refresh_token,
+        expires_in, me_data.get('id'), app_type,
+        sync_role, corrected_email if use_agency_flow else None,
+        company_id,
+        _company_token, _company_refresh,
+        _company_token, expires_in,
+        primary_location_id
+    ))
+    logger.info(
+        f"Synced OAuth tokens for existing location {primary_location_id} "
+        f"(login: {corrected_email}, crm_email: {crm_email_resolved}, app_type={app_type})"
+    )
+
+    # Clean up orphaned temp_* rows that share the CRM email
+    if crm_email_resolved and crm_email_resolved != corrected_email:
+        cur.execute(
+            "DELETE FROM subscribers WHERE email = %s AND location_id LIKE 'temp_%%'",
+            (crm_email_resolved,)
+        )
+        deleted = cur.rowcount
+        if deleted:
+            logger.info(
+                f"Cleaned up {deleted} orphaned temp account(s) for CRM email "
+                f"{crm_email_resolved!r} (real subscriber: {corrected_email!r})"
+            )
+
+    return corrected_email, existing_by_location
+
+
+def _provision_new_subscriber(cur, sub, user_email, crm_email_resolved,
+                              enc_access_token, enc_refresh_token, expires_in,
+                              me_data, app_type, use_agency_flow,
+                              auto_linked_agency_email, company_id,
+                              primary_location_id, token_user_type_used):
+    """
+    Insert a new subscriber row for a location.
+    Handles location_id conflict (upsert) and email conflict (savepoint + update).
+    Returns True if the location was owned by another user (skipped), False otherwise.
+    """
+    sub_id = sub['id']
+    sub_name = sub.get('name', 'Unknown Location')
+    sub_timezone = sub.get('timezone')
+
+    is_owner_location = (sub_id == primary_location_id)
+    if use_agency_flow and is_owner_location:
+        role = 'agency_owner'
+    elif use_agency_flow:
+        # Agent locations pre-provisioned by agency install get 'individual'
+        # role — they're regular agents, just pre-populated by agency owner
+        role = 'individual'
+    else:
+        role = 'individual'
+    parent_agency_email = user_email if use_agency_flow else auto_linked_agency_email
+    plan_tier = 'agency_owner' if (use_agency_flow and is_owner_location) else 'individual'
+
+    # For agency sub-account locations (not the owner's primary), use a
+    # placeholder email. The real email gets set when the agent logs in.
+    # This prevents UNIQUE constraint violations on the email column since
+    # the agency owner's email is already used for their primary row.
+    if use_agency_flow and not is_owner_location:
+        effective_email = f"install_{sub_id}@pending.grokbot"
+    else:
+        effective_email = user_email
+
+    # CRITICAL: Never overwrite another user's subscriber row
+    cur.execute(
+        "SELECT email FROM subscribers WHERE location_id = %s",
+        (sub_id,)
+    )
+    existing_owner = cur.fetchone()
+    if existing_owner and existing_owner['email'].lower() != effective_email.lower():
+        logger.warning(
+            f"Location {sub_id} already owned by {existing_owner['email']} — "
+            f"not overwriting with {effective_email}'s data."
+        )
+        # Refresh tokens for existing agent via company install
+        _loc_tok = sub.get('_loc_token')
+        _loc_ref = sub.get('_loc_refresh')
+        _loc_exp = sub.get('_loc_expires') or expires_in
+        _agency_email = user_email if use_agency_flow else auto_linked_agency_email
+        if _loc_tok and use_agency_flow:
+            cur.execute("""
+                UPDATE subscribers
+                SET parent_agency_email = COALESCE(%s, parent_agency_email),
+                    company_id = COALESCE(%s, company_id),
+                    access_token = %s,
+                    refresh_token = %s,
+                    token_expires_at = NOW() + interval '%s seconds',
+                    updated_at = NOW()
+                WHERE location_id = %s
+            """, (
+                _agency_email, company_id,
+                encrypt_token(_loc_tok),
+                encrypt_token(_loc_ref) if _loc_ref else None,
+                _loc_exp,
+                sub_id,
+            ))
+            logger.info(
+                f"Refreshed tokens for agent location {sub_id} "
+                f"({existing_owner['email']}) via company install"
+            )
+        elif use_agency_flow or auto_linked_agency_email:
+            cur.execute("""
+                UPDATE subscribers
+                SET parent_agency_email = COALESCE(%s, parent_agency_email),
+                    company_id = COALESCE(%s, company_id),
+                    updated_at = NOW()
+                WHERE location_id = %s
+            """, (_agency_email, company_id, sub_id))
+        return True  # Skipped — owned by another user
+
+    # Determine effective tokens (per-location vs company)
+    _loc_tok_new = sub.get('_loc_token')
+    _loc_ref_new = sub.get('_loc_refresh')
+    _loc_exp_new = sub.get('_loc_expires') or expires_in
+
+    if _loc_tok_new:
+        _eff_access = encrypt_token(_loc_tok_new)
+        _eff_refresh = encrypt_token(_loc_ref_new) if _loc_ref_new else None
+        _eff_expires = _loc_exp_new
+        _ct_prov = enc_access_token
+        _cr_prov = enc_refresh_token
+    else:
+        _eff_access = enc_access_token
+        _eff_refresh = enc_refresh_token
+        _eff_expires = expires_in
+        _ct_prov = enc_access_token if token_user_type_used == 'Company' else None
+        _cr_prov = enc_refresh_token if token_user_type_used == 'Company' else None
+
+    _sub_params = (
+        sub_id, effective_email, crm_email_resolved, sub_name, role,
+        plan_tier, parent_agency_email, company_id,
+        _eff_access, _eff_refresh,
+        _eff_expires,
+        sub_timezone or 'America/Chicago', me_data.get('id'),
+        'pending', app_type,
+        _ct_prov, _cr_prov, _ct_prov, _eff_expires,
+    )
+
+    # Use savepoint so rollback on email conflict doesn't kill prior work
+    cur.execute("SAVEPOINT sub_upsert")
+    try:
+        cur.execute("""
+            INSERT INTO subscribers (
+                location_id, email, crm_email, full_name, role,
+                subscription_tier, parent_agency_email, company_id,
+                access_token, refresh_token,
+                token_expires_at, timezone, crm_user_id,
+                onboarding_status, oauth_app_type,
+                company_access_token, company_refresh_token, company_token_expires_at,
+                created_at, updated_at
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                NOW() + interval '%s seconds',
+                %s, %s, %s, %s,
+                %s, %s, CASE WHEN %s IS NOT NULL THEN NOW() + interval '%s seconds' END,
+                NOW(), NOW()
+            )
+            ON CONFLICT (location_id) DO UPDATE SET
+                crm_email = EXCLUDED.crm_email,
+                access_token = EXCLUDED.access_token,
+                refresh_token = EXCLUDED.refresh_token,
+                token_expires_at = EXCLUDED.token_expires_at,
+                crm_user_id = COALESCE(EXCLUDED.crm_user_id, subscribers.crm_user_id),
+                oauth_app_type = EXCLUDED.oauth_app_type,
+                company_id = COALESCE(EXCLUDED.company_id, subscribers.company_id),
+                parent_agency_email = COALESCE(EXCLUDED.parent_agency_email, subscribers.parent_agency_email),
+                company_access_token = COALESCE(EXCLUDED.company_access_token, subscribers.company_access_token),
+                company_refresh_token = COALESCE(EXCLUDED.company_refresh_token, subscribers.company_refresh_token),
+                company_token_expires_at = COALESCE(EXCLUDED.company_token_expires_at, subscribers.company_token_expires_at),
+                updated_at = NOW()
+        """, _sub_params)
+        cur.execute("RELEASE SAVEPOINT sub_upsert")
+    except Exception as _upsert_err:
+        cur.execute("ROLLBACK TO SAVEPOINT sub_upsert")
+        if 'idx_subscribers_email' in str(_upsert_err) or 'unique' in str(_upsert_err).lower():
+            logger.warning(
+                f"Email {effective_email} already in subscribers with different location_id. "
+                f"Updating tokens and location to {sub_id}."
+            )
+            cur.execute("""
+                UPDATE subscribers SET
+                    location_id = %s,
+                    crm_email = %s,
+                    access_token = %s,
+                    refresh_token = %s,
+                    token_expires_at = NOW() + interval '%s seconds',
+                    crm_user_id = COALESCE(%s, crm_user_id),
+                    oauth_app_type = %s,
+                    company_id = COALESCE(%s, company_id),
+                    parent_agency_email = COALESCE(%s, parent_agency_email),
+                    company_access_token = COALESCE(%s, company_access_token),
+                    company_refresh_token = COALESCE(%s, company_refresh_token),
+                    company_token_expires_at = CASE WHEN %s IS NOT NULL THEN NOW() + interval '%s seconds' ELSE company_token_expires_at END,
+                    updated_at = NOW()
+                WHERE email = %s
+            """, (
+                sub_id, crm_email_resolved,
+                enc_access_token, enc_refresh_token,
+                expires_in, me_data.get('id'), app_type,
+                company_id, parent_agency_email,
+                _ct_prov, _cr_prov, _ct_prov, expires_in,
+                effective_email
+            ))
+        else:
+            raise
+
+    return False  # Not skipped
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ROUTES
+# ═══════════════════════════════════════════════════════════════════════════════
 
 @oauth_bp.route("/refresh")
 @login_required
 def refresh_subscribers():
     """Manual OAuth token refresh for current user."""
-    from ghl_api import get_valid_token_with_status
     try:
         token, refreshed, err = get_valid_token_with_status(
             current_user.location_id, force_refresh=True
@@ -98,7 +795,7 @@ def oauth_initiate():
     Always uses the public marketplace app. The marketplace URL includes
     version_id to pin to the exact approved version with correct scopes.
 
-    User clicks "Connect CRM" → Redirected to GHL consent page → Back to /oauth/callback
+    User clicks "Connect CRM" -> Redirected to GHL consent page -> Back to /oauth/callback
 
     SECURITY: Requires active login. Agency owners are FREE (no subscription check).
     """
@@ -150,24 +847,18 @@ def oauth_initiate():
 @oauth_bp.route("/oauth/callback")
 def oauth_callback():
     """
-    GHL OAuth callback: exchanges authorization code for tokens, provisions
-    subscriber records in the DB, and sends welcome email.
+    GHL OAuth callback — enterprise-grade 13-step flow.
 
-    Handles:
-    - Marketplace installs (no state)
-    - Private app installs (state="private_app")
-    - Website user reconnects (state="website_user")
-    - Dual-app auto-detection (tries marketplace creds first, then private)
-    - Company-level (agency) and Location-level installs
-    - Robust 5-step email recovery chain (never fails silently)
-    - Agency sub-account provisioning with paginated location fetch
+    Handles 6 installation scenarios:
+      A. New individual agent (Company token, role_type=account)
+      B. Agency owner first install (Company token, role_type=agency)
+      C. Individual agent reconnects (location already in subscribers)
+      D. Agency owner reconnects (location + agency_billing update)
+      E. Location-scoped token install (individual agent always)
+      F. All API calls fail, no locationId anywhere (companyId fallback)
     """
     code = request.args.get("code")
     raw_state = request.args.get("state")
-
-    # GHL may pass locationId as a URL query parameter on the redirect.
-    # Capture it now — if the token exchange returns locationId=None, this
-    # is often the only way to identify which sub-account was installed.
     url_location_id = request.args.get("locationId")
 
     logger.info(
@@ -182,7 +873,7 @@ def oauth_callback():
                           f"code={'yes' if code else 'NO'}",
                           details={"has_state": bool(raw_state), "has_code": bool(code)})
     except Exception:
-        logger.debug("Failed to log oauth_callback_hit event")
+        pass
 
     if not code:
         logger.warning("OAuth callback: No authorization code in request params")
@@ -190,19 +881,17 @@ def oauth_callback():
             log_webhook_event("oauth_global", "oauth_callback_error", "error",
                               "No authorization code in callback params")
         except Exception:
-            logger.debug("Failed to log oauth_callback_error event")
+            pass
         flash("No authorization code received.", "danger")
         return redirect(url_for('public.home'))
 
     try:
-        # ── Validate state parameter (CSRF protection) ────────────────────────
-        # Website users (state contains "website_user:" or "private_app:" prefix
-        # followed by a nonce) MUST have a matching session state. Marketplace
-        # installs arrive with state=None from GHL directly and bypass validation.
+        # ══════════════════════════════════════════════════════════════════════
+        # Step 1: Validate state parameter (CSRF protection)
+        # ══════════════════════════════════════════════════════════════════════
         flow_type = None
 
         if raw_state and ":" in raw_state:
-            # New-format state: "flow_type:nonce"
             stored_state = session.pop("ghl_oauth_state", None)
             if not stored_state or not secrets.compare_digest(raw_state, stored_state):
                 logger.warning(
@@ -211,17 +900,13 @@ def oauth_callback():
                     f"stored={'present' if stored_state else 'NONE'})"
                 )
                 flash("OAuth session expired or invalid. Please try connecting again.", "danger")
-                # SSO flow redirects to login; other flows to dashboard
                 if raw_state and raw_state.startswith("ghl_sso:"):
                     return redirect(url_for('auth.login'))
                 return redirect(url_for('dashboard.dashboard'))
             flow_type = raw_state.split(":", 1)[0]
-            session.pop("ghl_pkce_verifier", None)  # Clean up legacy session key
+            session.pop("ghl_pkce_verifier", None)
             logger.info(f"OAuth state validated (flow_type={flow_type})")
         elif raw_state in ("website_user", "private_app"):
-            # Legacy static state (from sessions started before the nonce system).
-            # These strings are hardcoded and public so we require the user to be
-            # already authenticated — prevents CSRF via forged legacy state values.
             if not current_user.is_authenticated:
                 logger.warning(f"OAuth callback: Legacy static state ({raw_state}) rejected — user not authenticated")
                 flash("Session expired. Please log in and try connecting again.", "error")
@@ -229,7 +914,6 @@ def oauth_callback():
             flow_type = raw_state
             logger.info(f"OAuth callback: Legacy static state ({raw_state}) — authenticated user")
         else:
-            # state=None — marketplace install
             logger.info("OAuth callback: Marketplace installation flow (no state)")
 
         is_website_user = flow_type in ("website_user", "private_app")
@@ -256,9 +940,9 @@ def oauth_callback():
         else:
             logger.info("OAuth callback: Marketplace installation flow")
 
-        # ── Pick credentials ──────────────────────────────────────────────────
-        # Always use the public marketplace app. Private app is deprecated
-        # (zero active users as of 2026-03-25).
+        # ══════════════════════════════════════════════════════════════════════
+        # Step 2: Token exchange (Company user_type first, Location fallback)
+        # ══════════════════════════════════════════════════════════════════════
         is_private_app = False
         client_id = os.getenv("GHL_CLIENT_ID")
         client_secret = os.getenv("GHL_CLIENT_SECRET")
@@ -275,80 +959,68 @@ def oauth_callback():
             flash("OAuth is not configured. Please contact support.", "danger")
             return redirect(url_for('public.home'))
 
-        logger.info(f"OAuth callback using {cred_label} credentials (flow_type={flow_type})")
-
-        # ── Step 1: Token exchange ─────────────────────────────────────────────
-        # Try Company user_type first (can discover all locations + call /users/),
-        # then Location as fallback (sub-account users who can't get Company tokens).
         token_url = "https://services.leadconnectorhq.com/oauth/token"
-
-        cred_sets = [{"client_id": client_id, "client_secret": client_secret,
-                      "label": cred_label, "is_private": False}]
-
         token_data = None
         token_user_type_used = None
-        for cred_set in cred_sets:
-            base_payload = {
-                "client_id": cred_set["client_id"],
-                "client_secret": cred_set["client_secret"],
-                "grant_type": "authorization_code",
-                "code": code,
-                "redirect_uri": f"{domain}/oauth/callback",
-            }
-            for user_type in ["Company", "Location"]:
-                payload = {**base_payload, "user_type": user_type}
-                logger.info(f"Token exchange attempt with user_type={user_type}, creds={cred_set['label']}")
 
-                token_resp, token_err = _ghl_api_call(
-                    'POST', token_url, data=payload, timeout=15,
-                    label=f"Token exchange ({user_type}, {cred_set['label']})"
-                )
+        base_payload = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": f"{domain}/oauth/callback",
+        }
 
-                if token_resp is None:
-                    logger.warning(f"Token exchange ({user_type}, {cred_set['label']}) unreachable: {token_err}")
-                    continue
+        for user_type in ["Company", "Location"]:
+            payload = {**base_payload, "user_type": user_type}
+            logger.info(f"Token exchange attempt with user_type={user_type}")
 
-                if token_resp.ok:
-                    try:
-                        token_data = token_resp.json()
-                        token_user_type_used = user_type
-                        is_private_app = cred_set["is_private"]
-                        cred_label = cred_set["label"]
-                        logger.info(f"Token exchange SUCCESS with user_type={user_type}, creds={cred_set['label']}")
-                        break
-                    except ValueError:
-                        logger.error(
-                            f"Token exchange ({user_type}, {cred_set['label']}) "
-                            f"returned non-JSON: {token_resp.text[:500]}"
-                        )
-                        continue
-                elif token_resp.status_code == 400:
-                    logger.warning(
-                        f"Token exchange ({user_type}, {cred_set['label']}) got 400: "
-                        f"{token_resp.text[:300]} — trying next"
-                    )
-                    continue
-                else:
-                    logger.error(
-                        f"Token exchange ({user_type}, {cred_set['label']}) rejected: "
-                        f"{token_resp.status_code} {token_resp.text[:500]}"
-                    )
+            token_resp, token_err = _ghl_api_call(
+                'POST', token_url, data=payload, timeout=15,
+                label=f"Token exchange ({user_type})"
+            )
+
+            if token_resp is None:
+                logger.warning(f"Token exchange ({user_type}) unreachable: {token_err}")
                 continue
 
-            if token_data:
-                break
+            if token_resp.ok:
+                try:
+                    token_data = token_resp.json()
+                    token_user_type_used = user_type
+                    logger.info(f"Token exchange SUCCESS with user_type={user_type}")
+                    break
+                except ValueError:
+                    logger.error(
+                        f"Token exchange ({user_type}) returned non-JSON: {token_resp.text[:500]}"
+                    )
+                    continue
+            elif token_resp.status_code == 400:
+                logger.warning(
+                    f"Token exchange ({user_type}) got 400: {token_resp.text[:300]} — trying next"
+                )
+                continue
+            else:
+                logger.error(
+                    f"Token exchange ({user_type}) rejected: "
+                    f"{token_resp.status_code} {token_resp.text[:500]}"
+                )
+                continue
 
         if not token_data:
-            err_msg = "Token exchange failed for all user_types (Location, Company)"
-            logger.error(err_msg)
+            logger.error("Token exchange failed for all user_types")
             try:
                 log_webhook_event("oauth_global", "oauth_token_exchange_failed", "error",
-                                  err_msg, details={"flow_type": flow_type, "code_present": bool(code)})
+                                  "Token exchange failed for all user_types",
+                                  details={"flow_type": flow_type, "code_present": bool(code)})
             except Exception:
-                logger.debug("Failed to log token exchange failure event")
+                pass
             flash("Failed to connect to Lead Connector. Please try again.", "danger")
             return redirect(url_for('public.home'))
 
+        # ══════════════════════════════════════════════════════════════════════
+        # Step 3: Extract core fields
+        # ══════════════════════════════════════════════════════════════════════
         access_token = token_data.get('access_token')
         if not access_token:
             logger.error("Token exchange returned no access_token")
@@ -356,29 +1028,18 @@ def oauth_callback():
                 log_webhook_event("oauth_global", "oauth_no_access_token", "error",
                                   "Token exchange missing access_token")
             except Exception:
-                logger.debug("Failed to log missing access_token event")
+                pass
             flash("Authorization failed — no access token received. Please try again.", "danger")
             return redirect(url_for('public.home'))
 
-        primary_location_id = token_data.get('locationId')
+        token_location_id = token_data.get('locationId')
         company_id = token_data.get('companyId')
-        refresh_token = token_data.get('refresh_token')
-        # GHL can return expires_in: null (not absent) — .get() default only fires when
-        # key is absent, not when value is None. Coerce to int to prevent malformed SQL.
+        refresh_token_raw = token_data.get('refresh_token')
         expires_in = int(token_data.get('expires_in') or 86400)
 
-        # CRITICAL FIX: GHL sometimes returns locationId=None in the token
-        # response even for Location-scoped installs. Fall back to the
-        # locationId from the callback URL query parameters.
-        if not primary_location_id and url_location_id:
-            primary_location_id = url_location_id
-            logger.info(
-                f"Token response had locationId=None — using locationId from "
-                f"URL query param: {url_location_id}"
-            )
-
-        # ── Scope validation ─────────────────────────────────────────────────
-        # Verify that the granted scopes include the critical ones we need.
+        # ══════════════════════════════════════════════════════════════════════
+        # Step 4: Validate critical scopes
+        # ══════════════════════════════════════════════════════════════════════
         granted_scope_str = token_data.get('scope', '')
         if granted_scope_str:
             granted_scopes = set(granted_scope_str.split())
@@ -391,54 +1052,35 @@ def oauth_callback():
                 logger.error(f"Critical scopes MISSING from grant: {missing_critical}")
                 try:
                     log_webhook_event(
-                        primary_location_id or "unknown", "oauth_scope_mismatch", "error",
+                        token_location_id or url_location_id or "unknown",
+                        "oauth_scope_mismatch", "error",
                         f"Critical scopes missing: {missing_critical}",
                         details={"granted": list(granted_scopes), "missing": list(missing_critical)})
                 except Exception:
-                    logger.debug("Failed to log scope mismatch event")
+                    pass
                 flash("Some required permissions were not granted. Please reconnect and accept all permissions.", "danger")
                 return redirect(url_for('dashboard.dashboard'))
 
-            # Log non-critical scope differences as warnings
-            requested_scopes = set(GHL_OAUTH_SCOPES)
-            missing_optional = requested_scopes - granted_scopes
+            missing_optional = set(GHL_OAUTH_SCOPES) - granted_scopes
             if missing_optional:
                 logger.warning(f"Optional scopes not granted: {missing_optional}")
 
         # Encrypt tokens before any DB storage
         enc_access_token = encrypt_token(access_token)
-        enc_refresh_token = encrypt_token(refresh_token) if refresh_token else None
+        enc_refresh_token = encrypt_token(refresh_token_raw) if refresh_token_raw else None
 
         logger.info(
-            f"Step 1 complete: Token exchange OK via user_type={token_user_type_used}. "
-            f"locationId={primary_location_id}, companyId={company_id}, expires_in={expires_in}"
+            f"Step 3-4 complete: Token OK via user_type={token_user_type_used}. "
+            f"locationId={token_location_id}, companyId={company_id}, expires_in={expires_in}"
         )
-
-        try:
-            log_webhook_event(
-                primary_location_id or company_id or "unknown",
-                "oauth_token_success", "success",
-                f"Token exchange OK: user_type={token_user_type_used}, "
-                f"locationId={primary_location_id}, companyId={company_id}",
-                details={
-                    "user_type_used": token_user_type_used,
-                    "locationId": primary_location_id,
-                    "companyId": company_id,
-                    "scopes_granted": len(granted_scope_str.split()) if granted_scope_str else 0,
-                }
-            )
-        except Exception:
-            logger.debug("Failed to log token success event")
 
         headers_ghl = {'Authorization': f'Bearer {access_token}', 'Version': '2021-07-28'}
 
-        # ── Step 2: Get user info ──────────────────────────────────────────────
-        # GHL has no /users/me endpoint. Use GET /users/{userId} with the
-        # userId from the token exchange.  Note: this only works with
-        # Company-scoped tokens; Location-scoped tokens will get 401/403,
-        # which the fallback chain below handles gracefully.
+        # ══════════════════════════════════════════════════════════════════════
+        # Step 5: Get user info via GET /users/{userId}
+        # ══════════════════════════════════════════════════════════════════════
         me_data = {}
-        user_email = None
+        user_email_from_api = None
         user_name = None
 
         ghl_user_id = token_data.get('userId')
@@ -452,7 +1094,7 @@ def oauth_callback():
             if me_resp and me_resp.ok:
                 try:
                     me_data = me_resp.json()
-                    user_email = me_data.get('email')
+                    user_email_from_api = me_data.get('email')
                     user_name = me_data.get('name') or me_data.get('firstName')
                 except ValueError:
                     logger.warning(f"/users/{ghl_user_id} returned non-JSON: {me_resp.text[:300]}")
@@ -468,639 +1110,131 @@ def oauth_callback():
         else:
             logger.info("No userId in token_data — skipping /users/ call")
 
-        # ── Extract locationId from user roles ─────────────────────────────────
-        # When GHL returns a Company-scoped token (no locationId), the user's
-        # roles.locationIds tells us which location(s) they belong to.
-        # This is the authoritative source for sub-account user → location mapping.
+        # Extract role info
         user_roles = me_data.get('roles', {}) if isinstance(me_data.get('roles'), dict) else {}
-        user_role_type = user_roles.get('type', '')  # 'account' = sub-account user, 'agency' = agency-level
+        user_role_type = user_roles.get('type', '')
         user_location_ids = user_roles.get('locationIds', []) or []
 
-        if not primary_location_id and user_location_ids:
-            if len(user_location_ids) == 1:
-                primary_location_id = user_location_ids[0]
-                logger.info(
-                    f"Resolved locationId from user roles: {primary_location_id} "
-                    f"(user has 1 location, role_type={user_role_type})"
-                )
-            else:
-                # CRITICAL: Multiple locations — do NOT pick first one blindly.
-                # The first entry is likely an existing user (e.g. Devon), not the
-                # person currently installing. Step 4 (installedLocations + DB check)
-                # will identify the correct target location.
-                logger.info(
-                    f"User has {len(user_location_ids)} locations in roles: {user_location_ids}. "
-                    f"Deferring primary selection to Step 4. "
-                    f"url_location_id={url_location_id}, role_type={user_role_type}"
-                )
-        elif not primary_location_id:
-            logger.warning(
-                f"No locationId from token, URL, or user roles. "
-                f"role_type={user_role_type}, locationIds={user_location_ids}"
-            )
-
-        logger.info(
-            f"User roles: type={user_role_type}, locationIds={user_location_ids}, "
-            f"resolved primary_location_id={primary_location_id}"
-        )
-
-        # ── Capture CRM email from GHL ───────────────────────────────────────
-        # The email from /users/{userId} or token_data is the CRM email.
-        # This is stored separately so it never overwrites the login email.
-        crm_email_resolved = user_email  # from /users/{userId} if it worked
+        # CRM email (stored separately, never overwrites login email)
+        crm_email_resolved = user_email_from_api
         if not crm_email_resolved:
             crm_email_resolved = token_data.get('userEmail') or token_data.get('email')
 
-        # ── Robust email recovery chain ──────────────────────────────────────
-        # OAuth must NEVER fail silently. Try every source; placeholder as last resort.
-        # user_email = the account/login email (what they log in with).
+        logger.info(
+            f"Step 5 complete: User info retrieved. "
+            f"role_type={user_role_type}, locationIds={user_location_ids}"
+        )
 
-        # Priority 1: logged-in user — their login email is always canonical
-        if current_user.is_authenticated:
-            user_email = current_user.email
-            user_name = current_user.full_name or user_name
-            logger.info(f"Using logged-in user's email: {user_email} (CRM email: {crm_email_resolved})")
-
-        # Fallback 1: email in token_data (marketplace installs — user isn't logged in)
-        if not user_email:
-            user_email = token_data.get('userEmail') or token_data.get('email')
-            if user_email:
-                logger.info(f"Fallback 1: Got email from token_data: {user_email}")
-
-        # Fallback 3: marketplace_installs table bridge
-        if not user_email:
-            market_data = find_marketplace_email(
-                location_id=primary_location_id, company_id=company_id
-            )
-            if market_data:
-                user_email = market_data.get('user_email')
-                user_name = market_data.get('user_name') or user_name
-                logger.info(f"Fallback 3: BRIDGED email from marketplace_installs: {user_email}")
-
-        # Fallback 4: look up by GHL userId in subscribers table
-        if not user_email:
-            ghl_user_id = token_data.get('userId')
-            if ghl_user_id:
-                conn_lookup = None
-                try:
-                    conn_lookup = get_db_connection()
-                    if conn_lookup:
-                        cur_lookup = conn_lookup.cursor()
-                        cur_lookup.execute(
-                            "SELECT email FROM subscribers WHERE crm_user_id = %s LIMIT 1",
-                            (ghl_user_id,)
-                        )
-                        found = cur_lookup.fetchone()
-                        if found:
-                            user_email = found['email']
-                            logger.info(f"Fallback 4: Found email via userId lookup: {user_email}")
-                        cur_lookup.close()
-                except Exception:
-                    pass
-                finally:
-                    if conn_lookup:
-                        return_db_connection(conn_lookup)
-
-        # Fallback 5: placeholder — onboarding completes, admin gets notified
-        if not user_email:
-            ghl_user_id = token_data.get('userId') or 'unknown'
-            user_email = f"install_{ghl_user_id}@placeholder.grokbot"
-            user_name = "New User (Update Email)"
-            logger.warning(f"Fallback 5: ALL email sources exhausted. Using placeholder: {user_email}")
-
-            try:
-                log_webhook_event(
-                    primary_location_id or "unknown", "oauth_placeholder_account", "warning",
-                    f"Placeholder account created: {user_email} — userId={ghl_user_id}, "
-                    f"locationId={primary_location_id}, companyId={company_id}",
-                    details={
-                        "userId": ghl_user_id,
-                        "locationId": primary_location_id,
-                        "companyId": company_id,
-                        "token_keys": list(token_data.keys()),
-                    }
-                )
-            except Exception:
-                pass
-
-            # Alert admin via email
-            try:
-                admin_target = ADMIN_EMAILS[0] if ADMIN_EMAILS else "mitchell_vandusen@hotmail.com"
-                domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
-                alert_inner = f'''
-<tr><td style="padding: 20px 40px 30px;">
-    <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 800; color: #ff6b35;">Ghost Install Detected</h1>
-    <p style="font-size: 15px; color: #ccc; line-height: 1.6;">
-        A user installed the app but Lead Connector permissions blocked their email.
-        A placeholder account was created so they can access the dashboard.
-    </p>
-    <table cellpadding="0" cellspacing="0" width="100%" style="background: rgba(255,255,255,0.04); border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); margin: 20px 0;">
-        <tr><td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #888; width: 130px;">LC User ID</td>
-            <td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #fff; font-family: monospace;">{ghl_user_id}</td></tr>
-        <tr><td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #888;">Location ID</td>
-            <td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #fff; font-family: monospace;">{primary_location_id or 'N/A'}</td></tr>
-        <tr><td style="padding: 12px 16px; color: #888;">Company ID</td>
-            <td style="padding: 12px 16px; color: #fff; font-family: monospace;">{company_id or 'N/A'}</td></tr>
-    </table>
-    <p style="font-size: 14px; color: #aaa;">Search this Location ID in your Lead Connector Agency View to find the user\'s real email, then update their record in the database.</p>
-</td></tr>'''
-                send_email_via_api(
-                    to_email=admin_target,
-                    subject="Ghost Install — Action Required",
-                    html_body=_email_wrapper(alert_inner, domain_url),
-                    text_body=f"Ghost install: userId={ghl_user_id}, "
-                              f"locationId={primary_location_id}, companyId={company_id}"
-                )
-                logger.info(f"Admin ghost-install alert sent to {admin_target}")
-            except Exception as e:
-                logger.error(f"Failed to send admin ghost-install alert: {e}")
-
-            try:
-                save_persistent_alert(
-                    email=ADMIN_EMAILS[0] if ADMIN_EMAILS else "admin",
-                    alert_type="ghost_install",
-                    title="Ghost Install — Email Unknown",
-                    message=(
-                        f"User installed app but email couldn't be retrieved. "
-                        f"userId={ghl_user_id}, locationId={primary_location_id}, companyId={company_id}. "
-                        f"Placeholder account: {user_email}"
-                    ),
-                    severity="warning",
-                    location_id=primary_location_id or "unknown",
-                )
-            except Exception:
-                pass
-
-        logger.info(f"Step 2 complete: User info retrieved. email={user_email}")
-
-        # ── Step 3: Detect agency status ────────────────────────────────────
-        # Three-signal agency detection (all must agree):
-        #   1. roles.type == 'agency' from /users/{userId} (strongest signal)
-        #   2. companyId present with NO locationId (even after roles extraction)
-        #   3. No existing agency owner for this companyId (or this IS the owner)
-        #
-        # Sub-account users: roles.type == 'account', have locationIds → NEVER agency owner
-        # Agency owners: roles.type == 'agency', no specific locationIds → agency owner
-        is_agency_owner = False
-        company_metadata = {}
-
-        # CRITICAL: role_type is the primary signal.
-        # 'account' = sub-account user (individual agent) — NEVER agency owner.
-        # 'agency' = agency-level user — may be agency owner.
-        # Note: primary_location_id may still be None here (deferred for multi-location users).
-        if user_role_type == 'account':
-            # Definitively NOT an agency owner regardless of locationId status.
-            is_agency_owner = False
-            logger.info(
-                f"Sub-account user detected (role_type=account): companyId={company_id}, "
-                f"locationId={primary_location_id or 'deferred'}. NOT agency owner."
-            )
-        elif company_id and user_role_type == 'agency':
-            # Agency-level user — check if they're the owner of this company.
-            existing_agency = get_agency_by_company_id(company_id)
-            if not existing_agency or existing_agency.get('agency_email', '').lower() == user_email.lower():
-                is_agency_owner = True
-                logger.info(
-                    f"Agency owner detected (role_type=agency): companyId={company_id}, "
-                    f"locationId={primary_location_id or 'none'}, "
-                    f"existing_agency={'reconnect' if existing_agency else 'NEW'}"
-                )
-            else:
-                is_agency_owner = False
-                logger.info(
-                    f"User has role_type=agency but agency already owned by "
-                    f"{existing_agency.get('agency_email')}. Treating as individual."
-                )
-        elif company_id and not primary_location_id and not user_location_ids:
-            # companyId but no locationId and no location roles — truly ambiguous.
-            # Token type is the tiebreaker: Company token without any location = agency owner.
-            existing_agency = get_agency_by_company_id(company_id)
-            if existing_agency and existing_agency.get('agency_email', '').lower() != user_email.lower():
-                is_agency_owner = False
-                logger.info(
-                    f"companyId={company_id} already owned by {existing_agency.get('agency_email')}. "
-                    f"User {user_email} is an individual agent. role_type={user_role_type}"
-                )
-            elif token_user_type_used == 'Company':
-                is_agency_owner = True
-                logger.info(
-                    f"Agency owner detected (Company token, no locationIds, no role_type): "
-                    f"companyId={company_id}"
-                )
-            else:
-                is_agency_owner = False
-                logger.info(
-                    f"Ambiguous agency detection: companyId={company_id}, no locationId, "
-                    f"role_type={user_role_type!r}. Treating as individual."
-                )
-
-        # Capture company metadata if companyId present (useful for auto-linking)
-        if company_id:
-            company_metadata = {
-                'company_id': company_id,
-                'company_name': None,
-                'company_owner_name': me_data.get('name') or me_data.get('firstName', ''),
-                'company_owner_email': me_data.get('email'),
-                'company_owner_phone': me_data.get('phone'),
-            }
-            # Try to get company name from user data or token data
-            if me_data.get('companyName'):
-                company_metadata['company_name'] = me_data['companyName']
-            elif me_data.get('company', {}).get('name') if isinstance(me_data.get('company'), dict) else None:
-                company_metadata['company_name'] = me_data['company']['name']
-
-            # Construct owner name from parts if full name not available
-            if not company_metadata['company_owner_name']:
-                first = me_data.get('firstName', '')
-                last = me_data.get('lastName', '')
-                company_metadata['company_owner_name'] = f"{first} {last}".strip() or None
-
-            logger.info(f"Company metadata captured: {company_metadata}")
-        else:
-            logger.info("No companyId — individual user without agency")
-
-        logger.info(f"Step 3 complete: Agency detection. is_agency={is_agency_owner}, companyId={company_id}")
-
-        # ── Step 4: Fetch all locations ──────────────────────────────────────
-        # /locations/search requires a Company-scoped token.  For Location-
-        # scoped tokens, fetch the single location directly via
-        # GET /locations/{locationId}.
-        #
-        # EDGE CASE: GHL sometimes returns a Location-scoped token with a
-        # companyId but NO locationId (marketplace installs where user didn't
-        # pick a specific sub-account). In that case, try /locations/search
-        # with the companyId to discover all locations.
+        # ══════════════════════════════════════════════════════════════════════
+        # Step 6: Fetch installed locations + location tokens (Company token only)
+        # ══════════════════════════════════════════════════════════════════════
         sub_accounts = []
         using_location_fallback = False
 
         if token_user_type_used == 'Company' and company_id:
-            # With oauth.write scope: enumerate all installed locations and generate
-            # per-location tokens via POST /oauth/locationToken.
-            # - Agency owner's primary location gets a proper location-scoped token.
-            # - Existing agent locations get their tokens refreshed.
-            # - Unknown locations are skipped (agents self-provision via Custom Menu Link).
             logger.info(f"Company token: discovering installed locations for companyId={company_id}...")
 
-            inst_resp, inst_err = _ghl_api_call(
-                'GET',
-                (
-                    f"https://services.leadconnectorhq.com/oauth/installedLocations"
-                    f"?companyId={company_id}&appId={client_id}"
-                ),
-                headers=headers_ghl, timeout=15,
-                label="/oauth/installedLocations",
-            )
-            installed_locs = []
-            if inst_resp and inst_resp.ok:
-                try:
-                    _idata = inst_resp.json()
-                    _raw_locs = (
-                        _idata.get('locations')
-                        or _idata.get('installedLocations')
-                        or []
-                    )
-                    if isinstance(_idata, list):
-                        _raw_locs = _idata
-                    installed_locs = [l for l in _raw_locs if isinstance(l, dict)]
-                    logger.info(
-                        f"installedLocations: {len(installed_locs)} locations "
-                        f"for companyId={company_id}"
-                    )
-                except (ValueError, KeyError) as _ie:
-                    logger.warning(f"installedLocations parse error: {_ie}")
-            else:
-                _status = inst_resp.status_code if inst_resp else None
-                _body = inst_resp.text[:400] if inst_resp else None
-                logger.warning(
-                    f"installedLocations failed: status={_status}, "
-                    f"err={inst_err}, body={_body}"
-                )
-                # Fallback: try without appId param (some GHL versions don't need it)
-                if _status in (400, 422, None):
-                    inst_resp2, inst_err2 = _ghl_api_call(
-                        'GET',
-                        f"https://services.leadconnectorhq.com/oauth/installedLocations"
-                        f"?companyId={company_id}",
-                        headers=headers_ghl, timeout=15,
-                        label="/oauth/installedLocations (no appId)",
-                    )
-                    if inst_resp2 and inst_resp2.ok:
-                        try:
-                            _idata2 = inst_resp2.json()
-                            _raw2 = (
-                                _idata2.get('locations')
-                                or _idata2.get('installedLocations')
-                                or (_idata2 if isinstance(_idata2, list) else [])
-                            )
-                            installed_locs = [l for l in _raw2 if isinstance(l, dict)]
-                            logger.info(
-                                f"installedLocations (fallback no-appId): "
-                                f"{len(installed_locs)} locations"
-                            )
-                        except Exception as _ie2:
-                            logger.warning(f"installedLocations fallback parse error: {_ie2}")
-                    else:
-                        logger.warning(
-                            f"installedLocations fallback also failed: "
-                            f"{inst_resp2.status_code if inst_resp2 else inst_err2}"
-                        )
+            installed_locs = _fetch_installed_locations(headers_ghl, company_id, client_id)
+            if installed_locs:
+                sub_accounts = _generate_location_tokens(headers_ghl, company_id, installed_locs)
 
-            # Generate a location-scoped token for each installed location.
-            # Requires oauth.write scope (POST /oauth/locationToken).
-            _loc_token_url = "https://services.leadconnectorhq.com/oauth/locationToken"
-            for _loc in installed_locs:
-                _loc_id = (
-                    _loc.get('_id') or _loc.get('id') or _loc.get('locationId')
-                )
-                if not _loc_id:
-                    continue
-                try:
-                    _lt = requests.post(
-                        _loc_token_url,
-                        json={'companyId': company_id, 'locationId': _loc_id},
-                        headers={**headers_ghl, 'Content-Type': 'application/json'},
-                        timeout=10,
-                    )
-                    if _lt.ok:
-                        _ltd = _lt.json()
-                        _la = _ltd.get('access_token')
-                        _lr = _ltd.get('refresh_token')
-                        _le = int(_ltd.get('expires_in') or 86400)
-                        if _la:
-                            sub_accounts.append({
-                                'id': _loc_id,
-                                'name': _loc.get('name', 'Unknown Location'),
-                                'timezone': _loc.get('timezone'),
-                                '_loc_token': _la,
-                                '_loc_refresh': _lr,
-                                '_loc_expires': _le,
-                            })
-                            logger.info(
-                                f"locationToken OK: {_loc_id} ({_loc.get('name', '')})"
-                            )
-                        else:
-                            logger.warning(
-                                f"locationToken missing access_token for {_loc_id}"
-                            )
-                    else:
-                        logger.warning(
-                            f"locationToken {_loc_id}: "
-                            f"{_lt.status_code} {_lt.text[:200]}"
-                        )
-                except Exception as _lt_err:
-                    logger.warning(f"locationToken exception {_loc_id}: {_lt_err}")
+            if not sub_accounts and installed_locs:
+                # locationToken failed but we have locations — use them without tokens
+                for loc in installed_locs:
+                    loc_id = loc.get('_id') or loc.get('id') or loc.get('locationId')
+                    if loc_id:
+                        sub_accounts.append({
+                            'id': loc_id,
+                            'name': loc.get('name', 'Unknown Location'),
+                            'timezone': loc.get('timezone'),
+                        })
 
-            if sub_accounts:
-                # Determine the CORRECT primary location — the one being installed RIGHT NOW.
-                # Priority 1: url_location_id from GHL callback (GHL passes this when known)
-                # Priority 2: DB check — find location NOT already in subscribers (new install)
-                # Priority 3: Fall back to sub_accounts[0] (reconnect / single location)
-                sub_ids = [s['id'] for s in sub_accounts]
-                if url_location_id and url_location_id in sub_ids:
-                    primary_location_id = url_location_id
-                    logger.info(
-                        f"Primary location from URL param: {primary_location_id}"
-                    )
-                elif not primary_location_id or primary_location_id not in sub_ids:
-                    # Check which locations don't have a subscriber row yet
-                    _conn_chk = None
-                    new_loc_ids = []
-                    try:
-                        _conn_chk = get_db_connection()
-                        if _conn_chk:
-                            _cur_chk = _conn_chk.cursor()
-                            _cur_chk.execute(
-                                "SELECT location_id FROM subscribers WHERE location_id = ANY(%s)",
-                                (sub_ids,)
-                            )
-                            _existing = {r['location_id'] for r in _cur_chk.fetchall()}
-                            new_loc_ids = [lid for lid in sub_ids if lid not in _existing]
-                            _cur_chk.close()
-                    except Exception as _chk_err:
-                        logger.warning(f"Failed to check existing locations: {_chk_err}")
-                    finally:
-                        if _conn_chk:
-                            return_db_connection(_conn_chk)
-
-                    if len(new_loc_ids) == 1:
-                        primary_location_id = new_loc_ids[0]
-                        logger.info(
-                            f"Primary location identified as new install (not in DB yet): "
-                            f"{primary_location_id}"
-                        )
-                    elif len(new_loc_ids) > 1:
-                        # Multiple new — use the last in installedLocations order
-                        # (most recently added tends to be last)
-                        primary_location_id = new_loc_ids[-1]
-                        logger.info(
-                            f"Multiple new locations {new_loc_ids} — using last "
-                            f"(most recent install order): {primary_location_id}"
-                        )
-                    else:
-                        # All locations already registered — reconnect scenario
-                        primary_location_id = sub_accounts[0]['id']
-                        logger.info(
-                            f"All locations already in DB (reconnect). "
-                            f"Primary: {primary_location_id}"
-                        )
-                else:
-                    logger.info(
-                        f"Primary location already resolved: {primary_location_id}"
-                    )
-
-                logger.info(
-                    f"Company install: {len(sub_accounts)} locations with tokens. "
-                    f"Primary: {primary_location_id}"
-                )
-            else:
-                # installedLocations failed AND locationToken produced nothing.
-                # Fall back to user_location_ids from /users/{userId} and use
-                # DB check to find which location is new.
-                logger.info(
-                    "Company install: installedLocations/locationToken failed — "
-                    "falling back to user_location_ids DB check"
-                )
-                if user_location_ids and not primary_location_id:
-                    _conn_fb = None
-                    try:
-                        _conn_fb = get_db_connection()
-                        if _conn_fb:
-                            _cur_fb = _conn_fb.cursor()
-                            _cur_fb.execute(
-                                "SELECT location_id FROM subscribers WHERE location_id = ANY(%s)",
-                                (user_location_ids,)
-                            )
-                            _existing_fb = {r['location_id'] for r in _cur_fb.fetchall()}
-                            _new_fb = [lid for lid in user_location_ids if lid not in _existing_fb]
-                            _cur_fb.close()
-                            if len(_new_fb) == 1:
-                                primary_location_id = _new_fb[0]
-                                logger.info(
-                                    f"DB fallback: identified new location from roles: "
-                                    f"{primary_location_id}"
-                                )
-                            elif len(_new_fb) > 1:
-                                primary_location_id = _new_fb[-1]
-                                logger.info(
-                                    f"DB fallback: multiple new locations {_new_fb} — "
-                                    f"using last: {primary_location_id}"
-                                )
-                            elif url_location_id and url_location_id in user_location_ids:
-                                primary_location_id = url_location_id
-                                logger.info(
-                                    f"DB fallback: all locations exist, using url_location_id: "
-                                    f"{primary_location_id}"
-                                )
-                            else:
-                                # All exist (reconnect) — don't pick blindly, leave None
-                                logger.warning(
-                                    f"DB fallback: all {len(user_location_ids)} locations "
-                                    f"already in DB. Cannot determine target. Will use companyId fallback."
-                                )
-                    except Exception as _fb_err:
-                        logger.warning(f"DB fallback location check failed: {_fb_err}")
-                    finally:
-                        if _conn_fb:
-                            return_db_connection(_conn_fb)
-        elif not primary_location_id and company_id:
-            # Location-scoped token with companyId but no locationId.
-            # The token IS scoped to a specific location, but GHL didn't
-            # tell us which one. Try multiple discovery approaches.
-            logger.info(
-                f"No locationId in token or URL but companyId={company_id} present. "
-                f"Attempting location discovery..."
-            )
-
-            # Approach 1: /oauth/installedLocations — returns locations where
-            # this app is installed under this company
-            app_id = client_id  # GHL appId = our OAuth client_id
-            installed_url = (
-                f"https://services.leadconnectorhq.com/oauth/installedLocations"
-                f"?companyId={company_id}"
-            )
-            installed_resp, installed_err = _ghl_api_call(
-                'GET', installed_url,
-                headers=headers_ghl, timeout=10,
-                label=f"/oauth/installedLocations?companyId={company_id}"
-            )
-            if installed_resp and installed_resp.ok:
-                try:
-                    installed_data = installed_resp.json()
-                    # Response format: {"locations": [{"_id": "xxx", "name": "...", ...}]}
-                    # or: {"installedLocations": [...]}
-                    installed_locs = (
-                        installed_data.get('locations')
-                        or installed_data.get('installedLocations')
-                        or []
-                    )
-                    if isinstance(installed_data, list):
-                        installed_locs = installed_data
-                    if installed_locs:
-                        # Use first installed location
-                        first_loc = installed_locs[0]
-                        primary_location_id = (
-                            first_loc.get('_id')
-                            or first_loc.get('id')
-                            or first_loc.get('locationId')
-                        )
-                        sub_accounts = [{
-                            'id': primary_location_id,
-                            'name': first_loc.get('name', user_name or 'Primary Location'),
-                            'timezone': first_loc.get('timezone'),
-                        }]
-                        logger.info(
-                            f"installedLocations returned {len(installed_locs)} location(s). "
-                            f"Primary set to: {primary_location_id}"
-                        )
-                except (ValueError, KeyError) as e:
-                    logger.warning(f"/oauth/installedLocations parse error: {e}")
-            elif installed_resp:
-                logger.info(
-                    f"/oauth/installedLocations returned {installed_resp.status_code}: "
-                    f"{installed_resp.text[:200]}"
-                )
-            else:
-                logger.info(f"/oauth/installedLocations unreachable: {installed_err}")
-
-            # Approach 2: /locations/search — may work if token has enough scope
             if not sub_accounts:
+                # installedLocations failed — try /locations/search
                 locations_url = f"https://services.leadconnectorhq.com/locations/search?companyId={company_id}"
-                sub_accounts = fetch_all_ghl_items(locations_url, headers_ghl, item_key='locations')
-                if sub_accounts:
-                    primary_location_id = sub_accounts[0].get('id')
-                    logger.info(
-                        f"/locations/search discovered {len(sub_accounts)} location(s). "
-                        f"Primary set to: {primary_location_id}"
-                    )
-                else:
-                    logger.warning(
-                        f"All location discovery failed for companyId={company_id}. "
-                        f"Will use companyId fallback."
-                    )
-        elif primary_location_id:
+                search_results = fetch_all_ghl_items(locations_url, headers_ghl, item_key='locations')
+                if search_results:
+                    sub_accounts = [{
+                        'id': s.get('id'),
+                        'name': s.get('name', 'Unknown Location'),
+                        'timezone': s.get('timezone'),
+                    } for s in search_results if s.get('id')]
+                    logger.info(f"/locations/search: {len(sub_accounts)} locations")
+
+        elif token_location_id or url_location_id:
             # Location-scoped token — fetch this single location's details
+            loc_id = token_location_id or url_location_id
             loc_resp, loc_err = _ghl_api_call(
-                'GET', f"https://services.leadconnectorhq.com/locations/{primary_location_id}",
-                headers=headers_ghl, timeout=10, label=f"/locations/{primary_location_id}"
+                'GET', f"https://services.leadconnectorhq.com/locations/{loc_id}",
+                headers=headers_ghl, timeout=10, label=f"/locations/{loc_id}"
             )
             if loc_resp and loc_resp.ok:
                 try:
                     loc_data = loc_resp.json().get('location', loc_resp.json())
                     sub_accounts = [{
-                        'id': loc_data.get('id', primary_location_id),
+                        'id': loc_data.get('id', loc_id),
                         'name': loc_data.get('name', user_name or 'Primary Location'),
                         'timezone': loc_data.get('timezone'),
                     }]
                 except (ValueError, KeyError):
-                    logger.warning(f"/locations/{primary_location_id} returned unparseable response")
+                    logger.warning(f"/locations/{loc_id} returned unparseable response")
             else:
                 logger.info(
-                    f"/locations/{primary_location_id} returned "
+                    f"/locations/{loc_id} returned "
                     f"{loc_resp.status_code if loc_resp else loc_err} — using token fallback"
                 )
 
-        num_subs = len(sub_accounts)
-        logger.info(f"Step 4 complete: {num_subs} locations fetched for {user_email}")
+        logger.info(f"Step 6 complete: {len(sub_accounts)} locations fetched")
 
-        # Fallback: if API returned 0 but we have locationId from the token,
-        # synthesize a minimal entry so onboarding still works.
-        if num_subs == 0 and primary_location_id:
-            using_location_fallback = True
-            logger.warning(
-                f"Location API returned 0 results but token has locationId={primary_location_id}. "
-                f"Using token-based fallback."
+        # ══════════════════════════════════════════════════════════════════════
+        # Step 7: Determine primary_location_id
+        # ══════════════════════════════════════════════════════════════════════
+        # Use a temporary DB connection for the location check
+        _loc_conn = get_db_connection()
+        try:
+            primary_location_id, resolution_method = _determine_primary_location(
+                url_location_id, token_location_id,
+                user_location_ids, sub_accounts,
+                company_id, _loc_conn
             )
+        finally:
+            if _loc_conn:
+                return_db_connection(_loc_conn)
+
+        logger.info(
+            f"Step 7 complete: primary_location_id={primary_location_id} "
+            f"(method={resolution_method})"
+        )
+
+        # Synthesize sub_account entry if we have a location but no sub_accounts
+        if not sub_accounts and primary_location_id:
+            using_location_fallback = True
             sub_accounts = [{'id': primary_location_id,
                              'name': user_name or 'Primary Location',
                              'timezone': None}]
-            num_subs = 1
+            logger.warning(
+                f"No locations discovered but have locationId={primary_location_id}. "
+                f"Using token-based fallback."
+            )
 
-        # Last resort: no locationId AND no locations discovered, but we have
-        # companyId. Use companyId as the location_id so the user at least gets
-        # a subscriber row and can log in. Admin alert sent so we can fix it.
-        if num_subs == 0 and not primary_location_id and company_id:
+        # Last resort: companyId as location_id
+        if not primary_location_id and company_id:
             using_location_fallback = True
             primary_location_id = company_id
-            logger.warning(
-                f"NO locationId from token and ALL location discovery failed. "
-                f"Using companyId={company_id} as location_id fallback for {user_email}."
-            )
             sub_accounts = [{'id': company_id,
                              'name': user_name or 'Primary Location',
                              'timezone': None}]
-            num_subs = 1
-
-            # Alert admin — this user needs manual location resolution
+            logger.warning(
+                f"NO locationId — using companyId={company_id} as location_id fallback."
+            )
             try:
                 save_persistent_alert(
                     email=ADMIN_EMAILS[0] if ADMIN_EMAILS else "admin",
                     alert_type="company_id_fallback",
                     title="OAuth: CompanyID Used as LocationID",
                     message=(
-                        f"User {user_email} installed via marketplace but GHL returned NO "
-                        f"locationId. companyId={company_id} was used as a fallback. "
-                        f"This user needs their location_id corrected once their real "
-                        f"GHL location is identified."
+                        f"User installed via marketplace but GHL returned NO "
+                        f"locationId. companyId={company_id} was used as a fallback."
                     ),
                     severity="warning",
                     location_id=company_id,
@@ -1108,230 +1242,123 @@ def oauth_callback():
             except Exception:
                 pass
 
-        # ── Step 5-6: Determine tier and primary location ─────────────────────
-        # Agency owners: FREE — no subscription needed. They just download to get
-        # on all their agents' GHL sidebars. Agents pay for their own plans.
-        # Agency owners get agency_billing row; individuals get subscribers row.
-        if is_agency_owner:
-            plan_tier = 'agency_owner'
-            use_agency_flow = True
-        elif is_website_user:
-            plan_tier = current_user.subscription_tier or 'individual'
-            use_agency_flow = False
-        else:
-            plan_tier = 'individual'
-            use_agency_flow = False
-
-        primary_sub = next((s for s in sub_accounts if s['id'] == primary_location_id), None)
-        primary_name = primary_sub.get('name', 'Unknown Location') if primary_sub else user_name
-        primary_timezone = primary_sub.get('timezone', None) if primary_sub else None
-
-        logger.info(
-            f"Step 5-6 complete: tier={plan_tier}, agency_flow={use_agency_flow}, "
-            f"primary_location={primary_name}"
+        # ══════════════════════════════════════════════════════════════════════
+        # Step 8: Detect agency owner
+        # ══════════════════════════════════════════════════════════════════════
+        is_agency_owner = _detect_agency_owner(
+            user_role_type, company_id, user_location_ids,
+            token_user_type_used, crm_email_resolved or ''
         )
 
-        # ── Step 7: Database operations ───────────────────────────────────────
+        company_metadata = {}
+        if company_id:
+            company_metadata = _build_company_metadata(me_data, company_id)
+            logger.info(f"Company metadata: {company_metadata}")
+
+        use_agency_flow = is_agency_owner
+
+        logger.info(
+            f"Step 8 complete: is_agency_owner={is_agency_owner}, companyId={company_id}, "
+            f"role_type={user_role_type}"
+        )
+
+        # ══════════════════════════════════════════════════════════════════════
+        # Step 9: Email recovery chain
+        # ══════════════════════════════════════════════════════════════════════
+        # Priority 1: logged-in user (canonical login email)
+        if current_user.is_authenticated:
+            user_email = current_user.email
+            user_name = current_user.full_name or user_name
+            email_source = 'logged_in_user'
+            logger.info(f"Using logged-in user's email: {user_email} (CRM email: {crm_email_resolved})")
+        else:
+            # Use /users/ API email first
+            if user_email_from_api:
+                user_email = user_email_from_api
+                email_source = 'users_api'
+                logger.info(f"Using email from /users/ API: {user_email}")
+            else:
+                # Full fallback chain for marketplace installs
+                user_email, resolved_name, email_source = _resolve_user_email(
+                    token_data, primary_location_id, company_id
+                )
+                if resolved_name:
+                    user_name = resolved_name
+                logger.info(f"Email resolved via {email_source}: {user_email}")
+
+        if email_source == 'placeholder':
+            _send_ghost_install_alert(
+                user_email,
+                token_data.get('userId') or 'unknown',
+                primary_location_id, company_id
+            )
+
+        # For agency detection, re-check with resolved email if we used crm_email before
+        if is_agency_owner and user_email:
+            is_agency_owner = _detect_agency_owner(
+                user_role_type, company_id, user_location_ids,
+                token_user_type_used, user_email
+            )
+            use_agency_flow = is_agency_owner
+
+        logger.info(f"Step 9 complete: user_email={user_email}, source={email_source}")
+
+        # ══════════════════════════════════════════════════════════════════════
+        # Step 10: Database operations (single connection, transaction)
+        # ══════════════════════════════════════════════════════════════════════
         conn = get_db_connection_with_retry(max_attempts=3)
         if not conn:
-            logger.error("OAuth callback: DB connection failed after 3 retries — cannot complete onboarding")
+            logger.error("OAuth callback: DB connection failed after 3 retries")
             flash("Database temporarily unavailable. Please try connecting again in a few minutes.", "danger")
             return redirect(url_for('public.home'))
 
-        locations_to_provision = []
+        is_new_install = False
+        app_type = 'private' if is_private_app else ('website' if is_website_user else 'marketplace')
+
         try:
             cur = conn.cursor()
 
-            # A. Agency owner: insert/upsert agency_billing row
-            logger.info(
-                f"Step 7a: use_agency_flow={use_agency_flow}, is_website_user={is_website_user}, "
-                f"primary_location_id={primary_location_id}"
-            )
+            # 10a: Agency owner: upsert subscribers + agency_billing
             if use_agency_flow:
-                # Agency owners are FREE — no subscription required.
-                app_type = 'private' if is_private_app else ('website' if is_website_user else 'marketplace')
-
-                # For agency owners with no locationId, use companyId as location_id
-                # so they can log in and use the dashboard
                 agency_location_id = primary_location_id or company_id
 
-                # SUBSCRIBERS FIRST (single source of truth for all operational data)
-                # Store Company token separately when we got a Company-scoped exchange
-                _company_token = enc_access_token if token_user_type_used == 'Company' else None
-                _company_refresh = enc_refresh_token if token_user_type_used == 'Company' else None
-                cur.execute("""
-                    INSERT INTO subscribers (
-                        email, location_id, full_name, role,
-                        subscription_tier, access_token, refresh_token,
-                        token_expires_at, timezone, crm_user_id, crm_email,
-                        oauth_app_type, company_id,
-                        company_access_token, company_refresh_token, company_token_expires_at,
-                        created_at, updated_at
-                    ) VALUES (
-                        %s, %s, %s, %s, %s, %s, %s,
-                        NOW() + interval '%s seconds', %s, %s, %s, %s, %s,
-                        %s, %s, CASE WHEN %s IS NOT NULL THEN NOW() + interval '%s seconds' END,
-                        NOW(), NOW()
-                    )
-                    ON CONFLICT (email) DO UPDATE SET
-                        location_id = COALESCE(EXCLUDED.location_id, subscribers.location_id),
-                        role = 'agency_owner',
-                        access_token = EXCLUDED.access_token,
-                        refresh_token = EXCLUDED.refresh_token,
-                        token_expires_at = EXCLUDED.token_expires_at,
-                        crm_user_id = COALESCE(EXCLUDED.crm_user_id, subscribers.crm_user_id),
-                        crm_email = EXCLUDED.crm_email,
-                        oauth_app_type = EXCLUDED.oauth_app_type,
-                        company_id = COALESCE(EXCLUDED.company_id, subscribers.company_id),
-                        company_access_token = COALESCE(EXCLUDED.company_access_token, subscribers.company_access_token),
-                        company_refresh_token = COALESCE(EXCLUDED.company_refresh_token, subscribers.company_refresh_token),
-                        company_token_expires_at = COALESCE(EXCLUDED.company_token_expires_at, subscribers.company_token_expires_at),
-                        updated_at = NOW()
-                """, (
-                    user_email, agency_location_id, primary_name, 'agency_owner',
-                    plan_tier, enc_access_token, enc_refresh_token,
-                    expires_in, primary_timezone or 'America/Chicago', me_data.get('id'),
-                    crm_email_resolved, app_type,
-                    company_metadata.get('company_id') or company_id,
-                    _company_token, _company_refresh, _company_token, expires_in,
-                ))
-
-                # THIN agency_billing: only agency-specific metadata (FK depends on subscribers.email)
-                cur.execute("""
-                    INSERT INTO agency_billing (
-                        agency_email, company_id, company_name,
-                        company_owner_name, company_owner_email, company_owner_phone,
-                        created_at, updated_at
-                    ) VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())
-                    ON CONFLICT (agency_email) DO UPDATE SET
-                        company_id = COALESCE(EXCLUDED.company_id, agency_billing.company_id),
-                        company_name = COALESCE(EXCLUDED.company_name, agency_billing.company_name),
-                        company_owner_name = COALESCE(EXCLUDED.company_owner_name, agency_billing.company_owner_name),
-                        company_owner_email = COALESCE(EXCLUDED.company_owner_email, agency_billing.company_owner_email),
-                        company_owner_phone = COALESCE(EXCLUDED.company_owner_phone, agency_billing.company_owner_phone),
-                        updated_at = NOW()
-                """, (
-                    user_email,
-                    company_metadata.get('company_id') or company_id,
-                    company_metadata.get('company_name'),
-                    company_metadata.get('company_owner_name'),
-                    company_metadata.get('company_owner_email'),
-                    company_metadata.get('company_owner_phone'),
-                ))
-
-                # Auto-populate white-label branding from GHL company name
-                _wl_company = company_metadata.get('company_name')
-                if _wl_company:
-                    cur.execute("""
-                        UPDATE agency_billing
-                        SET whitelabel_config = COALESCE(whitelabel_config, '{}'::jsonb) || %s::jsonb
-                        WHERE agency_email = %s
-                          AND (whitelabel_config IS NULL OR NOT (whitelabel_config ? 'company_name'))
-                    """, (json.dumps({'company_name': _wl_company}), user_email))
-
-                logger.info(f"Agency owner {user_email}: subscribers (operational) + agency_billing (metadata)")
-
-                # Sub-accounts self-provision via Custom Menu Link iFrame flow.
-                # No background provisioning needed — agents OAuth individually.
-
-            # B. Reconnect/reinstall sync: update OAuth tokens on existing rows.
-            # Look up by location_id (PK) first — this is the definitive match.
-            # Avoids PK collision when email owns a DIFFERENT location.
-            app_type = 'private' if is_private_app else ('website' if is_website_user else 'marketplace')
-            sync_role = 'agency_owner' if use_agency_flow else None
-
-            existing_by_location = None
-            if primary_location_id:
-                cur.execute(
-                    "SELECT location_id, email FROM subscribers WHERE location_id = %s",
-                    (primary_location_id,)
+                _upsert_agency_owner(
+                    cur, user_email, agency_location_id,
+                    user_name or 'Agency Owner',
+                    enc_access_token, enc_refresh_token, expires_in,
+                    (next((s.get('timezone') for s in sub_accounts if s['id'] == agency_location_id), None)),
+                    me_data, crm_email_resolved,
+                    app_type, company_id, company_metadata,
+                    token_user_type_used
                 )
-                existing_by_location = cur.fetchone()
+                logger.info(f"Step 10a: Agency owner upserted: {user_email}")
 
-            if existing_by_location:
-                # Location already has a subscriber row — update tokens + crm_email.
-                # Never overwrite email (login identity) with CRM email.
-                #
-                # CRITICAL: Correct user_email to the subscriber's actual login email.
-                # When a non-logged-in user (marketplace install) connects OAuth, user_email
-                # is set from GHL's /users/ API (the CRM email, e.g. mitchvandusenlife@gmail.com).
-                # But the subscriber's login email may differ (e.g. mitchell_vandusen@hotmail.com).
-                # If we don't correct this, Step 9 calls User.get(crm_email) and may find a
-                # stale temp_* row from Stripe checkout, logging the user into the wrong account.
-                existing_login_email = existing_by_location['email']
-                if existing_login_email and existing_login_email != user_email:
-                    logger.info(
-                        f"Correcting user_email from CRM email {user_email!r} to "
-                        f"subscriber's login email {existing_login_email!r} "
-                        f"(existing subscriber found by location_id={primary_location_id})"
-                    )
-                    user_email = existing_login_email
-
-                _company_token_reconnect = enc_access_token if token_user_type_used == 'Company' else None
-                _company_refresh_reconnect = enc_refresh_token if token_user_type_used == 'Company' else None
-                cur.execute("""
-                    UPDATE subscribers
-                    SET crm_email = %s,
-                        access_token = %s,
-                        refresh_token = %s,
-                        token_expires_at = NOW() + interval '%s seconds',
-                        crm_user_id = COALESCE(%s, crm_user_id),
-                        oauth_app_type = %s,
-                        role = COALESCE(%s, role),
-                        parent_agency_email = COALESCE(%s, parent_agency_email),
-                        company_id = COALESCE(%s, company_id),
-                        company_access_token = COALESCE(%s, company_access_token),
-                        company_refresh_token = COALESCE(%s, company_refresh_token),
-                        company_token_expires_at = CASE WHEN %s IS NOT NULL THEN NOW() + interval '%s seconds' ELSE company_token_expires_at END,
-                        onboarding_status = CASE
-                            WHEN onboarding_status IN ('pending', 'invited') THEN 'claimed'
-                            ELSE onboarding_status
-                        END,
-                        updated_at = NOW()
-                    WHERE location_id = %s
-                """, (
-                    crm_email_resolved, enc_access_token, enc_refresh_token,
-                    expires_in, me_data.get('id'), app_type,
-                    sync_role, user_email if use_agency_flow else None,
-                    company_id,
-                    _company_token_reconnect, _company_refresh_reconnect,
-                    _company_token_reconnect, expires_in,
-                    primary_location_id
-                ))
-                logger.info(
-                    f"Synced OAuth tokens for existing location {primary_location_id} "
-                    f"(login: {user_email}, crm_email: {crm_email_resolved}, app_type={app_type})"
+            # 10b: Check for existing location row (reconnect scenario)
+            # Skip for agency owners — Step 10a already handled their
+            # primary location via INSERT...ON CONFLICT(email). Running
+            # both would double-write the same tokens to the same row.
+            existing_row = None
+            if primary_location_id and not use_agency_flow:
+                sync_role = None
+                corrected_email, existing_row = _update_existing_location(
+                    cur, primary_location_id, crm_email_resolved,
+                    enc_access_token, enc_refresh_token, expires_in,
+                    me_data, app_type, sync_role, user_email,
+                    use_agency_flow, company_id, token_user_type_used
                 )
+                if corrected_email:
+                    user_email = corrected_email
 
-                # Clean up any orphaned temp_* rows that share the CRM email.
-                # These are created by Stripe checkout before OAuth completes. Now that
-                # we've identified the real subscriber, the temp row is no longer needed
-                # and could cause User.get(crm_email) to return the wrong (token-less) account.
-                if crm_email_resolved and crm_email_resolved != user_email:
-                    cur.execute(
-                        "DELETE FROM subscribers WHERE email = %s AND location_id LIKE 'temp_%%'",
-                        (crm_email_resolved,)
-                    )
-                    deleted = cur.rowcount
-                    if deleted:
-                        logger.info(
-                            f"Cleaned up {deleted} orphaned temp account(s) for CRM email "
-                            f"{crm_email_resolved!r} (real subscriber: {user_email!r})"
-                        )
-            else:
-                # Location doesn't exist yet — check if email owns a different location
+            # Also check if email owns a different location (update tokens there too)
+            if not existing_row and primary_location_id and not use_agency_flow:
                 cur.execute(
                     "SELECT location_id FROM subscribers WHERE email = %s",
                     (user_email,)
                 )
                 existing_by_email = cur.fetchone()
-
-                if existing_by_email and primary_location_id:
-                    existing_loc = existing_by_email['location_id']
-                    # Email owns a different location — update tokens + crm_email
-                    # but do NOT change the PK. New location provisioned in Step 7C.
-                    _ct_email = enc_access_token if token_user_type_used == 'Company' else None
-                    _cr_email = enc_refresh_token if token_user_type_used == 'Company' else None
+                if existing_by_email:
+                    _ct = enc_access_token if token_user_type_used == 'Company' else None
+                    _cr = enc_refresh_token if token_user_type_used == 'Company' else None
                     cur.execute("""
                         UPDATE subscribers
                         SET crm_email = %s,
@@ -1348,53 +1375,45 @@ def oauth_callback():
                     """, (
                         crm_email_resolved, enc_access_token, enc_refresh_token,
                         expires_in, me_data.get('id'), app_type,
-                        _ct_email, _cr_email, _ct_email, expires_in,
+                        _ct, _cr, _ct, expires_in,
                         user_email
                     ))
                     logger.info(
-                        f"Updated tokens for {user_email}'s existing location {existing_loc}. "
-                        f"CRM email: {crm_email_resolved}. "
-                        f"New location {primary_location_id} will be provisioned in Step 7C."
+                        f"Updated tokens for {user_email}'s existing location {existing_by_email['location_id']}."
                     )
 
-            # existing_row: controls whether Step 7C skips the primary location.
-            # Only set when the location_id already has a row (already updated above).
-            existing_row = existing_by_location
-
-            # C. Provision subscriber rows
-            # ONE email = ONE subscriber row = ONE location.
-            # Agency owners get their primary location only. Sub-account locations
-            # are NOT provisioned here — each agent creates their own row when
-            # they install or get invited via auto-link (companyId match).
-            locations_to_provision = [s for s in sub_accounts if s['id'] == primary_location_id]
-
-            if existing_row and primary_location_id:
-                locations_to_provision = [s for s in locations_to_provision
+            # 10c: Provision subscriber rows
+            # CRITICAL FIX (BUG 0): Agency owners provision ALL installed
+            # locations, not just their primary. This pre-populates agent
+            # rows with tokens + parent_agency_email so agents don't need
+            # to individually install from the marketplace.
+            # Individual agents get EXACTLY ONE location (their primary).
+            if use_agency_flow:
+                # Agency: provision ALL sub_accounts EXCEPT the owner's
+                # primary (already handled by _upsert_agency_owner in 10a).
+                # Existing agents get token refresh + parent_agency_email;
+                # new agent locations get pre-populated rows.
+                locations_to_provision = [s for s in sub_accounts
                                           if s['id'] != primary_location_id]
+            else:
+                # Individual: only primary location
+                locations_to_provision = [s for s in sub_accounts if s['id'] == primary_location_id]
+                if existing_row and primary_location_id:
+                    locations_to_provision = [s for s in locations_to_provision
+                                              if s['id'] != primary_location_id]
 
-            logger.info(
-                f"Step 7c: Provisioning {len(locations_to_provision)} NEW subscriber rows "
-                f"(agency_flow={use_agency_flow}, fallback={using_location_fallback}, "
-                f"total_ghl_locations={num_subs})"
-            )
-
-            # Auto-link: if this is an individual install with a companyId,
-            # check if an agency with this companyId exists and auto-set parent_agency_email.
+            # Auto-link to agency if individual with matching companyId
             auto_linked_agency_email = None
             if not use_agency_flow and company_id:
-
                 agency_row = get_agency_by_company_id(company_id)
                 if agency_row:
                     auto_linked_agency_email = agency_row.get('agency_email')
                     logger.info(
-                        f"Auto-linking individual {user_email} to agency "
+                        f"Auto-linking {user_email} to agency "
                         f"{auto_linked_agency_email} via companyId={company_id}"
                     )
 
-            # CRITICAL: Individual agents get EXACTLY ONE location.
-            # email is UNIQUE in subscribers — one email = one row = one location.
-            # Agency owners get multiple locations (each sub-account is a separate row
-            # with a different email in agency_billing, not in subscribers).
+            # Individual: enforce single location
             if not use_agency_flow:
                 if len(locations_to_provision) > 1:
                     if primary_location_id:
@@ -1402,187 +1421,66 @@ def oauth_callback():
                         locations_to_provision = match if match else locations_to_provision[:1]
                     else:
                         locations_to_provision = locations_to_provision[:1]
-                    logger.info(f"Individual user — forced to 1 location: {locations_to_provision[0]['id'] if locations_to_provision else 'NONE'}")
-                elif len(locations_to_provision) == 0 and primary_location_id:
-                    # No locations found but we have a primary — synthesize one
+                elif len(locations_to_provision) == 0 and primary_location_id and not existing_row:
                     locations_to_provision = [{'id': primary_location_id, 'name': user_name or 'Primary', 'timezone': None}]
-                    logger.info(f"Individual user — synthesized location: {primary_location_id}")
+
+            logger.info(
+                f"Step 10c: Provisioning {len(locations_to_provision)} subscriber rows "
+                f"(agency_flow={use_agency_flow}, total_sub_accounts={len(sub_accounts)})"
+            )
 
             for sub in locations_to_provision:
-                sub_id = sub['id']
-                sub_name = sub.get('name', 'Unknown Location')
-                sub_timezone = sub.get('timezone')
-
-                is_owner_location = (sub_id == primary_location_id)
-                if use_agency_flow and is_owner_location:
-                    role = 'agency_owner'
-                elif use_agency_flow:
-                    role = 'agency_sub_account_user'
-                else:
-                    role = 'individual'
-                parent_agency_email = user_email if use_agency_flow else auto_linked_agency_email
-
-                # ── CRITICAL: Never overwrite another user's subscriber row ──
-                # Check if this location_id already belongs to a different user.
-                # If so, SKIP — only the location's owner should update their own row.
-                cur.execute(
-                    "SELECT email FROM subscribers WHERE location_id = %s",
-                    (sub_id,)
+                skipped = _provision_new_subscriber(
+                    cur, sub, user_email, crm_email_resolved,
+                    enc_access_token, enc_refresh_token, expires_in,
+                    me_data, app_type, use_agency_flow,
+                    auto_linked_agency_email, company_id,
+                    primary_location_id, token_user_type_used
                 )
-                existing_owner = cur.fetchone()
-                if existing_owner and existing_owner['email'].lower() != user_email.lower():
-                    logger.warning(
-                        f"Location {sub_id} already owned by {existing_owner['email']} — "
-                        f"not overwriting {user_email}'s data."
-                    )
-                    # From a company install with per-location tokens: refresh this
-                    # agent's access/refresh tokens (big value — they don't need to re-install).
-                    _loc_tok_existing = sub.get('_loc_token')
-                    _loc_ref_existing = sub.get('_loc_refresh')
-                    _loc_exp_existing = sub.get('_loc_expires') or expires_in
-                    _agency_email = user_email if use_agency_flow else auto_linked_agency_email
-                    if _loc_tok_existing and use_agency_flow:
-                        cur.execute("""
-                            UPDATE subscribers
-                            SET parent_agency_email = COALESCE(%s, parent_agency_email),
-                                company_id = COALESCE(%s, company_id),
-                                access_token = %s,
-                                refresh_token = %s,
-                                token_expires_at = NOW() + interval '%s seconds',
-                                updated_at = NOW()
-                            WHERE location_id = %s
-                        """, (
-                            _agency_email, company_id,
-                            encrypt_token(_loc_tok_existing),
-                            encrypt_token(_loc_ref_existing) if _loc_ref_existing else None,
-                            _loc_exp_existing,
-                            sub_id,
-                        ))
-                        logger.info(
-                            f"Refreshed tokens for agent location {sub_id} "
-                            f"({existing_owner['email']}) via company install"
-                        )
-                    elif use_agency_flow or auto_linked_agency_email:
-                        cur.execute("""
-                            UPDATE subscribers
-                            SET parent_agency_email = COALESCE(%s, parent_agency_email),
-                                company_id = COALESCE(%s, company_id),
-                                updated_at = NOW()
-                            WHERE location_id = %s
-                        """, (_agency_email, company_id, sub_id))
-                    continue
+                if not skipped:
+                    is_new_install = True
 
-                # Upsert subscriber — try location_id conflict first, fall back to
-                # email conflict if the email already exists with a different location_id.
-                # This handles: re-installs, location switches, and users who were
-                # pre-created by agency auto-linking or Google Sheet sync.
-                #
-                # Per-location tokens (company installs via oauth.write):
-                # Use location-scoped token as the primary token so the subscriber can
-                # make location-level API calls. Store company token separately.
-                _loc_tok_new = sub.get('_loc_token')
-                _loc_ref_new = sub.get('_loc_refresh')
-                _loc_exp_new = sub.get('_loc_expires') or expires_in
-
-                if _loc_tok_new:
-                    # Location-specific token obtained via POST /oauth/locationToken
-                    _eff_access = encrypt_token(_loc_tok_new)
-                    _eff_refresh = encrypt_token(_loc_ref_new) if _loc_ref_new else None
-                    _eff_expires = _loc_exp_new
-                    # Store company token in company_access_token column
-                    _ct_prov = enc_access_token
-                    _cr_prov = enc_refresh_token
-                else:
-                    # Standard location install or company install fallback
-                    _eff_access = enc_access_token
-                    _eff_refresh = enc_refresh_token
-                    _eff_expires = expires_in
-                    _ct_prov = enc_access_token if token_user_type_used == 'Company' else None
-                    _cr_prov = enc_refresh_token if token_user_type_used == 'Company' else None
-
-                _sub_params = (
-                    sub_id, user_email, crm_email_resolved, sub_name, role,
-                    plan_tier, parent_agency_email, company_id,
-                    _eff_access, _eff_refresh,
-                    _eff_expires,
-                    sub_timezone or 'America/Chicago', me_data.get('id'),
-                    'pending', app_type,
-                    _ct_prov, _cr_prov, _ct_prov, _eff_expires,
-                )
-                # Use savepoint so rollback on email conflict doesn't
-                # kill prior work in the same transaction (multi-location flows).
-                cur.execute("SAVEPOINT sub_upsert")
-                try:
-                    cur.execute("""
-                        INSERT INTO subscribers (
-                            location_id, email, crm_email, full_name, role,
-                            subscription_tier, parent_agency_email, company_id,
-                            access_token, refresh_token,
-                            token_expires_at, timezone, crm_user_id,
-                            onboarding_status, oauth_app_type,
-                            company_access_token, company_refresh_token, company_token_expires_at,
-                            created_at, updated_at
-                        ) VALUES (
-                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                            NOW() + interval '%s seconds',
-                            %s, %s, %s, %s,
-                            %s, %s, CASE WHEN %s IS NOT NULL THEN NOW() + interval '%s seconds' END,
-                            NOW(), NOW()
+            # Refresh tokens for agent locations NOT in locations_to_provision
+            # (already-provisioned agents whose location was in sub_accounts
+            # but already handled by _provision_new_subscriber's "owned by
+            # another user" path — this catches any stragglers)
+            if use_agency_flow and sub_accounts:
+                provisioned_ids = {s['id'] for s in locations_to_provision}
+                for sub in sub_accounts:
+                    if sub['id'] not in provisioned_ids and sub['id'] != primary_location_id and sub.get('_loc_token'):
+                        cur.execute(
+                            "SELECT email FROM subscribers WHERE location_id = %s",
+                            (sub['id'],)
                         )
-                        ON CONFLICT (location_id) DO UPDATE SET
-                            crm_email = EXCLUDED.crm_email,
-                            access_token = EXCLUDED.access_token,
-                            refresh_token = EXCLUDED.refresh_token,
-                            token_expires_at = EXCLUDED.token_expires_at,
-                            crm_user_id = COALESCE(EXCLUDED.crm_user_id, subscribers.crm_user_id),
-                            oauth_app_type = EXCLUDED.oauth_app_type,
-                            company_id = COALESCE(EXCLUDED.company_id, subscribers.company_id),
-                            parent_agency_email = COALESCE(EXCLUDED.parent_agency_email, subscribers.parent_agency_email),
-                            company_access_token = COALESCE(EXCLUDED.company_access_token, subscribers.company_access_token),
-                            company_refresh_token = COALESCE(EXCLUDED.company_refresh_token, subscribers.company_refresh_token),
-                            company_token_expires_at = COALESCE(EXCLUDED.company_token_expires_at, subscribers.company_token_expires_at),
-                            updated_at = NOW()
-                    """, _sub_params)
-                    cur.execute("RELEASE SAVEPOINT sub_upsert")
-                except Exception as _upsert_err:
-                    cur.execute("ROLLBACK TO SAVEPOINT sub_upsert")
-                    if 'idx_subscribers_email' in str(_upsert_err) or 'unique' in str(_upsert_err).lower():
-                        logger.warning(
-                            f"Email {user_email} already in subscribers with different location_id. "
-                            f"Updating tokens and location to {sub_id}."
-                        )
-                        cur.execute("""
-                            UPDATE subscribers SET
-                                location_id = %s,
-                                crm_email = %s,
-                                access_token = %s,
-                                refresh_token = %s,
-                                token_expires_at = NOW() + interval '%s seconds',
-                                crm_user_id = COALESCE(%s, crm_user_id),
-                                oauth_app_type = %s,
-                                company_id = COALESCE(%s, company_id),
-                                parent_agency_email = COALESCE(%s, parent_agency_email),
-                                company_access_token = COALESCE(%s, company_access_token),
-                                company_refresh_token = COALESCE(%s, company_refresh_token),
-                                company_token_expires_at = CASE WHEN %s IS NOT NULL THEN NOW() + interval '%s seconds' ELSE company_token_expires_at END,
-                                updated_at = NOW()
-                            WHERE email = %s
-                        """, (
-                            sub_id, crm_email_resolved,
-                            enc_access_token, enc_refresh_token,
-                            expires_in, me_data.get('id'), app_type,
-                            company_id, parent_agency_email,
-                            _ct_prov, _cr_prov, _ct_prov, expires_in,
-                            user_email
-                        ))
-                    else:
-                        raise
+                        agent_row = cur.fetchone()
+                        if agent_row:
+                            _loc_tok = sub['_loc_token']
+                            _loc_ref = sub.get('_loc_refresh')
+                            _loc_exp = sub.get('_loc_expires') or expires_in
+                            cur.execute("""
+                                UPDATE subscribers
+                                SET parent_agency_email = COALESCE(%s, parent_agency_email),
+                                    company_id = COALESCE(%s, company_id),
+                                    access_token = %s,
+                                    refresh_token = %s,
+                                    token_expires_at = NOW() + interval '%s seconds',
+                                    updated_at = NOW()
+                                WHERE location_id = %s
+                            """, (
+                                user_email, company_id,
+                                encrypt_token(_loc_tok),
+                                encrypt_token(_loc_ref) if _loc_ref else None,
+                                _loc_exp, sub['id'],
+                            ))
+                            logger.info(
+                                f"Refreshed tokens for agent {agent_row['email']} "
+                                f"at location {sub['id']} via agency install"
+                            )
 
             conn.commit()
             logger.info(
-                f"Step 7 complete: Onboarded {user_email} (tier={plan_tier}, "
-                f"agency_flow={use_agency_flow}) — provisioned {len(locations_to_provision)} "
-                f"locations out of {num_subs} total in GHL."
+                f"Step 10 complete: Onboarded {user_email} "
+                f"(agency_flow={use_agency_flow}, new_install={is_new_install})"
             )
 
         except Exception as e:
@@ -1594,9 +1492,9 @@ def oauth_callback():
             cur.close()
             return_db_connection(conn)
 
-        # ── Step 8: Post-onboarding (logging, alerts, email) ──────────────────
-
-        # 8a. Log onboarding event to webhook_logs
+        # ══════════════════════════════════════════════════════════════════════
+        # Step 11: Post-onboarding (logging, alerts, install timestamp)
+        # ══════════════════════════════════════════════════════════════════════
         try:
             log_webhook_event(
                 location_id=primary_location_id,
@@ -1605,10 +1503,11 @@ def oauth_callback():
                 summary=f"OAuth onboarding complete for {user_email}",
                 details={
                     "email": user_email,
-                    "tier": plan_tier,
                     "agency_flow": use_agency_flow,
+                    "new_install": is_new_install,
+                    "resolution_method": resolution_method,
                     "locations_provisioned": len(locations_to_provision),
-                    "total_ghl_locations": num_subs,
+                    "total_ghl_locations": len(sub_accounts),
                     "fallback_mode": using_location_fallback,
                     "is_website_user": is_website_user,
                 }
@@ -1616,12 +1515,12 @@ def oauth_callback():
         except Exception as e:
             logger.warning(f"Failed to log onboarding event: {e}")
 
-        # 8a-2. Stamp install_completed_at for reminder scheduling
+        # Stamp install_completed_at
+        _conn = None
         try:
             _conn = get_db_connection_with_retry(2)
             if _conn:
                 _cur = _conn.cursor()
-                # After migration 010, install_completed_at lives only on subscribers
                 _cur.execute(
                     "UPDATE subscribers SET install_completed_at = NOW() "
                     "WHERE LOWER(email) = LOWER(%s) AND install_completed_at IS NULL",
@@ -1629,25 +1528,22 @@ def oauth_callback():
                 )
                 _conn.commit()
                 _cur.close()
-                return_db_connection(_conn)
-                logger.info(f"Install timestamp set for {user_email}")
         except Exception as e:
             logger.warning(f"Failed to set install_completed_at: {e}")
+        finally:
+            if _conn:
+                return_db_connection(_conn)
 
-        # 8a-3. Mark marketplace install as OAuth-complete
+        # Mark marketplace install as OAuth-complete
         try:
             if primary_location_id:
                 mark_install_oauth_complete(location_id=primary_location_id)
             if company_id:
                 mark_install_oauth_complete(company_id=company_id)
-            logger.info(
-                f"Marketplace install marked OAuth-complete: "
-                f"location={primary_location_id}, company={company_id}"
-            )
         except Exception as e:
             logger.debug(f"mark_install_oauth_complete note: {e}")
 
-        # 8b. Persistent alert if location fetch returned 0 results
+        # Persistent alert if location fetch returned 0 results
         if using_location_fallback:
             try:
                 alert_msg = (
@@ -1658,9 +1554,9 @@ def oauth_callback():
                 )
                 if use_agency_flow:
                     alert_msg += (
-                        f"However, your sub-account locations could not be discovered. "
-                        f"Try reconnecting via the Connect tab. "
-                        f"Contact support if this persists."
+                        "However, your sub-account locations could not be discovered. "
+                        "Try reconnecting via the Connect tab. "
+                        "Contact support if this persists."
                     )
                 else:
                     alert_msg += "Try reconnecting via the Connect tab if issues persist."
@@ -1683,51 +1579,58 @@ def oauth_callback():
             except Exception as e:
                 logger.warning(f"Failed to save scope alert: {e}")
 
-        # 8c. Welcome email — agency owners get a different email (no subscription step)
-        try:
-            domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
-            dashboard_link = (
-                f"{domain_url}/agency-dashboard" if use_agency_flow
-                else f"{domain_url}/dashboard"
-            )
-            if use_agency_flow:
-                welcome_html = _build_agency_owner_welcome_email(user_name, dashboard_link, domain_url, recipient_email=user_email)
-            else:
-                welcome_html = _build_welcome_email(user_name, dashboard_link, domain_url, recipient_email=user_email)
-            email_subject = (
-                "Your Agency Dashboard is Ready — InsuranceGrokBot" if use_agency_flow
-                else "Welcome to InsuranceGrokBot — Your AI Assistant is Ready"
-            )
-            email_sent = send_email_via_api(
-                to_email=user_email,
-                subject=email_subject,
-                html_body=welcome_html,
-                text_body=(
-                    f"Welcome to InsuranceGrokBot, {user_name}! "
-                    f"Dashboard: {dashboard_link} | "
-                    f"Support: {domain_url}/support"
+        # ══════════════════════════════════════════════════════════════════════
+        # Step 12: Welcome email (ONLY for new installs, not reconnects)
+        # ══════════════════════════════════════════════════════════════════════
+        # Welcome email: only for NEW installs, never reconnects.
+        # is_new_install is True when _provision_new_subscriber created a row.
+        # For agency flow, existing_row is always None (we skip 10b), so also
+        # check resolution_method to detect reconnects.
+        _is_reconnect = resolution_method in ('reconnect_first', 'reconnect_roles')
+        _send_welcome = (is_new_install or (not existing_row and not _is_reconnect)) and not _is_reconnect
+        if _send_welcome:
+            try:
+                domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+                dashboard_link = (
+                    f"{domain_url}/agency-dashboard" if use_agency_flow
+                    else f"{domain_url}/dashboard"
                 )
-            )
-            if email_sent:
-                logger.info(f"Welcome email sent to {user_email}")
-                log_webhook_event(primary_location_id, "welcome_email", "success",
-                                  f"Welcome email sent to {user_email}")
-            else:
-                logger.warning(f"Welcome email failed for {user_email}")
-                log_webhook_event(primary_location_id, "welcome_email", "error",
-                                  f"Welcome email failed for {user_email}")
-        except Exception as e:
-            logger.warning(f"Welcome email error for {user_email}: {e}")
+                if use_agency_flow:
+                    welcome_html = _build_agency_owner_welcome_email(user_name, dashboard_link, domain_url, recipient_email=user_email)
+                else:
+                    welcome_html = _build_welcome_email(user_name, dashboard_link, domain_url, recipient_email=user_email)
+                email_subject = (
+                    "Your Agency Dashboard is Ready — InsuranceGrokBot" if use_agency_flow
+                    else "Welcome to InsuranceGrokBot — Your AI Assistant is Ready"
+                )
+                email_sent = send_email_via_api(
+                    to_email=user_email,
+                    subject=email_subject,
+                    html_body=welcome_html,
+                    text_body=(
+                        f"Welcome to InsuranceGrokBot, {user_name}! "
+                        f"Dashboard: {dashboard_link} | "
+                        f"Support: {domain_url}/support"
+                    )
+                )
+                if email_sent:
+                    logger.info(f"Welcome email sent to {user_email}")
+                else:
+                    logger.warning(f"Welcome email failed for {user_email}")
+            except Exception as e:
+                logger.warning(f"Welcome email error for {user_email}: {e}")
+        else:
+            logger.info(f"Skipping welcome email for {user_email} — reconnect (method={resolution_method})")
 
-        # ── Step 9: Login and redirect ─────────────────────────────────────────
-        # Session regeneration: clear session data before login to prevent
-        # session fixation attacks (OAuth state/PKCE already consumed above).
+        # ══════════════════════════════════════════════════════════════════════
+        # Step 13: Login and redirect
+        # ══════════════════════════════════════════════════════════════════════
         session.clear()
 
         user = User.get(user_email)
         if user:
             login_user(user)
-            logger.info(f"Step 9 complete: Logged in {user_email}")
+            logger.info(f"Step 13 complete: Logged in {user_email}")
         else:
             logger.error(
                 f"User.get({user_email}) returned None after successful DB commit — login failed"
@@ -1736,19 +1639,19 @@ def oauth_callback():
                 flash("Account created but login failed. Please log in manually.", "warning")
                 return redirect(url_for('auth.login'))
 
-        # Marketplace install → send to dashboard (skip for SSO — handled below)
+        # Marketplace install redirect
         if not is_website_user and not is_ghl_sso:
             logger.info(f"=== MARKETPLACE INSTALL COMPLETE for {user_email} ===")
             try:
                 log_webhook_event(
                     primary_location_id or "unknown", "oauth_complete", "success",
                     f"Marketplace install complete for {user_email} "
-                    f"(tier={plan_tier}, user_type_used={token_user_type_used})"
+                    f"(user_type_used={token_user_type_used})"
                 )
             except Exception:
                 pass
+
             if user:
-                # If user has no password, send them to set one first
                 if not getattr(user, 'password_hash', None):
                     flash("App installed! Set a password so you can log back in anytime.", "success")
                     return redirect(f"/set-password?type={'agency' if use_agency_flow else 'individual'}")
@@ -1760,9 +1663,8 @@ def oauth_callback():
                 flash("App installed! Please log in or create a password to access your dashboard.", "success")
                 return redirect(url_for('auth.login'))
 
-        # ── GHL SSO: auto-login after successful token exchange ──────────────
+        # GHL SSO: auto-login after successful token exchange
         if is_ghl_sso:
-            # Find the user — try email, then location_id, then company_id (agency owners)
             sso_user = User.get(user_email) if user_email else None
 
             if not sso_user:
@@ -1770,13 +1672,11 @@ def oauth_callback():
                 if sso_conn:
                     try:
                         sso_cur = sso_conn.cursor()
-                        # Try by location_id
                         if primary_location_id:
                             sso_cur.execute("SELECT email FROM subscribers WHERE location_id = %s", (primary_location_id,))
                             sso_row = sso_cur.fetchone()
                             if sso_row:
                                 sso_user = User.get(sso_row['email'])
-                        # Try by company_id (agency owners authorize at Company level, no locationId)
                         if not sso_user and company_id:
                             sso_cur.execute("SELECT agency_email FROM agency_billing WHERE company_id = %s LIMIT 1", (company_id,))
                             sso_row = sso_cur.fetchone()
@@ -1804,11 +1704,11 @@ def oauth_callback():
                                 """, (enc_access_token, enc_refresh_token, expires_in, sso_user.email))
                                 ct_conn.commit()
                                 ct_cur.close()
-                                logger.info(f"GHL SSO: Company token saved for {sso_user.email} (company={company_id})")
+                                logger.info(f"GHL SSO: Company token saved for {sso_user.email}")
                             finally:
                                 return_db_connection(ct_conn)
                     except Exception as ct_err:
-                        logger.warning(f"GHL SSO: Failed to save company token (non-fatal): {ct_err}")
+                        logger.warning(f"GHL SSO: Failed to save company token: {ct_err}")
 
                 # Also save the regular Location token if we have a location
                 if primary_location_id and access_token:
@@ -1818,10 +1718,10 @@ def oauth_callback():
                             enc_refresh_token, expires_in
                         )
                     except Exception as tok_err:
-                        logger.warning(f"GHL SSO: Failed to save location token (non-fatal): {tok_err}")
+                        logger.warning(f"GHL SSO: Failed to save location token: {tok_err}")
 
                 login_user(sso_user, remember=True)
-                logger.info(f"=== GHL SSO LOGIN: {sso_user.email} (location={primary_location_id}, company={company_id}) ===")
+                logger.info(f"=== GHL SSO LOGIN: {sso_user.email} (location={primary_location_id}) ===")
                 flash("Signed in with GoHighLevel!", "success")
                 role = (sso_user.role or 'individual').lower()
                 is_admin = sso_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
@@ -1833,13 +1733,13 @@ def oauth_callback():
                 flash("No InsuranceGrokBot account found for this GoHighLevel location. Please register first or install from the GHL Marketplace.", "error")
                 return redirect(url_for('auth.login'))
 
-        # Website user flow → dashboard (same as marketplace)
+        # Website user flow redirect
         app_type_label = 'private' if is_private_app else 'website'
         logger.info(f"=== {app_type_label.upper()} APP OAUTH COMPLETE for {user_email} ===")
         try:
             log_webhook_event(
                 primary_location_id or "unknown", "oauth_complete", "success",
-                f"{app_type_label.capitalize()} app OAuth complete for {user_email} (tier={plan_tier})"
+                f"{app_type_label.capitalize()} app OAuth complete for {user_email}"
             )
         except Exception:
             pass
