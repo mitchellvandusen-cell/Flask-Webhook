@@ -141,11 +141,17 @@ def api_cron_refresh_tokens():
                     cur = conn.cursor()
                     # Find HubSpot subscribers with tokens expiring within buffer
                     threshold = int(_time.time()) + (buffer_minutes * 60)
+                    # token_expires_at may be a Unix timestamp (bigint string) or ISO datetime string.
+                    # Handle both: if it's all digits treat as epoch, otherwise parse as timestamp.
                     cur.execute("""
                         SELECT location_id, crm_config FROM subscribers
                         WHERE crm_type = 'hubspot'
                           AND crm_config IS NOT NULL
-                          AND (crm_config->>'token_expires_at')::bigint < %s
+                          AND CASE
+                              WHEN crm_config->>'token_expires_at' ~ E'^\\d+$'
+                              THEN (crm_config->>'token_expires_at')::bigint
+                              ELSE EXTRACT(EPOCH FROM (crm_config->>'token_expires_at')::timestamptz)::bigint
+                          END < %s
                     """, (threshold,))
                     for row in cur.fetchall():
                         try:

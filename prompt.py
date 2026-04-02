@@ -652,7 +652,8 @@ def build_system_prompt(
             )
 
         # Custom behavior instructions (most powerful — goes last to take priority)
-        custom = bot_settings.get("custom_behavior", "").strip()
+        # Truncate to 2000 chars to prevent runaway prompt size from misconfiguration.
+        custom = bot_settings.get("custom_behavior", "").strip()[:2000]
         if custom:
             settings_parts.append(
                 f"=== AGENT'S CUSTOM INSTRUCTIONS (FOLLOW THESE) ===\n{custom}"

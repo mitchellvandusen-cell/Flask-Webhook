@@ -625,6 +625,17 @@ def get_valid_token(location_id: str, subscriber: dict = None) -> str | None:
 
     logger.error(f"Token refresh failed for {location_id}: all credential sets exhausted, "
                 f"no existing token — circuit breaker engaged for {_TOKEN_FAILURE_TTL}s")
+    # Cap cache size to prevent unbounded growth after mass outages.
+    # Evict oldest entries when over the limit before adding a new one.
+    _MAX_FAILURE_CACHE = 500
+    if len(_TOKEN_FAILURE_CACHE) >= _MAX_FAILURE_CACHE:
+        cutoff = _time.time() - _TOKEN_FAILURE_TTL
+        expired = [k for k, v in _TOKEN_FAILURE_CACHE.items() if v < cutoff]
+        for k in expired:
+            del _TOKEN_FAILURE_CACHE[k]
+        if len(_TOKEN_FAILURE_CACHE) >= _MAX_FAILURE_CACHE:
+            oldest = min(_TOKEN_FAILURE_CACHE, key=_TOKEN_FAILURE_CACHE.get)
+            del _TOKEN_FAILURE_CACHE[oldest]
     _TOKEN_FAILURE_CACHE[location_id] = _time.time()
     return None
 
