@@ -1103,6 +1103,8 @@ def register_spam_protection():
         return jsonify({"error": err}), 400
     if not business_type:
         return jsonify({"error": "Business type is required"}), 400
+    if not website:
+        return jsonify({"error": "Website or social media page URL is required. Enter your business website, Facebook page, or LinkedIn profile. Twilio verifies your business identity against this URL."}), 400
 
     # Step 1: Save business profile to voice_config
     trust_hub = vc.get('trust_hub', {})

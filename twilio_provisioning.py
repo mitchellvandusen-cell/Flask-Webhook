@@ -819,7 +819,7 @@ def register_business_profile(sub_account_sid: str, business_name: str,
                     "business_registration_identifier": reg_identifier,
                     "business_registration_number": ein,
                     "business_regions_of_operation": "USA_AND_CANADA",
-                    "website_url": website if website else "https://none.com",
+                    "website_url": website or "",
                     "social_media_profile_urls": "",
                 },
             )
