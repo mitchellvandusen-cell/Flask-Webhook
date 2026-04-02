@@ -1189,6 +1189,18 @@ def oauth_callback():
         # ══════════════════════════════════════════════════════════════════════
         # Step 7: Determine primary_location_id
         # ══════════════════════════════════════════════════════════════════════
+        # For logged-in users (reauthorize flow), their session location_id is
+        # ground truth. If GHL didn't return a locationId in the URL or token,
+        # use current_user.location_id so we always find their existing row.
+        if current_user.is_authenticated and not url_location_id:
+            _session_loc = getattr(current_user, 'location_id', None)
+            if _session_loc:
+                url_location_id = _session_loc
+                logger.info(
+                    f"Step 7: Using current_user.location_id={_session_loc} "
+                    f"as url_location_id (reauthorize flow)"
+                )
+
         # Use a temporary DB connection for the location check
         _loc_conn = get_db_connection()
         try:
