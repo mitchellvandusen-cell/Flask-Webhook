@@ -369,7 +369,7 @@ def stripe_webhook():
                             if referral_link or affiliate_id:
                                 cur.execute("""
                                     UPDATE subscribers
-                                    SET config = COALESCE(config, '{}'::jsonb) ||
+                                    SET voice_config = COALESCE(voice_config, '{}'::jsonb) ||
                                         jsonb_build_object(
                                             'rewardful_affiliate_id', %s::text,
                                             'rewardful_referral_link', %s::text
@@ -378,6 +378,7 @@ def stripe_webhook():
                                 """, (affiliate_id, referral_link, email))
                                 conn.commit()
                     except Exception as rw_err:
+                        conn.rollback()
                         logger.warning(f"Rewardful auto-affiliate skipped for {email}: {rw_err}")
 
                     # Auto-provision Twilio sub-account (voice activation)
@@ -415,12 +416,12 @@ def stripe_webhook():
 
                     # Send welcome email for website subscribers
                     try:
-                        from send_email_api import send_email
+                        from send_email_api import send_email_via_api
                         YOUR_DOMAIN = os.getenv("YOUR_DOMAIN", "https://app.insurancegrokbot.click")
-                        send_email(
-                            to=email,
+                        send_email_via_api(
+                            to_email=email,
                             subject="Welcome to InsuranceGrokBot — Your Account is Ready",
-                            html=f"""
+                            html_body=f"""
                             <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 560px; margin: 0 auto; padding: 2rem;">
                                 <h2 style="color: #111; margin-bottom: 1rem;">Welcome to InsuranceGrokBot</h2>
                                 <p style="color: #444; line-height: 1.6;">Your {target_tier.replace('_', ' ').title()} subscription is active. Here's what to do next:</p>
