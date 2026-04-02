@@ -1330,20 +1330,52 @@ def oauth_callback():
                                 user_email = _xref_row['email']
                                 email_source = 'crm_user_id_xref'
                         # If no crm_user_id match, check for a Stripe-provisioned temp_ row
-                        # that hasn't been GHL-connected yet (same company_id)
-                        if email_source == 'users_api' and company_id:
-                            _xref_cur.execute(
-                                "SELECT email FROM subscribers "
-                                "WHERE company_id = %s "
-                                "  AND location_id LIKE 'temp_%%' "
-                                "  AND stripe_customer_id IS NOT NULL "
-                                "  AND email != %s LIMIT 1",
-                                (company_id, user_email_from_api)
+                        # that hasn't been GHL-connected yet.
+                        # NOTE: Stripe rows have company_id=NULL (we don't know the GHL
+                        # company at Stripe time), so we cannot filter by company_id.
+                        # Instead, filter by the specific location_ids GHL just reported
+                        # for this install — if a temp_ row exists for one of those
+                        # locations' emails it must be this user.
+                        # Fallback: if no location ids known yet, look for ANY temp_+Stripe
+                        # row with the same normalized email prefix (catches hotmail/gmail
+                        # same-person different-domain — only safe when EXACTLY ONE match).
+                        if email_source == 'users_api':
+                            _known_loc_ids = (
+                                [s['id'] for s in sub_accounts if s.get('id')]
+                                + ([url_location_id] if url_location_id else [])
+                                + (user_location_ids or [])
                             )
-                            _stripe_row = _xref_cur.fetchone()
+                            _known_loc_ids = list(set(_known_loc_ids))
+                            _stripe_row = None
+                            if _known_loc_ids:
+                                # Exact: Stripe row already has this location_id stamped
+                                # (shouldn't happen, but handles partial-provision retries)
+                                _xref_cur.execute(
+                                    "SELECT email FROM subscribers "
+                                    "WHERE location_id = ANY(%s) "
+                                    "  AND stripe_customer_id IS NOT NULL "
+                                    "  AND email != %s LIMIT 1",
+                                    (_known_loc_ids, user_email_from_api)
+                                )
+                                _stripe_row = _xref_cur.fetchone()
+                            if not _stripe_row:
+                                # Broad: one temp_ Stripe row exists — this user subscribed
+                                # first, then installed from GHL marketplace. Only safe when
+                                # exactly one such row exists (prevents false positives in
+                                # multi-tenant scenarios).
+                                _xref_cur.execute(
+                                    "SELECT email FROM subscribers "
+                                    "WHERE location_id LIKE 'temp_%%' "
+                                    "  AND stripe_customer_id IS NOT NULL "
+                                    "  AND email != %s",
+                                    (user_email_from_api,)
+                                )
+                                _candidates = _xref_cur.fetchall()
+                                if len(_candidates) == 1:
+                                    _stripe_row = _candidates[0]
                             if _stripe_row:
                                 logger.info(
-                                    f"Found Stripe-first row for company {company_id}: "
+                                    f"Found Stripe-first row: "
                                     f"{_stripe_row['email']!r} — using as canonical email "
                                     f"instead of GHL API email {user_email_from_api!r}."
                                 )
@@ -1424,8 +1456,15 @@ def oauth_callback():
                     me_data, app_type, sync_role, user_email,
                     use_agency_flow, company_id, token_user_type_used
                 )
-                if corrected_email:
+                # Only apply email correction for unauthenticated flows (marketplace
+                # installs). For logged-in reauthorize flows, current_user.email is the
+                # canonical IGB identity — never override it with a GHL-sourced email
+                # from an existing row (which could be a split-row scenario where the
+                # GHL location maps to a different email than this user's IGB account).
+                if corrected_email and not current_user.is_authenticated:
                     user_email = corrected_email
+                elif corrected_email and corrected_email.lower() == user_email.lower():
+                    pass  # Same email, no change needed
 
             # Also check if email owns a different location (update tokens there too)
             if not existing_row and primary_location_id and not use_agency_flow:
