@@ -476,6 +476,7 @@
                 }
                 if (name === 'discord') _cnLoadDiscordStatus();
                 if (name === 'slack')   _cnLoadSlackStatus();
+                if (name === 'training' && typeof loadTrainingStatus === 'function') loadTrainingStatus();
             }
 
             function _cnLoadDiscordStatus() {

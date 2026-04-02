@@ -10,6 +10,9 @@
     var _dailyChart = null;
     var _hourlyChart = null;
 
+    // Track current period so agencyLoadStats uses the same period as the KPI view
+    var _currentStatsPeriod = 'month';
+
     // ── Members ──────────────────────────────────────────────────────────────
     window.agencyLoadMembers = function() {
         var tbody = document.getElementById('agencyMembersBody');
@@ -144,7 +147,7 @@
         var el = document.getElementById('agencyDetailContent_' + locId);
         if (!el) return;
         el.innerHTML = '<div class="agency-detail-loading"><i class="fa-solid fa-spinner fa-spin"></i></div>';
-        fetch('/api/agency/agent-stats?period=month')
+        fetch('/api/agency/agent-stats?period=' + encodeURIComponent(_currentStatsPeriod))
             .then(function(r) { return r.json(); })
             .then(function(d) {
                 var agents = d.agents || [];
@@ -185,6 +188,7 @@
     // ── KPIs (enhanced dashboard stats) ─────────────────────────────────────
     window.agencyLoadKpis = function(period, btn) {
         period = period || 'today';
+        _currentStatsPeriod = period;
 
         if (btn) {
             var btns = document.querySelectorAll('.agency-period-btn');

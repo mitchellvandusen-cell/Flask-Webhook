@@ -229,7 +229,6 @@
                 if (typeof loadNumberIntegrity === 'function') loadNumberIntegrity();
                 if (typeof loadNumberHealth === 'function') loadNumberHealth();
             }
-            if (name === 'training') loadTrainingStatus();
         }
 
         function copyToClipboard(text) {
