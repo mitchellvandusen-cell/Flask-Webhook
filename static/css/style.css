@@ -47,6 +47,9 @@
 @import url('dashboard/phone/apps/insights.css');
 @import url('dashboard/phone/apps/stats.css');
 
+/* ── Contact Import Modal ── */
+@import url('dashboard/import-contacts.css');
+
 /* ── Agency Dashboard ── */
 @import url('agency-dashboard/agency.css');
 

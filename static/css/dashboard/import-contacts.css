@@ -1,0 +1,648 @@
+/* ══════════════════════════════════════════════════════════════════
+   Contact Import Modal — ci-* design system
+   Sharp, solid, authoritative. No glassmorphism. Dark + light theme.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── Modal Overlay ── */
+.ci-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.72);
+    z-index: 9500;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+.ci-modal.ci-modal-open {
+    display: flex;
+}
+
+/* ── Modal Shell ── */
+.ci-modal-content {
+    background: #0a0a0a;
+    border: 1px solid #1e1e1e;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 680px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6);
+}
+
+/* ── Header ── */
+.ci-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px 18px;
+    border-bottom: 1px solid #1a1a1a;
+    flex-shrink: 0;
+}
+.ci-header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.ci-header-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: rgba(0, 255, 136, 0.1);
+    border: 1px solid rgba(0, 255, 136, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #00ff88;
+    font-size: 1.15rem;
+    flex-shrink: 0;
+}
+.ci-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.01em;
+}
+.ci-subtitle {
+    margin: 2px 0 0;
+    font-size: 0.78rem;
+    color: #666;
+}
+.ci-close-btn {
+    background: none;
+    border: none;
+    color: #444;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    transition: color 0.15s, background 0.15s;
+    line-height: 1;
+}
+.ci-close-btn:hover { color: #fff; background: rgba(255,255,255,0.06); }
+
+/* ── Step Progress Bar ── */
+.ci-steps-bar {
+    display: flex;
+    align-items: center;
+    padding: 16px 24px 14px;
+    border-bottom: 1px solid #141414;
+    flex-shrink: 0;
+    gap: 0;
+}
+.ci-step-dot {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #444;
+    white-space: nowrap;
+    transition: color 0.2s;
+    cursor: default;
+}
+.ci-step-dot span {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.68rem;
+    font-weight: 700;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+.ci-step-dot.ci-step-active {
+    color: #00ff88;
+}
+.ci-step-dot.ci-step-active span {
+    background: rgba(0, 255, 136, 0.15);
+    border-color: #00ff88;
+    color: #00ff88;
+}
+.ci-step-dot.ci-step-done {
+    color: #888;
+}
+.ci-step-dot.ci-step-done span {
+    background: rgba(0, 255, 136, 0.08);
+    border-color: rgba(0, 255, 136, 0.3);
+    color: #00ff88;
+}
+.ci-step-line {
+    flex: 1;
+    height: 1px;
+    background: #1e1e1e;
+    margin: 0 8px;
+    min-width: 16px;
+}
+
+/* ── Step Content ── */
+.ci-step-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    min-height: 0;
+}
+.ci-hidden { display: none !important; }
+.ci-step-visible { display: block; }
+
+/* ── Drop Zone (Step 1) ── */
+.ci-drop-zone {
+    border: 2px dashed #222;
+    border-radius: 12px;
+    padding: 40px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    background: #060606;
+    position: relative;
+}
+.ci-drop-zone:hover,
+.ci-drop-zone.ci-drag-over {
+    border-color: rgba(0, 255, 136, 0.4);
+    background: rgba(0, 255, 136, 0.03);
+}
+.ci-drop-icon {
+    font-size: 2.2rem;
+    color: #333;
+    margin-bottom: 14px;
+    transition: color 0.2s;
+}
+.ci-drop-zone:hover .ci-drop-icon,
+.ci-drop-zone.ci-drag-over .ci-drop-icon {
+    color: #00ff88;
+}
+.ci-drop-title {
+    margin: 0 0 4px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #ccc;
+}
+.ci-drop-hint {
+    margin: 0 0 8px;
+    font-size: 0.82rem;
+    color: #555;
+}
+.ci-drop-formats {
+    margin: 0;
+    font-size: 0.72rem;
+    color: #3a3a3a;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+.ci-file-input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+}
+
+/* ── File Info Bar ── */
+.ci-file-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: rgba(0, 255, 136, 0.05);
+    border: 1px solid rgba(0, 255, 136, 0.15);
+    border-radius: 10px;
+    margin-top: 12px;
+    color: #ccc;
+    font-size: 0.85rem;
+}
+.ci-file-info i { color: #00ff88; font-size: 1rem; }
+.ci-file-info span { flex: 1; }
+
+/* ── History Section ── */
+.ci-history-section {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #141414;
+}
+.ci-history-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid #111;
+    font-size: 0.8rem;
+}
+.ci-history-row:last-child { border-bottom: none; }
+.ci-history-status {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.ci-history-status.done { background: rgba(0,255,136,0.1); color: #00ff88; }
+.ci-history-status.queued,
+.ci-history-status.importing { background: rgba(255,200,0,0.1); color: #ffc800; }
+.ci-history-status.error { background: rgba(255,80,80,0.1); color: #ff5050; }
+.ci-history-name { flex: 1; color: #aaa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ci-history-count { color: #555; font-size: 0.75rem; white-space: nowrap; }
+
+/* ── Mapping Table (Step 2) ── */
+.ci-map-hint {
+    font-size: 0.82rem;
+    color: #666;
+    margin: 0 0 16px;
+}
+.ci-mapping-table-wrap {
+    overflow-x: auto;
+    border: 1px solid #1a1a1a;
+    border-radius: 10px;
+}
+.ci-mapping-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}
+.ci-mapping-table thead th {
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: #080808;
+    border-bottom: 1px solid #1a1a1a;
+}
+.ci-mapping-table tbody tr {
+    border-bottom: 1px solid #111;
+}
+.ci-mapping-table tbody tr:last-child { border-bottom: none; }
+.ci-mapping-table tbody tr:hover { background: rgba(255,255,255,0.015); }
+.ci-mapping-table td {
+    padding: 10px 14px;
+    vertical-align: middle;
+}
+.ci-col-name {
+    font-weight: 600;
+    color: #ccc;
+}
+.ci-col-sample {
+    color: #555;
+    font-size: 0.78rem;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ci-map-select {
+    width: 100%;
+    padding: 6px 10px;
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 6px;
+    color: #ccc;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    min-width: 160px;
+}
+.ci-map-select:focus { outline: none; border-color: rgba(0,255,136,0.4); }
+.ci-map-select option { background: #111; color: #ccc; }
+
+/* ── Options (Step 3) ── */
+.ci-option-group {
+    margin-bottom: 22px;
+}
+.ci-option-label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+}
+.ci-option-hint {
+    font-size: 0.8rem;
+    color: #555;
+    margin: 0 0 10px;
+}
+.ci-optional { color: #444; font-weight: 400; text-transform: none; letter-spacing: 0; }
+.ci-radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.ci-radio {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: #bbb;
+    padding: 10px 14px;
+    border: 1px solid #1a1a1a;
+    border-radius: 8px;
+    transition: border-color 0.15s, background 0.15s;
+}
+.ci-radio:hover { border-color: #2a2a2a; background: rgba(255,255,255,0.02); }
+.ci-radio input { accent-color: #00ff88; }
+.ci-input {
+    width: 100%;
+    padding: 9px 12px;
+    background: #0d0d0d;
+    border: 1px solid #1e1e1e;
+    border-radius: 8px;
+    color: #ccc;
+    font-size: 0.85rem;
+    transition: border-color 0.15s;
+    box-sizing: border-box;
+}
+.ci-input:focus { outline: none; border-color: rgba(0,255,136,0.35); }
+.ci-input::placeholder { color: #3a3a3a; }
+
+/* ── Preview Table (Step 3) ── */
+.ci-preview-section { margin-top: 20px; }
+.ci-preview-table-wrap {
+    overflow-x: auto;
+    border: 1px solid #1a1a1a;
+    border-radius: 10px;
+    max-height: 180px;
+    overflow-y: auto;
+}
+.ci-preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+}
+.ci-preview-table th {
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #444;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: #080808;
+    border-bottom: 1px solid #1a1a1a;
+    white-space: nowrap;
+}
+.ci-preview-table td {
+    padding: 8px 12px;
+    color: #888;
+    border-bottom: 1px solid #0e0e0e;
+    white-space: nowrap;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ci-preview-table tr:last-child td { border-bottom: none; }
+
+/* ── Progress (Step 4) ── */
+.ci-progress-section {
+    text-align: center;
+    padding: 16px 0;
+}
+.ci-progress-icon {
+    font-size: 2.2rem;
+    color: #00ff88;
+    margin-bottom: 14px;
+}
+.ci-progress-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #ddd;
+    margin: 0 0 20px;
+}
+.ci-progress-bar-wrap {
+    height: 6px;
+    background: #151515;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+.ci-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #00ff88, #00cc6a);
+    border-radius: 3px;
+    width: 0%;
+    transition: width 0.4s ease;
+}
+.ci-progress-stats {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+.ci-stat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    color: #666;
+}
+.ci-stat i { color: #444; font-size: 0.78rem; }
+.ci-stat-fail i { color: #ff5050; }
+.ci-stat-fail { color: #ff5050; }
+
+/* ── Results (Step 5) ── */
+.ci-results-card {
+    text-align: center;
+    padding: 8px 0;
+}
+.ci-results-icon {
+    font-size: 2.8rem;
+    color: #00ff88;
+    margin-bottom: 12px;
+}
+.ci-results-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0 0 24px;
+}
+.ci-results-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.ci-result-item {
+    padding: 16px 12px;
+    border-radius: 10px;
+    border: 1px solid #1a1a1a;
+    background: #0a0a0a;
+}
+.ci-result-num {
+    display: block;
+    font-size: 1.6rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+.ci-result-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #555;
+}
+.ci-result-success .ci-result-num { color: #00ff88; }
+.ci-result-info .ci-result-num { color: #4af; }
+.ci-result-muted .ci-result-num { color: #888; }
+.ci-result-fail .ci-result-num { color: #ff5050; }
+
+/* ── Error Log ── */
+.ci-errors-section { margin-top: 12px; }
+.ci-errors-list {
+    max-height: 150px;
+    overflow-y: auto;
+    margin-top: 8px;
+    border: 1px solid #1a1a1a;
+    border-radius: 8px;
+    background: #060606;
+}
+.ci-error-row {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    color: #ff5050;
+    border-bottom: 1px solid #111;
+}
+.ci-error-row:last-child { border-bottom: none; }
+
+/* ── Footer ── */
+.ci-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 24px;
+    border-top: 1px solid #141414;
+    flex-shrink: 0;
+}
+.ci-btn {
+    padding: 9px 22px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+}
+.ci-btn-primary {
+    background: #00ff88;
+    color: #000;
+}
+.ci-btn-primary:hover {
+    background: #00e67a;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0, 255, 136, 0.25);
+}
+.ci-btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+.ci-btn-secondary {
+    background: #111;
+    border: 1px solid #222;
+    color: #aaa;
+}
+.ci-btn-secondary:hover {
+    background: #181818;
+    border-color: #333;
+    color: #ddd;
+}
+.ci-btn-text {
+    background: none;
+    border: none;
+    color: #555;
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 4px 0;
+    transition: color 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.ci-btn-text:hover { color: #00ff88; }
+
+/* ── Light Theme ── */
+body.light-theme .ci-modal { background: rgba(0, 0, 0, 0.4); }
+body.light-theme .ci-modal-content {
+    background: #ffffff;
+    border-color: #e8e8e8;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.15);
+}
+body.light-theme .ci-modal-header { border-bottom-color: #eee; }
+body.light-theme .ci-title { color: #111; }
+body.light-theme .ci-subtitle { color: #999; }
+body.light-theme .ci-close-btn { color: #bbb; }
+body.light-theme .ci-close-btn:hover { color: #333; background: rgba(0,0,0,0.05); }
+body.light-theme .ci-header-icon {
+    background: rgba(5, 150, 105, 0.08);
+    border-color: rgba(5, 150, 105, 0.2);
+    color: #059669;
+}
+body.light-theme .ci-steps-bar { border-bottom-color: #eee; }
+body.light-theme .ci-step-dot { color: #bbb; }
+body.light-theme .ci-step-dot span { background: #f0f0f0; border-color: #ddd; color: #999; }
+body.light-theme .ci-step-dot.ci-step-active { color: #059669; }
+body.light-theme .ci-step-dot.ci-step-active span { background: rgba(5,150,105,0.1); border-color: #059669; color: #059669; }
+body.light-theme .ci-step-dot.ci-step-done span { background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.25); color: #059669; }
+body.light-theme .ci-step-line { background: #eee; }
+body.light-theme .ci-drop-zone { background: #fafafa; border-color: #ddd; }
+body.light-theme .ci-drop-zone:hover { border-color: rgba(5,150,105,0.4); background: rgba(5,150,105,0.02); }
+body.light-theme .ci-drop-icon { color: #ccc; }
+body.light-theme .ci-drop-zone:hover .ci-drop-icon { color: #059669; }
+body.light-theme .ci-drop-title { color: #333; }
+body.light-theme .ci-drop-hint { color: #999; }
+body.light-theme .ci-drop-formats { color: #ccc; }
+body.light-theme .ci-file-info { background: rgba(5,150,105,0.05); border-color: rgba(5,150,105,0.15); color: #444; }
+body.light-theme .ci-file-info i { color: #059669; }
+body.light-theme .ci-history-section { border-top-color: #eee; }
+body.light-theme .ci-history-row { border-bottom-color: #f0f0f0; }
+body.light-theme .ci-history-name { color: #666; }
+body.light-theme .ci-history-count { color: #aaa; }
+body.light-theme .ci-map-hint { color: #888; }
+body.light-theme .ci-mapping-table-wrap { border-color: #eee; }
+body.light-theme .ci-mapping-table thead th { background: #f8f8f8; color: #aaa; border-bottom-color: #eee; }
+body.light-theme .ci-mapping-table tbody tr { border-bottom-color: #f0f0f0; }
+body.light-theme .ci-mapping-table tbody tr:hover { background: rgba(0,0,0,0.015); }
+body.light-theme .ci-col-name { color: #333; }
+body.light-theme .ci-col-sample { color: #999; }
+body.light-theme .ci-map-select { background: #fff; border-color: #ddd; color: #333; }
+body.light-theme .ci-map-select option { background: #fff; color: #333; }
+body.light-theme .ci-option-label { color: #666; }
+body.light-theme .ci-option-hint { color: #999; }
+body.light-theme .ci-radio { color: #444; border-color: #eee; }
+body.light-theme .ci-radio:hover { border-color: #ddd; background: rgba(0,0,0,0.02); }
+body.light-theme .ci-input { background: #fff; border-color: #e0e0e0; color: #333; }
+body.light-theme .ci-input:focus { border-color: rgba(5,150,105,0.35); }
+body.light-theme .ci-input::placeholder { color: #ccc; }
+body.light-theme .ci-preview-table-wrap { border-color: #eee; }
+body.light-theme .ci-preview-table th { background: #f8f8f8; color: #bbb; border-bottom-color: #eee; }
+body.light-theme .ci-preview-table td { color: #888; border-bottom-color: #f5f5f5; }
+body.light-theme .ci-progress-title { color: #222; }
+body.light-theme .ci-progress-bar-wrap { background: #eee; }
+body.light-theme .ci-progress-icon { color: #059669; }
+body.light-theme .ci-progress-bar { background: linear-gradient(90deg, #059669, #047857); }
+body.light-theme .ci-results-title { color: #111; }
+body.light-theme .ci-results-icon { color: #059669; }
+body.light-theme .ci-result-item { background: #fff; border-color: #eee; }
+body.light-theme .ci-result-success .ci-result-num { color: #059669; }
+body.light-theme .ci-errors-list { background: #fff; border-color: #eee; }
+body.light-theme .ci-error-row { border-bottom-color: #f5f5f5; }
+body.light-theme .ci-modal-footer { border-top-color: #eee; }
+body.light-theme .ci-btn-primary { background: #059669; color: #fff; }
+body.light-theme .ci-btn-primary:hover { background: #047857; box-shadow: 0 4px 16px rgba(5,150,105,0.2); }
+body.light-theme .ci-btn-secondary { background: #f5f5f5; border-color: #e0e0e0; color: #666; }
+body.light-theme .ci-btn-secondary:hover { background: #eee; color: #333; }
+body.light-theme .ci-btn-text { color: #bbb; }
+body.light-theme .ci-btn-text:hover { color: #059669; }

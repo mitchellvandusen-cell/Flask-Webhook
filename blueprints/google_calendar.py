@@ -596,7 +596,8 @@ def meet_team():
 
     emails = []
     try:
-        cur = conn.cursor()
+        from psycopg2.extras import RealDictCursor
+        cur = conn.cursor(cursor_factory=RealDictCursor)
         if member_ids and isinstance(member_ids, list):
             cur.execute(
                 "SELECT email FROM location_users WHERE location_id = %s AND id = ANY(%s) AND is_active = true",
@@ -617,8 +618,8 @@ def meet_team():
     if current_user.email and current_user.email not in emails:
         emails.append(current_user.email)
 
-    if len(emails) < 2:
-        return flask_jsonify({"error": "No team members found. Invite team members first."}), 400
+    if len(emails) < 1:
+        return flask_jsonify({"error": "No email address found. Please complete your profile."}), 400
 
     tz_str = getattr(current_user, 'timezone', None) or "America/Chicago"
     now = datetime.now(timezone.utc)

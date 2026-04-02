@@ -715,7 +715,8 @@ def export_contacts():
     if not conn:
         return jsonify({"error": "Database error"}), 500
     try:
-        cur = conn.cursor()
+        from psycopg2.extras import RealDictCursor
+        cur = conn.cursor(cursor_factory=RealDictCursor)
         # Resolve location_id + seat user filtering
         _assigned_to = None
         if getattr(current_user, 'is_seat_user', False) and getattr(current_user, 'seat_user_id', None):
