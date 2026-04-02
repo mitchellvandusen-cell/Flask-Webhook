@@ -218,9 +218,15 @@ def oauth_callback():
             session.pop("ghl_pkce_verifier", None)  # Clean up legacy session key
             logger.info(f"OAuth state validated (flow_type={flow_type})")
         elif raw_state in ("website_user", "private_app"):
-            # Legacy static state (from sessions started before this update)
+            # Legacy static state (from sessions started before the nonce system).
+            # These strings are hardcoded and public so we require the user to be
+            # already authenticated — prevents CSRF via forged legacy state values.
+            if not current_user.is_authenticated:
+                logger.warning(f"OAuth callback: Legacy static state ({raw_state}) rejected — user not authenticated")
+                flash("Session expired. Please log in and try connecting again.", "error")
+                return redirect(url_for('auth.login'))
             flow_type = raw_state
-            logger.info(f"OAuth callback: Legacy static state ({raw_state})")
+            logger.info(f"OAuth callback: Legacy static state ({raw_state}) — authenticated user")
         else:
             # state=None — marketplace install
             logger.info("OAuth callback: Marketplace installation flow (no state)")
@@ -356,7 +362,9 @@ def oauth_callback():
         primary_location_id = token_data.get('locationId')
         company_id = token_data.get('companyId')
         refresh_token = token_data.get('refresh_token')
-        expires_in = token_data.get('expires_in', 86400)
+        # GHL can return expires_in: null (not absent) — .get() default only fires when
+        # key is absent, not when value is None. Coerce to int to prevent malformed SQL.
+        expires_in = int(token_data.get('expires_in') or 86400)
 
         # CRITICAL FIX: GHL sometimes returns locationId=None in the token
         # response even for Location-scoped installs. Fall back to the

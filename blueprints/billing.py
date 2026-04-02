@@ -325,7 +325,10 @@ def stripe_webhook():
                         VALUES (%s, %s, %s, %s, %s, 'active', %s, %s, %s)
                         ON CONFLICT (email) DO UPDATE SET
                             stripe_customer_id = EXCLUDED.stripe_customer_id,
-                            role = EXCLUDED.role,
+                            role = CASE
+                                WHEN subscribers.role = 'agency_owner' THEN subscribers.role
+                                ELSE EXCLUDED.role
+                            END,
                             subscription_tier = EXCLUDED.subscription_tier,
                             stripe_status = 'active';
                     """, (temp_id, email, customer_id, target_role, target_tier,

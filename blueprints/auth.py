@@ -166,8 +166,11 @@ def login():
                 session['_2fa_remember'] = form.remember.data
                 return redirect(url_for('auth.verify_2fa'))
             else:
-                # 2FA send failed — let them in with a warning
-                logger.warning(f"2FA send failed for {email}, allowing login: {result.get('error')}")
+                # 2FA send failed — block login. Silently passing through would
+                # bypass 2FA entirely, defeating the purpose of enabling it.
+                logger.warning(f"2FA send failed for {email}: {result.get('error')}")
+                flash("We couldn't send your verification code. Please try again or contact support.", "error")
+                return render_template("login.html", form=form)
 
         login_user(user, remember=form.remember.data)
 

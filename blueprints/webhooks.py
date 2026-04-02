@@ -196,6 +196,7 @@ def webhook():
     # Drop webhooks for cancelled subscribers before touching Redis/RQ
     if not is_demo and location_id:
         conn = None
+        cur = None
         try:
             conn = get_db_connection()
             if conn:
@@ -208,10 +209,16 @@ def webhook():
                 if row and row['stripe_status'] == 'canceled':
                     logger.info(f"[CANCELLED] Webhook dropped at receiver — "
                                 f"loc={location_id} contact={contact_id}")
+                    cur.close()
                     return safe_jsonify({"status": "ignored"}), 200
         except Exception as e:
             logger.warning(f"Stripe status check failed (non-fatal): {e}")
         finally:
+            if cur:
+                try:
+                    cur.close()
+                except Exception:
+                    pass
             if conn:
                 return_db_connection(conn)
 
@@ -321,11 +328,15 @@ def app_installed_webhook():
         try:
             for admin_email in ADMIN_EMAILS[:1]:
                 save_persistent_alert(
-                    admin_email, location_id or "marketplace",
-                    "new_install", "info",
-                    "New Marketplace Install",
-                    f"New app install: {user_name or 'Unknown'} ({user_email or 'no email'}) "
-                    f"— Company: {company_id or 'N/A'}, Location: {location_id or 'N/A'}"
+                    email=admin_email,
+                    alert_type="new_install",
+                    title="New Marketplace Install",
+                    message=(
+                        f"New app install: {user_name or 'Unknown'} ({user_email or 'no email'}) "
+                        f"— Company: {company_id or 'N/A'}, Location: {location_id or 'N/A'}"
+                    ),
+                    severity="info",
+                    location_id=location_id or "marketplace",
                 )
         except Exception:
             pass
@@ -418,11 +429,15 @@ def _handle_uninstall(payload: dict):
     try:
         for ae in ADMIN_EMAILS[:1]:
             save_persistent_alert(
-                ae, location_id or "marketplace",
-                "app_uninstalled", "warning",
-                "App Uninstalled",
-                f"Uninstall: {user_name or 'Unknown'} ({user_email or 'no email'}) "
-                f"— Location: {location_id or 'N/A'}"
+                email=ae,
+                alert_type="app_uninstalled",
+                title="App Uninstalled",
+                message=(
+                    f"Uninstall: {user_name or 'Unknown'} ({user_email or 'no email'}) "
+                    f"— Location: {location_id or 'N/A'}"
+                ),
+                severity="warning",
+                location_id=location_id or "marketplace",
             )
     except Exception:
         pass

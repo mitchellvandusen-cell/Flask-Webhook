@@ -924,7 +924,8 @@ def run_incremental_sync_all():
         return {"error": "no_db", "synced": 0}
 
     try:
-        cur = conn.cursor()
+        from psycopg2.extras import RealDictCursor
+        cur = conn.cursor(cursor_factory=RealDictCursor)
         cur.execute("""
             SELECT location_id, access_token, refresh_token, token_expires_at
             FROM subscribers
