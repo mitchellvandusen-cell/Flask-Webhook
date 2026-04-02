@@ -85,6 +85,7 @@
             {% include "dashboard/tabs/dialer.html" %}
             {% include "dashboard/tabs/aiminutes.html" %}
             {% include "dashboard/tabs/billing.html" %}
+            {% include "dashboard/tabs/domain.html" %}
             {% include "dashboard/tabs/profile.html" %}
             {% if not current_user.is_seat_user %}
             {% include "dashboard/tabs/team.html" %}
@@ -325,6 +326,7 @@
     <script src="{{ url_for('static', filename='js/dashboard/team.js') }}?v={{ _sv }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard/contacts_import.js') }}?v={{ _sv }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard/workflows.js') }}?v={{ _sv }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard/domain.js') }}?v={{ _sv }}"></script>
     <!-- White-label: loads for ALL users so accent/font overrides apply to sub-users too -->
     <script src="{{ url_for('static', filename='js/dashboard/whitelabel.js') }}?v={{ _sv }}"></script>
     <script>if (window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.whitelabel) { wlApplyOverrides(window.DASHBOARD_BOOT.whitelabel); }</script>

@@ -1495,6 +1495,228 @@
             gap: 5px;
         }
 
+        /* ── Domain Tab ────────────────────────────────────────────────────── */
+        .dc-domain-tab { padding: 1.5rem 0; }
+        .domain-loading { padding: 2rem 0; }
+        .domain-shimmer {
+            height: 18px; background: linear-gradient(90deg, #1a1a1a 25%, #252525 50%, #1a1a1a 75%);
+            background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; margin-bottom: 0.75rem;
+        }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        .domain-status-card {
+            background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 10px; padding: 1.5rem; margin-bottom: 1.5rem;
+        }
+        .domain-status-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
+        .domain-status-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+        .domain-status-live { background: rgba(0,255,136,0.1); color: var(--accent, #00ff88); }
+        .domain-active-name { font-size: 1.15rem; font-weight: 600; color: #fff; margin: 0; }
+        .domain-active-label { font-size: 0.8rem; color: #777; margin: 0.15rem 0 0; }
+
+        .domain-links-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.25rem; }
+        .domain-link-pill {
+            display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.85rem;
+            background: #111; border: 1px solid #222; border-radius: 6px; color: #aaa;
+            font-size: 0.78rem; text-decoration: none; transition: border-color 0.15s, color 0.15s;
+        }
+        .domain-link-pill:hover { border-color: rgba(0,255,136,0.3); color: var(--accent, #00ff88); }
+
+        .domain-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem 1.5rem; }
+        .domain-detail { display: flex; flex-direction: column; gap: 0.15rem; }
+        .domain-detail-label { font-size: 0.7rem; color: #555; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; }
+        .domain-detail-value { font-size: 0.88rem; color: #ccc; font-weight: 500; }
+        .domain-badge-live {
+            display: inline-block; padding: 0.15rem 0.55rem; background: rgba(0,255,136,0.1);
+            color: var(--accent, #00ff88); font-size: 0.72rem; font-weight: 600; border-radius: 3px;
+        }
+        .domain-badge-error {
+            display: inline-block; padding: 0.15rem 0.55rem; background: rgba(255,60,60,0.1);
+            color: #ff4444; font-size: 0.72rem; font-weight: 600; border-radius: 3px;
+        }
+
+        .domain-section-title {
+            font-size: 0.9rem; font-weight: 600; color: #eee; margin-bottom: 1rem;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .domain-section-title i { color: var(--accent, #00ff88); font-size: 0.8rem; }
+
+        .domain-edit-section { background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 10px; padding: 1.5rem; }
+        .domain-edit-form { max-width: 560px; }
+        .domain-form-group { margin-bottom: 1.1rem; }
+        .domain-form-group label { display: block; font-size: 0.78rem; font-weight: 500; color: #aaa; margin-bottom: 0.3rem; }
+        .domain-form-group input, .domain-form-group textarea {
+            width: 100%; padding: 0.6rem 0.75rem; background: #111; border: 1px solid #222;
+            border-radius: 6px; color: #eee; font-size: 0.88rem; font-family: inherit;
+            transition: border-color 0.15s;
+        }
+        .domain-form-group input:focus, .domain-form-group textarea:focus {
+            outline: none; border-color: var(--accent, #00ff88);
+            box-shadow: 0 0 0 2px rgba(0,255,136,0.08);
+        }
+        .domain-form-group input::placeholder, .domain-form-group textarea::placeholder { color: #444; }
+        .domain-form-hint { display: block; font-size: 0.7rem; color: #555; margin-top: 0.25rem; }
+        .domain-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .domain-req { color: var(--accent, #00ff88); }
+        .domain-optional { color: #555; font-weight: 400; font-size: 0.72rem; }
+
+        .domain-save-btn, .domain-search-btn, .domain-purchase-btn {
+            padding: 0.65rem 1.4rem; background: var(--accent, #00ff88); color: #000;
+            border: none; border-radius: 6px; font-weight: 600; font-size: 0.85rem;
+            font-family: inherit; cursor: pointer; transition: opacity 0.15s;
+            display: inline-flex; align-items: center; gap: 0.4rem;
+        }
+        .domain-save-btn:hover, .domain-search-btn:hover, .domain-purchase-btn:hover { opacity: 0.85; }
+        .domain-save-btn:disabled, .domain-search-btn:disabled, .domain-purchase-btn:disabled {
+            opacity: 0.4; cursor: not-allowed;
+        }
+
+        .domain-email-preview {
+            display: flex; align-items: center; gap: 0; background: #111; border: 1px solid #222; border-radius: 6px; overflow: hidden;
+        }
+        .domain-email-preview input {
+            border: none; border-radius: 0; background: transparent; padding: 0.6rem 0.75rem;
+            text-align: right; min-width: 0;
+        }
+        .domain-email-preview input:focus { box-shadow: none; }
+        .domain-email-at { color: #555; font-size: 0.88rem; padding: 0 0.15rem; flex-shrink: 0; }
+        .domain-email-domain { color: #777; font-size: 0.85rem; padding-right: 0.75rem; white-space: nowrap; }
+
+        /* Promo */
+        .domain-promo {
+            background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 10px;
+            padding: 2rem; margin-bottom: 1.5rem; position: relative;
+        }
+        .domain-promo-badge {
+            position: absolute; top: -8px; left: 20px; background: var(--accent, #00ff88); color: #000;
+            font-size: 0.65rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 3px;
+            letter-spacing: 0.08em;
+        }
+        .domain-promo-title { font-size: 1.4rem; font-weight: 700; color: #fff; margin: 0 0 0.5rem; }
+        .domain-promo-desc { font-size: 0.88rem; color: #888; margin-bottom: 1.5rem; line-height: 1.5; max-width: 540px; }
+        .domain-promo-features { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+        .domain-feature {
+            display: flex; gap: 0.75rem; align-items: flex-start; padding: 0.75rem;
+            background: #111; border: 1px solid #1a1a1a; border-radius: 8px;
+        }
+        .domain-feature i { color: var(--accent, #00ff88); font-size: 1rem; margin-top: 0.15rem; flex-shrink: 0; }
+        .domain-feature strong { display: block; font-size: 0.82rem; color: #ddd; margin-bottom: 0.15rem; }
+        .domain-feature span { font-size: 0.73rem; color: #666; line-height: 1.4; }
+        .domain-promo-price { display: flex; align-items: baseline; gap: 0.2rem; }
+        .domain-price-amount { font-size: 2rem; font-weight: 700; color: #fff; }
+        .domain-price-period { font-size: 0.9rem; color: #666; }
+
+        /* Search */
+        .domain-search-section {
+            background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 10px; padding: 1.5rem; margin-bottom: 1.5rem;
+        }
+        .domain-search-row { display: flex; gap: 0.75rem; align-items: flex-end; }
+
+        /* Results */
+        .domain-results-list { margin-top: 1rem; }
+        .domain-result-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0.75rem 1rem; border: 1px solid #1a1a1a; border-radius: 8px;
+            margin-bottom: 0.5rem; transition: border-color 0.15s;
+        }
+        .domain-result-row:hover { border-color: #333; }
+        .domain-result-selected { border-color: var(--accent, #00ff88) !important; background: rgba(0,255,136,0.03); }
+        .domain-result-taken { opacity: 0.4; }
+        .domain-result-name { display: flex; align-items: center; gap: 0.6rem; }
+        .domain-result-name span { font-size: 0.92rem; color: #ddd; font-weight: 500; }
+        .domain-avail-icon { color: var(--accent, #00ff88); font-size: 0.85rem; }
+        .domain-taken-icon { color: #555; font-size: 0.85rem; }
+        .domain-result-right { display: flex; align-items: center; gap: 0.75rem; }
+        .domain-result-price { font-size: 0.78rem; color: #777; }
+        .domain-result-taken-label { font-size: 0.78rem; color: #555; }
+        .domain-select-btn {
+            padding: 0.35rem 0.9rem; background: transparent; border: 1px solid var(--accent, #00ff88);
+            color: var(--accent, #00ff88); border-radius: 5px; font-size: 0.78rem; font-weight: 600;
+            cursor: pointer; transition: all 0.15s; font-family: inherit;
+        }
+        .domain-select-btn:hover { background: rgba(0,255,136,0.08); }
+        .domain-select-btn-active { background: var(--accent, #00ff88); color: #000; }
+        .domain-no-results { color: #666; font-size: 0.88rem; padding: 0.5rem 0; }
+
+        /* Details form */
+        .domain-details-sub { font-size: 0.82rem; color: #777; margin-bottom: 1.25rem; }
+        #domainDetailsForm {
+            background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 10px; padding: 1.5rem; margin-top: 1.5rem;
+        }
+        .domain-disclaimer-box { margin: 1.25rem 0; }
+        .domain-disclaimer-label {
+            display: flex; gap: 0.6rem; align-items: flex-start; cursor: pointer;
+        }
+        .domain-disclaimer-label input[type="checkbox"] {
+            margin-top: 0.2rem; flex-shrink: 0; accent-color: var(--accent, #00ff88);
+        }
+        .domain-disclaimer-label span { font-size: 0.7rem; color: #666; line-height: 1.55; }
+        .domain-purchase-btn { width: 100%; justify-content: center; padding: 0.8rem; font-size: 0.95rem; margin-top: 0.5rem; }
+
+        /* Provisioning */
+        .domain-provisioning-card {
+            background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 10px; padding: 1.5rem;
+        }
+        .domain-provisioning-card h3 { font-size: 1.05rem; color: #fff; margin: 0 0 1.25rem; display: flex; align-items: center; gap: 0.6rem; }
+        .domain-prov-steps { display: flex; flex-direction: column; gap: 0.6rem; }
+        .domain-prov-step {
+            display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0.75rem;
+            background: #111; border-radius: 6px;
+        }
+        .domain-prov-icon {
+            width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center;
+            justify-content: center; font-size: 0.75rem; flex-shrink: 0;
+        }
+        .domain-prov-pending { background: #1a1a1a; color: #444; }
+        .domain-prov-active { background: rgba(0,255,136,0.1); color: var(--accent, #00ff88); }
+        .domain-prov-done { background: rgba(0,255,136,0.12); color: var(--accent, #00ff88); }
+        .domain-prov-error { background: rgba(255,60,60,0.1); color: #ff4444; }
+        .domain-prov-label { flex: 1; font-size: 0.82rem; color: #bbb; }
+        .domain-prov-status { font-size: 0.72rem; font-weight: 500; }
+        .domain-prov-waiting { color: #444; }
+        .domain-prov-running { color: var(--accent, #00ff88); }
+        .domain-prov-complete { color: var(--accent, #00ff88); }
+        .domain-prov-failed { color: #ff4444; }
+        .domain-prov-error-msg {
+            margin-top: 1rem; padding: 0.75rem 1rem; background: rgba(255,60,60,0.06);
+            border: 1px solid rgba(255,60,60,0.15); border-radius: 6px;
+            font-size: 0.82rem; color: #ff6666; display: flex; align-items: center; gap: 0.5rem;
+        }
+
+        /* Light theme */
+        body.light-theme .domain-status-card,
+        body.light-theme .domain-edit-section,
+        body.light-theme .domain-promo,
+        body.light-theme .domain-search-section,
+        body.light-theme #domainDetailsForm,
+        body.light-theme .domain-provisioning-card { background: #fff; border-color: #e0e0e0; }
+        body.light-theme .domain-form-group input,
+        body.light-theme .domain-form-group textarea { background: #f8f8f8; border-color: #ddd; color: #222; }
+        body.light-theme .domain-form-group input::placeholder,
+        body.light-theme .domain-form-group textarea::placeholder { color: #aaa; }
+        body.light-theme .domain-form-group label { color: #555; }
+        body.light-theme .domain-active-name { color: #111; }
+        body.light-theme .domain-detail-value { color: #333; }
+        body.light-theme .domain-link-pill { background: #f4f4f4; border-color: #ddd; color: #555; }
+        body.light-theme .domain-promo-title { color: #111; }
+        body.light-theme .domain-promo-desc { color: #666; }
+        body.light-theme .domain-feature { background: #f8f8f8; border-color: #eee; }
+        body.light-theme .domain-feature strong { color: #222; }
+        body.light-theme .domain-price-amount { color: #111; }
+        body.light-theme .domain-result-row { border-color: #e0e0e0; }
+        body.light-theme .domain-result-name span { color: #222; }
+        body.light-theme .domain-prov-step { background: #f8f8f8; }
+        body.light-theme .domain-prov-label { color: #444; }
+        body.light-theme .domain-email-preview { background: #f8f8f8; border-color: #ddd; }
+        body.light-theme .domain-disclaimer-label span { color: #888; }
+        body.light-theme .domain-shimmer { background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%); background-size: 200% 100%; }
+
+        @media (max-width: 640px) {
+            .domain-promo-features { grid-template-columns: 1fr; }
+            .domain-form-row { grid-template-columns: 1fr; }
+            .domain-search-row { flex-direction: column; }
+            .domain-detail-grid { grid-template-columns: 1fr; }
+        }
+
         /* ── Toast ─────────────────────────────────────────────────────────── */
         .dc-toast {
             position: absolute;

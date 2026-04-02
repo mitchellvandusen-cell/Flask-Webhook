@@ -1,0 +1,13 @@
+name = "omnisconn-agent-pages"
+main = "src/worker.js"
+compatibility_date = "2024-12-01"
+
+[vars]
+API_BASE_URL = "https://app.insurancegrokbot.click"
+
+[[kv_namespaces]]
+binding = "AGENT_CONFIG"
+id = "aa72913187f742b39b1c7b1a7a92fcec"
+
+[env.production]
+vars = { API_BASE_URL = "https://app.insurancegrokbot.click" }

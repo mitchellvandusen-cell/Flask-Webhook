@@ -66,6 +66,7 @@
                     {% if is_agency %}
                     <div class="l2-item" onclick="activateL2(this); sidebarNavigate('whitelabel', null);">White Label</div>
                     {% endif %}
+                    <div class="l2-item" onclick="activateL2(this); sidebarNavigate('domain', null); if(typeof domainTabInit==='function') domainTabInit();">Domain & Website</div>
                     {% if not current_user.is_seat_user or current_user.has_permission('can_view_billing') %}
                     <div class="l2-item" onclick="activateL2(this); sidebarNavigate('billing', null);">Billing</div>
                     {% endif %}
