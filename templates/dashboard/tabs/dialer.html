@@ -551,7 +551,11 @@
                     .dlr-col-body::-webkit-scrollbar-thumb{background:rgba(0,217,255,0.15);border-radius:4px;transition:background 0.2s;}
                     .dlr-col-body::-webkit-scrollbar-thumb:hover{background:rgba(0,217,255,0.3);}
                     .dlr-col-body{scrollbar-width:thin;scrollbar-color:rgba(0,217,255,0.15) transparent;}
-                    /* Lead Intelligence column scrollbar */
+                    /* Contact Information column scrollbar */
+                    .dlr-col-hide-btn{background:none;border:none;color:#555;cursor:pointer;padding:2px 6px;border-radius:4px;font-size:0.8rem;transition:color .15s;flex-shrink:0;line-height:1;}
+                    .dlr-col-hide-btn:hover{color:var(--accent);}
+                    body.light-theme .dlr-col-hide-btn{color:#aaa;}
+                    body.light-theme .dlr-col-hide-btn:hover{color:var(--lt-accent,#059669);}
                     #dlrDetailContent::-webkit-scrollbar{width:4px;}
                     #dlrDetailContent::-webkit-scrollbar-track{background:transparent;}
                     #dlrDetailContent::-webkit-scrollbar-thumb{background:rgba(91,127,255,0.15);border-radius:4px;}
@@ -1552,6 +1556,7 @@
                     <!-- ── MIDDLE: Contact Information ── -->
                     <div class="dlr-col dlr-col-intel-hidden" id="dlrColIntel" style="width:35%;border-radius:12px;">
                         <div class="dlr-col-hdr">
+                            <button class="dlr-col-hide-btn" id="dlrHideIntelBtn" onclick="dlrToggleIntelCol()" title="Hide panel"><i class="fa-solid fa-chevron-left"></i></button>
                             <h6><i class="fa-solid fa-address-card me-1"></i>Contact Information</h6>
                             <div id="dlrDetailActions" style="display:none;">
                             </div>
@@ -2644,7 +2649,7 @@
                             <i class="fa-solid fa-file-import dlr-text-cyan" style="width:16px;"></i>
                             <span>Import from CSV / Excel</span>
                         </button>
-                        <button onclick="dlrExportOpen();dlrCloseContactMgmt();" class="dlr-btn-ghost-6" style="width:100%;text-align:left;border-radius:8px;padding:10px 14px;font-size:0.88rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px;">
+                        <button onclick="dlrExportOpen();" class="dlr-btn-ghost-6" style="width:100%;text-align:left;border-radius:8px;padding:10px 14px;font-size:0.88rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px;">
                             <i class="fa-solid fa-file-export dlr-text-cyan" style="width:16px;"></i>
                             <span>Export to CSV</span>
                         </button>

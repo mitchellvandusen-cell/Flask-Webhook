@@ -1787,9 +1787,9 @@
             dialerActiveContact = c;
             _dialerCallHistoryShowAll = false;
             _dialerRecordingsShowAll = false;
-            // Show middle intel column when a contact is selected
+            // Show middle intel column when a contact is selected (unless user manually hid it)
             const intelCol = document.getElementById('dlrColIntel');
-            if (intelCol) {
+            if (intelCol && localStorage.getItem('dlr_intel_col_hidden') !== '1') {
                 intelCol.classList.remove('dlr-col-intel-hidden');
                 intelCol.classList.add('dlr-col-intel-visible');
             }
@@ -8587,6 +8587,29 @@
             if (modal) modal.style.display = 'none';
         }
         window.dlrExportClose = dlrExportClose;
+
+        // ── Toggle Contact Information middle column ──
+        function dlrToggleIntelCol() {
+            const col = document.getElementById('dlrColIntel');
+            if (!col) return;
+            const isVisible = col.classList.contains('dlr-col-intel-visible');
+            const btn = document.getElementById('dlrHideIntelBtn');
+            const icon = btn ? btn.querySelector('i') : null;
+            if (isVisible) {
+                col.classList.remove('dlr-col-intel-visible');
+                col.classList.add('dlr-col-intel-hidden');
+                localStorage.setItem('dlr_intel_col_hidden', '1');
+                if (icon) icon.className = 'fa-solid fa-chevron-right';
+                if (btn) btn.title = 'Show panel';
+            } else {
+                col.classList.add('dlr-col-intel-visible');
+                col.classList.remove('dlr-col-intel-hidden');
+                localStorage.removeItem('dlr_intel_col_hidden');
+                if (icon) icon.className = 'fa-solid fa-chevron-left';
+                if (btn) btn.title = 'Hide panel';
+            }
+        }
+        window.dlrToggleIntelCol = dlrToggleIntelCol;
 
         async function _dlrExportLoadTags() {
             const container = document.getElementById('dlrExportTags');
