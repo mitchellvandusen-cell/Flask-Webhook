@@ -37,7 +37,7 @@ In the dashboard (Spam Protection tab or new "Web Presence" tab), agent sees:
 │   john@smithlifeinsurance.com                   │
 │                                                 │
 │  ☐ I represent that this business name/DBA is   │
-│    legally registered to me. InsuranceGrokBot    │
+│    legally registered to me. Omnisconn    │
 │    is not responsible for verifying business     │
 │    registration, DBA filings, or compliance     │
 │    with state/federal requirements. Domain       │
@@ -148,7 +148,7 @@ For non-Twilio emails, the Email Worker just forwards to the agent's personal em
 
 ## Landing Page Design
 
-Simple, professional, mobile-responsive. One page. No navigation. Sharp, bold, solid (matches InsuranceGrokBot design language but white-labeled to agent).
+Simple, professional, mobile-responsive. One page. No navigation. Sharp, bold, solid (matches Omnisconn design language but white-labeled to agent).
 
 ### Content
 
@@ -159,7 +159,7 @@ Simple, professional, mobile-responsive. One page. No navigation. Sharp, bold, s
 - Business name / DBA
 - Contact form (name, email, phone, message)
 - Brief "About" paragraph (auto-generated or agent-provided)
-- Footer: "Powered by InsuranceGrokBot" (small, subtle) + disclaimer
+- Footer: "Powered by Omnisconn" (small, subtle) + disclaimer
 
 ### Contact Form
 
@@ -170,18 +170,18 @@ Form fields:
 - Last Name (required)
 - Phone Number (required)
 - Email (optional)
-- "I'd like to learn about life insurance coverage" (pre-checked consent checkbox)
+- SMS consent checkbox (**unchecked by default** — TCPA requirement) with full A2P disclosure
+- Honeypot field (hidden, catches bots)
 - Submit button
 
-On submit: creates contact in agent's GHL/HubSpot, triggers Speed to Lead workflow if enabled.
+On submit: creates contact in agent's GHL/HubSpot via existing CRM integration, triggers Speed to Lead workflow if enabled. If no CRM connected, stores lead in `contact_cache` table with `source='web_form'` for later sync.
 
 ### Styling
 
-- Dark mode by default (matches IGB brand)
-- Agent's white-label accent color if set, otherwise `#00ff88`
-- Font: Outfit (matches IGB)
-- Solid backgrounds, no glass, sharp edges
-- Mobile-first responsive
+- **Light mode by default** — insurance leads expect professional, clean, trustworthy pages
+- Agent's white-label accent color if set, otherwise Omnisconn green
+- Font: Outfit
+- Solid backgrounds, sharp edges, mobile-first responsive
 
 ---
 
@@ -340,7 +340,7 @@ On payment failure → email warning, suspend after 30 days.
 
 ### Disclaimer (Required before purchase)
 
-"I represent that the business name/DBA entered is legally registered to me or my business entity. InsuranceGrokBot provides domain registration and web hosting services as-is and assumes no responsibility for verifying business registrations, DBA filings, or compliance with state or federal regulations. I am solely responsible for ensuring all business information is accurate, truthful, and legally compliant. Domain registration is subject to ICANN policies and the Cloudflare Registrar terms of service."
+"I represent that the business name/DBA entered is legally registered to me or my business entity. Omnisconn provides domain registration and web hosting services as-is and assumes no responsibility for verifying business registrations, DBA filings, or compliance with state or federal regulations. I am solely responsible for ensuring all business information is accurate, truthful, and legally compliant. Domain registration is subject to ICANN policies and the Cloudflare Registrar terms of service."
 
 ### Data Handling
 
@@ -394,7 +394,7 @@ On payment failure → email warning, suspend after 30 days.
 
 1. **.com only** — simplest, cheapest ($9.15/yr), most professional
 2. **30-day grace period** on cancellation before domain release
-3. **OmniSconn branding** — "Powered by OmniSconn" footer, not InsuranceGrokBot
+3. **Omnisconn branding** — "Powered by Omnisconn" footer, not Omnisconn
 4. **Full A2P 10DLC compliance** — landing page includes Privacy Policy + Terms of Service pages with all carrier-required SMS disclosures
 
 ---
@@ -472,7 +472,7 @@ On form submission, store in DB:
 This satisfies TCPA written consent requirements and provides evidence for carrier audits.
 
 ### A2P Campaign Registration Alignment
-When the agent registers their A2P campaign via InsuranceGrokBot:
+When the agent registers their A2P campaign via Omnisconn:
 - Campaign `message_flow` description references the website opt-in form
 - Campaign `sample_messages` match the use cases described on the website
 - Campaign `opt_in_type` = "WEB_FORM"
@@ -502,7 +502,7 @@ When the agent registers their A2P campaign via InsuranceGrokBot:
 Before domain purchase, agent must accept:
 
 "I represent that the business name/DBA entered is legally registered to me or my
-business entity. OmniSconn provides domain registration, web hosting, and email
+business entity. Omnisconn provides domain registration, web hosting, and email
 services as-is and assumes no responsibility for verifying business registrations,
 DBA filings, or compliance with state or federal regulations. I am solely responsible
 for ensuring all business information is accurate, truthful, and legally compliant.
@@ -510,3 +510,131 @@ The auto-generated privacy policy and terms of service are provided as templates
 do not constitute legal advice. I am responsible for reviewing and ensuring these
 documents meet my specific legal requirements. Domain registration is subject to
 ICANN policies and the Cloudflare Registrar terms of service."
+
+---
+
+## Domain Name Generation Logic
+
+When agent enters their DBA name, generate domain suggestions:
+
+1. Strip "LLC", "Inc", "Corp", "Insurance Agency", "Insurance Services" suffixes
+2. Lowercase, remove special characters, collapse spaces
+3. Generate variations:
+   - `{name}insurance.com` (e.g., `smithlifeinsurance.com`)
+   - `{name}ins.com` (e.g., `smithlifeins.com`)
+   - `{name}.com` (e.g., `smithlife.com`)
+   - `{firstname}{lastname}insurance.com` (e.g., `johnsmithinsurance.com`)
+   - `{name}agency.com` (e.g., `smithlifeagency.com`)
+4. Check availability for each via Cloudflare Registrar API
+5. Show available options with price, hide taken ones
+
+### Email Prefix
+
+Agent chooses their email prefix during setup. Options:
+- Their first name (default, e.g., `john@smithlifeinsurance.com`)
+- `info@`
+- `contact@`
+- Custom prefix (validated: lowercase, alphanumeric, dots, hyphens)
+
+---
+
+## Provisioning Status & Error Handling
+
+Domain registration and DNS are NOT instant. The provisioning flow is async:
+
+### Status States
+```
+payment_confirmed → registering_domain → configuring_dns →
+verifying_email → publishing_page → active
+```
+
+Each step can fail independently. On failure:
+- Save partial progress to DB
+- Show agent which step failed with clear error
+- Retry button for failed step
+- Refund via Stripe if domain registration itself fails
+
+### DNS Propagation
+- Cloudflare-managed domains propagate in seconds (not hours) because Cloudflare IS the authoritative nameserver
+- Mailgun DKIM verification: poll every 30 seconds for up to 5 minutes
+- If DKIM doesn't verify in 5 minutes: mark as `email_pending`, page still goes live, email verification retries in background via cron
+
+### Error Scenarios
+
+| Failure | Handling |
+|---------|----------|
+| Domain taken (race condition after search) | Refund, show error, suggest alternatives |
+| Cloudflare API down | Queue for retry, notify agent |
+| Mailgun DNS verification slow | Page goes live, email retries in background |
+| Stripe payment fails after provisioning | 30-day grace, then suspend page |
+| Agent cancels within 24 hours | Full refund, release domain |
+
+---
+
+## Cancellation & Grace Period
+
+### When agent cancels ($10/mo subscription):
+1. **Immediately:** Landing page shows "This business is no longer active" (not a dead 404)
+2. **30-day grace period:** Domain stays registered, agent can reactivate by resubscribing
+3. **After 30 days:** Domain auto-renew disabled, released at end of registration year
+4. **Email forwarding:** Disabled immediately on cancellation (no forwarding of leads to non-paying agent)
+
+### When payment fails:
+1. **Day 0:** Stripe retries automatically (3 attempts over 7 days)
+2. **Day 7:** Email warning to agent
+3. **Day 14:** Landing page shows maintenance notice
+4. **Day 30:** Full suspension — same as cancellation
+
+---
+
+## Contact Form Anti-Spam
+
+### Honeypot field
+```html
+<div style="position:absolute;left:-9999px;top:-9999px;">
+  <input type="text" name="website_url" tabindex="-1" autocomplete="off">
+</div>
+```
+If `website_url` field has a value → bot. Silently reject.
+
+### Rate limiting
+- 5 submissions per IP per hour
+- 20 submissions per domain per hour
+- Redis-based sliding window (existing pattern from API rate limiter)
+
+### No reCAPTCHA needed for MVP
+Honeypot + rate limiting catches 99% of bots. reCAPTCHA adds friction for real leads. Add later only if spam becomes a problem.
+
+---
+
+## Infrastructure: Cloudflare Worker + Email Worker
+
+### Deployment
+Both Workers are deployed separately from the Flask app. They run on Cloudflare's edge.
+
+**Landing Page Worker** (`omnisconn-pages`):
+- Deployed via Wrangler CLI or Cloudflare Dashboard
+- Single Worker serves ALL agent domains (reads Host header → KV lookup → render)
+- Template is baked into the Worker code (HTML string with `{{placeholder}}` substitution)
+- Privacy Policy and Terms pages are separate routes (`/privacy`, `/terms`)
+- Contact form POST goes to our Flask API (CORS allowed from all agent domains)
+
+**Email Worker** (`omnisconn-email`):
+- Deployed via Wrangler CLI
+- Receives all inbound email for all agent domains
+- If sender is `*@twilio.com` → call our Flask API to trigger Mailgun reply
+- Otherwise → forward to agent's personal email via Email Routing destination
+
+### One-Time Setup
+1. Create Cloudflare account (or use existing)
+2. Generate API token with: Zone:Edit, DNS:Edit, Email Routing:Edit, Workers:Edit, Registrar:Edit
+3. Store token as env var: `CLOUDFLARE_API_TOKEN`
+4. Store account ID as env var: `CLOUDFLARE_ACCOUNT_ID`
+5. Deploy both Workers via `wrangler deploy`
+6. Create Workers KV namespace for agent configs
+
+---
+
+## IGB "Also known as Omnisconn" references
+
+All references in the spec use Omnisconn branding. The Flask codebase is still InsuranceGrokBot internally — the rebrand is customer-facing only for now. The landing pages, footer, and agent-facing UI say "Omnisconn." Backend code, repo name, and CLAUDE.md stay as-is until full rebrand.
