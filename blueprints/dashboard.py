@@ -145,7 +145,8 @@ def dashboard():
         return redirect(url_for("agency.agency_dashboard"))
 
     is_admin         = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
-    needs_subscription = not current_user.stripe_customer_id and not is_admin
+    _stripe_inactive = getattr(current_user, 'stripe_status', '') in ('canceled', 'unpaid', 'incomplete_expired')
+    needs_subscription = (not current_user.stripe_customer_id or _stripe_inactive) and not is_admin
 
     if needs_subscription:
         return render_template('dashboard.html',

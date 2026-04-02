@@ -410,6 +410,30 @@ def stripe_webhook():
                         except Exception as voice_err:
                             logger.warning(f"Voice auto-provision failed for {email} (non-fatal): {voice_err}")
 
+                    # Send welcome email for website subscribers
+                    try:
+                        from send_email_api import send_email
+                        YOUR_DOMAIN = os.getenv("YOUR_DOMAIN", "https://app.insurancegrokbot.click")
+                        send_email(
+                            to=email,
+                            subject="Welcome to InsuranceGrokBot — Your Account is Ready",
+                            html=f"""
+                            <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 560px; margin: 0 auto; padding: 2rem;">
+                                <h2 style="color: #111; margin-bottom: 1rem;">Welcome to InsuranceGrokBot</h2>
+                                <p style="color: #444; line-height: 1.6;">Your {target_tier.replace('_', ' ').title()} subscription is active. Here's what to do next:</p>
+                                <ol style="color: #444; line-height: 1.8;">
+                                    <li><strong>Set your password</strong> — <a href="{YOUR_DOMAIN}/login" style="color: #1a6b4a;">Log in here</a></li>
+                                    <li><strong>Connect your CRM</strong> — Link GoHighLevel or HubSpot</li>
+                                    <li><strong>Configure your bot</strong> — Set your name, carriers, and tone</li>
+                                </ol>
+                                <p style="color: #444; line-height: 1.6;">Questions? Reply to this email or visit <a href="{YOUR_DOMAIN}/support" style="color: #1a6b4a;">support</a>.</p>
+                            </div>
+                            """,
+                        )
+                        logger.info(f"Welcome email sent to {email}")
+                    except Exception as mail_err:
+                        logger.warning(f"Welcome email failed for {email} (non-fatal): {mail_err}")
+
                     # Legacy Google Sheets redundant backup (non-critical)
                     try:
                         import extensions as _ext
@@ -1173,6 +1197,14 @@ def success():
         flash("Could not verify payment. Please contact support.", "error")
         return redirect("/")
 
+    # Read tier from Stripe session metadata (set during checkout creation)
+    target_tier = 'individual'
+    target_role = 'individual'
+    if session_id and checkout_session:
+        meta = getattr(checkout_session, 'metadata', {}) or {}
+        target_tier = meta.get('target_tier', 'individual')
+        target_role = meta.get('target_role', 'individual')
+
     # Ensure user record exists — handles race condition with Stripe webhook delivery.
     conn = get_db_connection()
     if conn:
@@ -1192,7 +1224,7 @@ def success():
                     subscription_tier = COALESCE(subscribers.subscription_tier,
                                                   EXCLUDED.subscription_tier),
                     updated_at = NOW()
-            """, (temp_id, email, customer_id, 'individual', 'individual',
+            """, (temp_id, email, customer_id, target_role, target_tier,
                   '', 'Grok', 'America/Chicago'))
             conn.commit()
             logger.info(f"Success page: ensured user record exists for {email}")
