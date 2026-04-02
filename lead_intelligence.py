@@ -6,6 +6,7 @@
 
 import json
 import logging
+import re
 from datetime import datetime
 from db import get_db_connection, return_db_connection
 
@@ -418,7 +419,12 @@ def _rules_score_contact(ctx):
     # --- Text analysis on last 5 inbound messages ---
     recent_text = " " + " ".join(m.get("text", "").lower() for m in inbound[-5:]) + " "
 
-    has_stop = any(k in recent_text for k in _STOP_WORDS)
+    # Use word-boundary matching for stop words to avoid false positives like
+    # "nonstop", "I can't stop thinking", etc. matching bare "stop".
+    def _word_match(keyword: str, text: str) -> bool:
+        return bool(re.search(r'\b' + re.escape(keyword) + r'\b', text))
+
+    has_stop = any(_word_match(k, recent_text) for k in _STOP_WORDS)
     has_buying = any(k in recent_text for k in _BUYING_WORDS)
     has_objection = any(k in recent_text for k in _OBJECTION_WORDS)
     has_dnc_tag = any(t in ("dnc", "do not call", "do not contact", "unsubscribed", "opted out") for t in tags)

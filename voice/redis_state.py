@@ -67,15 +67,50 @@ def get_active_call(call_sid: str) -> dict | None:
     return json.loads(raw) if raw else None
 
 
+_LUA_UPDATE_CALL = """
+local key = KEYS[1]
+local ttl = tonumber(ARGV[1])
+local raw = redis.call('GET', key)
+if not raw then return nil end
+local data = cjson.decode(raw)
+for i = 2, #ARGV, 2 do
+    data[ARGV[i]] = cjson.decode(ARGV[i + 1])
+end
+redis.call('SET', key, cjson.encode(data), 'EX', ttl)
+return 1
+"""
+_lua_update_call_script = None
+
+
+def _get_lua_update_call():
+    global _lua_update_call_script
+    if _lua_update_call_script is None:
+        _lua_update_call_script = _get_redis().register_script(_LUA_UPDATE_CALL)
+    return _lua_update_call_script
+
+
 def update_active_call(call_sid: str, **fields) -> None:
-    """Update specific fields on an active call. No-op if call doesn't exist."""
-    r = _get_redis()
-    raw = r.get(f"call:{call_sid}")
-    if not raw:
+    """Atomically update specific fields on an active call via Lua script.
+    No-op if call doesn't exist. Thread-safe — eliminates GET+SET race condition
+    when concurrent Twilio status callbacks update the same call record."""
+    if not fields:
         return
-    data = json.loads(raw)
-    data.update(fields)
-    r.set(f"call:{call_sid}", json.dumps(data, default=str), ex=ACTIVE_CALL_TTL)
+    r = _get_redis()
+    # Build ARGV: [ttl, key1, json_val1, key2, json_val2, ...]
+    argv = [str(ACTIVE_CALL_TTL)]
+    for k, v in fields.items():
+        argv.append(k)
+        argv.append(json.dumps(v, default=str))
+    try:
+        _get_lua_update_call()(keys=[f"call:{call_sid}"], args=argv, client=r)
+    except Exception:
+        # Lua not supported (e.g. Redis Cluster shard redirect) — fall back to GET+SET
+        raw = r.get(f"call:{call_sid}")
+        if not raw:
+            return
+        data = json.loads(raw)
+        data.update(fields)
+        r.set(f"call:{call_sid}", json.dumps(data, default=str), ex=ACTIVE_CALL_TTL)
 
 
 def delete_active_call(call_sid: str) -> None:

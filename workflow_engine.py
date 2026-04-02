@@ -671,6 +671,36 @@ def _handle_send_sms(cur, conn, run_id, step, config, location_id, contact_id, c
     sms_send_via = subscriber.get("sms_send_via", "ghl")
     from_strategy = config.get("from_strategy", "default")
 
+    # Resolve "last_used" to the actual Twilio number used on the most recent outbound call.
+    # Without this, last_used falls through to GHL, ignoring the subscriber's channel config.
+    if sms_send_via == "last_used":
+        try:
+            from db import get_db_connection, return_db_connection
+            _lu_conn = get_db_connection()
+            try:
+                _lu_cur = _lu_conn.cursor()
+                _lu_cur.execute("""
+                    SELECT phone FROM call_history
+                    WHERE location_id = %s AND contact_id = %s AND direction LIKE 'outbound%%'
+                    ORDER BY created_at DESC LIMIT 1
+                """, (location_id, contact_id))
+                _lu_row = _lu_cur.fetchone()
+                _lu_cur.close()
+                if _lu_row and (_lu_row[0] if isinstance(_lu_row, tuple) else _lu_row.get("phone")):
+                    _resolved = _lu_row[0] if isinstance(_lu_row, tuple) else _lu_row["phone"]
+                    if _resolved and _resolved.startswith("+"):
+                        sms_send_via = _resolved
+                        logger.info(f"[workflow last_used] Resolved to {_resolved} for contact {contact_id}")
+                    else:
+                        sms_send_via = "ghl"
+                else:
+                    sms_send_via = "ghl"
+            finally:
+                return_db_connection(_lu_conn)
+        except Exception as _lu_err:
+            logger.warning(f"[workflow last_used] DB lookup failed: {_lu_err} — falling back to ghl")
+            sms_send_via = "ghl"
+
     if sms_send_via and sms_send_via.startswith("+"):
         # Send via Twilio (works for all CRM types)
         from_number = sms_send_via

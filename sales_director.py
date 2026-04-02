@@ -157,12 +157,15 @@ def generate_strategic_directive(
 
     # ─── 6. DETERMINE FINAL STAGE ───
     stage_value = logic.stage.value
+    message_lower = message.lower()
 
     # A. Quick Intent Overrides — BUT only if there's no active objection
+    #    Check ONLY the current message (not the narrative) to avoid old conversation
+    #    entries like "they mentioned booking last week" triggering false BOOKING locks.
     #    "not interested" contains "interested", "maybe later" contains "maybe"
     #    Don't accidentally override objection handling with loose keyword matches
     if logic.objection_type == ObjectionType.NONE and logic.message_context == MessageContext.INBOUND_REPLY:
-        if any(word in full_lower for word in [
+        if any(word in message_lower for word in [
             "book", "schedule", "appointment", "hop on", "quick call",
             "works for me", "lets do", "yeah lets",
             "set up", "set something up"

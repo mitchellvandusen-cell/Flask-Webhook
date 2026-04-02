@@ -753,8 +753,7 @@ def api_save_config():
 
         cur.execute("""
             UPDATE subscribers
-            SET location_id      = %s,
-                calendar_id      = %s,
+            SET calendar_id      = %s,
                 calendar_name    = %s,
                 crm_user_id      = %s,
                 bot_first_name   = %s,
@@ -765,7 +764,6 @@ def api_save_config():
                 updated_at       = NOW()
             WHERE email = %s
         """, (
-            data.get('location_id', ''),
             data.get('calendar_id', ''),
             calendar_name,
             data.get('crm_user_id', ''),

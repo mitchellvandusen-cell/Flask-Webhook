@@ -9,7 +9,7 @@ from flask import Blueprint, request, Response
 import twilio_provisioning
 from number_health import select_outbound_number, update_number_health
 from voice.call_state import (
-    set_active_call, get_active_call, update_active_call, call_exists,
+    set_active_call, get_active_call, update_active_call, delete_active_call, call_exists,
     delete_transfer_request,
     _encode_client_state, _build_twiml_stream, _twilio_hangup,
 )
@@ -438,9 +438,11 @@ def transfer_complete():
     dial_status = request.values.get('DialCallStatus', 'unknown')
     logger.info(f"Transfer complete: original_sid={original_sid[:16] if original_sid else 'none'} dial_status={dial_status}")
 
-    # Clean up call state so the dialer UI can move on
+    # Clean up call state so the dialer UI can move on.
+    # Delete the call entirely — keeping it with status='completed' causes it to
+    # linger in Redis for up to 1hr, inflating active-call counts and blocking new dials.
     if original_sid and call_exists(original_sid):
-        update_active_call(original_sid, status='completed')
+        delete_active_call(original_sid)
     delete_transfer_request(original_sid)
 
     return Response(

@@ -77,7 +77,11 @@ CONTAMINATION_MARKERS = [
     "i'm playing the role",
     "as mitch,",
     "as the bot,",
-    # Bot/AI identity reveals — must NEVER reach the customer
+]
+
+# Hard identity reveals — block on a SINGLE match. These must never reach a lead.
+IDENTITY_MARKERS = [
+    # AI/bot self-identification
     "i'm an ai",
     "i am an ai",
     "i'm a bot",
@@ -108,6 +112,7 @@ CONTAMINATION_MARKERS = [
     "voice assistant",
     "chatbot",
     "chat bot",
+    # Technical failure language that breaks the human persona
     "technical issue",
     "technical error",
     "system error",
@@ -196,6 +201,14 @@ def sanitize_reply(raw: str) -> str:
 
     # 3. Check for contamination markers
     lower = cleaned.lower()
+
+    # 3a. Hard identity reveals — block on a single match
+    found_identity = [m for m in IDENTITY_MARKERS if m in lower]
+    if found_identity:
+        logger.warning(f"BOT IDENTITY REVEAL BLOCKED ({found_identity[0]}): '{cleaned[:200]}...'")
+        return ""
+
+    # 3b. System-prompt / reasoning leaks — require 2+ markers to avoid false positives
     found_markers = [m for m in CONTAMINATION_MARKERS if m in lower]
 
     if len(found_markers) >= 2:

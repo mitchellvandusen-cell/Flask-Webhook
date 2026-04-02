@@ -1240,8 +1240,10 @@ You do not have your schedule pulled up right now. Do NOT say "let me check my c
                     http_attempts = (http_detail or {}).get('attempts', 0)
                     logger.error(f"❌ SMS delivery failed for {contact_id} "
                                 f"({fail_reason}, HTTP {http_status}) — "
-                                f"all channels exhausted, saved locally only")
-                    save_message(contact_id, reply, "assistant", stage=effective_stage)
+                                f"all channels exhausted, NOT saving to history")
+                    # Do NOT save to contact history on failure — saving a reply that was
+                    # never delivered corrupts conversation context for retries and causes
+                    # the bot to think it already responded when it hasn't.
                     log_webhook_event(location_id, "message_failed", "error",
                                       f"SMS HTTP {http_status} — {fail_reason}",
                                       contact_id=contact_id,
