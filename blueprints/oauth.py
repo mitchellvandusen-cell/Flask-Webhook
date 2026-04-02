@@ -1300,6 +1300,61 @@ def oauth_callback():
                 user_email = user_email_from_api
                 email_source = 'users_api'
                 logger.info(f"Using email from /users/ API: {user_email}")
+
+                # Stripe-first cross-reference: user may have subscribed with a
+                # different email (e.g. hotmail) than their GHL account (gmail).
+                # If we're about to create a gmail row but there's already a
+                # Stripe-provisioned temp_ row for this location's company, use
+                # the Stripe email as the canonical identity so they don't end up
+                # with two orphaned rows.
+                try:
+                    _xref_conn = get_db_connection()
+                    if _xref_conn:
+                        _xref_cur = _xref_conn.cursor()
+                        # Check if GHL userId already maps to a different IGB email
+                        ghl_user_id_xref = token_data.get('userId') or me_data.get('id')
+                        if ghl_user_id_xref:
+                            _xref_cur.execute(
+                                "SELECT email FROM subscribers "
+                                "WHERE crm_user_id = %s AND email != %s LIMIT 1",
+                                (ghl_user_id_xref, user_email_from_api)
+                            )
+                            _xref_row = _xref_cur.fetchone()
+                            if _xref_row:
+                                logger.info(
+                                    f"Email mismatch: GHL userId {ghl_user_id_xref} already "
+                                    f"maps to IGB email {_xref_row['email']!r}. "
+                                    f"Using existing IGB email instead of GHL API email "
+                                    f"{user_email_from_api!r}."
+                                )
+                                user_email = _xref_row['email']
+                                email_source = 'crm_user_id_xref'
+                        # If no crm_user_id match, check for a Stripe-provisioned temp_ row
+                        # that hasn't been GHL-connected yet (same company_id)
+                        if email_source == 'users_api' and company_id:
+                            _xref_cur.execute(
+                                "SELECT email FROM subscribers "
+                                "WHERE company_id = %s "
+                                "  AND location_id LIKE 'temp_%%' "
+                                "  AND stripe_customer_id IS NOT NULL "
+                                "  AND email != %s LIMIT 1",
+                                (company_id, user_email_from_api)
+                            )
+                            _stripe_row = _xref_cur.fetchone()
+                            if _stripe_row:
+                                logger.info(
+                                    f"Found Stripe-first row for company {company_id}: "
+                                    f"{_stripe_row['email']!r} — using as canonical email "
+                                    f"instead of GHL API email {user_email_from_api!r}."
+                                )
+                                user_email = _stripe_row['email']
+                                email_source = 'stripe_xref'
+                        _xref_cur.close()
+                except Exception as _xref_err:
+                    logger.warning(f"Email cross-reference check failed (non-fatal): {_xref_err}")
+                finally:
+                    if _xref_conn:
+                        return_db_connection(_xref_conn)
             else:
                 # Full fallback chain for marketplace installs
                 user_email, resolved_name, email_source = _resolve_user_email(
