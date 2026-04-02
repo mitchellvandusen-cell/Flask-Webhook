@@ -484,12 +484,14 @@ def oauth_callback():
                     f"(user has 1 location, role_type={user_role_type})"
                 )
             else:
-                # User has multiple locations — pick first one for now.
-                # Agency owners will be detected in Step 3 via role_type check.
-                primary_location_id = user_location_ids[0]
+                # CRITICAL: Multiple locations — do NOT pick first one blindly.
+                # The first entry is likely an existing user (e.g. Devon), not the
+                # person currently installing. Step 4 (installedLocations + DB check)
+                # will identify the correct target location.
                 logger.info(
                     f"User has {len(user_location_ids)} locations in roles: {user_location_ids}. "
-                    f"Using first: {primary_location_id} (role_type={user_role_type})"
+                    f"Deferring primary selection to Step 4. "
+                    f"url_location_id={url_location_id}, role_type={user_role_type}"
                 )
         elif not primary_location_id:
             logger.warning(
@@ -642,48 +644,54 @@ def oauth_callback():
         is_agency_owner = False
         company_metadata = {}
 
-        if company_id and primary_location_id and user_role_type == 'account':
-            # User has a companyId but also a resolved locationId and is an 'account' type.
-            # This is a sub-account user (individual agent), NOT an agency owner.
+        # CRITICAL: role_type is the primary signal.
+        # 'account' = sub-account user (individual agent) — NEVER agency owner.
+        # 'agency' = agency-level user — may be agency owner.
+        # Note: primary_location_id may still be None here (deferred for multi-location users).
+        if user_role_type == 'account':
+            # Definitively NOT an agency owner regardless of locationId status.
+            is_agency_owner = False
             logger.info(
-                f"Sub-account user detected: companyId={company_id}, "
-                f"locationId={primary_location_id}, role_type=account. "
-                f"NOT agency owner."
+                f"Sub-account user detected (role_type=account): companyId={company_id}, "
+                f"locationId={primary_location_id or 'deferred'}. NOT agency owner."
             )
-        elif company_id and not primary_location_id:
-            # companyId present but no locationId even after roles extraction —
-            # likely an agency-level user. Verify against existing agency records.
-            existing_agency = get_agency_by_company_id(company_id)
-
-            if existing_agency and existing_agency.get('agency_email', '').lower() != user_email.lower():
-                # Agency already has an owner and it's NOT this user.
-                is_agency_owner = False
-                logger.info(
-                    f"companyId={company_id} already owned by {existing_agency.get('agency_email')}. "
-                    f"User {user_email} is an individual agent, NOT agency owner. "
-                    f"role_type={user_role_type}"
-                )
-            else:
-                is_agency_owner = True
-                logger.info(
-                    f"Agency owner detected: companyId={company_id}, no locationId, "
-                    f"role_type={user_role_type}, token_type={token_user_type_used}, "
-                    f"existing_agency={'reconnect' if existing_agency else 'NEW'}"
-                )
-        elif company_id and primary_location_id and user_role_type == 'agency':
-            # Has locationId but roles say 'agency' — this is an agency owner
-            # who also has a primary location. Check existing agency records.
+        elif company_id and user_role_type == 'agency':
+            # Agency-level user — check if they're the owner of this company.
             existing_agency = get_agency_by_company_id(company_id)
             if not existing_agency or existing_agency.get('agency_email', '').lower() == user_email.lower():
                 is_agency_owner = True
                 logger.info(
-                    f"Agency owner with primary location: companyId={company_id}, "
-                    f"locationId={primary_location_id}, role_type=agency"
+                    f"Agency owner detected (role_type=agency): companyId={company_id}, "
+                    f"locationId={primary_location_id or 'none'}, "
+                    f"existing_agency={'reconnect' if existing_agency else 'NEW'}"
                 )
             else:
+                is_agency_owner = False
                 logger.info(
                     f"User has role_type=agency but agency already owned by "
                     f"{existing_agency.get('agency_email')}. Treating as individual."
+                )
+        elif company_id and not primary_location_id and not user_location_ids:
+            # companyId but no locationId and no location roles — truly ambiguous.
+            # Token type is the tiebreaker: Company token without any location = agency owner.
+            existing_agency = get_agency_by_company_id(company_id)
+            if existing_agency and existing_agency.get('agency_email', '').lower() != user_email.lower():
+                is_agency_owner = False
+                logger.info(
+                    f"companyId={company_id} already owned by {existing_agency.get('agency_email')}. "
+                    f"User {user_email} is an individual agent. role_type={user_role_type}"
+                )
+            elif token_user_type_used == 'Company':
+                is_agency_owner = True
+                logger.info(
+                    f"Agency owner detected (Company token, no locationIds, no role_type): "
+                    f"companyId={company_id}"
+                )
+            else:
+                is_agency_owner = False
+                logger.info(
+                    f"Ambiguous agency detection: companyId={company_id}, no locationId, "
+                    f"role_type={user_role_type!r}. Treating as individual."
                 )
 
         # Capture company metadata if companyId present (useful for auto-linking)
@@ -761,10 +769,41 @@ def oauth_callback():
                 except (ValueError, KeyError) as _ie:
                     logger.warning(f"installedLocations parse error: {_ie}")
             else:
+                _status = inst_resp.status_code if inst_resp else None
+                _body = inst_resp.text[:400] if inst_resp else None
                 logger.warning(
-                    f"installedLocations failed: "
-                    f"{inst_resp.status_code if inst_resp else inst_err}"
+                    f"installedLocations failed: status={_status}, "
+                    f"err={inst_err}, body={_body}"
                 )
+                # Fallback: try without appId param (some GHL versions don't need it)
+                if _status in (400, 422, None):
+                    inst_resp2, inst_err2 = _ghl_api_call(
+                        'GET',
+                        f"https://services.leadconnectorhq.com/oauth/installedLocations"
+                        f"?companyId={company_id}",
+                        headers=headers_ghl, timeout=15,
+                        label="/oauth/installedLocations (no appId)",
+                    )
+                    if inst_resp2 and inst_resp2.ok:
+                        try:
+                            _idata2 = inst_resp2.json()
+                            _raw2 = (
+                                _idata2.get('locations')
+                                or _idata2.get('installedLocations')
+                                or (_idata2 if isinstance(_idata2, list) else [])
+                            )
+                            installed_locs = [l for l in _raw2 if isinstance(l, dict)]
+                            logger.info(
+                                f"installedLocations (fallback no-appId): "
+                                f"{len(installed_locs)} locations"
+                            )
+                        except Exception as _ie2:
+                            logger.warning(f"installedLocations fallback parse error: {_ie2}")
+                    else:
+                        logger.warning(
+                            f"installedLocations fallback also failed: "
+                            f"{inst_resp2.status_code if inst_resp2 else inst_err2}"
+                        )
 
             # Generate a location-scoped token for each installed location.
             # Requires oauth.write scope (POST /oauth/locationToken).
@@ -812,16 +851,117 @@ def oauth_callback():
                     logger.warning(f"locationToken exception {_loc_id}: {_lt_err}")
 
             if sub_accounts:
-                primary_location_id = primary_location_id or sub_accounts[0]['id']
+                # Determine the CORRECT primary location — the one being installed RIGHT NOW.
+                # Priority 1: url_location_id from GHL callback (GHL passes this when known)
+                # Priority 2: DB check — find location NOT already in subscribers (new install)
+                # Priority 3: Fall back to sub_accounts[0] (reconnect / single location)
+                sub_ids = [s['id'] for s in sub_accounts]
+                if url_location_id and url_location_id in sub_ids:
+                    primary_location_id = url_location_id
+                    logger.info(
+                        f"Primary location from URL param: {primary_location_id}"
+                    )
+                elif not primary_location_id or primary_location_id not in sub_ids:
+                    # Check which locations don't have a subscriber row yet
+                    _conn_chk = None
+                    new_loc_ids = []
+                    try:
+                        _conn_chk = get_db_connection()
+                        if _conn_chk:
+                            _cur_chk = _conn_chk.cursor()
+                            _cur_chk.execute(
+                                "SELECT location_id FROM subscribers WHERE location_id = ANY(%s)",
+                                (sub_ids,)
+                            )
+                            _existing = {r['location_id'] for r in _cur_chk.fetchall()}
+                            new_loc_ids = [lid for lid in sub_ids if lid not in _existing]
+                            _cur_chk.close()
+                    except Exception as _chk_err:
+                        logger.warning(f"Failed to check existing locations: {_chk_err}")
+                    finally:
+                        if _conn_chk:
+                            return_db_connection(_conn_chk)
+
+                    if len(new_loc_ids) == 1:
+                        primary_location_id = new_loc_ids[0]
+                        logger.info(
+                            f"Primary location identified as new install (not in DB yet): "
+                            f"{primary_location_id}"
+                        )
+                    elif len(new_loc_ids) > 1:
+                        # Multiple new — use the last in installedLocations order
+                        # (most recently added tends to be last)
+                        primary_location_id = new_loc_ids[-1]
+                        logger.info(
+                            f"Multiple new locations {new_loc_ids} — using last "
+                            f"(most recent install order): {primary_location_id}"
+                        )
+                    else:
+                        # All locations already registered — reconnect scenario
+                        primary_location_id = sub_accounts[0]['id']
+                        logger.info(
+                            f"All locations already in DB (reconnect). "
+                            f"Primary: {primary_location_id}"
+                        )
+                else:
+                    logger.info(
+                        f"Primary location already resolved: {primary_location_id}"
+                    )
+
                 logger.info(
-                    f"Company install: {len(sub_accounts)} locations provisioned "
-                    f"with individual location tokens"
+                    f"Company install: {len(sub_accounts)} locations with tokens. "
+                    f"Primary: {primary_location_id}"
                 )
             else:
+                # installedLocations failed AND locationToken produced nothing.
+                # Fall back to user_location_ids from /users/{userId} and use
+                # DB check to find which location is new.
                 logger.info(
-                    "Company install: no locations discovered or locationToken failed — "
-                    "agency owner row only; agents self-provision via Custom Menu Link"
+                    "Company install: installedLocations/locationToken failed — "
+                    "falling back to user_location_ids DB check"
                 )
+                if user_location_ids and not primary_location_id:
+                    _conn_fb = None
+                    try:
+                        _conn_fb = get_db_connection()
+                        if _conn_fb:
+                            _cur_fb = _conn_fb.cursor()
+                            _cur_fb.execute(
+                                "SELECT location_id FROM subscribers WHERE location_id = ANY(%s)",
+                                (user_location_ids,)
+                            )
+                            _existing_fb = {r['location_id'] for r in _cur_fb.fetchall()}
+                            _new_fb = [lid for lid in user_location_ids if lid not in _existing_fb]
+                            _cur_fb.close()
+                            if len(_new_fb) == 1:
+                                primary_location_id = _new_fb[0]
+                                logger.info(
+                                    f"DB fallback: identified new location from roles: "
+                                    f"{primary_location_id}"
+                                )
+                            elif len(_new_fb) > 1:
+                                primary_location_id = _new_fb[-1]
+                                logger.info(
+                                    f"DB fallback: multiple new locations {_new_fb} — "
+                                    f"using last: {primary_location_id}"
+                                )
+                            elif url_location_id and url_location_id in user_location_ids:
+                                primary_location_id = url_location_id
+                                logger.info(
+                                    f"DB fallback: all locations exist, using url_location_id: "
+                                    f"{primary_location_id}"
+                                )
+                            else:
+                                # All exist (reconnect) — don't pick blindly, leave None
+                                logger.warning(
+                                    f"DB fallback: all {len(user_location_ids)} locations "
+                                    f"already in DB. Cannot determine target. Will use companyId fallback."
+                                )
+                    except Exception as _fb_err:
+                        logger.warning(f"DB fallback location check failed: {_fb_err}")
+                    finally:
+                        if _conn_fb:
+                            return_db_connection(_conn_fb)
         elif not primary_location_id and company_id:
             # Location-scoped token with companyId but no locationId.
             # The token IS scoped to a specific location, but GHL didn't
