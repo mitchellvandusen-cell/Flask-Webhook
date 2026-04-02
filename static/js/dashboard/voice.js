@@ -205,7 +205,7 @@
                 require_disposition: document.getElementById('voiceRequireDisposition')?.checked ?? true,
                 calling_hours_start: document.getElementById('voiceCallingHoursStart')?.value || '08:00',
                 calling_hours_end: document.getElementById('voiceCallingHoursEnd')?.value || '21:00',
-                same_number_cooldown_hours: 0,
+                same_number_cooldown_hours: parseInt(document.getElementById('voiceSameNumberCooldown')?.value || '4'),
                 on_machine_action: document.getElementById('voiceOnMachineAction')?.value || 'hangup',
                 auto_disposition_no_answer: document.getElementById('voiceAutoDispNoAnswer')?.checked ?? true,
                 auto_disposition_voicemail: document.getElementById('voiceAutoDispVoicemail')?.checked ?? true,

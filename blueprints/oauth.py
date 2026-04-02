@@ -58,6 +58,7 @@ GHL_OAUTH_SCOPES = [
     "locations/tags.write",
     "numberpools.read",
     "oauth.readonly",
+    "oauth.write",
     "opportunities.readonly",
     "opportunities.write",
     "phonenumbers.read",
@@ -725,10 +726,102 @@ def oauth_callback():
         using_location_fallback = False
 
         if token_user_type_used == 'Company' and company_id:
-            # CATCH AND RELEASE: Accept the Company install so the Custom Menu Link appears.
-            # Sub-accounts OAuth themselves individually via the iFrame/Custom Page flow.
-            sub_accounts = []
-            logger.info("Company token received. Skipping location discovery — sub-accounts self-provision via iFrame.")
+            # With oauth.write scope: enumerate all installed locations and generate
+            # per-location tokens via POST /oauth/locationToken.
+            # - Agency owner's primary location gets a proper location-scoped token.
+            # - Existing agent locations get their tokens refreshed.
+            # - Unknown locations are skipped (agents self-provision via Custom Menu Link).
+            logger.info(f"Company token: discovering installed locations for companyId={company_id}...")
+
+            inst_resp, inst_err = _ghl_api_call(
+                'GET',
+                (
+                    f"https://services.leadconnectorhq.com/oauth/installedLocations"
+                    f"?companyId={company_id}&appId={client_id}"
+                ),
+                headers=headers_ghl, timeout=15,
+                label="/oauth/installedLocations",
+            )
+            installed_locs = []
+            if inst_resp and inst_resp.ok:
+                try:
+                    _idata = inst_resp.json()
+                    _raw_locs = (
+                        _idata.get('locations')
+                        or _idata.get('installedLocations')
+                        or []
+                    )
+                    if isinstance(_idata, list):
+                        _raw_locs = _idata
+                    installed_locs = [l for l in _raw_locs if isinstance(l, dict)]
+                    logger.info(
+                        f"installedLocations: {len(installed_locs)} locations "
+                        f"for companyId={company_id}"
+                    )
+                except (ValueError, KeyError) as _ie:
+                    logger.warning(f"installedLocations parse error: {_ie}")
+            else:
+                logger.warning(
+                    f"installedLocations failed: "
+                    f"{inst_resp.status_code if inst_resp else inst_err}"
+                )
+
+            # Generate a location-scoped token for each installed location.
+            # Requires oauth.write scope (POST /oauth/locationToken).
+            _loc_token_url = "https://services.leadconnectorhq.com/oauth/locationToken"
+            for _loc in installed_locs:
+                _loc_id = (
+                    _loc.get('_id') or _loc.get('id') or _loc.get('locationId')
+                )
+                if not _loc_id:
+                    continue
+                try:
+                    _lt = requests.post(
+                        _loc_token_url,
+                        json={'companyId': company_id, 'locationId': _loc_id},
+                        headers={**headers_ghl, 'Content-Type': 'application/json'},
+                        timeout=10,
+                    )
+                    if _lt.ok:
+                        _ltd = _lt.json()
+                        _la = _ltd.get('access_token')
+                        _lr = _ltd.get('refresh_token')
+                        _le = int(_ltd.get('expires_in') or 86400)
+                        if _la:
+                            sub_accounts.append({
+                                'id': _loc_id,
+                                'name': _loc.get('name', 'Unknown Location'),
+                                'timezone': _loc.get('timezone'),
+                                '_loc_token': _la,
+                                '_loc_refresh': _lr,
+                                '_loc_expires': _le,
+                            })
+                            logger.info(
+                                f"locationToken OK: {_loc_id} ({_loc.get('name', '')})"
+                            )
+                        else:
+                            logger.warning(
+                                f"locationToken missing access_token for {_loc_id}"
+                            )
+                    else:
+                        logger.warning(
+                            f"locationToken {_loc_id}: "
+                            f"{_lt.status_code} {_lt.text[:200]}"
+                        )
+                except Exception as _lt_err:
+                    logger.warning(f"locationToken exception {_loc_id}: {_lt_err}")
+
+            if sub_accounts:
+                primary_location_id = primary_location_id or sub_accounts[0]['id']
+                logger.info(
+                    f"Company install: {len(sub_accounts)} locations provisioned "
+                    f"with individual location tokens"
+                )
+            else:
+                logger.info(
+                    "Company install: no locations discovered or locationToken failed — "
+                    "agency owner row only; agents self-provision via Custom Menu Link"
+                )
         elif not primary_location_id and company_id:
             # Location-scoped token with companyId but no locationId.
             # The token IS scoped to a specific location, but GHL didn't
@@ -1199,14 +1292,37 @@ def oauth_callback():
                 existing_owner = cur.fetchone()
                 if existing_owner and existing_owner['email'].lower() != user_email.lower():
                     logger.warning(
-                        f"SKIPPING location {sub_id} — already owned by {existing_owner['email']}, "
-                        f"refusing to overwrite with {user_email}'s data. "
-                        f"Setting parent_agency_email instead."
+                        f"Location {sub_id} already owned by {existing_owner['email']} — "
+                        f"not overwriting {user_email}'s data."
                     )
-                    # Only safe update: set parent_agency_email + company_id so
-                    # this agent is linked to the agency without corrupting their data.
-                    if use_agency_flow or auto_linked_agency_email:
-                        _agency_email = user_email if use_agency_flow else auto_linked_agency_email
+                    # From a company install with per-location tokens: refresh this
+                    # agent's access/refresh tokens (big value — they don't need to re-install).
+                    _loc_tok_existing = sub.get('_loc_token')
+                    _loc_ref_existing = sub.get('_loc_refresh')
+                    _loc_exp_existing = sub.get('_loc_expires') or expires_in
+                    _agency_email = user_email if use_agency_flow else auto_linked_agency_email
+                    if _loc_tok_existing and use_agency_flow:
+                        cur.execute("""
+                            UPDATE subscribers
+                            SET parent_agency_email = COALESCE(%s, parent_agency_email),
+                                company_id = COALESCE(%s, company_id),
+                                access_token = %s,
+                                refresh_token = %s,
+                                token_expires_at = NOW() + interval '%s seconds',
+                                updated_at = NOW()
+                            WHERE location_id = %s
+                        """, (
+                            _agency_email, company_id,
+                            encrypt_token(_loc_tok_existing),
+                            encrypt_token(_loc_ref_existing) if _loc_ref_existing else None,
+                            _loc_exp_existing,
+                            sub_id,
+                        ))
+                        logger.info(
+                            f"Refreshed tokens for agent location {sub_id} "
+                            f"({existing_owner['email']}) via company install"
+                        )
+                    elif use_agency_flow or auto_linked_agency_email:
                         cur.execute("""
                             UPDATE subscribers
                             SET parent_agency_email = COALESCE(%s, parent_agency_email),
@@ -1220,16 +1336,38 @@ def oauth_callback():
                 # email conflict if the email already exists with a different location_id.
                 # This handles: re-installs, location switches, and users who were
                 # pre-created by agency auto-linking or Google Sheet sync.
-                _ct_prov = enc_access_token if token_user_type_used == 'Company' else None
-                _cr_prov = enc_refresh_token if token_user_type_used == 'Company' else None
+                #
+                # Per-location tokens (company installs via oauth.write):
+                # Use location-scoped token as the primary token so the subscriber can
+                # make location-level API calls. Store company token separately.
+                _loc_tok_new = sub.get('_loc_token')
+                _loc_ref_new = sub.get('_loc_refresh')
+                _loc_exp_new = sub.get('_loc_expires') or expires_in
+
+                if _loc_tok_new:
+                    # Location-specific token obtained via POST /oauth/locationToken
+                    _eff_access = encrypt_token(_loc_tok_new)
+                    _eff_refresh = encrypt_token(_loc_ref_new) if _loc_ref_new else None
+                    _eff_expires = _loc_exp_new
+                    # Store company token in company_access_token column
+                    _ct_prov = enc_access_token
+                    _cr_prov = enc_refresh_token
+                else:
+                    # Standard location install or company install fallback
+                    _eff_access = enc_access_token
+                    _eff_refresh = enc_refresh_token
+                    _eff_expires = expires_in
+                    _ct_prov = enc_access_token if token_user_type_used == 'Company' else None
+                    _cr_prov = enc_refresh_token if token_user_type_used == 'Company' else None
+
                 _sub_params = (
                     sub_id, user_email, crm_email_resolved, sub_name, role,
                     plan_tier, parent_agency_email, company_id,
-                    enc_access_token, enc_refresh_token,
-                    expires_in,
+                    _eff_access, _eff_refresh,
+                    _eff_expires,
                     sub_timezone or 'America/Chicago', me_data.get('id'),
                     'pending', app_type,
-                    _ct_prov, _cr_prov, _ct_prov, expires_in,
+                    _ct_prov, _cr_prov, _ct_prov, _eff_expires,
                 )
                 # Use savepoint so rollback on email conflict doesn't
                 # kill prior work in the same transaction (multi-location flows).
