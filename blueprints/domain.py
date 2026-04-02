@@ -2,13 +2,14 @@
 #
 # Routes:
 #   POST /api/domain/search          — Search available .com domains
-#   POST /api/domain/checkout        — Create Stripe subscription + provision
+#   POST /api/domain/checkout        — Register domain + provision (Stripe after success)
 #   GET  /api/domain/status          — Current provisioning status
 #   POST /api/domain/update-page     — Update landing page content
 #   POST /api/domain/cancel          — Cancel domain subscription
-#   POST /api/domain/contact-form    — Public: receive lead form submissions
-#   POST /api/domain/auto-reply      — Internal: Twilio email auto-reply
+#   POST /api/domain/contact-form    — Public: receive lead form submissions (rate-limited)
+#   POST /api/domain/auto-reply      — Internal: Twilio email auto-reply (secret-authenticated)
 
+import hashlib
 import json
 import logging
 import os
@@ -20,6 +21,7 @@ from flask import Blueprint, request, jsonify
 from flask_login import current_user, login_required
 
 from db import get_db_connection, return_db_connection, log_webhook_event
+from extensions import ensure_redis
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +33,34 @@ PORKBUN_SECRET_KEY = os.getenv('PORKBUN_SECRET_KEY', '')
 CLOUDFLARE_API_TOKEN = os.getenv('CLOUDFLARE_API_TOKEN', '')
 CLOUDFLARE_ACCOUNT_ID = os.getenv('CLOUDFLARE_ACCOUNT_ID', '')
 MAILGUN_API_KEY = os.getenv('MAILGUN_API_KEY', '')
-MAILGUN_DOMAIN = os.getenv('MAILGUN_DOMAIN', '')  # existing mg.insurancegrokbot.com
+CRON_SECRET = os.getenv('CRON_SECRET', '')  # Used to authenticate auto-reply endpoint
 
 PORKBUN_API_BASE = 'https://api-ipv4.porkbun.com/api/json/v3'
 CLOUDFLARE_API_BASE = 'https://api.cloudflare.com/client/v4'
+
+
+# ═══════════════════════════════════════════════════════════════
+# RATE LIMITING (Redis-based sliding window)
+# ═══════════════════════════════════════════════════════════════
+
+def _check_rate_limit(key, max_requests, window_seconds):
+    """Check rate limit using Redis. Returns (allowed, remaining)."""
+    try:
+        r = ensure_redis()
+        if not r:
+            return True, max_requests  # Allow if Redis unavailable
+        pipe = r.pipeline()
+        now = time.time()
+        window_start = now - window_seconds
+        pipe.zremrangebyscore(key, 0, window_start)
+        pipe.zadd(key, {f'{now}': now})
+        pipe.zcard(key)
+        pipe.expire(key, window_seconds + 10)
+        results = pipe.execute()
+        count = results[2]
+        return count <= max_requests, max(0, max_requests - count)
+    except Exception:
+        return True, max_requests
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -42,32 +68,34 @@ CLOUDFLARE_API_BASE = 'https://api.cloudflare.com/client/v4'
 # ═══════════════════════════════════════════════════════════════
 
 def _porkbun_post(endpoint, extra_data=None):
-    """Make authenticated POST to Porkbun API."""
+    """Make authenticated POST to Porkbun API. Handles non-JSON responses."""
     data = {
         'apikey': PORKBUN_API_KEY,
         'secretapikey': PORKBUN_SECRET_KEY,
     }
     if extra_data:
         data.update(extra_data)
-    resp = requests.post(f'{PORKBUN_API_BASE}{endpoint}',
-                         json=data, timeout=30)
-    return resp.json()
+    try:
+        resp = requests.post(f'{PORKBUN_API_BASE}{endpoint}',
+                             json=data, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.exceptions.JSONDecodeError:
+        logger.error(f"[Domain] Porkbun non-JSON response for {endpoint}: {resp.status_code} {resp.text[:200]}")
+        return {'status': 'ERROR', 'message': f'Porkbun returned non-JSON response (HTTP {resp.status_code})'}
+    except requests.exceptions.RequestException as e:
+        logger.error(f"[Domain] Porkbun request failed for {endpoint}: {e}")
+        return {'status': 'ERROR', 'message': str(e)}
 
 
 def _porkbun_check_available(domain):
     """Check if a .com domain is available via Porkbun."""
-    # Porkbun doesn't have a single-domain check — use pricing endpoint
-    # and catch errors for taken domains
-    try:
-        result = _porkbun_post(f'/domain/checkAvailability/{domain}')
-        if result.get('status') == 'SUCCESS':
-            avail = result.get('avail', result.get('available', False))
-            price = result.get('pricing', {}).get('registration', '11.08')
-            return {'available': bool(avail), 'price': price}
-        return {'available': False, 'price': '0'}
-    except Exception as e:
-        logger.error(f"[Domain] Porkbun availability check failed for {domain}: {e}")
-        return {'available': False, 'price': '0'}
+    result = _porkbun_post(f'/domain/checkAvailability/{domain}')
+    if result.get('status') == 'SUCCESS':
+        avail = result.get('avail', False)
+        price = result.get('pricing', {}).get('registration', '11.08')
+        return {'available': bool(avail), 'price': price}
+    return {'available': False, 'price': '0'}
 
 
 def _porkbun_register(domain, contact_info):
@@ -78,7 +106,6 @@ def _porkbun_register(domain, contact_info):
         'autoRenew': True,
         'whoisPrivacy': True,
     }
-    # Add contact info
     for prefix in ['admin', 'tech', 'billing', 'registrant']:
         data[f'{prefix}FirstName'] = contact_info.get('first_name', '')
         data[f'{prefix}LastName'] = contact_info.get('last_name', '')
@@ -90,15 +117,15 @@ def _porkbun_register(domain, contact_info):
         data[f'{prefix}PostalCode'] = contact_info.get('zip', '')
         data[f'{prefix}Country'] = 'US'
 
-    result = _porkbun_post(f'/domain/register/{domain}', data)
-    return result
+    return _porkbun_post(f'/domain/register/{domain}', data)
 
 
 def _porkbun_set_nameservers(domain, nameservers):
-    """Update nameservers for a domain on Porkbun."""
-    data = {'ns': nameservers}
-    result = _porkbun_post(f'/domain/updateNs/{domain}', data)
-    return result
+    """Update nameservers for a domain on Porkbun. Returns True on success."""
+    result = _porkbun_post(f'/domain/updateNs/{domain}', {'ns': nameservers})
+    if result.get('status') != 'SUCCESS':
+        raise Exception(f"Nameserver update failed: {result.get('message', 'Unknown error')}")
+    return True
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -132,11 +159,9 @@ def _cf_create_zone(domain):
             'nameservers': zone.get('name_servers', []),
             'status': zone.get('status', 'pending'),
         }
-    # Zone might already exist
     errors = data.get('errors', [])
     for err in errors:
-        if err.get('code') == 1061:  # zone already exists
-            # Look it up
+        if err.get('code') == 1061:
             zones = requests.get(
                 f'{CLOUDFLARE_API_BASE}/zones?name={domain}',
                 headers=_cf_headers(), timeout=30
@@ -152,7 +177,7 @@ def _cf_create_zone(domain):
 
 
 def _cf_add_dns_record(zone_id, record_type, name, content, priority=None, proxied=False):
-    """Add a DNS record to a Cloudflare zone."""
+    """Add a DNS record to a Cloudflare zone. Returns True on success."""
     data = {
         'type': record_type,
         'name': name,
@@ -169,62 +194,68 @@ def _cf_add_dns_record(zone_id, record_type, name, content, priority=None, proxi
     )
     result = resp.json()
     if not result.get('success'):
-        # Might already exist — not fatal
-        logger.warning(f"[Domain] DNS record creation note: {result.get('errors', [])}")
-    return result
+        errors = result.get('errors', [])
+        # 81057 = record already exists — not an error
+        if any(e.get('code') == 81057 for e in errors):
+            return True
+        logger.warning(f"[Domain] DNS record {record_type} {name} failed: {errors}")
+        return False
+    return True
 
 
 def _cf_setup_dns(zone_id, domain, mailgun_dkim_records=None):
-    """Configure all DNS records for an agent domain."""
-    records_added = []
+    """Configure all DNS records. Raises on critical failures (A record, MX)."""
+    # A record — critical (landing page won't work without this)
+    if not _cf_add_dns_record(zone_id, 'A', '@', '192.0.2.1', proxied=True):
+        raise Exception("Failed to create A record — landing page will not be reachable")
 
-    # A record for landing page (proxied through Cloudflare)
-    # Points to a dummy IP since Cloudflare Worker handles the actual serving
-    _cf_add_dns_record(zone_id, 'A', '@', '192.0.2.1', proxied=True)
-    records_added.append('A @')
-
-    # CNAME for www
+    # CNAME www — non-critical
     _cf_add_dns_record(zone_id, 'CNAME', 'www', domain, proxied=True)
-    records_added.append('CNAME www')
 
-    # MX records for Cloudflare Email Routing
-    _cf_add_dns_record(zone_id, 'MX', '@', 'route1.mx.cloudflare.net', priority=1)
-    _cf_add_dns_record(zone_id, 'MX', '@', 'route2.mx.cloudflare.net', priority=2)
-    _cf_add_dns_record(zone_id, 'MX', '@', 'route3.mx.cloudflare.net', priority=3)
-    records_added.append('MX (email routing)')
+    # MX records — critical (email won't work without these)
+    mx_ok = all([
+        _cf_add_dns_record(zone_id, 'MX', '@', 'route1.mx.cloudflare.net', priority=1),
+        _cf_add_dns_record(zone_id, 'MX', '@', 'route2.mx.cloudflare.net', priority=2),
+        _cf_add_dns_record(zone_id, 'MX', '@', 'route3.mx.cloudflare.net', priority=3),
+    ])
+    if not mx_ok:
+        logger.warning("[Domain] Some MX records failed — email routing may not work")
 
-    # SPF for Mailgun sending
+    # SPF — important for email deliverability
     _cf_add_dns_record(zone_id, 'TXT', '@', 'v=spf1 include:mailgun.org ~all')
-    records_added.append('TXT SPF')
 
-    # DKIM records from Mailgun (if provided)
+    # DKIM from Mailgun — important for email deliverability
     if mailgun_dkim_records:
         for rec in mailgun_dkim_records:
             _cf_add_dns_record(zone_id, rec['type'], rec['name'], rec['value'])
-            records_added.append(f"{rec['type']} {rec['name']}")
-
-    return records_added
 
 
 def _cf_setup_email_routing(zone_id, domain, forward_to):
-    """Enable email routing and create catch-all forward rule."""
+    """Enable email routing and create catch-all forward rule.
+    Returns dict with email_verification_needed flag."""
+    result = {'email_routing_ok': False, 'email_verification_needed': False}
+
     # Enable email routing on the zone
     try:
-        resp = requests.put(
+        requests.put(
             f'{CLOUDFLARE_API_BASE}/zones/{zone_id}/email/routing/enable',
             headers=_cf_headers(),
             json={'enabled': True},
             timeout=30,
         )
-        logger.info(f"[Domain] Email routing enable response: {resp.status_code}")
     except Exception as e:
-        logger.warning(f"[Domain] Email routing enable failed (may already be enabled): {e}")
+        logger.warning(f"[Domain] Email routing enable failed: {e}")
 
-    # Create catch-all rule to forward to agent's personal email
+    # Check if destination is already verified
+    verified = _cf_check_email_verified(forward_to)
+    if not verified:
+        # Send verification — agent will need to click a link
+        _cf_add_email_destination(forward_to)
+        result['email_verification_needed'] = True
+        logger.info(f"[Domain] Email verification sent to {forward_to} — routing will activate after click")
+
+    # Create catch-all rule
     try:
-        # First, ensure the destination address is verified
-        _cf_verify_email_destination(forward_to)
-
         resp = requests.post(
             f'{CLOUDFLARE_API_BASE}/zones/{zone_id}/email/routing/rules',
             headers=_cf_headers(),
@@ -236,96 +267,91 @@ def _cf_setup_email_routing(zone_id, domain, forward_to):
             },
             timeout=30,
         )
-        result = resp.json()
-        if result.get('success'):
-            logger.info(f"[Domain] Email routing rule created: all → {forward_to}")
-        else:
-            logger.warning(f"[Domain] Email routing rule creation: {result.get('errors', [])}")
-        return result
+        resp_data = resp.json()
+        result['email_routing_ok'] = resp_data.get('success', False)
     except Exception as e:
-        logger.error(f"[Domain] Email routing setup failed: {e}")
-        return {'success': False, 'error': str(e)}
+        logger.error(f"[Domain] Email routing rule failed: {e}")
+
+    return result
 
 
-def _cf_verify_email_destination(email):
-    """Add an email destination for routing (Cloudflare sends verification)."""
+def _cf_check_email_verified(email):
+    """Check if an email destination is already verified in Cloudflare."""
     try:
-        resp = requests.post(
+        resp = requests.get(
+            f'{CLOUDFLARE_API_BASE}/accounts/{CLOUDFLARE_ACCOUNT_ID}/email/routing/addresses',
+            headers=_cf_headers(),
+            timeout=30,
+        )
+        data = resp.json()
+        for addr in data.get('result', []):
+            if addr.get('email', '').lower() == email.lower() and addr.get('verified'):
+                return True
+        return False
+    except Exception:
+        return False
+
+
+def _cf_add_email_destination(email):
+    """Add an email destination for routing (sends verification email)."""
+    try:
+        requests.post(
             f'{CLOUDFLARE_API_BASE}/accounts/{CLOUDFLARE_ACCOUNT_ID}/email/routing/addresses',
             headers=_cf_headers(),
             json={'email': email},
             timeout=30,
         )
-        result = resp.json()
-        # Might already be verified — that's fine
-        if result.get('success') or any(e.get('code') == 1000 for e in result.get('errors', [])):
-            return True
-        logger.info(f"[Domain] Email destination verification sent to {email}")
-        return True
     except Exception as e:
-        logger.warning(f"[Domain] Email destination verification failed: {e}")
-        return False
+        logger.warning(f"[Domain] Email destination add failed: {e}")
 
 
 def _cf_setup_worker_route(zone_id, domain):
-    """Create a Worker Route to serve the landing page on this domain."""
+    """Create Worker Route. Raises on failure since landing page depends on it."""
+    worker_name = os.getenv('CLOUDFLARE_WORKER_NAME', 'omnisconn-agent-pages')
     try:
         resp = requests.post(
             f'{CLOUDFLARE_API_BASE}/zones/{zone_id}/workers/routes',
             headers=_cf_headers(),
-            json={
-                'pattern': f'{domain}/*',
-                'script': 'omnisconn-agent-pages',
-            },
+            json={'pattern': f'{domain}/*', 'script': worker_name},
             timeout=30,
         )
         result = resp.json()
-        if result.get('success'):
-            logger.info(f"[Domain] Worker route created: {domain}/* → omnisconn-agent-pages")
-        else:
-            logger.warning(f"[Domain] Worker route: {result.get('errors', [])}")
+        if not result.get('success'):
+            errors = result.get('errors', [])
+            # 10020 = route already exists — ok
+            if not any(e.get('code') == 10020 for e in errors):
+                raise Exception(f"Worker route failed: {errors}")
 
-        # Also for www
+        # www subdomain too
         requests.post(
             f'{CLOUDFLARE_API_BASE}/zones/{zone_id}/workers/routes',
             headers=_cf_headers(),
-            json={
-                'pattern': f'www.{domain}/*',
-                'script': 'omnisconn-agent-pages',
-            },
+            json={'pattern': f'www.{domain}/*', 'script': worker_name},
             timeout=30,
         )
-        return result
     except Exception as e:
         logger.error(f"[Domain] Worker route setup failed: {e}")
-        return {'success': False}
+        raise
 
 
 def _cf_store_agent_config(domain, config):
-    """Store agent config in Workers KV for the landing page Worker."""
-    try:
-        # We need the KV namespace ID — get it from env or create one
-        kv_ns_id = os.getenv('CLOUDFLARE_KV_NAMESPACE_ID', '')
-        if not kv_ns_id:
-            logger.error("[Domain] CLOUDFLARE_KV_NAMESPACE_ID not set")
-            return False
+    """Store agent config in Workers KV. Raises on failure since landing page needs this."""
+    kv_ns_id = os.getenv('CLOUDFLARE_KV_NAMESPACE_ID', '')
+    if not kv_ns_id:
+        raise Exception("CLOUDFLARE_KV_NAMESPACE_ID not configured")
 
-        resp = requests.put(
-            f'{CLOUDFLARE_API_BASE}/accounts/{CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/{kv_ns_id}/values/{domain}',
-            headers={
-                'Authorization': f'Bearer {CLOUDFLARE_API_TOKEN}',
-                'Content-Type': 'application/json',
-            },
-            data=json.dumps(config),
-            timeout=30,
-        )
-        result = resp.json()
-        if result.get('success'):
-            logger.info(f"[Domain] Stored agent config in KV for {domain}")
-        return result.get('success', False)
-    except Exception as e:
-        logger.error(f"[Domain] KV store failed for {domain}: {e}")
-        return False
+    resp = requests.put(
+        f'{CLOUDFLARE_API_BASE}/accounts/{CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/{kv_ns_id}/values/{domain}',
+        headers={
+            'Authorization': f'Bearer {CLOUDFLARE_API_TOKEN}',
+            'Content-Type': 'application/json',
+        },
+        data=json.dumps(config),
+        timeout=30,
+    )
+    result = resp.json()
+    if not result.get('success'):
+        raise Exception(f"KV write failed: {result.get('errors', [])}")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -333,16 +359,15 @@ def _cf_store_agent_config(domain, config):
 # ═══════════════════════════════════════════════════════════════
 
 def _mailgun_add_domain(domain):
-    """Add a sending domain to Mailgun."""
+    """Add a sending domain to Mailgun. Uses v3 API (not v4)."""
     try:
         resp = requests.post(
-            'https://api.mailgun.net/v4/domains',
+            'https://api.mailgun.net/v3/domains',
             auth=('api', MAILGUN_API_KEY),
             data={'name': domain, 'web_scheme': 'https'},
             timeout=30,
         )
         data = resp.json()
-        # Extract DKIM records for DNS setup
         dkim_records = []
         for rec in data.get('sending_dns_records', []):
             dkim_records.append({
@@ -353,7 +378,6 @@ def _mailgun_add_domain(domain):
         return {
             'success': resp.status_code in (200, 201),
             'dkim_records': dkim_records,
-            'domain': data.get('domain', {}).get('name', domain),
         }
     except Exception as e:
         logger.error(f"[Domain] Mailgun add domain failed: {e}")
@@ -369,12 +393,7 @@ def _mailgun_send(from_email, to_email, subject, text):
         resp = requests.post(
             f'https://api.mailgun.net/v3/{domain}/messages',
             auth=('api', MAILGUN_API_KEY),
-            data={
-                'from': from_email,
-                'to': to_email,
-                'subject': subject,
-                'text': text,
-            },
+            data={'from': from_email, 'to': to_email, 'subject': subject, 'text': text},
             timeout=30,
         )
         return resp.status_code == 200
@@ -389,15 +408,13 @@ def _mailgun_send(from_email, to_email, subject, text):
 
 def _generate_domain_suggestions(dba_name, first_name='', last_name=''):
     """Generate .com domain suggestions from a DBA name."""
-    # Clean the name
     clean = dba_name.lower().strip()
-    # Remove common suffixes
     for suffix in ['llc', 'inc', 'corp', 'ltd', 'co', 'company', 'services',
                    'agency', 'group', 'associates', 'insurance agency',
                    'insurance services', 'insurance group']:
         clean = re.sub(rf'\b{re.escape(suffix)}\b', '', clean)
     clean = re.sub(r'[^a-z0-9\s]', '', clean).strip()
-    clean = re.sub(r'\s+', '', clean)  # collapse to single string
+    clean = re.sub(r'\s+', '', clean)
 
     suggestions = []
     if clean:
@@ -405,25 +422,21 @@ def _generate_domain_suggestions(dba_name, first_name='', last_name=''):
         suggestions.append(f'{clean}insurance.com')
         suggestions.append(f'{clean}ins.com')
         if len(clean) > 12:
-            # Try shorter version
             suggestions.append(f'{clean[:10]}.com')
 
-    # Name-based suggestions
     if first_name and last_name:
         fn = re.sub(r'[^a-z]', '', first_name.lower())
         ln = re.sub(r'[^a-z]', '', last_name.lower())
         suggestions.append(f'{fn}{ln}insurance.com')
         suggestions.append(f'{fn}{ln}ins.com')
 
-    # Deduplicate while preserving order
     seen = set()
     unique = []
     for s in suggestions:
         if s not in seen and len(s) > 5:
             seen.add(s)
             unique.append(s)
-
-    return unique[:6]  # Max 6 suggestions
+    return unique[:6]
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -439,10 +452,11 @@ def domain_search():
     if not dba_name:
         return jsonify({'error': 'Business name (DBA) is required'}), 400
 
-    first_name = (data.get('first_name') or '').strip()
-    last_name = (data.get('last_name') or '').strip()
-
-    suggestions = _generate_domain_suggestions(dba_name, first_name, last_name)
+    suggestions = _generate_domain_suggestions(
+        dba_name,
+        (data.get('first_name') or '').strip(),
+        (data.get('last_name') or '').strip(),
+    )
 
     results = []
     for domain in suggestions:
@@ -452,14 +466,14 @@ def domain_search():
             'available': check['available'],
             'price_yearly': check['price'],
         })
-
     return jsonify({'suggestions': results})
 
 
 @domain_bp.route('/api/domain/checkout', methods=['POST'])
 @login_required
 def domain_checkout():
-    """Start domain provisioning after Stripe payment confirmation."""
+    """Register domain, provision everything, THEN create Stripe subscription.
+    If provisioning fails, user is never charged."""
     import stripe
     data = request.json or {}
 
@@ -473,6 +487,7 @@ def domain_checkout():
     licensed_states = data.get('licensed_states', [])
     disclaimer_accepted = data.get('disclaimer_accepted', False)
 
+    # ── Validation ──
     if not domain or not domain.endswith('.com'):
         return jsonify({'error': 'A valid .com domain is required'}), 400
     if not dba_name:
@@ -481,74 +496,51 @@ def domain_checkout():
         return jsonify({'error': 'You must accept the disclaimer to proceed'}), 400
     if not forward_to:
         return jsonify({'error': 'A forwarding email address is required'}), 400
+    if not phone_display:
+        return jsonify({'error': 'A display phone number is required'}), 400
 
-    # Get subscriber info
+    # Require real address for ICANN compliance
+    street = (data.get('street') or '').strip()
+    city = (data.get('city') or '').strip()
+    state = (data.get('state') or '').strip()
+    zip_code = (data.get('zip') or '').strip()
+    if not street or not city or not state or not zip_code:
+        return jsonify({'error': 'A physical address is required for domain registration (ICANN requirement). PO Boxes are not accepted.'}), 400
+
+    # ── Get subscriber info ──
     conn = get_db_connection()
     if not conn:
         return jsonify({'error': 'Database unavailable'}), 503
     try:
         cur = conn.cursor()
-        cur.execute("SELECT location_id, voice_config, email FROM subscribers WHERE email = %s",
+        cur.execute("SELECT location_id, voice_config, email, stripe_customer_id FROM subscribers WHERE email = %s",
                     (current_user.email,))
         row = cur.fetchone()
         cur.close()
         if not row:
             return jsonify({'error': 'Subscriber not found'}), 404
-        location_id = row[0]
-        vc = row[1] or {}
-        subscriber_email = row[2]
+        location_id, vc, subscriber_email, customer_id = row[0], row[1] or {}, row[2], row[3] or ''
     finally:
         return_db_connection(conn)
 
-    # Check if already has a domain
+    if not customer_id:
+        return jsonify({'error': 'No Stripe customer found. Subscribe to a plan first.'}), 400
+
     existing = vc.get('web_presence', {})
     if existing.get('domain') and existing.get('status') == 'active':
         return jsonify({'error': f'You already have a domain: {existing["domain"]}'}), 400
 
-    # Get agent name from subscriber info
     agent_name = data.get('agent_name') or vc.get('operator_name') or current_user.email.split('@')[0].title()
     first_name = agent_name.split()[0] if ' ' in agent_name else agent_name
     last_name = agent_name.split()[-1] if ' ' in agent_name else ''
-
     agent_email = f'{email_prefix}@{domain}'
 
-    # ── Create Stripe subscription ──
-    try:
-        stripe_price_id = os.getenv('STRIPE_DOMAIN_PRICE_ID', '')
-        if not stripe_price_id:
-            return jsonify({'error': 'Domain pricing not configured'}), 500
+    # ── Step 1: Check domain is STILL available (race condition guard) ──
+    avail_check = _porkbun_check_available(domain)
+    if not avail_check.get('available'):
+        return jsonify({'error': f'{domain} is no longer available. Please search again.'}), 409
 
-        customer_id = vc.get('stripe_customer_id', '')
-        if not customer_id:
-            # Look up from subscribers table
-            conn2 = get_db_connection()
-            try:
-                cur2 = conn2.cursor()
-                cur2.execute("SELECT stripe_customer_id FROM subscribers WHERE email = %s",
-                             (current_user.email,))
-                r2 = cur2.fetchone()
-                cur2.close()
-                customer_id = r2[0] if r2 else ''
-            finally:
-                return_db_connection(conn2)
-
-        if not customer_id:
-            return jsonify({'error': 'No Stripe customer found. Subscribe to a plan first.'}), 400
-
-        subscription = stripe.Subscription.create(
-            customer=customer_id,
-            items=[{'price': stripe_price_id}],
-            metadata={
-                'type': 'domain',
-                'domain': domain,
-                'location_id': location_id,
-            },
-        )
-    except Exception as e:
-        logger.error(f"[Domain] Stripe subscription failed: {e}")
-        return jsonify({'error': f'Payment failed: {str(e)}'}), 500
-
-    # ── Provision everything ──
+    # ── Provision FIRST, charge AFTER ──
     provisioning_log = []
     web_presence = {
         'domain': domain,
@@ -562,7 +554,6 @@ def domain_checkout():
         'licensed_states': licensed_states,
         'bio': bio,
         'status': 'provisioning',
-        'stripe_subscription_id': subscription.id,
         'disclaimer_accepted': True,
         'disclaimer_accepted_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
         'provisioned_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
@@ -574,47 +565,49 @@ def domain_checkout():
             'first_name': first_name,
             'last_name': last_name,
             'email': subscriber_email,
-            'phone': phone_raw or '+10000000000',
-            'street': data.get('street', '123 Main St'),
-            'city': data.get('city', 'Dallas'),
-            'state': data.get('state', 'TX'),
-            'zip': data.get('zip', '75201'),
+            'phone': phone_raw if len(phone_raw) >= 10 else f'+1{phone_raw}',
+            'street': street,
+            'city': city,
+            'state': state,
+            'zip': zip_code,
         }
         reg_result = _porkbun_register(domain, contact)
         if reg_result.get('status') != 'SUCCESS':
             raise Exception(f"Domain registration failed: {reg_result.get('message', 'Unknown error')}")
         provisioning_log.append('domain_registered')
+        logger.info(f"[Domain] Registered {domain} via Porkbun")
 
         # Step 2: Add zone to Cloudflare
         zone = _cf_create_zone(domain)
         web_presence['cloudflare_zone_id'] = zone['zone_id']
         provisioning_log.append('zone_created')
 
-        # Step 3: Update nameservers on Porkbun to point to Cloudflare
+        # Step 3: Update nameservers (raises on failure)
         if zone.get('nameservers'):
             _porkbun_set_nameservers(domain, zone['nameservers'])
             provisioning_log.append('nameservers_updated')
 
-        # Step 4: Add domain to Mailgun for outbound sending
+        # Step 4: Add domain to Mailgun (v3 API)
         mg_result = _mailgun_add_domain(domain)
         web_presence['mailgun_domain_added'] = mg_result.get('success', False)
         provisioning_log.append('mailgun_domain_added')
 
-        # Step 5: Configure DNS records
+        # Step 5: Configure DNS (raises on critical failures)
         _cf_setup_dns(zone['zone_id'], domain, mg_result.get('dkim_records', []))
         provisioning_log.append('dns_configured')
 
         # Step 6: Set up email routing
-        _cf_setup_email_routing(zone['zone_id'], domain, forward_to)
+        email_result = _cf_setup_email_routing(zone['zone_id'], domain, forward_to)
+        web_presence['email_verification_needed'] = email_result.get('email_verification_needed', False)
         provisioning_log.append('email_routing_configured')
 
-        # Step 7: Set up Worker route for landing page
+        # Step 7: Worker route (raises on failure)
         _cf_setup_worker_route(zone['zone_id'], domain)
         provisioning_log.append('worker_route_created')
 
-        # Step 8: Store agent config in KV for the Worker
+        # Step 8: Store KV config (raises on failure)
         accent = vc.get('whitelabel_config', {}).get('accent_color', '#1a6b4a')
-        kv_config = {
+        _cf_store_agent_config(domain, {
             'agent_name': agent_name,
             'dba_name': dba_name,
             'phone_display': phone_display,
@@ -624,50 +617,94 @@ def domain_checkout():
             'bio': bio,
             'accent_color': accent,
             'location_id': location_id,
-        }
-        _cf_store_agent_config(domain, kv_config)
+        })
         provisioning_log.append('kv_config_stored')
-
-        web_presence['status'] = 'active'
-        web_presence['landing_page_published'] = True
 
     except Exception as e:
         logger.error(f"[Domain] Provisioning failed at step {len(provisioning_log)}: {e}", exc_info=True)
         web_presence['status'] = 'error'
         web_presence['error'] = str(e)
         web_presence['provisioning_log'] = provisioning_log
+        # Save partial progress
+        _save_web_presence(location_id, web_presence)
+        log_webhook_event(location_id, 'domain_provisioning_failed', 'error',
+                          f"Domain {domain} failed: {e}",
+                          details={'domain': domain, 'steps': provisioning_log, 'error': str(e)})
+        return jsonify({
+            'status': 'error',
+            'error': str(e),
+            'provisioning_log': provisioning_log,
+            'message': f'Provisioning failed at step: {provisioning_log[-1] if provisioning_log else "start"}. '
+                       f'You have NOT been charged. Please try again or contact support.',
+        }), 500
 
-    # Save to DB regardless of success (partial progress is saved)
-    conn3 = get_db_connection()
-    if conn3:
-        try:
-            cur3 = conn3.cursor()
-            cur3.execute("""
-                UPDATE subscribers
-                SET voice_config = voice_config || %s::jsonb
-                WHERE location_id = %s
-            """, (json.dumps({'web_presence': web_presence}), location_id))
-            conn3.commit()
-            cur3.close()
-        except Exception as db_err:
-            logger.error(f"[Domain] DB save failed: {db_err}")
-            conn3.rollback()
-        finally:
-            return_db_connection(conn3)
+    # ── All provisioning succeeded — NOW charge the customer ──
+    try:
+        stripe_price_id = os.getenv('STRIPE_DOMAIN_PRICE_ID', '')
+        if not stripe_price_id:
+            logger.error("[Domain] STRIPE_DOMAIN_PRICE_ID not configured")
+            # Domain is live but billing not set up — still mark as active
+            web_presence['billing_note'] = 'Stripe price not configured — domain active without billing'
+        else:
+            subscription = stripe.Subscription.create(
+                customer=customer_id,
+                items=[{'price': stripe_price_id}],
+                metadata={'type': 'domain', 'domain': domain, 'location_id': location_id},
+            )
+            web_presence['stripe_subscription_id'] = subscription.id
+            provisioning_log.append('stripe_subscription_created')
+    except Exception as e:
+        logger.error(f"[Domain] Stripe subscription failed (domain is live): {e}")
+        web_presence['billing_error'] = str(e)
+        # Domain is provisioned and working — billing can be retried
 
-    log_webhook_event(location_id, 'domain_provisioned', 'success' if web_presence['status'] == 'active' else 'error',
-                      f"Domain {domain}: {web_presence['status']}",
+    web_presence['status'] = 'active'
+    web_presence['landing_page_published'] = True
+    web_presence['provisioning_log'] = provisioning_log
+
+    _save_web_presence(location_id, web_presence)
+
+    log_webhook_event(location_id, 'domain_provisioned', 'success',
+                      f"Domain {domain} is live",
                       details={'domain': domain, 'steps': provisioning_log})
 
-    status_code = 200 if web_presence['status'] == 'active' else 500
-    return jsonify({
-        'status': web_presence['status'],
+    response = {
+        'status': 'active',
         'domain': domain,
         'email': agent_email,
         'website': f'https://{domain}',
         'provisioning_log': provisioning_log,
-        'error': web_presence.get('error'),
-    }), status_code
+    }
+    if web_presence.get('email_verification_needed'):
+        response['email_notice'] = (
+            f'Email forwarding requires verification. Check {forward_to} for a '
+            f'verification email from Cloudflare and click the link to activate forwarding.'
+        )
+    return jsonify(response)
+
+
+def _save_web_presence(location_id, web_presence):
+    """Save web_presence to voice_config JSONB using merge (not overwrite)."""
+    conn = get_db_connection()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE subscribers
+            SET voice_config = COALESCE(voice_config, '{}'::jsonb) || %s::jsonb
+            WHERE location_id = %s
+        """, (json.dumps({'web_presence': web_presence}), location_id))
+        conn.commit()
+        cur.close()
+    except Exception as e:
+        logger.error(f"[Domain] DB save failed: {e}")
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+    finally:
+        return_db_connection(conn)
 
 
 @domain_bp.route('/api/domain/status')
@@ -696,6 +733,8 @@ def domain_status():
             'dba_name': wp.get('dba_name', ''),
             'website': f'https://{wp["domain"]}' if wp.get('domain') else '',
             'provisioned_at': wp.get('provisioned_at', ''),
+            'email_verification_needed': wp.get('email_verification_needed', False),
+            'error': wp.get('error'),
         })
     finally:
         return_db_connection(conn)
@@ -704,7 +743,8 @@ def domain_status():
 @domain_bp.route('/api/domain/update-page', methods=['POST'])
 @login_required
 def domain_update_page():
-    """Update landing page content (bio, phone, licensed states)."""
+    """Update landing page content (bio, phone, licensed states).
+    Uses JSONB merge to avoid overwriting concurrent voice_config changes."""
     data = request.json or {}
 
     conn = get_db_connection()
@@ -722,7 +762,6 @@ def domain_update_page():
         if not wp.get('domain'):
             return jsonify({'error': 'No domain registered'}), 400
 
-        # Update fields
         if 'bio' in data:
             wp['bio'] = data['bio'].strip()
         if 'phone_display' in data:
@@ -733,25 +772,31 @@ def domain_update_page():
         if 'agent_name' in data:
             wp['agent_name'] = data['agent_name'].strip()
 
-        vc['web_presence'] = wp
-        cur.execute("UPDATE subscribers SET voice_config = %s WHERE location_id = %s",
-                    (json.dumps(vc), location_id))
+        # JSONB merge — doesn't overwrite other voice_config fields
+        cur.execute("""
+            UPDATE subscribers
+            SET voice_config = COALESCE(voice_config, '{}'::jsonb) || %s::jsonb
+            WHERE location_id = %s
+        """, (json.dumps({'web_presence': wp}), location_id))
         conn.commit()
         cur.close()
 
         # Update KV
-        accent = vc.get('whitelabel_config', {}).get('accent_color', '#1a6b4a')
-        _cf_store_agent_config(wp['domain'], {
-            'agent_name': wp.get('agent_name', ''),
-            'dba_name': wp.get('dba_name', ''),
-            'phone_display': wp.get('phone_display', ''),
-            'phone_raw': wp.get('phone_raw', ''),
-            'email': wp.get('email', ''),
-            'licensed_states': wp.get('licensed_states', []),
-            'bio': wp.get('bio', ''),
-            'accent_color': accent,
-            'location_id': location_id,
-        })
+        try:
+            accent = vc.get('whitelabel_config', {}).get('accent_color', '#1a6b4a')
+            _cf_store_agent_config(wp['domain'], {
+                'agent_name': wp.get('agent_name', ''),
+                'dba_name': wp.get('dba_name', ''),
+                'phone_display': wp.get('phone_display', ''),
+                'phone_raw': wp.get('phone_raw', ''),
+                'email': wp.get('email', ''),
+                'licensed_states': wp.get('licensed_states', []),
+                'bio': wp.get('bio', ''),
+                'accent_color': accent,
+                'location_id': location_id,
+            })
+        except Exception as kv_err:
+            logger.warning(f"[Domain] KV update failed (page saved to DB): {kv_err}")
 
         return jsonify({'status': 'ok', 'message': 'Landing page updated'})
     except Exception as e:
@@ -764,8 +809,20 @@ def domain_update_page():
 
 @domain_bp.route('/api/domain/contact-form', methods=['POST'])
 def domain_contact_form():
-    """Public endpoint — receives lead form submissions from agent landing pages."""
+    """Public endpoint — receives lead form submissions from agent landing pages.
+    Rate-limited: 5 per IP per hour, 20 per domain per hour."""
+    # ── Rate limiting ──
+    ip = request.headers.get('CF-Connecting-IP') or request.remote_addr or 'unknown'
+    allowed_ip, _ = _check_rate_limit(f'domain_form_ip:{ip}', 5, 3600)
+    if not allowed_ip:
+        return jsonify({'error': 'Too many submissions. Please try again later.'}), 429
+
     data = request.json or {}
+    domain = data.get('domain', '')
+    if domain:
+        allowed_domain, _ = _check_rate_limit(f'domain_form_domain:{domain}', 20, 3600)
+        if not allowed_domain:
+            return jsonify({'error': 'Too many submissions.'}), 429
 
     location_id = data.get('location_id', '')
     first_name = data.get('first_name', '').strip()
@@ -777,56 +834,48 @@ def domain_contact_form():
     if not location_id or not first_name or not phone:
         return jsonify({'error': 'Missing required fields'}), 400
 
-    # Store the lead
+    # ── Store the lead using correct contact_cache schema ──
     conn = get_db_connection()
     if not conn:
-        return jsonify({'status': 'ok'})  # Don't leak DB errors to public
+        return jsonify({'status': 'ok'})
     try:
         cur = conn.cursor()
-        # Store in contact_cache as a web form lead
+        contact_id = f'web_{hashlib.md5(f"{phone}{time.time()}".encode()).hexdigest()[:12]}'
         cur.execute("""
-            INSERT INTO contact_cache (location_id, contact_id, first_name, last_name,
-                                       phone, email, source, cached_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
-            ON CONFLICT DO NOTHING
+            INSERT INTO contact_cache (location_id, contact_id, name, first_name, last_name,
+                                       phone, email, tags, date_added, synced_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+            ON CONFLICT (location_id, contact_id) DO NOTHING
         """, (
             location_id,
-            f'web_{phone}_{int(time.time())}',
+            contact_id,
+            f'{first_name} {last_name}'.strip(),
             first_name,
             last_name,
             phone,
             email,
-            'web_form',
+            json.dumps([
+                'web_lead',
+                'sms_consent' if sms_consent else 'no_sms_consent',
+            ]),
+            time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
         ))
-
-        # Store consent record for TCPA compliance
-        cur.execute("""
-            INSERT INTO contact_cache (location_id, contact_id, first_name, last_name,
-                                       phone, email, source, cached_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
-            ON CONFLICT DO NOTHING
-        """, (
-            location_id,
-            f'consent_{phone}_{int(time.time())}',
-            first_name,
-            last_name,
-            phone,
-            json.dumps({
-                'sms_consent': sms_consent,
-                'consent_text': data.get('consent_text', ''),
-                'consent_timestamp': data.get('consent_timestamp', ''),
-                'consent_ip': data.get('consent_ip', ''),
-                'consent_page': data.get('consent_page', ''),
-            }),
-            'consent_record',
-        ))
-
         conn.commit()
         cur.close()
 
+        # Log consent data separately in webhook_logs for TCPA compliance
         log_webhook_event(location_id, 'web_lead', 'success',
                           f'Web lead: {first_name} {last_name} ({phone})',
-                          details={'source': 'web_form', 'domain': data.get('domain', '')})
+                          details={
+                              'source': 'web_form',
+                              'domain': domain,
+                              'sms_consent': sms_consent,
+                              'consent_text': data.get('consent_text', ''),
+                              'consent_timestamp': data.get('consent_timestamp', ''),
+                              'consent_ip': ip,
+                              'consent_page': data.get('consent_page', ''),
+                              'contact_id': contact_id,
+                          })
 
     except Exception as e:
         logger.error(f"[Domain] Contact form save failed: {e}")
@@ -842,7 +891,16 @@ def domain_contact_form():
 
 @domain_bp.route('/api/domain/auto-reply', methods=['POST'])
 def domain_auto_reply():
-    """Internal endpoint — called by Email Worker to auto-reply to Twilio verification."""
+    """Internal endpoint — called by Email Worker to auto-reply to Twilio verification.
+    Authenticated via CRON_SECRET to prevent abuse."""
+    # ── Authentication ──
+    auth = request.headers.get('Authorization', '')
+    secret = request.args.get('key', '')
+    if not CRON_SECRET:
+        return jsonify({'error': 'Auto-reply not configured'}), 503
+    if auth != f'Bearer {CRON_SECRET}' and secret != CRON_SECRET:
+        return jsonify({'error': 'Unauthorized'}), 401
+
     data = request.json or {}
     from_email = data.get('from_email', '')
     to_email = data.get('to_email', '')
@@ -852,7 +910,6 @@ def domain_auto_reply():
     if not from_email or not to_email or not domain:
         return jsonify({'error': 'Missing fields'}), 400
 
-    # Send reply via Mailgun from the agent's domain
     reply_subject = f'Re: {subject}' if subject else 'Email Verification Confirmation'
     reply_body = (
         f'This email confirms that {to_email} is a valid and monitored email address.\n\n'
@@ -860,8 +917,8 @@ def domain_auto_reply():
     )
 
     success = _mailgun_send(
-        from_email=to_email,  # Reply FROM the agent's address
-        to_email=from_email,  # TO Twilio's sender
+        from_email=to_email,
+        to_email=from_email,
         subject=reply_subject,
         text=reply_body,
     )

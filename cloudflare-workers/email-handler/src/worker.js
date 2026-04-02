@@ -42,7 +42,10 @@ export default {
         const apiUrl = `${env.API_BASE_URL || 'https://app.insurancegrokbot.click'}/api/domain/auto-reply`;
         await fetch(apiUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${env.CRON_SECRET || ''}`,
+          },
           body: JSON.stringify({
             from_email: from,
             to_email: to,
