@@ -89,13 +89,19 @@ def _porkbun_post(endpoint, extra_data=None):
 
 
 def _porkbun_check_available(domain):
-    """Check if a .com domain is available via Porkbun."""
-    result = _porkbun_post(f'/domain/checkAvailability/{domain}')
-    if result.get('status') == 'SUCCESS':
-        avail = result.get('avail', False)
-        price = result.get('pricing', {}).get('registration', '11.08')
-        return {'available': bool(avail), 'price': price}
-    return {'available': False, 'price': '0'}
+    """Check if a .com domain is available via RDAP (ICANN public protocol).
+    RDAP 404 = available, 200 = taken. No API key needed."""
+    try:
+        resp = requests.get(
+            f'https://rdap.verisign.com/com/v1/domain/{domain}',
+            timeout=10,
+            headers={'Accept': 'application/json'},
+        )
+        available = (resp.status_code == 404)
+        return {'available': available, 'price': '11.08'}
+    except Exception as e:
+        logger.warning(f"[Domain] RDAP check failed for {domain}: {e}")
+        return {'available': False, 'price': '11.08'}
 
 
 def _porkbun_register(domain, contact_info):
