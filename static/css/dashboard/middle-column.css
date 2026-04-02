@@ -306,7 +306,7 @@
 .insights-detail-content { display: flex; flex-direction: column; gap: 12px; }
 
 [data-theme="light"] .insights-nav-heading { color: #111111; }
-[data-theme="light"] .insights-empty-icon-color { color: #0891b2; }
+[data-theme="light"] .insights-empty-icon-color { color: #059669; }
 
 /* ── Insights List Row ── */
 .insights-row {
@@ -443,7 +443,7 @@
     transform: translateX(-50%);
     width: min(80%, 800px);
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08) 20%, rgba(0,217,255,0.12) 50%, rgba(255,255,255,0.08) 80%, transparent);
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08) 20%, rgba(0,255,136,0.12) 50%, rgba(255,255,255,0.08) 80%, transparent);
 }
 [data-theme="light"] .ios-snap-section + .ios-snap-section::before {
     background: linear-gradient(90deg, transparent, rgba(0,0,0,0.06) 20%, rgba(0,150,105,0.12) 50%, rgba(0,0,0,0.06) 80%, transparent);
@@ -468,7 +468,7 @@
     appearance: none;
     -webkit-appearance: none;
 }
-.ios-section-dot:hover { background: rgba(0,217,255,0.40); }
+.ios-section-dot:hover { background: rgba(0,255,136,0.40); }
 .ios-section-dot:focus-visible { outline: 2px solid #00ff88; outline-offset: 3px; }
 .ios-section-dot.active {
     background: #00ff88;
@@ -485,9 +485,9 @@
 /* Section label pill */
 .ios-section-label {
     display: inline-block;
-    background: rgba(0,217,255,0.06);
-    border: 1px solid rgba(0,217,255,0.15);
-    color: #00d9ff;
+    background: rgba(0,255,136,0.06);
+    border: 1px solid rgba(0,255,136,0.15);
+    color: #00ff88;
     padding: 5px 16px;
     border-radius: 20px;
     font-size: 0.72rem;
@@ -517,7 +517,7 @@
     color: #ffffff;
 }
 .ios-section-h2 span {
-    background: linear-gradient(135deg, #00ff88, #00d9ff);
+    background: #00ff88;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
@@ -664,7 +664,7 @@
 
 /* ── Number rotation banner ── */
 [data-theme="light"] #numberRotationBanner {
-    background: linear-gradient(135deg, rgba(0,217,255,0.06), rgba(0,255,136,0.04)) !important;
+    background: linear-gradient(135deg, rgba(0,255,136,0.06), rgba(0,255,136,0.04)) !important;
     border-color: rgba(0,150,180,0.20) !important;
 }
 

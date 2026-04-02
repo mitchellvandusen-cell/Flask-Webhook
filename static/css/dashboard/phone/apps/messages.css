@@ -433,7 +433,7 @@
 .warm-xfer-popover-title {
     font-size: 0.75rem;
     font-weight: 700;
-    color: #00d9ff;
+    color: #00ff88;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 10px;
@@ -451,8 +451,8 @@
     align-items: center;
     gap: 8px;
     padding: 8px 10px;
-    background: rgba(0,217,255,0.06);
-    border: 1px solid rgba(0,217,255,0.15);
+    background: rgba(0,255,136,0.06);
+    border: 1px solid rgba(0,255,136,0.15);
     border-radius: 8px;
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
@@ -460,9 +460,9 @@
     color: #dddddd;
 }
 .warm-xfer-chip:hover {
-    background: rgba(0,217,255,0.14);
-    border-color: rgba(0,217,255,0.30);
-    box-shadow: 0 2px 12px rgba(0,217,255,0.10);
+    background: rgba(0,255,136,0.14);
+    border-color: rgba(0,255,136,0.30);
+    box-shadow: 0 2px 12px rgba(0,255,136,0.10);
 }
 .warm-xfer-chip-label {
     font-weight: 600;
@@ -475,7 +475,7 @@
     font-family: monospace;
 }
 .warm-xfer-chip-icon {
-    color: #00d9ff;
+    color: #00ff88;
     font-size: 0.7rem;
 }
 
@@ -501,8 +501,8 @@
     transition: border-color 0.15s;
 }
 .warm-xfer-input:focus {
-    border-color: rgba(0,217,255,0.40);
-    box-shadow: 0 0 0 2px rgba(0,217,255,0.08);
+    border-color: rgba(0,255,136,0.40);
+    box-shadow: 0 0 0 2px rgba(0,255,136,0.08);
 }
 .warm-xfer-input::placeholder { color: #555555; }
 
@@ -531,8 +531,8 @@
     color: #ffffff;
 }
 .warm-xfer-keypad-btn:active {
-    background: rgba(0,217,255,0.15);
-    border-color: rgba(0,217,255,0.30);
+    background: rgba(0,255,136,0.15);
+    border-color: rgba(0,255,136,0.30);
 }
 
 .warm-xfer-actions {
@@ -588,7 +588,7 @@
 .warm-xfer-consulting-label {
     font-size: 0.75rem;
     font-weight: 600;
-    color: #00d9ff;
+    color: #00ff88;
     margin-bottom: 4px;
 }
 .warm-xfer-consulting-target {
@@ -669,16 +669,16 @@
     padding: 6px 14px;
     font-size: 0.78rem;
     font-weight: 600;
-    color: #00d9ff;
-    background: rgba(0,217,255,0.06);
-    border: 1px solid rgba(0,217,255,0.15);
+    color: #00ff88;
+    background: rgba(0,255,136,0.06);
+    border: 1px solid rgba(0,255,136,0.15);
     border-radius: 8px;
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s;
 }
 .warm-xfer-add-btn:hover {
-    background: rgba(0,217,255,0.12);
-    border-color: rgba(0,217,255,0.25);
+    background: rgba(0,255,136,0.12);
+    border-color: rgba(0,255,136,0.25);
 }
 
 .vc-field-label {

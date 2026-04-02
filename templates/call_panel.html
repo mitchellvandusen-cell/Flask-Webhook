@@ -10,7 +10,7 @@
     <style>
         :root {
             --accent: #00ff88;
-            --cyan: #00d9ff;
+            --cyan: #00ff88;
             --bg: #0a0a0f;
             --card: rgba(255,255,255,0.03);
             --border: rgba(255,255,255,0.06);
@@ -50,7 +50,7 @@
             color: var(--text); padding: 10px 14px 10px 38px; border-radius: 10px;
             font-size: 0.88rem; outline: none; transition: border-color 0.2s;
         }
-        .search-wrap input:focus { border-color: rgba(0,217,255,0.4); }
+        .search-wrap input:focus { border-color: rgba(0,255,136,0.4); }
         .search-wrap input::placeholder { color: #555; }
         .search-wrap i {
             position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
@@ -68,7 +68,7 @@
             transition: all 0.2s;
         }
         .panel-tabs button.active {
-            background: rgba(0,217,255,0.08); border-color: rgba(0,217,255,0.25);
+            background: rgba(0,255,136,0.08); border-color: rgba(0,255,136,0.25);
             color: var(--cyan);
         }
         .panel-tabs button:hover:not(.active) { background: rgba(255,255,255,0.04); }
@@ -88,7 +88,7 @@
 
         .contact-avatar {
             width: 36px; height: 36px; border-radius: 50%;
-            background: rgba(0,217,255,0.08); border: 1px solid rgba(0,217,255,0.15);
+            background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.15);
             display: flex; align-items: center; justify-content: center;
             font-weight: 700; font-size: 0.75rem; color: var(--cyan);
             flex-shrink: 0;
@@ -107,12 +107,12 @@
         .btn-call:hover { background: rgba(0,255,136,0.2); transform: scale(1.1); }
         .btn-queue {
             width: 32px; height: 32px; border-radius: 50%;
-            background: rgba(0,217,255,0.08); border: 1px solid rgba(0,217,255,0.15);
+            background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.15);
             color: var(--cyan); display: flex; align-items: center; justify-content: center;
             cursor: pointer; font-size: 0.75rem; transition: all 0.2s;
         }
-        .btn-queue:hover { background: rgba(0,217,255,0.15); }
-        .btn-queue.queued { background: rgba(0,217,255,0.2); border-color: var(--cyan); }
+        .btn-queue:hover { background: rgba(0,255,136,0.15); }
+        .btn-queue.queued { background: rgba(0,255,136,0.2); border-color: var(--cyan); }
 
         /* Queue panel */
         .queue-panel {
@@ -125,7 +125,7 @@
         }
         .queue-header h6 { margin: 0; font-weight: 700; font-size: 0.88rem; }
         .queue-count {
-            background: rgba(0,217,255,0.1); color: var(--cyan);
+            background: rgba(0,255,136,0.1); color: var(--cyan);
             padding: 2px 10px; border-radius: 10px; font-size: 0.75rem; font-weight: 600;
         }
         .queue-list { max-height: 150px; overflow-y: auto; margin-bottom: 10px; }
@@ -209,7 +209,7 @@
             color: var(--text); padding: 8px 12px; border-radius: 8px;
             font-size: 0.85rem; outline: none;
         }
-        .manual-dial input:focus { border-color: rgba(0,217,255,0.4); }
+        .manual-dial input:focus { border-color: rgba(0,255,136,0.4); }
         .manual-dial input::placeholder { color: #444; }
         .manual-dial button {
             padding: 8px 16px; border-radius: 8px; border: none;

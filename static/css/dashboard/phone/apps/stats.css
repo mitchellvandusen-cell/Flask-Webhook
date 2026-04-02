@@ -68,8 +68,8 @@
     color: #cccccc;
 }
 .dlr-stat-period.active {
-    background: rgba(0,217,255,0.15);
-    color: #00d9ff;
+    background: rgba(0,255,136,0.15);
+    color: #00ff88;
 }
 [data-theme="light"] .dlr-stat-period {
     background: #f0f0f0;
@@ -117,13 +117,13 @@
 .dlr-kpi-label {
     font-size: 0.7rem;
     font-weight: 600;
-    color: #606060;
+    color: #999999;
     text-transform: uppercase;
     letter-spacing: 0.4px;
     margin-top: 4px;
 }
 [data-theme="light"] .dlr-kpi-label {
-    color: #777777;
+    color: #555555;
 }
 
 .dlr-kpi-sub {

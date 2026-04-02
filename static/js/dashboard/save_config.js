@@ -417,7 +417,7 @@
                     '</div>' +
                     '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">' +
                         '<span style="color:' + _tc.accent + ';font-size:.75rem;font-weight:600;">' + monthlyPrice + '/mo</span>' +
-                        '<button onclick="smsBuyNumber(\'' + n.phone + '\')" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:4px;padding:3px 10px;font-size:.75rem;font-weight:700;cursor:pointer;">Buy</button>' +
+                        '<button onclick="smsBuyNumber(\'' + n.phone + '\')" style="background:linear-gradient(135deg,#00ff88,#00cc6a);border:none;color:#000;border-radius:4px;padding:3px 10px;font-size:.75rem;font-weight:700;cursor:pointer;">Buy</button>' +
                     '</div>' +
                 '</div>';
             }).join('');

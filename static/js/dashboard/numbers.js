@@ -1216,7 +1216,7 @@
             const zip = document.getElementById('buyZip').value.trim();
             const contains = document.getElementById('buyContains').value.trim();
             const list = document.getElementById('availableNumbersList');
-            list.innerHTML = '<div style="text-align:center;padding:8px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i></div>';
+            list.innerHTML = '<div style="text-align:center;padding:8px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00ff88;"></i></div>';
             try {
                 const params = new URLSearchParams();
                 params.set('number_type', numberType);
@@ -1250,12 +1250,12 @@
                         '<div style="flex:1;min-width:0;">' +
                             '<span style="color:#fff;font-weight:600;">' + _esc(_fmtPhone(n.phone)) + '</span>' +
                             (loc ? '<span style="color:#666;font-size:.75rem;margin-left:6px;">' + _esc(loc) + '</span>' : '') +
-                            '<div style="margin-top:2px;">' + caps.map(c => '<span style="background:rgba(0,217,255,0.08);color:#00d9ff;padding:1px 6px;border-radius:4px;font-size:.75rem;margin-right:3px;">' + c + '</span>').join('') + '</div>' +
+                            '<div style="margin-top:2px;">' + caps.map(c => '<span style="background:rgba(0,255,136,0.08);color:#00ff88;padding:1px 6px;border-radius:4px;font-size:.75rem;margin-right:3px;">' + c + '</span>').join('') + '</div>' +
                         '</div>' +
                         '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">' +
                             priceLabel +
                             cartBtn +
-                            '<button onclick="buyNumber(\'' + n.phone + '\',\'' + numberType + '\')" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:4px;padding:3px 10px;font-size:.75rem;font-weight:700;cursor:pointer;">' + (isFree ? 'Add Free' : 'Buy') + '</button>' +
+                            '<button onclick="buyNumber(\'' + n.phone + '\',\'' + numberType + '\')" style="background:linear-gradient(135deg,#00ff88,#00cc6a);border:none;color:#000;border-radius:4px;padding:3px 10px;font-size:.75rem;font-weight:700;cursor:pointer;">' + (isFree ? 'Add Free' : 'Buy') + '</button>' +
                         '</div>' +
                     '</div>';
                 }).join('');
@@ -1390,7 +1390,7 @@
             ];
             strategies.forEach(function(s) {
                 var active = strategy === s.key;
-                html += '<button class="nh-strategy-btn' + (active ? ' nh-strategy-active' : '') + '" onclick="nhSetStrategy(\'' + s.key + '\')" title="' + _esc(s.desc) + '" style="flex:1;padding:6px 8px;border-radius:6px;font-size:.75rem;font-weight:600;cursor:pointer;border:1px solid ' + (active ? 'rgba(0,217,255,0.3)' : 'rgba(255,255,255,0.06)') + ';background:' + (active ? 'rgba(0,217,255,0.08)' : 'rgba(255,255,255,0.02)') + ';color:' + (active ? '#00d9ff' : '#888') + ';">';
+                html += '<button class="nh-strategy-btn' + (active ? ' nh-strategy-active' : '') + '" onclick="nhSetStrategy(\'' + s.key + '\')" title="' + _esc(s.desc) + '" style="flex:1;padding:6px 8px;border-radius:6px;font-size:.75rem;font-weight:600;cursor:pointer;border:1px solid ' + (active ? 'rgba(0,255,136,0.3)' : 'rgba(255,255,255,0.06)') + ';background:' + (active ? 'rgba(0,255,136,0.08)' : 'rgba(255,255,255,0.02)') + ';color:' + (active ? '#00ff88' : '#888') + ';">';
                 html += '<i class="fa-solid ' + s.icon + ' me-1"></i>' + s.label;
                 html += '</button>';
             });
@@ -1403,7 +1403,7 @@
 
                 html += _nhKpiCard('Avg Health', Math.round(sum.avg_health), avgHealthColor, 'fa-heart-pulse');
                 html += _nhKpiCard('Active', sum.active_count + '/' + sum.total_numbers, '#4ade80', 'fa-circle-check');
-                html += _nhKpiCard('Today', sum.daily_calls + ' calls', '#00d9ff', 'fa-phone');
+                html += _nhKpiCard('Today', sum.daily_calls + ' calls', '#00ff88', 'fa-phone');
                 var dailyCR = sum.daily_connect_rate || 0;
                 var dailyCRColor = sum.daily_calls < 50 ? '#888' : (dailyCR >= 30 ? '#00ff88' : '#ffa500');
                 html += _nhKpiCard('Connect', sum.daily_calls < 50 ? '—' : dailyCR + '%', dailyCRColor, 'fa-link');
@@ -1456,7 +1456,7 @@
                     html += '</div>';
 
                     if (!covered) {
-                        html += '<button onclick="nhBuyForState(\'' + _esc(s.state) + '\')" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:5px;padding:3px 10px;font-size:.75rem;font-weight:700;cursor:pointer;white-space:nowrap;">';
+                        html += '<button onclick="nhBuyForState(\'' + _esc(s.state) + '\')" style="background:linear-gradient(135deg,#00ff88,#00cc6a);border:none;color:#000;border-radius:5px;padding:3px 10px;font-size:.75rem;font-weight:700;cursor:pointer;white-space:nowrap;">';
                         html += '<i class="fa-solid fa-plus me-1"></i>Buy Number';
                         html += '</button>';
                     }
@@ -1530,9 +1530,9 @@
             html += '<div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;overflow:hidden;flex-wrap:wrap;">';
             html += '<div style="display:flex;flex-direction:column;gap:2px;min-width:0;">';
             html += '<span style="color:#fff;font-weight:600;font-size:.8rem;">' + _esc(_fmtPhone(n.phone)) + '</span>';
-            if (n.is_primary) html += '<span style="background:rgba(0,217,255,0.15);color:#00d9ff;padding:1px 5px;border-radius:3px;font-size:.65rem;font-weight:700;width:fit-content;">PRIMARY</span>';
+            if (n.is_primary) html += '<span style="background:rgba(0,255,136,0.15);color:#00ff88;padding:1px 5px;border-radius:3px;font-size:.65rem;font-weight:700;width:fit-content;">PRIMARY</span>';
             html += '</div>';
-            if (n.state) html += '<span style="background:rgba(0,217,255,0.08);color:#00d9ff;padding:1px 5px;border-radius:3px;font-size:.75rem;font-weight:700;letter-spacing:.3px;">' + _esc(n.state) + '</span>';
+            if (n.state) html += '<span style="background:rgba(0,255,136,0.08);color:#00ff88;padding:1px 5px;border-radius:3px;font-size:.75rem;font-weight:700;letter-spacing:.3px;">' + _esc(n.state) + '</span>';
             if (n.nickname) html += '<span style="color:#666;font-size:.75rem;">(' + _esc(n.nickname) + ')</span>';
             if (_nhData && _nhData.spam_protected) html += '<span title="A2P Registered — STIR/SHAKEN verified" style="background:rgba(0,255,136,0.08);color:#00ff88;padding:1px 5px;border-radius:3px;font-size:.75rem;font-weight:700;cursor:help;"><i class="fa-solid fa-shield-halved" style="font-size:.75rem;margin-right:2px;"></i>Protected</span>';
             html += '</div>';
@@ -1559,8 +1559,8 @@
             var blocked = n.total_carrier_blocked || 0;
             if (blocked > 0) html += _nhPill('fa-shield-halved', blocked + ' blocked', blocked >= 10 ? '#ef4444' : '#ffa500');
             html += _nhPill('fa-chart-line', totalCalls + ' lifetime', '#888');
-            var warmupColors = { 0: '#888', 1: '#ffa500', 2: '#fbbf24', 3: '#00d9ff', 4: '#4ade80' };
-            html += _nhPill('fa-seedling', n.warmup_label || 'Stage ' + n.warmup_stage, warmupColors[n.warmup_stage] || '#00d9ff');
+            var warmupColors = { 0: '#888', 1: '#ffa500', 2: '#fbbf24', 3: '#00ff88', 4: '#4ade80' };
+            html += _nhPill('fa-seedling', n.warmup_label || 'Stage ' + n.warmup_stage, warmupColors[n.warmup_stage] || '#00ff88');
             html += '</div>';
 
             // Row 3: Health bar
@@ -1683,7 +1683,7 @@
 
             // Select all / clear
             html += '<div style="display:flex;gap:8px;margin-bottom:12px;">';
-            html += '<button onclick="document.querySelectorAll(\'#nhStateGrid input\').forEach(function(c){c.checked=true})" style="background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:5px;padding:3px 10px;font-size:.75rem;cursor:pointer;">Select All</button>';
+            html += '<button onclick="document.querySelectorAll(\'#nhStateGrid input\').forEach(function(c){c.checked=true})" style="background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.12);color:#00ff88;border-radius:5px;padding:3px 10px;font-size:.75rem;cursor:pointer;">Select All</button>';
             html += '<button onclick="document.querySelectorAll(\'#nhStateGrid input\').forEach(function(c){c.checked=false})" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:#888;border-radius:5px;padding:3px 10px;font-size:.75rem;cursor:pointer;">Clear All</button>';
             html += '</div>';
 
@@ -1843,7 +1843,7 @@
                             '</div>' +
                             // Campaign row
                             '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:8px;margin-bottom:6px;">' +
-                                '<i class="fa-solid fa-bullhorn" style="color:#00d9ff;width:16px;text-align:center;"></i>' +
+                                '<i class="fa-solid fa-bullhorn" style="color:#00ff88;width:16px;text-align:center;"></i>' +
                                 '<span style="font-weight:600;color:#ccc;font-size:0.78rem;width:70px;">Campaign</span>' +
                                 '<span style="background:' + campColor + '20;color:' + campColor + ';padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:700;">' + _esc(campLabel) + '</span>' +
                                 '<span style="color:#555;font-family:\'JetBrains Mono\',monospace;font-size:0.75rem;margin-left:auto;">' + _esc(d.campaign_sid) + '</span>' +
@@ -1904,7 +1904,7 @@
             const el = document.getElementById('a2pBrandStatusContent');
             if (!el) return;
             const s = (d.brand_status || 'PENDING').toUpperCase();
-            const colors = { APPROVED: '#00ff88', PENDING: '#fbbf24', IN_REVIEW: '#00d9ff', FAILED: '#ef4444' };
+            const colors = { APPROVED: '#00ff88', PENDING: '#fbbf24', IN_REVIEW: '#00ff88', FAILED: '#ef4444' };
             const color = colors[s] || '#888';
             el.innerHTML =
                 '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;">' +
@@ -1917,7 +1917,7 @@
                 (d.campaign_sid ?
                     '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;">' +
                         '<span style="font-weight:700;color:#ccc;">Campaign:</span>' +
-                        '<span style="color:#00d9ff;font-weight:600;">' + _esc(d.campaign_status || 'PENDING') + '</span>' +
+                        '<span style="color:#00ff88;font-weight:600;">' + _esc(d.campaign_status || 'PENDING') + '</span>' +
                         '<span style="color:#555;font-family:\'JetBrains Mono\',monospace;font-size:0.75rem;">' + _esc(d.campaign_sid) + '</span>' +
                     '</div>' : ''
                 ) +
@@ -1938,9 +1938,9 @@
                 s1.style.color = step >= 1 ? '#a78bfa' : '#555';
             }
             if (s2) {
-                s2.style.background = step >= 2 ? 'rgba(0,217,255,0.1)' : 'rgba(255,255,255,0.02)';
-                s2.style.border = step >= 2 ? '1px solid rgba(0,217,255,0.25)' : '1px solid rgba(255,255,255,0.06)';
-                s2.style.color = step >= 2 ? '#00d9ff' : '#555';
+                s2.style.background = step >= 2 ? 'rgba(0,255,136,0.1)' : 'rgba(255,255,255,0.02)';
+                s2.style.border = step >= 2 ? '1px solid rgba(0,255,136,0.25)' : '1px solid rgba(255,255,255,0.06)';
+                s2.style.color = step >= 2 ? '#00ff88' : '#555';
             }
         }
 
@@ -1948,7 +1948,7 @@
             const el = document.getElementById(containerId);
             if (!el) return;
             if (_a2pNumbersCache.length) { a2pRenderNumberCheckboxes(el, _a2pNumbersCache); return; }
-            el.innerHTML = '<span style="color:#555;"><i class="fa-solid fa-spinner fa-spin me-1" style="color:#00d9ff;"></i>Loading...</span>';
+            el.innerHTML = '<span style="color:#555;"><i class="fa-solid fa-spinner fa-spin me-1" style="color:#00ff88;"></i>Loading...</span>';
             try {
                 const r = await fetch('/voice/numbers');
                 const d = await r.json();
@@ -1962,10 +1962,10 @@
             if (!numbers.length) { el.innerHTML = '<span style="color:#888;">No numbers. Buy a number in the Numbers tab first.</span>'; return; }
             el.innerHTML = numbers.map(function(n) {
                 return '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.03);cursor:pointer;">' +
-                    '<input type="checkbox" class="a2p-number-cb" value="' + _esc(n.sid) + '" checked style="accent-color:#00d9ff;">' +
+                    '<input type="checkbox" class="a2p-number-cb" value="' + _esc(n.sid) + '" checked style="accent-color:#00ff88;">' +
                     '<span style="color:#ccc;">' + _esc(_fmtPhone(n.phone)) + '</span>' +
                     (n.nickname ? '<span style="color:#555;font-size:0.75rem;">(' + _esc(n.nickname) + ')</span>' : '') +
-                    '<span style="margin-left:auto;font-size:0.75rem;color:#00d9ff;">' +
+                    '<span style="margin-left:auto;font-size:0.75rem;color:#00ff88;">' +
                         (n.capabilities && n.capabilities.sms ? 'SMS ' : '') +
                         (n.capabilities && n.capabilities.voice ? 'Voice' : '') +
                     '</span>' +

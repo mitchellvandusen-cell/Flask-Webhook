@@ -159,7 +159,7 @@
                                     <span id="numCartCount" style="position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;font-size:0.6rem;font-weight:700;min-width:16px;height:16px;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 4px;">0</span>
                                 </button>
                                 <button onclick="document.getElementById('vstabBuyPanel').style.display=document.getElementById('vstabBuyPanel').style.display==='none'?'block':'none'"
-                                    style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:6px;padding:5px 14px;font-size:0.78rem;font-weight:700;cursor:pointer;">
+                                    style="background:linear-gradient(135deg,#00ff88,#00cc6a);border:none;color:#000;border-radius:6px;padding:5px 14px;font-size:0.78rem;font-weight:700;cursor:pointer;">
                                     <i class="fa-solid fa-plus me-1"></i>Buy Number
                                 </button>
                             </div>
@@ -182,8 +182,8 @@
                             </div>
                         </div>
                         <!-- Buy panel -->
-                        <div id="vstabBuyPanel" style="display:none;margin-bottom:16px;padding:16px;background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.12);border-radius:10px;">
-                            <h6 style="color:#00d9ff;font-weight:700;margin-bottom:4px;font-size:0.88rem;"><i class="fa-solid fa-magnifying-glass me-1"></i>Search Available Numbers</h6>
+                        <div id="vstabBuyPanel" style="display:none;margin-bottom:16px;padding:16px;background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.12);border-radius:10px;">
+                            <h6 style="color:#00ff88;font-weight:700;margin-bottom:4px;font-size:0.88rem;"><i class="fa-solid fa-magnifying-glass me-1"></i>Search Available Numbers</h6>
                             <div style="margin-bottom:10px;font-size:.75rem;color:#888;">First 5 numbers <span style="color:#00ff88;font-weight:700;">FREE</span> &bull; Then: <span style="color:#00ff88;">Local $0.90/mo</span> &bull; <span style="color:#00ff88;">Toll-Free $2.15/mo</span> &bull; <span style="color:#00ff88;">Mobile $0.90/mo</span></div>
                             <div class="d-flex gap-2 mb-2 flex-wrap">
                                 <select id="buyNumberType"
@@ -205,7 +205,7 @@
                                 <input type="text" id="buyContains" placeholder="Contains (e.g. 555)"
                                     style="width:160px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
                                 <button onclick="searchAvailableNumbers()"
-                                    style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:8px;padding:7px 18px;font-size:0.82rem;font-weight:700;cursor:pointer;">
+                                    style="background:linear-gradient(135deg,#00ff88,#00cc6a);border:none;color:#000;border-radius:8px;padding:7px 18px;font-size:0.82rem;font-weight:700;cursor:pointer;">
                                     <i class="fa-solid fa-magnifying-glass me-1"></i>Search
                                 </button>
                             </div>
@@ -214,7 +214,7 @@
                         <!-- Numbers list -->
                         <div id="numbersListContainer" style="font-size:0.82rem;">
                             <div style="text-align:center;padding:30px 20px;color:#555;">
-                                <i class="fa-solid fa-spinner fa-spin" style="font-size:1.2rem;color:#00d9ff;display:block;margin-bottom:8px;"></i>
+                                <i class="fa-solid fa-spinner fa-spin" style="font-size:1.2rem;color:#00ff88;display:block;margin-bottom:8px;"></i>
                                 Loading numbers...
                             </div>
                         </div>
@@ -224,8 +224,8 @@
                     <!-- ══ Dialer Settings panel ══ -->
                     <div id="vstab-panel-dialer" style="display:none;">
                         <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
-                            <div style="width:36px;height:36px;border-radius:9px;background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                <i class="fa-solid fa-sliders" style="color:#00d9ff;font-size:0.95rem;"></i>
+                            <div style="width:36px;height:36px;border-radius:9px;background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                <i class="fa-solid fa-sliders" style="color:#00ff88;font-size:0.95rem;"></i>
                             </div>
                             <div>
                                 <h6 style="margin:0;font-weight:700;">Dialer Settings</h6>
@@ -236,7 +236,7 @@
                         <!-- ── Core Dialer Settings (all tiers) ── -->
                         <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px;margin-bottom:12px;">
                             <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.8px;color:#555;font-weight:700;margin-bottom:12px;">
-                                <i class="fa-solid fa-phone me-1" style="color:#00d9ff;"></i>Call Behavior
+                                <i class="fa-solid fa-phone me-1" style="color:#00ff88;"></i>Call Behavior
                             </div>
                             <div class="row g-3">
                                 <div class="col-md-4">
@@ -424,27 +424,27 @@
                         <!-- ── Browser VoIP (all tiers) ── -->
                         <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px;margin-bottom:12px;">
                             <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.8px;color:#555;font-weight:700;margin-bottom:12px;">
-                                <i class="fa-solid fa-headset me-1" style="color:#00d9ff;"></i>Browser VoIP
+                                <i class="fa-solid fa-headset me-1" style="color:#00ff88;"></i>Browser VoIP
                             </div>
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">VoIP Setup</label>
                                     <div style="display:flex;gap:8px;align-items:center;margin-top:2px;">
-                                        <button onclick="setupVoIP()" id="voipSetupBtnDialer" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:8px;padding:6px 14px;font-weight:700;font-size:0.8rem;cursor:pointer;">
+                                        <button onclick="setupVoIP()" id="voipSetupBtnDialer" style="background:linear-gradient(135deg,#00ff88,#00cc6a);border:none;color:#000;border-radius:8px;padding:6px 14px;font-weight:700;font-size:0.8rem;cursor:pointer;">
                                             <i class="fa-solid fa-headset me-1"></i>Setup Browser VoIP
                                         </button>
                                         <span id="voipSetupBtnDialerStatus" style="font-size:0.75rem;color:#888;">{% if voice_config.get('twilio_twiml_app_sid') %}VoIP configured{% else %}Required for human dialing{% endif %}</span>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
-                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;"><i class="fa-solid fa-microphone me-1" style="color:#00d9ff;"></i>Microphone</label>
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;"><i class="fa-solid fa-microphone me-1" style="color:#00ff88;"></i>Microphone</label>
                                     <select id="audioInputDevice" onchange="setAudioInputDevice(this.value)"
                                         style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
                                         <option value="">Default microphone</option>
                                     </select>
                                 </div>
                                 <div class="col-md-6">
-                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;"><i class="fa-solid fa-volume-high me-1" style="color:#00d9ff;"></i>Speaker</label>
+                                    <label style="color:#aaa;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;"><i class="fa-solid fa-volume-high me-1" style="color:#00ff88;"></i>Speaker</label>
                                     <select id="audioOutputDevice" onchange="setAudioOutputDevice(this.value)"
                                         style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
                                         <option value="">Default speaker</option>
@@ -455,7 +455,7 @@
                                         <button onclick="refreshAudioDevices()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer;">
                                             <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh Devices
                                         </button>
-                                        <button onclick="testAudioOutput()" style="background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer;">
+                                        <button onclick="testAudioOutput()" style="background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.12);color:#00ff88;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer;">
                                             <i class="fa-solid fa-play me-1"></i>Test Speaker
                                         </button>
                                         <span id="audioDeviceStatus" style="font-size:0.75rem;color:#888;"></span>
@@ -470,7 +470,7 @@
                         <!-- Multi-line settings -->
                         <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px;margin-bottom:12px;">
                             <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.8px;color:#555;font-weight:700;margin-bottom:12px;">
-                                <i class="fa-solid fa-layer-group me-1" style="color:#00d9ff;"></i>Multi-Line Pacing
+                                <i class="fa-solid fa-layer-group me-1" style="color:#00ff88;"></i>Multi-Line Pacing
                             </div>
                             <div class="row g-3">
                                 <div class="col-md-4">
@@ -564,7 +564,7 @@
 
                         <!-- Save button -->
                         <div class="mt-3">
-                            <button onclick="saveVoiceConfig()" style="background:linear-gradient(135deg,#00ff88,#00d9ff);border:none;color:#000;border-radius:10px;padding:9px 24px;font-weight:700;font-size:0.85rem;cursor:pointer;">
+                            <button onclick="saveVoiceConfig()" style="background:linear-gradient(135deg,#00ff88,#00ff88);border:none;color:#000;border-radius:10px;padding:9px 24px;font-weight:700;font-size:0.85rem;cursor:pointer;">
                                 <i class="fa-solid fa-floppy-disk me-2"></i>Save Dialer Settings
                             </button>
                         </div>
@@ -595,8 +595,8 @@
                                 <div id="spamProtectionForm">
                                     <div class="p-3" style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.12);border-radius:10px;">
                                         <!-- What happens -->
-                                        <div class="mb-3 p-2" style="background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.08);border-radius:8px;">
-                                            <div style="font-size:0.75rem;color:#00d9ff;font-weight:600;margin-bottom:6px;"><i class="fa-solid fa-wand-magic-sparkles me-1"></i>What happens when you register:</div>
+                                        <div class="mb-3 p-2" style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.08);border-radius:8px;">
+                                            <div style="font-size:0.75rem;color:#00ff88;font-weight:600;margin-bottom:6px;"><i class="fa-solid fa-wand-magic-sparkles me-1"></i>What happens when you register:</div>
                                             <div style="font-size:0.75rem;color:#999;line-height:1.6;">
                                                 <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> STIR/SHAKEN Full (A) attestation — already active<br>
                                                 <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> Business identity verified with carrier trust network<br>
@@ -684,7 +684,7 @@
                                             </div>
                                         </div>
 
-                                        <div style="font-weight:600;font-size:0.82rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-user me-1" style="color:#00d9ff;"></i> Authorized Representative</div>
+                                        <div style="font-weight:600;font-size:0.82rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-user me-1" style="color:#00ff88;"></i> Authorized Representative</div>
                                         <div class="row g-2 mb-2">
                                             <div class="col-md-3">
                                                 <label style="color:#aaa;font-size:0.72rem;font-weight:600;display:block;margin-bottom:3px;">First Name</label>
@@ -736,14 +736,14 @@
                                 <i class="fa-solid fa-chevron-down sm-accordion-chevron"></i>
                             </button>
                             <div class="sm-accordion-body">
-                                <div id="spNumbersList" class="p-3" style="background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:10px;">
+                                <div id="spNumbersList" class="p-3" style="background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.08);border-radius:10px;">
                                     <div class="d-flex align-items-center justify-content-end mb-2">
                                         <button onclick="loadSpamProtectionStatus()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer;">
                                             <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
                                         </button>
                                     </div>
                                     <div id="spNumbersContent" style="font-size:0.78rem;">
-                                        <div style="text-align:center;padding:12px;color:#555;"><i class="fa-solid fa-spinner fa-spin me-1" style="color:#00d9ff;"></i>Loading...</div>
+                                        <div style="text-align:center;padding:12px;color:#555;"><i class="fa-solid fa-spinner fa-spin me-1" style="color:#00ff88;"></i>Loading...</div>
                                     </div>
                                 </div>
                             </div>
@@ -777,7 +777,7 @@
                                     </div>
                                 </div>
                                 <div class="cnam-header-card p-3">
-                                    <div style="font-weight:600;font-size:0.85rem;color:#fff;margin-bottom:10px;"><i class="fa-solid fa-magnifying-glass me-2" style="color:#00d9ff;"></i>CNAM Lookup</div>
+                                    <div style="font-weight:600;font-size:0.85rem;color:#fff;margin-bottom:10px;"><i class="fa-solid fa-magnifying-glass me-2" style="color:#00ff88;"></i>CNAM Lookup</div>
                                     <div class="row g-2 mb-2">
                                         <div class="col">
                                             <input type="tel" id="cnamLookupPhone" placeholder="(555) 123-4567 or +15551234567" class="cnam-input">

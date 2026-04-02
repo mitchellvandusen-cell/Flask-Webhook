@@ -9,13 +9,13 @@
     <div class="agency-card">
         <div class="text-center">
             <span class="badge-agency">Command Center</span>
-            <h2 style="font-weight: 800; font-size: 2rem; color: #fff; margin-bottom: 30px; letter-spacing: -0.5px;">Agency Login</h2>
+            <h2 class="agency-login-title">Agency Login</h2>
         </div>
 
         {% with messages = get_flashed_messages() %}
             {% if messages %}
                 {% for message in messages %}
-                    <div class="alert text-start" style="background: rgba(255, 68, 68, 0.1); border: 1px solid rgba(255, 68, 68, 0.2); color: #ff4444; font-size: 0.85rem; border-radius: 10px; padding: 12px; margin-bottom: 25px;">
+                    <div class="alert text-start agency-alert-error">
                         <i class="fa-solid fa-circle-exclamation me-2"></i> {{ message }}
                     </div>
                 {% endfor %}
@@ -26,12 +26,12 @@
             {{ form.hidden_tag() }}
             
             <div class="mb-3 text-start">
-                <label class="form-label" style="color: var(--text-muted); font-size: 0.8rem; font-weight: 600; margin-bottom: 8px; margin-left: 5px;">Admin Email</label>
+                <label class="form-label agency-form-label">Admin Email</label>
                 {{ form.email(class="form-control", placeholder="admin@agency.com") }}
             </div>
 
             <div class="mb-4 text-start">
-                <label class="form-label" style="color: var(--text-muted); font-size: 0.8rem; font-weight: 600; margin-bottom: 8px; margin-left: 5px;">Secure Password</label>
+                <label class="form-label agency-form-label">Secure Password</label>
                 {{ form.password(class="form-control", placeholder="••••••••") }}
             </div>
 
@@ -39,7 +39,7 @@
         </form>
 
         <div class="text-center mt-3">
-            <a href="/forgot-password" style="color: var(--text-muted); font-size: 0.85rem; text-decoration: none;">Forgot Password?</a>
+            <a href="/forgot-password" class="agency-forgot-link">Forgot Password?</a>
         </div>
 
         <div class="text-center">

@@ -24,7 +24,7 @@ html {
     --accent-hover:     #ffffff;
     --accent-dim:       rgba(0, 255, 136, 0.10);
     --accent-border:    rgba(0, 255, 136, 0.25);
-    --accent-secondary: #00d9ff;
+    --accent-secondary: #00ff88;
 
     /* ── Core Backgrounds ──────────────────────────────────────── */
     --bg:               #0a0a0a;
@@ -92,7 +92,7 @@ html {
     --transition:       all 0.2s ease;
 
     /* ── Layout ────────────────────────────────────────────────── */
-    --sidebar-width:            195px;
+    --sidebar-width:            240px;
     --sidebar-collapsed-width:  47px;
     --topbar-height:            39px;
     --safe-top:    env(safe-area-inset-top, 15px);
@@ -207,7 +207,7 @@ html {
 /* ── 4K / High-DPI layout scaling ─────────────────────────────── */
 @media (min-width: 1920px) {
     :root {
-        --sidebar-width:           clamp(195px, 12vw, 320px);
+        --sidebar-width:           clamp(240px, 12vw, 320px);
         --sidebar-collapsed-width: clamp(47px, 3.5vw, 72px);
         --topbar-height:           clamp(39px, 2.8vw, 56px);
     }

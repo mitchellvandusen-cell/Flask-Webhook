@@ -302,7 +302,7 @@
 
         var humanBtn = document.createElement('button');
         humanBtn.className = 'btn btn-sm';
-        humanBtn.style.cssText = 'background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.25);color:#00d9ff;border-radius:20px;font-size:0.8rem;font-weight:600;padding:6px 16px;';
+        humanBtn.style.cssText = 'background:rgba(0,255,136,0.12);border:1px solid rgba(0,255,136,0.25);color:#00ff88;border-radius:20px;font-size:0.8rem;font-weight:600;padding:6px 16px;';
         humanBtn.innerHTML = '<i class="fa-solid fa-phone" style="margin-right:5px"></i>I\'ll Talk';
         humanBtn.onclick = function() {
             wrap.remove();

@@ -1246,12 +1246,12 @@
             if (!dropdown) {
                 dropdown = document.createElement('div');
                 dropdown.id = 'dialerTagSuggestions';
-                dropdown.style.cssText = 'position:absolute;left:0;right:0;top:100%;background:rgba(20,20,30,0.98);border:1px solid rgba(0,217,255,0.15);border-radius:0 0 8px 8px;z-index:100;max-height:200px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,0.4);';
+                dropdown.style.cssText = 'position:absolute;left:0;right:0;top:100%;background:rgba(20,20,30,0.98);border:1px solid rgba(0,255,136,0.15);border-radius:0 0 8px 8px;z-index:100;max-height:200px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,0.4);';
                 const wrap = document.getElementById('dialerSearch').parentElement;
                 wrap.appendChild(dropdown);
             }
             dropdown.innerHTML = matches.map(t =>
-                `<div onclick="dialerSelectTag('${t.name.replace(/'/g, "\\'")}')" style="display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;transition:background .12s;border-bottom:1px solid rgba(255,255,255,0.04);" onmouseenter="this.style.background='rgba(0,217,255,0.08)'" onmouseleave="this.style.background='transparent'"><i class="fa-solid fa-tag" style="color:#00d9ff;font-size:0.7rem;"></i><span style="color:#ccc;font-size:0.85rem;">${dialerEsc(t.name)}</span><span style="margin-left:auto;color:#555;font-size:0.75rem;">${t.count}</span></div>`
+                `<div onclick="dialerSelectTag('${t.name.replace(/'/g, "\\'")}')" style="display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;transition:background .12s;border-bottom:1px solid rgba(255,255,255,0.04);" onmouseenter="this.style.background='rgba(0,255,136,0.08)'" onmouseleave="this.style.background='transparent'"><i class="fa-solid fa-tag" style="color:#00ff88;font-size:0.7rem;"></i><span style="color:#ccc;font-size:0.85rem;">${dialerEsc(t.name)}</span><span style="margin-left:auto;color:#555;font-size:0.75rem;">${t.count}</span></div>`
             ).join('');
             dropdown.style.display = 'block';
         }
@@ -1355,7 +1355,7 @@
 
             // Only show full loading spinner if no contacts loaded yet
             if (!_dialerAllContacts.length) {
-                list.innerHTML = '<div style="text-align:center;padding:30px;color:#555;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.2rem;"></i><p style="margin-top:8px;font-size:.78rem;">Loading contacts...</p></div>';
+                list.innerHTML = '<div style="text-align:center;padding:30px;color:#555;"><i class="fa-solid fa-spinner fa-spin" style="color:#00ff88;font-size:1.2rem;"></i><p style="margin-top:8px;font-size:.78rem;">Loading contacts...</p></div>';
             }
 
             try {
@@ -1416,7 +1416,7 @@
                 let html = '<i class="fa-solid fa-database" style="color:#444;"></i>';
                 html += '<span>' + (data.contacts || []).length + ' contacts</span>';
                 if (data.refreshing) {
-                    html += '<span style="color:#00d9ff;"><i class="fa-solid fa-rotate fa-spin me-1"></i>refreshing...</span>';
+                    html += '<span style="color:#00ff88;"><i class="fa-solid fa-rotate fa-spin me-1"></i>refreshing...</span>';
                 }
                 el.innerHTML = html;
             } else if (!data.cached) {
@@ -1661,7 +1661,7 @@
             const eng = _igbEngagementCache[c.id];
             const disp = eng && eng.disposition;
             const dc = _dispColors[disp];
-            let rowStyle = sel ? 'background:rgba(0,217,255,0.04);' : '';
+            let rowStyle = sel ? 'background:rgba(0,255,136,0.04);' : '';
             if (dc && !isActive) {
                 rowStyle += 'border-left:3px solid ' + dc.border + ';background:' + dc.bg + ';';
             }
@@ -1683,11 +1683,11 @@
             const dispBadge = dc ? '<span style="display:inline-flex;align-items:center;gap:2px;font-size:.75rem;color:' + dc.border + ';margin-left:6px;opacity:.85;"><i class="fa-solid ' + dc.icon + '" style="font-size:.75rem;"></i>' + dispLabel + '</span>' : '';
 
             const isLight = document.body.classList.contains('light-theme');
-            const accentClr = isLight ? '#0078b8' : '#00d9ff';
-            const avatarActiveBg = isLight ? 'rgba(0,120,184,0.15)' : 'rgba(0,217,255,0.15)';
-            const avatarIdleBg = isLight ? 'rgba(0,120,184,0.08)' : 'rgba(0,217,255,0.06)';
-            const avatarActiveBorder = isLight ? '#0078b8' : '#00d9ff';
-            const avatarIdleBorder = isLight ? 'rgba(0,120,184,0.25)' : 'rgba(0,217,255,0.1)';
+            const accentClr = isLight ? '#059669' : '#00ff88';
+            const avatarActiveBg = isLight ? 'rgba(0,120,184,0.15)' : 'rgba(0,255,136,0.15)';
+            const avatarIdleBg = isLight ? 'rgba(0,120,184,0.08)' : 'rgba(0,255,136,0.06)';
+            const avatarActiveBorder = isLight ? '#059669' : '#00ff88';
+            const avatarIdleBorder = isLight ? 'rgba(0,120,184,0.25)' : 'rgba(0,255,136,0.1)';
             const phoneColor = isLight ? '#6b7280' : '#555';
 
             return '<div class="dlr-contact-row' + (isActive ? ' active' : '') + '" onclick="dialerSelectContact(\'' + c.id + '\')" style="' + rowStyle + '">' +
@@ -1739,7 +1739,7 @@
                 const sLabel = stageName ? (stageName.options[stageName.selectedIndex] || {}).text || '' : '';
                 const filterDesc = sLabel && sLabel !== 'All Stages' ? pLabel + ' — ' + sLabel : pLabel;
                 const isLightPipe = document.body.classList.contains('light-theme');
-                const pipeIconColor = isLightPipe ? '#0078b8' : '#00d9ff';
+                const pipeIconColor = isLightPipe ? '#059669' : '#00ff88';
                 const pipeLabelColor = isLightPipe ? '#374151' : '#888';
                 const pipeCountColor = isLightPipe ? '#6b7280' : '#555';
                 let html = '<div style="padding:4px 10px 2px;display:flex;align-items:center;gap:5px;">' +
@@ -1757,7 +1757,7 @@
             const aiReady = Object.keys(_igbIntelCache).length > 0;
             const filterLabel = aiReady ? 'AI-Powered Smart Filters' : 'Smart Filters (loading AI...)';
             const isLight = document.body.classList.contains('light-theme');
-            const filterIconColor = aiReady ? '#5B7FFF' : (isLight ? '#0078b8' : '#00d9ff');
+            const filterIconColor = aiReady ? '#5B7FFF' : (isLight ? '#059669' : '#00ff88');
             const filterLabelColor = isLight ? '#374151' : '#444';
             let html = '<div style="padding:4px 10px 2px;display:flex;align-items:center;gap:5px;"><i class="fa-solid ' + (aiReady ? 'fa-brain' : 'fa-robot') + '" style="color:' + filterIconColor + ';font-size:.75rem;"></i><span style="font-size:.75rem;color:' + filterLabelColor + ';letter-spacing:.3px;text-transform:uppercase;font-weight:700;">' + filterLabel + '</span></div>';
             groups.forEach(g => {
@@ -1991,7 +1991,7 @@
         // ── Middle panel: Lead Intelligence Dossier ──
         async function dialerLoadContactDetail(contactId) {
             const panel = document.getElementById('dlrDetailContent');
-            panel.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.2rem;"></i></div>';
+            panel.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00ff88;font-size:1.2rem;"></i></div>';
             try {
                 const r = await _fetchRetry('/voice/contact/' + contactId, {}, { retries: 1, timeout: 15000, label: 'contact-detail' });
                 if (!r.ok) { panel.innerHTML = '<div style="color:#888;padding:20px;text-align:center;">Could not load contact</div>'; return; }
@@ -2116,7 +2116,7 @@
                 // Tags
                 if (c.tags && c.tags.length) {
                     html += '<div style="margin-top:6px;"><div class="dlr-field-label">Tags</div>';
-                    html += '<div style="margin-bottom:8px;">' + c.tags.map(t => '<span style="display:inline-block;background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;padding:2px 8px;border-radius:4px;font-size:0.75rem;margin:0 4px 4px 0;">' + dialerEsc(t) + '</span>').join('') + '</div></div>';
+                    html += '<div style="margin-bottom:8px;">' + c.tags.map(t => '<span style="display:inline-block;background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.12);color:#00ff88;padding:2px 8px;border-radius:4px;font-size:0.75rem;margin:0 4px 4px 0;">' + dialerEsc(t) + '</span>').join('') + '</div></div>';
                 }
 
                 // Custom Fields
@@ -2124,7 +2124,7 @@
                     const filled = c.customFields.filter(cf => cf.value);
                     if (filled.length) {
                         html += '<div style="margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04);">';
-                        html += '<div style="font-size:.75rem;font-weight:700;color:#00d9ff;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">CRM Custom Fields</div>';
+                        html += '<div style="font-size:.75rem;font-weight:700;color:#00ff88;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">CRM Custom Fields</div>';
                         filled.forEach(cf => {
                             const name = cf.name || cf.fieldKey || 'Field';
                             html += '<div class="dlr-field-label">' + dialerEsc(name) + '</div>';
@@ -2502,9 +2502,9 @@
             if (badge) {
                 if (ch === 'twilio') {
                     badge.textContent = 'via InsuranceGrokBot';
-                    badge.style.background = 'rgba(0,217,255,0.07)';
-                    badge.style.borderColor = 'rgba(0,217,255,0.15)';
-                    badge.style.color = '#00d9ff';
+                    badge.style.background = 'rgba(0,255,136,0.07)';
+                    badge.style.borderColor = 'rgba(0,255,136,0.15)';
+                    badge.style.color = '#00ff88';
                 } else {
                     badge.textContent = 'via LeadConnector';
                     badge.style.background = 'rgba(74,222,128,0.07)';
@@ -2558,7 +2558,7 @@
         function _dlrRenderThread(msgs) {
             if (!msgs.length) {
                 return '<div id="dlrMsgEmptyState" style="text-align:center;padding:50px 16px;">' +
-                    '<div style="width:44px;height:44px;border-radius:50%;background:rgba(0,217,255,0.05);border:1px solid rgba(0,217,255,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">' +
+                    '<div style="width:44px;height:44px;border-radius:50%;background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">' +
                     '<i class="fa-solid fa-comment-slash" style="font-size:1.1rem;color:#2a3a4a;"></i></div>' +
                     '<div style="color:#555;font-size:0.8rem;font-weight:600;">No messages yet</div>' +
                     '<div style="color:#3a3a4a;font-size:0.75rem;margin-top:3px;">Send the first one below</div></div>';
@@ -2611,7 +2611,7 @@
             const msgPanel = document.getElementById('dlrMessagesList');
             const composer = document.getElementById('dlrSmsComposer');
             if (!msgPanel) return;
-            msgPanel.innerHTML = '<div style="text-align:center;padding:30px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i></div>';
+            msgPanel.innerHTML = '<div style="text-align:center;padding:30px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00ff88;"></i></div>';
             if (composer) composer.style.display = 'none';
             try {
                 const r = await _fetchRetry('/voice/contact/' + contactId + '/messages', {}, { retries: 1, timeout: 15000, label: 'messages' });
@@ -2638,7 +2638,7 @@
                 } else {
                     callPanel.innerHTML = calls.map(c => {
                         const statusColors = { completed:'var(--accent)', 'no-answer':'#ffa500', busy:'#ffa500', failed:'#ef4444' };
-                        const statusColor = statusColors[c.status] || '#00d9ff';
+                        const statusColor = statusColors[c.status] || '#00ff88';
                         const durMin = c.duration ? Math.floor(c.duration / 60) + ':' + String(c.duration % 60).padStart(2, '0') : '--:--';
                         const dt = c.started_at ? new Date(c.started_at).toLocaleString() : '';
                         const hasRec = !!c.recording_url;
@@ -2800,14 +2800,14 @@
                 if (typeDiv) typeDiv.style.display = 'none';
                 if (kbdDiv) kbdDiv.style.display = 'flex';
                 if (tabType) { tabType.style.background = 'transparent'; tabType.style.color = '#666'; }
-                if (tabKbd) { tabKbd.style.background = 'rgba(0,217,255,0.15)'; tabKbd.style.color = '#00d9ff'; }
+                if (tabKbd) { tabKbd.style.background = 'rgba(0,255,136,0.15)'; tabKbd.style.color = '#00ff88'; }
                 const ph = document.getElementById('dialerManualPhone');
                 const disp = document.getElementById('dialKbdDisplay');
                 if (disp && ph) disp.textContent = ph.value || '';
             } else {
                 if (typeDiv) typeDiv.style.display = 'flex';
                 if (kbdDiv) kbdDiv.style.display = 'none';
-                if (tabType) { tabType.style.background = 'rgba(0,217,255,0.15)'; tabType.style.color = '#00d9ff'; }
+                if (tabType) { tabType.style.background = 'rgba(0,255,136,0.15)'; tabType.style.color = '#00ff88'; }
                 if (tabKbd) { tabKbd.style.background = 'transparent'; tabKbd.style.color = '#666'; }
             }
         }
@@ -3154,8 +3154,8 @@
                     // Update Listen button to show active state
                     const lBtn = document.getElementById('dialerListenBtn');
                     if (lBtn) {
-                        lBtn.style.background = 'rgba(0,217,255,0.15)';
-                        lBtn.style.color = '#00d9ff';
+                        lBtn.style.background = 'rgba(0,255,136,0.15)';
+                        lBtn.style.color = '#00ff88';
                         const lIcon = lBtn.querySelector('i');
                         const lSpan = lBtn.querySelector('span');
                         if (lIcon) lIcon.className = 'fa-solid fa-ear-listen';
@@ -3183,7 +3183,7 @@
             const dot    = document.getElementById('dialerCallDot');
             if (!banner || !dot) return;
             const colors = {
-                ringing:   { bg: 'rgba(0,217,255,0.06)', border: 'rgba(0,217,255,0.2)',   dot: '#00d9ff', anim: 'dialerPulse 1.5s infinite' },
+                ringing:   { bg: 'rgba(0,255,136,0.06)', border: 'rgba(0,255,136,0.2)',   dot: '#00ff88', anim: 'dialerPulse 1.5s infinite' },
                 connected: { bg: 'rgba(74,222,128,0.06)', border: 'rgba(74,222,128,0.2)',   dot: 'var(--accent)', anim: 'dialerPulse 1.5s infinite' },
                 error:     { bg: 'rgba(239,68,68,0.06)', border: 'rgba(239,68,68,0.2)',   dot: '#ef4444', anim: 'none' },
                 ended:     { bg: 'rgba(74,222,128,0.04)', border: 'rgba(255,255,255,0.06)', dot: '#555',  anim: 'none' },
@@ -3316,7 +3316,7 @@
                             initVoIPDevice().catch(e => console.warn('[VoIP] Pre-warm failed (non-fatal):', e));
                         }
                     } else if (d.status === 'ringing' || d.status === 'initiated') {
-                        el.textContent = 'Ringing...'; el.style.color = '#00d9ff';
+                        el.textContent = 'Ringing...'; el.style.color = '#00ff88';
                         _dialerBannerState('ringing');
                     } else if (d.status === 'transferred') {
                         // Stop polling IMMEDIATELY to prevent duplicate advance calls
@@ -3405,7 +3405,7 @@
                 s.style.color = '#ef4444';
                 _dialerBannerState('error');
             } else {
-                s.style.color = '#00d9ff';
+                s.style.color = '#00ff88';
                 _dialerBannerState('ringing');
             }
             // Show which number we're calling from (updated after dial response)
@@ -3545,7 +3545,7 @@
                 const takeover = document.getElementById('dialerTakeoverBtn');
                 const transfer = document.getElementById('dialerTransferBtn');
                 if (_autoListenActive) {
-                    listen.style.color = '#00d9ff'; listen.style.background = 'rgba(0,217,255,0.15)'; listen.style.borderColor = 'rgba(0,217,255,0.3)';
+                    listen.style.color = '#00ff88'; listen.style.background = 'rgba(0,255,136,0.15)'; listen.style.borderColor = 'rgba(0,255,136,0.3)';
                     const li = listen.querySelector('i'); const ls = listen.querySelector('span');
                     if (li) li.className = 'fa-solid fa-ear-listen'; if (ls) ls.textContent = 'Listening...';
                 } else {
@@ -3554,7 +3554,7 @@
                 mute.style.color = '#ccc'; mute.style.background = 'rgba(255,255,255,0.04)'; mute.style.borderColor = 'rgba(255,255,255,0.1)';
                 if (muteMic) { muteMic.style.color = '#ccc'; muteMic.style.background = 'rgba(255,255,255,0.04)'; muteMic.style.borderColor = 'rgba(255,255,255,0.1)'; }
                 takeover.style.color = '#ffa500'; takeover.style.background = 'rgba(255,165,0,0.12)'; takeover.style.borderColor = 'rgba(255,165,0,0.3)';
-                transfer.style.color = '#00d9ff'; transfer.style.background = 'rgba(0,217,255,0.08)'; transfer.style.borderColor = 'rgba(0,217,255,0.15)';
+                transfer.style.color = '#00ff88'; transfer.style.background = 'rgba(0,255,136,0.08)'; transfer.style.borderColor = 'rgba(0,255,136,0.15)';
                 const meetBtn = document.getElementById('dialerMeetBtn');
                 if (meetBtn) { meetBtn.style.color = '#ccc'; meetBtn.style.background = 'rgba(255,255,255,0.04)'; meetBtn.style.borderColor = 'rgba(255,255,255,0.1)'; }
             } else {
@@ -3585,8 +3585,8 @@
             const btn = document.getElementById('dialerListenBtn');
 
             if (_dialerListening) {
-                btn.style.background = 'rgba(0,217,255,0.15)';
-                btn.style.color = '#00d9ff';
+                btn.style.background = 'rgba(0,255,136,0.15)';
+                btn.style.color = '#00ff88';
                 btn.querySelector('i').className = 'fa-solid fa-ear-listen';
                 btn.querySelector('span').textContent = 'Listening...';
                 _listenReconnects = 0;
@@ -4236,7 +4236,7 @@
             const panel = document.getElementById('dialerHistoryList');
             const label = document.getElementById('dialerCallsLabel');
             const viewBtn = document.getElementById('dialerCallsViewAllBtn');
-            panel.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i></div>';
+            panel.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00ff88;"></i></div>';
 
             const filterContact = (!_dialerCallHistoryShowAll && dialerActiveContact) ? dialerActiveContact : null;
             if (label) label.textContent = filterContact ? (dialerActiveContact.firstName || dialerActiveContact.name) + "'s Calls" : 'All Calls';
@@ -4260,7 +4260,7 @@
                     return;
                 }
                 panel.innerHTML = calls.map(c => {
-                    const statusColors = { completed:'var(--accent)', 'no-answer':'#ffa500', busy:'#ffa500', failed:'#ef4444', initiated:'#00d9ff', canceled:'#888' };
+                    const statusColors = { completed:'var(--accent)', 'no-answer':'#ffa500', busy:'#ffa500', failed:'#ef4444', initiated:'#00ff88', canceled:'#888' };
                     const sc = statusColors[c.status] || '#888';
                     const dur = c.duration ? Math.floor(c.duration/60) + ':' + String(c.duration%60).padStart(2,'0') : '--:--';
                     const dt = c.created_at ? new Date(c.created_at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
@@ -4303,7 +4303,7 @@
             const panel = document.getElementById('dialerRecordingsList');
             const label = document.getElementById('dialerRecordingsLabel');
             const viewBtn = document.getElementById('dialerRecsViewAllBtn');
-            panel.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i></div>';
+            panel.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00ff88;"></i></div>';
 
             const filterContact = (!_dialerRecordingsShowAll && dialerActiveContact) ? dialerActiveContact : null;
             if (label) label.textContent = filterContact ? (dialerActiveContact.firstName || dialerActiveContact.name) + "'s Recordings" : 'All Recordings';
@@ -4470,7 +4470,7 @@
                 if (qBodyAuto && qBodyAuto.style.display === 'none') qBodyAuto.style.display = 'block';
             }
             if (!dialerQueue.length) { list.innerHTML = '<div style="text-align:center;padding:10px;color:#555;font-size:.75rem;">Empty queue</div>'; return; }
-            const icons = { pending:'<span style="color:#555;">Wait</span>', initiated:'<i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i>', ringing:'<span style="color:#00d9ff;">Ring</span>', 'in-progress':'<span style="color:var(--accent);">Live</span>', completed:'<i class="fa-solid fa-check" style="color:var(--accent);"></i>', 'no-answer':'<span style="color:#ffa500;">N/A</span>', busy:'<span style="color:#ffa500;">Busy</span>', failed:'<i class="fa-solid fa-xmark" style="color:#ef4444;"></i>', skipped:'<i class="fa-solid fa-ban" style="color:#ef4444;" title="DnD — skipped"></i>' };
+            const icons = { pending:'<span style="color:#555;">Wait</span>', initiated:'<i class="fa-solid fa-spinner fa-spin" style="color:#00ff88;"></i>', ringing:'<span style="color:#00ff88;">Ring</span>', 'in-progress':'<span style="color:var(--accent);">Live</span>', completed:'<i class="fa-solid fa-check" style="color:var(--accent);"></i>', 'no-answer':'<span style="color:#ffa500;">N/A</span>', busy:'<span style="color:#ffa500;">Busy</span>', failed:'<i class="fa-solid fa-xmark" style="color:#ef4444;"></i>', skipped:'<i class="fa-solid fa-ban" style="color:#ef4444;" title="DnD — skipped"></i>' };
             list.innerHTML = dialerQueue.map((q, i) => {
                 const active = dialerQueueRunning && i === dialerCallIdx;
                 return '<div class="dlr-queue-row-clickable" onclick="dialerJumpToContact(\'' + q.id + '\')" style="display:flex;align-items:center;gap:6px;padding:3px 4px;border-radius:4px;font-size:.75rem;' + (active ? 'background:rgba(74,222,128,0.05);' : '') + '">' +
@@ -4738,8 +4738,8 @@
                 chip.style.background = 'rgba(255,165,0,0.15)';
                 chip.style.color = '#ffa500';
             } else {
-                chip.style.background = 'rgba(0,217,255,0.12)';
-                chip.style.color = '#00d9ff';
+                chip.style.background = 'rgba(0,255,136,0.12)';
+                chip.style.color = '#00ff88';
             }
         }
 
@@ -4758,7 +4758,7 @@
                         <button onclick="document.getElementById('dialerOutOfMinutesModal').style.display='none'"
                             style="padding:10px 20px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#aaa;cursor:pointer">Close</button>
                         <button onclick="document.getElementById('dialerOutOfMinutesModal').style.display='none';document.querySelector('[data-tab=\\'aiminutes\\']')?.click()"
-                            style="padding:10px 20px;border-radius:8px;border:none;background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;font-weight:600;cursor:pointer">Buy Minutes</button>
+                            style="padding:10px 20px;border-radius:8px;border:none;background:#00ff88;color:#000;font-weight:600;cursor:pointer">Buy Minutes</button>
                     </div>
                 </div>`;
             document.body.appendChild(modal);
@@ -4799,7 +4799,7 @@
                 iosDmHuman.classList.toggle('ios-dm-active', mode !== 'ai');
             }
             if (mode === 'ai') {
-                aiBtn.style.background = 'linear-gradient(135deg,#00d9ff,#0099cc)'; aiBtn.style.color = '#000';
+                aiBtn.style.background = '#00ff88'; aiBtn.style.color = '#000';
                 humanBtn.style.background = 'transparent'; humanBtn.style.color = '#888';
                 document.getElementById('voipSetupBanner').style.display = 'none';
             } else {
@@ -4948,7 +4948,7 @@
                 document.getElementById('voipSetupBtnDialer'),
             ];
             const map = {
-                idle:      { bg: 'linear-gradient(135deg,#00d9ff,#0099cc)', icon: 'fa-headset',          label: 'Setup Browser VoIP', disabled: false },
+                idle:      { bg: '#00ff88', icon: 'fa-headset',          label: 'Setup Browser VoIP', disabled: false },
                 loading:   { bg: 'linear-gradient(135deg,#ffa500,#cc8400)', icon: 'fa-spinner fa-spin',  label: 'Connecting…',        disabled: true  },
                 connected: { bg: 'linear-gradient(135deg,#4ade80,#22c55e)', icon: 'fa-circle-check',     label: 'VoIP Connected',     disabled: false },
                 error:     { bg: 'linear-gradient(135deg,#ef4444,#cc2222)', icon: 'fa-rotate-right',     label: 'Retry VoIP Setup',   disabled: false },
@@ -5618,7 +5618,7 @@
         async function loadNumbersTab() {
             const container = document.getElementById('numbersListContainer');
             if (!container) { console.error('[Numbers] numbersListContainer not found'); return; }
-            container.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.2rem;"></i><div style="color:#888;font-size:.78rem;margin-top:6px;">Loading numbers...</div></div>';
+            container.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00ff88;font-size:1.2rem;"></i><div style="color:#888;font-size:.78rem;margin-top:6px;">Loading numbers...</div></div>';
             try {
                 const r = await fetch('/voice/numbers');
                 const d = await r.json();
@@ -5637,7 +5637,7 @@
                 if (!_numbersCache.length) {
                     container.innerHTML = '<div style="text-align:center;padding:30px 20px;color:#888;font-size:.82rem;">' +
                         '<i class="fa-solid fa-phone-slash" style="font-size:1.5rem;display:block;margin-bottom:8px;color:#444;"></i>' +
-                        'No numbers found on your account.<br>Click <strong style="color:#00d9ff;">Buy Number</strong> above to get started.</div>';
+                        'No numbers found on your account.<br>Click <strong style="color:#00ff88;">Buy Number</strong> above to get started.</div>';
                     return;
                 }
                 _renderNumbersTable(_numbersCache, container);
@@ -6028,8 +6028,8 @@
             document.querySelectorAll('.dlr-stat-period').forEach(b => {
                 const active = b.dataset.period === period;
                 b.classList.toggle('active', active);
-                b.style.background = active ? 'rgba(0,217,255,0.15)' : 'transparent';
-                b.style.color = active ? '#00d9ff' : '#666';
+                b.style.background = active ? 'rgba(0,255,136,0.15)' : 'transparent';
+                b.style.color = active ? '#00ff88' : '#666';
             });
             dialerLoadStats();
         }
@@ -6037,7 +6037,7 @@
         async function dialerLoadStats() {
             const container = document.getElementById('dialerStatsContent');
             if (!container) return;
-            container.innerHTML = '<div style="text-align:center;padding:40px;color:#555;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.4rem;"></i></div>';
+            container.innerHTML = '<div style="text-align:center;padding:40px;color:#555;"><i class="fa-solid fa-spinner fa-spin" style="color:#00ff88;font-size:1.4rem;"></i></div>';
             try {
                 const r = await _fetchRetry('/voice/stats?period=' + _dialerStatsPeriod, {}, { retries: 1, timeout: 15000, label: 'dialer-stats' });
                 if (!r.ok) { container.innerHTML = '<div style="color:#888;text-align:center;padding:20px;">Could not load statistics.</div>'; return; }
@@ -6054,7 +6054,7 @@
         async function iosStatsLoad() {
             const container = document.getElementById('iosStatsContent');
             if (!container) return;
-            container.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.4rem;"></i></div>';
+            container.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00ff88;font-size:1.4rem;"></i></div>';
             try {
                 const r = await _fetchRetry('/voice/stats?period=' + _iosStatsPeriod, {}, { retries: 1, timeout: 15000, label: 'ios-stats' });
                 if (!r.ok) { container.innerHTML = '<div style="color:#888;text-align:center;padding:20px;">Could not load statistics.</div>'; return; }
@@ -6123,7 +6123,7 @@
             html += _kpiCard(s.connected_calls,               'Connected',      '',          _delta(p.delta_connected));
             html += _kpiCard(s.connect_rate + '%',            'Connect Rate',   connectColor,_delta(p.delta_rate, true));
             html += _kpiCard(_fmtDuration(s.avg_duration),    'Avg Duration',   '',          '');
-            html += _kpiCard(_fmtDuration(s.total_duration),  'Total Talk Time','#00d9ff',   _delta(p.delta_duration));
+            html += _kpiCard(_fmtDuration(s.total_duration),  'Total Talk Time','#00ff88',   _delta(p.delta_duration));
             html += _kpiCard(s.unique_contacts,               'Leads Dialed',   '',          '');
             html += _kpiCard(s.calls_per_day,                 'Calls / Day',    '',          '');
             html += '</div>';
@@ -6135,7 +6135,7 @@
             html += '<div>';
             html += '<div style="font-size:0.92rem;font-weight:700;color:#ccc;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;">Duration Breakdown</div>';
             const maxDur = Math.max(s.over_6s, 1);
-            html += _durBar('6s+',    s.over_6s,    maxDur, '#00d9ff');
+            html += _durBar('6s+',    s.over_6s,    maxDur, '#00ff88');
             html += _durBar('1 min',  s.over_1min,  maxDur, '#00b8d4');
             html += _durBar('2 min',  s.over_2min,  maxDur, '#00916a');
             html += _durBar('5 min',  s.over_5min,  maxDur, '#4ade80');
@@ -6183,7 +6183,7 @@
                                      '12pm','1pm','2pm','3pm','4pm','5pm','6pm','7pm','8pm','9pm','10pm','11pm'];
                 const top3 = [...s.hourly].filter(h => h.calls > 0).sort((a,b) => b.calls - a.calls).slice(0, 3);
                 if (top3.length) {
-                    const rankColors = ['#4ade80','#00d9ff','#a78bfa'];
+                    const rankColors = ['#4ade80','#00ff88','#a78bfa'];
                     html += '<div style="margin-bottom:20px;padding:14px 18px;background:rgba(74,222,128,0.03);border:1px solid rgba(74,222,128,0.08);border-radius:10px;display:flex;align-items:center;gap:16px;">';
                     html += '<i class="fa-solid fa-clock" style="color:#4ade80;font-size:1.2rem;flex-shrink:0;"></i>';
                     html += '<div style="flex:1;">';
@@ -6205,7 +6205,7 @@
                 html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
                 html += '<div style="font-size:0.92rem;font-weight:700;color:#ccc;text-transform:uppercase;letter-spacing:0.5px;">Daily Volume</div>';
                 html += '<div style="display:flex;gap:14px;">' +
-                    '<span style="font-size:0.82rem;color:#aaa;"><span style="color:rgba(0,217,255,0.6);">■</span> Dials</span>' +
+                    '<span style="font-size:0.82rem;color:#aaa;"><span style="color:rgba(0,255,136,0.6);">■</span> Dials</span>' +
                     '<span style="font-size:0.82rem;color:#aaa;"><span style="color:#4ade80;">■</span> Connected</span>' +
                 '</div>';
                 html += '</div>';
@@ -6220,7 +6220,7 @@
                     html += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;min-width:26px;" title="' + d.day + ': ' + d.calls + ' dials, ' + d.connected + ' connected' + (talkLbl ? ', ' + talkLbl : '') + '">' +
                         '<div style="font-size:0.75rem;color:#aaa;font-weight:600;">' + (d.calls > 0 ? d.calls : '') + '</div>' +
                         '<div style="width:100%;position:relative;height:' + hTotal + 'px;">' +
-                            '<div style="position:absolute;bottom:0;left:0;right:0;height:' + hTotal + 'px;background:rgba(0,217,255,0.25);border-radius:3px 3px 0 0;"></div>' +
+                            '<div style="position:absolute;bottom:0;left:0;right:0;height:' + hTotal + 'px;background:rgba(0,255,136,0.25);border-radius:3px 3px 0 0;"></div>' +
                             (hConn > 0 ? '<div style="position:absolute;bottom:0;left:0;right:0;height:' + hConn + 'px;background:rgba(74,222,128,0.65);border-radius:2px 2px 0 0;"></div>' : '') +
                         '</div>' +
                         '<div style="font-size:0.75rem;color:#aaa;white-space:nowrap;">' + label + '</div>' +
@@ -6237,7 +6237,7 @@
                 s.top_contacts.forEach(tc => {
                     html += '<div class="dlr-bar-row" style="margin-bottom:5px;">' +
                         '<div class="dlr-bar-label" style="min-width:110px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;font-size:0.88rem;color:#ccc;">' + dialerEsc(tc.name) + '</div>' +
-                        '<div class="dlr-bar-track" style="height:10px;"><div class="dlr-bar-fill" style="width:' + Math.round(tc.count / maxTop * 100) + '%;background:rgba(0,217,255,0.5);"></div></div>' +
+                        '<div class="dlr-bar-track" style="height:10px;"><div class="dlr-bar-fill" style="width:' + Math.round(tc.count / maxTop * 100) + '%;background:rgba(0,255,136,0.5);"></div></div>' +
                         '<div class="dlr-bar-count" style="font-size:0.88rem;color:#ddd;">' + tc.count + '</div>' +
                     '</div>';
                 });
@@ -8347,8 +8347,8 @@
 
             const lines = Array.from(_multiLineActive.entries());
             const statusColors = {
-                'initiated': '#00d9ff',
-                'ringing': '#00d9ff',
+                'initiated': '#00ff88',
+                'ringing': '#00ff88',
                 'in-progress': '#4ade80',
                 'completed': '#666',
                 'busy': '#ffa500',
@@ -8470,7 +8470,7 @@
                     if (proCard) proCard.style.borderColor = 'rgba(255,107,53,0.4)';
                     if (proBadge) proBadge.style.display = 'block';
                 } else if (_billingCurrentTier === 'sms_bot') {
-                    if (smsCard) smsCard.style.borderColor = 'rgba(0,217,255,0.4)';
+                    if (smsCard) smsCard.style.borderColor = 'rgba(0,255,136,0.4)';
                     if (smsBadge) smsBadge.style.display = 'block';
                 } else {
                     if (indCard) indCard.style.borderColor = 'rgba(0,255,136,0.4)';
@@ -8495,7 +8495,7 @@
             const proCard = document.getElementById('billingPlanProDialer');
             const predCard = document.getElementById('billingPlanPredictiveDialer');
             [smsCard, indCard, proCard, predCard].forEach(c => { if (c) c.style.borderColor = 'rgba(255,255,255,0.08)'; });
-            if (tier === 'sms_bot' && smsCard) smsCard.style.borderColor = 'rgba(0,217,255,0.4)';
+            if (tier === 'sms_bot' && smsCard) smsCard.style.borderColor = 'rgba(0,255,136,0.4)';
             if (tier === 'individual' && indCard) indCard.style.borderColor = 'rgba(0,255,136,0.4)';
             if (tier === 'pro_dialer' && proCard) proCard.style.borderColor = 'rgba(255,107,53,0.4)';
             if (tier === 'solo_predictive' && predCard) predCard.style.borderColor = 'rgba(139,92,246,0.4)';

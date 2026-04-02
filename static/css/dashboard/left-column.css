@@ -531,19 +531,35 @@
 }
 
 /* Chevron arrows — L1 */
-.ch {
+.ch, .nav-chevron {
     font-size: 0.5rem;
     opacity: 0.4;
-    transition: transform 0.2s, opacity 0.15s;
+    transition: transform 0.2s, opacity 0.15s, color 0.15s;
     line-height: 1;
     flex-shrink: 0;
     margin-left: auto;
+    color: #555;
 }
-.l1-acc:hover .ch { opacity: 0.7; }
-.l1-acc.open .ch {
+.nav-chevron {
+    font-size: 0.65rem;
+}
+.l1-icon {
+    font-size: 0.78rem;
+    color: #555;
+    margin-right: 8px;
+    width: 16px;
+    text-align: center;
+    flex-shrink: 0;
+    transition: color 0.15s;
+}
+.l1-acc:hover .ch, .l1-acc:hover .nav-chevron { opacity: 0.7; }
+.l1-acc:hover .l1-icon { color: #00ff88; }
+.l1-acc.open .ch, .l1-acc.open .nav-chevron {
     transform: rotate(90deg);
     opacity: 0.8;
+    color: #00ff88;
 }
+.l1-acc.open .l1-icon { color: #00ff88; }
 
 /* Chevron arrows — L2 */
 .ch2 {
@@ -576,9 +592,12 @@
     border-left-color: #059669;
     background: rgba(5,150,105,0.06);
 }
-[data-theme="light"] .ch { opacity: 0.3; color: #666666; }
-[data-theme="light"] .l1-acc:hover .ch { opacity: 0.5; color: #059669; }
-[data-theme="light"] .l1-acc.open .ch { opacity: 0.7; color: #059669; }
+[data-theme="light"] .ch, [data-theme="light"] .nav-chevron { opacity: 0.3; color: #666666; }
+[data-theme="light"] .l1-icon { color: #888888; }
+[data-theme="light"] .l1-acc:hover .ch, [data-theme="light"] .l1-acc:hover .nav-chevron { opacity: 0.5; color: #059669; }
+[data-theme="light"] .l1-acc:hover .l1-icon { color: #059669; }
+[data-theme="light"] .l1-acc.open .ch, [data-theme="light"] .l1-acc.open .nav-chevron { opacity: 0.7; color: #059669; }
+[data-theme="light"] .l1-acc.open .l1-icon { color: #059669; }
 [data-theme="light"] .ch2 { opacity: 0.25; color: #888888; }
 [data-theme="light"] .l2-acc:hover .ch2 { opacity: 0.5; color: #059669; }
 [data-theme="light"] .l2-acc.open .ch2 { opacity: 0.6; color: #059669; }
@@ -664,7 +683,7 @@
     padding: 9px 10px;
     border-radius: 8px;
     font-size: 0.9rem;
-    color: #00d9ff;
+    color: #00ff88;
     transition: background 0.15s, color 0.15s;
 }
 .sb-footer-tutorial-icon {
@@ -1021,13 +1040,13 @@ textarea.sb-params-profile-input { resize: none; }
     gap: 8px;
     background: #171717;
     border: 1px solid #242424;
-    border-radius: 20px;
+    border-radius: 8px;
     padding: 5px 12px 5px 6px;
     cursor: default;
 }
 .dash-avatar {
     width: 26px; height: 26px;
-    border-radius: 50%;
+    border-radius: 6px;
     background: #00ff88;
     display: flex;
     align-items: center;
@@ -1147,7 +1166,7 @@ textarea.sb-params-profile-input { resize: none; }
     .dash-topbar { gap: clamp(12px,.8vw,22px); padding: clamp(9px,.6vw,16px) 0 clamp(15px,1vw,26px); margin-bottom: clamp(6px,.4vw,12px); }
     .dash-topbar h1 { font-size: clamp(1.5rem,1.2vw,2.4rem); }
     .dash-subtitle { font-size: clamp(.82rem,.55vw,1.15rem); }
-    .dash-user-pill { gap: clamp(8px,.5vw,14px); padding: clamp(5px,.3vw,9px) clamp(12px,.8vw,20px) clamp(5px,.3vw,9px) clamp(6px,.4vw,10px); border-radius: clamp(20px,1.3vw,36px); }
+    .dash-user-pill { gap: clamp(8px,.5vw,14px); padding: clamp(5px,.3vw,9px) clamp(12px,.8vw,20px) clamp(5px,.3vw,9px) clamp(6px,.4vw,10px); border-radius: 8px; }
     .dash-avatar { width: clamp(26px,1.7vw,42px); height: clamp(26px,1.7vw,42px); font-size: clamp(.75rem,.5vw,1.1rem); }
     .dash-user-email { font-size: clamp(.82rem,.55vw,1.15rem); }
 

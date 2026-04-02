@@ -38,7 +38,7 @@
                                         </div>
 
                                         <!-- ── SMS Channel Selection ── -->
-                                        <div class="col-12" style="margin-top:12px;">
+                                        <div class="col-12 cfg-sms-channel-row">
                                             <label class="form-label d-flex align-items-center gap-2">
                                                 <i class="fa-solid fa-paper-plane cfg-sms-channel-label-icon"></i>
                                                 Send SMS Via
@@ -50,7 +50,7 @@
                                                     <input type="radio" name="sms_send_via" value="ghl"
                                                         {% if not current_user.sms_send_via or current_user.sms_send_via == 'ghl' %}checked{% endif %}
                                                         class="cfg-sms-radio">
-                                                    <img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/WDJNKXKiQj2XODO7jYzV/media/66be66f4b5e9ba05e7a7c191.png" alt="LC" style="width:22px;height:22px;border-radius:4px;flex-shrink:0;" onerror="this.style.display='none'">
+                                                    <img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/WDJNKXKiQj2XODO7jYzV/media/66be66f4b5e9ba05e7a7c191.png" alt="LC" class="cfg-sms-lc-icon" onerror="this.style.display='none'">
                                                     <div class="cfg-sms-option-body">
                                                         <div class="cfg-sms-option-title">Via GoHighLevel</div>
                                                         <div class="cfg-sms-option-desc">Default — sends through your GHL/LeadConnector account</div>
@@ -123,7 +123,7 @@
                                                     <option value="{{ form.calendar_id.data }}" selected>{{ current_user.calendar_name or form.calendar_id.data }}</option>
                                                     {% endif %}
                                                 </select>
-                                                <button type="button" class="btn btn-outline-primary" onclick="loadCalendars()" style="white-space:nowrap;">
+                                                <button type="button" class="btn btn-outline-primary cfg-cal-load-btn" onclick="loadCalendars()">
                                                     <i class="fa-solid fa-sync"></i> Load
                                                 </button>
                                             </div>
@@ -214,12 +214,12 @@
                                     </div>
 
                                     <!-- A2P compliance summary -->
-                                    <div id="smsA2pSummary" style="display:none;margin-top:16px;"></div>
+                                    <div id="smsA2pSummary" class="cfg-a2p-summary" style="display:none;"></div>
                                 </div>
 
                                 <!-- ══ A2P 10DLC Registration panel ══ -->
                                 <div id="cfgtab-panel-a2p" style="display:none;">
-                                    <div class="vc-status-bar" style="margin-bottom:12px;">
+                                    <div class="vc-status-bar cfg-a2p-status-header">
                                         <i class="fa-solid fa-certificate"></i>
                                         <span>A2P 10DLC Registration</span>
                                     </div>

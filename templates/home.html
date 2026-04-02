@@ -317,7 +317,7 @@
     .hp-trust-item {
         font-size: 0.72rem;
         font-weight: 600;
-        color: #404040;
+        color: #666;
         display: flex;
         align-items: center;
         gap: 6px;
@@ -457,8 +457,9 @@
         flex-direction: column;
     }
     .hp-price-card.featured {
-        border-color: #00ff88;
-        background: #0d1a12;
+        background: #000;
+        border: 1px solid #1a1a1a;
+        border-top: 2px solid #00ff88;
     }
     .hp-price-card:not(.featured):hover { border-color: #2e2e2e; }
     .hp-price-card h4 { font-weight: 800; font-size: 1.05rem; color: #fff; margin-bottom: 4px; }
@@ -475,7 +476,7 @@
         border-radius: 20px;
         white-space: nowrap;
     }
-    .hp-price-amount { font-size: 2.4rem; font-weight: 900; color: #fff; line-height: 1; letter-spacing: -1.5px; }
+    .hp-price-amount { font-size: 3.2rem; font-weight: 900; color: #fff; line-height: 1; letter-spacing: -2px; }
     .hp-price-amount.green { color: #00ff88; }
     .hp-price-period { color: #555; font-size: 0.88rem; }
     .hp-price-sub { font-size: 0.78rem; font-weight: 600; color: #666; margin-top: 6px; }
@@ -519,12 +520,12 @@
     .hp-cta-trust { font-size: 0.78rem; color: #383838; margin-top: 28px; letter-spacing: 0.3px; }
     .chain-branch-mt { margin-top: 36px; }
 
-    [data-theme="light"] .hp-cta-stat { text-shadow: 0 0 40px rgba(5,150,105,0.2); }
-    [data-theme="light"] .hp-cta p { color: #888; }
-    [data-theme="light"] .hp-hero-section, [data-theme="light"] .hp-dialer-section,
-    [data-theme="light"] .hp-how-section, [data-theme="light"] .hp-cta-section { background: #f8f9fb; }
-    [data-theme="light"] .hp-ai-section, [data-theme="light"] .hp-pricing-section { background: #f3f5f8; }
-    [data-theme="light"] .hp-cta-trust { color: #b0b0b0; }
+    body.light-theme .hp-cta-stat { text-shadow: 0 0 40px rgba(5,150,105,0.2); }
+    body.light-theme .hp-cta p { color: #888; }
+    body.light-theme .hp-hero-section, body.light-theme .hp-dialer-section,
+    body.light-theme .hp-how-section, body.light-theme .hp-cta-section { background: #f8f9fb; }
+    body.light-theme .hp-ai-section, body.light-theme .hp-pricing-section { background: #f3f5f8; }
+    body.light-theme .hp-cta-trust { color: #b0b0b0; }
 
     .hp-mkt-body-wide { max-width: 580px; margin: 0 auto; }
     .hp-mkt-body-std  { max-width: 520px; margin: 0 auto; }
@@ -543,19 +544,19 @@
         margin-bottom: 12px;
         line-height: 1.4;
     }
-    [data-theme="light"] .hp-platform-card { background: #fff; border-color: #e0e0e0; }
-    [data-theme="light"] .hp-platform-headline { color: #111; }
+    body.light-theme .hp-platform-card { background: #fff; border-color: #e0e0e0; }
+    body.light-theme .hp-platform-headline { color: #111; }
 
     .hp-mkt-body-mb { margin-bottom: 24px; }
     .hp-price-cents { font-size: 1.1rem; font-weight: 900; color: #fff; }
     .hp-price-cents.accent { color: var(--accent); }
-    .hp-pricing-btn { font-weight: 700 !important; background: #111 !important; border: 1px solid #2a2a2a !important; color: #fff !important; }
-    .hp-pricing-btn:hover { background: #1a1a1a !important; border-color: #3a3a3a !important; }
+    .hp-pricing-btn { font-weight: 700 !important; background: transparent !important; border: 1px solid rgba(255,255,255,0.15) !important; color: #fff !important; }
+    .hp-pricing-btn:hover { background: rgba(255,255,255,0.05) !important; border-color: rgba(255,255,255,0.25) !important; }
     .hp-comparison-disclaimer { color: #333; font-size: 0.7rem; text-align: center; margin-top: 10px; }
-    [data-theme="light"] .hp-price-cents { color: #111; }
-    [data-theme="light"] .hp-pricing-btn { background: #f0f0f0 !important; border-color: #ddd !important; color: #111 !important; }
-    [data-theme="light"] .hp-pricing-btn:hover { background: #e8e8e8 !important; }
-    [data-theme="light"] .hp-comparison-disclaimer { color: #999; }
+    body.light-theme .hp-price-cents { color: #111; }
+    body.light-theme .hp-pricing-btn { background: #f0f0f0 !important; border-color: #ddd !important; color: #111 !important; }
+    body.light-theme .hp-pricing-btn:hover { background: #e8e8e8 !important; }
+    body.light-theme .hp-comparison-disclaimer { color: #999; }
 
     /* ── Animations ── */
     @keyframes fadeSlideUp {
@@ -566,6 +567,124 @@
         from { opacity: 0; }
         to   { opacity: 1; }
     }
+
+    /* ── Hero line accent (light theme) ── */
+    body.light-theme .hero-line-accent,
+    body.light-theme .h1-line:nth-child(3) { color: #059669; }
+    body.light-theme .h1-line:nth-child(3) em::after { background: #059669; }
+
+    /* ── Featured pricing button ── */
+    .hp-pricing-btn-featured { font-weight: 700; background: #00ff88; color: #000; border: none; }
+    .hp-pricing-btn-featured:hover { background: #00e67a; color: #000; }
+    body.light-theme .hp-pricing-btn-featured { background: #059669; color: #fff; }
+    body.light-theme .hp-pricing-btn-featured:hover { background: #047857; color: #fff; }
+    body.light-theme .hp-pricing-btn { background: transparent !important; border-color: #ccc !important; color: #333 !important; }
+    body.light-theme .hp-pricing-btn:hover { background: rgba(0,0,0,0.03) !important; border-color: #aaa !important; }
+
+    /* ── Featured card (light theme) ── */
+    body.light-theme .hp-price-card.featured { background: #fff; border-color: #e8e8e8; border-top-color: #059669; }
+    body.light-theme .hp-price-card { background: #fff; border-color: #e8e8e8; }
+    body.light-theme .hp-price-card h4 { color: #111; }
+    body.light-theme .hp-price-amount { color: #111; }
+    body.light-theme .hp-price-amount.green { color: #059669; }
+    body.light-theme .hp-price-feat li { color: #555; }
+    body.light-theme .hp-price-feat li i { color: #059669; }
+    body.light-theme .hp-price-badge { background: #059669; color: #fff; }
+    body.light-theme .hp-price-sub-accent { color: #059669; }
+    body.light-theme .hp-trust-item { color: #888; }
+    body.light-theme .hp-trust-item i { color: #059669; }
+
+    /* ── Featured card title spacing ── */
+    .hp-price-card-title-featured { margin-top: 6px; }
+
+    /* ── Featured price subtitle accent ── */
+    .hp-price-sub-accent { color: #00ff88; }
+
+    /* ── How It Works check icons ── */
+    .hiw-check-icon { color: #00ff88; }
+    body.light-theme .hiw-check-icon { color: #059669; }
+
+    /* ── Agency callout ── */
+    .agency-callout {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        background: #0a0a0a;
+        border: 1px solid #1e1e1e;
+        border-left: 3px solid #00ff88;
+        border-radius: 10px;
+        padding: 16px 20px;
+        margin: 24px auto;
+        max-width: 640px;
+    }
+    .agency-callout-icon { color: #00ff88; font-size: 1.25rem; }
+    .agency-callout-content { flex: 1; }
+    .agency-callout-content strong { color: #fff; display: block; margin-bottom: 2px; }
+    .agency-callout-content span { color: #888; font-size: 0.875rem; }
+    .agency-callout-cta { color: #00ff88; font-size: 0.875rem; white-space: nowrap; text-decoration: none; }
+    .agency-callout-cta:hover { text-decoration: underline; }
+    body.light-theme .agency-callout { background: #fff; border-color: #e8e8e8; border-left-color: #059669; }
+    body.light-theme .agency-callout-icon,
+    body.light-theme .agency-callout-cta { color: #059669; }
+    body.light-theme .agency-callout-content strong { color: #111; }
+
+    /* ── Testimonials ── */
+    .testimonials-section { padding: 80px 0; }
+    .testimonials-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+        margin-top: 40px;
+    }
+    .testimonial-card {
+        background: #0a0a0a;
+        border: 1px solid #1a1a1a;
+        border-radius: 12px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        transition: border-color 0.18s;
+    }
+    .testimonial-card:hover { border-color: rgba(0,255,136,0.2); }
+    .testimonial-quote {
+        color: #ccc;
+        font-size: 0.95rem;
+        line-height: 1.65;
+        flex: 1;
+    }
+    .testimonial-quote::before { content: '\201C'; color: #00ff88; font-size: 1.5rem; margin-right: 4px; }
+    .testimonial-author {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .testimonial-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background: rgba(0,255,136,0.1);
+        border: 1px solid rgba(0,255,136,0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: #00ff88;
+        flex-shrink: 0;
+    }
+    .testimonial-name { font-weight: 600; color: #fff; font-size: 0.875rem; }
+    .testimonial-role { color: #666; font-size: 0.75rem; }
+    body.light-theme .testimonial-card { background: #fff; border-color: #eee; }
+    body.light-theme .testimonial-card:hover { border-color: rgba(5,150,105,0.25); }
+    body.light-theme .testimonial-quote { color: #444; }
+    body.light-theme .testimonial-name { color: #111; }
+    body.light-theme .testimonial-avatar {
+        background: rgba(5,150,105,0.08);
+        border-color: rgba(5,150,105,0.2);
+        color: #059669;
+    }
+    body.light-theme .testimonial-quote::before { color: #059669; }
 </style>
 
 <!-- ── Side Dots ── -->
@@ -597,9 +716,9 @@
                 <div class="hp-hero-label">Power Dialer for Life Insurance Agents</div>
 
                 <h1 class="hp-hero-h1">
-                    <span class="h1-line">Dial More.</span>
-                    <span class="h1-line">Connect More.</span>
-                    <span class="h1-line"><em>Close More.</em></span>
+                    <span class="h1-line">4 Lines Dialing.</span>
+                    <span class="h1-line">AI Books the Appointments.</span>
+                    <span class="h1-line hero-line-accent"><em>No More Spam Likely.</em></span>
                 </h1>
 
                 <div class="hp-hero-ticker">
@@ -650,7 +769,7 @@
 
 <!-- ═══════════ SECTION 1: THE DIALER ═══════════ -->
 <section class="ios-snap-section auto-height hp-dialer-section" id="iosSection1">
-    <div class="container" style="width:100%;">
+    <div class="container" class="w-100">
         <hr class="hp-section-sep">
         <div class="hp-section">
             <div class="text-center" data-aos="fade-up">
@@ -851,7 +970,7 @@
 
 <!-- ═══════════ SECTION 4: AI FOLLOW-UP ═══════════ -->
 <section class="ios-snap-section hp-ai-section" id="iosSection4">
-    <div class="container" style="width:100%;">
+    <div class="container" class="w-100">
         <div class="hp-ai-layout" data-aos="fade-up">
 
             <!-- Phone -->
@@ -925,7 +1044,7 @@
 
 <!-- ═══════════ SECTION 5: HOW IT WORKS ═══════════ -->
 <section class="ios-snap-section hp-how-section" id="iosSection5">
-    <div class="container" style="width:100%;">
+    <div class="container" class="w-100">
         <hr class="hp-section-sep">
         <div class="hp-section">
             <div class="text-center" data-aos="fade-up">
@@ -942,23 +1061,23 @@
                     <span class="hiw-label">What You Do</span>
                     <h3>The Human Work</h3>
                     <ul class="hiw-list-v2">
-                        <li><i class="fa-solid fa-check" style="color:#00ff88;"></i> Dial your lead list — up to 4 lines at once</li>
-                        <li><i class="fa-solid fa-check" style="color:#00ff88;"></i> Pick up every connected call</li>
-                        <li><i class="fa-solid fa-check" style="color:#00ff88;"></i> Have the real conversation — build trust, answer questions</li>
-                        <li><i class="fa-solid fa-check" style="color:#00ff88;"></i> Close the deal, take the application</li>
-                        <li><i class="fa-solid fa-check" style="color:#00ff88;"></i> Show up to appointments the AI booked for you</li>
+                        <li><i class="fa-solid fa-check hiw-check-icon"></i> Dial your lead list — up to 4 lines at once</li>
+                        <li><i class="fa-solid fa-check hiw-check-icon"></i> Pick up every connected call</li>
+                        <li><i class="fa-solid fa-check hiw-check-icon"></i> Have the real conversation — build trust, answer questions</li>
+                        <li><i class="fa-solid fa-check hiw-check-icon"></i> Close the deal, take the application</li>
+                        <li><i class="fa-solid fa-check hiw-check-icon"></i> Show up to appointments the AI booked for you</li>
                     </ul>
                 </div>
                 <div class="hiw-card-v2 hiw-card-v2--ai">
                     <span class="hiw-label">What the AI Does</span>
                     <h3>Everything Between Calls</h3>
                     <ul class="hiw-list-v2">
-                        <li><i class="fa-solid fa-check" style="color:#00ff88;"></i> Texts every lead who didn't pick up — immediately</li>
-                        <li><i class="fa-solid fa-check" style="color:#00ff88;"></i> Handles "not interested," "I'm covered," "I'm busy"</li>
-                        <li><i class="fa-solid fa-check" style="color:#00ff88;"></i> Qualifies coverage needs by text, 24/7</li>
-                        <li><i class="fa-solid fa-check" style="color:#00ff88;"></i> Books appointments on your calendar</li>
-                        <li><i class="fa-solid fa-check" style="color:#00ff88;"></i> Follows up until they respond, opt out, or book</li>
-                        <li><i class="fa-solid fa-check" style="color:#00ff88;"></i> Scores + sorts your leads before your next session</li>
+                        <li><i class="fa-solid fa-check hiw-check-icon"></i> Texts every lead who didn't pick up — immediately</li>
+                        <li><i class="fa-solid fa-check hiw-check-icon"></i> Handles "not interested," "I'm covered," "I'm busy"</li>
+                        <li><i class="fa-solid fa-check hiw-check-icon"></i> Qualifies coverage needs by text, 24/7</li>
+                        <li><i class="fa-solid fa-check hiw-check-icon"></i> Books appointments on your calendar</li>
+                        <li><i class="fa-solid fa-check hiw-check-icon"></i> Follows up until they respond, opt out, or book</li>
+                        <li><i class="fa-solid fa-check hiw-check-icon"></i> Scores + sorts your leads before your next session</li>
                     </ul>
                 </div>
             </div>
@@ -976,9 +1095,48 @@
 </section>
 
 
+<!-- ═══════════ TESTIMONIALS ═══════════ -->
+<section class="testimonials-section">
+    <div class="container">
+        <h2 class="mkt-h2 text-center">What agents are saying</h2>
+        <div class="testimonials-grid">
+            <div class="testimonial-card">
+                <div class="testimonial-quote">I used to manually text every missed call. Now every no-answer gets a follow-up text automatically. My callback rate is up 40%.</div>
+                <div class="testimonial-author">
+                    <div class="testimonial-avatar">DM</div>
+                    <div>
+                        <div class="testimonial-name">Derek M.</div>
+                        <div class="testimonial-role">Independent Life Agent, Texas</div>
+                    </div>
+                </div>
+            </div>
+            <div class="testimonial-card">
+                <div class="testimonial-quote">Spam Likely was killing my answer rate. After registering through IGB my calls go through clean. Night and day difference on connect rate.</div>
+                <div class="testimonial-author">
+                    <div class="testimonial-avatar">SR</div>
+                    <div>
+                        <div class="testimonial-name">Sandra R.</div>
+                        <div class="testimonial-role">Agency Owner, 12 Agents, Florida</div>
+                    </div>
+                </div>
+            </div>
+            <div class="testimonial-card">
+                <div class="testimonial-quote">The AI handles objections the way I would — it doesn't fold when someone says not interested. Three of my last five closes started as 'no thanks' texts.</div>
+                <div class="testimonial-author">
+                    <div class="testimonial-avatar">JC</div>
+                    <div>
+                        <div class="testimonial-name">James C.</div>
+                        <div class="testimonial-role">Final Expense Specialist, Ohio</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
 <!-- ═══════════ SECTION 6: PRICING ═══════════ -->
 <section class="ios-snap-section auto-height hp-pricing-section" id="iosSection6">
-    <div class="container" id="pricing" style="width:100%;">
+    <div class="container" id="pricing" class="w-100">
         <div class="hp-section">
             <div class="text-center" data-aos="fade-up">
                 <span class="mkt-label">Pricing</span>
@@ -1006,9 +1164,9 @@
                 <!-- Power Dialer -->
                 <div class="hp-price-card featured">
                     <div class="hp-price-badge">MOST POPULAR</div>
-                    <h4 style="margin-top:6px;">Power Dialer</h4>
+                    <h4 class="hp-price-card-title-featured">Power Dialer</h4>
                     <div><span class="hp-price-amount green">$149</span><span class="hp-price-cents accent">.99</span><span class="hp-price-period">/mo</span></div>
-                    <p class="hp-price-sub" style="color:#00ff88;">Human dialer + full AI platform</p>
+                    <p class="hp-price-sub hp-price-sub-accent">Human dialer + full AI platform</p>
                     <p class="hp-price-trial">7-day free trial.</p>
                     <ul class="hp-price-feat">
                         <li><i class="fa-solid fa-check"></i> <strong>Single-line power dialer</strong></li>
@@ -1018,7 +1176,7 @@
                         <li><i class="fa-solid fa-check"></i> Unlimited human dialing minutes*</li>
                         <li><i class="fa-solid fa-check"></i> Calls that actually get answered</li>
                     </ul>
-                    <a href="/checkout" class="btn btn-primary w-100 py-2" style="font-weight:700;">Start Free Trial</a>
+                    <a href="/checkout" class="btn w-100 py-2 hp-pricing-btn-featured">Start Free Trial</a>
                 </div>
 
                 <!-- Pro Dialer -->
@@ -1040,7 +1198,7 @@
                 <!-- Solo Predictive -->
                 <div class="hp-price-card">
                     <h4>Solo Predictive</h4>
-                    <div><span class="hp-price-amount">$349</span><span style="color:#fff;font-size:1.1rem;font-weight:900;">.98</span><span class="hp-price-period">/mo</span></div>
+                    <div><span class="hp-price-amount">$349</span><span class="hp-price-cents">.98</span><span class="hp-price-period">/mo</span></div>
                     <p class="hp-price-sub">Erlang-C pacing + AI overflow</p>
                     <p class="hp-price-trial">7-day free trial.</p>
                     <ul class="hp-price-feat">
@@ -1055,7 +1213,14 @@
             </div>
 
             <p class="hp-footnote mt-4">*Unlimited minutes for human-to-human dialing. AI voice overflow uses AI Minutes. <a href="/terms">Terms</a>.</p>
-            <p class="hp-agency-note">Agency owner? Dashboard is free — <a href="/for-agencies">your agents pick their own plan</a>.</p>
+            <div class="agency-callout">
+                <div class="agency-callout-icon"><i class="fa-solid fa-building"></i></div>
+                <div class="agency-callout-content">
+                    <strong>Running an agency?</strong>
+                    <span>Agency dashboard is free — your agents each subscribe independently.</span>
+                </div>
+                <a href="/for-agencies" class="agency-callout-cta">Learn more <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
         </div>
     </div>
 </section>

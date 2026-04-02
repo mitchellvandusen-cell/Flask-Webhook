@@ -35,7 +35,7 @@
             ═══════════════════════════════════════════════════ */
             '.driver-popover {',
             '  background:',
-            '    radial-gradient(ellipse at 15% -10%, rgba(0,217,255,0.06) 0%, transparent 50%),',
+            '    radial-gradient(ellipse at 15% -10%, rgba(0,255,136,0.06) 0%, transparent 50%),',
             '    radial-gradient(ellipse at 85% 110%, rgba(0,255,136,0.03) 0%, transparent 50%),',
             '    linear-gradient(168deg, rgba(18,18,44,0.90) 0%, rgba(10,10,28,0.85) 50%, rgba(14,10,34,0.88) 100%) !important;',
             '  backdrop-filter: blur(36px) saturate(180%) brightness(1.05) !important;',
@@ -190,8 +190,8 @@
             /* Chapter badge pill */
             '.igb-ch-badge {',
             '  display: inline-block; text-transform: uppercase; letter-spacing: 2.5px;',
-            '  color: #00d9ff; font-size: 0.62rem; font-weight: 700;',
-            '  background: rgba(0,217,255,0.06); border: 1px solid rgba(0,217,255,0.15);',
+            '  color: #00ff88; font-size: 0.62rem; font-weight: 700;',
+            '  background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.15);',
             '  padding: 2px 10px; border-radius: 16px; margin-bottom: 2px;',
             '}',
 
@@ -205,8 +205,8 @@
             '  transition: all 0.2s; backdrop-filter: blur(8px);',
             '}',
             '.igb-tut-skip:hover {',
-            '  color: #00d9ff; border-color: rgba(0,217,255,0.25);',
-            '  background: rgba(0,217,255,0.06); transform: translateY(-1px);',
+            '  color: #00ff88; border-color: rgba(0,255,136,0.25);',
+            '  background: rgba(0,255,136,0.06); transform: translateY(-1px);',
             '}',
 
             /* Keyboard hint */

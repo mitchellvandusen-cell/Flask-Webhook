@@ -20,11 +20,11 @@
         /* ── Agency Dashboard — sidebar + main layout ── */
         :root {
             --accent: #00ff88;
-            --cyan: #00d9ff;
+            --cyan: #00ff88;
             --sidebar-w: 240px;
             --sidebar-collapsed-w: 62px;
             --dark-bg: #050505;
-            --card-bg: rgba(255,255,255,0.03);
+            --card-bg: #0a0a0a;
             --border: rgba(255,255,255,0.06);
         }
         body { background: var(--dark-bg); color: #ddd; font-family: 'Outfit', sans-serif; margin: 0; }
@@ -103,7 +103,7 @@
         }
         .ag-avatar {
             width: 28px; height: 28px; border-radius: 50%;
-            background: linear-gradient(135deg, var(--accent), #00d9ff);
+            background: linear-gradient(135deg, var(--accent), #00ff88);
             display: flex; align-items: center; justify-content: center;
             font-size: 0.75rem; font-weight: 800; color: #000;
         }
@@ -143,15 +143,8 @@
         .ag-card-header h3 { margin: 0; font-size: 1rem; font-weight: 700; color: #fff; }
         .ag-card-body { padding: 18px; }
 
-        /* Period picker */
+        /* Period picker — unified style from agency.css */
         .ag-period-bar { display: flex; gap: 6px; margin-bottom: 20px; }
-        .ag-period-btn {
-            background: rgba(255,255,255,0.04); border: 1px solid var(--border);
-            color: #888; padding: 6px 14px; border-radius: 8px; cursor: pointer;
-            font-size: 0.82rem; font-weight: 600; transition: all 0.15s;
-        }
-        .ag-period-btn:hover { color: #ccc; border-color: rgba(255,255,255,0.15); }
-        .ag-period-btn.active { background: rgba(0,255,136,0.08); border-color: rgba(0,255,136,0.25); color: var(--accent); }
 
         /* Agent table */
         .ag-table { width: 100%; border-collapse: collapse; }
@@ -205,8 +198,8 @@
 
         /* Chart area */
         .ag-chart-bars { display: flex; align-items: flex-end; gap: 2px; height: 120px; padding: 0 4px; }
-        .ag-chart-bar { flex: 1; background: rgba(0,217,255,0.3); border-radius: 3px 3px 0 0; min-height: 2px; transition: height 0.3s; cursor: pointer; position: relative; }
-        .ag-chart-bar:hover { background: rgba(0,217,255,0.6); }
+        .ag-chart-bar { flex: 1; background: rgba(0,255,136,0.3); border-radius: 3px 3px 0 0; min-height: 2px; transition: height 0.3s; cursor: pointer; position: relative; }
+        .ag-chart-bar:hover { background: rgba(0,255,136,0.6); }
         .ag-chart-labels { display: flex; justify-content: space-between; padding: 4px 4px 0; font-size: 0.7rem; color: #555; }
 
         /* Hourly heatmap */
@@ -257,8 +250,7 @@
         body.light-theme .ag-agent-card { background: #fff; border-color: #e5e5e5; }
         body.light-theme .ag-agent-name { color: #111; }
         body.light-theme .ag-call-name { color: #222; }
-        body.light-theme .ag-period-btn { background: #fff; border-color: #e5e5e5; color: #666; }
-        body.light-theme .ag-period-btn.active { background: rgba(0,255,136,0.08); color: #059669; }
+        /* ag-period-btn light theme now in agency.css */
         body.light-theme .ag-footer a, body.light-theme .ag-footer button { color: #888; }
         body.light-theme .ag-footer a:hover, body.light-theme .ag-footer button:hover { color: #333; }
         body.light-theme .ag-divider { background: #e5e5e5; }
@@ -325,7 +317,6 @@
 
         /* Period bar bottom border */
         body.light-theme .ag-period-bar { border-color: #e5e5e5; }
-        body.light-theme .ag-period-btn.active { background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.25); color: #059669; }
 
         /* Filter selects in call log / activity tabs */
         .ag-select-filter {
@@ -1004,7 +995,7 @@
                 var intensity = calls / max;
                 var bg = isLight
                     ? 'rgba(0,120,184,' + (0.08 + intensity * 0.65) + ')'
-                    : 'rgba(0,217,255,' + (0.05 + intensity * 0.7) + ')';
+                    : 'rgba(0,255,136,' + (0.05 + intensity * 0.7) + ')';
                 var label = (i === 0 ? '12a' : i < 12 ? i + 'a' : i === 12 ? '12p' : (i-12) + 'p');
                 html += '<div class="ag-heatmap-cell" style="background:' + bg + ';" title="' + label + ': ' + calls + ' calls">' + calls + '</div>';
             }

@@ -262,7 +262,7 @@ def _build_install_welcome_email(name: str, domain_url: str, recipient_email: st
         <td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
             <table cellpadding="0" cellspacing="0"><tr>
                 <td style="width: 36px; vertical-align: top;">
-                    <div style="width: 28px; height: 28px; background: rgba(0,217,255,0.15); border-radius: 8px; text-align: center; line-height: 28px; font-size: 14px;">&#128222;</div>
+                    <div style="width: 28px; height: 28px; background: rgba(0,255,136,0.15); border-radius: 8px; text-align: center; line-height: 28px; font-size: 14px;">&#128222;</div>
                 </td>
                 <td style="padding-left: 12px;">
                     <p style="margin: 0; font-size: 14px; color: #ddd;"><strong style="color: #fff;">AI Voice Agent</strong> &mdash; Real-time voice calls powered by AI, handles inbound &amp; outbound</p>
@@ -308,7 +308,7 @@ def _build_install_welcome_email(name: str, domain_url: str, recipient_email: st
             <div style="font-size: 11px; color: #888; margin-top: 4px;">Response</div>
         </td>
         <td align="center" style="padding: 20px; width: 25%; border-right: 1px solid rgba(255,255,255,0.06);">
-            <div style="font-size: 24px; font-weight: 800; color: #00d9ff;">63+</div>
+            <div style="font-size: 24px; font-weight: 800; color: #00ff88;">63+</div>
             <div style="font-size: 11px; color: #888; margin-top: 4px;">Carriers</div>
         </td>
         <td align="center" style="padding: 20px; width: 25%; border-right: 1px solid rgba(255,255,255,0.06);">
@@ -724,7 +724,7 @@ def _build_welcome_email(user_name: str, dashboard_link: str, domain_url: str, r
             <div style="font-size: 20px; margin-bottom: 4px;">&#9889;</div>
             <div style="font-size: 12px; color: #ccc; font-weight: 600;">AI Texting</div>
         </td>
-        <td width="25%" align="center" style="padding: 16px 4px; background: rgba(0,217,255,0.06); border: 1px solid rgba(0,217,255,0.1);">
+        <td width="25%" align="center" style="padding: 16px 4px; background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.1);">
             <div style="font-size: 20px; margin-bottom: 4px;">&#128222;</div>
             <div style="font-size: 12px; color: #ccc; font-weight: 600;">Voice AI</div>
         </td>
@@ -902,7 +902,7 @@ def _build_agency_invite_html(agent_name: str, agency_name: str,
         <div style="max-width:560px;margin:0 auto;padding:40px 20px;">
             <!-- Header -->
             <div style="text-align:center;margin-bottom:32px;">
-                <div style="display:inline-block;background:linear-gradient(135deg,#00ff88,#00d9ff);width:56px;height:56px;border-radius:16px;line-height:56px;font-size:24px;font-weight:900;color:#000;margin-bottom:16px;">
+                <div style="display:inline-block;background:linear-gradient(135deg,#00ff88,#00ff88);width:56px;height:56px;border-radius:16px;line-height:56px;font-size:24px;font-weight:900;color:#000;margin-bottom:16px;">
                     IGB
                 </div>
                 <h1 style="color:#ffffff;font-size:26px;font-weight:800;margin:0 0 6px;letter-spacing:-0.5px;">
@@ -946,7 +946,7 @@ def _build_agency_invite_html(agent_name: str, agency_name: str,
                 <!-- CTA Button -->
                 <div style="text-align:center;margin-bottom:8px;">
                     <a href="{invite_url}"
-                       style="display:inline-block;background:linear-gradient(135deg,#00ff88,#00d9ff);color:#000;font-weight:800;font-size:16px;padding:16px 40px;border-radius:12px;text-decoration:none;letter-spacing:-0.3px;box-shadow:0 4px 20px rgba(0,255,136,0.25);">
+                       style="display:inline-block;background:linear-gradient(135deg,#00ff88,#00ff88);color:#000;font-weight:800;font-size:16px;padding:16px 40px;border-radius:12px;text-decoration:none;letter-spacing:-0.3px;box-shadow:0 4px 20px rgba(0,255,136,0.25);">
                         Activate My Account
                     </a>
                 </div>

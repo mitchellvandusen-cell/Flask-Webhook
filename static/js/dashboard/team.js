@@ -123,7 +123,7 @@ function teamRenderMembers() {
 
         var voiceBadge = '';
         if (m.voice_activated) {
-            voiceBadge = '<span style="background:rgba(0,217,255,0.12);color:#00d9ff;padding:2px 8px;border-radius:6px;font-size:0.72rem;font-weight:600;"><i class="fa-solid fa-phone me-1"></i>' + (m.phone_number || 'No Number') + '</span>';
+            voiceBadge = '<span style="background:rgba(0,255,136,0.12);color:#00ff88;padding:2px 8px;border-radius:6px;font-size:0.72rem;font-weight:600;"><i class="fa-solid fa-phone me-1"></i>' + (m.phone_number || 'No Number') + '</span>';
         }
 
         html +=
@@ -144,7 +144,7 @@ function teamRenderMembers() {
                     (m.onboarding_status === 'invited' ?
                         '<button onclick="teamResendInvite(' + m.id + ')" title="Resend invite" style="background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.2);color:#facc15;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:0.78rem;"><i class="fa-solid fa-paper-plane"></i></button>' : '') +
                     (m.is_active && m.onboarding_status === 'claimed' && !m.voice_activated ?
-                        '<button onclick="teamActivateVoice(' + m.id + ')" title="Activate Voice" style="background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:0.78rem;"><i class="fa-solid fa-phone"></i></button>' : '') +
+                        '<button onclick="teamActivateVoice(' + m.id + ')" title="Activate Voice" style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.2);color:#00ff88;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:0.78rem;"><i class="fa-solid fa-phone"></i></button>' : '') +
                     '<button onclick="teamShowRoleModal(' + m.id + ')" title="Change Role" style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);color:#3b82f6;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:0.78rem;"><i class="fa-solid fa-user-tag"></i></button>' +
                     '<button onclick="teamShowPerms(' + m.id + ')" title="Permissions" style="background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.2);color:#facc15;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:0.78rem;"><i class="fa-solid fa-shield-halved"></i></button>' +
                     (m.is_active ?
@@ -536,7 +536,7 @@ function teamLoadKPIs(period) {
                     '<td style="padding:10px 8px;text-align:center;color:' + rateColor + ';font-weight:700;">' + a.connect_rate + '%</td>' +
                     '<td style="padding:10px 8px;text-align:center;color:#ccc;">' + talkMin + 'm</td>' +
                     '<td style="padding:10px 8px;text-align:center;color:#ccc;">' + avgSec + 's</td>' +
-                    '<td style="padding:10px 8px;text-align:center;color:#00d9ff;font-weight:600;">' + a.dials_per_day + '</td>' +
+                    '<td style="padding:10px 8px;text-align:center;color:#00ff88;font-weight:600;">' + a.dials_per_day + '</td>' +
                     '<td style="padding:10px 8px;color:#888;">' + lastCall + '</td>' +
                     '</tr>';
             });
@@ -570,7 +570,7 @@ function teamLoadAuditLog() {
                 else if (e.action.includes('activated')) { icon = 'fa-user-check'; color = '#22c55e'; }
                 else if (e.action.includes('role')) { icon = 'fa-user-tag'; color = '#3b82f6'; }
                 else if (e.action.includes('permission')) { icon = 'fa-shield-halved'; color = '#f59e0b'; }
-                else if (e.action.includes('voice')) { icon = 'fa-phone'; color = '#00d9ff'; }
+                else if (e.action.includes('voice')) { icon = 'fa-phone'; color = '#00ff88'; }
                 else if (e.action.includes('claimed')) { icon = 'fa-user-check'; color = '#22c55e'; }
 
                 var time = e.created_at ? new Date(e.created_at).toLocaleString() : '';

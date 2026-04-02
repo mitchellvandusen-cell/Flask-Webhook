@@ -64,12 +64,12 @@
         text-transform: uppercase;
     }
     .role-super_admin  { background: rgba(255,215,0,0.15); color: #ffd700; border: 1px solid rgba(255,215,0,0.3); }
-    .role-agency_owner { background: rgba(0,217,255,0.12); color: #00d9ff; border: 1px solid rgba(0,217,255,0.3); }
+    .role-agency_owner { background: rgba(0,255,136,0.12); color: #00ff88; border: 1px solid rgba(0,255,136,0.3); }
     .role-individual   { background: rgba(255,255,255,0.06); color: #aaa;    border: 1px solid rgba(255,255,255,0.12); }
     .role-agency_sub_account_user { background: rgba(0,255,136,0.08); color: #00ff88; border: 1px solid rgba(0,255,136,0.2); }
 
     /* OAuth app type badges */
-    .app-marketplace { color: #00d9ff; }
+    .app-marketplace { color: #00ff88; }
     .app-private { color: #ffa500; }
     .app-website { color: #00ff88; }
 
@@ -90,11 +90,11 @@
     .btn-ghost:disabled { opacity: 0.35; cursor: not-allowed; }
     .btn-logs {
         padding: 5px 12px; border-radius: 7px; font-size: 0.78rem;
-        font-weight: 600; border: 1px solid rgba(0,217,255,0.3);
-        background: rgba(0,217,255,0.06); color: #00d9ff;
+        font-weight: 600; border: 1px solid rgba(0,255,136,0.3);
+        background: rgba(0,255,136,0.06); color: #00ff88;
         cursor: pointer; transition: all 0.15s; white-space: nowrap;
     }
-    .btn-logs:hover { background: rgba(0,217,255,0.15); border-color: #00d9ff; }
+    .btn-logs:hover { background: rgba(0,255,136,0.15); border-color: #00ff88; }
 
     /* Logs modal */
     .gm-modal-overlay {
@@ -126,7 +126,7 @@
     .gm-log-entry:last-child { border-bottom: none; }
     .gm-log-status-success { color: #00ff88; }
     .gm-log-status-error { color: #ef4444; }
-    .gm-log-status-info { color: #00d9ff; }
+    .gm-log-status-info { color: #00ff88; }
     .gm-log-status-warning { color: #ffa500; }
 
     /* Empty state */
@@ -201,7 +201,7 @@
             <div class="lbl">Agency Owners</div>
         </div>
         <div class="gm-stat">
-            <div class="val" style="color:#00d9ff;">{{ subs }}</div>
+            <div class="val" style="color:#00ff88;">{{ subs }}</div>
             <div class="lbl">Active Subs</div>
         </div>
         <div class="gm-stat">
@@ -239,7 +239,7 @@
                 <td>
                     <span style="color:#fff; font-weight:600;">{{ u.email or '—' }}</span>
                     {% if u.source == 'agency_billing' %}
-                        <span style="font-size:0.75rem; color:#00d9ff; margin-left:4px;">agency</span>
+                        <span style="font-size:0.75rem; color:#00ff88; margin-left:4px;">agency</span>
                     {% endif %}
                 </td>
                 <td>{{ u.full_name or '—' }}</td>
@@ -360,7 +360,7 @@
     <div class="gm-modal">
         <div class="gm-modal-header">
             <div>
-                <span style="color:#00d9ff; font-weight:700; font-size:0.9rem;">
+                <span style="color:#00ff88; font-weight:700; font-size:0.9rem;">
                     <i class="fa-solid fa-scroll me-1"></i> Webhook Logs
                 </span>
                 <span id="gmLogsTitle" style="color:#888; font-size:0.8rem; margin-left:8px;"></span>
@@ -413,7 +413,7 @@
     async function refreshLogs() {
         if (!_gmCurrentLocId) return;
         const body = document.getElementById('gmLogsBody');
-        body.innerHTML = '<div style="text-align:center;padding:30px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.2rem;"></i></div>';
+        body.innerHTML = '<div style="text-align:center;padding:30px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00ff88;font-size:1.2rem;"></i></div>';
 
         const filter = document.getElementById('gmLogsFilter').value;
         let url = '/admin/god-mode/logs/' + encodeURIComponent(_gmCurrentLocId) + '?limit=100';
@@ -442,7 +442,7 @@
                     '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
                         '<div>' +
                             '<span class="' + statusClass + '" style="font-weight:700;font-size:0.75rem;text-transform:uppercase;">' + escHtml(log.status || 'info') + '</span>' +
-                            '<span style="color:#00d9ff;font-size:0.75rem;margin-left:8px;font-weight:600;">' + escHtml(log.event_type || '') + '</span>' +
+                            '<span style="color:#00ff88;font-size:0.75rem;margin-left:8px;font-weight:600;">' + escHtml(log.event_type || '') + '</span>' +
                         '</div>' +
                         '<span style="color:#555;font-size:0.75rem;white-space:nowrap;">' + time + '</span>' +
                     '</div>' +

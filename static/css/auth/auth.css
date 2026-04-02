@@ -117,16 +117,11 @@
 .agency-card {
     width: 100%;
     max-width: 420px;
-    background: var(--glass-bg) !important;
-    backdrop-filter: var(--glass-blur) !important;
-    -webkit-backdrop-filter: var(--glass-blur) !important;
-    border-top: 1px solid rgba(0, 122, 255, 0.4) !important;
-    border-left: 1px solid rgba(0, 122, 255, 0.25) !important;
-    border-right: 1px solid var(--glass-border-bottom) !important;
-    border-bottom: 1px solid var(--glass-border-bottom) !important;
-    border-radius: 28px;
+    background: #0a0a0a;
+    border: 1px solid #1e1e1e;
+    border-radius: 12px;
     padding: 45px 40px;
-    box-shadow: 0 32px 64px -16px rgba(0, 0, 0, 0.6), inset 0 1px 2px rgba(0, 122, 255, 0.2) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     position: relative;
     overflow: hidden;
     animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
@@ -135,21 +130,21 @@
 
 .badge-agency {
     display: inline-block;
-    background: rgba(0, 122, 255, 0.1);
-    color: var(--agency-blue);
+    background: rgba(0,255,136,0.12);
+    color: #00ff88;
     padding: 6px 14px;
     border-radius: 50px;
     font-size: var(--fs-xs);
     font-weight: 800;
     letter-spacing: 1.2px;
     text-transform: uppercase;
-    border: 1px solid rgba(0, 122, 255, 0.2);
+    border: 1px solid rgba(0,255,136,0.3);
     margin-bottom: 15px;
 }
 
 .btn-agency {
-    background: var(--agency-blue);
-    color: #fff;
+    background: #00ff88;
+    color: #000;
     font-weight: 700;
     padding: 14px;
     border-radius: 2px;
@@ -158,15 +153,45 @@
     font-size: 1rem;
     margin-top: 10px;
     transition: transform 0.3s ease, background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
-    box-shadow: 0 4px 15px rgba(0, 122, 255, 0.3);
+    box-shadow: 0 4px 15px rgba(0,255,136,0.2);
 }
 
 .btn-agency:hover {
     transform: translateY(-2px);
-    background: #fff;
-    color: var(--agency-blue);
-    box-shadow: 0 8px 25px rgba(255, 255, 255, 0.2);
+    background: #00e67a;
+    color: #000;
+    box-shadow: 0 8px 25px rgba(0,255,136,0.3);
 }
+
+.agency-login-title {
+    font-weight: 800;
+    font-size: 2rem;
+    color: #fff;
+    margin-bottom: 30px;
+    letter-spacing: -0.5px;
+}
+.agency-alert-error {
+    background: rgba(255, 68, 68, 0.1);
+    border: 1px solid rgba(255, 68, 68, 0.2);
+    color: #ff4444;
+    font-size: 0.85rem;
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 25px;
+}
+.agency-form-label {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    margin-left: 5px;
+}
+.agency-forgot-link {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    text-decoration: none;
+}
+.agency-forgot-link:hover { color: #fff; }
 
 .agency-back-link {
     display: inline-block;
@@ -464,21 +489,37 @@
 /* =========================================
    LIGHT THEME — AGENCY CARD
    ========================================= */
-[data-theme="light"] .agency-card {
-    background: #ffffff !important;
-    border-top-color: rgba(0,94,203,0.4) !important;
-    border-left-color: rgba(0,94,203,0.25) !important;
-    border-right-color: #d8d8d8 !important;
-    border-bottom-color: #d8d8d8 !important;
-    box-shadow: 0 20px 48px -12px rgba(0,0,0,0.14), inset 0 1px 2px rgba(0,94,203,0.12) !important;
+body.light-theme .agency-card {
+    background: #ffffff;
+    border-color: #e8e8e8;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.08);
 }
-[data-theme="light"] .badge-agency {
-    background: rgba(0,94,203,0.08);
-    color: #005ecb;
-    border-color: rgba(0,94,203,0.2);
+body.light-theme .badge-agency {
+    background: rgba(5,150,105,0.1);
+    color: #059669;
+    border-color: rgba(5,150,105,0.3);
 }
-[data-theme="light"] .agency-back-link { color: #777777; }
-[data-theme="light"] .agency-back-link:hover { color: #111111; }
+body.light-theme .btn-agency {
+    background: #059669;
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(5,150,105,0.2);
+}
+body.light-theme .btn-agency:hover {
+    background: #047857;
+    color: #fff;
+    box-shadow: 0 8px 25px rgba(5,150,105,0.25);
+}
+body.light-theme .agency-login-title { color: #111; }
+body.light-theme .agency-alert-error {
+    background: rgba(220, 38, 38, 0.08);
+    border-color: rgba(220, 38, 38, 0.2);
+    color: #dc2626;
+}
+body.light-theme .agency-form-label { color: #555; }
+body.light-theme .agency-forgot-link { color: #777; }
+body.light-theme .agency-forgot-link:hover { color: #111; }
+body.light-theme .agency-back-link { color: #777777; }
+body.light-theme .agency-back-link:hover { color: #111111; }
 
 /* =========================================
    LIGHT THEME — CANCEL / ERROR / SUCCESS CARDS
@@ -548,15 +589,15 @@
     text-align: center;
 }
 .reg-cta-primary { border-color: rgba(0,255,136,0.2); }
-.reg-cta-secondary { border-color: rgba(0,217,255,0.15); }
+.reg-cta-secondary { border-color: rgba(0,255,136,0.15); }
 .reg-cta-icon { display: block; margin-bottom: 12px; }
 .reg-cta-icon-accent { font-size: 1.5rem; color: var(--accent); }
-.reg-cta-icon-cyan { font-size: 1.3rem; color: #00d9ff; }
+.reg-cta-icon-cyan { font-size: 1.3rem; color: #00ff88; }
 .reg-cta-title { font-weight: 700; color: #fff; margin-bottom: 8px; }
 .reg-cta-title-sm { font-weight: 700; color: #fff; margin-bottom: 6px; }
 .reg-cta-desc { color: #888; font-size: 0.88rem; margin-bottom: 16px; }
 .reg-cta-btn { display: block; width: 100%; padding: 14px; font-weight: 700; text-align: center; text-decoration: none; }
-.reg-marketplace-link { color: #00d9ff; text-decoration: none; font-weight: 600; }
+.reg-marketplace-link { color: #00ff88; text-decoration: none; font-weight: 600; }
 .reg-divider { text-align: center; margin: 20px 0; }
 .reg-divider-text { color: #555; font-size: 0.82rem; }
 .reg-footer { text-align: center; margin-top: 24px; }

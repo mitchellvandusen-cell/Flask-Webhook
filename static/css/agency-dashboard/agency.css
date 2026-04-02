@@ -33,11 +33,9 @@
 .no-data {
     text-align: center;
     padding: 80px 20px;
-    background: var(--glass-bg);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
+    background: #080808;
     border-radius: 16px;
-    border: 1px dashed rgba(0, 255, 136, 0.3);
+    border: 1px dashed rgba(0,255,136,0.2);
 }
 .add-btn {
     background: var(--accent);
@@ -69,17 +67,19 @@
     text-align: center;
 }
 .agency-stat-val {
-    font-size: 1.6rem;
-    font-weight: 800;
+    font-size: 2.2rem;
+    font-weight: 900;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    letter-spacing: -1px;
     color: var(--accent);
     line-height: 1;
     margin-bottom: 4px;
 }
 .agency-stat-lbl {
-    font-size: 0.72rem;
-    color: #888;
+    font-size: 0.75rem;
+    color: #999;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.05em;
 }
 
 /* KPI grid */
@@ -95,7 +95,7 @@
 }
 .agency-kpi-card {
     padding: 20px;
-    border-radius: 2px;
+    border-radius: 10px;
     text-align: center;
 }
 .agency-kpi-icon {
@@ -105,17 +105,19 @@
     opacity: 0.7;
 }
 .agency-kpi-val {
-    font-size: 1.8rem;
-    font-weight: 800;
+    font-size: 2.2rem;
+    font-weight: 900;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    letter-spacing: -1px;
     color: #fff;
     line-height: 1;
     margin-bottom: 4px;
 }
 .agency-kpi-lbl {
-    font-size: 0.72rem;
-    color: #888;
+    font-size: 0.75rem;
+    color: #999;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.05em;
     margin-bottom: 4px;
 }
 .agency-kpi-delta {
@@ -125,25 +127,29 @@
 .agency-kpi-delta.positive { color: var(--accent); }
 .agency-kpi-delta.negative { color: #ff4444; }
 
-/* Period toggle buttons */
-.agency-period-btn {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: #888;
+/* Period toggle buttons — unified style for all period pickers */
+.agency-period-btn,
+.ak-period-btn,
+.ag-period-btn {
+    background: transparent;
+    border: 1px solid #2a2a2a;
+    color: #666;
     border-radius: 6px;
     padding: 4px 12px;
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     font-weight: 600;
-    transition: border-color 0.2s, color 0.2s;
+    cursor: pointer;
+    transition: all 0.15s;
 }
-.agency-period-btn:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-}
-.agency-period-btn.active {
-    background: rgba(0,255,136,0.12);
-    border-color: var(--accent);
-    color: var(--accent);
+.agency-period-btn:hover,
+.ak-period-btn:hover,
+.ag-period-btn:hover,
+.agency-period-btn.active,
+.ak-period-btn.active,
+.ag-period-btn.active {
+    background: rgba(0,255,136,0.08);
+    border-color: rgba(0,255,136,0.3);
+    color: #00ff88;
 }
 
 /* Members table */
@@ -204,11 +210,11 @@
 
 /* Agency Member Detail Accordion */
 .agency-member-row:hover { background: rgba(255,255,255,0.03); }
-.agency-detail-panel { padding: 16px 12px; background: var(--glass-bg); border-top: 1px solid rgba(255,255,255,0.04); }
+.agency-detail-panel { padding: 16px 12px; background: #080808; border-top: 1px solid rgba(255,255,255,0.04); }
 .agency-detail-actions { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
 .agency-detail-btn { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #aaa; border-radius: 8px; padding: 6px 14px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; display: flex; align-items: center; gap: 6px; }
 .agency-detail-btn:hover { background: rgba(255,255,255,0.08); color: #ddd; }
-.agency-detail-btn.active { background: rgba(0,217,255,0.1); border-color: rgba(0,217,255,0.25); color: #00d9ff; }
+.agency-detail-btn.active { background: rgba(0,255,136,0.1); border-color: rgba(0,255,136,0.25); color: #00ff88; }
 .agency-detail-btn-meet { color: #4285F4; border-color: rgba(66,133,244,0.2); }
 .agency-detail-btn-meet:hover { background: rgba(66,133,244,0.1); color: #4285F4; }
 .agency-detail-content { min-height: 60px; }
@@ -224,102 +230,108 @@
 .agency-stat-mini-val { font-size: 1.4rem; font-weight: 800; color: #fff; font-family: 'JetBrains Mono', monospace; }
 .agency-stat-mini-lbl { font-size: 0.72rem; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
 /* Light theme — !important to beat any parent cascade */
-[data-theme="light"] .agency-member-row:hover { background: rgba(0,0,0,0.02); }
-[data-theme="light"] .agency-detail-panel { background: rgba(245,246,248,0.95) !important; border-top-color: rgba(0,0,0,0.06); }
-[data-theme="light"] .agency-detail-btn { background: #fff !important; border: 1px solid rgba(0,0,0,0.12) !important; color: #555 !important; }
-[data-theme="light"] .agency-detail-btn:hover { background: #f0f0f0 !important; color: #222 !important; }
-[data-theme="light"] .agency-detail-btn.active { background: #e6f7ed !important; border-color: rgba(0,170,94,0.3) !important; color: #007a3d !important; }
-[data-theme="light"] .agency-detail-btn-meet { color: #1a73e8 !important; border-color: rgba(66,133,244,0.25) !important; }
-[data-theme="light"] .agency-detail-btn-meet:hover { background: #e8f0fe !important; }
-[data-theme="light"] .agency-detail-empty { color: #999; }
-[data-theme="light"] .agency-rec-row { border-bottom-color: rgba(0,0,0,0.04); }
-[data-theme="light"] .agency-log-row { border-bottom-color: rgba(0,0,0,0.04); }
-[data-theme="light"] .agency-log-icon { color: #999; }
-[data-theme="light"] .agency-log-body { color: #444; }
-[data-theme="light"] .agency-log-date { color: #999; }
-[data-theme="light"] .agency-stat-mini { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.06); }
-[data-theme="light"] .agency-stat-mini-val { color: #1a1a2e; }
-[data-theme="light"] .agency-stat-mini-lbl { color: #888; }
+body.light-theme .agency-member-row:hover { background: rgba(0,0,0,0.02); }
+body.light-theme .agency-detail-panel { background: rgba(245,246,248,0.95) !important; border-top-color: rgba(0,0,0,0.06); }
+body.light-theme .agency-detail-btn { background: #fff !important; border: 1px solid rgba(0,0,0,0.12) !important; color: #555 !important; }
+body.light-theme .agency-detail-btn:hover { background: #f0f0f0 !important; color: #222 !important; }
+body.light-theme .agency-detail-btn.active { background: #e6f7ed !important; border-color: rgba(0,170,94,0.3) !important; color: #007a3d !important; }
+body.light-theme .agency-detail-btn-meet { color: #1a73e8 !important; border-color: rgba(66,133,244,0.25) !important; }
+body.light-theme .agency-detail-btn-meet:hover { background: #e8f0fe !important; }
+body.light-theme .agency-detail-empty { color: #999; }
+body.light-theme .agency-rec-row { border-bottom-color: rgba(0,0,0,0.04); }
+body.light-theme .agency-log-row { border-bottom-color: rgba(0,0,0,0.04); }
+body.light-theme .agency-log-icon { color: #999; }
+body.light-theme .agency-log-body { color: #444; }
+body.light-theme .agency-log-date { color: #999; }
+body.light-theme .agency-stat-mini { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.06); }
+body.light-theme .agency-stat-mini-val { color: #1a1a2e; }
+body.light-theme .agency-stat-mini-lbl { color: #888; }
 
 /* ── Light Theme Overrides ── */
-[data-theme="light"] .wl-style-btn {
+body.light-theme .wl-style-btn {
     background: var(--lt-surface);
     border-color: var(--lt-border);
     color: var(--lt-text-muted);
 }
-[data-theme="light"] .wl-style-btn:hover,
-[data-theme="light"] .wl-style-btn.active {
+body.light-theme .wl-style-btn:hover,
+body.light-theme .wl-style-btn.active {
     border-color: var(--lt-accent);
     color: var(--lt-accent);
 }
-[data-theme="light"] .wl-style-btn.active {
+body.light-theme .wl-style-btn.active {
     background: var(--lt-accent-bg);
 }
-[data-theme="light"] .wl-name-preview span {
+body.light-theme .wl-name-preview span {
     color: var(--lt-text-primary);
 }
-[data-theme="light"] .wl-logo-preview {
+body.light-theme .wl-logo-preview {
     border-color: var(--lt-border);
 }
-[data-theme="light"] .wl-logo-preview:hover {
+body.light-theme .wl-logo-preview:hover {
     border-color: var(--lt-accent);
 }
-[data-theme="light"] .wl-logo-placeholder {
+body.light-theme .wl-logo-placeholder {
     color: var(--lt-text-muted);
 }
-[data-theme="light"] .wl-logo-placeholder i {
+body.light-theme .wl-logo-placeholder i {
     color: var(--lt-accent);
 }
-[data-theme="light"] .agency-stat-val {
+body.light-theme .agency-stat-val {
     color: var(--lt-accent);
 }
-[data-theme="light"] .agency-stat-lbl,
-[data-theme="light"] .agency-kpi-lbl {
+body.light-theme .agency-stat-lbl,
+body.light-theme .agency-kpi-lbl {
     color: var(--lt-text-muted);
 }
-[data-theme="light"] .agency-kpi-val {
+body.light-theme .agency-kpi-val {
     color: var(--lt-text-primary);
 }
-[data-theme="light"] .agency-kpi-icon {
+body.light-theme .agency-kpi-icon {
     color: var(--lt-accent);
 }
-[data-theme="light"] .agency-kpi-delta.positive { color: var(--lt-accent); }
-[data-theme="light"] .agency-period-btn {
-    background: var(--lt-surface);
-    border-color: var(--lt-border);
-    color: var(--lt-text-muted);
+body.light-theme .agency-kpi-delta.positive { color: var(--lt-accent); }
+body.light-theme .agency-period-btn,
+body.light-theme .ak-period-btn,
+body.light-theme .ag-period-btn {
+    border-color: #ddd;
+    color: #555;
+    background: transparent;
 }
-[data-theme="light"] .agency-period-btn:hover,
-[data-theme="light"] .agency-period-btn.active {
-    border-color: var(--lt-accent);
-    color: var(--lt-accent);
-    background: var(--lt-accent-bg);
+body.light-theme .agency-period-btn:hover,
+body.light-theme .ak-period-btn:hover,
+body.light-theme .ag-period-btn:hover,
+body.light-theme .agency-period-btn.active,
+body.light-theme .ak-period-btn.active,
+body.light-theme .ag-period-btn.active {
+    background: rgba(5,150,105,0.08);
+    border-color: rgba(5,150,105,0.4);
+    color: #059669;
 }
-[data-theme="light"] .agency-members-table thead th {
+body.light-theme .agency-members-table thead th {
     background: rgba(0,0,0,0.02);
     color: var(--lt-text-muted);
     border-bottom-color: var(--lt-border);
 }
-[data-theme="light"] .agency-members-table tbody td {
+body.light-theme .agency-members-table tbody td {
     border-bottom-color: rgba(0,0,0,0.04);
     color: var(--lt-text-secondary);
 }
-[data-theme="light"] .agency-members-table tbody tr:hover td {
+body.light-theme .agency-members-table tbody tr:hover td {
     background: rgba(0,0,0,0.02);
 }
-[data-theme="light"] .agency-badge.active {
+body.light-theme .agency-badge.active {
     background: var(--lt-accent-bg);
     color: var(--lt-accent);
 }
-[data-theme="light"] .agency-badge.pending {
+body.light-theme .agency-badge.pending {
     background: rgba(255,170,0,0.08);
     color: #cc8800;
 }
-[data-theme="light"] .agency-badge.cancelled {
+body.light-theme .agency-badge.cancelled {
     background: rgba(220,40,40,0.08);
     color: #cc2020;
 }
-[data-theme="light"] .agency-badge.expired {
+body.light-theme .agency-badge.expired {
     background: rgba(200,120,0,0.08);
     color: #b06800;
 }
@@ -341,7 +353,7 @@
 
 .ak-tile {
     padding: 18px 14px;
-    border-radius: 2px;
+    border-radius: 10px;
     text-align: center;
     position: relative;
     overflow: hidden;
@@ -349,7 +361,7 @@
 }
 .ak-tile:hover {
     transform: translateY(-2px);
-    box-shadow: var(--glass-shadow-hover);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
 }
 .ak-tile-icon {
     font-size: 1.2rem;
@@ -364,17 +376,19 @@
 .ak-tile-icon.ak-icon-cyan  { color: #06b6d4; }
 
 .ak-tile-val {
-    font-size: 1.6rem;
-    font-weight: 800;
+    font-size: 2.2rem;
+    font-weight: 900;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    letter-spacing: -1px;
     color: #fff;
     line-height: 1;
     margin-bottom: 4px;
 }
 .ak-tile-lbl {
-    font-size: 0.68rem;
-    color: #888;
+    font-size: 0.75rem;
+    color: #999;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.05em;
     margin-bottom: 2px;
 }
 .ak-tile-delta {
@@ -508,7 +522,7 @@
 
 .ak-bucket-tile {
     padding: 18px 16px;
-    border-radius: 2px;
+    border-radius: 10px;
     position: relative;
     overflow: hidden;
 }
@@ -527,15 +541,19 @@
     z-index: 1;
 }
 .ak-bucket-val {
-    font-size: 1.5rem;
-    font-weight: 800;
+    font-size: 2.2rem;
+    font-weight: 900;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    letter-spacing: -1px;
     color: #fff;
     line-height: 1;
     margin-bottom: 4px;
 }
 .ak-bucket-lbl {
-    font-size: 0.72rem;
-    color: #888;
+    font-size: 0.75rem;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     margin-bottom: 2px;
 }
 .ak-bucket-pct {
@@ -555,7 +573,7 @@
 
 .ak-avg-tile {
     padding: 18px 16px;
-    border-radius: 2px;
+    border-radius: 10px;
     text-align: center;
 }
 .ak-avg-icon {
@@ -565,17 +583,19 @@
     margin-bottom: 8px;
 }
 .ak-avg-val {
-    font-size: 1.4rem;
-    font-weight: 800;
+    font-size: 2.2rem;
+    font-weight: 900;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    letter-spacing: -1px;
     color: #fff;
     line-height: 1;
     margin-bottom: 4px;
 }
 .ak-avg-lbl {
-    font-size: 0.68rem;
-    color: #888;
+    font-size: 0.75rem;
+    color: #999;
     text-transform: uppercase;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.05em;
 }
 
 /* Leaderboards (3-up) */
@@ -677,80 +697,80 @@
 
 
 /* ── Agency KPI Light Theme ── */
-[data-theme="light"] .ak-tile-val,
-[data-theme="light"] .ak-bucket-val,
-[data-theme="light"] .ak-avg-val,
-[data-theme="light"] .ak-donut-val {
+body.light-theme .ak-tile-val,
+body.light-theme .ak-bucket-val,
+body.light-theme .ak-avg-val,
+body.light-theme .ak-donut-val {
     color: var(--lt-text-primary);
 }
-[data-theme="light"] .ak-tile-lbl,
-[data-theme="light"] .ak-bucket-lbl,
-[data-theme="light"] .ak-avg-lbl,
-[data-theme="light"] .ak-donut-sub,
-[data-theme="light"] .ak-chart-title,
-[data-theme="light"] .ak-leader-title,
-[data-theme="light"] .ak-legend-item {
+body.light-theme .ak-tile-lbl,
+body.light-theme .ak-bucket-lbl,
+body.light-theme .ak-avg-lbl,
+body.light-theme .ak-donut-sub,
+body.light-theme .ak-chart-title,
+body.light-theme .ak-leader-title,
+body.light-theme .ak-legend-item {
     color: var(--lt-text-muted);
 }
-[data-theme="light"] .ak-tile-icon,
-[data-theme="light"] .ak-avg-icon,
-[data-theme="light"] .ak-chart-title i,
-[data-theme="light"] .ak-leader-title i,
-[data-theme="light"] .ak-section-title i {
+body.light-theme .ak-tile-icon,
+body.light-theme .ak-avg-icon,
+body.light-theme .ak-chart-title i,
+body.light-theme .ak-leader-title i,
+body.light-theme .ak-section-title i {
     color: var(--lt-accent);
 }
-[data-theme="light"] .ak-section-title {
+body.light-theme .ak-section-title {
     color: var(--lt-text-primary);
 }
-[data-theme="light"] .ak-bucket-pct,
-[data-theme="light"] .ak-leader-stat {
+body.light-theme .ak-bucket-pct,
+body.light-theme .ak-leader-stat {
     color: var(--lt-accent);
 }
-[data-theme="light"] .ak-tile-delta.positive,
-[data-theme="light"] .ak-donut-delta.positive {
+body.light-theme .ak-tile-delta.positive,
+body.light-theme .ak-donut-delta.positive {
     color: var(--lt-accent);
 }
-[data-theme="light"] .ak-leader-row {
+body.light-theme .ak-leader-row {
     background: rgba(0,0,0,0.02);
     border-color: rgba(0,0,0,0.06);
 }
-[data-theme="light"] .ak-leader-name {
+body.light-theme .ak-leader-name {
     color: var(--lt-text-primary);
 }
-[data-theme="light"] .ak-leader-rank {
+body.light-theme .ak-leader-rank {
     background: rgba(0,0,0,0.05);
     color: var(--lt-text-muted);
 }
-[data-theme="light"] .ak-leader-empty {
+body.light-theme .ak-leader-empty {
     color: var(--lt-text-faint);
 }
-[data-theme="light"] .ak-see-more-btn {
+body.light-theme .ak-see-more-btn {
     background: var(--lt-surface);
     border-color: var(--lt-border);
     color: var(--lt-accent);
 }
-[data-theme="light"] .ak-see-more-btn:hover {
+body.light-theme .ak-see-more-btn:hover {
     background: var(--lt-accent-bg);
     border-color: var(--lt-accent);
 }
 
 
 /* ── Agency dashboard light theme extras ── */
-[data-theme="light"] .ag-status-badge { color: var(--lt-text-muted) !important; }
-[data-theme="light"] .ag-metric { color: var(--lt-text-secondary) !important; }
+body.light-theme .ag-status-badge { color: var(--lt-text-muted) !important; }
+body.light-theme .ag-metric { color: var(--lt-text-secondary) !important; }
 
 /* ─────────────────────────────────────────────────────────────
    LIGHT THEME — ACCORDION (agency members expand/collapse)
    ───────────────────────────────────────────────────────────── */
-[data-theme="light"] .accordion-button {
+body.light-theme .accordion-button {
     background: transparent !important;
     color: #111111 !important;
 }
-[data-theme="light"] .accordion-button:not(.collapsed) {
+body.light-theme .accordion-button:not(.collapsed) {
     background: rgba(5,150,105,0.06) !important;
     color: var(--lt-accent) !important;
 }
-[data-theme="light"] .accordion-item {
+body.light-theme .accordion-item {
     background: transparent;
     border: none;
 }
@@ -758,21 +778,21 @@
 /* ─────────────────────────────────────────────────────────────
    LIGHT THEME — BADGE TIER & ADD BUTTON
    ───────────────────────────────────────────────────────────── */
-[data-theme="light"] .badge-tier {
+body.light-theme .badge-tier {
     background: var(--lt-accent-bg);
     color: var(--lt-accent);
     border-color: var(--lt-accent);
 }
-[data-theme="light"] .no-data {
+body.light-theme .no-data {
     background: #f8f8f8;
     border-color: rgba(5,150,105,0.25);
 }
-[data-theme="light"] .add-btn {
+body.light-theme .add-btn {
     background: var(--lt-accent);
     color: #ffffff;
     box-shadow: 0 0 24px rgba(5,150,105,0.2);
 }
-[data-theme="light"] .add-btn:hover {
+body.light-theme .add-btn:hover {
     color: #ffffff;
     box-shadow: 0 12px 32px rgba(5,150,105,0.25);
 }
@@ -782,13 +802,13 @@
    (colored icons stay vivid in light mode — no change needed
     for the colored variants; only default needs lt-accent)
    ───────────────────────────────────────────────────────────── */
-[data-theme="light"] .ak-tile-icon { color: var(--lt-accent); }
+body.light-theme .ak-tile-icon { color: var(--lt-accent); }
 /* Preserve colored variants — only override the plain default */
-[data-theme="light"] .ak-tile-icon.ak-icon-green { color: #059669; }
-[data-theme="light"] .ak-tile-icon.ak-icon-blue  { color: #2563eb; }
-[data-theme="light"] .ak-tile-icon.ak-icon-purple { color: #7c3aed; }
-[data-theme="light"] .ak-tile-icon.ak-icon-amber  { color: #d97706; }
-[data-theme="light"] .ak-tile-icon.ak-icon-cyan   { color: #0284c7; }
+body.light-theme .ak-tile-icon.ak-icon-green { color: #059669; }
+body.light-theme .ak-tile-icon.ak-icon-blue  { color: #2563eb; }
+body.light-theme .ak-tile-icon.ak-icon-purple { color: #7c3aed; }
+body.light-theme .ak-tile-icon.ak-icon-amber  { color: #d97706; }
+body.light-theme .ak-tile-icon.ak-icon-cyan   { color: #0284c7; }
 
 /* ─────────────────────────────────────────────────────────────
    LIGHT THEME — LEADER CARD & CHART CARD PANELS
@@ -796,15 +816,15 @@
     via variables.css — no explicit override needed for bg.
     Override text/border that use hardcoded dark values.)
    ───────────────────────────────────────────────────────────── */
-[data-theme="light"] .ak-leader-card { background: transparent; border: none; }
-[data-theme="light"] .ak-chart-card  { background: transparent; border: none; }
-[data-theme="light"] .ak-bucket-tile { background: transparent; border: none; }
-[data-theme="light"] .ak-avg-tile    { background: transparent; border: none; }
-[data-theme="light"] .ak-tile        { background: transparent; border: none; }
+body.light-theme .ak-leader-card { background: transparent; border: none; }
+body.light-theme .ak-chart-card  { background: transparent; border: none; }
+body.light-theme .ak-bucket-tile { background: transparent; border: none; }
+body.light-theme .ak-avg-tile    { background: transparent; border: none; }
+body.light-theme .ak-tile        { background: transparent; border: none; }
 
 /* All-agents table header in light */
-[data-theme="light"] .agency-kpi-grid .ak-all-agents-header,
-[data-theme="light"] thead th {
+body.light-theme .agency-kpi-grid .ak-all-agents-header,
+body.light-theme thead th {
     background: #f0f0f0;
     color: #444444;
     border-bottom-color: #e0e0e0;
@@ -818,11 +838,11 @@
 /* ─────────────────────────────────────────────────────────────
    LIGHT THEME — AGENCY STAT CARD PANELS
    ───────────────────────────────────────────────────────────── */
-[data-theme="light"] .agency-stat-card {
+body.light-theme .agency-stat-card {
     background: #ffffff;
     border: 1px solid #e0e0e0;
 }
-[data-theme="light"] .agency-kpi-card {
+body.light-theme .agency-kpi-card {
     background: #ffffff;
     border: 1px solid #e0e0e0;
 }
@@ -830,15 +850,14 @@
 /* ── Agency KPIs Header ── */
 .ak-header-container { margin-bottom: 20px; }
 .ak-period-bar { display: flex; gap: 8px; padding: 0 20px 16px; }
+/* ak-period-btn sizing override (inherits unified style from above) */
 .ak-period-btn { font-size: 0.82rem; }
-.ak-period-btn.active { background: rgba(0,255,136,0.12); color: #00ff88; border-color: rgba(0,255,136,0.25); }
-[data-theme="light"] .ak-period-btn.active { background: rgba(5,150,105,0.1); color: var(--lt-accent); border-color: rgba(5,150,105,0.2); }
 
 /* ── Agency Members ── */
 .am-body { padding: 20px; }
 .am-desc { color: #888; font-size: 0.88rem; margin-bottom: 20px; }
 .am-stats-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
-.am-stat-card { background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 2px; padding: 14px 20px; text-align: center; min-width: 120px; flex: 1; }
-[data-theme="light"] .am-stat-card { background: transparent; border: none; }
-[data-theme="light"] .am-desc { color: #666; }
+.am-stat-card { background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 10px; padding: 14px 20px; text-align: center; min-width: 120px; flex: 1; }
+body.light-theme .am-stat-card { background: #ffffff; border: 1px solid #e0e0e0; }
+body.light-theme .am-desc { color: #666; }
 

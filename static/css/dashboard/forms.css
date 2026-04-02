@@ -347,7 +347,7 @@ body.light-theme select {
     margin: 0;
     font-weight: 700;
     font-size: 0.85rem;
-    color: #00d9ff;
+    color: #00ff88;
     text-transform: uppercase;
     letter-spacing: 0.06em;
 }
@@ -368,11 +368,11 @@ body.light-theme select {
 }
 .dlr-contact-row:hover {
     background: #111827;
-    border-left-color: rgba(0,217,255,0.45);
+    border-left-color: rgba(0,255,136,0.45);
 }
 .dlr-contact-row.active {
     background: #0f1e2e;
-    border-left-color: #00d9ff;
+    border-left-color: #00ff88;
 }
 #dialerPipelineFilter,
 #dialerStageFilter {
@@ -445,7 +445,7 @@ body.light-theme select {
 [data-theme="light"] .igb-action-btn.act-schedule { background: rgba(220,38,38,0.07) !important; border-color: rgba(220,38,38,0.18) !important; color: #dc2626 !important; }
 [data-theme="light"] #dialerStatsToggle { background: #f8f8f8 !important; border-color: #cccccc !important; color: #666666 !important; }
 [data-theme="light"] #dialerStatsToggle:hover { border-color: var(--lt-accent-border) !important; color: #059669 !important; }
-#dialerStatsToggle.dlr-stats-active { color: #00d9ff !important; }
+#dialerStatsToggle.dlr-stats-active { color: #00ff88 !important; }
 [data-theme="light"] #dialerStatsToggle.dlr-stats-active { color: #059669 !important; border-color: var(--lt-accent-border) !important; }
 [data-theme="light"] #dialerHistoryList > div,
 [data-theme="light"] #dialerRecordingsList > div { color: #444444 !important; border-bottom-color: #e0e0e0 !important; }
@@ -696,13 +696,13 @@ body.light-theme select {
     gap: 8px;
     margin-top: 8px;
     padding: 10px 12px;
-    background: rgba(0,217,255,0.03);
-    border-left: 2px solid rgba(0,217,255,0.3);
+    background: rgba(0,255,136,0.03);
+    border-left: 2px solid rgba(0,255,136,0.3);
     font-size: 0.75rem;
     color: #888;
     line-height: 1.5;
 }
-.vc-info-strip i { color: #00d9ff; flex-shrink: 0; margin-top: 2px; }
+.vc-info-strip i { color: #00ff88; flex-shrink: 0; margin-top: 2px; }
 .vc-info-purple {
     background: rgba(167,139,250,0.03);
     border-left-color: rgba(167,139,250,0.4);
@@ -837,3 +837,12 @@ body.light-theme select {
 [data-theme="light"] .vc-step { border-bottom-color: #e8e8e8; color: #666; }
 [data-theme="light"] .vc-step strong { color: #111; }
 [data-theme="light"] .vc-step-num { color: #059669; }
+
+/* ================================================================
+   CONFIG TAB — Extracted from inline styles
+   ================================================================ */
+.cfg-sms-channel-row { margin-top: 12px; }
+.cfg-sms-lc-icon { width: 22px; height: 22px; border-radius: 4px; flex-shrink: 0; }
+.cfg-cal-load-btn { white-space: nowrap; }
+.cfg-a2p-summary { margin-top: 16px; }
+.cfg-a2p-status-header { margin-bottom: 12px; }

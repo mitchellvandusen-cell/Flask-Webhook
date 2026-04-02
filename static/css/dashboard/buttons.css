@@ -326,15 +326,15 @@
    GRADIENT VARIANTS (brand colors — unchanged in both themes)
    ================================================================ */
 .btn-gradient-cyan {
-    background: linear-gradient(135deg, #00d9ff, #0891b2) !important;
+    background: #00ff88 !important;
     color: #000000 !important;
     font-weight: 700;
     border: none !important;
-    box-shadow: 0 0 20px rgba(0,217,255,0.15);
+    box-shadow: 0 0 20px rgba(0,255,136,0.15);
     transition: box-shadow 0.2s, transform 0.15s;
 }
 .btn-gradient-cyan:hover {
-    box-shadow: 0 0 32px rgba(0,217,255,0.30);
+    box-shadow: 0 0 32px rgba(0,255,136,0.30);
     transform: translateY(-2px);
     color: #000000 !important;
 }

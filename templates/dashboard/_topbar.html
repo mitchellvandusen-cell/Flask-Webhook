@@ -34,7 +34,7 @@
                 </button>
                 <div class="dash-user-pill">
                     <div class="dash-avatar">{{ current_user.email[0].upper() }}</div>
-                    <span class="dash-user-email">{{ current_user.email }}</span>
+                    <span class="dash-user-email">{{ current_user.email.split('@')[0].split('.')[0].capitalize() }}</span>
                 </div>
             </div>
         </div>
