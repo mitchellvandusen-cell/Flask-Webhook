@@ -360,3 +360,12 @@
     transition: opacity 0.2s ease, transform 0.2s ease;
 }
 .hp-hook-task.fading { opacity: 0; transform: translateY(-5px); }
+
+/* CTA section variant — no intro animation (AOS handles it), tighter spacing */
+.hp-hook-line--cta {
+    animation: none;
+    opacity: 1;
+    margin-bottom: 16px;
+}
+[data-theme="light"] .hp-hook-line { color: #666; }
+[data-theme="light"] .hp-hook-task { color: #dc2626; }
