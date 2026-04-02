@@ -37,6 +37,82 @@ TWILIO_MASTER_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
 
 # ── Phone Number Pricing ──────────────────────────────────────────────────
 FREE_NUMBERS_ALLOWANCE = 5          # First 5 numbers are included free
+
+
+def _reconcile_numbers_with_twilio(location_id, sub_sid, vc, email, live_numbers=None):
+    """
+    Reconcile DB state against live Twilio numbers for this sub-account.
+
+    Ensures the DB never holds data for numbers that no longer exist in Twilio.
+    Called on every numbers list load, number health load, and after release.
+
+    Args:
+        live_numbers: pre-fetched list of dicts from twilio_provisioning.list_phone_numbers()
+                      — pass this when already fetched to avoid a second Twilio API call.
+
+    Returns:
+        set of live E.164 phone numbers currently on the sub-account (empty on Twilio error).
+    """
+    if live_numbers is None:
+        try:
+            raw = twilio_provisioning.list_phone_numbers(sub_sid)
+            live_phones = {n['phone'] for n in raw if n.get('phone')}
+        except Exception as e:
+            logger.warning(f"[reconcile] Could not fetch live numbers for {sub_sid}: {e}")
+            return set()
+    else:
+        live_phones = {n['phone'] for n in live_numbers if n.get('phone')}
+
+    # 1. Prune number_health — delete records for numbers no longer on Twilio
+    conn = get_db_connection()
+    if conn:
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "DELETE FROM number_health WHERE location_id = %s AND phone != ALL(%s)",
+                (location_id, list(live_phones) if live_phones else ['__never_match__']),
+            )
+            if cur.rowcount > 0:
+                logger.info(
+                    f"[reconcile] Pruned {cur.rowcount} stale number_health records "
+                    f"for location={location_id}"
+                )
+            conn.commit()
+            cur.close()
+        except Exception as e:
+            logger.error(f"[reconcile] number_health cleanup failed: {e}")
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+        finally:
+            return_db_connection(conn)
+
+    # 2. Prune voice_config.local_presence_numbers
+    pool = vc.get('local_presence_numbers') or []
+    if pool:
+        pruned = [p for p in pool if p in live_phones]
+        if len(pruned) != len(pool):
+            vc['local_presence_numbers'] = pruned
+            _save_voice_config(email, vc)
+            logger.info(
+                f"[reconcile] Pruned {len(pool) - len(pruned)} stale numbers "
+                f"from voice_config pool for location={location_id}"
+            )
+
+    # 3. Clear primary number if it no longer exists on Twilio
+    primary = vc.get('twilio_phone_number', '')
+    if primary and primary not in live_phones:
+        new_primary = next(iter(live_phones), '')
+        vc['twilio_phone_number'] = new_primary
+        vc['twilio_number_sid'] = ''
+        _save_voice_config(email, vc)
+        logger.warning(
+            f"[reconcile] Primary {primary} gone from Twilio — "
+            f"updated to '{new_primary}' for location={location_id}"
+        )
+
+    return live_phones
 NUMBER_PRICE_CENTS = 90              # $0.90 per additional number
 TOLL_FREE_PRICE_CENTS = 215          # $2.15 per toll-free number
 
@@ -99,6 +175,15 @@ def list_voice_numbers():
 
     try:
         numbers = twilio_provisioning.list_phone_numbers(sub_sid)
+
+        # Reconcile DB against live Twilio numbers — prune stale health records,
+        # pool entries, and primary if the number was deleted outside the UI.
+        location_id = getattr(current_user, 'location_id', '')
+        _reconcile_numbers_with_twilio(
+            location_id, sub_sid, vc, current_user.email, live_numbers=numbers
+        )
+        # Re-read primary after possible reconcile update
+        primary_number = vc.get('twilio_phone_number', '')
 
         # Auto-sync: if no primary number is saved but numbers exist on the
         # sub-account, pick the first one and persist it to voice_config.
@@ -628,6 +713,10 @@ def release_voice_number():
             # Invalidate live numbers cache so smart rotation stops using this number
             from number_health import invalidate_live_numbers_cache
             invalidate_live_numbers_cache(sub_sid)
+            # Reconcile DB against post-release Twilio state — removes number_health
+            # record, prunes voice_config pool, and resets primary if needed.
+            location_id = getattr(current_user, 'location_id', '')
+            _reconcile_numbers_with_twilio(location_id, sub_sid, vc, current_user.email)
             _log_number_event(sub_sid, "phone_number_released", "success",
                               f"Phone number released: {phone_sid}",
                               {"sid": phone_sid})
@@ -829,6 +918,12 @@ def get_number_health():
     location_id = getattr(current_user, 'location_id', '')
     if not location_id:
         return jsonify({"error": "No location configured"}), 400
+
+    # Always reconcile against live Twilio before returning health data.
+    # This ensures deleted numbers are never shown, regardless of how they were removed.
+    sub_sid = vc.get('twilio_sub_account_sid', '')
+    if sub_sid:
+        _reconcile_numbers_with_twilio(location_id, sub_sid, vc, current_user.email)
 
     # Ensure health records exist (only when rotation is enabled to avoid needless DB writes)
     rotation_config = vc.get('number_rotation', {})
