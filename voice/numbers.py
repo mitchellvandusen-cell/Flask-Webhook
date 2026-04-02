@@ -63,30 +63,33 @@ def _reconcile_numbers_with_twilio(location_id, sub_sid, vc, email, live_numbers
     else:
         live_phones = {n['phone'] for n in live_numbers if n.get('phone')}
 
-    # 1. Prune number_health — delete records for numbers no longer on Twilio
-    conn = get_db_connection()
-    if conn:
-        try:
-            cur = conn.cursor()
-            cur.execute(
-                "DELETE FROM number_health WHERE location_id = %s AND phone != ALL(%s)",
-                (location_id, list(live_phones) if live_phones else ['__never_match__']),
-            )
-            if cur.rowcount > 0:
-                logger.info(
-                    f"[reconcile] Pruned {cur.rowcount} stale number_health records "
-                    f"for location={location_id}"
-                )
-            conn.commit()
-            cur.close()
-        except Exception as e:
-            logger.error(f"[reconcile] number_health cleanup failed: {e}")
+    # 1. Prune number_health — delete records for numbers no longer on Twilio.
+    # Only run when live_phones is non-empty: an empty response is ambiguous
+    # (no numbers purchased vs transient API issue) so we never delete on empty.
+    if live_phones:
+        conn = get_db_connection()
+        if conn:
             try:
-                conn.rollback()
-            except Exception:
-                pass
-        finally:
-            return_db_connection(conn)
+                cur = conn.cursor()
+                cur.execute(
+                    "DELETE FROM number_health WHERE location_id = %s AND phone != ALL(%s)",
+                    (location_id, list(live_phones)),
+                )
+                if cur.rowcount > 0:
+                    logger.info(
+                        f"[reconcile] Pruned {cur.rowcount} stale number_health records "
+                        f"for location={location_id}"
+                    )
+                conn.commit()
+                cur.close()
+            except Exception as e:
+                logger.error(f"[reconcile] number_health cleanup failed: {e}")
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+            finally:
+                return_db_connection(conn)
 
     # 2. Prune voice_config.local_presence_numbers
     pool = vc.get('local_presence_numbers') or []
