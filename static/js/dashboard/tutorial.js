@@ -1,5 +1,5 @@
 // ================================================================
-// InsuranceGrokBot — Dashboard Interactive Tutorial (driver.js)
+// Omnisconn — Dashboard Interactive Tutorial (driver.js)
 // Streamlined menu-focused walkthrough with Liquid Glass UI
 // ================================================================
 (function () {
@@ -381,7 +381,7 @@
         chapterStarts.push(steps.length);
         steps.push({
             popover: {
-                title: '<span class="igb-ch-badge">Welcome</span><br>Welcome to InsuranceGrokBot',
+                title: '<span class="igb-ch-badge">Welcome</span><br>Welcome to Omnisconn',
                 description: 'Your AI-powered insurance sales command center. This quick tour walks you through the <strong>main menu sections</strong> so you know where everything lives.<br><br>Takes about 2 minutes. Replay anytime from the sidebar.<span class="igb-key-hint">Use <kbd>\u2192</kbd> <kbd>\u2190</kbd> to navigate, <kbd>Esc</kbd> to close.</span>',
                 popoverClass: 'igb-tut-chapter'
             }

@@ -388,7 +388,7 @@ def _send_ghost_install_alert(user_email, ghl_user_id, primary_location_id, comp
 
     try:
         admin_target = ADMIN_EMAILS[0] if ADMIN_EMAILS else "mitchell_vandusen@hotmail.com"
-        domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+        domain_url = os.getenv("YOUR_DOMAIN", "https://omnisconn.click")
         alert_inner = f'''
 <tr><td style="padding: 20px 40px 30px;">
     <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 800; color: #ff6b35;">Ghost Install Detected</h1>
@@ -1833,7 +1833,7 @@ def oauth_callback():
         _send_welcome = (is_new_install or (not existing_row and not _is_reconnect)) and not _is_reconnect
         if _send_welcome:
             try:
-                domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+                domain_url = os.getenv("YOUR_DOMAIN", "https://omnisconn.click")
                 dashboard_link = (
                     f"{domain_url}/agency-dashboard" if use_agency_flow
                     else f"{domain_url}/dashboard"
@@ -1843,15 +1843,15 @@ def oauth_callback():
                 else:
                     welcome_html = _build_welcome_email(user_name, dashboard_link, domain_url, recipient_email=user_email)
                 email_subject = (
-                    "Your Agency Dashboard is Ready — InsuranceGrokBot" if use_agency_flow
-                    else "Welcome to InsuranceGrokBot — Your AI Assistant is Ready"
+                    "Your Agency Dashboard is Ready — Omnisconn" if use_agency_flow
+                    else "Welcome to Omnisconn — Your AI Assistant is Ready"
                 )
                 email_sent = send_email_via_api(
                     to_email=user_email,
                     subject=email_subject,
                     html_body=welcome_html,
                     text_body=(
-                        f"Welcome to InsuranceGrokBot, {user_name}! "
+                        f"Welcome to Omnisconn, {user_name}! "
                         f"Dashboard: {dashboard_link} | "
                         f"Support: {domain_url}/support"
                     )
@@ -1973,7 +1973,7 @@ def oauth_callback():
                 return redirect(url_for('dashboard.dashboard'))
             else:
                 logger.warning(f"GHL SSO: No account found for email={user_email}, location={primary_location_id}")
-                flash("No InsuranceGrokBot account found for this GoHighLevel location. Please register first or install from the GHL Marketplace.", "error")
+                flash("No Omnisconn account found for this GoHighLevel location. Please register first or install from the GHL Marketplace.", "error")
                 return redirect(url_for('auth.login'))
 
         # Website user flow redirect

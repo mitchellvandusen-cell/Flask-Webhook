@@ -1,4 +1,4 @@
-/* InsuranceGrokBot GHL Extension — Dialer & Calls Styles (Part 2 of 3) */
+/* Omnisconn GHL Extension — Dialer & Calls Styles (Part 2 of 3) */
 /* Self-contained: includes CSS variables */
 
 :root {
@@ -29,7 +29,7 @@
     --igb-radius-xs: 6px;
 }
 
-/* InsuranceGrokBot GHL Extension — Dialer & Calls Styles (Part 2 of 3) */
+/* Omnisconn GHL Extension — Dialer & Calls Styles (Part 2 of 3) */
 
 .igb-dial-btn {
     display: inline-flex;

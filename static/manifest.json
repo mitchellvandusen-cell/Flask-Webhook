@@ -1,5 +1,5 @@
 {
-  "name": "InsuranceGrokBot",
+  "name": "Omnisconn",
   "short_name": "IGB",
   "description": "AI-powered SMS & voice bot for insurance agents",
   "start_url": "/dashboard",

@@ -200,7 +200,7 @@ def _send_seat_invite_email(to_email, seat_name, manager_name, invite_url, brand
     """Send invite email to a seat user. Uses white-label branding if available."""
     try:
         from send_email_api import send_email
-        _brand = brand_name or 'InsuranceGrokBot'
+        _brand = brand_name or 'Omnisconn'
         _color = accent_color or '#00ff88'
         subject = f"{manager_name} invited you to {_brand}"
         html_body = f"""
@@ -514,14 +514,14 @@ def claim_seat():
                                    name=seat['full_name'],
                                    manager_name=seat.get('manager_name', ''),
                                    token=token,
-                                   brand_name=wl.get('company_name') or 'InsuranceGrokBot',
+                                   brand_name=wl.get('company_name') or 'Omnisconn',
                                    brand_logo=wl.get('logo_url', ''))
 
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
 
         wl = _get_whitelabel_for_location(seat['location_id'], cur)
-        _brand = wl.get('company_name') or 'InsuranceGrokBot'
+        _brand = wl.get('company_name') or 'Omnisconn'
         _logo = wl.get('logo_url', '')
 
         if not password or len(password) < 8:
@@ -1174,7 +1174,7 @@ def seat_checkout():
                         "recurring": {"interval": "month"},
                         "product_data": {
                             "name": "Additional Seat User",
-                            "description": "Monthly seat for an additional team member on InsuranceGrokBot",
+                            "description": "Monthly seat for an additional team member on Omnisconn",
                         },
                     },
                     "quantity": 1,

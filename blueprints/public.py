@@ -205,7 +205,7 @@ def privacy():
 @public_bp.route("/robots.txt")
 def robots_txt():
     """Serve robots.txt — allow all crawlers including AI bots."""
-    domain = 'https://insurancegrokbot.com'
+    domain = 'https://omnisconn.com'
     body = f"""User-agent: *
 Allow: /
 
@@ -256,7 +256,7 @@ Sitemap: {domain}/sitemap.xml
 @public_bp.route("/sitemap.xml")
 def sitemap_xml():
     """Dynamic XML sitemap for all public marketing pages."""
-    domain = 'https://insurancegrokbot.com'
+    domain = 'https://omnisconn.com'
     today = datetime.utcnow().strftime('%Y-%m-%d')
 
     # (path, changefreq, priority)
@@ -369,7 +369,7 @@ def uninstall_feedback():
 </div>
 </body></html>'''
                 send_email_via_api(
-                    to_email="mitch@insurancegrokbot.com",
+                    to_email="mitch@omnisconn.com",
                     subject=f"Uninstall Feedback: {reason_label} — {record.get('user_name') or 'Unknown'}",
                     html_body=notify_html,
                     text_body=f"Reason: {reason_label}. Details: {other_text or 'N/A'}. User: {record.get('user_name')} ({record.get('user_email')})",

@@ -14,23 +14,23 @@
     <meta name="theme-color" content="#050505">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>{% block title %}InsuranceGrokBot{% endblock %}</title>
+    <title>{% block title %}Omnisconn{% endblock %}</title>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
 
     <meta name="google-site-verification" content="NMK-3a1iz6VUoBemfcZnmA5nZ3M9vPg5HTx72Syx91s">
 
     {# ── SEO Meta ── #}
     {% block seo_meta %}
-    <meta name="description" content="{% block meta_description %}InsuranceGrokBot is an AI-powered sales assistant for life insurance agents. Automates SMS, voice calls, and appointment booking with 270+ carrier knowledge.{% endblock %}">
+    <meta name="description" content="{% block meta_description %}Omnisconn is an AI-powered sales assistant for life insurance agents. Automates SMS, voice calls, and appointment booking with 270+ carrier knowledge.{% endblock %}">
     <meta name="robots" content="index, follow">
-    <link rel="canonical" href="{% block canonical_url %}https://insurancegrokbot.com{{ request.path }}{% endblock %}">
+    <link rel="canonical" href="{% block canonical_url %}https://omnisconn.com{{ request.path }}{% endblock %}">
 
     {# Open Graph #}
     <meta property="og:type" content="{% block og_type %}website{% endblock %}">
     <meta property="og:title" content="{% block og_title %}{{ self.title() }}{% endblock %}">
     <meta property="og:description" content="{% block og_description %}{{ self.meta_description() }}{% endblock %}">
-    <meta property="og:url" content="https://insurancegrokbot.com{{ request.path }}">
-    <meta property="og:site_name" content="InsuranceGrokBot">
+    <meta property="og:url" content="https://omnisconn.com{{ request.path }}">
+    <meta property="og:site_name" content="Omnisconn">
     <meta property="og:image" content="{% block og_image %}{{ url_for('static', filename='og-image.png', _external=True) }}{% endblock %}">
     <meta property="og:locale" content="en_US">
 
@@ -196,7 +196,7 @@
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2026 InsuranceGrokBot. All rights reserved.</p>
+                <p>&copy; 2026 Omnisconn. All rights reserved.</p>
                 <p>Built for life insurance agents.</p>
             </div>
         </div>

@@ -44,7 +44,7 @@ def _send_invite_email(to_email: str, agent_name: str, agency_name: str, invite_
     from email_templates import _build_agency_invite_html
     html_body, text_body = _build_agency_invite_html(agent_name, agency_name, invite_url, YOUR_DOMAIN, recipient_email=to_email)
     msg = Message(
-        subject=f"You're invited to InsuranceGrokBot by {agency_name}",
+        subject=f"You're invited to Omnisconn by {agency_name}",
         recipients=[to_email],
         html=html_body,
         body=text_body,

@@ -1,1 +1,1 @@
-# blueprints package — Flask Blueprint modules for InsuranceGrokBot
+# blueprints package — Flask Blueprint modules for Omnisconn

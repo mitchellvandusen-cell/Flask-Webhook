@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ page_title }} — InsuranceGrokBot</title>
+    <title>{{ page_title }} — Omnisconn</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -159,7 +159,7 @@
 
                 {% if intelligence.get('analyzed_at') %}
                     <div class="powered-by">
-                        Analyzed {{ intelligence.analyzed_at[:16] }} · Powered by InsuranceGrokBot AI
+                        Analyzed {{ intelligence.analyzed_at[:16] }} · Powered by Omnisconn AI
                     </div>
                 {% endif %}
             {% else %}
@@ -187,7 +187,7 @@
 
         {% elif content_type == "panel" %}
             <div class="intel-card panel-placeholder">
-                <h2>InsuranceGrokBot</h2>
+                <h2>Omnisconn</h2>
                 <p style="color: #6b7280;">Embedded panel — open the full dashboard for all features.</p>
             </div>
         {% endif %}

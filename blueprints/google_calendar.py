@@ -37,7 +37,7 @@ def _google_creds():
     client_secret = os.getenv("GOOGLE_CALENDAR_CLIENT_SECRET")
     redirect_uri = os.getenv(
         "GOOGLE_CALENDAR_REDIRECT_URI",
-        "https://insurancegrokbot.click/google-calendar/callback"
+        "https://omnisconn.click/google-calendar/callback"
     )
     return client_id, client_secret, redirect_uri
 

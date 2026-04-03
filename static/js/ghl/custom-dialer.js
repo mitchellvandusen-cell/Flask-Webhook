@@ -1,5 +1,5 @@
 /**
- * InsuranceGrokBot GHL Extension — Dialer (2 of 3)
+ * Omnisconn GHL Extension — Dialer (2 of 3)
  * Pipeline buttons, temperature badges, AI reply, intelligence card,
  * dialer popup, call polling, and recording playback.
  *

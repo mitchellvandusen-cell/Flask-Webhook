@@ -526,7 +526,7 @@ def download_transcript():
             lines.extend(f"• {f}" for f in facts)
 
         transcript = "\n".join(lines)
-        filename   = (f"InsuranceGrokBot_transcript_{contact_id}_"
+        filename   = (f"Omnisconn_transcript_{contact_id}_"
                       f"{datetime.now().strftime('%Y%m%d_%H%M')}.txt")
         response   = make_response(transcript)
         response.headers["Content-Disposition"] = f"attachment; filename={filename}"

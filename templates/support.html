@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% block title %}Support Center | InsuranceGrokBot{% endblock %}
-{% block meta_description %}InsuranceGrokBot support center. Troubleshooting guides, setup help, CRM integration support, and answers to common questions about AI-powered insurance sales automation.{% endblock %}
+{% block title %}Support Center | Omnisconn{% endblock %}
+{% block meta_description %}Omnisconn support center. Troubleshooting guides, setup help, CRM integration support, and answers to common questions about AI-powered insurance sales automation.{% endblock %}
 {% block content %}
 <div class="container" style="padding-top: 120px; padding-bottom: 80px; max-width: 900px;">
 
@@ -87,7 +87,7 @@
                     <h2 class="accordion-header">
                         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#inst1"
                             style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
-                            How do I install InsuranceGrokBot?
+                            How do I install Omnisconn?
                         </button>
                     </h2>
                     <div id="inst1" class="accordion-collapse collapse" data-bs-parent="#installAccordion">
@@ -95,7 +95,7 @@
                             <ol>
                                 <li>Log into your <strong>Lead Connector</strong> account.</li>
                                 <li>Open the <strong>Marketplace</strong> tab in the left sidebar.</li>
-                                <li>Search for <strong>"Insurance Grok Bot"</strong>.</li>
+                                <li>Search for <strong>"Omnisconn"</strong>.</li>
                                 <li>Click <strong>Install</strong> and approve the requested permissions.</li>
                                 <li>You'll be redirected to complete your subscription and set a password.</li>
                             </ol>
@@ -196,7 +196,7 @@
                                 and click <strong>"Connect Lead Connector"</strong> to re-authorize.</li>
                                 <li>Your User ID, Location ID, and email will be populated automatically.</li>
                                 <li>If the issue persists after 48 hours, contact us at
-                                <a href="mailto:support@insurancegrokbot.com" style="color: var(--accent);">support@insurancegrokbot.com</a>
+                                <a href="mailto:support@omnisconn.com" style="color: var(--accent);">support@omnisconn.com</a>
                                 and we'll manually resolve it.</li>
                             </ol>
                         </div>
@@ -226,7 +226,7 @@
                                 the email associated with your Lead Connector account.</li>
                                 <li>You'll receive a password reset link to set up your login credentials.</li>
                                 <li>If you're unsure which email was used, contact us at
-                                <a href="mailto:support@insurancegrokbot.com" style="color: var(--accent);">support@insurancegrokbot.com</a>
+                                <a href="mailto:support@omnisconn.com" style="color: var(--accent);">support@omnisconn.com</a>
                                 and we'll look it up.</li>
                             </ol>
                         </div>
@@ -406,7 +406,7 @@
                                 <li><strong>OAuth tokens valid?</strong> Check the sidebar for "Token Expired". If expired, click <strong>Connect Lead Connector</strong> to re-authorize.</li>
                                 <li><strong>Location ID set?</strong> Make sure your Location ID field isn't empty or showing a temporary value.</li>
                                 <li><strong>Calendar selected?</strong> The bot needs a calendar to function. Click <strong>Load</strong> next to the calendar dropdown and select one.</li>
-                                <li><strong>Webhook active?</strong> In your Lead Connector account, go to <strong>Settings &rarr; Webhooks</strong> and verify the InsuranceGrokBot webhook URL is listed and active.</li>
+                                <li><strong>Webhook active?</strong> In your Lead Connector account, go to <strong>Settings &rarr; Webhooks</strong> and verify the Omnisconn webhook URL is listed and active.</li>
                             </ol>
                         </div>
                     </div>
@@ -815,7 +815,7 @@
                             <p>LeadConnector is the default CRM. Most users are connected automatically via the Marketplace install.</p>
                             <ol>
                                 <li>Go to the <a href="https://marketplace.leadconnectorhq.com/" style="color: var(--accent);" target="_blank">LeadConnector Marketplace</a>.</li>
-                                <li>Search for <strong>"Insurance Grok Bot"</strong> and click <strong>Install</strong>.</li>
+                                <li>Search for <strong>"Omnisconn"</strong> and click <strong>Install</strong>.</li>
                                 <li>Approve the requested permissions (contacts, calendars, messaging).</li>
                                 <li>You'll be redirected to set up your account and subscription.</li>
                                 <li>Your OAuth tokens, Location ID, and Calendar are set automatically.</li>
@@ -844,7 +844,7 @@
                                 <li>Enable <strong>OAuth Settings</strong> and add scopes: <code>full</code>, <code>api</code>, <code>refresh_token</code>.</li>
                                 <li>Copy your <strong>Consumer Key</strong> (Client ID) and <strong>Consumer Secret</strong>.</li>
                                 <li>Generate an OAuth access token (use Salesforce's OAuth flow or Workbench).</li>
-                                <li>In your InsuranceGrokBot dashboard, go to the <strong>Connect</strong> tab.</li>
+                                <li>In your Omnisconn dashboard, go to the <strong>Connect</strong> tab.</li>
                                 <li>Select <strong>Salesforce</strong> and enter your Instance URL, Access Token, Refresh Token, Client ID, and Client Secret.</li>
                                 <li>Click <strong>Save Integration</strong>, then <strong>Test Connection</strong>.</li>
                             </ol>
@@ -872,7 +872,7 @@
                                 <li>Click <strong>Create a private app</strong>.</li>
                                 <li>Under <strong>Scopes</strong>, enable: <code>crm.objects.contacts</code> (read/write), <code>crm.objects.deals</code>, <code>sales-email-read</code>.</li>
                                 <li>Click <strong>Create app</strong> and copy the <strong>Access Token</strong>.</li>
-                                <li>In your InsuranceGrokBot dashboard, go to the <strong>Connect</strong> tab.</li>
+                                <li>In your Omnisconn dashboard, go to the <strong>Connect</strong> tab.</li>
                                 <li>Select <strong>HubSpot</strong> and paste the Access Token.</li>
                                 <li>(Optional) Add your <strong>Owner ID</strong> for meeting assignments &mdash; find it under Settings &rarr; Users &amp; Teams.</li>
                                 <li>Click <strong>Save Integration</strong>, then <strong>Test Connection</strong>.</li>
@@ -900,7 +900,7 @@
                                 <li>In Pipedrive, go to <strong>Settings &rarr; Personal Preferences &rarr; API</strong>.</li>
                                 <li>Copy your <strong>Personal API Token</strong>.</li>
                                 <li>Note your <strong>Company Domain</strong> (the subdomain from <code>yourcompany.pipedrive.com</code>).</li>
-                                <li>In your InsuranceGrokBot dashboard, go to the <strong>Connect</strong> tab.</li>
+                                <li>In your Omnisconn dashboard, go to the <strong>Connect</strong> tab.</li>
                                 <li>Select <strong>Pipedrive</strong> and enter your Company Domain and API Token.</li>
                                 <li>(Optional) Enter <strong>User ID</strong>, <strong>Pipeline ID</strong>, and <strong>Stage ID</strong> for deal assignment.</li>
                                 <li>Click <strong>Save Integration</strong>, then <strong>Test Connection</strong>.</li>
@@ -929,7 +929,7 @@
                                 <li>Add scopes: <code>ZohoCRM.modules.ALL</code>, <code>ZohoCRM.users.READ</code>.</li>
                                 <li>Generate a <strong>Grant Token</strong>, then exchange it for an Access Token and Refresh Token.</li>
                                 <li>Copy your <strong>Client ID</strong> and <strong>Client Secret</strong> from the API Console.</li>
-                                <li>In your InsuranceGrokBot dashboard, go to the <strong>Connect</strong> tab.</li>
+                                <li>In your Omnisconn dashboard, go to the <strong>Connect</strong> tab.</li>
                                 <li>Select <strong>Zoho CRM</strong> and enter all four fields plus your <strong>Data Center</strong> region.</li>
                                 <li>Click <strong>Save Integration</strong>, then <strong>Test Connection</strong>.</li>
                             </ol>
@@ -955,7 +955,7 @@
                             <ol>
                                 <li>In Zapier, create a new Zap and select <strong>"Webhooks by Zapier"</strong> as the trigger.</li>
                                 <li>Choose <strong>"Catch Hook"</strong> and copy the webhook URL provided.</li>
-                                <li>In your InsuranceGrokBot dashboard, go to the <strong>Connect</strong> tab.</li>
+                                <li>In your Omnisconn dashboard, go to the <strong>Connect</strong> tab.</li>
                                 <li>Select <strong>Zapier</strong> and paste the Catch Hook URL.</li>
                                 <li>(Optional) Create separate hooks for messages and bookings, and enter those URLs too.</li>
                                 <li>Click <strong>Save Integration</strong>.</li>
@@ -984,7 +984,7 @@
                                 <li>Log into your Insureio account and go to <strong>Account Settings &rarr; API</strong>.</li>
                                 <li>Copy your <strong>API Key</strong>.</li>
                                 <li>Find your <strong>Brand/Profile ID</strong> (required for lead creation) in your Insureio brand settings.</li>
-                                <li>In your InsuranceGrokBot dashboard, go to the <strong>Connect</strong> tab.</li>
+                                <li>In your Omnisconn dashboard, go to the <strong>Connect</strong> tab.</li>
                                 <li>Select <strong>Insureio</strong> and enter your API Key, Brand ID, and (optionally) your subdomain.</li>
                                 <li>Click <strong>Save Integration</strong>, then <strong>Test Connection</strong>.</li>
                             </ol>
