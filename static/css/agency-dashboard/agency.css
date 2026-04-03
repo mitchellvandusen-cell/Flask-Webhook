@@ -861,3 +861,127 @@ body.light-theme .agency-kpi-card {
 body.light-theme .am-stat-card { background: #ffffff; border: 1px solid #e0e0e0; }
 body.light-theme .am-desc { color: #666; }
 
+/* ── Agency Rec Row ── */
+.agency-rec-row-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.agency-rec-name { font-weight: 600; font-size: 0.85rem; color: #e0e0e0; }
+.agency-rec-dir { font-size: 0.72rem; color: #555; text-transform: uppercase; letter-spacing: 0.04em; }
+.agency-rec-status { font-size: 0.72rem; font-weight: 600; }
+.agency-rec-status.completed { color: #00ff88; }
+.agency-rec-status.no-answer { color: #ef4444; }
+.agency-rec-dur { font-size: 0.78rem; color: #666; font-family: 'JetBrains Mono', monospace; }
+body.light-theme .agency-rec-name { color: #1a1a2e; }
+body.light-theme .agency-rec-dir { color: #9ca3af; }
+body.light-theme .agency-rec-status.completed { color: #059669; }
+body.light-theme .agency-rec-dur { color: #6b7280; }
+
+/* ── Agency Audio Player ── */
+.audio-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    padding: 8px 10px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+}
+.audio-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1px solid transparent;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+    flex-shrink: 0;
+    text-decoration: none;
+    background: rgba(255,255,255,0.05);
+    color: #aaa;
+}
+.audio-btn:hover { transform: scale(1.08); }
+.audio-play-btn  { background: rgba(0,255,136,0.12); color: #00ff88; border-color: rgba(0,255,136,0.28); }
+.audio-play-btn:hover  { background: rgba(0,255,136,0.22); box-shadow: 0 3px 10px rgba(0,255,136,0.18); }
+.audio-pause-btn { background: rgba(251,191,36,0.12); color: #fbbf24; border-color: rgba(251,191,36,0.28); }
+.audio-pause-btn:hover { background: rgba(251,191,36,0.22); box-shadow: 0 3px 10px rgba(251,191,36,0.18); }
+.audio-stop-btn  { background: rgba(255,255,255,0.05); color: #888; border-color: rgba(255,255,255,0.1); }
+.audio-stop-btn:hover  { background: rgba(255,255,255,0.1); color: #ccc; }
+.audio-download-btn { background: rgba(59,130,246,0.12); color: #60a5fa; border-color: rgba(59,130,246,0.28); border-radius: 8px; width: auto; padding: 0 10px; }
+.audio-download-btn:hover { background: rgba(59,130,246,0.22); box-shadow: 0 3px 10px rgba(59,130,246,0.18); }
+.audio-transcribe-btn { background: rgba(251,146,60,0.12); color: #fb923c; border-color: rgba(251,146,60,0.28); border-radius: 8px; width: auto; padding: 0 10px; }
+.audio-transcribe-btn:hover { background: rgba(251,146,60,0.22); box-shadow: 0 3px 10px rgba(251,146,60,0.18); }
+.audio-transcript-btn { background: rgba(168,85,247,0.12); color: #c084fc; border-color: rgba(168,85,247,0.28); border-radius: 8px; width: auto; padding: 0 10px; }
+.audio-transcript-btn:hover { background: rgba(168,85,247,0.22); }
+.audio-scrubber {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 1;
+    height: 3px;
+    background: rgba(255,255,255,0.12);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+    min-width: 0;
+}
+.audio-scrubber::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #00ff88;
+    cursor: pointer;
+    box-shadow: 0 0 0 2px rgba(0,255,136,0.25);
+}
+.audio-scrubber::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #00ff88;
+    border: none;
+    cursor: pointer;
+}
+.audio-current-time { font-size: 0.68rem; color: #666; font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
+.audio-duration     { font-size: 0.68rem; color: #444; font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
+/* Light theme */
+body.light-theme .audio-controls { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.07); }
+body.light-theme .audio-play-btn  { background: rgba(5,150,105,0.1);  color: #059669; border-color: rgba(5,150,105,0.25); }
+body.light-theme .audio-play-btn:hover  { box-shadow: 0 3px 10px rgba(5,150,105,0.18); }
+body.light-theme .audio-pause-btn { background: rgba(217,119,6,0.1);  color: #d97706; border-color: rgba(217,119,6,0.25); }
+body.light-theme .audio-stop-btn  { background: rgba(0,0,0,0.04); color: #9ca3af; border-color: rgba(0,0,0,0.1); }
+body.light-theme .audio-download-btn  { background: rgba(37,99,235,0.1);  color: #2563eb; border-color: rgba(37,99,235,0.25); }
+body.light-theme .audio-transcribe-btn { background: rgba(234,88,12,0.1); color: #ea580c; border-color: rgba(234,88,12,0.25); }
+body.light-theme .audio-transcript-btn { background: rgba(124,58,237,0.1); color: #7c3aed; border-color: rgba(124,58,237,0.25); }
+body.light-theme .audio-scrubber { background: rgba(0,0,0,0.1); }
+body.light-theme .audio-scrubber::-webkit-slider-thumb { background: #059669; box-shadow: 0 0 0 2px rgba(5,150,105,0.2); }
+body.light-theme .audio-scrubber::-moz-range-thumb { background: #059669; }
+body.light-theme .audio-current-time { color: #6b7280; }
+body.light-theme .audio-duration     { color: #9ca3af; }
+
+/* ── Agency Detail Buttons (Recordings / Stats / Meet tabs) ── */
+.agency-detail-btn {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #888;
+    border-radius: 8px;
+    padding: 6px 16px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: 0.01em;
+}
+.agency-detail-btn:hover { background: rgba(255,255,255,0.08); color: #ccc; border-color: rgba(255,255,255,0.14); }
+.agency-detail-btn.active { background: rgba(0,255,136,0.1); border-color: rgba(0,255,136,0.28); color: #00ff88; }
+.agency-detail-btn-meet { color: #60a5fa; border-color: rgba(59,130,246,0.2); }
+.agency-detail-btn-meet:hover { background: rgba(59,130,246,0.1); color: #60a5fa; border-color: rgba(59,130,246,0.3); }
+body.light-theme .agency-detail-btn { background: #fff; border-color: rgba(0,0,0,0.1); color: #6b7280; }
+body.light-theme .agency-detail-btn:hover { background: #f4f6f9; color: #374151; }
+body.light-theme .agency-detail-btn.active { background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.28); color: #059669; }
+body.light-theme .agency-detail-btn-meet { color: #2563eb; border-color: rgba(37,99,235,0.2); }
+body.light-theme .agency-detail-btn-meet:hover { background: rgba(37,99,235,0.08); }
+

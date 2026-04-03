@@ -143,20 +143,20 @@
                     row += '</div>';
 
                     if (hasRec) {
-                        row += '<div class="audio-controls" style="display:flex;align-items:center;gap:8px;margin-top:4px;">';
+                        row += '<div class="audio-controls">';
                         row += '<button onclick="playRecording(\'' + _esc(c.recording_url) + '\')" class="audio-btn audio-play-btn" title="Play"><i class="fa-solid fa-play"></i></button>';
                         row += '<button onclick="pauseRecording(\'' + _esc(c.recording_url) + '\')" class="audio-btn audio-pause-btn" title="Pause" style="display:none;"><i class="fa-solid fa-pause"></i></button>';
                         row += '<button onclick="stopRecording(\'' + _esc(c.recording_url) + '\')" class="audio-btn audio-stop-btn" title="Stop"><i class="fa-solid fa-stop"></i></button>';
-                        row += '<input type="range" class="audio-scrubber" min="0" max="100" value="0" oninput="seekRecording(\'' + _esc(c.recording_url) + '\', this.value)" style="flex:1;max-width:120px;">';
+                        row += '<input type="range" class="audio-scrubber" min="0" max="100" value="0" oninput="seekRecording(\'' + _esc(c.recording_url) + '\', this.value)">';
                         row += '<span class="audio-current-time">0:00</span>';
                         row += '<span class="audio-duration">' + (c.duration ? formatTime(c.duration) : '0:00') + '</span>';
                         row += '<a href="' + _esc(c.recording_url) + '?dl=1" download class="audio-btn audio-download-btn" title="Download"><i class="fa-solid fa-download"></i></a>';
-                        row += '<button onclick="transcribeRecording(\'' + _esc(c.recording_url) + '\', \'' + _esc(callSid) + '\')" class="audio-btn audio-transcribe-btn" title="Transcribe"><i class="fa-solid fa-file-lines"></i></button>';
+                        row += '<button onclick="transcribeRecording(\'' + _esc(c.recording_url) + '\', \'' + _esc(callSid) + '\')" class="audio-btn audio-transcribe-btn" title="Transcribe"><i class="fa-solid fa-wand-magic-sparkles"></i></button>';
                         row += '</div>';
                     }
 
                     if (hasTx) {
-                        row += '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g,"\\'") + ')\' class="audio-btn audio-transcript-btn" title="View Transcript" style="margin-top:4px;"><i class="fa-solid fa-file-lines"></i> View Transcript</button>';
+                        row += '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g,"\\'") + ')\' class="audio-btn audio-transcript-btn" title="View Transcript"><i class="fa-solid fa-file-lines"></i> View Transcript</button>';
                     }
 
                     row += '</div></div>';

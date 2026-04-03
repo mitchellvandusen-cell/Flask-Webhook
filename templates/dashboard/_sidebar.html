@@ -64,9 +64,6 @@
                     <div class="l2-item" onclick="activateL2(this); sidebarNavigate('carriers', null);">Contracted Carriers</div>
                     <div class="l2-item" onclick="activateL2(this); sidebarNavigate('logs', null); loadLogs();">Activity Logs</div>
                     {% if not is_sms_only %}
-                    <div class="l2-item" onclick="activateL2(this); sidebarNavigate('call-recordings', null); loadCallRecordings();">Call Recordings</div>
-                    {% endif %}
-                    {% if not is_sms_only %}
                     <div class="l2-item" onclick="activateL2(this); sidebarNavigate('business-profile', null);">Business Profile</div>
                     {% endif %}
                     {% if is_agency %}

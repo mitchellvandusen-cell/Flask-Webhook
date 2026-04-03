@@ -72,6 +72,40 @@
                     body.light-theme .ios-stats-period.active{background:rgba(0,120,184,0.12);border-color:rgba(0,120,184,0.25);color:#0078b8;}
                     .dlr-call-badge{display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#888;border-radius:4px;padding:1px 6px;font-size:0.7rem;font-weight:600;flex-shrink:0;line-height:1.3;white-space:nowrap;}
 
+                    /* ── Recordings filter button ── */
+                    .ios-rec-filter-btn { transition: color 0.15s, background 0.15s; border-radius: 8px; }
+                    .ios-rec-filter-btn:hover { background: rgba(0,122,255,0.12); }
+                    .ios-rec-filter-btn.active { color: #00ff88 !important; }
+                    body.light-theme .iphone-frame .ios-rec-filter-btn.active { color: #059669 !important; }
+
+                    /* ── Recordings filter panel ── */
+                    .ios-rec-filter-panel { display: none; flex-direction: column; gap: 8px; padding: 10px 14px 12px; background: #111; border-bottom: 1px solid rgba(255,255,255,0.06); }
+                    .ios-rec-filter-panel.open { display: flex; }
+                    .ios-rec-filter-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+                    .ios-rec-filter-label { font-size: 0.68rem; color: #666; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; flex-shrink: 0; }
+                    .ios-rec-filter-select { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 7px; color: #e0e0e0; font-size: 0.72rem; padding: 4px 8px; cursor: pointer; flex: 1; min-width: 0; outline: none; transition: border-color 0.15s; }
+                    .ios-rec-filter-select:focus { border-color: rgba(0,255,136,0.4); }
+                    body.light-theme .iphone-frame .ios-rec-filter-panel { background: #f4f6f9; border-bottom-color: rgba(0,0,0,0.07); }
+                    body.light-theme .iphone-frame .ios-rec-filter-label { color: #9ca3af; }
+                    body.light-theme .iphone-frame .ios-rec-filter-select { background: #fff; border-color: rgba(0,0,0,0.1); color: #1f2937; }
+                    body.light-theme .iphone-frame .ios-rec-filter-select:focus { border-color: rgba(5,150,105,0.4); }
+
+                    /* ── Recording action buttons (play / download / transcript / transcribe) ── */
+                    .dlr-rec-action-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; border: 1px solid transparent; font-size: 0.68rem; cursor: pointer; transition: transform 0.12s, box-shadow 0.12s, background 0.12s; flex-shrink: 0; text-decoration: none; }
+                    .dlr-rec-action-btn:hover { transform: translateY(-1px); }
+                    .dlr-rec-action-play { background: rgba(0,255,136,0.12); color: #00ff88; border-color: rgba(0,255,136,0.28); }
+                    .dlr-rec-action-play:hover { background: rgba(0,255,136,0.22); box-shadow: 0 3px 10px rgba(0,255,136,0.2); }
+                    .dlr-rec-action-download { background: rgba(59,130,246,0.12); color: #60a5fa; border-color: rgba(59,130,246,0.28); }
+                    .dlr-rec-action-download:hover { background: rgba(59,130,246,0.22); box-shadow: 0 3px 10px rgba(59,130,246,0.2); }
+                    .dlr-rec-action-transcript { background: rgba(168,85,247,0.12); color: #c084fc; border-color: rgba(168,85,247,0.28); }
+                    .dlr-rec-action-transcript:hover { background: rgba(168,85,247,0.22); box-shadow: 0 3px 10px rgba(168,85,247,0.2); }
+                    .dlr-rec-action-transcribe { background: rgba(251,146,60,0.12); color: #fb923c; border-color: rgba(251,146,60,0.28); }
+                    .dlr-rec-action-transcribe:hover { background: rgba(251,146,60,0.22); box-shadow: 0 3px 10px rgba(251,146,60,0.2); }
+                    body.light-theme .iphone-frame .dlr-rec-action-play { background: rgba(5,150,105,0.1); color: #059669; border-color: rgba(5,150,105,0.25); }
+                    body.light-theme .iphone-frame .dlr-rec-action-download { background: rgba(37,99,235,0.1); color: #2563eb; border-color: rgba(37,99,235,0.25); }
+                    body.light-theme .iphone-frame .dlr-rec-action-transcript { background: rgba(124,58,237,0.1); color: #7c3aed; border-color: rgba(124,58,237,0.25); }
+                    body.light-theme .iphone-frame .dlr-rec-action-transcribe { background: rgba(234,88,12,0.1); color: #ea580c; border-color: rgba(234,88,12,0.25); }
+
                     /* Caller Number Picker — Liquid Glass dropdown */
                     .dlr-top-bar{overflow:visible;z-index:10;}
                     .dialer-from-number-wrap{display:flex;align-items:center;gap:6px;margin-top:4px;position:relative;}
@@ -1856,30 +1890,49 @@
                                              <div class="ios-nav-title">
                                                  <div style="font-weight:700;font-size:0.95rem;">Recordings</div>
                                              </div>
-                                             <div style="display:flex;gap:4px;">
-                                                 <select id="dialerRecsSortBy" onchange="dialerLoadRecordings()" class="ios-nav-action" style="font-size:0.7rem;padding:3px 6px;border-radius:8px;min-width:80px;">
-                                                     <option value="created_at">Date</option>
-                                                     <option value="duration">Length</option>
-                                                 </select>
-                                                 <select id="dialerRecsMinutesFilter" onchange="dialerLoadRecordings()" class="ios-nav-action" style="font-size:0.7rem;padding:3px 6px;border-radius:8px;min-width:70px;">
-                                                     <option value="">All Minutes</option>
-                                                     <option value="0-1">0-1 min</option>
-                                                     <option value="1-2">1-2 min</option>
-                                                     <option value="2-5">2-5 min</option>
-                                                     <option value="5+">5+ min</option>
-                                                 </select>
-                                                 <select id="dialerRecsLengthFilter" onchange="dialerLoadRecordings()" class="ios-nav-action" style="font-size:0.7rem;padding:3px 6px;border-radius:8px;min-width:70px;">
-                                                     <option value="">All Lengths</option>
-                                                     <option value="short">Short (<30s)</option>
-                                                     <option value="medium">Medium (30s-2m)</option>
-                                                     <option value="long">Long (2m+)</option>
-                                                 </select>
-                                                 <button id="dialerRecsViewAllBtn" onclick="dialerToggleRecordingsScope()" class="ios-nav-action dlr-panel-10" style="font-size:0.75rem;padding:3px 8px;border-radius:12px">
+                                             <div style="display:flex;align-items:center;gap:4px;">
+                                                 <button id="dialerRecsFilterBtn" class="ios-rec-filter-btn ios-nav-action" onclick="toggleDialerRecsFilter()" title="Filter &amp; Sort" aria-label="Filter recordings">
+                                                     <i class="fa-solid fa-sliders"></i>
+                                                 </button>
+                                                 <button id="dialerRecsViewAllBtn" onclick="dialerToggleRecordingsScope()" class="ios-nav-action dlr-panel-10" style="font-size:0.75rem;padding:3px 8px;border-radius:12px;display:none;">
                                                      <span id="dialerRecordingsLabel" style="font-weight:600;">All</span>
                                                  </button>
                                                  <button onclick="dialerLoadRecordings()" class="ios-nav-action" title="Refresh">
                                                      <i class="fa-solid fa-arrows-rotate"></i>
                                                  </button>
+                                                 <!-- Hidden selects retain their IDs so JS can read values -->
+                                                 <select id="dialerRecsSortBy" onchange="dialerLoadRecordings()" style="display:none;"><option value="created_at">Date</option><option value="duration">Length</option></select>
+                                                 <select id="dialerRecsMinutesFilter" onchange="dialerLoadRecordings()" style="display:none;"><option value="">All Minutes</option><option value="0-1">0-1 min</option><option value="1-2">1-2 min</option><option value="2-5">2-5 min</option><option value="5+">5+ min</option></select>
+                                                 <select id="dialerRecsLengthFilter" onchange="dialerLoadRecordings()" style="display:none;"><option value="">All Lengths</option><option value="short">Short (&lt;30s)</option><option value="medium">Medium (30s-2m)</option><option value="long">Long (2m+)</option></select>
+                                             </div>
+                                         </div>
+                                         <!-- Collapsible filter panel — sits between nav bar and scroll list -->
+                                         <div class="ios-rec-filter-panel" id="dialerRecsFilterPanel">
+                                             <div class="ios-rec-filter-row">
+                                                 <label class="ios-rec-filter-label">Sort By</label>
+                                                 <select class="ios-rec-filter-select" onchange="document.getElementById('dialerRecsSortBy').value=this.value;dialerLoadRecordings()">
+                                                     <option value="created_at">Date</option>
+                                                     <option value="duration">Length</option>
+                                                 </select>
+                                             </div>
+                                             <div class="ios-rec-filter-row">
+                                                 <label class="ios-rec-filter-label">Duration</label>
+                                                 <select class="ios-rec-filter-select" onchange="document.getElementById('dialerRecsMinutesFilter').value=this.value;dialerLoadRecordings()">
+                                                     <option value="">All</option>
+                                                     <option value="0-1">0–1 min</option>
+                                                     <option value="1-2">1–2 min</option>
+                                                     <option value="2-5">2–5 min</option>
+                                                     <option value="5+">5+ min</option>
+                                                 </select>
+                                             </div>
+                                             <div class="ios-rec-filter-row">
+                                                 <label class="ios-rec-filter-label">Length</label>
+                                                 <select class="ios-rec-filter-select" onchange="document.getElementById('dialerRecsLengthFilter').value=this.value;dialerLoadRecordings()">
+                                                     <option value="">All</option>
+                                                     <option value="short">Short (&lt;30s)</option>
+                                                     <option value="medium">30s–2m</option>
+                                                     <option value="long">2m+</option>
+                                                 </select>
                                              </div>
                                          </div>
                                         <div id="dlrHistoryRecordings" class="ios-voicemail-scroll">

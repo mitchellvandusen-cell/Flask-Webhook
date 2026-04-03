@@ -1695,18 +1695,16 @@
                 '<div style="width:30px;height:30px;border-radius:50%;background:' + (isActive ? avatarActiveBg : avatarIdleBg) + ';border:1px solid ' + (isActive ? avatarActiveBorder : avatarIdleBorder) + ';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.75rem;color:' + accentClr + ';flex-shrink:0;position:relative;">' + init +
                     '<span class="' + liveDotCls + '"></span>' +
                 '</div>' +
-                '<div style="flex:1;min-width:0;">' +
-                    '<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">' +
-                        '<span style="font-weight:600;font-size:0.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + dialerEsc(c.name) + '</span>' +
-                        '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">' +
-                            dots +
-                            '<span class="dlr-call-badge" data-call-badge="' + c.id + '" style="font-size:0.75rem;padding:1px 6px;">Dials: ' + callCount + '</span>' +
-                        '</div>' +
-                    '</div>' +
+                '<div style="flex:1;min-width:0;overflow:hidden;">' +
+                    '<div style="font-weight:600;font-size:0.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dialerEsc(c.name) + '</div>' +
                     '<div style="font-size:0.78rem;color:' + phoneColor + ';">' + dialerEsc(c.phone) + dispBadge + '</div>' +
                 '</div>' +
-                (inQ ? '<i class="fa-solid fa-list-ol" style="color:' + accentClr + ';font-size:0.75rem;" title="In queue"></i>' : '') +
-                '<button class="mvp-row-btn" onclick="event.stopPropagation();_mvpOpenSingle(\'' + c.id.replace(/'/g, "\\'") + '\')">Move</button>' +
+                '<div style="display:flex;align-items:center;gap:3px;flex-shrink:0;">' +
+                    dots +
+                    (inQ ? '<i class="fa-solid fa-list-ol" style="color:' + accentClr + ';font-size:0.75rem;" title="In queue"></i>' : '') +
+                    '<span class="dlr-call-badge" data-call-badge="' + c.id + '">Dials: ' + callCount + '</span>' +
+                    '<button class="mvp-row-btn" onclick="event.stopPropagation();_mvpOpenSingle(\'' + c.id.replace(/'/g, "\\'") + '\')">Move</button>' +
+                '</div>' +
             '</div>';
         }
 
@@ -4231,6 +4229,14 @@
             dialerLoadRecordings();
         }
 
+        window.toggleDialerRecsFilter = function() {
+            const panel = document.getElementById('dialerRecsFilterPanel');
+            const btn = document.getElementById('dialerRecsFilterBtn');
+            if (!panel) return;
+            const isOpen = panel.classList.toggle('open');
+            if (btn) btn.classList.toggle('active', isOpen);
+        };
+
         // ── Load Call History (filtered to active contact unless "View All") ──
         async function dialerLoadAllCallHistory() {
             const panel = document.getElementById('dialerHistoryList');
@@ -4352,10 +4358,10 @@
                     // Line 2: duration · action buttons
                     row += '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;">';
                     row += '<span class="chr-dur">' + dur + '</span>';
-                    row += '<button onclick="playRecording(\'' + recUrl + '\')" style="background:#1e3a5f;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.72rem;font-weight:600;cursor:pointer;" title="Play"><i class="fa-solid fa-play"></i></button>';
-                    row += '<a href="' + recUrl + '?dl=1" download style="background:#14532d;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.72rem;font-weight:600;cursor:pointer;text-decoration:none;" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-download"></i></a>';
-                    row += hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:#1e3a5f;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.72rem;font-weight:600;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '';
-                    row += !hasTx && sid ? '<button onclick="transcribeNow(\'' + sid + '\',\'' + recUrl + '\',this)" style="background:#1e3a5f;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.72rem;font-weight:600;cursor:pointer;" title="Transcribe"><i class="fa-solid fa-wand-magic-sparkles"></i></button>' : '';
+                    row += '<button onclick="playRecording(\'' + recUrl + '\')" class="dlr-rec-action-btn dlr-rec-action-play" title="Play"><i class="fa-solid fa-play"></i></button>';
+                    row += '<a href="' + recUrl + '?dl=1" download class="dlr-rec-action-btn dlr-rec-action-download" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-download"></i></a>';
+                    row += hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' class="dlr-rec-action-btn dlr-rec-action-transcript" title="View Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '';
+                    row += !hasTx && sid ? '<button onclick="transcribeNow(\'' + sid + '\',\'' + recUrl + '\',this)" class="dlr-rec-action-btn dlr-rec-action-transcribe" title="Transcribe"><i class="fa-solid fa-wand-magic-sparkles"></i></button>' : '';
                     row += '</div>';
                     row += '</div>';
                     return row +

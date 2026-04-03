@@ -1,50 +1,56 @@
 <div class="tab-pane fade" id="call-recordings" role="tabpanel">
                 <div class="vc-container">
 
-                    <!-- Header -->
+                    <!-- Header with filter icon on right -->
                     <div class="vc-status-bar">
                         <i class="fa-solid fa-microphone-lines"></i>
-                        <span>Call Recordings</span>
+                        <span>Recordings</span>
                         <span class="vc-status-val" id="recordingsCount"></span>
-                    </div>
-
-                    <!-- Filters and Sort -->
-                    <div class="recordings-filters">
-                        <div class="recordings-filter-group">
-                            <label class="vc-label">Sort by</label>
-                            <select id="recordingsSortBy" class="vc-select" onchange="filterCallRecordings()">
-                                <option value="newest">Date (Newest First)</option>
-                                <option value="oldest">Date (Oldest First)</option>
-                                <option value="duration_desc">Duration (Longest First)</option>
-                                <option value="duration_asc">Duration (Shortest First)</option>
-                                <option value="contact_name">Contact Name</option>
-                            </select>
-                        </div>
-                        <div class="recordings-filter-group">
-                            <label class="vc-label">Date Range</label>
-                            <select id="recordingsDateFilter" class="vc-select" onchange="filterCallRecordings()">
-                                <option value="">All Time</option>
-                                <option value="today">Today</option>
-                                <option value="yesterday">Yesterday</option>
-                                <option value="week">Last 7 Days</option>
-                                <option value="last_week">Last Week</option>
-                                <option value="month">This Month</option>
-                            </select>
-                        </div>
-                        <div class="recordings-filter-group">
-                            <label class="vc-label">Call Length</label>
-                            <select id="recordingsLengthFilter" class="vc-select" onchange="filterCallRecordings()">
-                                <option value="">All Calls</option>
-                                <option value="has_recording">Has Recording</option>
-                                <option value="short">Under 1 Minute</option>
-                                <option value="medium">1–5 Minutes</option>
-                                <option value="long">Over 5 Minutes</option>
-                            </select>
-                        </div>
-                        <div class="recordings-filter-group recordings-filter-action">
-                            <button class="vc-btn-secondary" onclick="loadCallRecordings()">
-                                <i class="fa-solid fa-rotate-right"></i> Refresh
+                        <div class="rec-filter-wrap">
+                            <button class="rec-filter-trigger" id="recFilterToggle" onclick="toggleRecordingsFilter()" title="Filter &amp; Sort">
+                                <svg class="rec-filter-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6 9a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm2 4a1 1 0 011-1h2a1 1 0 110 2h-2a1 1 0 01-1-1z" clip-rule="evenodd"/>
+                                </svg>
                             </button>
+                            <!-- Filter dropdown panel -->
+                            <div class="rec-filter-panel" id="recFilterPanel">
+                                <div class="rec-filter-row">
+                                    <label class="rec-filter-label">Sort By</label>
+                                    <select id="recordingsSortBy" class="vc-select" onchange="filterCallRecordings()">
+                                        <option value="newest">Newest First</option>
+                                        <option value="oldest">Oldest First</option>
+                                        <option value="duration_desc">Longest First</option>
+                                        <option value="duration_asc">Shortest First</option>
+                                        <option value="contact_name">Contact Name</option>
+                                    </select>
+                                </div>
+                                <div class="rec-filter-row">
+                                    <label class="rec-filter-label">Date Range</label>
+                                    <select id="recordingsDateFilter" class="vc-select" onchange="filterCallRecordings()">
+                                        <option value="">All Time</option>
+                                        <option value="today">Today</option>
+                                        <option value="yesterday">Yesterday</option>
+                                        <option value="week">Last 7 Days</option>
+                                        <option value="last_week">Last Week</option>
+                                        <option value="month">This Month</option>
+                                    </select>
+                                </div>
+                                <div class="rec-filter-row">
+                                    <label class="rec-filter-label">Call Length</label>
+                                    <select id="recordingsLengthFilter" class="vc-select" onchange="filterCallRecordings()">
+                                        <option value="">All Calls</option>
+                                        <option value="has_recording">Has Recording</option>
+                                        <option value="short">Under 1 Min</option>
+                                        <option value="medium">1–5 Minutes</option>
+                                        <option value="long">Over 5 Min</option>
+                                    </select>
+                                </div>
+                                <div class="rec-filter-actions">
+                                    <button class="vc-btn-secondary rec-filter-refresh" onclick="loadCallRecordings(); toggleRecordingsFilter();">
+                                        <i class="fa-solid fa-rotate-right"></i> Refresh
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -68,3 +74,4 @@
                     </div>
                 </div>
             </div>
+
