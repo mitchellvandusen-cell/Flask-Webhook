@@ -106,22 +106,22 @@ def _determine_primary_location(url_location_id, token_location_id,
     Returns (location_id, resolution_method) tuple.
 
     Priority:
-      1. url_location_id matching a sub_account (GHL told us explicitly)
-      2. url_location_id direct (even without sub_accounts confirmation)
+      1. token_location_id (authoritative — from token exchange response)
+      2. url_location_id matching a known sub_account (confirmed by GHL in callback)
       3. sub_accounts — find the NEW location not yet in DB
       4. user_location_ids from /users/{userId} roles — find NEW location
-      5. token_location_id from token exchange response
+      5. url_location_id direct (last resort — undocumented GHL param)
       6. None (failed — caller uses companyId fallback)
     """
-    # Priority 1: URL param matches a known sub_account
+    # Priority 1: token_location_id (authoritative — from token exchange)
+    if token_location_id:
+        return token_location_id, 'token_direct'
+
+    # Priority 2: URL param matches a known sub_account
     if url_location_id and sub_accounts:
         sub_ids = [s['id'] for s in sub_accounts]
         if url_location_id in sub_ids:
             return url_location_id, 'url_param'
-
-    # Priority 2: URL param direct (no sub_accounts to validate against)
-    if url_location_id:
-        return url_location_id, 'url_param_direct'
 
     # Priority 3: sub_accounts — find the NEW location (not in DB)
     if sub_accounts and db_conn:
@@ -150,9 +150,9 @@ def _determine_primary_location(url_location_id, token_location_id,
         elif user_location_ids:
             return user_location_ids[0], 'reconnect_roles'
 
-    # Priority 5: token_location_id (from token exchange)
-    if token_location_id:
-        return token_location_id, 'token_direct'
+    # Priority 5: url_location_id direct (last resort — undocumented GHL param)
+    if url_location_id:
+        return url_location_id, 'url_param_direct'
 
     return None, 'failed'
 
@@ -195,10 +195,10 @@ def _detect_agency_owner(user_role_type, company_id, user_location_ids,
 
 def _fetch_installed_locations(headers, company_id, client_id):
     """
-    Fetch installed locations from GHL OAuth API.
+    Fetch installed locations from GHL OAuth API with pagination.
     Returns list of location dicts. Empty list on failure.
     """
-    urls = [
+    base_urls = [
         (
             f"https://services.leadconnectorhq.com/oauth/installedLocations"
             f"?companyId={company_id}&appId={client_id}"
@@ -208,31 +208,46 @@ def _fetch_installed_locations(headers, company_id, client_id):
             f"?companyId={company_id}"
         ),
     ]
-    for url in urls:
-        resp, err = _ghl_api_call(
-            'GET', url, headers=headers, timeout=15,
-            label="installedLocations"
-        )
-        if resp and resp.ok:
-            try:
-                data = resp.json()
-                raw = (
-                    data.get('locations')
-                    or data.get('installedLocations')
-                    or (data if isinstance(data, list) else [])
-                )
-                locs = [loc for loc in raw if isinstance(loc, dict)]
-                if locs:
-                    logger.info(f"installedLocations: {len(locs)} locations")
-                    return locs
-            except Exception as e:
-                logger.warning(f"installedLocations parse error: {e}")
-        else:
-            status = resp.status_code if resp else None
-            body = resp.text[:300] if resp else None
-            logger.warning(
-                f"installedLocations {url}: status={status}, err={err}, body={body}"
+    PAGE_LIMIT = 100
+
+    for base_url in base_urls:
+        all_locs = []
+        skip = 0
+        while True:
+            sep = '&' if '?' in base_url else '?'
+            url = f"{base_url}{sep}skip={skip}&limit={PAGE_LIMIT}"
+            resp, err = _ghl_api_call(
+                'GET', url, headers=headers, timeout=15,
+                label="installedLocations"
             )
+            if resp and resp.ok:
+                try:
+                    data = resp.json()
+                    raw = (
+                        data.get('locations')
+                        or data.get('installedLocations')
+                        or (data if isinstance(data, list) else [])
+                    )
+                    page_locs = [loc for loc in raw if isinstance(loc, dict)]
+                    if not page_locs:
+                        break  # No more results
+                    all_locs.extend(page_locs)
+                    if len(page_locs) < PAGE_LIMIT:
+                        break  # Last page
+                    skip += PAGE_LIMIT
+                except Exception as e:
+                    logger.warning(f"installedLocations parse error: {e}")
+                    break
+            else:
+                status = resp.status_code if resp else None
+                body = resp.text[:300] if resp else None
+                logger.warning(
+                    f"installedLocations {url}: status={status}, err={err}, body={body}"
+                )
+                break
+        if all_locs:
+            logger.info(f"installedLocations: {len(all_locs)} locations (paginated)")
+            return all_locs
     return []
 
 
@@ -1257,11 +1272,12 @@ def oauth_callback():
         # Step 7: Determine primary_location_id
         # ══════════════════════════════════════════════════════════════════════
         # For logged-in users (reauthorize flow), their session location_id is
-        # ground truth — but ONLY if it's a real GHL location ID, not a
-        # Stripe-provisional temp_ placeholder. If the user subscribed via Stripe
-        # but never completed OAuth, their location_id is "temp_{uuid}" which
-        # must NOT be injected — we need GHL to tell us the real location.
-        if current_user.is_authenticated and not url_location_id:
+        # ground truth — but ONLY for Company token flows where we have no
+        # token_location_id. For Location tokens, token_location_id is
+        # authoritative (Priority 1) and session injection would be redundant
+        # at best, wrong at worst.
+        # Also skip temp_ placeholders from Stripe-first provisioning.
+        if current_user.is_authenticated and not url_location_id and token_user_type_used == 'Company':
             _session_loc = getattr(current_user, 'location_id', None)
             _is_temp = _session_loc and (
                 str(_session_loc).startswith('temp_') or
@@ -1271,7 +1287,7 @@ def oauth_callback():
                 url_location_id = _session_loc
                 logger.info(
                     f"Step 7: Using current_user.location_id={_session_loc} "
-                    f"as url_location_id (reauthorize flow)"
+                    f"as url_location_id (reauthorize flow, Company token)"
                 )
             elif _is_temp:
                 logger.info(
