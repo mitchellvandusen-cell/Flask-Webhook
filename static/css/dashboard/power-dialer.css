@@ -476,7 +476,8 @@
 [data-theme="light"] .dlr-btn-ios-red-2     { background: linear-gradient(135deg, #dc2626, #be185d); color: #ffffff; }
 [data-theme="light"] .dlr-misc-25           { border-bottom: 1px solid rgba(0,0,0,0.06); }
 [data-theme="light"] .dlr-label-8           { color: #3b44a8; }
-[data-theme="light"] .dlr-panel-14          { background: #3b44a8; color: #111111; }
+[data-theme="light"] .dlr-panel-14          { background: #3b44a8; color: #ffffff; }
+[data-theme="light"] .dlr-panel-15         { background: #350e34; color: #ffffff; }
 [data-theme="light"] .dlr-misc-28           { border-bottom: 1px solid rgba(0,0,0,0.06); }
 [data-theme="light"] .dlr-btn-6             { background: rgba(88,101,242,0.15); border: 1px solid rgba(88,101,242,0.30); color: #3b44a8; }
 [data-theme="light"] .dlr-misc-29           { border-top: 1px solid rgba(0,0,0,0.06); background: #e5e7eb; }

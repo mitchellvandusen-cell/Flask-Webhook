@@ -794,12 +794,22 @@
                     body.light-theme #iosAppCalendar { background: #f2f2f7 !important; color: #1a1a2e !important; }
                     body.light-theme #iosAppCalendar .ios-nav-bar { background: #ffffff !important; border-bottom-color: rgba(255,59,48,0.12) !important; }
                     body.light-theme #iosCalMonthTitle { color: #1a1a2e !important; }
-                    body.light-theme #iosCalendarPicker { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.1) !important; color: #1a1a2e !important; }
+                    body.light-theme .ios-cal-picker-bar { background: #f8f8f8 !important; border-bottom-color: rgba(0,0,0,0.08) !important; }
+                    body.light-theme .ios-cal-picker-icon { color: #9ca3af !important; }
+                    body.light-theme .ios-cal-picker-select { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.1) !important; color: #1a1a2e !important; }
                     body.light-theme #iosCalGoogleBtn { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.1) !important; color: #636366 !important; }
                     body.light-theme #iosCalDateHeader { border-top-color: rgba(0,0,0,0.08) !important; }
                     body.light-theme #iosCalSlotArea { background: #f2f2f7 !important; color: #1a1a2e !important; }
                     body.light-theme #iosCalGrid { color: #1a1a2e !important; }
                     body.light-theme #iosCalSlots { color: #1a1a2e !important; }
+                    /* Calendar picker sub-header */
+                    .ios-cal-picker-bar { display:flex;align-items:center;gap:8px;padding:8px 14px;flex-shrink:0;background:#0a0a0a;border-bottom:1px solid rgba(255,255,255,0.06); }
+                    .ios-cal-picker-icon { color:rgba(255,255,255,0.3);font-size:0.78rem;flex-shrink:0; }
+                    .ios-cal-picker-select { flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#e0e0e0;border-radius:8px;padding:6px 10px;font-size:0.8rem;outline:none;cursor:pointer;font-family:inherit;max-width:100%; }
+
+                    /* Light theme — Discord/Slack Connect buttons always white text */
+                    body.light-theme .dlr-panel-14 { color: #ffffff !important; }
+                    body.light-theme .dlr-panel-15 { color: #ffffff !important; }
 
                     /* Light theme — Discord app */
                     body.light-theme #iosAppDiscord > div:first-child { background: #f2f3f5 !important; border-bottom-color: rgba(0,0,0,0.08) !important; }
@@ -847,6 +857,7 @@
                     body.light-theme .iphone-frame .ios-app-view { background: #f2f2f7 !important; color: #1a1a2e; }
                     body.light-theme .iphone-frame .ios-nav-bar { background: #f8f8f8 !important; border-bottom-color: rgba(0,0,0,0.1) !important; }
                     body.light-theme .iphone-frame .ios-nav-name { color: #1a1a2e !important; }
+                    body.light-theme .iphone-frame .ios-nav-title { color: #1a1a2e !important; }
                     body.light-theme .iphone-frame .ios-nav-subtitle { color: #636366 !important; }
                     /* Messages thread */
                     body.light-theme .iphone-frame .ios-thread-scroll { background: #ffffff !important; }
@@ -2091,9 +2102,6 @@
                                                 <div style="font-weight:700;font-size:0.95rem;">Calendar</div>
                                             </div>
                                             <div style="display:flex;gap:4px;align-items:center;">
-                                                <select id="iosCalendarPicker" onchange="calendarSwitchCalendar()" class="dlr-input-3" style="font-size:0.75rem;padding:3px 6px;border-radius:6px;max-width:100px;outline:none">
-                                                    <option value="">Loading...</option>
-                                                </select>
                                                 <button id="iosCalGoogleBtn" title="Connect Google Calendar" class="dlr-btn-3" style="font-size:0.75rem;padding:4px 7px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s">
                                                     <i class="fa-brands fa-google"></i>
                                                 </button>
@@ -2101,6 +2109,12 @@
                                                     <i class="fa-solid fa-plus"></i>
                                                 </button>
                                             </div>
+                                        </div>
+                                        <div class="ios-cal-picker-bar">
+                                            <i class="fa-solid fa-calendar-days ios-cal-picker-icon"></i>
+                                            <select id="iosCalendarPicker" onchange="calendarSwitchCalendar()" class="ios-cal-picker-select">
+                                                <option value="">Select Calendar</option>
+                                            </select>
                                         </div>
 
                                         <!-- Month Header -->
