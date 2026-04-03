@@ -124,7 +124,7 @@
                     fetch('/api/integrations/save', {method:'GET'}).catch(function() {});
                     // Simple connected check via onboarding
                     fetch('/api/onboarding-check').then(r => r.json()).then(function(d) {
-                        if (d.crm_connected) {
+                        if (d.all_connected) {
                             statusEl.innerHTML = '<span class="profile-status-dot profile-status-ok"></span><span class="profile-status-text">CRM connected</span>';
                         } else {
                             statusEl.innerHTML = '<span class="profile-status-dot profile-status-error"></span><span class="profile-status-text">CRM not connected — reauthorize to fix</span>';
