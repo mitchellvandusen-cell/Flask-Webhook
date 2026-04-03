@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Terms of Service — InsuranceGrokBot{% endblock %}
+{% block title %}Terms of Service — Omnisconn{% endblock %}
 
 {% block content %}
 <div class="container page-top-pad">
@@ -9,10 +9,10 @@
         <p class="text-center text-muted mb-5">Last updated: March 25, 2026</p>
 
         <h2>1. Agreement to Terms</h2>
-        <p>By accessing or using InsuranceGrokBot ("the Service," "the Platform," "we," "us," or "our"), you ("User," "you," or "your") agree to be bound by these Terms of Service ("Terms"). If you do not agree, you may not use the Service. These Terms apply to all users, including individual agents, agency owners, sub-users added under an agency, and team members invited via seat management.</p>
+        <p>By accessing or using Omnisconn ("the Service," "the Platform," "we," "us," or "our"), you ("User," "you," or "your") agree to be bound by these Terms of Service ("Terms"). If you do not agree, you may not use the Service. These Terms apply to all users, including individual agents, agency owners, sub-users added under an agency, and team members invited via seat management.</p>
 
         <h2>2. Description of Service</h2>
-        <p>InsuranceGrokBot is a white-label AI-powered sales automation and dialing platform built exclusively for life insurance agents and agencies. The Service connects to your CRM via OAuth and includes the following features depending on your subscription tier:</p>
+        <p>Omnisconn is a white-label AI-powered sales automation and dialing platform built exclusively for life insurance agents and agencies. The Service connects to your CRM via OAuth and includes the following features depending on your subscription tier:</p>
         <ul>
             <li><strong>AI SMS Handler:</strong> Outbound and inbound SMS automation. Handles objections using a 290+ phrase classification engine, maintains full conversation context across 20+ message turns, and books calendar appointments autonomously. Powered by xAI Grok with 270+ insurance carrier knowledge and real underwriting awareness.</li>
             <li><strong>AI Voice Agent:</strong> Fully autonomous outbound calling powered by xAI Grok Realtime speech-to-speech API. The AI cold-calls leads, qualifies prospects, handles objections in real time, and books appointments. Human agents can monitor live calls and intercept (take over) at any time.</li>
@@ -28,7 +28,7 @@
             <li><strong>A2P 10DLC Compliance:</strong> Brand registration, campaign creation, and messaging service provisioning. Sub-users may be required to pay a one-time $19 registration fee.</li>
             <li><strong>Spam Protection:</strong> CNAM (Caller Name) registration, Voice Integrity registration with AT&T/Hiya, T-Mobile, and Verizon, A2P 10DLC registration for SMS deliverability, and smart number rotation that automatically rests flagged numbers.</li>
             <li><strong>Agency Dashboard:</strong> Multi-tenant command center for agency owners (free). Real-time KPIs, per-agent statistics, leaderboards (connect rate, call volume, conversation duration), AI-powered weekly reports with per-agent coaching insights, period comparison, conversion funnel analysis, and call log across all agents.</li>
-            <li><strong>White-Label Branding:</strong> Agency owners can customize the dashboard with their own company name, logo, accent color, and font family. Agents under the agency see the agency brand instead of InsuranceGrokBot. Includes branded invite emails and claim-seat pages.</li>
+            <li><strong>White-Label Branding:</strong> Agency owners can customize the dashboard with their own company name, logo, accent color, and font family. Agents under the agency see the agency brand instead of Omnisconn. Includes branded invite emails and claim-seat pages.</li>
             <li><strong>Team Management:</strong> Account owners can invite team members with role-based access (admin, agent, viewer). Each team member can be provisioned with their own phone numbers for independent calling.</li>
             <li><strong>Reminders:</strong> The AI Assistant can create scheduled reminders stored in Redis with configurable delay. Reminders are best-effort notifications and are not guaranteed to fire at the exact specified time.</li>
             <li><strong>Training API:</strong> RESTful API for exporting call recordings and AI transcripts for training and quality assurance purposes.</li>
@@ -55,7 +55,7 @@
             <li>Connected minutes are calculated from answer to hangup on human-to-human calls through the dialer.</li>
             <li><strong>AI Voice Agent calls are not included in unlimited minutes</strong> — they consume AI Minutes from your purchased balance.</li>
             <li>Unused unlimited minutes do not roll over to subsequent months.</li>
-            <li>InsuranceGrokBot reserves the right to review accounts with consistently excessive usage and may contact you regarding an appropriate plan or terminate service for abuse.</li>
+            <li>Omnisconn reserves the right to review accounts with consistently excessive usage and may contact you regarding an appropriate plan or terminate service for abuse.</li>
         </ul>
 
         <h2>5. Free Trial</h2>
@@ -71,30 +71,30 @@
             <li>All activity that occurs under your account, including activity by sub-users, team members, and the AI Assistant acting on your behalf.</li>
             <li>Ensuring your use of the Service, including all AI-generated communications, complies with all applicable laws in your jurisdiction.</li>
             <li>Keeping your CRM OAuth credentials current — expired tokens may cause webhook processing failures and service interruptions.</li>
-            <li>Notifying us immediately at <a href="mailto:support@insurancegrokbot.com">support@insurancegrokbot.com</a> of any unauthorized account access.</li>
+            <li>Notifying us immediately at <a href="mailto:support@omnisconn.com">support@omnisconn.com</a> of any unauthorized account access.</li>
             <li>Reviewing AI-generated content (SMS messages, voice conversations, assistant actions) before and after they are sent to your leads. You are solely responsible for all communications sent through the platform.</li>
         </ul>
 
         <h2>8. Account Security and Two-Factor Authentication</h2>
-        <p>InsuranceGrokBot provides optional two-factor authentication (2FA) via SMS to protect your account. When enabled, a 6-digit verification code is sent to your registered mobile number each time you log in. You are strongly encouraged to enable 2FA on your account.</p>
+        <p>Omnisconn provides optional two-factor authentication (2FA) via SMS to protect your account. When enabled, a 6-digit verification code is sent to your registered mobile number each time you log in. You are strongly encouraged to enable 2FA on your account.</p>
         <ul>
             <li>Verification codes expire after 10 minutes and are valid for a single use.</li>
-            <li>You are responsible for maintaining access to the phone number registered for 2FA. If you lose access to your phone, contact <a href="mailto:support@insurancegrokbot.com">support@insurancegrokbot.com</a> for account recovery.</li>
+            <li>You are responsible for maintaining access to the phone number registered for 2FA. If you lose access to your phone, contact <a href="mailto:support@omnisconn.com">support@omnisconn.com</a> for account recovery.</li>
             <li>Password reset links expire after 30 minutes for security purposes.</li>
-            <li>InsuranceGrokBot encrypts OAuth tokens and sensitive credentials at rest using Fernet symmetric encryption.</li>
+            <li>Omnisconn encrypts OAuth tokens and sensitive credentials at rest using Fernet symmetric encryption.</li>
             <li>API keys and training tokens should be treated as secrets. Do not share them, commit them to version control, or expose them in client-side code.</li>
-            <li>InsuranceGrokBot is not liable for unauthorized access to your account resulting from your failure to secure your credentials, enable available security features, or maintain access to your 2FA device.</li>
+            <li>Omnisconn is not liable for unauthorized access to your account resulting from your failure to secure your credentials, enable available security features, or maintain access to your 2FA device.</li>
         </ul>
 
         <h2>9. AI-Generated Content and Actions</h2>
         <p>The AI SMS handler, AI Voice Agent, and AI Dashboard Assistant generate responses and take actions using large language models (xAI Grok). While the AI is configured with insurance-specific knowledge, sales frameworks, and your account parameters:</p>
         <ul>
             <li><strong>You are solely responsible</strong> for reviewing, approving, and taking responsibility for any AI-generated communications sent to your leads and customers, and any actions taken by the AI Assistant on your behalf.</li>
-            <li>InsuranceGrokBot makes <strong>no warranty</strong> that AI-generated content is accurate, compliant, appropriate, or suitable for every situation.</li>
+            <li>Omnisconn makes <strong>no warranty</strong> that AI-generated content is accurate, compliant, appropriate, or suitable for every situation.</li>
             <li>AI may produce errors, inaccuracies, or hallucinations. Important details should always be verified independently.</li>
             <li>The AI Assistant can execute real actions (send SMS, make calls, book appointments, modify contacts, enroll in workflows) on your behalf. By using the assistant, you authorize it to take these actions using your CRM credentials and account data.</li>
             <li>The AI Voice Agent represents itself as a human during calls. You acknowledge and accept this behavior as part of the Service design.</li>
-            <li>InsuranceGrokBot is not liable for any consequences arising from AI-generated content or actions, including but not limited to lost leads, missed appointments, incorrect information, regulatory violations, or reputational harm.</li>
+            <li>Omnisconn is not liable for any consequences arising from AI-generated content or actions, including but not limited to lost leads, missed appointments, incorrect information, regulatory violations, or reputational harm.</li>
         </ul>
 
         <h2>10. Prohibited Use</h2>
@@ -115,13 +115,13 @@
         </ul>
 
         <h2>11. Carrier and Telecommunications Compliance</h2>
-        <p>Outbound SMS and voice calls are delivered through telecommunications infrastructure provisioned under your account. You agree to comply with all applicable carrier regulations, including A2P 10DLC registration requirements for business SMS, STIR/SHAKEN attestation requirements, and carrier-specific acceptable use policies. InsuranceGrokBot provides tools to facilitate carrier registration but is not responsible for carrier filtering, message deliverability, call completion rates, spam labeling by carriers, or regulatory outcomes. You acknowledge that carrier regulations may change and that compliance is your ongoing responsibility.</p>
+        <p>Outbound SMS and voice calls are delivered through telecommunications infrastructure provisioned under your account. You agree to comply with all applicable carrier regulations, including A2P 10DLC registration requirements for business SMS, STIR/SHAKEN attestation requirements, and carrier-specific acceptable use policies. Omnisconn provides tools to facilitate carrier registration but is not responsible for carrier filtering, message deliverability, call completion rates, spam labeling by carriers, or regulatory outcomes. You acknowledge that carrier regulations may change and that compliance is your ongoing responsibility.</p>
 
         <h2>12. Intellectual Property</h2>
-        <p>The Service, including all source code, AI models, AI prompts, system prompts, training data, interface designs, visual elements (including the Liquid Glass design system), documentation, and content, is owned by InsuranceGrokBot and protected by copyright, trade secret, and other intellectual property laws. You are granted a limited, non-exclusive, non-transferable, revocable license to use the Service during your active subscription period. You may not copy, modify, create derivative works from, sublicense, sell, distribute, or reverse engineer any part of the Service. White-label branding grants you the right to display your own brand identity within the dashboard; it does not transfer any ownership of the underlying platform.</p>
+        <p>The Service, including all source code, AI models, AI prompts, system prompts, training data, interface designs, visual elements (including the Liquid Glass design system), documentation, and content, is owned by Omnisconn and protected by copyright, trade secret, and other intellectual property laws. You are granted a limited, non-exclusive, non-transferable, revocable license to use the Service during your active subscription period. You may not copy, modify, create derivative works from, sublicense, sell, distribute, or reverse engineer any part of the Service. White-label branding grants you the right to display your own brand identity within the dashboard; it does not transfer any ownership of the underlying platform.</p>
 
         <h2>13. Data and Privacy</h2>
-        <p>By using the Service, you grant InsuranceGrokBot the right to process contact data (names, phone numbers, email addresses, conversation history, call recordings, CRM data) on your behalf for the purpose of delivering the Service. We act as a data processor on your behalf. We do not sell your data or your contacts' data to third parties. You are the data controller and are responsible for obtaining any necessary consents from your contacts. See our <a href="/privacy">Privacy Policy</a> for full details on data handling, retention, third-party sharing, and your rights.</p>
+        <p>By using the Service, you grant Omnisconn the right to process contact data (names, phone numbers, email addresses, conversation history, call recordings, CRM data) on your behalf for the purpose of delivering the Service. We act as a data processor on your behalf. We do not sell your data or your contacts' data to third parties. You are the data controller and are responsible for obtaining any necessary consents from your contacts. See our <a href="/privacy">Privacy Policy</a> for full details on data handling, retention, third-party sharing, and your rights.</p>
 
         <h2>14. Disclaimer of Warranties</h2>
         <p>THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, AND ANY WARRANTIES ARISING FROM COURSE OF DEALING OR USAGE OF TRADE. WE DO NOT WARRANT THAT THE SERVICE WILL BE UNINTERRUPTED, ERROR-FREE, SECURE, OR FREE OF VIRUSES OR OTHER HARMFUL COMPONENTS. WE DO NOT WARRANT THE ACCURACY, RELIABILITY, OR COMPLETENESS OF ANY AI-GENERATED CONTENT.</p>
@@ -139,10 +139,10 @@
         <p>OUR TOTAL AGGREGATE LIABILITY TO YOU FOR ANY AND ALL CLAIMS ARISING FROM OR RELATED TO THESE TERMS OR THE SERVICE SHALL NOT EXCEED THE TOTAL AMOUNT YOU PAID FOR THE SERVICE IN THE THREE (3) MONTHS IMMEDIATELY PRECEDING THE EVENT GIVING RISE TO THE CLAIM.</p>
 
         <h2>16. Indemnification</h2>
-        <p>You agree to indemnify, defend, and hold harmless InsuranceGrokBot and its officers, directors, employees, agents, and affiliates from and against any and all claims, damages, losses, liabilities, costs, and expenses (including reasonable attorneys' fees) arising from or related to: (a) your use of the Service; (b) your violation of these Terms; (c) your violation of any applicable law or regulation; (d) any AI-generated content sent through your account; (e) any claim by a third party arising from communications sent through the Service on your behalf; or (f) your infringement of any third party's rights.</p>
+        <p>You agree to indemnify, defend, and hold harmless Omnisconn and its officers, directors, employees, agents, and affiliates from and against any and all claims, damages, losses, liabilities, costs, and expenses (including reasonable attorneys' fees) arising from or related to: (a) your use of the Service; (b) your violation of these Terms; (c) your violation of any applicable law or regulation; (d) any AI-generated content sent through your account; (e) any claim by a third party arising from communications sent through the Service on your behalf; or (f) your infringement of any third party's rights.</p>
 
         <h2>17. Termination</h2>
-        <p>You may cancel your subscription at any time through the billing portal or by contacting support. InsuranceGrokBot may suspend or terminate your access immediately, without prior notice, for: violation of these Terms; abuse of the fair use policy; failure to maintain payment; fraudulent activity; excessive chargebacks; or any activity that poses a risk to the Service, other users, or our telecommunications infrastructure. Upon termination, your access to the dashboard, phone numbers, AI Assistant, and all data will be suspended. Phone numbers will be released. Data may be retained for up to 90 days after termination for legal compliance and dispute resolution purposes, after which it will be permanently deleted.</p>
+        <p>You may cancel your subscription at any time through the billing portal or by contacting support. Omnisconn may suspend or terminate your access immediately, without prior notice, for: violation of these Terms; abuse of the fair use policy; failure to maintain payment; fraudulent activity; excessive chargebacks; or any activity that poses a risk to the Service, other users, or our telecommunications infrastructure. Upon termination, your access to the dashboard, phone numbers, AI Assistant, and all data will be suspended. Phone numbers will be released. Data may be retained for up to 90 days after termination for legal compliance and dispute resolution purposes, after which it will be permanently deleted.</p>
 
         <h2>18. Dispute Resolution and Arbitration</h2>
         <p>Any dispute, claim, or controversy arising from or relating to these Terms or the Service shall be resolved through binding individual arbitration administered by the American Arbitration Association (AAA) under its Consumer Arbitration Rules. <strong>You agree to waive your right to a jury trial and your right to participate in a class action, collective action, or representative proceeding.</strong> The arbitration shall take place in the United States. The arbitrator's decision shall be final and binding. Notwithstanding the foregoing, either party may seek injunctive or equitable relief in any court of competent jurisdiction to prevent the actual or threatened infringement of intellectual property rights.</p>
@@ -154,13 +154,13 @@
         <p>If any provision of these Terms is held to be invalid, illegal, or unenforceable, the remaining provisions shall continue in full force and effect. The invalid provision shall be modified to the minimum extent necessary to make it valid and enforceable while preserving its original intent.</p>
 
         <h2>21. Entire Agreement</h2>
-        <p>These Terms, together with the Privacy Policy and any other policies referenced herein, constitute the entire agreement between you and InsuranceGrokBot regarding the use of the Service and supersede all prior agreements, understandings, and communications, whether oral or written.</p>
+        <p>These Terms, together with the Privacy Policy and any other policies referenced herein, constitute the entire agreement between you and Omnisconn regarding the use of the Service and supersede all prior agreements, understandings, and communications, whether oral or written.</p>
 
         <h2>22. Changes to Terms</h2>
         <p>We may update these Terms at any time. Material changes will be communicated via email to your registered address and/or via a dashboard notification at least 30 days before taking effect. Continued use of the Service after the effective date of changes constitutes acceptance of the updated Terms. If you do not agree with any changes, you must discontinue use of the Service before the effective date.</p>
 
         <h2>23. Contact</h2>
-        <p>For questions about these Terms, contact us at <a href="mailto:support@insurancegrokbot.com">support@insurancegrokbot.com</a>.</p>
+        <p>For questions about these Terms, contact us at <a href="mailto:support@omnisconn.com">support@omnisconn.com</a>.</p>
 
         <div class="text-center mt-5">
             <a href="/" class="btn btn-outline-light">&larr; Back to Home</a>

@@ -1,5 +1,5 @@
 /**
- * InsuranceGrokBot GHL Extension — Core (1 of 3)
+ * Omnisconn GHL Extension — Core (1 of 3)
  * Stats chips, AI Minutes, page observer, and app initialization.
  * Fully self-contained — no dependencies on other files.
  */
@@ -7,7 +7,7 @@
 // Shared infrastructure — guarded so only the first loaded file initializes
 if (typeof igbServerUrl === 'undefined') {
 
-var igbServerUrl = 'https://insurancegrokbot.click';
+var igbServerUrl = 'https://omnisconn.click';
 var igbCallPollMs = 2000;
 var igbRefreshIntervalMs = 60000;
 var igbMaxVisibleToasts = 3;
@@ -479,7 +479,7 @@ function igbShowUpgradePrompt() {
     }
     const banner = igbMakeElement('div', 'igb-upgrade-banner');
     banner.id = 'igb-upgrade-banner';
-    const logo = igbMakeElement('div', 'igb-upgrade-logo', '<strong>InsuranceGrokBot</strong>');
+    const logo = igbMakeElement('div', 'igb-upgrade-logo', '<strong>Omnisconn</strong>');
     banner.appendChild(logo);
     const msg = igbMakeElement('p', 'igb-upgrade-msg', 'Start your subscription to unlock AI texting, voice dialing, and lead intelligence inside GHL.');
     banner.appendChild(msg);

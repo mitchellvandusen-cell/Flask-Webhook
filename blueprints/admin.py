@@ -213,7 +213,7 @@ def api_admin_send_email():
         return safe_jsonify({"error": "Admin access required. Use ?key=YOUR_CRON_SECRET"}), 403
 
     to_email = request.args.get("to") or (request.get_json(silent=True) or {}).get("to")
-    subject  = request.args.get("subject", "Update from InsuranceGrokBot")
+    subject  = request.args.get("subject", "Update from Omnisconn")
     message  = request.args.get("message", "")
 
     if not to_email:
@@ -222,7 +222,7 @@ def api_admin_send_email():
         return safe_jsonify({"error": "Missing 'message' parameter"}), 400
 
     from send_email_api import send_email_via_api
-    domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+    domain_url = os.getenv("YOUR_DOMAIN", "https://omnisconn.click")
 
     inner = f"""
 <tr>
@@ -268,7 +268,7 @@ def api_admin_send_email_all():
         return safe_jsonify({"error": "Admin access required"}), 403
 
     body = request.get_json(silent=True) or {}
-    subject      = body.get("subject", "New Update from InsuranceGrokBot")
+    subject      = body.get("subject", "New Update from Omnisconn")
     update_notes = body.get("update_notes", "")  # optional green callout block
 
     if not subject:
@@ -278,7 +278,7 @@ def api_admin_send_email_all():
     from email_templates import build_app_update_email
     from db import get_db_connection, return_db_connection
 
-    domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+    domain_url = os.getenv("YOUR_DOMAIN", "https://omnisconn.click")
     html_body, text_body = build_app_update_email(domain_url=domain_url, update_notes=update_notes)
 
     conn = get_db_connection()
@@ -354,12 +354,12 @@ def api_send_install_setup_email(install_id):
         return safe_jsonify({"error": "No email address for this install"}), 400
 
     from send_email_api import send_email_via_api
-    domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+    domain_url = os.getenv("YOUR_DOMAIN", "https://omnisconn.click")
     name       = target.get("user_name") or "there"
-    subject    = "Complete Your InsuranceGrokBot Setup"
+    subject    = "Complete Your Omnisconn Setup"
     html_body  = _build_install_welcome_email(name, domain_url, recipient_email=email)
     text_body  = (
-        f"Hi {name}, complete your InsuranceGrokBot setup to start converting leads: "
+        f"Hi {name}, complete your Omnisconn setup to start converting leads: "
         f"{domain_url}/oauth/initiate"
     )
 
@@ -380,7 +380,7 @@ def api_send_all_setup_emails():
         return safe_jsonify({"error": "Admin access required. Use ?key=YOUR_CRON_SECRET"}), 403
 
     from send_email_api import send_email_via_api
-    domain_url  = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+    domain_url  = os.getenv("YOUR_DOMAIN", "https://omnisconn.click")
     incomplete  = get_incomplete_installs()
     sent_count  = 0
     errors      = []
@@ -391,10 +391,10 @@ def api_send_all_setup_emails():
             continue
 
         name      = inst.get("user_name") or "there"
-        subject   = "Complete Your InsuranceGrokBot Setup"
+        subject   = "Complete Your Omnisconn Setup"
         html_body = _build_install_welcome_email(name, domain_url, recipient_email=email)
         text_body = (
-            f"Hi {name}, complete your InsuranceGrokBot setup to start converting leads: "
+            f"Hi {name}, complete your Omnisconn setup to start converting leads: "
             f"{domain_url}/oauth/initiate"
         )
         try:

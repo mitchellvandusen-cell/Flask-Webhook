@@ -53,7 +53,7 @@ def _get_intelligence(contact_id, location_id):
 def embed_panel():
     """Mini-dashboard without sidebar/topbar — for CRM iframe embedding."""
     return render_template("embed_base.html",
-                           page_title="InsuranceGrokBot",
+                           page_title="Omnisconn",
                            content_type="panel")
 
 

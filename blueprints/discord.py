@@ -31,7 +31,7 @@ def _discord_creds():
     client_id     = os.getenv("DISCORD_CLIENT_ID")
     client_secret = os.getenv("DISCORD_CLIENT_SECRET")
     redirect_uri  = os.getenv("DISCORD_REDIRECT_URI",
-                               "https://insurancegrokbot.click/discord/callback")
+                               "https://omnisconn.click/discord/callback")
     return client_id, client_secret, redirect_uri
 
 

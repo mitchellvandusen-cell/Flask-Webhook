@@ -1,5 +1,5 @@
 /**
- * InsuranceGrokBot - GHL Custom JS Extension
+ * Omnisconn - GHL Custom JS Extension
  *
  * This script adds AI-powered calling, SMS, lead intelligence,
  * spam protection config, and number management features to the
@@ -13,7 +13,7 @@
 // Configuration constants
 // ---------------------------------------------------------------------------
 
-const igbServerUrl = 'https://insurancegrokbot.click';
+const igbServerUrl = 'https://omnisconn.click';
 const igbCallPollMs = 2000;
 const igbRefreshIntervalMs = 60000;
 const igbMaxVisibleToasts = 3;
@@ -1798,7 +1798,7 @@ function igbShowUpgradePrompt() {
     }
     const banner = igbMakeElement('div', 'igb-upgrade-banner');
     banner.id = 'igb-upgrade-banner';
-    const logo = igbMakeElement('div', 'igb-upgrade-logo', '<strong>InsuranceGrokBot</strong>');
+    const logo = igbMakeElement('div', 'igb-upgrade-logo', '<strong>Omnisconn</strong>');
     banner.appendChild(logo);
     const msg = igbMakeElement('p', 'igb-upgrade-msg', 'Start your subscription to unlock AI texting, voice dialing, and lead intelligence inside GHL.');
     banner.appendChild(msg);

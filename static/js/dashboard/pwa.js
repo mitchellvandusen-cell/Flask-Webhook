@@ -55,7 +55,7 @@
                     '<img src="/static/icons/icon-96x96.png" alt="IGB" width="40" height="40" style="border-radius:10px;">' +
                 '</div>' +
                 '<div class="pwa-banner-text">' +
-                    '<strong>Install InsuranceGrokBot</strong>' +
+                    '<strong>Install Omnisconn</strong>' +
                     '<span>Add to your home screen for quick access</span>' +
                 '</div>' +
                 '<div class="pwa-banner-actions">' +
@@ -125,7 +125,7 @@
                     '<img src="/static/icons/icon-96x96.png" alt="IGB" width="40" height="40" style="border-radius:10px;">' +
                 '</div>' +
                 '<div class="pwa-banner-text">' +
-                    '<strong>Install InsuranceGrokBot</strong>' +
+                    '<strong>Install Omnisconn</strong>' +
                     '<span>Tap <i class="fa-solid fa-arrow-up-from-bracket" style="color:var(--accent);"></i> then "Add to Home Screen"</span>' +
                 '</div>' +
                 '<div class="pwa-banner-actions">' +

@@ -30,7 +30,7 @@ def _slack_creds():
     client_id     = os.getenv("SLACK_CLIENT_ID")
     client_secret = os.getenv("SLACK_CLIENT_SECRET")
     redirect_uri  = os.getenv("SLACK_REDIRECT_URI",
-                               "https://insurancegrokbot.click/slack/callback")
+                               "https://omnisconn.click/slack/callback")
     return client_id, client_secret, redirect_uri
 
 

@@ -39,7 +39,7 @@ def _send_reset_email(to_email: str, reset_url: str):
     from email_templates import _build_password_reset_html
     html_body = _build_password_reset_html(reset_url, YOUR_DOMAIN)
     msg = Message(
-        subject="InsuranceGrokBot - Password Reset",
+        subject="Omnisconn - Password Reset",
         recipients=[to_email],
         html=html_body,
         body=f"Reset your password: {reset_url}\n\nThis link expires in 30 minutes."
@@ -224,7 +224,7 @@ def ghl_sso_initiate():
             finally:
                 return_db_connection(conn)
     if not user or not user.location_id:
-        flash("No InsuranceGrokBot account found for that email.", "error")
+        flash("No Omnisconn account found for that email.", "error")
         return render_template("login.html", form=LoginForm(), ghl_sso_mode=True)
 
     # Try to refresh their GHL token silently

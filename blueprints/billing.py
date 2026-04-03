@@ -386,7 +386,7 @@ def stripe_webhook():
                     if target_tier != "sms_bot":
                         try:
                             from twilio_provisioning import provision_subscriber as _twilio_provision
-                            webhook_base_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+                            webhook_base_url = os.getenv("YOUR_DOMAIN", "https://omnisconn.click")
                             # Need location_id — fetch from the subscriber we just created/updated
                             cur.execute("SELECT location_id, voice_config FROM subscribers WHERE email = %s", (email,))
                             _sub_row = cur.fetchone()
@@ -417,13 +417,13 @@ def stripe_webhook():
                     # Send welcome email for website subscribers
                     try:
                         from send_email_api import send_email_via_api
-                        YOUR_DOMAIN = os.getenv("YOUR_DOMAIN", "https://app.insurancegrokbot.click")
+                        YOUR_DOMAIN = os.getenv("YOUR_DOMAIN", "https://app.omnisconn.click")
                         send_email_via_api(
                             to_email=email,
-                            subject="Welcome to InsuranceGrokBot — Your Account is Ready",
+                            subject="Welcome to Omnisconn — Your Account is Ready",
                             html_body=f"""
                             <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 560px; margin: 0 auto; padding: 2rem;">
-                                <h2 style="color: #111; margin-bottom: 1rem;">Welcome to InsuranceGrokBot</h2>
+                                <h2 style="color: #111; margin-bottom: 1rem;">Welcome to Omnisconn</h2>
                                 <p style="color: #444; line-height: 1.6;">Your {target_tier.replace('_', ' ').title()} subscription is active. Here's what to do next:</p>
                                 <ol style="color: #444; line-height: 1.8;">
                                     <li><strong>Set your password</strong> — <a href="{YOUR_DOMAIN}/login" style="color: #1a6b4a;">Log in here</a></li>
@@ -699,7 +699,7 @@ def stripe_webhook():
                                 from send_email_api import send_email_via_api
                                 send_email_via_api(
                                     to_email=email,
-                                    subject="Your InsuranceGrokBot trial ends in 3 days",
+                                    subject="Your Omnisconn trial ends in 3 days",
                                     html_body=(
                                         f"<p>Hey {name},</p>"
                                         f"<p>Your free trial is wrapping up in 3 days. "
@@ -714,7 +714,7 @@ def stripe_webhook():
                                         f' style="background:#00ff88;color:#000;padding:12px 24px;'
                                         f'border-radius:8px;text-decoration:none;font-weight:bold;">'
                                         f'Go to Dashboard</a></p>'
-                                        f"<p>— The InsuranceGrokBot Team</p>"
+                                        f"<p>— The Omnisconn Team</p>"
                                     ),
                                 )
                             except Exception as mail_err:

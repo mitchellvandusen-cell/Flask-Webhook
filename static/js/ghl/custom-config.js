@@ -1,5 +1,5 @@
 /**
- * InsuranceGrokBot GHL Extension — Config (3 of 3)
+ * Omnisconn GHL Extension — Config (3 of 3)
  * Spam protection, business profile, number management,
  * voice integrity, A2P 10DLC, voice config, SMS bot config.
  * Fully self-contained — no dependencies on other files.

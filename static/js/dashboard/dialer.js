@@ -3,16 +3,16 @@
         let dialerSelected = new Set();
         let dialerQueue = [];
         let dialerQueueRunning = false;
-        // InsuranceGrokBot engagement data cache: contactId → { messages, calls }
+        // Omnisconn engagement data cache: contactId → { messages, calls }
         let _igbEngagementCache = {};
-        // InsuranceGrokBot AI intelligence cache: contactId → { temperature, score, summary }
+        // Omnisconn AI intelligence cache: contactId → { temperature, score, summary }
         // Populated fresh on every dialer load from server cache (24h TTL).
         let _igbIntelCache = {};
         // Contacts that need AI analysis (no cached intelligence)
         let _igbUncachedIds = [];
         // Whether batch AI analysis is currently running
         let _igbAnalyzing = false;
-        // InsuranceGrokBot Smart Filter collapsed state
+        // Omnisconn Smart Filter collapsed state
         let _igbFilterCollapsed = { not_showing: true };
         let dialerCallSid = null;
         let dialerCallIdx = -1;
@@ -1384,7 +1384,7 @@
                 else { dialerRenderContacts(); dialerUpdateSelectionUI(); }
                 // Show local (dialer) counts immediately, then upgrade with GHL+WAVV in background
                 dialerFetchCallCounts().then(() => dialerFetchMergedCounts());
-                // InsuranceGrokBot: always load engagement + intelligence for Smart Filters
+                // Omnisconn: always load engagement + intelligence for Smart Filters
                 igbFetchBulkEngagement();
                 // One-time deep historical pull (auto-triggers on first use, then done forever)
                 _deepSyncCheck();
@@ -1501,7 +1501,7 @@
             }
         }
 
-        // ── InsuranceGrokBot: engagement level (0-3 dots) — AI only, no rules ──
+        // ── Omnisconn: engagement level (0-3 dots) — AI only, no rules ──
         // Uses AI engagement_level directly. No heuristic fallback.
         // If AI hasn't analyzed yet, returns -1 (pending state).
         function _igbEngageLevel(contactId, contactObj) {
@@ -1522,7 +1522,7 @@
             return -1; // Not analyzed yet — show neutral/pending dots
         }
 
-        // ── InsuranceGrokBot Smart Filter: group contacts by AI intelligence + dispositions ──
+        // ── Omnisconn Smart Filter: group contacts by AI intelligence + dispositions ──
         // Priority: Should Respond > Callback > Hot > Warm > Interested > Cool > Cold > Not Interested > DnC > Analyzing
         // Dispositions override AI temperature grouping when set (agent's manual classification takes priority).
         // Check if a contact has a bad/missing name (e.g. "None None", empty, null)
@@ -1710,7 +1710,7 @@
             '</div>';
         }
 
-        // ── Render contact list (left panel) with InsuranceGrokBot Smart Filters ──
+        // ── Render contact list (left panel) with Omnisconn Smart Filters ──
         function dialerRenderContacts() {
             const list = document.getElementById('dialerContactList');
             const actionsBar = document.getElementById('dialerActionsBar');
@@ -1930,7 +1930,7 @@
             pill.style.display = 'none';
         }
 
-        // ── InsuranceGrokBot: lead score — AI only, no rule-based heuristic ──
+        // ── Omnisconn: lead score — AI only, no rule-based heuristic ──
         // Returns the AI-generated score (0-100) based on conversation analysis.
         // Returns -1 if AI hasn't analyzed yet (pending state — shows "?" in UI).
         // NEVER fakes a score with rules. If AI hasn't read the conversation, we don't guess.
@@ -2213,7 +2213,7 @@
                     + '</div>';
 
                 // Powered by footer
-                html += '<div style="text-align:center;margin-top:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.03);"><span style="font-size:.75rem;color:#333;letter-spacing:.3px;">Powered by InsuranceGrokBot</span></div>';
+                html += '<div style="text-align:center;margin-top:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.03);"><span style="font-size:.75rem;color:#333;letter-spacing:.3px;">Powered by Omnisconn</span></div>';
 
                 panel.innerHTML = html;
                 document.getElementById('dlrDetailActions').style.display = 'none';
@@ -2501,7 +2501,7 @@
             var ch = sel.value;
             if (badge) {
                 if (ch === 'twilio') {
-                    badge.textContent = 'via InsuranceGrokBot';
+                    badge.textContent = 'via Omnisconn';
                     badge.style.background = 'rgba(0,255,136,0.07)';
                     badge.style.borderColor = 'rgba(0,255,136,0.15)';
                     badge.style.color = '#00ff88';
@@ -2750,7 +2750,7 @@
             }
         });
 
-        // ── SMS: AI draft (InsuranceGrokBot suggest) ──
+        // ── SMS: AI draft (Omnisconn suggest) ──
         async function dlrAiSuggest() {
             const btn = document.getElementById('dlrAiDraftBtn');
             const label = document.getElementById('dlrAiDraftLabel');
@@ -2885,7 +2885,7 @@
             }
 
             const channel = dlrGetChannel();
-            const channelLabel = channel === 'twilio' ? 'InsuranceGrokBot' : 'LeadConnector';
+            const channelLabel = channel === 'twilio' ? 'Omnisconn' : 'LeadConnector';
 
             // Optimistic UI — append pending bubble immediately
             const pendingId = 'sms_' + Date.now();
@@ -5763,7 +5763,7 @@
             }
         }
 
-        // ── InsuranceGrokBot: Bulk Engagement Fetch ──
+        // ── Omnisconn: Bulk Engagement Fetch ──
         async function igbFetchBulkEngagement() {
             console.log('[IGB] igbFetchBulkEngagement() called, contacts:', dialerContacts.length);
             if (!dialerContacts.length) return;
@@ -5786,7 +5786,7 @@
             igbFetchBulkIntelligence();
         }
 
-        // ── InsuranceGrokBot: Bulk AI Intelligence Fetch ──
+        // ── Omnisconn: Bulk AI Intelligence Fetch ──
         // Fetches cached AI data (24h TTL), shows it immediately, then queues
         // ALL contacts for fresh analysis. Server skips contacts with fresh cache.
         async function igbFetchBulkIntelligence() {
@@ -5830,7 +5830,7 @@
             }
         }
 
-        // ── InsuranceGrokBot: Batch Analysis (inline, rule-based) ──
+        // ── Omnisconn: Batch Analysis (inline, rule-based) ──
         // Scoring is rule-based (no AI cost, milliseconds) — server scores inline
         // and results are available immediately. No RQ polling needed.
         async function igbRunBatchAnalysis() {
@@ -6643,7 +6643,7 @@
             }
 
             const channel = inboxGetChannel();
-            const channelLabel = channel === 'twilio' ? 'InsuranceGrokBot' : 'LeadConnector';
+            const channelLabel = channel === 'twilio' ? 'Omnisconn' : 'LeadConnector';
 
             // Optimistic UI — append bubble
             const pendingId = 'inbox_sms_' + Date.now();

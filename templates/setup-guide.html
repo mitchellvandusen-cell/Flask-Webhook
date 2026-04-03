@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% block title %}Setup Guide | InsuranceGrokBot{% endblock %}
-{% block meta_description %}Complete setup guide for InsuranceGrokBot. Configure your CRM integration, phone numbers, AI texting rules, voice dialer, and team settings in this step-by-step walkthrough.{% endblock %}
+{% block title %}Setup Guide | Omnisconn{% endblock %}
+{% block meta_description %}Complete setup guide for Omnisconn. Configure your CRM integration, phone numbers, AI texting rules, voice dialer, and team settings in this step-by-step walkthrough.{% endblock %}
 {% block content %}
 <div class="container" style="padding-top: 120px; padding-bottom: 80px; max-width: 960px;">
 
@@ -145,8 +145,8 @@
                 <ol style="color: #ccc; font-size: 0.95rem; line-height: 2;">
                     <li>Log into your <strong>LeadConnector</strong> account at <code>app.leadconnectorhq.com</code>.</li>
                     <li>In the left sidebar, click <strong>Marketplace</strong>.</li>
-                    <li>In the search bar at the top, type <strong>"Insurance Grok Bot"</strong> and press Enter.</li>
-                    <li>Click on the InsuranceGrokBot listing to open the details page.</li>
+                    <li>In the search bar at the top, type <strong>"Omnisconn"</strong> and press Enter.</li>
+                    <li>Click on the Omnisconn listing to open the details page.</li>
                     <li>Click the green <strong>Install</strong> button.</li>
                     <li>A permissions dialog will appear. You need to approve access to:
                         <ul style="color: #888;">
@@ -156,7 +156,7 @@
                             <li><strong>Locations</strong> &mdash; so the bot can identify your sub-account</li>
                         </ul>
                     </li>
-                    <li>Click <strong>Approve</strong>. You will be redirected to InsuranceGrokBot.</li>
+                    <li>Click <strong>Approve</strong>. You will be redirected to Omnisconn.</li>
                     <li>On the redirect page, you'll be asked to <strong>set a password</strong>. Choose a strong password and confirm it.</li>
                     <li>You'll be taken to the <strong>Stripe checkout page</strong>. Choose your plan:
                         <div class="row g-2 my-2">
@@ -345,8 +345,8 @@
                             <li>Click <strong>New Connected App</strong> in the top right.</li>
                             <li>Fill in the required fields:
                                 <ul style="color: #888;">
-                                    <li><strong>Connected App Name:</strong> InsuranceGrokBot</li>
-                                    <li><strong>API Name:</strong> InsuranceGrokBot (auto-fills)</li>
+                                    <li><strong>Connected App Name:</strong> Omnisconn</li>
+                                    <li><strong>API Name:</strong> Omnisconn (auto-fills)</li>
                                     <li><strong>Contact Email:</strong> your email address</li>
                                 </ul>
                             </li>
@@ -372,7 +372,7 @@
                             <li>Alternatively, your IT team can generate tokens via the standard OAuth2 authorization code flow.</li>
                         </ol>
 
-                        <h6 style="color: #fff; font-weight: 700; margin-top: 20px;">Step 4c: Enter credentials in InsuranceGrokBot</h6>
+                        <h6 style="color: #fff; font-weight: 700; margin-top: 20px;">Step 4c: Enter credentials in Omnisconn</h6>
                         <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
                             <li>Go to your <a href="/dashboard" style="color: var(--accent);">Dashboard</a> &rarr; <strong>Connect</strong> tab.</li>
                             <li>Click the <strong>Salesforce</strong> button.</li>
@@ -406,7 +406,7 @@
                             <li>Log into HubSpot and go to <strong>Settings</strong> (gear icon).</li>
                             <li>In the left sidebar, navigate to <strong>Integrations &rarr; Private Apps</strong>.</li>
                             <li>Click <strong>Create a private app</strong>.</li>
-                            <li>Give it a name (e.g., "InsuranceGrokBot") and optionally a description.</li>
+                            <li>Give it a name (e.g., "Omnisconn") and optionally a description.</li>
                             <li>Go to the <strong>Scopes</strong> tab and enable:
                                 <ul style="color: #888;">
                                     <li><code>crm.objects.contacts.read</code> and <code>crm.objects.contacts.write</code></li>
@@ -425,7 +425,7 @@
                             <li>Copy this number. It's used to assign meetings to you when the bot books appointments.</li>
                         </ol>
 
-                        <h6 style="color: #fff; font-weight: 700; margin-top: 20px;">Step 4c: Enter credentials in InsuranceGrokBot</h6>
+                        <h6 style="color: #fff; font-weight: 700; margin-top: 20px;">Step 4c: Enter credentials in Omnisconn</h6>
                         <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
                             <li>Go to your <a href="/dashboard" style="color: var(--accent);">Dashboard</a> &rarr; <strong>Connect</strong> tab.</li>
                             <li>Click the <strong>HubSpot</strong> button.</li>
@@ -516,7 +516,7 @@
                             <li>Click <strong>Save Configuration</strong>.</li>
                             <li>Back in Zapier, click <strong>Test trigger</strong> to receive sample data (you may need to send a test message first).</li>
                             <li>Add your <strong>Action</strong> steps (e.g., create record in your CRM, send email, log to Google Sheets, etc.).</li>
-                            <li><strong>Important:</strong> Create a <strong>second Zap</strong> that routes inbound messages from your CRM to the InsuranceGrokBot webhook URL shown on your Connect tab.</li>
+                            <li><strong>Important:</strong> Create a <strong>second Zap</strong> that routes inbound messages from your CRM to the Omnisconn webhook URL shown on your Connect tab.</li>
                         </ol>
                     </div>
                 </div>
@@ -617,7 +617,7 @@
                 <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--accent); margin-right: 14px; flex-shrink: 0;">6</div>
                 <h3 style="font-weight: 700; color: #fff; margin: 0;">Set Up Webhooks in Your CRM</h3>
             </div>
-            <p style="color: #aaa;">This is the step that actually connects your CRM to the bot. When a lead sends a message, your CRM needs to forward it to InsuranceGrokBot's webhook URL.</p>
+            <p style="color: #aaa;">This is the step that actually connects your CRM to the bot. When a lead sends a message, your CRM needs to forward it to Omnisconn's webhook URL.</p>
 
             <div class="alert alert-info mb-4" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
                 <i class="fa-solid fa-info-circle me-1"></i> Your unique webhook URL is displayed on the <strong>Connect</strong> tab of your dashboard. It looks like: <code>https://yourdomain.com/webhook</code>. Copy this URL and use it in the instructions below.
@@ -632,10 +632,10 @@
                     <li>Filter the trigger by <strong>Reply Channel: SMS</strong> (so email replies don't trigger the bot).</li>
                     <li>Add an <strong>Action</strong>: select <strong>"Webhook"</strong> (under External Communications).</li>
                     <li>Set the Method to <strong>POST</strong>.</li>
-                    <li>Paste your InsuranceGrokBot <strong>webhook URL</strong> from the Connect tab.</li>
+                    <li>Paste your Omnisconn <strong>webhook URL</strong> from the Connect tab.</li>
                     <li>Under Body, ensure it sends the default LeadConnector payload (contact name, phone, message, etc.).</li>
                     <li>Click <strong>Save</strong>, then <strong>Publish</strong> the workflow.</li>
-                    <li><strong>Test it:</strong> Send a test SMS to your LeadConnector number. Check your InsuranceGrokBot Logs tab to see if the webhook arrived.</li>
+                    <li><strong>Test it:</strong> Send a test SMS to your LeadConnector number. Check your Omnisconn Logs tab to see if the webhook arrived.</li>
                 </ol>
             </div>
 
@@ -658,9 +658,9 @@
                     <li>Create a <strong>Contact-based workflow</strong>.</li>
                     <li>Set the <strong>Trigger</strong>: "Contact property changed" (choose a property that updates when a message arrives, like "Last Activity Date" or a custom property).</li>
                     <li>Add an <strong>Action</strong>: choose <strong>"Send a webhook"</strong> (this requires Operations Hub or a webhook action via the API).</li>
-                    <li>Set the URL to your InsuranceGrokBot webhook URL, method POST.</li>
+                    <li>Set the URL to your Omnisconn webhook URL, method POST.</li>
                     <li>Map contact fields (phone, name, message) into the payload.</li>
-                    <li>Alternatively, use <strong>Zapier</strong> as a bridge: HubSpot trigger &rarr; Zapier &rarr; webhook to InsuranceGrokBot.</li>
+                    <li>Alternatively, use <strong>Zapier</strong> as a bridge: HubSpot trigger &rarr; Zapier &rarr; webhook to Omnisconn.</li>
                 </ol>
             </div>
 
@@ -669,7 +669,7 @@
                 <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
                     <li>These CRMs typically route inbound messages via <strong>Zapier</strong> or their native <strong>Workflow/Automation</strong> tools.</li>
                     <li>Create an automation rule that triggers when a new message, activity, or note is created.</li>
-                    <li>The action should send a <strong>POST webhook</strong> to your InsuranceGrokBot webhook URL.</li>
+                    <li>The action should send a <strong>POST webhook</strong> to your Omnisconn webhook URL.</li>
                     <li>The JSON payload must include at minimum: the lead's <strong>phone number</strong> and <strong>message text</strong>.</li>
                     <li>The bot auto-detects field names (camelCase, snake_case, nested objects), so most default payloads work without modification.</li>
                 </ol>
@@ -693,7 +693,7 @@
 
             <ol style="color: #ccc; font-size: 0.95rem; line-height: 2.2;">
                 <li>Your SMS credentials are automatically provisioned when you connect your account.</li>
-                <li>Go to your InsuranceGrokBot <a href="/dashboard" style="color: var(--accent);">Dashboard</a> &rarr; <strong>Connect</strong> tab.</li>
+                <li>Go to your Omnisconn <a href="/dashboard" style="color: var(--accent);">Dashboard</a> &rarr; <strong>Connect</strong> tab.</li>
                 <li>In the integration configuration section, enter your:
                     <ul style="color: #888;">
                         <li><strong>Account SID</strong> &mdash; starts with "AC..."</li>
@@ -790,7 +790,7 @@
             </div>
 
             <p style="color: #ccc; font-size: 0.95rem; line-height: 1.8;">
-                InsuranceGrokBot can make and receive <strong>real phone calls</strong> using AI speech-to-speech technology.
+                Omnisconn can make and receive <strong>real phone calls</strong> using AI speech-to-speech technology.
                 The AI agent speaks naturally, answers questions, checks your calendar, and books appointments — all in real-time on a live phone call.
             </p>
 
@@ -816,7 +816,7 @@
 
             <h5 style="color: #00ff88; font-weight: 700; margin-top: 24px;">9.3 &mdash; Configure in Dashboard</h5>
             <ol style="color: #ccc; font-size: 0.9rem; line-height: 2.2;">
-                <li>Go to your InsuranceGrokBot <a href="/dashboard" style="color: var(--accent);">Dashboard</a> &rarr; <strong>Voice</strong> tab.</li>
+                <li>Go to your Omnisconn <a href="/dashboard" style="color: var(--accent);">Dashboard</a> &rarr; <strong>Voice</strong> tab.</li>
                 <li>Choose an AI voice (Ara, Eve, Leo, Rex, Sal, Mika, or Vale).</li>
                 <li>Optionally customize the greeting and voice instructions.</li>
                 <li>Enable the toggle and click <strong>Save Voice Settings</strong>.</li>
@@ -828,7 +828,7 @@
             <ol style="color: #ccc; font-size: 0.9rem; line-height: 2.2;">
                 <li><strong>Inbound test:</strong> Call your new number from your phone. The AI should answer and start a conversation.</li>
                 <li><strong>Outbound test:</strong> Use the outbound endpoint to trigger a call to your own phone:
-                    <pre style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px; margin-top: 6px; color: #ccc; font-size: 0.82rem;">curl -X POST https://insurancegrokbot.click/voice/outbound-call \
+                    <pre style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px; margin-top: 6px; color: #ccc; font-size: 0.82rem;">curl -X POST https://omnisconn.click/voice/outbound-call \
   -H "Content-Type: application/json" \
   -d '{"location_id":"YOUR_LOC","phone":"+1YOUR_PHONE","first_name":"Test"}'</pre>
                 </li>
@@ -840,7 +840,7 @@
             </p>
             <ol style="color: #ccc; font-size: 0.9rem; line-height: 2.2;">
                 <li>In your CRM, create an automation trigger (e.g., "New Lead", "Pipeline Stage Changed", "Form Submitted").</li>
-                <li>Add a <strong>Webhook</strong> action pointing to <code>https://insurancegrokbot.click/voice/outbound-call</code>.</li>
+                <li>Add a <strong>Webhook</strong> action pointing to <code>https://omnisconn.click/voice/outbound-call</code>.</li>
                 <li>Set Method to <strong>POST</strong> with JSON body containing: <code>location_id</code>, <code>phone</code>, <code>first_name</code>, and <code>contact_id</code>.</li>
                 <li>The AI will call the lead, introduce itself, qualify them, and book an appointment on your calendar.</li>
             </ol>

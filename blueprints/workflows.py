@@ -958,7 +958,7 @@ CRM Actions:
 - move_stage: Move contact in pipeline. Config: {"pipeline_id": "...", "stage_id": "..."}
 
 AI-Powered Messaging:
-- send_igb_message: Trigger InsuranceGrokBot's full AI pipeline to send an intelligent, context-aware SMS.
+- send_igb_message: Trigger Omnisconn's full AI pipeline to send an intelligent, context-aware SMS.
   Two modes:
   - AI mode (default): The bot reads the contact's full conversation history, understands context, and generates a smart reply.
     Config: {"mode": "ai", "prompt_hint": "Optional guidance for the AI, e.g. 'Re-engage about their life insurance quote'"}

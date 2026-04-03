@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}AI Workflows — InsuranceGrokBot{% endblock %}
+{% block title %}AI Workflows — Omnisconn{% endblock %}
 
 {% block meta_description %}Visual drag-and-drop workflow automation for insurance agents. Pre-built sequences for speed to lead, aged lead re-engagement, and SMS handling. AI builds workflows from plain English. No coding required.{% endblock %}
 
@@ -8,7 +8,7 @@
 <style>
     .wf-hero { padding: 150px 0 80px; position: relative; overflow: hidden; }
     .wf-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 25% 15%, rgba(0,255,136,0.06) 0%, transparent 55%), radial-gradient(ellipse at 75% 85%, rgba(0,255,136,0.03) 0%, transparent 50%); pointer-events: none; }
-    .wf-tag { display: inline-block; background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.25); color: var(--accent); padding: 6px 20px; border-radius: 24px; font-size: 0.78rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 20px; }
+    .wf-tag { display: inline-block; background: #0d1f14; border: 1px solid rgba(0,255,136,0.25); color: var(--accent); padding: 6px 20px; border-radius: 24px; font-size: 0.78rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 20px; }
     .wf-h1 { font-size: clamp(2.4rem, 4.5vw, 3.6rem); font-weight: 900; line-height: 1.08; margin-bottom: 20px; }
     .wf-h1 span { color: var(--accent); }
     .wf-sub { color: #b0b0b0; font-size: 1.1rem; max-width: 660px; margin: 0 auto 32px; line-height: 1.65; }
@@ -17,7 +17,7 @@
     .wf-canvas { max-width: 440px; margin: 0 auto; background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 20px; padding: 28px 24px; position: relative; overflow: hidden; }
     .wf-canvas::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 0%, rgba(0,255,136,0.04) 0%, transparent 60%); pointer-events: none; }
     .wf-canvas-title { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: var(--accent); margin-bottom: 20px; text-align: center; }
-    .wf-node { background: #0d0d0d; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px 16px; margin: 0 auto; max-width: 280px; position: relative; z-index: 1; }
+    .wf-node { background: #0d0d0d; border: 1px solid #1a1a1a; border-radius: 12px; padding: 12px 16px; margin: 0 auto; max-width: 280px; position: relative; z-index: 1; }
     .wf-node-icon { width: 28px; height: 28px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.72rem; margin-right: 10px; flex-shrink: 0; }
     .wf-node-row { display: flex; align-items: center; }
     .wf-node-label { font-size: 0.78rem; font-weight: 600; color: #eee; }
@@ -35,52 +35,52 @@
     @keyframes wfPulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
 
     /* Node type colors */
-    .wf-trigger { background: rgba(0,255,136,0.06); border-color: rgba(0,255,136,0.20); }
-    .wf-trigger .wf-node-icon { background: rgba(0,255,136,0.15); color: var(--accent); }
-    .wf-action { border-color: rgba(0,255,136,0.15); }
-    .wf-action .wf-node-icon { background: rgba(0,255,136,0.12); color: var(--accent); }
-    .wf-wait .wf-node-icon { background: rgba(255,255,255,0.08); color: #b0b0b0; }
-    .wf-condition { border-color: rgba(255,255,255,0.12); }
-    .wf-condition .wf-node-icon { background: rgba(255,255,255,0.08); color: #b0b0b0; }
+    .wf-trigger { background: #050d09; border-color: #1a3d22; }
+    .wf-trigger .wf-node-icon { background: #0d2414; color: var(--accent); }
+    .wf-action { border-color: #1a3d22; }
+    .wf-action .wf-node-icon { background: #0d1f14; color: var(--accent); }
+    .wf-wait .wf-node-icon { background: #1a1a1a; color: #b0b0b0; }
+    .wf-condition { border-color: #222; }
+    .wf-condition .wf-node-icon { background: #1a1a1a; color: #b0b0b0; }
 
     /* ── Template cards ── */
     .tpl-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
     @media (max-width: 767px) { .tpl-grid { grid-template-columns: 1fr; } }
-    .tpl-card { background: #0a0a0a; border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 28px 24px; transition: border-color 0.3s, box-shadow 0.3s; }
-    .tpl-card:hover { border-color: rgba(0,255,136,0.25); box-shadow: 0 8px 32px rgba(0,255,136,0.06); }
+    .tpl-card { background: #0a0a0a; border: 1px solid #111; border-radius: 16px; padding: 28px 24px; transition: border-color 0.3s, box-shadow 0.3s; }
+    .tpl-card:hover { border-color: #1a3d22; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
     .tpl-badge { display: inline-block; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; padding: 3px 10px; border-radius: 10px; margin-bottom: 12px; }
     .tpl-card h5 { font-weight: 800; font-size: 1rem; color: #fff; margin-bottom: 8px; }
     .tpl-card p { font-size: 0.82rem; color: #b0b0b0; line-height: 1.55; margin: 0; }
     .tpl-steps { margin-top: 14px; display: flex; gap: 6px; flex-wrap: wrap; }
-    .tpl-step { font-size: 0.62rem; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); color: #999; }
+    .tpl-step { font-size: 0.62rem; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: #111; border: 1px solid #1a1a1a; color: #999; }
 
     /* ── Comparison table ── */
-    .cmp-table { width: 100%; border-collapse: separate; border-spacing: 0; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.06); }
-    .cmp-table th { background: rgba(0,255,136,0.04); padding: 14px 20px; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent); text-align: left; }
+    .cmp-table { width: 100%; border-collapse: separate; border-spacing: 0; border-radius: 16px; overflow: hidden; border: 1px solid #1a1a1a; }
+    .cmp-table th { background: #050d09; padding: 14px 20px; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent); text-align: left; }
     .cmp-table th:not(:first-child) { text-align: center; }
-    .cmp-table td { padding: 12px 20px; font-size: 0.82rem; color: #bbb; border-top: 1px solid rgba(255,255,255,0.04); background: rgba(10,10,20,0.5); }
+    .cmp-table td { padding: 12px 20px; font-size: 0.82rem; color: #bbb; border-top: 1px solid #111; background: #0a0a0a; }
     .cmp-table td:not(:first-child) { text-align: center; }
     .cmp-table .cmp-yes { color: var(--accent); font-weight: 700; }
     .cmp-table .cmp-no { color: #b0b0b0; }
     .cmp-table .cmp-partial { color: #f59e0b; }
-    .cmp-table .cmp-highlight { background: rgba(0,255,136,0.02); }
+    .cmp-table .cmp-highlight { background: #080808; }
 
     /* ── AI builder mockup ── */
     .ai-builder { max-width: 420px; margin: 0 auto; background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 16px; padding: 24px 20px; }
     .ai-builder-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-    .ai-builder-icon { width: 32px; height: 32px; border-radius: 10px; background: rgba(0,255,136,0.12); display: flex; align-items: center; justify-content: center; font-size: 0.85rem; color: var(--accent); }
+    .ai-builder-icon { width: 32px; height: 32px; border-radius: 10px; background: #0d1f14; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; color: var(--accent); }
     .ai-builder-title { font-size: 0.82rem; font-weight: 700; color: #eee; }
     .ai-builder-sub { font-size: 0.68rem; color: #b0b0b0; }
-    .ai-prompt-box { background: #0a0a0a; border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+    .ai-prompt-box { background: #0a0a0a; border: 1px solid #111; border-radius: 10px; padding: 14px; margin-bottom: 14px; }
     .ai-prompt-text { font-size: 0.78rem; color: #bbb; line-height: 1.5; font-style: italic; }
     .ai-prompt-cursor { display: inline-block; width: 2px; height: 14px; background: var(--accent); margin-left: 2px; vertical-align: text-bottom; animation: wfBlink 1s step-end infinite; }
     @keyframes wfBlink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
     .ai-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-    .ai-chip { font-size: 0.68rem; font-weight: 600; padding: 5px 12px; border-radius: 20px; background: #0d0d0d; border: 1px solid rgba(255,255,255,0.08); color: #999; transition: all 0.2s; }
+    .ai-chip { font-size: 0.68rem; font-weight: 600; padding: 5px 12px; border-radius: 20px; background: #0d0d0d; border: 1px solid #1a1a1a; color: #999; transition: all 0.2s; }
     .ai-build-btn { width: 100%; padding: 10px; border-radius: 10px; background: var(--accent); color: #000; font-size: 0.82rem; font-weight: 700; border: none; }
 
     /* ── Stats row ── */
-    .wf-stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: rgba(255,255,255,0.06); border-radius: 16px; overflow: hidden; }
+    .wf-stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: #1a1a1a; border-radius: 16px; overflow: hidden; }
     .wf-stat { background: #0a0a0a; padding: 28px 20px; text-align: center; }
     .wf-stat-num { font-size: 2rem; font-weight: 900; margin-bottom: 4px; }
     .wf-stat-label { font-size: 0.72rem; color: #b0b0b0; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
@@ -90,10 +90,52 @@
     .step-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
     @media (max-width: 991px) { .step-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 575px) { .step-grid { grid-template-columns: 1fr; } }
-    .step-card { background: #0a0a0a; border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 20px; }
+    .step-card { background: #0a0a0a; border: 1px solid #111; border-radius: 14px; padding: 20px; }
     .step-card-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; margin-bottom: 10px; }
     .step-card h6 { font-weight: 700; font-size: 0.85rem; color: #fff; margin-bottom: 4px; }
     .step-card p { font-size: 0.75rem; color: #b0b0b0; line-height: 1.5; margin: 0; }
+
+    /* ── Helper classes ── */
+    .wf-full-w     { width: 100%; }
+    .wf-full-w-z2  { position: relative; z-index: 2; }
+    .wf-sec-sub    { margin: 0 0 20px; }
+    .wf-sec-pb100  { padding-bottom: 100px; }
+    .wf-tbl-wrap   { overflow-x: auto; }
+
+    /* Connector colors */
+    .wf-conn-green  { background: #1a3d22; }
+    .wf-conn-white  { background: #1a1a1a; }
+    .wf-conn-bright { background: #1f5230; }
+
+    /* Branch connector / labels */
+    .wf-branch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; max-width: 320px; margin: 0 auto; }
+    .wf-branch-conn-red    { background: #3a1010; width: 2px; height: 16px; margin: 0 auto; }
+    .wf-branch-conn-green  { background: #1a3d22; width: 2px; height: 16px; margin: 0 auto; }
+    .wf-branch-lbl-no      { font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; text-align: center; margin-bottom: 6px; color: #ef4444; }
+    .wf-branch-lbl-yes     { font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; text-align: center; margin-bottom: 6px; color: var(--accent); }
+    .wf-node-full  { max-width: 100%; }
+
+    /* Stat number accent */
+    .wf-num-accent { color: var(--accent); }
+
+    /* Condition icons */
+    .wf-ic-red     { color: #ef4444; }
+    .wf-ic-accent  { color: var(--accent); }
+
+    /* Template badge */
+    .wf-badge-included { background: #0d1f14; color: var(--accent); }
+
+    /* Step card icon variants */
+    .sci-green  { background: #0d1f14; color: var(--accent); }
+    .sci-muted  { background: #1a1a1a; color: #b0b0b0; }
+
+    /* AI builder icon row */
+    .wf-ai-btn-ic { margin-right: 6px; }
+
+    /* CTA box */
+    .wf-cta-box { background: #0d0d0d; border: 1px solid #1a1a1a; border-radius: 24px; padding: 60px 40px; max-width: 720px; margin: 0 auto; }
+    .wf-cta-h2  { font-weight: 900; font-size: 2rem; margin-bottom: 12px; }
+    .wf-cta-sub { color: #b0b0b0; font-size: 0.95rem; max-width: 500px; margin: 0 auto 24px; }
 
     /* ── Light Theme ── */
     body.light-theme .wf-hero::before { background: radial-gradient(ellipse at 25% 15%, rgba(5,150,105,0.06) 0%, transparent 55%), radial-gradient(ellipse at 75% 85%, rgba(5,150,105,0.03) 0%, transparent 50%); }
@@ -131,6 +173,25 @@
     body.light-theme .step-card { background: #fff; border-color: #e0e0e0; }
     body.light-theme .step-card h6 { color: #111; }
     body.light-theme .step-card p { color: #666; }
+    body.light-theme .wf-tpl-card h5 { color: #111; }
+    body.light-theme .wf-tpl-step { background: #f4f5f7; border-color: #e0e0e0; color: #666; }
+    body.light-theme .wf-badge-included { background: rgba(5,150,105,0.1); color: var(--lt-accent); }
+    body.light-theme .wf-node-label { color: #111; }
+    body.light-theme .wf-trigger { background: rgba(5,150,105,0.06); border-color: rgba(5,150,105,0.2); }
+    body.light-theme .wf-trigger .wf-node-icon { background: rgba(5,150,105,0.15); color: var(--lt-accent); }
+    body.light-theme .wf-action .wf-node-icon { background: rgba(5,150,105,0.12); color: var(--lt-accent); }
+    body.light-theme .sci-green { background: rgba(5,150,105,0.1); color: var(--lt-accent); }
+    body.light-theme .sci-muted { background: #e8e8e8; color: #666; }
+    body.light-theme .wf-ic-accent { color: var(--lt-accent); }
+    body.light-theme .wf-branch-lbl-yes { color: var(--lt-accent); }
+    body.light-theme .wf-num-accent { color: var(--lt-accent); }
+    body.light-theme .wf-cta-box { background: #fff; border-color: #e0e0e0; }
+    body.light-theme .wf-cta-h2 { color: #111; }
+    body.light-theme .wf-cta-sub { color: #555; }
+    body.light-theme .cmp-table { border-color: #e0e0e0; }
+    body.light-theme .cmp-table th { background: rgba(5,150,105,0.06); color: var(--lt-accent); }
+    body.light-theme .cmp-table td { background: #fff; border-top-color: #e8e8e8; color: #444; }
+    body.light-theme .cmp-table .cmp-highlight { background: rgba(5,150,105,0.03); }
 </style>
 
 
@@ -149,7 +210,7 @@
 
 <!-- ═══ SECTION 0: HERO ═══ -->
 <section class="ios-snap-section ios-hero wf-hero" id="iosSection0">
-    <div class="container" style="position: relative; z-index: 2;">
+    <div class="container wf-full-w-z2">
         <div class="text-center" data-aos="fade-up">
             <span class="wf-tag">Workflow Automation</span>
             <h1 class="wf-h1">Leads Don't Wait.<br><span>Your Workflows Don't Either.</span></h1>
@@ -169,22 +230,22 @@
 
 <!-- ═══ SECTION 1: VISUAL WORKFLOW BUILDER ═══ -->
 <section class="ios-snap-section" id="iosSection1">
-    <div class="container" style="width: 100%;">
+    <div class="container wf-full-w">
         <div class="ios-feat-grid" data-aos="fade-up">
             <div>
                 <span class="ios-section-label ios-section-label--purple">Visual Builder</span>
                 <h2 class="ios-section-h2">Build It Like a Flowchart.<br><span>Run It Like a Machine.</span></h2>
-                <p class="ios-section-sub" style="margin: 0 0 20px;">
+                <p class="ios-section-sub wf-sec-sub">
                     Drag triggers, actions, conditions, and waits onto a visual canvas.
                     Connect them with branches. Hit activate. Your leads get handled
                     24/7 while you sleep.
                 </p>
                 <ul class="ios-feat-list">
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Drag-and-drop canvas with snap-to-grid</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> True/false branching on AI lead temperature</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Auto-exit when the lead replies (no awkward double-texts)</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Loop support for multi-touch sequences</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Test mode &mdash; dry-run on a single contact before going live</li>
+                    <li><i class="fa-solid fa-check wf-ic-accent"></i> Drag-and-drop canvas with snap-to-grid</li>
+                    <li><i class="fa-solid fa-check wf-ic-accent"></i> True/false branching on AI lead temperature</li>
+                    <li><i class="fa-solid fa-check wf-ic-accent"></i> Auto-exit when the lead replies (no awkward double-texts)</li>
+                    <li><i class="fa-solid fa-check wf-ic-accent"></i> Loop support for multi-touch sequences</li>
+                    <li><i class="fa-solid fa-check wf-ic-accent"></i> Test mode &mdash; dry-run on a single contact before going live</li>
                 </ul>
             </div>
 
@@ -201,7 +262,7 @@
                         </div>
                         <div class="wf-node-detail">Fires instantly on lead import</div>
                     </div>
-                    <div class="wf-connector" style="background: rgba(0,255,136,0.20);"></div>
+                    <div class="wf-connector wf-conn-green"></div>
 
                     <!-- Wait -->
                     <div class="wf-node wf-wait" data-aos="fade-up" data-aos-delay="120">
@@ -210,7 +271,7 @@
                             <div class="wf-node-label">Wait 30 seconds</div>
                         </div>
                     </div>
-                    <div class="wf-connector" style="background: rgba(255,255,255,0.15);"></div>
+                    <div class="wf-connector wf-conn-white"></div>
 
                     <!-- Send SMS -->
                     <div class="wf-node wf-action" data-aos="fade-up" data-aos-delay="240">
@@ -220,7 +281,7 @@
                         </div>
                         <div class="wf-node-detail">"Hi {{firstName}}, I saw you were looking into coverage..."</div>
                     </div>
-                    <div class="wf-connector" style="background: rgba(0,255,136,0.30);"></div>
+                    <div class="wf-connector wf-conn-bright"></div>
 
                     <!-- Condition -->
                     <div class="wf-node wf-condition" data-aos="fade-up" data-aos-delay="360">
@@ -231,11 +292,11 @@
                     </div>
 
                     <!-- Branch -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0; max-width: 320px; margin: 0 auto;">
+                    <div class="wf-branch-grid">
                         <div>
-                            <div class="wf-connector-branch" style="background: rgba(239,68,68,0.30); margin: 0 auto; width: 2px; height: 16px;"></div>
-                            <div class="wf-branch-label" style="color: #ef4444;">No</div>
-                            <div class="wf-node wf-action" style="max-width: 100%;">
+                            <div class="wf-branch-conn-red"></div>
+                            <div class="wf-branch-lbl-no">No</div>
+                            <div class="wf-node wf-action wf-node-full">
                                 <div class="wf-node-row">
                                     <div class="wf-node-icon"><i class="fa-solid fa-phone"></i></div>
                                     <div class="wf-node-label">AI Call</div>
@@ -243,9 +304,9 @@
                             </div>
                         </div>
                         <div>
-                            <div class="wf-connector-branch" style="background: rgba(0,255,136,0.30); margin: 0 auto; width: 2px; height: 16px;"></div>
-                            <div class="wf-branch-label" style="color: var(--accent);">Yes</div>
-                            <div class="wf-node wf-action" style="max-width: 100%;">
+                            <div class="wf-branch-conn-green"></div>
+                            <div class="wf-branch-lbl-yes">Yes</div>
+                            <div class="wf-node wf-action wf-node-full">
                                 <div class="wf-node-row">
                                     <div class="wf-node-icon"><i class="fa-solid fa-tag"></i></div>
                                     <div class="wf-node-label">Tag: Contacted</div>
@@ -262,22 +323,22 @@
 
 <!-- ═══ SECTION 2: AI BUILDER ═══ -->
 <section class="ios-snap-section" id="iosSection2">
-    <div class="container" style="width: 100%;">
+    <div class="container wf-full-w">
         <div class="ios-feat-grid reverse" data-aos="fade-up">
             <div>
                 <span class="ios-section-label ios-section-label--accent">AI-Powered</span>
                 <h2 class="ios-section-h2">Describe It in English.<br><span>AI Builds It Instantly.</span></h2>
-                <p class="ios-section-sub" style="margin: 0 0 20px;">
+                <p class="ios-section-sub wf-sec-sub">
                     Don't want to drag and drop? Just tell the AI what you want. Type
                     "When a new lead comes in, wait 2 minutes, send an intro SMS, then
                     call them if they don't reply in 24 hours" &mdash; and the AI generates
                     a complete workflow with triggers, conditions, and actions.
                 </p>
                 <ul class="ios-feat-list">
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Natural language &rarr; full workflow in seconds</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Preset templates for common scenarios</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> Edit anything after AI generates it</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> AI understands insurance-specific language</li>
+                    <li><i class="fa-solid fa-check wf-ic-accent"></i> Natural language &rarr; full workflow in seconds</li>
+                    <li><i class="fa-solid fa-check wf-ic-accent"></i> Preset templates for common scenarios</li>
+                    <li><i class="fa-solid fa-check wf-ic-accent"></i> Edit anything after AI generates it</li>
+                    <li><i class="fa-solid fa-check wf-ic-accent"></i> AI understands insurance-specific language</li>
                 </ul>
             </div>
 
@@ -304,7 +365,7 @@
                         <span class="ai-chip">Missed Call Recovery</span>
                         <span class="ai-chip">Birthday Outreach</span>
                     </div>
-                    <button class="ai-build-btn" type="button"><i class="fa-solid fa-microchip" style="margin-right: 6px;"></i>Build Workflow</button>
+                    <button class="ai-build-btn" type="button"><i class="fa-solid fa-microchip wf-ai-btn-ic"></i>Build Workflow</button>
                 </div>
             </div>
         </div>
@@ -314,7 +375,7 @@
 
 <!-- ═══ SECTION 3: PRE-BUILT TEMPLATES ═══ -->
 <section class="ios-snap-section" id="iosSection3">
-    <div class="container" style="width: 100%;">
+    <div class="container wf-full-w">
         <div class="text-center mb-5" data-aos="fade-up">
             <span class="ios-section-label ios-section-label--orange">Ready to Go</span>
             <h2 class="ios-section-h2">4 Pre-Built Workflows.<br><span>Activate in One Click.</span></h2>
@@ -323,8 +384,8 @@
 
         <div class="tpl-grid" data-aos="fade-up">
             <div class="tpl-card" data-aos="fade-up" data-aos-delay="0">
-                <span class="tpl-badge" style="background: rgba(0,255,136,0.08); color: var(--accent);">Included</span>
-                <h5><i class="fa-solid fa-bolt" style="color: var(--accent); margin-right: 8px;"></i>Speed to Lead</h5>
+                <span class="tpl-badge wf-badge-included">Included</span>
+                <h5><i class="fa-solid fa-bolt wf-ic-accent me-2"></i>Speed to Lead</h5>
                 <p>Fires within 30 seconds of a new lead import. Sends a personalized intro SMS, waits 5 minutes, then triggers an AI phone call if they haven't replied. Tags the contact when done.</p>
                 <div class="tpl-steps">
                     <span class="tpl-step">Wait 30s</span>
@@ -337,8 +398,8 @@
             </div>
 
             <div class="tpl-card" data-aos="fade-up" data-aos-delay="100">
-                <span class="tpl-badge" style="background: rgba(0,255,136,0.08); color: var(--accent);">Included</span>
-                <h5><i class="fa-solid fa-clock-rotate-left" style="color: var(--accent); margin-right: 8px;"></i>Aged Lead Re-engagement</h5>
+                <span class="tpl-badge wf-badge-included">Included</span>
+                <h5><i class="fa-solid fa-clock-rotate-left wf-ic-accent me-2"></i>Aged Lead Re-engagement</h5>
                 <p>Automatically reaches out to leads that are 30+ days old. Checks AI temperature first &mdash; cold leads get a gentle check-in, warm leads get a personalized AI message. Follows up 2 days later.</p>
                 <div class="tpl-steps">
                     <span class="tpl-step">Temperature Check</span>
@@ -350,8 +411,8 @@
             </div>
 
             <div class="tpl-card" data-aos="fade-up" data-aos-delay="200">
-                <span class="tpl-badge" style="background: rgba(0,255,136,0.08); color: var(--accent);">Included</span>
-                <h5><i class="fa-solid fa-reply" style="color: var(--accent); margin-right: 8px;"></i>SMS Response Handler</h5>
+                <span class="tpl-badge wf-badge-included">Included</span>
+                <h5><i class="fa-solid fa-reply wf-ic-accent me-2"></i>SMS Response Handler</h5>
                 <p>Routes inbound replies intelligently. Hot leads get an immediate AI phone call. Warm and cool leads get an AI-crafted reply. Opt-outs are automatically respected and the workflow exits.</p>
                 <div class="tpl-steps">
                     <span class="tpl-step">DNC Check</span>
@@ -363,8 +424,8 @@
             </div>
 
             <div class="tpl-card" data-aos="fade-up" data-aos-delay="300">
-                <span class="tpl-badge" style="background: rgba(0,255,136,0.08); color: var(--accent);">Included</span>
-                <h5><i class="fa-solid fa-arrows-rotate" style="color: var(--accent); margin-right: 8px;"></i>Re-engage Cold Leads</h5>
+                <span class="tpl-badge wf-badge-included">Included</span>
+                <h5><i class="fa-solid fa-arrows-rotate wf-ic-accent me-2"></i>Re-engage Cold Leads</h5>
                 <p>Targets leads with no response in 7 days. Sends a friendly check-in, waits 24 hours, then escalates to an AI call for non-responders. Final graceful close-out after 3 more days.</p>
                 <div class="tpl-steps">
                     <span class="tpl-step">SMS</span>
@@ -383,7 +444,7 @@
 
 <!-- ═══ SECTION 4: STEP TYPES ═══ -->
 <section class="ios-snap-section" id="iosSection4">
-    <div class="container" style="width: 100%;">
+    <div class="container wf-full-w">
         <div class="text-center mb-5" data-aos="fade-up">
             <span class="ios-section-label">Building Blocks</span>
             <h2 class="ios-section-h2">15 Step Types.<br><span>Infinite Combinations.</span></h2>
@@ -392,47 +453,47 @@
 
         <div class="step-grid" data-aos="fade-up">
             <div class="step-card" data-aos="zoom-in" data-aos-delay="0">
-                <div class="step-card-icon" style="background: rgba(0,255,136,0.10); color: var(--accent);"><i class="fa-solid fa-comment-dots"></i></div>
+                <div class="step-card-icon sci-green"><i class="fa-solid fa-comment-dots"></i></div>
                 <h6>Send SMS</h6>
                 <p>Personalized messages with merge fields. Supports {{firstName}}, {{companyName}}, and more.</p>
             </div>
             <div class="step-card" data-aos="zoom-in" data-aos-delay="60">
-                <div class="step-card-icon" style="background: rgba(0,255,136,0.10); color: var(--accent);"><i class="fa-solid fa-robot"></i></div>
+                <div class="step-card-icon sci-green"><i class="fa-solid fa-robot"></i></div>
                 <h6>AI Message</h6>
                 <p>Let the AI craft a contextual reply. Give it a prompt hint and it reads the full conversation history.</p>
             </div>
             <div class="step-card" data-aos="zoom-in" data-aos-delay="120">
-                <div class="step-card-icon" style="background: rgba(0,255,136,0.10); color: var(--accent);"><i class="fa-solid fa-phone"></i></div>
+                <div class="step-card-icon sci-green"><i class="fa-solid fa-phone"></i></div>
                 <h6>AI Call</h6>
                 <p>Trigger an outbound AI voice call. The voice agent picks up the conversation where SMS left off.</p>
             </div>
             <div class="step-card" data-aos="zoom-in" data-aos-delay="180">
-                <div class="step-card-icon" style="background: rgba(255,255,255,0.06); color: #b0b0b0;"><i class="fa-solid fa-code-branch"></i></div>
+                <div class="step-card-icon sci-muted"><i class="fa-solid fa-code-branch"></i></div>
                 <h6>If / Else</h6>
                 <p>Branch on tags, lead temperature, score, response time, lead age, pipeline stage, and more.</p>
             </div>
             <div class="step-card" data-aos="zoom-in" data-aos-delay="240">
-                <div class="step-card-icon" style="background: rgba(255,255,255,0.06); color: #b0b0b0;"><i class="fa-solid fa-clock"></i></div>
+                <div class="step-card-icon sci-muted"><i class="fa-solid fa-clock"></i></div>
                 <h6>Wait</h6>
                 <p>Pause for seconds, minutes, hours, or days. Also supports "wait until" with smart conditions.</p>
             </div>
             <div class="step-card" data-aos="zoom-in" data-aos-delay="300">
-                <div class="step-card-icon" style="background: rgba(0,255,136,0.10); color: var(--accent);"><i class="fa-solid fa-tag"></i></div>
+                <div class="step-card-icon sci-green"><i class="fa-solid fa-tag"></i></div>
                 <h6>Add / Remove Tag</h6>
                 <p>Tag contacts for segmentation. Use tags to trigger other workflows or filter in the dialer.</p>
             </div>
             <div class="step-card" data-aos="zoom-in" data-aos-delay="360">
-                <div class="step-card-icon" style="background: rgba(255,255,255,0.06); color: #b0b0b0;"><i class="fa-solid fa-arrow-right-arrow-left"></i></div>
+                <div class="step-card-icon sci-muted"><i class="fa-solid fa-arrow-right-arrow-left"></i></div>
                 <h6>Move Pipeline Stage</h6>
                 <p>Push contacts through your CRM pipeline. Works with GoHighLevel, HubSpot, and Salesforce.</p>
             </div>
             <div class="step-card" data-aos="zoom-in" data-aos-delay="420">
-                <div class="step-card-icon" style="background: rgba(255,255,255,0.06); color: #b0b0b0;"><i class="fa-solid fa-repeat"></i></div>
+                <div class="step-card-icon sci-muted"><i class="fa-solid fa-repeat"></i></div>
                 <h6>Loop</h6>
                 <p>Repeat a sequence up to N times. Perfect for multi-touch follow-up campaigns.</p>
             </div>
             <div class="step-card" data-aos="zoom-in" data-aos-delay="480">
-                <div class="step-card-icon" style="background: rgba(255,255,255,0.06); color: #b0b0b0;"><i class="fa-solid fa-webhook"></i></div>
+                <div class="step-card-icon sci-muted"><i class="fa-solid fa-webhook"></i></div>
                 <h6>Send Webhook</h6>
                 <p>Fire outbound webhooks with HMAC signing. Connect to Zapier, Make, or any external system.</p>
             </div>
@@ -443,23 +504,23 @@
 
 <!-- ═══ SECTION 5: SMART CONDITIONS ═══ -->
 <section class="ios-snap-section" id="iosSection5">
-    <div class="container" style="width: 100%;">
+    <div class="container wf-full-w">
         <div class="ios-feat-grid reverse" data-aos="fade-up">
             <div>
                 <span class="ios-section-label ios-section-label--pink">AI-Powered Logic</span>
                 <h2 class="ios-section-h2">Conditions That<br><span>Actually Understand Leads.</span></h2>
-                <p class="ios-section-sub" style="margin: 0 0 20px;">
+                <p class="ios-section-sub wf-sec-sub">
                     Other platforms branch on "tag exists" or "field equals." Our workflow
                     engine branches on AI intelligence &mdash; real-time temperature, lead score,
                     engagement level, and predicted intent.
                 </p>
                 <ul class="ios-feat-list">
-                    <li><i class="fa-solid fa-fire" style="color: #ef4444;"></i> <strong>Temperature is hot/warm/cool/cold</strong> &mdash; AI reads the actual conversation</li>
-                    <li><i class="fa-solid fa-chart-line" style="color: var(--accent);"></i> <strong>Score above/below</strong> &mdash; 0-100 conversion likelihood</li>
-                    <li><i class="fa-solid fa-clock" style="color: var(--accent);"></i> <strong>Responded within X minutes</strong> &mdash; real-time reply detection</li>
-                    <li><i class="fa-solid fa-calendar-days" style="color: var(--accent);"></i> <strong>Lead age in days</strong> &mdash; time since import</li>
-                    <li><i class="fa-solid fa-tag" style="color: var(--accent);"></i> <strong>Has/doesn't have tag</strong> &mdash; standard CRM conditions</li>
-                    <li><i class="fa-solid fa-tower-broadcast" style="color: var(--accent);"></i> <strong>Time-of-day window</strong> &mdash; only run during business hours</li>
+                    <li><i class="fa-solid fa-fire wf-ic-red"></i> <strong>Temperature is hot/warm/cool/cold</strong> &mdash; AI reads the actual conversation</li>
+                    <li><i class="fa-solid fa-chart-line wf-ic-accent"></i> <strong>Score above/below</strong> &mdash; 0-100 conversion likelihood</li>
+                    <li><i class="fa-solid fa-clock wf-ic-accent"></i> <strong>Responded within X minutes</strong> &mdash; real-time reply detection</li>
+                    <li><i class="fa-solid fa-calendar-days wf-ic-accent"></i> <strong>Lead age in days</strong> &mdash; time since import</li>
+                    <li><i class="fa-solid fa-tag wf-ic-accent"></i> <strong>Has/doesn't have tag</strong> &mdash; standard CRM conditions</li>
+                    <li><i class="fa-solid fa-tower-broadcast wf-ic-accent"></i> <strong>Time-of-day window</strong> &mdash; only run during business hours</li>
                 </ul>
             </div>
 
@@ -467,19 +528,19 @@
             <div>
                 <div class="wf-stat-row">
                     <div class="wf-stat" data-aos="fade-up" data-aos-delay="0">
-                        <div class="wf-stat-num" style="color: var(--accent);">15</div>
+                        <div class="wf-stat-num wf-num-accent">15</div>
                         <div class="wf-stat-label">Step Types</div>
                     </div>
                     <div class="wf-stat" data-aos="fade-up" data-aos-delay="100">
-                        <div class="wf-stat-num" style="color: var(--accent);">12</div>
+                        <div class="wf-stat-num wf-num-accent">12</div>
                         <div class="wf-stat-label">Condition Operators</div>
                     </div>
                     <div class="wf-stat" data-aos="fade-up" data-aos-delay="200">
-                        <div class="wf-stat-num" style="color: var(--accent);">4</div>
+                        <div class="wf-stat-num wf-num-accent">4</div>
                         <div class="wf-stat-label">Pre-Built Templates</div>
                     </div>
                     <div class="wf-stat" data-aos="fade-up" data-aos-delay="300">
-                        <div class="wf-stat-num" style="color: var(--accent);">24/7</div>
+                        <div class="wf-stat-num wf-num-accent">24/7</div>
                         <div class="wf-stat-label">Always Running</div>
                     </div>
                 </div>
@@ -491,19 +552,19 @@
 
 <!-- ═══ SECTION 6: COMPARISON ═══ -->
 <section class="ios-snap-section" id="iosSection6">
-    <div class="container" style="width: 100%;">
+    <div class="container wf-full-w">
         <div class="text-center mb-5" data-aos="fade-up">
             <span class="ios-section-label ios-section-label--red">Why Switch</span>
             <h2 class="ios-section-h2">Not Another Generic<br><span>Workflow Builder.</span></h2>
             <p class="ios-section-sub">Most CRM workflows are glorified if/then timers. They don't read conversations, don't understand lead intent, and can't make AI calls. Here's the difference.</p>
         </div>
 
-        <div data-aos="fade-up" style="overflow-x: auto;">
+        <div data-aos="fade-up" class="wf-tbl-wrap">
             <table class="cmp-table">
                 <thead>
                     <tr>
                         <th>Feature</th>
-                        <th class="cmp-highlight">InsuranceGrokBot</th>
+                        <th class="cmp-highlight">Omnisconn</th>
                         <th>GHL Workflows</th>
                         <th>HubSpot</th>
                         <th>Zapier</th>
@@ -574,12 +635,12 @@
 
 
 <!-- ═══ SECTION 7: CTA ═══ -->
-<section class="ios-snap-section auto-height" id="iosSection7" style="padding-bottom: 100px;">
-    <div class="container" style="width: 100%;">
+<section class="ios-snap-section auto-height wf-sec-pb100" id="iosSection7">
+    <div class="container wf-full-w">
         <div class="text-center" data-aos="fade-up">
-            <div style="background: #0d0d0d; border: 1px solid #1a1a1a; border-radius: 24px; padding: 60px 40px; max-width: 720px; margin: 0 auto;">
-                <h2 style="font-weight: 900; font-size: 2rem; margin-bottom: 12px;">Your Leads Shouldn't Wait.<br>Neither Should Your Follow-Up.</h2>
-                <p style="color: #b0b0b0; font-size: 0.95rem; max-width: 500px; margin: 0 auto 24px;">
+            <div class="wf-cta-box">
+                <h2 class="wf-cta-h2">Your Leads Shouldn't Wait.<br>Neither Should Your Follow-Up.</h2>
+                <p class="wf-cta-sub">
                     Included with every plan. Unlimited workflows. AI builder. Pre-built
                     templates. Speed to lead in 30 seconds.
                 </p>

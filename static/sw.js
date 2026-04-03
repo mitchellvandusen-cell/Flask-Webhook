@@ -1,4 +1,4 @@
-// InsuranceGrokBot Service Worker — PWA offline support
+// Omnisconn Service Worker — PWA offline support
 // CACHE_NAME must be bumped when static assets change.
 // The app injects STATIC_VERSION at registration time so the SW
 // automatically invalidates when any CSS/JS file changes.

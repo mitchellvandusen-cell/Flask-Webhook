@@ -34,7 +34,7 @@ webhooks_bp = Blueprint('webhooks', __name__)
 
 # ── GHL Conversation Provider outbound handler ────────────────────────────────
 # When an agent types a message in GHL's conversation UI under the
-# InsuranceGrokBot SMS tab, GHL sends a webhook to this delivery URL.
+# Omnisconn SMS tab, GHL sends a webhook to this delivery URL.
 # Payload: {contactId, locationId, messageId, type:"SMS", phone, message, userId}
 # We detect this and send the message via Twilio instead of treating it as a
 # normal inbound lead webhook.
@@ -141,7 +141,7 @@ def webhook():
             logger.debug("Webhook received without signature header — skipping verification")
 
     # ── Conversation Provider outbound webhook ────────────────────────────
-    # When an agent sends a message from GHL UI via the InsuranceGrokBot SMS
+    # When an agent sends a message from GHL UI via the Omnisconn SMS
     # custom provider, GHL fires a webhook here with {messageId, type, phone,
     # message, contactId, locationId}. We detect this and send via Twilio
     # instead of processing as a normal lead webhook.
@@ -302,16 +302,16 @@ def app_installed_webhook():
 
         if user_email:
             try:
-                domain_url   = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+                domain_url   = os.getenv("YOUR_DOMAIN", "https://omnisconn.click")
                 display_name = user_name or "there"
                 html_body    = _build_install_welcome_email(display_name, domain_url, recipient_email=user_email)
                 text_body    = (
-                    f"Hi {display_name}, thanks for installing InsuranceGrokBot! "
+                    f"Hi {display_name}, thanks for installing Omnisconn! "
                     f"Complete your setup: {domain_url}/oauth/initiate"
                 )
                 sent = send_email_via_api(
                     to_email=user_email,
-                    subject="Welcome to InsuranceGrokBot — Complete Your Setup",
+                    subject="Welcome to Omnisconn — Complete Your Setup",
                     html_body=html_body,
                     text_body=text_body,
                 )
@@ -384,9 +384,9 @@ def _handle_uninstall(payload: dict):
             log_webhook_event("marketplace", "subscriber_deleted", "warning",
                               f"No subscriber row found to delete for location={location_id}")
 
-    domain_url   = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+    domain_url   = os.getenv("YOUR_DOMAIN", "https://omnisconn.click")
     display_name = user_name or "there"
-    admin_email  = "mitch@insurancegrokbot.com"
+    admin_email  = "mitch@omnisconn.com"
 
     # Send farewell feedback email to the user (if we have their email)
     if user_email:
@@ -411,7 +411,7 @@ def _handle_uninstall(payload: dict):
         except Exception as email_err:
             logger.error(f"Uninstall farewell email error: {email_err}")
 
-    # Send admin notification to mitch@insurancegrokbot.com
+    # Send admin notification to mitch@omnisconn.com
     try:
         admin_html = _build_uninstall_admin_notification(
             location_id, company_id, user_email, user_name, record_id

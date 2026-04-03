@@ -343,7 +343,7 @@
                     statusMsg.style.background = _tc.accentBg;
                     statusMsg.style.border = '1px solid ' + _themeColor('rgba(0,255,136,0.15)', 'rgba(0,136,74,0.15)');
                     statusMsg.style.color = _tc.accent;
-                    statusMsg.innerHTML = '<i class="fa-solid fa-check-circle me-1"></i> Training code generated! Copy it and paste into InsuranceGrokBot Training.';
+                    statusMsg.innerHTML = '<i class="fa-solid fa-check-circle me-1"></i> Training code generated! Copy it and paste into Omnisconn Training.';
                     _showDashToast(true, 'Training code generated!');
                     setTimeout(() => { statusMsg.style.display = 'none'; }, 6000);
                 } else {
@@ -370,12 +370,12 @@
         }
 
         function regenerateTrainingCode() {
-            if (!confirm('Regenerate your training code? The old code will stop working in InsuranceGrokBot Training.')) return;
+            if (!confirm('Regenerate your training code? The old code will stop working in Omnisconn Training.')) return;
             generateTrainingCode();
         }
 
         function revokeTrainingCode() {
-            if (!confirm('Revoke your training code? InsuranceGrokBot Training will no longer be able to access your call recordings.')) return;
+            if (!confirm('Revoke your training code? Omnisconn Training will no longer be able to access your call recordings.')) return;
             const statusMsg = document.getElementById('trainingStatusMsg');
 
             fetch('/api/training/revoke-code', {
