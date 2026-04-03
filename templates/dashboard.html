@@ -82,6 +82,9 @@
             {% include "dashboard/tabs/carriers.html" %}
             {% include "dashboard/tabs/advanced.html" %}
             {% include "dashboard/tabs/voice.html" %}
+            {% if not current_user.subscription_tier == 'sms_bot' %}
+            {% include "dashboard/tabs/business_profile.html" %}
+            {% endif %}
             {% include "dashboard/tabs/dialer.html" %}
             {% include "dashboard/tabs/aiminutes.html" %}
             {% include "dashboard/tabs/billing.html" %}

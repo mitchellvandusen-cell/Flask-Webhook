@@ -1,0 +1,152 @@
+            <div class="tab-pane fade" id="business-profile" role="tabpanel">
+                <div class="vc-container">
+
+                    <!-- Page header -->
+                    <div class="vc-status-bar">
+                        <div class="vc-status-left">
+                            <i class="fa-solid fa-building biz-prof-header-icon"></i>
+                            <span class="vc-status-label">BUSINESS</span>
+                            <span class="vc-status-value">Profile Registration</span>
+                        </div>
+                        <div class="vc-status-right">
+                            <span class="biz-prof-status-badge" id="smBadgeBizProfile"></span>
+                        </div>
+                    </div>
+
+                    <!-- Top-level registration status (populated by JS) -->
+                    <div id="spamProtectionStatus"></div>
+
+                    <!-- What happens when you register -->
+                    <div class="biz-prof-info-box">
+                        <div class="biz-prof-info-heading">
+                            <i class="fa-solid fa-wand-magic-sparkles me-1"></i>What happens when you register:
+                        </div>
+                        <div class="biz-prof-checklist">
+                            <div class="biz-prof-check-item"><i class="fa-solid fa-circle-check biz-prof-check-icon"></i> STIR/SHAKEN Full (A) attestation — already active</div>
+                            <div class="biz-prof-check-item"><i class="fa-solid fa-circle-check biz-prof-check-icon"></i> Business identity verified with carrier trust network</div>
+                            <div class="biz-prof-check-item"><i class="fa-solid fa-circle-check biz-prof-check-icon"></i> CNAM (Caller ID Name) enabled on all your numbers</div>
+                            <div class="biz-prof-check-item"><i class="fa-solid fa-circle-check biz-prof-check-icon"></i> Future number purchases auto-protected</div>
+                        </div>
+                    </div>
+
+                    <div id="spamProtectionForm">
+                        <div class="biz-prof-form-wrapper">
+
+                            <!-- Business Details -->
+                            <div class="biz-prof-section-title">
+                                <i class="fa-solid fa-building me-1 biz-prof-icon-purple"></i> Business Details
+                            </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-6">
+                                    <label class="biz-prof-field-label">Business Type</label>
+                                    <select id="spBizType" class="biz-prof-select" onchange="spBizTypeChanged()">
+                                        <option value="">Select business type...</option>
+                                        <option value="Corporation">Corporation</option>
+                                        <option value="Limited Liability Company">LLC</option>
+                                        <option value="Partnership">Partnership</option>
+                                        <option value="Sole Proprietorship">Sole Proprietorship</option>
+                                        <option value="Non-profit Corporation">Non-Profit</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="biz-prof-field-label">Business Website</label>
+                                    <input type="url" id="spWebsite" placeholder="https://www.yourinsurance.com" class="biz-prof-input">
+                                </div>
+                            </div>
+
+                            <!-- Sole Proprietorship EIN section -->
+                            <div id="spSolePropHint" class="biz-prof-sole-prop" style="display:none;">
+                                <div class="biz-prof-ein-rec-box">
+                                    <div class="biz-prof-ein-rec-heading">
+                                        <i class="fa-solid fa-shield-halved me-1"></i>EIN Strongly Recommended for Sole Proprietors
+                                    </div>
+                                    <div class="biz-prof-ein-rec-text">
+                                        An EIN (Employer Identification Number) is a free federal tax ID from the IRS. Twilio's carrier trust network requires a business registration number — an EIN is the safest and most private option. It takes about 2 minutes online and is instant. <strong class="biz-prof-strong">Your SSN is not accepted.</strong>
+                                    </div>
+                                </div>
+                                <div class="biz-prof-ein-toggle">
+                                    <div class="biz-prof-ein-toggle-label">Do you have an EIN?</div>
+                                    <div class="d-flex gap-2">
+                                        <button type="button" id="spEinYesBtn" onclick="spSetEinAvailable(true)" class="biz-prof-ein-btn biz-prof-ein-btn-yes">
+                                            <i class="fa-solid fa-check me-1"></i> Yes, I have an EIN
+                                        </button>
+                                        <button type="button" id="spEinNoBtn" onclick="spSetEinAvailable(false)" class="biz-prof-ein-btn biz-prof-ein-btn-no">
+                                            <i class="fa-solid fa-xmark me-1"></i> No, I need one
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="spNoEinCard" class="biz-prof-no-ein-card" style="display:none;">
+                                    <i class="fa-solid fa-circle-info me-1 biz-prof-icon-orange"></i>You can still register — you'll be asked to confirm before proceeding with your SSN. Or <a href="/getting-ein" target="_blank" class="biz-prof-link-orange">get a free EIN from the IRS</a> in about 5 minutes.
+                                </div>
+                            </div>
+
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-8">
+                                    <label id="spBizNameLabel" class="biz-prof-field-label">Business Name (must match IRS docs)</label>
+                                    <input type="text" id="spBizName" placeholder="ACME Insurance LLC" class="biz-prof-input">
+                                </div>
+                                <div class="col-md-4">
+                                    <label id="spEINLabel" class="biz-prof-field-label">EIN (Tax ID)</label>
+                                    <input type="text" id="spEIN" placeholder="XX-XXXXXXX" class="biz-prof-input">
+                                </div>
+                            </div>
+
+                            <!-- Business Address -->
+                            <div class="biz-prof-section-title">
+                                <i class="fa-solid fa-location-dot me-1 biz-prof-icon-orange"></i> Business Address
+                            </div>
+                            <div class="row g-2 mb-3">
+                                <div class="col-12">
+                                    <input type="text" id="spStreet" placeholder="123 Main Street, Suite 100" class="biz-prof-input">
+                                </div>
+                                <div class="col-md-5">
+                                    <input type="text" id="spCity" placeholder="City" class="biz-prof-input">
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="text" id="spState" placeholder="State" maxlength="2" class="biz-prof-input biz-prof-input-upper">
+                                </div>
+                                <div class="col-md-4">
+                                    <input type="text" id="spZip" placeholder="ZIP Code" class="biz-prof-input">
+                                </div>
+                            </div>
+
+                            <!-- Authorized Representative -->
+                            <div class="biz-prof-section-title">
+                                <i class="fa-solid fa-user me-1 biz-prof-icon-green"></i> Authorized Representative
+                            </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-3">
+                                    <label class="biz-prof-field-label-sm">First Name</label>
+                                    <input type="text" id="spContactFirstName" placeholder="John" class="biz-prof-input">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="biz-prof-field-label-sm">Last Name</label>
+                                    <input type="text" id="spContactLastName" placeholder="Doe" class="biz-prof-input">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="biz-prof-field-label-sm">Job Title</label>
+                                    <input type="text" id="spContactTitle" placeholder="Owner" class="biz-prof-input">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="biz-prof-field-label-sm">Email</label>
+                                    <input type="email" id="spContactEmail" placeholder="email@example.com" class="biz-prof-input">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="biz-prof-field-label-sm">Phone</label>
+                                    <input type="tel" id="spContactPhone" placeholder="(555) 123-4567" class="biz-prof-input">
+                                </div>
+                            </div>
+
+                            <!-- Hidden field for backward compat — JS fills this from first+last -->
+                            <input type="hidden" id="spContactName" value="">
+
+                            <button id="spRegisterBtn" onclick="registerSpamProtection()" class="biz-prof-submit-btn">
+                                <i class="fa-solid fa-shield-halved me-2"></i>Register & Protect All Numbers
+                            </button>
+                            <div id="spRegisterResult" class="biz-prof-result"></div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>

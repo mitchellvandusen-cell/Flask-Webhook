@@ -50,6 +50,9 @@
 /* ── Contact Import Modal ── */
 @import url('dashboard/import-contacts.css');
 
+/* ── Business Profile Tab ── */
+@import url('dashboard/business-profile.css');
+
 /* ── Agency Dashboard ── */
 @import url('agency-dashboard/agency.css');
 

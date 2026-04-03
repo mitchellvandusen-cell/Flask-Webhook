@@ -1,0 +1,285 @@
+/* ══════════════════════════════════════════════════════════
+   Business Profile Tab — standalone page styles
+   Dark mode defaults + body.light-theme overrides
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Page header icon ── */
+.biz-prof-header-icon {
+    color: var(--accent, #00ff88);
+    margin-right: 8px;
+    font-size: 0.9rem;
+}
+
+/* ── Status badge (registration state) ── */
+.biz-prof-status-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: rgba(0,255,136,0.1);
+    color: #00ff88;
+    border: 1px solid rgba(0,255,136,0.2);
+}
+body.light-theme .biz-prof-status-badge {
+    background: rgba(5,150,105,0.1);
+    color: #059669;
+    border-color: rgba(5,150,105,0.25);
+}
+
+/* ── Info box: "What happens when you register" ── */
+.biz-prof-info-box {
+    background: rgba(0,255,136,0.04);
+    border: 1px solid rgba(0,255,136,0.12);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+}
+body.light-theme .biz-prof-info-box {
+    background: rgba(5,150,105,0.04);
+    border-color: rgba(5,150,105,0.15);
+}
+
+.biz-prof-info-heading {
+    font-size: 0.75rem;
+    color: #00ff88;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+body.light-theme .biz-prof-info-heading {
+    color: #059669;
+}
+
+.biz-prof-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.biz-prof-check-item {
+    font-size: 0.75rem;
+    color: #999;
+    line-height: 1.6;
+}
+body.light-theme .biz-prof-check-item {
+    color: #555;
+}
+.biz-prof-check-icon {
+    color: #00ff88;
+    margin-right: 4px;
+}
+body.light-theme .biz-prof-check-icon {
+    color: #059669;
+}
+
+/* ── Form wrapper ── */
+.biz-prof-form-wrapper {
+    background: rgba(0,255,136,0.03);
+    border: 1px solid rgba(0,255,136,0.1);
+    border-radius: 10px;
+    padding: 20px;
+}
+body.light-theme .biz-prof-form-wrapper {
+    background: #f8fffe;
+    border-color: rgba(5,150,105,0.12);
+}
+
+/* ── Section titles ── */
+.biz-prof-section-title {
+    font-weight: 600;
+    font-size: 0.82rem;
+    color: #fff;
+    margin-bottom: 10px;
+    margin-top: 4px;
+}
+body.light-theme .biz-prof-section-title {
+    color: #1a1a1a;
+}
+
+/* Section icon accent colors */
+.biz-prof-icon-purple { color: #a78bfa; }
+.biz-prof-icon-orange { color: #ffa500; }
+.biz-prof-icon-green  { color: #00ff88; }
+body.light-theme .biz-prof-icon-green { color: #059669; }
+
+/* ── Field labels ── */
+.biz-prof-field-label {
+    color: #aaa;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 4px;
+}
+.biz-prof-field-label-sm {
+    color: #aaa;
+    font-size: 0.72rem;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 4px;
+}
+body.light-theme .biz-prof-field-label,
+body.light-theme .biz-prof-field-label-sm {
+    color: #444;
+}
+
+/* ── Form inputs ── */
+.biz-prof-input {
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.18s ease;
+}
+.biz-prof-input:focus {
+    border-color: rgba(0,255,136,0.35);
+}
+.biz-prof-input::placeholder { color: #555; }
+.biz-prof-input-upper { text-transform: uppercase; }
+body.light-theme .biz-prof-input {
+    background: #fff;
+    border-color: #e0e0e0;
+    color: #1a1a1a;
+}
+body.light-theme .biz-prof-input:focus {
+    border-color: rgba(5,150,105,0.45);
+}
+body.light-theme .biz-prof-input::placeholder { color: #aaa; }
+
+/* ── Select ── */
+.biz-prof-select {
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.18s ease;
+}
+.biz-prof-select:focus { border-color: rgba(0,255,136,0.35); }
+.biz-prof-select option { background: #1a1a1a; color: #fff; }
+body.light-theme .biz-prof-select {
+    background: #fff;
+    border-color: #e0e0e0;
+    color: #1a1a1a;
+}
+body.light-theme .biz-prof-select:focus { border-color: rgba(5,150,105,0.45); }
+body.light-theme .biz-prof-select option { background: #fff; color: #1a1a1a; }
+
+/* ── Sole Proprietor EIN section ── */
+.biz-prof-sole-prop { margin-bottom: 14px; }
+
+.biz-prof-ein-rec-box {
+    padding: 10px 14px;
+    background: rgba(0,255,136,0.05);
+    border: 1px solid rgba(0,255,136,0.2);
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+body.light-theme .biz-prof-ein-rec-box {
+    background: rgba(5,150,105,0.05);
+    border-color: rgba(5,150,105,0.2);
+}
+.biz-prof-ein-rec-heading {
+    font-size: 0.78rem;
+    color: #00ff88;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+body.light-theme .biz-prof-ein-rec-heading { color: #059669; }
+.biz-prof-ein-rec-text {
+    font-size: 0.74rem;
+    color: #aaa;
+    line-height: 1.6;
+}
+body.light-theme .biz-prof-ein-rec-text { color: #555; }
+.biz-prof-strong { color: #fff; }
+body.light-theme .biz-prof-strong { color: #1a1a1a; }
+
+.biz-prof-ein-toggle { margin-bottom: 8px; }
+.biz-prof-ein-toggle-label {
+    font-size: 0.78rem;
+    color: #ccc;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+body.light-theme .biz-prof-ein-toggle-label { color: #333; }
+
+.biz-prof-ein-btn {
+    flex: 1;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: transparent;
+}
+.biz-prof-ein-btn-yes {
+    border: 1px solid rgba(0,255,136,0.3);
+    color: #aaa;
+}
+.biz-prof-ein-btn-yes:hover { border-color: #00ff88; color: #00ff88; }
+.biz-prof-ein-btn-no {
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #aaa;
+}
+.biz-prof-ein-btn-no:hover { border-color: rgba(255,255,255,0.25); color: #fff; }
+body.light-theme .biz-prof-ein-btn-yes {
+    border-color: rgba(5,150,105,0.3);
+    color: #555;
+}
+body.light-theme .biz-prof-ein-btn-yes:hover { border-color: #059669; color: #059669; }
+body.light-theme .biz-prof-ein-btn-no {
+    border-color: #e0e0e0;
+    color: #555;
+}
+body.light-theme .biz-prof-ein-btn-no:hover { border-color: #aaa; color: #333; }
+
+.biz-prof-no-ein-card {
+    padding: 10px 14px;
+    background: rgba(255,165,0,0.05);
+    border: 1px solid rgba(255,165,0,0.15);
+    border-radius: 8px;
+    font-size: 0.74rem;
+    color: #aaa;
+    line-height: 1.65;
+}
+body.light-theme .biz-prof-no-ein-card { color: #555; }
+.biz-prof-icon-orange { color: #ffa500; }
+.biz-prof-link-orange { color: #ffa500; text-decoration: underline; }
+body.light-theme .biz-prof-link-orange { color: #d97706; }
+
+/* ── Submit button ── */
+.biz-prof-submit-btn {
+    display: block;
+    width: 100%;
+    margin-top: 20px;
+    background: linear-gradient(135deg, #00ff88, #00cc6a);
+    border: none;
+    color: #000;
+    border-radius: 10px;
+    padding: 12px 28px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+.biz-prof-submit-btn:hover { opacity: 0.9; }
+body.light-theme .biz-prof-submit-btn {
+    background: linear-gradient(135deg, #059669, #047857);
+    color: #fff;
+}
+
+/* ── Result message ── */
+.biz-prof-result {
+    margin-top: 10px;
+    font-size: 0.78rem;
+    text-align: center;
+    color: #aaa;
+    min-height: 20px;
+}
+body.light-theme .biz-prof-result { color: #555; }

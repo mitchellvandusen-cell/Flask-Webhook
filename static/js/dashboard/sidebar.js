@@ -14,7 +14,46 @@
             billing: 'Billing', logs: 'Activity Logs',
             'agency-members': 'Members', 'agency-kpis': 'Statistics',
             whitelabel: 'White Label', team: 'Teams',
-            profile: 'Profile',
+            profile: 'Profile', domain: 'Domain & Website',
+            // Sub-panel direct IDs
+            'phone-numbers': 'Phone Numbers',
+            'spam-monitoring': 'Spam Monitoring',
+            'voice-ai': 'Voice AI',
+            'dialer-settings': 'Dialer Settings',
+            'bot-identity': 'Bot Identity',
+            'calendar-crm': 'Calendar & CRM',
+            'sms-numbers': 'SMS Numbers',
+            'a2p-10dlc': 'A2P 10DLC',
+            'business-profile': 'Business Profile',
+            'integration-ghl': 'LeadConnector',
+            'integration-crms': 'Other CRMs',
+            'integration-api': 'API Access',
+            'integration-outbound': 'Outbound Calls',
+            'integration-google': 'Google Calendar',
+            'integration-discord': 'Discord',
+            'integration-slack': 'Slack',
+            'integration-training': 'Training API',
+        };
+
+        // Sub-panel route map: logical ID → [baseTabId, panelName]
+        // Each sidebar click now has a unique logical ID that maps to the right tab + sub-panel.
+        const _subPanelRoutes = {
+            'phone-numbers':        ['voice',  'numbers'],
+            'spam-monitoring':      ['voice',  'spammonitoring'],
+            'voice-ai':             ['voice',  'settings'],
+            'dialer-settings':      ['voice',  'dialer'],
+            'bot-identity':         ['config', 'identity'],
+            'calendar-crm':         ['config', 'calendar'],
+            'sms-numbers':          ['config', 'smsnumbers'],
+            'a2p-10dlc':            ['config', 'a2p'],
+            'integration-ghl':      ['connect','ghl'],
+            'integration-crms':     ['connect','other-crms'],
+            'integration-api':      ['connect','api'],
+            'integration-outbound': ['connect','outbound'],
+            'integration-google':   ['connect','google'],
+            'integration-discord':  ['connect','discord'],
+            'integration-slack':    ['connect','slack'],
+            'integration-training': ['connect','training'],
         };
 
         // Map of tab IDs → sidebar element IDs (used by mobileNav for active-state passthrough)
@@ -27,32 +66,54 @@
             billing: 'sbnWorkspace', logs: 'sbnWorkspace',
             'agency-members': 'sbnWorkspace', 'agency-kpis': 'sbnWorkspace',
             whitelabel: 'sbnWorkspace', team: 'sbnWorkspace',
-            profile: 'sbnWorkspace',
+            profile: 'sbnWorkspace', domain: 'sbnWorkspace',
+            'business-profile': 'sbnWorkspace',
+            'phone-numbers': 'sbnWorkspace', 'spam-monitoring': 'sbnWorkspace',
+            'voice-ai': 'sbnWorkspace', 'dialer-settings': 'sbnWorkspace',
+            'bot-identity': 'sbnWorkspace', 'calendar-crm': 'sbnWorkspace',
+            'sms-numbers': 'sbnWorkspace', 'a2p-10dlc': 'sbnWorkspace',
+            'integration-ghl': 'sbnWorkspace', 'integration-crms': 'sbnWorkspace',
+            'integration-api': 'sbnWorkspace', 'integration-outbound': 'sbnWorkspace',
+            'integration-google': 'sbnWorkspace', 'integration-discord': 'sbnWorkspace',
+            'integration-slack': 'sbnWorkspace', 'integration-training': 'sbnWorkspace',
         };
 
         function sidebarNavigate(tabId, btnEl) {
+            // Resolve sub-panel routes: 'phone-numbers' → ['voice', 'numbers']
+            const route = _subPanelRoutes[tabId];
+            const baseTabId = route ? route[0] : tabId;
+            const subPanel  = route ? route[1] : null;
+
             // Update active state on all sidebar nav items
             document.querySelectorAll('.sb-nav-item').forEach(b => b.classList.remove('active'));
             if (btnEl) btnEl.classList.add('active');
 
-            // Update page title
+            // Update page title using logical ID first, then base tab ID
             const titleEl = document.getElementById('dashPageTitle');
-            if (titleEl) titleEl.textContent = _pageTitles[tabId] || 'Dashboard';
+            if (titleEl) titleEl.textContent = _pageTitles[tabId] || _pageTitles[baseTabId] || 'Dashboard';
 
             // Unified: hide ALL panes first, then show only the target.
-            // This prevents stacking when switching between Bootstrap-managed and
-            // manually-managed panes. We bypass Bootstrap's tab JS entirely since
-            // the nav is hidden — we own the show/active classes directly.
             document.querySelectorAll('#dashTabsContent > .tab-pane').forEach(p => {
                 p.classList.remove('show', 'active');
             });
-            const pane = document.getElementById(tabId);
+            const pane = document.getElementById(baseTabId);
             if (pane) pane.classList.add('show', 'active');
 
-            if (tabId === 'logs') loadLogs();
-            if (tabId === 'whitelabel' && typeof wlInit === 'function') wlInit();
-            if (tabId === 'agency-members' && typeof agencyLoadMembers === 'function') agencyLoadMembers();
-            if (tabId === 'agency-kpis' && typeof agencyLoadKpis === 'function') agencyLoadKpis('today');
+            // Switch to the specific sub-panel within the base tab
+            if (subPanel) {
+                if (baseTabId === 'voice' && typeof switchVoicePanel === 'function') {
+                    setTimeout(function() { switchVoicePanel(subPanel); }, 50);
+                } else if (baseTabId === 'config' && typeof switchConfigPanel === 'function') {
+                    setTimeout(function() { switchConfigPanel(subPanel); }, 50);
+                } else if (baseTabId === 'connect' && typeof switchConnectPanel === 'function') {
+                    setTimeout(function() { switchConnectPanel(subPanel); }, 50);
+                }
+            }
+
+            if (baseTabId === 'logs' || tabId === 'logs') loadLogs();
+            if ((baseTabId === 'whitelabel' || tabId === 'whitelabel') && typeof wlInit === 'function') wlInit();
+            if ((baseTabId === 'agency-members' || tabId === 'agency-members') && typeof agencyLoadMembers === 'function') agencyLoadMembers();
+            if ((baseTabId === 'agency-kpis' || tabId === 'agency-kpis') && typeof agencyLoadKpis === 'function') agencyLoadKpis('today');
         }
 
         // Legacy compat — kept for any code that still calls showSidebarTab() or navTo()
