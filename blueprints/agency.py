@@ -600,35 +600,62 @@ def _get_sub_location_ids(conn, agency_email, company_id=None):
 
 
 def _get_period_range(period, tz_name='America/Chicago'):
-    """Return (start_date_utc, days) for the given period string."""
+    """Return (start_utc, end_utc, days, now).
+    end_utc is the exclusive upper bound for bounded periods (yesterday, two_days_ago, last_week),
+    or None for open-ended periods (today, this_week, month, etc.).
+    """
     try:
         user_tz = pytz.timezone(tz_name)
     except Exception:
         user_tz = pytz.timezone('America/Chicago')
     now = datetime.now(user_tz)
+    today_midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_utc = None  # None = open-ended (no upper bound)
+
     if period == 'today':
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        start = today_midnight
         days = 1
     elif period == 'yesterday':
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
+        start = today_midnight - timedelta(days=1)
+        end_utc = today_midnight
         days = 1
+    elif period == 'two_days_ago':
+        start = today_midnight - timedelta(days=2)
+        end_utc = today_midnight - timedelta(days=1)
+        days = 1
+    elif period == 'this_week':
+        days_since_monday = now.weekday()  # 0=Mon, 6=Sun
+        start = today_midnight - timedelta(days=days_since_monday)
+        days = max(1, days_since_monday + 1)
+    elif period == 'last_week':
+        days_since_monday = now.weekday()
+        this_monday = today_midnight - timedelta(days=days_since_monday)
+        start = this_monday - timedelta(days=7)
+        end_utc = this_monday
+        days = 7
     elif period == 'week':
         start = now - timedelta(days=7)
         days = 7
+    elif period == 'this_month':
+        start = today_midnight.replace(day=1)
+        days = max(1, now.day)
     elif period == 'month':
         start = now - timedelta(days=30)
         days = 30
+    elif period == 'this_year':
+        start = today_midnight.replace(month=1, day=1)
+        days = max(1, (today_midnight - today_midnight.replace(month=1, day=1)).days + 1)
     elif period == 'year':
         start = now - timedelta(days=365)
         days = 365
-    else:
+    else:  # 'all'
         start = datetime(2000, 1, 1, tzinfo=pytz.utc)
-        days = 0  # will compute from data
-    if start.tzinfo is not None:
-        start_utc = start.astimezone(pytz.utc)
-    else:
-        start_utc = pytz.utc.localize(start)
-    return start_utc, days, now
+        days = 0
+
+    start_utc = start.astimezone(pytz.utc) if start.tzinfo else pytz.utc.localize(start)
+    if end_utc is not None:
+        end_utc = end_utc.astimezone(pytz.utc) if end_utc.tzinfo else pytz.utc.localize(end_utc)
+    return start_utc, end_utc, days, now
 
 
 @agency_bp.route("/api/agency/kpis")
@@ -660,7 +687,9 @@ def agency_kpis():
 
         period = request.args.get('period', 'month')
         tz_name = (current_user.timezone or 'America/Chicago').replace(' ', '_')
-        start_utc, days, now = _get_period_range(period, tz_name)
+        start_utc, end_utc, days, now = _get_period_range(period, tz_name)
+        far_future = datetime(2099, 12, 31, tzinfo=pytz.utc)
+        end_param = end_utc if end_utc else far_future
 
         # Optional per-agent filter
         agent_filter = request.args.get('agent', '').strip()
@@ -682,28 +711,29 @@ def agency_kpis():
                 COUNT(*) FILTER (WHERE duration >= 300)                       AS over_5min,
                 COUNT(DISTINCT contact_id)                                    AS unique_contacts
             FROM call_history
-            WHERE location_id = ANY(%s) AND created_at >= %s
-        """, (location_ids, start_utc))
+            WHERE location_id = ANY(%s) AND created_at >= %s AND created_at < %s
+        """, (location_ids, start_utc, end_param))
         r = cur.fetchone()
         total = r['total_calls'] or 0
         connected = r['connected_calls'] or 0
         connect_rate = round(connected / total * 100, 1) if total else 0.0
 
-        # Message count (contact_messages has no location_id — join through contact_cache)
+        # Outbound SMS count only (message_type='assistant')
         cur.execute("""
             SELECT COUNT(*) AS cnt
             FROM contact_messages cm
             JOIN contact_cache cc ON cm.contact_id = cc.contact_id
-            WHERE cc.location_id = ANY(%s) AND cm.created_at >= %s
-        """, (location_ids, start_utc))
+            WHERE cc.location_id = ANY(%s) AND cm.created_at >= %s AND cm.created_at < %s
+              AND cm.message_type = 'assistant'
+        """, (location_ids, start_utc, end_param))
         total_messages = cur.fetchone()['cnt'] or 0
 
         # Active agents (have at least 1 call or message in period)
         cur.execute("""
             SELECT COUNT(DISTINCT location_id) AS cnt
             FROM call_history
-            WHERE location_id = ANY(%s) AND created_at >= %s
-        """, (location_ids, start_utc))
+            WHERE location_id = ANY(%s) AND created_at >= %s AND created_at < %s
+        """, (location_ids, start_utc, end_param))
         active_agents = cur.fetchone()['cnt'] or 0
 
         # Days for per-day calc
@@ -752,9 +782,9 @@ def agency_kpis():
                    COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) AS connected,
                    COALESCE(SUM(duration), 0) AS total_secs
             FROM call_history
-            WHERE location_id = ANY(%s) AND created_at >= %s
+            WHERE location_id = ANY(%s) AND created_at >= %s AND created_at < %s
             GROUP BY day ORDER BY day
-        """, (tz_name, location_ids, start_utc))
+        """, (tz_name, location_ids, start_utc, end_param))
         daily = [
             {"day": str(row['day']), "calls": row['calls'], "connected": row['connected'], "total_secs": row['total_secs']}
             for row in cur.fetchall()
@@ -765,9 +795,9 @@ def agency_kpis():
             SELECT EXTRACT(HOUR FROM created_at AT TIME ZONE 'UTC' AT TIME ZONE %s)::int AS hr,
                    COUNT(*) AS calls
             FROM call_history
-            WHERE location_id = ANY(%s) AND created_at >= %s
+            WHERE location_id = ANY(%s) AND created_at >= %s AND created_at < %s
             GROUP BY hr ORDER BY hr
-        """, (tz_name, location_ids, start_utc))
+        """, (tz_name, location_ids, start_utc, end_param))
         hourly_map = {row['hr']: row['calls'] for row in cur.fetchall()}
         hourly = [{"hour": h, "calls": hourly_map.get(h, 0)} for h in range(24)]
 
@@ -813,7 +843,9 @@ def agency_agent_stats():
     try:
         period = request.args.get('period', 'month')
         tz_name = (current_user.timezone or 'America/Chicago').replace(' ', '_')
-        start_utc, _, _ = _get_period_range(period, tz_name)
+        start_utc, end_utc, _, _ = _get_period_range(period, tz_name)
+        far_future = datetime(2099, 12, 31, tzinfo=pytz.utc)
+        end_param = end_utc if end_utc else far_future
 
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
@@ -847,19 +879,20 @@ def agency_agent_stats():
                    COALESCE(AVG(duration) FILTER (WHERE duration > 0), 0) AS avg_dur,
                    MAX(created_at) AS last_call
             FROM call_history
-            WHERE location_id = ANY(%s) AND created_at >= %s
+            WHERE location_id = ANY(%s) AND created_at >= %s AND created_at < %s
             GROUP BY location_id
-        """, (location_ids, start_utc))
+        """, (location_ids, start_utc, end_param))
         call_stats = {r['location_id']: r for r in cur.fetchall()}
 
-        # Per-agent message counts (contact_messages has no location_id — join through contact_cache)
+        # Per-agent outbound SMS counts only (message_type='assistant' = bot outbound texts)
         cur.execute("""
             SELECT cc.location_id, COUNT(*) AS cnt
             FROM contact_messages cm
             JOIN contact_cache cc ON cm.contact_id = cc.contact_id
-            WHERE cc.location_id = ANY(%s) AND cm.created_at >= %s
+            WHERE cc.location_id = ANY(%s) AND cm.created_at >= %s AND cm.created_at < %s
+              AND cm.message_type = 'assistant'
             GROUP BY cc.location_id
-        """, (location_ids, start_utc))
+        """, (location_ids, start_utc, end_param))
         msg_stats = {r['location_id']: r['cnt'] for r in cur.fetchall()}
 
         agents = []
@@ -1001,7 +1034,14 @@ def agency_dashboard_stats():
 
         period = request.args.get('period', 'month')
         tz_name = (current_user.timezone or 'America/Chicago').replace(' ', '_')
-        start_utc, days, now = _get_period_range(period, tz_name)
+        start_utc, end_utc, days, now = _get_period_range(period, tz_name)
+        far_future = datetime(2099, 12, 31, tzinfo=pytz.utc)
+        end_param = end_utc if end_utc else far_future
+
+        # Optional per-agent filter
+        agent_filter = request.args.get('agent', '').strip()
+        if agent_filter and agent_filter in location_ids:
+            location_ids = [agent_filter]
 
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
@@ -1022,8 +1062,8 @@ def agency_dashboard_stats():
                 COUNT(DISTINCT contact_id)                                    AS unique_contacts,
                 COUNT(DISTINCT location_id)                                   AS active_agents
             FROM call_history
-            WHERE location_id = ANY(%s) AND created_at >= %s
-        """, (location_ids, start_utc))
+            WHERE location_id = ANY(%s) AND created_at >= %s AND created_at < %s
+        """, (location_ids, start_utc, end_param))
         r = cur.fetchone()
         total_calls = r['total_calls'] or 0
         connected = r['connected_calls'] or 0
@@ -1044,15 +1084,14 @@ def agency_dashboard_stats():
         pct_5min = round(over_5min / connected * 100, 1) if connected else 0
         pct_10min = round(over_10min / connected * 100, 1) if connected else 0
 
-        # ── Messages ─────────────────────────────────────────────────────────
-        # contact_messages has no location_id — join through webhook_logs or
-        # use contact_cache to resolve contact_id → location_id
+        # ── Messages (outbound bot SMS only: message_type='assistant') ────────
         cur.execute("""
             SELECT COUNT(*) AS cnt
             FROM contact_messages cm
             JOIN contact_cache cc ON cm.contact_id = cc.contact_id
-            WHERE cc.location_id = ANY(%s) AND cm.created_at >= %s
-        """, (location_ids, start_utc))
+            WHERE cc.location_id = ANY(%s) AND cm.created_at >= %s AND cm.created_at < %s
+              AND cm.message_type = 'assistant'
+        """, (location_ids, start_utc, end_param))
         total_messages = cur.fetchone()['cnt'] or 0
 
         # ── Compute days for per-day averages ────────────────────────────────
@@ -1079,19 +1118,20 @@ def agency_dashboard_stats():
                    COUNT(*) FILTER (WHERE duration >= 600) AS over_10min,
                    MAX(created_at) AS last_call
             FROM call_history
-            WHERE location_id = ANY(%s) AND created_at >= %s
+            WHERE location_id = ANY(%s) AND created_at >= %s AND created_at < %s
             GROUP BY location_id
-        """, (location_ids, start_utc))
+        """, (location_ids, start_utc, end_param))
         agent_call_stats = {row['location_id']: row for row in cur.fetchall()}
 
-        # Per-agent message counts
+        # Per-agent outbound SMS counts only
         cur.execute("""
             SELECT cc.location_id, COUNT(*) AS cnt
             FROM contact_messages cm
             JOIN contact_cache cc ON cm.contact_id = cc.contact_id
-            WHERE cc.location_id = ANY(%s) AND cm.created_at >= %s
+            WHERE cc.location_id = ANY(%s) AND cm.created_at >= %s AND cm.created_at < %s
+              AND cm.message_type = 'assistant'
             GROUP BY cc.location_id
-        """, (location_ids, start_utc))
+        """, (location_ids, start_utc, end_param))
         agent_msg_stats = {row['location_id']: row['cnt'] for row in cur.fetchall()}
 
         # Agent names
@@ -1162,12 +1202,12 @@ def agency_dashboard_stats():
             FROM call_history ch
             JOIN contact_cache cc ON ch.contact_id = cc.contact_id AND ch.location_id = cc.location_id
             WHERE ch.location_id = ANY(%s)
-              AND ch.created_at >= %s
+              AND ch.created_at >= %s AND ch.created_at < %s
               AND ch.direction = 'outbound'
               AND cc.synced_at IS NOT NULL
               AND ch.created_at > cc.synced_at
               AND EXTRACT(EPOCH FROM (ch.created_at - cc.synced_at)) < 86400
-        """, (location_ids, start_utc))
+        """, (location_ids, start_utc, end_param))
         speed_row = cur.fetchone()
         avg_speed_to_lead = round(float(speed_row['avg_speed'] or 0), 0) if speed_row and speed_row['avg_speed'] else None
 
@@ -1207,9 +1247,9 @@ def agency_dashboard_stats():
                    COUNT(*) AS calls,
                    COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) AS connected
             FROM call_history
-            WHERE location_id = ANY(%s) AND created_at >= %s
+            WHERE location_id = ANY(%s) AND created_at >= %s AND created_at < %s
             GROUP BY day ORDER BY day
-        """, (tz_name, location_ids, start_utc))
+        """, (tz_name, location_ids, start_utc, end_param))
         daily = [
             {"day": str(row['day']), "calls": row['calls'], "connected": row['connected']}
             for row in cur.fetchall()
@@ -1221,9 +1261,9 @@ def agency_dashboard_stats():
                    COUNT(*) AS calls,
                    COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) AS connected
             FROM call_history
-            WHERE location_id = ANY(%s) AND created_at >= %s
+            WHERE location_id = ANY(%s) AND created_at >= %s AND created_at < %s
             GROUP BY hr ORDER BY hr
-        """, (tz_name, location_ids, start_utc))
+        """, (tz_name, location_ids, start_utc, end_param))
         hourly_map = {row['hr']: row for row in cur.fetchall()}
         hourly = [{"hour": h, "calls": hourly_map.get(h, {}).get('calls', 0),
                    "connected": hourly_map.get(h, {}).get('connected', 0)} for h in range(24)]

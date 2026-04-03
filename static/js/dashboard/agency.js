@@ -10,8 +10,10 @@
     var _dailyChart = null;
     var _hourlyChart = null;
 
-    // Track current period so agencyLoadStats uses the same period as the KPI view
-    var _currentStatsPeriod = 'month';
+    // Track current period + agent filter for KPI view
+    var _currentStatsPeriod = 'today';
+    var _currentAgentFilter = '';  // '' = all agents, otherwise location_id
+    var _agentList = [];           // [{location_id, name}] populated on first load
 
     // Audio playback state
     var _currentAudio = null;
@@ -208,18 +210,98 @@
         });
     };
 
-    // ── KPIs (enhanced dashboard stats) ─────────────────────────────────────
-    window.agencyLoadKpis = function(period, btn) {
-        period = period || 'today';
+    // ── Period dropdown ──────────────────────────────────────────────────────
+    window.akTogglePeriodDropdown = function(e) {
+        e.stopPropagation();
+        var dd = document.getElementById('akPeriodDropdown');
+        var btn = document.getElementById('akPeriodTrigger');
+        var isOpen = dd.classList.toggle('open');
+        btn.classList.toggle('open', isOpen);
+        // Close member dropdown if open
+        document.getElementById('akMemberDropdown').classList.remove('open');
+        document.getElementById('akMemberTrigger').classList.remove('open');
+    };
+
+    window.akSelectPeriod = function(period, label, itemEl) {
         _currentStatsPeriod = period;
+        document.getElementById('akPeriodLabel').textContent = label;
+        // Mark active
+        var items = document.querySelectorAll('#akPeriodDropdown .ak-dropdown-item');
+        for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
+        if (itemEl) itemEl.classList.add('active');
+        // Close dropdown
+        document.getElementById('akPeriodDropdown').classList.remove('open');
+        document.getElementById('akPeriodTrigger').classList.remove('open');
+        _loadKpiData();
+    };
 
-        if (btn) {
-            var btns = document.querySelectorAll('.agency-period-btn');
-            for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
-            btn.classList.add('active');
+    // ── Member dropdown ──────────────────────────────────────────────────────
+    window.akToggleMemberDropdown = function(e) {
+        e.stopPropagation();
+        var dd = document.getElementById('akMemberDropdown');
+        var btn = document.getElementById('akMemberTrigger');
+        var isOpen = dd.classList.toggle('open');
+        btn.classList.toggle('open', isOpen);
+        // Close period dropdown if open
+        document.getElementById('akPeriodDropdown').classList.remove('open');
+        document.getElementById('akPeriodTrigger').classList.remove('open');
+        // Focus search on open
+        if (isOpen) {
+            var s = document.getElementById('akMemberSearch');
+            if (s) setTimeout(function() { s.focus(); }, 50);
         }
+    };
 
-        fetch('/api/agency/dashboard-stats?period=' + encodeURIComponent(period))
+    window.akSelectMember = function(locationId, name, itemEl) {
+        _currentAgentFilter = locationId;
+        document.getElementById('akMemberLabel').textContent = name;
+        var items = document.querySelectorAll('#akMemberList .ak-dropdown-item');
+        for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
+        if (itemEl) itemEl.classList.add('active');
+        document.getElementById('akMemberDropdown').classList.remove('open');
+        document.getElementById('akMemberTrigger').classList.remove('open');
+        // Update header title
+        var titleEl = document.getElementById('akHeaderTitle');
+        if (titleEl) titleEl.textContent = locationId ? name + ' — Performance' : 'Agency Performance';
+        _loadKpiData();
+    };
+
+    window.akFilterMemberList = function(q) {
+        q = q.toLowerCase();
+        var items = document.querySelectorAll('#akMemberList .ak-dropdown-item[data-agent]');
+        for (var i = 0; i < items.length; i++) {
+            var txt = items[i].textContent.toLowerCase();
+            items[i].style.display = (!q || txt.indexOf(q) !== -1) ? '' : 'none';
+        }
+    };
+
+    function _populateMemberDropdown(agents) {
+        _agentList = agents || [];
+        var list = document.getElementById('akMemberList');
+        if (!list) return;
+        // Rebuild list — keep "All Agents" first
+        var html = '<button class="ak-dropdown-item' + (_currentAgentFilter === '' ? ' active' : '') +
+            '" data-agent="" onclick="akSelectMember(\'\', \'All Agents\', this)">' +
+            '<i class="fa-solid fa-users"></i>All Agents</button>';
+        for (var i = 0; i < _agentList.length; i++) {
+            var a = _agentList[i];
+            var isActive = _currentAgentFilter === a.location_id;
+            html += '<button class="ak-dropdown-item' + (isActive ? ' active' : '') +
+                '" data-agent="' + a.location_id + '" onclick="akSelectMember(\'' +
+                a.location_id.replace(/'/g, "\\'") + '\', \'' +
+                (a.name || a.email || 'Agent').replace(/'/g, "\\'") + '\', this)">' +
+                '<i class="fa-solid fa-user"></i>' +
+                _escHtml(a.name || a.email || 'Unknown') + '</button>';
+        }
+        list.innerHTML = html;
+    }
+
+    // ── KPIs (enhanced dashboard stats) ─────────────────────────────────────
+    function _loadKpiData() {
+        var url = '/api/agency/dashboard-stats?period=' + encodeURIComponent(_currentStatsPeriod);
+        if (_currentAgentFilter) url += '&agent=' + encodeURIComponent(_currentAgentFilter);
+
+        fetch(url)
             .then(function(r) { return r.json(); })
             .then(function(d) {
                 _renderCoreTiles(d);
@@ -231,8 +313,21 @@
                 _renderDurationDonut(d);
                 _renderDailyChart(d.daily || []);
                 _renderHourlyChart(d.hourly || []);
+                // Populate member dropdown from agents list on first load
+                if (_agentList.length === 0 && d.agents && d.agents.length > 0) {
+                    _populateMemberDropdown(d.agents);
+                }
             })
             .catch(function(e) { console.error('agencyLoadKpis error:', e); });
+    }
+
+    window.agencyLoadKpis = function(period, _btn) {
+        // Called from sidebar on tab open — sync period state but don't override
+        // if the user already selected a custom period this session
+        if (period && !_agentList.length) {
+            _currentStatsPeriod = period;
+        }
+        _loadKpiData();
     };
 
     // ── Core Tiles ──────────────────────────────────────────────────────────
@@ -575,6 +670,10 @@
         return (n || 0).toLocaleString();
     }
 
+    function _escHtml(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
     function _fmtDuration(secs) {
         secs = Math.round(secs || 0);
         if (secs < 60) return secs + 's';
@@ -751,5 +850,17 @@
             }
         });
     };
+
+    // ── Close dropdowns on outside click ────────────────────────────────────
+    document.addEventListener('click', function() {
+        ['akPeriodDropdown', 'akMemberDropdown'].forEach(function(id) {
+            var dd = document.getElementById(id);
+            if (dd) dd.classList.remove('open');
+        });
+        var pt = document.getElementById('akPeriodTrigger');
+        var mt = document.getElementById('akMemberTrigger');
+        if (pt) pt.classList.remove('open');
+        if (mt) mt.classList.remove('open');
+    });
 
 })();

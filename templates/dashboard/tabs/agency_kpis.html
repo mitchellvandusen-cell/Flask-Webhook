@@ -1,17 +1,57 @@
 <!-- Agency KPIs Tab — Agency Owners Only -->
 <div class="tab-pane fade" id="agency-kpis" role="tabpanel">
 
-    <!-- Header with Period Selector -->
+    <!-- Header with Period + Member Filters -->
     <div class="vc-container ak-header-container">
         <div class="vc-status-bar">
             <i class="fa-solid fa-chart-pie"></i>
-            <span>Agency Performance</span>
+            <span id="akHeaderTitle">Agency Performance</span>
         </div>
-        <div class="ak-period-bar">
-            <button class="vc-btn-secondary ak-period-btn active" onclick="agencyLoadKpis('today', this)">Today</button>
-            <button class="vc-btn-secondary ak-period-btn" onclick="agencyLoadKpis('week', this)">Week</button>
-            <button class="vc-btn-secondary ak-period-btn" onclick="agencyLoadKpis('month', this)">Month</button>
-            <button class="vc-btn-secondary ak-period-btn" onclick="agencyLoadKpis('all', this)">All</button>
+        <div class="ak-filter-bar">
+
+            <!-- Period filter dropdown -->
+            <div class="ak-filter-group" id="akPeriodDropdownWrap">
+                <button class="ak-filter-trigger" id="akPeriodTrigger" onclick="akTogglePeriodDropdown(event)">
+                    <i class="fa-solid fa-calendar-days"></i>
+                    <span id="akPeriodLabel">Today</span>
+                    <i class="fa-solid fa-chevron-down ak-chevron" id="akPeriodChevron"></i>
+                </button>
+                <div class="ak-dropdown" id="akPeriodDropdown">
+                    <div class="ak-dropdown-section">Today &amp; Recent</div>
+                    <button class="ak-dropdown-item" data-period="this_month" onclick="akSelectPeriod('this_month', 'This Month', this)"><i class="fa-regular fa-calendar"></i>This Month</button>
+                    <button class="ak-dropdown-item active" data-period="today" onclick="akSelectPeriod('today', 'Today', this)"><i class="fa-solid fa-sun"></i>Today</button>
+                    <button class="ak-dropdown-item" data-period="yesterday" onclick="akSelectPeriod('yesterday', 'Yesterday', this)"><i class="fa-solid fa-rotate-left"></i>Yesterday</button>
+                    <button class="ak-dropdown-item" data-period="two_days_ago" onclick="akSelectPeriod('two_days_ago', 'Two Days Ago', this)"><i class="fa-solid fa-clock-rotate-left"></i>Two Days Ago</button>
+                    <div class="ak-dropdown-section">Weeks</div>
+                    <button class="ak-dropdown-item" data-period="this_week" onclick="akSelectPeriod('this_week', 'This Week', this)"><i class="fa-solid fa-calendar-week"></i>This Week</button>
+                    <button class="ak-dropdown-item" data-period="last_week" onclick="akSelectPeriod('last_week', 'Last Week', this)"><i class="fa-solid fa-backward"></i>Last Week</button>
+                    <button class="ak-dropdown-item" data-period="week" onclick="akSelectPeriod('week', 'Rolling 7 Days', this)"><i class="fa-solid fa-arrows-rotate"></i>Rolling 7 Days</button>
+                    <div class="ak-dropdown-section">Longer Ranges</div>
+                    <button class="ak-dropdown-item" data-period="month" onclick="akSelectPeriod('month', 'Rolling 30 Days', this)"><i class="fa-solid fa-arrows-rotate"></i>Rolling 30 Days</button>
+                    <button class="ak-dropdown-item" data-period="this_year" onclick="akSelectPeriod('this_year', 'This Year', this)"><i class="fa-solid fa-calendar"></i>This Year</button>
+                    <button class="ak-dropdown-item" data-period="year" onclick="akSelectPeriod('year', 'Rolling 365 Days', this)"><i class="fa-solid fa-arrows-rotate"></i>Rolling 365 Days</button>
+                    <button class="ak-dropdown-item" data-period="all" onclick="akSelectPeriod('all', 'All Time', this)"><i class="fa-solid fa-infinity"></i>All Time</button>
+                </div>
+            </div>
+
+            <!-- Member filter dropdown -->
+            <div class="ak-filter-group" id="akMemberDropdownWrap">
+                <button class="ak-filter-trigger" id="akMemberTrigger" onclick="akToggleMemberDropdown(event)">
+                    <i class="fa-solid fa-user"></i>
+                    <span id="akMemberLabel">All Agents</span>
+                    <i class="fa-solid fa-chevron-down ak-chevron" id="akMemberChevron"></i>
+                </button>
+                <div class="ak-dropdown ak-dropdown-right" id="akMemberDropdown">
+                    <div class="ak-dropdown-search-wrap">
+                        <i class="fa-solid fa-magnifying-glass ak-dropdown-search-icon"></i>
+                        <input type="text" class="ak-dropdown-search" id="akMemberSearch" placeholder="Search agents..." oninput="akFilterMemberList(this.value)">
+                    </div>
+                    <div id="akMemberList">
+                        <button class="ak-dropdown-item active" data-agent="" onclick="akSelectMember('', 'All Agents', this)"><i class="fa-solid fa-users"></i>All Agents</button>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -32,7 +72,7 @@
         <div class="ak-tile vc-container">
             <div class="ak-tile-icon ak-icon-blue"><i class="fa-solid fa-message"></i></div>
             <div class="ak-tile-val" id="akMessages">—</div>
-            <div class="ak-tile-lbl">Messages Sent</div>
+            <div class="ak-tile-lbl">SMS Sent</div>
         </div>
         <div class="ak-tile vc-container">
             <div class="ak-tile-icon ak-icon-purple"><i class="fa-solid fa-users"></i></div>
@@ -51,7 +91,7 @@
         </div>
     </div>
 
-    <!-- ── Row 2: Charts Row (Connect Rate Donut + Duration Buckets + Daily Volume) ── -->
+    <!-- ── Row 2: Charts Row ─────────────────────────────────────────────── -->
     <div class="ak-chart-row">
         <!-- Connect Rate Donut -->
         <div class="ak-chart-card vc-container">
@@ -157,8 +197,8 @@
     </div>
 
     <!-- ── Row 5: Leaderboards ───────────────────────────────────────────── -->
-    <h4 class="ak-section-title"><i class="fa-solid fa-trophy me-2"></i>Top Performers</h4>
-    <div class="ak-leader-grid">
+    <h4 class="ak-section-title" id="akLeaderboardTitle"><i class="fa-solid fa-trophy me-2"></i>Top Performers</h4>
+    <div class="ak-leader-grid" id="akLeaderGrid">
 
         <!-- Top 5: Connect Rate -->
         <div class="ak-leader-card vc-container">
@@ -207,7 +247,7 @@
                         <th>&gt;45s</th>
                         <th>&gt;2m</th>
                         <th>&gt;5m</th>
-                        <th>Messages</th>
+                        <th>SMS Sent</th>
                     </tr>
                 </thead>
                 <tbody id="akAllAgentsBody">
@@ -229,3 +269,92 @@
     </div>
 
 </div>
+
+<style>
+/* ── Agency KPI Filter Bar ─────────────────────────────────────────────────── */
+.ak-filter-bar {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+.ak-filter-group {
+    position: relative;
+}
+.ak-filter-trigger {
+    display: flex; align-items: center; gap: 7px;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    color: #e0e0e0; border-radius: 8px; padding: 7px 13px;
+    font-size: 0.82rem; font-weight: 600; cursor: pointer;
+    transition: border-color 0.15s, background 0.15s; white-space: nowrap;
+    font-family: inherit;
+}
+.ak-filter-trigger:hover {
+    border-color: rgba(0,255,136,0.35); background: rgba(0,255,136,0.06);
+    color: #00ff88;
+}
+.ak-filter-trigger .ak-chevron {
+    font-size: 0.65rem; opacity: 0.6; transition: transform 0.2s;
+}
+.ak-filter-trigger.open .ak-chevron { transform: rotate(180deg); }
+.ak-filter-trigger.open {
+    border-color: rgba(0,255,136,0.4); background: rgba(0,255,136,0.08); color: #00ff88;
+}
+/* Dropdown panel */
+.ak-dropdown {
+    display: none; position: absolute; top: calc(100% + 6px); left: 0;
+    min-width: 210px; background: #111; border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px; padding: 6px; z-index: 9999;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5); flex-direction: column; gap: 1px;
+}
+.ak-dropdown.ak-dropdown-right { left: auto; right: 0; }
+.ak-dropdown.open { display: flex; }
+.ak-dropdown-section {
+    padding: 5px 10px 2px; font-size: 0.68rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.8px; color: rgba(255,255,255,0.35);
+    margin-top: 4px;
+}
+.ak-dropdown-item {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    background: transparent; border: none; color: rgba(255,255,255,0.75);
+    padding: 8px 10px; font-size: 0.81rem; border-radius: 7px; cursor: pointer;
+    text-align: left; transition: background 0.12s, color 0.12s; font-family: inherit;
+    font-weight: 500;
+}
+.ak-dropdown-item i { width: 14px; text-align: center; opacity: 0.65; font-size: 0.75rem; }
+.ak-dropdown-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
+.ak-dropdown-item.active {
+    background: rgba(0,255,136,0.1); color: #00ff88; font-weight: 700;
+}
+.ak-dropdown-item.active i { opacity: 1; }
+/* Member search */
+.ak-dropdown-search-wrap {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 4px;
+}
+.ak-dropdown-search-icon { color: rgba(255,255,255,0.3); font-size: 0.75rem; }
+.ak-dropdown-search {
+    flex: 1; background: none; border: none; outline: none;
+    color: #e0e0e0; font-size: 0.8rem; font-family: inherit;
+}
+.ak-dropdown-search::placeholder { color: rgba(255,255,255,0.3); }
+
+/* Light theme overrides */
+body.light-theme .ak-filter-trigger {
+    background: #fff; border-color: #e0e0e0; color: #374151;
+}
+body.light-theme .ak-filter-trigger:hover {
+    border-color: rgba(5,150,105,0.4); background: rgba(5,150,105,0.05); color: #059669;
+}
+body.light-theme .ak-filter-trigger.open {
+    border-color: rgba(5,150,105,0.5); background: rgba(5,150,105,0.08); color: #059669;
+}
+body.light-theme .ak-dropdown {
+    background: #fff; border-color: #e5e7eb; box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+}
+body.light-theme .ak-dropdown-section { color: #9ca3af; }
+body.light-theme .ak-dropdown-item { color: #374151; }
+body.light-theme .ak-dropdown-item:hover { background: #f9fafb; color: #111; }
+body.light-theme .ak-dropdown-item.active { background: rgba(5,150,105,0.08); color: #059669; }
+body.light-theme .ak-dropdown-search-wrap { border-bottom-color: #e5e7eb; }
+body.light-theme .ak-dropdown-search { color: #374151; }
+body.light-theme .ak-dropdown-search::placeholder { color: #9ca3af; }
+body.light-theme .ak-dropdown-search-icon { color: #9ca3af; }
+</style>
