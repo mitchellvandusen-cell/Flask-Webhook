@@ -1215,17 +1215,13 @@ def oauth_callback():
                         })
 
             if not sub_accounts:
-                # installedLocations failed — last resort: locations/search
-                locations_url = f"https://services.leadconnectorhq.com/locations/search?companyId={company_id}"
-                search_results = fetch_all_ghl_items(locations_url, headers_ghl, item_key='locations')
-                if search_results:
-                    sub_accounts = [{
-                        'id': s.get('id'),
-                        'name': s.get('name', 'Unknown Location'),
-                        'timezone': s.get('timezone'),
-                        '_loc_users': [],
-                    } for s in search_results if s.get('id')]
-                    logger.info(f"/locations/search fallback: {len(sub_accounts)} locations")
+                # installedLocations returned nothing — genuine discovery failure.
+                # Do not fall back to undocumented heuristics.
+                # using_location_fallback will be set below and the calm info banner fires.
+                logger.warning(
+                    f"Company token: installedLocations returned 0 locations for "
+                    f"companyId={company_id}. Marking as location fallback."
+                )
 
         else:
             # Location token (individual agent).
@@ -1312,30 +1308,36 @@ def oauth_callback():
                     f"locationId={primary_location_id}. Normal operation — user is connected."
                 )
 
-        # Last resort: companyId as location_id
-        if not primary_location_id and company_id:
-            using_location_fallback = True
-            primary_location_id = company_id
-            sub_accounts = [{'id': company_id,
-                             'name': user_name or 'Primary Location',
-                             'timezone': None}]
-            logger.warning(
-                f"NO locationId — using companyId={company_id} as location_id fallback."
+        # Hard fail if no location ID could be determined through documented GHL APIs.
+        # companyId is NOT a locationId — using it as one corrupts subscriber data.
+        # Enterprise behavior: surface a clear error and ask the user to reconnect.
+        if not primary_location_id:
+            logger.error(
+                f"OAuth hard fail: no locationId determined. "
+                f"token_type={token_user_type_used}, companyId={company_id}, "
+                f"sub_accounts={len(sub_accounts)}, user_location_ids={user_location_ids}"
             )
             try:
                 save_persistent_alert(
                     email=ADMIN_EMAILS[0] if ADMIN_EMAILS else "admin",
-                    alert_type="company_id_fallback",
-                    title="OAuth: CompanyID Used as LocationID",
+                    alert_type="oauth_no_location",
+                    title="OAuth: No Location ID Returned",
                     message=(
-                        f"User installed via marketplace but GHL returned NO "
-                        f"locationId. companyId={company_id} was used as a fallback."
+                        f"GHL OAuth completed but returned no locationId. "
+                        f"token_type={token_user_type_used}, companyId={company_id}. "
+                        f"User must reconnect."
                     ),
                     severity="warning",
-                    location_id=company_id,
+                    location_id=company_id or "unknown",
                 )
             except Exception:
                 pass
+            flash(
+                "Connection incomplete — Lead Connector did not return a location ID. "
+                "Please try connecting again from the Connect tab.",
+                "danger"
+            )
+            return redirect(url_for('dashboard.dashboard'))
 
         # ══════════════════════════════════════════════════════════════════════
         # Step 8: Detect agency owner
