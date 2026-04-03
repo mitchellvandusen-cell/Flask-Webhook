@@ -7,7 +7,7 @@ API_BASE_URL = "https://app.insurancegrokbot.click"
 
 [[kv_namespaces]]
 binding = "AGENT_CONFIG"
-id = "aa72913187f742b39b1c7b1a7a92fcec"
+id = ""  # Set via: wrangler deploy --var KV_NAMESPACE_ID=your-namespace-id, or paste your KV namespace ID here locally
 
 [env.production]
 vars = { API_BASE_URL = "https://app.insurancegrokbot.click" }
