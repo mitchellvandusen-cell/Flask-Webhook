@@ -64,7 +64,7 @@ def get_free_llm(tier: str = "quality"):
             base_url=_OR_BASE_URL,
             default_headers={
                 "HTTP-Referer": os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click"),
-                "X-Title": "InsuranceGrokBot",
+                "X-Title": "Omnisconn",
             },
         )
         logger.debug(f"free_llm: using OpenRouter {_OR_FREE}")

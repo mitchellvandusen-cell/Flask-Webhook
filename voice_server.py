@@ -1,5 +1,5 @@
 """
-InsuranceGrokBot Voice WebSocket Service
+Omnisconn Voice WebSocket Service
 
 Standalone FastAPI/uvicorn server handling:
   - Twilio Media Stream ↔ xAI Realtime API WebSocket bridge
@@ -71,7 +71,7 @@ async def lifespan(app):
     yield
 
 
-app = FastAPI(title="InsuranceGrokBot Voice Service", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Omnisconn Voice Service", version="1.0.0", lifespan=lifespan)
 
 
 @app.websocket("/voice/stream")

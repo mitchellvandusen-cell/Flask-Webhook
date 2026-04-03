@@ -1,4 +1,4 @@
-"""Alembic environment configuration for InsuranceGrokBot.
+"""Alembic environment configuration for Omnisconn.
 
 Reads DATABASE_URL from environment and runs migrations against
 the production PostgreSQL database. Supports both online (connected)

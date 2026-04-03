@@ -181,7 +181,7 @@ class PipedriveAdapter(CRMAdapter):
                     "message": message,
                     "phone": phone,
                     "direction": "outbound",
-                    "_source": "InsuranceGrokBot",
+                    "_source": "Omnisconn",
                     "_event_type": "send_message",
                 }, timeout=PIPEDRIVE_TIMEOUT)
                 sent = resp.status_code in [200, 201]
@@ -200,7 +200,7 @@ class PipedriveAdapter(CRMAdapter):
         """Log an outbound SMS as a Note linked to a Person."""
         url = f"{self._base_url}/notes"
         payload = {
-            "content": f"[SMS via InsuranceGrokBot] {message}",
+            "content": f"[SMS via Omnisconn] {message}",
             "person_id": int(contact_id) if str(contact_id).isdigit() else None,
         }
         if not payload["person_id"]:
@@ -228,7 +228,7 @@ class PipedriveAdapter(CRMAdapter):
             "due_time": start_dt.strftime("%H:%M"),
             "duration": duration_str,
             "person_id": int(contact_id) if str(contact_id).isdigit() else None,
-            "note": f"Appointment booked via InsuranceGrokBot for {first_name or 'Lead'}",
+            "note": f"Appointment booked via Omnisconn for {first_name or 'Lead'}",
             "done": 0,
         }
         activity_payload = {k: v for k, v in activity_payload.items() if v is not None}

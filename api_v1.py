@@ -373,7 +373,7 @@ def test_webhook():
     test_payload = {
         "event": "test",
         "contact_id": "test_contact_000",
-        "message": "This is a test message from InsuranceGrokBot API.",
+        "message": "This is a test message from Omnisconn API.",
         "role": "assistant",
         "timestamp": int(time.time()),
         "metadata": {"test": True}

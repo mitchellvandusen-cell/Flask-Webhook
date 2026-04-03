@@ -39,7 +39,7 @@ def send_test_email(to_email):
     with app.app_context():
         try:
             msg = Message(
-                subject="🎉 Mailgun Test - InsuranceGrokBot",
+                subject="🎉 Mailgun Test - Omnisconn",
                 recipients=[to_email],
                 html="""
                 <html>
@@ -50,7 +50,7 @@ def send_test_email(to_email):
                     <p><strong>Server:</strong> smtp.mailgun.org</p>
                     <hr style="border: 1px solid #eee; margin: 20px 0;">
                     <p style="color: #666; font-size: 14px;">
-                        This is a test email from InsuranceGrokBot's sub-user onboarding system.
+                        This is a test email from Omnisconn's sub-user onboarding system.
                         You're ready to send invitation emails! 🚀
                     </p>
                 </body>
@@ -64,7 +64,7 @@ Your Mailgun SMTP configuration is working correctly.
 From: support@insurancegrokbot.com
 Server: smtp.mailgun.org
 
-This is a test email from InsuranceGrokBot's sub-user onboarding system.
+This is a test email from Omnisconn's sub-user onboarding system.
 You're ready to send invitation emails! 🚀
                 """
             )

@@ -148,7 +148,7 @@ class HubSpotAdapter(CRMAdapter):
                     "message": message,
                     "phone": phone,
                     "direction": "outbound",
-                    "_source": "InsuranceGrokBot",
+                    "_source": "Omnisconn",
                     "_event_type": "send_message",
                 }, timeout=HUBSPOT_TIMEOUT)
                 sent = resp.status_code in [200, 201]
@@ -205,7 +205,7 @@ class HubSpotAdapter(CRMAdapter):
                 "hs_meeting_title": f"Life Insurance Review {first_name or 'Lead'}",
                 "hs_meeting_start_time": start_ms,
                 "hs_meeting_end_time": end_ms,
-                "hs_meeting_body": f"Appointment booked via InsuranceGrokBot for {first_name or 'Lead'}",
+                "hs_meeting_body": f"Appointment booked via Omnisconn for {first_name or 'Lead'}",
             }
         }
 

@@ -1,4 +1,4 @@
-# extensions.py — Shared state, constants, and helper utilities for InsuranceGrokBot
+# extensions.py — Shared state, constants, and helper utilities for Omnisconn
 #
 # Rule: This module NEVER imports from main.py or any blueprint.
 # Blueprints import from extensions.py; extensions.py does not import from blueprints.

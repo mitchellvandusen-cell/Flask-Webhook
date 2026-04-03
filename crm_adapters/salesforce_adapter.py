@@ -151,7 +151,7 @@ class SalesforceAdapter(CRMAdapter):
                     "message": message,
                     "phone": phone,
                     "direction": "outbound",
-                    "_source": "InsuranceGrokBot",
+                    "_source": "Omnisconn",
                     "_event_type": "send_message",
                 }, timeout=SF_TIMEOUT)
                 sent = resp.status_code in [200, 201]
@@ -170,7 +170,7 @@ class SalesforceAdapter(CRMAdapter):
         """Log an outbound SMS as a Salesforce Task for the activity timeline."""
         url = f"{self._base_url}/sobjects/Task"
         payload = {
-            "Subject": "SMS Sent via InsuranceGrokBot",
+            "Subject": "SMS Sent via Omnisconn",
             "Description": message[:32000],
             "WhoId": contact_id,
             "Status": "Completed",
@@ -201,7 +201,7 @@ class SalesforceAdapter(CRMAdapter):
             "StartDateTime": start_dt.isoformat(),
             "EndDateTime": end_dt.isoformat(),
             "WhoId": contact_id,
-            "Description": f"Appointment booked via InsuranceGrokBot for {first_name or 'Lead'}",
+            "Description": f"Appointment booked via Omnisconn for {first_name or 'Lead'}",
         }
 
         if self.crm_user_id:

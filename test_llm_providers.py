@@ -554,7 +554,7 @@ def print_summary(all_results: list):
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    print("InsuranceGrokBot — LLM Provider Comparison Test")
+    print("Omnisconn — LLM Provider Comparison Test")
     print(f"Testing {len(SCENARIOS)} scenarios across {len(MODELS)} models\n")
 
     keys_found = []

@@ -1,4 +1,4 @@
-# email_templates.py — Premium HTML email builder functions for InsuranceGrokBot
+# email_templates.py — Premium HTML email builder functions for Omnisconn
 #
 # All functions here are pure: they take string parameters and return HTML strings.
 # No Flask context, no database calls, no side effects.
@@ -7,7 +7,7 @@ from urllib.parse import quote as url_quote
 
 
 def _email_wrapper(inner_html: str, domain_url: str, recipient_email: str = "") -> str:
-    """Wrap email content in the premium dark-themed InsuranceGrokBot email shell."""
+    """Wrap email content in the premium dark-themed Omnisconn email shell."""
     return f'''<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
@@ -54,9 +54,9 @@ def _email_wrapper(inner_html: str, domain_url: str, recipient_email: str = "") 
                 {"&nbsp;&nbsp;|&nbsp;&nbsp;" + '<a href="' + domain_url + '/email/unsubscribe?email=' + url_quote(recipient_email) + '" style="color: #00c853; text-decoration: none;">Unsubscribe</a>' if recipient_email else ""}
             </p>
             <p style="margin: 0; font-size: 12px; color: #444;">
-                InsuranceGrokBot &mdash; AI-Powered Insurance Sales Assistant
+                Omnisconn &mdash; AI-Powered Insurance Sales Assistant
             </p>
-            {"<p style='margin: 8px 0 0; font-size: 11px; color: #3a3a3a;'>You are receiving this because you subscribed to InsuranceGrokBot.</p>" if recipient_email else ""}
+            {"<p style='margin: 8px 0 0; font-size: 11px; color: #3a3a3a;'>You are receiving this because you subscribed to Omnisconn.</p>" if recipient_email else ""}
         </td>
     </tr>
     </table>
@@ -125,7 +125,7 @@ def _build_uninstall_feedback_email(name: str, domain_url: str, feedback_id: int
         We're sorry to see you go, {name}.
     </h1>
     <p style="margin: 0; font-size: 15px; color: #aaa; line-height: 1.6;">
-        Your InsuranceGrokBot app has been uninstalled. We hope we served you well &mdash; and we'd love to know how we can improve.
+        Your Omnisconn app has been uninstalled. We hope we served you well &mdash; and we'd love to know how we can improve.
     </p>
 </td>
 </tr>
@@ -197,7 +197,7 @@ def _build_install_welcome_email(name: str, domain_url: str, recipient_email: st
         Welcome aboard, {name}!
     </h1>
     <p style="margin: 0; font-size: 16px; color: #aaa; line-height: 1.5;">
-        You just installed <strong style="color: #00c853;">InsuranceGrokBot</strong> &mdash; the all-in-one AI sales
+        You just installed <strong style="color: #00c853;">Omnisconn</strong> &mdash; the all-in-one AI sales
         platform built for insurance agents. AI texting, voice AI, smart dialer, and lead intelligence &mdash; all in one place.
     </p>
 </td>
@@ -373,7 +373,7 @@ def _build_reminder_24h_email(name: str, domain_url: str, user_type: str, missin
         Hi {name},
     </p>
     <p style="margin: 12px 0 0; font-size: 15px; color: #bbb; line-height: 1.7;">
-        You installed InsuranceGrokBot 24 hours ago. You're almost there &mdash; your AI-powered sales platform is
+        You installed Omnisconn 24 hours ago. You're almost there &mdash; your AI-powered sales platform is
         ready to start working leads with AI texting, voice AI, smart dialer, and lead intelligence.
     </p>
 </td>
@@ -502,7 +502,7 @@ def _build_reminder_72h_email(name: str, domain_url: str, user_type: str, missin
         Hi {name},
     </p>
     <p style="margin: 12px 0 0; font-size: 15px; color: #bbb; line-height: 1.7;">
-        It's been 3 days since you installed InsuranceGrokBot. Every hour your AI sales platform isn't active, leads are going unworked, calls are going unmade, and potential clients are moving to the agent who responds first.
+        It's been 3 days since you installed Omnisconn. Every hour your AI sales platform isn't active, leads are going unworked, calls are going unmade, and potential clients are moving to the agent who responds first.
     </p>
 </td>
 </tr>
@@ -765,7 +765,7 @@ def _build_agency_owner_welcome_email(user_name: str, dashboard_link: str, domai
         <span style="font-size: 36px;">&#10003;</span>
     </div>
     <h1 style="margin: 0 0 8px; font-size: 28px; font-weight: 800; color: #ffffff; line-height: 1.2;">Your Agency Dashboard is Ready</h1>
-    <p style="margin: 0; font-size: 16px; color: #aaa; line-height: 1.5;">InsuranceGrokBot is now installed across your agency</p>
+    <p style="margin: 0; font-size: 16px; color: #aaa; line-height: 1.5;">Omnisconn is now installed across your agency</p>
 </td>
 </tr>
 
@@ -861,7 +861,7 @@ def _build_password_reset_html(reset_url: str, domain_url: str) -> str:
     <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
         <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
             <h2 style="color: #2563eb;">Password Reset</h2>
-            <p>We received a request to reset your InsuranceGrokBot password.</p>
+            <p>We received a request to reset your Omnisconn password.</p>
             <p>Click the button below to choose a new password:</p>
             <div style="text-align: center; margin: 30px 0;">
                 <a href="{reset_url}"
@@ -877,7 +877,7 @@ def _build_password_reset_html(reset_url: str, domain_url: str) -> str:
             </p>
             <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
             <p style="color: #999; font-size: 12px;">
-                InsuranceGrokBot - AI-Powered Insurance Sales Assistant<br>
+                Omnisconn - AI-Powered Insurance Sales Assistant<br>
                 <a href="{domain_url}" style="color: #2563eb;">{domain_url}</a>
             </p>
         </div>
@@ -961,7 +961,7 @@ def _build_agency_invite_html(agent_name: str, agency_name: str,
                     This invitation expires in 7 days.
                 </p>
                 <p style="color:#444;font-size:12px;margin:0;">
-                    InsuranceGrokBot &mdash; AI-Powered Insurance Sales Assistant<br>
+                    Omnisconn &mdash; AI-Powered Insurance Sales Assistant<br>
                     <a href="{domain_url}" style="color:#00ff88;text-decoration:none;">{domain_url}</a>
                 </p>
             </div>
@@ -971,7 +971,7 @@ def _build_agency_invite_html(agent_name: str, agency_name: str,
     """
 
     text_body = (
-        f"You're Invited to InsuranceGrokBot!\n\n"
+        f"You're Invited to Omnisconn!\n\n"
         f"Hi {agent_name},\n\n"
         f"{agency_name} has set up an AI-powered insurance sales assistant "
         f"for your location. Your account is ready — just set your password "
@@ -983,7 +983,7 @@ def _build_agency_invite_html(agent_name: str, agency_name: str,
         f"- Automated workflows and follow-up sequences\n\n"
         f"Activate your account here:\n{invite_url}\n\n"
         f"This invitation expires in 7 days.\n\n"
-        f"- InsuranceGrokBot Team\n{domain_url}"
+        f"- Omnisconn Team\n{domain_url}"
     )
 
     return html_body, text_body
@@ -991,7 +991,7 @@ def _build_agency_invite_html(agent_name: str, agency_name: str,
 
 def build_app_update_email(domain_url: str, update_notes: str = "", recipient_email: str = "") -> tuple:
     """
-    Email sent to all subscribers when a new InsuranceGrokBot version is
+    Email sent to all subscribers when a new Omnisconn version is
     published to the GHL Marketplace and users need to accept updated permissions.
 
     Returns (html_body, text_body).
@@ -1017,7 +1017,7 @@ def build_app_update_email(domain_url: str, update_notes: str = "", recipient_em
     <div style="display: inline-block; background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.25); border-radius: 50px; padding: 7px 18px; margin-bottom: 18px;">
         <span style="font-size: 12px; font-weight: 700; color: #a5b4fc; text-transform: uppercase; letter-spacing: 1px;">App Update Available</span>
     </div>
-    <h1 style="margin: 0 0 12px; font-size: 28px; font-weight: 800; color: #ffffff; line-height: 1.25;">A New Version of InsuranceGrokBot<br>is Ready to Install</h1>
+    <h1 style="margin: 0 0 12px; font-size: 28px; font-weight: 800; color: #ffffff; line-height: 1.25;">A New Version of Omnisconn<br>is Ready to Install</h1>
     <p style="margin: 0; font-size: 16px; color: #8892a4; line-height: 1.6;">We've pushed an update to the GoHighLevel Marketplace. To keep your bot running with the latest features and fixes, please update the app in your Lead Connector account — it only takes 30 seconds.</p>
 </td>
 </tr>
@@ -1072,7 +1072,7 @@ def build_app_update_email(domain_url: str, update_notes: str = "", recipient_em
             <div style="width: 28px; height: 28px; background: linear-gradient(135deg,#3b82f6,#6366f1); border-radius: 50%; text-align: center; line-height: 28px; font-size: 13px; font-weight: 800; color: #fff;">4</div>
         </td>
         <td style="padding-left: 10px;">
-            <p style="margin: 0; font-size: 15px; color: #e2e8f0; line-height: 1.5;"><strong style="color:#ffffff;">Select InsuranceGrokBot</strong><br><span style="color:#8892a4;font-size:13px;">Find <strong style="color:#c8d6e5;">InsuranceGrokBot</strong> in your installed apps list and click on it.</span></p>
+            <p style="margin: 0; font-size: 15px; color: #e2e8f0; line-height: 1.5;"><strong style="color:#ffffff;">Select Omnisconn</strong><br><span style="color:#8892a4;font-size:13px;">Find <strong style="color:#c8d6e5;">Omnisconn</strong> in your installed apps list and click on it.</span></p>
         </td>
     </tr>
     </table>
@@ -1104,19 +1104,19 @@ def build_app_update_email(domain_url: str, update_notes: str = "", recipient_em
     html_body = _email_wrapper(inner_html, domain_url, recipient_email=recipient_email)
 
     text_body = (
-        "InsuranceGrokBot — App Update Available\n\n"
-        "A new version of InsuranceGrokBot has been published to the GoHighLevel Marketplace.\n"
+        "Omnisconn — App Update Available\n\n"
+        "A new version of Omnisconn has been published to the GoHighLevel Marketplace.\n"
         "Please update the app in Lead Connector to stay current.\n\n"
         + (f"What's New:\n{update_notes}\n\n" if update_notes else "")
         + "How to Update:\n"
         "1. Log into Lead Connector at https://app.leadconnectorhq.com\n"
         "2. Go to App Marketplace (left sidebar)\n"
         "3. Click the Installed Apps tab\n"
-        "4. Find InsuranceGrokBot and click on it\n"
+        "4. Find Omnisconn and click on it\n"
         "5. Click Update\n\n"
         "Questions? Reply to this email or visit your dashboard:\n"
         f"{domain_url}/dashboard\n\n"
-        "- InsuranceGrokBot Team"
+        "- Omnisconn Team"
     )
 
     return html_body, text_body

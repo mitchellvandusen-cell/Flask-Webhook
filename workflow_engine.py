@@ -1,4 +1,4 @@
-# workflow_engine.py — Workflow execution engine for InsuranceGrokBot
+# workflow_engine.py — Workflow execution engine for Omnisconn
 #
 # Handles trigger matching, step execution, delay/wait resumption, and
 # individual step handlers for the visual workflow builder.
@@ -1776,7 +1776,7 @@ def _handle_state_query(cur, conn, run_id, step, config, location_id, contact_id
 
 
 def _handle_send_igb_message(cur, conn, run_id, step, config, location_id, contact_id, context):
-    """Trigger the InsuranceGrokBot AI SMS pipeline for this contact.
+    """Trigger the Omnisconn AI SMS pipeline for this contact.
 
     Two modes:
     - "ai" (default): enqueues process_webhook_task with a workflow-outreach flag.
@@ -1810,7 +1810,7 @@ def _handle_send_igb_message(cur, conn, run_id, step, config, location_id, conta
             "_run_id": run_id,
         }
     else:
-        # AI mode: let InsuranceGrokBot generate the message
+        # AI mode: let Omnisconn generate the message
         payload = {
             "contact_id": contact_id,
             "location_id": location_id,

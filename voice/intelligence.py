@@ -71,7 +71,7 @@ def get_contact_call_counts():
 @intelligence_bp.route('/voice/contact-engagement', methods=['GET', 'POST'])
 @login_required
 def get_contact_engagement_bulk():
-    """Batch InsuranceGrokBot engagement data for contact list Smart Filters.
+    """Batch Omnisconn engagement data for contact list Smart Filters.
     Returns lightweight stats: message counts, call counts, last activity timestamps.
     """
     ids_param = _get_ids_param()

@@ -232,7 +232,7 @@ def hubspot_crm_card():
             "properties": [{
                 "label": "Status",
                 "dataType": "STRING",
-                "value": "Portal not linked to InsuranceGrokBot",
+                "value": "Portal not linked to Omnisconn",
             }],
         }]}), 200
 

@@ -1,4 +1,4 @@
-# translations.py — Lightweight i18n for InsuranceGrokBot dashboard & emails
+# translations.py — Lightweight i18n for Omnisconn dashboard & emails
 #
 # Auto-detected from browser Accept-Language header; user can override via topbar.
 # Only UI strings are translated — brand name, CRM names, and technical terms stay English.

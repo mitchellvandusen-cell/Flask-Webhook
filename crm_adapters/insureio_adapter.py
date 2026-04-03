@@ -86,7 +86,7 @@ class InsureioAdapter(CRMAdapter):
                     "message": message,
                     "phone": phone,
                     "direction": "outbound",
-                    "_source": "InsuranceGrokBot",
+                    "_source": "Omnisconn",
                     "_event_type": "send_message",
                 }, timeout=INSUREIO_TIMEOUT)
                 sent = resp.status_code in [200, 201]
@@ -109,7 +109,7 @@ class InsureioAdapter(CRMAdapter):
                 "selected_time": selected_time,
                 "appointment_title": f"Life Insurance Review {first_name or 'Lead'}",
                 "timezone": self.timezone,
-                "_source": "InsuranceGrokBot",
+                "_source": "Omnisconn",
                 "_event_type": "book_appointment",
             }
             try:

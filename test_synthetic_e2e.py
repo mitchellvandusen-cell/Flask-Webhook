@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Comprehensive Synthetic End-to-End Test Suite for InsuranceGrokBot (Flask-Webhook)
+Comprehensive Synthetic End-to-End Test Suite for Omnisconn (Flask-Webhook)
 
 Tests the full user journey using the Flask test client with all external services
 mocked (PostgreSQL, Redis, Stripe, GoHighLevel, Google Sheets, etc.).

@@ -46,7 +46,7 @@ class ZapierAdapter(CRMAdapter):
             return False
 
         payload["_event_type"] = event_type
-        payload["_source"] = "InsuranceGrokBot"
+        payload["_source"] = "Omnisconn"
         payload["_location_id"] = self.location_id
 
         for attempt in range(1, 4):

@@ -1,11 +1,11 @@
 # ghl_logger.py - Log IGB-sent messages and calls into GHL conversations
 #
 # Uses GHL Conversation Provider API to sync messages/calls from
-# InsuranceGrokBot back to GoHighLevel so the CRM stays the source of truth.
+# Omnisconn back to GoHighLevel so the CRM stays the source of truth.
 #
 # Two registered Conversation Providers (GHL Marketplace App):
-#   - InsuranceGrokBot SMS (Custom SMS) → logs SMS sent via Twilio
-#   - InsuranceGrokBot (Call)           → logs calls made via dialer
+#   - Omnisconn SMS (Custom SMS) → logs SMS sent via Twilio
+#   - Omnisconn (Call)           → logs calls made via dialer
 #
 # API Endpoints:
 #   POST /conversations/messages/inbound   — log inbound messages/calls (contact → agent)
@@ -27,11 +27,11 @@ GHL_OUTBOUND_URL = f"{GHL_BASE}/conversations/messages/outbound"
 # These are app-level (same for all subscribers)
 GHL_SMS_PROVIDER_ID = os.getenv(
     "GHL_SMS_CONVERSATION_PROVIDER_ID",
-    "699c84aef36d66cc10a56e82",  # InsuranceGrokBot SMS (Custom SMS)
+    "699c84aef36d66cc10a56e82",  # Omnisconn SMS (Custom SMS)
 )
 GHL_CALL_PROVIDER_ID = os.getenv(
     "GHL_CALL_CONVERSATION_PROVIDER_ID",
-    "699c83535fc465bbff87a78d",  # InsuranceGrokBot (Call)
+    "699c83535fc465bbff87a78d",  # Omnisconn (Call)
 )
 
 

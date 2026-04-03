@@ -193,7 +193,7 @@ def get_contact_detail(contact_id):
             ],
         }
 
-        # ── InsuranceGrokBot Engagement Data ──
+        # ── Omnisconn Engagement Data ──
         igb_conn = get_db_connection()
         if igb_conn:
             try:
@@ -449,7 +449,7 @@ def send_contact_sms(contact_id):
     finally:
         return_db_connection(conn)
 
-    # ── Channel: Twilio (InsuranceGrokBot number, A2P registered) ──
+    # ── Channel: Twilio (Omnisconn number, A2P registered) ──
     if channel == 'twilio':
         a2p = voice_config.get('a2p', {})
         campaign_status = (a2p.get('campaign_status') or '').upper()
@@ -595,7 +595,7 @@ def sms_channels():
 @login_required
 def ai_suggest_sms(contact_id):
     """
-    Generate an InsuranceGrokBot reply draft using the full bot pipeline
+    Generate an Omnisconn reply draft using the full bot pipeline
     (generate_strategic_directive → build_system_prompt → generate_clean_reply).
     Does NOT send — just returns the draft for agent review.
     """
@@ -651,7 +651,7 @@ def ai_suggest_sms(contact_id):
 
     bot_settings = get_bot_settings_by_location(location_id)
 
-    # === Full InsuranceGrokBot pipeline (no send) ===
+    # === Full Omnisconn pipeline (no send) ===
     # message="" means: it's the agent's turn to reach out / compose the next reply
     try:
         from sales_director import generate_strategic_directive
@@ -715,7 +715,7 @@ def ai_suggest_sms(contact_id):
     reply = re.sub(r'_([^_]+)_', r'\1', reply)
     reply = reply.replace("—", ",").replace("–", ",").replace("…", "...").strip()
 
-    logger.info(f"InsuranceGrokBot draft generated for {contact_id} by {current_user.email} | '{reply[:60]}'")
+    logger.info(f"Omnisconn draft generated for {contact_id} by {current_user.email} | '{reply[:60]}'")
     return jsonify({"suggestion": reply})
 
 

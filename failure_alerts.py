@@ -192,7 +192,7 @@ def _build_alert_html(template: dict, details: str = '') -> str:
         <div style="border-top: 1px solid rgba(255,255,255,0.06); padding: 20px 40px;
                     text-align: center;">
             <p style="color: #444; font-size: 0.78rem; margin: 0;">
-                InsuranceGrokBot — AI-Powered Insurance Sales
+                Omnisconn — AI-Powered Insurance Sales
             </p>
         </div>
     </div>

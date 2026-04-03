@@ -427,7 +427,7 @@ class TestFastAPIApp:
 
     def test_app_creates(self):
         from voice_server import app
-        assert app.title == "InsuranceGrokBot Voice Service"
+        assert app.title == "Omnisconn Voice Service"
 
     def test_routes_registered(self):
         from voice_server import app

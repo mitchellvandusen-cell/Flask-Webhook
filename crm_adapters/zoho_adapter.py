@@ -164,7 +164,7 @@ class ZohoAdapter(CRMAdapter):
                     "message": message,
                     "phone": phone,
                     "direction": "outbound",
-                    "_source": "InsuranceGrokBot",
+                    "_source": "Omnisconn",
                     "_event_type": "send_message",
                 }, timeout=ZOHO_TIMEOUT)
                 sent = resp.status_code in [200, 201]
@@ -184,7 +184,7 @@ class ZohoAdapter(CRMAdapter):
         url = f"{self._api_url}/Notes"
         payload = {
             "data": [{
-                "Note_Title": "SMS via InsuranceGrokBot",
+                "Note_Title": "SMS via Omnisconn",
                 "Note_Content": message[:32000],
                 "se_module": "Contacts",
                 "Parent_Id": contact_id,
@@ -235,7 +235,7 @@ class ZohoAdapter(CRMAdapter):
                 "Event_Title": f"Life Insurance Review {first_name or 'Lead'}",
                 "Start_DateTime": start_dt.isoformat(),
                 "End_DateTime": end_dt.isoformat(),
-                "Description": f"Appointment booked via InsuranceGrokBot for {first_name or 'Lead'}",
+                "Description": f"Appointment booked via Omnisconn for {first_name or 'Lead'}",
                 "se_module": "Contacts",
                 "Participants": [{
                     "type": "contact",

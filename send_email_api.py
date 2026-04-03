@@ -31,7 +31,7 @@ def send_email_via_api(to_email, subject="Test Email", html_body="", text_body="
             f"https://api.mailgun.net/v3/{domain}/messages",
             auth=("api", api_key),
             data={
-                "from": f"InsuranceGrokBot <{from_email}>",
+                "from": f"Omnisconn <{from_email}>",
                 "to": to_email,
                 "subject": subject,
                 "text": text_body or "Test email sent successfully via Mailgun API!",
@@ -44,7 +44,7 @@ def send_email_via_api(to_email, subject="Test Email", html_body="", text_body="
                     <p><strong>Domain:</strong> {domain}</p>
                     <hr style="border: 1px solid #eee; margin: 20px 0;">
                     <p style="color: #666; font-size: 14px;">
-                        This is a test email from InsuranceGrokBot's sub-user onboarding system.
+                        This is a test email from Omnisconn's sub-user onboarding system.
                     </p>
                 </body>
                 </html>
@@ -73,6 +73,6 @@ if __name__ == "__main__":
     to_email = sys.argv[1]
     success = send_email_via_api(
         to_email=to_email,
-        subject="🎉 Mailgun API Test - InsuranceGrokBot",
+        subject="🎉 Mailgun API Test - Omnisconn",
     )
     sys.exit(0 if success else 1)
