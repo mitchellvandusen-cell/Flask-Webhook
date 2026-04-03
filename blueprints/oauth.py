@@ -1126,8 +1126,17 @@ def oauth_callback():
         )
 
         # ══════════════════════════════════════════════════════════════════════
-        # Step 6: Fetch installed locations + location tokens (Company token only)
+        # Step 6: Location discovery — two clean paths by token type
         # ══════════════════════════════════════════════════════════════════════
+        #
+        # Company token (agency owner): use oauth.write to discover all installed
+        # locations and generate per-location tokens. Pre-populate subscriber rows
+        # for every location — agents just need to subscribe later.
+        #
+        # Location token (individual agent): the token exchange response already
+        # contains the locationId. No extra API calls needed. The token IS the
+        # credential for that location.
+        # ──────────────────────────────────────────────────────────────────────
         sub_accounts = []
         using_location_fallback = False
 
@@ -1139,7 +1148,7 @@ def oauth_callback():
                 sub_accounts = _generate_location_tokens(headers_ghl, company_id, installed_locs)
 
             if not sub_accounts and installed_locs:
-                # locationToken failed but we have locations — use them without tokens
+                # locationToken failed but we have locations — use them without per-location tokens
                 for loc in installed_locs:
                     loc_id = loc.get('_id') or loc.get('id') or loc.get('locationId')
                     if loc_id:
@@ -1150,7 +1159,7 @@ def oauth_callback():
                         })
 
             if not sub_accounts:
-                # installedLocations failed — try /locations/search
+                # installedLocations failed — try /locations/search as last resort
                 locations_url = f"https://services.leadconnectorhq.com/locations/search?companyId={company_id}"
                 search_results = fetch_all_ghl_items(locations_url, headers_ghl, item_key='locations')
                 if search_results:
@@ -1159,32 +1168,23 @@ def oauth_callback():
                         'name': s.get('name', 'Unknown Location'),
                         'timezone': s.get('timezone'),
                     } for s in search_results if s.get('id')]
-                    logger.info(f"/locations/search: {len(sub_accounts)} locations")
+                    logger.info(f"/locations/search fallback: {len(sub_accounts)} locations")
 
-        elif token_location_id or url_location_id:
-            # Location-scoped token — fetch this single location's details
+        else:
+            # Location token (individual agent): locationId is in the token exchange response.
+            # Trust the token — no additional API calls needed.
             loc_id = token_location_id or url_location_id
-            loc_resp, loc_err = _ghl_api_call(
-                'GET', f"https://services.leadconnectorhq.com/locations/{loc_id}",
-                headers=headers_ghl, timeout=10, label=f"/locations/{loc_id}"
-            )
-            if loc_resp and loc_resp.ok:
-                try:
-                    loc_data = loc_resp.json().get('location', loc_resp.json())
-                    sub_accounts = [{
-                        'id': loc_data.get('id', loc_id),
-                        'name': loc_data.get('name', user_name or 'Primary Location'),
-                        'timezone': loc_data.get('timezone'),
-                    }]
-                except (ValueError, KeyError):
-                    logger.warning(f"/locations/{loc_id} returned unparseable response")
+            if loc_id:
+                sub_accounts = [{
+                    'id': loc_id,
+                    'name': user_name or 'Primary Location',
+                    'timezone': None,
+                }]
+                logger.info(f"Location token: loc_id={loc_id} (from token exchange, no discovery needed)")
             else:
-                logger.info(
-                    f"/locations/{loc_id} returned "
-                    f"{loc_resp.status_code if loc_resp else loc_err} — using token fallback"
-                )
+                logger.warning("Location token but no locationId found in token or callback URL")
 
-        logger.info(f"Step 6 complete: {len(sub_accounts)} locations fetched")
+        logger.info(f"Step 6 complete: {len(sub_accounts)} locations, token_type={token_user_type_used}")
 
         # ══════════════════════════════════════════════════════════════════════
         # Step 7: Determine primary_location_id
