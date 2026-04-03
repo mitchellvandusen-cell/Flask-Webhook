@@ -276,6 +276,42 @@ def _generate_location_tokens(headers, company_id, installed_locs):
     return sub_accounts
 
 
+def _fetch_location_users(loc_id, loc_token):
+    """
+    Fetch users at a location via GET /users/?locationId={id}.
+    Uses the per-location token (users.readonly scope).
+    Returns list of {email, name, id} dicts. Empty list on any failure.
+    """
+    if not loc_token:
+        return []
+    headers = {'Authorization': f'Bearer {loc_token}', 'Version': '2021-07-28'}
+    resp, err = _ghl_api_call(
+        'GET', f"https://services.leadconnectorhq.com/users/?locationId={loc_id}",
+        headers=headers, timeout=10, label=f"/users/?locationId={loc_id}"
+    )
+    if not resp or not resp.ok:
+        logger.info(f"_fetch_location_users {loc_id}: {resp.status_code if resp else err}")
+        return []
+    try:
+        data = resp.json()
+        users = data.get('users') or (data if isinstance(data, list) else [])
+        result = []
+        for u in users:
+            email = u.get('email', '').strip().lower()
+            if email:
+                result.append({
+                    'email': email,
+                    'name': u.get('name') or f"{u.get('firstName','')} {u.get('lastName','')}".strip(),
+                    'id': u.get('id'),
+                    'role': u.get('roles', {}).get('type', 'account') if isinstance(u.get('roles'), dict) else 'account',
+                })
+        logger.info(f"_fetch_location_users {loc_id}: {len(result)} users")
+        return result
+    except Exception as e:
+        logger.warning(f"_fetch_location_users parse error {loc_id}: {e}")
+        return []
+
+
 def _resolve_user_email(token_data, primary_location_id, company_id):
     """
     5-source email recovery chain for marketplace installs (user not logged in).
@@ -609,12 +645,13 @@ def _provision_new_subscriber(cur, sub, user_email, crm_email_resolved,
     parent_agency_email = user_email if use_agency_flow else auto_linked_agency_email
     plan_tier = 'agency_owner' if (use_agency_flow and is_owner_location) else 'individual'
 
-    # For agency sub-account locations (not the owner's primary), use a
-    # placeholder email. The real email gets set when the agent logs in.
-    # This prevents UNIQUE constraint violations on the email column since
-    # the agency owner's email is already used for their primary row.
+    # For agency sub-account locations (not the owner's primary):
+    # Use the real agent email if we discovered it via users.readonly scope.
+    # Fall back to placeholder if unknown — real email gets set when agent logs in.
     if use_agency_flow and not is_owner_location:
-        effective_email = f"install_{sub_id}@pending.grokbot"
+        effective_email = sub.get('_primary_email') or f"install_{sub_id}@pending.grokbot"
+        if sub.get('_primary_name') and not sub_name:
+            sub_name = sub['_primary_name']
     else:
         effective_email = user_email
 
@@ -1126,16 +1163,18 @@ def oauth_callback():
         )
 
         # ══════════════════════════════════════════════════════════════════════
-        # Step 6: Location discovery — two clean paths by token type
+        # Step 6: Location discovery — scoped by token type
         # ══════════════════════════════════════════════════════════════════════
         #
-        # Company token (agency owner): use oauth.write to discover all installed
-        # locations and generate per-location tokens. Pre-populate subscriber rows
-        # for every location — agents just need to subscribe later.
+        # Company token (agency owner):
+        #   oauth.readonly  → GET /oauth/installedLocations — list all locations
+        #   oauth.write     → POST /oauth/locationToken — per-location credentials
+        #   users.readonly  → GET /users/?locationId={id} — pre-populate real emails
         #
-        # Location token (individual agent): the token exchange response already
-        # contains the locationId. No extra API calls needed. The token IS the
-        # credential for that location.
+        # Location token (individual agent):
+        #   Source: token_location_id from the token exchange response (authoritative)
+        #   locations.readonly → GET /locations/{id} — enrich with name/timezone
+        #   On failure: use token data directly, silently — no alert, no URL param fallback
         # ──────────────────────────────────────────────────────────────────────
         sub_accounts = []
         using_location_fallback = False
@@ -1143,12 +1182,27 @@ def oauth_callback():
         if token_user_type_used == 'Company' and company_id:
             logger.info(f"Company token: discovering installed locations for companyId={company_id}...")
 
+            # oauth.readonly: get all installed locations
             installed_locs = _fetch_installed_locations(headers_ghl, company_id, client_id)
             if installed_locs:
-                sub_accounts = _generate_location_tokens(headers_ghl, company_id, installed_locs)
+                # oauth.write: generate per-location tokens
+                sub_accounts_raw = _generate_location_tokens(headers_ghl, company_id, installed_locs)
+                for entry in sub_accounts_raw:
+                    loc_tok = entry.get('_loc_token')
+                    # users.readonly: get real user emails for this location
+                    loc_users = _fetch_location_users(entry['id'], loc_tok) if loc_tok else []
+                    entry['_loc_users'] = loc_users
+                    # Identify primary agent email: account-role users only (not agency-level)
+                    account_users = [u for u in loc_users if u.get('role') == 'account']
+                    candidates = account_users if account_users else loc_users
+                    if len(candidates) == 1:
+                        entry['_primary_email'] = candidates[0]['email']
+                        entry['_primary_name'] = candidates[0]['name']
+                    # Multiple users: can't determine primary — use placeholder at provisioning
+                sub_accounts = sub_accounts_raw
 
             if not sub_accounts and installed_locs:
-                # locationToken failed but we have locations — use them without per-location tokens
+                # locationToken failed — use locations without per-location tokens
                 for loc in installed_locs:
                     loc_id = loc.get('_id') or loc.get('id') or loc.get('locationId')
                     if loc_id:
@@ -1156,10 +1210,11 @@ def oauth_callback():
                             'id': loc_id,
                             'name': loc.get('name', 'Unknown Location'),
                             'timezone': loc.get('timezone'),
+                            '_loc_users': [],
                         })
 
             if not sub_accounts:
-                # installedLocations failed — try /locations/search as last resort
+                # installedLocations failed — last resort: locations/search
                 locations_url = f"https://services.leadconnectorhq.com/locations/search?companyId={company_id}"
                 search_results = fetch_all_ghl_items(locations_url, headers_ghl, item_key='locations')
                 if search_results:
@@ -1167,22 +1222,34 @@ def oauth_callback():
                         'id': s.get('id'),
                         'name': s.get('name', 'Unknown Location'),
                         'timezone': s.get('timezone'),
+                        '_loc_users': [],
                     } for s in search_results if s.get('id')]
                     logger.info(f"/locations/search fallback: {len(sub_accounts)} locations")
 
         else:
-            # Location token (individual agent): locationId is in the token exchange response.
-            # Trust the token — no additional API calls needed.
-            loc_id = token_location_id or url_location_id
+            # Location token (individual agent).
+            # Source: token_location_id from token exchange — this is authoritative.
+            # Use locations.readonly to enrich with name/timezone.
+            # If the enrichment call fails, fall back to token data silently — no banner.
+            loc_id = token_location_id  # authoritative — do NOT use url_location_id as primary
             if loc_id:
-                sub_accounts = [{
-                    'id': loc_id,
-                    'name': user_name or 'Primary Location',
-                    'timezone': None,
-                }]
-                logger.info(f"Location token: loc_id={loc_id} (from token exchange, no discovery needed)")
+                loc_name = user_name or 'Primary Location'
+                loc_timezone = None
+                loc_resp, _ = _ghl_api_call(
+                    'GET', f"https://services.leadconnectorhq.com/locations/{loc_id}",
+                    headers=headers_ghl, timeout=10, label=f"/locations/{loc_id}"
+                )
+                if loc_resp and loc_resp.ok:
+                    try:
+                        loc_data = loc_resp.json().get('location', loc_resp.json())
+                        loc_name = loc_data.get('name', loc_name)
+                        loc_timezone = loc_data.get('timezone')
+                    except (ValueError, KeyError):
+                        pass  # Use token defaults
+                sub_accounts = [{'id': loc_id, 'name': loc_name, 'timezone': loc_timezone}]
+                logger.info(f"Location token: loc_id={loc_id}, name={loc_name!r}")
             else:
-                logger.warning("Location token but no locationId found in token or callback URL")
+                logger.warning("Location token: no locationId in token exchange response")
 
         logger.info(f"Step 6 complete: {len(sub_accounts)} locations, token_type={token_user_type_used}")
 
