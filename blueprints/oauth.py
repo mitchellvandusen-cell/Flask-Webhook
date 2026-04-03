@@ -1257,11 +1257,28 @@ def oauth_callback():
         # ══════════════════════════════════════════════════════════════════════
         # Step 7: Determine primary_location_id
         # ══════════════════════════════════════════════════════════════════════
+        # For Company token reconnects (logged-in user reauthorizing), use
+        # their existing location_id as token_location_id if the token
+        # exchange didn't provide one. Skip temp_ placeholders from
+        # Stripe-first provisioning.
+        _effective_token_loc = token_location_id
+        if not _effective_token_loc and token_user_type_used == 'Company' and current_user.is_authenticated:
+            _session_loc = getattr(current_user, 'location_id', None)
+            if _session_loc and not (
+                str(_session_loc).startswith('temp_') or
+                str(_session_loc).startswith('install_')
+            ):
+                _effective_token_loc = _session_loc
+                logger.info(
+                    f"Step 7: Company token reconnect — using session "
+                    f"location_id={_session_loc} as effective token_location_id"
+                )
+
         # Use a temporary DB connection for the location check
         _loc_conn = get_db_connection()
         try:
             primary_location_id, resolution_method = _determine_primary_location(
-                token_location_id, user_location_ids,
+                _effective_token_loc, user_location_ids,
                 sub_accounts, company_id, _loc_conn
             )
         finally:
