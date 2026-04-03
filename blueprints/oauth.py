@@ -895,7 +895,7 @@ def oauth_callback():
       C. Individual agent reconnects (location already in subscribers)
       D. Agency owner reconnects (location + agency_billing update)
       E. Location-scoped token install (individual agent always)
-      F. All API calls fail, no locationId anywhere (companyId fallback)
+      F. All API calls fail, no locationId anywhere (hard fail — clear user error)
     """
     code = request.args.get("code")
     raw_state = request.args.get("state")

@@ -878,13 +878,12 @@ def refresh_tokens_proactively(buffer_minutes: int = 60):
     finally:
         return_db_connection(conn)
 
-    if not expiring:
-        logger.info(f"Proactive refresh: no tokens expiring within {buffer_minutes} minutes")
-        return stats
-
-    logger.info(f"Proactive refresh: found {len(expiring)} tokens to refresh")
-
     marketplace_id, marketplace_secret, private_id, private_secret = _load_oauth_credentials()
+
+    if not expiring:
+        logger.info(f"Proactive refresh: no regular tokens expiring within {buffer_minutes} minutes")
+    else:
+        logger.info(f"Proactive refresh: found {len(expiring)} regular tokens to refresh")
 
     for row in expiring:
         loc_id = row['location_id']
